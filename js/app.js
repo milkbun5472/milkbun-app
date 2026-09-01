@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.92";
+const APP_VERSION = "v59.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11971,10 +11971,46 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +
       "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
     try {
-      const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 900 });
+      // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥6000）
+      const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
       const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
       if (say.length) pChat(toChar.id, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
     } catch (e) {/* 卡已在，反应失败静默 */}
+  };
+  // ───────── 擂台 · 分享这一场 ─────────
+  // 她 2026-09-01：「再加一个可以分享给角色，既然这个是可以多人的，那就群和单聊都可以分享吧」。
+  // 照塔罗那一路走【纯文本】，不另起一种卡片：新卡片得在聊天里另写一个渲染器，
+  // 而这一场的看点本来就是那几句话本身，摊开来给他看比塞进一张卡片强。
+  // ⚠️不自动回复（同同人文那一路）：她要转完接着说话，说完 TA 正常回复时自然读得到；
+  //   自动回一次就是白花她一次调用。
+  const arenaShareText = (session) => {
+    const uName = profile.name || "我";
+    const parts = (session.parts || []).map(p => (p.kind === "me" ? uName : p.name) + "（" + (p.stance || "—") + "）").join("　vs　");
+    const lines = [];
+    (session.rounds || []).forEach((r, i) => {
+      const ts = (r.turns || []).filter(x => x && !x.skipped && x.text);
+      if (!ts.length) return;
+      lines.push("〔第" + (i + 1) + "回合〕");
+      ts.forEach(tn => lines.push(tn.name + "：" + tn.text));
+    });
+    const v = session.verdict;
+    return "[分享了一场擂台]\n题目：" + session.topic
+      + "\n台上：" + parts
+      + (lines.length ? "\n\n" + lines.join("\n") : "")
+      + (v ? "\n\n【判了】" + v.winner + (v.reason ? "\n" + v.reason : "")
+            + (v.crux ? "\n【他们其实在吵的是】" + v.crux : "")
+            + (v.best && v.best.quote ? "\n【最狠的那一句】" + v.best.quote + "　—— " + (v.best.name || "台上") : "")
+          : "\n\n（还没收台）");
+  };
+  const shareArenaToChat = (session, toChar) => {
+    if (!toChar) return;
+    pChat(toChar.id, p => [...p, { role: "user", content: arenaShareText(session), ts: Date.now(), read: false }]);
+    toast("已分享给 " + (toChar.remark || toChar.name));
+  };
+  const shareArenaToGroup = (session, group) => {
+    if (!group) return;
+    pGChat(group.id, p => [...p, { role: "user", senderName: profile.name || "我", content: arenaShareText(session), ts: Date.now() }]);
+    toast("已分享到「" + group.name + "」");
   };
   const forwardFicToGroup = (fic, group) => {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
@@ -11997,7 +12033,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       try {
         const react = await runProbe(apiFor(ch.id), ctxFor(ch), {
           instruction: "你之前被分享看过的那篇同人文《" + fic.title + "》更新了第" + chapNo + "章，你刚读完，开头是「" + excerpt + "」。" + (isStar ? "（这篇是【以你为主角写的】，你清楚自己正被人当小说人物编排，读新章时带着这份被写的自觉——好气又好笑/在意剧情怎么写你/想知道后面被安排成什么样。）" : "") + "按你的人设和此刻心情随口说两句读后感/催更/吐槽（1-2 句，可多气泡），别复述剧情、别客服腔。",
-          schemaHint: "{\"say\":[\"气泡1\"]}", maxTokens: 700
+          schemaHint: "{\"say\":[\"气泡1\"]}", maxTokens: 8000 // 思考预算从这里扣，给紧了直接空返回
         });
         const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
         if (say.length) pChat(ch.id, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
@@ -15699,9 +15735,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
+    groups: groups,
     profile: profile,
     worldbook: loreText(loreEntries, { scope: "debate" }),
     toast: toast,
+    onShareToChat: shareArenaToChat,
+    onShareToGroup: shareArenaToGroup,
     onBack: () => setScreen("home")
   });else if (screen === "dream") body = h(Dream, {
     active: active,

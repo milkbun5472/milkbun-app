@@ -23,6 +23,14 @@
   // 而她是按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
   // 换来的是一次空返回、再重来一次，反而多花一次调用。仓库铁律：≥6000，能写多少就给多少。
   const TOK = { stance: 8000 };
+  // ⚠️人设不许再按固定字数砍（four-surfaces-same-context.md §4）。
+  //   v55.87 群里的王爷变霸总，病因就是人设只剩 200 字——只剩「一个古代王爷」这一个标签，
+  //   空白由训练先验补上，那就是网文霸总。擂台是【一次同时扮几个人】，最容易犯同一个病：
+  //   原来分立场砍到 400 字、上台发言砍到 500 字、赛后感言砍到 120 字。
+  //   照群聊那套按在场人数分预算（每人封顶 6000、总预算 30000、地板 1500），别再拍脑袋定一个数。
+  const personaFor = (persona, n) => (typeof groupPersonaBudget === "function" && typeof groupPersonaText === "function")
+    ? groupPersonaText(persona, groupPersonaBudget(n))
+    : String(persona || "（暂无设定）").slice(0, 6000);
 
   function loadSaves() { return loadJSON("x_debate_saves", []); }
   function saveSaves(list) { return saveJSON("x_debate_saves", list); }
@@ -39,7 +47,7 @@
       .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m)
         && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m)))
       .slice(-12)
-      .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80))
+      .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 400))
       .join("\n");
   }
 
@@ -50,7 +58,7 @@
       lines.push("〔第" + (ri2 + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "（" + (tn.stance || "—") + "）：" + tn.text); });
     });
-    return lines.join("\n").slice(-8000);
+    return lines.join("\n").slice(-24000);
   }
   // 已完成的前几轮实录（喂本轮批量生成用；当前这轮我刚发的言另作 myText 传，不含在内）
   function prevTranscript(session) {
@@ -61,16 +69,16 @@
       lines.push("〔第" + (rs.length - take.length + k + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "：" + tn.text); });
     });
-    return lines.join("\n").slice(-3200);
+    return lines.join("\n").slice(-12000);
   }
 
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
   async function assignStances(active, worldbook, topic, chars, isFree) {
-    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + (c.persona || "（无设定）").slice(0, 400)).join("\n\n");
+    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
     const sys = AC() +
       "下面有一道辩题和几个人物。请【严格根据每个人的人设】判断 Ta 在这道题上最可能真心站的立场——性格、经历、价值观决定态度，别随便分正反。\n\n" +
       "【辩题】" + topic +
-      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 800) : "") +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       "\n\n" + roster +
       "\n\n【输出】只输出 JSON：{\"stances\":[{\"name\":\"角色名\",\"stance\":\"一句话概括Ta的立场\"}],\"myOptions\":[\"我方可选立场1\",\"我方可选立场2\"]}。" +
       "stances 每个角色一条；myOptions 给我 2~3 个可选立场（要包含和场上主要立场对立的那一个），短。别加解释。";
@@ -100,10 +108,10 @@
     const casual = meta.mode === "free";
     const chars = o.chars; // 按发言顺序
     const rosterBlocks = chars.map(function (c, i) {
-      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + (c.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 500) +
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) +
         (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
     }).join("\n\n");
-    const benchBlock = (o.bench || []).map(function (c) { return "· " + c.name + "（" + (c.persona || "").replace(/\s+/g, " ").slice(0, 90) + "）"; }).join("\n");
+    const benchBlock = (o.bench || []).map(function (c) { return "· " + c.name + "（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 400) + "）"; }).join("\n");
     const sys = AC() +
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】，然后再生成场下观众席的弹幕。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
@@ -111,7 +119,7 @@
       (casual
         ? "\n【放飞模式】各角色不必死守辩论规矩：可顺着自己性格跑题、抬杠、翻旧账、拿场上某人开玩笑、突然感性或耍无赖、把话题往自己在意处带——只要像 Ta 这个人。但别彻底离题。"
         : "\n【认真辩论】各角色维持人设的同时认真论辩：亮论点给理由，针对 " + uName + " 和彼此的话正面反驳或追问，讲逻辑也讲立场底气。别人身攻击、别空喊口号。") +
-      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 700) : "") +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       "\n\n【台上角色（就按这个顺序发言）】\n" + rosterBlocks +
       "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）") +
       (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
@@ -140,19 +148,21 @@
   // ---- 模型：结束结算 —— 一次调用出【胜负判定 + 各角色赛后感言】（省一次 API；玩家不生成感言）----
   async function genResult(active, session, uName) {
     const chars = session.parts.filter(p => p.kind === "char");
-    const charRoster = chars.map(c => "「" + c.name + "」（立场：" + (c.stance || "—") + "；人设：" + (c.persona || "").replace(/\s+/g, " ").slice(0, 120) + "）").join("\n");
+    const charRoster = chars.map(c => "「" + c.name + "」（立场：" + (c.stance || "—") + "；人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + "）").join("\n");
     const sys = AC() +
       "你是这场辩论的裁判兼主持。辩题：「" + session.topic + "」。参赛各方及立场：" + session.parts.map(p => p.name + "（" + (p.stance || "—") + "）").join("；") + "。\n" +
       (session.mode === "free"
         ? "本场是放飞局，胜负标准就按这一条来评：「" + (session.winCond || "谁整体最出彩谁赢") + "」，别用常规辩论对错来评。"
         : "按正规辩论评判：论点是否成立、论据是否扎实、有没有有效反驳对方、逻辑与说服力、临场应对，看谁整体更胜一筹。") +
       "\n\n【全程实录】\n" + fullTranscript(session, uName) +
-      "\n\n【要一次做两件事】\n" +
-      "1) 判出唯一胜者（可以是台上任何一方，包括玩家「" + uName + "」）+ 写判词：具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
-      "2) 然后台上【每个角色】各发一句赛后感言，完全按各自人设反应赢/输（得意/谦逊/意犹未尽/不服/找补/摆烂…别一个腔调）。⚠只给下面这些角色写，【绝对不要】给玩家「" + uName + "」写感言。\n\n【台上角色】\n" + charRoster +
-      "\n\n【输出】只输出 JSON：{\"winner\":\"胜者名字\",\"reason\":\"判词2~4句\",\"closings\":[{\"name\":\"角色名\",\"text\":\"感言1~3句\"}]}。closings 只含上面这些角色、每人一条。";
+      "\n\n【要一次做四件事】\n" +
+      "1) crux：这一场他们【真正】在吵的是什么。⚠不是把辩题复述一遍——是把两边话里那个没说破的分歧点点出来（常见形状：两边其实在用两把不同的尺子；或者两边都默认了一个根本不成立的前提）。1~2 句。\n" +
+      "2) best：全场最狠的那一句。从上面实录里【逐字照抄】某个人真的说过的一句（quote，不许改写、不许自己造），写清是谁说的（name）、狠在哪（why，一句）。可以是输的那一方说的。\n" +
+      "3) 判出唯一胜者（可以是台上任何一方，包括玩家「" + uName + "」）+ 写判词：具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
+      "4) 然后台上【每个角色】各发一句赛后感言，完全按各自人设反应赢/输（得意/谦逊/意犹未尽/不服/找补/摆烂…别一个腔调）。⚠只给下面这些角色写，【绝对不要】给玩家「" + uName + "」写感言。\n\n【台上角色】\n" + charRoster +
+      "\n\n【输出】只输出 JSON：{\"crux\":\"他们其实在吵的那件事\",\"best\":{\"name\":\"说这句的人\",\"quote\":\"逐字照抄的原句\",\"why\":\"狠在哪，一句\"},\"winner\":\"胜者名字\",\"reason\":\"判词2~4句\",\"closings\":[{\"name\":\"角色名\",\"text\":\"感言1~3句\"}]}。closings 只含上面这些角色、每人一条。";
     // 判词 + 每个人一段感言一次出，别写一半被截断
-    const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果，并让各角色各说一句赛后感言（别写玩家的）。" }], { maxTokens: Math.min(24000, 10000 + chars.length * 1500) });
+    const raw = await callAI(active, sys, [{ role: "user", content: "先说他们真正在吵什么、挑出全场最狠那一句，再宣布结果，最后让各角色各说一句赛后感言（别写玩家的）。" }], { maxTokens: Math.min(24000, 10000 + chars.length * 1500) });
     const p = extractJSON(raw) || {};
     const charNames = chars.map(c => c.name);
     const raws = (Array.isArray(p.closings) ? p.closings : [])
@@ -162,7 +172,23 @@
     // ⚠️同上：名字对不上就整条丢掉，结果是「赛后感言」那一栏整个空着，看起来像模型没答。
     //   条数对得上就按顺序认人——这比丢光强。
     if (!closings.length && raws.length === chars.length) closings = raws.map((c, i) => ({ name: chars[i].name, text: c.text }));
-    return { winner: String(p.winner || "").trim() || "平局", reason: String(p.reason || raw || "").trim(), closings: closings };
+    // ⚠️best.quote 必须是台上真说过的话。模型很爱「引用」一句自己顺手改写过的——
+    //   那就成了裁判替选手编台词。逐字对不上就整块丢掉，宁可不显示，也不显示一句没人说过的话。
+    const said = (session.rounds || []).reduce(function (acc, r) {
+      (r.turns || []).forEach(function (tn) { if (!tn.skipped && tn.text) acc.push(String(tn.text)); });
+      return acc;
+    }, []);
+    const b = p.best && typeof p.best === "object" ? p.best : null;
+    const bq = b ? String(b.quote || "").trim() : "";
+    const best = (bq && said.some(function (x) { return x.indexOf(bq) >= 0; }))
+      ? { name: String(b.name || "").trim(), quote: bq, why: String(b.why || "").trim() } : null;
+    return {
+      crux: String(p.crux || "").trim(),
+      best: best,
+      winner: String(p.winner || "").trim() || "平局",
+      reason: String(p.reason || raw || "").trim(),
+      closings: closings
+    };
   }
 
   // ============================================================
@@ -194,7 +220,8 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
       });
@@ -346,6 +373,7 @@
     const [phaseMsg, setPhaseMsg] = useState("");
     const [draft, setDraft] = useState("");
     const [sideDraft, setSideDraft] = useState(null); // 自定义立场的就地输入（原生 prompt 同样会被 PWA 吞掉）
+    const [shareOpen, setShareOpen] = useState(false); // 把这一场发给谁
     const feedRef = useRef(null);
     const dtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 发言朗读（懒合成）
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
@@ -430,7 +458,7 @@
       try {
         // 判定 + 各角色感言合并成一次调用（省一次 API）
         const r = await genResult(props.active, s, uName);
-        patch({ status: "ended", verdict: { winner: r.winner, reason: r.reason }, closings: r.closings });
+        patch({ status: "ended", verdict: { winner: r.winner, reason: r.reason, crux: r.crux, best: r.best }, closings: r.closings });
       } catch (e) { props.toast && props.toast("判定失败：" + (e.message || "重试")); }
       setBusy(false); setPhaseMsg("");
     };
@@ -494,12 +522,40 @@
         }));
     };
 
+    // ── 把这一场发给谁 ──────────────────────────────────────
+    // 她 2026-09-01：「既然这个是可以多人的，那就群和单聊都可以分享吧」。
+    // 用居中框不用半窗：半窗上面糊着的那半屏是上一层，看着像没加载完（no-half-sheet.md）。
+    const hasSomething = (s.rounds || []).some(function (r) { return (r.turns || []).some(function (x) { return x && !x.skipped && x.text; }); });
+    const sharePanel = shareOpen && typeof CenterCard === "function" ? h(CenterCard, { onClose: function () { setShareOpen(false); }, maxWidth: 360 },
+      h("div", { className: "shrink-0", style: { padding: "15px 17px 11px", borderBottom: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "把这一场发给谁"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } },
+          ended ? "题目、台上说的话、判词一起发过去" : "还没收台，发过去的是到这一回合为止的")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 12px 16px" } },
+        (props.characters || []).filter(function (c) { return c && !c.npc; }).map(function (c) {
+          return h("button", { key: c.id, onClick: function () { setShareOpen(false); props.onShareToChat && props.onShareToChat(s, c); },
+            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 } },
+            h(Avatar, { character: c, size: 32, radius: 999 }),
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, c.remark || c.name));
+        }),
+        (props.groups || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, margin: "12px 5px 4px" } }, "群 聊") : null,
+        (props.groups || []).map(function (g) {
+          return h("button", { key: g.id, onClick: function () { setShareOpen(false); props.onShareToGroup && props.onShareToGroup(s, g); },
+            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 } },
+            h("div", { style: { width: 32, height: 32, borderRadius: 10, background: t.line, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub, flexShrink: 0 } }, String((g.memberIds || []).length || "群")),
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.name));
+        }),
+        (!(props.characters || []).filter(function (c) { return c && !c.npc; }).length && !(props.groups || []).length)
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 5px", textAlign: "center" } }, "还没有可以发过去的人") : null)) : null;
+
     return h("div", { className: "h-full flex flex-col" },
       // 头
       h("div", { className: "shrink-0", style: { background: t.bg } },
         h("div", { className: "flex items-center justify-between px-4 pt-4 pb-2" },
           h("button", { onClick: props.onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
           h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
+            hasSomething ? h("button", { onClick: function () { setShareOpen(true); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11, minHeight: 26, color: t.sub, border: "1px solid " + t.line, borderRadius: 7, padding: "3px 9px" } }, "分享") : null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint, padding: "3px 9px", borderRadius: 4 } }, s.mode === "free" ? "随便吵" : "讲道理"),
             !ended ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "第 " + roundNo + " 回合") : h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#fff", background: t.accent, padding: "2px 9px", borderRadius: 7 } }, "已收台"))),
         stage),
@@ -521,7 +577,19 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, s.verdict.winner),
             h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, s.verdict.reason)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, s.verdict.reason),
+            // 「他们其实在吵的是」：只写「谁赢了」的话，这一场吵完什么都没留下。
+            // 这一栏才是她看完会记住的东西——把两边话里那个没说破的分歧点点出来。
+            s.verdict.crux ? h("div", { style: { marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f", marginBottom: 7 } }, "他们其实在吵的是"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#d8d3c8" } }, s.verdict.crux)) : null,
+            // 「最狠的那一句」：从实录里逐字挑出来的原句（对不上就整块不显示，见 genResult）。
+            // 引号压在左边，跟上面那两段一眼分得开——它是【谁说过的话】，不是裁判的话。
+            (s.verdict.best && s.verdict.best.quote) ? h("div", { style: { position: "relative", marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "最狠的那一句"),
+              h("div", { style: { borderLeft: "2px solid #f0c67a", paddingLeft: 11, fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.9, color: "#f4f1e9" } }, s.verdict.best.quote),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8d877a", marginTop: 8 } },
+                "—— " + (s.verdict.best.name || "台上") + (s.verdict.best.why ? "　" + s.verdict.best.why : ""))) : null),
           (s.closings && s.closings.some(c => c.name !== uName)) ? h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
             s.closings.filter(c => c.name !== uName).map((c, i) => {
@@ -576,7 +644,8 @@
             h("button", { onClick: endDebate, className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
             h("button", { onClick: nextRound, className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一回合 →"))));
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一回合 →"))),
+      sharePanel);
   }
 
   window.Debate = Debate;

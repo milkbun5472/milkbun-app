@@ -185,3 +185,81 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   // 一起学那个 6400 是【摘要字数上限】，不是 token，不许被一起改掉
   assert.match(stu, /\.slice\(0, 6400\)/, "把摘要的字数上限当成 token 一起改了");
 });
+
+// ===== v59.93 =====
+// 她 2026-09-01：「宝宝字数这几个改了吧，你刚刚说的裁判加的话也加吧。
+// 然后再加一个可以分享给角色，既然这个是可以多人的，那就群和单聊都可以分享吧」
+
+// 人设按固定字数砍，正是 v55.87 群里王爷变霸总那个病：
+// 只剩「一个古代王爷」这一个标签，空白由训练先验补上，那就是网文霸总。
+// 擂台是【一次同时扮几个人】，最容易犯同一个病。
+test("字数：人设不许再按固定字数砍，照群聊那套按在场人数分预算", () => {
+  assert.match(dbt, /const personaFor = \(persona, n\) => \(typeof groupPersonaBudget === "function" && typeof groupPersonaText === "function"\)\s*\? groupPersonaText\(persona, groupPersonaBudget\(n\)\)/,
+    "没有复用群聊那份预算表，又自己拍了一个数");
+  // 三处吃人设的都要走它：分立场、上台发言、赛后感言
+  assert.equal((dbt.match(/personaFor\(/g) || []).length, 3, "吃人设的三处（分立场／上台发言／赛后感言）没都走它");
+  assert.ok(!/persona \|\| "（无设定）"\)\.slice\(0, 400\)/.test(dbt), "分立场那一处还在砍到 400 字");
+  assert.ok(!/\.slice\(0, 500\) \+/.test(dbt), "上台发言那一处还在砍到 500 字");
+  assert.ok(!/\.slice\(0, 120\) \+ "）"/.test(dbt), "赛后感言那一处还在砍到 120 字");
+  // 实录窗口、世界书、注入的聊天也跟着放开——maxTokens 都给足了，判词就该看得见全场
+  assert.match(dbt, /return lines\.join\("\\n"\)\.slice\(-24000\);/, "全场实录窗口太窄，判词看不全");
+  assert.match(dbt, /return lines\.join\("\\n"\)\.slice\(-12000\);/, "前几回合的实录窗口太窄");
+  assert.equal((dbt.match(/worldbook\.trim\(\)\.slice\(0, 6000\)/g) || []).length, 2, "世界书还在砍到几百字");
+  assert.match(dbt, /\(m\.role === "user" \? uName : charName\) \+ "：" \+ String\(m\.content\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 400\)/, "注入的那几句聊天还砍在 80 字");
+  // 塔罗和同人文那两处反应也放开（上一版点名剩下的）
+  const tarot = app.slice(app.indexOf("const forwardTarotToChat = async (session) => {"), app.indexOf("const forwardFicToGroup"));
+  assert.match(tarot, /maxTokens: 8000 \}\);/, "塔罗那条反应还卡在 900");
+  assert.match(app, /schemaHint: "\{\\"say\\":\[\\"气泡1\\"\]\}", maxTokens: 8000/, "同人文新章那条反应还卡在 700");
+});
+
+// 只写「谁赢了」的话，这一场吵完什么都没留下。
+test("裁判多答两栏：他们其实在吵的是什么、最狠的那一句", () => {
+  const i = dbt.indexOf("async function genResult(");
+  const src = dbt.slice(i, dbt.indexOf("\n  }", i));
+  assert.match(src, /crux：这一场他们【真正】在吵的是什么/);
+  assert.match(src, /⚠不是把辩题复述一遍/, "不点破的话它只会把题目抄一遍");
+  assert.match(src, /best：全场最狠的那一句/);
+  assert.match(src, /【逐字照抄】某个人真的说过的一句/);
+  assert.match(src, /\\"crux\\":\\"他们其实在吵的那件事\\",\\"best\\":\{\\"name\\"/, "输出形状里没有这两栏");
+  // ⚠️代码这一道：引的必须是台上真说过的话，对不上就整块丢掉
+  assert.match(src, /said\.some\(function \(x\) \{ return x\.indexOf\(bq\) >= 0; \}\)/,
+    "没核对原句——裁判会「引用」一句自己顺手改写过的，那就成了替选手编台词");
+  assert.match(src, /: null;/);
+  // 存进存档，不然刷新就没了
+  assert.match(dbt, /verdict: \{ winner: r\.winner, reason: r\.reason, crux: r\.crux, best: r\.best \}/);
+  // 记分牌上要显示，而且那一句要看得出是【谁说过的话】不是裁判的话
+  assert.match(dbt, /"他们其实在吵的是"/);
+  assert.match(dbt, /"最狠的那一句"/);
+  assert.match(dbt, /borderLeft: "2px solid #f0c67a"[\s\S]{0,140}s\.verdict\.best\.quote/, "那一句没跟裁判自己的话分开");
+});
+
+test("分享：单聊和群聊都能发；发的是纯文本，不另起一种卡片", () => {
+  // app 侧：两条路 + 一份共用的正文
+  assert.match(app, /const arenaShareText = \(session\) =>/);
+  assert.match(app, /const shareArenaToChat = \(session, toChar\) =>[\s\S]{0,220}pChat\(toChar\.id/);
+  assert.match(app, /const shareArenaToGroup = \(session, group\) =>[\s\S]{0,240}pGChat\(group\.id/);
+  // ⚠️群里那条必须带 senderName，否则群里认不出是谁发的
+  assert.match(app, /pGChat\(group\.id, p => \[\.\.\.p, \{ role: "user", senderName: profile\.name \|\| "我"/);
+  // 正文里要带上判词那三栏，转过去才是完整的一场
+  assert.match(app, /v\.crux \? "\\n【他们其实在吵的是】" \+ v\.crux : ""/);
+  assert.match(app, /v\.best && v\.best\.quote \? "\\n【最狠的那一句】"/);
+  assert.match(app, /"\\n\\n（还没收台）"/, "没收台就分享的话，得说清这是半场");
+  // 接线：groups 和两个回调都传下去了
+  assert.match(app, /groups: groups,[\s\S]{0,200}onShareToChat: shareArenaToChat,\n\s*onShareToGroup: shareArenaToGroup,/);
+  assert.match(dbt, /groups: props\.groups,[\s\S]{0,120}onShareToChat: props\.onShareToChat, onShareToGroup: props\.onShareToGroup,/);
+  // 面板：居中框，不是半窗（no-half-sheet.md）
+  assert.match(dbt, /const sharePanel = shareOpen && typeof CenterCard === "function" \? h\(CenterCard/);
+  assert.ok(dbt.indexOf("items-end") < 0, "分享面板又掀成半窗了");
+  assert.match(dbt, /"把这一场发给谁"/);
+  assert.match(dbt, /\(props\.groups \|\| \[\]\)\.length \? h\("div"[\s\S]{0,180}"群 聊"/, "群聊那一档没列出来");
+  // 一句话都还没说的时候不该有分享键
+  assert.match(dbt, /const hasSomething = \(s\.rounds \|\| \[\]\)\.some\(function \(r\) \{ return \(r\.turns \|\| \[\]\)\.some\(function \(x\) \{ return x && !x\.skipped && x\.text; \}\); \}\);/);
+  assert.match(dbt, /hasSomething \? h\("button", \{ onClick: function \(\) \{ setShareOpen\(true\); \}/);
+  // NPC 没有聊天窗口，转不过去
+  // ⚠️只看分享面板这一段：这条滤在面板里出现两次（列名单 + 判空），
+  //   笼统 match 一下的话，把列名单那一处的滤撤掉照样绿
+  const pi = dbt.indexOf("const sharePanel = shareOpen");
+  const panel = dbt.slice(pi, dbt.indexOf("\n    return h(\"div\", { className: \"h-full flex flex-col\" },", pi));
+  assert.equal((panel.match(/\(props\.characters \|\| \[\]\)\.filter\(function \(c\) \{ return c && !c\.npc; \}\)/g) || []).length, 2,
+    "配角（npc）没有自己的聊天窗口，转不过去，两处都得滤掉");
+});
