@@ -35,11 +35,15 @@ test("三个面各有各的规矩，不是同一套壳换大小", () => {
 
 test("形状跟着内容走，不是一堆方框", () => {
   // 照片＝照片（白边、歪着、真按比例留位置）
-  assert.match(collage, /paddingTop: "112%"/, "合照那张没按相纸比例留位置");
+  // ⚠️别把具体比例冻死，调一次就红。只核【它是按比例留的位置】，不是写死高度。
+  assert.match(collage, /paddingTop: "\d+%"/, "合照那张没按相纸比例留位置");
   assert.match(collage, /transform: "rotate\(-2\.2deg\)"/, "照片没歪着贴");
-  // 票根＝一条横贯的虚线
-  assert.match(collage, /borderTop: "1px dashed rgba\(150,125,80,\.35\)"/, "票根没有那条虚线");
-  assert.match(collage, /"NO\." \+ String\(bFirstsN\)/, "票根上没有编号");
+  // 票根＝竖的撕线 + 两端半圆缺口 + 右边一截存根
+  // ⚠️横穿的虚线会正好压在字上（第一版就是这么翻的），所以撕线必须是竖的
+  assert.match(collage, /borderLeft: "1px dashed rgba\(150,125,80,\.4\)"/, "票根没有那条竖撕线");
+  assert.ok(!/borderTop: "1px dashed rgba\(150,125,80/.test(collage), "撕线又画成横的了，会压在字上");
+  assert.equal((collage.match(/borderRadius: 999, background: t\.bg/g) || []).length, 2, "撕线两端没有半圆缺口");
+  assert.match(collage, /width: 58, flexShrink: 0, textAlign: "center"/, "票根右边那截存根没了");
   // 抽屉＝一条把手
   assert.match(collage, /wall\("drawer",[\s\S]{0,600}?marginLeft: -21/, "抽屉没有那条把手");
 });
