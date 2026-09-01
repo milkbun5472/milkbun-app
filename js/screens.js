@@ -5193,6 +5193,7 @@ function CtxDebug({ characters, getBundle }) {
   const t = useTheme();
   const [cid, setCid] = useState(null);
   const [text, setText] = useState("");
+  const [recall, setRecall] = useState(null);
   const [open, setOpen] = useState({});
   const [wireOn, setWireOn] = useState(() => typeof window !== "undefined" && !!window.__offlineWireCaptureEnabled);
   const [wireRows, setWireRows] = useState(() => typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
@@ -5244,7 +5245,12 @@ function CtxDebug({ characters, getBundle }) {
       .filter(k => fa[k] !== fb[k])
       .map(k => ({ path: k, before: fa[k], after: fb[k], lines: lineDelta(fa[k], fb[k]) }));
   })();
-  const load = id => { setCid(id); setText(String((getBundle && getBundle(id)) || "（空）")); setOpen({}); };
+  const load = id => {
+    setCid(id);
+    setText(String((getBundle && getBundle(id)) || "（空）"));
+    setRecall(typeof window !== "undefined" && window.MemoryRecallSnapshot ? window.MemoryRecallSnapshot.get(id) : null);
+    setOpen({});
+  };
   const secs = (() => {
     if (!cid || !text) return [];
     const raw = text.split(/\n(?=【)/).map((p, i) => {
@@ -5304,6 +5310,24 @@ function CtxDebug({ characters, getBundle }) {
     h(RecallShadowPanel, null),
     h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
       h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
+    cid ? h("div", { style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+      h("div", { className: "flex items-start justify-between gap-2" },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "上一轮真实召回"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 2 } }, "只认上一轮聊天实际送进模型的选集；刷新 App 即清空。下面的上下文段落只是此刻预览。")),
+        recall ? h("span", { style: { flexShrink: 0, borderRadius: 999, padding: "3px 7px", fontFamily: F_BODY, fontSize: 9.5, color: recall.mode === "hybrid" ? t.tint : t.fog, border: "1px solid " + (recall.mode === "hybrid" ? t.tint : t.line) } }, recall.mode === "hybrid" ? "向量混合" : "关键词") : null),
+      recall ? h(React.Fragment, null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8 } },
+          new Date(recall.ts).toLocaleString() + " · 候选 " + recall.candidateCount + " 条 · 最终 " + (recall.picked || []).length + " 条" + (recall.model ? " · " + recall.model : "")),
+        (recall.picked || []).length ? h("div", { style: { marginTop: 7 } }, recall.picked.map((row, i) =>
+          h("details", { key: row.id || i, style: { borderTop: "1px solid " + t.line, padding: "7px 0 2px" } },
+            h("summary", { style: { cursor: "pointer", fontFamily: F_BODY, fontSize: 11.5, color: t.ink, lineHeight: 1.5 } },
+              (i + 1) + ". " + String(row.text || "（空）").replace(/\s+/g, " ").slice(0, 54) + (String(row.text || "").length > 54 ? "…" : "")),
+            h("div", { style: { marginTop: 5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.65 } }, row.text || "（空）"),
+            h("div", { style: { marginTop: 4, fontFamily: "monospace", fontSize: 9.5, color: t.fog } },
+              (row.pinned ? "置顶直入" : (row.vectorScored ? "向量参与打分" : "关键词打分") + " · score " + row.score) + (row.tags && row.tags.length ? " · " + row.tags.join(" / ") : ""))))
+        ) : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "这一轮实际没有召回任何记忆。"))
+      : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "还没有这一页生命周期内的真实聊天收据。先和 TA 发一轮消息，再回来刷新。")) : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);

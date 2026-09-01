@@ -5111,10 +5111,20 @@ function CallScreen({
   const [live, setLive] = useState(false);
   const [liveSt, setLiveSt] = useState("");
   const lv = useRef({ rec: null, recWanted: false, recTimer: null, ctx: null, node: null, stream: null,
-    buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, speaking: false, ttsCtx: null, src: null });
+    buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0,
+    speaking: false, ttsCtx: null, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
+  const lvCommitFinal = (raw, session) => {
+    const st = lv.current, text = String(raw || "").trim();
+    if (!text || !liveRef.current || st.session !== session) return false;
+    const now = Date.now();
+    // 原生识别在 restart 边界偶尔把同一句 final 再吐一次；不让它变成两条用户消息。
+    if (text === st.lastFinal && now - st.lastFinalAt < 1800) return false;
+    st.lastFinal = text; st.lastFinalAt = now; st.turn += 1;
+    onSend(text); return true;
+  };
   const lvEncode = chunks => { // Float32(16k) → 16k mono WAV（whisper 兜底路径用）
     let len = 0; chunks.forEach(c => len += c.length);
     const pcm = new Int16Array(len); let o = 0;
@@ -5131,24 +5141,26 @@ function CallScreen({
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return false;
     const st = lv.current;
+    const session = st.session;
     const rec = new SR();
     rec.lang = "zh-CN"; rec.continuous = true; rec.interimResults = true;
     rec.onresult = e => {
+      if (!liveRef.current || st.session !== session) return;
       st.recAlive = true; // 看门狗：真吐过结果才算活
-      if (!liveRef.current) return;
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const piece = ((e.results[i][0] || {}).transcript || "").trim();
-        if (e.results[i].isFinal) { if (piece && !st.busy && !sendingRef.current) onSend(piece); }
+        if (e.results[i].isFinal) { if (piece && !st.busy && !sendingRef.current) lvCommitFinal(piece, session); }
         else interim += piece;
       }
       if (interim) setLiveSt("你：" + interim.slice(-24));
     };
     rec.onend = () => { // continuous 也会自己断，450ms 自动重启是命门
-      if (st.recWanted && liveRef.current) st.recTimer = setTimeout(() => { try { rec.start(); } catch (e2) {} }, 450);
+      if (st.recWanted && liveRef.current && st.session === session) st.recTimer = setTimeout(() => { if (st.session === session) try { rec.start(); } catch (e2) {} }, 450);
     };
-    rec.onaudiostart = () => { st.recAlive = true; };
+    rec.onaudiostart = () => { if (st.session === session) st.recAlive = true; };
     rec.onerror = ev => {
+      if (st.session !== session) return;
       if (ev.error === "not-allowed") { setLiveSt("麦克风权限被拒"); lvStop(); }
       else if (ev.error === "service-not-allowed" || ev.error === "audio-capture") st.recDead = true; // 假货实锤，看门狗会切
     };
@@ -5160,19 +5172,21 @@ function CallScreen({
   const recResume = () => { const st = lv.current; if (!st.rec || !liveRef.current) return; st.recWanted = true; try { st.rec.start(); } catch (e2) {} };
   // —— 兜底耳：书房 whisper（老路径） ——
   const lvFlush = async () => {
-    const st = lv.current; const chunks = st.buf; st.buf = []; st.talking = false; st.speech = 0; st.silent = 0;
+    const st = lv.current, session = st.session; const chunks = st.buf;
+    st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.speech = 0; st.silent = 0;
     const total = chunks.reduce((a, c) => a + c.length, 0);
     if (total < 16000 * 0.4) return;
     st.busy++; setLiveSt("识别中…");
     try {
       const d = await earsTranscribe(lvEncode(chunks));
       const text = (d && d.text || "").trim();
-      if (text && liveRef.current) onSend(text);
+      if (text) lvCommitFinal(text, session);
     } catch (e) { setLiveSt("识别失败，再说一遍"); }
-    finally { st.busy--; if (liveRef.current) setLiveSt(s2 => s2 === "识别中…" ? "听着呢" : s2); }
+    finally { if (st.session === session) { st.busy = Math.max(0, st.busy - 1); if (liveRef.current) setLiveSt(s2 => s2 === "识别中…" ? "听着呢" : s2); } }
   };
   const workletStart = async () => {
     const st = lv.current;
+    const session = st.session;
     st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     st.ctx = new (window.AudioContext || window.webkitAudioContext)();
     try { await st.ctx.resume(); } catch (e2) {}
@@ -5186,18 +5200,27 @@ function CallScreen({
     st.last = performance.now();
     st.node.port.onmessage = e => {
       const now = performance.now(), dt = now - st.last; st.last = now;
-      if (!liveRef.current) return;
-      if (st.busy > 0 || sendingRef.current) { st.buf = []; st.talking = false; st.silent = 0; return; }
+      if (!liveRef.current || st.session !== session) return;
+      if (st.busy > 0 || sendingRef.current) { st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.silent = 0; return; }
       const f = e.data; let sum = 0; for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
       const rms = Math.sqrt(sum / f.length);
       const voiced = rms > 0.012;
-      if (voiced) { if (!st.talking) { st.talking = true; st.speech = 0; } st.silent = 0; }
+      // 书房耳预卷约 0.7 秒：VAD 真正判定开口前的音频也带进 ASR，别把第一个字吃掉。
+      const ratio = sr / 16000, n = Math.floor(f.length / ratio), out = new Float32Array(n);
+      for (let i = 0; i < n; i++) out[i] = f[Math.floor(i * ratio)];
+      const wasTalking = st.talking;
+      if (!wasTalking) {
+        st.pre.push(out); st.preSamples += out.length;
+        while (st.preSamples > 16000 * 0.7 && st.pre.length > 1) st.preSamples -= st.pre.shift().length;
+      }
+      if (voiced) {
+        if (!st.talking) { st.talking = true; st.speech = 0; st.buf = st.pre.slice(); st.pre = []; st.preSamples = 0; }
+        st.silent = 0;
+      }
       else if (st.talking) st.silent += dt;
       if (st.talking) {
         st.speech += dt;
-        const ratio = sr / 16000, n = Math.floor(f.length / ratio), out = new Float32Array(n);
-        for (let i = 0; i < n; i++) out[i] = f[Math.floor(i * ratio)];
-        st.buf.push(out);
+        if (wasTalking) st.buf.push(out); // 刚起声那帧已经包含在 pre 里，别重复塞一遍
         const limit = st.speech > 3000 ? 1350 : 900;
         if (st.silent >= limit || st.speech >= 60000) lvFlush();
       }
@@ -5206,6 +5229,8 @@ function CallScreen({
   const lvStart = async () => {
     try {
       const st = lv.current;
+      st.session += 1; const session = st.session;
+      st.turn = 0; st.lastFinal = ""; st.lastFinalAt = 0; st.pre = []; st.preSamples = 0;
       // 手势里点亮 TTS 的 AudioContext：播1帧静音解锁，之后异步语音 iOS 也放行
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!st.ttsCtx || st.ttsCtx.state === "closed") st.ttsCtx = new AC();
@@ -5220,7 +5245,7 @@ function CallScreen({
         // WKWebView 阴招：识别对象存在也肯 start，但永远不吐结果。6秒看门狗验活，假货自动切书房耳
         setTimeout(async () => {
           const st2 = lv.current;
-          if (!liveRef.current || st2.recAlive) return;
+          if (!liveRef.current || st2.session !== session || st2.recAlive) return;
           if (typeof voiceEarsReady === "function" && voiceEarsReady()) {
             recPause(); st2.rec = null;
             try { await workletStart(); setLiveSt("听着呢（原生哑了，切书房识别）"); }
@@ -5235,12 +5260,13 @@ function CallScreen({
   };
   const lvStop = () => {
     const st = lv.current;
+    st.session += 1; // 先让识别/TTS 的迟到 promise 全部失效，再拆设备
     recPause(); st.rec = null;
     try { st.node && st.node.disconnect(); } catch (e) {}
     try { st.ctx && st.ctx.close(); } catch (e) {}
     try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
     try { st.src && st.src.stop(); } catch (e) {}
-    st.buf = []; st.talking = false; st.busy = 0; st.speaking = false;
+    st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.busy = 0; st.speaking = false;
     setLive(false); setLiveSt("");
   };
   useEffect(() => () => lvStop(), []);
@@ -5248,6 +5274,7 @@ function CallScreen({
   useEffect(() => {
     if (!live) return;
     const st = lv.current;
+    const session = st.session;
     if (st.speaking) return; // 播报锁：防多气泡齐唱
     st.speaking = true;
     (async () => {
@@ -5270,7 +5297,9 @@ function CallScreen({
         }
         try {
           const blob = await ttsSpeak(m.content, spk2.voiceId);
+          if (!liveRef.current || st.session !== session) break;
           const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
+          if (!liveRef.current || st.session !== session) break;
           await new Promise(res => {
             const srcN = st.ttsCtx.createBufferSource(); st.src = srcN;
             srcN.buffer = abuf; srcN.connect(st.ttsCtx.destination);
@@ -5279,10 +5308,10 @@ function CallScreen({
             srcN.start(0);
           });
         } catch (e) {}
-        finally { st.busy--; }
+        finally { if (st.session === session) st.busy = Math.max(0, st.busy - 1); }
       }
-      st.speaking = false;
-      if (liveRef.current) { setLiveSt("听着呢"); if (paused) setTimeout(recResume, 300); }
+      if (st.session === session) st.speaking = false;
+      if (liveRef.current && st.session === session) { setLiveSt("听着呢"); if (paused) setTimeout(() => { if (st.session === session) recResume(); }, 300); }
     })();
   }, [live, (msgs || []).length]);
   useEffect(() => {

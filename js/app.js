@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.86";
+const APP_VERSION = "v59.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3362,7 +3362,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memory: memories[char.id],
     memLib: (() => {
       const isLeanYanqiuChat = !!(ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes);
-      const rows = retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5), source: ctxOpts && ctxOpts.chat === true ? "chat" : "background" });
+      const recallText = ctxOpts && typeof ctxOpts.queryText === "string" ? ctxOpts.queryText : recentChatText(char);
+      const rows = retrieveMemories(memLibRef.current, char.id, recallText, {
+        limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5),
+        source: ctxOpts && ctxOpts.chat === true ? "chat" : "background",
+        touch: !(ctxOpts && ctxOpts.debug === true)
+      });
       if (!isLeanYanqiuChat) return rows;
       return rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) }));
     })(),
@@ -10312,8 +10317,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const char = people[0];
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
-        if (typeof primeQueryVec === "function") await primeQueryVec(recentChatText(char)); // 向量记忆预热（ctxFor 的检索用的是聊天文本）
-        const sys = buildBundle(ctxFor(char)) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
+        // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
+        const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
+        if (typeof primeQueryVec === "function") await primeQueryVec(callQuery);
+        const sys = buildBundle(ctxFor(char, { chat: true, queryText: callQuery })) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
@@ -16063,7 +16070,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     debugBundleFor: cid => {
       try {
         const c = characters.find(x => x.id === cid);
-        return c ? buildBundle(ctxFor(c)) : "";
+        return c ? buildBundle(ctxFor(c, { debug: true })) : "";
       } catch (e) { return "生成失败：" + (e.message || e); }
     },
     toast: toast

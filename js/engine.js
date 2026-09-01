@@ -2249,6 +2249,28 @@ function scoreMemEntry(entry, qTokens, now, qVec) {
   const openW = entry.open ? (0.7 + arousalW * 0.4) : 0;
   return keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + (entry.pinned ? 100 : 0);
 }
+// 上一轮真实召回快照（仅当前页面内存）：和 MemoryV2Shadow 的匿名统计分工不同，
+// 这里就是给主人在「上下文诊断」里核对【究竟哪几条正文真的进了模型】。
+// 不落 localStorage / 云端，刷新即清空；后台预览与诊断重建也不许覆盖真实聊天收据。
+function noteMemoryRecallSnapshot(charId, meta, opts) {
+  if (typeof window === "undefined" || !charId || !opts || opts.touch === false || opts.source !== "chat") return;
+  const row = Object.assign({ ts: Date.now(), charId: String(charId), candidateCount: 0, mode: "keyword", model: "", picked: [] }, meta || {});
+  const store = window.__memoryRecallSnapshots || (window.__memoryRecallSnapshots = Object.create(null));
+  store[String(charId)] = row;
+}
+if (typeof window !== "undefined") {
+  window.MemoryRecallSnapshot = Object.freeze({
+    get: charId => {
+      const row = window.__memoryRecallSnapshots && window.__memoryRecallSnapshots[String(charId || "")];
+      return row ? JSON.parse(JSON.stringify(row)) : null;
+    },
+    clear: charId => {
+      if (!window.__memoryRecallSnapshots) return;
+      if (charId == null) window.__memoryRecallSnapshots = Object.create(null);
+      else delete window.__memoryRecallSnapshots[String(charId)];
+    }
+  });
+}
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
   // 可见性必须排在【置顶与打分之前】：先 topK 再过滤会让不可见记忆占掉名额，
@@ -2260,6 +2282,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
     : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId));
   const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && canSee(e));
   if (list.length === 0) {
+    noteMemoryRecallSnapshot(charId, { candidateCount: 0, mode: "keyword", picked: [] }, opts);
     // 空召回也是重要收据：否则审计只看得见“想起来时”，看不见“完全没想起来时”。
     try {
       if (opts.touch !== false && opts.source === "chat" && window.MemoryV2Shadow) {
@@ -2275,6 +2298,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   //   置顶超过 topK 就把相关记忆全饿死了，且不相关的置顶也白占坑）。置顶全进 + 相关的再补 topK 条。
   const pinned = list.filter(e => e.pinned);
   const scored = list.filter(e => !e.pinned).map(e => ({ e, s: scoreMemEntry(e, qTokens, Date.now(), qVec) }));
+  const scoreById = new Map(scored.map(x => [String(x.e.id), x.s]));
   scored.sort((a, b) => b.s - a.s);
   const relevant = scored.filter(x => x.s > 0.9).slice(0, limit).map(x => x.e);
   let picked = pinned.concat(relevant);
@@ -2335,6 +2359,22 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
       window.MemoryV2Shadow.observeRetrieval({ charId, queryText, source: "chat", candidateCount: list.length, pinned, relevant, picked });
     }
   } catch (eMemoryV2) {/* 统一影子审计绝不影响召回 */}
+  // 必须记【所有冷却/并列规则之后】的最终选集，且要在 lastHit/hits 改写前拍下。
+  // vectorScored 表示该条确实有同模型同维度向量参与了本轮混合打分；置顶条不经过打分，永远为 false。
+  noteMemoryRecallSnapshot(charId, {
+    candidateCount: list.length,
+    mode: qVec && qVec.v ? "hybrid" : "keyword",
+    model: qVec && qVec.m || "",
+    picked: picked.map(e => {
+      const cv = qVec && qVec.v ? _memVecCache().get(e.id) : null;
+      return {
+        id: String(e.id || ""), text: String(e.text || ""), tags: Array.isArray(e.tags) ? e.tags.slice() : [],
+        pinned: !!e.pinned, open: !!e.open,
+        vectorScored: !!(!e.pinned && cv && cv.v && cv.m === qVec.m && cv.v.length === qVec.v.length),
+        score: e.pinned ? null : Math.round((scoreById.get(String(e.id)) || 0) * 1000) / 1000
+      };
+    })
+  }, opts);
   // ⭐检索即复习：被想起的条目刷新 lastHit、hits+1（就地改 entry 对象——lib 就是 memLibRef.current 那份）。
   // 节流持久化：只有当有条目超过 6 小时没被摸过时才写盘，防每轮聊天都重写整个记忆库
   if (opts.touch !== false && picked.length) {
