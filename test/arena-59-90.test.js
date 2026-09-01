@@ -263,3 +263,26 @@ test("分享：单聊和群聊都能发；发的是纯文本，不另起一种�
   assert.equal((panel.match(/\(props\.characters \|\| \[\]\)\.filter\(function \(c\) \{ return c && !c\.npc; \}\)/g) || []).length, 2,
     "配角（npc）没有自己的聊天窗口，转不过去，两处都得滤掉");
 });
+
+// ===== v59.94 =====
+// 她 2026-09-01 截图：「这个返回键又太上了」——返回键和右边那两颗牌直接压在时钟和电量上。
+// 病根：擂台的顶栏是【手写的】，只写了 pt-4＝16px，没吃刘海。
+// 全 app 别的顶栏都走 Head（里面有 safeTop(20)），只有这一处自己写了一份。
+test("擂台顶栏自己吃刘海，返回键还要点得着", () => {
+  const i = dbt.indexOf('h("div", { className: "shrink-0", style: { background: t.bg } },');
+  // 注释里要留着病因（那句话里就有 pt-4），所以只看活着的代码
+  const hdr = dbt.slice(i, dbt.indexOf("stage),", i)).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(hdr.indexOf("pt-4") < 0, "顶栏又只写了 pt-4，在刘海屏上让不开");
+  assert.match(hdr, /className: "flex items-center justify-between px-4 pb-2", style: \{ paddingTop: safeTop\(10\) \}/,
+    "顶栏没用公共 safeTop 吃刘海（mobile-ui-layout §1）");
+  // ⚠️返回键得有 40×40 的可点区：一个 19px 的图标点不着
+  assert.match(hdr, /"aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: \{ width: 40, height: 40, marginLeft: -8 \}/,
+    "返回键还是一个光秃秃的 19px 图标");
+});
+
+// 一层写在两处，第二处没跟上——v59.90 改名时「结束判定」有两颗键，只换了一颗。
+test("两颗收台键的字要一样（本轮没生成完那颗、和本轮已完成那颗）", () => {
+  assert.equal((dbt.match(/"收台判胜负"/g) || []).length, 2, "两颗收台键的字不一样");
+  const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(live.indexOf("结束判定") < 0, "还有一颗键留着旧名字");
+});

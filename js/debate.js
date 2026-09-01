@@ -551,8 +551,12 @@
     return h("div", { className: "h-full flex flex-col" },
       // 头
       h("div", { className: "shrink-0", style: { background: t.bg } },
-        h("div", { className: "flex items-center justify-between px-4 pt-4 pb-2" },
-          h("button", { onClick: props.onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
+        // ⚠️顶栏自己吃刘海（mobile-ui-layout.md §1：顶栏自己吃 safe-area-inset-top，用公共 safeTop(px)）。
+        //   这一条原来只写了 pt-4＝16px，在刘海屏上根本让不开——返回键和右边那两颗牌
+        //   直接压在时钟和电量上（她 2026-09-01 截图：「这个返回键又太上了」）。
+        //   ⚠️返回键还要有 40×40 的可点区：一个 19px 的图标点不着（§1 那套紧凑标题栏的标尺）。
+        h("div", { className: "flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+          h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
           h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
             hasSomething ? h("button", { onClick: function () { setShareOpen(true); }, className: "active:opacity-60",
               style: { fontFamily: F_BODY, fontSize: 11, minHeight: 26, color: t.sub, border: "1px solid " + t.line, borderRadius: 7, padding: "3px 9px" } }, "分享") : null,
@@ -642,7 +646,7 @@
           // 本轮已完成 → 结束 / 下一轮
           : h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
             h("button", { onClick: nextRound, className: "flex-1 active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一回合 →"))),
       sharePanel);
