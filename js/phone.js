@@ -2447,6 +2447,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const habit = (data.habit && typeof data.habit === "object") ? data.habit : {};
   const initial = String(char.name || "?").trim().slice(0, 1);
   const card = (kids, extra) => h("div", { style: Object.assign({ background: SHOP_CARD, borderRadius: 18, padding: "18px 18px", marginBottom: 14 }, extra || {}) }, kids);
+  // ⚠️白卡叠白卡是电商的排版（她 2026-09-01：「结构还是太像了」）。
+  // 这几节的行本来就自带细线分隔，外面再套一层白卡纯属多余——而正是那层白卡
+  // 让整页读起来像货架。改成一份清单：细线分节、留白分段，白卡只留给真要跳出来的地方。
+  // （外卖那边保留白卡是因为它像盘子；购物这边没有这个理由。）
+  const plain = (kids, extra) => h("div", { style: Object.assign({ marginBottom: 16 }, extra || {}) }, kids);
   const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 12px" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: SHOP_INK } }, title),
     right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, right) : null);
@@ -2459,52 +2464,30 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e4e4ea"), color: tier === "hidden" ? "#b6473c" : "#55555e"
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
-  const thumb = (txt, bg, fg) => h("div", {
-    "aria-hidden": "true",
-    style: { width: 56, height: 56, borderRadius: 15, flexShrink: 0, background: bg || SHOP_SOFT, color: fg || SHOP_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 21 }
-  }, String(txt || "?").trim().slice(0, 1));
-  // ── 账户卡 ──
-  const accountCard = card([
-    h("div", { key: "top", className: "flex items-center gap-4" },
-      h("div", { style: { width: 76, height: 76, borderRadius: 22, flexShrink: 0, background: "linear-gradient(150deg,#6d8db3," + SHOP_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 10px 22px rgba(63,95,138,.28)" } }, initial),
-      h("div", { className: "flex-1 min-w-0" },
-        h("div", { className: "flex items-center gap-2 flex-wrap" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: SHOP_INK } }, acc.name || char.name),
-          // ⚠️会员等级不画：那是平台给用户分层的部件，换个角色照样成立
-          //（跟外卖那次同一条判据）。生成层留着，她定的「只砍显示」。
-          null),
-        acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null,
-        acc.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: SHOP_DIM, marginTop: 6, lineHeight: 1.5 } }, acc.style) : null)),
-    // ⚠️「本月消费 / 本月订单 / 积分」那一排数字不画：那是电商「我的」页的固定部件。
-    // 照情侣空间那条判据——**把「几件」换成「哪一件」**，数量只留给数量本身就是内容
-    // 的地方。这三个数一个也不是：他这个月花了多少，「合起来看」那一段用话说得更清楚。
-    // 积分更是纯平台机制，跟这个人没有半点关系。（钱的账仍由钱包那条链管。）
-    acc.persona ? h("div", { key: "p", style: { marginTop: 16, background: SHOP_SOFT, borderRadius: 13, padding: "13px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: SHOP_BODY } }, acc.persona) : null
-  ]);
-  // ── 在途包裹（时间轴） ──
+  // ⚠️账户卡整个撤了（v59.48，她 2026-09-01：「购物这块结构还是太像了」）。
+  // 上一版砍的是零件（会员等级、积分、那排统计），骨架没动——而**骨架才是撞的那样东西**：
+  // 一张头像方块 + 名字 + 一句话打头，那是所有 app 的「我的」页。
+  // 何况这是**他自己的手机**：在自己手机上摆一张卡告诉你他是谁，纯粹是家具。
+  // 里面唯一有内容的是 persona 那句（他买东西的毛病），挪进「合起来看」。
+  // ── 还在路上（v59.48 改成一行一样）───────────────────────────────────
+  // 原来是【竖线 + 圆点 + 一张张白卡】：那是快递追踪页的形状，跟参考那份一模一样。
+  // 他等的不是包裹，是**一样东西和一段等待**。所以一行一样：东西、还要等多久、
+  // 他为什么在等。不要卡、不要圆点、不要状态徽章。
   const shipping = A(data.shipping);
   const shipSec = shipping.length ? h("section", { key: "ship" }, secTitle("还在路上", shipping.length + " 件没到"),
-    h("div", { style: { position: "relative", paddingLeft: 22 } },
-      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 6, top: 12, bottom: 26, width: 2, background: "rgba(63,95,138,.26)" } }),
-      shipping.map((it, i) => h("div", { key: i, style: { position: "relative", marginBottom: 12 } },
-        h("span", { "aria-hidden": "true", style: { position: "absolute", left: -22, top: 16, width: 13, height: 13, borderRadius: 99, background: SHOP_ACCENT, border: "3px solid " + SHOP_BG } }),
-        card([
-          h("div", { key: "a", className: "flex items-baseline justify-between gap-3" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_ACCENT } }, it.status || "运输中"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.eta || "")),
-          it.shop ? h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 9 } }, it.shop) : null,
-          h("div", { key: "c", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 5 } }, it.title || ""),
-          // ⚠️进度条和快递公司尾号不画：那是包裹追踪页的部件，他等的是一样东西，
-          // 不是等一根条走完（跟外卖那四段进度条同一条判据）。只留「等到什么时候」。
-          h("div", { key: "e", className: "flex items-baseline justify-between", style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.why || ""),
-            it.amount != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(it.amount)) : null)
-        ], { marginBottom: 0 }))))) : null;
+    h("div", { style: { marginBottom: 16 } }, shipping.map((it, i2) => h("div", {
+      key: i2, style: { padding: "14px 2px", borderTop: i2 ? "1px solid " + SHOP_LINE : "none" }
+    },
+      h("div", { className: "flex items-baseline", style: { gap: 10 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, it.title || ""),
+        it.amount != null ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK } }, shopMoney(it.amount)) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } },
+        [it.eta, it.shop].filter(Boolean).join(" · ")),
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: SHOP_BODY, marginTop: 7 } }, it.why) : null)))) : null;
   // ── 购物车 ──
   const cart = A(data.cart);
   const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("还没舍得付", cart.length + " 件停在这儿"),
-    card(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
-      thumb(it.title),
+    plain(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.shop) : null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, it.title || ""),
@@ -2535,7 +2518,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 我的订单 ──
   const orders = A(data.orders);
   const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("买过的", orders.length + " 次"),
-    orders.map((o, i) => card([
+    // 一单一张白卡＝一张张收据，还是电商那个排版。改成细线分隔的条目。
+    plain(orders.map((o, i) => h("div", { key: i, style: { padding: "16px 2px", borderTop: i ? "1px solid " + SHOP_LINE : "none" } }, [
       h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, o.shop || ""),
         // 状态不画成一枚绿标（那是平台的订单状态徽章）；取消掉的那一单才值得说一句
@@ -2556,7 +2540,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_BODY, marginTop: 9 } }, o.reason) : null,
       o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 11 } }, o.addr) : null,
       h("div", { key: "pk" }, peekBtn("quiet", T("他的订单"), o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
-    ], { key: i }))) : null;
+    ])))) : null;
   // ── 买东西这件事上（v59.38）──────────────────────────────────────────
   // 原来是【预算／常买／不买／习惯】四行标签表——那是电商的「消费画像」，
   // 换个角色照样成立（跟外卖那张口味画像表同一个病）。改成问句：
@@ -2580,8 +2564,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 常逛店铺 ──
   const shops = A(data.shops);
   const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("总回的那几家"),
-    card(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
-      thumb(sp.name),
+    plain(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_INK } }, sp.name || ""),
         sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 3 } }, sp.cat) : null,
@@ -2592,7 +2575,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 最近浏览 ──
   const viewed = A(data.viewed);
   const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("反复看过的", "看了没买"),
-    card(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
+    plain(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.45, color: SHOP_INK } }, v.title || ""),
         v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null),
@@ -2602,7 +2585,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 收货地址（不是自己家的那条走 hidden） ──
   const addrs = A(data.addrs);
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("送到哪儿"),
-    card(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
+    plain(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex items-center gap-2" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, a.label || ""),
         a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null,
@@ -2612,7 +2595,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 相关往来 ──
   const gifts = A(data.gifts);
   const giftSec = gifts.length ? h("section", { key: "gf" }, secTitle("买给别人的"),
-    card(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
+    plain(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, g.who || ""),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, g.title || ""),
       g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, g.note) : null,
@@ -2624,7 +2607,15 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const spendLine = ms
     ? "这一阵花掉 " + shopMoney(ms.spend) + "，" + shopInt(ms.orders) + " 单"
     : (acc.monthSpend != null ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (acc.monthOrders != null ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
-  const monthSec = (data.monthNote || data.tail || spendLine) ? h("section", { key: "mn" }, secTitle("合起来看", "这一阵他是这么花钱的"),
+  // acc.persona（他买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
+  // 它本来就属于「合起来看」：那一段说的正是他这个人怎么花钱。
+  const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", "这一阵他是这么花钱的"),
+    acc.persona ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.75, color: SHOP_INK, padding: "0 2px 14px" } }, acc.persona) : null,
+    // 他在这个平台上的号：账户卡撤了，但这一条不能跟着一起没
+    //（她 2026-08-29 专门要过「每个 app 都给他一个自己的 id」）。
+    // 只是它不配再占一整张卡——落成一行小字。
+    (acc.name || acc.uid) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, padding: "0 2px 14px" } },
+      [acc.name, acc.uid ? "账号 " + acc.uid : ""].filter(Boolean).join(" · ")) : null,
     (spendLine || data.monthNote) ? card(h("div", null,
       spendLine ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK, marginBottom: data.monthNote ? 12 : 0 } }, spendLine) : null,
       data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: SHOP_BODY } }, data.monthNote) : null)) : null,
@@ -2633,7 +2624,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 查手机真正要看的不是按钮在哪，而是这个人眼下在等什么、买过后留下什么、为什么取舍。
   // 旧数据结构全部兼容，只在阅读层重组为三条角色生活线。
   const PAGES = [
-    { key: "home", zh: "眼下", glyph: "cart", lead: "还悬在半路上的东西，比购买记录更接近此刻。", secs: [accountCard, shipSec, cartSec], badge: shipping.length + cart.length },
+    { key: "home", zh: "眼下", glyph: "cart", lead: "还悬在半路上的东西，比购买记录更接近此刻。", secs: [shipSec, cartSec], badge: shipping.length + cart.length },
     { key: "kept", zh: "留下", glyph: "orders", lead: "买过、送过、付过的钱，最后留下的是理由和人。", secs: [orderSec, giftSec, monthSec], badge: orders.length },
     { key: "choice", zh: "取舍", glyph: "me", lead: "反复看却没买、总去的店和明确不买的东西，拼成 TA 的选择。", secs: [wishSec, viewSec, habitSec, shopSec, addrSec] }
   ];

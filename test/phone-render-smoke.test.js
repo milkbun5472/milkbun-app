@@ -282,11 +282,12 @@ test("购物分成四页，每一块内容都落在某一页里，没有孤儿",
   assert.ok(m, "找不到分页表");
   const placed = m[0];
   // v59.38：优惠券整栏不画了（营销位，纯平台部件；生成层留着）
-  ["accountCard", "shipSec", "wishSec", "cartSec", "viewSec", "orderSec",
+  // v59.48：账户卡撤了（这是他自己的手机，不需要自我介绍）
+  ["shipSec", "wishSec", "cartSec", "viewSec", "orderSec",
    "habitSec", "shopSec", "addrSec", "giftSec", "monthSec"].forEach(sec =>
     assert.ok(placed.includes(sec), sec + " 没被分到任何一页，会看不见"));
   // 每一块只出现一次，别在两页里重复
-  ["accountCard", "cartSec", "orderSec", "monthSec"].forEach(sec =>
+  ["cartSec", "orderSec", "monthSec"].forEach(sec =>
     assert.equal((placed.match(new RegExp(sec, "g")) || []).length, 1, sec + " 在两页里重复了"));
   // 底栏还是那把尺：底部安全区照 COMPOSER_PAD_BOTTOM（见 mobile-ui-layout.md），
   // 列数跟着 PAGES 走（v58.33 起——写死列数的话，哪天加一档就竖着叠成一列）
@@ -436,6 +437,7 @@ test("每个有账号的 app 都给了他自己的平台 ID", () => {
   assert.match(SRC, /me\.uid \? me\.uid : "未登记"/);
   // v59.38：「会员号」跟着会员等级那枚徽章一起换掉了（平台的分层说法）；
   // 号码本身照旧看得见——核的是【看得见】，不是那两个字。
+  // v59.48：账户卡撤了，号落进「合起来看」的一行小字里——核的还是【看得见】
   assert.match(SRC.slice(SRC.indexOf('const SHOP_ACCENT'), SRC.indexOf('const TAKE_ACCENT')), /"账号 " \+ acc\.uid/, "购物页看不见他的账号了");
   assert.match(SRC, /"书友号 " \+ archive\.uid/);
   assert.match(SRC, /"账号 " \+ acc\.uid/);

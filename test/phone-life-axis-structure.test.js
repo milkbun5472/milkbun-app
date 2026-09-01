@@ -9,7 +9,8 @@ const takeout = ph.slice(ph.indexOf("const TAKE_ACCENT ="), ph.indexOf("// =====
 
 test("购物按角色的眼下、留下、取舍重组，不复刻标准电商四栏", () => {
   assert.match(shopping, /zh: "眼下"[\s\S]*zh: "留下"[\s\S]*zh: "取舍"/);
-  assert.match(shopping, /secs: \[accountCard, shipSec, cartSec\]/, "眼下应该合并正在发生的购买动作");
+  // v59.48：账户卡撤了（这是他自己的手机，不需要自我介绍）
+  assert.match(shopping, /secs: \[shipSec, cartSec\]/, "眼下应该合并正在发生的购买动作");
   assert.match(shopping, /secs: \[orderSec, giftSec, monthSec\]/, "买过和送过应该沿留下的痕迹阅读");
   assert.match(shopping, /secs: \[wishSec, viewSec, habitSec, shopSec, addrSec\]/, "犹豫、习惯和去处应该组成取舍");
   assert.doesNotMatch(shopping, /zh: "首页"[\s\S]*zh: "购物车"[\s\S]*zh: "订单"[\s\S]*zh: "我的"/);
@@ -185,4 +186,31 @@ test("购物走靛蓝与朱砂，不是电商那个橙", () => {
   assert.ok(shopping.indexOf("#ffe6d8") < 0, "顶上那道橙粉渐变还在");
   ["SHOP_BODY", "SHOP_LINE", "SHOP_SOFT"].forEach(k =>
     assert.match(ph, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量，换色得挨个找"));
+});
+
+// 她 2026-09-01（配着一张左右对比图）：「购物这块结构还是太像了」
+//「we can keep the prompt of what we generate, but the layout is just straight up plagiarism」。
+// v59.38 砍的是零件（会员等级、积分、统计块、进度条），骨架一点没动——
+// **而骨架才是撞的那样东西**：一张头像卡打头 → 分段标题 → 竖线时间轴 + 一张张白卡。
+test("购物的骨架也换掉：没有账户卡、没有物流卡、没有白卡叠白卡", () => {
+  // ① 账户卡：这是他自己的手机，摆一张卡告诉你他是谁纯属家具
+  assert.ok(shopping.indexOf("const accountCard") < 0, "账户卡还在");
+  assert.ok(shopping.indexOf("secs: [accountCard") < 0, "账户卡还摆在第一页");
+  // 里面唯一有内容的那句得有地方去，不能跟着一起没
+  assert.match(shopping, /acc\.persona \? h\("div"[\s\S]{0,200}acc\.persona\)/, "他买东西的毛病那句丢了");
+  // ② 在途：一行一样，不再是圆点＋白卡的快递追踪
+  assert.ok(shopping.indexOf('position: "absolute", left: -22') < 0, "时间轴圆点还在");
+  assert.ok(shopping.indexOf("Number(it.progress)") < 0, "进度条还在");
+  assert.match(shopping, /\[it\.eta, it\.shop\]\.filter\(Boolean\)\.join\(" · "\)/, "在途没改成一行一样");
+  // ③ 去卡片化：那几节的行本来就自带细线，外面不该再套白卡
+  assert.match(shopping, /const plain = \(kids, extra\)/, "没有不带底色的那个块");
+  ["还没舍得付", "总回的那几家", "反复看过的", "送到哪儿", "买给别人的"].forEach(zh => {
+    const i = shopping.indexOf('secTitle("' + zh + '"');
+    assert.ok(i > 0, "找不到「" + zh + "」");
+    assert.match(shopping.slice(i, i + 120), /plain\(/, "「" + zh + "」还套着白卡");
+  });
+  assert.match(shopping, /plain\(orders\.map/, "买过的还是一单一张白卡（那是一张张收据）");
+  // ④ 商品缩略图位：货架的家具，而且这儿根本没有图
+  assert.ok(shopping.indexOf("const thumb = ") < 0, "缩略图位还留着");
+  assert.ok(shopping.indexOf("thumb(") < 0, "还有地方在摆缩略图位");
 });
