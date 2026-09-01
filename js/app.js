@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.84";
+const APP_VERSION = "v59.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -531,8 +531,10 @@ function App() {
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.seed(char.id, parsed);
-      if (n) toast(auto ? char.name + "写下了他眼里的你" : "Ta 写下了 " + n + " 块");
-      else if (!auto) toast("Ta 暂时没写出什么");
+      // 跟着这个角色的性别走(她 2026-09-01)——别处早有 charTa 这张表,不要再各写一份判断
+      const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
+      if (n) toast(auto ? char.name + "写下了" + _ta + "眼里的你" : _ta + "写下了 " + n + " 块");
+      else if (!auto) toast(_ta + "暂时没写出什么");
     } catch (e) { if (!auto) toast("建卡失败:" + (e.message || "重试")); } finally { setGazeSeedBusy(false); }
   };
   // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,

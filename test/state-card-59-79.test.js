@@ -95,3 +95,53 @@ test("深色主题下不许白底白字", () => {
   assert.ok(!/#ffffff|rgb\(255, ?255, ?255\)/i.test(card + shell), "换个写法写死了纯白");
   assert.match(shell, /transparent 1px 7px\)," \+ t\.bg2/, "框的底色没走主题");
 });
+
+// ===== v59.85 =====
+const toast = cp.slice(cp.indexOf("function Toast({"), cp.indexOf("function Toggle({"));
+
+// 她 2026-09-01：「这种黑框一直都是在屏幕右侧出现而不是中间」。
+// 病根不在 z-index 也不在父容器：这一层自己带着 animation:fadeUp，
+// 而 fadeUp 的末帧是 transform:translateY(0)、fill-mode 是 both——
+// 动画的 transform 把 -translate-x-1/2 -translate-y-1/2 整个盖掉，
+// 于是框的【左边缘】正好钉在屏幕中线上（实测 390 宽的屏上 left=195、中心 280）。
+// 两个东西抢同一个 CSS 属性，动画一定赢。居中就得换个不靠 transform 的做法。
+test("土司居中不许再靠 transform——它跟自己的 fadeUp 抢同一个属性", () => {
+  assert.ok(toast.indexOf("-translate-x-1/2") < 0, "又用 transform 居中了，fadeUp 会把它盖掉");
+  assert.ok(toast.indexOf("-translate-y-1/2") < 0, "又用 transform 居中了，fadeUp 会把它盖掉");
+  assert.match(toast, /className: "absolute inset-0 z-\[60\] flex items-center justify-center pointer-events-none"/, "居中没交给外面那层 flex");
+  // 动画仍在，只是从此只有它一个人用 transform
+  assert.match(toast, /animation: "fadeUp \.2s ease both"/);
+  // 外层铺满整屏，不许挡住底下的操作
+  assert.match(toast, /pointer-events-none/);
+});
+
+// 她 2026-09-01：「跳出来显示一下子的黑框说他写了什么，这个能不能他跟性别走」
+test("卡上和土司里的「他」都跟角色性别走，判断表只有 charTa 那一份", () => {
+  assert.match(card, /const scTa = window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"/);
+  assert.match(card, /label\(scTa \+ "心里闪过的那些/, "翻旧的那一栏还写死「他」");
+  assert.match(card, /sub: "和" \+ scTa \+ "聊几句/, "空状态那句还写死「Ta」");
+  assert.match(card, /ta: scTa, onSeed: onGazeSeed/, "又在这儿另写了一份性别判断");
+  const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
+  assert.match(app, /const _ta = window\.PhonePronoun \? window\.PhonePronoun\.ta\(char\) : "他"/);
+  assert.match(app, /char\.name \+ "写下了" \+ _ta \+ "眼里的你"/, "建卡那条土司还写死「他」");
+  assert.match(app, /_ta \+ "写下了 " \+ n \+ " 块"/);
+  assert.match(app, /toast\(_ta \+ "暂时没写出什么"\)/);
+});
+
+// 她 2026-09-01：「心声翻旧的只 apply 此刻，要不要把按键移到此刻的最下面，
+// 不然在他眼里按翻旧的没反应有点不对劲」
+test("「翻旧的」归【此刻】自己那一栏，不许再钉在管着两栏的抬头上", () => {
+  const head = card.slice(card.indexOf("const head = h("), card.indexOf("const tabs = "));
+  assert.ok(head.indexOf("翻旧的") < 0, "又摆回抬头去了——站在「Ta 眼里」按它一动不动");
+  assert.ok(head.indexOf("setShowHist") < 0, "抬头上还留着翻旧的那个动作");
+  assert.match(card, /const histBtn = \(back\) => hist\.length > 0/);
+  // 此刻的底下＝「底下还有旧的」；旧的那一叠顶上＝「回此刻」，两头方向相反
+  assert.match(card, /back \? "← 回此刻" : "底下还有 " \+ hist\.length \+ " 条旧的 · 翻旧的"/);
+  const now = card.slice(card.indexOf("const body = showHist"));
+  const histTop = now.indexOf("histBtn(true)");
+  const histLabel = now.indexOf('label(scTa + "心里闪过的那些');
+  assert.ok(histTop > 0 && histTop < histLabel, "「回此刻」得在旧的那一叠上面，不然要滚到底才回得去");
+  assert.match(card, /h\("div", \{ style: \{ padding: "0 15px" \} \}, histBtn\(false\)\)\);/, "「翻旧的」不在此刻正文的最后一格");
+  // 切到别的栏就退出翻旧的，免得切回来还停在旧的那一叠上
+  assert.match(card, /onClick: \(\) => \{ setPage\(k\); setShowHist\(false\); \}/);
+});

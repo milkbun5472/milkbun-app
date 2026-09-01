@@ -315,15 +315,24 @@ function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfi
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, cancelLabel || "取消"),
         h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, confirmLabel || "确定"))));
 }
+// ⚠️居中不许再靠 -translate-x-1/2 -translate-y-1/2（她 2026-09-01：「这种黑框一直
+//   都是在屏幕右侧出现而不是中间」）。病根：这一层自己带着 animation:fadeUp，
+//   而 fadeUp 的末帧写的是 transform:translateY(0)、fill-mode 又是 both——
+//   动画的 transform 整个盖掉那两个 translate 类，于是框的【左边缘】正好钉在屏幕中线上，
+//   看起来永远偏在右半边、还往下掉半屏。
+//   居中交给外面那层 flex，transform 从此只归动画自己用，两者不再抢同一个属性。
 function Toast({
   msg
 }) {
   const t = useTheme();
   if (!msg) return null;
-  return /*#__PURE__*/React.createElement("div", {
-    className: "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] px-4 py-2.5 rounded-2xl text-center",
+  return h("div", {
+    className: "absolute inset-0 z-[60] flex items-center justify-center pointer-events-none",
+    style: { padding: 24 }
+  }, h("div", {
+    className: "px-4 py-2.5 rounded-2xl text-center",
     style: {
-      maxWidth: "78%",
+      maxWidth: "100%",
       background: t.ink,
       color: t.bg2,
       fontFamily: F_BODY,
@@ -333,7 +342,7 @@ function Toast({
       whiteSpace: "pre-wrap",
       wordBreak: "break-word"
     }
-  }, msg);
+  }, msg));
 }
 function Toggle({
   on,
@@ -6933,6 +6942,8 @@ function StateCard({
   const dm = window.MoodLabel ? window.MoodLabel.normalizeMood(dmRaw) : dmRaw;
   const aff = typeof affinity === "number" ? affinity : 50;
   const S = v => String(v == null ? "" : v).trim();
+  // 这张卡上的「他」也跟着角色性别走（她 2026-09-01）；判断表只有 charTa 这一份，别再各写一遍
+  const scTa = window.PhonePronoun ? window.PhonePronoun.ta(character) : "他";
   const seen = [S(state && state.wearing), S(state && state.action)].filter(Boolean);
   const label = (txt, c) => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || t.fog } }, txt);
   // 抬头：谁、此刻什么心情、上次动是什么时候。心情不再单独占一张卡。
@@ -6950,11 +6961,10 @@ function StateCard({
           : dm && dm.faded ? "已经平复下去了"
             : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
     h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
-      hist.length > 0 ? h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: showHist ? t.accent : t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 10px" } }, showHist ? "回此刻" : "翻旧的") : null,
       h("button", { onClick: onClose, "aria-label": "关掉", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1 } }, "✕")));
   const tabs = gazeOn && window.GazePage ? h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line } },
     [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, lb]) => h("button", {
-      key: k, onClick: () => setPage(k), "aria-pressed": page === k ? "true" : "false",
+      key: k, onClick: () => { setPage(k); setShowHist(false); }, "aria-pressed": page === k ? "true" : "false",
       style: { position: "relative", flex: 1, padding: "9px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.accent : "transparent") }
     }, lb,
       (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
@@ -6985,9 +6995,22 @@ function StateCard({
       label("好感度"),
       state && state.affinityLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: heartInk, marginTop: 6 } }, state.affinityLabel) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } }, "跟着聊天自己更新，不额外花额度")));
+  // ⚠️「翻旧的」原来钉在抬头上，可它翻的只有【此刻】这一栏；站在「Ta 眼里」按它，
+  //   画面一动不动（她 2026-09-01：「在他眼里按翻旧的没反应有点不对劲」）。
+  //   一个键管不着眼下这一栏，就不该摆在管着两栏的抬头上——挪进此刻自己这一栏里。
+  //   两头方向相反：此刻的底下是「底下还有旧的」，旧的那一叠顶上是「回此刻」。
+  const histBtn = (back) => hist.length > 0 ? h("button", {
+    onClick: () => setShowHist(!back), className: "w-full active:opacity-60",
+    style: {
+      fontFamily: F_BODY, fontSize: 11.5, color: back ? t.accent : t.sub, background: "transparent",
+      border: "none", borderTop: back ? "none" : "1px dashed " + t.line, borderBottom: back ? "1px dashed " + t.line : "none",
+      padding: back ? "0 0 11px" : "12px 0 2px", margin: back ? "0 0 13px" : "4px 0 0"
+    }
+  }, back ? "← 回此刻" : "底下还有 " + hist.length + " 条旧的 · 翻旧的") : null;
   const body = showHist
     ? h("div", { style: { padding: "13px 17px 18px" } },
-      label("他心里闪过的那些 · " + hist.length + " 条"),
+      histBtn(true),
+      label(scTa + "心里闪过的那些 · " + hist.length + " 条"),
       h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
           s2.mood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
@@ -6995,7 +7018,7 @@ function StateCard({
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [s2.action, s2.wearing].filter(Boolean).join(" · ")) : null))))
     : h(Fragment, null,
-      (!state && !dm) ? h(Empty, { text: "还没有状态", sub: "和 Ta 聊几句，状态会自动生成" }) : null,
+      (!state && !dm) ? h(Empty, { text: "还没有状态", sub: "和" + scTa + "聊几句，状态会自动生成" }) : null,
       // 看得见的：穿着和动作本来就是同一眼看到的东西，合成一段——
       // 拆成两张并排的卡，那是状态面板的做法。
       // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
@@ -7017,11 +7040,11 @@ function StateCard({
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         label("心里想的", t.accent),
         h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
-      null);
+      h("div", { style: { padding: "0 15px" } }, histBtn(false)));
   return h(CenterCard, { onClose: onClose }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       (page === "gaze" && gazeOn && window.GazePage)
-        ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: window.PhonePronoun ? window.PhonePronoun.ta(character) : (["她", "女", "f", "female"].includes(String(character.gender || "").trim()) ? "她" : "他"), onSeed: onGazeSeed, seedBusy: gazeSeedBusy }))
+        ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy }))
         : body),
     (page === "now" && !showHist) ? scale : null);
 }
