@@ -441,6 +441,8 @@ function phoneEvolveBlock(appKey, oldData) {
 // 把显示的那行改写成绝对写法——只改一次，之后不再动。
 const PHONE_GROW = {
   wechat: { chats: 14, moments: 14, contacts: 24, "me.accounts": 12 },
+  // 「只更新说的话」那一路里，朋友圈和公众号照旧当日志并进来（会话不走这儿）
+  _wechatRest: { moments: 14, "me.accounts": 12 },
   notes: { items: 24 },
   calls: { calls: 30, sms: 20, voicemail: 12, frequent: 12, blocked: 10 },
   browser: { searches: 44, marks: 14, private: 10 },
@@ -751,6 +753,44 @@ function phoneApplyBookUpdates(oldData, updates, nowTs) {
   }));
   return { shelves: shelves, hit: hit };
 }
+// ── 微信：人是慢慢认识的，话是天天在说的（v59.54）──────────────────────
+// 她 2026-09-01：「微信联系人，一开始只生成几个但是后续封顶了不应该生成新的，
+// 而是在他已有的联系人和群聊里更新说的话而已」。
+// 原来每刷一次都要「另外生成正好 5 个互不相同的**新**会话」+「contacts 正好 5 个」，
+// 累积层再并进去——三轮之后他微信里就有十五个互不相干的会话、十五拨人。
+// 那不是一个人的微信，那是十五份互不相干的样本。
+// 跟书架同一个形状：**名单封顶之后，变的只是那几个会话里【又说了什么】。**
+const PHONE_WECHAT_ENOUGH = 8;
+function phoneApplyChatUpdates(oldData, updates, nowTs) {
+  const A = a => Array.isArray(a) ? a : [];
+  const norm = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·,，.。!！?？:：;；]/g, "");
+  const want = {};
+  A(updates).forEach(u => { const k = norm(u && u.name); if (k) want[k] = u; });
+  let hit = 0;
+  const chats = A(oldData && oldData.chats).map(c => {
+    const u = want[norm(c && c.name)];
+    if (!u) return c;
+    const add = A(u.messages).filter(m => m && (m.text || m.content));
+    if (!add.length) return c;
+    // 接着往下说：新消息追在后面，同一句话不重复攒
+    const had = {};
+    const old = A(c.messages);
+    old.forEach(m => { had[String(m && m.from) + "|" + String(m && (m.text || m.content))] = 1; });
+    const fresh = add.filter(m => !had[String(m.from) + "|" + String(m.text || m.content)]);
+    if (!fresh.length) return c;
+    hit++;
+    const msgs = old.concat(fresh).slice(-40);
+    const time = String(u.time || "").trim() || c.time;
+    // ⚠️时刻变了，_ts 必须跟着重算。这一路不走 phoneGrowList，
+    // 不重算的话它还留着上一轮那个时刻——会话列表就会把刚说完话的那个排到底下去
+    //（v59.41 刚修好的那个病，从这儿又能漏回来）。
+    const ts = (time !== c.time) ? phoneWhenTs(time, nowTs) : (c._ts != null ? c._ts : phoneWhenTs(time, nowTs));
+    return { ...c, messages: msgs,
+      last: String(u.last || "").trim() || (fresh[fresh.length - 1].text || fresh[fresh.length - 1].content || c.last),
+      time: time, ...(ts != null ? { _ts: ts, _abs: undefined } : {}), _upd: nowTs };
+  });
+  return { chats: chats, hit: hit };
+}
 function phoneMergeShelves(oldData, newData, nowTs) {
   const A = a => Array.isArray(a) ? a : [];
   const oldSh = A(oldData && oldData.shelves), newSh = A(newData && newData.shelves);
@@ -847,6 +887,17 @@ function phoneAlbumTidy(data, nowTs) {
 }
 function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   if (appKey === "reading") return phoneMergeShelves(oldData, newData, nowTs);
+  // 微信「只更新说的话」那一路：会话和联系人一个不增，只把新说的话接在后面
+  if (appKey === "wechat" && Array.isArray(newData && newData.updates)) {
+    const r = phoneApplyChatUpdates(oldData, newData.updates, nowTs);
+    const keep = { ...oldData, chats: r.chats };
+    // 朋友圈和公众号仍是【发生过的事】，照旧并进来
+    const merged = phoneGrowMerge("_wechatRest", { moments: (oldData || {}).moments, me: (oldData || {}).me },
+      { moments: newData.moments, me: newData.me }, nowTs);
+    if (Array.isArray(merged && merged.moments)) keep.moments = merged.moments;
+    if (newData.me && typeof newData.me === "object") keep.me = { ...(oldData || {}).me, ...newData.me };
+    return keep;
+  }
   const conf = PHONE_GROW[appKey];
   if (!conf || !newData || typeof newData !== "object") return newData;
   const out = JSON.parse(JSON.stringify(newData));
@@ -5535,6 +5586,14 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 书架：已经摆好了、而且这是例行刷新，就只问「这一周他动了哪几本」
   const _shelves = (key === "reading" && known && Array.isArray(known.shelves)) ? known.shelves : [];
   const bookUpdOnly = key === "reading" && weekly && _shelves.length > 0;
+  // 微信：会话已经够多了就只更新说的话（她 2026-09-01：「后续封顶了不应该生成新的」）
+  const _wxChats = (key === "wechat" && known && Array.isArray(known.chats)) ? known.chats : [];
+  const wxUpdOnly = key === "wechat" && _wxChats.length >= PHONE_WECHAT_ENOUGH;
+  const wxChatList = wxUpdOnly
+    ? "\n【他微信里现有的会话（name 必须从这里面照抄）】\n" + _wxChats.map(function (c) {
+        return "· " + (c.name || "") + (c.type === "group" ? "（群）" : "") + (c.last ? "：" + String(c.last).slice(0, 24) : "");
+      }).join("\n") + "\n"
+    : "";
   const bookList = bookUpdOnly
     ? "\n【他架上现有的书（title 必须从这里面照抄）】\n" + _shelves.map(function (sh) {
         return "〔" + (sh.name || "") + "〕" + (Array.isArray(sh.books) ? sh.books : []).map(function (b) {
@@ -5544,8 +5603,21 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     : "";
   const S = {
     wechat: {
-      instruction: "推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
-      schemaHint: "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
+      instruction: wxUpdOnly
+        ? ("「" + char.name + "」的微信里人已经认全了，**这一轮不要另开新会话、不要新增联系人**。\n"
+          + "人是慢慢认识的，话是天天在说的：一周之内他不会突然多出五个朋友，变的只是**那几个已有的会话里又说了什么**。\n"
+          + "下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要，避开其中的原话：\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n"
+          + "这一轮只回 updates：**这几天真的有新消息的那 1-3 个会话**，没动静的一个都别写。\n"
+          + "每条给 name（**从下面这份会话名单里原样照抄**，一个字都不许改）、"
+          + "messages（**接着往下说的新消息 4-8 条**，有来有回，不要把之前说过的再抄一遍）、"
+          + "last（这个会话现在的最后一条）、time。\n"
+          + "⚠️新消息要接得上原来那段话的走向——是同一段关系往前走了几步，不是换个话题重开。\n"
+          + "moments 照旧给 1-2 条新的朋友圈（那是真发生的事，该有新的），作者从他已有的联系人里选。\n"
+          + wxChatList + relHint)
+        : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
+      schemaHint: wxUpdOnly
+        ? "{\"updates\":[{\"name\":\"从名单里原样照抄的会话名\",\"messages\":[{\"from\":\"说话人\",\"text\":\"新说的话\"}],\"last\":\"最后一条\",\"time\":\"14:20\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}]}"
+        : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
       instruction: "推演「" + char.name + "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n"
