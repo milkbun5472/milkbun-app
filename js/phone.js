@@ -1983,34 +1983,44 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
     h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "时间线"),
     h("div", { style: { width: 40, height: 40 } })),
-    // 接下来 / 走过的。两格都常驻——空着的那一格不藏起来，否则日历里排下来的事
-    // 一进时间线就人间蒸发，她只会以为是丢了。
-    // ⚠️这一行本身就画成一条时间轴：左边是走过的、右边是还没走的，中间钉着「现在」，
-    //   左半实线、右半虚线。两个 tab 不再是两颗随便摆着的药丸，它们各自站在轴的一头。
-    h("div", { className: "shrink-0 px-5 pb-2 flex items-center", style: { gap: 8 } },
-      [["past", "走过的", pastN], ["ahead", "接下来", aheadN]].map(([k, label, n], i) => [
-        i === 1 ? h("div", { key: "axis", className: "flex-1 min-w-0 flex items-center", style: { gap: 5 },
-          "aria-label": "现在是" + light.zh + phoneClock(now) },
-          h("span", { style: { flex: "1 1 0", minWidth: 5, height: 1, background: t.line } }),
-          h("span", { style: { flexShrink: 0, width: 5, height: 5, borderRadius: 9, background: t.ink } }),
-          // 这两个字同时在解释背景那道光是哪儿来的：不写的话，底色变了没人知道为什么
-          h("span", { style: { flexShrink: 0, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".06em", color: t.sub } },
-            light.zh + " " + phoneClock(now)),
-          h("span", { style: { flex: "1 1 0", minWidth: 5, borderTop: "1px dashed " + t.line } })) : null,
-        h("button", {
-          key: k,
-          onClick: () => goTab(k),
-          className: "active:opacity-60 shrink-0",
-          "aria-pressed": tab === k ? "true" : "false",
-          // ⚠️选中态的字色写 t.bg，不许写死 #fff：深色主题里 t.ink 是近白色，
-          //   压一个 #fff 上去就是白底白字（v59.62 在深色主题下抓到的）。
-          style: {
-            fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 99,
-            background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg : t.sub,
-            border: "1px solid " + (tab === k ? t.ink : t.line)
-          }
-        }, label + (n ? " " + n : ""))
-      ])),
+    // ── 两格＝这条轴的两头（v59.66）────────────────────────────────
+    // 她 2026-09-01：「把时间线的也弄了吧」→ .claude/rules/tabs-not-plain-pills.md。
+    // v59.60 只改了一半：位置有意义了（各站一头、中间钉着现在），形状还是两颗药丸。
+    // 现在【那一格就是那半条轴】：标签在外头，轨从标签一路铺到中间那个「现在」。
+    // 选中的那半轨加粗、上墨、外头钉一根端点；没选的还是发丝一样细。
+    // 走过的那半是实线、还没走的那半是虚线——跟下面每一条的竖轴是同一套话。
+    // 两格都常驻：空着的那一格不藏起来，否则日历里排下来的事一进时间线就人间蒸发。
+    h("div", { className: "shrink-0 px-5 pb-2 flex items-stretch", style: { gap: 7 } },
+      [["past", "走过的", pastN], ["ahead", "接下来", aheadN]].map(([k, label, n], i) => {
+        const on = tab === k;
+        // 端点：只有选中那半才钉，钉在离「现在」最远的那一头
+        const cap = h("span", { "aria-hidden": "true", style: {
+          flexShrink: 0, width: 2, height: on ? 11 : 0, borderRadius: 2, background: t.ink
+        } });
+        const rail = h("span", { "aria-hidden": "true", style: k === "past"
+          ? { flex: "1 1 0", minWidth: 8, height: on ? 2 : 1, borderRadius: 2, background: on ? t.ink : t.line }
+          : { flex: "1 1 0", minWidth: 8, borderTop: (on ? 2 : 1) + "px dashed " + (on ? t.ink : t.line) } });
+        const txt = h("span", { style: {
+          flexShrink: 0, fontFamily: F_BODY, fontSize: on ? 12.5 : 11.5,
+          color: on ? t.ink : t.fog, letterSpacing: on ? ".01em" : 0
+        } }, label + (n ? " " + n : ""));
+        return [
+          i === 1 ? h("div", { key: "now", className: "flex items-center", style: { gap: 5, flexShrink: 0 },
+            "aria-label": "现在是" + light.zh + phoneClock(now) },
+            h("span", { style: { width: 5, height: 5, borderRadius: 9, background: t.ink } }),
+            // 这两个字同时在解释背景那道光是哪儿来的：不写的话，底色变了没人知道为什么
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".06em", color: t.sub } },
+              light.zh + " " + phoneClock(now))) : null,
+          h("button", {
+            key: k,
+            onClick: () => goTab(k),
+            className: "active:opacity-60 flex items-center",
+            "aria-pressed": on ? "true" : "false",
+            // 可点区域别低于 40px 的手感——轨只有 1-2px 高，靠这条撑起来
+            style: { flex: "1 1 0", minWidth: 0, minHeight: 42, gap: 7 }
+          }, k === "past" ? [cap, txt, rail] : [rail, txt, cap])
+        ];
+      })),
     // 只看新增
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
@@ -4738,6 +4748,115 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, page.body),
     detail);
 }
+// ─────────────────────────────────────────────────────────────
+// 歌单：一张碟的曲目单（v59.66）
+// ─────────────────────────────────────────────────────────────
+// 她 2026-09-01：「歌单 ui 现在也还是普普通通的」。
+// 原来是【一排小方图 + 歌名 + 歌手】——任何音乐 app 都长这样，
+// 按 .claude/rules/tabs-not-plain-pills.md 那条判据（换个 app 照样成立就是写坏了）
+// 就是没设计。而且那排 34px 的灰方块正是「哪个音乐 app 都有」的那一样东西。
+// 这一页真正独有的是 note：**他为什么循环这一首**。所以照【碟的曲目单】来做：
+// 顶上一张真的碟（纹路是程序画的，不烧生图额度），底下曲目一行行，
+// note 是写在曲目边上的那一行小字。
+function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
+  const [open, setOpen] = useState(null);
+  const A = a => Array.isArray(a) ? a : [];
+  // String({}) 会变成 [object Object] 印在曲目单上——模型偶尔把一栏写成对象
+  const S = v => (v == null || typeof v === "object") ? "" : String(v).trim();
+  // 模型/存档里偶尔混进 null 或字符串；不滤掉的话下一行 x.cover 当场抛
+  const songs = A(pl && pl.songs).filter(x => x && typeof x === "object");
+  if (!songs.length) return h("div", { className: "py-6" }, h(Empty, {
+    text: T("他还没有歌单"),
+    sub: T("「一起听」里给他生成一张，这里就能看到")
+  }), h("button", {
+    onClick: () => onGen && onGen(),
+    disabled: !!busy,
+    className: "w-full mt-4 py-3 active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: busy ? .5 : 1 }
+  }, busy ? T("正在想他会听什么…") : T("给他生成一张")));
+  const name = S(pl.name) || "歌单";
+  const seed = phoneStableHash(name);
+  const hue = seed % 360;
+  const cover = songs.map(x => S(x.cover)).filter(Boolean)[0] || "";
+  // 碟：一圈圈纹路用 repeating-radial-gradient 画出来，中间是标签，正中一个孔。
+  // 零请求、每张歌单一个颜色、换个名字就是另一张碟。
+  const disc = h("div", { "aria-hidden": "true", style: {
+    width: 84, height: 84, borderRadius: 999, flexShrink: 0, position: "relative", overflow: "hidden",
+    background: "repeating-radial-gradient(circle at 50% 50%,hsl(" + hue + " 16% 15%) 0 2px,hsl(" + hue + " 20% 22%) 2px 4px)",
+    boxShadow: "0 7px 18px rgba(28,25,20,.22)"
+  } },
+    h("span", { style: {
+      position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) rotate(-24deg)",
+      width: "150%", height: "36%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent)"
+    } }),
+    h("span", { style: {
+      position: "absolute", inset: "30%", borderRadius: 999, overflow: "hidden",
+      background: cover ? "#111" : "hsl(" + ((hue + 38) % 360) + " 52% 48%)"
+    } }, cover ? h("img", { src: cover, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }) : null),
+    h("span", { style: {
+      position: "absolute", left: "50%", top: "50%", marginLeft: -3, marginTop: -3,
+      width: 6, height: 6, borderRadius: 999, background: t.bg
+    } }));
+  const eyebrow = s => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog } }, s);
+  const act = (label, on, danger) => h("button", {
+    onClick: e => { e.stopPropagation(); on(); },
+    className: "active:opacity-60",
+    style: {
+      fontFamily: F_BODY, fontSize: 11.5, padding: "6px 12px", borderRadius: 99,
+      border: "1px solid " + (danger ? t.accent : t.line), color: danger ? t.accent : t.ink
+    }
+  }, label);
+  return h("div", { style: { animation: "fadeUp .3s ease both" } },
+    // 碟 + 这张叫什么
+    h("div", { className: "flex items-center", style: { gap: 15, padding: "2px 0 18px" } }, disc,
+      h("div", { className: "min-w-0", style: { flex: 1 } },
+        eyebrow("SIDE A"),
+        // 歌单名顶栏已经写着了，这儿不再抄一遍——碟边上该说的是顶栏说不了的：
+        // 这张有多少首、跟哪儿是同一张、以及点一首会发生什么
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.15, color: t.ink, marginTop: 7 } },
+          songs.length + " 首"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.65 } },
+          "和「一起听」是同一张"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 3, lineHeight: 1.65 } },
+          T("点一首，摊开他为什么听它")))),
+    // 曲目单：号在左边挂着，中间是曲名，他为什么循环这一首写在下面那一行
+    songs.map((s2, i) => {
+      const k = s2.id || ("s" + i);
+      const on = open === k;
+      const note = S(s2.note);
+      return h("div", { key: k, style: { borderTop: "1px solid " + t.line } },
+        h("button", {
+          onClick: () => setOpen(on ? null : k),
+          "aria-expanded": on ? "true" : "false",
+          className: "w-full text-left flex active:opacity-70",
+          style: { gap: 13, padding: "13px 0 12px" }
+        },
+          h("span", { style: {
+            flexShrink: 0, width: 26, textAlign: "right", fontFamily: F_DISPLAY,
+            fontSize: 16, lineHeight: 1.25, color: on ? t.ink : t.fog
+          } }, String(i + 1).padStart(2, "0")),
+          h("div", { className: "min-w-0", style: { flex: 1 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.4, color: t.ink, wordBreak: "break-word" } }, S(s2.title) || "未命名"),
+            S(s2.artist) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, S(s2.artist)) : null,
+            // 心境：他为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）。
+            // 这一行是这一页的正文，不是附注——所以给它朱色，别再当成灰色小字。
+            note ? h("div", { style: {
+              fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.accent, marginTop: 7,
+              paddingLeft: 9, borderLeft: "2px solid " + t.accent, opacity: .92, wordBreak: "break-word"
+            } }, note) : null,
+            // 点开就在原地摊开，不掀半窗（.claude/rules/no-half-sheet.md）。
+            // 一首歌要说的就这两个动作，为它另开一层页面反而更重。
+            on ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 11 } },
+              onPlay ? act("放这首", () => onPlay(s2)) : null,
+              // 歌单走 open 档——他没瞒着自己在听什么，所以不说「他会知道你翻了手机」，
+              // 那是撞破那一档的话。这儿就是随口提起。
+              onPeek ? act(T("跟他提这首"), () => onPeek({
+                tier: "open", label: "歌单",
+                title: S(s2.title) + (S(s2.artist) ? " · " + S(s2.artist) : ""), text: note
+              }), true) : null) : null)));
+    }));
+}
+
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -4828,48 +4947,10 @@ function renderPhoneModule(key, d, ctx) {
   // ── 音乐：接【一起听】里那张真歌单 ──
   // 以前这儿单独生成一份，于是同一个人有两张互不相干的歌单，
   // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
-  if (key === "music") {
-    const pl = ctx.playlist;
-    const songs = arr(pl && pl.songs);
-    if (!songs.length) return h("div", { className: "py-6" }, h(Empty, {
-      text: T("他还没有歌单"),
-      sub: T("「一起听」里给他生成一张，这里就能看到")
-    }), h("button", {
-      onClick: () => ctx.onGenPlaylist && ctx.onGenPlaylist(),
-      disabled: !!ctx.playlistBusy,
-      className: "w-full mt-4 py-3 active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: ctx.playlistBusy ? .5 : 1 }
-    }, ctx.playlistBusy ? T("正在想他会听什么…") : T("给他生成一张")));
-    // 歌单名进顶栏了，这里不再放一块大字（mobile-ui-layout.md §1：普通子页面用紧凑标题栏）
-    return h("div", { style: { animation: "fadeUp .3s ease both" } },
-      h("div", { className: "mb-2", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, songs.length + " 首 · 和「一起听」是同一张"),
-      songs.map((s, i) => {
-        const note = String(s.note || "").trim();
-        return h("button", {
-          key: s.id || i,
-          onClick: () => setSheet(h("div", null,
-            h(Eyebrow, { style: { marginBottom: 8 } }, s.title),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, s.artist),
-            note && h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, marginTop: 14 } }, note),
-            h("button", {
-              onClick: () => ctx.onPlaySong && ctx.onPlaySong(s),
-              className: "w-full mt-6 py-3 active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
-            }, "放这首"),
-            peekFoot("open", "歌单", s.title + (s.artist ? " · " + s.artist : ""), note))),
-          className: "w-full text-left py-2.5 flex items-start gap-3 active:opacity-60",
-          style: { borderTop: `1px solid ${t.line}` }
-        }, h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, width: 20, paddingTop: 3 } }, String(i + 1).padStart(2, "0")),
-        s.cover
-          ? h("img", { src: s.cover, alt: "", style: { width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 } })
-          : h("div", { style: { width: 34, height: 34, borderRadius: 6, background: t.bg2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "music", size: 15, color: t.fog })),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, s.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, s.artist),
-          // 心境：他为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）
-          note && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, paddingLeft: 8, borderLeft: "2px solid " + t.line } }, note)));
-      }));
-  }
+  if (key === "music") return h(MusicView, {
+    pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
+    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek
+  });
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });

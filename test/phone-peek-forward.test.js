@@ -61,7 +61,9 @@ test("藏起来的东西走 hidden 档：小号、匿名、深夜、私密、最
 });
 
 test("他没瞒着的东西走 open 档，别当成撞破", () => {
-  assert.match(phone, /peekFoot\("open", "歌单"/);
+  // ⚠️别冻调用形状：v59.66 歌单抽成了 MusicView，转发不再走 peekFoot 那颗通用脚注。
+  // 要证的是【歌单这一档是 open】，不是它由哪个 helper 发出去。
+  assert.match(phone, /tier: "open", label: "歌单"|peekFoot\("open", "歌单"/, "歌单不是 open 档了");
 });
 
 test("没主动说的日常内容走 quiet 档", () => {

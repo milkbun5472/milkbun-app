@@ -58,9 +58,13 @@ test("轴上那个「现在」要走针，页面上的今天也跟着它", () =>
 });
 
 test("tab 那一行画成一条轴：左实右虚，中间钉着现在", () => {
-  assert.match(view, /background: t\.line \} \}\),\s*h\("span", \{ style: \{ flexShrink: 0, width: 5, height: 5, borderRadius: 9, background: t\.ink/,
-    "轴的左半不是实线、或者中间没有「现在」那个点");
-  assert.match(view, /borderTop: "1px dashed " \+ t\.line \} \}\)\) : null,/, "轴的右半不是虚线");
+  // ⚠️别冻这一行的长相：v59.66 起两格自己就是那半条轴，不再是「轴 + 两颗药丸」。
+  // 要验的是这套话还在——走过的那半实线、还没走的那半虚线、中间钉着现在。
+  const bar = view.slice(view.indexOf("两格＝这条轴的两头"), view.indexOf("// 只看新增"));
+  assert.ok(bar.length > 300, "找不到那一行");
+  assert.match(bar, /k === "past"\s*\?[\s\S]{0,140}background: on \? t\.ink : t\.line/, "走过的那半不是实线");
+  assert.match(bar, /borderTop: \(on \? 2 : 1\) \+ "px dashed "/, "还没走的那半不是虚线");
+  assert.match(bar, /borderRadius: 9, background: t\.ink \} \}\)/, "中间没钉着「现在」那个点");
   assert.match(view, /light\.zh \+ " " \+ phoneClock\(now\)/,
     "轴上没写现在是几点、什么时候——背景那道光变了没人知道为什么");
 });
@@ -81,11 +85,16 @@ test("线走完最后一条还往下走一小截，收在一个空心点上", ()
 
 // 深色主题里 t.ink 是近白色：选中态压死 #fff 就是白底白字。
 test("选中的那颗药丸不许写死 #fff", () => {
-  ["tab === k", 'mode === "keep"', "(autoOn || {})[c.id]"].forEach(cond => {
+  // 时间线那两格 v59.66 已经不是药丸了（改成轴的两头），这儿只剩这两颗
+  ['mode === "keep"', "(autoOn || {})[c.id]"].forEach(cond => {
     const i = ph.indexOf(cond + " ? t.ink : \"transparent\"");
     assert.ok(i > 0, "找不到 " + cond + " 那颗药丸");
     assert.ok(ph.slice(i, i + 220).indexOf('"#fff"') < 0, cond + " 那颗药丸在深色主题里是白底白字");
   });
+  // 轴上那两格也一样：颜色一律走主题，不许压死一个白
+  const bar = view.slice(view.indexOf("两格＝这条轴的两头"), view.indexOf("// 只看新增"));
+  assert.ok(bar.indexOf('"#fff"') < 0, "轴上那两格写死了 #fff");
+  assert.match(bar, /color: on \? t\.ink : t\.fog/, "选中那半的字色没走主题");
 });
 
 // 真把两格各渲染一遍：正则断言拦不住「改签名那一步没匹配上」那种静默失败。

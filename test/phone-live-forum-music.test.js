@@ -66,8 +66,15 @@ test("歌单里每首歌带心境，并且在查手机看得到", () => {
   assert.match(appSrc, /note: String\(\(w && \(w\.note \|\| w\.thought \|\| w\.why \|\| w\.mood\)\)/);
   assert.match(appSrc, /note: w\.note \|\| ""/);
   assert.match(appSrc, /\\"note\\":\\"第一人称一句/);
-  // 显示侧
-  assert.match(phoneSrc, /const note = String\(s\.note \|\| ""\)\.trim\(\)/);
+  // 显示侧：别冻这一行的长相（v59.66 歌单重做成曲目单，那个变量改名了），
+  // 真渲一遍看 note 有没有印在页面上
+  const { loadPhone } = require("./helpers/phone-render.js");
+  const tree = JSON.stringify(loadPhone().MusicView({
+    pl: { name: "深夜那张", songs: [{ id: "a", title: "某首", artist: "某人", note: "他为什么循环这一首" }] },
+    char: { name: "某人" }, t: {}, onGen: () => {}, busy: false, onPlay: () => {}, onPeek: () => {}
+  }));
+  assert.ok(tree.includes("他为什么循环这一首"), "查手机的歌单里看不到心境");
+  assert.ok(tree.includes("某首") && tree.includes("某人"), "歌名或歌手没印出来");
 });
 
 test("歌单备注不许套同一个句式（她 2026-08-29：「有点不自然」）", () => {
