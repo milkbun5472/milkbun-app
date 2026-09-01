@@ -214,3 +214,18 @@ test("购物的骨架也换掉：没有账户卡、没有物流卡、没有白�
   assert.ok(shopping.indexOf("const thumb = ") < 0, "缩略图位还留着");
   assert.ok(shopping.indexOf("thumb(") < 0, "还有地方在摆缩略图位");
 });
+
+// 她 2026-09-01：「现在啥格式都去掉太平了，看不出来哪些是啥」。
+// 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**。
+test("去掉白卡之后，层次靠标签和字号重新建起来", () => {
+  assert.match(shopping, /const labeled = \(k, v, quiet\)/, "没有小标签这一层");
+  ["他写的", "为什么买这个", "送到"].forEach(k =>
+    assert.match(shopping, new RegExp('labeled\\("' + k + '"'), "「" + k + "」那一段没有标签，几段话糊成一坨"));
+  // 店和时间是出处，买的那样东西才是主角——原来两个都是 16px 深色，分不出主次
+  assert.match(shopping, /\[o\.shop, o\.time\]\.filter\(Boolean\)\.join\(" · "\)/, "店和时间没压成一行小字");
+  const i = shopping.indexOf("o.title ? h(\"div\", { key: \"n\"");
+  assert.ok(i > 0, "找不到商品名那一行");
+  assert.match(shopping.slice(i, i + 160), /fontSize: 18/, "商品名没比出处大——读的人分不出哪个是主角");
+  // 退掉的那一单实付是 0，摆个「¥0.00」在「后来退了」旁边只是噪音
+  assert.match(shopping, /Number\(o\.paid\) > 0 \? h\("span"/, "退掉的那一单还摆着 ¥0.00");
+});

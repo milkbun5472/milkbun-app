@@ -2511,6 +2511,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 这几节的行本来就自带细线分隔，外面再套一层白卡纯属多余——而正是那层白卡
   // 让整页读起来像货架。改成一份清单：细线分节、留白分段，白卡只留给真要跳出来的地方。
   // （外卖那边保留白卡是因为它像盘子；购物这边没有这个理由。）
+  // 一小行标签 + 一段正文。标签压得很轻（10.5px、淡色、带一点字距），
+  // 只负责把几段话分开；重的仍然是内容本身。
+  const labeled = (k, v, quiet) => h("div", { key: k, style: { marginTop: 12 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 4 } }, k),
+    h("div", { style: { fontFamily: F_BODY, fontSize: quiet ? 12 : 13.5, lineHeight: 1.75, color: quiet ? SHOP_DIM : SHOP_BODY, wordBreak: "break-word" } }, v));
   const plain = (kids, extra) => h("div", { style: Object.assign({ marginBottom: 16 }, extra || {}) }, kids);
   const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 12px" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: SHOP_INK } }, title),
@@ -2580,12 +2585,14 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("买过的", orders.length + " 次"),
     // 一单一张白卡＝一张张收据，还是电商那个排版。改成细线分隔的条目。
     plain(orders.map((o, i) => h("div", { key: i, style: { padding: "16px 2px", borderTop: i ? "1px solid " + SHOP_LINE : "none" } }, [
+      // ⚠️店名和商品名原来都是 16px 的深色，一样重——读的人分不出哪个是主角。
+      // 店和时间是【这一单的出处】，压成一行小字；**买的那样东西才是主角**。
       h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, o.shop || ""),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          [o.shop, o.time].filter(Boolean).join(" · ")),
         // 状态不画成一枚绿标（那是平台的订单状态徽章）；取消掉的那一单才值得说一句
-        o.status === "已取消" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, "后来退了") : null),
-      o.time ? h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, o.time) : null,
-      o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.45, color: SHOP_INK, marginTop: 10 } }, o.title) : null,
+        o.status === "已取消" ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: SHOP_MARK } }, "后来退了") : null),
+      o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: SHOP_INK, marginTop: 6, wordBreak: "break-word" } }, o.title) : null,
       A(o.items).length ? h("div", { key: "it", style: { background: SHOP_SOFT, borderRadius: 13, padding: "13px 14px", marginTop: 12 } },
         A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid " + SHOP_LINE : "none", marginTop: j ? 10 : 0 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
@@ -2594,11 +2601,16 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
         // 运费单列是收据的排版，不是这个人的事；只留他真花掉的那个数
         h("span", null),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid))),
+        Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid)) : null),
       A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
-      o.review ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_DIM, marginTop: 13 } }, o.review) : null,
-      o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_BODY, marginTop: 9 } }, o.reason) : null,
-      o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 11 } }, o.addr) : null,
+      // ⚠️她 2026-09-01：「现在啥格式都去掉太平了，看不出来哪些是啥」。
+      // 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**——
+      // 评价、为什么买、送到哪儿三段字号颜色都差不多，读起来就是一坨。
+      // 层次改用【小标签】重建：标签是我们自己的说法，不是平台部件，
+      // 而且它顺带答了「这句话是谁说的」——评价是他写的，理由是他自己的心思。
+      o.review ? labeled("他写的", o.review) : null,
+      o.reason ? labeled("为什么买这个", o.reason) : null,
+      o.addr ? labeled("送到", o.addr, true) : null,
       h("div", { key: "pk" }, peekBtn("quiet", T("他的订单"), o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
     ])))) : null;
   // ── 买东西这件事上（v59.38）──────────────────────────────────────────
@@ -2664,9 +2676,14 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ⚠️钱包算出来的那两个数【必须还看得见】。上面那一排统计块删掉了（那是平台部件），
   // 但「以钱包流水为准、不用模型编的数」这条不能跟着一起没——它防的是
   // 同一屏两处说着不同的钱。所以改成一句话摆在这一段的开头。
-  const spendLine = ms
-    ? "这一阵花掉 " + shopMoney(ms.spend) + "，" + shopInt(ms.orders) + " 单"
-    : (acc.monthSpend != null ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (acc.monthOrders != null ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
+  // ⚠️钱包只有【记着东西】的时候才算数（她 2026-09-01：「这里 bug 了怎么是 0」）。
+  // ms.spend 是 0 也是 isFinite，于是空钱包被当成权威，屏幕上写出「花掉 ¥0.00，0 单」
+  // ——那不是「他这阵子没花钱」，是**我们还不知道他花了多少**。
+  // 空钱包等同于没建档：退回模型那份；两份都没有就整句不出现，不硬报一个数。
+  const msReal = ms && (Number(ms.spend) > 0 || Number(ms.orders) > 0) ? ms : null;
+  const spendLine = msReal
+    ? "这一阵花掉 " + shopMoney(msReal.spend) + "，" + shopInt(msReal.orders) + " 单"
+    : (Number(acc.monthSpend) > 0 ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (Number(acc.monthOrders) > 0 ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
   // acc.persona（他买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
   // 它本来就属于「合起来看」：那一段说的正是他这个人怎么花钱。
   const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", "这一阵他是这么花钱的"),
