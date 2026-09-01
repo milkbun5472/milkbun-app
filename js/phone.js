@@ -1665,18 +1665,26 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const eyebrow = (s, c) => h("span", {
     style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || TALLY_DIM }
   }, s);
+  // 骑缝印（v59.64）：一栏一个字，盖在左边那道栏线上。
+  // 五栏原来是同一列白卡往下排，翻不翻都一个样子；一列朱印下去，
+  // 这一页才像一本账，而不是一叠便签。没结清那一栏按方向上色——
+  // 「他欠」和「记着」隔着老远也分得出来。
+  // 没结清那一栏的印刻的是【方向】：一列 欠／记／悬 走下来，隔着老远也看得出
+  // 这一页是他欠得多还是他记着的多。别的栏一栏一个字。
+  const SEAL = { policies: "保", statements: "定", treasures: "估", appraisals: "问" };
+  const DIR_SEAL = { mine: "欠", theirs: "记", open: "悬" };
+  const sealOf = e => e.kind === "debts" ? (DIR_SEAL[e.dir] || DIR_SEAL.open) : (SEAL[e.kind] || "账");
+  const sealColor = e => e.kind === "debts" ? ((TALLY_DIR[e.dir] || TALLY_DIR.open).c) : TALLY_RED;
 
   // ── 正面：五栏各长各的样子 ──────────────────────────────────────
   // 五栏渲染成同一张白卡的话，「兜底」是一张保单、「估价」是一张拍品签这件事
   // 就一个字都看不出来了——那正是这一版要改掉的。
   const faceOf = e => {
     if (e.kind === "debts") {
-      const dir = TALLY_DIR[e.dir] || TALLY_DIR.open;
+      // 方向不在这儿说——左边那个印就是它。同一句话说两遍，卡片上就只剩标签了。
       return [
-        h("div", { key: "h", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 4, flexShrink: 0, background: dir.c + "1c", color: dir.c } }, dir.zh),
-          whoPill(e)),
-        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, e.lead)
+        e.who ? h("div", { key: "h", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } }, whoPill(e)) : null,
+        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, e.lead)
       ];
     }
     if (e.kind === "policies") {
@@ -1757,7 +1765,24 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       background: TALLY_PAPER, borderRadius: 7, border: "1px solid rgba(31,29,26,.10)",
       padding: "15px 16px", overflow: "hidden"
     });
-    return h("div", { key: e.key, style: { perspective: 1000, marginBottom: 11 } },
+    const sc = sealColor(e);
+    return h("div", { key: e.key, style: { display: "flex", gap: 11, marginBottom: 11 } },
+      // 左边那道栏线：两条细朱线，印骑在上面。整列连着走，翻页不断。
+      h("div", { "aria-hidden": "true", style: { position: "relative", width: 26, flexShrink: 0 } },
+        h("span", { style: { position: "absolute", left: 11, top: -11, bottom: -11, width: 1, background: "rgba(156,63,52,.28)" } }),
+        h("span", { style: { position: "absolute", left: 14, top: -11, bottom: -11, width: 1, background: "rgba(156,63,52,.14)" } }),
+        h("span", { style: {
+          position: "absolute", left: 0, top: 13, width: 26, height: 26, borderRadius: 5,
+          border: "1px solid " + sc, color: sc, background: TALLY_BG,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1
+        } }, sealOf(e)),
+        // 印底下那个号：账本一行一号，一列数下去这一页才有长度
+        h("span", { style: {
+          position: "absolute", left: 0, top: 43, width: 26, textAlign: "center",
+          fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".06em", color: "rgba(156,63,52,.5)"
+        } }, String(e.i + 1).padStart(2, "0"))),
+      h("div", { style: { flex: 1, minWidth: 0, perspective: 1000 } },
       h(has ? "button" : "div", {
         onClick: has ? () => tap(e) : undefined,
         className: has ? "w-full text-left" : "w-full",
@@ -1779,44 +1804,79 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("span", { "aria-hidden": "true", style: {
             position: "absolute", left: 0, bottom: 0, width: 17, height: 17,
             background: "linear-gradient(-135deg,transparent 49%," + TALLY_LINE + " 50%," + TALLY_BG + " 52%)"
-          } }))));
+          } })))));
+  };
+
+  // 这一栏抬头那句：说的是【这一栏】有几笔、什么样，不是笼统一句「这本账」。
+  // 没结清那一栏还要拆出三个方向的数——一边倒还是三样都有，一眼看得出来。
+  const headNote = () => {
+    const n = rows.length;
+    if (!n) return "";
+    if (tab === "debts") {
+      // 三个方向按各自的颜色写出来：左边那一列印是什么意思，这一行就是它的说明。
+      // 另写一条【图例】是最笨的解法——把说明放在它本来就该在的地方。
+      const c = k => rows.filter(e => (TALLY_DIR[e.dir] ? e.dir : "open") === k).length;
+      return [["mine", c("mine")], ["theirs", c("theirs")], ["open", c("open")]]
+        .filter(x => x[1]).map((x, i) => h("span", { key: x[0] },
+          i ? h("span", { style: { color: TALLY_DIM } }, " · ") : null,
+          h("span", { style: { color: TALLY_DIR[x[0]].c } }, TALLY_DIR[x[0]].zh + " " + x[1])));
+    }
+    if (tab === "policies") return "给 " + new Set(rows.map(e => e.who).filter(Boolean)).size + " 个人兜着底";
+    if (tab === "statements") return n + " 句盖过章的话";
+    if (tab === "treasures") return n + " 样他估过价的东西";
+    return n + " 个他问自己的问题";
   };
 
   return h("div", { className: "h-full flex flex-col", style: { background: TALLY_BG } },
-    h("div", { className: "shrink-0 px-4 pb-1 flex items-center gap-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: TALLY_INK })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".24em", color: TALLY_INK } }, "TALLY"),
-      h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
-        onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_INK })) : null)),
-    h("div", { className: "shrink-0 px-5 pb-3" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, lineHeight: 1.7 } },
+    // ── 账本的封面那一块（v59.64）────────────────────────────────
+    // 原来整页从上到下一个色度：米底、近白的卡、灰字，没有一处压得住。
+    // 把顶上这一块做成墨色的封皮，字反白出来——账页才有个开头。
+    h("div", { className: "shrink-0", style: { background: TALLY_INK, paddingTop: safeTop(10) } },
+      h("div", { className: "px-4 pb-1 flex items-center gap-2" },
+        h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: TALLY_BG })),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".24em", color: TALLY_BG } }, "TALLY"),
+        h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
+          onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null)),
+      h("div", { className: "px-5 pb-3", style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "rgba(244,242,238,.62)" } },
         T("这本账不记钱。记的是他心里还没结清的东西——跟谁的都有，你只是其中一个。")),
-      // 折角不解释一句没人会去点。只说一次，说在最上面。
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TALLY_RED, marginTop: 5 } },
-        "折了角的那几张有背面 · 点一下翻过来")),
-    // 五栏切换：横滑，别挤成一行小字
-    h("div", {
-      className: "shrink-0 flex gap-2 px-5 pb-3 overflow-x-auto",
-      style: { scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }
-    }, TALLY_TABS.map(x => h("button", {
-      key: x.k, onClick: () => { setTab(x.k); setFlip(null); },
-      className: "active:opacity-60",
-      style: {
-        flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 14px", borderRadius: 99,
-        background: tab === x.k ? TALLY_INK : "rgba(31,29,26,.05)",
-        color: tab === x.k ? TALLY_BG : TALLY_DIM,
-        border: "1px solid " + (tab === x.k ? TALLY_INK : "transparent")
-      }
-    }, x.zh + (count(x.k) ? " " + count(x.k) : "")))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM, paddingTop: 2 } },
+      // 五栏切换：横滑，别挤成一行小字
+      h("div", {
+        className: "flex gap-2 px-5 pb-3 overflow-x-auto",
+        style: { scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }
+      }, TALLY_TABS.map(x => h("button", {
+        key: x.k, onClick: () => { setTab(x.k); setFlip(null); },
+        className: "active:opacity-60",
+        style: {
+          flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 14px", borderRadius: 99,
+          background: tab === x.k ? TALLY_BG : "transparent",
+          color: tab === x.k ? TALLY_INK : "rgba(244,242,238,.62)",
+          border: "1px solid " + (tab === x.k ? TALLY_BG : "rgba(244,242,238,.22)")
+        }
+      }, x.zh + (count(x.k) ? " " + count(x.k) : "")))),
+    // 封皮和账页之间那道朱线：翻开的那一下
+    h("div", { style: { height: 2, background: TALLY_RED, opacity: .5 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      // 账页抬头：左边这一栏有几笔、什么样；右边一句话交代折角是干嘛的
+      rows.length ? h("div", { className: "flex items-baseline justify-between gap-3", style: { padding: "13px 0 10px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: TALLY_INK, minWidth: 0, wordBreak: "break-word" } }, headNote()),
+        // 折角不解释一句没人会去点。只说一次，说在最上面。
+        h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: TALLY_RED, textAlign: "right", lineHeight: 1.5, maxWidth: 118 } },
+          "折了角的那几张有背面 · 点一下翻过来")) : null,
       // 账页的横格只铺到最后一条为止。铺满整个滚动框的话，一栏只有一条时
       // 底下就是大半屏空格子，看着像一张没填完的表。
       rows.length ? h("div", { style: {
-        paddingBottom: 26,
+        paddingTop: 4,
         background: "repeating-linear-gradient(180deg,transparent 0 31px," + TALLY_RULE + " 31px 32px)"
       } }, rows.map(slip))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
-          "这一栏还是空的。")));
+          "这一栏还是空的。"),
+      // 账页收口：双线一封，底下写清楚这一栏到此为止。
+      // 时间线那一页学到的：线走完最后一条就断掉，底下那片空白看着像没加载完。
+      rows.length ? h("div", { style: { padding: "4px 0 30px" } },
+        h("div", { style: { height: 1, background: "rgba(156,63,52,.30)" } }),
+        h("div", { style: { height: 1, background: "rgba(156,63,52,.30)", marginTop: 2 } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TALLY_DIM, marginTop: 9 } },
+          "这一栏记到这儿。他没记下的，这儿也不会有。")) : null));
 }
 
 // ─────────────────────────────────────────────────────────────
