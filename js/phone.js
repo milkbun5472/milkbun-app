@@ -444,8 +444,8 @@ const PHONE_GROW = {
   notes: { items: 24 },
   calls: { calls: 30, sms: 20, voicemail: 12, frequent: 12, blocked: 10 },
   browser: { searches: 44, marks: 14, private: 10 },
-  shopping: { orders: 36, wish: 24, viewed: 24, shops: 18, gifts: 20 },
-  takeout: { orders: 36, shops: 18, wish: 16 },
+  shopping: { orders: 36, wish: 24, viewed: 24, shops: 10, gifts: 20 },
+  takeout: { orders: 36, shops: 10, wish: 16 },
   // 相册的收口交给 phoneAlbumTidy（要先判重、再按五类保底分配额）。
   // 在这一步就砍到 80 的话，数量少的那一类会先被挤掉，保底就没得保了。
   // 病历夹：一次就诊就是一条，攒着看（她 2026-09-01 定的那个变体）
@@ -536,11 +536,17 @@ function phoneVitalMerge(prev, add) {
 // ⚠️关键是必须【显式】退出——累积层里「没写」等于「还在」，不等于「删了」。
 // 提示词里这句话是这一层的全部：不写不算删，要删就写进 retired。
 const PHONE_RETIRE = {
+  // ⚠️「常去的那几家」是名册，不是日志（她 2026-09-01 同意改）。
+  // 它答的是「现在常去哪几家」，不是「发生过什么」——按第二问就该走名册这一路。
+  // 原来挂在纯累积层：模型每轮凭空写四五家新店，一路攒到十八家，
+  // 那不是「他常去的店」，那是「他去过的所有店」。而且他真的不去了的那几家永远退不出。
+  // 走名册＝【还在的原样照抄回来 + 不去了的写进 retired】，跟书签、想买清单一个形状。
+  shopping: { wish: "想买清单", shops: "常去的店" },
+  // 想吃的／想买的：买到手或不惦记了就该退出，同理
+  takeout: { wish: "想吃的", shops: "常去的店" },
   browser: { marks: "书签" },
   liked: { follows: "关注的人", drafts: "草稿箱" },
   calls: { frequent: "常联系", blocked: "黑名单" },
-  shopping: { wish: "想买清单" },
-  takeout: { wish: "想吃的" },
   // 草稿会发出去或删掉，是名册不是日志
   mail: { drafts: "草稿箱" }
 };
@@ -931,7 +937,7 @@ function phoneRosterBlock(appKey, known) {
   if (!lines.length) return "";
   return "\n\n【他这几份名单上现在有这些】\n" + lines.join("\n")
     + "\n**还在名单上的请原样照抄回来**（连名字一起，别改写），这几份是「现在有哪些」不是「这次新增了哪些」。"
-    + "\n**已经不在了的，写进 retired**：取消收藏的书签、发出去或删掉的草稿、取关的人、放出黑名单的人、买到手或不想要了的东西。"
+    + "\n**已经不在了的，写进 retired**：取消收藏的书签、发出去或删掉的草稿、取关的人、放出黑名单的人、买到手或不想要了的东西、**已经不去了的那家店**。"
     + " retired 的格式是 {\"字段名\":[\"那一条在名单上的名字\"]}，名字要和上面列的对得上。"
     + "\n⚠️**光是不写它不算删掉**——不写等于它还在。要它消失就必须写进 retired。"
     + "\n大多数轮次 retired 是空的：名单本来就该慢慢变，不是每次换一批。";
@@ -5804,4 +5810,4 @@ if (typeof window !== "undefined") window.PhoneKit = {
   dropDupWechat: phoneDropDupWechat,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
