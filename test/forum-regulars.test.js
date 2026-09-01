@@ -54,8 +54,14 @@ test("角色小号拥有独立头像、主页、历史足迹与关注入口，�
 
 test("角色能认出自己用小号或匿名身份留下的论坛足迹", () => {
   assert.match(app, /p\.authorId === char\.id && isForumCharAuthor\(p\)/);
-  assert.match(app, /post\.authorType === "character_anon" && post\.authorId === toChar\.id/);
-  assert.match(app, /isForumCharAuthor\(f\) && f\.authorId === toChar\.id/);
+  // ⚠️别把参数名冻死：v59.71 把这两句抽成了 forumOwnTags(post, charId) 一份共用，
+  // 私聊和群聊两条转发路都吃它（原来只有私聊有，同一条帖转进群里作者本人认不出自己）。
+  // 要证的是【认得出自己的匿名帖】和【认得出自己在这帖里回过】这两件事还在。
+  assert.match(app, /post\.authorType === "character_anon" && post\.authorId === \w+/);
+  assert.match(app, /isForumCharAuthor\(f\) && f\.authorId === \w+/);
+  assert.match(app, /const forumOwnTags = \(post, charId\) =>/, "识别标签没抽成共用的一份");
+  assert.match(app, /forumOwnTags\(post, toChar\.id\)/, "私聊那条没用这一份");
+  assert.match(app, /forumOwnTags\(post, cid\)/, "群聊那条没用这一份");
 });
 
 test("角色主动论坛帖包含匿名周期，而且匿名是稀有的（她 2026-08-29：匿名比例太大）", () => {

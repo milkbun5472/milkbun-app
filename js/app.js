@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.70";
+const APP_VERSION = "v59.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7200,7 +7200,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
       const _graw = gchat.filter(m => m.kind !== "ooc" && contextAllowsMessage(m)).slice(-(gs.ctxN || 30));
-      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
       for (const m of _graw) { const ts = m.ts || 0; if (_gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + "，到 " + fmtStampAI(ts) + " ——〕"); const ta = (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (gs.memoryInterop && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
@@ -11689,22 +11689,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });
   // 转发帖子到私聊：只 push 卡片，【不自动回复】——她要转完接着说自己的话，说完按「回复」TA 再一起反应。
   // 帖子内容写进 content：回复走正常 replyNow 历史，TA 能一直记得这条帖（含自己匿名发的帖，认不认在正常回复里演）。
-  const forwardPostToChat = (post, toChar) => {
-    const isOwnAnon = post.anon && post.authorType === "character_anon" && post.authorId === toChar.id;
-    const isOwnPost = isForumCharAuthor(post) && post.authorId === toChar.id;
-    // 认出自己：这帖里若有 TA 本人发过的楼层/追评，随转发一起带上（让 TA 记得"这是我说过的话"）
+  // 「这帖是你自己发的 / 你本人在这帖里回过」——转发时让 TA 认得出自己。
+  // ⚠️抽成一份共用（v59.71）：原来这两句只写在私聊那一处，群聊那边只 push 了一个
+  //   post 对象、没有 content，于是同一条帖转进群里，作者本人一点都认不出是自己发的
+  //   （.claude/rules/four-surfaces-same-context.md：一层写在两处，第二处没跟上）。
+  const forumOwnTags = (post, charId) => {
+    if (!charId) return "";
+    const isOwnAnon = post.anon && post.authorType === "character_anon" && post.authorId === charId;
+    const isOwnPost = isForumCharAuthor(post) && post.authorId === charId;
     const mine = [];
     (forumCommentsRef.current[post.id] || []).forEach(f => {
-      if (f && isForumCharAuthor(f) && f.authorId === toChar.id) mine.push(f.content);
-      (f && f.replies || []).forEach(r => { if (r && isForumCharAuthor(r) && r.authorId === toChar.id) mine.push(r.content); });
+      if (f && isForumCharAuthor(f) && f.authorId === charId) mine.push(f.content);
+      (f && f.replies || []).forEach(r => { if (r && isForumCharAuthor(r) && r.authorId === charId) mine.push(r.content); });
     });
-    const ownTag = isOwnAnon ? "｜（这条其实是你自己匿名发的——认不认随你人设）"
-      : (isOwnPost ? "｜（这帖就是你自己发的）" : "");
-    const mineTag = mine.length ? "｜（你本人在这帖里回过：" + mine.slice(0, 3).map(x => "“" + String(x).replace(/\s+/g, " ").slice(0, 40) + "”").join("；") + "——认得出是你自己说过的话）" : "";
+    return (isOwnAnon ? "｜（这条其实是你自己匿名发的——认不认随你人设）" : (isOwnPost ? "｜（这帖就是你自己发的）" : ""))
+      + (mine.length ? "｜（你本人在这帖里回过：" + mine.slice(0, 3).map(x => "“" + String(x).replace(/\s+/g, " ").slice(0, 40) + "”").join("；") + "——认得出是你自己说过的话）" : "");
+  };
+  const forumShareText = (post, tags) => "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜"
+    + String(post.body || "").replace(/\s+/g, " ").slice(0, 160) + "｜作者显示：" + post.authorName + (tags || "");
+  const forwardPostToChat = (post, toChar) => {
     pChat(toChar.id, p => [...p, {
       role: "user", kind: "forumshare",
       post: { board: post.board, title: post.title, body: post.body, authorName: post.authorName, anon: !!post.anon },
-      content: "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜" + String(post.body || "").replace(/\s+/g, " ").slice(0, 160) + "｜作者显示：" + post.authorName + ownTag + mineTag,
+      content: forumShareText(post, forumOwnTags(post, toChar.id)),
       ts: Date.now(), read: false
     }]);
     toast("已转发给 " + (toChar.remark || toChar.name));
@@ -11833,12 +11840,43 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // 转发帖子到群聊：只 push 卡片（群反应可由用户点「让他们回复」触发）
   const forwardPostToGroup = (post, groupId) => {
+    // 群里在场的每个人各自认自己那一份：这帖是谁发的、谁在底下回过。
+    // 一个人也认不出来的话，帖子的作者本人在群里会当成一条陌生新闻来聊。
+    const g = (groups || []).find(x => x && x.id === groupId);
+    const ids = (g && Array.isArray(g.memberIds)) ? g.memberIds : [];
+    const tags = ids.map(cid => {
+      const tg = forumOwnTags(post, cid);
+      if (!tg) return "";
+      const c = (characters || []).find(x => x.id === cid);
+      return c ? "｜【给" + c.name + "】" + tg.replace(/^｜/, "") : "";
+    }).filter(Boolean).join("");
     pGChat(groupId, p => [...p, {
       role: "user", kind: "forumshare", senderName: profile.name || "我",
       post: { board: post.board, title: post.title, body: post.body, authorName: post.authorName, anon: !!post.anon },
+      content: forumShareText(post, tags),
       ts: Date.now()
     }]);
     toast("已转发到群聊");
+  };
+  // 把一条私信摆到某个角色面前（v59.71）。
+  // ⚠️私信【绝不自动进上下文】：那是她自己的收件箱，一个杠精天天来骂她，
+  //   不等于他就该知道——自动喂等于给他开上帝视角，而且每一轮都在烧额度。
+  //   但要给得出去：她想让他知道有人在骚扰她，那就该有一个按钮。
+  //   这跟查手机那条规矩是同一条：**只有转发才注入**。
+  const forwardPMToChat = (thread, toChar) => {
+    if (!thread || !toChar) return;
+    const lines = (thread.messages || []).slice(-6)
+      .map(m => (m.from === "me" ? "我" : thread.npcName) + "：" + String(m.text || "").replace(/\s+/g, " ").slice(0, 60))
+      .join("\n");
+    pChat(toChar.id, p => [...p, {
+      role: "user", kind: "forumshare",
+      content: "[给你看一段贴吧私信]一个网名叫「" + thread.npcName + "」的陌生网友私信我"
+        + (thread.attitude === "troll" ? "（这人是来找茬的）" : "") + "：\n" + lines
+        + "｜（**这是她主动拿给你看的**，不是你自己翻到的。按你的人设和你俩的关系反应：护着、笑她、劝她别理、或者要去替她出头都行；"
+        + "别当客服总结一遍私信内容。）",
+      ts: Date.now(), read: false
+    }]);
+    toast("已拿给 " + (toChar.remark || toChar.name) + " 看");
   };
   // ficshare 卡片的 content：让这篇文的 title/CP/作者/节选落进聊天历史，角色以后回看/重roll 才认得出是同一篇
   const ficShareContent = (s, note) => "[分享了一篇同人文]《" + s.title + "》｜CP：" + (s.cpText || "原创") + "｜作者：" + (s.author || "佚名") + (note ? "｜" + note : "") + (s.excerpt ? "｜开头：" + s.excerpt : "");
@@ -11962,6 +12000,46 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 而且它和上面那条杠精配额是一对的：手上那个杠精被清掉，下一次刷新才可能再来一个。
   const delForumPM = threadId => setForumPMs(prev => { const n = prev.filter(t => t && t.id !== threadId); saveJSON("x_forumPMs", n); return n; });
   const clearForumPMs = () => setForumPMs(() => { saveJSON("x_forumPMs", []); return []; });
+  // 主动私信一个网友（她 2026-09-01：「可以再给每个网友增加私信功能，就喂他们发过的帖
+  // 和回复过的」）。原来私信只有一条路：点刷新，等模型随机送几个人上门——我看上了楼里
+  // 某个人，想找他聊两句，没有任何入口。
+  // ⚠️开场白必须从【他自己在这个吧里说过的话】长出来，不然写出来的是「一个网友」，
+  //   换成谁都成立——那正是这个 app 最容易写坏的地方。
+  // ⚠️已经有这个人的会话就直接开那一条，不新开：同一个人不该在列表里躺两遍。
+  // 返回那条会话的 id，由论坛那边负责跳过去（pmId 是 Forum 组件自己的状态，app 够不着）
+  const startForumPM = async (npc, lines) => {
+    if (!npc || !npc.id) return "";
+    const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name));
+    if (exist) return exist.id;
+    if (!active) { toast("请先到设置配置 API"); return ""; }
+    const ground = (Array.isArray(lines) ? lines : []).filter(Boolean).slice(0, 8).join("\n");
+    setGen(g => ({ ...g, forumPM: "start" }));
+    try {
+      const meName = forumMe.handle || profile.name || "我";
+      const d = await runProbeRetry(active, forumWorldCtx(), {
+        instruction: "贴吧网友「" + npc.name + "」（@" + (npc.handle || npc.name) + "）收到了网名「" + meName + "」的私信邀请——对方主动来找 TA 说话。\n"
+          + (ground
+            ? "【TA 在吧里说过的话（开场白必须从这里面长出来，别写成一个谁都能说的开场）】\n" + ground + "\n"
+            : "【TA 在吧里还没留下什么公开发言】所以开场白只能是「不认识但被搭话了」的反应，别编 TA 说过的话。\n")
+          + "以「" + npc.name + "」的身份写第一句回话（opening）：**是被陌生人主动私信之后的反应**，不是 TA 主动来搭讪。"
+          + "顺带给 tagline（一句话画风）和 attitude（friendly / curious / troll 三选一，默认别选 troll）。"
+          + "**你们是陌生人，别默认对方性别**，不要用『老哥』『哥们』『兄弟』。",
+        schemaHint: "{\"tagline\":\"一句话画风\",\"attitude\":\"friendly\",\"opening\":\"被搭话之后的第一句\"}",
+        maxTokens: 600
+      });
+      const base = Date.now();
+      const th = {
+        id: "pm_" + base + "_s", npcId: npc.id, npcName: npc.name, tagline: (d && d.tagline) || "",
+        attitude: (d && d.attitude === "troll") ? "troll" : ((d && d.attitude) || "curious"),
+        ground,
+        messages: (d && d.opening) ? [{ from: "npc", text: String(d.opening), ts: base }] : [],
+        updatedTs: base, unread: false
+      };
+      setForumPMs(prev => { const n = [th, ...prev].slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
+      return th.id;
+    } catch (e) { toast("没联系上：" + (e.message || "重试")); return ""; }
+    finally { setGen(g => ({ ...g, forumPM: null })); }
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -11971,7 +12049,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
+        instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
+          // 这份底子是他在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
+          + (th.ground ? "\n【你在吧里说过这些，说话得像同一个人】\n" + th.ground + "\n" : "")
+          + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
         schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 800
       });
@@ -15293,6 +15374,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onRefreshPMs: refreshForumPMs,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
+    onStartPM: startForumPM,
+    onForwardPM: forwardPMToChat,
     onDelPM: delForumPM,
     onClearPMs: clearForumPMs,
     onEditMe: editForumMe,
