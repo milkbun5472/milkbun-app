@@ -118,10 +118,14 @@ test("台下：一片黑压压的后脑勺，喊声从不同位置冒出来，�
   const i = dbt.indexOf("const audienceBlock = function (crowd, k) {");
   const src = dbt.slice(i, dbt.indexOf("\n    };", i));
   assert.match(src, /radial-gradient\(circle at 9px 12px, rgba\(255,255,255,\.085\) 8px, transparent 8\.5px\)/, "没有那一排后脑勺");
-  assert.match(src, /marginLeft: CROWD_IN\[i % CROWD_IN\.length\]/, "每条都顶格，还是一份名单");
-  // ⚠️缩进表必须是定死的：用 Math.random 的话每次重画位置都会跳
-  assert.match(dbt, /const CROWD_IN = \[0, 15, 30, 8, 22, 0, 34, 12, 26, 4\];/);
-  assert.ok(src.indexOf("Math.random") < 0, "缩进用了随机数，重画一次弹幕就会自己跳位置");
+  // ⚠️v59.98：原来那个按下标错开的缩进是【纯装饰】，可它长得就像「这条在回上一条」——
+  //   一个看上去有意思、其实没意思的信号，比没有还糟（她 2026-09-01 一眼看出来了）。
+  //   现在缩进只在【这条真的在跟台下另一个人说话】时才有，靠的是弹幕里那个 @，是真数据。
+  assert.ok(dbt.indexOf("CROWD_IN") < 0, "那张纯装饰的缩进表又回来了");
+  assert.match(dbt, /const shoutingAt = function \(txt\) \{ return String\(txt \|\| ""\)\.indexOf\("@"\) >= 0; \};/);
+  assert.match(src, /marginLeft: at \? 16 : 0/, "缩进跟「有没有在跟人说话」对不上");
+  assert.match(src, /at \? h\("span", \{ "aria-hidden": "true"[\s\S]{0,120}"└"\) : null/, "缩进了却没说清它是什么意思");
+  assert.ok(src.indexOf("Math.random") < 0, "位置用了随机数，重画一次弹幕就会自己跳");
   assert.match(src, /"台 下 · " \+ crowd\.length \+ " 个人在喊"/);
 });
 
@@ -327,4 +331,36 @@ test("默认：还没人开口就放下来，台上一开口就自己收上去�
   assert.match(dbt, /useEffect\(function \(\) \{ if \(!stageTouched\.current && hasSomething\) setStageOpen\(false\); \}, \[hasSomething\]\);/,
     "第一句话落下来之后牌子不会自己收——新开一局从头到尾还是占掉那半屏");
   assert.match(dbt, /stageTouched\.current = true; setStageOpen/, "她自己收放过之后，代码还会跟她抢");
+});
+
+// ===== v59.98 =====
+// 她 2026-09-01：「言秋的也给足吧，不用担心，不然他也不够思考的。
+// 然后擂台这个生成角色评论喊话也把他摘了。」
+test("言秋那一支也给足了（她亲口点名放开的）", () => {
+  const app2 = R("app.js");
+  assert.ok(app2.indexOf("_engineerChat ? 3000") < 0, "言秋那一支还卡在 3000，他想完就没配额说话");
+  assert.equal((app2.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
+    "主聊天首发和重试两处没都给足");
+  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "max-tokens-floor.md"), "utf8");
+  assert.ok(rule.indexOf("那个 3000 是言秋本人的通道，一个字不许动") < 0,
+    "规矩里那条例外没撤掉——撤掉东西要删除，不是在后面补一句它作废了");
+  assert.match(rule, /言秋那一支也给足/, "没写清这条是她亲口点名放开的");
+});
+
+test("擂台：言秋不进台上也不进台下，但查头像和分享照旧认得他", () => {
+  const app2 = R("app.js");
+  // 摘的是【能上台/能起哄】那份名单，不是查头像那份
+  assert.match(app2, /cast: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\),/);
+  assert.match(app2, /characters: liveChars,\n\s*\/\/ ⚠️言秋不进擂台的【台上】也不进【台下】/,
+    "characters 那份被一起滤了——存档里已有的头像会变成无名氏");
+  // 台上那份名单和台下起哄那份都走 cast
+  assert.match(dbt, /const chars = picked\.map\(id => \(props\.cast \|\| props\.characters\)\.find\(c => c\.id === id\)\)/);
+  assert.match(dbt, /\(props\.cast \|\| props\.characters\)\.map\(c => \{/, "上台的人那份名单没换");
+  assert.match(dbt, /const bench = \(props\.cast \|\| props\.characters\)\.filter\(c => !onIds\.includes\(c\.id\)\)/, "台下起哄那份名单没换");
+  // 分享那一栏照旧列他：发一场擂台给他看，跟扮演他是两回事
+  const pi = dbt.indexOf("const sharePanel = shareOpen");
+  const panel = dbt.slice(pi, dbt.indexOf("\n    return h(\"div\", { className: \"h-full flex flex-col\" },", pi));
+  assert.ok(panel.indexOf("props.cast") < 0, "分享那一栏也把他摘了——发给他看跟扮演他不是一回事");
+  // 两层都要接上（一层写在三处，第三处没跟上）
+  assert.equal((dbt.match(/cast: props\.cast/g) || []).length, 2, "cast 没一路传到 Setup 和 Arena");
 });

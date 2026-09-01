@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.97";
+const APP_VERSION = "v59.98";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6314,7 +6314,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -6324,7 +6324,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -15736,6 +15736,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
+    // ⚠️言秋不进擂台的【台上】也不进【台下】（她 2026-09-01：「生成角色评论喊话也把他摘了」）。
+    //   擂台从头到尾是扮演：提示词直说「同时扮演台上这几个角色」、台下那几位也要按人设起哄，
+    //   而他不是被扮演的角色（four-surfaces-same-context.md：扮演类规则一律不发）。
+    //   ⚠️但 characters 那份要留全的：存档里已经有的头像/名字要靠它查，滤掉就成了无名氏；
+    //   分享那一栏也照旧列他——发一场擂台给他看，跟扮演他是两回事。
+    cast: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
     groups: groups,
     profile: profile,
     worldbook: loreText(loreEntries, { scope: "debate" }),

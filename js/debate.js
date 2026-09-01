@@ -211,7 +211,7 @@
 
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: props.characters, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        active: props.active, characters: props.characters, cast: props.cast, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -220,7 +220,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, cast: props.cast, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
@@ -233,7 +233,7 @@
       h(Head, { zh: "擂台", en: "Arena", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("button", {
-          onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
+          onClick: () => { if (!(props.cast || props.characters).length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
           className: "w-full py-3 mb-5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
         }, "＋ 摆一场擂台"),
@@ -289,7 +289,7 @@
       if (!picked.length) { props.toast && props.toast("至少拉 1 个人上台"); return; }
       setStarting(true);
       try {
-        const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
+        const chars = picked.map(id => (props.cast || props.characters).find(c => c.id === id)).filter(Boolean);
         const uName = (props.profile && props.profile.name) || "我";
         const assigned = await assignStances(props.active, props.worldbook, topic.trim(), chars, mode === "free");
         // 参赛者结构（含我）
@@ -324,8 +324,8 @@
         // 选角色
         h("div", { style: label }, "上台的人（选 1 个＝和你 1v1；2~3 个＝一台子人一起吵）"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
-          props.characters.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") :
-            props.characters.map(c => {
+          (props.cast || props.characters).length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") :
+            (props.cast || props.characters).map(c => {
               const on = picked.includes(c.id);
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70",
                 style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
@@ -407,7 +407,7 @@
       try {
         const charParts = s.parts.filter(p => p.kind === "char");
         const onIds = charParts.map(c => c.id);
-        const bench = props.characters.filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
+        const bench = (props.cast || props.characters).filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
         const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
         const count = ri(7, 10);
         const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, props.worldbook, {
@@ -530,16 +530,23 @@
         h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text));
     };
 
-    // ── 台下：一片黑压压的后脑勺，喊声从不同位置冒出来 ────────
-    // 不是一份「@某某：某某」的名单。缩进按条错开（用下标定死，不随机——重画时不许跳）。
-    const CROWD_IN = [0, 15, 30, 8, 22, 0, 34, 12, 26, 4];
+    // ── 台下：一片黑压压的后脑勺 ────────────────────────────
+    // ⚠️她 2026-09-01：「喊话这些 indent 是有啥特殊意义吗看起来也不像回复楼上」。
+    //   ——她说得对。原来那个缩进是【按下标错开的】，纯装饰，可它长得就像「这条在回上一条」，
+    //   于是它在骗人：一个看上去有意思、其实没意思的信号，比没有还糟。
+    //   撤掉就是删掉。现在缩进只在【这条真的在跟台下另一个人说话】时才有——
+    //   靠的是弹幕里那个 @，那是真数据，不是我随手排的。
+    //   台下不像名单，靠的是顶上那排后脑勺和熟人/路人的冷暖色，不靠假缩进。
+    const shoutingAt = function (txt) { return String(txt || "").indexOf("@") >= 0; };
     const audienceBlock = function (crowd, k) {
       return h("div", { key: "aud" + k, style: { position: "relative", background: "#1e1d1b", borderRadius: 12, padding: "20px 13px 14px", margin: "2px 0 15px", overflow: "hidden" } },
         // 顶上那一排后脑勺：台下坐着一片人
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 11, backgroundImage: "radial-gradient(circle at 9px 12px, rgba(255,255,255,.085) 8px, transparent 8.5px)", backgroundSize: "22px 11px" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "台 下 · " + crowd.length + " 个人在喊"),
         crowd.map(function (c, i) {
-          return h("div", { key: i, style: { marginLeft: CROWD_IN[i % CROWD_IN.length], fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: "#ece8df", marginBottom: 4 } },
+          const at = shoutingAt(c.text);
+          return h("div", { key: i, style: { marginLeft: at ? 16 : 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: "#ece8df", marginBottom: 4 } },
+            at ? h("span", { "aria-hidden": "true", style: { color: "#6f6a5f", marginRight: 4 } }, "└") : null,
             h("span", { style: { color: c.known ? "#e8a598" : "#8fb0c9", fontWeight: 600 } }, c.name + "："), c.text);
         }));
     };

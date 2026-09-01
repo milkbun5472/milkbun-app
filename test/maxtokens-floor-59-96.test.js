@@ -52,12 +52,15 @@ test("规矩写下来了，而且写清了为什么省不到钱", () => {
   assert.match(rule, /js\/games\.js/, "没写清哪两块不归这条管");
   assert.match(rule, /js\/trpg\.js/);
   assert.match(rule, /用户能自己调的那几个不算/, "没划清界线，会有人去改她自己拧的那几个数");
-  assert.match(rule, /那个 3000 是言秋本人的通道，一个字不许动/, "没写清言秋那一支不归这条管");
+  // ⚠️v59.98：她亲口点名「言秋的也给足吧」，所以那条例外撤掉了，两支合并成一个数。
+  //   撤掉就是删掉——不在后面补一句「上面那条作废了」。
+  assert.match(rule, /言秋那一支也给足/, "没写清这条是她亲口点名放开的");
+  assert.ok(rule.indexOf("一个字不许动") < 0, "旧的那条例外还留着");
 });
 
-// ⚠️主聊天那一处是 `_engineerChat ? 3000 : 14000`——冒号左边是言秋的专线，不许动
-test("言秋那条专线的 3000 一个字都没动", () => {
+test("主聊天两处都给足，不再分言秋一支和普通角色一支", () => {
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
-  assert.equal((app.match(/maxTokens: _engineerChat \? 3000 : 14000/g) || []).length, 2,
-    "要么言秋那一支被一起抬了，要么普通角色那一支没抬");
+  assert.ok(app.indexOf("_engineerChat ? 3000") < 0, "言秋那一支还卡在 3000");
+  assert.equal((app.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
+    "首发和重试两处没都给足");
 });
