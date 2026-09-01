@@ -5189,11 +5189,14 @@ function RecallShadowPanel() {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "读取中…")));
 }
 
-function CtxDebug({ characters, getBundle }) {
+function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   const t = useTheme();
-  const [cid, setCid] = useState(null);
-  const [text, setText] = useState("");
-  const [recall, setRecall] = useState(null);
+  const initialCid = lockedCharId || null;
+  const readBundle = id => String((getBundle && getBundle(id)) || "（空）");
+  const readRecall = id => typeof window !== "undefined" && window.MemoryRecallSnapshot ? window.MemoryRecallSnapshot.get(id) : null;
+  const [cid, setCid] = useState(initialCid);
+  const [text, setText] = useState(() => initialCid ? readBundle(initialCid) : "");
+  const [recall, setRecall] = useState(() => initialCid ? readRecall(initialCid) : null);
   const [open, setOpen] = useState({});
   const [wireOn, setWireOn] = useState(() => typeof window !== "undefined" && !!window.__offlineWireCaptureEnabled);
   const [wireRows, setWireRows] = useState(() => typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
@@ -5247,8 +5250,8 @@ function CtxDebug({ characters, getBundle }) {
   })();
   const load = id => {
     setCid(id);
-    setText(String((getBundle && getBundle(id)) || "（空）"));
-    setRecall(typeof window !== "undefined" && window.MemoryRecallSnapshot ? window.MemoryRecallSnapshot.get(id) : null);
+    setText(readBundle(id));
+    setRecall(readRecall(id));
     setOpen({});
   };
   const secs = (() => {
@@ -5278,11 +5281,11 @@ function CtxDebug({ characters, getBundle }) {
     });
     return out;
   })();
-  return h("div", { style: { marginTop: 10 } },
-    h(Eyebrow, { style: { marginBottom: 8 } }, "上下文透视"),
+  return h("div", { style: { marginTop: compact ? 2 : 10 } },
+    h(Eyebrow, { style: { marginBottom: 8 } }, compact ? "本轮注入 · " + ((((characters || [])[0] || {}).remark) || (((characters || [])[0] || {}).name) || "当前角色") : "上下文透视"),
     h(React.Fragment, null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
-    h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, compact ? "刚聊完就来这里看：上面是上一轮真正选中的记忆，下面是此刻重建的完整提示词预览。" : "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
+    !compact ? h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
       h("div", { className: "flex items-center justify-between gap-2" },
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "线下 wire payload · 仅本机内存"),
@@ -5306,10 +5309,10 @@ function CtxDebug({ characters, getBundle }) {
           h("summary", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, cursor: "pointer" } },
             new Date(r.ts).toLocaleTimeString() + " · " + r.format + " · " + (r.meta && r.meta.transitionBefore) + "→" + (r.meta && r.meta.transitionAfter) + " · calibration=" + !!(r.meta && r.meta.calibrationInjected)),
           h("pre", { style: { marginTop: 6, padding: 8, borderRadius: 8, background: t.bg, maxHeight: 280, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", fontFamily: "monospace", fontSize: 9.5, lineHeight: 1.55, color: t.sub } }, JSON.stringify(r, null, 2)))))
-      : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "暂无记录。开启后正常生成线下回复，再回来点“刷新记录”。")),
-    h(RecallShadowPanel, null),
-    h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
-      h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
+      : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "暂无记录。开启后正常生成线下回复，再回来点“刷新记录”。")) : null,
+    !compact ? h(RecallShadowPanel, null) : null,
+    !lockedCharId ? h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
+      h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))) : null,
     cid ? h("div", { style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
       h("div", { className: "flex items-start justify-between gap-2" },
         h("div", null,

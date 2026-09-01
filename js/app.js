@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.88";
+const APP_VERSION = "v59.89";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15008,6 +15008,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
 
   // ---- routing ----
+  // 上下文诊断共用同一条只读构建口：全局设置可总览，角色聊天设置则把当前角色锁进去。
+  const inspectBundleFor = cid => {
+    try {
+      const c = characters.find(x => x.id === cid);
+      return c ? buildBundle(ctxFor(c, { debug: true })) : "";
+    } catch (e) { return "生成失败：" + (e.message || e); }
+  };
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
@@ -16067,12 +16074,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       location.reload();
     },
     // 上下文透视：把此刻会喂给模型的完整 bundle 给设置页展示（只读、零 API）
-    debugBundleFor: cid => {
-      try {
-        const c = characters.find(x => x.id === cid);
-        return c ? buildBundle(ctxFor(c, { debug: true })) : "";
-      } catch (e) { return "生成失败：" + (e.message || e); }
-    },
+    debugBundleFor: inspectBundleFor,
     toast: toast
   });
   // 刘海那一条归各个界面的顶栏自己吃（v56.63，见 engine.js 的 safeTop）：
@@ -16176,6 +16178,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (close) setChatSettingsOpen(false);
     },
     onSummarizeRoom: (room, frame) => summarizeChatRoom(activeChar, room, frame),
+    renderContextDebug: () => h(CtxDebug, {
+      characters: [activeChar],
+      getBundle: inspectBundleFor,
+      lockedCharId: activeChar.id,
+      compact: true
+    }),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);

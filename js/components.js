@@ -249,9 +249,19 @@ function Sheet({
   children,
   onClose,
   tall,
-  lift
+  lift,
+  scrollKey
 }) {
   const t = useTheme();
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    if (scrollKey == null || !scrollRef.current) return;
+    const node = scrollRef.current;
+    const resetScroll = () => { node.scrollTop = 0; };
+    resetScroll();
+    const frame = requestAnimationFrame(resetScroll);
+    return () => cancelAnimationFrame(frame);
+  }, [scrollKey]);
   return /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-end z-50",
     style: {
@@ -260,6 +270,7 @@ function Sheet({
     },
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
+    ref: scrollRef,
     onClick: e => e.stopPropagation(),
     className: "w-full p-6 pb-9",
     style: {
@@ -268,6 +279,7 @@ function Sheet({
       animation: "fadeUp .3s ease both",
       maxHeight: tall ? "88%" : "72%",
       overflowY: "auto",
+      overflowAnchor: "none",
       marginBottom: lift ? lift : 0,
       transition: "margin-bottom .18s ease"
     }
@@ -9858,7 +9870,8 @@ function ChatSettings({
   jiwenState,
   activeRoomId,
   onSelectRoom,
-  onSummarizeRoom
+  onSummarizeRoom,
+  renderContextDebug
 }) {
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
@@ -9956,6 +9969,7 @@ function ChatSettings({
     h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
   const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
   const settingPages = [
+    { key: "debug", icon: "⌁", title: "上下文诊断", sub: "核对上一轮真实召回与实际提示词", tint: "#687f73" },
     { key: "rooms", icon: "⌂", title: "房间与权限", sub: "切换、新建房间，配置认知、行动与写回边界", tint: "#477f88" },
     { key: "relate", icon: "♡", title: "相处与主动", sub: "内在状态、性情、主动联系与线下相处", tint: "#d97c86" },
     { key: "route", icon: "⌁", title: "线路与身份", sub: "角色专属 API 与驻场能力", tint: "#6693c7" },
@@ -9964,8 +9978,10 @@ function ChatSettings({
     { key: "safety", icon: "◇", title: "安全与清理", sub: "拉黑、清空聊天与危险操作", tint: "#6e9c7a" }
   ];
   return /*#__PURE__*/React.createElement(Sheet, {
+    key: settingsTab || "home",
     onClose: onClose,
-    tall: true
+    tall: true,
+    scrollKey: settingsTab || "home"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, h("div", { className: "flex items-center", style: { gap: 9 } }, settingsTab && h("button", {
@@ -10030,6 +10046,7 @@ function ChatSettings({
     onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")
   }),
+  settingsTab === "debug" && renderContextDebug ? renderContextDebug() : null,
   show("relate", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),
