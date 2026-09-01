@@ -116,7 +116,7 @@ test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
   assert.match(app, /isNpc: !!scc\.npc,/);
   // ⚠️v59.77 心声卡重做：心情长在抬头那一行上、好感度改成一条刻度。
   // 要证的还是【配角这两样都不摆】——他们的心情和好感永远不会动，摆出来是假的。
-  assert.match(comp, /!isNpc && dm \? h\("span"[\s\S]{0,120}dm\.label/, "配角也摆了心情");
+  assert.match(comp, /\(!isNpc && dm\) \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "配角也摆了心情");
   assert.match(comp, /const scale = isNpc \? null :/, "配角也摆了好感度");
   // 穿着/动作/心声照旧显示——那些是真的
   assert.doesNotMatch(comp, /!isNpc && .*hideWearAction/);

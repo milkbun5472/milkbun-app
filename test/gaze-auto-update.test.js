@@ -45,7 +45,12 @@ test("给可判定的触发点，别让它自己去悟「什么算真正改变�
 // 模型每次都走它（她 8.16 到 8.27 一块没改过）。改成【点名问最老的那一块】，
 // 并给一个诚实的第三条路：看过了确实不用改，也要说出来。
 test("久没动过才点名，平时不啰嗦", () => {
-  G.seed("c1", { me: { person: "她很怕麻烦别人" }, us: {} });
+  // ⚠️v59.79 起点名的间隔看【卡填到什么程度】：空卡每轮、没写满每 6 轮、写满 25 轮。
+  // 这一条验的是【写满之后】那一档——平时不啰嗦。
+  G.seed("c1", {
+    me: { person: "她很怕麻烦别人", soft: "a", like: "b", recent: "c", unread: "d" },
+    us: { what: "e", how: "f", marks: "g", elephant: "h", want: "i" }
+  });
   assert.equal(G.staleTurns("c1"), 0);
   for (let i = 0; i < G.STALE_TURNS - 1; i++) G.tick("c1");
   assert.ok(G.spec("阿棠", "c1").indexOf("这一轮请复看这一块") < 0, "还没到阈值就别念");
@@ -65,10 +70,48 @@ test("写过一次就重新数", () => {
   assert.equal(G.staleTurns("c1"), 0);
 });
 
-test("空卡不催——那是建卡的事，不是更新的事", () => {
-  for (let i = 0; i < 40; i++) G.tick("empty");
-  assert.equal(G.staleTurns("empty"), 0, "还没建卡就没有「久没更新」可言");
-  assert.ok(G.spec("阿棠", "empty").indexOf("⚠️") < 0);
+// ⚠️这一条原来写的是【空卡不催——那是建卡的事，不是更新的事】。那个假设是错的，
+// 而且错得很硬：staleTurns 对空卡永远返回 0 → 点名永远不出现 → 模型只看得到那句
+// 高门槛 → 一辈子不写 → 卡还是空的。**空 → 不催 → 还是空**，一个死锁。
+// 结果就是：没手动按过「建卡」的人，这一层一辈子是空的
+//（她 2026-09-01：「这个 Ta 眼里还是根本不填」）。撤掉就是删掉，换成反过来的那条。
+test("空卡最该催：一块都没有时每一轮都点名", () => {
+  assert.ok(G.spec("阿棠", "empty").indexOf("这一轮请复看这一块") > 0, "空卡第一轮就该点名");
+  assert.match(G.spec("阿棠", "empty"), /这一块还是空的,你从来没写过/, "没说清这块是空的还是要保留原样");
+  // 空块给的出口不是「看过了不用改」，那句话对一块从没写过的东西根本不成立
+  assert.match(G.spec("阿棠", "empty"), /认识得还不够,真写不出来/, "空块的出口措辞不对");
+  // 问法也要跟着变：空块问的是「够不够你写下这一块」，不是「让它需要改吗」
+  assert.match(G.spec("阿棠", "empty"), /够不够你写下这一块/, "对着一块空的还在问「需要改吗」");
+  // ⚠️staleTurns 不许再对空卡返回 0：那正是当初那个死锁的源头
+  for (let i = 0; i < 3; i++) G.tick("empty2");
+  assert.equal(G.staleTurns("empty2"), 3, "空卡的轮数又被抹成 0 了——死锁会从这儿长回来");
+  // 诚实答一次「写不出来」→ 队列要真的转，下一轮点的是别的块
+  const first = (G.spec("阿棠", "empty").match(/\((\w+\.\w+)\)/) || [])[1];
+  assert.ok(first, "点名里没写块名");
+  assert.ok(G.markChecked("empty", first));
+  const second = (G.spec("阿棠", "empty").match(/\((\w+\.\w+)\)/) || [])[1];
+  assert.notEqual(second, first, "答完还问同一块，队列没转");
+});
+
+test("写了一部分就每 6 轮点一次，别让剩下九块等两百多轮", () => {
+  G.seed("part", { me: { person: "她比看上去能扛" }, us: {} });
+  assert.ok(G.spec("阿棠", "part").indexOf("这一轮请复看这一块") < 0, "刚写完就又催");
+  for (let i = 0; i < 6; i++) G.tick("part");
+  assert.ok(G.spec("阿棠", "part").indexOf("这一轮请复看这一块") > 0, "没写满时还在按 25 轮等");
+});
+
+test("「看过了不用改」不许买走整整 25 轮的安静", () => {
+  G.seed("full", {
+    me: { person: "a", soft: "b", like: "c", recent: "d", unread: "e" },
+    us: { what: "f", how: "g", marks: "h", elephant: "i", want: "j" }
+  });
+  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("full");
+  const k = (G.spec("阿棠", "full").match(/\((\w+\.\w+)\)/) || [])[1];
+  G.markChecked("full", k);
+  // 原来这一下把 turns 清成 0：一次白答买走 25 轮，十块轮一遍要 250 轮
+  assert.ok(G.staleTurns("full") >= G.STALE_TURNS - 10, "答一次「不用改」就把计数清光了");
+  for (let i = 0; i < 10; i++) G.tick("full");
+  assert.ok(G.spec("阿棠", "full").indexOf("这一轮请复看这一块") > 0, "答完之后要再等 25 轮才轮到下一块");
 });
 
 test("不传 charId 也不炸（群聊那份还在共用）", () => {

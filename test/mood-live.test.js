@@ -64,10 +64,10 @@ test("实时心情卡要摆出上次写入时间，别让「没人写过」看�
   // ⚠️v59.77 心声卡重做：心情不再单独占一张卡，改成长在抬头那一行上，
   // 「上次写入：」也跟着改口成「上一次变是」。要证的还是那三件事：
   // 写过的心情要摆出上次变的时间、默认心情不摆时间、平复过的要说清楚。
-  assert.match(comp, /"上一次变是 " \+ timeAgo\(dm\.ts\)/, "看不出这心情是什么时候写的");
-  assert.match(comp, /dm && dm\.def \? "还没聊出心情/, "默认心情没有跟真心情分开");
-  assert.match(comp, /dm && dm\.faded \? "已经随时间平复下去了"/, "平复过的没交代");
-  const i = comp.indexOf("上一次变是");
+  assert.match(comp, /timeAgo\(dm\.ts\) \+ "变的"/, "看不出这心情是什么时候写的");
+  assert.match(comp, /dm && dm\.def \? "聊几句就会变"/, "默认心情没有跟真心情分开");
+  assert.match(comp, /dm && dm\.faded \? "已经平复下去了"/, "平复过的没交代");
+  const i = comp.indexOf('timeAgo(dm.ts) + "变的"');
   assert.ok(comp.lastIndexOf("dm.label", i) > 0 && i - comp.lastIndexOf("dm.label", i) < 900,
     "这一行得挨着心情那一句");
 });

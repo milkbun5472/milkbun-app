@@ -6899,6 +6899,7 @@ function MsgMenu({
 //   上半屏糊着上一层」的半窗。这张卡是【贴在某一轮对话上的一帧】，看得见底下
 //   那层聊天是它成立的前提，而且内容就三段——正中一个框才是它该有的形状。
 //   这是她 2026-09-01 直接点的。
+const HEART_D = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z";
 function CenterCard({ children, onClose, maxWidth }) {
   const t = useTheme();
   return h("div", {
@@ -6909,8 +6910,12 @@ function CenterCard({ children, onClose, maxWidth }) {
     onClick: e => e.stopPropagation(),
     className: "w-full flex flex-col",
     style: {
-      maxWidth: maxWidth || 400, maxHeight: "82vh", background: t.bg2,
+      maxWidth: maxWidth || 400, maxHeight: "82vh",
+      // 一张白框太空（她 2026-09-01：「这一个白框还是无聊」）：加一层极淡的纸纹，
+      // 斜着走的一道道细线——不抢字，但这张卡不再是一块纯色。
+      background: "repeating-linear-gradient(112deg,rgba(120,110,95,.028) 0 1px,transparent 1px 7px)," + t.bg2,
       borderRadius: 20, border: "1px solid " + t.line,
+      borderTop: "3px solid " + t.accent,
       boxShadow: "0 24px 60px rgba(20,19,15,.34)", overflow: "hidden",
       animation: "fadeUp .22s ease both"
     }
@@ -6931,16 +6936,19 @@ function StateCard({
   const seen = [S(state && state.wearing), S(state && state.action)].filter(Boolean);
   const label = (txt, c) => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || t.fog } }, txt);
   // 抬头：谁、此刻什么心情、上次动是什么时候。心情不再单独占一张卡。
-  const head = h("div", { className: "shrink-0 flex items-start gap-3", style: { padding: "16px 17px 13px", borderBottom: "1px solid " + t.line } },
-    h(Avatar, { character: character, size: 44, radius: 12 }),
+  // ⚠️名字和心情不许同行挤（她 2026-09-01 截图：Primrose Hawthorn 把抬头撑成三行、
+  //   「上一次变是 25分钟前」也断成两截）。名字自己一行、超了打点；心情和时间挤在
+  //   第二行，也打点。两行都 nowrap，多长的名字都撑不坏这个框。
+  const head = h("div", { className: "shrink-0 flex items-center gap-3", style: { padding: "15px 16px 12px", borderBottom: "1px solid " + t.line } },
+    h(Avatar, { character: character, size: 42, radius: 12 }),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { className: "flex items-baseline gap-2" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, character.name),
-        !isNpc && dm ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.accent } }, "· " + dm.label) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } },
-        dm && dm.def ? "还没聊出心情，聊几句就会变"
-          : dm && dm.faded ? "已经随时间平复下去了"
-            : (dm && dm.ts ? "上一次变是 " + timeAgo(dm.ts) : "此刻"))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, character.name),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
+        (!isNpc && dm) ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        (!isNpc && dm) ? " · " : "",
+        dm && dm.def ? "聊几句就会变"
+          : dm && dm.faded ? "已经平复下去了"
+            : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
     h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
       hist.length > 0 ? h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: showHist ? t.accent : t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 10px" } }, showHist ? "回此刻" : "翻旧的") : null,
       h("button", { onClick: onClose, "aria-label": "关掉", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1 } }, "✕")));
@@ -6951,17 +6959,32 @@ function StateCard({
     }, lb,
       (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
         ? h("span", { style: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: t.accent, marginLeft: 5, verticalAlign: "middle" } }) : null))) : null;
-  // 分数只有一条，就别做成一排进度条：一条 0-100 的刻度，墨点站在当下的位置。
-  const scale = isNpc ? null : h("div", { style: { padding: "15px 17px 17px", borderTop: "1px solid " + t.line } },
-    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 9 } },
-      label("他心里给你打的分"),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, aff,
-        state && state.affinityLabel ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 6 } }, state.affinityLabel) : null)),
-    h("div", { style: { position: "relative", height: 12 } },
-      h("span", { style: { position: "absolute", left: 0, right: 0, top: 5, height: 1, background: t.line } }),
-      [0, 25, 50, 75, 100].map(v => h("span", { key: v, style: { position: "absolute", left: v + "%", top: 2, marginLeft: v === 100 ? -1 : 0, width: 1, height: 7, background: t.line } })),
-      h("span", { style: { position: "absolute", left: Math.max(0, Math.min(100, aff)) + "%", top: 0, marginLeft: -5.5, width: 11, height: 11, borderRadius: 999, background: t.accent, border: "2px solid " + t.bg2 } })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 11 } }, "跟着聊天自己更新，不额外花额度"));
+  // 好感度＝一颗会灌满的心（她 2026-09-01：「做个心形的水位表，心形中间显示好感，
+  // 根据数字决定颜色多满」）。一条带刻度的尺是通用件，一颗按分数上水位、按分数变色
+  // 的心不是——这一栏本来就该长成心的样子。
+  // 颜色从冷到暖：没什么感觉是灰蓝的，一路暖到深红。
+  const heartInk = aff >= 80 ? "#b83b4e" : aff >= 60 ? "#c4606f" : aff >= 40 ? "#c58089" : aff >= 20 ? "#b08a86" : "#8794a6";
+  const lvl = Math.max(0, Math.min(100, aff)) / 100;
+  const scale = isNpc ? null : h("div", { className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
+    h("div", { style: { position: "relative", width: 78, height: 78, flexShrink: 0 } },
+      h("svg", { viewBox: "0 0 24 24", width: 78, height: 78, "aria-hidden": "true", style: { display: "block", overflow: "visible" } },
+        h("defs", null, h("clipPath", { id: "sc-heart" }, h("path", { d: HEART_D }))),
+        h("path", { d: HEART_D, fill: t.line, opacity: .45 }),
+        h("g", { clipPath: "url(#sc-heart)" },
+          h("rect", { x: 0, y: 24 * (1 - lvl), width: 24, height: 24 * lvl + 0.4, fill: heartInk, opacity: .9 }),
+          // 水面那一道亮边：不加的话就是块色，看不出是「灌到这儿」
+          lvl > 0 && lvl < 1 ? h("rect", { x: 0, y: 24 * (1 - lvl), width: 24, height: .45, fill: "#fff", opacity: .5 }) : null),
+        h("path", { d: HEART_D, fill: "none", stroke: heartInk, strokeWidth: 1, opacity: .85 })),
+      // 数字压在心中间：描一圈卡片底色，压在水位上也读得清
+      h("span", { style: {
+        position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        paddingTop: 4, fontFamily: F_DISPLAY, fontSize: 23, color: t.ink,
+        WebkitTextStroke: "3px " + t.bg2, paintOrder: "stroke"
+      } }, aff)),
+    h("div", { className: "flex-1 min-w-0" },
+      label("好感度"),
+      state && state.affinityLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: heartInk, marginTop: 6 } }, state.affinityLabel) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } }, "跟着聊天自己更新，不额外花额度")));
   const body = showHist
     ? h("div", { style: { padding: "13px 17px 18px" } },
       label("他心里闪过的那些 · " + hist.length + " 条"),
@@ -6977,14 +7000,23 @@ function StateCard({
       // 拆成两张并排的卡，那是状态面板的做法。
       // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
       // 手在做什么才是这一帧的主句。一个「　」把两句黏在一起会读成一长串。
-      (!hideWearAction && seen.length) ? h("div", { style: { padding: "14px 17px 13px" } },
+      (!hideWearAction && seen.length) ? h("div", { style: { position: "relative", padding: "14px 17px 15px" } },
+        // 四角的取景框：这张卡讲的是「此刻的一帧」，那就让它真有个取景框
+        ["nwse", "nesw"].map((k, i) => h("span", { key: k, "aria-hidden": "true", style: Object.assign(
+          { position: "absolute", width: 13, height: 13, borderColor: t.line, borderStyle: "solid" },
+          i === 0 ? { left: 8, top: 10, borderWidth: "1px 0 0 1px" } : { right: 8, top: 10, borderWidth: "1px 1px 0 0" }) })),
+        ["swne", "senw"].map((k, i) => h("span", { key: k, "aria-hidden": "true", style: Object.assign(
+          { position: "absolute", width: 13, height: 13, borderColor: t.line, borderStyle: "solid" },
+          i === 0 ? { left: 8, bottom: 6, borderWidth: "0 0 1px 1px" } : { right: 8, bottom: 6, borderWidth: "0 1px 1px 0" }) })),
         label("看得见的"),
         S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
         S(state && state.action) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 } }, S(state.action)) : null) : null,
       // 没说出口的：跟上面那半明显不是一类
-      (state && S(state.thought)) ? h("div", { style: { margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line } },
-        label("没说出口的", t.accent),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
+      (state && S(state.thought)) ? h("div", { style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
+        // 压在底下的那个大引号：这一块是「他心里那句」，得跟上面那半一眼分得开
+        h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
+        label("心里想的", t.accent),
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
       null);
   return h(CenterCard, { onClose: onClose }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },

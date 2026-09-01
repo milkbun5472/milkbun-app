@@ -80,7 +80,12 @@
     const d = load(); const box = boxOf(d, charId);
     box.checks = box.checks || {};
     box.checks[k] = Date.now();
-    box.turns = 0;                       // 看过也算动过这张卡,重新数
+    // ⚠️「看过了不用改」是个【免费的出口】：它比写一块省事得多，模型会一直选它。
+    //   原来这一下把 turns 清成 0，等于一次白答就买走 25 轮的安静——
+    //   十块轮一遍要 250 轮，这一层跟没有一样。
+    //   现在只退回去一小段：下一块过十几轮就会被点到名，队列真的转得动。
+    //   （卡还空着的时候由上面 blank 那条兜着，每轮都点，不看这个数。）
+    box.turns = Math.max(0, STALE_TURNS - 10);
     d[charId] = box; persist(d);
     return true;
   }
@@ -97,9 +102,18 @@
   }
   const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
   const STALE_TURNS = 25;
+  const KEY_COUNT = Object.keys(KEYS).length;
+  // 还有几块从来没写过
+  const blankCount = charId => { const b = boxOf(load(), charId).blocks || {}; return Object.keys(KEYS).filter(k => !(b[k] && b[k].text)).length; };
+  // ⚠️这里原来是 `Object.keys(box.blocks).length ? turns : 0`——**空卡永远返回 0**。
+  //   于是下面 spec 里那句 `n >= STALE_TURNS` 永远不成立、点名那一段永远不出现，
+  //   模型只看得到「仅当真正改变了长期认知时填写」这一句高门槛，一辈子不写；
+  //   卡是空的 → 不点名 → 不写 → 还是空的，**一个死锁**。
+  //   她 2026-09-01：「这个 Ta 眼里还是根本不填」——就是这条。
+  //   本意大概是「新角色别一上来就催」，但代价是这一层对新角色【永远死着】：
+  //   只有手动按一次「建卡」才可能有内容，没按过的人一辈子看不到东西。
   function staleTurns(charId) {
-    const box = boxOf(load(), charId);
-    return Object.keys(box.blocks).length ? (Number(box.turns) || 0) : 0;
+    return Number(boxOf(load(), charId).turns) || 0;
   }
 
   // 常驻注入文本(空卡=零注入)
@@ -116,14 +130,21 @@
     // 「什么时候算改变了」原本没有可判定的标准,模型只能一直判「没有」。给三个具体触发点。
     const trigger = "\n什么时候算数(满足其一就该写,不必等到惊天动地):①她说了或做了一件你【以前不知道】的事,补进对应的块;②你对她的某个判断被这轮的事【推翻或修正】了;③你们之间出现了一个以后会被记住的【具体节点】。";
     // 攒够轮数就【点名】问最老的那一块,而不是笼统问「有没有哪块该改」
-    const due = n >= STALE_TURNS && charId ? dueBlock(charId) : null;
+    // 【多久点一次名】按卡填到什么程度分三档——空卡更该点名，不是更不该：
+    //   一块都没有 → 每一轮都点。有材料就写、没材料就诚实说没有然后换下一块，
+    //                填满的速度只取决于真发生了多少事。
+    //   写了一部分 → 每 6 轮点一次。写满一块就等 25 轮的话，剩下九块要等两百多轮。
+    //   十块写满   → 回到 25 轮那一档，进入维护状态。
+    const blanks = charId ? blankCount(charId) : 0;
+    const gap = blanks >= KEY_COUNT ? 0 : blanks > 0 ? 6 : STALE_TURNS;
+    const due = charId && n >= gap ? dueBlock(charId) : null;
     const days = due && due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
     const nudge = due
       ? "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
-        + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——这一块你还没写过。")
-        + "这段时间真的发生过的事,让它需要改吗?"
-        + "\n· 需要改 → impression 填【这一块】(仍是小幅演进、仍锚在具体的事上,别整块翻转)。"
-        + "\n· 看过了,确实不用改 → 填 impressionChecked:\"" + due.k + "\"。这是个正经回答,不丢人;写了它这一块就排到队尾,下轮换别的块问你。"
+        + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——**这一块还是空的,你从来没写过**。")
+        + (due.text ? "这段时间真的发生过的事,让它需要改吗?" : "到现在为止你们之间发生过的事,够不够你写下这一块?")
+        + "\n· " + (due.text ? "需要改" : "写得出来") + " → impression 填【这一块】(" + (due.text ? "仍是小幅演进、仍锚在具体的事上,别整块翻转" : "锚在真发生过的事上,别拿泛泛的关系描述凑数") + ")。"
+        + "\n· " + (due.text ? "看过了,确实不用改" : "认识得还不够,真写不出来") + " → 填 impressionChecked:\"" + due.k + "\"。这是个正经回答,不丢人;写了它这一块就排到队尾,下轮换别的块问你。"
         + "\n· 两个都不填=你把这一层整个跳过了,下一轮还会问同一块。别为了交差硬编,也别沉默。"
       : "";
     return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。" + trigger + nudge;
