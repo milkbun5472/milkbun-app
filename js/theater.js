@@ -12,13 +12,24 @@
 
   const load = () => {
     try {
-      const list = JSON.parse(localStorage.getItem("x_theater") || "[]");
+      const list = loadJSON("x_theater", []);
       const repaired = repairTheaterHistory(list);
-      if (repaired.changed) localStorage.setItem("x_theater", JSON.stringify(repaired.list));
+      if (repaired.changed) saveJSON("x_theater", repaired.list);
       return repaired.list;
     } catch (e) { return []; }
   };
-  const persist = list => { try { localStorage.setItem("x_theater", JSON.stringify(list)); } catch (e) {} };
+  const persist = list => saveJSON("x_theater", list);
+  const GAL_GONE_KEY = "x_theaterGalleryGone";
+  const loadGalGone = () => loadJSON(GAL_GONE_KEY, []);
+  // 剧情仍会引用原图；图库删除必须另立墓碑，否则启动补档会把它重新捞回来。
+  const galTomb = img => {
+    const next = [img].concat(loadGalGone().filter(x => x !== img)).slice(0, 2000);
+    return saveJSON(GAL_GONE_KEY, next);
+  };
+  const galRevive = img => {
+    const old = loadGalGone(), next = old.filter(x => x !== img);
+    return next.length === old.length || saveJSON(GAL_GONE_KEY, next);
+  };
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
   // 前情提要改成小账本(参考 liveware-tavern 的做法,自己实现):
   // 一坨文字没法判断压缩有没有把东西压没了,也没法规定谁先被丢。
@@ -210,12 +221,12 @@
     const uName = (props.profile && props.profile.name) || "你";
     const [lines, setLines] = useState(load);
     // 收藏的基线设定(x_theaterPresets):满意的身份/世界可复用开新局,只重新生成开场与目标
-    const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem("x_theaterPresets") || "[]"); } catch (e) { return []; } });
-    const savePresets = fn => setPresets(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterPresets", JSON.stringify(n)); } catch (e) {} return n; });
+    const [presets, setPresets] = useState(() => loadJSON("x_theaterPresets", []));
+    const savePresets = fn => setPresets(p => { const n = fn(p.slice()); if (saveJSON("x_theaterPresets", n)) return n; props.toast("这次没保存成功，原数据还在"); return p; });
     // 图库(x_theaterGallery):所有出过的剧照自动归档,按角色分组;重拍换掉的、线删掉的都仍留在这里
-    const loadGal = () => { try { return JSON.parse(localStorage.getItem("x_theaterGallery") || "[]"); } catch (e) { return []; } };
+    const loadGal = () => { const gone = new Set(loadGalGone()); return loadJSON("x_theaterGallery", []).filter(x => x && !gone.has(x.img)); };
     const [gal, setGal] = useState(loadGal);
-    const saveGal = fn => setGal(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterGallery", JSON.stringify(n)); } catch (e) {} return n; });
+    const saveGal = fn => setGal(p => { const n = fn(p.slice()); if (saveJSON("x_theaterGallery", n)) return n; props.toast("图库这次没保存成功，原图还在"); return p; });
     const [galView, setGalView] = useState(null); // 图库里点开的大图:null | item
     const [galChar, setGalChar] = useState(null); // 图库里进到哪个角色:null=头像墙
     const [sheetChar, setSheetChar] = useState(null); // 入口页点头像拉起的抽屉
@@ -248,11 +259,12 @@
     const scrollRef = useRef(null);
     const linesRef = useRef(null);
     const sumBusyRef = useRef(false);
-    const update = fn => setLines(p => { const n = fn(p.slice()); persist(n); return n; });
+    const update = fn => setLines(p => { const n = fn(p.slice()); if (persist(n)) return n; props.toast("这次没保存成功，原记录还在"); return p; });
     useEffect(() => { linesRef.current = lines; });
     // 回填:图库上线前已经出过的剧照(含归档的重开局)一次性补进图库,按图引用去重
     useEffect(() => {
       const have = new Set(loadGal().map(x => x.img));
+      loadGalGone().forEach(img => have.add(img));
       const add = [];
       lines.forEach(l => (l.rounds || []).concat((l.archives || []).flatMap(a => a.rounds || [])).forEach(r => (r.msgs || []).forEach(m => {
         if (m.role === "photo" && m.img && !have.has(m.img)) { have.add(m.img); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: m.img, ts: m.ts || Date.now() }); }
@@ -635,6 +647,7 @@
           return { ...l, cover: ref, coverTs: Date.now(), bg: take ? ref : l.bg };
         }));
         // 存进图库：那里才有看整张的大图和「保存到手机相册」（她 2026-08-22 要的）
+        galRevive(ref);
         saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now(), kind: "cover" }].concat(list));
         props.toast(bgTook ? "封面出好了，已当作背景 · 图库里可以看整张、存相册"
           : "封面出好了，已进图库（这条线有你自己的背景图，没动它）", 6000);
@@ -721,6 +734,7 @@
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
+        galRevive(ref);
         saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now() }].concat(list));
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
@@ -800,8 +814,13 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
         h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
           h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { onClick: () => { const id = galView.id; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
-    const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; const l0 = lines.find(l => l.id === id); if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
+          h("button", { onClick: () => { const id = galView.id, item = galView; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); requestAppConfirm("从图库删掉这张？", "剧情里的那张不受影响；图库也不会再自动补回。", () => { if (!galTomb(item.img)) return props.toast("这次没删成功，原图还在"); const next = gal.filter(x => x.id !== id && x.img !== item.img); saveJSON("x_theaterGallery", next); setGal(next); setGalView(null); props.toast("已从小剧场图库删除"); }, "删除"); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+    const deleteLineNow = (id, after) => {
+      const next = lines.filter(l => l.id !== id);
+      if (!persist(next)) { props.toast("这次没删成功，原 if 线还在"); return false; }
+      setLines(next); if (after) after(); return true;
+    };
+    const delLine = id => requestAppConfirm("删除这条 if 线？", "这条线和全部演出记录都会删除。", () => { const l0 = lines.find(l => l.id === id); deleteLineNow(id, () => { if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); }); }, "删除");
 
     // ---- UI ----
     // 小剧场是 zIndex:60 的整屏覆盖层,会盖住 zIndex:50 的全局 DevBadges;
@@ -924,7 +943,7 @@
             [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与长期张力", ps.world || ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
               h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "用它开新局"),
-              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除")))))
+              h("button", { onClick: () => requestAppConfirm("删除这条基线？", "只删除收藏的设定，不影响已经开出的 if 线。", () => savePresets(l => l.filter(x => x.id !== ps.id)), "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除")))))
           : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
     }
 
@@ -1038,7 +1057,7 @@
         backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
       } : null;
       return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
-        h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
+        h("button", { onClick: e => { e.stopPropagation(); requestAppConfirm("删除「" + l.title + "」？", "这条线和全部演出记录都会删除。", () => deleteLineNow(l.id), "删除"); },
           style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
         l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },

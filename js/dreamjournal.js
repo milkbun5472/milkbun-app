@@ -103,7 +103,7 @@
     const [theirs, setTheirs] = useState([]);
     const [genBusy, setGenBusy] = useState(null); // 正在生成的 dream key
     const chars = props.characters || [];
-    const commit = next => { setLog(next); saveLog(next); };
+    const commit = next => { if (saveLog(next)) setLog(next); else props.toast && props.toast("这次没保存成功，原梦还在"); };
     const nameOf = id => { const c = chars.find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
     const loadTheirs = async () => { if (window.DreamLoop) setTheirs(await window.DreamLoop.listDreams(60)); };
     useEffect(() => { loadTheirs(); }, []);
@@ -234,7 +234,7 @@
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: (KIND[e.kind] || KIND.dream)[1], padding: "1px 8px", borderRadius: 999 } }, (KIND[e.kind] || KIND.dream)[0]),
               h("div", { className: "flex", style: { gap: 10 } },
                 h("button", { onClick: () => setPickFor(pickFor === e.id ? null : e.id), disabled: !!busyId, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, busyId === e.id ? "解梦中…" : "找TA解"),
-                h("button", { onClick: () => { if (confirm("删掉这条梦？解读也会一起消失。")) commit(loadLog().filter(x => x.id !== e.id)); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "删"))),
+                h("button", { onClick: () => requestAppConfirm("删掉这条梦？", "解读也会一起消失。", () => commit(loadLog().filter(x => x.id !== e.id)), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "删"))),
             e.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, e.text) : null,
             pickFor === e.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, chars.map(c =>
               h("button", { key: c.id, onClick: () => interpret(e, c), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, background: t.bg2 } }, c.remark || c.name))) : null,

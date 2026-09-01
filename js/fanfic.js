@@ -289,7 +289,7 @@
     const live = new Set(pool.slice().sort(function (a, b) {
       return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
     }).slice(0, FIC_KEEP).map(function (f) { return f.id; }));
-    saveJSON(K_FICS, all.filter(function (f) { return protectedFic(f) || live.has(f.id); }));
+    return saveJSON(K_FICS, all.filter(function (f) { return protectedFic(f) || live.has(f.id); }));
   }
   function loadCPs() { return loadJSON(K_CPS, []); }
   function saveCPs(list) { saveJSON(K_CPS, list); }
@@ -2023,7 +2023,7 @@
     const cast = props.allChars || characters;
     const curTab = tabs.find(function (x) { return x.id === activeTab; }) || tabs[0];
 
-    function persistFics(next) { setFics(next); saveFics(next); }
+    function persistFics(next) { if (saveFics(next)) { setFics(next); return true; } props.toast && props.toast("这次没保存成功，原文章还在"); return false; }
     function updateFic(id, fn) {
       const next = loadFics().map(function (f) { return f.id === id ? fn(Object.assign({}, f)) : f; });
       persistFics(next);
@@ -2121,11 +2121,9 @@
       const doomed = here.filter(function (f) { return !protectedFic(f); });
       if (!doomed.length) { props.toast && props.toast("本版没有可清的：剩下的都是收藏／自己写的／点过赞／在追的"); return; }
       const kept = here.length - doomed.length;
-      if (!window.confirm("清空【" + curTab.name + "】里的 " + doomed.length + " 篇？\n"
-        + (kept ? "另外 " + kept + " 篇会留下（收藏／自己写的／点过赞／在追的）。\n" : "")
-        + "清完这一版是空的，要新的文请点齿轮生成。")) return;
-      persistFics(loadFics().filter(function (f) { return f.tabId !== curTab.id || protectedFic(f); }));
-      props.toast && props.toast("已清空 " + doomed.length + " 篇");
+      requestAppConfirm("清空【" + curTab.name + "】里的 " + doomed.length + " 篇？",
+        (kept ? "另外 " + kept + " 篇会留下（收藏／自己写的／点过赞／在追的）。\n" : "") + "清完这一版是空的，要新的文请点齿轮生成。",
+        function () { if (persistFics(loadFics().filter(function (f) { return f.tabId !== curTab.id || protectedFic(f); }))) props.toast && props.toast("已清空 " + doomed.length + " 篇"); }, "清空");
     }
 
     // 发布（onShelf=false → 留在 feed + 我发布的；source=user 刷新受保护不会被清）

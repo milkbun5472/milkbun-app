@@ -36,7 +36,7 @@
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
-  function saveBooks(list) { saveJSON("x_read_books", list); }
+  function saveBooks(list) { return saveJSON("x_read_books", list); }
 
   const PAGE_CHARS = 1600; // 每页目标字数（按段落边界切）
   function paginate(text) {
@@ -227,7 +227,7 @@
     const [openId, setOpenId] = useState(null);
     const fileRef = useRef(null);
 
-    const persist = function (list) { setBooks(list); saveBooks(list); };
+    const persist = function (list) { if (saveBooks(list)) setBooks(list); else props.toast && props.toast("这次没保存成功，原书还在"); };
     const patchBook = function (id, patch) {
       persist(loadBooks().map(function (b) { return b.id === id ? Object.assign({}, b, typeof patch === "function" ? patch(b) : patch) : b; }));
     };
@@ -295,7 +295,7 @@
                 return h("div", { key: b.id },
                   h("button", {
                     onClick: function () { setOpenId(b.id); },
-                    onContextMenu: function (e) { e.preventDefault(); if (window.confirm("从书架移除《" + b.title + "》？（正文和批注一并删除）")) delBook(b.id); },
+                    onContextMenu: function (e) { e.preventDefault(); requestAppConfirm("从书架移除《" + b.title + "》？", "正文和批注会一并删除。", function () { delBook(b.id); }, "删除"); },
                     style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }
                   },
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),

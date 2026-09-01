@@ -11,7 +11,7 @@ test("image API upgrades the existing x_imgApi key to switchable profiles", () =
   assert.match(engine, /Array\.isArray\(raw\.profiles\)/);
   assert.match(engine, /normalizeImgApiProfile\(raw && typeof raw === "object" \? raw : null/);
   assert.match(engine, /function saveImgApiProfiles\(/);
-  assert.match(engine, /localStorage\.setItem\("x_imgApi", JSON\.stringify\(clean\)\)/);
+  assert.match(engine, /saveJSON\("x_imgApi", clean\) \? clean : loadImgApiProfiles\(\)/, "必须验真写盘；失败时返回旧配置，不能假删图像站");
   assert.match(engine, /store\.profiles\.find\(p => p\.id === store\.activeId\)/);
 });
 

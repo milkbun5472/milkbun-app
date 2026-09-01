@@ -50,8 +50,9 @@
     const list = allList.filter(c => belongsTo(c, props.characterId, activeChar && activeChar.name));
     const updateAll = updater => setAllList(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      save(next);
-      return next;
+      if (save(next)) return next;
+      props.toast && props.toast("这次没保存成功，原胶囊还在");
+      return prev;
     });
 
     // 反向胶囊：你埋给 TA 时，TA 也悄悄埋一颗——内容以 TA 此刻的心境当场写好、封存到同一天。
@@ -103,7 +104,11 @@
         finally { setBusy(null); }
       }
     };
-    const delCap = id => { if (window.confirm("删掉这颗胶囊？删了不可恢复。")) { updateAll(prev => prev.filter(x => x.id !== id)); setView(null); } };
+    const delCap = id => requestAppConfirm("删掉这颗胶囊？", "删了不可恢复。", () => {
+      const next = allList.filter(x => x.id !== id);
+      if (!save(next)) return props.toast && props.toast("这次没删成功，原胶囊还在");
+      setAllList(next); setView(null);
+    }, "删除");
 
     // ---- 详情 ----
     if (view && view !== "compose") {

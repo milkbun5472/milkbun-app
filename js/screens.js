@@ -4119,12 +4119,13 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     } catch (e) { toast("建歌单失败：" + (e.message || e)); }
   };
   const delRealPl = async pl => {
-    if (!confirm("删掉网易云歌单「" + pl.name + "」？会真的从你账号删除。")) return;
-    try {
-      await nj("/playlist/delete?id=" + pl.id);
-      toast("已从你网易云账号删除");
-      setCv(p => ({ ...p, pls: (p.pls || []).filter(x => x.id !== pl.id), open: (p.open && p.open.id === pl.id) ? null : p.open }));
-    } catch (e) { toast("删除失败：" + (e.message || e)); }
+    requestAppConfirm("删掉网易云歌单「" + pl.name + "」？", "会真的从你的网易云账号删除。", async () => {
+      try {
+        await nj("/playlist/delete?id=" + pl.id);
+        toast("已从你网易云账号删除");
+        setCv(p => ({ ...p, pls: (p.pls || []).filter(x => x.id !== pl.id), open: (p.open && p.open.id === pl.id) ? null : p.open }));
+      } catch (e) { toast("删除失败：" + (e.message || e)); }
+    }, "删除");
   };
   const removeFromRealPl = async (pl, s) => {
     try {
@@ -4327,10 +4328,7 @@ function CotConfig({ toast, activeProfile }) {
   };
   const delPreset = () => {
     if (!sel) { toast && toast("先在上面选一个要删的预设"); return; }
-    if (!window.confirm("删除预设「" + sel + "」？")) return;
-    save({ ...cfg, presets: (cfg.presets || []).filter(x => x.name !== sel) });
-    setSel("");
-    toast && toast("已删除");
+    requestAppConfirm("删除预设「" + sel + "」？", "删除后不能恢复。", () => { const saved = save({ ...cfg, presets: (cfg.presets || []).filter(x => x.name !== sel) }); if ((saved.presets || []).some(x => x.name === sel)) return toast && toast("这次没删成功，原预设还在"); setSel(""); toast && toast("已删除"); }, "删除");
   };
   const inputSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const chip = (label, onClick) => h("button", { onClick, className: "active:opacity-60", style: { fontFamily: "monospace", fontSize: 12, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub, background: "transparent" } }, label);
@@ -4427,7 +4425,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const [assignFor, setAssignFor] = useState(null); // 展开指派角色列表的 voice_id
   const [manualId, setManualId] = useState("");
   const vtp = useTtsPlayer();
-  const saveVlib = next => { setVlib(next); saveVoiceLib(next); };
+  const saveVlib = next => { if (saveVoiceLib(next)) { setVlib(next); return true; } toast && toast("这次没保存成功，原音色还在"); return false; };
   const addVoice = vid => {
     vid = String(vid || "").trim();
     if (!vid) return;
@@ -4509,7 +4507,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
                 users.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginTop: 2 } }, "→ " + users.map(u => u.remark || u.name).join("、") + " 在用") : null),
               h("button", { onClick: () => vtp.toggle(v.id, "你好呀，我是这个音色，听听合不合适？", v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", background: "transparent" } }, meP ? (vtp.play.st === "gen" ? "…" : "⏸") : "试听"),
               h("button", { onClick: () => setAssignFor(assignFor === v.id ? null : v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: t.tint, border: "none", borderRadius: 999, padding: "6px 12px" } }, "指派"),
-              h("button", { onClick: () => { if (window.confirm("从清单移除这个音色？（不影响 MiniMax 账号）")) saveVlib(vlib.filter(x => x.id !== v.id)); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, border: "none", background: "transparent", padding: "2px 4px" } }, "✕")),
+              h("button", { onClick: () => requestAppConfirm("从清单移除这个音色？", "不影响 MiniMax 账号。", () => saveVlib(vlib.filter(x => x.id !== v.id)), "移除"), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, border: "none", background: "transparent", padding: "2px 4px" } }, "✕")),
             h("input", { value: v.note || "", onChange: e => saveVlib(vlib.map(x => x.id === v.id ? { ...x, note: e.target.value } : x)), placeholder: "备注（谁的声音 / 什么感觉）", style: { width: "100%", outline: "none", marginTop: 8, padding: "7px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12, background: t.bg, color: t.sub, border: "1px solid " + t.line } }),
             // 语速调节（v47.89）：压亢奋只靠语速（音调绝不动，防变声成八戒）。老 calm 兼容成 0.85
             (() => {
@@ -4678,9 +4676,7 @@ function ImageApiConfig({ toast }) {
   const removeSite = id => {
     if (store.profiles.length <= 1) { toast && toast("至少保留一个图像站"); return; }
     const target = store.profiles.find(p => p.id === (id || store.activeId)) || c;
-    if (!window.confirm("删除图像站「" + (target.name || "未命名") + "」？只删本站配置。")) return;
-    const profiles = store.profiles.filter(p => p.id !== target.id);
-    persist({ version: 2, activeId: profiles[0].id, profiles }); setModels([]); setTestRes(null); toast && toast("已删除并切到另一个图像站");
+    requestAppConfirm("删除图像站「" + (target.name || "未命名") + "」？", "只删本站配置。", () => { const profiles = store.profiles.filter(p => p.id !== target.id); const saved = persist({ version: 2, activeId: profiles[0].id, profiles }); if ((saved.profiles || []).some(p => p.id === target.id)) return toast && toast("这次没删成功，原图像站还在"); setModels([]); setTestRes(null); toast && toast("已删除并切到另一个图像站"); }, "删除");
   };
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
@@ -4966,7 +4962,7 @@ function RecallShadowPanel() {
           h("button", { onClick: () => { window.RecallShadow.setLiveEnabled(!rep.liveEnabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.liveEnabled ? "#9f5149" : t.tint } }, rep.liveEnabled ? "关闭4轮冷却（立即回滚）" : "重新开启4轮冷却"),
           h("button", { onClick: () => { window.RecallShadow.setTieEnabled(!rep.tieEnabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.tieEnabled ? "#9f5149" : t.tint } }, rep.tieEnabled ? "关闭同分换序" : "开启同分换序"),
           h("button", { onClick: () => { window.RecallShadow.setEnabled(!rep.enabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.enabled ? "#9f5149" : t.tint } }, rep.enabled ? "暂停观测" : "恢复观测（当前已停·零写入）"),
-          h("button", { onClick: () => { if (confirm("清空召回与抽取质量旁路诊断？不影响任何记忆数据。")) { Promise.all([window.RecallShadow.clearAll(), window.MemoryQualityShadow ? window.MemoryQualityShadow.clearAll() : null, window.MemoryCorrectionShadow ? window.MemoryCorrectionShadow.clearAll() : null]).then(load); } }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
+          h("button", { onClick: () => requestAppConfirm("清空召回与抽取质量旁路诊断？", "不影响任何记忆数据。", () => { Promise.all([window.RecallShadow.clearAll(), window.MemoryQualityShadow ? window.MemoryQualityShadow.clearAll() : null, window.MemoryCorrectionShadow ? window.MemoryCorrectionShadow.clearAll() : null]).then(load); }, "清空"), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "读取中…")));
 }
 
@@ -5531,10 +5527,13 @@ function ApiConfig({
   };
   const removeProfile = source => {
     if (list.length <= 1) return;
-    if (!confirm("删除 API 方案「" + (source.name || source.model || "未命名配置") + "」？")) return;
-    const nl = list.filter(p => p.id !== source.id);
-    setList(nl);
-    if (curId === source.id) setCurId(nl[0].id);
+    requestAppConfirm("删除 API 方案「" + (source.name || source.model || "未命名配置") + "」？", "只删除这条本机配置。", async () => {
+      const nl = list.filter(p => p.id !== source.id);
+      const nextCur = curId === source.id ? nl[0].id : curId;
+      const nextActive = activeId === source.id ? nl[0].id : activeId;
+      if (await onSave(nl, nextActive) === false) return;
+      setList(nl); setCurId(nextCur); if (editing && curId === source.id) setEditing(false);
+    }, "删除");
   };
   const removeCur = () => {
     removeProfile(cur);
@@ -8830,7 +8829,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
             })),
           selMode && selEmotes.length > 0 && h("button", { onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "删除选中（" + selEmotes.length + "）"),
           // Delete matrix
-          h("button", { onClick: () => { if (confirm("删除字典「" + pack.name + "」？其中的表情也会一并删除。")) onDeletePack(pack.id); }, className: "w-full active:opacity-70", style: { marginTop: 24, fontFamily: F_DISPLAY, fontSize: 16, color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "Delete Matrix (删除字典)"),
+          h("button", { onClick: () => requestAppConfirm("删除字典「" + pack.name + "」？", "其中的表情也会一并删除。", () => onDeletePack(pack.id), "删除"), className: "w-full active:opacity-70", style: { marginTop: 24, fontFamily: F_DISPLAY, fontSize: 16, color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "Delete Matrix (删除字典)"),
           h("div", { style: { height: 1, background: t.line, margin: "28px 0 20px" } }),
           // Batch import
           eyebrow("BATCH IMPORT", "批量指令"),

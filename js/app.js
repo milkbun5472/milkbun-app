@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.42";
+const APP_VERSION = "v59.43";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -643,6 +643,7 @@ function App() {
   const [cardOpen, setCardOpen] = useState(false);
   const [editingMsg, setEditingMsg] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
+  const [appConfirm, setAppConfirm] = useState(null);
   const [loaded, setLoaded] = useState(false);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const toast = (m, ms) => {
@@ -651,6 +652,12 @@ function App() {
   };
   // 自包含子组件（如事件书架）不走 props 也能弹提示
   useEffect(() => { window.__toast = toast; return () => { delete window.__toast; }; });
+  // 独立脚本里的删除动作统一借这层确认；不再碰会被 iOS/PWA 永久吞掉的原生 confirm。
+  useEffect(() => {
+    const open = req => setAppConfirm(req && typeof req.onConfirm === "function" ? req : null);
+    window.__appConfirmOpen = open;
+    return () => { if (window.__appConfirmOpen === open) delete window.__appConfirmOpen; };
+  }, []);
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(i);
@@ -4674,7 +4681,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       endLane("c:" + charId);
     }
   };
-  const offlineDelSession = (charId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pOffline(charId, list => list.filter(s => s.id !== sessId)); };
+  const offlineDelSession = (charId, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
+    const before = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []);
+    let idx = before.findIndex(s => sessId != null && s && s.id === sessId);
+    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < before.length) idx = fallbackIndex;
+    if (idx < 0) return toast("没找到这条线下记录");
+    const next = before.filter((_, i) => i !== idx);
+    const wrote = await commitJSONDurable("x_offline:" + charId, next);
+    if (!wrote.durable || !wrote.live) return toast("这次没删成功，记录还在，请再试一次", 5000);
+    const n = { ...offlinesRef.current, [charId]: next };
+    offlinesRef.current = n; setOfflines(prev => ({ ...prev, [charId]: next }));
+    if (window.ChatLedgerShadow) queueLedger("offline", charId, window.ChatLedgerShadow.addedSessionMessages(before, next), null, charId);
+    toast("已删除线下记录");
+  }, "删除");
   const offlineEditMsg = (charId, msgId, text) => pOffline(charId, list => list.map(s => {
     if (s.endTs) return s;
     const idx = s.msgs.findIndex(m => m.id === msgId), next = s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m);
@@ -4982,7 +5001,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return next;
   };
   const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); const group = groups.find(g => String(g.id) === String(groupId)); if (group) observeSomaticGroup(group, msg, "group_offline", "physical"); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
-  const groupOfflineDelSession = (groupId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pGOffline(groupId, list => list.filter(s => s.id !== sessId)); };
+  const groupOfflineDelSession = (groupId, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
+    const before = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
+    let idx = before.findIndex(s => sessId != null && s && s.id === sessId);
+    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < before.length) idx = fallbackIndex;
+    if (idx < 0) return toast("没找到这条线下记录");
+    const next = before.filter((_, i) => i !== idx);
+    const wrote = await commitJSONDurable("x_goffline:" + groupId, next);
+    if (!wrote.durable || !wrote.live) return toast("这次没删成功，记录还在，请再试一次", 5000);
+    const n = { ...groupOfflinesRef.current, [groupId]: next };
+    groupOfflinesRef.current = n; setGroupOfflines(prev => ({ ...prev, [groupId]: next }));
+    const group = groups.find(g => String(g.id) === String(groupId));
+    if (group && window.ChatLedgerShadow) queueLedger("group_offline", groupId, window.ChatLedgerShadow.addedSessionMessages(before, next), group);
+    toast("已删除线下记录");
+  }, "删除");
   const openGroupOffline = group => {
     const list = loadJSON("x_goffline:" + group.id, []);
     setGroupOfflines(prev => ({ ...prev, [group.id]: list }));
@@ -15610,7 +15642,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (!window.CredentialVault) saveJSON("x_api", list);
         saveJSON("x_activeApi", id);
         toast("API 配置已安全保存");
-      } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); }
+        return true;
+      } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); return false; }
     },
     theme: theme,
     onSaveTheme: th => {
@@ -15879,7 +15912,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onEditMsg: (mid, txt) => offlineEditMsg(offlineChar.id, mid, txt),
     onRerollMsg: mid => offlineRerollMsg(offlineChar.id, mid),
     onDelMsg: (mid, idx) => offlineDelMsg(offlineChar.id, mid, idx),
-    onDelSession: sid => offlineDelSession(offlineChar.id, sid),
+    onDelSession: (sid, idx) => offlineDelSession(offlineChar.id, sid, idx),
     onEnd: () => endOffline(offlineChar.id),
     onClose: () => setOfflineChar(null),                       // 下拉「对话（回线上）」：只收线下浮层，露出线上聊天
     onExit: () => { setOfflineChar(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表（她要的：别再退两次）
@@ -15907,7 +15940,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
-    onDelSession: sid => groupOfflineDelSession(offlineGroup.id, sid),
+    onDelSession: (sid, idx) => groupOfflineDelSession(offlineGroup.id, sid, idx),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),
     onClose: () => setOfflineGroup(null),                        // 下拉「群聊（回线上群）」：只收线下浮层
@@ -15917,6 +15950,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSaveSettings: patch => saveOfflineSettings("g_" + offlineGroup.id, patch),
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点
     onOpenMemberState: gsFor(offlineGroup.id).memoryInterop ? (memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } }) : undefined
+  }), appConfirm && h(ConfirmDialog, {
+    title: appConfirm.title,
+    body: appConfirm.body,
+    confirmLabel: appConfirm.confirmLabel,
+    danger: true,
+    onCancel: () => setAppConfirm(null),
+    onConfirm: () => { const fn = appConfirm.onConfirm; setAppConfirm(null); setTimeout(() => { try { const r = fn(); if (r && typeof r.catch === "function") r.catch(e => toast("操作失败：" + ((e && e.message) || "请重试"), 5000)); } catch (e) { toast("操作失败：" + ((e && e.message) || "请重试"), 5000); } }, 0); }
   }), /*#__PURE__*/React.createElement(Toast, {
     msg: toastMsg
   })));

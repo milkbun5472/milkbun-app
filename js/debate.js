@@ -17,7 +17,7 @@
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
 
   function loadSaves() { return loadJSON("x_debate_saves", []); }
-  function saveSaves(list) { saveJSON("x_debate_saves", list); }
+  function saveSaves(list) { return saveJSON("x_debate_saves", list); }
 
   // 把角色最近的聊天抓一小段，仅当语气/近况参考（结束后不写回）
   function recentChatSnippet(charId, uName, charName) {
@@ -145,12 +145,12 @@
     const t = useTheme();
     const [saves, setSaves] = useState(loadSaves);
     const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
-    const persist = list => { setSaves(list); saveSaves(list); };
+    const persist = list => { if (saveSaves(list)) { setSaves(list); return true; } props.toast && props.toast("这次没保存成功，原存档还在"); return false; };
     const patchSession = (id, patch) => {
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, typeof patch === "function" ? patch(s) : patch) : s);
       persist(list);
     };
-    const delSession = id => { if (window.confirm("删除这场辩论存档？")) { persist(loadSaves().filter(s => s.id !== id)); if (view === id) setView("home"); } };
+    const delSession = id => requestAppConfirm("删除这场辩论存档？", "删除后不能恢复。", () => { if (persist(loadSaves().filter(s => s.id !== id)) && view === id) setView("home"); }, "删除");
     // 长按删除（onContextMenu 在手机上不触发，得自己起计时器）
     const lpTimer = useRef(null), lpFired = useRef(false);
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };

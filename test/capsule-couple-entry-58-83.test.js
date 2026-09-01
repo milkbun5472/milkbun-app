@@ -28,7 +28,8 @@ test("角色隔离只过滤显示，不覆盖或删除其他人的胶囊", () =>
   const capsule = read("js/capsule.js");
   assert.match(capsule, /const \[allList, setAllList\] = useState\(load\)/);
   assert.match(capsule, /updateAll\(prev => \[entry, \.\.\.prev\]\)/);
-  assert.match(capsule, /updateAll\(prev => prev\.filter\(x => x\.id !== id\)\)/);
+  assert.match(capsule, /const next = allList\.filter\(x => x\.id !== id\)/, "必须从未过滤的完整列表删除，不能拿当前角色的可见列表覆盖全库");
+  assert.match(capsule, /if \(!save\(next\)\) return[\s\S]{0,120}setAllList\(next\)/, "落盘失败时不能先从页面消失");
   assert.doesNotMatch(capsule, /persist\(\[entry, \.\.\.list\]\)/);
 });
 

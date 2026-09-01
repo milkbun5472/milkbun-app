@@ -27,7 +27,8 @@ test("那个按钮不再叫「刷新」——它只删不生成，生成在齿�
   // 删之前得二次确认，且说清楚删几篇留几篇
   const i = fic.indexOf("    function clearTab() {");
   const seg = fic.slice(i, i + 1100);
-  assert.match(seg, /if \(!window\.confirm\(/, "没有二次确认，或者确认结果没真的拦住删除");
+  assert.match(seg, /requestAppConfirm\(/, "没有 App 内二次确认");
+  assert.match(seg, /function \(\) \{ if \(persistFics\(/, "删除没有被关在确认回调里");
   assert.match(seg, /doomed\.length \+ " 篇/, "没说要删几篇");
   assert.match(seg, /kept \? "另外 " \+ kept/, "没说会留几篇");
   assert.match(seg, /要新的文请点齿轮生成/, "没说清清完是空的");

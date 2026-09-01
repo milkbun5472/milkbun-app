@@ -8,7 +8,7 @@
   const useState = React.useState, useEffect = React.useEffect;
   const K = "x_impressions";
   const load = () => { try { return JSON.parse(localStorage.getItem(K) || "{}"); } catch (e) { return {}; } };
-  const save = d => { try { localStorage.setItem(K, JSON.stringify(d)); } catch (e) {} };
+  const save = d => saveJSON(K, d);
   const uid = () => "im_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // 图标：一轮月亮 + 一道侧影
@@ -319,7 +319,7 @@
     const [archs, setArchs] = useState({});
     const [arching, setArching] = useState(false);
     const archOf = id => archs[id] || null;
-    const put = fn => setBook(p => { const n = fn(p); M.save(n); return n; });
+    const put = fn => setBook(p => { const n = fn(p); if (M.save(n)) return n; props.toast("这次没保存成功，原印象还在"); return p; });
     // ⚠️imgSrc 不是全局的：它是 theater.js 自己内部声明的（js/theater.js 里那份）。
     // 照抄用法却没带上定义，一进这个页面就 ReferenceError、整个 App 白屏（她 2026-08-20 撞到）。
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
@@ -496,7 +496,7 @@
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
             h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
-            h("button", { onClick: () => { if (!confirm("删掉这个月的印象？")) return; put(p => Object.assign({}, p, { [curChar]: (p[curChar] || []).filter(x => x.id !== e.id) })); setCardId(null); }, style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
+            h("button", { onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
 
     // ---- 某个角色的珍藏册 ----

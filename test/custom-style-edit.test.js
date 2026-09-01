@@ -33,5 +33,5 @@ test("编辑态要看得见，并且能取消", () => {
 });
 
 test("删除改成要确认——四千字删错一次就没了", () => {
-  assert.equal((comp.match(/内容不会留档。"\)\) delCustomStyle/g) || []).length, 4);
+  assert.equal((comp.match(/requestAppConfirm\("删掉「"[\s\S]{0,100}"内容不会留档。", \(\) => delCustomStyle\(curStyle\.key\), "删除"\)/g) || []).length, 4);
 });

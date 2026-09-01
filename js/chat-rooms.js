@@ -61,7 +61,15 @@
   function read() {
     try { const v = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (_) { return {}; }
   }
-  function write(all) { localStorage.setItem(STORAGE_KEY, JSON.stringify(all || {})); return all; }
+  function write(all) {
+    const value = all || {};
+    if (typeof saveJSON === "function") return saveJSON(STORAGE_KEY, value) ? value : null;
+    try {
+      const encoded = JSON.stringify(value);
+      localStorage.setItem(STORAGE_KEY, encoded);
+      return localStorage.getItem(STORAGE_KEY) === encoded ? value : null;
+    } catch (_) { return null; }
+  }
   function list(personId) {
     const all = read(), saved = Array.isArray(all[personId]) ? all[personId] : [];
     const savedMain = all.__main && all.__main[personId];
@@ -76,7 +84,7 @@
     }
     // Main settings live separately to avoid inserting a fake side-room row.
     if (next.id === MAIN_ID) all.__main[personId] = next;
-    write(all); return next;
+    return write(all) ? next : null;
   }
   function get(personId, roomId) {
     if (!roomId || roomId === MAIN_ID) { const all = read(), m = all.__main && all.__main[personId]; return normalize(m ? { ...m, id: MAIN_ID, main: true } : mainRoom(personId), personId); }
@@ -88,7 +96,7 @@
   }
   function remove(personId, roomId) {
     if (!roomId || roomId === MAIN_ID) return false;
-    const all = read(); all[personId] = (all[personId] || []).filter(r => r.id !== roomId); write(all); return true;
+    const all = read(); all[personId] = (all[personId] || []).filter(r => r.id !== roomId); return !!write(all);
   }
   function chatKey(personId, roomId) { return !roomId || roomId === MAIN_ID ? String(personId) : String(personId) + "::room::" + roomId; }
   function isSideKey(key) { return String(key || "").includes("::room::"); }

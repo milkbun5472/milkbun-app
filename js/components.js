@@ -291,10 +291,23 @@ function useKbLift() {
   }, []);
   return lift;
 }
-// 风格统一的确认弹窗（替掉难看的原生 confirm）。danger=true 时确认键用强调色。
+// 全 App 共用的确认入口。iOS/PWA 允许用户永久屏蔽原生 confirm；一旦被屏蔽，
+// 所有“先 confirm 再删除”的按钮都会静默 no-op，看起来就是删不掉。
+// 各独立 App 只提交动作，真正的可见弹层由 App 根节点统一承载。
+function requestAppConfirm(title, body, onConfirm, confirmLabel) {
+  if (typeof onConfirm !== "function") return false;
+  const open = typeof window !== "undefined" && window.__appConfirmOpen;
+  if (typeof open !== "function") {
+    if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("确认层还没准备好，请再点一次");
+    return false;
+  }
+  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定" });
+  return true;
+}
+// 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
 function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
   const t = useTheme();
-  return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
+  return h("div", { className: "fixed inset-0 z-[220] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 300, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginBottom: body ? 8 : 18, textAlign: "center" } }, title),
       body ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 18 } }, body) : null,
@@ -3985,7 +3998,7 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, info.ready ? "个人声音基线 · 本机 " + info.count + " 条" : "个人声音基线 · " + progress),
       h("div", { className: "flex gap-3" },
         info.count > 0 && h("button", { onClick: () => { setInfo(window.Ears.forgetLast(ownerKey)); setCapture(null); toast && toast("已忘掉最近一次声音样本"); }, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "撤回上次"),
-        info.count > 0 && h("button", { onClick: () => { if (confirm("重建声音基线？只会清掉本机保存的声学数字，不会删聊天。")) { setInfo(window.Ears.resetProfile(ownerKey)); setCapture(null); toast && toast("声音基线已重建"); } }, style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, "重建基线"))),
+        info.count > 0 && h("button", { onClick: () => requestAppConfirm("重建声音基线？", "只会清掉本机保存的声学数字，不会删聊天。", () => { setInfo(window.Ears.resetProfile(ownerKey)); setCapture(null); toast && toast("声音基线已重建"); }, "重建"), style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, "重建基线"))),
     h("button", { onClick: send, disabled: recording || busy || !text.trim(), className: "w-full mt-3 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, capture ? "带着这条语气发送" : "按文字发送成语音")
   );
 }
@@ -4382,7 +4395,7 @@ function ChatThread({
         color: t.fog
       }
     }, m.content), onDeleteMessages ? h("button", {
-      onClick: () => window.confirm("删除这条旁白记录？") && onDeleteMessages([i]),
+      onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
       title: "删除旁白"
@@ -7356,8 +7369,8 @@ function OfflineMode({
   };
   const delCustomStyle = key => {
     const next = customStyles.filter(s => s.key !== key);
+    if (!saveJSON("x_offlineStyles", next)) return toast && toast("这次没删成功，原预设还在");
     setCustomStyles(next);
-    saveJSON("x_offlineStyles", next);
     if (styleKey === key) setStyleKey("default");
   };
   // 自定义文风以前只能删了重贴——她那份有四千字，删一次就得重来一遍（她 2026-08-22）。
@@ -7408,7 +7421,7 @@ function OfflineMode({
       : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => { if (confirm("删掉「" + (curStyle.name || "这条预设") + "」？内容不会留档。")) delCustomStyle(curStyle.key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
   const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "好吃片段库 · " + ((os.examples || []).length) + "/12"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, marginBottom: 10, lineHeight: 1.6 } }, "在角色写得特别对味的卡片上点 ✦ 收藏。生成时本地挑最多两段，只学声纹和节奏，不照抄旧剧情，也不额外调用模型。"),
@@ -7466,7 +7479,7 @@ function OfflineMode({
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
-        onDelSession && h("button", { onClick: () => { const id = readView.id; setReadView(null); onDelSession(id); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+        onDelSession && h("button", { onClick: () => { const id = readView.id, idx = sessions.indexOf(readView); setReadView(null); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         readView.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + readView.summary),
         (readView.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, char: char, meProfile: profile, editable: false }))));
@@ -7495,7 +7508,7 @@ function OfflineMode({
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => { if (confirm("删掉「" + (curStyle.name || "这条预设") + "」？内容不会留档。")) delCustomStyle(curStyle.key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
@@ -7504,7 +7517,7 @@ function OfflineMode({
             h("button", { onClick: () => setReadView(s), className: "flex-1 text-left active:opacity-70" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
               h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
-            onDelSession && h("button", { onClick: () => onDelSession(s.id), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
+            onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
       styleSheet && sheet("自定义文风预设", h("div", null,
         (editingStyleKey ? h("div", { className: "flex items-center gap-3 mb-2" },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "正在改「" + ((customStyles.find(x => x.key === editingStyleKey) || {}).name || "") + "」·保存后原地覆盖"),
@@ -7933,8 +7946,8 @@ function GroupOfflineMode({
   };
   const delCustomStyle = key => {
     const next = customStyles.filter(s => s.key !== key);
+    if (!saveJSON("x_offlineStyles", next)) return toast && toast("这次没删成功，原预设还在");
     setCustomStyles(next);
-    saveJSON("x_offlineStyles", next);
     if (styleKey === key) setStyleKey("default");
   };
   // 自定义文风以前只能删了重贴——她那份有四千字，删一次就得重来一遍（她 2026-08-22）。
@@ -7985,7 +7998,7 @@ function GroupOfflineMode({
       : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => { if (confirm("删掉「" + (curStyle.name || "这条预设") + "」？内容不会留档。")) delCustomStyle(curStyle.key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
   useEffect(() => {
     if (activeSession && view === "setup") setView("live");
   }, [activeSession]);
@@ -8036,7 +8049,7 @@ function GroupOfflineMode({
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
-        onDelSession && h("button", { onClick: () => { const id = readView.id; setReadView(null); onDelSession(id); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+        onDelSession && h("button", { onClick: () => { const id = readView.id, idx = sessions.indexOf(readView); setReadView(null); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         readView.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + readView.summary),
         (readView.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
@@ -8068,7 +8081,7 @@ function GroupOfflineMode({
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => { if (confirm("删掉「" + (curStyle.name || "这条预设") + "」？内容不会留档。")) delCustomStyle(curStyle.key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
@@ -8077,7 +8090,7 @@ function GroupOfflineMode({
             h("button", { onClick: () => setReadView(s), className: "flex-1 text-left active:opacity-70" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
               h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
-            onDelSession && h("button", { onClick: () => onDelSession(s.id), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
+            onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
       styleSheet && sheet("自定义文风预设", h("div", null,
         (editingStyleKey ? h("div", { className: "flex items-center gap-3 mb-2" },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "正在改「" + ((customStyles.find(x => x.key === editingStyleKey) || {}).name || "") + "」·保存后原地覆盖"),
@@ -8524,7 +8537,7 @@ function GroupThread({
         lineHeight: 1.5
       }
     }, "— " + m.content + " —"), onDeleteMessages ? h("button", {
-      onClick: () => window.confirm("删除这条旁白记录？") && onDeleteMessages([i]),
+      onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "0 2px" },
       title: "删除旁白"
@@ -9728,7 +9741,9 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
       h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
     )));
   const save = () => {
-    const saved = Kit.save(character.id, draft); setRooms(Kit.list(character.id)); setDraft(saved); setCreating(false);
+    const saved = Kit.save(character.id, draft);
+    if (!saved) { window.__toast && window.__toast("这次没保存成功，原房间还在"); return null; }
+    setRooms(Kit.list(character.id)); setDraft(saved); setCreating(false);
     onSelect(saved.id, false);
     return saved;
   };
@@ -9784,8 +9799,8 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
         h("button", { disabled: summaryBusy || !unsummarized.length, onClick: async () => { if (!onSummarize || summaryBusy) return; setSummaryBusy(true); try { const saved = await onSummarize(draft, draft.summaryFrame || ""); if (saved) { setDraft(saved); setRooms(Kit.list(character.id)); } } finally { setSummaryBusy(false); } }, style: { padding: "8px 11px", borderRadius: 10, background: t.ink, color: t.bg2, opacity: summaryBusy || !unsummarized.length ? .45 : 1, fontFamily: F_BODY, fontSize: 11.5 } }, summaryBusy ? "整理中…" : "摘要并带回")
       )),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
-      h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
-      !draft.main && !creating && h("button", { onClick: () => { if (!window.confirm("删除房间入口？本房记录先保留，不会被硬删。")) return; Kit.remove(character.id, draft.id); setRooms(Kit.list(character.id)); pick("main"); }, style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
+      h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); if (!saved) return window.__toast && window.__toast("这次没保存成功，原房间还在"); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
+      !draft.main && !creating && h("button", { onClick: () => requestAppConfirm("删除房间入口？", "本房记录先保留，不会被硬删。", () => { if (!Kit.remove(character.id, draft.id)) return window.__toast && window.__toast("这次没删成功，房间入口还在"); setRooms(Kit.list(character.id)); pick("main"); }, "删除"), style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
       ));
   const sidebar = h("div", { style: { minWidth: 0, paddingRight: 10, borderRight: "1px solid " + t.line } },
     h(Eyebrow, null, "房间"),

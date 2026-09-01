@@ -13,7 +13,7 @@
   const CAP_ITEMS = 6;
 
   function loadAll() { const d = loadJSON(K, null); return (d && typeof d === "object") ? d : {}; }
-  function saveAll(d) { saveJSON(K, d); }
+  function saveAll(d) { return saveJSON(K, d); }
   function placesOf(charId) { const a = loadAll()[charId]; return Array.isArray(a && a.places) ? a.places : []; }
   function uid(p) { return (p || "d") + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
 
@@ -23,15 +23,13 @@
     const i = cur.findIndex(function (p) { return p.id === place.id; });
     if (i >= 0) cur[i] = place; else cur.unshift(place);
     all[charId] = { places: cur.slice(0, CAP_PLACES) };
-    saveAll(all);
-    return all[charId].places;
+    return saveAll(all) ? all[charId].places : null;
   }
   function dropPlace(charId, id) {
     const all = loadAll();
     const cur = (all[charId] && all[charId].places) || [];
     all[charId] = { places: cur.filter(function (p) { return p.id !== id; }) };
-    saveAll(all);
-    return all[charId].places;
+    return saveAll(all) ? all[charId].places : null;
   }
 
   // ── 常去的地方：从行程里长出来，不另外调模型 ──────────────
@@ -187,6 +185,7 @@
       try {
         const img = await genArt(place, char);
         const list = savePlace(char.id, Object.assign({}, place, { img: img }));
+        if (!list) { props.toast && props.toast("图片出来了，但地点没保存成功，请重试"); return null; }
         setPlaces(list);
         return img;
       } catch (e) {
@@ -208,8 +207,7 @@
       if (cfg.withImg) await draw(made);
     }
     function del(id) {
-      if (!window.confirm("删掉这个地方？下次可以重新生成。")) return;
-      setPlaces(dropPlace(char.id, id)); setOpenId(null); setView("places");
+      requestAppConfirm("删掉这个地方？", "下次可以重新生成。", () => { const next = dropPlace(char.id, id); if (!next) return props.toast && props.toast("这次没删成功，原地点还在"); setPlaces(next); setOpenId(null); setView("places"); }, "删除");
     }
     function back() {
       if (item) { setItem(null); }

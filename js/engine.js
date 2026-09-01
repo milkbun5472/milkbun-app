@@ -2514,8 +2514,7 @@ function loadCotConfig() {
 }
 function saveCotConfig(c) {
   const clean = { enabled: !!(c && c.enabled), think: (c && c.think) || "", presets: (c && Array.isArray(c.presets)) ? c.presets : [] };
-  try { localStorage.setItem("x_cot_config", JSON.stringify(clean)); } catch (e) {}
-  return clean;
+  return saveJSON("x_cot_config", clean) ? clean : loadCotConfig();
 }
 // 解析出本次要用的思考方式文本（禁用/留空 → ""）；names: {char, user}
 function cotThink(names) {
@@ -2653,8 +2652,7 @@ function saveImgApiProfiles(store) {
   const src = store && Array.isArray(store.profiles) ? store : loadImgApiProfiles();
   const profiles = src.profiles.length ? src.profiles.map(normalizeImgApiProfile) : [normalizeImgApiProfile(null, 0)];
   const clean = { version: 2, activeId: profiles.some(p => p.id === src.activeId) ? src.activeId : profiles[0].id, profiles };
-  try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {}
-  return clean;
+  return saveJSON("x_imgApi", clean) ? clean : loadImgApiProfiles();
 }
 function loadImgApi() {
   const store = loadImgApiProfiles();
@@ -3488,7 +3486,7 @@ async function earsTranscribe(wavBlob) {
 }
 // 克隆音色库：克过的 voice_id 登记在本机（只是清单方便管理/指派，删掉不影响 MiniMax 账号里的音色）
 function loadVoiceLib() { try { const v = JSON.parse(localStorage.getItem("x_voiceLib") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
-function saveVoiceLib(list) { try { localStorage.setItem("x_voiceLib", JSON.stringify(list || [])); } catch (e) {} }
+function saveVoiceLib(list) { return saveJSON("x_voiceLib", list || []); }
 function ttsReady(a) { a = a || loadTtsApi(); return !!(a.enabled && a.groupId && a.apiKey); }
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
 const TTS_VOICES = [
@@ -5617,6 +5615,7 @@ function isQuotaError(e) {
 }
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 function saveJSON(k, v) {
+  let encoded = null, previous = null;
   try {
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const s = JSON.stringify(v);
@@ -5647,12 +5646,29 @@ function saveJSON(k, v) {
       }
       return true;
     }
-    localStorage.setItem(k, JSON.stringify(v));
+    encoded = JSON.stringify(v);
+    previous = localStorage.getItem(k);
+    localStorage.setItem(k, encoded);
+    // 云恢复冻结期会把 setItem 变成静默 no-op；另一些 WebView 写满时也可能不抛错。
+    // 不读回来逐字验真，调用方就会先改界面、刷新后旧数据复活，形成“假删除”。
+    if (localStorage.getItem(k) !== encoded) throw new Error("write read-back mismatch");
     return true;
   } catch (e) {
+    // 删除/清理后的 JSON 通常更小。若旧值占着配额导致原位覆盖失败，先挪走旧值再写，
+    // 写不成则尽力原样放回；和跑团已验证过的缩小写策略保持一致。
+    if (encoded != null && previous != null && encoded.length <= previous.length) {
+      try {
+        localStorage.removeItem(k);
+        localStorage.setItem(k, encoded);
+        if (localStorage.getItem(k) === encoded) return true;
+      } catch (retryError) {}
+      try { localStorage.setItem(k, previous); } catch (restoreError) {}
+    }
     console.error("saveJSON failed:", k, e);
     if (isQuotaError(e) && typeof window !== "undefined" && typeof window.__storageFull === "function") {
       try { window.__storageFull(k); } catch (x) {}
+    } else if (typeof window !== "undefined" && typeof window.__toast === "function") {
+      try { window.__toast("这次没保存成功，原数据还在，请再试一次", 5000); } catch (x) {}
     }
     return false;
   }
@@ -5716,6 +5732,14 @@ async function saveJSONDurable(key, value) {
   try { durable = await walPutVerified(key, str); } catch (e) { console.error("wal put failed:", key, e); }
   const live = saveJSON(key, value);
   return { durable, live };
+}
+// 显式删除用：保险仓没验真时绝不先改内存镜像，避免界面说“没删成”但后台其实又把它删了。
+async function commitJSONDurable(key, value) {
+  const str = JSON.stringify(value);
+  let durable = false;
+  try { durable = await walPutVerified(key, str); } catch (e) { console.error("wal put failed:", key, e); }
+  if (!durable) return { durable: false, live: false };
+  return { durable: true, live: saveJSON(key, value) };
 }
 // 估算 localStorage 已占字节（近似：键+值字符数×2，UTF-16）
 function localStorageBytes() {

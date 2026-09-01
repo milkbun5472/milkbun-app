@@ -25,8 +25,11 @@ test("云村的写：每一条都真实写回她的网易云账号", () => {
   assert.match(seg, /op=add&pid=/, "加歌进自己歌单（v54.15 就有，不许丢）");
   assert.match(seg, /\/fm_trash\?id=/, "FM 垃圾桶反馈不喜欢");
   assert.match(seg, /\/like\?id=/, "红心");
-  // 删除是破坏性操作，必须先 confirm，文案要说清是真删
-  assert.match(seg, /confirm\("删掉网易云歌单「" \+ pl\.name \+ "」？会真的从你账号删除。"\)/);
+  // 删除是破坏性操作，必须走 App 自绘确认层（iOS/PWA 可能永久吞掉系统 confirm），
+  // 文案也要说清是真删，并且只有确认回调里才请求网易云。
+  const del = seg.slice(seg.indexOf("const delRealPl"), seg.indexOf("const cloudRow"));
+  assert.match(del, /requestAppConfirm\("删掉网易云歌单「" \+ pl\.name \+ "」？", "会真的从你的网易云账号删除。"/);
+  assert.match(del, /async \(\) => \{[\s\S]*await nj\("\/playlist\/delete\?id=" \+ pl\.id\)/);
 });
 
 test("播放要 scrobble 进听歌记录，失败无声跳过不打断放歌", () => {

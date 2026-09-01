@@ -16,7 +16,7 @@
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   function loadSaves() { return loadJSON("x_dream_saves", []); }
-  function saveSaves(list) { saveJSON("x_dream_saves", list); }
+  function saveSaves(list) { return saveJSON("x_dream_saves", list); }
 
   // 角色最近聊天抓一小段，仅当语气/近况参考（梦醒后不写回）
   function recentChatSnippet(charId, uName, charName) {
@@ -185,12 +185,12 @@
     const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
     const lpTimer = useRef(null), lpFired = useRef(false);
 
-    const persist = list => { setSaves(list); saveSaves(list); };
+    const persist = list => { if (saveSaves(list)) { setSaves(list); return true; } props.toast && props.toast("这次没保存成功，原梦境还在"); return false; };
     const patchSession = (id, patch) => {
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, patch, { lastTs: Date.now() }) : s);
       persist(list);
     };
-    const delSession = id => { if (window.confirm("忘掉这场梦？")) { persist(loadSaves().filter(s => s.id !== id)); if (view === id) setView("home"); } };
+    const delSession = id => requestAppConfirm("忘掉这场梦？", "删除后不能恢复。", () => { if (persist(loadSaves().filter(s => s.id !== id)) && view === id) setView("home"); }, "删除");
 
     const startLP = id => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 550); };
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
