@@ -104,13 +104,19 @@ test("名册走【累积 + 墓碑】，不是 ♻️ 重掷也不是只进不出
   // 模型，它每次会凭空编一份新黑名单，比只进不出还糟。
   // 正解是累积保稳定 + retired 保能出去。
   const R = new Function(phoneSrc + "; return { PHONE_RETIRE };")();
+  // 判据（v59.53 补进规则文件）：**这一栏里的东西会不会「不再是」？**
+  // 会，就是名册。店会不去了（v59.53）、便签会被划掉或事情办完（v59.56）。
   [["calls", "frequent"], ["calls", "blocked"], ["liked", "follows"], ["liked", "drafts"],
-   ["browser", "marks"], ["shopping", "wish"], ["takeout", "wish"]].forEach(([app, f]) => {
+   ["browser", "marks"], ["shopping", "wish"], ["takeout", "wish"],
+   ["shopping", "shops"], ["takeout", "shops"], ["notes", "items"]].forEach(([app, f]) => {
     assert.ok(P.PHONE_GROW[app] && P.PHONE_GROW[app][f] > 0, app + "." + f + " 该累积（保稳定）");
     assert.ok(R.PHONE_RETIRE[app] && R.PHONE_RETIRE[app][f], app + "." + f + " 没有墓碑，只进不出");
   });
   // 日志那几条不需要墓碑：发生过就是发生过
-  [["calls", "calls"], ["calls", "sms"], ["liked", "items"], ["notes", "items"]].forEach(([app, f]) => {
+  // 日志那几条不需要墓碑：通话打过就是打过、短信收到就是收到、刷到的帖子刷到就是刷到。
+  // ⚠️便签 v59.56 从这儿挪到上面去了——它答的是「现在还记着哪几件事」，
+  // 划掉的、撕了的、办完的都该能退出（她 2026-09-01 选的「乙」）。
+  [["calls", "calls"], ["calls", "sms"], ["liked", "items"]].forEach(([app, f]) => {
     assert.ok(P.PHONE_GROW[app][f] > 0);
     assert.ok(!(R.PHONE_RETIRE[app] && R.PHONE_RETIRE[app][f]), app + "." + f + " 是日志，不该有退出机制");
   });
