@@ -978,6 +978,33 @@ const phoneClock = ts => {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 };
 const strColor = s => AV_COLORS[[...String(s || "?")].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length];
+// 查手机沿用 App 主屏既有的色彩体系，不另造一套「白方块手机」。
+// 键名不完全相同的 app 在这里映射到最接近的主屏模块；默认仍交给 appTone。
+const PHONE_TONE_KEY = {
+  wechat: "messages", notes: "memo", calls: "phone", browser: "read", shopping: "shop",
+  wallet: "ledger", album: "carry", forum: "forum", music: "cast", bili: "fanfic",
+  latenight: "dream", reading: "read", liked: "impression", health: "dwell",
+  clipboard: "memo", calendar: "calendar", takeout: "shop", timeline: "forum",
+  tally: "ledger", anon: "anon", mail: "messages"
+};
+function phoneTone(key) {
+  if (typeof appTone === "function") return appTone(PHONE_TONE_KEY[key] || key);
+  return { wash: "linear-gradient(145deg,rgba(255,255,255,.92),rgba(231,225,214,.82))", glyph: "#3f6f82" };
+}
+function phonePaper() {
+  return typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG
+    : "linear-gradient(155deg,#f7f2e9 0%,#eee8dc 58%,#f3efe7 100%)";
+}
+function phoneImage(ref) {
+  if (!ref) return "";
+  return typeof resolveImg === "function" ? (resolveImg(ref) || "") : String(ref);
+}
+const PHONE_ICON_PRESETS = [
+  { key: "main", name: "主界面彩釉", sub: "跟 Lisa's phone 同一套颜色" },
+  { key: "soft", name: "柔光", sub: "更浅、更像磨砂玻璃" },
+  { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
+  { key: "glass", name: "透明玻璃", sub: "让壁纸透出来" }
+];
 const parseMins = s => {
   s = String(s || "");
   let m = 0;
@@ -1095,7 +1122,8 @@ function PGlyph({
     timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")],
     tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")],
     anon: [P("M4 5.2h16v11.2H9l-5 4z"), P("M8.2 9.2h7.6M8.2 12.4h4.8"), P("M18.4 3.2l.5 1.1 1.1.5-1.1.5-.5 1.1-.5-1.1-1.1-.5 1.1-.5z")],
-    mail: [R(2.6, 5, 18.8, 14, 2.6), P("M2.6 7.2l9.4 6.4 9.4-6.4")]
+    mail: [R(2.6, 5, 18.8, 14, 2.6), P("M2.6 7.2l9.4 6.4 9.4-6.4")],
+    settings: [C(12, 6, 2), C(12, 18, 2), C(6, 12, 2), P("M3 6h7M14 6h7M3 18h7M14 18h7M3 12h1M8 12h13")]
   };
   return h(Svg, {
     size,
@@ -1512,9 +1540,86 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
 // ─────────────────────────────────────────────────────────────
 // 一叠还没点开的通知横幅，每条只露半句——要看全文得进去。
 // 通知就是 delta：上次翻完之后才出现的那些。没有新的就摆最近几条，灰着。
-function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline }) {
+function phonePickLookImage(file, done) {
+  if (!file || !/^image\//.test(file.type || "")) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let ref = String(reader.result || "");
+    if (typeof imgToVault === "function") ref = await imgToVault(ref);
+    done(ref);
+  };
+  reader.readAsDataURL(file);
+}
+
+function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
+  const apps = PHONE_APPS.filter(a => !a.soon);
+  const tone = phoneTone("phone");
+  const uploadCard = (kind, title, sub) => {
+    const ref = look[kind];
+    const src = phoneImage(ref);
+    return h("div", {
+      style: { borderRadius: 20, padding: 13, background: "rgba(255,255,255,.72)", border: "1px solid rgba(255,255,255,.82)" }
+    }, h("div", { className: "flex items-center", style: { gap: 12 } },
+      h("label", {
+        className: "active:opacity-70",
+        style: {
+          width: 76, height: 104, flexShrink: 0, borderRadius: 16, overflow: "hidden", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: src ? "#ddd" : phonePaper(), backgroundSize: "cover", backgroundPosition: "center",
+          border: "1px solid rgba(34,31,27,.10)"
+        }
+      }, src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } })
+        : h(PGlyph, { k: kind === "lockWallpaper" ? "settings" : "album", size: 24, color: tone.glyph }),
+      h("input", {
+        type: "file", accept: "image/*", style: { display: "none" },
+        onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v }))
+      })),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } }, sub),
+        h("div", { className: "flex items-center", style: { gap: 12, marginTop: 10 } },
+          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: tone.glyph, cursor: "pointer" } }, ref ? "更换" : "选一张图",
+            h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v })) })),
+          ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "恢复默认")))));
+  };
+  const iconPreset = look.iconPreset || "main";
+  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper() } },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "手机外观"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, (char && char.name || "TA") + " 的这一部")),
+      h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "WALLPAPER"),
+      h("div", { className: "grid grid-cols-2", style: { gap: 10 } }, uploadCard("lockWallpaper", "锁屏", "拿起手机第一眼"), uploadCard("homeWallpaper", "主页", "解锁后的桌面")),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "ICON STYLE"),
+      h("div", { className: "grid grid-cols-2", style: { gap: 9 } }, PHONE_ICON_PRESETS.map(p => h("button", {
+        key: p.key, onClick: () => onPatch({ iconPreset: p.key }), className: "text-left active:opacity-65",
+        style: { padding: 13, minHeight: 86, borderRadius: 18, background: iconPreset === p.key ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.50)", border: "1.5px solid " + (iconPreset === p.key ? tone.glyph : "rgba(255,255,255,.70)") }
+      }, h("div", { className: "flex items-center", style: { gap: 9 } },
+        h("div", { style: { width: 34, height: 34, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: p.key === "mono" ? "#ecebe7" : p.key === "glass" ? "rgba(255,255,255,.40)" : p.key === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash : tone.wash } }, h(PGlyph, { k: "settings", size: 17, color: p.key === "mono" ? "#4d4b47" : tone.glyph })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, p.name)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, p.sub)))),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "APP ICONS"),
+      h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
+        const custom = look.icons && look.icons[a.key];
+        const src = phoneImage(custom);
+        const at = phoneTone(a.key);
+        return h("div", { key: a.key, className: "flex items-center", style: { minHeight: 62, padding: "9px 13px", gap: 11, borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" } },
+          h("div", { style: { width: 40, height: 40, borderRadius: 12, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: at.wash, flexShrink: 0 } },
+            src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(PGlyph, { k: a.key, size: 20, color: at.glyph })),
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, a.zh),
+          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: tone.glyph, cursor: "pointer", padding: "8px 0" } }, custom ? "更换" : "自定义",
+            h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ icons: { ...(look.icons || {}), [a.key]: v } })) })),
+          custom && h("button", { onClick: () => { const icons = { ...(look.icons || {}) }; delete icons[a.key]; onPatch({ icons }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "8px 0 8px 8px" } }, "移除"));
+      })),
+      h("button", { onClick: () => onPatch({ lockWallpaper: "", homeWallpaper: "", iconPreset: "main", icons: {} }), className: "w-full active:opacity-60", style: { marginTop: 18, padding: 14, borderRadius: 17, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "rgba(255,255,255,.48)", border: "1px solid rgba(255,255,255,.72)" } }, "恢复这一部手机的默认外观")));
+}
+
+function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline, look }) {
   const now = new Date();
-  const wall = strColor(char && (char.id || char.name));
+  const lockSrc = phoneImage(look && look.lockWallpaper);
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
   const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
   const fresh = list.filter(r => newIds && newIds[r.id]);
@@ -1541,7 +1646,8 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
     r.text.slice(0, 26) + (r.text.length > 26 ? "…" : "")));
   return h("div", {
     className: "h-full flex flex-col",
-    style: { background: "linear-gradient(168deg," + wall + " 0%, rgba(245,243,238,.94) 62%, #f3f1ec 100%)" }
+    style: lockSrc ? { backgroundImage: "linear-gradient(rgba(246,243,237,.22),rgba(246,243,237,.42)),url(\"" + lockSrc.replace(/\"/g, "%22") + "\")", backgroundSize: "cover", backgroundPosition: "center" }
+      : { background: phonePaper() }
   },
   h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, letterSpacing: ".2em", color: "rgba(30,28,24,.5)" } },
@@ -4090,6 +4196,9 @@ function PhoneCarry({
   }, [open, inList]);
   // 锁屏：拿起他手机的第一眼，不该直接是一片图标网格
   const [locked, setLocked] = useState(true);
+  // 外观只存小引用；图片本体进图片金库。按角色分桶，谁的手机就只改谁。
+  const [phoneLooks, setPhoneLooks] = useState(() => loadJSON("x_phoneLooks", {}));
+  const [lookOpen, setLookOpen] = useState(false);
   // 「我收着的」——她自己留的那些，只给她自己看，不进任何上下文。
   // 转发是摆到他面前，收着是我自己留一份：两件事。
   const [kept, setKept] = useState(() => loadJSON("x_phoneKeep", {}));
@@ -4107,6 +4216,15 @@ function PhoneCarry({
   const isAllRun = String(busyKey || "").indexOf("__all__") === 0;
   const char = characters.find(c => c.id === selId) || characters[0];
   phoneViewTa(char);   // 同上：列表页的标签也跟着选中的这位走
+  const look = char ? (phoneLooks[char.id] || {}) : {};
+  const patchLook = patch => {
+    if (!char) return;
+    setPhoneLooks(prev => {
+      const next = { ...prev, [char.id]: { ...(prev[char.id] || {}), ...patch } };
+      saveJSON("x_phoneLooks", next);
+      return next;
+    });
+  };
   if (!char) return h("div", {
     className: "h-full flex flex-col"
   }, h(Head, {
@@ -4175,6 +4293,7 @@ function PhoneCarry({
               }, "每周") : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "\u203a")))))));
   }
+  if (lookOpen) return h(PhoneLookSettings, { char, look, onPatch: patchLook, onBack: () => setLookOpen(false), t });
   const data = phones[char.id] || {};
   // 真数据这两个不看 phones，看 App 里那份真的
   const liveForum = forumAccountsFor ? forumAccountsFor(char) : null;
@@ -4268,7 +4387,16 @@ function PhoneCarry({
     const x = Array.isArray(pool) && pool[0];
     return String((x && (x.last || x.title || x.caption || x.name || x.transcript || x.content || x.text || (x.day && x.hours != null ? x.day + " 睡了 " + x.hours + " 小时" : ""))) || value.desc || value.playlist || value.weekNote || fallback);
   };
-  const appIcon = (a, compact) => h("button", {
+  const appIcon = (a, compact) => {
+    const custom = phoneImage(look.icons && look.icons[a.key]);
+    const tone = phoneTone(a.key);
+    const preset = look.iconPreset || "main";
+    const iconBg = preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
+      : preset === "glass" ? "rgba(255,255,255,.38)"
+        : preset === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash
+          : tone.wash;
+    const glyph = preset === "mono" ? "#4d4b47" : tone.glyph;
+    return h("button", {
     key: a.key,
     onClick: () => openApp(a),
     className: "flex flex-col items-center active:opacity-60",
@@ -4279,11 +4407,13 @@ function PhoneCarry({
       width: compact ? 44 : 56,
       height: compact ? 44 : 56,
       borderRadius: compact ? 13 : 17,
-      background: "rgba(255,255,255,.88)",
+      background: custom ? "rgba(255,255,255,.72)" : iconBg,
       border: "1px solid rgba(255,255,255,.72)",
-      boxShadow: "0 8px 22px rgba(28,25,20,.10)"
+      boxShadow: preset === "glass" ? "0 8px 22px rgba(28,25,20,.06),inset 0 0 0 1px rgba(255,255,255,.30)" : "0 8px 22px rgba(28,25,20,.10)",
+      overflow: "hidden"
     }
-  }, h(PGlyph, { k: a.key, size: compact ? 22 : 27, color: t.ink }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
+  }, custom ? h("img", { src: custom, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } })
+    : h(PGlyph, { k: a.key, size: compact ? 22 : 27, color: glyph }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
     style: {
       position: "absolute", top: -3, right: -3, width: 10, height: 10,
       borderRadius: 9, background: "#78bd58", border: "2px solid rgba(255,255,255,.95)"
@@ -4298,6 +4428,7 @@ function PhoneCarry({
       textShadow: compact ? "none" : "0 1px 8px rgba(255,255,255,.85)"
     }
   }, a.zh));
+  };
   if (open) return h(PhoneApp, {
     appKey: open,
     char,
@@ -4318,12 +4449,12 @@ function PhoneCarry({
     onBack: () => setOpen(null)
   });
   if (locked) return h(LockScreen, {
-    char, t, rows: tlRows, newIds, newCount,
+    char, t, rows: tlRows, newIds, newCount, look,
     onUnlock: () => setLocked(false),
     onTimeline: () => { setLocked(false); setOpen("timeline"); },
     onOpenApp: k => { setLocked(false); const a = appByKey(k); if (a) openApp(a); }
   });
-  const wall = strColor(char.id || char.name);
+  const homeSrc = phoneImage(look.homeWallpaper);
   const layout = phoneDesktopLayout(char);
   const widgetData = key => data[key];
   const widgetCopy = key => {
@@ -4562,6 +4693,7 @@ function PhoneCarry({
     const app = decor ? null : appByKey(key);
     if (!decor && !app) return null;
     const label = decor ? { clock: "时间", frame: "相册", saying: T("他写过的") }[key] : app.zh;
+    const tone = phoneTone(jump);
     return h("button", {
       key,
       onClick: () => { if (key === "clock") return; const a = appByKey(jump); if (a) openApp(a); },
@@ -4571,13 +4703,13 @@ function PhoneCarry({
         minHeight: hero ? 124 : tall ? 132 : spec.size === "wide" ? 112 : 104,
         padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
         display: "flex", flexDirection: "column",
-        background: dark ? "rgba(30,29,27,.88)" : "rgba(255,255,255,.72)",
+        background: dark ? "rgba(30,29,27,.88)" : tone.wash,
         color: dark ? "#fff" : t.ink, border: dark ? "none" : "1px solid rgba(255,255,255,.72)",
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
     }, h("div", { className: "flex items-center justify-between shrink-0" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, label),
-      decor && key === "clock" ? null : h(PGlyph, { k: decor ? jump : key, size: 19, color: dark ? "#fff" : t.ink })),
+      decor && key === "clock" ? null : h(PGlyph, { k: decor ? jump : key, size: 19, color: dark ? "#fff" : tone.glyph })),
     deskBody(key, dark, hero));
   };
   const pages = layout.pages.map((keys, pageIndex) => h("section", {
@@ -4593,15 +4725,21 @@ function PhoneCarry({
       .map(k => appIcon(appByKey(k), false)))));
   return h("div", {
     className: "h-full flex flex-col overflow-hidden",
-    style: {
-      background: `radial-gradient(circle at 82% 12%,rgba(255,255,255,.80),transparent 31%),linear-gradient(155deg,${wall}35 0%,#eee8dc 56%,${wall}22 100%)`
-    }
+    style: homeSrc ? {
+      backgroundImage: "linear-gradient(rgba(246,243,237,.13),rgba(246,243,237,.31)),url(\"" + homeSrc.replace(/\"/g, "%22") + "\")",
+      backgroundSize: "cover", backgroundPosition: "center"
+    } : { background: phonePaper() }
   }, h("div", {
-    className: "shrink-0 px-5 pb-2 flex items-center justify-between",
+    className: "shrink-0 px-4 pb-2 flex items-center",
     style: { paddingTop: safeTop(20) }
-  }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50", "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
-  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
-  h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 }))),
+  }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50 flex items-center", style: { width: 76, height: 36 }, "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
+  h("div", { className: "flex-1 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
+  h("div", { className: "flex items-center justify-end", style: { width: 76, gap: 4 } },
+    h("button", {
+      onClick: () => setLookOpen(true), className: "active:opacity-50 flex items-center justify-center", "aria-label": "手机外观设置",
+      style: { width: 36, height: 36, borderRadius: 12, background: "rgba(255,255,255,.42)", border: "1px solid rgba(255,255,255,.55)" }
+    }, h(PGlyph, { k: "settings", size: 18, color: phoneTone("settings").glyph })),
+    h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 })))),
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
   // 搜索条：在他手机里搜一个词。零调用——读的是已经翻出来的东西。
   h("div", { className: "shrink-0 px-4 pb-2" },
