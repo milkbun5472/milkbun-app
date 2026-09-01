@@ -6878,19 +6878,47 @@ function MsgMenu({
 }
 
 // ---- state card: live mood/affinity/wearing/action/thought (auto from chat) ----
+// ── 心声卡（v59.77 重做）────────────────────────────────────────────
+// 她 2026-09-01：「重做心声卡样式吧，现在的有点无聊，而且是半屏，改成屏幕中间的框。
+// 然后我发现我们这个和最后一张图的 category 完全一样是不是得改改」。
+//
+// 【分栏是真撞了】原来五栏：实时心情 / 对你的好感度 / 穿着 / 动作 / 内心想法——
+// 跟她截图里那个参考一字不差。光改名字不算改：那五栏本身就是「状态面板」这个
+// 通用形状，一排一模一样的圆角卡竖着摞，换个 app 照样成立
+//（.claude/rules/tabs-not-plain-pills.md 那条判据）。
+//
+// 【改成三栏，按「一帧」来分】这张卡答的是「此刻他是什么样」：
+//   ① 此刻 —— 心情长在抬头那一行上，不单独占一张卡
+//   ② 看得见的 —— 穿着和动作【合成一段】，那本来就是同一眼看到的东西，
+//      拆成两张并排的卡才是状态面板的做法
+//   ③ 没说出口的 —— 那句心声，压低的底、引号撑开，跟上面那半明显不是一类
+//   ④ 分数只有一个，就别做成一排进度条：一条 0-100 的刻度，墨点站在当下的位置
+//
+// 【形状】屏幕正中的一个框，不是半窗。
+// ⚠️ .claude/rules/no-half-sheet.md 说默认整页，但那条针对的是「从底下掀起来、
+//   上半屏糊着上一层」的半窗。这张卡是【贴在某一轮对话上的一帧】，看得见底下
+//   那层聊天是它成立的前提，而且内容就三段——正中一个框才是它该有的形状。
+//   这是她 2026-09-01 直接点的。
+function CenterCard({ children, onClose, maxWidth }) {
+  const t = useTheme();
+  return h("div", {
+    className: "absolute inset-0 z-50 flex items-center justify-center",
+    style: { padding: 18, background: "rgba(20,19,15,.46)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" },
+    onClick: onClose
+  }, h("div", {
+    onClick: e => e.stopPropagation(),
+    className: "w-full flex flex-col",
+    style: {
+      maxWidth: maxWidth || 400, maxHeight: "82vh", background: t.bg2,
+      borderRadius: 20, border: "1px solid " + t.line,
+      boxShadow: "0 24px 60px rgba(20,19,15,.34)", overflow: "hidden",
+      animation: "fadeUp .22s ease both"
+    }
+  }, children));
+}
 function StateCard({
-  character,
-  affinity,
-  isNpc,
-  mood,
-  state,
-  history,
-  hideWearAction,
-  onClose,
-  gazeOn,
-  uName,
-  onGazeSeed,
-  gazeSeedBusy
+  character, affinity, isNpc, mood, state, history, hideWearAction,
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -6899,168 +6927,73 @@ function StateCard({
   const dmRaw = decayMood(mood) || { label: "平静", def: true };
   const dm = window.MoodLabel ? window.MoodLabel.normalizeMood(dmRaw) : dmRaw;
   const aff = typeof affinity === "number" ? affinity : 50;
-  return /*#__PURE__*/React.createElement(Sheet, {
-    onClose: onClose,
-    tall: true
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 mb-5"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: character,
-    size: 54,
-    radius: 13
-  }), /*#__PURE__*/React.createElement("div", { className: "flex-1" }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 22,
-      color: t.ink
-    }
-  }, character.name), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog
-    }
-  }, "实时状态同步中")), hist.length > 0 && h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px" } }, showHist ? "返回" : "看历史")),
-    gazeOn && window.GazePage ? h("div", { className: "flex mb-4", style: { borderBottom: "1px solid " + t.line } },
-      [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, label]) => h("button", { key: k, onClick: () => setPage(k), style: { position: "relative", flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.ink : "transparent") } },
-        label,
-        // 红点得在【她还没点进去】的时候就看得见，不然这一层等于没有（她 2026-08-27）
-        (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
-          ? h("span", { style: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "#c2705a", marginLeft: 5, verticalAlign: "middle" } }) : null))) : null,
-    page === "gaze" && gazeOn && window.GazePage ? h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: window.PhonePronoun ? window.PhonePronoun.ta(character) : (["她", "女", "f", "female"].includes(String(character.gender || "").trim()) ? "她" : "他"), onSeed: onGazeSeed, seedBusy: gazeSeedBusy }) :
-    showHist ? h("div", { className: "space-y-3" },
-      h(Eyebrow, { style: { marginBottom: 2 } }, "心声历史 · " + hist.length + " 条"),
-      hist.map((s, i) => h("div", { key: i, style: { paddingBottom: 10, borderBottom: "1px solid " + t.line } },
-        h("div", { className: "flex items-center gap-2 mb-1" },
-          s.mood && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.tint, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px" } }, window.MoodLabel ? window.MoodLabel.localize(s.mood) : s.mood),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s.ts ? timeAgo(s.ts) : "")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink } }, "“" + (s.thought || "") + "”"),
-        !hideWearAction && (s.wearing || s.action) && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, [s.action, s.wearing].filter(Boolean).join(" · "))))
-    ) : h(Fragment, null, !state && !dm && /*#__PURE__*/React.createElement(Empty, {
-    text: "还没有状态",
-    sub: "和 Ta 聊几句，状态会自动生成"
-  }), dm && !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
-    style: {
-      padding: 16,
-      marginBottom: 12,
-      background: "rgba(255,255,255,0.7)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5 mb-1"
-  }, /*#__PURE__*/React.createElement(IPulse, {
-    size: 13,
-    color: t.accent
-  }), /*#__PURE__*/React.createElement(Eyebrow, null, "实时心情")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 20,
-      color: t.ink
-    }
-  }, dm.label, dm.faded && /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: t.fog,
-      fontFamily: F_BODY
-    }
-  }, " · 已随时间平复"), dm.def && /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: t.fog,
-      fontFamily: F_BODY
-    }
-  }, " · 默认，聊几句会变化")),
-  // 心情看着“不会变”时，分不清是模型每轮都报了同一个词，还是压根没人写过它。
-  // 把上一次写入时间摆出来，一眼就能分（她 2026-08-28 问「为啥线下也不换实时心情」）。
-  !dm.def && dm.ts ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, "上次写入：" + timeAgo(dm.ts)) : null), !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
-    style: {
-      padding: 16,
-      marginBottom: 12,
-      background: "rgba(255,255,255,0.7)"
-    }
-  }, /*#__PURE__*/React.createElement(Eyebrow, {
-    style: {
-      marginBottom: 4
-    }
-  }, "对你的好感度"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 20,
-      color: t.tint
-    }
-  }, aff, " ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      color: t.fog
-    }
-  }, "/ 100", state && state.affinityLabel ? " · " + state.affinityLabel : ""))), state && !hideWearAction && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, /*#__PURE__*/React.createElement(GlassCard, {
-    style: {
-      padding: 16,
-      background: "rgba(255,255,255,0.7)"
-    }
-  }, /*#__PURE__*/React.createElement(Eyebrow, {
-    style: {
-      marginBottom: 6
-    }
-  }, "穿着"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      lineHeight: 1.5,
-      color: t.ink
-    }
-  }, state.wearing)), /*#__PURE__*/React.createElement(GlassCard, {
-    style: {
-      padding: 16,
-      background: "rgba(255,255,255,0.7)"
-    }
-  }, /*#__PURE__*/React.createElement(Eyebrow, {
-    style: {
-      marginBottom: 6
-    }
-  }, "动作"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      lineHeight: 1.5,
-      color: t.ink
-    }
-  }, state.action))), state && state.thought && /*#__PURE__*/React.createElement(GlassCard, {
-    style: {
-      padding: 16,
-      marginTop: 12,
-      background: "rgba(63,109,140,0.08)"
-    }
-  }, /*#__PURE__*/React.createElement(Eyebrow, {
-    style: {
-      marginBottom: 6
-    }
-  }, "内心想法"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 16,
-      lineHeight: 1.6,
-      color: t.ink
-    }
-  }, "“", state.thought, "”")), /*#__PURE__*/React.createElement("div", {
-    className: "text-center mt-4"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog
-    }
-  }, "状态随聊天自动更新，不额外消耗额度"))));
+  const S = v => String(v == null ? "" : v).trim();
+  const seen = [S(state && state.wearing), S(state && state.action)].filter(Boolean);
+  const label = (txt, c) => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || t.fog } }, txt);
+  // 抬头：谁、此刻什么心情、上次动是什么时候。心情不再单独占一张卡。
+  const head = h("div", { className: "shrink-0 flex items-start gap-3", style: { padding: "16px 17px 13px", borderBottom: "1px solid " + t.line } },
+    h(Avatar, { character: character, size: 44, radius: 12 }),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { className: "flex items-baseline gap-2" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, character.name),
+        !isNpc && dm ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.accent } }, "· " + dm.label) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } },
+        dm && dm.def ? "还没聊出心情，聊几句就会变"
+          : dm && dm.faded ? "已经随时间平复下去了"
+            : (dm && dm.ts ? "上一次变是 " + timeAgo(dm.ts) : "此刻"))),
+    h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
+      hist.length > 0 ? h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: showHist ? t.accent : t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 10px" } }, showHist ? "回此刻" : "翻旧的") : null,
+      h("button", { onClick: onClose, "aria-label": "关掉", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1 } }, "✕")));
+  const tabs = gazeOn && window.GazePage ? h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line } },
+    [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, lb]) => h("button", {
+      key: k, onClick: () => setPage(k), "aria-pressed": page === k ? "true" : "false",
+      style: { position: "relative", flex: 1, padding: "9px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.accent : "transparent") }
+    }, lb,
+      (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
+        ? h("span", { style: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: t.accent, marginLeft: 5, verticalAlign: "middle" } }) : null))) : null;
+  // 分数只有一条，就别做成一排进度条：一条 0-100 的刻度，墨点站在当下的位置。
+  const scale = isNpc ? null : h("div", { style: { padding: "15px 17px 17px", borderTop: "1px solid " + t.line } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 9 } },
+      label("他心里给你打的分"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, aff,
+        state && state.affinityLabel ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 6 } }, state.affinityLabel) : null)),
+    h("div", { style: { position: "relative", height: 12 } },
+      h("span", { style: { position: "absolute", left: 0, right: 0, top: 5, height: 1, background: t.line } }),
+      [0, 25, 50, 75, 100].map(v => h("span", { key: v, style: { position: "absolute", left: v + "%", top: 2, marginLeft: v === 100 ? -1 : 0, width: 1, height: 7, background: t.line } })),
+      h("span", { style: { position: "absolute", left: Math.max(0, Math.min(100, aff)) + "%", top: 0, marginLeft: -5.5, width: 11, height: 11, borderRadius: 999, background: t.accent, border: "2px solid " + t.bg2 } })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 11 } }, "跟着聊天自己更新，不额外花额度"));
+  const body = showHist
+    ? h("div", { style: { padding: "13px 17px 18px" } },
+      label("他心里闪过的那些 · " + hist.length + " 条"),
+      h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
+        h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
+          s2.mood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : "")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
+        !hideWearAction && (s2.wearing || s2.action) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [s2.action, s2.wearing].filter(Boolean).join(" · ")) : null))))
+    : h(Fragment, null,
+      (!state && !dm) ? h(Empty, { text: "还没有状态", sub: "和 Ta 聊几句，状态会自动生成" }) : null,
+      // 看得见的：穿着和动作本来就是同一眼看到的东西，合成一段——
+      // 拆成两张并排的卡，那是状态面板的做法。
+      // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
+      // 手在做什么才是这一帧的主句。一个「　」把两句黏在一起会读成一长串。
+      (!hideWearAction && seen.length) ? h("div", { style: { padding: "14px 17px 13px" } },
+        label("看得见的"),
+        S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
+        S(state && state.action) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 } }, S(state.action)) : null) : null,
+      // 没说出口的：跟上面那半明显不是一类
+      (state && S(state.thought)) ? h("div", { style: { margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line } },
+        label("没说出口的", t.accent),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
+      null);
+  return h(CenterCard, { onClose: onClose }, head, tabs,
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+      (page === "gaze" && gazeOn && window.GazePage)
+        ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: window.PhonePronoun ? window.PhonePronoun.ta(character) : (["她", "女", "f", "female"].includes(String(character.gender || "").trim()) ? "她" : "他"), onSeed: onGazeSeed, seedBusy: gazeSeedBusy }))
+        : body),
+    (page === "now" && !showHist) ? scale : null);
 }
+
 // ============================================================
 // 线下模式（赴约）—— 全屏叙事界面。setup 选开场白+文风；live 只留输入框+回复键+心声
 // ============================================================
