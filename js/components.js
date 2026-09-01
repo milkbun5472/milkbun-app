@@ -2054,6 +2054,8 @@ function Home({
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
     carry: { kind: "app", zh: "随身物", G: GCarry },
+    // 我的衣柜：随身物是【他们的】柜子，这一格是【她自己的】那一柜（v59.27）
+    mycloset: { kind: "app", zh: "我的衣柜", G: GCarry },
     dwell: { kind: "app", zh: "去处", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
     lore: { kind: "app", zh: "世界书", G: GLore },
@@ -2089,7 +2091,7 @@ function Home({
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
+    ["w_cal", "shop", "carry", "mycloset", "cwallet", "w_ledger", "w_us", "w_memo"],
     ["lore", "memlib", "anon", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
     ["w_muyu", "w_weather", "w_wheel"]
   ];

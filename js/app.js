@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.26";
+const APP_VERSION = "v59.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12648,6 +12648,73 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const STUDIO_CAP = 200;
   const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
   const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };
+  // ── 我的衣柜（v59.27，她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
+  //    用关键词生成几套，再加上可以自己填」）──────────────────────
+  // 在这之前【压根没有入口】：只能在情侣空间→照相馆里点「配一身约会装」，一次一身，
+  // 还绑着某个角色。现在给它一处正门，两条路都能往里放东西。
+  const MYCLOSET_MAX_OCC = 6, MYCLOSET_MAX_SETS = 6;
+  // 往柜子里挂一身。同一个场合就挂在同一格里，最新的排前面。
+  const myClosetPut = (box, occ, set) => {
+    const occasion = String(occ || "").trim().slice(0, 8) || "平常";
+    const one = { name: String((set && set.name) || "").trim().slice(0, 24), note: String((set && set.note) || "").trim().slice(0, 140) };
+    if (!one.name) return box;
+    const cur = ((box && box.closet) || []).slice();
+    const i = cur.findIndex(g => g && String(g.occasion || "") === occasion);
+    if (i >= 0) cur[i] = { ...cur[i], sets: [one, ...(cur[i].sets || [])].slice(0, MYCLOSET_MAX_SETS) };
+    else cur.unshift({ occasion: occasion, sets: [one] });
+    return { ...(box || {}), closet: cur.slice(0, MYCLOSET_MAX_OCC) };
+  };
+  const myClosetAdd = (occ, name, note) => {
+    if (!String(name || "").trim()) { toast("先写这身叫什么"); return false; }
+    saveMyCloset(myClosetPut(myClosetRef.current, occ, { name: name, note: note }));
+    toast("挂上了");
+    return true;
+  };
+  const myClosetDrop = (occ, name) => {
+    const cur = ((myClosetRef.current || {}).closet || []).map(g => {
+      if (String(g.occasion || "") !== String(occ || "")) return g;
+      return { ...g, sets: (g.sets || []).filter(x => String(x.name || "") !== String(name || "")) };
+    }).filter(g => (g.sets || []).length);
+    saveMyCloset({ ...(myClosetRef.current || {}), closet: cur });
+    toast("拿掉了");
+    return true;
+  };
+  // 关键词生成【好几套】。⚠️跟照相馆那个「配一对约会装」是两件事：那个一次一身、
+  // 配着某个角色；这个是把她自己的柜子一次填起来，跟角色无关。
+  const myClosetGen = async keywords => {
+    const kw = String(keywords || "").trim().slice(0, 120);
+    if (!bgActive && !active) { toast("请先到设置配置 API"); return false; }
+    setGen(g => ({ ...g, myCloset: true }));
+    try {
+      const uName = profile.name || "我";
+      const have = ((myClosetRef.current || {}).closet || [])
+        .map(g => (g.sets || []).map(x => x.name).filter(Boolean).join("、")).filter(Boolean).join("；");
+      // ⚠️不走 runProbe：它一定要 buildBundle，而 buildBundle 要角色（没有就炸在
+      // ctx.char.name 上）。这一条是关于【她自己】的，跟哪个角色都无关——
+      // 灌一份角色上下文进来既没用又要花钱。自己拼一份最小的 system。
+      const d = extractJSON(await callAI(bgActive || active,
+        ANTI_CLICHE + "\n\n给「" + uName + "」配 4 身衣服，挂进她自己的衣柜。\n"
+          + (kw ? "【她给的关键词】" + kw + "\n按这几个词来，别另起炉灶。\n" : "【她没给关键词】那就配四个【互不重样的场合】各一身：日常、正经场合、见谁、以及一身她自己在家穿的。\n")
+          + (profile.persona ? "\n【她是这样一个人】\n" + String(profile.persona).slice(0, 600) + "\n" : "")
+          + (have ? "\n【柜子里已经有这几身，别再配一样的】" + have.slice(0, 300) + "\n" : "")
+          + "\n每身写清：occasion（什么场合穿，四个字以内）、name（这身叫什么，别只写「连衣裙」这种类目名）、"
+          + "note（是什么衣服——版型、颜色、料子、脚上穿什么，一到两句；再带上一句她为什么留着这身）。\n"
+          + "⚠️四身要【真的不一样】：不是同一套换个颜色。冷暖、松紧、正式与随便，至少要拉开两头。\n"
+          + "⚠️别写成时尚杂志的搭配建议，也别用「知性优雅」「气场全开」这类换谁都贴得上的词——"
+          + "写这一件衣服本身长什么样，以及它为什么是【她的】。"
+        + "\n\n【输出】只输出合法 JSON，无 markdown：\n"
+        + "{\"sets\":[{\"occasion\":\"场合\",\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么留着\"}]}",
+        [{ role: "user", content: "配吧。" }], { maxTokens: 2600 })) || {};
+      const rows = Array.isArray(d && d.sets) ? d.sets : [];
+      if (!rows.length) { toast("这次没配出来，再点一次"); return false; }
+      let box = myClosetRef.current || {};
+      rows.slice(0, 6).forEach(r => { box = myClosetPut(box, r && r.occasion, r); });
+      saveMyCloset(box);
+      toast("配了 " + Math.min(rows.length, 6) + " 身挂进去了");
+      return true;
+    } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, myCloset: false })); }
+  };
   // 一次调用配两身：给他一套、给我一套，而且是【配着的一对】。
   // 分两次生成会各写各的，凑不成一起出门的样子，还多花一次钱。
   const genDateOutfits = async (char, hint) => {
@@ -14884,6 +14951,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },
     onPeek: forwardPhonePeekToChat
+  });else if (screen === "mycloset") body = h(MyCloset, {
+    profile: profile,
+    data: myCloset,
+    busy: !!gen.myCloset,
+    onGen: myClosetGen,
+    onAdd: myClosetAdd,
+    onDrop: myClosetDrop,
+    onBack: () => setScreen("home")
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,
     carry: carry,

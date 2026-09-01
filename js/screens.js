@@ -10167,6 +10167,70 @@ function StudioPicker({ zh, groups, value, onPick, tint }) {
             x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: x.name === value ? "rgba(255,255,255,.8)" : t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.note) : null)))
       : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "衣柜里还没有——不指定也能拍，或者让他配一套"));
 }
+// 我的衣柜（v59.27）。她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
+// 用关键词生成几套，再加上可以自己填」。
+// 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
+// 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
+// 整页，不用半窗（.claude/rules/no-half-sheet.md）。
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
+  const t = useTheme();
+  const groups = closetGroups(data);
+  const [kw, setKw] = useState("");
+  const [openAdd, setOpenAdd] = useState(false);
+  const [occ, setOcc] = useState("");
+  const [name, setName] = useState("");
+  const [note, setNote] = useState("");
+  const n = groups.reduce((a, g) => a + (g.sets || []).length, 0);
+  const submit = () => { if (onAdd(occ, name, note)) { setOcc(""); setName(""); setNote(""); setOpenAdd(false); } };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我的衣柜"),
+      h("button", { onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 40, height: 40, marginRight: -8, fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+")),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
+        "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。"),
+      // 关键词生成
+      h("div", { style: { borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 14px 13px" } },
+        h("div", { className: "flex items-end gap-2" },
+          h("input", {
+            value: kw, onChange: e => setKw(e.target.value),
+            placeholder: "给几个词，或者留空让它自己配",
+            className: "flex-1 outline-none",
+            style: { height: 42, borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13.5 }
+          }),
+          h("button", { onClick: () => onGen(kw), disabled: !!busy, className: "active:opacity-70 shrink-0",
+            style: { height: 42, padding: "0 16px", borderRadius: 11, background: busy ? t.line : t.ink, color: busy ? t.fog : t.bg, fontFamily: F_DISPLAY, fontSize: 14 } },
+            busy ? "配着…" : "配四身")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 9, lineHeight: 1.7 } },
+          "一次四身，挂进不同场合。已经有的那几身会发过去避重，不会配出一模一样的。")),
+      // 自己挂
+      openAdd ? h("div", { style: { borderRadius: 16, border: "1px dashed " + t.line, padding: "14px", marginTop: 11 } },
+        h("input", { value: occ, onChange: e => setOcc(e.target.value), placeholder: "什么场合（留空算「平常」）", className: "w-full outline-none",
+          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: 13 } }),
+        h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "这身叫什么", className: "w-full outline-none",
+          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: 13, marginTop: 8 } }),
+        h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "是什么衣服——版型、颜色、料子、脚上穿什么", className: "w-full outline-none resize-none",
+          style: { borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "10px 11px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, marginTop: 8 } }),
+        h("button", { onClick: submit, className: "w-full active:opacity-70",
+          style: { marginTop: 10, height: 40, borderRadius: 11, background: t.ink, color: t.bg, fontFamily: F_DISPLAY, fontSize: 14 } }, "挂进去")) : null,
+      // 柜子
+      groups.length
+        ? h("div", { style: { marginTop: 18 } },
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginBottom: 10 } }, "IN THE CLOSET · " + n),
+            groups.map((g, gi) => h("div", { key: gi, style: { marginTop: gi ? 18 : 0 } },
+              h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
+                h("span", { style: { width: 3, height: 14, borderRadius: 3, background: t.accent || t.ink } }),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.occasion || "平常")),
+              (g.sets || []).map((x, i) => h("div", { key: i, style: { borderRadius: 13, border: "1px solid " + t.line, background: t.bg2, padding: "12px 13px", marginTop: i ? 8 : 0 } },
+                h("div", { className: "flex items-start", style: { gap: 10 } },
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),
+                  h("button", { onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
+                    style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
+                x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null)))))
+        : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
+            "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
+}
 function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onBack }) {
   const t = useTheme();
   const [scene, setScene] = useState("");
