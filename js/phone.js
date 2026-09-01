@@ -1006,10 +1006,16 @@ function phoneHue(charId) {
   return (hsh >>> 0) % 360;
 }
 // 同一个人永远同一个色，不同人一定不同色。
+// ⚠️v59.31 调亮。她 2026-09-01：「你这些颜色太深了」。
+// 上一版为了跟她那张暖米纸分开，直接压到 13~26% 的暗调——分是分开了，但整屏发闷。
+// 其实**区分靠色相就够了，不必靠暗**：她的主屏是暖奶油，他的是带色相的浅色调，
+// 一眼就知道不是同一台机器，而且亮着好看。
 function phoneOwnPaper(charId) {
   const hu = phoneHue(charId);
-  return "linear-gradient(160deg,hsl(" + hu + ",22%,26%) 0%,hsl(" + ((hu + 24) % 360) + ",26%,17%) 58%,hsl(" + hu + ",20%,13%) 100%)";
+  return "linear-gradient(160deg,hsl(" + hu + ",26%,90%) 0%,hsl(" + ((hu + 22) % 360) + ",24%,82%) 56%,hsl(" + hu + ",22%,86%) 100%)";
 }
+// 底亮了，图标线条和文字就得回到深色，不然一片白糊白
+function phoneOwnInk(charId) { return "hsl(" + phoneHue(charId) + ",34%,28%)"; }
 function phonePaper(charId, look) {
   if (look && look.iconPreset === "main") {
     return typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG
@@ -4396,18 +4402,18 @@ function PhoneCarry({
   // 外观设置那一格：长得跟别的 app 图标一模一样，只是点开进的是设置。
   const lookIcon = () => {
     const preset = look.iconPreset || "own";
-    const iconBg = preset === "own" ? "rgba(255,255,255,.13)"
+    const iconBg = preset === "own" ? "rgba(255,255,255,.62)"
       : preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
         : preset === "glass" ? "rgba(255,255,255,.38)" : phoneTone("settings").wash;
-    const glyph = preset === "own" ? "rgba(255,255,255,.88)" : preset === "mono" ? "#4d4b47" : phoneTone("settings").glyph;
+    const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : phoneTone("settings").glyph;
     return h("button", {
       key: "__look", onClick: () => setLookOpen(true),
       className: "flex flex-col items-center active:opacity-60", style: { gap: 7, minWidth: 0 }
     },
       h("div", { className: "relative flex items-center justify-center",
-        style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 8px 22px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.16)" : "0 8px 22px rgba(28,25,20,.10)" } },
+        style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
         h(PGlyph, { k: "settings", size: 24, color: glyph })),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? "rgba(255,255,255,.78)" : t.sub, textAlign: "center" } }, "外观"));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
   };
   const openApp = a => {
     if (!a || a.soon) return;
@@ -4432,12 +4438,12 @@ function PhoneCarry({
     const tone = phoneTone(a.key);
     const preset = look.iconPreset || "own";
     // own：深底上一块半透明浅玻璃——玻璃这时候才成立（底下真有东西可透）
-    const iconBg = preset === "own" ? "rgba(255,255,255,.13)"
+    const iconBg = preset === "own" ? "rgba(255,255,255,.62)"
       : preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
         : preset === "glass" ? "rgba(255,255,255,.38)"
           : preset === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash
             : tone.wash;
-    const glyph = preset === "own" ? "rgba(255,255,255,.88)" : preset === "mono" ? "#4d4b47" : tone.glyph;
+    const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : tone.glyph;
     return h("button", {
     key: a.key,
     onClick: () => openApp(a),
@@ -4466,7 +4472,9 @@ function PhoneCarry({
     // iOS 的 dock 不写字，但这不是 iOS，是「翻他手机」——找得到比像不像重要。
     style: {
       width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-      fontFamily: F_BODY, fontSize: compact ? 9.5 : 11, color: t.ink,
+      // 图标名也跟着底走：底自成一套色，名字还用她那套墨，一屏上就有两种黑
+      fontFamily: F_BODY, fontSize: compact ? 9.5 : 11,
+      color: preset === "own" ? phoneOwnInk(char && char.id) : t.ink,
       textShadow: compact ? "none" : "0 1px 8px rgba(255,255,255,.85)"
     }
   }, a.zh));
@@ -4728,7 +4736,7 @@ function PhoneCarry({
       className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
       style: {
         gridColumn: "span 2", minHeight: 46, gap: 9, borderRadius: 16,
-        background: wPreset === "own" ? "rgba(250,248,243,.9)" : "rgba(255,255,255,.52)",
+        background: wPreset === "own" ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.52)",
         border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
       }
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
@@ -4750,7 +4758,7 @@ function PhoneCarry({
         minHeight: hero ? 124 : tall ? 132 : spec.size === "wide" ? 112 : 104,
         padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
         display: "flex", flexDirection: "column",
-        background: dark ? "rgba(30,29,27,.88)" : wPreset === "own" ? "rgba(250,248,243,.94)" : tone.wash,
+        background: dark ? "rgba(30,29,27,.88)" : wPreset === "own" ? "rgba(255,255,255,.88)" : tone.wash,
         color: dark ? "#fff" : t.ink, border: dark ? "none" : "1px solid rgba(255,255,255,.72)",
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
@@ -4784,11 +4792,13 @@ function PhoneCarry({
   }, h("div", {
     className: "shrink-0 px-4 pb-2 flex items-center",
     style: { paddingTop: safeTop(20) }
-  }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50 flex items-center", style: { width: 76, height: 36 }, "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
+  }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50 flex items-center", style: { width: 34, height: 36 }, "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
   // 她 2026-09-01：「搜索键缩短放顶上时间那块地方，所以最顶部就留返回键、搜索框、
   // 头像切换角色」。时间那一格让给搜索——上面本来就该是「你在找什么」，
   // 而不是再报一次几点（系统状态栏已经有了）。
-  h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 32, borderRadius: 11, padding: "0 11px", margin: "0 8px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
+  // 她 2026-09-01：「搜索框可以放长一点居中」——左右两侧收成等宽（各 34），
+  // 中间那条就自然居中，也长了一截。
+  h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 12, padding: "0 12px", margin: "0 10px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
     h("span", { "aria-hidden": "true", style: { fontSize: 12.5, color: t.fog } }, "\u2315"),
     h("input", {
       value: q, onChange: e => setQ(e.target.value),

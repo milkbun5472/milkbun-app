@@ -53,12 +53,26 @@ test("默认是他自己的手机，不是她的界面换层皮", () => {
   assert.match(phone, /\{ key: "own", name: "他自己的"/, "没有「他自己的」这一档");
   // 两处都得默认 own：图标那一处和 widget 卡那一处，漏一处就半深半浅
   assert.equal((phone.match(/look\.iconPreset \|\| "own"/g) || []).length, 4, "默认还是跟她主屏同一套，或者只改了一部分");
-  // 一人一个底色：同一个人永远同一个，不同人一定不同
+  // 一人一个底色：同一个人永远同一个，不同人一定不同。
+  // ⚠️这里核的是【行为】不是【色值】——她 2026-09-01 说「颜色太深了」，
+  // 上一版把色值写死在断言里，调亮的时候测试红了却什么 bug 都没抓到。
+  // 真正不许坏的只有两条：一人一色，以及上层跟着底走。
   assert.match(phone, /function phoneOwnPaper\(charId\)/, "没有按角色走的底色");
-  assert.match(phone, /hsl\(" \+ hu \+ ",22%,26%\)/, "底色不是深的，跟她的浅纸分不开");
-  // ⚠️底换深了，上层必须跟着换：widget 卡还用浅底专用的彩釉，就是黑字压深底
-  assert.match(phone, /wPreset === "own" \? "rgba\(250,248,243,\.94\)" : tone\.wash/, "widget 卡没跟着换，字会看不清");
-  assert.match(phone, /preset === "own" \? "rgba\(255,255,255,\.88\)"/, "图标线条没跟着换成浅色");
+  const fnSrc = k => {
+    const i = phone.indexOf("function " + k + "(");
+    assert.ok(i >= 0, "找不到 " + k);
+    return phone.slice(i).match(/^[\s\S]*?\n\}/)[0];
+  };
+  // 真跑一遍：同一个人两次一样，不同人一定不一样
+  const mk = new Function(fnSrc("phoneHue") + "\n" + fnSrc("phoneOwnPaper") + "\nreturn phoneOwnPaper;")();
+  assert.equal(mk("c_a"), mk("c_a"), "同一个人两次底色不一样");
+  assert.notEqual(mk("c_a"), mk("c_b"), "不同人的手机长得一模一样");
+  // ⚠️底和上层必须配套：底自成一套，widget 卡和图标线条就不能还用她那套彩釉，
+  // 否则一半是他的色一半是她的色。核的是「own 走自己那一支」，不是走哪个色值。
+  assert.match(phone, /wPreset === "own" \? "[^"]+" : tone\.wash/, "widget 卡没跟着换，字会看不清");
+  assert.equal((phone.match(/preset === "own" \? phoneOwnInk\(char && char\.id\)/g) || []).length, 4,
+    "图标线条／文字没跟着底走");
+  assert.match(phone, /function phoneOwnInk\(charId\) \{ return "hsl\(" \+ phoneHue\(charId\)/, "墨色没跟着同一个色相走");
   // 四处外壳都得知道这是谁的手机——漏一处就露出她自己那张纸
   assert.equal((phone.match(/phonePaper\(char && char\.id, look\)/g) || []).length, 4, "有外壳没传主人，会露出她自己那张底");
   assert.ok(phone.indexOf("phonePaper()") < 0, "还有地方在用不认主人的那一版");
@@ -75,4 +89,9 @@ test("顶栏只剩返回、搜索、头像", () => {
   assert.ok(!/"向左滑还有一页"/.test(phone), "那句话还在");
   // 最后一排图标不能被 dock 压住（多一格「外观」之后一眼看出来的）
   assert.match(phone, /paddingBottom: 104/, "底部没让开那排 dock");
+  // 她 2026-09-01：「搜索框可以放长一点居中」。居中不是靠 margin 凑出来的，
+  // 是靠【左右两侧等宽】——返回键和头像那两格都写死 34，中间 flex-1 自然居中。
+  const bar = phone.slice(phone.indexOf('"aria-label": "返回通讯录"') - 400, phone.indexOf('"aria-label": "切换角色"') + 200);
+  assert.equal((bar.match(/width: 34/g) || []).length, 2, "顶栏左右两格不等宽，搜索框不会居中");
+  assert.match(bar, /className: "flex-1 min-w-0 flex items-center"/, "搜索框没占满中间那段");
 });
