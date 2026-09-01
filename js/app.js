@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.74";
+const APP_VERSION = "v59.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3394,6 +3394,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   ③ 别人在他帖子下的话：只给他会在意的（回他的/抬杠的/热评），别让一个热帖塞满额度
     //   ④ 按时间倒序 + 3 天窗口；老帖自然掉出去
     // 触发放宽了：宁可多发一轮，也别让她说「我昨天那个」时他一脸茫然。
+    // ── 贴吧私信（v59.75）────────────────────────────────────────
+    // 她 2026-09-01：「如果是私信角色的话要不要喂回去做聊天线的一部分跟线上线下一起」。
+    // 答案是要——她私信的是他【大号】，两边都知道对面是谁，那就是同一段关系换了个地方说话，
+    // 跟线下见面一样该接得上。
+    // ⚠️只收 charId 那几条，也就是【大号私信】。小号／匿名的私信一个字都不许进这儿：
+    //   那一整个玩法建立在「他知道两边是同一个人、她不知道」上面，喂回来他迟早说漏。
+    //   现在界面上也只有角色主页（大号）挂得出「私信 TA」，小号主页故意不给。
+    // ⚠️窗口和条数跟别的面一个口径：3 天、最后 12 行——私信可以聊很长，全塞进来会把
+    //   别的上下文挤掉。
+    forumPmLog: (() => {
+      if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
+      const th = (forumPMsRef.current || []).find(t => t && t.charId === char.id);
+      if (!th || !Array.isArray(th.messages) || !th.messages.length) return "";
+      const cut = Date.now() - 3 * 86400000;
+      const meName = (forumMe && forumMe.handle) || profile.name || "对方";
+      const rows = th.messages.filter(m => m && m.text && Number(m.ts || 0) >= cut).slice(-12);
+      if (!rows.length) return "";
+      return rows.map(m => (m.from === "me" ? meName : "你") + "：" + String(m.text).replace(/\s+/g, " ").slice(0, 90)).join("\n");
+    })(),
     forumEcho: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const posts = forumPostsRef.current || [];
@@ -5704,7 +5723,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
         if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
         if (!rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
-        if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.momentLog = ""; }
+        if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
       }
       const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
@@ -12045,6 +12064,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } catch (e) { toast("没联系上：" + (e.message || "重试")); return ""; }
     finally { setGen(g => ({ ...g, forumPM: null })); }
   };
+  // 私信一个【角色】的大号（v59.75）。跟私信网友是两件事：
+  //   网友那条要先让模型编一句开场白（他主动来搭话）；
+  //   角色这条【不编开场白】——是她去敲他的门，她先说话才对，而且省一次调用（她按次计费）。
+  // ⚠️只给大号。小号／匿名主页上故意没有这个按钮：那一整个玩法建立在
+  //   「他知道两边是同一个人、她不知道」上面，一旦这条线喂回聊天，他迟早说漏。
+  const startCharPM = char => {
+    if (!char || !char.id) return "";
+    const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id);
+    if (exist) return exist.id;
+    const meta = charForumMeta(char);
+    const base = Date.now();
+    const th = { id: "pm_" + base + "_c", charId: char.id, npcName: meta.handle || char.name, tagline: meta.bio || "", attitude: "friendly", messages: [], updatedTs: base, unread: false };
+    setForumPMs(prev => { const n = [th, ...prev].slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
+    return th.id;
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -12053,6 +12087,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
       const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      // 角色那条：走他【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
+      // 拿通用的网友提示词去演他，出来的是个顶着他网名的陌生人。
+      const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
+      if (pmChar) {
+        const meHandle = (forumMe && forumMe.handle) || profile.name || "对方";
+        const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
+          instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
+            + "⚠️**你俩都知道对面是谁**——这不是陌生人搭讪，是换了个地方说话；论坛上是公开场合，私信框里只有你们两个。\n"
+            + "⚠️但这毕竟是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
+            + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。",
+          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
+          maxTokens: 900
+        });
+        const csay = dc && Array.isArray(dc.say) ? dc.say : (dc && dc.say ? [dc.say] : []);
+        if (csay.length) { const cb = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...csay.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i }))], updatedTs: cb } : t); saveJSON("x_forumPMs", n); return n; }); }
+        return;
+      }
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
           // 这份底子是他在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
@@ -15382,6 +15433,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
+    onStartCharPM: startCharPM,
     onDelPM: delForumPM,
     onClearPMs: clearForumPMs,
     onEditMe: editForumMe,

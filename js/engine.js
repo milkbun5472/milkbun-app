@@ -2144,6 +2144,13 @@ function buildBundle(ctx, opts) {
       + "⚠️只有公开的才在这儿：TA 匿名发的、用小号发的，你【根本看不见】，绝不许提起或暗示知道。\n"
       + "聊到或提起时自然回应、追问、辩解或调侃即可；别生硬罗列、别自曝上帝视角、也别一上来就汇报「我看到你发帖了」——"
       + "那是刷到了顺口一提的事，不是要交作业）\n" + ctx.forumEcho.trim());
+  // 贴吧私信（v59.75）：她在论坛上私信你【大号】那条线。
+  // 它跟线上/线下/群聊一样，是你俩真发生过的一段来往——只是发生在论坛的私信框里。
+  // ⚠️只收大号那条：小号和匿名的私信绝不进这儿（见 app 那端的 forumPmLog 注释）。
+  if (!ctx.notRoleplay && ctx.forumPmLog && ctx.forumPmLog.trim()) parts.push("【贴吧私信 · 你和 " + uName + " 在论坛上私下说的话】（"
+      + uName + " 在贴吧上私信了你的【大号】，你俩都知道对面是谁——这不是陌生人搭讪，是换了个地方说话。\n"
+      + "这段和你们平时的聊天、线下见面属于同一段关系：聊到时自然接得上、记得说过什么；"
+      + "别把它当成另一个人的事，也别一上来就复述一遍。）\n" + ctx.forumPmLog.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
   if (ctx.periodNote && ctx.periodNote.trim()) parts.push("【" + uName + " 的生理期】" + ctx.periodNote.trim());
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
@@ -2167,7 +2174,7 @@ function leanWriteCtx(ctx) {
   if (!ctx) return ctx;
   return Object.assign({}, ctx, {
     worldbook: "", memLib: [], groupEcho: "", giftLog: "", carryLog: "", wishLog: "",
-    momentLog: "", forumEcho: "", listenLog: "",
+    momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "",
     financeNote: "", memoNote: "", dateNote: "", periodNote: ""
   });
 }
