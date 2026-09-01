@@ -332,7 +332,7 @@ function skinIsDark(hex) {
 // ⚠️不许用哈希算色相：12 个 key 撞成 8 个色，同一行里挨着的两个图标常常一个色。
 // 这里按 key 逐个点名，摆的时候就照默认布局的行序错开——相邻两个的色相至少差 40。
 const APP_TONE_HUE = {
-  cast: 210, ties: 340, phone: 168, shop: 16, carry: 88, mycloset: 44, cwallet: 152, dwell: 108,
+  cast: 210, ties: 340, phone: 168, shop: 16, carry: 88, cwallet: 152, dwell: 108,
   lore: 250, memlib: 292, anon: 200, study: 328,
   fanfic: 316, theater: 186, impression: 20, weekly: 206,
   read: 158, debate: 8, dream: 248, tarot: 296,

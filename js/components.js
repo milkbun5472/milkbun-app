@@ -2054,8 +2054,6 @@ function Home({
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
     carry: { kind: "app", zh: "随身物", G: GCarry },
-    // 我的衣柜：随身物是【他们的】柜子，这一格是【她自己的】那一柜（v59.27）
-    mycloset: { kind: "app", zh: "我的衣柜", G: GCarry },
     dwell: { kind: "app", zh: "去处", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
     lore: { kind: "app", zh: "世界书", G: GLore },
@@ -2091,7 +2089,7 @@ function Home({
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "mycloset", "cwallet", "w_ledger", "w_us", "w_memo"],
+    ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
     ["lore", "memlib", "anon", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
     ["w_muyu", "w_weather", "w_wheel"]
   ];
@@ -2955,6 +2953,7 @@ function Messages({
   onEditProfile,
   onOpenWallet,
   onOpenFavorites,
+  onOpenMyCloset,
   walletBalance,
   friendGroups,
   onSaveGroups,
@@ -3199,6 +3198,25 @@ function Messages({
   }, "我的钱包"), h("div", {
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 }
   }, "余额 ¥" + (walletBalance == null ? 0 : walletBalance) + " · 流水 / 转账 / 亲属卡")), h(IChevR, {
+    size: 16,
+    color: t.line
+  })), h("button", {
+    // 我的衣柜：v59.27 曾经在主屏单开一格，她当天就说「删掉独立入口，放微信聊天
+    // 『我的』那里吧，刚好人设也是在那里写的」——她的衣服和她的人设是同一类东西，
+    // 都该在「我」这一屏里，不该是主屏上一个跟角色 app 并排的格子。
+    onClick: onOpenMyCloset,
+    className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
+    style: { background: t.bg, borderRadius: 16, border: `1px solid ${t.line}` }
+  }, h("div", {
+    className: "flex items-center justify-center shrink-0",
+    style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#8a7a5c,#5c5040)" }
+  }, h(GCarry, { size: 22, color: "#fff" })), h("div", {
+    className: "flex-1 min-w-0 text-left"
+  }, h("div", {
+    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink }
+  }, "我的衣柜"), h("div", {
+    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 }
+  }, "出图和线下从这里取你穿什么")), h(IChevR, {
     size: 16,
     color: t.line
   })), h("button", {

@@ -10,10 +10,16 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), scr = R("screens.js"), comp = R("components.js"), core = R("core.js");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
-test("有正门：主屏上一格、一条路由、一页", () => {
-  assert.match(comp, /mycloset: \{ kind: "app", zh: "我的衣柜"/, "主屏 REG 里没有这一格");
-  assert.match(comp, /"carry", "mycloset"/, "默认布局里没摆出来，等于装了但看不见");
-  assert.match(core, /mycloset: 44/, "没点名色相，会掉进哈希里跟邻居撞色");
+test("有正门：在微信「我」那一屏，一条路由、一页", () => {
+  // v59.27 曾经在主屏单开一格，她当天说「删掉独立入口，放微信聊天『我的』那里吧，
+  // 刚好人设也是在那里写的」——她的衣服和她的人设是同一类东西。
+  assert.ok(comp.indexOf('mycloset: { kind: "app"') < 0, "主屏那一格又长回来了");
+  assert.ok(comp.indexOf('"carry", "mycloset"') < 0, "默认布局里还摆着");
+  assert.ok(core.indexOf("mycloset:") < 0, "色相表里还留着一条没人用的");
+  assert.match(comp, /onClick: onOpenMyCloset,/, "「我」那一屏上没有这一行");
+  assert.match(comp, /"我的衣柜"\), h\("div", \{/, "那一行没有名字");
+  assert.match(comp, /\n  onOpenMyCloset,/, "组件没收这个 prop");
+  assert.match(app, /onOpenMyCloset: \(\) => setScreen\("mycloset"\)/, "点了没人接");
   assert.match(app, /screen === "mycloset"\) body = h\(MyCloset, \{/, "没有路由");
   assert.match(scr, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, onBack \}\)/, "没有这一页");
   // 整页，不是半窗（.claude/rules/no-half-sheet.md）
