@@ -374,6 +374,14 @@
     const [draft, setDraft] = useState("");
     const [sideDraft, setSideDraft] = useState(null); // 自定义立场的就地输入（原生 prompt 同样会被 PWA 吞掉）
     const [shareOpen, setShareOpen] = useState(false); // 把这一场发给谁
+    // 台上有没有人开过口——「牌子要不要收上去」和「有没有东西可分享」问的是同一件事，别写两遍
+    const spoke = function (sess) {
+      return (((sess && sess.rounds) || [])).some(function (r) { return (r.turns || []).some(function (x) { return x && !x.skipped && x.text; }); });
+    };
+    // 立场牌放下来还是收上去。默认：还没人开口＝放下（这时你正需要看谁站哪边），
+    // 台上一有人说话＝收成一条（这时你要看的是台上在说什么）。
+    const [stageOpen, setStageOpen] = useState(function () { return !spoke(props.session); });
+    const stageTouched = useRef(false);   // 她自己动过手之后，就不再替她收/放
     const feedRef = useRef(null);
     const dtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 发言朗读（懒合成）
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
@@ -471,26 +479,40 @@
     // 每人的立场牌挂在台前那道台裙上；台下黑压压一片人在起哄；台子上方吊着记分牌。
     // ⚠️判据（tabs-not-plain-pills.md）：一排头像＋一列左边带色条的卡片＋一个深色评论区，
     //   原样搬进任何一个 app 都成立——那就是没设计。下面每一样都得是【擂台才有的东西】。
-    const HEAD_H = 50;   // 头像+名字这一段的高度：台面那条线正好从这里横过去
+    // ── 台子 ────────────────────────────────────────────────
+    // ⚠️她 2026-09-01 截图（四个人那一局）：「显示不出来他们全部立场，而且占位太多
+    //   看不到实际擂台了」。两件其实是同一件：立场牌【常驻】在顶上，
+    //   于是长立场必须锁行数才不撑爆屏（＝看不全），锁了行数它还占掉大半屏（＝看不见台上）。
+    //   真实的台子本来就不是这样：牌子开场放下来给你看一眼，看完就收上去，你才好看戏。
+    //   所以牌子会【收起来】：还没人开口时自动放下（这时你正需要看谁站哪边），
+    //   台上一有人说话就收成一条；点一下再放下来，放下来的时候【不锁行数】，立场给全。
+    const HEAD_H = stageOpen ? 50 : 42;   // 头像+名字这一段的高度：台面那条线正好从这里横过去
+    const AV = stageOpen ? 29 : 24;
     const stage = h("div", { style: { background: t.bg2, borderBottom: "1px solid " + t.line, paddingTop: 9 } },
       // 台上方那条横幅：今天要吵的这件事。底边中间收一个尖口，是布幡不是标题栏
       h("div", { style: { margin: "0 18px 9px", padding: "6px 12px 10px", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.3, textAlign: "center", clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)" } }, s.topic),
-      h("div", { style: { position: "relative", padding: "0 10px 10px" } },
+      h("div", { style: { position: "relative", padding: "0 10px 4px" } },
         // 台裙：台面线以下这一片是台前，立场牌就挂在这上面
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
         h("div", { className: "flex justify-center items-start", style: { position: "relative", gap: 6 } },
           s.parts.map(function (p) {
-            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { width: 98, display: "flex", flexDirection: "column", alignItems: "center" } },
+            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { flex: "1 1 0", minWidth: 0, maxWidth: 104, display: "flex", flexDirection: "column", alignItems: "center" } },
               h("div", { style: { height: HEAD_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" } },
                 p.kind === "char"
-                  ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: 29, radius: 999 })
-                  : h(Avatar, { character: meAv, size: 29, radius: 999 }),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 96 } }, p.kind === "me" ? uName : p.name)),
+                  ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: AV, radius: 999 })
+                  : h(Avatar, { character: meAv, size: AV, radius: 999 }),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: "100%" } }, p.kind === "me" ? uName : p.name)),
               // 挂绳：牌子是【挂在台前】的，不是浮在那儿的
-              h("div", { "aria-hidden": "true", style: { width: 1, height: 7, background: p.color, opacity: .7 } }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9, lineHeight: 1.35, color: "#fff", background: p.color, borderRadius: 3, padding: "4px 6px 5px", width: "100%", textAlign: "center", wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", boxShadow: "0 2px 5px rgba(38,34,28,.28)" } },
+              h("div", { "aria-hidden": "true", style: { width: 1, height: stageOpen ? 7 : 4, background: p.color, opacity: .7 } }),
+              // ⚠️放下来的时候不许锁行数：锁了就是「看不全」。收起来的时候只留一行。
+              h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 9, lineHeight: 1.35, color: "#fff", background: p.color, borderRadius: 3, padding: "4px 6px 5px", width: "100%", textAlign: "center", wordBreak: "break-word", boxShadow: "0 2px 5px rgba(38,34,28,.28)" },
+                stageOpen ? null : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) },
                 p.stance || (p.kind === "me" ? "还没选边" : "—")));
-          }))));
+          }))),
+      // 台沿上那个把手：牌子放下来 / 收上去
+      h("button", { onClick: function () { stageTouched.current = true; setStageOpen(function (v) { return !v; }); }, className: "w-full active:opacity-60",
+        style: { minHeight: 26, padding: "5px 0 7px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } },
+        stageOpen ? "把牌子收上去 ▲" : "各人站哪边 ▼"));
 
     // ── 发言：台上那个人面前那块名牌，话写在牌子后面 ──────────
     // 不是聊天气泡，也不是左边一条色边的通用卡片。
@@ -525,7 +547,10 @@
     // ── 把这一场发给谁 ──────────────────────────────────────
     // 她 2026-09-01：「既然这个是可以多人的，那就群和单聊都可以分享吧」。
     // 用居中框不用半窗：半窗上面糊着的那半屏是上一层，看着像没加载完（no-half-sheet.md）。
-    const hasSomething = (s.rounds || []).some(function (r) { return (r.turns || []).some(function (x) { return x && !x.skipped && x.text; }); });
+    const hasSomething = spoke(s);
+    // 台上第一句话落下来的时候，牌子自己收上去（除非她已经自己动过手）。
+    // 不做这一下的话，新开一局从头到尾牌子都放着，占掉的还是那半屏。
+    useEffect(function () { if (!stageTouched.current && hasSomething) setStageOpen(false); }, [hasSomething]);
     const sharePanel = shareOpen && typeof CenterCard === "function" ? h(CenterCard, { onClose: function () { setShareOpen(false); }, maxWidth: 360 },
       h("div", { className: "shrink-0", style: { padding: "15px 17px 11px", borderBottom: "1px solid " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "把这一场发给谁"),

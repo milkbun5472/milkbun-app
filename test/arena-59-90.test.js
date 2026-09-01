@@ -93,11 +93,13 @@ test("底栏只吃 0.4 条安全区（mobile-ui-layout §2：不许 env + Npx �
 test("台子：台面那条线横过所有人，立场牌挂在台前的台裙上", () => {
   const i = dbt.indexOf("const stage = h(");
   const src = dbt.slice(i, dbt.indexOf("\n    // ── 发言", i));
-  assert.match(dbt, /const HEAD_H = 50;/, "台面那条线没有一个固定的高度，几个人就会各站各的高度");
+  // ⚠️冻的是「所有人共用同一个高度」，不是某个数字：v59.97 起它随收/放两档变
+  assert.match(dbt, /const HEAD_H = stageOpen \? \d+ : \d+;/, "台面那条线没有一个固定的高度，几个人就会各站各的高度");
   assert.match(src, /top: HEAD_H, bottom: 0[\s\S]{0,180}borderTop: "3px solid " \+ t\.ink/, "没有台面那条线／台裙");
   assert.match(src, /boxShadow: "0 5px 9px -6px rgba\(38,34,28,\.85\)"/, "台面底下没有影子，就只是一条分割线");
-  assert.match(src, /width: 1, height: 7, background: p\.color/, "立场牌没有挂绳，它是浮着的不是挂着的");
-  assert.match(src, /WebkitLineClamp: 4/, "立场牌没锁行数，长短不一会把台面撑得参差");
+  assert.match(src, /width: 1, height: stageOpen \? 7 : 4, background: p\.color/, "立场牌没有挂绳，它是浮着的不是挂着的");
+  // ⚠️v59.97 起立场牌【不锁行数】了——锁行数正是「看不全」那个病（见下面 v59.97 那两条）。
+  //   长短不一本来就该长短不一：牌子是挂着的，本来就挂得有长有短。
   // 横幅：底边中间收一个尖口，是布幡不是标题栏
   assert.match(dbt, /clipPath: "polygon\(0 0,100% 0,100% 100%,50% calc\(100% - 7px\),0 100%\)"/);
   // 旧的那一排「头像 · 头像 · 头像」不许回来
@@ -253,7 +255,9 @@ test("分享：单聊和群聊都能发；发的是纯文本，不另起一种�
   assert.match(dbt, /"把这一场发给谁"/);
   assert.match(dbt, /\(props\.groups \|\| \[\]\)\.length \? h\("div"[\s\S]{0,180}"群 聊"/, "群聊那一档没列出来");
   // 一句话都还没说的时候不该有分享键
-  assert.match(dbt, /const hasSomething = \(s\.rounds \|\| \[\]\)\.some\(function \(r\) \{ return \(r\.turns \|\| \[\]\)\.some\(function \(x\) \{ return x && !x\.skipped && x\.text; \}\); \}\);/);
+  // v59.97 起这一判走 spoke()——「牌子要不要收上去」和「有没有东西可分享」问的是同一件事
+  assert.match(dbt, /const hasSomething = spoke\(s\);/);
+  assert.match(dbt, /return \(\(\(sess && sess\.rounds\) \|\| \[\]\)\)\.some\(function \(r\) \{ return \(r\.turns \|\| \[\]\)\.some\(function \(x\) \{ return x && !x\.skipped && x\.text; \}\); \}\);/);
   assert.match(dbt, /hasSomething \? h\("button", \{ onClick: function \(\) \{ setShareOpen\(true\); \}/);
   // NPC 没有聊天窗口，转不过去
   // ⚠️只看分享面板这一段：这条滤在面板里出现两次（列名单 + 判空），
@@ -285,4 +289,42 @@ test("两颗收台键的字要一样（本轮没生成完那颗、和本轮已�
   assert.equal((dbt.match(/"收台判胜负"/g) || []).length, 2, "两颗收台键的字不一样");
   const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(live.indexOf("结束判定") < 0, "还有一颗键留着旧名字");
+});
+
+// ===== v59.97 =====
+// 她 2026-09-01 截图（四个人那一局）：「显示不出来他们全部立场，
+// 而且占位太多看不到实际擂台了嘤」。
+// 两件其实是同一件：立场牌【常驻】在顶上——长立场必须锁行数才不撑爆屏（＝看不全），
+// 锁了行数它还占掉大半屏（＝看不见台上）。真实的台子本来就不是这样：
+// 牌子开场放下来给你看一眼，看完就收上去，你才好看戏。
+test("立场牌会收起来：放下来时不锁行数，收起来时只占一条", () => {
+  const i = dbt.indexOf("const HEAD_H = stageOpen");
+  const st = dbt.slice(i, dbt.indexOf("\n\n    // ── 发言", i));
+  // ⚠️放下来的时候【不许锁行数】——锁了就是「看不全」
+  assert.ok(st.indexOf("WebkitLineClamp") < 0, "立场牌又锁行数了，长立场还是看不全");
+  assert.match(st, /stageOpen \? null : \{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" \}/,
+    "收起来那一档没有收成一条");
+  // 台子整体跟着缩：头像那一段和挂绳都要变矮，不然「收起来」省不下多少
+  assert.match(dbt, /const HEAD_H = stageOpen \? 50 : 42;/);
+  assert.match(dbt, /const AV = stageOpen \? 29 : 24;/);
+  assert.match(st, /height: stageOpen \? 7 : 4/);
+  // 人一多要能挤：写死 width 的话四个人就撑出屏幕
+  assert.match(st, /flex: "1 1 0", minWidth: 0, maxWidth: 104/, "列宽写死了，人一多就撑出去");
+  assert.ok(st.indexOf("width: 98,") < 0, "还留着写死的列宽");
+  // 把手
+  assert.match(st, /stageOpen \? "把牌子收上去 ▲" : "各人站哪边 ▼"/);
+  assert.match(st, /minHeight: 26/, "把手点不着");
+});
+
+test("默认：还没人开口就放下来，台上一开口就自己收上去；她动过手就不再替她动", () => {
+  // 「台上有没有人开过口」只写一处，两边共用
+  assert.match(dbt, /const spoke = function \(sess\) \{/);
+  assert.equal((dbt.match(/spoke\(/g) || []).length, 2, "spoke() 的调用处不是两处（收牌子那一处 + 分享键那一处）");
+  // 那句判断只许写一遍
+  assert.equal((dbt.match(/x && !x\.skipped && x\.text/g) || []).length, 1, "「有没有人开过口」又写了第二遍");
+  assert.match(dbt, /const \[stageOpen, setStageOpen\] = useState\(function \(\) \{ return !spoke\(props\.session\); \}\);/,
+    "新开一局默认没把牌子放下来——那正是要看谁站哪边的时候");
+  assert.match(dbt, /useEffect\(function \(\) \{ if \(!stageTouched\.current && hasSomething\) setStageOpen\(false\); \}, \[hasSomething\]\);/,
+    "第一句话落下来之后牌子不会自己收——新开一局从头到尾还是占掉那半屏");
+  assert.match(dbt, /stageTouched\.current = true; setStageOpen/, "她自己收放过之后，代码还会跟她抢");
 });
