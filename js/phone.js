@@ -1023,6 +1023,24 @@ function phonePaper(charId, look) {
   }
   return phoneOwnPaper(charId);
 }
+// 她 2026-09-01：「为啥第一个的阿屿用的还是旧的 codex 那套，你之前改深色他也没动」。
+// 病不在这次的色，在【默认值只对没存过的人生效】：v59.30 把默认改成「他自己的」，
+// 可 08-31 那天她在外观页挨个点过那四张预览卡看长什么样——**点一下就写进了
+// x_phoneLooks**。于是那几位被钉死在旧默认上，后面默认怎么改都跟他们无关，
+// 看上去就像「这个人没跟着改」。
+// 这一栏满打满算只有一天大，里面存的全是她当时挨个试看的结果、不是settled的选择，
+// 所以一次性把 iconPreset 清掉，让所有人回到当前默认。
+// ⚠️只清这一栏：壁纸和自定义图标是她真上传的东西，一律不动。
+// 真想要主界面那套彩釉的，外观页点一下就是。
+function phoneLooksBoot() {
+  const raw = loadJSON("x_phoneLooks", {});
+  if (loadJSON("x_lookPresetReset", false)) return raw;
+  const next = {};
+  Object.keys(raw).forEach(k => { const one = { ...(raw[k] || {}) }; delete one.iconPreset; next[k] = one; });
+  saveJSON("x_phoneLooks", next);
+  saveJSON("x_lookPresetReset", true);
+  return next;
+}
 function phoneImage(ref) {
   if (!ref) return "";
   return typeof resolveImg === "function" ? (resolveImg(ref) || "") : String(ref);
@@ -1644,7 +1662,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
             h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ icons: { ...(look.icons || {}), [a.key]: v } })) })),
           custom && h("button", { onClick: () => { const icons = { ...(look.icons || {}) }; delete icons[a.key]; onPatch({ icons }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "8px 0 8px 8px" } }, "移除"));
       })),
-      h("button", { onClick: () => onPatch({ lockWallpaper: "", homeWallpaper: "", iconPreset: "main", icons: {} }), className: "w-full active:opacity-60", style: { marginTop: 18, padding: 14, borderRadius: 17, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "rgba(255,255,255,.48)", border: "1px solid rgba(255,255,255,.72)" } }, "恢复这一部手机的默认外观")));
+      h("button", { onClick: () => onPatch({ lockWallpaper: "", homeWallpaper: "", iconPreset: "", icons: {} }), className: "w-full active:opacity-60", style: { marginTop: 18, padding: 14, borderRadius: 17, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "rgba(255,255,255,.48)", border: "1px solid rgba(255,255,255,.72)" } }, "恢复这一部手机的默认外观")));
 }
 
 function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline, look }) {
@@ -4227,7 +4245,7 @@ function PhoneCarry({
   // 锁屏：拿起他手机的第一眼，不该直接是一片图标网格
   const [locked, setLocked] = useState(true);
   // 外观只存小引用；图片本体进图片金库。按角色分桶，谁的手机就只改谁。
-  const [phoneLooks, setPhoneLooks] = useState(() => loadJSON("x_phoneLooks", {}));
+  const [phoneLooks, setPhoneLooks] = useState(phoneLooksBoot);
   const [lookOpen, setLookOpen] = useState(false);
   // 「我收着的」——她自己留的那些，只给她自己看，不进任何上下文。
   // 转发是摆到他面前，收着是我自己留一份：两件事。

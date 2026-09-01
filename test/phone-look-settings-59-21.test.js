@@ -95,3 +95,25 @@ test("顶栏只剩返回、搜索、头像", () => {
   assert.equal((bar.match(/width: 34/g) || []).length, 2, "顶栏左右两格不等宽，搜索框不会居中");
   assert.match(bar, /className: "flex-1 min-w-0 flex items-center"/, "搜索框没占满中间那段");
 });
+
+// 她 2026-09-01：「为啥第一个的阿屿用的还是旧的 codex 那套，你之前改深色他也没动」。
+// 病不在色值，在【默认值只对没存过的人生效】：外观页点一下预览卡就写进了存储，
+// 那个人从此被钉死在当时的默认上，后面改默认跟他无关。
+test("换默认值要能落到已经存过的人身上，不是只对新人生效", () => {
+  // ① 一次性把 iconPreset 清掉，并且只清这一栏
+  assert.match(phone, /function phoneLooksBoot\(\)/, "没有这一次性的清理");
+  const start = phone.indexOf("function phoneLooksBoot()");
+  const boot = phone.slice(start, phone.indexOf("\n}", start) + 2);
+  assert.match(boot, /delete one\.iconPreset/, "清的不是 iconPreset 这一栏");
+  assert.ok(!/delete one\.(lockWallpaper|homeWallpaper|icons)/.test(boot), "把她真上传的壁纸／图标也清掉了");
+  // ② 只跑一次，不能每次开机都把她后来选的又抹平
+  assert.match(boot, /loadJSON\("x_lookPresetReset", false\)\) return raw/, "没有只跑一次的闸");
+  assert.match(boot, /saveJSON\("x_lookPresetReset", true\)/, "跑完没记下来，下次开机还会再抹一遍");
+  assert.match(phone, /useState\(phoneLooksBoot\)/, "写了清理但没人调用");
+  // ③ 「恢复默认」不许把当前默认值再抄一遍——抄了就是第二处要跟着改的地方
+  const rst = phone.slice(phone.indexOf("恢复这一部手机的默认外观") - 700, phone.indexOf("恢复这一部手机的默认外观"));
+  assert.match(rst, /iconPreset: ""/, "恢复默认写死了某一档，改默认时这儿会落下");
+  ["main", "own", "soft", "mono", "glass"].forEach(k => {
+    assert.ok(rst.indexOf('iconPreset: "' + k + '"') < 0, "恢复默认还钉着 " + k);
+  });
+});
