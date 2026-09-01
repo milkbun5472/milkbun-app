@@ -83,7 +83,7 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
@@ -4857,6 +4857,123 @@ function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
     }));
 }
 
+// ─────────────────────────────────────────────────────────────
+// 论坛足迹：三副面具，不是三张普通数据表
+// ─────────────────────────────────────────────────────────────
+// 主论坛里小号和匿名不会暴露真身；只有翻到这台手机时，三份身份才会并排出现。
+// 所以这页的主题不是“帖子列表”，而是“同一个人留下的三种公开痕迹”。
+const PHONE_FORUM_SKINS = {
+  main: { bg: "linear-gradient(155deg,#e7ede3,#dce6d7)", paper: "rgba(250,252,247,.94)", ink: "#293529", dim: "#6e796a", line: "rgba(52,70,50,.15)", accent: "#62775c", soft: "rgba(98,119,92,.12)", label: "公开身份" },
+  alt: { bg: "linear-gradient(155deg,#eee9f2,#e2dbea)", paper: "rgba(251,248,252,.94)", ink: "#3b3044", dim: "#7c7084", line: "rgba(75,57,88,.15)", accent: "#79638a", soft: "rgba(121,99,138,.12)", label: "侧面的声音" },
+  anon: { bg: "linear-gradient(155deg,#292c2b,#202322)", paper: "rgba(52,55,54,.96)", ink: "#f0eee7", dim: "#aaa9a2", line: "rgba(240,238,231,.13)", accent: "#b7a181", soft: "rgba(183,161,129,.14)", label: "没有署名" }
+};
+function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
+  const A = x => Array.isArray(x) ? x : [];
+  const list = A(accounts);
+  const acc = list.find(x => x.key === tab) || list[0] || { key: "main", label: "大号", name: "", posts: [], comments: [] };
+  const skin = PHONE_FORUM_SKINS[acc.key] || PHONE_FORUM_SKINS.main;
+  const [open, setOpen] = useState(null);
+  const scrollRef = useRef(null), savedScrollRef = useRef(0);
+  const countOf = a => A(a && a.posts).length + A(a && a.comments).length;
+  const fmtTs = ts => {
+    if (!ts) return "";
+    const d2 = new Date(ts);
+    return (d2.getMonth() + 1) + "月" + d2.getDate() + "日 " + String(d2.getHours()).padStart(2, "0") + ":" + String(d2.getMinutes()).padStart(2, "0");
+  };
+  const goTab = key => {
+    setOpen(null); if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    if (onTab) onTab(key);
+  };
+  const openOne = (kind, item) => {
+    savedScrollRef.current = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    setOpen({ kind, item });
+  };
+  const closeOne = () => {
+    setOpen(null);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = savedScrollRef.current;
+    }));
+  };
+  const peek = item => {
+    if (!onPeek || !item) return;
+    const isPost = open && open.kind === "post";
+    onPeek({
+      tier: acc.key === "main" ? "open" : "hidden",
+      label: acc.key === "main" ? "论坛（大号）" : acc.key === "alt" ? "论坛小号「" + (acc.name || "") + "」" : "论坛匿名足迹",
+      title: isPost ? item.title : "在「" + (item.postTitle || "帖子") + "」下的回复",
+      text: isPost ? item.body : item.text
+    });
+  };
+  const top = h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + skin.line, background: skin.bg } },
+    h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 40 } },
+      h("button", { onClick: open ? closeOne : onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-start", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: skin.ink })),
+      h("div", { className: "min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: skin.ink } }, open ? (open.kind === "post" ? "帖子" : "回帖") : "论坛足迹"),
+        !open ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".19em", color: skin.dim, marginTop: 2 } }, "THREE IDENTITIES") : null),
+      h("div", { className: "flex items-center justify-end", style: { width: 40, height: 40, marginRight: -8 } }, h(PGlyph, { k: "forum", size: 17, color: skin.dim }))));
+  if (!list.length) return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5" }, h("div", { style: { padding: "64px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: skin.dim } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: skin.ink, marginBottom: 7 } }, T("论坛还没有他的痕迹")),
+      T("等他去论坛发帖或回帖之后再来翻"))));
+  if (open) {
+    const it = open.item || {}, isPost = open.kind === "post";
+    return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+        h("article", { style: { marginTop: 12, borderRadius: 20, padding: "18px 17px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.09)" } },
+          h("div", { className: "flex items-center gap-2 flex-wrap" },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 99, background: skin.soft, color: skin.accent } }, isPost ? (it.board || "论坛") : "回帖"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, fmtTs(it.ts))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: isPost ? 21 : 16, lineHeight: 1.45, color: skin.ink, marginTop: 12 } }, isPost ? (it.title || "无题") : "在「" + (it.postTitle || "帖子") + "」下面说"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: skin.ink, marginTop: 10, whiteSpace: "pre-wrap" } }, isPost ? (it.body || "") : (it.text || "")),
+          isPost && A(it.replies).length ? h("div", { style: { marginTop: 20, borderTop: "1px solid " + skin.line, paddingTop: 13 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: skin.dim, marginBottom: 4 } }, "楼下 · " + (it.replyCount || A(it.replies).length)),
+            A(it.replies).map((r, i) => h("div", { key: i, style: { padding: "9px 0", borderTop: i ? "1px solid " + skin.line : "none" } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: r.mine ? skin.accent : skin.dim } }, (r.name || "网友") + "："),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: skin.ink } }, r.text || "")))) : null),
+        h("button", { onClick: () => peek(it), className: "w-full active:opacity-60", style: { marginTop: 14, borderRadius: 14, padding: "12px 14px", border: "1px solid " + (acc.key === "main" ? skin.line : skin.accent), background: acc.key === "main" ? skin.paper : skin.soft, color: skin.ink, fontFamily: F_BODY, fontSize: 12.5 } },
+          acc.key === "main" ? "转发给 TA" : T("摆到 TA 面前 · 这是他藏起来的"))));
+  }
+  const identityCount = countOf(acc);
+  const postCard = (it, i) => h("button", { key: it.id || "p" + i, onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
+    h("div", { className: "flex items-center justify-between gap-3" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, background: skin.soft, color: skin.accent } }, it.board || "论坛"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, fmtTs(it.ts))),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: skin.ink, marginTop: 8 } }, it.title || "无题"),
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: skin.dim, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.body) : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim, marginTop: 9 } }, it.replyCount ? it.replyCount + " 条回复" : "还没人回"));
+  const commentCard = (it, i) => h("button", { key: "c" + i, onClick: () => openOne("comment", it), className: "w-full text-left active:opacity-65", style: { display: "block", marginTop: 9, padding: "12px 14px", borderRadius: 15, background: skin.paper, border: "1px solid " + skin.line, borderLeft: "3px solid " + skin.accent } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: skin.ink } }, it.text || ""),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim, marginTop: 6 } }, "在「" + String(it.postTitle || "帖子").slice(0, 20) + "」下 · " + fmtTs(it.ts)));
+  return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
+    // 三个账号是三副身份面具：各自带眼孔与自己的颜色，选中的那副下沉接进足迹页。
+    // 形状、高度、位置都会变，遵守 tabs-not-plain-pills.md；按钮本身仍保留 50px 以上手感。
+    h("div", { className: "shrink-0 flex px-4", style: { gap: 6, alignItems: "flex-end", paddingTop: 6, borderBottom: "1px solid " + skin.line } }, list.map(a => {
+      const active = a.key === acc.key, s2 = PHONE_FORUM_SKINS[a.key] || PHONE_FORUM_SKINS.main;
+      return h("button", { key: a.key, onClick: () => goTab(a.key), className: "flex-1 outline-none active:opacity-60", style: { minWidth: 0, minHeight: active ? 58 : 50, position: "relative", bottom: -1, marginTop: active ? 0 : 8, borderRadius: "14px 14px 3px 3px", padding: "7px 3px 6px", background: active ? skin.paper : s2.soft, border: "1px solid " + (active ? skin.line : s2.line), borderTop: "3px solid " + s2.accent, borderBottomColor: active ? skin.paper : s2.line, color: active ? skin.ink : skin.dim, boxShadow: active ? "0 -5px 14px rgba(28,36,27,.07)" : "none", opacity: active ? 1 : .72, zIndex: active ? 2 : 1 } },
+        h("span", { "aria-hidden": "true", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, width: 25, height: 14, borderRadius: "50% 50% 42% 42% / 72% 72% 38% 38%", background: s2.accent, marginBottom: 2 } }, h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } }), h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5 } }, a.label),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".1em", color: active ? s2.accent : skin.dim, marginTop: 1 } }, countOf(a) + " TRACE"));
+    })),
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      h("section", { style: { marginTop: 13, borderRadius: 22, padding: "16px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.08)" } },
+        h("div", { className: "flex items-center gap-3" },
+          h("div", { className: "shrink-0 flex items-center justify-center", style: { width: 48, height: 48, borderRadius: 16, background: skin.soft, border: "1px solid " + skin.line } }, h(PGlyph, { k: "forum", size: 22, color: skin.accent })),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { className: "flex items-center gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: skin.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.name || acc.label), h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, padding: "2px 7px", borderRadius: 99, background: skin.soft, color: skin.accent } }, skin.label)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: skin.dim, marginTop: 2 } }, [acc.handle, identityCount + " 条足迹"].filter(Boolean).join(" · ")))),
+        acc.bio ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: skin.ink, marginTop: 12 } }, acc.bio) : null,
+        (acc.followers != null || acc.following != null) ? h("div", { className: "flex items-center gap-4", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11, color: skin.dim } },
+          acc.following != null ? h("span", null, h("b", { style: { color: skin.ink } }, acc.following), " 关注") : null,
+          acc.followers != null ? h("span", null, h("b", { style: { color: skin.ink } }, acc.followers), " 关注者") : null,
+          acc.joinTs ? h("span", null, fmtTs(acc.joinTs).slice(0, -6) + " 注册") : null) : null),
+      A(acc.posts).length ? h("section", { style: { marginTop: 19 } },
+        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: skin.ink } }, "发过的帖"), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, A(acc.posts).length + " 篇")), A(acc.posts).map(postCard)) : null,
+      A(acc.comments).length ? h("section", { style: { marginTop: 21 } },
+        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: skin.ink } }, "在别人楼下说的话"), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, A(acc.comments).length + " 条")), A(acc.comments).map(commentCard)) : null,
+      !A(acc.posts).length && !A(acc.comments).length ? h("div", { style: { padding: "58px 18px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: skin.dim } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: skin.ink, marginBottom: 5 } }, "这个号还是空的"),
+        acc.key === "anon" ? T("他还没用匿名发过什么") : T("他还没用这个号露过面")) : null));
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -4897,53 +5014,10 @@ function renderPhoneModule(key, d, ctx) {
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
-  if (key === "forum") {
-    const accounts = arr(ctx.forumAccounts);
-    if (!accounts.length) return h(Empty, { text: T("论坛还没有他的痕迹"), sub: T("等他去论坛发帖或回帖之后再来翻") });
-    const acc = accounts.find(a => a.key === ctx.forumTab) || accounts[0];
-    const fmtTs = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-    const tabs = h("div", { className: "flex gap-2 mb-4" }, accounts.map(a => h("button", {
-      key: a.key,
-      onClick: () => ctx.setForumTab && ctx.setForumTab(a.key),
-      className: "active:opacity-60",
-      style: {
-        fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 999,
-        border: "1px solid " + (a.key === acc.key ? t.ink : t.line),
-        background: a.key === acc.key ? t.ink : "transparent",
-        color: a.key === acc.key ? t.bg : t.sub
-      }
-    }, a.label + " · " + ((a.posts || []).length + (a.comments || []).length))));
-    // 顶部只留一行小字：名字进顶栏了，这里不再重复一遍大标题（mobile-ui-layout.md §1）
-    const head = h("div", { className: "mb-3", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
-      [acc.handle || "", acc.followers != null ? acc.followers + " 关注者" : "", acc.joinTs ? fmtTs(acc.joinTs).slice(0, -6) + " 注册" : ""].filter(Boolean).join(" · "),
-      acc.bio ? h("div", { style: { color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.bio) : null);
-    const postRow = (it, i) => h("button", {
-      key: "p" + i,
-      onClick: () => setSheet(h("div", null,
-        h(Eyebrow, { style: { marginBottom: 10 } }, (it.board || "论坛") + " · " + fmtTs(it.ts)),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.35 } }, it.title),
-        it.body && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 12, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.body),
-        arr(it.replies).length ? h("div", { className: "mt-5" },
-          h(Eyebrow, { style: { marginBottom: 8 } }, "楼下 " + it.replyCount + " 条"),
-          arr(it.replies).map((r, j) => h("div", { key: j, className: "py-2", style: { borderTop: "1px solid " + t.line } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: r.mine ? t.accent : t.fog } }, r.name + "："),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, r.text)))) : null,
-        peekFoot(acc.key === "main" ? "open" : "hidden", acc.key === "main" ? "论坛（大号）" : acc.key === "alt" ? "论坛小号「" + (acc.name || "") + "」" : "论坛匿名帖", it.title, it.body))),
-      className: "w-full text-left py-3.5 active:opacity-60",
-      style: line
-    }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.4 } }, it.title),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
-      [it.board, fmtTs(it.ts), it.replyCount ? it.replyCount + " 条回复" : "还没人回"].filter(Boolean).join(" · ")));
-    const cmtRow = (it, i) => h("div", { key: "c" + i, className: "py-3.5", style: line },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.65 } }, it.text),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
-        "在「" + it.postTitle.slice(0, 18) + "」下 · " + fmtTs(it.ts) + (it.backCount ? " · 有 " + it.backCount + T(" 人回他") : "")));
-    const posts = arr(acc.posts), cmts = arr(acc.comments);
-    return h("div", { style: { animation: "fadeUp .3s ease both" } }, tabs, head,
-      posts.length ? h("div", { className: "mb-6" }, h(Eyebrow, { style: { marginBottom: 4 } }, "发过的帖"), posts.map(postRow)) : null,
-      cmts.length ? h("div", null, h(Eyebrow, { style: { marginBottom: 4 } }, "在别人楼下说的话"), cmts.map(cmtRow)) : null,
-      (!posts.length && !cmts.length) ? h(Empty, { text: "这个号还是空的", sub: acc.key === "anon" ? T("他还没用匿名发过什么") : T("他还没用这个号露过面") }) : null);
-  }
+  if (key === "forum") return h(PhoneForumView, {
+    accounts: ctx.forumAccounts, char, onBack: ctx.onBack, onPeek: ctx.onPeek,
+    tab: ctx.forumTab, onTab: ctx.setForumTab
+  });
   // ── 音乐：接【一起听】里那张真歌单 ──
   // 以前这儿单独生成一份，于是同一个人有两张互不相干的歌单，
   // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。

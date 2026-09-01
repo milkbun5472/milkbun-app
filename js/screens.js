@@ -1350,6 +1350,19 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
 //  帖子只有一份，版块是筛选视图；评论懒加载（含楼中楼，回复者随机 NPC/角色）
 // ============================================================
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
+// 论坛是一叠正在被翻动的社区小报，不再借用全 App 的通用白底列表。
+// 六个版块只换一处识别色；纸张、墨色和层级共用，免得像六个互不相干的 App。
+const FORUM_SKIN = {
+  bg: "linear-gradient(155deg,#edf1e8 0%,#e3e9de 52%,#eef0e7 100%)",
+  paper: "rgba(251,252,247,.94)", ink: "#273126", sub: "#52604d", fog: "#7a8575",
+  line: "rgba(54,70,49,.14)", accent: "#667c5b", soft: "rgba(102,124,91,.11)"
+};
+const FORUM_BOARD_SKIN = {
+  "吐槽吧": ["#a65f52", "rgba(166,95,82,.11)"], "日常吧": ["#667c5b", "rgba(102,124,91,.11)"],
+  "求助吧": ["#55778c", "rgba(85,119,140,.11)"], "兴趣吧": ["#9a7745", "rgba(154,119,69,.11)"],
+  "脑洞吧": ["#765f93", "rgba(118,95,147,.11)"], "匿名吧": ["#555957", "rgba(85,89,87,.11)"]
+};
+function forumBoardSkin(board) { return FORUM_BOARD_SKIN[board] || [FORUM_SKIN.accent, FORUM_SKIN.soft]; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 // 楼号 = 到场顺序，不是「生成时排第几」。（v56.19，她 2026-08-25 报：9 楼下面直接跳 16 楼）
@@ -1421,6 +1434,8 @@ function Forum({
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [followListOpen, setFollowListOpen] = useState(false);
+  const feedScrollRef = useRef(null);
+  const feedScrollTopRef = useRef(0);
   const [forumNow, setForumNow] = useState(() => Date.now());
   const [forumLastSeen] = useState(() => {
     try { return Number(localStorage.getItem("x_forumLastSeen")) || Date.now(); } catch (e) { return Date.now(); }
@@ -1513,7 +1528,16 @@ function Forum({
       return next;
     });
   };
-  const openPost = p => { setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id)); };
+  const openPost = p => {
+    if (feedScrollRef.current) feedScrollTopRef.current = feedScrollRef.current.scrollTop;
+    setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id));
+  };
+  const closePost = () => {
+    setOpen(null); setReplyTo(null);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (feedScrollRef.current) feedScrollRef.current.scrollTop = feedScrollTopRef.current;
+    }));
+  };
   const openNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
     setTimeout(() => { const el = document.getElementById("forum-floor-" + n.floorId); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 180);
@@ -1534,8 +1558,9 @@ function Forum({
     markPostRead(open.id);
     markNoticesRead(forumNotices.filter(n => n.post.id === open.id).map(n => n.id));
   }, [open && open.id, forumNow, comments]);
-  const tag = txt => h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, txt);
-  const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
+  const tag = txt => { const bs = forumBoardSkin(txt); return h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".02em", padding: "2px 8px", borderRadius: 999, border: "1px solid " + bs[0] + "33", background: bs[1], color: bs[0] } }, txt); };
+  // 版块不是一排通用药丸：照公告栏上剪角、钉住的分类纸签来画。
+  const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { key: b, onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: 12.5, boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
@@ -1592,31 +1617,32 @@ function Forum({
     const isL = liked.has(p.id);
     const isB = bookmarked.has(p.id);
     const bs = { fontFamily: F_BODY, fontSize: 12 };
-    return h("div", { className: "flex items-center gap-5 mt-2.5", style: { color: t.fog } },
-      h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: t.fog }), h("span", null, fmtNum(p.replyCount || 0))),
-      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: t.fog }), h("span", null, fmtNum(p.rtCount || 0))),
-      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 15, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
-      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: t.fog }), h("span", null, fmtNum(p.viewCount || 0))),
-      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? t.tint : t.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
-      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60 ml-auto", style: bs }, h(ISend, { size: 15, color: t.fog })));
+    return h("div", { className: "flex items-center gap-5 mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10 } },
+      h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.replyCount || 0))),
+      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.rtCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
+      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.viewCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
+      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60 ml-auto", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
   }
 
   // ---- 帖子行（推特式）----
   function postRow(p, showBoard) {
     const unread = unreadFloors(p.id);
-    return h("div", { key: p.id, role: "button", onClick: () => openPost(p), className: "w-full text-left px-4 py-3.5 active:opacity-80 cursor-pointer", style: { borderBottom: `1px solid ${t.line}` } },
+    const bs = forumBoardSkin(p.board);
+    return h("div", { key: p.id, role: "button", onClick: () => openPost(p), className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
       h("div", { className: "flex gap-3" },
-        avatarBtn(p, 42, p.anon),
+        avatarBtn(p, 40, p.anon),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "flex items-center gap-1.5 flex-wrap" },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, nameOf(p)),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink } }, nameOf(p)),
             accountBadge(p),
-            !p.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "@" + (p.authorHandle || p.authorName)),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "· " + timeAgo(p.ts)),
+            !p.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "@" + (p.authorHandle || p.authorName)),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "· " + timeAgo(p.ts)),
             showBoard && tag(p.board),
-            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: t.accent, borderRadius: 999, padding: "2px 7px", marginLeft: "auto" } }, "+" + unread + " 新回复")),
-          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, marginTop: 3 } }, p.title),
-          p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.sub, marginTop: 2, whiteSpace: "pre-wrap" } }, p.body),
+            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", marginLeft: "auto" } }, "+" + unread + " 新回复")),
+          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
+          p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
           actBar(p))));
   }
 
@@ -1625,7 +1651,7 @@ function Forum({
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
     const nm = cm.authorType === "me" ? meChar.name : (c ? c.name : cm.authorName);
-    return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), className: "px-4 py-3", style: { borderTop: i > 0 ? `1px solid ${t.line}` : "none" } },
+    return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + FORUM_SKIN.line, background: "rgba(251,252,247,.82)" } },
       h("div", { className: "flex gap-2.5" },
         avatarBtn(cm, 34),
         h("div", { className: "flex-1 min-w-0" },
@@ -1665,15 +1691,15 @@ function Forum({
     const c = (!p.anon && p.authorType === "character") ? charOf(p.authorId) : null;
     const alt = isAlt(p);
     return h("div", { className: "flex-1 flex flex-col min-h-0" },
-      h("div", { className: "flex-1 overflow-y-auto" },
-        h("div", { className: "px-4 pt-4 pb-3", style: { borderBottom: `1px solid ${t.line}` } },
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+        h("div", { style: { margin: "12px 13px 4px", padding: "16px 15px 14px", borderRadius: 20, border: "1px solid " + FORUM_SKIN.line, borderTop: "3px solid " + forumBoardSkin(p.board)[0], background: FORUM_SKIN.paper, boxShadow: "0 10px 24px rgba(42,55,38,.07)" } },
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
               h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, h("span",null,nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")),accountBadge(p)),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.3, color: t.ink, marginTop: 10 } }, p.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.7, color: t.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
@@ -1685,11 +1711,11 @@ function Forum({
         !loadingC && waitingFloors > 0 && h("div", { className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: "还没有楼层", sub: "点上面「更多回复」让大家来" }),
         list.map((cm, i) => floorRow(p, cm, i))),
-      h("div", { className: "shrink-0 px-3 py-2.5", style: { borderTop: `1px solid ${t.line}` } },
+      h("div", { className: "shrink-0 px-3", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM } },
         replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
         h("div", { className: "flex gap-2" },
-          h("input", { value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-          h("button", { onClick: sendReply, className: "px-4 rounded-full active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发送"))));
+          h("input", { value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
+          h("button", { onClick: sendReply, className: "px-4 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, "发送"))));
   }
 
   // ---- 角色/我 主页 ----
@@ -1866,8 +1892,8 @@ function Forum({
     });
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
-    return h("div", { className: "flex-1 overflow-y-auto" },
-      arrived > 0 && h("div", { className: "mx-4 my-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 10, background: t.bg2, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, h("span", null, "●"), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
+    return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+      arrived > 0 && h("div", { className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
       tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
@@ -1894,7 +1920,7 @@ function Forum({
   // ---- 主体分派 ----
   const inSub = open || altProfile || npcProfile || (profileId && profileId !== "me") || pmId;
   let title = "论坛", bodyEl, backFn = null, rightEl = null;
-  if (open) { title = "帖子"; bodyEl = detail(); backFn = () => { setOpen(null); setReplyTo(null); }; }
+  if (open) { title = "帖子"; bodyEl = detail(); backFn = closePost; }
   else if (altProfile) { title = "小号主页"; bodyEl = altProfileView(); backFn = () => setAltProfile(null); }
   else if (npcProfile) { title = "网友主页"; bodyEl = npcProfileView(); backFn = () => setNpcProfile(null); }
   else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => setProfileId(null); }
@@ -1905,27 +1931,33 @@ function Forum({
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
   else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = (tab === "收藏" || tab === "关注") ? null : h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
-  return h("div", { className: "h-full flex flex-col" },
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center gap-3", style: { paddingTop: safeTop(16), borderBottom: (inSub || nav === "home") ? "none" : `1px solid ${t.line}` } },
-      h("button", { onClick: backFn || onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
-      h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
-      h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注", "收藏"].map(b => {
+  return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink } },
+    // 紧凑居中顶栏：左右等宽，论坛不再是普通列表左上角的一行大字。
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: (inSub || nav !== "home") ? "1px solid " + FORUM_SKIN.line : "none", background: "rgba(244,247,240,.92)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
+      h("div", { className: "grid items-center", style: { gridTemplateColumns: "72px 1fr 72px", minHeight: 40 } },
+        h("button", { onClick: backFn || onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-start", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: FORUM_SKIN.ink })),
+        h("div", { className: "min-w-0 text-center" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+          (!inSub && nav === "home") ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".19em", color: FORUM_SKIN.fog, marginTop: 2 } }, "NEIGHBORHOOD BOARD") : null),
+        h("div", { className: "flex items-center justify-end", style: { gap: 4 } },
+          (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
+          rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null))),
+    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...FORUM_BOARDS, "关注", "收藏"].map(b => {
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 py-2", style: { borderBottom: `1px solid ${t.line}`, background: t.bg2 } },
-      [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map(x => h("button", { key: x[0], onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "px-3 py-1 active:opacity-70", style: { borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, color: feedSort === x[0] ? t.bg2 : t.fog, background: feedSort === x[0] ? t.ink : "transparent", border: `1px solid ${feedSort === x[0] ? t.ink : t.line}` } }, x[1])),
-      h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, feedSort === "active" ? "新回复会把旧帖顶回来" : (feedSort === "hot" ? "热度会随时间降温" : "只按发帖时间"))),
+    // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
+    (!inSub && nav === "home") && h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
+      [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
-    (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: `1px solid ${t.line}` } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 py-2 flex flex-col items-center gap-1 active:opacity-60 relative", style: { color: nav === nx[0] ? t.ink : t.fog } },
-        h(Ic, { size: 20, color: nav === nx[0] ? t.ink : t.fog }),
+    (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
+        h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
         nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
     // 悬浮发帖按钮（主页/搜索）
-    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: 64, width: 52, height: 52, borderRadius: 999, background: t.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.25)", zIndex: 30 } }, h(IPlus, { size: 24, color: "#fff" })),
+    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
