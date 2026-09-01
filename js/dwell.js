@@ -152,8 +152,17 @@
   function loadCfg() { const d = loadJSON(CFG_K, null); return { withImg: !(d && d.withImg === false) }; }
   function saveCfg(c) { saveJSON(CFG_K, { withImg: !!c.withImg }); return loadCfg(); }
 
-  // 去处内页是一套「场所观察档案」。地点首页保留整屏场景的沉浸感，往下翻才进入纸面索引；
-  // 不再用暗色星图、悬浮节点、连线和幽灵英文。数据仍然是 地点→区域→物件 三层。
+  // 去处在现实里是【串门】：你去他常待的地方，他不在，你一个人转着看。
+  // 数据是 地点→区域→物件 三层，三层各自照现实里那件事的样子长：
+  //   · 一处地方 = 你站在那儿看见的一整屏画面。点一下图就是【真全屏】，什么都不压在上面。
+  //   · 几块区域 = 他把东西摆在哪儿。区域名本来就是方位（窗下那张长案／靠墙的那口旧柜），
+  //     所以每一块画成【一条台面】，东西一样样摆在这条线上——不是分类瓷砖，也不是设置项列表。
+  //   · 一件东西 = 你把它拿起来，然后听见他心里那句。那句话是这一页唯一的主角。
+  //
+  // ⚠️v59.82 那版把这里做成了「场所观察档案」：场所观察档案／空间索引／区域 01／
+  //   现场视图／物件观察卡／外观与来路。那套话【原样搬进房产 app、勘察 app、库存 app 都成立】，
+  //   按 tabs-not-plain-pills.md 的判据就是写坏了；更糟的是它把他的家说成了证物。
+  //   v59.84 加回一屏氛围是治标：形状和用词还是档案的。所以这一版换的是【那个东西】，不是摆放。
   const FIELD_PAPER = "#eeeae1";
   const FIELD_CARD = "#faf7f0";
   const FIELD_INK = "#263038";
@@ -173,6 +182,7 @@
     const [zoneIdx, setZoneIdx] = useState(-1);
     const [item, setItem] = useState(null);
     const [drawing, setDrawing] = useState(false);
+    const [shot, setShot] = useState("");   // 正在全屏看的那张图（她 2026-09-01：v59.82 把全屏观看整个弄没了）
     const [cfg, setCfg] = useState(loadCfg);
     useEffect(function () { setPlaces(selId ? placesOf(selId) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
 
@@ -212,7 +222,9 @@
       requestAppConfirm("删掉这个地方？", "下次可以重新生成。", () => { const next = dropPlace(char.id, id); if (!next) return props.toast && props.toast("这次没删成功，原地点还在"); setPlaces(next); setOpenId(null); setView("places"); }, "删除");
     }
     function back() {
-      if (item) { setItem(null); }
+      // 全屏看图时先退出图，别一下把整页退掉
+      if (shot) { setShot(""); }
+      else if (item) { setItem(null); }
       else if (zone) { setZoneIdx(-1); }
       else if (view === "place") { setOpenId(null); setZoneIdx(-1); setView("places"); }
       else if (view === "places") { setSelId(""); setView("who"); }
@@ -245,74 +257,108 @@
           sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.58)", marginTop: 1 } }, sub) : null),
         h("div", { style: { width: 40, height: 40, flexShrink: 0 } }));
     };
+    const srcOf = function (p) { return p && p.img ? (typeof resolveImg === "function" ? resolveImg(p.img) : p.img) : ""; };
+    // 真·全屏看图（她 2026-09-01：「去掉了全屏观看」）。
+    // 全屏就该是【只有图】：没有渐变、没有标题、没有统计条，点一下就退出来。
+    // portal 到 body——外面那几层有 transform，fixed 会锚到它们身上而不是屏幕。
+    const fullShot = (shot && typeof ReactDOM !== "undefined") ? ReactDOM.createPortal(
+      h("div", { onClick: function () { setShot(""); }, style: { position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("img", { src: shot, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
+        h("div", { style: { position: "absolute", left: 0, right: 0, textAlign: "center", bottom: "calc(env(safe-area-inset-bottom) + 18px)", fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)" } }, "点一下退出")),
+      document.body) : null;
+    // 区域页顶上那条：还是这处地方的样子，点它同样能看全屏
     const placePhoto = function (p, height) {
-      return h("div", { style: { position: "relative", height: height || 210, overflow: "hidden", background: "#d9ddd9", borderBottom: "1px solid " + FIELD_LINE } },
-        p && p.img
-          ? h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: p.name || "场所图", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "saturate(.82) contrast(.94)" } })
+      const src = srcOf(p);
+      return h("button", { onClick: function () { if (src) setShot(src); }, className: "w-full block text-left active:opacity-90", style: { position: "relative", height: height || 210, overflow: "hidden", background: "#d9ddd9", borderBottom: "1px solid " + FIELD_LINE } },
+        src
+          ? h("img", { src: src, alt: p.name || "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "saturate(.82) contrast(.94)" } })
           : h("div", { className: "h-full flex items-center justify-center", style: { backgroundColor: "#dfe4e1", backgroundImage: "linear-gradient(" + FIELD_LINE + " 1px,transparent 1px),linear-gradient(90deg," + FIELD_LINE + " 1px,transparent 1px)", backgroundSize: "24px 24px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, background: "rgba(250,247,240,.86)", border: "1px solid " + FIELD_LINE, padding: "8px 11px", borderRadius: 6 } }, "尚未补现场图")),
-        h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: "#fff", background: "rgba(38,48,56,.72)", padding: "5px 8px", borderRadius: 4 } }, "现场视图"));
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, background: "rgba(250,247,240,.86)", border: "1px solid " + FIELD_LINE, padding: "8px 11px", borderRadius: 6 } }, "还没画过这儿")),
+        src ? h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(38,48,56,.72)", padding: "5px 8px", borderRadius: 4 } }, "点开看全屏") : null);
     };
-    // 地点打开后的第一屏只负责让人待在现场：图和介绍占满可视区，索引必须向下翻才出现。
-    // 这是沉浸式照片页，不是节点地图；没有区域连线、悬浮标签或巨大装饰英文。
-    const immersivePlaceHero = function (p, zs, itemCount) {
-      const photo = p && p.img ? (typeof resolveImg === "function" ? resolveImg(p.img) : p.img) : "";
-      return h("section", { style: { position: "relative", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", overflow: "hidden", background: "#101316", color: "#f4f1e9" } },
-        photo
-          ? h("img", { src: photo, alt: p.name || "场所图", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+    // 一处地方的第一屏＝你站在那儿看见的画面。点图就是全屏。
+    // 这里不摆「N 块区域 · N 件物品」那种档案统计——那句话下面那一段会用人话说一遍。
+    const placeHero = function (p) {
+      const src = srcOf(p);
+      return h("button", { onClick: function () { if (src) setShot(src); }, className: "w-full block text-left active:opacity-95",
+        style: { position: "relative", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", overflow: "hidden", background: "#101316", color: "#f4f1e9" } },
+        src
+          ? h("img", { src: src, alt: p.name || "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" } })
           : h("div", { style: { position: "absolute", inset: 0, backgroundColor: "#171c20", backgroundImage: "linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px)", backgroundSize: "34px 34px" } }),
-        h("div", { style: { position: "absolute", inset: 0, background: photo
-          ? "linear-gradient(180deg,rgba(5,8,10,.18) 0%,rgba(5,8,10,.08) 35%,rgba(5,8,10,.9) 100%)"
+        h("div", { style: { position: "absolute", inset: 0, background: src
+          ? "linear-gradient(180deg,rgba(5,8,10,.16) 0%,rgba(5,8,10,.06) 34%,rgba(5,8,10,.9) 100%)"
           : "radial-gradient(circle at 72% 24%,rgba(97,120,134,.28),transparent 36%),linear-gradient(180deg,rgba(9,12,14,.08),rgba(9,12,14,.82))" } }),
+        src ? h("div", { style: { position: "absolute", right: 16, top: 16, fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.72)", background: "rgba(9,12,14,.42)", border: "1px solid rgba(255,255,255,.22)", padding: "5px 9px", borderRadius: 999 } }, "点开看全屏") : null,
         h("div", { style: { position: "absolute", left: 21, right: 21, bottom: "calc(env(safe-area-inset-bottom) + 25px)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: "rgba(244,241,233,.65)" } }, photo ? "现场影像 · 场所观察" : "场所观察 · 等待现场影像"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.28, marginTop: 10, textShadow: "0 2px 20px rgba(0,0,0,.42)" } }, p.name),
-          p.ambient ? h("div", { style: { maxWidth: 560, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.82, color: "rgba(244,241,233,.82)", marginTop: 12, textShadow: "0 1px 12px rgba(0,0,0,.55)" } }, p.ambient) : null,
-          h("div", { className: "flex items-center", style: { gap: 13, marginTop: 20, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.25)", fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.67)" } },
-            h("span", null, char ? char.name : "未归属"),
-            h("span", { style: { width: 3, height: 3, borderRadius: 99, background: "rgba(244,241,233,.52)" } }),
-            h("span", null, zs.length + " 块区域"),
-            h("span", { style: { width: 3, height: 3, borderRadius: 99, background: "rgba(244,241,233,.52)" } }),
-            h("span", null, itemCount + " 件物品"),
-            h("span", { style: { flex: 1 } }),
-            h("span", { style: { whiteSpace: "nowrap" } }, "上翻看索引 ↑"))));
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.28, textShadow: "0 2px 20px rgba(0,0,0,.42)" } }, p.name),
+          p.ambient ? h("div", { style: { maxWidth: 560, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.82, color: "rgba(244,241,233,.84)", marginTop: 12, textShadow: "0 1px 12px rgba(0,0,0,.55)" } }, p.ambient) : null,
+          h("div", { style: { marginTop: 20, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.25)", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.67)" } },
+            (src ? "" : "还没画过这儿。") + "往下翻，一处一处看过去 ↓")));
+    };
+    // ── 一条台面：东西一样样摆在上面 ─────────────────────────
+    // 区域名本来就是方位（窗下那张长案／靠墙的那口旧柜／门边挂衣服的那根钉），
+    // 说的是【他把东西放在哪儿】。所以它长成台面：东西压在线上、线底下一道影子。
+    // 不是两列瓷砖（分类），也不是带 › 的设置项列表。
+    // ⚠️东西的名字要【全都看得见】：一块区域最多六样，名字直接摆出来，
+    //   别缩成「3 件」再让人点进去猜（no-half-sheet.md 里那句「只够干列三个名字」是同一个病）。
+    // ⚠️一行放不下就分层，【每一层各有自己那条台面】。用 flex-wrap 让它自己折，
+    //   线只会落在最后一折下面，上面那折的东西就悬空了——那就不是摆在台面上了。
+    //   每行 flex:1 1 0：一行两样各占一半，末行只剩一样就自己占满，末层不会缺半截。
+    const surface = function (z, i, opt) {
+      const o = opt || {};
+      const items = (z.items || []);
+      const per = o.big ? 1 : 2;
+      const rows = [];
+      for (var r = 0; r < items.length; r += per) rows.push(items.slice(r, r + per));
+      const ledge = h("div", { style: { height: 3, background: FIELD_INK, opacity: .72, borderRadius: 1, boxShadow: "0 7px 11px -7px rgba(38,48,56,.85)" } });
+      return h("div", { key: i, style: { marginTop: i ? 30 : 0 } },
+        h("button", { onClick: o.onName, disabled: !o.onName, className: "w-full text-left flex items-baseline active:opacity-70 disabled:opacity-100", style: { gap: 9 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: o.big ? 24 : 17, lineHeight: 1.35, color: FIELD_INK, minWidth: 0 } }, z.name),
+          h("span", { style: { flex: 1 } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, whiteSpace: "nowrap" } }, items.length ? "摆着 " + items.length + " 样" : "空着")),
+        rows.map(function (row, ri) {
+          return h("div", { key: ri, style: { marginTop: ri ? 14 : 11 } },
+            h("div", { className: "flex", style: { alignItems: "flex-end", gap: 7 } },
+              row.map(function (x, j) {
+                return h("button", { key: j, onClick: function () { if (o.onZone) o.onZone(); setItem(x); }, className: "text-left active:opacity-70",
+                  style: { flex: "1 1 0", minWidth: 0, minHeight: 44, background: FIELD_CARD, border: "1px solid " + FIELD_LINE, borderBottom: "none", borderRadius: "6px 6px 0 0", padding: o.big ? "13px 14px 14px" : "10px 11px 12px" } },
+                  h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: o.big ? 16.5 : 13.5, lineHeight: 1.45, color: FIELD_INK } }, x.name),
+                  (o.big && x.note) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: FIELD_SUB, marginTop: 5 } }, x.note) : null,
+                  (o.big && x.thought) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: FIELD_BLUE, marginTop: 7 } }, "他心里有句话没说 ›") : null);
+              })),
+            ledge);
+        }),
+        items.length ? null : ledge);
     };
 
-    // ── 一件东西：物件观察卡，他的想法是这一页的主角 ─────────────
+    // ── 一件东西：你把它拿起来，然后听见他心里那句 ──────────────
+    // ⚠️这一页只有一样东西是别处没有的：他没说出口的那句。v59.82 那版把它做成一张
+    //   跟「外观与来路」平起平坐的卡片——这一页的主角被摆成了配角。
+    //   现在它是纸面上唯一那块深色：看得见的写在纸上，心里那句压在墨里。
     if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
       fieldBar(zone ? zone.name : open.name, open.name),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
-        h("div", { className: "flex items-center", style: { gap: 9, marginTop: 22, fontFamily: F_BODY, fontSize: 10, color: FIELD_SUB, letterSpacing: ".08em" } },
-          h("span", { style: { width: 22, height: 3, background: FIELD_BLUE } }),
-          h("span", null, "物件观察卡")),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.35, color: FIELD_INK, marginTop: 12 } }, item.name),
-        h("div", { style: { marginTop: 18, background: FIELD_CARD, border: "1px solid " + FIELD_LINE, borderRadius: 10, padding: "15px 16px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginBottom: 8 } }, "外观与来路"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: FIELD_INK } }, item.note || "没有留下更多说明。")),
-        item.thought ? h("div", { style: { marginTop: 14, background: FIELD_BLUE, color: "#fff", borderRadius: 10, padding: "17px 17px 18px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", opacity: .68, marginBottom: 10 } }, (char ? char.name : "他") + " 没说出口的那句"),
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.9 } }, item.thought)) : null));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 24 } }, (zone ? zone.name : open.name) + "上摆着的"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.35, color: FIELD_INK, marginTop: 8 } }, item.name),
+        item.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.9, color: FIELD_SUB, marginTop: 12 } }, item.note) : null,
+        item.thought ? h("div", { style: { position: "relative", marginTop: 26, background: FIELD_INK, color: FIELD_PAPER, borderRadius: 12, padding: "26px 20px 20px", overflow: "hidden" } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: 13, top: 2, fontFamily: F_DISPLAY, fontSize: 62, lineHeight: 1, color: FIELD_PAPER, opacity: .13, pointerEvents: "none" } }, "\u201c"),
+          h("div", { style: { position: "relative", fontFamily: "'Noto Serif SC',serif", fontSize: 17, lineHeight: 2 } }, item.thought),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .58, marginTop: 16, textAlign: "right" } }, "—— " + (char ? char.name : "他") + " 没说出口"))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.9, color: FIELD_SUB, marginTop: 24, paddingTop: 16, borderTop: "1px solid " + FIELD_LINE } }, "这样东西他没往心里去。")));
 
-    // ── 一块区域：区域档案 + 物件卡，不做同款底部抽屉 ─────────────
+    // ── 一块区域：还是那条台面，只是走到跟前了 ────────────────
+    // 跟上一页同一个形状（同一条台面、同样几样东西），只是每样摊开写着说明——
+    // 这才是「走近了看」。换成另一种排版就成了另一个页面，人会以为自己换了个地方。
     if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
       fieldBar(open.name, char ? char.name : ""),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
         placePhoto(open, 116),
-        h("div", { className: "px-5" },
-          h("div", { className: "flex items-end", style: { gap: 10, marginTop: 18 } },
-            h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "区域档案 · " + String(zoneIdx + 1).padStart(2, "0")),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.35, color: FIELD_INK, marginTop: 5 } }, zone.name)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, whiteSpace: "nowrap", paddingBottom: 4 } }, (zone.items || []).length + " 件物品")),
-          h("div", { style: { height: 1, background: FIELD_LINE, margin: "15px 0 5px" } }),
-          (zone.items || []).map(function (x, j) {
-            return h("button", { key: j, onClick: function () { setItem(x); }, className: "w-full text-left active:opacity-70", style: { display: "grid", gridTemplateColumns: "42px minmax(0,1fr) 16px", columnGap: 12, alignItems: "start", padding: "14px 0", borderBottom: "1px solid " + FIELD_LINE } },
-              h("span", { style: { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", background: j % 2 ? "#d8ded9" : "#d5dfe3", borderRadius: 7, fontFamily: F_BODY, fontSize: 10.5, color: FIELD_INK } }, String(j + 1).padStart(2, "0")),
-              h("span", { className: "min-w-0" },
-                h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 16.5, color: FIELD_INK, lineHeight: 1.4 } }, x.name),
-                x.note ? h("span", { className: "line-clamp-2", style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: FIELD_SUB, marginTop: 4 } }, x.note) : null),
-              h("span", { style: { color: FIELD_SUB, fontSize: 18, lineHeight: "34px" } }, "›"));
-          }))));
+        h("div", { className: "px-5", style: { paddingTop: 22 } },
+          surface(zone, 0, { big: true }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, marginTop: 16, lineHeight: 1.8 } },
+            (zone.items || []).length ? "点一样，看他心里怎么说它。" : "这一块他什么都没放。"))),
+      fullShot);
 
     // ── 门：推开才进去 ─────────────────────────────────────
     if (view === "door" || !chars.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
@@ -348,35 +394,29 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, n ? n + " 处" : "还没去过"));
           }))));
 
-    // ── 一处地方：整屏现场 → 场所观察档案 ─────────────────────
+    // ── 一处地方：站在那儿 → 一处一处看过去 ─────────────────
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
       const itemCount = zs.reduce(function (n, z) { return n + (z.items || []).length; }, 0);
       return h("div", { className: "h-full flex flex-col", style: { background: "#101316", color: FIELD_INK } },
         immersiveBar("去处", char ? char.name : ""),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
-          immersivePlaceHero(open, zs, itemCount),
-          h("div", { className: "px-5", style: { background: FIELD_PAPER, paddingTop: 24 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "场所观察档案"),
-            h("div", { className: "flex items-center", style: { gap: 10, margin: "25px 0 11px" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: FIELD_INK } }, "空间索引"),
-              h("div", { style: { flex: 1, height: 1, background: FIELD_LINE } }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_SUB } }, "点一块进去看")),
-            h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
+          placeHero(open),
+          h("div", { className: "px-5", style: { background: FIELD_PAPER, paddingTop: 26 } },
+            // 数量还在，只是不再摆成档案统计——用人话说这处地方是什么样
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.9, color: FIELD_SUB } },
+              zs.length
+                ? (char ? char.name : "他") + "在这儿有 " + zs.length + " 处地方摆着东西，一共 " + itemCount + " 样。"
+                : (char ? char.name : "他") + "这儿还什么都没摆。"),
+            h("div", { style: { marginTop: 22 } },
               zs.map(function (z, i) {
-                const preview = (z.items || []).slice(0, 2).map(function (x) { return x.name; }).join(" · ");
-                return h("button", { key: i, onClick: function () { setZoneIdx(i); }, className: "text-left active:opacity-70", style: { minHeight: 112, background: FIELD_CARD, border: "1px solid " + FIELD_LINE, borderTop: "4px solid " + (i % 3 === 0 ? FIELD_BLUE : (i % 3 === 1 ? "#8b7967" : "#71806c")), borderRadius: 8, padding: "11px 12px" } },
-                  h("div", { className: "flex items-center" },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, "区域 " + String(i + 1).padStart(2, "0")),
-                    h("span", { style: { flex: 1 } }),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, (z.items || []).length + " 件")),
-                  h("div", { className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: FIELD_INK, marginTop: 8 } }, z.name),
-                  preview ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 7 } }, preview) : null);
+                return surface(z, i, { onName: function () { setZoneIdx(i); }, onZone: function () { setZoneIdx(i); } });
               })),
-            h("div", { className: "grid grid-cols-2", style: { gap: 9, marginTop: 18 } },
-              h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 42, borderRadius: 8, background: FIELD_INK, color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在重新观察…" : "重新观察"),
-              h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 42, borderRadius: 8, border: "1px solid " + FIELD_LINE, background: FIELD_CARD, color: FIELD_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画现场图…" : (open.img ? "重画现场图" : "补现场图"))),
-            h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#9a5f58" } }, "删除这份场所档案"))));
+            h("div", { className: "grid grid-cols-2", style: { gap: 9, marginTop: 30 } },
+              h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: FIELD_INK, color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在再看一遍…" : "再去看一遍"),
+              h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + FIELD_LINE, background: FIELD_CARD, color: FIELD_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),
+            h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#9a5f58" } }, "不留这个地方了"))),
+        fullShot);
     }
 
     // ── 某个人的地点列表 ──────────────────────────────────

@@ -17,51 +17,128 @@ function load() {
   return { D: w.Dwell, store };
 }
 
-// 她 2026-09-01：暗底节点、连线、幽灵英文和抽屉清单与别的产品太像；
-// 但整屏氛围要留，出图以后应该先安静地看完现场和介绍，再向下翻档案。
-test("地点总览先给整屏现场与介绍，再向下翻场所档案", () => {
-  const i = dwell.indexOf('// ── 一处地方：整屏现场 → 场所观察档案');
-  assert.ok(i > 0, "找不到新的场所档案页");
+// 她 2026-09-01：「codex 修了一下去处因为旧 ui 太像别人的了，但是去掉了全屏观看，
+// 然后改了一下还是治标不治本」。
+//
+// 旧 UI（照片上挂悬浮胶囊＋连线＋幽灵英文）确实是别处见惯的样子；
+// 但换上来的「场所观察档案」是同一个病换个皮：场所观察档案／空间索引／区域 01／
+// 现场视图／物件观察卡／外观与来路——这一整套【原样搬进房产 app、勘察 app、
+// 库存 app、博物馆目录都成立】，按 tabs-not-plain-pills.md 的判据就是没设计。
+// 而且它把他的家说成了证物，正好毁掉这个功能唯一的用处。
+//
+// 治本＝换【那个东西】，不是换摆放：去处在现实里是串门，所以
+//   一处地方＝你站在那儿看见的一屏（点图＝真全屏）；
+//   一块区域＝他把东西摆在哪儿，长成一条台面；
+//   一件东西＝你拿起它，然后听见他心里那句，那句是这一页唯一的主角。
+test("全屏观看要回来，而且全屏就只有图", () => {
+  const i = dwell.indexOf("const fullShot =");
+  assert.ok(i > 0, "全屏看图整个没了——她 2026-09-01 点名要回来的就是这个");
+  const v = dwell.slice(i, dwell.indexOf("document.body) : null;", i));
+  assert.match(v, /position: "fixed", inset: 0/, "不是铺满屏幕");
+  assert.match(v, /objectFit: "contain"/, "全屏还在裁图，看不到整张");
+  assert.match(v, /onClick: function \(\) \{ setShot\(""\); \}/, "点一下退不出来");
+  // 全屏＝只有图：不许再压标题、氛围、统计条上去
+  assert.ok(v.indexOf("p.name") < 0 && v.indexOf("ambient") < 0 && v.indexOf("linear-gradient") < 0,
+    "全屏上又压了东西——那就不叫全屏观看了");
+  // fixed 会锚到带 transform 的祖先上，所以必须 portal 出去
+  assert.match(v, /ReactDOM\.createPortal/, "没 portal 出去，外面几层有 transform，会锚歪");
+  // 两处有图的地方都点得开，而且真的挂进了页面
+  assert.match(dwell, /const placeHero = function \(p\) \{[\s\S]{0,400}setShot\(src\)/, "整屏那张点不开");
+  assert.match(dwell, /const placePhoto = function \(p, height\) \{[\s\S]{0,300}setShot\(src\)/, "区域页顶上那条点不开");
+  assert.equal(dwell.split("fullShot);").length - 1, 2, "fullShot 定义了却没挂进那两页，等于没有");
+  // 返回键先退出图，别一下把整页退掉
+  assert.match(dwell, /if \(shot\) \{ setShot\(""\); \}/);
+});
+
+test("档案腔一个都不许留——那套话换个 app 照样成立，就是没设计", () => {
+  // 只看活着的代码——注释里要留着病因，不然下一个人不知道这套话为什么被撤掉
+  const live = dwell.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  ["场所观察档案", "空间索引", "现场视图", "物件观察卡", "外观与来路", "区域档案",
+   "现场影像", "重新观察", "补现场图", "尚未补现场图", "删除这份场所档案"].forEach(function (w) {
+    assert.equal(live.indexOf(w), -1, "还留着档案腔：" + w);
+  });
+  assert.match(dwell, /原样搬进房产 app、勘察 app、库存 app 都成立/, "病因没写在代码里，下一个人会再写一遍");
+  // 「区域 01 / 02」这种编号也是档案的：他摆东西的地方不是编号的
+  assert.ok(!/"区域 " \+ String\(/.test(dwell), "区域还在编号");
+  assert.ok(!/String\(j \+ 1\)\.padStart/.test(dwell), "物件还在编号");
+  // 换上来的是人话
+  assert.match(dwell, /"往下翻，一处一处看过去 ↓"/);
+  assert.match(dwell, /"点开看全屏"/);
+  assert.match(dwell, /"再去看一遍"/);
+  assert.match(dwell, /"不留这个地方了"/);
+});
+
+test("一块区域长成一条台面，不是两列瓷砖也不是带 › 的设置项", () => {
+  const i = dwell.indexOf("const surface = function (z, i, opt) {");
+  assert.ok(i > 0, "没有台面这个东西");
+  const src = dwell.slice(i, dwell.indexOf("\n    };", i));
+  // 台面本身：一条压在东西底下的线，底下一道影子
+  assert.match(src, /const ledge = h\("div", \{ style: \{ height: 3, background: FIELD_INK/);
+  assert.match(src, /boxShadow: "0 7px 11px -7px/, "台面没有影子，就只是一条分割线");
+  // 东西是【摆在上面】的：底边开着，压在那条线上
+  assert.match(src, /borderBottom: "none", borderRadius: "6px 6px 0 0"/, "东西的框四边都封着，没有摆在台面上的样子");
+  assert.match(src, /alignItems: "flex-end"/, "东西没有对齐到台面那条线上");
+  // ⚠️一行放不下要分层，每层各有自己那条台面
+  assert.match(src, /for \(var r = 0; r < items\.length; r \+= per\)/, "还在靠 flex-wrap 折行");
+  assert.ok(src.indexOf("flex-wrap") < 0, "flex-wrap 折出来的上面那折会悬空，不在任何台面上");
+  assert.match(src, /flex: "1 1 0"/, "末层只剩一样时会缺半截台面");
+  // 名字要全都看得见，不许缩成「N 件」再让人点进去猜
+  assert.match(src, /rows\.push\(items\.slice\(r, r \+ per\)\)/, "有东西没被摆出来");
+  assert.match(src, /row\.map\(function \(x, j\)/);
+  assert.ok(src.indexOf("slice(0, 2)") < 0, "又把东西缩成两个名字的预览了");
+  assert.ok(src.indexOf("›") < 0 || /他心里有句话没说 ›/.test(src), "又摆回设置项那个箭头了");
+  // 点得着（mobile-ui-layout）
+  assert.match(src, /minHeight: 44/);
+});
+
+test("一处地方：先站在那儿，再一处一处看过去；数量还在，但不是档案统计", () => {
+  const i = dwell.indexOf('// ── 一处地方：站在那儿 → 一处一处看过去 ─────────────────');
+  assert.ok(i > 0, "找不到地点页");
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  assert.match(src, /immersiveBar\("去处"/);
   assert.match(src, /flex-1 min-h-0 overflow-y-auto/, "地点页内容多了不会滚");
-  assert.match(src, /immersivePlaceHero\(open, zs, itemCount\)/);
-  assert.match(src, /"场所观察档案"/);
-  assert.match(src, /"空间索引"/);
-  assert.match(src, /className: "grid grid-cols-2"/, "区域没有收成明确的卡片索引");
-  assert.match(src, /onClick: function \(\) \{ setZoneIdx\(i\); \}/, "区域卡点不进去");
-  assert.doesNotMatch(src, /pinTop|pointerEvents|onLeft|backdropFilter|borderRadius: 999/, "星图小签的结构还残留在总览页");
+  assert.match(src, /placeHero\(open\)/);
+  assert.match(src, /surface\(z, i, \{ onName:/, "区域没有用台面那个形状");
+  // 内容不许因为换 UI 丢掉：氛围、归属、几块区域、几件东西，一样都不能少
+  const hero = dwell.slice(dwell.indexOf("const placeHero = function"), dwell.indexOf("\n    };", dwell.indexOf("const placeHero = function")));
+  assert.match(hero, /p\.ambient \? h\("div"[\s\S]{0,260}\}, p\.ambient\)/, "进门第一感觉没了");
+  assert.match(hero, /minHeight: "calc\(100dvh - env\(safe-area-inset-top\) - 58px\)"/, "第一屏不再是整屏");
+  assert.match(src, /zs\.length \+ " 处地方摆着东西，一共 " \+ itemCount \+ " 样。"/, "数量丢了或者又摆成统计条");
+  assert.match(src, /char \? char\.name : "他"/, "不知道这是谁的地方了");
+  // 星图那套结构不许回来
+  assert.doesNotMatch(src, /pinTop|pointerEvents|onLeft|backdropFilter/, "星图小签的结构又回来了");
 });
 
-test("地点档案保留氛围、归属和真实数量，不为新 UI 丢内容", () => {
-  const i = dwell.indexOf('// ── 一处地方：整屏现场 → 场所观察档案');
-  const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  const hero = dwell.slice(dwell.indexOf("const immersivePlaceHero = function"), dwell.indexOf("\n    };", dwell.indexOf("const immersivePlaceHero = function")));
-  assert.match(hero, /p\.ambient/, "进门第一感觉没了");
-  assert.match(hero, /char \? char\.name : "未归属"/);
-  assert.match(hero, /zs\.length \+ " 块区域"/);
-  assert.match(hero, /itemCount \+ " 件物品"/);
-  assert.match(src, /\(z\.items \|\| \[\]\)\.slice\(0, 2\)/, "区域卡没有用真实物件做预览");
+test("一块区域：同一条台面，只是走到跟前了", () => {
+  const src = dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'));
+  assert.match(src, /surface\(zone, 0, \{ big: true \}\)/, "区域页换了个排版——人会以为自己换了个地方");
+  assert.match(src, /placePhoto\(open, 116\)/, "看不见这是在哪处地方");
+  assert.match(src, /"点一样，看他心里怎么说它。"/);
 });
 
-test("生成图占满第一可视屏，介绍叠在现场上而不是缩成小卡片", () => {
-  const i = dwell.indexOf("const immersivePlaceHero = function");
-  const hero = dwell.slice(i, dwell.indexOf("\n    };", i));
-  assert.match(hero, /minHeight: "calc\(100dvh - env\(safe-area-inset-top\) - 58px\)"/);
-  assert.match(hero, /position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover"/);
-  assert.match(hero, /position: "absolute", left: 21, right: 21, bottom:/, "介绍没有叠在图的下部");
-  assert.match(hero, /"上翻看索引 ↑"/);
-  assert.doesNotMatch(hero, /pinTop|onLeft|borderRadius: 999.*p\.name|\.toUpperCase\(\)/, "整屏现场又做回节点星图了");
+test("一件东西：他心里那句是这一页唯一的主角", () => {
+  const src = dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('if (view === "place" && open && zone)'));
+  // 纸面上唯一那块深色＝心里那句；看得见的写在纸上
+  assert.match(src, /item\.thought \? h\("div", \{ style: \{ position: "relative", marginTop: 26, background: FIELD_INK, color: FIELD_PAPER/,
+    "那句话没有成为这一页唯一那块深色");
+  assert.match(src, /fontFamily: "'Noto Serif SC',serif", fontSize: 17/, "那句话没有比说明大");
+  assert.match(src, /"—— " \+ \(char \? char\.name : "他"\) \+ " 没说出口"/);
+  // note 不再包成一张跟它平起平坐的卡片
+  assert.ok(src.indexOf("border: \"1px solid \" + FIELD_LINE, borderRadius: 10") < 0, "说明又做成了跟那句话平起平坐的卡片");
+  assert.match(src, /item\.note \?/, "说明丢了");
+  // 没有那句话时也要说得清，不是一片空白
+  assert.match(src, /"这样东西他没往心里去。"/);
 });
 
-test("没出图时用平面网格占位，补图、重画和重新观察仍都在", () => {
+test("没出图不是坏了，是还没画；画图、重画、再看一遍都还在", () => {
   const i = dwell.indexOf("const placePhoto = function (p, height) {");
   const photo = dwell.slice(i, dwell.indexOf("\n    };", i));
-  assert.match(photo, /p && p\.img/);
+  assert.match(photo, /const src = srcOf\(p\)/);
   assert.match(photo, /backgroundImage:/, "没图时没有平面图式占位");
-  assert.match(photo, /"尚未补现场图"/);
-  assert.match(dwell, /open\.img \? "重画现场图" : "补现场图"/);
-  assert.match(dwell, /"重新观察"/);
+  assert.match(photo, /"还没画过这儿"/);
+  assert.match(dwell, /open\.img \? "重画这儿的样子" : "画一张这儿的样子"/);
+  assert.match(dwell, /busy \? "正在再看一遍…" : "再去看一遍"/);
+  // 没图的时候不该摆一个点不开的「点开看全屏」
+  assert.match(photo, /src \? h\("div"[\s\S]{0,220}"点开看全屏"\) : null/, "没图时还挂着看全屏的提示");
 });
 
 test("出图开关：默认开、关得掉、记得住", () => {
@@ -74,11 +151,11 @@ test("出图开关：默认开、关得掉、记得住", () => {
   assert.deepEqual(Object.keys(JSON.parse(JSON.stringify(store.x_dwellCfg))), ["withImg"], "存了多余的字段");
 });
 
-test("四层：门 → 想见谁 → 他的地点 → 全屏，退也是一层一层退", () => {
+test("四层：门 → 想见谁 → 他的地点 → 那处地方，退也是一层一层退", () => {
   ["door", "who", "places", "place"].forEach(v => assert.ok(dwell.includes('"' + v + '"'), "少了这一层：" + v));
   const i = dwell.indexOf("function back() {");
   const src = dwell.slice(i, dwell.indexOf("\n    }", i));
-  assert.match(src, /view === "place"[\s\S]{0,140}setView\("places"\)/, "从全屏退该回到他的地点列表");
+  assert.match(src, /view === "place"[\s\S]{0,200}setView\("places"\)/, "从那处地方退该回到他的地点列表");
   assert.match(src, /view === "places"[\s\S]{0,80}setView\("who"\)/, "从地点列表退该回到想见谁");
   assert.match(src, /view === "who"[\s\S]{0,80}setView\("door"\)/, "从想见谁退该回到门");
   assert.match(src, /props\.onBack/, "在门口再退一次该退出这个 app");
@@ -87,10 +164,10 @@ test("四层：门 → 想见谁 → 他的地点 → 全屏，退也是一层�
   assert.match(dwell, /想见谁/, "推开之后那句话没了");
 });
 
-test("生成完直接进全屏；带图开着才接着出图", () => {
+test("生成完直接进那处地方；带图开着才接着出图", () => {
   const i = dwell.indexOf("async function gen(hintName, prev) {");
   const src = dwell.slice(i, dwell.indexOf("\n    }", i));
-  assert.match(src, /setView\("place"\)/, "生成完没跳进全屏，还得她自己再点一次");
+  assert.match(src, /setView\("place"\)/, "生成完没跳进那处地方，还得她自己再点一次");
   assert.match(src, /if \(cfg\.withImg\) await draw\(made\)/, "开关没接上——要么白花一次出图的钱，要么开了也不出图");
   // 刚写出来的是哪一条，得认得出来：重写认 id，新写认「多出来的那条」
   assert.match(src, /p\.id === prev\.id/);
@@ -127,23 +204,12 @@ test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
     assert.match(pages[k], /className: "h-full flex flex-col"/, k + "：整页外壳不对");
     assert.match(pages[k], /flex-1 min-h-0 overflow-y-auto/, k + "：正文不会滚，内容长一点就看不全");
     assert.match(pages[k], /fieldBar\(/, k + "：没用整页那个顶栏");
-    assert.match(pages[k], /FIELD_PAPER/, k + "：没有场所档案纸面");
+    assert.match(pages[k], /FIELD_PAPER/, k + "：不是那张纸的底色");
   });
   // 顶栏是 fieldBar 出的，在这两页之前就定义好了，得单独看
   const bar = dwell.slice(dwell.indexOf("const fieldBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const fieldBar = function")));
   assert.match(bar, /shrink-0 flex items-center px-4/, "顶栏会被正文挤扁");
   assert.match(bar, /safeTop\(10\)/, "顶栏没让开刘海");
-});
-
-test("区域和物件分别用区域档案与观察卡，不是另一份黑底清单", () => {
-  const zone = dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'));
-  const item = dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('if (view === "place" && open && zone)'));
-  assert.match(zone, /"区域档案 · "/);
-  assert.match(zone, /gridTemplateColumns: "42px minmax\(0,1fr\) 16px"/);
-  assert.match(item, /"物件观察卡"/);
-  assert.match(item, /"外观与来路"/);
-  assert.match(item, /" 没说出口的那句"/);
-  assert.doesNotMatch(zone + item, /#14161a|ONE THING|\.toUpperCase\(\)|backdrop\(/, "旧黑底展签样式还在区域/物件页");
 });
 
 test("规矩写下来了，而且写的是【默认整页】", () => {
