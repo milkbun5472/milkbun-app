@@ -2261,11 +2261,6 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   }, h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: READ_INK })),
   h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: READ_INK } }, tab === "shelf" ? "书架" : "阅读档案"),
   h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })));
-  // 左边那一列活页装订孔
-  const rings = h("div", {
-    "aria-hidden": "true",
-    style: { position: "absolute", left: 5, top: 18, bottom: 14, width: 13, display: "flex", flexDirection: "column", justifyContent: "space-around", pointerEvents: "none" }
-  }, [0, 1, 2, 3, 4, 5, 6].map(i => h("span", { key: i, style: { width: 10, height: 10, borderRadius: 99, border: "1.5px solid rgba(236,230,216,.17)" } })));
   // 书脊：深底上一律浅色书脊配深字——保证每一架都看得清，也不会有哪一架糊进背景
   const spineStyle = (pal, w, ht) => ({
     width: w, height: ht, borderRadius: "3px 8px 8px 3px", position: "relative", overflow: "hidden",
@@ -2273,27 +2268,60 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     boxShadow: "0 8px 18px rgba(0,0,0,.42)", padding: "15px 12px", flexShrink: 0
   });
   const spineEdge = h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 8, background: "linear-gradient(90deg,rgba(0,0,0,.10),#fbf8f0 45%,#eee9dd)" } });
-  const spine = (b, sh, i, pal) => h("button", {
-    key: i, onClick: () => openBook(b, sh, i), className: "active:opacity-70 text-left", style: spineStyle(pal, 106, 146)
-  }, spineEdge,
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.35, color: pal.text, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 6 } }, b.title || "无题"),
-  h("div", { style: { position: "absolute", left: 12, bottom: 13, right: 17, fontFamily: F_BODY, fontSize: 10, color: "rgba(0,0,0,.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.author || ""));
+  // ── 一架书（v59.49 换骨架）───────────────────────────────────────────────
+  // 她 2026-09-01（配了对比图）：「书架也是……layout is just straight up plagiarism」。
+  // 抄的是这三样：**大号编号 01/02**、**「/ english_slug」那行**、
+  // **一排横滑的书脊卡片**。前两样是目录和货架的编号法——书架名本身已经很有脾气了
+  //（「老头以为我在读的」），前面挂个 01 只会把它降格成目录项；那行英文 slug 更是
+  // 对这些角色毫无意义（一个古代王爷的书架不会有 frontier）。
+  // 横滑书脊则是**书店的陈列方式**：一次只看得见两三本，还得划。
+  //
+  // 一个人自己的书架和书店的区别只有一样：**他读到哪儿了、哪本放着没动。**
+  // 书店永远不会告诉你这个。所以竖着一本一行，把「读到哪儿」摆在最显眼处，
+  // 底下一条细线画出他走了多远；停住的那本自己说话。
+  const readPct = txt => {
+    const t2 = String(txt || "");
+    let m = /(\d{1,3})\s*%/.exec(t2);
+    if (m) return Math.max(0, Math.min(100, +m[1]));
+    m = /第?\s*(\d+)\s*[\/／]\s*(\d+)/.exec(t2);                      // 128/357
+    if (m && +m[2] > 0) return Math.max(0, Math.min(100, Math.round(+m[1] / +m[2] * 100)));
+    // ⚠️「快看完了」要排在「读完」前面——它里面含着「看完」，顺序反了就成了 100。
+    if (/快完|快看完|快读完|最后|尾声|剩几页|就差/.test(t2)) return 92;
+    if (/读完|看完|通读|全本|重读|第二遍|第三遍/.test(t2)) return 100;
+    if (/没翻|没开|还没|一页都没|买来就/.test(t2)) return 0;
+    if (/过半|一半/.test(t2)) return 50;
+    if (/开头|前几页|刚开|才起头/.test(t2)) return 8;
+    return null;
+  };
+  const stalled = txt => /放着|搁着|没再|停在|再没动|落灰|一直没/.test(String(txt || ""));
+  const bookRow = (b, sh, i, pal) => {
+    const pct = readPct(b.readAt);
+    const cold = stalled(b.readAt);
+    return h("button", {
+      key: i, onClick: () => openBook(b, sh, i), className: "w-full text-left active:opacity-60",
+      style: { display: "block", padding: "13px 2px 14px", borderTop: i ? "1px solid " + READ_LINE : "none" }
+    },
+      h("div", { className: "flex items-baseline", style: { gap: 10 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, b.title || "无题"),
+        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, b.author) : null),
+      b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, b.readAt) : null,
+      // 走了多远：有百分比就画那么长，认不出来的不画——不画比画错强
+      pct != null ? h("div", { "aria-hidden": "true", style: { height: 2, borderRadius: 2, background: READ_LINE, marginTop: 9, overflow: "hidden" } },
+        h("div", { style: { width: Math.max(2, pct) + "%", height: "100%", borderRadius: 2, background: pal.accent } })) : null);
+  };
   const shelfCard = (sh, si) => {
     const pal = palOf(si);
     const books = Array.isArray(sh.books) ? sh.books : [];
-    const no = String(si + 1).padStart(2, "0");
-    return h("section", { key: si, style: { position: "relative", marginBottom: 24, paddingLeft: 24 } }, rings,
-      h("div", { className: "relative" },
-        h("div", { style: { background: pal.shelf, borderRadius: "13px 13px 0 0", padding: "13px 15px 28px", marginRight: 32, borderTop: "2px solid " + pal.accent } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18.5, lineHeight: 1.28, color: READ_INK } },
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 600, marginRight: 9, color: pal.accent } }, no), sh.name || "没起名的一架"),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: READ_DIM, marginTop: 5 } }, "/ " + (sh.slug || "shelf"))),
-        h("div", { style: { position: "absolute", right: 0, top: 28, background: pal.shelf, borderRadius: "8px 8px 0 0", padding: "6px 10px", fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".12em", color: pal.accent } }, "NO. " + no),
-        h("div", {
-          className: "flex gap-3 overflow-x-auto",
-          style: { marginTop: -16, padding: "13px 13px 15px", borderRadius: 13, background: pal.rail, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
-        }, books.length ? books.map((b, i) => spine(b, sh, i, pal))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: READ_DIM, padding: "48px 8px" } }, "这一架还是空的"))));
+    return h("section", { key: si, style: { marginBottom: 30 } },
+      h("div", { style: { borderLeft: "3px solid " + pal.accent, paddingLeft: 12, marginBottom: 4 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: READ_INK, wordBreak: "break-word" } }, sh.name || "没起名的一架"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 4 } },
+          books.length ? books.length + " 本 · " + (function () {
+            const done = books.filter(b => readPct(b.readAt) === 100).length;
+            const cold = books.filter(b => stalled(b.readAt)).length;
+            return [done ? "读完 " + done : "", cold ? cold + " 本放着没动" : ""].filter(Boolean).join(" · ") || "都还在读";
+          })() : "还是空的")),
+      books.map((b, i) => bookRow(b, sh, i, pal)));
   };
   const shelfPage = h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 20px", background: READ_BG } },
     h("div", { className: "flex items-center gap-3", style: { padding: "8px 24px 16px" } },
@@ -5469,14 +5497,14 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     reading: {
       instruction: "推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n"
-        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。每架另配一个英文 slug（小写下划线，如 midnight_wander）。\n"
+        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。\n"
         + "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。" + relHint + "\n\n"
         + "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n"
-        + "【每本都要有】title、author；readAt = 他读到哪儿（「卷七·饮食果子」「第 3 章」「214 页」都行，**允许有几本写「还没翻开」或「读了两页就放下了」**）；note = 他的批注，40-90 字，第一人称。\n"
+        + "【每本都要有】title、author；readAt = 他读到哪儿。**这一栏是这一页的主角**——一个人自己的书架和书店的区别就在这儿。写法随意（「卷七·饮食果子」「第 3 章」「128/357 页」「62%」都行），但**尽量能看出走了多远**；**每一架里至少有一本是停住的**——写清它停在哪儿、放了多久（「停在第三章，搁着两个月没再动」），那比读完的那几本更像他；也允许有「还没翻开」「买来就放着」这种。note = 他的批注，40-90 字，第一人称。\n"
         + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头、一个当场冒出来的打算。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
         + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
         + "【阅读档案 archive】name = **他在这个读书 app 上的昵称**（不是本名照抄）；uid = 书友号（一串数字）；favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
-      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
+      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
     },
     liked: {
       instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
