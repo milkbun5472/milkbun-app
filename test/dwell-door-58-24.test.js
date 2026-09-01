@@ -43,9 +43,9 @@ test("全屏观看要回来，而且全屏就只有图", () => {
   // fixed 会锚到带 transform 的祖先上，所以必须 portal 出去
   assert.match(v, /ReactDOM\.createPortal/, "没 portal 出去，外面几层有 transform，会锚歪");
   // 两处有图的地方都点得开，而且真的挂进了页面
-  assert.match(dwell, /const placeHero = function \(p\) \{[\s\S]{0,400}setShot\(src\)/, "整屏那张点不开");
+  assert.match(dwell, /const placeHero = function \(p, zs\) \{[\s\S]{0,700}setShot\(src\)/, "整屏那张点不开");
   assert.match(dwell, /const placePhoto = function \(p, height\) \{[\s\S]{0,300}setShot\(src\)/, "区域页顶上那条点不开");
-  assert.equal(dwell.split("fullShot);").length - 1, 2, "fullShot 定义了却没挂进那两页，等于没有");
+  assert.equal(dwell.split("fullShot);").length - 1, 3, "fullShot 定义了却没挂进那三页，等于没有");
   // 返回键先退出图，别一下把整页退掉
   assert.match(dwell, /if \(shot\) \{ setShot\(""\); \}/);
 });
@@ -62,7 +62,7 @@ test("档案腔一个都不许留——那套话换个 app 照样成立，就是
   assert.ok(!/"区域 " \+ String\(/.test(dwell), "区域还在编号");
   assert.ok(!/String\(j \+ 1\)\.padStart/.test(dwell), "物件还在编号");
   // 换上来的是人话
-  assert.match(dwell, /"往下翻，一处一处看过去 ↓"/);
+  assert.match(dwell, /"摆着 " \+ items\.length \+ " 样"/);
   assert.match(dwell, /"点开看全屏"/);
   assert.match(dwell, /"再去看一遍"/);
   assert.match(dwell, /"不留这个地方了"/);
@@ -73,8 +73,9 @@ test("一块区域长成一条台面，不是两列瓷砖也不是带 › 的设
   assert.ok(i > 0, "没有台面这个东西");
   const src = dwell.slice(i, dwell.indexOf("\n    };", i));
   // 台面本身：一条压在东西底下的线，底下一道影子
-  assert.match(src, /const ledge = h\("div", \{ style: \{ height: 3, background: FIELD_INK/);
-  assert.match(src, /boxShadow: "0 7px 11px -7px/, "台面没有影子，就只是一条分割线");
+  // ⚠️台面现在压在图上，所以线是【亮的】、影子在下面。暗线亮影在图上根本看不见
+  assert.match(src, /const ledge = h\("div", \{ style: \{ height: 3, background: "rgba\(244,241,233,\.82\)"/);
+  assert.match(src, /boxShadow: "0 7px 12px -6px rgba\(0,0,0,\.75\)"/, "台面没有影子，就只是一条分割线");
   // 东西是【摆在上面】的：底边开着，压在那条线上
   assert.match(src, /borderBottom: "none", borderRadius: "6px 6px 0 0"/, "东西的框四边都封着，没有摆在台面上的样子");
   assert.match(src, /alignItems: "flex-end"/, "东西没有对齐到台面那条线上");
@@ -96,7 +97,7 @@ test("一处地方：先站在那儿，再一处一处看过去；数量还在�
   assert.ok(i > 0, "找不到地点页");
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
   assert.match(src, /flex-1 min-h-0 overflow-y-auto/, "地点页内容多了不会滚");
-  assert.match(src, /placeHero\(open\)/);
+  assert.match(src, /placeHero\(open, zs\)/);
   assert.match(src, /surface\(z, i, \{ onName:/, "区域没有用台面那个形状");
   // 内容不许因为换 UI 丢掉：氛围、归属、几块区域、几件东西，一样都不能少
   const hero = dwell.slice(dwell.indexOf("const placeHero = function"), dwell.indexOf("\n    };", dwell.indexOf("const placeHero = function")));
@@ -118,12 +119,15 @@ test("一块区域：同一条台面，只是走到跟前了", () => {
 test("一件东西：他心里那句是这一页唯一的主角", () => {
   const src = dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('if (view === "place" && open && zone)'));
   // 纸面上唯一那块深色＝心里那句；看得见的写在纸上
-  assert.match(src, /item\.thought \? h\("div", \{ style: \{ position: "relative", marginTop: 26, background: FIELD_INK, color: FIELD_PAPER/,
-    "那句话没有成为这一页唯一那块深色");
+  // 地皮换成了那处地方糊开的图，所以那句话跟着翻面：它是压在图上的一张纸，
+  // 仍然是这一页唯一那块【跟地皮材质相反】的东西
+  assert.match(src, /item\.thought \? h\("div", \{ style: \{ position: "relative", marginTop: 26, background: FIELD_PAPER, color: FIELD_INK/,
+    "那句话跟这一页的地皮成了同一种材质，一眼分不出来了");
+  assert.match(src, /boxShadow: "0 16px 34px rgba\(0,0,0,\.42\)"/, "纸没有压在图上的样子");
   assert.match(src, /fontFamily: "'Noto Serif SC',serif", fontSize: 17/, "那句话没有比说明大");
   assert.match(src, /"—— " \+ \(char \? char\.name : "他"\) \+ " 没说出口"/);
   // note 不再包成一张跟它平起平坐的卡片
-  assert.ok(src.indexOf("border: \"1px solid \" + FIELD_LINE, borderRadius: 10") < 0, "说明又做成了跟那句话平起平坐的卡片");
+  assert.ok(src.indexOf("borderRadius: 10, padding") < 0, "说明又做成了跟那句话平起平坐的卡片");
   assert.match(src, /item\.note \?/, "说明丢了");
   // 没有那句话时也要说得清，不是一片空白
   assert.match(src, /"这样东西他没往心里去。"/);
@@ -201,15 +205,18 @@ test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
     区域页: dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'))
   };
   Object.keys(pages).forEach(function (k) {
-    assert.match(pages[k], /className: "h-full flex flex-col"/, k + "：整页外壳不对");
+    assert.match(pages[k], /className: "h-full flex flex-col relative"/, k + "：整页外壳不对");
     assert.match(pages[k], /flex-1 min-h-0 overflow-y-auto/, k + "：正文不会滚，内容长一点就看不全");
-    assert.match(pages[k], /fieldBar\(/, k + "：没用整页那个顶栏");
-    assert.match(pages[k], /FIELD_PAPER/, k + "：不是那张纸的底色");
+    assert.match(pages[k], /overBar\(/, k + "：没用整页那个顶栏");
+    assert.match(pages[k], /backdrop\(open\)/, k + "：没把上一层那张图糊开压暗当底衬");
   });
-  // 顶栏是 fieldBar 出的，在这两页之前就定义好了，得单独看
-  const bar = dwell.slice(dwell.indexOf("const fieldBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const fieldBar = function")));
+  // 顶栏是 overBar 出的，在这两页之前就定义好了，得单独看
+  const bar = dwell.slice(dwell.indexOf("const overBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const overBar = function")));
   assert.match(bar, /shrink-0 flex items-center px-4/, "顶栏会被正文挤扁");
   assert.match(bar, /safeTop\(10\)/, "顶栏没让开刘海");
+  // 顶栏也压在图上：自己刷一层不透明底色的话，那一条就把底衬盖死了
+  assert.match(bar, /background: "linear-gradient\(180deg,rgba\(8,11,13,\.86\),rgba\(8,11,13,\.28\)\)"/,
+    "顶栏自己刷了一层不透明底，底衬在那一条上被盖死");
 });
 
 test("规矩写下来了，而且写的是【默认整页】", () => {
@@ -217,4 +224,46 @@ test("规矩写下来了，而且写的是【默认整页】", () => {
   assert.match(rule, /默认用整页/, "没把默认说清楚");
   assert.match(rule, /h\(Sheet/, "没指出代码里对应的是哪个东西，下一个人对不上号");
   assert.match(rule, /需要同时看见它下面那一层吗/, "没给判据，只有结论的话照样会有人再写一个半窗");
+});
+
+// ===== v59.88 =====
+// 她 2026-09-01：「这些页面没有图片背景了嘤，就我还是想要能直接从图片里点击进去看，
+// 但是不要照片上挂悬浮胶囊＋连线＋幽灵英文」。
+test("图是每一层的地皮：内页也要把上一层那张图糊开压暗当底衬", () => {
+  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "no-half-sheet.md"), "utf8");
+  assert.match(rule, /上一层如果有图，就把那张图糊开压暗当底衬/, "这条规矩本来就写着，别把它也删了");
+  const i = dwell.indexOf("const backdrop = function (p) {");
+  assert.ok(i > 0, "内页又变回一张跟上一层无关的白纸了——进了屋反而看不见屋");
+  const bd = dwell.slice(i, dwell.indexOf("\n    };", i));
+  // ⚠️看的是【最外面那一层】铺没铺满：里面那层遮罩本来就是 absolute inset 0，
+  //   笼统 match 一下会被它顶住，外壳改成 relative 也照样绿
+  assert.match(bd, /const backdrop = function \(p\) \{\s*const src = srcOf\(p\);\s*return h\("div", \{ "aria-hidden": "true", style: \{ position: "absolute", inset: 0, overflow: "hidden"/,
+    "底衬没铺满，或者中间被人塞了一句提前 return");
+  assert.match(bd, /filter: "blur\(22px\) brightness\(\.72\) saturate\(\.95\)"/, "没糊开压暗，图会抢正文");
+  assert.match(bd, /backgroundImage: "linear-gradient\(rgba\(255,255,255,\.05\)/, "没图的时候底衬是一片死黑");
+  // 三层都要有：那处地方、那块区域、那件东西
+  assert.equal(dwell.split("backdrop(open)").length - 1, 3, "三层里有一层没铺底衬");
+  // 内页不许再自己刷一层不透明的纸，否则底衬白铺了
+  const inner = dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('// ── 门：推开才进去'));
+  assert.ok(!/background: FIELD_PAPER, color: FIELD_INK \}/.test(inner.replace(/item\.thought[\s\S]*?没说出口/, "")), "内页整页又刷成白纸了");
+});
+
+test("从图里直接点进去：区域名压在照片下缘，不挂胶囊、不连线、不摆幽灵英文", () => {
+  const i = dwell.indexOf("const placeHero = function (p, zs) {");
+  const hero = dwell.slice(i, dwell.indexOf("\n    };", i));
+  // 入口就在图上
+  assert.match(hero, /zs\.map\(function \(z, i\) \{[\s\S]{0,200}onClick: function \(\) \{ setZoneIdx\(i\); \}/, "图上点不进任何一块");
+  assert.match(hero, /borderTop: "1px solid " \+ OVER_LINE/, "那几行不是照片自己那条说明的样子");
+  assert.match(hero, /minHeight: 42/, "图上那几行点不着");
+  // 铺满的那一层是「看全屏」，压在上面要能点的那一叠必须在它外面
+  assert.match(hero, /pointerEvents: "none"/);
+  assert.match(hero, /pointerEvents: "auto"/, "区域那几行被底下那个铺满的按钮吃掉了点击");
+  // ⚠️不许回到照片上挂胶囊＋连线＋幽灵英文那一套——它还得替每块编个假坐标
+  // （只看区域那几行——右上角「点开看全屏」那颗药丸不是区域入口，不算）
+  const rows = hero.slice(hero.indexOf("zs.map(function (z, i)"));
+  assert.ok(!/borderRadius: 999/.test(rows), "又在照片上挂胶囊了");
+  assert.ok(!/pinTop|onLeft|width: 26, height: 1|backdropFilter/.test(rows), "又在照片上连线了");
+  assert.ok(!/toUpperCase\(\)|letterSpacing/.test(rows), "又在照片上摆幽灵英文了");
+  // 一块区域都没有时也得说句话，不是留一片空
+  assert.match(hero, /"这儿还什么都没摆。"/);
 });
