@@ -1837,24 +1837,35 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".24em", color: TALLY_BG } }, "TALLY"),
         h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
           onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null)),
-      h("div", { className: "px-5 pb-3", style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "rgba(244,242,238,.62)" } },
-        T("这本账不记钱。记的是他心里还没结清的东西——跟谁的都有，你只是其中一个。")),
-      // 五栏切换：横滑，别挤成一行小字
+      // ── 五栏＝账簿边上伸出来的索引标签（v59.65）─────────────────
+      // 她 2026-09-01：「这几个tab药丸形状还是有点普通」。
+      // 药丸是哪儿都能用的那一种，换个 app 照样成立——按她那条老判据就是写坏了。
+      // 账本自己的形状是【分栏的索引标签】：上圆下方、贴着页边；
+      // 选中的那一栏满高、纸色，直接长进底下的账页里（就是翻开的那一页），
+      // 没选中的往下缩一截、暗着，像压在后面几页。
+      // ⚠️朱线不做成单独一条：它是这一行自己的底色，选中那张标签用纸色盖住自己
+      //   那一段——线断在哪儿，就说明翻开的是哪一页。
+      //   （overflow-x:auto 会连带把纵向也裁掉，所以标签不能靠负 margin 探出去。）
       h("div", {
-        className: "flex gap-2 px-5 pb-3 overflow-x-auto",
-        style: { scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }
+        className: "flex px-5 overflow-x-auto",
+        style: {
+          gap: 3, alignItems: "stretch", scrollbarWidth: "none", WebkitOverflowScrolling: "touch",
+          background: "linear-gradient(to top,rgba(156,63,52,.55) 0 2px,transparent 2px)"
+        }
       }, TALLY_TABS.map(x => h("button", {
         key: x.k, onClick: () => { setTab(x.k); setFlip(null); },
-        className: "active:opacity-60",
+        className: "active:opacity-70",
+        "aria-pressed": tab === x.k ? "true" : "false",
         style: {
-          flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 14px", borderRadius: 99,
-          background: tab === x.k ? TALLY_BG : "transparent",
-          color: tab === x.k ? TALLY_INK : "rgba(244,242,238,.62)",
-          border: "1px solid " + (tab === x.k ? TALLY_BG : "rgba(244,242,238,.22)")
+          flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5,
+          padding: tab === x.k ? "10px 15px 9px" : "8px 13px 7px",
+          marginTop: tab === x.k ? 0 : 6,
+          borderRadius: "9px 9px 0 0",
+          background: tab === x.k ? TALLY_BG : "rgba(244,242,238,.08)",
+          color: tab === x.k ? TALLY_INK : "rgba(244,242,238,.58)",
+          boxShadow: tab === x.k ? "none" : "inset 0 1px 0 rgba(244,242,238,.14)"
         }
-      }, x.zh + (count(x.k) ? " " + count(x.k) : "")))),
-    // 封皮和账页之间那道朱线：翻开的那一下
-    h("div", { style: { height: 2, background: TALLY_RED, opacity: .5 } })),
+      }, x.zh + (count(x.k) ? " " + count(x.k) : ""))))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       // 账页抬头：左边这一栏有几笔、什么样；右边一句话交代折角是干嘛的
       rows.length ? h("div", { className: "flex items-baseline justify-between gap-3", style: { padding: "13px 0 10px" } },

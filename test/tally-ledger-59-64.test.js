@@ -13,13 +13,12 @@ const draw = tab => JSON.stringify(loadPhone({ 0: tab }).TallyView(props));
 // 病在【整页一个色度】：米底、近白的卡、灰字，从上到下没有一处压得住，
 // 五栏又是同一列白卡往下排。
 test("顶上那一块是墨色的封皮，字反白出来", () => {
-  const head = view.slice(view.indexOf("h(\"div\", { className: \"shrink-0\", style: { background: TALLY_INK"), view.indexOf("h(\"div\", { style: { height: 2, background: TALLY_RED"));
+  const head = view.slice(view.indexOf("h(\"div\", { className: \"shrink-0\", style: { background: TALLY_INK"),
+    view.indexOf("h(\"div\", { className: \"flex-1 min-h-0 overflow-y-auto px-5\""));
   assert.ok(head.length > 200, "顶上那一块不是墨色的");
   assert.match(head, /paddingTop: safeTop\(10\)/, "顶栏没自己吃刘海");
   // 反白：返回键、标题、刷新键都得是纸色的，不然墨底上是黑字
-  assert.equal((head.match(/TALLY_BG/g) || []).length >= 4, true, "墨底上还留着墨字");
-  assert.ok(head.indexOf("color: TALLY_INK }") < 0 || head.indexOf("tab === x.k ? TALLY_INK") > 0,
-    "封皮上有一处还是墨字");
+  assert.ok((head.match(/TALLY_BG/g) || []).length >= 4, "墨底上还留着墨字");
   // 五栏也在封皮里
   assert.ok(head.indexOf("TALLY_TABS.map") > 0, "五栏没在封皮里，封皮就只是一条空带子");
 });
