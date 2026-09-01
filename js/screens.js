@@ -1318,7 +1318,7 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
     h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
     h("button", { onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
-  const SCOPES = [["chat", "聊天"], ["subjects", "查手机"], ["debate", "辩论"], ["lifestyle", "行程"], ["diary", "日记"]];
+  const SCOPES = [["chat", "聊天"], ["subjects", "查手机"], ["debate", "擂台"], ["lifestyle", "行程"], ["diary", "日记"]];
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, entry ? "编辑词条" : "新建词条"),
@@ -6607,7 +6607,7 @@ const STORAGE_KEY_LABELS = [
   ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(图片已迁图库)"], ["x_profile", "我的档案(图片已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
   ["x_weekly_issues", "周刊往期"], ["x_study_sessions", "一起学会话"], ["x_read_books", "一起读书架与批注"],
-  ["x_debate_saves", "辩论存档"], ["x_dream_saves", "梦境存档"], ["x_tarot_saves", "塔罗存档"], ["x_trpg", "跑团存档"], ["x_ledger", "记账本"],
+  ["x_debate_saves", "擂台存档"], ["x_dream_saves", "梦境存档"], ["x_tarot_saves", "塔罗存档"], ["x_trpg", "跑团存档"], ["x_ledger", "记账本"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_phone", "查手机"], ["x_charWallet", "角色钱包"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],

@@ -1,7 +1,10 @@
 // ============================================================
-// 辩论（debate）—— 擂台式，不是聊天框
-// · 自定义题目 + 选 1~3 个角色（1 人=1v1，2~3 人=多人自由辩论）
-// · 认真辩论（维持人设认真论辩）⇄ 放飞模式（允许按人设跑题发散）
+// 擂台（debate）—— 一个搭起来的台子，不是聊天框
+// ⚠️v59.90 从「辩论」改名为「擂台」：这里一半的局是【随便吵】（谁先把对方逗笑、
+//   谁把话题带跑偏），那压根不是辩论；而且「辩论」是个通用类目词，换个 app 照样成立。
+//   叫「擂台」才是这个东西本身：上台、台下起哄、最后判个胜负。存档键仍是 x_debate_saves，不动她的旧存档。
+// · 自定义题目 + 选 1~3 个角色（1 人=和你 1v1，2~3 人=一台子人一起吵）
+// · 讲道理（维持人设认真论辩）⇄ 随便吵（允许按人设跑题发散）
 // · 立场按人设自动站队；我 1v1 可选边/随机先手，多人一定最后发言
 // · 一轮 = 所有角色各发言一次 + 我（最后）+ 场下观众 7~10 条弹幕
 // · 观众 = 没上场的自建角色 + 随机路人，能互相 cue、点评某角色整体表现
@@ -20,11 +23,17 @@
   function saveSaves(list) { return saveJSON("x_debate_saves", list); }
 
   // 把角色最近的聊天抓一小段，仅当语气/近况参考（结束后不写回）
+  // ⚠️取材的过滤条件必须和别处一致（engine.js 那句「所有角色视角的取材都用它过滤」）：
+  //   撤回的那句角色本来就不该记得，被上下文开关排除的那些也是。
+  //   原来这里只挡了 OOC，撤回的和排除的照样喂——一层写在十几处，这一处没跟上。
+  //   ⚠️还要【先过滤再取尾 12 条】：先 slice 的话，一段撤回的能把真正有用的几句挤没。
   function recentChatSnippet(charId, uName, charName) {
     const msgs = loadJSON("x_chat:" + charId, []);
     if (!msgs.length) return "";
-    return msgs.slice(-12)
-      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m))
+    return msgs
+      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m)
+        && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m)))
+      .slice(-12)
       .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80))
       .join("\n");
   }
@@ -64,7 +73,17 @@
     const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: 4000 });
     const p = extractJSON(raw) || {};
     const out = {};
-    (Array.isArray(p.stances) ? p.stances : []).forEach(s => { if (s && s.name) out[s.name] = String(s.stance || "").trim(); });
+    const list = Array.isArray(p.stances) ? p.stances : [];
+    list.forEach(s => { if (s && s.name) out[String(s.name).trim()] = String(s.stance || "").trim(); });
+    // ⚠️名字对不上就按顺序兜底。模型给名字加书名号、多个空格、写成「角色1」都很常见，
+    //   而这里一旦对不上，【所有人】的立场都会变成「自行把握」——整场辩论就没有立场了。
+    //   下面 genRound 早就有这一手（hit 找不到就取 rawTurns[i]），只有这一处漏了。
+    chars.forEach(function (c, i) {
+      if (out[c.name]) return;
+      const byIdx = list[i];
+      const txt = byIdx ? String(byIdx.stance || "").trim() : "";
+      if (txt) out[c.name] = txt;
+    });
     const myOpts = (Array.isArray(p.myOptions) ? p.myOptions : []).map(x => String(x).trim()).filter(Boolean);
     return { byName: out, myOptions: myOpts.length ? myOpts : ["支持", "反对"] };
   }
@@ -132,9 +151,13 @@
     const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果，并让各角色各说一句赛后感言（别写玩家的）。" }], { maxTokens: Math.min(12000, 3500 + chars.length * 900) });
     const p = extractJSON(raw) || {};
     const charNames = chars.map(c => c.name);
-    const closings = (Array.isArray(p.closings) ? p.closings : [])
+    const raws = (Array.isArray(p.closings) ? p.closings : [])
       .map(c => ({ name: String((c && c.name) || "").trim(), text: String((c && c.text) || "").trim() }))
-      .filter(c => c.text && c.name !== uName && charNames.indexOf(c.name) >= 0);
+      .filter(c => c.text && c.name !== uName);
+    let closings = raws.filter(c => charNames.indexOf(c.name) >= 0);
+    // ⚠️同上：名字对不上就整条丢掉，结果是「赛后感言」那一栏整个空着，看起来像模型没答。
+    //   条数对得上就按顺序认人——这比丢光强。
+    if (!closings.length && raws.length === chars.length) closings = raws.map((c, i) => ({ name: chars[i].name, text: c.text }));
     return { winner: String(p.winner || "").trim() || "平局", reason: String(p.reason || raw || "").trim(), closings: closings };
   }
 
@@ -150,7 +173,7 @@
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, typeof patch === "function" ? patch(s) : patch) : s);
       persist(list);
     };
-    const delSession = id => requestAppConfirm("删除这场辩论存档？", "删除后不能恢复。", () => { if (persist(loadSaves().filter(s => s.id !== id)) && view === id) setView("home"); }, "删除");
+    const delSession = id => requestAppConfirm("删掉这一场？", "删除后不能恢复。", () => { if (persist(loadSaves().filter(s => s.id !== id)) && view === id) setView("home"); }, "删除");
     // 长按删除（onContextMenu 在手机上不触发，得自己起计时器）
     const lpTimer = useRef(null), lpFired = useRef(false);
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
@@ -173,21 +196,23 @@
       });
     }
 
-    // 落地页
+    // 落地页：每一场是一张【场次单】——左边一条模式色的边条，
+    // 判完的那场右上角盖一枚胜者印章（歪着盖的那种，不是又一个圆角徽章）。
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "辩论", en: "Debate", onBack: props.onBack }),
+      h(Head, { zh: "擂台", en: "Arena", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("button", {
           onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
           className: "w-full py-3 mb-5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
-        }, "＋ 发起一场辩论"),
+        }, "＋ 摆一场擂台"),
         saves.length === 0
-          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有辩论。\n出个题、拉一两个角色上台，\n认真辩或者放飞都行。")
+          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "台子还空着。\n出个题、拉一两个人上台，\n讲道理或者随便吵都行。")
           : h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
             saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map(s => {
-              const names = s.parts.filter(p => p.kind === "char").map(p => p.name).join(" · ");
+              const names = s.parts.filter(p => p.kind === "char").map(p => p.name).join("  ·  ");
               const ended = s.status === "ended";
+              const modeInk = s.mode === "free" ? "#8a6d3b" : t.tint;
               return h("div", {
                 key: s.id,
                 onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView(s.id); },
@@ -195,14 +220,19 @@
                 onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
                 onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
                 className: "active:opacity-70",
-                style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer" }
+                style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderLeft: "4px solid " + modeInk, borderRadius: "4px 13px 13px 4px", padding: "13px 15px 14px", cursor: "pointer", overflow: "hidden" }
               },
-                h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 5 } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: .5, padding: "1px 7px", borderRadius: 6, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint } }, s.mode === "free" ? "放飞" : "认真"),
-                  ended ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 6, color: "#fff", background: t.accent } }, "已判定") : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.rounds || []).length || 1) + " 轮进行中")),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, marginBottom: 4 } }, s.topic),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                  names, ended && s.verdict ? "　·　胜者 " + s.verdict.winner : "")
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 2, color: modeInk, marginBottom: 5 } }, s.mode === "free" ? "随便吵" : "讲道理"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.35, color: t.ink, marginBottom: 6, paddingRight: ended ? 74 : 0 } }, s.topic),
+                h("div", { className: "flex items-baseline", style: { gap: 8 } },
+                  h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, minWidth: 0 } }, names),
+                  h("span", { style: { flex: 1 } }),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } },
+                    ended ? "共 " + ((s.rounds || []).length || 1) + " 回合" : "第 " + ((s.rounds || []).length || 1) + " 回合进行中")),
+                // 判完的那一场：歪着盖上去的一枚章
+                (ended && s.verdict) ? h("div", { style: { position: "absolute", right: 8, top: 12, transform: "rotate(-9deg)", border: "1.5px solid " + t.accent, color: t.accent, borderRadius: 5, padding: "3px 7px 4px", textAlign: "center", opacity: .88, maxWidth: 82 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 2 } }, "胜"),
+                  h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.2, marginTop: 1 } }, s.verdict.winner)) : null
               );
             })),
         saves.length > 0 ? h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按可删除存档") : null
@@ -221,11 +251,11 @@
     const [inject, setInject] = useState(false);
     const [starting, setStarting] = useState(false);
 
-    const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : (p.length >= 3 ? (props.toast && props.toast("最多选 3 个角色"), p) : p.concat(id)));
+    const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : (p.length >= 3 ? (props.toast && props.toast("台上最多站 3 个"), p) : p.concat(id)));
 
     const start = async () => {
-      if (!topic.trim()) { props.toast && props.toast("先填辩题"); return; }
-      if (!picked.length) { props.toast && props.toast("至少选 1 个角色上台"); return; }
+      if (!topic.trim()) { props.toast && props.toast("先写要吵的那件事"); return; }
+      if (!picked.length) { props.toast && props.toast("至少拉 1 个人上台"); return; }
       setStarting(true);
       try {
         const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
@@ -255,13 +285,13 @@
     const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
 
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "发起辩论", en: "New", onBack: props.onCancel }),
+      h(Head, { zh: "摆台子", en: "New", onBack: props.onCancel }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         // 题目
-        h("div", { style: label }, "辩题"),
+        h("div", { style: label }, "今天台上吵什么"),
         h("textarea", { value: topic, onChange: e => setTopic(e.target.value), placeholder: "例：该不该为爱情放弃事业 / 咖啡还是茶 / 先有鸡还是先有蛋…", rows: 2, style: Object.assign({}, field, { resize: "none", marginBottom: 20 }) }),
         // 选角色
-        h("div", { style: label }, "上台的角色（选 1 个=和你 1v1；2~3 个=多人自由辩论）"),
+        h("div", { style: label }, "上台的人（选 1 个＝和你 1v1；2~3 个＝一台子人一起吵）"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
           props.characters.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") :
             props.characters.map(c => {
@@ -274,14 +304,14 @@
         // 模式
         h("div", { style: label }, "模式"),
         h("div", { style: { display: "flex", gap: 8, marginBottom: mode === "free" ? 14 : 20 } },
-          [["serious", "认真辩论", "维持人设，正经论辩"], ["free", "放飞模式", "允许按人设跑题发散"]].map(m =>
+          [["serious", "讲道理", "维持人设，正经论辩"], ["free", "随便吵", "允许按人设跑题发散"]].map(m =>
             h("button", { key: m[0], onClick: () => setMode(m[0]), className: "active:opacity-70 flex-1",
               style: { textAlign: "left", padding: "11px 13px", borderRadius: 11, border: "1.5px solid " + (mode === m[0] ? t.accent : t.line), background: mode === m[0] ? t.accent + "12" : t.bg2 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: mode === m[0] ? t.accent : t.ink } }, m[1]),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, m[2])))),
         // 放飞：获胜条件（可自定；留空则结算时系统临场定，不额外花 API）
         mode === "free" ? h("div", { style: { marginBottom: 20 } },
-          h("div", { style: label }, "获胜条件（可自定，留空=判定时系统临场定）"),
+          h("div", { style: label }, "怎么算赢（可自定，留空＝收台时临场定）"),
           h("textarea", { value: winCond, onChange: e => setWinCond(e.target.value), placeholder: "例：谁先把对方逗笑 / 谁成功把话题带跑偏…（不填也行，结算时系统会定标准）", rows: 2, style: Object.assign({}, field, { resize: "none" }) })) : null,
         // 注入聊天
         h("button", { onClick: () => setInject(v => !v), className: "active:opacity-70",
@@ -290,13 +320,13 @@
             h("div", { style: { width: 18, height: 18, borderRadius: 999, background: "#fff", position: "absolute", top: 2, left: inject ? 18 : 2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } })),
           h("div", { style: { textAlign: "left" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "注入你俩最近的聊天"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "只当语气/近况参考，辩论结束后不写回记忆"))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "只当语气/近况参考，下了台什么都不写回记忆"))),
       ),
       // 底部开始
-      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(12px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 70%,transparent)" } },
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(12px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 70%,transparent)" } },
         h("button", { onClick: start, disabled: starting, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: starting ? t.fog : t.accent, borderRadius: 13, padding: "13px 0" } },
-          starting ? "正在安排立场…" : "开始辩论")));
+          starting ? "正在给各人排立场…" : "上台")));
   }
 
   // ============================================================
@@ -311,6 +341,7 @@
     const [busy, setBusy] = useState(false);
     const [phaseMsg, setPhaseMsg] = useState("");
     const [draft, setDraft] = useState("");
+    const [sideDraft, setSideDraft] = useState(null); // 自定义立场的就地输入（原生 prompt 同样会被 PWA 吞掉）
     const feedRef = useRef(null);
     const dtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 发言朗读（懒合成）
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
@@ -331,7 +362,8 @@
 
     // 一次调用批量生成【全部角色发言(按序) + 观众弹幕】
     const runGen = async (myText, skip) => {
-      setBusy(true); setPhaseMsg("台上依次接话、场下开始起哄…");
+      if (busy) return;   // 连点两下＝白花两次钱（她按次计费）
+      setBusy(true); setPhaseMsg("台上依次接话、台下开始起哄…");
       try {
         const charParts = s.parts.filter(p => p.kind === "char");
         const onIds = charParts.map(c => c.id);
@@ -357,8 +389,9 @@
 
     // 我先发言（或跳过）→ 立刻触发本轮批量生成
     const submitRound = async skip => {
+      if (busy) return;
       const myText = skip ? "" : draft.trim();
-      if (!skip && !myText) { props.toast && props.toast("说点什么，或点跳过"); return; }
+      if (!skip && !myText) { props.toast && props.toast("说点什么，或者这轮不说"); return; }
       const mePart = s.parts.find(p => p.kind === "me");
       patch(prev => {
         const rounds = prev.rounds.slice();
@@ -384,8 +417,11 @@
     });
 
     // 结束判定
-    const endDebate = async () => {
-      if (!window.confirm("结束辩论并由系统判定胜负？")) return;
+    // ⚠️不许用原生 confirm：iOS/PWA 里她勾一次「不再显示」就永久吞掉，
+    //   这颗键从此按下去毫无反应（app.js 那层 requestAppConfirm 就是为这个立的）。
+    const endDebate = () => requestAppConfirm("收台，判胜负？", "判完这一场就结束了，不能再往下吵。", runEnd, "收台");
+    const runEnd = async () => {
+      if (busy) return;
       setBusy(true); setPhaseMsg("裁判合议、选手准备感言…");
       try {
         // 判定 + 各角色感言合并成一次调用（省一次 API）
@@ -398,37 +434,61 @@
     // ---------- 渲染：结束态 ----------
     const ended = s.status === "ended";
 
-    // 顶部擂台条
-    const stage = h("div", { style: { padding: "10px 14px 12px", background: t.bg2, borderBottom: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.3, color: t.ink, textAlign: "center", marginBottom: 9 } }, "「" + s.topic + "」"),
-      h("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap", gap: 4 } },
-        s.parts.map((p, i) => h(React.Fragment, { key: p.kind === "me" ? "me" : p.id },
-          i > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, alignSelf: "center", margin: "0 3px" } }, s.parts.length === 2 ? "VS" : "·") : null,
-          h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", width: 74 } },
-            p.kind === "char"
-              ? h(Avatar, { character: props.characters.find(c => c.id === p.id) || { name: p.name }, size: 30, radius: 999 })
-              : h(Avatar, { character: meAv, size: 30, radius: 999 }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 74, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.kind === "me" ? uName : p.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.3, color: "#fff", background: p.color, borderRadius: 5, padding: "2px 5px", marginTop: 3, maxWidth: 74, textAlign: "center", wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.stance || (p.kind === "me" ? "待定" : "—"))))))
-    );
+    // ── 台子 ────────────────────────────────────────────────
+    // 这个 app 在现实里是【一个搭起来的擂台】：台上几个人各站一边，脚下同一块台面；
+    // 每人的立场牌挂在台前那道台裙上；台下黑压压一片人在起哄；台子上方吊着记分牌。
+    // ⚠️判据（tabs-not-plain-pills.md）：一排头像＋一列左边带色条的卡片＋一个深色评论区，
+    //   原样搬进任何一个 app 都成立——那就是没设计。下面每一样都得是【擂台才有的东西】。
+    const HEAD_H = 50;   // 头像+名字这一段的高度：台面那条线正好从这里横过去
+    const stage = h("div", { style: { background: t.bg2, borderBottom: "1px solid " + t.line, paddingTop: 9 } },
+      // 台上方那条横幅：今天要吵的这件事。底边中间收一个尖口，是布幡不是标题栏
+      h("div", { style: { margin: "0 18px 9px", padding: "6px 12px 10px", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.3, textAlign: "center", clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)" } }, s.topic),
+      h("div", { style: { position: "relative", padding: "0 10px 10px" } },
+        // 台裙：台面线以下这一片是台前，立场牌就挂在这上面
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
+        h("div", { className: "flex justify-center items-start", style: { position: "relative", gap: 6 } },
+          s.parts.map(function (p) {
+            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { width: 98, display: "flex", flexDirection: "column", alignItems: "center" } },
+              h("div", { style: { height: HEAD_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" } },
+                p.kind === "char"
+                  ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: 29, radius: 999 })
+                  : h(Avatar, { character: meAv, size: 29, radius: 999 }),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 96 } }, p.kind === "me" ? uName : p.name)),
+              // 挂绳：牌子是【挂在台前】的，不是浮在那儿的
+              h("div", { "aria-hidden": "true", style: { width: 1, height: 7, background: p.color, opacity: .7 } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9, lineHeight: 1.35, color: "#fff", background: p.color, borderRadius: 3, padding: "4px 6px 5px", width: "100%", textAlign: "center", wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", boxShadow: "0 2px 5px rgba(38,34,28,.28)" } },
+                p.stance || (p.kind === "me" ? "还没选边" : "—")));
+          }))));
 
-    // 发言卡
-    const turnCard = (tn, k) => tn.skipped
-      ? h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "4px 0" } }, "—— " + tn.name + " 跳过了这一回合 ——")
-      : h("div", { key: k, style: { background: t.bg2, borderRadius: 12, borderLeft: "3px solid " + tn.color, padding: "9px 12px", marginBottom: 9 } },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
-          tn.who === "char" ? h(Avatar, { character: props.characters.find(c => c.id === tn.id) || { name: tn.name }, size: 18, radius: 999 })
-            : h(Avatar, { character: meAv, size: 18, radius: 999 }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: tn.color } }, tn.name),
-          tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "→ " + tn.at) : null,
-          (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(c => c.id === tn.id), tp: dtp }) : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 300, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, tn.text));
+    // ── 发言：台上那个人面前那块名牌，话写在牌子后面 ──────────
+    // 不是聊天气泡，也不是左边一条色边的通用卡片。
+    // ⚠️卡片里【不许再套一层 maxHeight 滚动】：一页里嵌一个 300px 的小滚动区，
+    //   在手机上会跟整页抢手势（mobile-ui-layout §3 只允许一个主滚动容器）。长就让它长。
+    const turnCard = function (tn, k) {
+      if (tn.skipped) return h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "5px 0 11px" } }, "—— " + tn.name + " 没接这一句 ——");
+      const av = tn.who === "char" ? (props.characters.find(function (c) { return c.id === tn.id; }) || { name: tn.name }) : meAv;
+      return h("div", { key: k, style: { marginBottom: 13 } },
+        h("div", { className: "flex items-center", style: { gap: 6 } },
+          h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12, fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
+            h(Avatar, { character: av, size: 15, radius: 999 }), tn.name),
+          tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "冲着 " + tn.at) : null,
+          (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null),
+        h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text));
+    };
 
-    // 观众席块
-    const audienceBlock = (crowd, k) => h("div", { key: "aud" + k, style: { background: "#2b2a27", borderRadius: 12, padding: "10px 12px", margin: "4px 0 12px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: "#c9c4b6", marginBottom: 7 } }, "观众席 · 弹幕"),
-      crowd.map((c, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "#ece8df", marginBottom: 2 } },
-        h("span", { style: { color: c.known ? "#e8a598" : "#8fb0c9", fontWeight: 600 } }, "@" + c.name + "："), c.text)));
+    // ── 台下：一片黑压压的后脑勺，喊声从不同位置冒出来 ────────
+    // 不是一份「@某某：某某」的名单。缩进按条错开（用下标定死，不随机——重画时不许跳）。
+    const CROWD_IN = [0, 15, 30, 8, 22, 0, 34, 12, 26, 4];
+    const audienceBlock = function (crowd, k) {
+      return h("div", { key: "aud" + k, style: { position: "relative", background: "#1e1d1b", borderRadius: 12, padding: "20px 13px 14px", margin: "2px 0 15px", overflow: "hidden" } },
+        // 顶上那一排后脑勺：台下坐着一片人
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 11, backgroundImage: "radial-gradient(circle at 9px 12px, rgba(255,255,255,.085) 8px, transparent 8.5px)", backgroundSize: "22px 11px" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "台 下 · " + crowd.length + " 个人在喊"),
+        crowd.map(function (c, i) {
+          return h("div", { key: i, style: { marginLeft: CROWD_IN[i % CROWD_IN.length], fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: "#ece8df", marginBottom: 4 } },
+            h("span", { style: { color: c.known ? "#e8a598" : "#8fb0c9", fontWeight: 600 } }, c.name + "："), c.text);
+        }));
+    };
 
     return h("div", { className: "h-full flex flex-col" },
       // 头
@@ -436,27 +496,30 @@
         h("div", { className: "flex items-center justify-between px-4 pt-4 pb-2" },
           h("button", { onClick: props.onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
           h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint, padding: "2px 9px", borderRadius: 7 } }, s.mode === "free" ? "放飞" : "认真"),
-            !ended ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "第 " + roundNo + " 轮") : h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#fff", background: t.accent, padding: "2px 9px", borderRadius: 7 } }, "已结束"))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint, padding: "3px 9px", borderRadius: 4 } }, s.mode === "free" ? "随便吵" : "讲道理"),
+            !ended ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "第 " + roundNo + " 回合") : h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#fff", background: t.accent, padding: "2px 9px", borderRadius: 7 } }, "已收台"))),
         stage),
       // 正文
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-4 pt-3", style: { paddingBottom: ended ? 24 : 150 } },
         (s.rounds || []).map((r, ri2) => h("div", { key: ri2 },
-          h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "6px 0 10px" } },
-            h("div", { style: { flex: 1, height: 1, background: t.line } }),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog } }, "第 " + (ri2 + 1) + " 轮"),
-            h("div", { style: { flex: 1, height: 1, background: t.line } })),
+          // 回合牌：擂台边上挂的那块数字牌，不是一条 ── 标题 ── 分割线
+          h("div", { style: { display: "flex", justifyContent: "center", margin: "8px 0 12px" } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, "第 " + (ri2 + 1) + " 回合")),
           (r.turns || []).map(turnCard),
           (r.audience && r.audience.length) ? audienceBlock(r.audience, ri2) : null)),
         busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, phaseMsg || "…") : null,
         // 结束态：判定 + 感言
-        ended && s.verdict ? h("div", { style: { marginTop: 8 } },
-          h("div", { style: { background: t.bg2, border: "1.5px solid " + t.accent, borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: 1, color: t.accent, marginBottom: 6 } }, "⚖ 裁判判定"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 7 } }, "胜者：" + s.verdict.winner),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap" } }, s.verdict.reason)),
+        ended && s.verdict ? h("div", { style: { marginTop: 26, position: "relative" } },
+          // 记分牌：吊在台子上方那块牌。两根吊绳往上接出去，牌子才是「吊着的」
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: "26%", top: -18, width: 1, height: 18, background: t.line } }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", right: "26%", top: -18, width: 1, height: 18, background: t.line } }),
+          h("div", { style: { background: "#1e1d1b", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "15px 17px 16px", marginBottom: 20, boxShadow: "0 12px 26px rgba(0,0,0,.3)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, s.verdict.winner),
+            h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, s.verdict.reason)),
           (s.closings && s.closings.some(c => c.name !== uName)) ? h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: 1, color: t.fog, marginBottom: 9 } }, "赛后感言"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
             s.closings.filter(c => c.name !== uName).map((c, i) => {
               const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
               return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 } },
@@ -466,38 +529,50 @@
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink } }, c.text)));
             })) : null) : null),
       // 底部操作
-      ended ? null : h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
+      ended ? null : h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         busy
           ? h("button", { disabled: true, className: "w-full", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.fog, borderRadius: 11, padding: "12px 0" } }, phaseMsg || "生成中…")
           // 我的立场未定 → 先选边
-          : !s.mySet ? h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 7, textAlign: "center" } }, "选你的立场（你每轮固定第一个发言）"),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
-              (s.myOptions || ["支持", "反对"]).map((op, i) => h("button", { key: i, onClick: () => setMySide(op), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" } }, op)),
-              h("button", { onClick: () => { const v = window.prompt("自定义你的立场"); if (v && v.trim()) setMySide(v.trim()); }, className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自定义")))
+          : !s.mySet ? (sideDraft !== null
+            // ⚠️自定义立场原来走 window.prompt——和 confirm 一样会被 iOS/PWA 永久吞掉，
+            //   吞掉之后这颗键按下去毫无反应。改成就地输入。
+            ? h("div", { style: { display: "flex", gap: 8 } },
+              h("input", { value: sideDraft, autoFocus: true, onChange: e => setSideDraft(e.target.value),
+                onKeyDown: e => { if (e.key === "Enter" && sideDraft.trim()) setMySide(sideDraft.trim()); },
+                placeholder: "你要站的那一边…",
+                style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 12px", outline: "none" } }),
+              h("button", { onClick: () => setSideDraft(null), className: "active:opacity-70",
+                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 13px" } }, "取消"),
+              h("button", { onClick: () => { if (sideDraft.trim()) setMySide(sideDraft.trim()); }, className: "active:opacity-80",
+                style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 15px" } }, "站这边"))
+            : h("div", null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, textAlign: "center" } }, "你站哪边？（你每回合第一个开口）"),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
+                (s.myOptions || ["支持", "反对"]).map((op, i) => h("button", { key: i, onClick: () => setMySide(op), className: "active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" } }, op)),
+                h("button", { onClick: () => setSideDraft(""), className: "active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自己写一个"))))
           // 我先发言（含跳过）
           : myTurnNow ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: roundNo === 1 ? "你先开场，抛出你的观点…" : "轮到你先说，接着往下辩…", rows: 2,
+            h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: roundNo === 1 ? "你先开口，把话头抛出去…" : "轮到你先说，接着吵…", rows: 2,
               style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none", outline: "none" } }),
             h("div", { style: { display: "flex", gap: 8 } },
               h("button", { onClick: () => submitRound(true), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 16px" } }, "跳过本回合"),
+                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 16px" } }, "这轮不说"),
               h("button", { onClick: () => submitRound(false), className: "flex-1 active:opacity-80",
-                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" } }, "发言，让他们回应")))
+                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" } }, "说完，看他们接")))
           // 生成失败兜底：重试
           : needGen ? h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
             h("button", { onClick: retryGen, className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "↻ 重新生成本轮回应"))
+              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "↻ 台上没接上，再来一次"))
           // 本轮已完成 → 结束 / 下一轮
           : h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
             h("button", { onClick: nextRound, className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一轮 →"))));
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一回合 →"))));
   }
 
   window.Debate = Debate;

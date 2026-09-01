@@ -273,8 +273,9 @@ const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
 // 同人文底 nav 用：书架（三本书）、穿越（拱门/传送门）
 const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("path", { d: "M15.5 6.2l4.4 1.2-3.8 13.6-4.4-1.2" }), h("path", { d: "M4 20h16" }));
 const IPortal = p => h(Svg, p, h("path", { d: "M5 21V8a7 4 0 0114 0v13" }), h("path", { d: "M9 21v-9a3 2.2 0 016 0v9" }));
-// 辩论：天平（论辩 + 判定）
-const GDebate = p => h(Svg, p, h("path", { d: "M12 3v18M6 21h12M4 7h16M12 4l-7 3M12 4l7 3" }), h("path", { d: "M1.6 11a3.4 3.4 0 006.8 0" }), h("path", { d: "M15.6 11a3.4 3.4 0 006.8 0" }));
+// 擂台：一个搭起来的台子——台面＋台腿＋台上两个人，上方吊着记分牌。
+// （原来是天平，那是「辩论」的图；改名之后天平只说得了「判胜负」这一半，说不了「上台吵」那一半。）
+const GDebate = p => h(Svg, p, h("path", { d: "M9.5 2.6v1.8M14.5 2.6v1.8" }), h("rect", { x: 8, y: 4.4, width: 8, height: 4.6, rx: 1 }), h("circle", { cx: 9, cy: 13.4, r: 1.7 }), h("circle", { cx: 15, cy: 13.4, r: 1.7 }), h("path", { d: "M3 16.4h18" }), h("path", { d: "M5.5 16.4V21M18.5 16.4V21" }));
 // 梦境：弯月 + 星
 const GDream = p => h(Svg, p, h("path", { d: "M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" }), h("path", { d: "M16.5 3.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" }));
 // 塔罗：两张摊开的牌 + 星

@@ -2101,7 +2101,7 @@ function Home({
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
     read: { kind: "app", zh: "一起读", G: IShelf },
-    debate: { kind: "app", zh: "辩论", G: GDebate },
+    debate: { kind: "app", zh: "擂台", G: GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
