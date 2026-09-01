@@ -2307,20 +2307,33 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // 真正值钱的是三栏：想买清单的「为什么想买」、订单的「下单理由」、往来的「一句备注」，
 // 以及那条不是自己家的收货地址。
 // ============================================================
-const SHOP_ORANGE = "#ff6a2b";
-const SHOP_BG = "#f1f1f6";
+// ── 配色（v59.38，她 2026-09-01：「购物那套也是和别人的参考太像了」）──────────
+// 撞的正是那个组合本身：**橙 + 冷灰白 = 电商**，谁看都认得出是哪一家。
+// 外卖那一路走的是「被火烤过的颜色」；购物这一路不能也走暖的，两个 app 会糊成一个。
+// 它该长成另一件东西：**帖子和册页**——买东西这件事在这儿不是下单，是「想要、
+// 舍不得、买给谁」，那是写在纸上的账，不是货架。
+// 所以：冷青纸做底、靛蓝当墨与强调、朱砂只留给钱和「舍不得」那几笔。
+// 靛蓝不是任何一家电商的品牌色，而朱砂一出现就是印章，不是促销价签。
+//
+// ⚠️结构色一律走常量（跟外卖那次同一个理由）：散着字面值，换一次色必有找漏的。
+const SHOP_ACCENT = "#3f5f8a";   // 靛蓝：小标题、状态、店名旁的强调
+const SHOP_MARK = "#b1493c";     // 朱砂：钱、还没舍得付的那几件
+const SHOP_BG = "#eef1f4";       // 冷青纸
 const SHOP_CARD = "#ffffff";
-const SHOP_INK = "#1b1b1f";
-const SHOP_DIM = "#9a9aa4";
+const SHOP_INK = "#1f2733";      // 靛墨
+const SHOP_DIM = "#8b95a3";      // 冷灰
+const SHOP_BODY = "#414d5e";     // 正文
+const SHOP_LINE = "#e3e8ee";     // 分隔线
+const SHOP_SOFT = "#f2f5f8";     // 卡里再嵌一块的底
 // 想买清单的封面色。原来第二档统一渐变到 #f2f2f6（近白），浅色那几档（米、蓝）
 // 走到一半就洗白了，看着像色块没铺满（她 2026-08-29 报「第四个框颜色没盖住」）。
 // 改成同色系深→浅两档，整块封面都还是那个颜色。
 const WISH_COVERS = [
-  ["#c6c6d0", "#e3e3ea"],
-  ["#ffb094", "#ffd3bd"],
-  ["#e2d0a8", "#f0e5cd"],
-  ["#b9cddf", "#d9e6f0"],
-  ["#d2bcd0", "#e9dae7"]
+  ["#7f9ab8", "#cfdbe8"],
+  ["#8fa9a2", "#d3e0dc"],
+  ["#b7a276", "#e4dac2"],
+  ["#a8848a", "#ded0d2"],
+  ["#8c8fae", "#d5d6e2"]
 ];
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
@@ -2341,7 +2354,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 12px" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: SHOP_INK } }, title),
     right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, right) : null);
-  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: SHOP_DIM, background: "#f4f4f7", borderRadius: 7, padding: "3px 9px" } }, txt);
+  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: SHOP_DIM, background: SHOP_SOFT, borderRadius: 7, padding: "3px 9px" } }, txt);
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "active:opacity-60",
@@ -2352,64 +2365,64 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const thumb = (txt, bg, fg) => h("div", {
     "aria-hidden": "true",
-    style: { width: 56, height: 56, borderRadius: 15, flexShrink: 0, background: bg || "#f2f2f6", color: fg || "#8a8a94", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 21 }
+    style: { width: 56, height: 56, borderRadius: 15, flexShrink: 0, background: bg || SHOP_SOFT, color: fg || SHOP_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 21 }
   }, String(txt || "?").trim().slice(0, 1));
   // ── 账户卡 ──
   const accountCard = card([
     h("div", { key: "top", className: "flex items-center gap-4" },
-      h("div", { style: { width: 76, height: 76, borderRadius: 22, flexShrink: 0, background: "linear-gradient(150deg,#ff8a4c," + SHOP_ORANGE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 10px 22px rgba(255,106,43,.32)" } }, initial),
+      h("div", { style: { width: 76, height: 76, borderRadius: 22, flexShrink: 0, background: "linear-gradient(150deg,#6d8db3," + SHOP_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 10px 22px rgba(63,95,138,.28)" } }, initial),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center gap-2 flex-wrap" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: SHOP_INK } }, acc.name || char.name),
-          acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_ORANGE, background: "rgba(255,106,43,.10)", borderRadius: 999, padding: "4px 11px" } }, acc.member) : null),
-        acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 5 } }, "会员号 " + acc.uid) : null,
-        acc.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "#77777f", marginTop: 6, lineHeight: 1.5 } }, acc.style) : null)),
-    h("div", { key: "nums", className: "flex", style: { marginTop: 18, paddingTop: 16, borderTop: "1px solid #efeff3" } },
-      // 本月消费/订单数以【钱包流水】为准。模型编的那两个数和真实扣款对不上，
-      // 界面上两处说着不同的钱（Codex 2026-08-29 指出）。钱包没建档才退回模型那份。
-      [[ms ? Number(ms.spend).toFixed(2) : (acc.monthSpend != null ? Number(acc.monthSpend).toFixed(2) : "--"), "本月消费"],
-       [ms ? shopInt(ms.orders) : (acc.monthOrders != null ? shopInt(acc.monthOrders) : "--"), "本月订单"],
-       [acc.points != null ? shopInt(acc.points) : "--", "积分"]].map(([n, l], i) => h("div", { key: i, className: "flex-1 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_INK } }, n),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 4 } }, l)))),
-    acc.persona ? h("div", { key: "p", style: { marginTop: 16, background: "#f5f5f8", borderRadius: 13, padding: "13px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: "#4b4b53" } }, acc.persona) : null
+          // ⚠️会员等级不画：那是平台给用户分层的部件，换个角色照样成立
+          //（跟外卖那次同一条判据）。生成层留着，她定的「只砍显示」。
+          null),
+        acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null,
+        acc.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: SHOP_DIM, marginTop: 6, lineHeight: 1.5 } }, acc.style) : null)),
+    // ⚠️「本月消费 / 本月订单 / 积分」那一排数字不画：那是电商「我的」页的固定部件。
+    // 照情侣空间那条判据——**把「几件」换成「哪一件」**，数量只留给数量本身就是内容
+    // 的地方。这三个数一个也不是：他这个月花了多少，「合起来看」那一段用话说得更清楚。
+    // 积分更是纯平台机制，跟这个人没有半点关系。（钱的账仍由钱包那条链管。）
+    acc.persona ? h("div", { key: "p", style: { marginTop: 16, background: SHOP_SOFT, borderRadius: 13, padding: "13px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: SHOP_BODY } }, acc.persona) : null
   ]);
   // ── 在途包裹（时间轴） ──
   const shipping = A(data.shipping);
-  const shipSec = shipping.length ? h("section", { key: "ship" }, secTitle("在途包裹", shipping.length + " 件"),
+  const shipSec = shipping.length ? h("section", { key: "ship" }, secTitle("还在路上", shipping.length + " 件没到"),
     h("div", { style: { position: "relative", paddingLeft: 22 } },
-      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 6, top: 12, bottom: 26, width: 2, background: "rgba(255,106,43,.28)" } }),
+      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 6, top: 12, bottom: 26, width: 2, background: "rgba(63,95,138,.26)" } }),
       shipping.map((it, i) => h("div", { key: i, style: { position: "relative", marginBottom: 12 } },
-        h("span", { "aria-hidden": "true", style: { position: "absolute", left: -22, top: 16, width: 13, height: 13, borderRadius: 99, background: SHOP_ORANGE, border: "3px solid " + SHOP_BG } }),
+        h("span", { "aria-hidden": "true", style: { position: "absolute", left: -22, top: 16, width: 13, height: 13, borderRadius: 99, background: SHOP_ACCENT, border: "3px solid " + SHOP_BG } }),
         card([
           h("div", { key: "a", className: "flex items-baseline justify-between gap-3" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_ORANGE } }, it.status || "运输中"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_ACCENT } }, it.status || "运输中"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.eta || "")),
           it.shop ? h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 9 } }, it.shop) : null,
           h("div", { key: "c", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 5 } }, it.title || ""),
-          h("div", { key: "d", style: { height: 4, borderRadius: 4, background: "#eeeef2", marginTop: 14, overflow: "hidden" } },
-            h("div", { style: { width: Math.max(0, Math.min(100, Number(it.progress) || 0)) + "%", height: "100%", borderRadius: 4, background: SHOP_ORANGE } })),
+          // ⚠️进度条和快递公司尾号不画：那是包裹追踪页的部件，他等的是一样东西，
+          // 不是等一根条走完（跟外卖那四段进度条同一条判据）。只留「等到什么时候」。
           h("div", { key: "e", className: "flex items-baseline justify-between", style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, [it.carrier, it.tail ? "尾号 " + it.tail : ""].filter(Boolean).join(" · ")),
-            it.amount != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_ORANGE } }, shopMoney(it.amount)) : null)
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.why || ""),
+            it.amount != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(it.amount)) : null)
         ], { marginBottom: 0 }))))) : null;
   // ── 购物车 ──
   const cart = A(data.cart);
-  const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("购物车", cart.length + " 件待结算"),
-    card(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+  const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("还没舍得付", cart.length + " 件停在这儿"),
+    card(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       thumb(it.title),
       h("div", { className: "flex-1 min-w-0" },
         it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.shop) : null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, it.title || ""),
         it.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 4 } }, it.spec) : null,
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 8 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE } }, shopMoney(it.price)),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK } }, shopMoney(it.price)),
           Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was)) : null,
-          it.promo ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_ORANGE, background: "rgba(255,106,43,.10)", borderRadius: 7, padding: "3px 8px" } }, it.promo) : null,
+          // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是他的事。
+          // 他为什么把这件东西一直停在车里，写在下面 why 那一行。
+          null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1)))))))) : null;
   // ── 想买清单（两列卡片；why 是这一格的命） ──
   const wish = A(data.wish);
-  const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("想买清单", "种草 " + wish.length),
+  const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("一直没下手的", wish.length + " 样"),
     h("div", { className: "grid grid-cols-2 gap-3", style: { marginBottom: 14 } }, wish.map((it, i) => h("button", {
       key: i, className: "text-left active:opacity-70",
       // ⚠️点开是看，不是发。转发一律要走详情里那颗单独的按钮——
@@ -2421,95 +2434,112 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     h("div", { style: { padding: "12px 13px 15px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.4, color: SHOP_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.title || ""),
       it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 6 } }, it.shop) : null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE, marginTop: 7 } }, shopMoney(it.price)),
-      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#84848d", marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null))))) : null;
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK, marginTop: 7 } }, shopMoney(it.price)),
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: SHOP_DIM, marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null))))) : null;
   // ── 我的订单 ──
   const orders = A(data.orders);
-  const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("我的订单", orders.length + " 单"),
+  const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("买过的", orders.length + " 次"),
     orders.map((o, i) => card([
       h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, o.shop || ""),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: o.status === "已取消" ? SHOP_DIM : "#3fa363" } }, o.status || "")),
+        // 状态不画成一枚绿标（那是平台的订单状态徽章）；取消掉的那一单才值得说一句
+        o.status === "已取消" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, "后来退了") : null),
       o.time ? h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, o.time) : null,
       o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.45, color: SHOP_INK, marginTop: 10 } }, o.title) : null,
-      A(o.items).length ? h("div", { key: "it", style: { background: "#f5f5f8", borderRadius: 13, padding: "13px 14px", marginTop: 12 } },
-        A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid #e9e9ee" : "none", marginTop: j ? 10 : 0 } },
-          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: "#4b4b53" } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
+      A(o.items).length ? h("div", { key: "it", style: { background: SHOP_SOFT, borderRadius: 13, padding: "13px 14px", marginTop: 12 } },
+        A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid " + SHOP_LINE : "none", marginTop: j ? 10 : 0 } },
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4b4b53", flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price))))) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price))))) : null,
       h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, "运费 " + shopMoney(o.ship)),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_ORANGE } }, "实付 ", h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15 } }, shopMoney(o.paid)))),
+        // 运费单列是收据的排版，不是这个人的事；只留他真花掉的那个数
+        h("span", null),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid))),
       A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
-      o.review ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#7d7d86", marginTop: 13 } }, o.review) : null,
-      o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#4b4b53", marginTop: 9 } }, o.reason) : null,
-      o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3b3bb", marginTop: 11 } }, o.addr) : null,
+      o.review ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_DIM, marginTop: 13 } }, o.review) : null,
+      o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_BODY, marginTop: 9 } }, o.reason) : null,
+      o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 11 } }, o.addr) : null,
       h("div", { key: "pk" }, peekBtn("quiet", T("他的订单"), o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
     ], { key: i }))) : null;
-  // ── 购物习惯 ──
-  const habitRows = [["预算", habit.budget], ["常买", habit.buys], ["不买", habit.avoids], ["习惯", habit.how]].filter(x => x[1]);
-  const habitSec = habitRows.length ? h("section", { key: "hb" }, secTitle("购物习惯"),
-    card(habitRows.map(([k, v], i) => h("div", { key: i, className: "flex gap-5", style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
-      h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, k),
-      h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: SHOP_INK } }, v)))),
-    peekBtn("quiet", "购物习惯", T("他买东西的样子"), habitRows.map(([k, v]) => k + "：" + v).join("｜"))) : null;
+  // ── 买东西这件事上（v59.38）──────────────────────────────────────────
+  // 原来是【预算／常买／不买／习惯】四行标签表——那是电商的「消费画像」，
+  // 换个角色照样成立（跟外卖那张口味画像表同一个病）。改成问句：
+  // 每一问都得答出这个人才成立，而且答案是成句的话，不是一个词。
+  // 字段沿用旧的那几个，老存档照样读得出来。
+  const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid " + SHOP_LINE } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginBottom: 9 } }, q),
+    node);
+  const askLine = txt => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: SHOP_INK, wordBreak: "break-word" } }, txt);
+  const habitAsks = [
+    [T("他什么都舍得，除了这个"), habit.avoids],
+    [T("哪一样他会重复买，买到自己都不好意思"), habit.buys],
+    [T("多少钱以上他要犹豫一晚上"), habit.budget],
+    [T("他是什么时候点下那个付款的"), habit.how]
+  ].filter(x => x[1]);
+  const habitSec = habitAsks.length ? h("section", { key: "hb" }, secTitle("买东西这件事上", "他的取舍"),
+    h("div", { style: { background: SHOP_CARD, borderRadius: 18, padding: "2px 18px 8px", marginBottom: 14 } },
+      habitAsks.map(([q, v], i) => h("div", { key: i }, askRow(q, askLine(v)))),
+    ),
+    peekBtn("quiet", T("他买东西的样子"), T("他的取舍"), habitAsks.map(([q, v]) => q + "：" + v).join("｜"))) : null;
   // ── 常逛店铺 ──
   const shops = A(data.shops);
-  const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("常逛店铺"),
-    card(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+  const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("总回的那几家"),
+    card(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       thumb(sp.name),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_INK } }, sp.name || ""),
         sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 3 } }, sp.cat) : null,
-        sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#84848d", marginTop: 6 } }, sp.why) : null))))) : null;
-  // ── 优惠券 ──
-  const coupons = A(data.coupons);
-  const couponSec = coupons.length ? h("section", { key: "cp" }, secTitle("优惠券"),
-    card(coupons.map((c, i) => h("div", { key: i, className: "flex items-stretch", style: { background: "rgba(255,106,43,.07)", borderRadius: 13, overflow: "hidden", marginTop: i ? 11 : 0 } },
-      h("div", { style: { width: 118, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px 6px", borderRight: "1px dashed rgba(255,106,43,.36)", fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE, textAlign: "center", lineHeight: 1.3 } }, c.rule || ""),
-      h("div", { style: { flex: 1, minWidth: 0, padding: "14px 15px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_INK } }, c.name || ""),
-        c.scope ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, c.scope) : null,
-        c.until ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, "至 " + c.until) : null))))) : null;
+        sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: SHOP_DIM, marginTop: 6 } }, sp.why) : null))))) : null;
+  // ⚠️优惠券整栏【不画】（跟外卖那次同一条：她 2026-08-31「和另一个太像了」）。
+  // 那是一张营销位：折扣规则、适用范围、有效期——纯平台部件，换个角色照样成立，
+  // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的「只砍显示」）。
   // ── 最近浏览 ──
   const viewed = A(data.viewed);
-  const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("最近浏览"),
-    card(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+  const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("反复看过的", "看了没买"),
+    card(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.45, color: SHOP_INK } }, v.title || ""),
         v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null),
       h("div", { style: { flexShrink: 0, textAlign: "right" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_ORANGE } }, shopMoney(v.price)),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(v.price)),
         v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
   // ── 收货地址（不是自己家的那条走 hidden） ──
   const addrs = A(data.addrs);
-  const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
-    card(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+  const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("送到哪儿"),
+    card(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex items-center gap-2" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, a.label || ""),
         a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null,
         a.tail ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, a.tail) : null),
-      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#84848d", marginTop: 7 } }, a.detail) : null,
+      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, a.detail) : null,
       !a.isDefault ? h("div", null, peekBtn("hidden", "收货地址", a.label, a.detail)) : null)))) : null;
   // ── 相关往来 ──
   const gifts = A(data.gifts);
-  const giftSec = gifts.length ? h("section", { key: "gf" }, secTitle("相关往来"),
-    card(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+  const giftSec = gifts.length ? h("section", { key: "gf" }, secTitle("买给别人的"),
+    card(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, g.who || ""),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, g.title || ""),
-      g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#84848d", marginTop: 7 } }, g.note) : null,
+      g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, g.note) : null,
       h("div", null, peekBtn("quiet", T("他给谁买的东西"), (g.who || "") + " · " + (g.title || ""), g.note))))))  : null;
   // ── 本月概况 ──
-  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月购物概况"),
-    data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#3f3f47" } }, data.monthNote)) : null,
-    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#a6a6ae", textAlign: "center", padding: "6px 14px 4px" } }, data.tail) : null) : null;
+  // ⚠️钱包算出来的那两个数【必须还看得见】。上面那一排统计块删掉了（那是平台部件），
+  // 但「以钱包流水为准、不用模型编的数」这条不能跟着一起没——它防的是
+  // 同一屏两处说着不同的钱。所以改成一句话摆在这一段的开头。
+  const spendLine = ms
+    ? "这一阵花掉 " + shopMoney(ms.spend) + "，" + shopInt(ms.orders) + " 单"
+    : (acc.monthSpend != null ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (acc.monthOrders != null ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
+  const monthSec = (data.monthNote || data.tail || spendLine) ? h("section", { key: "mn" }, secTitle("合起来看", "这一阵他是这么花钱的"),
+    (spendLine || data.monthNote) ? card(h("div", null,
+      spendLine ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK, marginBottom: data.monthNote ? 12 : 0 } }, spendLine) : null,
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: SHOP_BODY } }, data.monthNote) : null)) : null,
+    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: SHOP_DIM, textAlign: "center", padding: "6px 14px 4px" } }, data.tail) : null) : null;
   // 不再照标准电商的「首页 / 购物车 / 订单 / 我的」复刻产品栏目。
   // 查手机真正要看的不是按钮在哪，而是这个人眼下在等什么、买过后留下什么、为什么取舍。
   // 旧数据结构全部兼容，只在阅读层重组为三条角色生活线。
   const PAGES = [
     { key: "home", zh: "眼下", glyph: "cart", lead: "还悬在半路上的东西，比购买记录更接近此刻。", secs: [accountCard, shipSec, cartSec], badge: shipping.length + cart.length },
     { key: "kept", zh: "留下", glyph: "orders", lead: "买过、送过、付过的钱，最后留下的是理由和人。", secs: [orderSec, giftSec, monthSec], badge: orders.length },
-    { key: "choice", zh: "取舍", glyph: "me", lead: "反复看却没买、总去的店和明确不买的东西，拼成 TA 的选择。", secs: [wishSec, viewSec, habitSec, shopSec, addrSec, couponSec] }
+    { key: "choice", zh: "取舍", glyph: "me", lead: "反复看却没买、总去的店和明确不买的东西，拼成 TA 的选择。", secs: [wishSec, viewSec, habitSec, shopSec, addrSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
@@ -2521,11 +2551,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); },
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? SHOP_ORANGE : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
-    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? SHOP_ORANGE : SHOP_DIM }),
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM }),
     pg.badge ? h("span", {
-      style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ORANGE, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
+      style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ACCENT, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
     }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10), background: "transparent" } },
@@ -2546,18 +2576,19 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("button", { onClick: () => setSheet(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: SHOP_DIM, padding: "0 4px" } }, "✕")),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: SHOP_INK, marginTop: 10 } }, it.title || ""),
     it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 7 } }, it.shop) : null,
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_ORANGE, marginTop: 10 } }, shopMoney(it.price)),
-    it.why ? h("div", { style: { background: "#f5f5f8", borderRadius: 13, padding: "14px 15px", marginTop: 16 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_MARK, marginTop: 10 } }, shopMoney(it.price)),
+    it.why ? h("div", { style: { background: SHOP_SOFT, borderRadius: 13, padding: "14px 15px", marginTop: 16 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM } }, T("他为什么想买")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#3f3f47", marginTop: 7, whiteSpace: "pre-wrap" } }, it.why)) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: SHOP_BODY, marginTop: 7, whiteSpace: "pre-wrap" } }, it.why)) : null,
     peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜"))));
   })() : null;
   return h("div", {
     className: "h-full min-h-0 flex flex-col relative",
-    style: { background: "linear-gradient(178deg,#ffe6d8 0%,#eeeaf4 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
+    // 顶上那道渐变原来是橙粉的，跟新的靛蓝一屏两种脾气。换成同色系往上收一点。
+    style: { background: "linear-gradient(178deg,#dae3ee 0%,#e6ecf2 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
   }, chrome,
   h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-    h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + SHOP_ORANGE, background: "rgba(255,255,255,.58)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#77777f" } }, page.lead),
+    h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + SHOP_ACCENT, background: "rgba(255,255,255,.58)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: SHOP_DIM } }, page.lead),
     body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
   nav, sheetNode);
 }

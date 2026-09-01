@@ -281,7 +281,8 @@ test("购物分成四页，每一块内容都落在某一页里，没有孤儿",
   const m = SRC.match(/const PAGES = \[[\s\S]*?\n  \];/);
   assert.ok(m, "找不到分页表");
   const placed = m[0];
-  ["accountCard", "shipSec", "wishSec", "cartSec", "couponSec", "viewSec", "orderSec",
+  // v59.38：优惠券整栏不画了（营销位，纯平台部件；生成层留着）
+  ["accountCard", "shipSec", "wishSec", "cartSec", "viewSec", "orderSec",
    "habitSec", "shopSec", "addrSec", "giftSec", "monthSec"].forEach(sec =>
     assert.ok(placed.includes(sec), sec + " 没被分到任何一页，会看不见"));
   // 每一块只出现一次，别在两页里重复
@@ -431,7 +432,9 @@ test("每个有账号的 app 都给了他自己的平台 ID", () => {
   // 而且要在界面上看得见，不是只存着
   assert.match(SRC, /"UID " \+ me\.uid/);
   assert.match(SRC, /me\.uid \? me\.uid : "未登记"/);
-  assert.match(SRC, /"会员号 " \+ acc\.uid/);
+  // v59.38：「会员号」跟着会员等级那枚徽章一起换掉了（平台的分层说法）；
+  // 号码本身照旧看得见——核的是【看得见】，不是那两个字。
+  assert.match(SRC.slice(SRC.indexOf('const SHOP_ACCENT'), SRC.indexOf('const TAKE_ACCENT')), /"账号 " \+ acc\.uid/, "购物页看不见他的账号了");
   assert.match(SRC, /"书友号 " \+ archive\.uid/);
   assert.match(SRC, /"账号 " \+ acc\.uid/);
   assert.match(SRC, /"小红书号：" \+ me\.xhsId/);

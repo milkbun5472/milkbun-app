@@ -91,7 +91,11 @@ test("本月消费/单数从钱包流水求和，不用模型编的那两个数"
   assert.match(ms[0], /if \(out\[k\]\.spend < 0\) out\[k\]\.spend = 0;/, "退上个月的单会让本月消费变成负数");
   // 界面以钱包为准，钱包没建档才退回模型那份
   const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
-  assert.match(phone, /ms \? Number\(ms\.spend\)\.toFixed\(2\) : \(acc\.monthSpend/, "购物页没改用钱包的数");
+  // ⚠️v59.38：那一排「本月消费／本月订单／积分」统计块删掉了（电商「我的」页的部件），
+  // 但这条不变——**同一屏不许两处说着不同的钱**。数改成一句话摆在「合起来看」里，
+  // 核的还是【以钱包为准、钱包没建档才退回模型那份】这个先后。
+  assert.match(phone, /const spendLine = ms\s*\n\s*\? "这一阵花掉 " \+ shopMoney\(ms\.spend\)/, "购物页没改用钱包的数");
+  assert.match(phone, /: \(acc\.monthSpend != null \? "这一阵花掉 " \+ shopMoney\(acc\.monthSpend\)/, "钱包没建档时没有退回模型那份");
   assert.match(phone, /ms \? fmtMoney\(ms\.spend\) : \(acc\.monthSpend/, "外卖页没改用钱包的数");
   assert.match(phone, /这两个只是占位，界面会用钱包的真实流水覆盖它们/, "提示词没说明这两个数会被覆盖");
 });

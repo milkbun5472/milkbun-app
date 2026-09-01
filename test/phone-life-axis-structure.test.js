@@ -11,7 +11,7 @@ test("购物按角色的眼下、留下、取舍重组，不复刻标准电商�
   assert.match(shopping, /zh: "眼下"[\s\S]*zh: "留下"[\s\S]*zh: "取舍"/);
   assert.match(shopping, /secs: \[accountCard, shipSec, cartSec\]/, "眼下应该合并正在发生的购买动作");
   assert.match(shopping, /secs: \[orderSec, giftSec, monthSec\]/, "买过和送过应该沿留下的痕迹阅读");
-  assert.match(shopping, /secs: \[wishSec, viewSec, habitSec, shopSec, addrSec, couponSec\]/, "犹豫、习惯和去处应该组成取舍");
+  assert.match(shopping, /secs: \[wishSec, viewSec, habitSec, shopSec, addrSec\]/, "犹豫、习惯和去处应该组成取舍");
   assert.doesNotMatch(shopping, /zh: "首页"[\s\S]*zh: "购物车"[\s\S]*zh: "订单"[\s\S]*zh: "我的"/);
 });
 
@@ -133,4 +133,56 @@ test("两页保留单一滚动区和公共底部安全区公式", () => {
     assert.match(src, /className: "flex-1 min-h-0 overflow-y-auto"/);
     assert.match(src, /paddingBottom: COMPOSER_PAD_BOTTOM/);
   });
+});
+
+// 她 2026-09-01：「查手机购物那套也是和别人的参考太像了，根据我们对外卖的改造
+// 把这个也改改吧」。撞的是同两样东西：**平台部件**，和**橙＋冷灰白那个组合**。
+test("购物也把平台部件摘掉，换成这个人的说法", () => {
+  // ① 平台部件：会员等级、积分、那一排统计、物流进度条、快递单号、优惠券、促销标、绿色状态徽章
+  ["acc.member ? h(", "acc.points", '"本月消费"', '"积分"', "Number(it.progress)",
+   "it.carrier", "couponSec", "it.promo ? h(", '"#3fa363"'].forEach(x =>
+    assert.ok(shopping.indexOf(x) < 0, "平台部件还画着：" + x));
+  // 生成层留着（她定的「只砍显示」）
+  assert.match(ph, /coupons 优惠券|coupons/, "生成层的券被一起删了");
+  // ② 但钱包那两个数不许跟着一起没——同一屏不许两处说着不同的钱
+  assert.match(shopping, /const spendLine = ms/, "钱包算的那个数没地方看了");
+  // ③ 栏目名换成人的说法，不是电商的栏目名
+  ["在途包裹", "购物车", "想买清单", "我的订单", "最近浏览", "常逛店铺", "本月购物概况"].forEach(bad =>
+    assert.ok(shopping.indexOf('secTitle("' + bad + '"') < 0, "还叫着「" + bad + "」"));
+  ["还在路上", "还没舍得付", "一直没下手的", "买过的", "反复看过的", "总回的那几家", "买给别人的", "合起来看"]
+    .forEach(good => assert.match(shopping, new RegExp('secTitle\\("' + good + '"'), good + " 那一格没了"));
+  // ④ 「预算／常买／不买／习惯」四行标签表是电商的消费画像，改成问句
+  assert.ok(shopping.indexOf('["预算", habit.budget]') < 0, "还在按消费画像表分行");
+  assert.match(shopping, /secTitle\("买东西这件事上", "他的取舍"\)/, "没换成我们的问法");
+  assert.match(shopping, /他什么都舍得，除了这个/, "没问到点子上");
+});
+
+// 外卖走烤过的暖色，购物就不能也走暖的——两个 app 会糊成一个。
+// 它该长成另一件东西：帖子和册页（想要、舍不得、买给谁），所以冷青纸＋靛蓝＋朱砂。
+test("购物走靛蓝与朱砂，不是电商那个橙", () => {
+  const hue = hex => {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const hh = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return Math.round(hh * 60);
+  };
+  const pick = name => {
+    const m = new RegExp("const " + name + ' = "(#[0-9a-f]{6})"').exec(ph);
+    assert.ok(m, "找不到 " + name);
+    return hue(m[1]);
+  };
+  // 底、墨、强调都在冷的那一段（190–250），跟外卖那套 5–45 的暖色分得开
+  ["SHOP_ACCENT", "SHOP_BG", "SHOP_INK", "SHOP_DIM", "SHOP_BODY"].forEach(k => {
+    const h2 = pick(k);
+    assert.ok(h2 >= 190 && h2 <= 250, k + " 的色相是 " + h2 + "°，不在冷的那一段（190–250）");
+  });
+  // 朱砂只有一个用处：钱。它是印章不是价签，所以必须留在暖的那一头
+  const mk = pick("SHOP_MARK");
+  assert.ok(mk >= 0 && mk <= 20, "朱砂那一笔不见了（现在是 " + mk + "°）");
+  assert.ok(ph.indexOf("SHOP_ORANGE") < 0, "电商那个橙还留着");
+  assert.ok(shopping.indexOf("rgba(255,106,43") < 0, "橙色的半透明尾巴还剩着");
+  assert.ok(shopping.indexOf("#ffe6d8") < 0, "顶上那道橙粉渐变还在");
+  ["SHOP_BODY", "SHOP_LINE", "SHOP_SOFT"].forEach(k =>
+    assert.match(ph, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量，换色得挨个找"));
 });
