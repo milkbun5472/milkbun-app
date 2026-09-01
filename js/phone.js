@@ -2174,7 +2174,15 @@ const ALBUM_ACCENT = "#8a6478";   // 藕：这一路谁都没用过（外卖暖�
 const ALBUM_ALERT = "#a8524a";    // 只给「删了又没真删的」和「锁起来的」
 const ALBUM_DIM = "#948e96";
 // 收藏仍独立存在 x_phoneKeep，刷新推演只换本轮相册，不覆盖 Lisa 留下的收藏。
-function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+// 一张照片的指纹：id 优先；没有 id 的旧数据用内容指纹。不要把本轮数组下标写进去，
+// 否则同一张照片在下次刷新排序变化后会被误当成另一张。
+// ⚠️模块级函数，不是 AlbumView 里的局部量——App 那边画完真图要按同一个指纹
+//   把图挂回 x_phoneKeep 的那条记录上，两处必须是同一套算法。
+function phonePhotoSig(p) {
+  p = p || {};
+  return p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
+}
+function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
@@ -2239,9 +2247,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     return albums.flatMap(a => buckets[a.key]).sort((a, b) => dateMs(b) - dateMs(a));
   };
   const items = normalize(d.items);
-  // id 优先；没有 id 的旧数据用内容指纹。不要把本轮数组下标写进收藏指纹，
-  // 否则同一张照片在下次刷新排序变化后会被误当成另一张。
-  const sig = p => p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
+  const sig = phonePhotoSig;
   const saved = arr(keep[char.id]);
   const isSaved = p => saved.some(s => sig(s) === sig(p));
   const toggle = p => setKeep(prev => {
@@ -2252,13 +2258,26 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     saveJSON("x_phoneKeep", n);
     return n;
   });
+  // 画出来的那张图挂在【我收着的】那条记录上（v59.59）。详情页和缩略图翻的都是
+  // 本轮 items，不是 keep——两边都得看一眼，否则刚画完当场还是程序化缩略图。
+  const keptOf = p => saved.find(s => sig(s) === sig(p)) || null;
+  const drawnRef = p => { const k = keptOf(p); return p.imageRef || (k && k.imageRef) || ""; };
+  const drawnUrl = p => { const k = keptOf(p); return p.imageUrl || p.imgUrl || (k && k.imageUrl) || ""; };
+  // 画完了要当场看见：keep 是这个组件自己的 state，App 那边写完 localStorage
+  // 不会通知它，所以画完再读一遍。
+  const drawPhoto = p => {
+    if (!onDrawPhoto) return;
+    Promise.resolve(onDrawPhoto(p, sig(p))).then(() => setKeep(loadJSON("x_phoneKeep", {})));
+  };
   // 零 API 的程序化缩略图：按照片内容稳定生成不同色光、景深与构图；不是灰色占位，
   // 也不会为 25 张照片额外烧生图额度。若将来数据带 imageRef/imageUrl，会优先显示真图。
   const art = (it, radius) => {
     const seed = phoneStableHash((it.caption || "") + (it.desc || ""));
     const hue = seed % 360, hue2 = (hue + 45 + seed % 70) % 360;
-    // imageRef 可能是本机保险箱键，不是浏览器可直接加载的网址；这里只接真正 URL。
-    const img = it.imageUrl || it.imgUrl;
+    // imageRef 是本机保险箱里的键，得先解出来才能给 <img>（v59.59 起「我收着的」
+    // 那几张可以真画出来，画完就存成 imageRef）。解不出来就照旧画程序化缩略图。
+    const ref = drawnRef(it);
+    const img = drawnUrl(it) || (ref && typeof resolveImg === "function" ? resolveImg(ref) : "") || "";
     return h("div", { style: { position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius || 0,
       background: img ? "#ddd" : `linear-gradient(${110 + seed % 80}deg,hsl(${hue} 42% 75%),hsl(${hue2} 48% 37%))` } },
       img ? h("img", { src: img, alt: it.caption || "照片", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(React.Fragment, null,
@@ -2281,6 +2300,22 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
     h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
     h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。")),
+    // ── 画出来（v59.59）──────────────────────────────────────────────────
+    // 她 2026-09-01：「相册放进我的收藏后可以给他一个按钮生成真图吧，
+    // 就按图上的 prompt 生成」。
+    // ⚠️只给【已经收着的】那几张：收藏是她自己挑的，刷新不会冲掉，
+    //   画出来的图才有地方留着；随手给二十五张都配个按钮等于劝人烧额度。
+    // ⚠️走 buildScenePrompt（空景那条路），不走 buildPhotoPrompt——
+    //   后者是【画一个人】的说明书（身份锁、骨架、手指、参考照），
+    //   外挂一句「不要有人」压不住它（v59.16 那次的教训）。
+    //   相册里绝大多数是景和物（窗外那场雨、桌上那根发绳），空景那条路才对得上。
+    isSaved(photo) && onDrawPhoto ? h("button", {
+      onClick: () => drawPhoto(photo),
+      disabled: !!drawing,
+      className: "w-full active:opacity-60 disabled:opacity-45",
+      style: { marginTop: 12, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
+    }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
+      : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
     onPeek ? (function () {
       // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
       const hid = photo.category === "private" || photo.category === "deleted";
@@ -4454,7 +4489,7 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
   if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
-  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
@@ -4719,7 +4754,9 @@ function PhoneCarry({
   onToggleAuto,
   weekAt,
   lastAll,
-  onPeek
+  onPeek,
+  onDrawPhoto,
+  drawingPhoto
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -4877,7 +4914,11 @@ function PhoneCarry({
     onAskAnon: q => onAskAnon && onAskAnon(char, q),
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
     // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
-    onPeek: pk => onPeek && onPeek(char, pk)
+    onPeek: pk => onPeek && onPeek(char, pk),
+    // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
+    // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
+    onDrawPhoto: (photo, key) => onDrawPhoto && onDrawPhoto(char, photo, key),
+    drawing: drawingPhoto || ""
   };
   // ── 时间线 + delta ──────────────────────────────────────────
   // 时间线不生成任何东西：它把上面那些 app 已经翻出来的碎片按时间串起来。
@@ -5902,6 +5943,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat,
-  dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits
+  dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
+  photoSig: phonePhotoSig
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };

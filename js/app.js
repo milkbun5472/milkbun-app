@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.58";
+const APP_VERSION = "v59.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11738,6 +11738,47 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }]);
     toast("已摆到 " + (char.remark || char.name) + " 面前（他会知道你翻了他的" + what + "）");
   };
+  // 相册里【我收着的】那几张可以真画出来（v59.59。她 2026-09-01：「放进我的收藏后
+  // 可以给他一个按钮生成真图吧，就按图上的 prompt 生成」）。
+  // ⚠️走 buildScenePrompt（空景那条路），不走 buildPhotoPrompt——后者是【画一个人】的
+  //   说明书（身份锁、骨架、手指、参考照），外挂一句「不要有人」压不住它，出来是人是景
+  //   全看运气（v59.16 那次的教训）。相册里绝大多数是景和物：窗外那场雨、桌上那根发绳。
+  // ⚠️画好的图挂回 x_phoneKeep 那条记录上，【不写进 phones】——查手机每次刷新是整份
+  //   重生成，写在那边的话下一次刷新连图带记录一起没了。收藏是她自己挑的，不会被冲掉，
+  //   所以按钮也只给收着的那几张（二十五张都配一个按钮＝劝人烧额度）。
+  // ⚠️重画时沿用同一个 img_ 键：换个新键的话旧那张 blob 谁也删不掉，一路攒在保险箱里。
+  const drawKeptPhoto = async (char, photo, key) => {
+    if (!char || !photo || !key) return false;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
+    if (gen.phoneShot) return false;
+    const scene = [photo.caption, photo.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
+    if (!scene) { toast("这张没写下是什么，画不出来"); return false; }
+    setGen(g => ({ ...g, phoneShot: key }));
+    try {
+      const out = await generateSelfieImage(buildScenePrompt(char, scene, { forText: false }), null, {});
+      if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
+      const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
+      const all = loadJSON("x_phoneKeep", {});
+      const list = Array.isArray(all[char.id]) ? all[char.id] : [];
+      const prev = list.find(x => sigOf(x) === key) || null;
+      let ref = (prev && String(prev.imageRef || "").indexOf("img_pk_") === 0) ? prev.imageRef : "";
+      let url = out.url || "";
+      if (out.blob) {
+        if (!ref) ref = "img_pk_" + char.id + "_" + Date.now();
+        await idbImgPut(ref, out.blob);
+        url = "";
+      }
+      // 按钮只长在收着的那几张上，正常一定找得到；找不到就把这张补进收藏，
+      // 否则图存进了保险箱却没有任何一条记录指向它，等于白画一次。
+      const nl = prev
+        ? list.map(x => sigOf(x) === key ? { ...x, imageRef: ref || x.imageRef || "", imageUrl: url } : x)
+        : [{ ...photo, imageRef: ref, imageUrl: url, _at: Date.now() }, ...list];
+      saveJSON("x_phoneKeep", { ...all, [char.id]: nl });
+      toast("画好了");
+      return true;
+    } catch (e) { toast("没画成：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, phoneShot: null })); }
+  };
   // 逛购物 app 时问问他：把这件商品发进和他的聊天，问值不值得买。
   // 和「摆到他面前」是同一个动作语言，但语境完全相反——那边是他被撞破，
   // 这边是我主动拿给你看。所以【不能】复用 phonepeek 那张卡和那段判词。
@@ -15122,6 +15163,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     lastAll: phoneLastAll,
     weekAt: phoneWeekAt,
     onToggleAuto: phoneAutoToggle,
+    onDrawPhoto: drawKeptPhoto,
+    drawingPhoto: gen.phoneShot || "",
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },
