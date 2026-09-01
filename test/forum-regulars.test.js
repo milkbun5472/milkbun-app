@@ -136,7 +136,9 @@ test("论坛帖子卡、版块标签与页头展示到点的新回复数", () =>
 
 test("回复我的只认明确直达证据，并可逐条跳到原楼层", () => {
   assert.match(app, /replyToMe: true/);
-  assert.match(app, /authorType: "me", authorId: "me", content: text, ts: Date\.now\(\)/);
+  // ⚠️别把这一行的字段顺序冻死：v59.70 起我回楼中楼时还会记下【回的是谁】（toName）。
+  // 要证的是【我那条是以我自己的身份存下去的】，不是它一共有几个字段。
+  assert.match(app, /authorType: "me", authorId: "me", content: text,[\s\S]{0,40}ts: Date\.now\(\)/);
   assert.match(screens, /p\.authorType === "me" && f\.authorType !== "me"/);
   assert.match(screens, /r\.replyToMe \|\| f\.authorType === "me"/);
   assert.match(screens, /document\.getElementById\("forum-floor-" \+ n\.floorId\)/);

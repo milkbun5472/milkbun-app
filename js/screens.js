@@ -1401,6 +1401,7 @@ function AltAvatar({ seed, size }) {
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
+  onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar
 }) {
@@ -1421,7 +1422,8 @@ function Forum({
   const [cbTitle, setCbTitle] = useState("");
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
-  const [replyTo, setReplyTo] = useState(null);      // {floorId,name} 楼中楼目标
+  const [replyTo, setReplyTo] = useState(null);
+  const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
     try { const x = JSON.parse(localStorage.getItem("x_forumLikes") || "[]"); return new Set(Array.isArray(x) ? x : []); } catch (e) { return new Set(); }
   });
@@ -1616,14 +1618,17 @@ function Forum({
   function actBar(p) {
     const isL = liked.has(p.id);
     const isB = bookmarked.has(p.id);
-    const bs = { fontFamily: F_BODY, fontSize: 12 };
-    return h("div", { className: "flex items-center gap-5 mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10 } },
+    const bs = { fontFamily: F_BODY, fontSize: 12, flexShrink: 0, whiteSpace: "nowrap" };
+    // ⚠️gap-5 是【固定】20px×5＝100px，加上四个数字和两个图标，赞和阅读一上万就顶出去了
+    //   （她 2026-09-01 截图：整张卡片超出屏幕、整页跟着往右滑）。
+    //   改成 space-between：间距由剩下的空间分，挤不下时先收间距，不会把内容推出去。
+    return h("div", { className: "flex items-center mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10, justifyContent: "space-between", gap: 6, minWidth: 0 } },
       h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.replyCount || 0))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.rtCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.viewCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
-      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60 ml-auto", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
+      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
   }
 
   // ---- 帖子行（推特式）----
@@ -1662,12 +1667,23 @@ function Forum({
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, cm.content),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
+            // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
+            //   没办法回复了，别人的楼中楼也不行」）。原来只有【楼层】那一行有「回复」，
+            //   楼里的人回了我之后，我就再也接不上话——一层楼说到一半断了。
+            // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
+            //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
               h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? meChar.name : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
+              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, r.content))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, r.content),
+              h("button", {
+                onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? meChar.name : r.authorName), toName: (r.authorType === "me" ? meChar.name : r.authorName) }),
+                className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 7 }
+              }, "回复"))),
             (gen && gen.forumReplyMe === cm.id) && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "3px 0" } }, "楼里的人正在回你…")),
           h("div", { className: "flex items-center gap-4 mt-1.5" },
             h("button", { onClick: () => setReplyTo({ floorId: cm.id, name: nm }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "回复"),
@@ -1676,7 +1692,8 @@ function Forum({
 
   const sendReply = () => {
     if (!rTxt.trim()) return;
-    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim()); else onReplyFloor(open, rTxt.trim());
+    // toName 只有在回【楼中楼里某一条】时才有；回楼层本身时是空的
+    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim());
     setRtxt(""); setReplyTo(null);
   };
 
@@ -1733,19 +1750,20 @@ function Forum({
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, isMe ? meChar.name : c.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
           isMe
-            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEditMe(true); }, className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
+            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注")),
         meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 10, lineHeight: 1.5 } }, meta.bio),
         !isMe && Array.isArray(meta.boardPrefs) && meta.boardPrefs.length > 0 && h("div", { className: "flex items-center gap-1.5 flex-wrap", style: { marginTop: 9 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "常逛"),
           meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· " + (meta.participation || "随缘出现"))),
-        h("div", { className: "flex items-center gap-4 mt-3" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, forumAge(meta.joinTs)),
+        // 吧龄／关注／粉丝：数字一长（「1.2万 粉丝」）这一行就顶出去了，得能折行
+        h("div", { className: "flex items-center flex-wrap gap-x-4 gap-y-1 mt-3", style: { minWidth: 0 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, whiteSpace: "nowrap" } }, forumAge(meta.joinTs)),
           isMe
-            ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
-            : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
+            ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
+            : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
       mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: "匿名吧的帖子不会显示在这里" }),
       mine.map(p => postRow(p, true)));
@@ -1772,10 +1790,10 @@ function Forum({
             h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},"@"+displayHandle)),
           h("button",{onClick:()=>toggleNpcFollow(key),className:"px-3.5 py-1.5 active:opacity-70",style:{borderRadius:999,background:following?t.ink:"transparent",border:`1px solid ${t.line}`,fontFamily:F_BODY,fontSize:12,color:following?t.bg2:t.ink}},following?"已关注":"关注")),
         h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:10}},meta.altBio||"这个账号习惯把大号不方便说的话留在这里。"),
-        h("div",{className:"flex items-center gap-4 mt-3"},
-          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},forumAge(meta.altJoinTs)),
-          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink}},h("b",null,fmtNum(meta.altFollowing||0)),h("span",{style:{color:t.fog}}," 关注")),
-          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink}},h("b",null,fmtNum(meta.altFollowers||0)),h("span",{style:{color:t.fog}}," 粉丝"))),
+        h("div",{className:"flex items-center flex-wrap gap-x-4 gap-y-1 mt-3",style:{minWidth:0}},
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog,whiteSpace:"nowrap"}},forumAge(meta.altJoinTs)),
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink,whiteSpace:"nowrap"}},h("b",null,fmtNum(meta.altFollowing||0)),h("span",{style:{color:t.fog}}," 关注")),
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink,whiteSpace:"nowrap"}},h("b",null,fmtNum(meta.altFollowers||0)),h("span",{style:{color:t.fog}}," 粉丝"))),
         h("div",{style:{fontFamily:F_BODY,fontSize:11.5,lineHeight:1.55,color:"#7355a6",marginTop:10,padding:"8px 10px",borderRadius:10,background:"rgba(115,85,166,.08)",border:"1px solid rgba(115,85,166,.2)"}},"小号身份 · 与大号资料和公开足迹分开展示；主页不会揭示它属于谁。"),
         latest>0&&h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.fog,marginTop:7}},"最近活跃 · "+timeAgo(latest))),
       authored.length>0&&h(React.Fragment,null,h("div",{className:"px-4 pt-4 pb-1"},h(Eyebrow,null,"小号发帖 · "+authored.length)),authored.map(p=>postRow(p,true))),
@@ -1837,16 +1855,26 @@ function Forum({
 
   // ---- 私信列表 / 会话 ----
   function pmList() {
+    const list = pms || [];
     return h("div", { className: "flex-1 overflow-y-auto" },
-      h("div", { className: "px-4" }, h("button", { onClick: onRefreshPMs, disabled: gen && gen.forumPM === "refresh", className: "w-full my-4 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, gen && gen.forumPM === "refresh" ? "刷新中…" : "↻ 刷新 · 看看有没有人私信我")),
-      (pms || []).length === 0 && h(Empty, { text: "还没有私信", sub: "点上面刷新，说不定有网友（或喷子）来找你" }),
-      (pms || []).map(th => {
-        const last = th.messages[th.messages.length - 1];
-        return h("button", { key: th.id, onClick: () => { setPmId(th.id); onMarkPMRead(th.id); }, className: "w-full text-left px-4 py-3.5 flex items-center gap-3 active:opacity-70", style: { borderBottom: `1px solid ${t.line}` } },
-          h(NpcAvatar, { seed: th.npcName, size: 42 }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + last.text)));
+      h("div", { className: "px-4 flex items-center gap-2 my-4" },
+        h("button", { onClick: onRefreshPMs, disabled: gen && gen.forumPM === "refresh", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, gen && gen.forumPM === "refresh" ? "刷新中…" : "↻ 刷新 · 看看有没有人私信我"),
+        // 清理（她 2026-09-01：「加一个清理可以清掉私信」）。
+        // 私信答的是【现在还挂着谁】，不是发生过什么——聊完了、不想理了就该能删掉。
+        list.length > 0 && h("button", { onClick: () => setPmClean(v => !v), className: "shrink-0 px-3 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: pmClean ? t.accent : t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, pmClean ? "完成" : "清理")),
+      pmClean && list.length > 0 && h("div", { className: "px-4 pb-3 flex items-center justify-between gap-3" },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "点右边的 ✕ 删掉一条"),
+        h("button", { onClick: () => { onClearPMs && onClearPMs(); setPmClean(false); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "全部清掉 " + list.length + " 条")),
+      list.length === 0 && h(Empty, { text: "还没有私信", sub: "点上面刷新，说不定有网友（或喷子）来找你" }),
+      list.map(th => {
+        const last = th.messages[th.messages.length - 1] || { from: "npc", text: "" };
+        return h("div", { key: th.id, className: "flex items-center gap-3 px-4 py-3.5", style: { borderBottom: `1px solid ${t.line}` } },
+          h("button", { onClick: () => { setPmId(th.id); onMarkPMRead(th.id); }, className: "flex-1 min-w-0 text-left flex items-center gap-3 active:opacity-70" },
+            h(NpcAvatar, { seed: th.npcName, size: 42 }),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + last.text))),
+          pmClean && h("button", { onClick: () => onDelPM && onDelPM(th.id), "aria-label": "删掉和 " + th.npcName + " 的私信", className: "shrink-0 active:opacity-60", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.accent, fontFamily: F_BODY, fontSize: 14 } }, "✕"));
       }));
   }
 
@@ -1931,7 +1959,10 @@ function Forum({
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
   else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = (tab === "收藏" || tab === "关注") ? null : h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
-  return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink } },
+  // ⚠️overflowX 兜死：里头任何一处顶宽了（一条超长的 @、一串大数字），整页就会
+  //   横着滑起来——连顶栏和返回键一起被推出屏幕（她 2026-09-01 那张截图就是这样，
+  //   头像左半边和返回键都不见了）。里头该修的照修，但这一道得先拦住整页跑偏。
+  return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
     // 紧凑居中顶栏：左右等宽，论坛不再是普通列表左上角的一行大字。
     h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: (inSub || nav !== "home") ? "1px solid " + FORUM_SKIN.line : "none", background: "rgba(244,247,240,.92)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
       h("div", { className: "grid items-center", style: { gridTemplateColumns: "72px 1fr 72px", minHeight: 40 } },

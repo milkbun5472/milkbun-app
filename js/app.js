@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.69";
+const APP_VERSION = "v59.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25,6 +25,10 @@ const FORUM_NPC_REGISTRY = [
 ];
 // 论坛熟面孔之间的公开交情：只决定公开回帖时的接梗/抬杠方式，不进角色私聊或记忆库。
 // 固定 pair + 固定描述，让他们跨帖子认得彼此；不是每次让模型重新编一套关系。
+// 私信一次刷几个人、手上最多留几个会话（她 2026-09-01：「私信刷出来的人数放大点」）。
+// ⚠️两个数要一起动：只把问的人数放大、封顶还是 10，新的一进来就把上一批挤没了。
+const FORUM_PM_ASK = "6-9";
+const FORUM_PM_KEEP = 24;
 const FORUM_NPC_RELATIONS = [
   { a: "npc_regular_moyu", b: "npc_regular_shafa", tone: "老接梗搭子：摸鱼办主任负责冷脸铺梗，沙发不是我的常抢着补刀；可以互损，但不会真翻脸" },
   { a: "npc_regular_xiaoyu", b: "npc_regular_zuoye", tone: "深夜熟人：小雨不带伞会认真接住昨夜没关窗的感性话，后者也记得她容易忘带东西" },
@@ -11916,29 +11920,48 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       myPosts.forEach(p => actLines.push("· 发帖《" + p.title + "》" + (p.body ? "：" + String(p.body).slice(0, 70) : "") + "（在" + p.board + "）"));
       myComments.slice(0, 8).forEach(c => actLines.push("· 评论过：" + String(c).slice(0, 60)));
       const hasActivity = actLines.length > 0;
-      const baseRule = "**你们是陌生人，别默认对方性别**——绝对不要用『老哥』『哥们』『兄弟』这种默认男性的称呼；除非人设明确写了性别，否则一律用中性称呼（直接叫网名、或用『你』『lz』『朋友』）。**大多数是正常网友**（attitude 填 friendly 或 curious）；**最多只安排一个杠精喷子**（attitude 填 troll），别一窝蜂全是找茬的。每条含 npcName（对方网名）、tagline（对方一句话简介/画风）、attitude、opening（第一句私信）。风格各异、别都一个腔调。";
+      // ⚠️杠精这件事【提示词只能降概率，代码这一道才保证】（她 2026-09-01：「不需要每次
+      // 刷新都有杠精了」）。原来只写了「最多只安排一个」——那是个上限，不是配额，
+      // 而且一提杠精模型就必给一个，于是每刷必有。所以：话说反过来（默认一个都没有），
+      // 底下再由代码兜死。
+      const baseRule = "**你们是陌生人，别默认对方性别**——绝对不要用『老哥』『哥们』『兄弟』这种默认男性的称呼；除非人设明确写了性别，否则一律用中性称呼（直接叫网名、或用『你』『lz』『朋友』）。**默认一个杠精都不要**（attitude 一律 friendly 或 curious）；只有在这些动态里真有值得抬杠的点时，才可以安排**至多一个** attitude 为 troll 的人，没有就别硬凑。每条含 npcName（对方网名）、tagline（对方一句话简介/画风）、attitude、opening（第一句私信）。风格各异、别都一个腔调。";
       const sourceBlock = hasActivity
         ? "收私信的人叫「" + meName + "」。这些网友是**看了 TA 在贴吧的真实动态**来私信的——每条 opening 必须**针对下面某一条具体的帖子或评论**来搭话（共鸣、请教、约稿、抬杠、补充等），**别凭空捏造 TA 没说过的话题**：\n" + actLines.join("\n") + "\n"
         : "收私信的人叫「" + meName + "」，TA **还没在贴吧发过帖、也没评论过**。所以这些网友是**逛到 TA 的主页**来的——请**根据 TA 的主页资料**搭话（聊 TA 的网名、签名或人设气质），**别编造 TA 发过的帖子/评论**：网名「" + (forumMe.handle || meName) + "」，签名/简介「" + (forumMe.bio || profile.tagline || meDesc || "（没写）").slice(0, 80) + "」。\n";
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: "贴吧里有 3-5 个陌生网友私信了你（items 数组务必 3-5 条，别只给 1-2 条）。" + sourceBlock + baseRule,
+        instruction: "贴吧里有 " + FORUM_PM_ASK + " 个陌生网友私信了你（items 数组务必 " + FORUM_PM_ASK + " 条，别只给 1-2 条）。" + sourceBlock + baseRule,
         schemaHint: "{\"items\":[{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"curious\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"}]}",
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : [])).filter(x => x && x.opening);
       if (!items.length) throw new Error("没有新私信");
       const base = Date.now();
-      const threads = items.map((x, i) => ({
-        id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "",
-        attitude: x.attitude || "curious",
-        messages: [{ from: "npc", text: x.opening, ts: base + i }], updatedTs: base + i, unread: true
-      }));
-      // 只保留最新 10 个会话（按更新时间），旧的删掉
-      setForumPMs(prev => { const n = [...threads, ...prev].sort((a, b) => b.updatedTs - a.updatedTs).slice(0, 10); saveJSON("x_forumPMs", n); return n; });
+      // 杠精配额，代码兜死（提示词那句只是降概率）：
+      //   ① 手上已经挂着一个杠精，这一批一个都不放进来——同时最多一个人在找茬；
+      //   ② 否则这一批最多留一个，多出来的降成普通网友。
+      // 她清掉了那个杠精，下一次刷新才可能再来一个——「清理」那个按钮和这条是一对的。
+      const aliveTroll = (forumPMsRef.current || []).some(t => t && t.attitude === "troll");
+      let trollLeft = aliveTroll ? 0 : 1;
+      const threads = items.map((x, i) => {
+        let att = x.attitude === "troll" ? "troll" : (x.attitude || "curious");
+        if (att === "troll") { if (trollLeft > 0) trollLeft--; else att = "curious"; }
+        return {
+          id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "",
+          attitude: att,
+          messages: [{ from: "npc", text: x.opening, ts: base + i }], updatedTs: base + i, unread: true
+        };
+      });
+      // 封顶：问得多了，留的也得跟着多——不然新的一进来就把上一批挤没了
+      setForumPMs(prev => { const n = [...threads, ...prev].sort((a, b) => b.updatedTs - a.updatedTs).slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
       toast("收到 " + threads.length + " 条新私信");
     } catch (e) { toast(e.message); }
     finally { setGen(g => ({ ...g, forumPM: null })); }
   };
   const markPMRead = threadId => setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, unread: false } : t); saveJSON("x_forumPMs", n); return n; });
+  // 清私信（她 2026-09-01：「加一个清理可以清掉私信」）。
+  // 私信是【现在还挂着谁】那一类，不是发生过什么的日志——聊完了、不想理了就该能删掉。
+  // 而且它和上面那条杠精配额是一对的：手上那个杠精被清掉，下一次刷新才可能再来一个。
+  const delForumPM = threadId => setForumPMs(prev => { const n = prev.filter(t => t && t.id !== threadId); saveJSON("x_forumPMs", n); return n; });
+  const clearForumPMs = () => setForumPMs(() => { saveJSON("x_forumPMs", []); return []; });
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -12069,20 +12092,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, fid, text);
   };
-  // 我回复楼中楼 → 随后刷 4-6 条回我的（含楼主本人）挂到同一层
-  const addForumSubReply = (post, floorId, text) => {
+  // 我回复楼中楼 → 随后刷几条回我的挂到同一层
+  // toName：我回的是【楼里某一条】时那个人的名字（回楼层本身时是空的）。
+  // 它有两个用处：① 界面上写「回复 @某某」，一层楼里谁在跟谁说话看得出来；
+  // ② 下面那一轮生成里，【被 @ 的那个人】才是必回我的人——原来一律强制层主回，
+  //    于是我明明在回三楼的路人乙，跳出来答话的却永远是层主（她 2026-09-01 报的那个「接不上话」）。
+  const addForumSubReply = (post, floorId, text, toName) => {
     const targetFloor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId);
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId);
+    const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
     });
     bumpReplyBy(post.id, 1);
-    genRepliesToMe(post, floorId, text);
+    genRepliesToMe(post, floorId, text, to);
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
   // 这层 TA 回过且没新话就不许再出现（治「帖主重复评论」）；其余 0-3 条路人/真关心的角色。
-  const genRepliesToMe = async (post, floorId, myText) => {
+  const genRepliesToMe = async (post, floorId, myText, toName) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
     try {
@@ -12091,9 +12119,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const opDesc = oc ? ("发这个帖的帖主是角色「" + opName + "」本人（Ta 会以自己的人设回应）") : ("发这个帖的帖主网名「" + opName + "」");
       // 这层楼的现场：层主是谁、楼里已经有谁说过什么（含帖主是否已回过）
       const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || {};
-      const ownerName = floor.authorName || "层主";
-      const ownerChar = String(floor.authorType || "").startsWith("character") && floor.authorId ? (characters || []).find(c => c.id === floor.authorId) : null;
-      const priorLines = ["层主「" + ownerName + "」的原评论：「" + String(floor.content || "").replace(/\s+/g, " ").slice(0, 80) + "」"]
+      // 必回我的那个人：默认是层主；我要是在回楼里某一条，那就是【被我 @ 的那个人】。
+      // 找不着（名字对不上、或那条是我自己发的）就退回层主——总得有人接话。
+      const meNow = forumMe.handle || profile.name || "我";
+      const at = String(toName || "").trim();
+      const atRow = at ? (floor.replies || []).slice().reverse()
+        .find(r => r && r.authorType !== "me" && String(r.authorName || "") === at) : null;
+      const resp = atRow ? {
+        name: atRow.authorName, handle: atRow.authorHandle || atRow.authorName,
+        type: atRow.authorType || "npc", id: atRow.authorId || null, inFloor: true
+      } : {
+        name: floor.authorName || "层主", handle: floor.authorHandle || floor.authorName,
+        type: floor.authorType || "npc", id: floor.authorId || null, inFloor: false
+      };
+      const ownerName = resp.name;
+      const ownerChar = String(resp.type || "").startsWith("character") && resp.id ? (characters || []).find(c => c.id === resp.id) : null;
+      const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + String(floor.content || "").replace(/\s+/g, " ").slice(0, 80) + "」"]
         .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
       const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
@@ -12107,8 +12148,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const opGroundR = forumOpGroundingFor(oc, post);
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
-          "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚回复了层主这条：「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
-          "① **必须恰有一条是层主「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
+          "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
+          + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
+          + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
           "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
           "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
         schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
@@ -12122,8 +12165,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const reps = items.map((x, replyIndex) => {
         // 层主回我：还原成这层楼作者本人的身份（角色→真名档案，路人→沿用层主的马甲）
         if (x.is_owner === true || looksOwner(x.char) || looksOwner(x.authorName)) {
-          if (ownerChar) return { authorName: floor.authorName, authorHandle: floor.authorHandle, authorType: floor.authorType, authorId: ownerChar.id, content: x.content, isOwner: true, replyToMe: true, ts: replyBase + replyIndex };
-          return { authorName: ownerName, authorHandle: floor.authorHandle || ownerName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true, replyToMe: true, ts: replyBase + replyIndex };
+          if (ownerChar) return { authorName: resp.name, authorHandle: resp.handle, authorType: resp.type, authorId: ownerChar.id, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
+          return { authorName: ownerName, authorHandle: resp.handle || ownerName, authorType: resp.type || "npc", authorId: resp.id || null, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
         }
         if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
           if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
@@ -15250,6 +15293,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onRefreshPMs: refreshForumPMs,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
+    onDelPM: delForumPM,
+    onClearPMs: clearForumPMs,
     onEditMe: editForumMe,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
