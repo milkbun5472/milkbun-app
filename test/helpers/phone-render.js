@@ -216,7 +216,7 @@ const FIXTURES = {
       { who: "Lisa", name: "口出狂言应急救驾险", scope: "因她嘴欠被人盯上时的全套解围", terms: "认错态度良好", clause: "承保人负责当街拦下并带回。" }
     ],
     statements: [
-      { who: "Lisa", text: "撤回也没用，看见了就是看见了。", heat: "执拗" },
+      { who: "Lisa", text: "撤回也没用，看见了就是看见了。", heat: "执拗", truth: "我怕的是她本来想说的那句，被她自己咽回去了。" },
       { text: "别乱跑，跟着我。", heat: "轻" }
     ],
     treasures: [

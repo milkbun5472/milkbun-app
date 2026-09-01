@@ -1572,6 +1572,8 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 //   藏品 = 横滑的估价牌
 //   估值 = 问答
 const TALLY_BG = "#f4f2ee", TALLY_INK = "#1f1d1a", TALLY_DIM = "#8b8578", TALLY_LINE = "rgba(31,29,26,.12)";
+// 账页那套纸（v59.63）：贴条的纸色、账本的朱色、横格线。五栏共用这一套。
+const TALLY_PAPER = "#fffdf7", TALLY_RED = "#9c3f34", TALLY_RULE = "rgba(31,29,26,.055)";
 const TALLY_DIR = { mine: { zh: T("他欠"), c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
 const TALLY_TABS = [
   { k: "debts", zh: "没结清", en: "OPEN" },
@@ -1580,21 +1582,71 @@ const TALLY_TABS = [
   { k: "treasures", zh: "估价", en: "WORTH" },
   { k: "appraisals", zh: "自问", en: "ASK" }
 ];
+// 系统里把动效关掉的人，不该被一个字一个字地喂。取不到就当没关。
+function phoneCalmMotion() {
+  try { return !!(typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+  catch (e) { return false; }
+}
+// ── 每一条的两面（v59.63）──────────────────────────────────────────────
+// 她 2026-09-01：「我们都没用过那种翻面设计，就是在一面显示比较正常的话，翻了页
+// 就有这句话的另一面，然后可以做这种流式显示翻过来一个字一个字慢慢往外蹦」。
+// ⚠️不是给账本硬套一层壳：这五栏的数据【本来就长成两面】——
+//   正面是记在账上的那一行（欠的是什么、险种名、那句话、那样东西、那个问题），
+//   背面是他心里那一句（怎么想这笔、条款正文、那句话真正的意思、他给的估价、他的答案）。
+// ⚠️背面是空的那几条不给折角：折角在，就是说这张真有背面。空折角＝骗人点一下。
+function tallyEntries(tab, data) {
+  const A = a => Array.isArray(a) ? a : [];
+  // 模型偶尔把一栏写成字符串或对象；String({}) 会变成 [object Object] 印在纸上
+  const S = v => (v == null || typeof v === "object") ? "" : String(v).trim();
+  const rows = A(data && data[tab]).filter(x => x && typeof x === "object");
+  return rows.map((x, i) => {
+    const b = { i, key: tab + i, kind: tab, who: S(x.who) };
+    if (tab === "debts") return { ...b, dir: S(x.dir), lead: S(x.title),
+      back: { label: "他心里这笔账", text: S(x.note) } };
+    if (tab === "policies") return { ...b, lead: S(x.name), scope: S(x.scope), terms: S(x.terms),
+      back: { label: "条款正文", text: S(x.clause) } };
+    if (tab === "statements") return { ...b, lead: S(x.text), heat: S(x.heat),
+      // truth 是 v59.63 新加的一栏：这句话底下真正的意思。
+      // 老存档没有它 —— 那就没有背面，别拿别的字段凑一句假的出来。
+      back: { label: "这句话底下", text: S(x.truth) } };
+    if (tab === "treasures") return { ...b, lead: S(x.title), kind2: S(x.kind),
+      back: { label: "他给的估价", text: S(x.worth) } };
+    return { ...b, lead: S(x.q), back: { label: "他的答案", text: S(x.a) } };
+  });
+}
 function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const [tab, setTab] = useState("debts");
-  const [open, setOpen] = useState(null);
+  // 同一时刻只翻开一张：打字机的计时器就一个，不会漏；也免得整页都在动。
+  const [flip, setFlip] = useState(null);
+  const [typed, setTyped] = useState(0);
+  const typeRef = useRef(null);
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
-  const S = v => String(v == null ? "" : v).trim();
+  const S = v => (v == null || typeof v === "object") ? "" : String(v).trim();
   const count = k => A(data[k]).filter(x => x && typeof x === "object").length;
-  const card = (kids, key, onClick, dashed) => h(onClick ? "button" : "div", {
-    key, onClick, className: onClick ? "w-full text-left active:opacity-70" : "",
-    style: {
-      display: "block", background: dashed ? "transparent" : "#fff", borderRadius: 18, padding: "15px 16px", marginBottom: 10,
-      border: dashed ? "1px dashed " + TALLY_LINE : "1px solid rgba(31,29,26,.06)",
-      boxShadow: dashed ? "none" : "0 2px 10px rgba(31,29,26,.045)"
-    }
-  }, kids);
+  const rows = tallyEntries(tab, data);
+  const openEntry = rows.find(e => e.key === flip) || null;
+  const backText = openEntry ? openEntry.back.text : "";
+  // 翻过去之后一个字一个字往外蹦。翻回来就停——计时器只跟着「翻开的是哪一张」走。
+  useEffect(() => {
+    if (typeRef.current) { clearInterval(typeRef.current); typeRef.current = null; }
+    const n = backText.length;
+    if (!n) { setTyped(0); return; }
+    if (phoneCalmMotion()) { setTyped(n); return; }
+    setTyped(0);
+    typeRef.current = setInterval(() => setTyped(v => {
+      if (v + 1 >= n) { clearInterval(typeRef.current); typeRef.current = null; return n; }
+      return v + 1;
+    }), 32);
+    return () => { if (typeRef.current) clearInterval(typeRef.current); typeRef.current = null; };
+  }, [flip, backText]);
+  // 点一下：还在蹦字就当场蹦完（别逼人等），已经蹦完了才翻回去。
+  const tap = e => {
+    if (!e.back.text) return;
+    if (flip !== e.key) { setFlip(e.key); return; }
+    if (typed < e.back.text.length) { setTyped(e.back.text.length); return; }
+    setFlip(null);
+  };
   // 这笔账是跟谁的。v59.12 起每条都带 who——账本不再只记用户那一本。
   // 旧数据没有 who：不显示，别硬填一个「你」上去（那正是要撤掉的那个假设）。
   const whoPill = x => S(x && x.who) ? h("span", {
@@ -1608,72 +1660,127 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const peekBtn = (label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier: "hidden", label: "账本 · " + label, title, text }); },
     className: "active:opacity-60",
-    style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(182,71,60,.4)", color: "#b6473c" }
+    style: { marginTop: 14, fontFamily: F_BODY, fontSize: 11.5, padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(156,63,52,.45)", color: TALLY_RED }
   }, T("摆到他面前")) : null;
+  const eyebrow = (s, c) => h("span", {
+    style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || TALLY_DIM }
+  }, s);
 
-  let body = null;
-  if (tab === "debts") {
-    const rows = A(data.debts).filter(x => x && typeof x === "object");
-    body = rows.length ? rows.map((x, i) => {
-      const dir = TALLY_DIR[S(x.dir)] || TALLY_DIR.open;
-      return card([
-        h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 9 } },
-          h("span", {
-            style: {
-              fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, flexShrink: 0, marginTop: 2,
-              background: dir.c + "1c", color: dir.c
-            }
-          }, dir.zh),
-          whoPill(x),
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title))),
-        S(x.note) ? h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: TALLY_DIM, marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + TALLY_LINE, wordBreak: "break-word" } }, S(x.note)) : null,
-        peekBtn("没结清", S(x.title), S(x.note))
-      ], "d" + i);
-    }) : null;
-  } else if (tab === "policies") {
-    const rows = A(data.policies).filter(x => x && typeof x === "object");
-    body = rows.length ? rows.map((x, i) => card([
-      h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 10 } },
-        whoPill(x),
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: TALLY_INK, wordBreak: "break-word" } }, S(x.name)),
-        S(x.terms) ? h("span", {
-          style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 8, background: "rgba(31,29,26,.05)", color: TALLY_DIM, flexShrink: 0, maxWidth: 150, wordBreak: "break-word", lineHeight: 1.45 }
-        }, S(x.terms)) : null),
-      S(x.scope) ? h("div", { key: "s", style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, marginTop: 7, wordBreak: "break-word" } }, S(x.scope)) : null,
-      S(x.clause) ? h("div", { key: "c", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: TALLY_INK, marginTop: 8, wordBreak: "break-word" } }, S(x.clause)) : null,
-      peekBtn("兜底", S(x.name), S(x.clause) || S(x.scope))
-    ], "p" + i, null, true)) : null;
-  } else if (tab === "statements") {
-    const rows = A(data.statements).filter(x => x && typeof x === "object");
-    body = rows.length ? rows.map((x, i) => card([
-      (S(x.heat) || S(x.who)) ? h("div", { key: "t", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 9 } },
-        S(x.heat) ? h("span", {
-          style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM }
-        }, S(x.heat)) : null,
-        whoPill(x)) : null,
-      h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.65, color: TALLY_INK, wordBreak: "break-word" } }, S(x.text)),
-      peekBtn("定论", S(x.text), "")
-    ], "s" + i)) : null;
-  } else if (tab === "treasures") {
-    const rows = A(data.treasures).filter(x => x && typeof x === "object");
-    body = rows.length ? rows.map((x, i) => card([
-      h("div", { key: "k", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 } },
-        h("span", { style: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } },
-          S(x.kind) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM, flexShrink: 0 } }, S(x.kind)) : null,
-          whoPill(x)),
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".17em", color: TALLY_DIM } }, "LOT " + String(i + 1).padStart(2, "0"))),
-      h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title)),
-      S(x.worth) ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, color: TALLY_DIM, marginTop: 7, wordBreak: "break-word" } }, S(x.worth)) : null,
-      peekBtn("估价", S(x.title), S(x.worth))
-    ], "tr" + i)) : null;
-  } else {
-    const rows = A(data.appraisals).filter(x => x && typeof x === "object");
-    body = rows.length ? rows.map((x, i) => card([
-      h("div", { key: "q", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, S(x.q)),
-      S(x.a) ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: TALLY_DIM, marginTop: 9, wordBreak: "break-word" } }, S(x.a)) : null,
-      peekBtn("自问", S(x.q), S(x.a))
-    ], "a" + i)) : null;
-  }
+  // ── 正面：五栏各长各的样子 ──────────────────────────────────────
+  // 五栏渲染成同一张白卡的话，「兜底」是一张保单、「估价」是一张拍品签这件事
+  // 就一个字都看不出来了——那正是这一版要改掉的。
+  const faceOf = e => {
+    if (e.kind === "debts") {
+      const dir = TALLY_DIR[e.dir] || TALLY_DIR.open;
+      return [
+        h("div", { key: "h", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 4, flexShrink: 0, background: dir.c + "1c", color: dir.c } }, dir.zh),
+          whoPill(e)),
+        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, e.lead)
+      ];
+    }
+    if (e.kind === "policies") {
+      // 保单：险种名压在顶上，承保范围和理赔条件排成两行条目表
+      return [
+        h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 } },
+          eyebrow("POLICY " + String(e.i + 1).padStart(2, "0")), whoPill(e)),
+        h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.4, color: TALLY_INK, wordBreak: "break-word" } }, e.lead),
+        (e.scope || e.terms) ? h("div", { key: "t", style: { marginTop: 11, borderTop: "1px solid " + TALLY_LINE, paddingTop: 9, display: "grid", gap: 6 } },
+          [["承保范围", e.scope], ["理赔条件", e.terms]].filter(r => r[1]).map(r =>
+            h("div", { key: r[0], style: { display: "flex", gap: 9, alignItems: "baseline" } },
+              h("span", { style: { flexShrink: 0, width: 56, fontFamily: F_BODY, fontSize: 10.5, color: TALLY_DIM } }, r[0]),
+              h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, r[1])))) : null
+      ];
+    }
+    if (e.kind === "statements") {
+      // 盖了章的一句话：朱色的引号压在左上，温度是右下角那个小印
+      return [
+        h("div", { key: "q", style: { position: "relative", paddingLeft: 16 } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -1, top: -6, fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: TALLY_RED, opacity: .35 } }, "“"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, e.lead)),
+        (e.heat || e.who) ? h("div", { key: "m", style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, marginTop: 11 } },
+          whoPill(e),
+          e.heat ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 4, border: "1px solid " + TALLY_RED, color: TALLY_RED } }, e.heat) : null) : null
+      ];
+    }
+    if (e.kind === "treasures") {
+      // 拍品签：编号在顶上，名字在中间，归类和跟谁有关在底下
+      return [
+        h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingBottom: 9, borderBottom: "1px solid " + TALLY_LINE } },
+          eyebrow("LOT " + String(e.i + 1).padStart(2, "0"), TALLY_RED),
+          e.kind2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TALLY_DIM } }, e.kind2) : null),
+        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TALLY_INK, marginTop: 11, wordBreak: "break-word" } }, e.lead),
+        e.who ? h("div", { key: "w", style: { marginTop: 9 } }, whoPill(e)) : null
+      ];
+    }
+    // 自问：一个问号压在左边，问题本身是正面
+    return [
+      h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 11 } },
+        h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 22, height: 22, borderRadius: 99, border: "1px solid " + TALLY_LINE, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 12, color: TALLY_DIM } }, "?"),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: TALLY_INK, wordBreak: "break-word" } }, e.lead)),
+      e.who ? h("div", { key: "w", style: { marginTop: 10, paddingLeft: 33 } }, whoPill(e)) : null
+    ];
+  };
+  // ── 背面：同一张纸翻过来 ────────────────────────────────────────
+  // 参考里那种「翻过去是一张机密档案」不抄：这儿翻过去还是【同一张纸的背面】——
+  // 纸色一样，只是格子反过来、字是朱色的。翻的是一张纸，不是打开一个新东西。
+  const backOf = e => {
+    // ⚠️背面一直在 DOM 里（backface-hidden 挡着），所以这两样都要认「翻开的是不是我」：
+    //   光标不认的话，没翻开的每一张背面上都在闪一根竖线；
+    //   按钮不认的话，每一张背面都挂着一个「摆到他面前」——读屏读不到，
+    //   但键盘能 Tab 上去按下它（aria-hidden 不管 tab 顺序）。
+    const on = flip === e.key;
+    const txt = e.back.text, n = on ? typed : 0, typing = on && n < txt.length;
+    return [
+      h("div", { key: "l", style: { marginBottom: 10 } }, eyebrow(e.back.label, TALLY_RED)),
+      h("div", {
+        key: "x", "aria-label": txt,
+        style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.85, color: TALLY_RED, wordBreak: "break-word" }
+      },
+        // 还没蹦出来的那半留在原地、只是透明：不然卡片会一行一行地长高，字在跳
+        h("span", { "aria-hidden": "true" }, txt.slice(0, n)),
+        typing ? h("span", { "aria-hidden": "true", style: { opacity: .55 } }, "▏") : null,
+        h("span", { "aria-hidden": "true", style: { color: "transparent" } }, txt.slice(n))),
+      (on && !typing) ? peekBtn(TALLY_TABS.filter(x => x.k === e.kind).map(x => x.zh)[0] || "账本", e.lead, txt) : null
+    ];
+  };
+  // ── 一张纸的两面 ────────────────────────────────────────────────
+  // 在流里的那一面撑起高度、另一面绝对定位压在它上面：两面长短不一样，
+  // 固定高度的话短的那面空一大截、长的那面被切掉。
+  const slip = e => {
+    const on = flip === e.key, has = !!e.back.text;
+    const faceStyle = front => ({
+      position: (front !== on) ? "relative" : "absolute",
+      inset: (front !== on) ? "auto" : 0,
+      backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+      transform: front ? "none" : "rotateY(180deg)",
+      background: TALLY_PAPER, borderRadius: 7, border: "1px solid rgba(31,29,26,.10)",
+      padding: "15px 16px", overflow: "hidden"
+    });
+    return h("div", { key: e.key, style: { perspective: 1000, marginBottom: 11 } },
+      h(has ? "button" : "div", {
+        onClick: has ? () => tap(e) : undefined,
+        className: has ? "w-full text-left" : "w-full",
+        "aria-expanded": has ? (on ? "true" : "false") : undefined,
+        style: {
+          display: "block", position: "relative", width: "100%", transformStyle: "preserve-3d",
+          transform: on ? "rotateY(180deg)" : "rotateY(0deg)",
+          transition: phoneCalmMotion() ? "none" : "transform .5s cubic-bezier(.4,.05,.3,1)"
+        }
+      },
+        // 背对着人的那一面读屏也不该念——两面一起念出来，等于没翻这一下
+        h("div", { "aria-hidden": on ? "true" : null, style: faceStyle(true) }, faceOf(e),
+          // 右下角折起来的一角＝这张真有背面。没背面的不给角，免得白点一下。
+          has ? h("span", { "aria-hidden": "true", style: {
+            position: "absolute", right: 0, bottom: 0, width: 17, height: 17,
+            background: "linear-gradient(135deg,transparent 49%," + TALLY_LINE + " 50%," + TALLY_BG + " 52%)"
+          } }) : null),
+        h("div", { "aria-hidden": on ? null : "true", style: faceStyle(false) }, has ? backOf(e) : null,
+          h("span", { "aria-hidden": "true", style: {
+            position: "absolute", left: 0, bottom: 0, width: 17, height: 17,
+            background: "linear-gradient(-135deg,transparent 49%," + TALLY_LINE + " 50%," + TALLY_BG + " 52%)"
+          } }))));
+  };
 
   return h("div", { className: "h-full flex flex-col", style: { background: TALLY_BG } },
     h("div", { className: "shrink-0 px-4 pb-1 flex items-center gap-2", style: { paddingTop: safeTop(10) } },
@@ -1683,24 +1790,33 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_INK })) : null)),
     h("div", { className: "shrink-0 px-5 pb-3" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, lineHeight: 1.7 } },
-        T("这本账不记钱。记的是他心里还没结清的东西——跟谁的都有，你只是其中一个。"))),
+        T("这本账不记钱。记的是他心里还没结清的东西——跟谁的都有，你只是其中一个。")),
+      // 折角不解释一句没人会去点。只说一次，说在最上面。
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TALLY_RED, marginTop: 5 } },
+        "折了角的那几张有背面 · 点一下翻过来")),
     // 五栏切换：横滑，别挤成一行小字
     h("div", {
       className: "shrink-0 flex gap-2 px-5 pb-3 overflow-x-auto",
       style: { scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }
     }, TALLY_TABS.map(x => h("button", {
-      key: x.k, onClick: () => { setTab(x.k); setOpen(null); },
+      key: x.k, onClick: () => { setTab(x.k); setFlip(null); },
       className: "active:opacity-60",
       style: {
         flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 14px", borderRadius: 99,
         background: tab === x.k ? TALLY_INK : "rgba(31,29,26,.05)",
-        color: tab === x.k ? "#fff" : TALLY_DIM,
+        color: tab === x.k ? TALLY_BG : TALLY_DIM,
         border: "1px solid " + (tab === x.k ? TALLY_INK : "transparent")
       }
     }, x.zh + (count(x.k) ? " " + count(x.k) : "")))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      body || h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
-        "这一栏还是空的。")));
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM, paddingTop: 2 } },
+      // 账页的横格只铺到最后一条为止。铺满整个滚动框的话，一栏只有一条时
+      // 底下就是大半屏空格子，看着像一张没填完的表。
+      rows.length ? h("div", { style: {
+        paddingBottom: 26,
+        background: "repeating-linear-gradient(180deg,transparent 0 31px," + TALLY_RULE + " 31px 32px)"
+      } }, rows.map(slip))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
+          "这一栏还是空的。")));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -5999,12 +6115,15 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n"
         + "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。"
         + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
-        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）。\n"
+        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、"
+        + "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n"
+        + "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】："
+        + "嘴上是硬的、底下是软的，嘴上是随口、底下是记了很久的。两句话之间必须有落差，没有落差就说明这一条写坏了。\n"
         + "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：who 这样东西跟谁有关（也可以是他自己）、title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n"
         + "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。这一栏的 who 多半是他自己。\n\n"
         + "【最容易写坏的地方】这本账要能一眼看出是【这个人】的账。换成任何一个角色都照样成立的条目就是写坏了——那种句子只是在描述「有点在乎某人」，谁都能写。"
         + "每一条都要能指回一件具体的事：某次没做到的、某次替谁挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。",
-      schemaHint: "{\"debts\":[{\"who\":\"这笔是跟谁的\",\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"who\":\"承保的是谁\",\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"who\":\"冲谁去的\",\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\"}],\"treasures\":[{\"who\":\"跟谁有关\",\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"who\":\"多半是他自己\",\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
+      schemaHint: "{\"debts\":[{\"who\":\"这笔是跟谁的\",\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"who\":\"承保的是谁\",\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"who\":\"冲谁去的\",\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\",\"truth\":\"这句话底下真正的意思\"}],\"treasures\":[{\"who\":\"跟谁有关\",\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"who\":\"多半是他自己\",\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
