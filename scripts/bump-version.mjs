@@ -36,7 +36,11 @@ const next = process.argv[2] || bumped();
 if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
 
 // 只同步「跟着发布版本走」的那几个文件；别的模块保留各自的独立指纹
-const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui", "phone"];
+// Tailwind 虽然在 vendor/，但它不是普通第三方装饰：整套移动端网格、flex、留白都靠它。
+// 它曾经没有 ?v=，iOS PWA 一旦把坏响应留在 HTTP/Service Worker 缓存里，后续发版
+// 仍会反复命中同一个 URL，主屏就会退化成一列普通块。让它跟核心壳一起换指纹，
+// Service Worker 也会按同 pathname 清掉上一版，既能自愈又不会逐版堆 398KB 旧副本。
+const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui", "phone", "tailwind"];
 let html = readFileSync("index.html", "utf8");
 CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
 
