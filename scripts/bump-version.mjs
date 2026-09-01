@@ -40,7 +40,7 @@ if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现�
 // 它曾经没有 ?v=，iOS PWA 一旦把坏响应留在 HTTP/Service Worker 缓存里，后续发版
 // 仍会反复命中同一个 URL，主屏就会退化成一列普通块。让它跟核心壳一起换指纹，
 // Service Worker 也会按同 pathname 清掉上一版，既能自愈又不会逐版堆 398KB 旧副本。
-const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui", "phone", "tailwind"];
+const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui", "phone", "tailwind", "memory-v2-shadow"];
 let html = readFileSync("index.html", "utf8");
 CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
 

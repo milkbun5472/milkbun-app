@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.73";
+const APP_VERSION = "v59.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2639,6 +2639,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try { window.MemoryQualityShadow && window.MemoryQualityShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
       // InsightCapture shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
       try { window.InsightCandidateShadow && window.InsightCandidateShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
+      // Memory v2 影子脊柱：把同一批候选路由为 episode/claim/state/hypothesis，
+      // 统一核验逐字证据与分支有效性；只留收据，真实 entries 一个字不改。
+      try { window.MemoryV2Shadow && window.MemoryV2Shadow.observeExtraction({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs, liveMessages }); } catch (e) {}
       if (entries.length) {
         saveMemLib([...entries, ...pruneSubsumed(memLibRef.current, entries)]);
         const assignments = window.RerollBranch ? window.RerollBranch.journalAssignments(entries, msgs) : {};

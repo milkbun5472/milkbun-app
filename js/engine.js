@@ -2157,6 +2157,8 @@ function buildBundle(ctx, opts) {
   try { window.ExperienceGateShadow && window.ExperienceGateShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
   // Persona Hub 统一上下文预算 shadow：只留原 bundle 审计；按次计费渠道不裁实际 prompt。
   try { window.ContextBudgetShadow && window.ContextBudgetShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
+  // Memory v2 统一拼装收据：只记录各 lane 的长度与影子预算草案；parts 原样 join。
+  try { window.MemoryV2Shadow && window.MemoryV2Shadow.observeComposition({ charId: char && char.id, parts }); } catch (e) {}
   return parts.join("\n\n");
 }
 // 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
@@ -2250,7 +2252,15 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
     ? e.knownBy.indexOf(charId) > -1
     : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId));
   const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && canSee(e));
-  if (list.length === 0) return [];
+  if (list.length === 0) {
+    // 空召回也是重要收据：否则审计只看得见“想起来时”，看不见“完全没想起来时”。
+    try {
+      if (opts.touch !== false && opts.source === "chat" && window.MemoryV2Shadow) {
+        window.MemoryV2Shadow.observeRetrieval({ charId, queryText, source: "chat", candidateCount: 0, pinned: [], relevant: [], picked: [] });
+      }
+    } catch (eMemoryV2Empty) {/* 统一影子审计绝不影响召回 */}
+    return [];
+  }
   const qTokens = memTokens(queryText);
   // 向量：只有发送前 primeQueryVec 预热过、缓存命中才拿得到；没有就 null=纯关键词，行为同旧版
   const qVec = opts.vec === false ? null : getQueryVec(queryText);
@@ -2312,6 +2322,12 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
       if (opts.touch !== false && picked.length) RS.noteSurfaced(charId, picked.filter(e => !e.pinned).map(e => e.id));
     }
   } catch (eShadow) {/* 旁路绝不影响召回 */}
+  // Memory v2 统一召回收据必须观察【冷却/并列规则之后】的最终选集；不保存 query 或记忆正文。
+  try {
+    if (opts.touch !== false && opts.source === "chat" && window.MemoryV2Shadow) {
+      window.MemoryV2Shadow.observeRetrieval({ charId, queryText, source: "chat", candidateCount: list.length, pinned, relevant, picked });
+    }
+  } catch (eMemoryV2) {/* 统一影子审计绝不影响召回 */}
   // ⭐检索即复习：被想起的条目刷新 lastHit、hits+1（就地改 entry 对象——lib 就是 memLibRef.current 那份）。
   // 节流持久化：只有当有条目超过 6 小时没被摸过时才写盘，防每轮聊天都重写整个记忆库
   if (opts.touch !== false && picked.length) {

@@ -310,6 +310,7 @@
       try { if (window.RecallShadow && window.RecallShadow.clearAll) await window.RecallShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryQualityShadow && window.MemoryQualityShadow.clearAll) await window.MemoryQualityShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryCorrectionShadow && window.MemoryCorrectionShadow.clearAll) await window.MemoryCorrectionShadow.clearAll(); } catch (e) {}
+      try { if (window.MemoryV2Shadow && window.MemoryV2Shadow.clearAll) await window.MemoryV2Shadow.clearAll(); } catch (e) {}
       try { if (window.SleepShadow && window.SleepShadow.clearAll) await window.SleepShadow.clearAll(); } catch (e) {}
       try { if (window.DreamLoop && window.DreamLoop.clearAll) await window.DreamLoop.clearAll(); } catch (e) {}
     },

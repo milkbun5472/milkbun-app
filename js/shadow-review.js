@@ -57,7 +57,7 @@
       correction: window.MemoryCorrectionShadow, repairGate: window.OpenRepairShadow,
       experienceGate: window.ExperienceGateShadow, twoResolution: window.TwoResolutionShadow,
       contextBudget: window.ContextBudgetShadow, messageBranch: window.MessageBranchShadow,
-      insightCandidates: window.InsightCandidateShadow
+      insightCandidates: window.InsightCandidateShadow, memoryV2: window.MemoryV2Shadow
     };
     const memory = {};
     for (const [key, mod] of Object.entries(modules)) {
@@ -133,13 +133,28 @@
         interpretation: "delta 只表示两套引擎此刻读数之差，不代表谁对谁错；须由 Lisa 与角色本人评审。"
       };
     });
+    const runtimePhases = {
+      memoryRecall: window.RecallShadow && window.RecallShadow.liveEnabled && window.RecallShadow.liveEnabled() ? "live" : "shadow",
+      memoryTieBreak: window.RecallShadow && window.RecallShadow.tieEnabled && window.RecallShadow.tieEnabled() ? "live" : "shadow",
+      openRepair: "live",
+      memoryV2: "shadow",
+      contextBudget: "shadow",
+      insightCandidates: "shadow",
+      jiwen: "live",
+      innerLifeE: eGates.some(x => x.gate && x.gate.mode === "pilot") ? "pilot" : "shadow",
+      innerLifeA: a.some(x => x.gate && x.gate.mode === "pilot") ? "pilot" : "shadow",
+      somatic: "shadow"
+    };
     return {
       schema: "lisa-shadow-promotion-review-v1",
       generatedAt: new Date().toISOString(), appVersion: appVersion || null,
       safety: {
         readOnly: true, changedLiveBehavior: false, containsChatText: false, openedAnyGate: eGates.some(x => x.gate && x.gate.mode === "pilot") || a.some(x => x.gate && x.gate.mode === "pilot"),
-        ownerMismatchCannotClearDiagnostics: true
+        ownerMismatchCannotClearDiagnostics: true,
+        exportReadOnly: true,
+        auditedRuntimeHasLiveFeatures: Object.values(runtimePhases).some(mode => mode === "live" || mode === "pilot")
       },
+      runtimePhases,
       comparisonIntegrity: {
         purePreShadowBaseline: false,
         reasons: [
