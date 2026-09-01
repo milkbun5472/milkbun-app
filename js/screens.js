@@ -2635,94 +2635,12 @@ function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
 
 // 情侣空间·双向便签墙（悄悄话串）：我贴→TA 自动回；TA 的要点一下才看得到，再点开全屏留言互动
 // 便签纸张样式：纯色 / 横线 / 格纹 / 圆点 / 带粉角，可爱多样
-const COUPLE_NOTE_STYLES = [
-  { bg: "#fdf0a8", ink: "#5c5324", pat: "plain" },
-  { bg: "#ffd7d7", ink: "#5c2c2c", pat: "plain" },
-  { bg: "#d4f3d4", ink: "#264a26", pat: "lined" },
-  { bg: "#d6e6ff", ink: "#26375c", pat: "grid" },
-  { bg: "#f2d9ff", ink: "#4a265c", pat: "dots" },
-  { bg: "#ffffff", ink: "#3a3327", pat: "grid", corner: "#ffb3c6" },
-  { bg: "#fff4e0", ink: "#5c4424", pat: "lined", corner: "#ffcf9e" },
-  { bg: "#e8f7f0", ink: "#255049", pat: "dots" }
-];
-const noteStyleOf = n => COUPLE_NOTE_STYLES[(n.style || 0) % COUPLE_NOTE_STYLES.length];
-const notePaper = st => {
-  const s = { background: st.bg, color: st.ink };
-  if (st.pat === "grid") { s.backgroundImage = "linear-gradient(rgba(0,0,0,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.06) 1px,transparent 1px)"; s.backgroundSize = "15px 15px"; }
-  else if (st.pat === "lined") { s.backgroundImage = "repeating-linear-gradient(rgba(0,0,0,0.05) 0 1px,transparent 1px 22px)"; }
-  else if (st.pat === "dots") { s.backgroundImage = "radial-gradient(rgba(0,0,0,0.07) 1.2px,transparent 1.4px)"; s.backgroundSize = "14px 14px"; }
-  return s;
-};
-const noteCorner = st => st.corner ? h("div", { style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, borderTop: "18px solid " + st.corner, borderRight: "18px solid transparent", borderTopLeftRadius: 4 } }) : null;
-function CoupleNotes({ partner, notes, onAdd, onAddReply, onRemove, onGen, gen, onBack }) {
-  const t = useTheme();
-  const mine = (notes || []).filter(n => n.characterId === partner.id);
-  const [draft, setDraft] = useState("");
-  const [style, setStyle] = useState(0);
-  const [revealed, setRevealed] = useState(() => { try { return JSON.parse(localStorage.getItem("x_coupleNoteSeen") || "{}"); } catch (e) { return {}; } });
-  const revealNote = id => setRevealed(p => { const n = { ...p, [id]: true }; try { localStorage.setItem("x_coupleNoteSeen", JSON.stringify(n)); } catch (e) { } return n; });
-  const [open, setOpen] = useState(null);
-  const [reply, setReply] = useState("");
-  const md = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "." + d.getDate(); };
-  const threadText = n => [(n.authorId === "user" ? "我" : partner.name) + "：" + n.content].concat((n.replies || []).map(r => (r.authorId === "user" ? "我" : partner.name) + "：" + r.content)).join("\n");
-  const post = () => { if (draft.trim()) { onAdd(partner, draft, style); setDraft(""); } };
-
-  // —— 全屏悄悄话：一整张拉长便签，一来一回写成 text（不是聊天气泡）——
-  if (open) {
-    const n = mine.find(x => x.id === open);
-    if (n) {
-      const st = noteStyleOf(n);
-      const msgs = [{ authorId: n.authorId, content: n.content }].concat(n.replies || []);
-      const send = () => { if (reply.trim() && !gen) { onAddReply(partner, n.id, reply.trim(), threadText(n)); setReply(""); } };
-      return h("div", { className: "h-full flex flex-col", style: { background: st.bg } },
-        h(Head, { zh: "悄悄话", en: partner.name, onBack: () => { setOpen(null); setReply(""); } }),
-        h("div", { className: "flex-1 overflow-y-auto px-6 py-5" },
-          h("div", { style: Object.assign({}, notePaper(st), { position: "relative", borderRadius: 8, padding: "20px 18px 22px", boxShadow: "0 3px 16px rgba(0,0,0,0.1)", minHeight: 220 }) },
-            noteCorner(st),
-            msgs.map((m, i) => { const meMsg = m.authorId === "user"; return h("div", { key: i, style: { marginBottom: 15 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(0,0,0,0.4)", marginBottom: 2 } }, meMsg ? "我" : partner.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.75, color: st.ink, whiteSpace: "pre-wrap", wordBreak: "break-word", paddingLeft: meMsg ? 10 : 0, borderLeft: meMsg ? "2px solid rgba(0,0,0,0.12)" : "none" } }, m.content)); }),
-            gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(0,0,0,0.4)", fontStyle: "italic" } }, partner.name + " 正在写…") : null)),
-        h("div", { className: "shrink-0 px-4 py-3 flex items-center gap-2", style: { borderTop: "1px solid rgba(0,0,0,0.08)" } },
-          h("input", { value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, placeholder: "在这张便签上续写一句…", style: { flex: 1, outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: "rgba(255,255,255,0.7)", color: st.ink, border: "1px solid rgba(0,0,0,0.12)" } }),
-          h("button", { onClick: send, disabled: !reply.trim() || gen, className: "active:opacity-70 disabled:opacity-40", style: { background: st.ink, color: st.bg, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "9px 16px", borderRadius: 10 } }, "写上去")));
-    }
-  }
-
-  // —— 便签墙卡片：一行一条，只把「最初的话」放正中间；续写只在点进去的页面里 ——
-  const card = (n, i) => {
-    const st = noteStyleOf(n);
-    const isMe = n.authorId === "user";
-    const hasHis = n.authorId === partner.id || (n.replies || []).some(r => r.authorId === partner.id);
-    const covered = hasHis && !revealed[n.id];
-    const replyN = (n.replies || []).length;
-    const onCard = () => { if (covered) revealNote(n.id); else setOpen(n.id); };
-    return h("div", { key: n.id, onClick: onCard, className: "active:opacity-90", style: Object.assign({}, notePaper(st), { position: "relative", borderRadius: 8, padding: "26px 22px 12px", transform: "rotate(" + (i % 2 ? 0.5 : -0.5) + "deg)", boxShadow: "0 5px 16px rgba(0,0,0,0.13)", animation: "fadeUp .3s ease both", cursor: "pointer", minHeight: 128, display: "flex", flexDirection: "column" }) },
-      h("div", { style: { position: "absolute", top: -8, left: "50%", width: 60, height: 18, transform: "translateX(-50%) rotate(" + (i % 2 ? 3.5 : -3.5) + "deg)", background: "rgba(255,255,255,0.5)", borderLeft: "1px solid rgba(0,0,0,0.05)", borderRight: "1px solid rgba(0,0,0,0.05)", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" } }),
-      noteCorner(st),
-      h("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "8px 0" } },
-        covered ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 16.5, lineHeight: 1.7, color: st.ink, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, n.content)),
-      h("div", { className: "flex items-center justify-between", style: { marginTop: 4 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(0,0,0,0.42)" } }, (isMe ? "我" : partner.name) + " · " + md(n.createdAt) + (replyN ? " · " + (replyN + 1) + " 来回" : "")),
-        h("button", { onClick: e => { e.stopPropagation(); onRemove(n.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, color: "rgba(0,0,0,0.3)", lineHeight: 1, paddingLeft: 6 } }, "×")));
-  };
-
-  // —— 便签墙 ——
-  const draftSt = COUPLE_NOTE_STYLES[style % COUPLE_NOTE_STYLES.length];
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "便签墙", en: "Notes · " + partner.name, onBack,
-      right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", marginTop: 6, marginBottom: 8 } },
-        h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: "贴一张给 " + partner.name + " 的便签，TA 会悄悄回你…", rows: 2, maxLength: 60, style: Object.assign({}, notePaper(draftSt), { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, border: "1px solid " + t.line }) }),
-        h("div", { className: "flex flex-wrap items-center gap-2 mt-3" }, COUPLE_NOTE_STYLES.map((st, i) => h("button", { key: i, onClick: () => setStyle(i), className: "active:opacity-70", style: Object.assign({}, notePaper(st), { position: "relative", width: 24, height: 24, borderRadius: 6, border: style === i ? "2px solid " + t.ink : "1px solid " + t.line }) }, st.corner ? h("div", { style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, borderTop: "8px solid " + st.corner, borderRight: "8px solid transparent" } }) : null))),
-        h("button", { onClick: post, disabled: !draft.trim(), className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 10, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "9px 0", borderRadius: 10 } }, "贴上去")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, "点右上角刷新让 " + partner.name + " 主动贴。TA 的便签要点一下才看得到，再点开可以一起续写。"),
-      gen && !open && h(Spinner, { label: partner.name + " 正在写…" }),
-      mine.length === 0 && !gen && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有便签，贴一张，或让 TA 先贴。"),
-      h("div", { className: "space-y-4" }, mine.map(card))));
-}
-
+// 便签墙 v59.23 整个撤掉（她 2026-08-31：「便签墙有必要吗，我觉得有点鸡肋」）。
+// 情书、交换日记、便签墙三样都是「他写字给你」：情书有「一封」的分量，交换日记
+// 有「轮流」，便签墙只是「短」，没有自己的形状。它唯一独有的是「他不请自来贴的
+// 那一张」——那件事抽屉本来就在做，所以悄悄话并进抽屉，这一整页删掉。
+// ⚠️切的时候差点把紧跟其后的 COUPLE_MOODS / moodFaceOf 一起带走（浏览器里白屏，
+// 而 node --check 和整套测试一个字都不会说）。按【下一个顶层声明】收口，别按行数。
 const COUPLE_MOODS = [
   { key: "relax", label: "轻松", emoji: "😌", color: "#bcd3f0", ink: "#5b7fb0" },
   { key: "surprise", label: "惊喜", emoji: "🤩", color: "#bfe3c6", ink: "#4f9d6a" },
@@ -3200,7 +3118,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3217,10 +3135,9 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   const cp = couples || {};
   // 每段情侣「有没有你没看的东西」——用来在名册和功能格上点红点、指明是谁+哪个功能在提醒
   const noteSeen = (function () { try { return JSON.parse(localStorage.getItem("x_coupleNoteSeen") || "{}"); } catch (e) { return {}; } })();
-  const unreadNotesFor = cid => (coupleNotes || []).some(n => n.characterId === cid && (n.authorId === cid || (n.replies || []).some(r => r.authorId === cid)) && !noteSeen[n.id]);
   const unreadLettersFor = cid => (coupleLetters || []).some(l => l.characterId === cid && !l.isRead);
   const unreadExDiaryFor = cid => (coupleExDiary || []).some(e => e.characterId === cid && e.author !== "user" && e.unread);
-  const unreadTagsFor = cid => { const a = []; if (unreadNotesFor(cid)) a.push("悄悄话"); if (unreadLettersFor(cid)) a.push("情书"); if (unreadExDiaryFor(cid)) a.push("交换日记"); return a; };
+  const unreadTagsFor = cid => { const a = []; if (unreadLettersFor(cid)) a.push("情书"); if (unreadExDiaryFor(cid)) a.push("交换日记"); return a; };
   const entries = Object.keys(cp)
     .map(id => ({ char: characters.find(c => c.id === id), st: cp[id] }))
     .filter(e => e.char)
@@ -3244,9 +3161,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onSeal: onSealQA, onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
-  if (partner && cp[view] && cp[view].status === "together" && sub === "notes") {
-    return h(CoupleNotes, { partner, notes: coupleNotes, onAdd: onAddNote, onAddReply: onAddNoteReply, onRemove: onRemoveNote, onGen: onGenNote, gen: noteGen, onBack: () => setSub(null) });
-  }
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
     return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
@@ -3333,7 +3247,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     // 他【真实】的心情（跟着真的聊过的天走，会自己平复）。v58.90 之前这儿看的是
     // 「心情打卡」——一次调用让模型在看不见你俩今天发生过什么的情况下瞎选一个表情。
     const bMood = moodOf ? moodOf(bCid) : null;
-    const bNote = (coupleNotes || []).filter(n => n.characterId === bCid)[0];
     const bQaN = (coupleQA || []).filter(e => e.characterId === bCid).length;
 
     const bTlN = (coupleTimeline || []).filter(e => e.characterId === bCid).length;
@@ -3381,7 +3294,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     };
     const cleanSnippet = value => String(value || "").replace(/\s+/g, " ").trim().slice(0, 56);
     const recentItems = [];
-    (coupleNotes || []).filter(x => x.characterId === bCid).forEach(x => { const r = (x.replies || []).slice(-1)[0]; recentItems.push({ id: "n_" + x.id, ts: itemTs(r) || itemTs(x), sub: "notes", icon: "📝", label: "便签墙", text: cleanSnippet(r ? r.content : x.content) }); });
     (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", icon: "💌", label: "情书", text: cleanSnippet(x.title || x.body) }));
     (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", icon: "📔", label: "交换日记", text: cleanSnippet(x.content) }));
     (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", icon: "📅", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
@@ -3534,10 +3446,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#a5793a", lineHeight: 1.5 } },
                     bLetterLast ? one(bLetterLast.title || bLetterLast.content || bLetterLast.text, 22) : "写给彼此"),
                   bUnread ? sub2(bUnread + " 封没拆", "#c65a4a") : null) }),
-              tile("notes", { cols: 3, rows: 2, radius: 4, zh: "便签墙", bg: "#fdf6d8", bd: "#eee0ab", ink: "#8a7532", dot: unreadNotesFor(bCid), tilt: -1.4, lift: true, mark: "签", markInk: "rgba(120,100,40,.08)",
-                deco: h("div", { style: { position: "absolute", right: 15, top: 0, width: 42, height: 8, borderRadius: "0 0 8px 8px", background: "rgba(138,122,176,.14)" } }),
-                body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#7a6520", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                  bNote ? (bNote.authorId === "user" ? "我：" : partner.name + "：") + String((bNote.replies || []).length ? bNote.replies[bNote.replies.length - 1].content : bNote.content).replace(/\s+/g, " ") : "贴一张只有你俩看的悄悄话") }),
               tile("recall", { cols: 2, rows: 2, zh: "他记得的", ink: "#93707c", mark: "记",
                 dot: (coupleRecall || []).some(function (x) { return x.characterId === partner.id && x.unread; }),
                 body: (function () {
@@ -10139,7 +10047,9 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
 const DRAWER_KIND = {
   thing: { zh: "他捡到的", e: "🪶" },
   word:  { zh: "半句话",   e: "✎" },
-  draw:  { zh: "他画的",   e: "✍" }
+  draw:  { zh: "他画的",   e: "✍" },
+  // 悄悄话从 v59.23 起也落这儿（便签墙撤掉，并进来的）
+  whisper: { zh: "一句悄悄话", e: "✉" }
 };
 function CoupleDrawer({ partner, items, onOpen, onBack }) {
   const t = useTheme();
@@ -10179,7 +10089,9 @@ function CoupleDrawer({ partner, items, onOpen, onBack }) {
                   // 拆开之前只露标题。标题是他随手起的，不剧透里头是什么
                   ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#7a6338", marginTop: 6 } }, x.title || "他放了一样东西进来")
                   : h(Fragment, null,
-                      x.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginTop: 6 } }, x.title) : null,
+                      // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
+                      (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
+                        ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginTop: 6 } }, x.title) : null,
                       h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, x.text)));
             }))
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "30px 16px", marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },

@@ -32,7 +32,10 @@ test("首屏、整行与收尾入口保持不同骨相", () => {
 });
 
 test("情侣空间原有 app 门没有在重排中丢失", () => {
-  const keys = ["timeline", "album", "letters", "notes", "recall", "pacts", "makeup", "ifroom", "studio", "firsts", "drawer", "gacha", "qa", "capsule", "exdiary"];
+  // ⚠️"notes"（便签墙）v59.23 整个撤掉了（她：「有点鸡肋」），悄悄话并进抽屉。
+  // 这一条是「重排时别把门弄丢」，不是「永远不许删门」——删是明着删的，那就改清单。
+  const keys = ["timeline", "album", "letters", "recall", "pacts", "makeup", "ifroom", "studio", "firsts", "drawer", "gacha", "qa", "capsule", "exdiary"];
+  assert.ok(collage.indexOf('tile("notes"') < 0, "便签墙那一格又长回来了");
   for (const key of keys) {
     assert.match(collage, new RegExp(`(?:tile\\(\\"${key}\\"|key: \\"${key}\\")`), `${key} 入口应保留`);
   }

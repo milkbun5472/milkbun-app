@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.22";
+const APP_VERSION = "v59.23";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -765,16 +765,24 @@ function App() {
     setWhispers(loadJSON("x_whispers", []));
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
-    // 迁移：旧「悄悄话」一直存在无处显示的 x_whispers 里 → 一次性搬进便签墙，让积压的悄悄话终于露出来
-    let _cnotes = loadJSON("x_coupleNotes", []);
-    const _oldW = loadJSON("x_whispers", []);
-    if (_oldW.length && !loadJSON("x_whispersMigrated", false)) {
-      const migrated = _oldW.map(w => ({ id: "note_mig_" + w.id, characterId: w.characterId, authorId: w.characterId, content: String(w.content || "").trim(), style: Math.floor(Math.random() * 5), createdAt: w.ts || Date.now(), replies: [] })).filter(n => n.content);
-      _cnotes = migrated.concat(_cnotes).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      saveJSON("x_coupleNotes", _cnotes);
-      saveJSON("x_whispersMigrated", true);
-    }
+    // 便签墙 v59.23 撤掉了（她 2026-08-31：「有点鸡肋」）。存量不许丢：
+    // 一次性搬进抽屉，标成【已经拆过的】——那些她本来就看过了，不该冒充新东西。
+    const _cnotes = loadJSON("x_coupleNotes", []);
     setCoupleNotes(_cnotes);
+    if (_cnotes.length && !loadJSON("x_notesToDrawer", false)) {
+      const _dw = loadJSON("x_coupleDrawer", []);
+      const _have = new Set(_dw.map(x => x && x.id));
+      const moved = _cnotes.map(n => ({
+        id: "dw_mig_" + n.id, characterId: n.characterId, kind: "whisper",
+        title: String(n.content || "").replace(/\s+/g, " ").slice(0, 16),
+        text: String(n.content || "").trim(), ts: n.createdAt || Date.now(), openedTs: n.createdAt || Date.now()
+      })).filter(x => x.text && !_have.has(x.id));
+      if (moved.length) {
+        const merged = moved.concat(_dw).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120);
+        setCoupleDrawer(merged); saveJSON("x_coupleDrawer", merged);
+      }
+      saveJSON("x_notesToDrawer", true);
+    }
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
@@ -6632,9 +6640,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // #A 给恋人留悄悄话（论坛发帖已移除每轮自发，改由 tickAmbient 计数器按 50轮/3天 定时发）
       let ambForum = false, ambWhisper = false;
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
-        // 悄悄话 = 贴到你俩的「便签墙」上（authorId=角色，默认盖着，点开才看得到）——不再进无处显示的 whispers 数组
+        // 悄悄话 = 往你俩的【抽屉】里放一样东西（默认盖着，拆开才看得到）。
+        // v59.23 之前它贴在一整面「便签墙」上；她 2026-08-31 说那面墙鸡肋——
+        // 情书、交换日记、便签墙三样都是「他写字给你」，便签墙只是「短」，没有
+        // 自己的形状。它唯一独有的是【他不请自来贴的那一张】，那正是抽屉在做的事。
         const wtext = String(parsed.whisper).trim();
-        setCoupleNotes(p => { const n = [{ id: "note_" + Date.now(), characterId: charId, authorId: charId, content: wtext, style: Math.floor(Math.random() * 5), createdAt: Date.now(), replies: [] }, ...p]; saveJSON("x_coupleNotes", n); return n; });
+        drawerWhisper(charId, wtext);
         notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
       }
       // 替她记进备忘录 / 记一笔账（她 2026-08-30）。
@@ -12134,20 +12145,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
-      // 贴到便签墙（authorId=角色，默认盖着，点开才看得到），不再进无处可见的 whispers 数组
-      setCoupleNotes(p => {
-        const n = [{
-          id: "note_" + Date.now(),
-          characterId: char.id,
-          authorId: char.id,
-          content: String(d.whisper || "").trim(),
-          style: Math.floor(Math.random() * 5),
-          createdAt: Date.now(),
-          replies: []
-        }, ...p];
-        saveJSON("x_coupleNotes", n);
-        return n;
-      });
+      drawerWhisper(char.id, String(d.whisper || "").trim());
     } catch (e) {
       toast("失败：" + e.message);
     } finally {
@@ -12237,11 +12235,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           saveJSON("x_coupleTimeline", n); return n;
         });
       } else {
-        setCoupleNotes(p => {
-          const n = [{ id: "note_" + Date.now(), characterId: char.id, authorId: char.id, content: txt,
-            style: Math.floor(Math.random() * 4), createdAt: Date.now(), replies: [] }, ...p];
-          saveJSON("x_coupleNotes", n); return n;
-        });
+        drawerWhisper(char.id, txt);
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
@@ -12289,6 +12283,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       duoPhotos: duoPhotosOf(cid),
       letters: (coupleLettersRef.current || []).filter(x => x.characterId === cid),
       exdiary: (coupleExDiaryRef.current || []).filter(x => x.characterId === cid),
+      // ⚠️便签墙 v59.23 撤掉了，这一份只剩【存量】：只读，不再写。
+      // 里程碑册要的是「第一张纸条是什么时候」，那件事发生过就该算数。
       notes: (coupleNotesRef.current || []).filter(x => x.characterId === cid),
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
@@ -12725,6 +12721,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } finally { setGen(g => ({ ...g, studio: false })); }
   };
   const DRAWER_CAP = 120;
+  // 悄悄话往抽屉里放一样东西。v59.23 之前它贴在一整面「便签墙」上，而且【四处各写
+  // 了一遍同样的入库代码】；她 2026-08-31 说那面墙鸡肋——情书、交换日记、便签墙
+  // 三样都是「他写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
+  // 「他不请自来贴的那一张」，那正是抽屉在做的事。并过来的同时收成一处。
+  const drawerWhisper = (charId, text) => {
+    const t = String(text || "").trim();
+    if (!charId || !t) return false;
+    setCoupleDrawer(p => {
+      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
+        title: t.replace(/\s+/g, " ").slice(0, 16), text: t, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+    });
+    return true;
+  };
   const openDrawerItem = id => setCoupleDrawer(p => {
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
@@ -12867,55 +12877,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
 
   // 情侣空间·双向便签（悄悄话串）：我贴→TA 自动回一张；可在串里继续留言，TA 每条都回
   // 便签结构 {id,characterId,authorId:'user'|charId,content,style,createdAt,replies:[{authorId,content,ts}]}
-  const genCoupleNoteReply = async (char, noteId, threadText) => {
-    if (!active) { toast("请先到设置配置 API"); return false; }
-    setGen(g => ({ ...g, coupleNote: true }));
-    try {
-      const d = await runProbe(bgActive, ctxFor(char), {
-        instruction: "你们是恋人，在只属于你俩的私密便签墙上一来一回写悄悄话。顺着下面的对话，以「" + char.name + "」身份回**最新一句**，短、贴人设、有温度，别超过 30 字，别喊口号、别复述。\n【便签对话】\n" + (threadText || ""),
-        schemaHint: "{\"note\":\"你的回复\"}"
-      });
-      setCoupleNotes(p => {
-        const n = p.map(nt => nt.id !== noteId ? nt : { ...nt, replies: [...(nt.replies || []), { authorId: char.id, content: (d.note || "").trim(), ts: Date.now() }] });
-        saveJSON("x_coupleNotes", n);
-        return n;
-      });
-      return true;
-    } catch (e) {
-      toast("失败：" + e.message);
-      return false;
-    } finally {
-      setGen(g => ({ ...g, coupleNote: false }));
-    }
-  };
-  // 我贴一张新便签 → 立刻存 → TA 自动回一张悄悄话
-  const addCoupleNote = (char, content, style) => {
-    const c = (content || "").trim();
-    if (!c) return;
-    const id = "note_" + Date.now();
-    setCoupleNotes(p => {
-      const n = [{ id, characterId: char.id, authorId: "user", content: c, style: style || 0, createdAt: Date.now(), replies: [] }, ...p];
-      saveJSON("x_coupleNotes", n);
-      return n;
-    });
-    genCoupleNoteReply(char, id, "我：" + c);
-  };
-  // 我在某张便签的悄悄话串里继续留言 → TA 回
-  const addCoupleNoteReply = (char, noteId, content, threadText) => {
-    const c = (content || "").trim();
-    if (!c) return;
-    setCoupleNotes(p => {
-      const n = p.map(nt => nt.id !== noteId ? nt : { ...nt, replies: [...(nt.replies || []), { authorId: "user", content: c, ts: Date.now() }] });
-      saveJSON("x_coupleNotes", n);
-      return n;
-    });
-    genCoupleNoteReply(char, noteId, (threadText || "") + "\n我：" + c);
-  };
-  const removeCoupleNote = id => setCoupleNotes(p => {
-    const n = p.filter(x => x.id !== id);
-    saveJSON("x_coupleNotes", n);
-    return n;
-  });
+  // v59.23：便签墙整个撤掉（她 2026-08-31：「便签墙有必要吗，我觉得有点鸡肋」）。
+  // 她贴纸条／他回纸条／删纸条这几路一并删掉——情书那一路已经覆盖「她写字给他」，
+  // 悄悄话那一路并进了抽屉。
   // 保存某角色的自定义问答题库（arr = 题目字符串数组）
   const saveCoupleQACustom = (charId, arr) => setCoupleQACustom(p => {
     const n = { ...p, [charId]: arr.filter(s => s && s.trim()).map(s => s.trim()) };
@@ -13650,27 +13614,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     finally { setGen(g => ({ ...g, charPlaylist: null })); }
   };
   // TA 主动贴一张（右上刷新触发；未来接调度器）
-  const genCoupleNote = async char => {
-    if (!active) { toast("请先到设置配置 API"); return false; }
-    setGen(g => ({ ...g, coupleNote: true }));
-    try {
-      const d = await runProbe(bgActive, ctxFor(char), {
-        instruction: "你们是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张小纸条给用户——一句恋爱向、藏着心意、想对 TA 说却没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 TA 悄悄收到的情话/在乎），贴合人设与此刻心情，别喊口号，别超过 25 字。",
-        schemaHint: "{\"note\":\"给 TA 的悄悄情话\"}"
-      });
-      setCoupleNotes(p => {
-        const n = [{ id: "note_" + Date.now(), characterId: char.id, authorId: char.id, content: (d.note || "").trim(), style: Math.floor(Math.random() * 5), createdAt: Date.now(), replies: [] }, ...p];
-        saveJSON("x_coupleNotes", n);
-        return n;
-      });
-      return true;
-    } catch (e) {
-      toast("失败：" + e.message);
-      return false;
-    } finally {
-      setGen(g => ({ ...g, coupleNote: false }));
-    }
-  };
 
   // ============================================================
   // 购物 Shopping —— 商品流生成 / 购物车 / 结算(购买·送礼·代付·亲属卡) / 待发货待收货
@@ -15075,12 +15018,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     qaGen: gen.coupleQA,
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
-    coupleNotes: coupleNotes,
-    onAddNote: addCoupleNote,
-    onAddNoteReply: addCoupleNoteReply,
-    onRemoveNote: removeCoupleNote,
-    onGenNote: genCoupleNote,
-    noteGen: gen.coupleNote,
     coupleQACustom: coupleQACustom,
     // 情侣空间首页那格看的是他【真实】的心情（跟着真的聊过的天走、会自己平复），
     // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给他的是同一份读数。

@@ -49,12 +49,17 @@ test("不新开定时器、不多花一次调用——只是把思念的出口�
 });
 
 test("留下的东西落进的是【已经会渲染它】的那两个地方", () => {
-  // 便签墙本来就认 authorId === partner.id 的顶层便签；时光轴本来就认 byCharacter
-  assert.match(leave, /authorId: char\.id, content: txt/, "便签没署他的名,墙上认不出是他留的");
-  assert.match(scr, /const hasHis = n\.authorId === partner\.id \|\| \(n\.replies \|\| \[\]\)\.some\(r => r\.authorId === partner\.id\)/, "便签墙不认他的顶层便签了");
+  // v59.23：便签墙撤了，他留下的那一路改落抽屉（抽屉本来就认 kind + openedTs）；
+  // 时光轴那一路不变，本来就认 byCharacter。
+  assert.match(leave, /drawerWhisper\(char\.id, txt\)/, "他留的那一张没落进抽屉");
+  assert.match(scr, /whisper: \{ zh: "一句悄悄话"/, "抽屉不认这一类，渲染出来是「他捡到的」");
   assert.match(leave, /byCharacter: true, unread: true/, "时光轴那条没标成他写的");
   assert.match(scr, /ev\.byCharacter \?/, "时光轴不认 byCharacter 了");
-  assert.match(leave, /saveJSON\("x_coupleNotes", n\)/); assert.match(leave, /saveJSON\("x_coupleTimeline", n\)/);
+  assert.match(leave, /saveJSON\("x_coupleTimeline", n\)/);
+  // 入库只写一处：v59.23 之前同样的代码在四个地方各写了一遍
+  const app2 = R("app.js");
+  assert.match(app2, /const drawerWhisper = \(charId, text\) => \{/, "没收成一处");
+  assert.equal((app2.match(/kind: "whisper"/g) || []).length, 2, "悄悄话入库又散开写了（一处写、一处迁移，就该只有两处）");
   // 她不在场，所以不该写成给她的留言模板
   assert.match(leave, /她不在场，所以不用问她好、不用等她回/, "会写成一条对着她说的留言");
   assert.match(leave, /等她自己发现/, "没说清这件事的意思是「回来才发现」");
