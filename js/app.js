@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.46";
+const APP_VERSION = "v59.47";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -819,7 +819,39 @@ function App() {
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleRecall(loadJSON("x_coupleRecall", []));
-    setCoupleAnniv(loadJSON("x_coupleAnniv", []));
+    // 日历里那些「情侣纪念日」是纪念日表的影子，只由代码写进去（日历界面不让手打
+    // 事件），所以【表里没有的那些就是孤儿】——纪念日删了，影子却留下来了。
+    // 开机对一次账，把孤儿清掉；这不是一次性迁移，是让两处始终对得上。
+    // ⚠️「♥ 和 X 在一起」那一条不在纪念日表里，但它是在一起那天自己落的，不是孤儿。
+    {
+      const _an = loadJSON("x_coupleAnniv", []);
+      setCoupleAnniv(_an);
+      try {
+        const _cal = loadJSON("x_calendar", null);
+        if (_cal && _cal.chars) {
+          const alive = {};
+          _an.forEach(a => { if (a && a.characterId) (alive[a.characterId] = alive[a.characterId] || new Set()).add(String(a.name || "").trim()); });
+          let hit = false;
+          const next = JSON.parse(JSON.stringify(_cal));
+          Object.keys(next.chars || {}).forEach(cid => {
+            const b = next.chars[cid] || {};
+            Object.keys(b).forEach(k => {
+              const kept = (b[k] || []).filter(e => {
+                if (!e || e.note !== "情侣纪念日") return true;
+                if (String(e.title || "").indexOf("♥") === 0) return true;
+                const ok = alive[cid] && alive[cid].has(String(e.title || "").trim());
+                if (!ok) hit = true;
+                return !!ok;
+              });
+              if (kept.length) b[k] = kept; else delete b[k];
+            });
+          });
+          // ⚠️日历的 state 在上面（第 705 行那句）就已经载进去了，只写盘的话
+          // 这一次开机屏幕上还是脏的，得等下次才干净。两边一起更新。
+          if (hit) { saveJSON("x_calendar", next); setCalendar(next); }
+        }
+      } catch (e) {/* 对账失败不连累开机 */}
+    }
     setCoupleLetters(loadJSON("x_coupleLetters", []));
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
     { const L = loadJSON("x_listen", { disc: null, songs: [] }); const restoredId = L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null; listenRef.current = L; playerSongIdRef.current = restoredId; setListen(L); setPlayer(p => ({ ...p, songId: restoredId })); }
@@ -8332,10 +8364,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
   const calBucket = (n, view) => view === "world" ? n.world : view === "mine" ? n.mine : (n.chars[view] = { ...(n.chars[view] || {}) });
-  const saveCalEvent = (view, dateKey, title, note) => {
+  // srcId：这条事件是【谁的影子】。纪念日会同时写进 x_coupleAnniv 和日历两处，
+  // 不记出处的话，那边删掉了这边根本认不出该删哪一条（她 2026-09-01 撞上的就是这个）。
+  const saveCalEvent = (view, dateKey, title, note, srcId) => {
     if (!title || !title.trim()) return;
     setCalendar(prev => {
-      const ev = { id: "ev_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: title.trim(), note: (note || "").trim() };
+      const ev = { id: "ev_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: title.trim(), note: (note || "").trim(), ...(srcId ? { srcId: srcId } : {}) };
       const n = cloneCal(prev);
       const b = calBucket(n, view);
       b[dateKey] = [...(b[dateKey] || []), ev];
@@ -13160,16 +13194,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const addAnniv = (char, name, month, day, yearlyRepeat, linkCalendar) => {
     if (!(name || "").trim() || !month || !day) return;
     const mo = Math.max(1, Math.min(12, +month)), dy = Math.max(1, Math.min(31, +day));
+    const anId = "an_" + Date.now();
     setCoupleAnniv(p => {
-      const n = [{ id: "an_" + Date.now(), characterId: char.id, name: name.trim(), month: mo, day: dy, yearlyRepeat: !!yearlyRepeat, createdAt: Date.now() }, ...p];
+      const n = [{ id: anId, characterId: char.id, name: name.trim(), month: mo, day: dy, yearlyRepeat: !!yearlyRepeat, createdAt: Date.now() }, ...p];
       saveJSON("x_coupleAnniv", n);
       return n;
     });
-    if (linkCalendar) { saveCalEvent(char.id, new Date().getFullYear() + "-" + mo + "-" + dy, name.trim(), "情侣纪念日"); toast("已加进日历"); }
+    if (linkCalendar) { saveCalEvent(char.id, new Date().getFullYear() + "-" + mo + "-" + dy, name.trim(), "情侣纪念日", anId); toast("已加进日历"); }
   };
+  // 日历里那份是纪念日的影子：这边删了，那边就不该还留着
+  //（她 2026-09-01：「我在情侣空间删掉了，查手机日历这边还显示有」）。
+  // 按出处删；老数据没有出处，退回按【名字 + 那个标记】认。
+  const dropAnnivEvents = (charId, an) => setCalendar(prev => {
+    const n = cloneCal(prev);
+    const b = n.chars[charId] ? (n.chars[charId] = { ...n.chars[charId] }) : null;
+    if (!b) return prev;
+    let hit = false;
+    Object.keys(b).forEach(k => {
+      const kept = (b[k] || []).filter(e => {
+        const mine = e && (e.srcId === an.id || (!e.srcId && e.note === "情侣纪念日" && String(e.title || "").trim() === String(an.name || "").trim()));
+        if (mine) hit = true;
+        return !mine;
+      });
+      if (kept.length) b[k] = kept; else delete b[k];
+    });
+    if (!hit) return prev;
+    saveJSON("x_calendar", n);
+    return n;
+  });
   const removeAnniv = id => setCoupleAnniv(p => {
+    const gone = p.find(x => x.id === id);
     const n = p.filter(x => x.id !== id);
     saveJSON("x_coupleAnniv", n);
+    if (gone) { try { dropAnnivEvents(gone.characterId, gone); } catch (e) {/* 日历没扫干净不连累删除本身 */} }
     return n;
   });
   // 情侣空间·情书：7 天硬门槛（距上一封 <7 天不生成）
@@ -15193,7 +15250,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onBack: goHome,
     onInvite: sendCoupleInvite,
     onUnlink: unlinkCouple,
-    onAddAnniversary: (partnerId, name, mo, day) => { saveCalEvent(partnerId, new Date().getFullYear() + "-" + mo + "-" + day, name, "情侣纪念日"); toast("纪念日已加进日历"); },
     onSetSince: setCoupleSince,
     profile: profile,
     coupleProfile: coupleProfile,
