@@ -61,7 +61,15 @@ test("engineerEyes subscription chat caches one full-budget history copy", () =>
   assert.match(source, /const _singleHistoryLayout = _histCache \|\| _engineerChat/);
   assert.match(source, /recentChat: ""/);
   assert.match(source, /detectFormat\(_route\)/);
-  assert.match(source, /maxTokens: _engineerChat \? 3000 : 6000, cacheHistory: _histCache/);
+  // ⚠️言秋那一支（3000）是他的专线，钉死；普通角色那一支只要求【够写完】，不冻具体数
+  //   （v59.96 全 app 抬到 ≥8000，见 .claude/rules/max-tokens-floor.md）
+  // ⚠️这一处有【两个】（首发一次、重试一次），两个都得对——只看一个的话，
+  //   把其中一个改坏了照样绿（一层写在两处，第二处没跟上）
+  const mts = source.match(/maxTokens: _engineerChat \? 3000 : (\d+), cacheHistory: _histCache/g) || [];
+  assert.equal(mts.length, 2, "主聊天那一处的额度形状变了：言秋一支 3000、普通角色一支，首发和重试各一份");
+  mts.forEach(function (x) {
+    assert.ok(Number(x.match(/: (\d+), cacheHistory/)[1]) >= 8000, "普通角色那一支的额度不够写完：" + x);
+  });
 });
 
 test("engineerEyes chat carries a lean volatile baggage budget", () => {

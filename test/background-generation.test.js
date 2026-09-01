@@ -111,6 +111,13 @@ test("文风实验室 A-B 只改变文风且明确消耗两次调用", () => {
   assert.match(fanficSource, /B · 实验文风/);
   assert.match(fanficSource, /const base = await callAI/);
   assert.match(fanficSource, /const styled = await callAI/);
-  assert.ok((fanficSource.match(/maxTokens:\s*6000/g) || []).length >= 2);
+  // A/B 两次要【同一个额度】（不然差的就不只是文风了），而且都得够写完。
+  // ⚠️只看 A/B 这一段：拿整份 fanfic.js 数的话，别处随便一个够大的数就能顶住
+  const abi = fanficSource.indexOf("const base = await callAI");
+  const ab = fanficSource.slice(abi, fanficSource.indexOf("const cleanBase", abi));
+  const abs = (ab.match(/maxTokens: (\d+)/g) || []).map(x => Number(x.split(" ")[1]));
+  assert.equal(abs.length, 2, "A/B 那两次的额度声明找不着了");
+  assert.equal(abs[0], abs[1], "A/B 两次额度不一样，差的就不只是文风了");
+  assert.ok(abs[0] >= 8000, "A/B 那两次的额度不够写完（" + abs[0] + "）");
   assert.match(fanficSource, /正文不足 280 字/);
 });

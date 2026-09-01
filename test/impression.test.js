@@ -55,7 +55,7 @@ test("quote 必须守声纹，不能写成通用抒情散文", () => {
   // 出不全就算失败，不许写半张卡；silhouette 是 JSON 末字段，兼任截断哨兵
   // （v54.47：maxTokens 2000 被打穿，quote 半句话被存成卡——额度放大 + 截断必判失败）
   assert.match(gen, /if \(!quote \|\| !tags\.length \|\| !String\(d\.silhouette \|\| ""\)\.trim\(\)\) throw new Error/);
-  assert.match(gen, /maxTokens: 5000/);
+  assert.ok(Number((gen.match(/maxTokens: (\d+)/) || [])[1]) >= 8000, "额度不够写完整张卡");
 });
 
 test("图出不来不算失败：字是主体，剪影可以之后补", () => {

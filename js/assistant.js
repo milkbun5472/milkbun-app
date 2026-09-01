@@ -108,7 +108,7 @@
   async function ask(active, ctx, history, text, mode) {
     const msgs = (history || []).slice(-8).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
       .concat([{ role: "user", content: String(text || "") }]);
-    const raw = await callAI(active, buildSystem(ctx, mode), msgs, { maxTokens: 4000, timeout: 120000 });
+    const raw = await callAI(active, buildSystem(ctx, mode), msgs, { maxTokens: 12000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)

@@ -311,7 +311,7 @@
           + "旧账本里的条目除非已经被剧情推翻或了结,否则一律保留;了结了的从 openThreads 挪进 timeline 或 facts。不要写文风渲染,不要复述对白。\n"
           + "只输出 JSON:{\"timeline\":[],\"facts\":[],\"openThreads\":[],\"objects\":[]}";
         const user = (prev ? "【旧账本】\n" + JSON.stringify(prev) + "\n\n" : "") + "【新增剧情】\n" + seg;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2200, timeout: 120000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10200, timeout: 120000 });
         const p2 = extractJSON(raw) || {};
         const next = {};
         LEDGER_KEYS.forEach(k => { next[k] = (Array.isArray(p2[k]) ? p2[k] : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14); });
@@ -337,7 +337,7 @@
       const sys = "下面是一段已经写好的内容,但它没有按要求输出 JSON。把它【原样整理】成这个形状:\n" + shape
         + "\n【铁律】只做搬运和归类:内容一个字都不许改写、不许润色、不许自己另编;原文里确实没写的字段就留空字符串。只输出 JSON,不要代码块。";
       try {
-        return parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: text.slice(0, 8000) }], { maxTokens: 3200, timeout: 120000 }), keys);
+        return parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: text.slice(0, 8000) }], { maxTokens: 11200, timeout: 120000 }), keys);
       } catch (e) { return null; }
     };
     // 认输时把模型到底回了什么带出来一小段——不然「没吐出 JSON」是个查不下去的死胡同。
@@ -355,7 +355,7 @@
         + (hint || "") + "\n只输出 JSON:{" + lack.map(k => "\"" + k + "\":\"…\"").join(",") + "}";
       let fix = null;
       try {
-        fix = parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: "【已经写好的部分】\n" + String(raw || "").slice(0, 6000) }], { maxTokens: 1600, timeout: 90000 }), lack);
+        fix = parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: "【已经写好的部分】\n" + String(raw || "").slice(0, 6000) }], { maxTokens: 9600, timeout: 90000 }), lack);
       } catch (e) { return partial; }
       if (!fix) return partial;
       const out = Object.assign({}, partial || {});
@@ -376,7 +376,7 @@
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
         const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 4800, timeout: 150000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 12800, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
@@ -409,7 +409,7 @@
           + newSituation(true, past)
           + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 4000, timeout: 150000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 12000, timeout: 150000 });
         const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
@@ -544,7 +544,7 @@
           + "" + GOAL_RULE + "不重复已经达成过的目标。只输出 JSON:{\"goal\":\"一句话目标\"}";
         const user = "【设定】" + line.setting + "\n【角色身份】" + line.charRole + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         // 思考型模型的思考也从 maxTokens 里扣,给窄了 JSON 会被写一半截断
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2000, timeout: 120000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10000, timeout: 120000 });
         const p = parseSettingPayload(raw, ["goal"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\"}", ["goal"]);
         if (!p || !p.goal) throw new Error("目标没生成出来" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : mode === "redo"
@@ -563,7 +563,7 @@
         const char = charOf(line);
         const sys = "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个必须做选择的时刻,悬着收尾。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0,
@@ -583,7 +583,7 @@
         const spEnd = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
         const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
         const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
         const p = parseTheaterPayload(raw);
         if (!p || !p.scene) throw new Error("终场格式无法解析，已拦住协议原文；请再试一次");
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));

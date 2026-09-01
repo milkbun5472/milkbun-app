@@ -115,7 +115,7 @@
       (kw.length ? "\n\n【" + uName + "递来的关键词，把它们自然编进这场梦】" + kw.join("、") : "") +
       "\n\n这是开场第一幕：把梦的门推开，让 " + uName + " 落进 " + session.charName + " 的梦里。" +
       sceneRules(cotT, { stage: "open", charName: session.charName });
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 4000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normOptions(p.options);
@@ -138,7 +138,7 @@
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
       "\n\n接着上一幕 " + uName + " 的选择往下写新的一幕：推进新情节、让梦更贴近 " + session.charName + " 藏着的东西，别原地打转、别复读上一幕。" +
       sceneRules(cotT, { stage: stage, canFinal: canFinal && !forceFinal, forceFinal: forceFinal, charName: session.charName });
-    const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 4000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normOptions(p.options);
@@ -158,7 +158,7 @@
       "② 再抽离出来，点破这场梦到底关于什么（core，40~90字，旁白口吻）：这场梦一路在绕的，其实是 " + session.charName + " 心里的什么。具体、贴人设，别空泛。\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出 JSON：{\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\"}。别加别的。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "抵达梦核。" }], { maxTokens: 3500 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "抵达梦核。" }], { maxTokens: 11500 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     return { arrive: String(p.arrive || sp.clean || "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
@@ -175,7 +175,7 @@
       "② 再抽离出来，说清这个选择为什么是错的（why，40~90字，跳出梦、用旁白口吻）：「" + resistText + "」触到了 " + session.charName + " 的什么逆鳞/软肋/不愿面对的真相，为什么在 Ta 的梦里这条路走不通。要具体贴人设，别空泛。\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出 JSON：{\"collapse\":\"梦碎叙事\",\"why\":\"为什么这个选择戳破了梦\"}。别加别的。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "梦碎。" }], { maxTokens: 3000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "梦碎。" }], { maxTokens: 11000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     return { collapse: String(p.collapse || sp.clean || "梦在你眼前碎成光斑，你猛地醒来。").trim(), why: String(p.why || "").trim(), cot: sp.cot };

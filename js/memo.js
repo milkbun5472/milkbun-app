@@ -198,7 +198,7 @@
       "【要批注的角色】\n" + block +
       (worldbook && worldbook.trim() ? "\n\n【世界书（仅参考）】\n" + worldbook.trim().slice(0, 400) : "") +
       "\n\n【输出】只输出 JSON，comments 数组和上面角色顺序【一一对应、数量一致】：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的一句话\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { maxTokens: 6000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { maxTokens: 14000 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.comments) ? p.comments : (Array.isArray(p) ? p : []);
     return list.map((it, i) => {

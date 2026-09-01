@@ -9575,7 +9575,7 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
   };
   const spec = S[key] || S.bag;
   return {
-    maxTokens: key === "outfit" ? 6000 : 4000,
+    maxTokens: key === "outfit" ? 14000 : 12000,
     ...spec,
     // 🌱：上一份原样喂回去，钉住的点名不许动
     instruction: spec.instruction + carryMaterialBlock(key, material)
@@ -9602,8 +9602,9 @@ function carryProbeSpecAll(char, known, pinned, material) {
     return "\n\n〔" + sec.zh + "〕" + one(k).instruction.replace(/^推演「[^」]*」的?/, "");
   }).join("");
   return {
-    // 四栏一起出，token 得给够：分开时是 4000×3 + 6000
-    maxTokens: 16000,
+    // 四栏一起出，token 得给够：分开写是四次调用，合起来一次就得抵四次的量
+    // （v59.96 起单栏那条是 12000/14000，见 .claude/rules/max-tokens-floor.md）
+    maxTokens: 24000,
     schemaHint: "{\"bag\":{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]},"
       + "\"pocket\":{\"items\":[...同上]},\"trinket\":{\"items\":[...同上]},"
       + "\"outfit\":{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身的叫法\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}}",

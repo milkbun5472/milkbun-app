@@ -82,7 +82,7 @@
       "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`。示例：\n段3：这人嘴上硬，心里早就软了。\n段3：换我早翻脸走人了。\n段8：一碗黄酒二两黄豆，写得我都馋了。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
     // 放宽 token 预算：Gemini 等「思考型」模型会先想再答、思考也吃输出 token，预算太紧会想到一半就停（只出一两条）。
     // 中转站按次计费、输出长短不额外收费，所以给足空间不心疼。
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(8000, 1500 + n * 400) });
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(20000, 9500 + n * 400) });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -117,7 +117,7 @@
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
       "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。拆成 1~3 条短气泡，像即时通讯，别加名字前缀、别旁白括号、别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 900 });
+    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 8900 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
     return say && say.length ? say : [String(raw || "").replace(/^\{|\}$/g, "").trim() || "……"];
@@ -131,7 +131,7 @@
     if (!annText && !hist) return "";
     const sys = "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。\n\n【你的人设】\n" + (char.persona || "").slice(0, 300);
     const u = (annText ? "【你的批注】\n" + annText + "\n\n" : "") + (hist ? "【讨论】\n" + hist : "");
-    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 400 })).trim();
+    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 8400 })).trim();
   }
 
   // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
@@ -171,7 +171,7 @@
       (synopsis && synopsis.trim() ? "\n\n【前情脉络】\n" + synopsis.trim() : "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
       "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 1200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 9200 });
     return String(raw || "").replace(/```/g, "").trim();
   }
 

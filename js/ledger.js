@@ -264,7 +264,7 @@
       "【要批注的角色】\n" + block +
       (worldbook && worldbook.trim() ? "\n\n【世界书（仅参考）】\n" + worldbook.trim().slice(0, 400) : "") +
       "\n\n【输出】只输出 JSON，comments 数组和上面角色顺序【一一对应、数量一致】：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的一句话\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { maxTokens: 6000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { maxTokens: 14000 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.comments) ? p.comments : (Array.isArray(p) ? p : []);
     return list.map((it, i) => {
@@ -373,7 +373,7 @@
           "· 人称从人设判断性别，男「他」女「她」，判断不出就叫名字；绝不许写『Ta』。严禁『看了一眼没说什么』这类空话。\n\n" +
           "【上月账单】\n" + statLines.join("\n") + "\n\n【要盘点的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的月度盘点\"}]}。别加解释、别加代码块。";
-        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { maxTokens: 6000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { maxTokens: 14000 });
         const pd = extractJSON(raw) || {};
         const arr = Array.isArray(pd.comments) ? pd.comments : [];
         const cmts = list.map((it, i) => { const byName = arr.find(r => r && String(r.name || "").trim() === it.name); const r = byName || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);

@@ -1881,7 +1881,7 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
   const numbered = segments.map(s => `[${s.id}] ${s.text}`).join("\n\n");
   const user = `【语言参照·事件与本轮无关】\n${String(reference || "").trim()}\n\n【按编号编辑的唯一草稿】\n${numbered}`;
   const raw = await callAI({ ...p, temperature: 0.2 }, system, [{ role: "user", content: user }], {
-    maxTokens: 4000,
+    maxTokens: 12000,
     timeout: 180000,
     wireScope: "offline",
     wireMeta: { ...(wireMeta || {}), rewriteStage: true }
@@ -2464,7 +2464,7 @@ async function refineMemories(p, ctx, entries) {
     "· 每条一句话、具体、第三人称，**开头点明是关于谁的**（关于「" + uName + "」／关于「" + cName + "」／关于他俩之间），绝不张冠李戴。为每条配 1~3 个中文标签。\n" +
     "· 每条标 v（情绪愉悦度整数 -5~5）与 a（情绪强度整数 0~5，摘要通常给 1~2）。\n" +
     "【输出】只输出 JSON 数组，别加解释/代码块：[{\"text\":\"…\",\"tags\":[\"…\"],\"v\":0,\"a\":1}]";
-  const raw = await callAI(p, system, [{ role: "user", content: listText }], { maxTokens: Math.min(6000, 800 + (entries || []).length * 40) });
+  const raw = await callAI(p, system, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8800 + (entries || []).length * 40) });
   const arr = extractJSON(raw);
   return Array.isArray(arr) ? arr.filter(o => o && o.text && String(o.text).trim()) : [];
 }
@@ -2497,7 +2497,7 @@ function splitRedPacket(total, count) {
 async function summarizeGroup(p, ctx, msgs) {
   const text = msgs.map(m => (m.role === "user" ? ctx.profile && ctx.profile.name || "用户" : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + (m.content || "")).join("\n");
   const system = "把下面这段群聊浓缩成一句到几句第三人称的记忆，抓住关键事件、谁和谁的互动、达成的约定或情绪转折。简洁、具体、可复用。只输出正文。";
-  return await callAI(p, system, [{ role: "user", content: "【群聊】\n" + text }], { maxTokens: 3000 });
+  return await callAI(p, system, [{ role: "user", content: "【群聊】\n" + text }], { maxTokens: 11000 });
 }
 // 从一段对话里抽取结构化记忆条目（自动生成，用户可再编辑/删除）
 async function extractMemories(p, ctx, msgs, opts = {}) {
@@ -2520,7 +2520,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 6000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
@@ -2546,7 +2546,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
       ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 5000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 13000 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
@@ -2558,7 +2558,7 @@ async function splitMemoryToEntries(p, ctx, blob) {
     "· 每条一句话、具体；**开头用真名点明主语**（关于用户「" + uName + "」的 / 关于角色「" + charName + "」自己的 / 关于他俩之间的），别把用户的事写成角色自己的。\n" +
     "· 同一件事只留一条，别拆重复。为每条配 1~3 个中文标签。\n" +
     "【输出】只输出合法 JSON 数组：[{\"text\":\"一句话事实（带主语真名）\",\"tags\":[\"标签\"]}]，没有可拆的就 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【长期记忆】\n" + String(blob).slice(0, 8000) }], { maxTokens: 4000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【长期记忆】\n" + String(blob).slice(0, 8000) }], { maxTokens: 12000 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
 }
@@ -3827,7 +3827,7 @@ async function generateNpc(p, hostChar, ask, takenNames) {
     + "· ⚠️不许给他安排和用户的感情线、不许写他暗恋谁、不许写他和主角色的暧昧。他就是个配角。\n"
     + "\n【输出】只输出 JSON，不要代码块：\n"
     + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
-  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 2000, timeout: 90000 });
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
   const d = parseJSONLoose(raw);
   if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
   return {
@@ -3999,7 +3999,7 @@ async function _transModel(text) {
     + "· 保留原话的语气和口吻（撒娇、调侃、生气、正式都照搬），这是聊天消息不是公文。\n"
     + "· 人名、昵称、专有名词按通行译法；实在没有通行译法就保留原文。\n"
     + "· 原文有几句就译几句，换行位置保持一致。";
-  const raw = await callAI(p, sys, [{ role: "user", content: String(text || "") }], { maxTokens: 1200, timeout: 45000 });
+  const raw = await callAI(p, sys, [{ role: "user", content: String(text || "") }], { maxTokens: 9200, timeout: 45000 });
   const zh = String(raw || "").trim().replace(/^[「『"']|[」』"']$/g, "").trim();
   if (!zh) throw new Error("上游没有返回译文");
   return zh;
@@ -4069,7 +4069,7 @@ async function jpKanaReading(text) {
   const p = ttsHelperProfile();
   if (!p || !p.apiKey || !p.model) return text;
   const sys = "你是日语朗读注音助手。把下面这句日语【全部汉字】替换成它在这句话里的正确假名读音（ひらがな），送假名/助词/原有假名保持不变，语序不变。不要罗马音、不要空格、不要标注、不要解释，只输出替换后的整句假名文本。";
-  const raw = await callAI(p, sys, [{ role: "user", content: text }], { maxTokens: 600, timeout: 30000 });
+  const raw = await callAI(p, sys, [{ role: "user", content: text }], { maxTokens: 8600, timeout: 30000 });
   let kana = String(raw || "").trim().replace(/^["「『]|["」』]$/g, "");
   // 校验：结果里不该再有汉字残留（宽松），且非空——否则用原文兜底
   if (!kana || /[一-鿿]/.test(kana)) return text;
@@ -4853,7 +4853,7 @@ async function summarizeOffline(p, ctx, session) {
     "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 4000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
   return { summary: String(raw || "").trim(), details: [], open: [] };
@@ -5128,7 +5128,7 @@ async function summarizeOfflineGroup(p, ctx, session) {
     "{\"summary\":\"1~3句第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 4000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
   return { summary: String(raw || "").trim(), details: [], open: [] };
@@ -5427,7 +5427,7 @@ async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次是要取消/修改其中某条，也在 reply 里说明，directive 可填修正后的新表述）" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 6000 });
+  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
   if (parsed && typeof parsed.reply === "string") {
     return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
@@ -5445,7 +5445,7 @@ async function oocAskGroup(p, ctx, question) {
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次要取消/修改其中某条，也在 reply 说明，directive 可填修正后的新表述）" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"refused\":false}";
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 6000 });
+  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
   if (parsed && typeof parsed.reply === "string") return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
   return { reply: String(raw || "").trim(), directive: null, refused: false };
@@ -5591,7 +5591,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "\n——但这不是要你原地不动：你和她相处的方式、黏不黏、敢不敢说，"
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进人格档案的是成长，只是最近几篇听起来那样的是惯性。";
-  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 6000 });
+  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000 });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
   return parsed;
@@ -5641,7 +5641,7 @@ async function generateDiaryComment(p, ctx, entryText, opts) {
   if (prev.length) parts.push("【你最近评论 Ta 别的日记时说过】" + prev.map(s => "「" + String(s).slice(0, 50) + "」").join("、") + "——这次必须换新的说法和角度：开头、句式、梗都不许和之前重样，别活成复读机。");
   parts.push("【" + (ctx.profile && ctx.profile.name || "用户") + " 刚写下的这篇日记】\n" + entryText);
   const system = "你现在完全代入「" + ctx.char.name + "」。上面是 " + (ctx.profile && ctx.profile.name || "用户") + " 写的私人日记，Ta 给你看了。请以你的口吻写**一条评论**——就像在对方日记/朋友圈底下留言。\n要求：依据你此刻的心情、你和 Ta 的关系与好感度来决定语气（可以心疼/调侃/吃醋/欲言又止/敷衍，符合人设；好感高的更上心，好感低的可以淡）；口语、自然、简短（1~2 句，最多一小段）；不要复述日记内容，不要加旁白或动作括号，不要@别人。只输出评论正文。\n\n" + parts.join("\n\n");
-  return (await callAI(p, system, [{ role: "user", content: "写评论。" }], { maxTokens: 900 })).trim();
+  return (await callAI(p, system, [{ role: "user", content: "写评论。" }], { maxTokens: 8900 })).trim();
 }
 async function summarizeChat(p, ctx, olderMsgs) {
   const text = olderMsgs.map(m => (m.role === "user" ? ctx.profile.name || "用户" : ctx.char.name) + ": " + m.content).join("\n");
@@ -5659,7 +5659,7 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
   const text = newMsgs.map(m => (m.role === "user" ? ctx.profile.name || "用户" : ctx.char.name) + ": " + m.content).join("\n");
   // 七要素清单（v47.77 借 LNPhone conclusion 规范）：让浓缩段不只记事件、还留住氛围和悬着的事
   const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆。这段要覆盖到（有则写、无则跳，别硬凑）：①发生的关键事件 ②聊的主题 ③两人此刻的关系氛围（如刚吵完在冷战/正在暧昧/和好如初）④用户显露的情绪与需求 ⑤角色的情绪与态度 ⑥未完成的事（答应了没做的、约好的、话说一半的）⑦红包转账礼物照片等功能事件。具体可回看、信息密度高。这是要【追加】到长期记忆末尾的一段，别逐字复述对话、别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
-  return (await callAI(p, system, [{ role: "user", content: "【新对话】\n" + text }], { maxTokens: 2600 })).trim();
+  return (await callAI(p, system, [{ role: "user", content: "【新对话】\n" + text }], { maxTokens: 10600 })).trim();
 }
 // ============================================================
 // storage / utils / geo / mood

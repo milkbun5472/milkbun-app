@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.95";
+const APP_VERSION = "v59.96";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -527,7 +527,7 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
-      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 4000, timeout: 150000 });
+      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 12000, timeout: 150000 });
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.seed(char.id, parsed);
@@ -743,7 +743,7 @@ function App() {
       const os = loadJSON("x_offlineSettings", {});
       if (localStorage.getItem("x_offMaxMig") === "1") { setOfflineSettings(os); return; }
       let changed = false;
-      Object.keys(os).forEach(k => { const e = os[k]; if (e && !String(k).startsWith("g_") && typeof e.maxTokens === "number" && e.maxTokens > 0 && e.maxTokens <= 1400) { os[k] = { ...e, maxTokens: 4000 }; changed = true; } });
+      Object.keys(os).forEach(k => { const e = os[k]; if (e && !String(k).startsWith("g_") && typeof e.maxTokens === "number" && e.maxTokens > 0 && e.maxTokens <= 1400) { os[k] = { ...e, maxTokens: 12000 }; changed = true; } });
       if (changed) saveJSON("x_offlineSettings", os);
       try { localStorage.setItem("x_offMaxMig", "1"); } catch (e) {}
       setOfflineSettings(os);
@@ -1102,7 +1102,7 @@ function App() {
     setTemperamentBusy(true);
     try {
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`;
-      const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 6000 });
+      const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.JiwenEmotionA.temperamentFromAnchors(words, false);
       if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
@@ -1151,7 +1151,7 @@ function App() {
         try {
           const ownerId = await aShadowOwnerId();
           await window.InnerLifeBShadow.observe({ ownerId, char, messages, runDetector: async spec => {
-            const raw = await callAI(bg, spec.system, spec.messages, { maxTokens: spec.maxTokens || 6000 });
+            const raw = await callAI(bg, spec.system, spec.messages, { maxTokens: spec.maxTokens || 14000 });
             return extractJSON(raw) || {};
           }});
           if (activeChar && activeChar.id === char.id) { const bReport = await window.InnerLifeBShadow.report(ownerId, char); setAShadowPanel(p => ({ ...(p || {}), bReport })); }
@@ -1576,7 +1576,7 @@ function App() {
       const raw = await callAI(apiFor(character.id),
         "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。",
         [{ role: "user", content: "房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript }],
-        { maxTokens: 2400, timeout: 120000 });
+        { maxTokens: 10400, timeout: 120000 });
       const summary = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
       if (!summary) throw new Error("模型没有返回摘要");
       window.ChatRooms.addSummary({ personId: character.id, roomId: room.id, roomName: room.name, frame: String(frame || ""), summary, fromTs: Number(room.summaryCursorTs || 0), toTs });
@@ -2530,7 +2530,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const batch = todo.slice(0, 60); // 一次最多 60 条，多的再点一次
       const listText = batch.map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
       const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
-      const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(8000, 500 + batch.length * 60) });
+      const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8500 + batch.length * 60) });
       const arr = extractJSON(raw);
       if (!Array.isArray(arr)) throw new Error("解析失败，重试");
       const byIdx = {};
@@ -3163,7 +3163,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           instruction: GACHA_SR_ASK[card.kind] + "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。",
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
-          maxTokens: 3000
+          maxTokens: 11000
         });
         const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
         gachaStamp(card.id, got);
@@ -3182,7 +3182,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           : card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
           : card.act === "date" ? "{\"title\":\"券面上那件事\",\"body\":\"兑掉那一刻的开场旁白\"}"
           : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
-        maxTokens: 4000
+        maxTokens: 12000
       });
       const title = String(d.title || card.name).trim(), body = String(d.body || "").trim();
       if (!body) { toast("这次没写出东西来，卡还留着，可以再兑一次"); return; }
@@ -6314,7 +6314,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -6324,7 +6324,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -7061,7 +7061,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + charId);
     try {
-      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户刚刚撤回了一条发给你的消息，那条原本的内容是：「" + text + "」。完全代入「" + char.name + "」，按你的人设、注意力和此刻心情，决定：你有没有『看到』那条被撤回的消息（saw）；看到了的话会不会追问/调侃/在意。有人眼疾手快都看到了、会追问「你刚撤回了啥」；有人根本没注意、就当没发生。用即时通讯口吻，短句。\n【输出】只输出 JSON：{\"saw\":true或false,\"say\":[\"气泡1\"]}（没看到或不在意时 say 给空数组）", [{ role: "user", content: "（用户撤回了一条消息）" }], { maxTokens: 700 });
+      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户刚刚撤回了一条发给你的消息，那条原本的内容是：「" + text + "」。完全代入「" + char.name + "」，按你的人设、注意力和此刻心情，决定：你有没有『看到』那条被撤回的消息（saw）；看到了的话会不会追问/调侃/在意。有人眼疾手快都看到了、会追问「你刚撤回了啥」；有人根本没注意、就当没发生。用即时通讯口吻，短句。\n【输出】只输出 JSON：{\"saw\":true或false,\"say\":[\"气泡1\"]}（没看到或不在意时 say 给空数组）", [{ role: "user", content: "（用户撤回了一条消息）" }], { maxTokens: 8700 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       says.forEach((w, i) => setTimeout(() => pChat(charId, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), 500 + i * 650));
@@ -7533,7 +7533,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
       }], {
         // token 随人数放宽：人多一轮更长，别被 3000 截断（封顶 10000）
-        maxTokens: Math.min(10000, 3200 + members.length * 900),
+        maxTokens: Math.min(24000, 11200 + members.length * 900),
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
         timeout: 180000,
         webSearch: _gWantWeb,
@@ -7917,7 +7917,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         role: "user",
         content: "开始投票，按上面的规则决定每个人投什么。"
       }], {
-        maxTokens: 800
+        maxTokens: 8800
       });
       const arr = extractJSON(raw);
       if (!Array.isArray(arr)) return;
@@ -8259,7 +8259,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + charId);
     try {
-      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 500 });
+      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 8500 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       const tag = d.mode === "angry" ? char.name + "（气愤）：" : char.name + "（自言自语）：";
@@ -8300,7 +8300,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
         + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
         + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
-        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 800 });
+        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 8800 });
       const d = extractJSON(raw) || {};
       pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: d.accept ? "accepted" : "declined" } : m));
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
@@ -8471,7 +8471,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(active, ctx, {
         instruction: "为 " + monthName + " 生成一整月的日历事件——" + who + "。**至少 4 条、8-15 条为宜**，分散在当月不同日期。每条：day(该月第几天，1-" + new Date(year, month + 1, 0).getDate() + " 的整数) / title(简短事件名) / note(一句补充，可空)。" + (promptText && promptText.trim() ? "特别要求：" + promptText.trim() + "。" : ""),
         schemaHint: "{\"items\":[{\"day\":8,\"title\":\"事件名\",\"note\":\"补充\"}]}",
-        maxTokens: 1500
+        maxTokens: 9500
       });
       const items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.title && Number(x.day) >= 1);
       if (!items.length) { toast("没有生成内容"); return; }
@@ -8593,7 +8593,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
-        maxTokens: 4000
+        maxTokens: 12000
       });
       const d = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(rawPlan) : rawPlan;
       const plan = {
@@ -8783,7 +8783,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const rawRevision = await runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
             instruction: SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + "\n「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
             schemaHint: "{\"changed\":true,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床\",\"location\":\"家\",\"type\":\"coffee\",\"deviation\":null}]}",
-            maxTokens: 3000
+            maxTokens: 11000
           });
           const d = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(rawRevision) : rawRevision;
           if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
@@ -9153,7 +9153,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         : "把今天此刻一个具体念头或没说出口的话封进去，不预测遥远未来。写 2-4 个自然短段。";
       const sys = buildBundle(ctxFor(char)) +
         "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。" + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid + "\n只输出 JSON：{\"letter\":\"信的正文\"}";
-      const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 4000 });
+      const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 12000 });
       const d = extractJSON(raw);
       if (!d || !d.letter) return;
       const entry = { id: "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), dir: "fromChar", source: "ambient", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
@@ -9750,7 +9750,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "推演「" + char.name + "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**",
         schemaHint: "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}",
         // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
-        maxTokens: 4000
+        maxTokens: 12000
       });
     } catch (e) {
       toast(char.name + " 资产生成失败：" + e.message);
@@ -10047,7 +10047,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           : "TA 卡里现在有 " + Math.round(bal) + " 元" + ((Number(rec.monthlyIncome) || 0) && bal < (Number(rec.monthlyIncome) || 0) * 0.3 ? "，手头很紧，这几天花钱明显收敛。" : "。") + "\n")
           + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。" + doneBlock,
         schemaHint: "{\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}",
-        maxTokens: 800
+        maxTokens: 8800
       });
       const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
       // 代码侧封顶：透支的人一天花不出 40 块以上（模型有时不听）
@@ -10370,7 +10370,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             }
           };
         })();
-        const raw = await callAI(apiFor(char.id), sys, hist, { maxTokens: 2400, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
+        const raw = await callAI(apiFor(char.id), sys, hist, { maxTokens: 10400, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
         says = says.map(stripName).filter(Boolean);
@@ -10396,7 +10396,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if ((!cur.groupId || (cgs && cgs.memoryInterop)) && typeof primeQueryVec === "function") await primeQueryVec(hist.slice(-8).map(m => m.content).join("\n")); // 向量记忆预热
         const cMem = (!cur.groupId || (cgs && cgs.memoryInterop)) ? formatMemLib(retrieveMemories(memLibRef.current, people[0] && people[0].id, hist.slice(-8).map(m => m.content).join("\n"), { limit: 5 })) : "";
         const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys, hist, { maxTokens: 2400 });
+        const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
@@ -10435,7 +10435,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
             "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
             "\"open\":[\"这通电话里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
-          const raw = await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 2400 });
+          const raw = await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 10400 });
           const d = extractJSON(raw);
           const sum = d && d.summary ? String(d.summary).trim() : String(raw || "").trim();
           const opens = d && Array.isArray(d.open) ? d.open.map(x => String(x).trim()).filter(Boolean).slice(0, 3) : [];
@@ -11466,7 +11466,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //   思考型模型的【思考预算是从 maxTokens 里扣的】——给紧了，它想完就没配额写正文，
   //   要么直接空返回、要么写一半停在半句（她见过的「刷不出楼」多半是这个）。
   //   而她按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
-  //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥6000。
+  //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥8000（.claude/rules/max-tokens-floor.md）。
   //   ⚠️别再往下调：这几个数不是「够用就行」，是「够它想完还够它写完」。
   const FTOK = {
     board: 12000,   // 一版 3-5 条新主帖
@@ -11972,7 +11972,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +
       "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
     try {
-      // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥6000）
+      // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥8000）
       const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
       const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
       if (say.length) pChat(toChar.id, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
@@ -12528,7 +12528,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           ? "你们最近有摩擦、正闹别扭甚至吵架，用户此刻赌气把你们的「情侣空间」解除了。依据你们最近的对话、你的人设和此刻心情，做出真实反应（可能生气、失望、想挽留、或冷淡），并给这次解除对好感的打击程度打一个分（deduct，整数 5~10，越是被伤到越高）。"
           : "用户上一秒还在和你聊别的、毫无预兆就把你们的「情侣空间」解除了。你有点错愕、受伤，**主动**开口问 TA 怎么了 / 是不是发生了什么 / 为什么突然这样。";
         const bundle = buildBundle(ctxFor(char));
-        const raw = await callAI(apiFor(char.id), bundle + "\n\n【场景】" + scene + " 完全代入「" + char.name + "」，用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"deduct\":整数,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: "（解除了情侣空间）" }], { maxTokens: 600 });
+        const raw = await callAI(apiFor(char.id), bundle + "\n\n【场景】" + scene + " 完全代入「" + char.name + "」，用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"deduct\":整数,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: "（解除了情侣空间）" }], { maxTokens: 8600 });
         const d = extractJSON(raw) || {};
         if (mode === "fight" && typeof d.deduct === "number") deduct = Math.max(5, Math.min(10, Math.round(d.deduct)));
         const say = Array.isArray(d.say) && d.say.length ? d.say : ["……你把我们的情侣空间解除了？"];
@@ -12573,7 +12573,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         .map(m => ({ role: m.role, content: m.content }));
       const bundle = buildBundle(ctxFor(char));
       const raw = await callAI(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
-        after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 500 });
+        after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 8500 });
       const d = extractJSON(raw) || {};
       respondCoupleInvite(charId, cid, !!d.accept, Array.isArray(d.say) ? d.say : []);
     } catch (e) {
@@ -12996,7 +12996,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + K.openPrompt(char.name, profile.name || "我", hint,
             ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim, about: x.about })))
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.OPEN_SHAPE,
-        [{ role: "user", content: "开这一条。" }], { maxTokens: 4000 })) || {};
+        [{ role: "user", content: "开这一条。" }], { maxTokens: 12000 })) || {};
       const boxes = K.normBoxes(d && d.boxes, char.name);
       if (!boxes.length) { toast("这一条没想出来，再点一次试试"); return null; }
       const line = {
@@ -13043,7 +13043,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "\n\n【到这儿为止发生了什么】\n" + ifTranscript(cur, char)
         + "\n\n" + K.beatPrompt(char.name, profile.name || "我")
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.BEAT_SHAPE,
-        [{ role: "user", content: "接着演。" }], { maxTokens: 4000 })) || {};
+        [{ role: "user", content: "接着演。" }], { maxTokens: 12000 })) || {};
       const boxes = K.normBoxes(d && d.boxes, char.name);
       if (!boxes.length) { toast("这一拍没写出来，再点一次"); return false; }
       const next = { ...cur, beats: [...(cur.beats || []), { id: "b_" + Date.now() + "_c", role: "char", boxes: boxes, ts: Date.now() }].slice(-IF_CAP) };
@@ -13177,7 +13177,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "写这一件衣服本身长什么样，以及它为什么是【她的】。"
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n"
         + "{\"sets\":[{\"occasion\":\"场合\",\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么留着\"}]}",
-        [{ role: "user", content: "配吧。" }], { maxTokens: 2600 })) || {};
+        [{ role: "user", content: "配吧。" }], { maxTokens: 10600 })) || {};
       const rows = Array.isArray(d && d.sets) ? d.sets : [];
       if (!rows.length) { toast("这次没配出来，再点一次"); return false; }
       let box = myClosetRef.current || {};
@@ -13202,7 +13202,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "必须落在【你们这个时代和处境】里：他穿得出来、她也穿得出去，"
           + "换个朝代、换个身份就不成立的才算写对。",
         schemaHint: "{\"occasion\":\"这次出门的场合，四个字以内\",\"his\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"},\"hers\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"}}",
-        maxTokens: 2500
+        maxTokens: 10500
       });
       const occ = String((d && d.occasion) || "约会").trim().slice(0, 8) || "约会";
       const put = (box, one) => {
@@ -13329,7 +13329,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "她那一份已经封着了，你看不到，也不用去猜她会怎么写——就照你自己真实的想法答。"
           + "真挚、贴合人设，2-4 句，别喊口号，答完整别中途断。",
         schemaHint: "{\"answer\":\"你的回答\"}",
-        maxTokens: 1400
+        maxTokens: 9400
       });
       setCoupleQA(p => {
         // 封存过的那条就地揭晓，不再插一条新的（重写 reroll 走的也是这里）
@@ -13394,7 +13394,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，请以「" + char.name + "」的身份重新回答同一道题——真挚、贴合人设、顺着用户的回答接话，2-4 句，别喊口号，答完整别中途断。\n【题目】" + entry.question + "\n【用户的回答】" + (entry.myAnswer || "（TA 没写）"),
         schemaHint: "{\"answer\":\"你的回答\"}",
-        maxTokens: 1400
+        maxTokens: 9400
       });
       setCoupleQA(p => {
         const n = p.map(e => e.id === entry.id ? { ...e, charAnswer: d.answer || "", answeredAt: Date.now() } : e);
@@ -13457,7 +13457,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
         instruction: "你们是恋人，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
-        maxTokens: 6000
+        maxTokens: 14000
       });
       if (d && d.content) {
         saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date()), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
@@ -13638,7 +13638,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
         instruction: "你们是恋人，在情书里一来一回。" + (isNewLetter ? "用户刚给你写了一封情书，你读完后回应" : "顺着下面的情书往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。\n【情书往来】\n" + (context || ""),
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
-        maxTokens: 4000
+        maxTokens: 12000
       });
       const bubbles = Array.isArray(d.bubbles) ? d.bubbles.filter(Boolean) : (d.bubbles ? [String(d.bubbles)] : []);
       setCoupleLetters(p => {
@@ -14317,7 +14317,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
         instruction: "你是一个综合购物 App 的推荐引擎（类似淘宝）。围绕" + topic + "，**务必推荐正好 6 件商品（items 数组必须有 6 个元素，缺一不可）**。每件：name(有画面感的具体商品名) / price(纯数字人民币，符合该品类的合理价位，有高有低) / desc(一句卖点或描述) / sales(销量文案，如「2万+人付款」「8000+人付款」)。要贴合该分类，别跑题。",
         schemaHint: "{\"items\":[{\"name\":\"川味经典红油抄手\",\"price\":38,\"desc\":\"地道成都风味\",\"sales\":\"2万+人付款\"}]}",
-        maxTokens: 3500
+        maxTokens: 11500
       });
       const items = ((d && d.items) || []).map((it, i) => ({
         uid: "p_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 10000),
@@ -14825,7 +14825,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 防复读：Ta 给别的礼物写过的想法 → 这件必须换角度（读本地，零 API）
       const prevTh = (carryGiftsRef.current[charId] || []).filter(g => g.id !== giftId && g.thought).slice(-2).map(g => "「" + g.name + "」你写过：「" + String(g.thought).replace(/\s+/g, " ").slice(0, 44) + "」");
       const system = bundle + "\n\n【任务】用户之前送了你一份礼物「" + name + "」，你收下了、一直随身留着。完全代入「" + char.name + "」，写一段你对这份礼物的私人想法/批注：它对你意味着什么、你怎么看送礼的人、平时怎么对待它。1~3 句，真挚贴人设、贴这件东西本身（好感高的更珍视，好感淡的可以随意些），纯文本不要 JSON。" + (prevTh.length ? "\n【你对别的礼物写过】" + prevTh.join("；") + "——这件的想法必须是新的角度和写法，别和之前的句式、开头、梗重样。" : "");
-      const raw = await callAI(active, system, [{ role: "user", content: "[礼物：" + name + "]" }], { maxTokens: 900 });
+      const raw = await callAI(active, system, [{ role: "user", content: "[礼物：" + name + "]" }], { maxTokens: 8900 });
       const thought = String(raw || "").replace(/^["'\s]+|["'\s]+$/g, "");
       if (thought) setCarryGifts(prev => {
         const list = (prev[charId] || []).map(g => g.id === giftId ? { ...g, thought } : g);
@@ -15104,7 +15104,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(bgActive, ctxFor(c), {
         instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
         schemaHint: "{\"say\":\"一两句话\"}",
-        maxTokens: 6000   // cheap_required 线路已显式配置时仍保留完整思考预算
+        maxTokens: 14000   // cheap_required 线路已显式配置时仍保留完整思考预算
       });
       return d && d.say ? { name: c.remark || c.name, text: String(d.say).trim().slice(0, 120), char: c } : null;
     }

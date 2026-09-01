@@ -38,8 +38,13 @@ test("报错要说清缺了哪个字段，别只甩一句「不完整」", () =>
 });
 
 test("设定与开局的输出额度要够写完九个字段", () => {
-  assert.match(theater, /maxTokens: 4800, timeout: 150000/, "if 线设定");
-  assert.match(theater, /maxTokens: 4000, timeout: 150000/, "基线开局");
+  // 冻的是「够不够写完九个字段」，不是某个具体数字（v59.96 全 app 抬到 ≥8000）
+  const budgets = (theater.match(/maxTokens: (\d+), timeout: 150000/g) || []).map(x => Number(x.match(/\d+/)[0]));
+  // ⚠️原来靠「4800 / 4000」两个不一样的数把这两支认出来；v59.96 抬额度之后
+  //   同一条 timeout 下有四支了（还有重开那两支），认不出谁是谁——
+  //   但这一条在意的本来就是「够不够写完」，那就对着这一条问：这几支一个都不许太小。
+  assert.ok(budgets.length >= 2, "if 线设定 + 基线开局这两支的额度声明找不着了");
+  budgets.forEach(function (b) { assert.ok(b >= 8000, "额度不够写完九个字段：" + b); });
 });
 
 // 「模型没吐出 JSON」的两种真实坏法，scene 那边早就治过，设定这几支以前是裸奔的。

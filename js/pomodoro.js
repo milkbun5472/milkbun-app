@@ -58,7 +58,7 @@
       "· doneTried：Ta 中途想跑过、但还是坚持到最后，你给的一句批注（可以损 Ta，但心里是满意的）。\n" +
       "· gaveUp：Ta 输对暗号提前溜了，你给的一句批注（无奈 / 嫌弃 / 口是心非）。\n" +
       "【输出】只输出 JSON，不要代码块：{\"lines\":[\"..\"],\"stay\":\"..\",\"password\":\"..\",\"hint\":\"..\",\"taunt\":\"..\",\"wrongPass\":\"..\",\"doneClean\":\"..\",\"doneTried\":\"..\",\"gaveUp\":\"..\"}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 2200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 10200 });
     const p = extractJSON(raw) || {};
     const fb = fallbackPack(task, min);
     const str = (v, d) => { const s = v != null ? String(v).trim() : ""; return s && s.toLowerCase() !== "null" ? s : d; };

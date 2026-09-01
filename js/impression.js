@@ -272,7 +272,7 @@
     // maxTokens 2000 真的被打穿过：quote 写到一半被截、宽松解析把半句话捞出来存成了卡
     // （她 2026-08-21「明明每次都被她搅得脑子发懵，但」戛然而止那张）。额度放大之外，
     // 还要用 silhouette 当截断哨兵——它是 JSON 最后一个字段，截断几乎必丢，丢了就报错重试。
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始写这个月的印象。" }], { maxTokens: 5000, timeout: 120000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始写这个月的印象。" }], { maxTokens: 13000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const tags = (Array.isArray(d.tags) ? d.tags : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     const quote = String(d.quote || "").trim();

@@ -577,7 +577,7 @@
       "【输出】只输出合法 JSON 数组，5-8 条书评：\n" +
       "[{\"author\":\"读者马甲（同人圈网名，别用真名，别带@）\",\"content\":\"书评正文\",\"replies\":[{\"author\":\"另一读者马甲\",\"content\":\"楼中楼回复\",\"isAuthor\":false}]}]\n" +
       "**其中必须至少有一条**（某条书评本身、或某条楼中楼回复）是作者「" + authorName + "」本人下场回复读者的——署名就写「" + authorName + "」、把那条的 isAuthor 设为 true，像作者回评那样（道谢/回应读者的梗/害羞解释/回怼黑评，符合太太本人语气）。其余 replies 大多留空，只 1-2 条带楼中楼。语气各异别雷同。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { maxTokens: 3200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { maxTokens: 11200 });
     let d = extractJSON(raw);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
@@ -607,7 +607,7 @@
       "【输出】只输出合法 JSON 数组，2-4 条回复这条评论的话（自然接话/共鸣/抬杠/补充/玩梗）：\n" +
       "[{\"author\":\"马甲\",\"content\":\"回复\",\"isAuthor\":false}]\n" +
       "**其中让作者「" + authorName + "」本人至少回一条**（那条 author 写「" + authorName + "」、isAuthor 设 true）。别都一个腔调，别客服腔。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "针对这条评论生成回复。" }], { maxTokens: 4000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "针对这条评论生成回复。" }], { maxTokens: 12000 });
     let d = extractJSON(raw);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
@@ -685,7 +685,7 @@
       "\n【原著正文节选】\n" + rpStory(fic).slice(0, 2500) +
       "\n\n给玩家安排一个具体、贴合这个世界观的固定身份（" + (mode === "passerby" ? "一个原著里没有的路人 / 配角" : "一个合理有趣的身份，可与原著相关也可全新") + "）。这个身份不能是原著已有的两位主角、也不能叫『" + (userName || "用户") + "』。\n" +
       "只输出 JSON：{\"name\":\"这个身份的名字 / 称谓\",\"role\":\"一句话身份说明（职业 / 处境 / 和主角是什么关系或毫无关系）\"}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "定身份。" }], { maxTokens: 400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "定身份。" }], { maxTokens: 8400 });
     let d = extractJSON(raw);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     if (d && d.name) return { name: String(d.name).slice(0, 20), role: String(d.role || "").slice(0, 90) };
@@ -727,7 +727,7 @@
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
       "\n\n从原著里挑 3-4 个适合玩家空降切入、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
       "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
-    const raw = await callAI(active, sys, [{ role: "user", content: "给降落节点。" }], { maxTokens: 1600 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "给降落节点。" }], { maxTokens: 9600 });
     let d = extractJSON(raw);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
@@ -784,7 +784,7 @@
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id) +
       "\n\n【本场起点】玩家从这个节点空降：「" + session.landing.label + "」——" + session.landing.scene +
       "\n\n现在写【开场】：用两三段把玩家安置进这个场景（" + (id ? "玩家这次的固定身份是「" + id.name + "」（" + id.role + "），开场自然点明并让 TA 入场" : "以玩家的身份视角") + "），营造氛围、带出在场关键人物，最后自然收在一个需要玩家做出反应/抉择的处境上，然后停下等玩家开口。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.min(4000, (perFic || 3000)) });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.max(12000, Math.min(20000, (perFic || 3000) + 8000)) });
     return String(raw || "").trim();
   }
   // 玩家行动 → 推进 + 下一个抉择处境
@@ -792,7 +792,7 @@
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity) +
       "\n\n【本场起点】「" + session.landing.label + "」——" + session.landing.scene +
       "\n承接玩家最新的行动，推进剧情、让相关角色真实反应，写两三百字，再自然收在下一个需要玩家抉择的处境上停下。\n" + rpAnchorLine(session.mode, cpChars, session.playerIdentity) + "（切记：别把玩家换人、别对调 CP 位置、别把玩家当成现实用户本人。）";
-    const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.min(3000, (perFic || 2400)) });
+    const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.max(11000, Math.min(20000, (perFic || 2400) + 8000)) });
     return String(raw || "").trim();
   }
 
@@ -1597,9 +1597,10 @@
       try {
         // 两边使用完全相同的场景与篇幅；唯一变量是实验文风。
         // 思考型模型会把内部思考也计入 maxTokens；1400 曾导致正文只剩几十字。
-        // 与正式长文一样给足 6000，不按字符收费场景无需在这里省预算。
-        const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 6000, timeout: 300000 });
-        const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 6000, timeout: 300000 });
+        // 与正式长文一样给足（v59.96 起是 14000，见 .claude/rules/max-tokens-floor.md）；
+        // 她按次计费，在这里省预算省不到钱，只会换来一次写半截再重来。
+        const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
+        const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
         const cleanBase = String(base || "").trim(), cleanStyled = String(styled || "").trim();
         setLabAB({ base: cleanBase, styled: cleanStyled, baseShort: cleanBase.length < 280, styledShort: cleanStyled.length < 280 });
       } catch (e) { props.toast ? props.toast("A/B 生成失败：" + String(e.message || e)) : alert(String(e.message || e)); }

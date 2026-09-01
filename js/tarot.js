@@ -173,7 +173,7 @@
       (ctx.voiceRef ? "\n【最近的说话与近况】\n" + ctx.voiceRef : "") +
       "\n\n只输出 JSON：{\"decision\":\"accept|hesitate|refuse\",\"line\":\"你当面说的一句自然回应\",\"question\":\"真正拿来问牌的问题\"}。" +
       (forSelf ? "若拒绝，question 留空。" : "decision 固定为 accept。");
-    const raw = await callAI(active, sys, [{ role: "user", content: forSelf ? "你愿意让我替你算吗？" : "这次你想问牌什么？" }], { maxTokens: 900 });
+    const raw = await callAI(active, sys, [{ role: "user", content: forSelf ? "你愿意让我替你算吗？" : "这次你想问牌什么？" }], { maxTokens: 8900 });
     const p = extractJSON(raw) || {};
     const decision = ["accept", "hesitate", "refuse"].includes(p.decision) ? p.decision : "accept";
     return { decision: decision, line: String(p.line || raw || "").trim().slice(0, 240), question: String(p.question || "").trim().slice(0, 240) };
@@ -247,7 +247,7 @@
       "\n【人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 700) +
       "\n【原问题】" + (session.question || "未明说") + "\n【原收束】" + String(session.summary || "").slice(0, 500) +
       "\n【补牌】" + cardLabel(card) + "\n【本地牌义锚点】" + ref.keywords + "；" + ref.text;
-    return String(await callAI(active, sys, [{ role: "user", content: "把这张补牌接到刚才的牌位上。" }], { maxTokens: 1000 }) || "").trim();
+    return String(await callAI(active, sys, [{ role: "user", content: "把这张补牌接到刚才的牌位上。" }], { maxTokens: 9000 }) || "").trim();
   }
 
   // ============================================================
@@ -260,7 +260,7 @@
       "今天的塔罗牌是【同一张】：" + cardLabel(card) + "。请【分别以下面每位角色本人的口吻】，就【这同一张牌】给 " + uName + " 递一句今天的当日签——短，像随口说的一两句，结合这张牌（含正/逆位）与各自人设" + (list.some(it => it.mood) ? "（有此刻心情就顺带透一点，但别喧宾夺主，牌义才是主角）" : "") + "，别混淆、别串味、别把几个人写成同一个腔调、也别千篇一律。\n\n" +
       "【要解读这张牌的角色】\n" + block +
       "\n\n【输出】只输出 JSON，readings 数组和上面角色顺序【一一对应、数量一致】：{\"readings\":[{\"name\":\"角色名\",\"text\":\"这位角色对今天这张牌的当日签\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { maxTokens: 4000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { maxTokens: 12000 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.readings) ? p.readings : [];
     // 优先按 name 对齐，兜底按顺序
@@ -684,7 +684,7 @@
       "\n【占卜师总结】" + String(session.readerSummary || session.summary || "").slice(0, 1800);
     const msgs = (history || []).slice(-10).map(x => ({ role: x.role === "assistant" ? "assistant" : "user", content: x.content }));
     msgs.push({ role: "user", content: question });
-    return String(await callAI(active, sys, msgs, { maxTokens: 1400 }) || "").trim();
+    return String(await callAI(active, sys, msgs, { maxTokens: 9400 }) || "").trim();
   }
 
   function SessionView(props) {
