@@ -1200,6 +1200,28 @@ function phoneSearch(rows, extra, q) {
 }
 
 // 今天/昨天/前天/8月28日 周五 —— 时间线按天分段用的标题
+// ── 一天里的光（v59.62）──────────────────────────────────────────────
+// 她 2026-09-01：「这个背景和这俩 tab 太单调了，弄点跟时间有关的元素吧」。
+// 时间线的底色跟着【现在几点】走。不是随手抹的花纹——这一页讲的就是时间，
+// 翻开它的那一刻是清晨还是深夜，本身就是一条信息。
+// ⚠️一律用 rgba 压在 t.bg 上：深浅两套主题都得照样成立，不许硬写某一种底色。
+const PHONE_HOUR_LIGHT = [
+  { until: 5,  key: "night", zh: "凌晨", top: "rgba(52,60,108,.30)",   foot: "rgba(34,40,74,.20)",   glow: "rgba(196,206,236,.30)" },
+  { until: 9,  key: "dawn",  zh: "清晨", top: "rgba(132,166,196,.32)", foot: "rgba(232,206,170,.24)", glow: "rgba(255,226,178,.46)" },
+  { until: 17, key: "day",   zh: "白天", top: "rgba(150,176,190,.26)", foot: "rgba(216,206,178,.18)", glow: "rgba(255,246,214,.52)" },
+  { until: 20, key: "dusk",  zh: "黄昏", top: "rgba(206,128,80,.32)",  foot: "rgba(132,92,108,.22)",  glow: "rgba(255,190,128,.50)" },
+  { until: 24, key: "dark",  zh: "夜里", top: "rgba(66,72,118,.30)",   foot: "rgba(38,42,78,.20)",   glow: "rgba(206,214,240,.28)" }
+];
+// 那道光在天上的位置也跟着钟点走：正午最高，越靠两头越低，一整天从左边挪到右边。
+// 一天里翻两次时间线，看到的不是同一张底。
+const phoneHourLight = ts => {
+  const d = new Date(ts == null ? Date.now() : ts);
+  const hr = d.getHours() + d.getMinutes() / 60;
+  const band = PHONE_HOUR_LIGHT.find(x => hr < x.until) || PHONE_HOUR_LIGHT[PHONE_HOUR_LIGHT.length - 1];
+  return { ...band,
+    gx: Math.round(9 + hr / 24 * 82),
+    gy: Math.min(44, Math.round(9 + Math.abs(hr - 13) * 2.6)) };
+};
 function phoneDayLabel(ts, nowTs) {
   if (ts == null) return "时间不详";
   const now = new Date(nowTs || Date.now()), d = new Date(ts);
@@ -1715,7 +1737,12 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   // 换格时把筛选和滚动都归位：带着「我收着的」切过去、那一格一条都没收着的话，
   // chip 自己消失，人就卡在一个空列表里退不出来。
   const goTab = k => { if (k === tab) return; setTab(k); setMode("all"); if (scrollRef.current) scrollRef.current.scrollTop = 0; };
-  const now = Date.now();
+  // 轴上那个「现在」要走针。半分钟对一次就够——画秒的话整页每秒重渲染，不值。
+  // 顺带让 now 跟着它走：过了午夜，「今天」那一格的标题自己会改口。
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  useEffect(() => { const iv = setInterval(() => setClockNow(Date.now()), 30000); return () => clearInterval(iv); }, []);
+  const now = clockNow;
+  const light = phoneHourLight(now);
   // 按天切段
   const groups = [];
   shown.forEach(r => {
@@ -1737,7 +1764,10 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, color: isNew(r) ? TL_DOT : t.fog } },
       r.ts == null ? "—" : phoneClock(r.ts))),
   h("div", { style: { width: 15, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" } },
-    h("span", { style: { position: "absolute", top: first ? 15 : 0, bottom: last ? "auto" : 0, height: last ? 0 : "auto", width: 1, background: t.line } }),
+    // 实线＝已经发生，虚线＝还没发生。同一套话在上面那条轴上已经说过一遍，
+    // 这里再说一遍，两处对得上，就不用另写一行小字去解释它。
+    h("span", { style: { position: "absolute", top: first ? 15 : 0, bottom: last ? "auto" : 0, height: last ? 0 : "auto",
+      width: r.ahead ? 0 : 1, borderLeft: r.ahead ? "1px dashed " + t.line : "none", background: r.ahead ? "transparent" : t.line } }),
     h("span", {
       style: {
         position: "absolute", top: 12, width: isNew(r) ? 9 : 6, height: isNew(r) ? 9 : 6, borderRadius: 9,
@@ -1753,28 +1783,47 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, r.title),
     r.text && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
       r.text.length > 52 ? r.text.slice(0, 52) + "…" : r.text)));
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: {
+    // 上下两道光压在主题底色上：上面那道是这个钟点的天色，下面那道是它落到地上的余色
+    background: "radial-gradient(58% 34% at " + light.gx + "% " + light.gy + "%," + light.glow + ",transparent 70%),"
+      + "linear-gradient(180deg," + light.top + ",transparent 52%),"
+      + "linear-gradient(0deg," + light.foot + ",transparent 36%)," + t.bg
+  } },
     h("div", {
       className: "shrink-0 px-4 pb-2 flex items-center gap-2",
-      style: { background: t.bg, paddingTop: safeTop(10) }
+      style: { paddingTop: safeTop(10) }
     },
     h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
     h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "时间线"),
     h("div", { style: { width: 40, height: 40 } })),
     // 接下来 / 走过的。两格都常驻——空着的那一格不藏起来，否则日历里排下来的事
     // 一进时间线就人间蒸发，她只会以为是丢了。
-    h("div", { className: "shrink-0 px-5 pb-2 flex items-center", style: { gap: 7 } },
-      [["past", "走过的", pastN], ["ahead", "接下来", aheadN]].map(([k, label, n]) => h("button", {
-        key: k,
-        onClick: () => goTab(k),
-        className: "active:opacity-60",
-        "aria-pressed": tab === k ? "true" : "false",
-        style: {
-          fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 99,
-          background: tab === k ? t.ink : "transparent", color: tab === k ? "#fff" : t.sub,
-          border: "1px solid " + (tab === k ? t.ink : t.line)
-        }
-      }, label + (n ? " " + n : "")))),
+    // ⚠️这一行本身就画成一条时间轴：左边是走过的、右边是还没走的，中间钉着「现在」，
+    //   左半实线、右半虚线。两个 tab 不再是两颗随便摆着的药丸，它们各自站在轴的一头。
+    h("div", { className: "shrink-0 px-5 pb-2 flex items-center", style: { gap: 8 } },
+      [["past", "走过的", pastN], ["ahead", "接下来", aheadN]].map(([k, label, n], i) => [
+        i === 1 ? h("div", { key: "axis", className: "flex-1 min-w-0 flex items-center", style: { gap: 5 },
+          "aria-label": "现在是" + light.zh + phoneClock(now) },
+          h("span", { style: { flex: "1 1 0", minWidth: 5, height: 1, background: t.line } }),
+          h("span", { style: { flexShrink: 0, width: 5, height: 5, borderRadius: 9, background: t.ink } }),
+          // 这两个字同时在解释背景那道光是哪儿来的：不写的话，底色变了没人知道为什么
+          h("span", { style: { flexShrink: 0, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".06em", color: t.sub } },
+            light.zh + " " + phoneClock(now)),
+          h("span", { style: { flex: "1 1 0", minWidth: 5, borderTop: "1px dashed " + t.line } })) : null,
+        h("button", {
+          key: k,
+          onClick: () => goTab(k),
+          className: "active:opacity-60 shrink-0",
+          "aria-pressed": tab === k ? "true" : "false",
+          // ⚠️选中态的字色写 t.bg，不许写死 #fff：深色主题里 t.ink 是近白色，
+          //   压一个 #fff 上去就是白底白字（v59.62 在深色主题下抓到的）。
+          style: {
+            fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 99,
+            background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg : t.sub,
+            border: "1px solid " + (tab === k ? t.ink : t.line)
+          }
+        }, label + (n ? " " + n : ""))
+      ])),
     // 只看新增
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
@@ -1789,7 +1838,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
           className: "active:opacity-60",
           style: {
             fontFamily: F_BODY, fontSize: 11, padding: "4px 11px", borderRadius: 99,
-            background: mode === "keep" ? t.ink : "transparent", color: mode === "keep" ? "#fff" : t.sub,
+            background: mode === "keep" ? t.ink : "transparent", color: mode === "keep" ? t.bg : t.sub,
             border: "1px solid " + (mode === "keep" ? t.ink : t.line)
           }
         }, "我收着的 " + keptCount),
@@ -1815,7 +1864,19 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
             color: t.fog, padding: "16px 0 8px 61px"
           }
         }, g.label.toUpperCase()),
-        g.rows.map((r, i) => row(r, i === 0, i === g.rows.length - 1 && gi === groups.length - 1))))),
+        g.rows.map((r, i) => row(r, i === 0, i === g.rows.length - 1 && gi === groups.length - 1)))),
+      // 线走完最后一条不该就这么断掉——底下那一大片空白，本身也是时间的一部分。
+      // 让竖轴接着往下走一小截、淡出去，收在一个空心的点上，旁边说清楚那头是什么。
+      shown.length ? h("div", { className: "flex", style: { paddingLeft: 46 } },
+        h("div", { style: { width: 15, flexShrink: 0, position: "relative", height: 88 } },
+          h("span", { style: {
+            position: "absolute", left: "50%", top: 0, bottom: 16, width: 1,
+            background: "linear-gradient(180deg," + t.line + ",transparent)",
+            opacity: tab === "ahead" ? .55 : 1
+          } }),
+          h("span", { style: { position: "absolute", left: "50%", marginLeft: -3.5, bottom: 8, width: 7, height: 7, borderRadius: 9, border: "1px solid " + t.line } })),
+        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 66, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog } },
+          tab === "ahead" ? "再往后，他日历上还没排。" : "再往前，他手机上没留下什么了。")) : null),
     newCount > 0 && h("div", { className: "shrink-0 px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("button", {
         onClick: onMarkRead, className: "w-full py-3 active:opacity-60",
@@ -4920,7 +4981,7 @@ function PhoneCarry({
                 style: {
                   fontFamily: F_BODY, fontSize: 10.5, padding: "4px 10px", borderRadius: 99,
                   background: (autoOn || {})[c.id] ? t.ink : "transparent",
-                  color: (autoOn || {})[c.id] ? "#fff" : t.fog,
+                  color: (autoOn || {})[c.id] ? t.bg : t.fog,
                   border: "1px solid " + ((autoOn || {})[c.id] ? t.ink : t.line)
                 }
               }, "每周") : null,
