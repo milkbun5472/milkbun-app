@@ -17,14 +17,15 @@ function load() {
   return { D: w.Dwell, store };
 }
 
-// 她 2026-09-01：暗底节点、连线、幽灵英文和抽屉清单与别的产品太像。
-test("地点总览改成可滚动的场所观察档案，不再把区域画成星图节点", () => {
-  const i = dwell.indexOf('// ── 一处地方：完整的场所观察档案');
+// 她 2026-09-01：暗底节点、连线、幽灵英文和抽屉清单与别的产品太像；
+// 但整屏氛围要留，出图以后应该先安静地看完现场和介绍，再向下翻档案。
+test("地点总览先给整屏现场与介绍，再向下翻场所档案", () => {
+  const i = dwell.indexOf('// ── 一处地方：整屏现场 → 场所观察档案');
   assert.ok(i > 0, "找不到新的场所档案页");
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  assert.match(src, /fieldBar\(open\.name/);
+  assert.match(src, /immersiveBar\("去处"/);
   assert.match(src, /flex-1 min-h-0 overflow-y-auto/, "地点页内容多了不会滚");
-  assert.match(src, /placePhoto\(open, 220\)/);
+  assert.match(src, /immersivePlaceHero\(open, zs, itemCount\)/);
   assert.match(src, /"场所观察档案"/);
   assert.match(src, /"空间索引"/);
   assert.match(src, /className: "grid grid-cols-2"/, "区域没有收成明确的卡片索引");
@@ -33,13 +34,24 @@ test("地点总览改成可滚动的场所观察档案，不再把区域画成�
 });
 
 test("地点档案保留氛围、归属和真实数量，不为新 UI 丢内容", () => {
-  const i = dwell.indexOf('// ── 一处地方：完整的场所观察档案');
+  const i = dwell.indexOf('// ── 一处地方：整屏现场 → 场所观察档案');
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  assert.match(src, /open\.ambient/, "进门第一感觉没了");
-  assert.match(src, /\[\["归属", char \? char\.name/);
-  assert.match(src, /\["区域", zs\.length \+ " 块"\]/);
-  assert.match(src, /\["物件", itemCount \+ " 件"\]/);
+  const hero = dwell.slice(dwell.indexOf("const immersivePlaceHero = function"), dwell.indexOf("\n    };", dwell.indexOf("const immersivePlaceHero = function")));
+  assert.match(hero, /p\.ambient/, "进门第一感觉没了");
+  assert.match(hero, /char \? char\.name : "未归属"/);
+  assert.match(hero, /zs\.length \+ " 块区域"/);
+  assert.match(hero, /itemCount \+ " 件物品"/);
   assert.match(src, /\(z\.items \|\| \[\]\)\.slice\(0, 2\)/, "区域卡没有用真实物件做预览");
+});
+
+test("生成图占满第一可视屏，介绍叠在现场上而不是缩成小卡片", () => {
+  const i = dwell.indexOf("const immersivePlaceHero = function");
+  const hero = dwell.slice(i, dwell.indexOf("\n    };", i));
+  assert.match(hero, /minHeight: "calc\(100dvh - env\(safe-area-inset-top\) - 58px\)"/);
+  assert.match(hero, /position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover"/);
+  assert.match(hero, /position: "absolute", left: 21, right: 21, bottom:/, "介绍没有叠在图的下部");
+  assert.match(hero, /"上翻看索引 ↑"/);
+  assert.doesNotMatch(hero, /pinTop|onLeft|borderRadius: 999.*p\.name|\.toUpperCase\(\)/, "整屏现场又做回节点星图了");
 });
 
 test("没出图时用平面网格占位，补图、重画和重新观察仍都在", () => {

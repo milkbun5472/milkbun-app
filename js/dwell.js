@@ -152,8 +152,8 @@
   function loadCfg() { const d = loadJSON(CFG_K, null); return { withImg: !(d && d.withImg === false) }; }
   function saveCfg(c) { saveJSON(CFG_K, { withImg: !!c.withImg }); return loadCfg(); }
 
-  // 去处内页是一套「场所观察档案」纸面，不再用暗色星图、悬浮节点、连线和幽灵英文。
-  // 数据仍然是 地点→区域→物件 三层；这里只让层级长得像一份真的观察记录。
+  // 去处内页是一套「场所观察档案」。地点首页保留整屏场景的沉浸感，往下翻才进入纸面索引；
+  // 不再用暗色星图、悬浮节点、连线和幽灵英文。数据仍然是 地点→区域→物件 三层。
   const FIELD_PAPER = "#eeeae1";
   const FIELD_CARD = "#faf7f0";
   const FIELD_INK = "#263038";
@@ -237,6 +237,14 @@
           sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 1 } }, sub) : null),
         h("div", { style: { width: 40, height: 40, flexShrink: 0 } }));
     };
+    const immersiveBar = function (title, sub) {
+      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10), background: "#101316", borderBottom: "1px solid rgba(255,255,255,.1)" } },
+        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#f4f1e9" })),
+        h("div", { className: "flex-1 min-w-0 text-center px-1" },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#f4f1e9", lineHeight: 1.15 } }, title),
+          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.58)", marginTop: 1 } }, sub) : null),
+        h("div", { style: { width: 40, height: 40, flexShrink: 0 } }));
+    };
     const placePhoto = function (p, height) {
       return h("div", { style: { position: "relative", height: height || 210, overflow: "hidden", background: "#d9ddd9", borderBottom: "1px solid " + FIELD_LINE } },
         p && p.img
@@ -244,6 +252,30 @@
           : h("div", { className: "h-full flex items-center justify-center", style: { backgroundColor: "#dfe4e1", backgroundImage: "linear-gradient(" + FIELD_LINE + " 1px,transparent 1px),linear-gradient(90deg," + FIELD_LINE + " 1px,transparent 1px)", backgroundSize: "24px 24px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, background: "rgba(250,247,240,.86)", border: "1px solid " + FIELD_LINE, padding: "8px 11px", borderRadius: 6 } }, "尚未补现场图")),
         h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: "#fff", background: "rgba(38,48,56,.72)", padding: "5px 8px", borderRadius: 4 } }, "现场视图"));
+    };
+    // 地点打开后的第一屏只负责让人待在现场：图和介绍占满可视区，索引必须向下翻才出现。
+    // 这是沉浸式照片页，不是节点地图；没有区域连线、悬浮标签或巨大装饰英文。
+    const immersivePlaceHero = function (p, zs, itemCount) {
+      const photo = p && p.img ? (typeof resolveImg === "function" ? resolveImg(p.img) : p.img) : "";
+      return h("section", { style: { position: "relative", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", overflow: "hidden", background: "#101316", color: "#f4f1e9" } },
+        photo
+          ? h("img", { src: photo, alt: p.name || "场所图", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+          : h("div", { style: { position: "absolute", inset: 0, backgroundColor: "#171c20", backgroundImage: "linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px)", backgroundSize: "34px 34px" } }),
+        h("div", { style: { position: "absolute", inset: 0, background: photo
+          ? "linear-gradient(180deg,rgba(5,8,10,.18) 0%,rgba(5,8,10,.08) 35%,rgba(5,8,10,.9) 100%)"
+          : "radial-gradient(circle at 72% 24%,rgba(97,120,134,.28),transparent 36%),linear-gradient(180deg,rgba(9,12,14,.08),rgba(9,12,14,.82))" } }),
+        h("div", { style: { position: "absolute", left: 21, right: 21, bottom: "calc(env(safe-area-inset-bottom) + 25px)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: "rgba(244,241,233,.65)" } }, photo ? "现场影像 · 场所观察" : "场所观察 · 等待现场影像"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.28, marginTop: 10, textShadow: "0 2px 20px rgba(0,0,0,.42)" } }, p.name),
+          p.ambient ? h("div", { style: { maxWidth: 560, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.82, color: "rgba(244,241,233,.82)", marginTop: 12, textShadow: "0 1px 12px rgba(0,0,0,.55)" } }, p.ambient) : null,
+          h("div", { className: "flex items-center", style: { gap: 13, marginTop: 20, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.25)", fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.67)" } },
+            h("span", null, char ? char.name : "未归属"),
+            h("span", { style: { width: 3, height: 3, borderRadius: 99, background: "rgba(244,241,233,.52)" } }),
+            h("span", null, zs.length + " 块区域"),
+            h("span", { style: { width: 3, height: 3, borderRadius: 99, background: "rgba(244,241,233,.52)" } }),
+            h("span", null, itemCount + " 件物品"),
+            h("span", { style: { flex: 1 } }),
+            h("span", { style: { whiteSpace: "nowrap" } }, "上翻看索引 ↑"))));
     };
 
     // ── 一件东西：物件观察卡，他的想法是这一页的主角 ─────────────
@@ -316,25 +348,16 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, n ? n + " 处" : "还没去过"));
           }))));
 
-    // ── 一处地方：完整的场所观察档案 ─────────────────────────
+    // ── 一处地方：整屏现场 → 场所观察档案 ─────────────────────
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
       const itemCount = zs.reduce(function (n, z) { return n + (z.items || []).length; }, 0);
-      return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
-        fieldBar(open.name, char ? char.name : ""),
+      return h("div", { className: "h-full flex flex-col", style: { background: "#101316", color: FIELD_INK } },
+        immersiveBar("去处", char ? char.name : ""),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
-          placePhoto(open, 220),
-          h("div", { className: "px-5" },
-            h("div", { className: "grid grid-cols-3", style: { marginTop: -1, border: "1px solid " + FIELD_LINE, background: FIELD_CARD } },
-              [["归属", char ? char.name : "—"], ["区域", zs.length + " 块"], ["物件", itemCount + " 件"]].map(function (x, i) {
-                return h("div", { key: x[0], style: { padding: "10px 9px", minWidth: 0, borderLeft: i ? "1px solid " + FIELD_LINE : "none" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, x[0]),
-                  h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FIELD_INK, marginTop: 3 } }, x[1]));
-              })),
-            h("div", { style: { marginTop: 22 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "场所观察档案"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.35, color: FIELD_INK, marginTop: 6 } }, open.name),
-              open.ambient ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: FIELD_SUB, marginTop: 10 } }, open.ambient) : null),
+          immersivePlaceHero(open, zs, itemCount),
+          h("div", { className: "px-5", style: { background: FIELD_PAPER, paddingTop: 24 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "场所观察档案"),
             h("div", { className: "flex items-center", style: { gap: 10, margin: "25px 0 11px" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: FIELD_INK } }, "空间索引"),
               h("div", { style: { flex: 1, height: 1, background: FIELD_LINE } }),
