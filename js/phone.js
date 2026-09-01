@@ -991,15 +991,39 @@ function phoneTone(key) {
   if (typeof appTone === "function") return appTone(PHONE_TONE_KEY[key] || key);
   return { wash: "linear-gradient(145deg,rgba(255,255,255,.92),rgba(231,225,214,.82))", glyph: "#3f6f82" };
 }
-function phonePaper() {
-  return typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG
-    : "linear-gradient(155deg,#f7f2e9 0%,#eee8dc 58%,#f3efe7 100%)";
+// ── 这是【谁的】手机（v59.30）─────────────────────────────
+// 她 2026-09-01：「查手机界面跟主界面颜色一样为啥看起来怪怪的」。
+// 怪在【语义】上，不只是审美：**查手机的全部意思是「你在翻别人的手机」**，
+// 那种偷看感来自它跟她自己的界面【不一样】。做成同一套纸底＋同一套彩釉图标，
+// 等于给他的手机换上了她的皮；四个角色的手机也会长得一模一样，翻谁都一个样。
+// 视觉上还坏在两处：① 极淡的彩釉浮在极淡的米纸上，对比低到一排图标像蒙了雾；
+// ② 玻璃质感要透出底下的东西才成立，可底下是哑光米纸，透出来只剩灰。
+// 修法不是推翻 Codex 那套（每个角色自定义外观的骨架是对的），是把【默认值】改对。
+function phoneHue(charId) {
+  const str = String(charId || "");
+  let hsh = 2166136261;
+  for (let i = 0; i < str.length; i++) { hsh ^= str.charCodeAt(i); hsh = Math.imul(hsh, 16777619); }
+  return (hsh >>> 0) % 360;
+}
+// 同一个人永远同一个色，不同人一定不同色。
+function phoneOwnPaper(charId) {
+  const hu = phoneHue(charId);
+  return "linear-gradient(160deg,hsl(" + hu + ",22%,26%) 0%,hsl(" + ((hu + 24) % 360) + ",26%,17%) 58%,hsl(" + hu + ",20%,13%) 100%)";
+}
+function phonePaper(charId, look) {
+  if (look && look.iconPreset === "main") {
+    return typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG
+      : "linear-gradient(155deg,#f7f2e9 0%,#eee8dc 58%,#f3efe7 100%)";
+  }
+  return phoneOwnPaper(charId);
 }
 function phoneImage(ref) {
   if (!ref) return "";
   return typeof resolveImg === "function" ? (resolveImg(ref) || "") : String(ref);
 }
 const PHONE_ICON_PRESETS = [
+  // ⭐默认：他的手机就该跟她自己的界面不一样，不然「翻别人手机」在视觉上不成立
+  { key: "own", name: "他自己的", sub: "一人一个底色，跟你的界面分得开" },
   { key: "main", name: "主界面彩釉", sub: "跟 Lisa's phone 同一套颜色" },
   { key: "soft", name: "柔光", sub: "更浅、更像磨砂玻璃" },
   { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
@@ -1565,7 +1589,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         style: {
           width: 76, height: 104, flexShrink: 0, borderRadius: 16, overflow: "hidden", cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center",
-          background: src ? "#ddd" : phonePaper(), backgroundSize: "cover", backgroundPosition: "center",
+          background: src ? "#ddd" : phonePaper(char && char.id, look), backgroundSize: "cover", backgroundPosition: "center",
           border: "1px solid rgba(34,31,27,.10)"
         }
       }, src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } })
@@ -1582,8 +1606,8 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
             h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v })) })),
           ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "恢复默认")))));
   };
-  const iconPreset = look.iconPreset || "main";
-  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper() } },
+  const iconPreset = look.iconPreset || "own";   // 设置页高亮的那一档也要跟默认一致，不然看着像选了「主界面彩釉」
+  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center" },
@@ -1647,7 +1671,7 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   return h("div", {
     className: "h-full flex flex-col",
     style: lockSrc ? { backgroundImage: "linear-gradient(rgba(246,243,237,.22),rgba(246,243,237,.42)),url(\"" + lockSrc.replace(/\"/g, "%22") + "\")", backgroundSize: "cover", backgroundPosition: "center" }
-      : { background: phonePaper() }
+      : { background: phonePaper(char && char.id, look) }
   },
   h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, letterSpacing: ".2em", color: "rgba(30,28,24,.5)" } },
@@ -4369,6 +4393,22 @@ function PhoneCarry({
   const hasData = a => PHONE_LIVE_KEYS.indexOf(a.key) >= 0 ? liveCount(a.key) > 0
     : data[a.key];
   const appByKey = k => PHONE_APPS.find(a => a.key === k);
+  // 外观设置那一格：长得跟别的 app 图标一模一样，只是点开进的是设置。
+  const lookIcon = () => {
+    const preset = look.iconPreset || "own";
+    const iconBg = preset === "own" ? "rgba(255,255,255,.13)"
+      : preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
+        : preset === "glass" ? "rgba(255,255,255,.38)" : phoneTone("settings").wash;
+    const glyph = preset === "own" ? "rgba(255,255,255,.88)" : preset === "mono" ? "#4d4b47" : phoneTone("settings").glyph;
+    return h("button", {
+      key: "__look", onClick: () => setLookOpen(true),
+      className: "flex flex-col items-center active:opacity-60", style: { gap: 7, minWidth: 0 }
+    },
+      h("div", { className: "relative flex items-center justify-center",
+        style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 8px 22px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.16)" : "0 8px 22px rgba(28,25,20,.10)" } },
+        h(PGlyph, { k: "settings", size: 24, color: glyph })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? "rgba(255,255,255,.78)" : t.sub, textAlign: "center" } }, "外观"));
+  };
   const openApp = a => {
     if (!a || a.soon) return;
     // 原来的匿名正门首次打开会自动准备马甲；从查手机进也保持同一体验。
@@ -4390,12 +4430,14 @@ function PhoneCarry({
   const appIcon = (a, compact) => {
     const custom = phoneImage(look.icons && look.icons[a.key]);
     const tone = phoneTone(a.key);
-    const preset = look.iconPreset || "main";
-    const iconBg = preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
-      : preset === "glass" ? "rgba(255,255,255,.38)"
-        : preset === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash
-          : tone.wash;
-    const glyph = preset === "mono" ? "#4d4b47" : tone.glyph;
+    const preset = look.iconPreset || "own";
+    // own：深底上一块半透明浅玻璃——玻璃这时候才成立（底下真有东西可透）
+    const iconBg = preset === "own" ? "rgba(255,255,255,.13)"
+      : preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
+        : preset === "glass" ? "rgba(255,255,255,.38)"
+          : preset === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash
+            : tone.wash;
+    const glyph = preset === "own" ? "rgba(255,255,255,.88)" : preset === "mono" ? "#4d4b47" : tone.glyph;
     return h("button", {
     key: a.key,
     onClick: () => openApp(a),
@@ -4668,6 +4710,10 @@ function PhoneCarry({
       display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, widgetCopy(key));
   }
 
+  // ⚠️底换深了，上层也得跟着换：widget 卡原来用 tone.wash（浅底专用的彩釉），
+  // 压在深壁纸上成了一摊脏色，里头的字还是浅色主题的墨色——黑字压深底看不清。
+  // 真手机上本来就是【深壁纸 + 浅色卡片】，所以 own 档直接给不透明的浅卡。
+  const wPreset = look.iconPreset || "own";
   const deskWidget = spec => {
     const key = spec.key;
     const wide = spec.span === 2;
@@ -4682,7 +4728,8 @@ function PhoneCarry({
       className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
       style: {
         gridColumn: "span 2", minHeight: 46, gap: 9, borderRadius: 16,
-        background: "rgba(255,255,255,.52)", border: "1px solid rgba(255,255,255,.66)"
+        background: wPreset === "own" ? "rgba(250,248,243,.9)" : "rgba(255,255,255,.52)",
+        border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
       }
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
       style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }
@@ -4703,7 +4750,7 @@ function PhoneCarry({
         minHeight: hero ? 124 : tall ? 132 : spec.size === "wide" ? 112 : 104,
         padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
         display: "flex", flexDirection: "column",
-        background: dark ? "rgba(30,29,27,.88)" : tone.wash,
+        background: dark ? "rgba(30,29,27,.88)" : wPreset === "own" ? "rgba(250,248,243,.94)" : tone.wash,
         color: dark ? "#fff" : t.ink, border: dark ? "none" : "1px solid rgba(255,255,255,.72)",
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
@@ -4714,47 +4761,49 @@ function PhoneCarry({
   };
   const pages = layout.pages.map((keys, pageIndex) => h("section", {
     key: pageIndex,
-    className: "h-full min-w-full overflow-y-auto px-5 pt-3 pb-5",
-    style: { scrollSnapAlign: "start", scrollSnapStop: "always" }
+    className: "h-full min-w-full overflow-y-auto px-5 pt-3",
+    // ⚠️底部要让开那排 dock：pb-5 只有 20px，最后一排图标会被压在 dock 底下
+    //（多加一格「外观」之后一眼看出来的）。
+    style: { scrollSnapAlign: "start", scrollSnapStop: "always", paddingBottom: 104 }
   }, h("div", { className: "grid grid-cols-2 gap-3 mb-6" }, (layout.widgets[pageIndex] || []).map(deskWidget)),
   // 这一页已经摆了组件的 app，就不在同一页再放一个图标——她 2026-08-30 问的
   //「哪些留图标、哪些换组件」，答案是【按页去重】：组件已经把内容摊开了，
   // 旁边再放个同名图标只是重复一次，而且把真正需要图标的那几个挤下去。
   h("div", { className: "grid grid-cols-4 gap-x-2 gap-y-6" },
     keys.filter(k => !(layout.widgets[pageIndex] || []).some(w => w.key === k))
-      .map(k => appIcon(appByKey(k), false)))));
+      .map(k => appIcon(appByKey(k), false))
+      // 外观设置：她 2026-09-01「做他们 app 的一个图标，不要放在上面」。
+      // 只摆在最后一页，跟别的 app 一样是个图标——顶栏那一格还给搜索。
+      .concat(pageIndex === layout.pages.length - 1 ? [lookIcon()] : []))));
   return h("div", {
     className: "h-full flex flex-col overflow-hidden",
     style: homeSrc ? {
       backgroundImage: "linear-gradient(rgba(246,243,237,.13),rgba(246,243,237,.31)),url(\"" + homeSrc.replace(/\"/g, "%22") + "\")",
       backgroundSize: "cover", backgroundPosition: "center"
-    } : { background: phonePaper() }
+    } : { background: phonePaper(char && char.id, look) }
   }, h("div", {
     className: "shrink-0 px-4 pb-2 flex items-center",
     style: { paddingTop: safeTop(20) }
   }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50 flex items-center", style: { width: 76, height: 36 }, "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
-  h("div", { className: "flex-1 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
-  h("div", { className: "flex items-center justify-end", style: { width: 76, gap: 4 } },
-    h("button", {
-      onClick: () => setLookOpen(true), className: "active:opacity-50 flex items-center justify-center", "aria-label": "手机外观设置",
-      style: { width: 36, height: 36, borderRadius: 12, background: "rgba(255,255,255,.42)", border: "1px solid rgba(255,255,255,.55)" }
-    }, h(PGlyph, { k: "settings", size: 18, color: phoneTone("settings").glyph })),
+  // 她 2026-09-01：「搜索键缩短放顶上时间那块地方，所以最顶部就留返回键、搜索框、
+  // 头像切换角色」。时间那一格让给搜索——上面本来就该是「你在找什么」，
+  // 而不是再报一次几点（系统状态栏已经有了）。
+  h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 32, borderRadius: 11, padding: "0 11px", margin: "0 8px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
+    h("span", { "aria-hidden": "true", style: { fontSize: 12.5, color: t.fog } }, "\u2315"),
+    h("input", {
+      value: q, onChange: e => setQ(e.target.value),
+      placeholder: T("在他手机里搜…"),
+      "aria-label": T("在他手机里搜"),
+      style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 12.5, color: t.ink }
+    }),
+    q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 2px" } }, "\u00d7") : null),
+  // ⚠️「手机外观设置」不在顶栏了：那是【偶尔做一次】的事，不该常驻着占掉搜索的位置。
+  // 改成桌面上的一个 app 图标（她 2026-09-01 定）。
+  h("div", { className: "flex items-center justify-end shrink-0", style: { width: 34 } },
     h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 })))),
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
-  // 搜索条：在他手机里搜一个词。零调用——读的是已经翻出来的东西。
-  h("div", { className: "shrink-0 px-4 pb-2" },
-    h("div", {
-      className: "flex items-center",
-      style: { gap: 8, height: 34, borderRadius: 12, padding: "0 12px", background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
-    },
-      h("span", { "aria-hidden": "true", style: { fontSize: 13, color: t.fog } }, "\u2315"),
-      h("input", {
-        value: q, onChange: e => setQ(e.target.value),
-        placeholder: T("在他手机里搜…"),
-        "aria-label": T("在他手机里搜"),
-        style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink }
-      }),
-      q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 2px" } }, "\u2715") : null)),
+  // 搜索条已经并进顶栏（她 2026-09-01：「搜索键缩短放顶上时间那块地方」），
+  // 这儿不再单占一条。
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
       hits.length ? T("在他手机里找到 ") + hits.length + " 处" : T("他手机里没有这个")),
@@ -4773,7 +4822,7 @@ function PhoneCarry({
       r.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
         r.text.length > 60 ? r.text.slice(0, 60) + "…" : r.text) : null))) : null,
   !q.trim() && h("div", { className: "shrink-0 px-5 pb-1 flex items-center justify-between" },
-  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "向左滑还有一页"),
+  h("div", null),   // 「向左滑还有一页」她 2026-09-01 说去掉——底下那排页点已经在说这件事了
   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, layout.label)),
   !q.trim() && h("div", {
     ref: deskRef,
