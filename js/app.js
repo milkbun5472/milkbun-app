@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.91";
+const APP_VERSION = "v59.92";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11461,6 +11461,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return n;
   });
   // 版块刷新：生成 3-5 条 NPC 主帖（只主帖，不含评论——评论点进去才懒加载）
+  // ⚠️论坛这几路的 maxTokens 一律给足（她 2026-09-01 点名放开）：
+  //   思考型模型的【思考预算是从 maxTokens 里扣的】——给紧了，它想完就没配额写正文，
+  //   要么直接空返回、要么写一半停在半句（她见过的「刷不出楼」多半是这个）。
+  //   而她按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
+  //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥6000。
+  //   ⚠️别再往下调：这几个数不是「够用就行」，是「够它想完还够它写完」。
+  const FTOK = {
+    board: 12000,   // 一版 3-5 条新主帖
+    floors: 14000,  // 12-18 楼含楼中楼——全论坛最长的一次输出
+    sub: 9000,      // 我那条底下的 2-5 条楼中楼
+    post: 8000,     // 角色发一条帖
+    pm: 8000,       // 私信里回一两句
+    meta: 8000      // 一个角色的贴吧资料
+  };
   const genForumBoard = async board => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forum: board }));
@@ -11469,7 +11483,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。熟面孔填 npcId；一次性路人填 guestName、guestHandle。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\",\"guestName\":\"一次性路人昵称（路人才填）\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
-        maxTokens: 3400
+        maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
@@ -11624,7 +11638,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       return {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
-        maxTokens: 7200
+        maxTokens: FTOK.floors
       };
     }
     // ── 第一轮（首次点进帖）：不必全员回复，路人为主、真关心的角色偶尔冒泡 ──
@@ -11634,7 +11648,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
       schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
-      maxTokens: 6000
+      maxTokens: FTOK.floors
     };
   };
   // 评论懒加载：点进帖子若无缓存，一次调用生成 12-18 楼（含楼中楼），存缓存，再点不重复调 API。
@@ -11744,7 +11758,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbeRetry(active, ctxFor(char), {
         instruction: "以「" + char.name + "」身份在贴吧「" + board + "」发一条帖（" + forumBoardVoice(board) + "）。内容和 Ta 最近的心情 / 对话 / 生活相关，但这是 Ta 不围着对方转的一面。自行选择 identity=main（大号）或 alt（固定小号）；匿名吧必须 identity=anonymous。小号/匿名不能自曝真实身份。给 title 和 body（2-4 句）。",
         schemaHint: "{\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文\"}",
-        maxTokens: 1200
+        maxTokens: FTOK.post
       });
       if (!d || !d.title) throw new Error("没有生成内容");
       postCharToForum(char, board, { title: d.title, body: d.body, identity: d.identity }, "手动发帖");
@@ -12097,7 +12111,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "顺带给 tagline（一句话画风）和 attitude（friendly / curious / troll 三选一，默认别选 troll）。"
           + "**你们是陌生人，别默认对方性别**，不要用『老哥』『哥们』『兄弟』。",
         schemaHint: "{\"tagline\":\"一句话画风\",\"attitude\":\"friendly\",\"opening\":\"被搭话之后的第一句\"}",
-        maxTokens: 600
+        maxTokens: FTOK.pm
       });
       const base = Date.now();
       const th = {
@@ -12146,7 +12160,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             + "⚠️但这毕竟是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
             + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。",
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
-          maxTokens: 900
+          maxTokens: FTOK.pm
         });
         const csay = dc && Array.isArray(dc.say) ? dc.say : (dc && dc.say ? [dc.say] : []);
         if (csay.length) { const cb = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...csay.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i }))], updatedTs: cb } : t); saveJSON("x_forumPMs", n); return n; }); }
@@ -12160,7 +12174,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
           + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
         schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
-        maxTokens: 800
+        maxTokens: FTOK.pm
       });
       const say = d && Array.isArray(d.say) ? d.say : (d && d.say ? [d.say] : []);
       if (say.length) { const base = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...say.map((s, i) => ({ from: "npc", text: String(s), ts: base + i }))], updatedTs: base } : t); saveJSON("x_forumPMs", n); return n; }); }
@@ -12342,7 +12356,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
           "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
         schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
-        maxTokens: 2800
+        maxTokens: FTOK.sub
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
       if (!items.length) return;
@@ -12392,7 +12406,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
-        maxTokens: 3400
+        maxTokens: FTOK.board
       });
       const board = (d && d.board) || (query ? query + "吧" : "水吧");
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.title);
@@ -12411,7 +12425,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(c.id), ctxFor(c), {
         instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称，不能直接暴露真名）、altHandle（固定小号 id）、altBio（小号独立签名，不能泄露大号）、altAvatarSeed（几个词描述小号会用的头像意象，不出现本人真名）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers、following、altFollowers、altFollowing。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。",
         schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"altBio\":\"小号签名\",\"altAvatarSeed\":\"头像意象\",\"boardPrefs\":[\"兴趣吧\",\"日常吧\"],\"participation\":\"参与习惯\",\"replyStyle\":\"回帖风格\",\"identityBias\":\"main|alt\",\"followers\":1234,\"following\":88,\"altFollowers\":321,\"altFollowing\":45}",
-        maxTokens: 500
+        maxTokens: FTOK.meta
       });
       const hh = forumHash(c.id);
       const fallback = charForumMeta(c);

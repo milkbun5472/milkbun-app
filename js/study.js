@@ -403,12 +403,17 @@
     };
   }
 
+// ⚠️为什么一律给足（她 2026-09-01 点名放开）：思考型模型的【思考预算是从 maxTokens 里扣的】。
+// 给紧了，它想完就没配额写正文——要么直接空返回，要么写一半停在半句。
+// 而她是按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
+// 换来的是一次空返回、再重来一次，反而多花一次调用。仓库铁律：≥6000，能写多少就给多少。
+  const TOK = { turn: 12000, plan: 20000, quiz: 12000, small: 8000 };
   // ---- 一次生成 = 一个角色一个回合（§5）------------------------------
   // 返回 { says:[...], evidence:null|{} }——老师只能报告刚刚真实发生的作答证据，不能自行推进。
   async function genTurn(active, session, char, ctx, role) {
     const sys = buildStudyPrompt(session, char, ctx, role);
     const msgs = toMessages(session.transcript, char.id, (ctx.profile && ctx.profile.name) || "用户");
-    const raw = await callAI(active, sys, msgs, { maxTokens: 6400 });
+    const raw = await callAI(active, sys, msgs, { maxTokens: TOK.turn });
     const says = parseSay(raw);
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
@@ -432,7 +437,7 @@
     const u = "题目：" + quiz.prompt + "\n标准答案：" + quiz.answer +
       ((quiz.aliases || []).length ? "\n可接受别名：" + quiz.aliases.join("；") : "") + "\n用户答案：" + String(userAnswer || "");
     try {
-      const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 6400 }); // 思考型模型思考预算从 maxTokens 扣，给小了直接空返回（仓库铁律 ≥6000）
+      const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small }); // 判一道填空对不对，短；但思考照样吃额度
       const d = extractJSON(raw) || {};
       const result = ["correct", "partial", "incorrect"].includes(d.result) ? d.result : "incorrect";
       return { result: result, feedback: String(d.feedback || (result === "correct" ? "意思对了" : "还需要再想想")).slice(0, 240), local: false };
@@ -539,7 +544,7 @@
       "只输出 JSON：{\"canTeach\":true或false,\"level\":\"入门/进阶/精通/无\",\"posture\":\"若不会，一句话态度\"}";
     const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (worldbook ? "\n【世界书】" + worldbook : "");
     try {
-      const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 6400 });
+      const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small });
       const d = extractJSON(raw) || {};
       return { canTeach: !!d.canTeach, level: d.level || "", posture: d.posture || "" };
     } catch (e) { return { canTeach: false, level: "", posture: "" }; }
@@ -561,7 +566,7 @@
       "grammar/要点数组[{id(英文小写),label(中文短标签),note(一句说明)}]、vocab(若适用,数组)、can_do(学完能做到,1~2条)。" +
       "level 填这一节的难度定位。只输出 JSON：{\"level\":\"…\",\"language\":\"中文\",\"units\":[...]}。不要 markdown。";
     const u = "课程目标：" + goal + (lv ? "\n我的基础：" + lv : "") + (priorCtx && priorCtx.trim() ? "\n\n【这门课之前的记录】\n" + priorCtx.trim() : "\n（这是第一节）");
-    const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 6400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.plan });
     const d = extractJSON(raw) || {};
     // 稳健：模型常漏 id，别因缺 id 把小节整个丢掉——按序补 id（单元 & 要点都补）
     let units = Array.isArray(d.units) ? d.units.filter(function (x) { return x && x.title; }) : [];
@@ -600,7 +605,7 @@
     const sys = "把这一节『" + session.subject + "』的学习，浓缩成 1~2 句给下次上课的备忘：这次讲/练了什么、" + userName + "掌握得怎样、哪里还卡着/下次该接着做什么。具体、可复用。只输出正文。";
     try {
       const progress = progressText(outline.units || [], session.progress || {});
-      return (await callAI(active, sys, [{ role: "user", content: "【本节安排】" + covered + "\n" + progress + "\n【对话】\n" + conv }], { maxTokens: 6400 })).trim();
+      return (await callAI(active, sys, [{ role: "user", content: "【本节安排】" + covered + "\n" + progress + "\n【对话】\n" + conv }], { maxTokens: TOK.small })).trim();
     } catch (e) { return ""; }
   }
 
@@ -615,7 +620,7 @@
     }).join("\n");
     const sys = "把一段共同研究记录合并进已有摘要。只保留可继续研究所需的信息：研究问题、已确认事实、仍只是推测的内容、证据或例子、未解决问题、下一步验证办法和重要术语。" +
       "不能把推测写成事实，不能发明来源，也不要写聊天气氛或空泛评价。输出 JSON：{\"summary\":\"不超过1600字的结构化研究摘要\"}。";
-    const raw = await callAI(active, sys, [{ role: "user", content: (old ? "【已有摘要】\n" + old + "\n\n" : "") + "【需要并入的较早记录】\n" + fresh }], { maxTokens: 6400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: (old ? "【已有摘要】\n" + old + "\n\n" : "") + "【需要并入的较早记录】\n" + fresh }], { maxTokens: TOK.small });
     const d = extractJSON(raw) || {};
     return String(d.summary || raw || old).trim().slice(0, 6400);
   }
@@ -633,7 +638,7 @@
       "\"weak\":\"还没稳的具体点，没有则写下一步挑战\",\"next\":\"下次开场先做什么\",\"note\":\"你以角色口吻留的一两句小纸条\"}。";
     const u = "【角色人设】\n" + (char && char.persona || "（暂无）") + "\n\n" + progressText(outline.units || [], progress) +
       "\n\n【本节真实对话】\n" + conv;
-    const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 6400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small });
     const d = extractJSON(raw) || {};
     return {
       achieved: String(d.achieved || "完成了这一节的学习与作答").slice(0, 180),
@@ -662,7 +667,7 @@
       "mastery 的 key 必须是要点 id（不是中文标签），值 0~2：0答错、1需提示/部分正确、2独立答对；3只能留给未来隔时复习再次独立答对。" +
       "若没有看到小测后的真实用户答案，completed 必须 false。mistakes 只列本次暴露的薄弱点。" +
       "只输出扁平 JSON：{\"completed\":true或false,\"mastery\":{\"<id>\":0-2},\"mistakes\":[{\"point_id\":\"<id>\",\"note\":\"具体错因\"}],\"notes\":\"给下次的一句提醒\"}。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "【教学对话】\n" + conv }], { maxTokens: 6400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "【教学对话】\n" + conv }], { maxTokens: TOK.quiz });
     const d = extractJSON(raw) || {};
     return { completed: !!d.completed, mastery: d.mastery && typeof d.mastery === "object" ? d.mastery : {}, mistakes: Array.isArray(d.mistakes) ? d.mistakes : [], notes: d.notes || "" };
   }

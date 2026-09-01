@@ -18,6 +18,11 @@
   const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  // ⚠️为什么一律给足（她 2026-09-01 点名放开）：思考型模型的【思考预算是从 maxTokens 里扣的】。
+  // 给紧了，它想完就没配额写正文——要么直接空返回，要么写一半停在半句。
+  // 而她是按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
+  // 换来的是一次空返回、再重来一次，反而多花一次调用。仓库铁律：≥6000，能写多少就给多少。
+  const TOK = { stance: 8000 };
 
   function loadSaves() { return loadJSON("x_debate_saves", []); }
   function saveSaves(list) { return saveJSON("x_debate_saves", list); }
@@ -69,8 +74,7 @@
       "\n\n" + roster +
       "\n\n【输出】只输出 JSON：{\"stances\":[{\"name\":\"角色名\",\"stance\":\"一句话概括Ta的立场\"}],\"myOptions\":[\"我方可选立场1\",\"我方可选立场2\"]}。" +
       "stances 每个角色一条；myOptions 给我 2~3 个可选立场（要包含和场上主要立场对立的那一个），短。别加解释。";
-    // 放宽 token：思考型模型思考也吃额度，给太紧会把立场串写一半就停（输出免费）
-    const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: 4000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: TOK.stance });
     const p = extractJSON(raw) || {};
     const out = {};
     const list = Array.isArray(p.stances) ? p.stances : [];
@@ -116,8 +120,8 @@
       "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），充分展开别水，2~6 句，口语带脾气，可点名回应某人。\n" +
       "2）再生成正好 " + o.count + " 条观众弹幕：有人揪某句吐槽/叫好，有人 @别的观众 接话吵起来，有人跳出本轮点评台上某人【整体表现】；熟人用本名带立场，其余起有网感的昵称，每条一句话短而毒。\n\n" +
       "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}],\"crowd\":[{\"name\":\"昵称或熟人本名\",\"text\":\"弹幕\",\"known\":true或false}]}。turns 顺序同上、每个角色一条；crowd 正好 " + o.count + " 条。别加旁白别 markdown。";
-    // 慷慨给 token：多角色长发言 + 思考型模型思考也吃 token
-    const budget = Math.min(20000, 4000 + chars.length * 2200 + o.count * 220);
+    // 台上几个人各说一大段 + 台下十条弹幕，是全场最长的一次输出：底给厚，人多再往上加
+    const budget = Math.min(32000, 12000 + chars.length * 3000 + o.count * 300);
     const raw = await callAI(active, sys, [{ role: "user", content: "开始：先按序各角色发言，再刷 " + o.count + " 条观众弹幕。" }], { maxTokens: budget });
     const p = extractJSON(raw) || {};
     const rawTurns = Array.isArray(p.turns) ? p.turns : [];
@@ -147,8 +151,8 @@
       "1) 判出唯一胜者（可以是台上任何一方，包括玩家「" + uName + "」）+ 写判词：具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
       "2) 然后台上【每个角色】各发一句赛后感言，完全按各自人设反应赢/输（得意/谦逊/意犹未尽/不服/找补/摆烂…别一个腔调）。⚠只给下面这些角色写，【绝对不要】给玩家「" + uName + "」写感言。\n\n【台上角色】\n" + charRoster +
       "\n\n【输出】只输出 JSON：{\"winner\":\"胜者名字\",\"reason\":\"判词2~4句\",\"closings\":[{\"name\":\"角色名\",\"text\":\"感言1~3句\"}]}。closings 只含上面这些角色、每人一条。";
-    // 放宽 token：判词 + 多角色感言一次出，思考型模型别写一半被截断（输出免费）
-    const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果，并让各角色各说一句赛后感言（别写玩家的）。" }], { maxTokens: Math.min(12000, 3500 + chars.length * 900) });
+    // 判词 + 每个人一段感言一次出，别写一半被截断
+    const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果，并让各角色各说一句赛后感言（别写玩家的）。" }], { maxTokens: Math.min(24000, 10000 + chars.length * 1500) });
     const p = extractJSON(raw) || {};
     const charNames = chars.map(c => c.name);
     const raws = (Array.isArray(p.closings) ? p.closings : [])

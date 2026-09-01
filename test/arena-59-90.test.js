@@ -156,3 +156,32 @@ test("梦境和塔罗那两份取材，用的是同一条过滤线", () => {
     assert.ok(fi > 0 && si > fi, name + "：先取尾再过滤——一段撤回的就能把有用的挤光");
   });
 });
+
+// ===== v59.92：她 2026-09-01「maxtoken 也放开了吧宝宝，这里擂台还有论坛还有一起学」=====
+// 思考型模型的思考预算是从 maxTokens 里扣的：给紧了，它想完就没配额写正文，
+// 直接空返回或者写一半停在半句。而她按【次】计费、输出不另外收钱——
+// 省这几千 token 一分钱省不到，换来的是一次空返回再重来一次，反而多花一次调用。
+const app = R("app.js"), stu = R("study.js");
+test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为什么", () => {
+  // ⚠️不许再有散落的小数字：改一处漏一处正是这个 app 反复犯的那一个
+  [["擂台", dbt, /const TOK = \{ stance: 8000 \};/],
+   ["一起学", stu, /const TOK = \{ turn: 12000, plan: 20000, quiz: 12000, small: 8000 \};/],
+   ["论坛", app, /const FTOK = \{[\s\S]{0,420}floors: 14000,/]].forEach(function (row) {
+    assert.match(row[1], row[2], row[0] + "：额度没有收在一个地方");
+    assert.match(row[1], /思考预算是从 maxTokens 里扣的/, row[0] + "：没写清为什么，下一个人又会把它调回去省钱");
+  });
+  // 论坛十处全部改用那份表，一个散落的小数字都不许留
+  assert.equal((app.match(/maxTokens: FTOK\./g) || []).length, 10, "论坛还有没接上那份表的");
+  assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 8, "一起学还有没接上那份表的");
+  // 擂台两处按人数算的，底要够厚
+  assert.match(dbt, /const budget = Math\.min\(32000, 12000 \+ chars\.length \* 3000 \+ o\.count \* 300\);/, "台上那一轮是全场最长的一次输出，底给薄了会写一半停住");
+  assert.match(dbt, /maxTokens: Math\.min\(24000, 10000 \+ chars\.length \* 1500\)/, "判词加每人一段感言，一次出，给紧了会断在感言中间");
+  // 仓库铁律：这三个文件里不许再出现低于 6000 的 maxTokens
+  [["擂台", dbt], ["一起学", stu]].forEach(function (row) {
+    (row[1].match(/maxTokens: (\d+)/g) || []).forEach(function (m) {
+      assert.ok(Number(m.split(" ")[1]) >= 6000, row[0] + "：又有一处低于 6000 —— " + m);
+    });
+  });
+  // 一起学那个 6400 是【摘要字数上限】，不是 token，不许被一起改掉
+  assert.match(stu, /\.slice\(0, 6400\)/, "把摘要的字数上限当成 token 一起改了");
+});
