@@ -3118,7 +3118,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3219,7 +3219,10 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     return h(CoupleArchive, { partner, data: home.archive || {}, onSave: archive => onSaveCoupleHome(partner.id, cur => ({ ...cur, archive })), onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "recall") {
-    return h(CoupleRecall, { partner, items: coupleRecall, busy: gen && gen.coupleRecall,
+    // ⚠️旁边每一格都有自己那一个 busy（qaGen / tlGen / letterGen / studioBusy…）。
+    // 这一格原来写 `gen && gen.coupleRecall`，可传进来的 gen 是【悄悄话那个布尔】，
+    // 不是整个 gen 对象——于是永远是 undefined，按下去一点动静都没有。
+    return h(CoupleRecall, { partner, items: coupleRecall, busy: recallGen,
       onGen: () => onGenRecall(partner), onRead: onReadRecall, onDel: onDelRecall, onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "pacts") {
@@ -3535,9 +3538,13 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                     say: !ex.length ? "写下第一页" : waiting ? "本子在 TA 那边" : one((last && (last.title || last.content)) || "", 22) });
                 })(),
                 spine("qa", { zh: "问答小本", band: "#6a9a74", say: bQaLast ? one(bQaLast.q || bQaLast.question, 22) : "关于我们" }),
+                // ⚠️这一行读的必须是【这条记录真有的字段】。原来写的是
+                // title / topic / text——一个都不存在（这条记录是 {mine,his,note}），
+                // 所以书脊上永远是空的，可红点又亮着：看着就像「一直是空的」。
+                // 摆出来的该是【他记得的那一版】，那才是这一格的内容。
                 spine("recall", { zh: "他记得的", band: "#93707c",
                   dot: (coupleRecall || []).some(function (x) { return x.characterId === bCid && x.unread; }),
-                  say: bRecallLast ? one(bRecallLast.title || bRecallLast.topic || bRecallLast.text, 22) : "同一件事，两个人" }),
+                  say: bRecallLast ? one(bRecallLast.his || bRecallLast.mine, 22) : "同一件事，两个人" }),
                 spine("pacts", { zh: "说好的", band: "#8f7d5c",
                   dot: (function () { const p2 = couplePactsOf ? couplePactsOf(bCid) : null; return !!(p2 && (p2.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
                   say: bPactLast ? one(bPactLast.text || bPactLast.title, 22) : "还没说好什么" }),

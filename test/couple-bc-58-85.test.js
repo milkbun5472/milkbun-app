@@ -18,7 +18,10 @@ const leave = app.slice(_lvi, app.indexOf("\n  };", _lvi) + 4);
 
 // ── c 同一件事的两个版本 ──────────────────────────────────────────────────
 test("挑的是你俩【都在场】的事，问过的不再问第二遍", () => {
-  assert.match(rec, /\(m\.charIds \|\| \[\]\)\.includes\(char\.id\)/, "挑到了跟他无关的事");
+  // v59.33：判据换成全 App 那一条 memShareChar。原来直接 .includes(char.id)，
+  // 把【charIds 为空＝旧全局记忆】全挡在门外（见 js/app.js:45 那条注释），
+  // 于是库里有东西这一页也一直挑不出事。要挡的是「归别人的记忆」，不是「旧记忆」。
+  assert.match(rec, /memShareChar\(\[char\.id\], m\.charIds\)/, "挑到了跟他无关的事");
   assert.match(rec, /const told = new Set\(\(coupleRecallRef\.current \|\| \[\]\)[\s\S]{0,120}\.map\(x => x\.memId\)\)/, "没记住问过哪些");
   assert.match(rec, /!told\.has\(m\.id\)/, "会重复问同一件事");
   assert.match(rec, /if \(!pool\.length\) \{ toast\(told\.size \? "你们经历过的都问过一遍了"/, "没料的时候和问完了的时候，话该不一样");
