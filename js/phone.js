@@ -2035,7 +2035,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
 }
 
 function AlbumNavIcon({ kind, active }) {
-  const stroke = active ? "#0a84ff" : "#8e8e93";
+  const stroke = active ? ALBUM_ACCENT : ALBUM_DIM;
   const p = { fill: "none", stroke, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
   if (kind === "library") return h("svg", { width: 23, height: 23, viewBox: "0 0 24 24", "aria-hidden": true },
     h("rect", { ...p, x: 3.5, y: 3.5, width: 6.5, height: 6.5, rx: 1.2 }), h("rect", { ...p, x: 14, y: 3.5, width: 6.5, height: 6.5, rx: 1.2 }),
@@ -2045,7 +2045,21 @@ function AlbumNavIcon({ kind, active }) {
   return h("svg", { width: 23, height: 23, viewBox: "0 0 24 24", "aria-hidden": true }, h("path", { ...p, d: "M20.8 4.7a5.4 5.4 0 0 0-7.7 0L12 5.8l-1.1-1.1a5.4 5.4 0 0 0-7.7 7.7L12 21l8.8-8.6a5.4 5.4 0 0 0 0-7.7Z" }));
 }
 
-// 相册：iPhone 风图库 / 精选集 / 收藏夹。
+// ── 相册（v59.50 换骨架）─────────────────────────────────────────────────
+// 她 2026-09-01：「选的相册叫个人收藏、最近保存、最近删除、私密这些也都是照抄，
+// 甚至都叫精选集」。对——连这上面那行注释原来都写着「iPhone 风图库/精选集/收藏夹」，
+// 配色是 #0a84ff。那是**别人家系统相册的词表**，一个字都不该留。
+//
+// 换的是【名字和骨架】，不是数据：五个 key（memory/favorite/saved/private/deleted）
+// 全部照旧——它们撑着回收站 30 天过期、五类保底、私密走 hidden 档那几条规矩。
+// canon() 仍然认得出旧标签，老存档翻开就是新名字。
+//
+// 起名的判据：**这一摞在他自己嘴里叫什么。**
+// 「最近删除」是系统的说法；他心里那句是「删了又没真删的」——他按了删除，
+// 可它还在那儿躺着。那才是翻别人相册时真正扎人的一摞。
+const ALBUM_ACCENT = "#8a6478";   // 藕：这一路谁都没用过（外卖暖、购物靛、健康草药）
+const ALBUM_ALERT = "#a8524a";    // 只给「删了又没真删的」和「锁起来的」
+const ALBUM_DIM = "#948e96";
 // 收藏仍独立存在 x_phoneKeep，刷新推演只换本轮相册，不覆盖 Lisa 留下的收藏。
 function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
@@ -2073,13 +2087,21 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // 模型偶尔会把 items 返回成字符串或对象；a || [] 会原样放行，下一步 .map 就是白屏
   const arr = a => Array.isArray(a) ? a : [];
   const albums = [
-    { key: "memory", label: "回忆" },
-    { key: "favorite", label: "个人收藏" },
-    { key: "saved", label: "最近保存" },
-    { key: "private", label: "私密" },
-    { key: "deleted", label: "最近删除" }
+    { key: "memory", label: "总翻出来看的", why: "隔一阵就点开一次" },
+    { key: "favorite", label: "舍不得删的", why: "存了很久了" },
+    { key: "saved", label: "从别处存下来的", why: "不是他拍的" },
+    { key: "private", label: "锁起来的", why: "只有他打得开" },
+    { key: "deleted", label: "删了又没真删的", why: "按了删除，还在这儿躺着" }
   ];
-  const canon = v => ({ "回忆": "memory", "个人收藏": "favorite", "最近保存": "saved", "私密": "private", "最近删除": "deleted" }[v] || (["memory", "favorite", "saved", "private", "deleted"].includes(v) ? v : ""));
+  // ⚠️旧标签必须继续认得出：老存档里存的是「个人收藏」那一套，
+  // 不认的话它们会全部掉进「没分类」，等于翻开就丢了一半。
+  const canon = v => ({
+    "回忆": "memory", "总翻出来看的": "memory",
+    "个人收藏": "favorite", "舍不得删的": "favorite",
+    "最近保存": "saved", "从别处存下来的": "saved",
+    "私密": "private", "锁起来的": "private",
+    "最近删除": "deleted", "删了又没真删的": "deleted"
+  }[v] || (["memory", "favorite", "saved", "private", "deleted"].includes(v) ? v : ""));
   const dateMs = p => {
     const n = Date.parse(String(p && (p.date || p.time) || ""));
     return Number.isFinite(n) ? n : 0;
@@ -2141,16 +2163,16 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
   // （.claude/rules/mobile-ui-layout.md §2）
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "图库"], ["collections", "精选集"], ["saved", "收藏夹"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", closePhoto), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
     h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
     h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
     h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。")),
     onPeek ? (function () {
-      // 私密和最近删除是他藏起来的；回忆/收藏/最近保存只是他没主动提起
+      // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
       const hid = photo.category === "private" || photo.category === "deleted";
       return h("button", {
-        onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·最近删除" : photo.category === "private" ? "相册·私密" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
+        onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·删了又没真删的" : photo.category === "private" ? "相册·锁起来的" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
         className: "w-full active:opacity-60",
         style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (hid ? "rgba(200,80,70,.45)" : "#d9d9de"), color: hid ? "#b6473c" : "#333" }
       }, hid ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机"));
@@ -2165,33 +2187,43 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     items.forEach(p => { const raw = String(p.date || p.time || "日期未记"); const m = raw.match(/(\d{4})[-\/.年](\d{1,2})/); const label = m ? (m[1] + "年" + Number(m[2]) + "月") : "日期未记"; let g = groups.find(x => x.label === label); if (!g) { g = { label, list: [] }; groups.push(g); } g.list.push(p); });
     return groups.map((g, i) => h("section", { key: g.label + i, style: { marginBottom: 22 } }, h("div", { className: "flex justify-between", style: { padding: "0 20px 10px", fontFamily: F_DISPLAY, fontSize: 16, color: "#444" } }, h("span", null, g.label), h("span", { style: { color: "#999", fontFamily: F_BODY, fontSize: 12 } }, g.list.length)), grid(g.list, false, 3)));
   })());
-  const memoryItems = items.filter(p => p.category === "memory");
-  const fixedAlbums = albums.filter(a => a.key !== "memory");
-  const memoryCard = p => h("button", { key: sig(p), onClick: () => openPhoto(p), className: "shrink-0 text-left active:opacity-70", style: { width: "72%", scrollSnapAlign: "start" } },
-    h("div", { style: { position: "relative", height: 232, borderRadius: 22, overflow: "hidden", background: "#ddd", boxShadow: "0 12px 26px rgba(0,0,0,.10)" } },
-      art(p, 22),
-      h("div", { style: { position: "absolute", inset: "42% 0 0", background: "linear-gradient(transparent,rgba(0,0,0,.72))" } }),
-      h("div", { style: { position: "absolute", left: 16, right: 16, bottom: 15, color: "#fff" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.25 } }, p.caption || "一段回忆"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 5, opacity: .84 } }, p.date || p.time || "日期未记"))));
-  const albumCard = a => {
+  // ── 他的几摞（v59.50 换骨架）───────────────────────────────────────────
+  // 原来是【回忆一排横滑大卡 + 相簿一排横滑小卡】——那是别人家系统相册的首页，
+  // 连分区名都一样。横滑一次只看得见一张半，还得划；而这五摞本来就该一眼看全。
+  // 改成竖着五行，一行一摞：名字、他为什么把这些归在一起、几张、一排缩略。
+  // 「删了又没真删的」摆在最上面并标出来——**他按了删除，可它还在那儿躺着**，
+  // 那是翻别人相册时真正扎人的一摞，系统相册只会管它叫「最近删除」。
+  const dayLeft = p => {
+    const t2 = dateMs(p);
+    if (!t2) return null;
+    const n = 30 - Math.floor((Date.now() - t2) / 86400000);
+    return n > 0 && n <= 30 ? n : null;
+  };
+  const pileRow = a => {
     const list = items.filter(p => p.category === a.key);
-    const cover = list[0];
-    return h("button", { key: a.key, onClick: () => setOpened(a.key), className: "shrink-0 text-left active:opacity-65", style: { width: 145, scrollSnapAlign: "start" } },
-      h("div", { style: { position: "relative", width: 145, height: 145, borderRadius: 18, overflow: "hidden", background: "#eee" } }, cover ? art(cover, 18) : null),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#111", marginTop: 9 } }, a.label),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8e8e93", marginTop: 3 } }, list.length));
+    if (!list.length) return null;
+    const hot = a.key === "deleted" || a.key === "private";
+    const soon = a.key === "deleted" ? list.map(dayLeft).filter(x => x != null).sort((x, y) => x - y)[0] : null;
+    return h("section", { key: a.key, style: { padding: "0 20px", marginBottom: 26 } },
+      h("button", { onClick: () => setOpened(a.key), className: "w-full text-left active:opacity-60", style: { display: "block" } },
+        h("div", { className: "flex items-baseline", style: { gap: 9 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: hot ? ALBUM_ALERT : "#171417" } }, a.label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: ALBUM_DIM } }, list.length + " 张")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: ALBUM_DIM, marginTop: 3 } },
+          soon != null ? "还有 " + soon + " 天就真的没了" : a.why)),
+      h("div", { className: "flex", style: { gap: 6, marginTop: 11 } },
+        list.slice(0, 4).map((p2, i2) => h("button", {
+          key: sig(p2), onClick: () => openPhoto(p2), className: "active:opacity-70",
+          style: { flex: 1, minWidth: 0, aspectRatio: "1 / 1", borderRadius: 11, overflow: "hidden", background: "#eae7ea", position: "relative" }
+        }, art(p2, 11)))));
   };
   const collections = h("div", { style: { padding: "18px 0 30px" } },
-    h("section", null,
-      h("div", { style: { padding: "0 20px 12px", fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, "回忆"),
-      h("div", { className: "flex overflow-x-auto", style: { gap: 12, padding: "0 20px 8px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } }, memoryItems.map(memoryCard)),
-      memoryItems.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 20, background: "#f2f2f7", color: "#8e8e93", textAlign: "center", fontFamily: F_BODY, fontSize: 12 } }, "刷新相册后，这里会出现 TA 珍藏的回忆。")),
-    h("section", { style: { marginTop: 30 } }, h("div", { style: { padding: "0 20px 12px", fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, "相簿"),
-      h("div", { className: "flex overflow-x-auto", style: { gap: 13, padding: "0 20px 8px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } }, fixedAlbums.map(albumCard))));
+    // 藏起来的那两摞排在最前：翻他手机时，那才是你真正在找的
+    albums.slice().sort((a, b) => (b.key === "deleted" || b.key === "private" ? 1 : 0) - (a.key === "deleted" || a.key === "private" ? 1 : 0)).map(pileRow).filter(Boolean),
+    items.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 16, background: "#f4f2f4", color: ALBUM_DIM, textAlign: "center", fontFamily: F_BODY, fontSize: 12 } }, "刷新相册后，这里会出现他分好的那几摞。"));
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
-  const title = tab === "library" ? "图库" : tab === "saved" ? "收藏夹" : "精选集";
-  const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? "回忆与四本相簿 · 共 " + items.length + " 张" : saved.length + " 张 · 刷新也不会丢";
+  const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : "他的几摞";
+  const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? "他把 " + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
   return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 

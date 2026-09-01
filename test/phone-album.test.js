@@ -5,28 +5,27 @@ const path = require("node:path");
 
 const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
 
-test("相册是图库、精选集、收藏夹三页完整界面", () => {
-  assert.match(phone, /\["library", "图库"\]/);
-  assert.match(phone, /\["collections", "精选集"\]/);
-  assert.match(phone, /\["saved", "收藏夹"\]/);
+// v59.50：那三个页签名是别人家系统相册的原话（她 2026-09-01：「甚至都叫精选集」）。
+// 这条要证的没变——**三页都在、三个 key 没动**；改的只是它们叫什么。
+test("相册是三页完整界面", () => {
+  assert.match(phone, /\["library", "全部"\]/);
+  assert.match(phone, /\["collections", "他的几摞"\]/);
+  assert.match(phone, /\["saved", "我收着的"\]/);
   assert.match(phone, /function AlbumNavIcon/);
   // 相册自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
   assert.match(phone, /const FULL_BLEED_KEYS = \[[^\]]*"album"[^\]]*\];/);
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
 });
 
-test("精选集固定五类且二十五张时每类机械保底四张", () => {
-  assert.match(phone, /回忆/);
-  assert.match(phone, /个人收藏/);
-  assert.match(phone, /最近保存/);
-  assert.match(phone, /私密/);
-  assert.match(phone, /最近删除/);
+// v59.50：名字换了、横滑改成竖排了，但**这五个 key 一个都不许动**——
+// 回收站 30 天、五类保底、私密走 hidden 档全靠它们。这条钉的就是这个。
+test("固定五类且二十五张时每类机械保底四张", () => {
+  ["memory", "favorite", "saved", "private", "deleted"].forEach(k =>
+    assert.match(phone, new RegExp('key: "' + k + '"'), "少了 " + k + " 这一摞"));
   assert.match(phone, /items\.length >= 20/);
   assert.match(phone, /buckets\[a\.key\]\.length < 4/);
   assert.match(phone, /正好 25 张互不重复的照片/);
   assert.match(phone, /memory或favorite或saved或private或deleted/);
-  assert.match(phone, /scrollSnapType: "x mandatory"/);
-  assert.match(phone, /回忆与四本相簿/);
 });
 
 test("图库按真实年月分组且禁止相对星期日期", () => {
