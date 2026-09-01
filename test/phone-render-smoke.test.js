@@ -401,20 +401,25 @@ test("健康的推演任务把「按角色世界改名」和「三项要角色�
 test("外卖照参考稿配齐了十来块，重点几栏都钉死了", () => {
   const P = loadPhone();
   const spec = P.phoneProbeSpec("takeout", char, [], "", []);
-  ["account", "today", "shops", "live", "orders", "taste", "week", "coupons", "addrs", "wish", "together", "monthNote"]
+  // ⚠️v59.36 撤了两块：
+  //   week —— 界面上「这七天」改成从 orders 上开的一扇窗，单独生成一份注定对不上；
+  //   together —— 主键是模型现编的称呼，「老周／周叔」认不成一个人。
+  //   它俩都是「同一件事生成两遍」或「身份不稳的主键」，撤掉是修法不是减配。
+  ["account", "today", "shops", "live", "orders", "taste", "coupons", "addrs", "wish", "monthNote"]
     .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 这一块没在 schema 里"));
+  ["week", "together"].forEach(k => assert.ok(!spec.schemaHint.includes('"' + k + '"'), k + " 还在生成，界面上早已不用它了"));
   assert.match(spec.instruction, /note 那一栏是这个 app 的重点/);
-  assert.match(spec.instruction, /\*\*至少一单是深夜的，至少一单是送到别人那儿的。\*\*/);
+  // 「送到别人那儿」那一格的全部内容都从这几单里来，所以要求提到两单、且 reason 说清送给谁
+  assert.match(spec.instruction, /至少两单是送到别人那儿的/);
+  assert.match(spec.instruction, /reason 要说清\*\*送给谁、为什么是这个时候\*\*/);
   // 忌口那组比爱吃的更像人，要求具体
   assert.match(spec.instruction, /这一组比爱吃什么更像人/);
   assert.match(spec.instruction, /别只写食材名/);
   // 地址标签要带括号身份、要有一条是去投喂别人的
   assert.match(spec.instruction, /后面用括号补一句这是谁的地方/);
   assert.match(spec.instruction, /其中一条应当是【他常去投喂的另一个地方】/);
-  // 想吃清单的 when、一起点过的 who 都是最见人的地方
+  // 惦记着的那句 when 是最见人的地方
   assert.match(spec.instruction, /什么时候会突然想起它/);
-  assert.match(spec.instruction, /用他嘴里对那个人的叫法/);
-  assert.match(spec.instruction, /week 本周吃什么 \*\*正好 7 天\*\*/);
 });
 
 test("每个有账号的 app 都给了他自己的平台 ID", () => {
@@ -708,7 +713,14 @@ test("从 app 退回桌面时回到原来那一页，不弹回第一页", () => 
   assert.match(SRC, /const deskPageRef = useRef\(0\);/);
   assert.match(SRC, /deskPageRef\.current = deskPage;/);
   assert.match(SRC, /deskRef\.current\.scrollLeft = deskRef\.current\.clientWidth \* n;/);
-  assert.match(SRC, /\}, \[open, inList\]\);/);
+  // ⚠️v59.36：外观设置也是【整页顶掉桌面】的一层，退回来同样会弹回第一页
+  // （她 2026-09-01：「外观退出去又跳回第一页」），所以它也得在依赖里。
+  // 核的是【每一层会顶掉桌面的东西都在这份依赖里】，不是某一份写死的依赖表。
+  assert.match(SRC, /\}, \[open, inList, lookOpen\]\);/);
+  assert.match(SRC, /if \(open \|\| inList \|\| lookOpen \|\| !deskRef\.current\) return;/, "归位时没把外观那一层算进去");
+  // const 有暂时性死区：读它的 effect 在前、声明在后 = 一渲染就整页白
+  assert.ok(SRC.indexOf("const [lookOpen, setLookOpen] = useState(false);") < SRC.indexOf("if (open || inList || lookOpen"),
+    "lookOpen 声明在读它的 effect 后面，暂时性死区会让整页白");
 });
 
 test("视频和深夜台的账号在界面上看得见", () => {

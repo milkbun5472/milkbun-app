@@ -49,12 +49,16 @@ test("撞上真实记录的假联系人／假私聊，丢掉", () => {
   assert.equal(P.phoneDropDupWechat(null, ["a"]), null);
 });
 
-test("同一个人别用好几个别称各占一条", () => {
-  const rows = [{ who: "阿晚", items: "a" }, { who: "苏晚", items: "b" }, { who: "苏晚那个丫头", items: "c" }, { who: "陆闻", items: "d" }];
-  // 「苏晚」和「苏晚那个丫头」是同一个；「阿晚」认不出来（叫法完全不同），
-  // 那一半只能靠提示词——代码这一道只保证认得出的那些
-  assert.deepEqual(P.phoneDedupeByWho(rows).map(x => x.who), ["阿晚", "苏晚", "陆闻"]);
-  assert.deepEqual(P.phoneDedupeByWho(null), []);
+// v59.36：「饭桌上的人」整个撤掉了（她 2026-09-01：「和谁吃还是不行去重不了，
+// 不然我们想想直接换一个板块吧」）。那一栏的身份是模型现编的一个称呼——
+// 「老周」和「周叔」在代码里没有任何办法认成一个人。**身份不稳的东西不该当主键。**
+// 顶掉它的「送到别人那儿」按地址归拢，地址是会复用的，天生稳。
+// 所以按叫法归并这件事只剩微信那一路（那儿有角色卡上的真名单可以对）。
+test("那一栏撤了，按叫法归并只剩微信那一路", () => {
+  assert.equal(typeof P.phoneDedupeByWho, "undefined", "撤掉的东西还挂在外面");
+  assert.ok(ph.indexOf("phoneDedupeByWho") < 0, "代码里还留着没人用的那一份");
+  assert.ok(ph.indexOf('secTitle("饭桌上的人"') < 0, "界面上那一格还在");
+  assert.match(ph, /secTitle\("送到别人那儿"/, "顶掉它的那一格没做出来");
 });
 
 test("两道都接上了：提示词发别名，存之前再筛一遍", () => {
@@ -70,11 +74,7 @@ test("两道都接上了：提示词发别名，存之前再筛一遍", () => {
   const save = cut(app, "  const savePhoneApp = (charId, key, d) => {", "      saveJSON(\"x_phone\", n);");
   assert.match(save, /key === "wechat" && window\.PhoneKit/, "存之前没筛");
   assert.match(save, /dropDupWechat\(d, phoneTakenNames\(c0\)\)/, "筛的时候用的不是同一份名单");
-  // ⚠️v59.35：饭桌上的人必须在【并完旧的之后】去重。原来只洗这一轮新生成的那几条，
-  // 可 together 是累积层——上一轮留下的别名会在 phoneMergeSaved 里原样并回来，等于没洗。
-  const mg = save.indexOf("phoneMergeSaved(key, cur[key], d");
-  const dd = save.indexOf("dedupeByWho(merged.together)");
-  assert.ok(mg > 0 && dd > mg, "饭桌上的人没在并完旧的之后去重，旧别名会原样并回来");
+  assert.match(save, /phoneMergeSaved\(key, cur\[key\], d/, "存的时候没并旧的");
   // 挂出去的那个全局
   assert.match(ph, /window\.PhoneKit = \{/, "PhoneKit 没挂出去，app.js 调不到");
 });

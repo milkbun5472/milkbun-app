@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.35";
+const APP_VERSION = "v59.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9460,12 +9460,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
       // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
       const merged = typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d;
-      // 饭桌上的人：同一个人别用好几个别称各占一条（她 2026-08-31，2026-09-01 再报）。
-      // ⚠️必须在【并完旧的之后】去重。原来只洗这一轮新生成的那几条，可 together 是
-      // 累积层——上一轮留下的别名会在 phoneMergeSaved 里原样并回来，等于没洗。
-      if (key === "takeout" && window.PhoneKit && merged && Array.isArray(merged.together)) {
-        try { merged.together = window.PhoneKit.dedupeByWho(merged.together); } catch (e) {}
-      }
       const entry = { ...merged, _at: Date.now() };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
       const n = {

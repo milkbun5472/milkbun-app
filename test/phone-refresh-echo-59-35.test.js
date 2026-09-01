@@ -55,14 +55,13 @@ test("累积层里空的不许抹掉旧的", () => {
   assert.equal(out2[0].when, "新的那句", "新的写了话却没盖过旧的");
 });
 
-// ④ 她 2026-09-01 第二次报别名。归并挡不住「老周 / 周叔」，病根在提示词那一头：
-// 对一栏【人】说「别再写一遍」，模型的出路就是换个称呼再写一位。
-test("对人那一栏说的是「叫法要一样」，不是「别再写一遍」", () => {
-  assert.match(ph, /const PHONE_SAME_NAME = \{ takeout: \{ together:/, "人那一栏没单拎出来");
-  assert.match(ph, /叫法要跟上面一模一样/, "没告诉它同一个人只准一个叫法");
-  // 同一栏不许同时收到两句相反的话
-  const i = ph.indexOf("function phoneSelfAvoidBlock(");
-  const sa = ph.slice(i, ph.indexOf("\n}", ph.indexOf("别再写一遍", i)));
-  assert.match(sa, /if \(same\[field\]\) return;/, "同一栏又被塞了「别再写一遍」，两句相反的话必然写歪");
-  assert.match(ph, /phoneSameNameBlock\(key, known\)/, "写了没人拼进去");
+// ④ 她 2026-09-01 又报了一次别名，然后说「不然我们想想直接换一个板块吧」。
+// v59.35 我在提示词那一头加了「叫法要一模一样」——那只是降概率，主键还是模型
+// 现编的一个称呼。v59.36 把整栏撤掉，换成按【地址】归拢：
+// **身份不稳的东西不该拿来当一栏的主键**，这比再加一句围栏管用。
+test("那一栏换成了身份稳的主键，不再靠围栏兜别名", () => {
+  assert.ok(ph.indexOf("PHONE_SAME_NAME") < 0, "还留着那一版只能降概率的围栏");
+  assert.ok(ph.indexOf("phoneSameNameBlock") < 0, "写了没人用的那一段还在");
+  assert.ok(ph.indexOf('"together"') < 0 && ph.indexOf("data.together") < 0, "那一栏还在生成或渲染");
+  assert.match(ph, /const feedMap = \{\}/, "顶掉它的那一格没按地方归拢");
 });

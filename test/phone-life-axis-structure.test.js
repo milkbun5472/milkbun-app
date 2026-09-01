@@ -23,7 +23,7 @@ test("外卖按角色生活分档，不逐项照平台栏目分仓", () => {
   const seg = k => takeout.slice(takeout.indexOf('key: "' + k + '"'), takeout.indexOf("\n", takeout.indexOf('key: "' + k + '"')));
   ["accCard", "todayCard", "liveSec"].forEach(x => assert.ok(seg("home").indexOf(x) > 0, "这一顿少了 " + x));
   ["tasteSec", "weekSec", "orderSec", "monthSec"].forEach(x => assert.ok(seg("rhythm").indexOf(x) > 0, "怎么吃少了 " + x));
-  ["togSec", "shopSec", "wishSec", "addrSec"].forEach(x => assert.ok(seg("people").indexOf(x) > 0, "和谁吃少了 " + x));
+  ["feedSec", "shopSec", "wishSec", "addrSec"].forEach(x => assert.ok(seg("people").indexOf(x) > 0, "和谁吃少了 " + x));
 });
 
 // 她 2026-08-31：「那几样分类和实际数据栏目和另一个太像了，改一下变成我们的」。
@@ -50,14 +50,16 @@ test("平台部件不画，改画只有我们会有的那一栏", () => {
   assert.ok(takeout.indexOf('tasteRow("辣度"') < 0, "还在按平台那张口味画像表分行");
   assert.match(takeout, /secTitle\("吃这件事上", "他的挑剔"\)/, "口味那栏没换成我们的问法");
   assert.match(takeout, /他嫌什么——不是嫌这样东西，是嫌它哪一点/, "没问到点子上");
-  // 饭桌上的人：同一个人别用好几个别称各占一条
-  assert.match(takeout, /const togRows = phoneDedupeByWho\(together\)/, "渲染这一端没去重");
-  assert.ok(takeout.indexOf("together.length + \" 段关系\"") < 0, "计数还用没去重的那份");
+  // 「饭桌上的人」撤了：那一栏的主键是模型现编的称呼，认不出「老周／周叔」。
+  // 顶掉它的「送到别人那儿」按地址归拢——地址会复用，天生是稳的主键。
+  assert.ok(takeout.indexOf("phoneDedupeByWho") < 0, "还留着那条认不准的归并");
+  assert.match(takeout, /const feedMap = \{\}/, "送到别人那儿没按地方归拢");
+  assert.match(takeout, /isHome\(o\.addr\)/, "没把他自己家那些单子排除掉");
 });
 
 test("外卖四块使用各自的阅读结构，而不是参考稿的黄卡片模板", () => {
   assert.match(takeout, /secTitle\("吃过的记录"/);
-  assert.match(takeout, /secTitle\("饭桌上的人"/);
+  assert.match(takeout, /secTitle\("送到别人那儿"/);
   assert.match(takeout, /const expanded = open === i/);
   assert.match(takeout, /setOpen\(expanded \? null : i\)/);
   assert.doesNotMatch(takeout, /secTitle\("本周吃什么"|secTitle\("我的订单"|secTitle\("一起点过"|secTitle\("本周点餐概况"/);
@@ -74,15 +76,24 @@ test("这七天是一串连着的饭，不是一天一格的表", () => {
   assert.match(takeout, /secTitle\("合起来看"/, "合起来看那一格没了");
   assert.match(takeout, /secTitle\("惦记着的"/, "惦记着的那一格没了");
   // 形状：把七天摊平成一串，日子只在换天时出现一次——这是「不再一天一格」的成因
-  assert.match(takeout, /const wkFlat = \[\]/, "还是一天一格，只是换了方向");
-  assert.match(takeout, /wkFlat\.push\(\{ day: dy\.day, empty: true \}\)/, "没吃的那天被吞掉了，而那才是最像他的几笔");
-  assert.match(takeout, /day: j \? "" : dy\.day/, "日子每顿都重复一次，又变回表格了");
+  // ⚠️v59.36：这七天不再是单独生成的一层，是【从 orders 上开的一扇七天的窗】。
+  // 她 2026-09-01：「吃过的记录和这七天对不上」——必然对不上，那是两次分别编出来的
+  // 同一个星期。同一份数据换个看法才天生对得上；过了七天的自己滑出窗口留在下面，
+  // 这就是她说的「顺延」，不需要任何搬运代码。
+  assert.ok(takeout.indexOf("A(data.week)") < 0, "还在单独生成一份七天，注定和吃过的记录对不上");
+  assert.match(takeout, /const wkDays = \[\]/, "没有那扇七天的窗");
+  assert.match(takeout, /todayStart - i \* DAY/, "窗口不是按天切的");
+  assert.match(takeout, /wkDays\.push\(\{ start, zh: WK_ZH\[new Date\(start\)\.getDay\(\)\], today: i === 0, rows \}\)/, "空掉的那天被吞掉了，而那才是最像他的几笔");
+  assert.match(takeout, /"这一天没吃上什么"/, "空掉的那天没说话");
+  // 点一顿就落到「吃过的记录」里那一条并展开——这是两边对得上的证据
+  assert.match(takeout, /id: "tk-od-" \+ i/, "吃过的记录那边没有可以落过去的锚");
+  assert.match(takeout, /document\.getElementById\("tk-od-" \+ x\.idx\)/, "点这七天里的一顿跳不过去");
   // 合起来看：三块彩色数字是平台的月度账单部件，删掉
   assert.ok(takeout.indexOf("const mealCount = week.reduce") < 0, "记下的餐那块统计还在");
   assert.ok(takeout.indexOf('"深夜落点"') < 0, "深夜落点那块统计还在");
   assert.ok(takeout.indexOf('"同桌的人"') < 0, "同桌的人那块统计还在");
   // 「几顿在深夜」是数量本身就是内容的那一种，所以它该活着——挪进副标
-  assert.match(takeout, /wkLate \+ " 顿在深夜"/, "深夜那个数没留下来");
+  assert.match(takeout, /late \+ " 顿在深夜"/, "深夜那个数没留下来");
 });
 
 test("外卖主视觉退出美团黄，改用雾蓝灰、鼠尾草绿和珊瑚色", () => {
