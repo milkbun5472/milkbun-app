@@ -825,7 +825,10 @@ function phoneMergeSaved(appKey, oldData, newData, nowTs) {
 // 「别每次都写一条新就诊」写在提示词里只是降概率——模型高兴起来天天送他去医院。
 // 所以间隔由代码说了算：离上一次不够久，这一轮生成的 visits 一律丢掉，旧的照旧留着。
 // 例外：一条都没有的时候必须让它写第一条，否则这个 app 永远是空的。
-const PHONE_VISIT_GAP_DAYS = 12;
+// 14 天＝整两周（她 2026-09-01 定）：**跟每周自动刷那条链对齐**——
+// 每周补刷一次的话，每隔一次那一刷正好能带上一条新的就诊，不用另开一条时机。
+// 12 天会跟周次错开，某几周赶得上、某几周赶不上，看着像随机。
+const PHONE_VISIT_GAP_DAYS = 14;
 function phoneVisitDays(known) {
   const list = (known && Array.isArray(known.visits)) ? known.visits : [];
   let newest = 0;

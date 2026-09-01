@@ -40,7 +40,10 @@ test("病历那一格摆的是【他说的】和【身上显示的】两栏，�
 
 // ⚠️「别每次都写一条新就诊」写在提示词里只是降概率。间隔必须由代码兜死。
 test("离上次不够久就不许再看一次大夫", () => {
-  assert.equal(P.PHONE_VISIT_GAP_DAYS, 12);
+  // 14 天＝整两周，跟每周自动刷那条链对齐：每隔一次周刷正好能带上一条新就诊。
+  // ⚠️这个数必须是 7 的整数倍，否则会跟周次错开——某几周赶得上某几周赶不上，看着像随机。
+  assert.equal(P.PHONE_VISIT_GAP_DAYS, 14);
+  assert.equal(P.PHONE_VISIT_GAP_DAYS % 7, 0, "跟每周补刷那条链错开了");
   // 提示词那一半
   assert.equal(P.phoneVisitHint({}), "", "没看过大夫时不该有间隔提示");
   assert.match(P.phoneVisitHint({ visits: [{ date: iso(Date.now() - 3 * D) }] }), /visits 给空数组/, "刚看过还在叫它写新的");
@@ -51,6 +54,9 @@ test("离上次不够久就不许再看一次大夫", () => {
   const recent = { visits: [{ date: iso(Date.now() - 3 * D) }] };
   assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }], since: "x" }, recent),
     { visits: [], since: "x" }, "刚看过还让它新增了一条");
+  // 边界：差一天也得拦住
+  assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }] }, { visits: [{ date: iso(Date.now() - 13 * D) }] }).visits, [],
+    "第 13 天就放行了，跟两周对不上");
   const old = { visits: [{ date: iso(Date.now() - 20 * D) }] };
   assert.equal(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }] }, old).visits.length, 1, "隔得够久却被拦下了");
   // ⚠️一条都没有时必须放行，否则这个 app 永远是空的
