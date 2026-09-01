@@ -51,3 +51,21 @@ test("学习线程工具、题卡与作答选项保留可点击高度", () => {
   assert.match(ui, /minHeight: 40/);
   assert.match(ui, /写在这张课页上/);
 });
+
+test("填空题卡使用原生可点词块，不执行模型生成的 HTML", () => {
+  assert.match(ui, /const bank = q\.wordBank \|\| \[\]/);
+  assert.match(ui, /点词块拼答案，也可以直接输入/);
+  assert.match(ui, /重新拼/);
+  assert.doesNotMatch(ui, /dangerouslySetInnerHTML|srcDoc/);
+});
+
+test("抽一张题卡只请求一题，避免无状态的三题承诺", () => {
+  assert.match(ui, /只出 1 题/);
+  assert.doesNotMatch(ui, /出 3 道小题/);
+});
+
+test("课程、课页和研究纸删除都走 App 可见确认层", () => {
+  assert.match(ui, /requestAppConfirm\("移除这张课页？"/);
+  assert.match(ui, /requestAppConfirm\("删除这张研究纸？"/);
+  assert.match(ui, /requestAppConfirm\("删除整门课程？"/);
+});

@@ -17,15 +17,16 @@
     "【换一种讲法】当用户说没听懂或要求换种讲法，禁止只替换同义词再讲一遍。必须换教学维度：抽象→具体例子、公式→图像/步骤、定义→类比、讲解→一起做、或换成更小的前置知识；并先用一句话确认刚才可能卡在哪里。";
 
   const OUT_FMT =
-    "\n【输出格式】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。" +
+    "\n【输出格式】只输出一个 JSON 对象，基础形态是 {\"say\":[\"气泡1\",\"气泡2\"]}；需要时可按上方规则在同一对象加入 quiz 或 evidence。" +
     "say 里放你这一轮说出口的话，可拆成 1~4 个气泡（像即时通讯那样分条），" +
     "不要加名字前缀、不要旁白括号、不要 markdown、不要把 JSON 以外的东西吐出来。";
   const QUIZ_CARD_FMT =
     "\n【可交互题卡】需要用户作答时，优先不要把题目只写成聊天文字；在同一个 JSON 里加 quiz。每轮最多 1 张：" +
     "{\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题目\",\"point_id\":\"当前要点id\"," +
     "\"options\":[{\"id\":\"A\",\"label\":\"选项文字\"}],\"answer\":\"标准答案或选项id\",\"aliases\":[\"可接受别名\"]," +
-    "\"hints\":[\"一级：只提醒方向\",\"二级：指出关键步骤\",\"三级：给相似例子但仍不直接给答案\"],\"explanation\":\"答对后的简短解释\"}。" +
+    "\"word_bank\":[\"填空可选词块\"],\"hints\":[\"一级：只提醒方向\",\"二级：指出关键步骤\",\"三级：给相似例子但仍不直接给答案\"],\"explanation\":\"答对后的简短解释\"}。" +
     "choice 必须有 2~5 个 options；true_false 的 answer 只能是 true/false 且不需要 options；fill_blank 可给 aliases（大小写不用重复列，系统会自动忽略）。" +
+    "适合拼句、排序或词汇回忆的 fill_blank 可以给 3~12 个 word_bank 词块（含必要干扰项），不适合就省略。" +
     "每题尽量给 2~3 级递进 hints；前两级绝不能直接泄露答案，最后一级也优先给相似例子。题面不要泄露答案，别在 say 里再重复整道题。只依据当前小节出题。";
   // 学习证据信号（只给 teach / nv1-teacher）：老师只能报告用户刚才真实作答的表现，不能自行宣布学会/推进。
   const STUDY_PROGRESS_FMT =
@@ -83,7 +84,7 @@
   }
 
   function newProgress(mode) {
-    if (mode === "costudy") return { running_summary: "", loose_vocab: [] };
+    if (mode === "costudy") return { running_summary: "", summary_buffer: [], loose_vocab: [] };
     return { current_unit: null, completed: [], mastery: {}, review_queue: [], notes: "", evidence: [], mistakes: [], exit_ticket: null,
       warmup_queue: [], warmup_started: false };
   }
@@ -170,7 +171,8 @@
     if (cu) {
       lines.push("\n【当前小节 · 全量】" + (cu.title || cu.id));
       if (cu.objectives && cu.objectives.length) lines.push("目标：" + cu.objectives.join("；"));
-      if (cu.grammar && cu.grammar.length) lines.push("要点：" + cu.grammar.map(function (g) { return g.label + (g.note ? "（" + g.note + "）" : ""); }).join("；"));
+      // point_id 是题卡与学习证据的外键；只给标签会逼模型凭空猜 id，合法题卡也会被校验层吞掉。
+      if (cu.grammar && cu.grammar.length) lines.push("要点（方括号内是必须原样使用的 point_id）：" + cu.grammar.map(function (g) { return "[" + g.id + "] " + g.label + (g.note ? "（" + g.note + "）" : ""); }).join("；"));
       if (cu.vocab && cu.vocab.length) lines.push("词汇：" + cu.vocab.join("、"));
       if (cu.can_do && cu.can_do.length) lines.push("学完能做到：" + cu.can_do.join("；"));
     }
@@ -184,7 +186,8 @@
     lines.push("当前小节：" + (unit ? unit.title : (progress.current_unit || "第一小节")) +
       "（已完成 " + (progress.completed || []).length + " / " + (units ? units.length : "?") + " 小节）");
     const m = progress.mastery || {};
-    const keys = Object.keys(m);
+    const currentIds = unit && Array.isArray(unit.grammar) ? unit.grammar.map(function (g) { return String(g.id); }) : [];
+    const keys = currentIds.filter(function (id) { return Object.prototype.hasOwnProperty.call(m, id); });
     if (keys.length && unit && unit.grammar) {
       const label = {};
       unit.grammar.forEach(function (g) { label[g.id] = g.label; });
@@ -199,7 +202,9 @@
       if (weak.length) lines.push("【开场先复习】这些点用户还不稳，这节开头先自然带 Ta 过一遍（提问/造句/小翻译均可，别照本宣科），确认接住了再进新内容：" + weak.join("、"));
     }
     if (progress.notes) lines.push("备注：" + progress.notes);
-    const unresolved = (progress.mistakes || []).filter(function (x) { return x && !x.resolved; }).slice(-5);
+    const unresolved = (progress.mistakes || []).filter(function (x) {
+      return x && !x.resolved && currentIds.includes(String(x.pointId || ""));
+    }).slice(-5);
     if (unresolved.length) lines.push("【真实作答暴露的薄弱点】" + unresolved.map(function (x) {
       return (x.pointId || "要点") + "：" + (x.note || "需要再练");
     }).join("；"));
@@ -220,6 +225,58 @@
     const mastered = points.filter(function (g) { return Number((p.mastery || {})[g.id]) >= 2; }).length;
     const withinUnit = points.length ? (mastered / points.length) * 0.9 : 0;
     return Math.max(0, Math.min(1, (completed + withinUnit) / list.length));
+  }
+
+  // 普通教学只允许当前小节与已经完成的小节出题；结课题只能属于当前小节。
+  // 到期跨 session 复习卡由 warmup_queue 直接落卡，不需要借“整份未来大纲”放行。
+  function allowedQuizPointIds(units, progress, exitOnly) {
+    const list = Array.isArray(units) ? units : [];
+    const p = progress || {};
+    const learned = new Set((p.completed || []).map(String));
+    return list.filter(function (u) {
+      return String(u.id) === String(p.current_unit) || (!exitOnly && learned.has(String(u.id)));
+    }).reduce(function (ids, u) {
+      return ids.concat((u.grammar || []).map(function (g) { return String(g.id); }));
+    }, []);
+  }
+
+  function exitAnswerEntry(session, ticket) {
+    if (!ticket || !ticket.quizId) return null;
+    const rows = (session && session.transcript) || [];
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const m = rows[i];
+      if (m && m.role === "user" && m.studyAction === "quiz_answer" &&
+          String(m.quizId || "") === String(ticket.quizId) && Number(m.ts || 0) >= Number(ticket.askedAt || 0)) return m;
+    }
+    return null;
+  }
+
+  function unitCompletionGate(unit, progress, ticket, transcript) {
+    const required = (unit && unit.grammar || []).map(function (g) { return String(g.id); });
+    const answer = exitAnswerEntry({ transcript: transcript || [] }, ticket);
+    const mastery = progress && progress.mastery || {};
+    const missing = required.filter(function (id) { return Number(mastery[id]) < 2; });
+    const exitPassed = !!answer && String(ticket.unitId || "") === String(unit && unit.id || "") &&
+      required.includes(String(answer.quizPointId || "")) && Number(answer.quizLevel) >= 2;
+    return { passed: !!required.length && exitPassed && !missing.length, exitPassed: exitPassed, missing: missing, answer: answer };
+  }
+
+  // costudy 的旧记录先进入可靠的待摘要缓冲区；只有 AI 摘要成功后才清缓冲，失败也不丢上下文。
+  function compactStudyTranscript(session, cap) {
+    const limit = Math.max(1, Number(cap) || 80);
+    const rows = Array.isArray(session && session.transcript) ? session.transcript : [];
+    if (rows.length <= limit) return session;
+    const dropped = rows.slice(0, rows.length - limit);
+    const next = Object.assign({}, session, { transcript: rows.slice(-limit) });
+    if (session.mode === "costudy") {
+      const progress = Object.assign({ running_summary: "", summary_buffer: [] }, session.progress || {});
+      const folded = dropped.filter(function (m) { return m && m.content && !m.hidden; }).map(function (m) {
+        return { id: m.id, role: m.role, name: m.name || "", content: String(m.content).slice(0, 800), ts: m.ts || 0 };
+      });
+      progress.summary_buffer = (progress.summary_buffer || []).concat(folded).slice(-120);
+      next.progress = progress;
+    }
+    return next;
   }
 
   // ---- 课程记忆：curriculum 下跨 session 的往期摘要（内部互通，绝不碰全局聊天记忆库）----
@@ -259,6 +316,12 @@
     if (session.mode === "costudy") {
       if (session.progress && session.progress.running_summary)
         parts.push("【到目前为止你俩研究到哪了（摘要）】\n" + session.progress.running_summary);
+      const pending = session.progress && session.progress.summary_buffer;
+      if (Array.isArray(pending) && pending.length) {
+        parts.push("【尚未浓缩的较早研究片段（同样属于上下文，不能遗忘）】\n" + pending.map(function (m) {
+          return (m.role === "user" ? ((profile.name || "用户") + "：") : ((m.name || char.name || "同伴") + "：")) + String(m.content || "");
+        }).join("\n"));
+      }
     } else {
       // 本节自带 outline+progress；再注入这门课的跨-session 记忆（curriculum 内互通）
       const outline = session.outline || null;
@@ -325,10 +388,14 @@
       if (!hit) return null;
       answer = hit.id;
     }
+    const wordBankRaw = Array.isArray(q.word_bank) ? q.word_bank : (Array.isArray(q.wordBank) ? q.wordBank : []);
+    const wordBank = type === "fill_blank" ? wordBankRaw.map(String).map(function (x) { return x.trim(); })
+      .filter(Boolean).slice(0, 12) : [];
     return {
       type: type, prompt: prompt.slice(0, 600), pointId: pointId,
       options: options, answer: answer,
       aliases: Array.isArray(q.aliases) ? q.aliases.map(String).filter(Boolean).slice(0, 12) : [],
+      wordBank: wordBank,
       hints: Array.isArray(q.hints) ? q.hints.map(String).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 3) : [],
       hintsUsed: 0,
       explanation: String(q.explanation || "").trim().slice(0, 500),
@@ -350,7 +417,9 @@
 
   function normalizeQuizAnswer(value) {
     return String(value == null ? "" : value).normalize("NFKC").trim().toLocaleLowerCase()
-      .replace(/\s+/g, " ").replace(/[。.!！?？]+$/g, "").trim();
+      .replace(/\s+/g, " ")
+      .replace(/([\u3040-\u30ff\u3400-\u9fff])\s+(?=[\u3040-\u30ff\u3400-\u9fff])/g, "$1")
+      .replace(/[。.!！?？]+$/g, "").trim();
   }
 
   async function gradeQuizAnswer(active, quiz, userAnswer) {
@@ -373,9 +442,18 @@
   }
 
   const DAY_MS = 24 * 60 * 60 * 1000;
-  function quizMasteryLevel(quiz, result, support, confidence) {
+  function quizMasteryLevel(quiz, result, support, confidence, priorEvidence) {
     const independent = result === "correct" && support === "none" && confidence !== "guess";
-    if (independent) return quiz && quiz.isReview ? 3 : 2;
+    if (independent) {
+      const recognitionOnly = quiz && (quiz.type === "choice" || quiz.type === "true_false");
+      if (!recognitionOnly) return quiz && quiz.isReview ? 3 : 2;
+      // 选择/判断第一次答对只证明“认得出来”；不同题卡再次独立答对，或隔时复习答对，才升到基本掌握。
+      const seenBefore = (priorEvidence || []).some(function (e) {
+        return e && String(e.pointId || "") === String(quiz.pointId || "") && e.quizId &&
+          e.result === "correct" && e.support === "none" && e.confidence !== "guess";
+      });
+      return quiz.isReview || seenBefore ? 2 : 1;
+    }
     return result === "correct" || result === "partial" ? 1 : 0;
   }
   function updateCurriculumReview(curId, session, quiz, outcome) {
@@ -401,7 +479,8 @@
     const item = {
       key: key, pointId: quiz.pointId, sourceSessionId: session.id,
       type: quiz.type, prompt: quiz.prompt, options: (quiz.options || []).slice(), answer: quiz.answer,
-      aliases: (quiz.aliases || []).slice(), hints: (quiz.hints || []).slice(), explanation: quiz.explanation || "",
+      aliases: (quiz.aliases || []).slice(), wordBank: (quiz.wordBank || []).slice(),
+      hints: (quiz.hints || []).slice(), explanation: quiz.explanation || "",
       stage: stage, nextReviewAt: nextReviewAt, lastResult: outcome.result,
       lastConfidence: outcome.confidence, lastSupport: outcome.support, updatedAt: outcome.ts
     };
@@ -418,7 +497,7 @@
       .sort(function (a, b) { return Number(a.nextReviewAt) - Number(b.nextReviewAt); }).slice(0, 2).map(function (x) {
         return {
           type: x.type, prompt: x.prompt, pointId: x.pointId, options: (x.options || []).slice(), answer: x.answer,
-          aliases: (x.aliases || []).slice(), hints: (x.hints || []).slice(), hintsUsed: 0,
+          aliases: (x.aliases || []).slice(), wordBank: (x.wordBank || []).slice(), hints: (x.hints || []).slice(), hintsUsed: 0,
           explanation: x.explanation || "", attempts: [], status: "open", isReview: true, reviewKey: x.key
         };
       });
@@ -486,11 +565,23 @@
     const d = extractJSON(raw) || {};
     // 稳健：模型常漏 id，别因缺 id 把小节整个丢掉——按序补 id（单元 & 要点都补）
     let units = Array.isArray(d.units) ? d.units.filter(function (x) { return x && x.title; }) : [];
+    const usedUnits = new Set(), usedPoints = new Set();
+    function uniqueId(raw, fallback, used) {
+      let base = String(raw || "").trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "") || fallback;
+      let id = base, n = 2;
+      while (used.has(id)) { id = base + "_" + n; n++; }
+      used.add(id);
+      return id;
+    }
     units = units.map(function (x, i) {
-      const uid = (x.id && String(x.id).trim()) || ("unit_" + (i + 1));
-      const grammar = Array.isArray(x.grammar) ? x.grammar.filter(function (g) { return g && g.label; }).map(function (g, gi) {
-        return Object.assign({}, g, { id: (g.id && String(g.id).trim()) || (uid + "_g" + (gi + 1)) });
-      }) : [];
+      const uid = uniqueId(x.id, "unit_" + (i + 1), usedUnits);
+      let rawGrammar = Array.isArray(x.grammar) ? x.grammar.filter(function (g) { return g && g.label; }) : [];
+      // 没有可追踪要点的单元永远无法出合法题卡或完成结课；至少补一个核心能力点。
+      if (!rawGrammar.length) rawGrammar = [{ id: "core", label: (x.objectives && x.objectives[0]) || x.title, note: "本小节的核心能力" }];
+      const grammar = rawGrammar.map(function (g, gi) {
+        const raw = String(g.id || ("g" + (gi + 1))).toLowerCase().replace(/[^a-z0-9_]+/g, "_");
+        return Object.assign({}, g, { id: uniqueId(uid + "__" + (raw || ("g" + (gi + 1))), uid + "__g" + (gi + 1), usedPoints) });
+      });
       return Object.assign({}, x, { id: uid, grammar: grammar });
     });
     if (!units.length) throw new Error("大纲起草失败，请重试");
@@ -511,6 +602,22 @@
       const progress = progressText(outline.units || [], session.progress || {});
       return (await callAI(active, sys, [{ role: "user", content: "【本节安排】" + covered + "\n" + progress + "\n【对话】\n" + conv }], { maxTokens: 6400 })).trim();
     } catch (e) { return ""; }
+  }
+
+  async function summarizeCostudyContext(active, session, ctx) {
+    const progress = session && session.progress || {};
+    const buffered = Array.isArray(progress.summary_buffer) ? progress.summary_buffer : [];
+    if (!buffered.length) return String(progress.running_summary || "");
+    const userName = (ctx.profile && ctx.profile.name) || "用户";
+    const old = String(progress.running_summary || "").trim();
+    const fresh = buffered.map(function (m) {
+      return (m.role === "user" ? userName : (m.name || "同伴")) + "：" + String(m.content || "");
+    }).join("\n");
+    const sys = "把一段共同研究记录合并进已有摘要。只保留可继续研究所需的信息：研究问题、已确认事实、仍只是推测的内容、证据或例子、未解决问题、下一步验证办法和重要术语。" +
+      "不能把推测写成事实，不能发明来源，也不要写聊天气氛或空泛评价。输出 JSON：{\"summary\":\"不超过1600字的结构化研究摘要\"}。";
+    const raw = await callAI(active, sys, [{ role: "user", content: (old ? "【已有摘要】\n" + old + "\n\n" : "") + "【需要并入的较早记录】\n" + fresh }], { maxTokens: 6400 });
+    const d = extractJSON(raw) || {};
+    return String(d.summary || raw || old).trim().slice(0, 6400);
   }
 
   async function generateStudyNote(active, session, char, ctx) {
@@ -567,10 +674,13 @@
     saveCurricula: saveCurricula, saveCurriculum: saveCurriculum, pushCurriculumSummary: pushCurriculumSummary,
     newProgress: newProgress, initSessionProgress: initSessionProgress, curriculumMemoryText: curriculumMemoryText,
     genTurn: genTurn, inferAbility: inferAbility, draftSessionOutline: draftSessionOutline,
-    summarizeStudySession: summarizeStudySession, generateStudyNote: generateStudyNote, runCheckpoint: runCheckpoint, tail: tail,
+    summarizeStudySession: summarizeStudySession, summarizeCostudyContext: summarizeCostudyContext,
+    generateStudyNote: generateStudyNote, runCheckpoint: runCheckpoint, tail: tail,
     normalizeQuizAnswer: normalizeQuizAnswer, gradeQuizAnswer: gradeQuizAnswer, parseQuiz: parseQuiz,
     updateCurriculumReview: updateCurriculumReview, dueReviewCards: dueReviewCards, quizMasteryLevel: quizMasteryLevel,
-    studyProgressRatio: studyProgressRatio
+    studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds,
+    exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
+    outlineSlice: outlineSlice, progressText: progressText
   };
 
   // ============================================================
@@ -989,12 +1099,8 @@
 
     // 持久化：改 transcript / progress 后存库并回写列表
     function commit(next) {
+      next = compactStudyTranscript(next, 80);
       next.updated_at = Date.now();
-      // transcript 截断：只留尾部 N 条（续档靠 progress，不靠它）；costudy 把丢弃的头折进 running_summary
-      const CAP = 80;
-      if (next.transcript.length > CAP) {
-        next.transcript = next.transcript.slice(next.transcript.length - CAP);
-      }
       setSess(next);
       sessRef.current = next;
       const all = loadSessions().map(function (s) { return s.id === next.id ? next : s; });
@@ -1009,6 +1115,23 @@
       return next;
     }
 
+    async function refreshCostudySummary() {
+      const snapshot = sessRef.current;
+      const buffer = snapshot.progress && snapshot.progress.summary_buffer;
+      if (snapshot.mode !== "costudy" || !Array.isArray(buffer) || !buffer.length) return;
+      const used = new Set(buffer.map(function (m) { return String(m.id || ""); }));
+      try {
+        const summary = await summarizeCostudyContext(props.bgActive || props.active, snapshot, ctx);
+        const latest = sessRef.current;
+        const progress = Object.assign({}, latest.progress || {});
+        progress.running_summary = summary;
+        progress.summary_buffer = (progress.summary_buffer || []).filter(function (m) { return !used.has(String(m.id || "")); });
+        commit(Object.assign({}, latest, { progress: progress }));
+      } catch (e) {
+        // 摘要失败时缓冲原样保留并继续注入 prompt；宁可稍长，也绝不静默丢研究上下文。
+      }
+    }
+
     async function runChar(char, role) {
       const before = sessRef.current;
       const answerEntry = (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
@@ -1020,11 +1143,19 @@
         pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
       }
       if (res && res.quiz) {
-        // 允许全大纲的要点 id：开场复习就是会考上一小节的点（progressText 明确引导），只卡当前小节会把合法复习题吞掉
-        const allowed = units.reduce(function (acc, u) { return acc.concat((u.grammar || []).map(function (g) { return String(g.id); })); }, []);
+        const current = sessRef.current;
+        const pendingExit = current.progress && current.progress.exit_ticket;
+        const bindingExit = pendingExit && pendingExit.status === "awaiting_answer" && !pendingExit.quizId;
+        const allowed = allowedQuizPointIds(units, current.progress, bindingExit);
         if (allowed.includes(res.quiz.pointId)) {
-          pushEntry({ id: "q_" + Date.now(), role: "char", speakerId: char.id, name: char.name,
-            content: res.quiz.prompt, quiz: res.quiz, ts: Date.now() });
+          const quizId = "q_" + Date.now();
+          const nextProgress = Object.assign({}, current.progress || {});
+          if (bindingExit) nextProgress.exit_ticket = Object.assign({}, pendingExit, { quizId: quizId, pointId: res.quiz.pointId });
+          commit(Object.assign({}, current, {
+            transcript: (current.transcript || []).concat([{ id: quizId, role: "char", speakerId: char.id, name: char.name,
+              content: res.quiz.prompt, quiz: res.quiz, ts: Date.now() }]),
+            progress: nextProgress
+          }));
         } else {
           // 真越界也不许无声吞卡——老师嘴上说了「做做这道题」，屏幕上必须有东西；降级成普通文字，不带 quiz 结构不记证据
           pushEntry({ id: "q_" + Date.now(), role: "char", speakerId: char.id, name: char.name,
@@ -1033,6 +1164,7 @@
       }
       // 老师只能把用户刚刚真实作答的表现记成证据；任何模型信号都不能自动推进小节。
       if (units.length && (role === "teach" || role === "nv1-teacher")) recordEvidence(res && res.evidence, answerEntry);
+      if (sessRef.current.mode === "costudy") await refreshCostudySummary();
     }
 
     function recordEvidence(raw, answerEntry) {
@@ -1090,13 +1222,13 @@
           return;
         }
         const now = Date.now();
+        const s = sessRef.current;
         const attempts = entry.quiz.attempts || [];
         const hintsUsed = Number(entry.quiz.hintsUsed) || 0;
         const support = hintsUsed >= 3 ? "guided" : ((hintsUsed > 0 || attempts.length > 0) ? "hinted" : "none");
-        const level = quizMasteryLevel(entry.quiz, grade.result, support, confidence);
+        const level = quizMasteryLevel(entry.quiz, grade.result, support, confidence, s.progress && s.progress.evidence);
         const attempt = { answer: answer, result: grade.result, feedback: grade.feedback, support: support, confidence: confidence, ts: now };
         const answerId = "u_qa_" + now;
-        const s = sessRef.current;
         const nextTranscript = (s.transcript || []).map(function (m) {
           if (m.id !== entry.id) return m;
           return Object.assign({}, m, { quiz: Object.assign({}, m.quiz, {
@@ -1107,6 +1239,8 @@
           ? ((entry.quiz.options || []).find(function (o) { return o.id === answer; }) || {}).label || answer
           : (entry.quiz.type === "true_false" ? (answer === "true" ? "正确" : "错误") : answer);
         nextTranscript.push({ id: answerId, role: "user", studyAction: "quiz_answer", hidden: true,
+          quizId: entry.id, quizPointId: entry.quiz.pointId, quizResult: grade.result,
+          quizSupport: support, quizConfidence: confidence, quizLevel: level,
           content: "（答题卡作答｜题目：" + entry.quiz.prompt + "｜我的答案：" + selected + "｜自信：" + confidence + "｜判定：" + grade.result + "）", ts: now });
 
         const cp = Object.assign({ completed: [], mastery: {}, review_queue: [], evidence: [], mistakes: [] }, s.progress);
@@ -1167,10 +1301,10 @@
       props.toast("先用 " + cards.length + " 道到期题热热身，再开始新内容");
     }
 
-    // 考我：主动请老师就本节要点出题（一题一题来，答完批改讲解 + 顺手更新掌握度）
+    // 抽一张题卡：一次只建立一张可追踪的题，答完想继续再抽，避免“三题计划”没有状态机却假装会续上。
     function quizMe() {
       if (busy) return;
-      pushEntry({ id: "u_" + Date.now(), role: "user", content: "（考考我吧：就这节讲过的要点出 3 道小题——用可交互题卡，难度贴我现在的水平，单选/判断/填空混着来，优先考我还不稳的点。一题一题出，等我答完再出下一题，最后告诉我哪个点还得再练。）", ts: Date.now() });
+      pushEntry({ id: "u_" + Date.now(), role: "user", content: "（抽一张可交互题卡考考我：只出 1 题，考当前小节已经讲过的内容，优先选我还不稳的要点。可以用单选、判断或填空；适合拼句时给可点选词块。先别公布答案。）", ts: Date.now() });
       setTimeout(function () { replyNow(); }, 60);
     }
 
@@ -1209,9 +1343,7 @@
     }
 
     function hasExitAnswer(s, ticket) {
-      return !!ticket && (s.transcript || []).some(function (m) {
-        return m.role === "user" && (!m.studyAction || m.studyAction === "quiz_answer") && (m.ts || 0) > (ticket.askedAt || 0);
-      });
+      return !!exitAnswerEntry(s, ticket);
     }
 
     async function startExitTicket() {
@@ -1224,7 +1356,7 @@
       commit(Object.assign({}, s, { progress: cp }));
       pushEntry({
         id: "u_" + Date.now(), role: "user", studyAction: "exit_request",
-        content: "（【结课小测】请针对当前小节最核心、最好也是我还不稳的点，只发 1 张需要我亲自作答的可交互题卡。先不要公布答案，也不要替我回答。）", ts: askedAt
+        content: "（【结课小测】请针对当前小节最核心、最好也是我还不稳的点，只发 1 张 fill_blank 主动回忆题卡，让我自己写出/拼出答案；不要用单选或判断。先不要公布答案，也不要替我回答。）", ts: askedAt
       });
       await replyNow();
       props.toast("先答完这道小测，再点“提交结课”");
@@ -1239,6 +1371,11 @@
         await startExitTicket();
         return;
       }
+      if (!initialTicket.quizId) {
+        props.toast("刚才没生成出合法题卡，正在重新出题");
+        await startExitTicket();
+        return;
+      }
       if (!hasExitAnswer(initial, initialTicket)) {
         props.toast("先亲自回答老师刚出的结课小测");
         return;
@@ -1248,36 +1385,15 @@
         const s = sessRef.current;
         // 本节自足：结算写进本 session 的进度（跨 session 靠开新节时的摘要衔接，不写这里）
         const cp = Object.assign({ completed: [], mastery: {} }, s.progress);
-        try {
-          const res = await runCheckpoint(props.active, s, teacher, ctx);
-          const cu = units.find(function (u) { return u.id === cp.current_unit; });
-          const allowed = (cu && cu.grammar || []).map(function (g) { return g.id; });
-          const checkedMastery = {};
-          Object.keys(res.mastery || {}).forEach(function (id) {
-            const level = Math.max(0, Math.min(2, Math.round(Number(res.mastery[id]))));
-            if (allowed.includes(id) && Number.isFinite(level)) checkedMastery[id] = level;
-          });
-          cp.mastery = Object.assign({}, cp.mastery, checkedMastery);
-          cp.notes = res.notes || cp.notes;
-          cp.evidence = (cp.evidence || []).slice();
-          cp.mistakes = (cp.mistakes || []).slice();
-          (res.mistakes || []).forEach(function (m) {
-            const pointId = String(m.point_id || "");
-            if (!allowed.includes(pointId)) return;
-            cp.mistakes.push({ id: "mist_" + Date.now() + "_exit", pointId: pointId, userEntryId: null,
-              note: String(m.note || "结课小测仍需复习").slice(0, 180), resolved: false, ts: Date.now() });
-          });
-          cp.review_queue = Object.keys(cp.mastery).filter(function (k) { return cp.mastery[k] <= 1; });
-          const independentlyPassed = Object.keys(checkedMastery).some(function (id) { return checkedMastery[id] >= 2; });
-          if (!res.completed || !independentlyPassed) {
-            cp.exit_ticket = { status: "needs_retry", unitId: cp.current_unit, checkedAt: Date.now() };
-            // 结算是好几秒的模型调用，期间用户可能又发了消息——必须用最新 sessRef 写回，不能用 await 前的旧快照（会整体覆盖丢消息）
-            commit(Object.assign({}, sessRef.current, { progress: cp }));
-            props.toast("这次小测还暴露了薄弱点，已经记下；练一会儿再测一次");
-            return;
-          }
-        } catch (e) {
-          props.toast("小测结算失败，没有推进进度");
+        const cu = units.find(function (u) { return u.id === cp.current_unit; });
+        const gate = unitCompletionGate(cu, cp, initialTicket, s.transcript);
+        if (!gate.passed) {
+          cp.exit_ticket = { status: "needs_retry", unitId: cp.current_unit, checkedAt: Date.now() };
+          cp.notes = !gate.exitPassed ? "结课题还没有独立答对" : "仍有要点需要独立完成";
+          commit(Object.assign({}, sessRef.current, { progress: cp }));
+          props.toast(!gate.exitPassed
+            ? "这张结课题还不能算独立掌握，练一下再测"
+            : "还有 " + gate.missing.length + " 个要点缺少独立作答证据，先各练一题");
           return;
         }
         cp.exit_ticket = { status: "passed", unitId: cp.current_unit, checkedAt: Date.now() };
@@ -1380,9 +1496,23 @@
           h("button", { disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: "true" }); }); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }, draft === "true" ? { borderColor: accent, background: accent + "12" } : {}) }, "正确"),
           h("button", { disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: "false" }); }); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }, draft === "false" ? { borderColor: accent, background: accent + "12" } : {}) }, "错误"));
       } else {
+        const bank = q.wordBank || [];
         answerUI = h("div", null,
           h("input", { value: draft, disabled: busy || solved, onChange: function (e) { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: e.target.value }); }); },
-            placeholder: "填入答案…", style: { width: "100%", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 10px 4px", padding: "9px 10px" } }));
+            placeholder: bank.length ? "点词块拼答案，也可以直接输入…" : "填入答案…", style: { width: "100%", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 10px 4px", padding: "9px 10px" } }),
+          bank.length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8 } },
+            bank.map(function (token, i) {
+              return h("button", { key: i + ":" + token, disabled: busy || solved, onClick: function () {
+                setQuizDrafts(function (old) {
+                  const before = String(old[m.id] || "").trim();
+                  return Object.assign({}, old, { [m.id]: before ? before + " " + token : token });
+                });
+              }, className: "active:opacity-65 disabled:opacity-45", style: { minHeight: 36, padding: "6px 10px", fontFamily: F_BODY,
+                fontSize: 12.5, color: accent, background: STUDY_SKIN.paper, border: "1px solid " + accent + "66", borderRadius: "4px 10px 4px 4px" } }, token);
+            }),
+            draft ? h("button", { onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: "" }); }); },
+              className: "active:opacity-65", style: { minHeight: 36, padding: "6px 9px", fontFamily: F_BODY, fontSize: 11.5,
+                color: STUDY_SKIN.fog, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 8 } }, "重新拼") : null) : null);
       }
       return h("div", { style: { position: "relative", width: "min(100%, 430px)", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.10) 28px)", border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: "13px 13px 14px", boxShadow: "0 7px 18px " + STUDY_SKIN.shadow } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
@@ -1565,8 +1695,10 @@
         onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
         onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },
         onDelSession: function (id) {
-          saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
-          refresh(); props.toast && props.toast("已删除");
+          requestAppConfirm("移除这张课页？", "这张课页里的对话、题卡与学习证据会一起删除，无法恢复。", function () {
+            saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
+            refresh(); props.toast && props.toast("已删除课页");
+          }, "移除课页");
         }
       });
     }
@@ -1590,7 +1722,12 @@
         sessions: cs, characters: props.characters, scrollRef: homeScrollRef,
         onNew: function () { rememberHome(); setView("newCostudy"); },
         onOpen: function (id) { rememberHome(); setOpenId(id); setView("thread"); },
-        onDel: function (id) { saveSessions(loadSessions().filter(function (s) { return s.id !== id; })); refresh(); props.toast && props.toast("已删除"); }
+        onDel: function (id) {
+          requestAppConfirm("删除这张研究纸？", "共同研究的全部记录会一起删除，无法恢复。", function () {
+            saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
+            refresh(); props.toast && props.toast("已删除研究纸");
+          }, "删除研究纸");
+        }
       });
     } else {
       const cs = curricula.filter(function (c) { return c.mode === tab; })
@@ -1600,9 +1737,13 @@
         onNew: function () { rememberHome(); setView("newCurriculum"); },
         onOpen: function (id) { rememberHome(); setCurId(id); setView("console"); },
         onDel: function (id) {
-          saveCurricula(loadCurricula().filter(function (c) { return c.id !== id; }));
-          saveSessions(loadSessions().filter(function (s) { return s.curriculum_id !== id; }));
-          refresh(); props.toast && props.toast("已删除课程");
+          const target = loadCurricula().find(function (c) { return c.id === id; });
+          const count = loadSessions().filter(function (s) { return s.curriculum_id === id; }).length;
+          requestAppConfirm("删除整门课程？", "「" + ((target && target.subject) || "这门课程") + "」和其中 " + count + " 张课页、复习记录都会一起删除，无法恢复。", function () {
+            saveCurricula(loadCurricula().filter(function (c) { return c.id !== id; }));
+            saveSessions(loadSessions().filter(function (s) { return s.curriculum_id !== id; }));
+            refresh(); props.toast && props.toast("已删除课程");
+          }, "删除整门课");
         }
       });
     }
