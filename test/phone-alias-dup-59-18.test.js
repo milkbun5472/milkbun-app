@@ -67,10 +67,14 @@ test("两道都接上了：提示词发别名，存之前再筛一遍", () => {
   assert.match(taken, /samePerson\(c\.name, o\.name\)/, "没顺着会话名把角色卡上的别名一起收进来");
   assert.match(taken, /add\(o\.name\); add\(o\.remark\)/, "备注那个叫法没收");
   // ② 代码这一道：规则只降概率
-  const save = cut(app, "  const savePhoneApp = (charId, key, d) => {", "    archivePhoneApp(");
+  const save = cut(app, "  const savePhoneApp = (charId, key, d) => {", "      saveJSON(\"x_phone\", n);");
   assert.match(save, /key === "wechat" && window\.PhoneKit/, "存之前没筛");
   assert.match(save, /dropDupWechat\(d, phoneTakenNames\(c0\)\)/, "筛的时候用的不是同一份名单");
-  assert.match(save, /key === "takeout"[\s\S]*dedupeByWho\(d\.together\)/, "饭桌上的人存之前没去重");
+  // ⚠️v59.35：饭桌上的人必须在【并完旧的之后】去重。原来只洗这一轮新生成的那几条，
+  // 可 together 是累积层——上一轮留下的别名会在 phoneMergeSaved 里原样并回来，等于没洗。
+  const mg = save.indexOf("phoneMergeSaved(key, cur[key], d");
+  const dd = save.indexOf("dedupeByWho(merged.together)");
+  assert.ok(mg > 0 && dd > mg, "饭桌上的人没在并完旧的之后去重，旧别名会原样并回来");
   // 挂出去的那个全局
   assert.match(ph, /window\.PhoneKit = \{/, "PhoneKit 没挂出去，app.js 调不到");
 });

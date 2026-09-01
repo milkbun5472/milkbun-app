@@ -603,18 +603,62 @@ function phoneAgo(x, nowTs) {
   return (d.getFullYear() !== n.getFullYear() ? d.getFullYear() + "年" : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
 }
 // 新的并进旧的：新的在前（同一条以新的为准），有时刻的按时间倒序，攒到上限挤掉最旧的
+// ⚠️模型会把 schemaHint 里的占位说明【原样抄进数据】。
+// 她 2026-09-01 截图里「想吃清单」有三条的「什么时候会想起它」是灰的——那不是空，
+// 那就是 schemaHint 里 "when":"什么时候会想起它" 被逐字抄了回来，还把上一轮真写的
+// 那句盖掉了。这跟 .claude/rules/prompt-no-content-samples.md 是同一件事的另一半：
+// 占位值写成【说明】仍然挡不住照抄，**规则降概率，代码才保证**。
+// 做法不挑字段、不写死名单：把这个 app 自己那份 schemaHint 里所有字符串叶子收集起来，
+// 生成结果里凡是跟其中一条【一模一样】的字符串，一律当成没写。
+// 只认全等，不认包含——真话里碰巧含着占位词的不该被误伤。
+function phoneEchoSet(schemaHint) {
+  const out = new Set();
+  const walk = v => {
+    if (typeof v === "string") { const t = v.trim(); if (t) out.add(t); return; }
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (v && typeof v === "object") { Object.keys(v).forEach(k => walk(v[k])); }
+  };
+  try { walk(JSON.parse(schemaHint)); } catch (e) { return out; }
+  return out;
+}
+function phoneDropEchoes(data, schemaHint) {
+  const echo = phoneEchoSet(schemaHint);
+  if (!echo.size) return data;
+  const clean = v => {
+    if (typeof v === "string") return echo.has(v.trim()) ? "" : v;
+    if (Array.isArray(v)) return v.map(clean).filter(x => !(typeof x === "string" && !x));
+    if (v && typeof v === "object") { const o = {}; Object.keys(v).forEach(k => { o[k] = clean(v[k]); }); return o; }
+    return v;
+  };
+  return clean(data);
+}
 function phoneGrowList(fresh, old, cap, nowTs) {
   const A = a => Array.isArray(a) ? a : [];
   const now = nowTs || Date.now();
   const seen = {};
   const out = [];
+  // ⚠️同一行在新旧两份里都出现时，【新的赢，但空的不许抹掉旧的】。
+  // 这就是 🌱 那一层「空值不许抹掉旧值」同一条规矩，累积层一样要有：
+  // 模型这一轮漏写了某一栏（想吃的那句「什么时候会想起它」最常漏），
+  // 原来直接整行拿新的顶掉，上一轮真写的那句就没了。
+  const at = {};
   A(fresh).concat(A(old)).forEach(x => {
     if (x == null) return;
     const frozen = (x && typeof x === "object") ? phoneFreezeTime(x, now) : x;
     const k = phoneRowKey(frozen);
-    if (seen[k]) return;
+    if (seen[k]) {
+      const keep = out[at[k]];
+      if (keep && typeof keep === "object" && frozen && typeof frozen === "object") {
+        Object.keys(frozen).forEach(f => {
+          const has = v => v != null && !(typeof v === "string" && !v.trim()) && !(Array.isArray(v) && !v.length);
+          if (!has(keep[f]) && has(frozen[f])) keep[f] = frozen[f];
+        });
+      }
+      return;
+    }
     seen[k] = 1;
-    out.push(frozen);
+    at[k] = out.length;
+    out.push((frozen && typeof frozen === "object") ? { ...frozen } : frozen);
   });
   // 全都认得出时刻才排序——一半有一半没有的话，排完顺序更乱
   if (out.length && out.every(x => x && typeof x === "object" && x._ts != null)) out.sort((a, b) => b._ts - a._ts);
@@ -763,15 +807,43 @@ function phoneRosterBlock(appKey, known) {
 }
 // 同一个 app 里已经攒着的那些，回喂给模型：别把已经有的再写一遍。
 // 这跟跨 app 的 phoneAvoidBlock 是同一个形状，只是范围换成了自己。
+// ── 同一个人只准有一个叫法（v59.35）────────────────────────────────────────
+// 她 2026-09-01 第二次报：「饭桌上的人那个也改改，有些是同一个人不同名称还是被单独
+// 算了」。上一版只在代码里按名字归并（phoneDedupeByWho），可归并挡不住「老周」和
+// 「周叔」——它们既不相等也不互相包含。
+// 病根在提示词这一头：together 是累积层，于是它吃到的是【别再写一遍】那句话。
+// 对一栏「事」说别重复是对的，对一栏【人】说别重复，模型的出路就是**给同一个人
+// 换个称呼再写一遍**——别名正是这么长出来的。
+// 所以这一栏单拎出来说另一句话：事别重复，但人还是那几位的话，叫法要一模一样。
+const PHONE_SAME_NAME = { takeout: { together: "已经上过饭桌的人" } };
+function phoneSameNameBlock(appKey, known) {
+  const conf = PHONE_SAME_NAME[appKey];
+  if (!conf || !known) return "";
+  const lines = [];
+  Object.keys(conf).forEach(field => {
+    const arr = phoneGetPath(known, field);
+    if (!Array.isArray(arr) || !arr.length) return;
+    const names = arr.map(phoneRowName).filter(Boolean).slice(0, 16);
+    if (names.length) lines.push("- " + conf[field] + "：" + names.join("｜"));
+  });
+  if (!lines.length) return "";
+  return "\n\n【这几位他已经一起吃过了】\n" + lines.join("\n")
+    + "\n**写新的一顿时，如果还是上面这几位里的一个，叫法要跟上面一模一样**——"
+    + "同一个人不许换个称呼再算一位。要写别人，就写一个真正的新面孔。"
+    + "（已经写过的那几顿不用重写，旧的会自己留着。）";
+}
 function phoneSelfAvoidBlock(appKey, known) {
   const conf = PHONE_GROW[appKey];
   if (!conf || !known) return "";
   const roster = PHONE_RETIRE[appKey] || {};
+  const same = PHONE_SAME_NAME[appKey] || {};
   const lines = [];
   Object.keys(conf).forEach(field => {
     // 名册那几栏走 phoneRosterBlock，说的是「照抄回来」；
     // 这儿说的是「别再写一遍」——同一栏两句相反的话，模型必然写歪。
     if (roster[field]) return;
+    // 人那一栏走 phoneSameNameBlock，同理：一栏只许收到一句话。
+    if (same[field]) return;
     const arr = phoneGetPath(known, field);
     if (!Array.isArray(arr) || !arr.length) return;
     const picked = arr.slice(0, 12).map(x => {
@@ -2707,15 +2779,41 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       (taste.habit || taste.budget) ? askRow("什么时候才想起吃", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK } },
         [taste.habit, taste.budget].filter(Boolean).join("　"))) : null),
     peekBtn("quiet", T("他的挑剔"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "嫌：" + A(taste.avoidTags).join("、") : "", stockNote ? "每次都写：" + stockNote.text : "", taste.habit].filter(Boolean).join("｜"))) : null;
-  // ── 一周进食轨迹：纵向节奏带，不再做七张横滑日卡 ──
-  const weekSec = week.length ? h("section", { key: "wk" }, secTitle("一周进食轨迹", week.length + " 天留下记录"),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "6px 15px", marginBottom: 13 } },
-      week.map((dy, i) => h("div", { key: i, className: "flex", style: { gap: 13, padding: "13px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
-        h("div", { style: { width: 42, flexShrink: 0, paddingTop: 1 } },
-          h("span", { style: { display: "inline-flex", minWidth: 38, height: 25, alignItems: "center", justifyContent: "center", borderRadius: 999, background: i === week.length - 1 ? TAKE_ACCENT : "#e5edeb", color: i === week.length - 1 ? "#fff" : TAKE_ACCENT, fontFamily: F_DISPLAY, fontSize: 12 } }, dy.day || "")),
-        h("div", { className: "flex-1 min-w-0" }, A(dy.meals).map((ml, j) => h("div", { key: j, className: "flex", style: { gap: 8, marginTop: j ? 7 : 0 } },
-          h("span", { style: { width: 24, flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_CORAL, paddingTop: 2 } }, ml.t || ""),
-          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#4f5c59" } }, ml.text || "")))))))) : null;
+  // ── 这七天（v59.35）──
+  // 原来叫「一周进食轨迹」：那是记账 App 说话的方式（摄入、轨迹、达标），
+  // 而且形状就是参考那份的七张横滑日卡【转了个方向】竖过来——她 2026-09-01：
+  //「格式还是和另一个太像了只不过把人家的打横变成竖着的」。转向不是改设计。
+  //
+  // 真正的差别在【一天一格】这件事本身：一格一天，读出来永远是一张考勤表，
+  // 每天都被画成一样大的一块，有没有吃、几点吃全被格子拉平了。
+  // 改成【连着流下来的一串饭】：饭一顿接一顿往下走，日子只在换天的时候出现一次，
+  // 空掉的那一天自己占一行说话——**没吃上，才是这一周里最像他的那几笔**。
+  const wkFlat = [];
+  week.forEach(dy => {
+    const ms = A(dy.meals).filter(ml => ml && (ml.text || ml.t));
+    if (!ms.length) { wkFlat.push({ day: dy.day, empty: true }); return; }
+    ms.forEach((ml, j) => wkFlat.push({ day: j ? "" : dy.day, t: ml.t || "", text: ml.text || "" }));
+  });
+  const isLate = r => /夜|宵|凌晨/.test((r.t || "") + (r.text || ""));
+  const skipped = r => !r.text || /未点送|没叫|没吃|忘了吃|没顾上/.test(r.text);
+  const wkLate = wkFlat.filter(isLate).length;
+  const wkMiss = wkFlat.filter(r => r.empty || skipped(r)).length;
+  const weekSec = wkFlat.length ? h("section", { key: "wk" },
+    secTitle("这七天", [wkLate ? wkLate + " 顿在深夜" : "", wkMiss ? wkMiss + " 顿没着落" : ""].filter(Boolean).join(" · ") || "一顿接一顿"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "14px 15px 15px", marginBottom: 13 } },
+      wkFlat.map((r, i) => {
+        const late = isLate(r), gone = r.empty || skipped(r);
+        return h("div", { key: i, className: "flex", style: { gap: 11, marginTop: i ? 11 : 0 } },
+          // 左边这一列是那根线：换天时露出日子，同一天里就只剩一节线接着往下
+          h("div", { style: { width: 20, flexShrink: 0, textAlign: "center", position: "relative" } },
+            r.day
+              ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: TAKE_ACCENT } }, r.day)
+              : h("span", { "aria-hidden": "true", style: { display: "block", width: 1, height: 18, margin: "2px auto 0", background: "#dbe5e2" } })),
+          h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 99, marginTop: 7, flexShrink: 0, background: gone ? "transparent" : late ? TAKE_CORAL : "#cfdcd8", border: gone ? "1px dashed #c4d0cd" : "none" } }),
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: gone ? "#a8b3b0" : "#4f5c59", fontStyle: gone && r.empty ? "italic" : "normal", wordBreak: "break-word" } },
+            r.empty ? "这一天没留下什么" : (r.t ? h("span", { style: { color: late ? TAKE_CORAL : TAKE_DIM, marginRight: 7 } }, r.t) : null),
+            r.empty ? null : r.text));
+      }))) : null;
   // ⚠️红包卡券【不画】（她 2026-08-31：「和另一个太像了」）。
   // 那是一张营销位：红底大金额、适用范围、有效期——纯平台部件，换个角色照样成立，
   // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的），只是界面不再摆它。
@@ -2730,7 +2828,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       !a.isDefault ? h("div", null, peekBtn("hidden", "外卖常用地址", a.label, a.detail)) : null)))) : null;
   // ── 想吃清单 ──
   // ⚠️标题独占一行：跟指标名那次一样，中文在窄 flex 里会被压成一条竖字
-  const wishSec = wish.length ? h("section", { key: "ws" }, secTitle("想吃清单", "馋着的 " + wish.length + " 样"),
+  // 「想吃清单」是购物车的说法（清单＝待办）。他不是在列清单，是在惦记。
+  const wishSec = wish.length ? h("section", { key: "ws" }, secTitle("惦记着的", wish.length + " 样还没吃上"),
     card(wish.map((w, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f3f1ec" : "none" } },
       h("div", { className: "flex items-start", style: { gap: 9 } },
         h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_CORAL } }),
@@ -2750,16 +2849,19 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           g.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_ACCENT, marginTop: 5 } }, g.items) : null,
           g.story ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#687572", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: "#f1f5f4" } }, g.story) : null)),
       h("div", { style: { marginLeft: 54 } }, peekBtn("quiet", T("他和谁一起点的"), (g.who || "") + " · " + (g.items || ""), g.story)))))) : null;
-  const mealCount = week.reduce((sum, dy) => sum + A(dy.meals).length, 0);
-  const lateCount = week.reduce((sum, dy) => sum + A(dy.meals).filter(ml => /夜|宵/.test((ml.t || "") + (ml.text || ""))).length, 0);
-  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("吃饭侧写", "不是账单，是节奏"),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "16px", marginBottom: 13 } },
-      h("div", { className: "grid", style: { gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
-        [[mealCount, "记下的餐"], [lateCount, "深夜落点"], [togRows.length, "同桌的人"]].map(([n, label], i) => h("div", { key: label, style: { borderRadius: 13, padding: "12px 8px", background: ["#e7efed", "#f7e9e6", "#e9edf2"][i], textAlign: "center" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: i === 1 ? TAKE_CORAL : TAKE_INK } }, n),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM, marginTop: 4 } }, label)))),
-      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4f5c59", marginTop: 15 } }, data.monthNote) : null,
-      data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_ACCENT, marginTop: 12, paddingTop: 11, borderTop: "1px dashed #cbd8d4" } }, "↳ " + data.tail) : null)) : null;
+  // ── 合起来看（v59.35）──
+  // 原来叫「吃饭侧写」，顶上摆三块彩色数字（记下的餐 / 深夜落点 / 同桌的人）。
+  // 那三块正是外卖平台的月度账单部件，换个角色照样成立——她 2026-09-01：
+  //「吃饭侧写也和那个太像了」。而且它跟情侣空间那次是同一条判据：
+  // **把「几件」换成「哪一件」**，数量只留给数量本身就是内容的地方
+  //（「几顿在深夜」有意思，所以那一个挪去了「这七天」的副标；
+  //  「记下的餐 12」什么也没说，删掉）。
+  // 剩下的两样本来就是全部内容：一段关于他这一周怎么吃的话，和他自己最后那句念叨。
+  // 所以这一格干脆做成一页纸：正文一段，他的话另起一行、用他自己的口气收尾。
+  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", "这一周他是这么吃的"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: "#4f5c59" } }, data.monthNote) : null,
+      data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, data.tail) : null)) : null;
   // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
   // 这一顿发生了什么、长期怎么喂饱自己、饭和哪些人发生过关系。
   // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
@@ -4144,6 +4246,29 @@ function PhoneApp({
     setForumTab,
     ...(live || {})
   });
+  // ⚠️第二次以后重刷，原来【一点动静都没有】（她 2026-09-01：「刷新的时候没有提醒，
+  // 我怀疑全部查手机每个 app 第二次以后都没有」——对，就是全部）。
+  // 病在上面那个条件：转圈只在【还没有数据】时才出现，一旦这个 app 已经有内容，
+  // loading 就再也没有出口了。顶栏那个刷新键是变淡了，可那是 18px 的图标压到 40%
+  // 透明——等于没有。
+  // 做成浮在最上面的一条，不进正文流：① 旧内容不清空也不被推下去（清了更像坏了，
+  // 推下去等于每次刷新页面跳一下）；② 满屏出血那几个 app（外卖、微信…）自己画顶栏，
+  // 塞进正文的话会顶在它们的顶栏上面。
+  // top 让开一整条顶栏的高度（safeTop + 40）：压在顶栏上会把返回键盖住，
+  // 正刷着的时候更该让她能退出去。
+  const respin = loading && data ? h("div", {
+    role: "status",
+    className: "flex items-center",
+    style: {
+      position: "absolute", left: 12, right: 12, top: safeTop(52), zIndex: 30,
+      gap: 9, background: "rgba(255,255,255,.96)", border: "1px solid " + t.line,
+      borderRadius: 13, padding: "10px 13px", boxShadow: "0 8px 22px rgba(28,25,20,.14)"
+    }
+  },
+    h("span", { "aria-hidden": "true", style: { width: 13, height: 13, borderRadius: 99, border: "2px solid " + t.line, borderTopColor: t.ink, flexShrink: 0, animation: "wk-spin .9s linear infinite" } }),
+    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.55 } },
+      "正在重新推演 " + zh + "…（这一步会调一次模型）"),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, "下面还是上一次的")) : null;
   // 接真数据的 app 没有「重刷」这回事——它跟着他真去论坛发帖、真加歌单在变。
   const refreshKey = isLive ? null : appKey;
   const liveTitle = appKey === "music"
@@ -4152,11 +4277,12 @@ function PhoneApp({
       ? (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })()
       : zh;
   return h("div", {
-    className: "h-full flex flex-col",
+    className: "h-full flex flex-col relative",
     style: {
       background: t.bg
     }
   },
+  respin,
   FULL_BLEED_KEYS.indexOf(appKey) < 0 && h("div", {
     className: "shrink-0 px-4 pb-2 flex items-center gap-2",
     style: { background: t.bg, paddingTop: safeTop(10) }
@@ -5332,7 +5458,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSameNameBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
@@ -5341,6 +5467,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 // 浏览器里没有 module，用一个全局挂出去给 app.js 调（跟 IfKit / GachaKit 一个叫法）
 if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
-  dropDupWechat: phoneDropDupWechat, dedupeByWho: phoneDedupeByWho
+  dropDupWechat: phoneDropDupWechat, dedupeByWho: phoneDedupeByWho,
+  dropEchoes: phoneDropEchoes
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDedupeByWho };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDedupeByWho, phoneDropEchoes, phoneGrowList };

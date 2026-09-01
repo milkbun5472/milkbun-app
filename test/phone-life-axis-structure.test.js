@@ -56,15 +56,33 @@ test("平台部件不画，改画只有我们会有的那一栏", () => {
 });
 
 test("外卖四块使用各自的阅读结构，而不是参考稿的黄卡片模板", () => {
-  assert.match(takeout, /secTitle\("一周进食轨迹"/);
   assert.match(takeout, /secTitle\("吃过的记录"/);
   assert.match(takeout, /secTitle\("饭桌上的人"/);
-  assert.match(takeout, /secTitle\("吃饭侧写"/);
   assert.match(takeout, /const expanded = open === i/);
   assert.match(takeout, /setOpen\(expanded \? null : i\)/);
-  assert.match(takeout, /const mealCount = week\.reduce/);
   assert.doesNotMatch(takeout, /secTitle\("本周吃什么"|secTitle\("我的订单"|secTitle\("一起点过"|secTitle\("本周点餐概况"/);
   assert.doesNotMatch(takeout, /width: 178/);
+});
+
+// 她 2026-09-01：「一周进食轨迹可以改个名字，而且格式还是和另一个太像了，
+// 只不过把人家的打横变成竖着的」「吃饭侧写也和那个太像了」。
+test("这七天是一串连着的饭，不是一天一格的表", () => {
+  // 名字：那三个都是记账 App 的说法（轨迹／侧写／清单）
+  ["一周进食轨迹", "吃饭侧写", "想吃清单"].forEach(bad =>
+    assert.ok(takeout.indexOf('secTitle("' + bad + '"') < 0, "还叫着「" + bad + "」"));
+  assert.match(takeout, /secTitle\("这七天"/, "这七天那一格没了");
+  assert.match(takeout, /secTitle\("合起来看"/, "合起来看那一格没了");
+  assert.match(takeout, /secTitle\("惦记着的"/, "惦记着的那一格没了");
+  // 形状：把七天摊平成一串，日子只在换天时出现一次——这是「不再一天一格」的成因
+  assert.match(takeout, /const wkFlat = \[\]/, "还是一天一格，只是换了方向");
+  assert.match(takeout, /wkFlat\.push\(\{ day: dy\.day, empty: true \}\)/, "没吃的那天被吞掉了，而那才是最像他的几笔");
+  assert.match(takeout, /day: j \? "" : dy\.day/, "日子每顿都重复一次，又变回表格了");
+  // 合起来看：三块彩色数字是平台的月度账单部件，删掉
+  assert.ok(takeout.indexOf("const mealCount = week.reduce") < 0, "记下的餐那块统计还在");
+  assert.ok(takeout.indexOf('"深夜落点"') < 0, "深夜落点那块统计还在");
+  assert.ok(takeout.indexOf('"同桌的人"') < 0, "同桌的人那块统计还在");
+  // 「几顿在深夜」是数量本身就是内容的那一种，所以它该活着——挪进副标
+  assert.match(takeout, /wkLate \+ " 顿在深夜"/, "深夜那个数没留下来");
 });
 
 test("外卖主视觉退出美团黄，改用雾蓝灰、鼠尾草绿和珊瑚色", () => {

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.34";
+const APP_VERSION = "v59.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9438,10 +9438,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const c0 = (characters || []).find(x => x.id === charId);
       if (c0) { try { d = window.PhoneKit.dropDupWechat(d, phoneTakenNames(c0)); } catch (e) {/* 去重失败不连累刷新 */} }
     }
-    // 饭桌上的人：同一个人别用好几个别称各占一条（她 2026-08-31）
-    if (key === "takeout" && window.PhoneKit && d && Array.isArray(d.together)) {
-      try { d = { ...d, together: window.PhoneKit.dedupeByWho(d.together) }; } catch (e) {}
-    }
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
     // 放进 setTimeout 是为了让 setPhones 先落地——核账读的是 phonesRef。
@@ -9463,10 +9459,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const cur = p[charId] || {};
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
       // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
-      const entry = {
-        ...(typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d),
-        _at: Date.now()
-      };
+      const merged = typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d;
+      // 饭桌上的人：同一个人别用好几个别称各占一条（她 2026-08-31，2026-09-01 再报）。
+      // ⚠️必须在【并完旧的之后】去重。原来只洗这一轮新生成的那几条，可 together 是
+      // 累积层——上一轮留下的别名会在 phoneMergeSaved 里原样并回来，等于没洗。
+      if (key === "takeout" && window.PhoneKit && merged && Array.isArray(merged.together)) {
+        try { merged.together = window.PhoneKit.dedupeByWho(merged.together); } catch (e) {}
+      }
+      const entry = { ...merged, _at: Date.now() };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
       const n = {
         ...p,
@@ -10815,7 +10815,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
+      const spec = phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char));
+      let d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, spec);
+      // ⚠️模型会把 schemaHint 里的占位说明原样抄回来当数据（她 2026-09-01：想吃清单
+      // 刷完「什么时候会想起它」那句变成了灰的——那不是空，是占位词被逐字照抄，
+      // 还把上一轮真写的那句盖掉了）。凡是跟这个 app 自己 schemaHint 里某条字符串
+      // 一模一样的，一律当没写；接着累积层的「空的不许抹掉旧的」就会把旧那句留住。
+      try { d = window.PhoneKit.dropEchoes(d, spec.schemaHint); } catch (e) {/* 洗不动就照原样存 */}
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
