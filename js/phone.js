@@ -3747,34 +3747,43 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { style: { width: 17, height: 17, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 9, color: "#6a6a72" } }, String(it.author || "?").trim().slice(0, 1)),
       h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: PLAZA_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.author || ""),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: it.act === "收藏" ? "#e8a33d" : PLAZA_RED } }, (it.act === "收藏" ? "★ " : "♥ ") + (it.likes != null ? it.likes : "")))));
-  const detail = open ? h("div", {
-    className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,18,20,.44)", zIndex: 30 }, onClick: () => setOpen(null)
-  }, h("div", {
-    onClick: e => e.stopPropagation(),
-    style: { background: "#fff", borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "0 0 calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
-  }, h("div", { style: { height: 138, background: "linear-gradient(150deg," + cover(open.cover)[0] + "," + cover(open.cover)[1] + ")", borderRadius: "20px 20px 0 0", position: "relative" } },
-    h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { position: "absolute", right: 10, top: 10, width: 34, height: 34, fontSize: 17, color: "rgba(255,255,255,.92)", textShadow: "0 1px 4px rgba(0,0,0,.35)" } }, "✕")),
-  h("div", { style: { padding: "16px 20px 0" } },
-    h("div", { className: "flex items-center gap-2.5" },
-      h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 13 } }, String(open.author || "?").trim().slice(0, 1)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#55555c" } }, open.author || ""),
-      h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11.5, color: PLAZA_DIM } }, open.time || "")),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.5, color: PLAZA_INK, marginTop: 14 } }, open.title || ""),
-    open.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53", marginTop: 11 } }, open.excerpt) : null,
-    A(open.tags).length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 14 } }, A(open.tags).map((tg, j) => h("span", {
-      key: j, style: { fontFamily: F_BODY, fontSize: 11.5, color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "4px 11px" }
-    }, "#" + tg))) : null,
-    h("div", { className: "flex items-center", style: { gap: 18, marginTop: 18, paddingTop: 14, borderTop: "1px solid #f1f1f4" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act !== "收藏" ? PLAZA_RED : "#b0b0b8" } }, "♥ " + (open.likes != null ? open.likes : "")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
-      h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM } }, open.act === "收藏" ? T("他收藏了这条") : T("他点了赞"))),
-    onPeek ? h("button", {
-      onClick: () => onPeek(open._draft
-        ? { tier: "hidden", label: "小红书草稿箱", title: open.title, text: [open.excerpt, open.savedAt].filter(Boolean).join("｜") }
-        : { tier: "quiet", label: T("他") + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
-      className: "w-full active:opacity-60",
-      style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
-    }, open._draft ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
+  // ── 一条笔记：整页（v59.58）───────────────────────────────────────────
+  // 她 2026-09-01：「小红书现在是半屏，帮我弄成点开是全屏样式吧」。
+  // 原来是从底下掀起来的半窗（justify-end + maxHeight 84%）——
+  // 见 .claude/rules/no-half-sheet.md：**默认不要半窗**。
+  // 判据是「这一层的内容，需要同时看见它下面那一层吗？」——一条笔记不需要，
+  // 它有正文、标签、点赞、还有一颗转发按钮，半窗先扣掉一半屏幕纯属白扣。
+  // 整页照【去处】那两页的做法：顶栏 shrink-0、正文 flex-1 min-h-0 overflow-y-auto，
+  // 上一层那张封面糊开压暗当底衬——接得住上一层，又不抢正文。
+  const detailPage = open ? h("div", { className: "h-full min-h-0 flex flex-col", style: { background: PLAZA_BG } },
+    h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), background: "#fff", borderBottom: "1px solid #eeeef1" } },
+      h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: PLAZA_INK })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        open._draft ? T("他没发出去的") : (open.act === "收藏" ? T("他收藏的") : T("他赞过的"))),
+      h("div", { className: "shrink-0", style: { width: 36 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+      h("div", { style: { height: 188, background: "linear-gradient(150deg," + cover(open.cover)[0] + "," + cover(open.cover)[1] + ")" } }),
+      h("div", { style: { padding: "16px 20px calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
+        h("div", { className: "flex items-center gap-2.5" },
+          h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 13 } }, String(open.author || "?").trim().slice(0, 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#55555c" } }, open.author || ""),
+          h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11.5, color: PLAZA_DIM } }, open.time || open.savedAt || "")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.5, color: PLAZA_INK, marginTop: 14, wordBreak: "break-word" } }, open.title || ""),
+        open.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#4b4b53", marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, open.excerpt) : null,
+        A(open.tags).length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 16 } }, A(open.tags).map((tg, j) => h("span", {
+          key: j, style: { fontFamily: F_BODY, fontSize: 11.5, color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "4px 11px" }
+        }, "#" + tg))) : null,
+        h("div", { className: "flex items-center", style: { gap: 18, marginTop: 20, paddingTop: 14, borderTop: "1px solid #f1f1f4" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act !== "收藏" ? PLAZA_RED : "#b0b0b8" } }, "♥ " + (open.likes != null ? open.likes : "")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM } }, open._draft ? T("他一直没发出去") : (open.act === "收藏" ? T("他收藏了这条") : T("他点了赞")))),
+        onPeek ? h("button", {
+          onClick: () => onPeek(open._draft
+            ? { tier: "hidden", label: "小红书草稿箱", title: open.title, text: [open.excerpt, open.savedAt].filter(Boolean).join("｜") }
+            : { tier: "quiet", label: T("他") + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
+          className: "w-full active:opacity-60",
+          style: { marginTop: 20, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (open._draft ? "rgba(200,80,70,.45)" : "#e6e6ea"), color: open._draft ? "#b6473c" : "#55555c" }
+        }, open._draft ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
   const followPage = h("div", { style: { padding: "4px 0" } },
     follows.length ? follows.map((f, i) => h("div", { key: i, className: "flex items-center gap-3", style: { background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 10 } },
       h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
@@ -3855,6 +3864,9 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         }, c)))
       : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: PLAZA_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK })));
+  // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
+  // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
+  if (detailPage) return detailPage;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: PLAZA_BG } }, topBar,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 12px 20px" } }, page.body),
     h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid #eeeef1" } },
@@ -3865,7 +3877,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
         h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? PLAZA_RED : PLAZA_DIM })),
       h("span", { style: { marginTop: 2 } }, pg.zh)))),
-    detail);
+    null);
 }
 // ============================================================
 // 日历 —— 月历格子 + 事项列表。推迟次数是这个 app 的重点：
