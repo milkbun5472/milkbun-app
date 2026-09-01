@@ -578,6 +578,22 @@ function phoneFreezeTime(x, nowTs) {
   out._abs = 1;
   return out;
 }
+// 会话列表那一栏的时刻。聊天列表有它自己的读法，跟朋友圈那种「3小时前」不是一回事：
+// 今天只写几点、昨天就写「昨天」、更早写日期。**同一屏里必须是同一种写法**——
+// 她 2026-09-01 报的「日期有 bug」，一半病在这儿：模型写回来的是什么就显示什么，
+// 于是「8月30日 23:45」「14:45」「8月29日」三种写法并排站着，读的人根本没法比较先后。
+// 有 _ts 就现算（存着的那句话会过期），没有才退回原话。
+function phoneChatWhen(x) {
+  if (!x || typeof x !== "object") return "";
+  const f = phoneTimeField(x);
+  const raw = f ? String(x[f] || "").trim() : "";
+  if (x._ts == null) return raw;
+  const d = new Date(x._ts), n = new Date();
+  const mid = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  if (x._ts >= mid) return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  if (x._ts >= mid - 86400000) return "昨天";
+  return (d.getFullYear() !== n.getFullYear() ? d.getFullYear() + "年" : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
+}
 // 显示用的相对时间：按 _ts 现算，不用存着的那句话。
 // ⚠️phoneFreezeTime 只在【合并】那一刻跑（phoneGrowList 里），而合并只在刷新时发生。
 // 于是不刷新的话，昨天存进去的「1小时前」今天打开【还是写着「1小时前」】，
@@ -660,8 +676,18 @@ function phoneGrowList(fresh, old, cap, nowTs) {
     at[k] = out.length;
     out.push((frozen && typeof frozen === "object") ? { ...frozen } : frozen);
   });
-  // 全都认得出时刻才排序——一半有一半没有的话，排完顺序更乱
-  if (out.length && out.every(x => x && typeof x === "object" && x._ts != null)) out.sort((a, b) => b._ts - a._ts);
+  // ⚠️认得出时刻的排前面（新→旧），认不出的原样留在后面。
+  // 原来是【全都认得出才排序】——只要有一条的时间写成「周一」这种解析不出来的，
+  // 整份就一次都不排，于是今天下午那条会掉在前天那条下面
+  //（她 2026-09-01：「这个日期有 bug」，截图里 14:45 排在 8月30日 23:45 下面）。
+  // 「一半有一半没有排完更乱」这个担心是真的，但止损方式不该是【一条都不排】：
+  // 认得出的那些照旧按时间走，认不出的沉底、彼此保持原来的先后，一条都不会互相打乱。
+  const known = [], unknown = [];
+  out.forEach((x, i) => (x && typeof x === "object" && x._ts != null ? known : unknown).push(x));
+  known.sort((a, b) => b._ts - a._ts);
+  out.length = 0;
+  known.forEach(x => out.push(x));
+  unknown.forEach(x => out.push(x));
   return out.slice(0, cap || 30);
 }
 // 阅读单开一路：它是【两层】的（shelves[].books[]），上面那套平的配置盖不住。
@@ -1844,7 +1870,7 @@ function WeChatView({ d, char, t, setSheet, profile }) {
     className: "w-full text-left py-3 flex items-center gap-3 active:opacity-60",
     style: { borderTop: `1px solid ${t.line}` }
   }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 43, radius: c.type === "group" ? 13 : 999 }), h("div", { className: "flex-1 min-w-0" },
-    h("div", { className: "flex items-baseline justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, c.time || "")),
+    h("div", { className: "flex items-baseline justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, phoneChatWhen(c))),
     h("div", { className: "flex items-center gap-1.5", style: { marginTop: 2 } }, real && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9, color: t.tint, padding: "1px 5px", borderRadius: 999, background: t.bg2 } }, "真实"), h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || ""))));
   const contactRow = (c, i) => h("button", {
     key: "c" + i + (c.name || ""),
@@ -1884,7 +1910,18 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   const [article, setArticle] = useState(null);
   const arr = a => Array.isArray(a) ? a : [];
   const actual = arr(d.actualChats), generated = arr(d.chats);
-  const chats = [...actual, ...generated];
+  // ⚠️显示这一端也要按时间排。存的那一端（phoneGrowList）v59.41 起会排，
+  // 但那只在【刷新时】发生——已经存着的那份还是乱的，她得等下一次刷新才看得对。
+  // 会话列表乱序是一眼就假的：今天下午那条掉在前天下面，微信不会长这样。
+  // 认得出时刻的按新→旧，认不出的沉底、彼此保持原来的先后（跟存那一端同一条规矩）。
+  // 真实互通的那几条永远在最前面——那是她跟他此刻正在说的话，不跟推演出来的比时间。
+  const byWhen = list => {
+    const known = [], unknown = [];
+    list.forEach(x => (x && typeof x === "object" && x._ts != null ? known : unknown).push(x));
+    known.sort((a, b) => b._ts - a._ts);
+    return known.concat(unknown);
+  };
+  const chats = [...actual, ...byWhen(generated)];
   const meName = profile && profile.name || "Lisa";
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
@@ -1896,7 +1933,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   })));
   const accounts = arr(d.me && d.me.accounts);
   if (publicPage) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, article.title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, article.summary), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, article.thought))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
-  const chatRow = (c, i) => h("button", { key: c.id || i, onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa" } }, c.time || "")), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
+  const chatRow = (c, i) => h("button", { key: c.id || i, onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage }, ...arr(d.contacts)];
   const contactRow = (c, i) => h("button", { key: i, onClick: () => setThread({ ...c, type: "contact" }), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, c.intro)));
@@ -4827,7 +4864,7 @@ function PhoneCarry({
           h("div", { className: "min-w-0", style: { flex: 1 } },
             h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 13, color: ink } }, c.name || "未命名"),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 1 } }, c.preview || "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: dim, flexShrink: 0 } }, c.time || ""))));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: dim, flexShrink: 0 } }, phoneChatWhen(c)))));
     }
     // 音乐：碟 + 曲名 + 一条进度
     if (key === "music") {
@@ -5535,6 +5572,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat,
-  dropEchoes: phoneDropEchoes
+  dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen };
