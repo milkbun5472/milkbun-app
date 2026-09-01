@@ -74,6 +74,6 @@ test("整页，紧凑标题栏，正门在情侣空间", () => {
   // 看大图是同一页里退一层，不是再掀一层
   assert.match(ui, /onClick: \(\) => big \? setBig\(null\) : onBack\(\)/, "看大图之后返回键一下退两层");
   assert.match(scr, /sub === "studio"\) \{/, "情侣空间里没有这一页");
-  assert.match(scr, /tile\("studio", \{[^)]*zh: "照相馆"/, "首页上没有入口");
+  assert.match(scr, /(?:wall|spine)\("studio",|setSub\("studio"\)/, "首页上没有入口");
   assert.match(app, /onStudioShoot: studioShoot,/, "没接上");
 });

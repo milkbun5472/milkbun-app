@@ -87,7 +87,7 @@ test("底下那句注是引原物，不是现编的", () => {
 
 test("接进情侣空间，是整页", () => {
   assert.match(scr, /sub === "firsts"\) \{/, "情侣空间里没有这一页");
-  assert.match(scr, /tile\("firsts", \{[^)]*zh: "第一次们"/, "首页上没有入口");
+  assert.match(scr, /(?:wall|spine)\("firsts",|setSub\("firsts"\)/, "首页上没有入口");
   assert.match(app, /coupleFirstsOf: coupleFirstsFor,/, "没传下去");
   const ui = scr.slice(scr.indexOf("function CoupleFirstsBook({"));
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");

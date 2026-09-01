@@ -13,7 +13,7 @@ test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回",
 
   assert.match(screens, /function Us\(\{[^\n]*\bonOpenCapsule\b[^\n]*\}\) \{/);
   assert.match(screens, /capsuleDueCount\(bCid, partner\.name\)/);
-  assert.match(screens, /tile\("capsule",[\s\S]*?onClick: \(\) => onOpenCapsule && onOpenCapsule\(bCid\)/);
+  assert.match(screens, /spine\("capsule",[\s\S]*?onClick: \(\) => onOpenCapsule && onOpenCapsule\(bCid\)/);
   assert.match(app, /const \[capsuleCharId, setCapsuleCharId\] = useState\(null\)/);
   assert.match(app, /onOpenCapsule: charId => \{ setCapsuleCharId\(charId\); setScreen\("capsule"\); \}/);
   assert.match(app, /screen === "capsule"[\s\S]*?characterId: capsuleCharId/);

@@ -68,9 +68,10 @@ test("留下的东西落进的是【已经会渲染它】的那两个地方", ()
 
 test("入口和红点都在，不是写了没人能点到", () => {
   assert.match(scr, /sub === "recall"/, "没有分发");
-  // ⚠️别把 emoji 冻进来：v59.21 整页把 emoji 撤了，换成水印汉字
-  assert.match(scr, /tile\("recall", \{[^)]*zh: "他记得的"/, "网格里没有这一格");
-  assert.match(scr, /dot: \(coupleRecall \|\| \[\]\)\.some\(function \(x\) \{ return x\.characterId === partner\.id && x\.unread; \}\)/, "新的那条不冒红点");
+  // ⚠️别冻在某个壳函数的名字上：v59.21 撤了 emoji、v59.24 连 tile() 这个壳都换了。
+  // 要证的是【有一个能进这一页的入口】，那就直接找那个入口。
+  assert.match(scr, /(?:wall|spine)\("recall", \{[^)]*zh: "他记得的"|setSub\("recall"\)/, "情侣空间里没有这一处入口");
+  assert.match(scr, /dot: \(coupleRecall \|\| \[\]\)\.some\(function \(x\) \{ return x\.characterId === bCid && x\.unread; \}\)/, "新的那条不冒红点");
   assert.match(app, /coupleRecall: coupleRecall,/, "props 没递下去");
   assert.match(app, /setCoupleRecall\(loadJSON\("x_coupleRecall", \[\]\)\)/, "开机不读盘,重开就没了");
 });

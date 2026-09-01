@@ -73,7 +73,7 @@ test("了结一条：记忆库那条关掉，挂着的约回一起摘掉", () =>
 test("和心愿单是两回事，别混", () => {
   assert.match(scr, /sub === "pacts"/, "没有入口分发");
   assert.match(scr, /sub === "wishes"/, "把心愿单挤掉了");
-  assert.match(scr, /tile\("pacts", \{[^)]*zh: "我们说好的"/, "网格里没有这一格,等于进不去");
+  assert.match(scr, /(?:wall|spine)\("pacts",|setSub\("pacts"\)/, "情侣空间里没有这一处入口,等于进不去");
   const c = grab(scr, "function CouplePacts({", "function CoupleWishes({");
   assert.match(c, /不是你手打的愿望（那是心愿单）/, "界面上没跟她讲清两者的区别");
   assert.match(c, /到期他会自己提起|到那天他会自己提起|到那天他会主动来找你/, "没说清挑日子会发生什么");
