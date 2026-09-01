@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.80";
+const APP_VERSION = "v59.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15753,6 +15753,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
+    // 开团配乐(她 2026-08-30):守密人搭世界时顺手开出几条搜索词,这里逐条去网易云
+    // 搜成真曲、整批连播——复用云村「播放全部」的批次通道(nowBatch),不污染「全部」库
+    onBgm: async queries => {
+      if (!neteaseApi) { toast("先在一起听里配置网易云 API"); return false; }
+      const found = [];
+      for (const q of (queries || []).slice(0, 6)) {
+        try {
+          const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(q) + "&limit=1&timestamp=" + Date.now());
+          const d = await r.json(); const s = d && d.result && d.result.songs && d.result.songs[0];
+          if (s) found.push({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl });
+        } catch (e) { }
+      }
+      if (!found.length) { toast("配乐一首都没搜到"); return false; }
+      playNeteaseList(found);
+      return true;
+    },
     onBack: () => setScreen("home")
   });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
