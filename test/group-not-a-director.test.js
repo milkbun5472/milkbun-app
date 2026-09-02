@@ -71,12 +71,20 @@ test("群里的人是人，不是身份标签的展览", () => {
 });
 
 test("这条刀群线上群线下都挂上了", () => {
-  assert.match(app, /GROUP_IN_CHARACTER \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线上");
-  assert.match(engine, /GROUP_IN_CHARACTER \+\n\s*"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线下");
+  // ⚠️别冻死相邻：v60.34 起 GROUP_USER_IS_PRESENT 插在这两条中间（她在群里不是旁听）。
+  //   要证的是【这几条都在、顺序对】，不是它们中间不许再夹东西。
+  assert.match(app, /GROUP_IN_CHARACTER \+[\s\S]{0,60}"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线上");
+  assert.match(engine, /GROUP_IN_CHARACTER \+\n(?:\s*"\\n\\n" \+ \w+ \+\n)*\s*"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线下");
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
-  assert.match(app, /GROUP_IN_CHARACTER \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/, "群通话");
+  {
+    // ⚠️必须切到群通话那一段再断言：群线上那一处形状一模一样，
+    //   不切片的话，把群通话这一条整个删掉照样能匹配到群线上那一处（实测过是绿的）。
+    const gc = app.slice(app.indexOf("// 群通话：多角色你一言我一语"), app.indexOf("【输出】只输出 JSON 数组，按发言先后："));
+    assert.ok(gc.length > 200, "找不到群通话那一段");
+    assert.match(gc, /GROUP_IN_CHARACTER \+[\s\S]{0,80}"\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/, "群通话");
+  }
   assert.equal((engine.match(/GROUP_IN_CHARACTER/g) || []).length +
                (app.match(/GROUP_IN_CHARACTER/g) || []).length, 4,
     "1 处定义 + 群线上 + 群线下 + 群通话；数字变了就核对是新通道接上了还是哪条掉了");

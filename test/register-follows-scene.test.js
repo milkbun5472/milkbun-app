@@ -16,11 +16,13 @@ test("三条没有场景状态机的通道都要挂上「语域跟着场面走�
   // 线上群聊
   // v54.21 起中间多了一条 PERSONA_REGISTER_ANCHOR，两条都得在；
   // v55.90 起「语域三件套」再加一条 CONDESCENDING_TONE_BAN，三条连成一片、顺序固定。
-  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ GROUP_IN_CHARACTER \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
+  // ⚠️别冻死相邻：v60.34 起 GROUP_USER_IS_PRESENT 插在这两条中间（她在群里不是旁听）。
+  //   要证的是【这几条都在、顺序对】，不是它们中间不许再夹东西。
+  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ GROUP_IN_CHARACTER \+[\s\S]{0,60}"\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
   // 线上单聊
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   // 群线下
-  assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ GROUP_IN_CHARACTER \+\n    "\\n\\n" \+ CONDESCENDING_TONE_BAN \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
+  assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ GROUP_IN_CHARACTER \+\n(?:    "\\n\\n" \+ \w+ \+\n)*    "\\n\\n" \+ CONDESCENDING_TONE_BAN \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/);
 });
 
