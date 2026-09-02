@@ -3405,33 +3405,40 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     }
   }
 
-  // —— 信封卡片：真信封外观 + 中间蜡封，点蜡封开信 ——
+  // —— 信封卡片（v60.43 重上色）——
+  // 她 2026-09-02：「这个粉色略土」。原来两种糖果渐变写死在这儿：TA 的一律粉、
+  // 我的一律蓝——跟这封信本身没有半点关系，而且粉配桃粉是最容易发闷的一组。
+  // 现在信封【用它自己那张纸的颜色】：她挑的是牛皮就是牛皮信封，夜笺就是深色信封。
+  // 一封信的外壳本来就该是它里面那张纸——顺带这一栏再也不会「换个功能照样成立」。
+  // 谁写的改由【蜡封的颜色】说：TA 是暗红的火漆，我的是暗靛；都压低了彩度，不抢纸。
   const envelope = l => {
+    const pp = letterPaper(l.paper);
     const mineL = l.authorId === "user";
     const unread = !l.isRead && !mineL;
-    const bodyGrad = mineL ? "linear-gradient(135deg,#e9edfb,#dce4f6)" : "linear-gradient(135deg,#fbe6ed,#f6d0de)";
-    const sealColor = mineL ? "#6f80c8" : "#d8547e";
-    const inkC = mineL ? "#3a4270" : "#7a3a52";
-    const subC = mineL ? "rgba(58,66,112,0.7)" : "rgba(122,58,82,0.72)";
+    const inkA = a => { const m = /^#(\w{2})(\w{2})(\w{2})$/.exec(pp.ink); return m ? "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")" : pp.ink; };
+    const sealColor = mineL ? "#3f4a6b" : "#8e3b42";   // 暗靛 / 火漆红，都不是糖果色
     const doOpen = () => { if (!l.isRead) onRead(l.id); setOpen(l.id); };
-    return h("div", { onClick: doOpen, className: "relative w-full active:opacity-95", style: { height: 122, borderRadius: 12, background: bodyGrad, boxShadow: "0 5px 16px rgba(180,140,160,0.2)", overflow: "hidden", cursor: "pointer" } },
-      h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, height: 68, background: "rgba(255,255,255,0.26)", clipPath: "polygon(0 0,100% 0,50% 100%)" } }),
-      h("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: "50%", background: "rgba(0,0,0,0.03)", clipPath: "polygon(0 0,100% 50%,0 100%)" } }),
-      h("div", { style: { position: "absolute", top: 0, right: 0, bottom: 0, width: "50%", background: "rgba(0,0,0,0.03)", clipPath: "polygon(100% 0,0 50%,100% 100%)" } }),
-      h("div", { style: { position: "absolute", top: 34, left: "50%", transform: "translateX(-50%)", width: 46, height: 46, borderRadius: 999, background: "radial-gradient(circle at 35% 30%," + sealColor + "e6," + sealColor + ")", boxShadow: "0 3px 8px rgba(0,0,0,0.25),inset 0 1px 2px rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 } },
-        h(IHeart, { size: 20, color: "rgba(255,255,255,0.92)", filled: true })),
+    return h("div", { onClick: doOpen, className: "relative w-full active:opacity-95", style: { height: 122, borderRadius: 4, background: pp.bg, border: "1px solid " + inkA(0.14), boxShadow: "0 4px 14px " + inkA(0.13), overflow: "hidden", cursor: "pointer" } },
+      // 三块折片：全用这张纸自己的墨色压深浅，什么纸都不会脏
+      h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, height: 68, background: inkA(0.05), clipPath: "polygon(0 0,100% 0,50% 100%)" } }),
+      h("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: "50%", background: inkA(0.035), clipPath: "polygon(0 0,100% 50%,0 100%)" } }),
+      h("div", { style: { position: "absolute", top: 0, right: 0, bottom: 0, width: "50%", background: inkA(0.035), clipPath: "polygon(100% 0,0 50%,100% 100%)" } }),
+      h("div", { "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, right: 0, height: 68, borderBottom: "1px solid " + inkA(0.1), clipPath: "polygon(0 0,100% 0,50% 100%)" } }),
+      // 火漆：还是那颗，但压暗、去掉高饱和的高光，看着像蜡不像糖
+      h("div", { style: { position: "absolute", top: 34, left: "50%", transform: "translateX(-50%)", width: 44, height: 44, borderRadius: 999, background: "radial-gradient(circle at 36% 30%," + sealColor + "," + sealColor + "d9)", boxShadow: "0 2px 7px rgba(0,0,0,.28), inset 0 1px 1px rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 } },
+        h(IHeart, { size: 18, color: "rgba(255,255,255,.82)", filled: true })),
       h("div", { style: { position: "absolute", left: 16, right: 16, bottom: 12, zIndex: 2 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: inkC, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, l.title || "给你的信"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: subC, marginTop: 2 } }, (mineL ? "我写的" : partner.name + " 写的") + (unread ? " · 未读" : ""))),
-      h("button", { onClick: e => { e.stopPropagation(); onRemove(l.id); }, className: "absolute active:opacity-60", style: { top: 7, right: 10, fontFamily: F_BODY, fontSize: 15, color: subC, zIndex: 3 } }, "×"),
-      unread ? h("span", { className: "absolute", style: { top: 11, left: 12, width: 8, height: 8, borderRadius: 999, background: "#e0524a", zIndex: 3 } }) : null);
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: pp.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, l.title || "给你的信"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: inkA(0.55), marginTop: 2 } }, (mineL ? "我写的" : partner.name + " 写的") + (unread ? " · 未读" : ""))),
+      h("button", { onClick: e => { e.stopPropagation(); onRemove(l.id); }, "aria-label": "删掉这封", className: "absolute active:opacity-60", style: { top: 4, right: 6, width: 30, height: 30, fontFamily: F_BODY, fontSize: 15, color: inkA(0.45), zIndex: 3 } }, "×"),
+      unread ? h("span", { className: "absolute", style: { top: 11, left: 12, width: 7, height: 7, borderRadius: 999, background: "#b3452f", zIndex: 3 } }) : null);
   };
   const sorted = mine.slice().sort((a, b) => b.createdAt - a.createdAt);
   const timelineRow = (l, i) => { const dp = mdParts(l.createdAt); return h("div", { key: l.id, className: "flex gap-3", style: { animation: "fadeUp .3s ease both" } },
     h("div", { style: { flexShrink: 0, width: 40, display: "flex", flexDirection: "column", alignItems: "center" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, lineHeight: 1, marginTop: 2 } }, dp.md),
       h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 2 } }, dp.y),
-      h("div", { style: { width: 9, height: 9, borderRadius: 999, background: l.authorId === "user" ? "#6f80c8" : "#e0528a", marginTop: 6 } }),
+      h("div", { style: { width: 9, height: 9, borderRadius: 999, background: l.authorId === "user" ? "#3f4a6b" : "#8e3b42", marginTop: 6 } }),
       i < sorted.length - 1 ? h("div", { style: { flex: 1, width: 2, background: t.line, marginTop: 2 } }) : null),
     h("div", { style: { flex: 1, minWidth: 0, paddingBottom: 18 } }, envelope(l))); };
 
