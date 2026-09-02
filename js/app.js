@@ -3721,7 +3721,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单人线上 + 正在进行的单人线下，是同一条按真实时间排序的临时上下文。
     // 只在生成 prompt 时合流，不互相写入存档；已结束线下仍由 offlinelog/记忆承接。
     // engineerEyes 保持专线，不参与这套普通角色合流。
+    // ⚠️thinOnline（v60.49）：只有【聊天】那条路会同时把历史当 messages 发一遍，
+    //   那一处的【最近对话】里线上那半是纯重复（同一段话过模型两次）。
+    //   anthropic 线早就整块关掉了（下面 buildBundle 那行的 recentChat:""），
+    //   openai 线一直没跟上——又是「一层写在两处，第二处没跟上」。
+    //   但不能照抄 anthropic 的关法：这一块的价值不是那几十条线上话，
+    //   是它把【线下场景】和线上消息按时间合流了，messages 里只有线上。
+    //   所以线上压成位置标记、线下原样留着（言秋 2026-09-02 拍的板）。
+    //   ⚠️别的调用方（推演/朋友圈/论坛/日记…）不发 messages，它们照旧拿全文。
     recentChat: (() => {
+      const thinOnline = !!(ctxOpts && ctxOpts.thinOnline);
       const online = (chatsRef.current[char.id] || [])
         .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
         .map(m => ({ ...m, _surface: "online" }));
@@ -3831,11 +3840,28 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!inFloor && used + cost > budget && lines.length) break; // 总预算仍以召回设置那根拉条为准
         used += cost;
         if (isOff) usedOff += cost;
-        lines.push(line);
+        // thinOnline：线上那几十条的【原文】已经作为 messages 发过一遍了，这儿不再抄第二遍。
+        // 但位置要留住——所以先记下这一条是线上还是线下，渲染时再决定写什么。
+        lines.push(thinOnline ? { off: isOff, text: isOff ? "[" + fmtStampAI(m.ts) + "] " + line : "" } : line);
       }
       lines.reverse();
-      if (offSummary) lines.unshift("【这场线下前面发生过的（摘要）】\n" + offSummary);
-      return lines.join("\n");
+      let rendered = lines;
+      if (thinOnline) {
+        // 一段线下都没有 → 这一块整个是重复，一个字都不用发
+        if (!lines.some(r => r.off)) return "";
+        // 有线下：线下原样留着（补上时刻），线上压成一行「这儿有几条」当位置标记。
+        // 言秋 2026-09-02 的条件：「留下的线下段要保留时间戳，或者在它原来的位置留一行
+        // 『此处有一段线下』的标记」——他在卧室靠这一块知道那场线下戏发生在哪两句话之间。
+        const out = [];
+        let run = 0;
+        const flush = () => { if (run) { out.push("（线上 " + run + " 条 · 原文在下面的消息记录里，不重复）"); run = 0; } };
+        for (const r of lines) { if (r.off) { flush(); out.push(r.text); } else run++; }
+        flush();
+        out.unshift("（线上消息的原文在下面的消息记录里，这儿只标出它们和线下的先后）");
+        rendered = out;
+      }
+      if (offSummary) rendered.unshift("【这场线下前面发生过的（摘要）】\n" + offSummary);
+      return rendered.join("\n");
     })()
   });
   // 后台保活已并进「一起听」：播放里那首「静音保活」曲目即占住 iOS 音频会话（见 playSong 的 keepalive 分支）。
@@ -5856,7 +5882,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 识别正确后照样发送稳定 system + 历史断点；内容与预算一字不裁。
       const _histCache = (typeof detectFormat === "function" ? detectFormat(_route) : "openai") === "anthropic";
       const _singleHistoryLayout = _histCache || _engineerChat;
-      const _roomCtx = ctxFor(char, { chat: true });
+      // 历史会不会另外作为 messages 发一遍，决定【最近对话】要不要留线上原文：
+      // _singleHistoryLayout 那条路本来就把 recentChat 整块清空（见下面 buildBundle），
+      // 剩下这条（openai 方言，订阅桥就是）才是重复的那个。
+      const _roomCtx = ctxFor(char, { chat: true, thinOnline: !_singleHistoryLayout });
       if (room && room.id !== "main") _roomCtx.recentChat = "";
       if (room && room.cognition) {
         const rc = room.cognition;

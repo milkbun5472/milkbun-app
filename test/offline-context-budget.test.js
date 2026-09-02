@@ -47,12 +47,15 @@ const recent = (() => {
   assert.ok(j > i, "收尾那几行变了");
   // lines 在函数里是【从新往旧】攒的，正式返回前才 reverse——这里对齐成正式顺序
   const body = app.slice(i, j) + '      return { lines: lines.slice().reverse(), used, usedOff };';
+  // thinOnline 恒 false：这一组测的是【怎么挑】（预算/地板/摘录），
+  // v60.49 那把瘦身刀只改【怎么渲染】，挑法一个字没动（渲染那半在
+  // test/recent-chat-thin-60-49.test.js 里单独真跑）。
   return (online, offline, budget, ctxN = 50, days = 0) => new Function(
-    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window",
+    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline",
     body.replace("const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));", "const ctxN = " + ctxN + ";")
         .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";")
         .replace("const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));", "const recentDays = " + days + ";"))
-    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {});
+    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {}, false);
 })();
 
 let ts = 0;
@@ -125,7 +128,10 @@ test("切句不许切进引号里——台词里的句号是台词的", () => {
 
 test("被摘掉的那些不是丢了：本场滚动摘要要带上来", () => {
   assert.match(app, /offSummary = \(active && active\.summary \? String\(active\.summary\)\.trim\(\) : ""\)\.slice\(-1200\)/);
-  assert.match(app, /if \(offSummary\) lines\.unshift\("【这场线下前面发生过的（摘要）】/);
+  // v60.49 起 unshift 落在 rendered 上（瘦身版和全文版都指向它），
+  // 所以两条路都带得上这份摘要——名字变了，这件事没变。
+  assert.match(app, /if \(offSummary\) rendered\.unshift\("【这场线下前面发生过的（摘要）】/);
+  assert.match(app, /let rendered = lines;/);
 });
 
 test("她自己在线下打的字不占「最近三拍」的名额", () => {
