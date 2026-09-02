@@ -208,8 +208,10 @@
       setBusy(true);
       let pack;
       try {
+        const chatRef = recentChat(c.id, uName, c.name);
+        const scopedWorldbook = props.worldbookFor ? props.worldbookFor(c.id, (task.trim() || "专注") + "\n" + chatRef) : props.worldbook;
         pack = props.active
-          ? await genPack(props.active, { charName: c.name, persona: c.persona, mood: moodOf(c.id), uName, task: task.trim() || "专注", min: duration, mode, chatRef: recentChat(c.id, uName, c.name), worldbook: props.worldbook })
+          ? await genPack(props.active, { charName: c.name, persona: c.persona, mood: moodOf(c.id), uName, task: task.trim() || "专注", min: duration, mode, chatRef, worldbook: scopedWorldbook })
           : fallbackPack(task.trim() || "专注");
       } catch (_) { pack = fallbackPack(task.trim() || "专注"); }
       const now = Date.now();

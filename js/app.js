@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.34";
+const APP_VERSION = "v60.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -463,8 +463,7 @@ function App() {
   const [appNotif, setAppNotif] = useState({ moments: 0, forum: 0, whisper: 0 });
   const appNotifRef = useRef({ moments: 0, forum: 0, whisper: 0 }); appNotifRef.current = appNotif;
   const [profile, setProfile] = useState({});
-  const [worldbook, setWorldbook] = useState("");
-  // 世界书结构化词条（第1步：能录能看能存 + 旧blob迁移；注入仍先按"启用的全局词条拼起来"，关键词/绑角色/适用范围的精细注入是第2步）
+  // 世界书只保留结构化词条；所有消费端一律走 loreText 筛选器，不再维护一团绕过范围的全局字符串。
   const [loreEntries, setLoreEntries] = useState([]);
   const loreRef = useRef(loreEntries); loreRef.current = loreEntries;
   const loreVecTimer = useRef(null);
@@ -474,10 +473,6 @@ function App() {
     clearTimeout(loreVecTimer.current);
     loreVecTimer.current = setTimeout(() => { if (typeof ensureLoreVecs === "function") ensureLoreVecs(loreRef.current).catch(() => {}); }, 4000);
   };
-  // 扁平 baseline：只含「全局 + 启用 + 常驻或无关键词」的词条，给次要功能（群聊/通话/朋友圈/论坛/各App）兜底用；
-  // 主聊天走 ctxFor 里的 loreText 引擎做 per角色/关键词/scope/优先级检索，不用这个。
-  const deriveWorldbook = list => (list || []).filter(e => e && e.enabled !== false && (!e.charIds || e.charIds.length === 0) && (e.payload || "").trim() && (e.alwaysOn || !((e.keyword || "").trim()))).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
-  useEffect(() => { setWorldbook(deriveWorldbook(loreEntries)); }, [loreEntries]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [wallpaper, setWallpaper] = useState("");
   const [prefs, setPrefs] = useState({
@@ -2991,6 +2986,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-8).map(m => m.content).join("\n");
+  // 所有非主聊天功能也必须从同一扇门拿世界书：去向、在场角色与当前语境缺一不可。
+  const loreForContext = (scope, charIds, text) => loreText(loreRef.current, { scope: scope, charIds: (Array.isArray(charIds) ? charIds : (charIds ? [charIds] : [])).filter(Boolean), text: String(text || "") });
   // 论坛/朋友圈/悄悄话共用的近期生活素材：不再只看私聊，角色亲历的群聊与线上/线下相处全部按时间混排。
   // 朋友圈/论坛/悄悄话的取材。⚠️封闭群（没开记忆互通）的内容一律不进——
   // 那是密封空间，拿它当素材发到朋友圈上就等于把里面的事捅出去了（她 2026-08-24）。
@@ -3011,7 +3008,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.AmbientMaterial.format(rows);
   };
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
-  const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
+  const loreFor = (char, scope) => loreForContext(scope || "chat", char ? [char.id] : [], char ? recentChatText(char) : "");
   const yanqiuWallFor = (char, ctxOpts) => {
     const y = ledgerYanqiu();
     if (!y || !char || String(y.id) !== String(char.id) || !window.YanqiuContinuity) return "";
@@ -11425,7 +11422,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
         return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
       }).join("\n");
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (worldbook && worldbook.trim() ? "\n\n【世界观】" + worldbook.slice(0, 400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      const socialLore = loreForContext("social", canSee.map(c => c.id), mom.content);
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -11511,7 +11509,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
-  const forumWorldCtx = () => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook, profile, timeAware: prefs.timeAware });
+  const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
   const forumNpcPool = board => {
     const exact = FORUM_NPC_REGISTRY.filter(n => (n.boards || []).includes(board));
     return exact.length ? exact : FORUM_NPC_REGISTRY.filter(n => !(n.boards || []).includes("匿名吧"));
@@ -11705,7 +11703,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, forum: board }));
     const anonB = board === "匿名吧";
     try {
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx(board), {
         instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。熟面孔填 npcId；一次性路人填 guestName、guestHandle。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\",\"guestName\":\"一次性路人昵称（路人才填）\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
         maxTokens: FTOK.board
@@ -11887,7 +11885,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     forumCInflightRef.current[post.id] = true;
     setGen(g => ({ ...g, forumC: post.id }));
     try {
-      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "12-18"));
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "")), forumCommentProbe(post, "12-18"));
       if (!forumCommentsRef.current[post.id]) { // 等待期间别处已写入 → 保留先到的，绝不覆盖
         let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
         if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
@@ -11926,7 +11924,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         });
       }
       const repliedChars = forumRepliedCharCells(existing);
-      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "")), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
       const base = Math.max(Date.now(), existing.reduce((n, f) => Math.max(n, Number(f && f.ts || 0)), 0) + 1);
@@ -12291,7 +12289,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const sourceBlock = hasActivity
         ? "收私信的人叫「" + meName + "」。这些网友是**看了 TA 在贴吧的真实动态**来私信的——每条 opening 必须**针对下面某一条具体的帖子或评论**来搭话（共鸣、请教、约稿、抬杠、补充等），**别凭空捏造 TA 没说过的话题**：\n" + actLines.join("\n") + "\n"
         : "收私信的人叫「" + meName + "」，TA **还没在贴吧发过帖、也没评论过**。所以这些网友是**逛到 TA 的主页**来的——请**根据 TA 的主页资料**搭话（聊 TA 的网名、签名或人设气质），**别编造 TA 发过的帖子/评论**：网名「" + (forumMe.handle || meName) + "」，签名/简介「" + (forumMe.bio || profile.tagline || meDesc || "（没写）").slice(0, 80) + "」。\n";
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx(actLines.join("\n") || forumMe.bio || ""), {
         instruction: "贴吧里有 " + FORUM_PM_ASK + " 个陌生网友私信了你（items 数组务必 " + FORUM_PM_ASK + " 条，别只给 1-2 条）。" + sourceBlock + baseRule,
         schemaHint: "{\"items\":[{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"curious\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"}]}",
       });
@@ -12363,7 +12361,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, forumPM: "start" }));
     try {
       const meName = forumMe.handle || profile.name || "我";
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx(ground || npc.name), {
         instruction: "贴吧网友「" + npc.name + "」（@" + (npc.handle || npc.name) + "）收到了网名「" + meName + "」的私信邀请——对方主动来找 TA 说话。\n"
           + (ground
             ? "【这个人是谁 · 开场白必须从这里面长出来，别写成一个谁都能说的开场】\n" + ground + "\n"
@@ -12427,7 +12425,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (csay.length) { const cb = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...csay.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i }))], updatedTs: cb } : t); saveJSON("x_forumPMs", n); return n; }); }
         return;
       }
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
           // 这份底子是他在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
           // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
@@ -12480,7 +12478,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const existing = forumFloorOrder(forumCommentsRef.current[hitId] || []);
       const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
-      const d = await runProbeRetry(p, forumWorldCtx(),
+      const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || "")),
         forumCommentProbe(post, "1-2", { round2: true, existingFloors: shownFloors, repliedChars: forumRepliedCharCells(existing) }));
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
@@ -12608,7 +12606,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const relBlockR = relLinesR.length ? "【在场角色之间的关系（按真实身份接话，别当陌生人）】\n" + relLinesR.slice(0, 20).join("\n") + "\n" : "";
       // 帖主是角色时注入其真实背景，回复细节别现编
       const opGroundR = forumOpGroundingFor(oc, post);
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText), {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
@@ -12664,7 +12662,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, forumSearch: true }));
     try {
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
-      const d = await runProbeRetry(active, forumWorldCtx(), {
+      const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll), {
         instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: FTOK.board
@@ -15943,7 +15941,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     bgActive: bgActive, // 判卷/课后小纸条等结构化小活走便宜后台池；教学对话仍用主 active
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("study", [], ""),
+    worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
     toast: toast,
     entry: studyEntry,
     onBack: () => setScreen("home")
@@ -15953,7 +15952,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     digitalIds: liveChars.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("study", [], ""),
+    worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
     toast: toast,
     onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], knownBy: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
     onBack: () => setScreen("home")
@@ -15964,7 +15964,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 台上仍是她自己逐个挑的人；characters 始终留全，存档头像、名字和分享名单都靠它查。
     groups: groups,
     profile: profile,
-    worldbook: loreText(loreEntries, { scope: "debate" }),
+    worldbook: loreForContext("debate", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("debate", charIds, text),
     toast: toast,
     onShareToChat: shareArenaToChat,
     onShareToGroup: shareArenaToGroup,
@@ -15973,7 +15974,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: active,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("creative", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     rels: rels,
     toast: toast,
     onBack: () => setScreen("home")
@@ -16001,7 +16003,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: active,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("creative", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     rels: rels,
     affinities: affinities,
     moods: moods,
@@ -16039,7 +16042,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: bgActive,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("lifestyle", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("lifestyle", charIds, text),
     moods: moods,
     affinities: affinities,
     toast: toast,
@@ -16050,7 +16054,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: bgActive,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("lifestyle", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("lifestyle", charIds, text),
     moods: moods,
     affinities: affinities,
     toast: toast,
@@ -16068,7 +16073,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: bgActive,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("lifestyle", [], ""),
+    worldbookFor: (charId, text) => loreForContext("lifestyle", charId ? [charId] : [], text),
     moods: moods,
     toast: toast,
     onBack: () => setScreen("home")
@@ -16078,7 +16084,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     bgActive: offlineActive,
     characters: liveChars,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("creative", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
     recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
@@ -16159,7 +16166,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     allChars: characters,
     profile: profile,
     groups: groups,
-    worldbook: worldbook,
+    worldbook: loreForContext("creative", [], ""),
+    worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     toast: toast,
     onForwardToChat: forwardFicToChat,
     onForwardToGroup: forwardFicToGroup,
@@ -16174,7 +16182,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("weekly", c.id)),
     groups: groups,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreForContext("social", [], ""),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "memlib") body = h(MemoryLib, {

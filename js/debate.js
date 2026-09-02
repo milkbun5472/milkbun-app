@@ -214,7 +214,7 @@
 
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: props.characters, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        active: props.active, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -223,7 +223,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
@@ -298,7 +298,8 @@
       try {
         const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
         const uName = (props.profile && props.profile.name) || "我";
-        const assigned = await assignStances(props.active, props.worldbook, topic.trim(), chars, mode === "free");
+        const routedLore = props.worldbookFor ? props.worldbookFor(picked, topic.trim()) : props.worldbook;
+        const assigned = await assignStances(props.active, routedLore, topic.trim(), chars, mode === "free");
         // 参赛者结构（含我）
         const parts = chars.map((c, i) => ({
           kind: "char", id: c.id, name: c.name, persona: c.persona || "",
@@ -420,6 +421,10 @@
     const needGen = (watch || roundMyDone(cr)) && !roundGen(cr); // 等这一次批量生成（失败可重试）
     const roundDone = (watch || roundMyDone(cr)) && roundGen(cr);
     const roundNo = s.rounds.length;
+    const scopedWorldbook = function (extra) {
+      const ids = (s.parts || []).filter(function (p) { return p.kind === "char"; }).map(function (p) { return p.id; });
+      return props.worldbookFor ? props.worldbookFor(ids, [s.topic, prevTranscript(s), extra || ""].filter(Boolean).join("\n")) : props.worldbook;
+    };
 
     // 一次调用批量生成【全部角色发言(按序) + 未决争点】
     const runGen = async (myText, skip) => {
@@ -429,7 +434,7 @@
         const charParts = s.parts.filter(p => p.kind === "char");
         const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
         const prior = (s.rounds || []).length > 1 ? s.rounds[s.rounds.length - 2] : null;
-        const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, props.worldbook, {
+        const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, scopedWorldbook(myText), {
           chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
           myText: skip ? "" : myText, transcript: prevTranscript(s), focus: prior && prior.focus, watch: watch
         });

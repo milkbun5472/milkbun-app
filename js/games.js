@@ -179,7 +179,15 @@
     const gSaves = loadGamesSaves();               // 通用存档（卧底/海龟汤/25问/真心话/阿瓦隆）
 
     if (session) {
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
+      const selected = (session.config && session.config.charIds) || [];
+      // 所有游戏引擎都会读取角色 persona。入局时按每个真人角色分别筛一次世界书，
+      // 再作为本局设定并入副本；NPC 与没入局的人拿不到，原档案也不会被改写。
+      const routedCharacters = (props.characters || []).map(function (c) {
+        if (selected.indexOf(c.id) < 0) return c;
+        const lore = props.worldbookFor ? props.worldbookFor(c.id, (session.game && session.game.zh) || "小游戏") : props.worldbook;
+        return lore ? Object.assign({}, c, { persona: (c.persona || "") + "\n\n【本局世界设定】\n" + lore }) : c;
+      });
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));

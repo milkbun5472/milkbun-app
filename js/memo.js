@@ -264,7 +264,8 @@
       try {
         const list = ids.map(id => (props.characters || []).find(c => c.id === id)).filter(Boolean)
           .map(c => ({ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: props.affinities ? props.affinities[c.id] : null }));
-        const outs = await genComments(props.active, props.itemDesc, list, props.uName, props.worldbook, { excludeId: props.itemId });
+        const lore = props.worldbookFor ? props.worldbookFor(ids, props.itemDesc) : props.worldbook;
+        const outs = await genComments(props.active, props.itemDesc, list, props.uName, lore, { excludeId: props.itemId });
         if (outs.length) props.onAdd(outs);
         else props.toast && props.toast("没生成出来，再试试");
       } catch (e) { props.toast && props.toast("批注失败：" + (e.message || e)); }
@@ -409,7 +410,9 @@
         const hour = new Date().getHours();
         const desc = (nd < 0 ? "这件事拖了 " + (-nd) + " 天，Ta 今天终于办完勾掉了" : "Ta 今天按时把这事办完勾掉了") + (hour < 5 ? "（还是深夜 " + (hour === 0 ? "十二" : hour) + " 点多勾掉的）" : "");
         const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: aff[c.id] }];
-        genComments(props.active, "提醒 · " + r.title + "（" + reminderDateText(r) + "）" + (r.note ? " · 备注：" + r.note : ""), list, uName, props.worldbook, { event: { key: "done", desc }, excludeId: r.id }).then(outs => {
+        const itemDesc = "提醒 · " + r.title + "（" + reminderDateText(r) + "）" + (r.note ? " · 备注：" + r.note : "");
+        const lore = props.worldbookFor ? props.worldbookFor([c.id], itemDesc) : props.worldbook;
+        genComments(props.active, itemDesc, list, uName, lore, { event: { key: "done", desc }, excludeId: r.id }).then(outs => {
           const cmts = (outs || []).filter(o => o && o.text).map(o => Object.assign({}, o, { auto: true, event: "done" }));
           if (!cmts.length) return;
           if (!loadData().reminders.some(x => x.id === r.id)) return; // 用户已把这条删了就算了
@@ -504,7 +507,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => { autoReactDone(curReminder); upReminder(curReminder.id, { done: !curReminder.done }); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" } }, curReminder.done ? "标为未完成" : "标为已完成"),
           h("button", { onClick: () => setVisFor({ kind: "reminder", id: curReminder.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curReminder.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: uName, toast: props.toast, itemId: curReminder.id,
+        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: uName, toast: props.toast, itemId: curReminder.id,
           itemDesc: "提醒 · " + curReminder.title + "（" + reminderDateText(curReminder) + "）" + (curReminder.note ? " · 备注：" + curReminder.note : ""),
           onAdd: cs => upReminder(curReminder.id, r => ({ comments: (r.comments || []).concat(cs) })),
           onDel: i => upReminder(curReminder.id, r => ({ comments: (r.comments || []).filter((_, idx) => idx !== i) })) })),
@@ -518,7 +521,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "📌 置顶"),
           h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: uName, toast: props.toast, itemId: curNote.id,
+        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: uName, toast: props.toast, itemId: curNote.id,
           itemDesc: "备忘 · " + (curNote.title || "") + (curNote.body ? "：" + curNote.body.slice(0, 120) : ""),
           onAdd: cs => upNote(curNote.id, n => ({ comments: (n.comments || []).concat(cs) })),
           onDel: i => upNote(curNote.id, n => ({ comments: (n.comments || []).filter((_, idx) => idx !== i) })) })),

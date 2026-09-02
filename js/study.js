@@ -887,7 +887,10 @@
           if (!props.active) { props.toast("请先到设置配置 API"); return; }
           setBusy(true);
           const abil = [];
-          for (let i = 0; i < chars.length; i++) abil.push(await inferAbility(props.active, chars[i], subject.trim(), props.worldbook));
+          for (let i = 0; i < chars.length; i++) {
+            const lore = props.worldbookFor ? props.worldbookFor(chars[i].id, subject.trim()) : props.worldbook;
+            abil.push(await inferAbility(props.active, chars[i], subject.trim(), lore));
+          }
           const idx = abil.findIndex(function (a) { return a.canTeach; });
           setBusy(false);
           if (idx < 0) { props.toast("这俩谁都不太教得了「" + subject.trim() + "」——换个会的角色，或去『一起研究』一起摸索"); return; }
@@ -899,7 +902,7 @@
         if (props.active) {
           setBusy(true);
           let ab;
-          try { ab = await inferAbility(props.active, teacher, subject.trim(), props.worldbook); }
+          try { ab = await inferAbility(props.active, teacher, subject.trim(), props.worldbookFor ? props.worldbookFor(teacher.id, subject.trim()) : props.worldbook); }
           catch (e) { ab = { canTeach: true }; }
           setBusy(false);
           if (ab && !ab.canTeach) { setConfirmUnfit({ ability: ab, teacher: teacher }); return; }
@@ -994,7 +997,10 @@
         await summarizePriors();
         setBusy("draft");
         const priorCtx = buildPriorCtx();
-        const outline = await draftSessionOutline(props.active, cur.subject, props.worldbook, cur.level, priorCtx, focus.trim());
+        const teacherId = cur.teacher_id || (cur.character_ids || [])[0];
+        const loreText = [cur.subject, focus.trim(), priorCtx].filter(Boolean).join("\n");
+        const worldbook = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, loreText) : props.worldbook;
+        const outline = await draftSessionOutline(props.active, cur.subject, worldbook, cur.level, priorCtx, focus.trim());
         setDraft(outline); setBusy("");
       } catch (e) { props.toast("出错了：" + (e.message || "重试")); setBusy(""); }
     }
@@ -1101,6 +1107,12 @@
     const teacher = sess.teacher_id ? chars.find(function (c) { return c.id === sess.teacher_id; }) : chars[0];
     const userName = (props.profile && props.profile.name) || "我";
     const ctx = { worldbook: props.worldbook, profile: props.profile, characters: props.characters };
+    function contextFor(char) {
+      const recent = (sessRef.current.transcript || []).slice(-16).map(function (m) { return String(m.content || ""); }).join("\n");
+      return Object.assign({}, ctx, {
+        worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
+      });
+    }
 
     // 持久化：改 transcript / progress 后存库并回写列表
     function commit(next) {
@@ -1141,7 +1153,7 @@
       const before = sessRef.current;
       const answerEntry = (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
         ? before.transcript[before.transcript.length - 1] : null;
-      const res = await genTurn(props.active, sessRef.current, char, ctx, role);
+      const res = await genTurn(props.active, sessRef.current, char, contextFor(char), role);
       const says = (res && res.says) || [];
       for (let i = 0; i < says.length; i++) {
         if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
@@ -1645,7 +1657,7 @@
 
     if (view === "newCurriculum") {
       return h(NewCurriculum, {
-        mode: tab, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, toast: props.toast,
+        mode: tab, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         initialSubject: props.entry && props.entry.mode === "propose" ? props.entry.subject : "",
         initialCharacterId: props.entry && props.entry.mode === "propose" ? props.entry.characterId : "",
         onBack: function () { setView("home"); restoreHome(); },
@@ -1668,7 +1680,7 @@
       const cur = curricula.find(function (c) { return c.id === curId; });
       if (!cur) { setView("home"); return null; }
       return h(NewSession, {
-        curriculum: cur, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, profile: props.profile, toast: props.toast,
+        curriculum: cur, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, worldbookFor: props.worldbookFor, profile: props.profile, toast: props.toast,
         onBack: function () { setView("console"); restoreConsole(); },
         onCreated: function (sess) { setOpenId(sess.id); setView("thread"); }
       });
@@ -1711,7 +1723,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: function () { refresh(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });

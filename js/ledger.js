@@ -310,6 +310,7 @@
     const [addState, setAddState] = useState(null); // null | {edit?:txn}
     const [showSet, setShowSet] = useState(false);
     const uName = (props.profile && props.profile.name) || "我";
+    const routedLore = (ids, text) => props.worldbookFor ? props.worldbookFor(ids, text) : props.worldbook;
 
     const persist = d => { setData(d); saveData(d); };
     const addTxn = txn => { const d = loadData(); d.txns = [txn].concat(d.txns); persist(d); return txn; };
@@ -336,7 +337,7 @@
         if (!c) return;
         const mo = props.moods && props.moods[c.id];
         const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[c.id] }];
-        const outs = await genComments(props.active, txn, cur, list, uName, props.worldbook, { event: ev });
+        const outs = await genComments(props.active, txn, cur, list, uName, routedLore([c.id], txn.note || txn.category || "记账"), { event: ev });
         const cmts = (outs || []).filter(o => o && o.text).map(o => ({ charId: c.id, charName: c.name, text: o.text, ts: Date.now(), auto: true, event: ev.key }));
         if (!cmts.length) return;
         const now = loadData().txns.find(x => x.id === txn.id);
@@ -405,7 +406,7 @@
       if (!txn) { setView("home"); return null; }
       body = h(TxnView, {
         txn, cur: curOf(txn.currency), characters: props.characters, moods: props.moods, affinities: props.affinities,
-        active: props.active, worldbook: props.worldbook, uName, toast: props.toast,
+        active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName, toast: props.toast,
         onBack: () => setView("home"),
         onEdit: () => setAddState({ edit: txn }),
         onAddComments: cmts => updTxn(id, { comments: (txn.comments || []).concat(cmts) }),
@@ -647,7 +648,7 @@
               (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『人格档案馆』建个角色")),
       pick ? h(CommentPicker, {
         characters: props.characters, moods: props.moods, affinities: props.affinities, existing: comments.map(c => c.charId),
-        txn, cur, active: props.active, worldbook: props.worldbook, uName: props.uName, toast: props.toast,
+        txn, cur, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: props.uName, toast: props.toast,
         onClose: () => setPick(false),
         onDone: cmts => { props.onAddComments(cmts); setPick(false); }
       }) : null,
@@ -673,7 +674,8 @@
       setBusy(true);
       try {
         const list = sel.map(id => { const c = chars.find(x => x.id === id); return { id, name: c.name, persona: c.persona || "", mood: moodOf(id), aff: props.affinities ? props.affinities[id] : null }; });
-        const outs = await genComments(props.active, props.txn, props.cur, list, props.uName, props.worldbook);
+        const lore = props.worldbookFor ? props.worldbookFor(sel, [props.txn && props.txn.note, props.txn && props.txn.category].filter(Boolean).join("\n")) : props.worldbook;
+        const outs = await genComments(props.active, props.txn, props.cur, list, props.uName, lore);
         const cmts = list.map((it, i) => ({ charId: it.id, charName: it.name, text: outs[i].text, ts: Date.now() })).filter(c => c.text);
         if (!cmts.length) { props.toast && props.toast("这次没生成出来，再试一次"); setBusy(false); return; }
         if (cmts.length < list.length) props.toast && props.toast("有 " + (list.length - cmts.length) + " 位没接上话，可再点一次补上");

@@ -1263,43 +1263,87 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
           h("div", { className: "flex gap-1.5" }, characters.map((c, i) => h("span", { key: c.id, style: { width: i === idx ? 16 : 5, height: 5, borderRadius: 999, background: "#efe9df", opacity: i === idx ? 0.9 : 0.35, transition: "width .2s" } }))),
           h("button", { onClick: () => go(1), disabled: idx === characters.length - 1, className: "active:opacity-50", style: { opacity: idx === characters.length - 1 ? 0.2 : 0.7, padding: 6, transform: "scaleX(-1)" } }, h(IArrow, { size: 20, color: "#efe9df" }))))));
 }
-// 世界书 · 书架：一本本立在木架板上的书，分全局通用 + 各角色个人一层层往下滑；点书开编辑
-const LORE_COVERS = ["#7c5c4e", "#4e6a7c", "#5f7c4e", "#7c4e5f", "#584e7c", "#4e7c6a", "#7c6f3f", "#6b5b73"];
-const loreHashN = s => { let n = 0; s = String(s || ""); for (let i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) | 0; return Math.abs(n); };
+// 世界书 · 设定索引：卡面直接回答「写了什么 / 谁能看 / 何时触发 / 会去哪儿」。
+// 去向键与 engine.js 的 loreScopeOn 一一对应，所有消费者必须从同一筛选器取书。
+const LORE_SCOPE_UI = [
+  ["chat", "聊天与线下", "单聊、群聊、语音与面对面"],
+  ["subjects", "查手机", "手机内容与角色资料生成"],
+  ["lifestyle", "生活功能", "行程、备忘、记账与陪伴工具"],
+  ["diary", "日记", "角色写日记时"],
+  ["study", "共读学习", "一起学与一起读"],
+  ["creative", "故事创作", "同人文、梦境、小游戏与塔罗"],
+  ["social", "公开世界", "朋友圈、论坛与周刊"],
+  ["debate", "擂台"].concat(["辩论与裁决"])
+];
+const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "其他"];
+const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
+const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
 function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
   const t = useTheme();
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
+  const [query, setQuery] = useState("");
+  const [scopeFilter, setScopeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const list = entries || [];
-  const global = list.filter(e => !e.charIds || e.charIds.length === 0);
+  const enabledN = list.filter(e => e.enabled !== false && String(e.payload || "").trim()).length;
+  const constantN = list.filter(e => e.enabled !== false && (e.alwaysOn || !String(e.keyword || "").trim())).length;
   const openNew = charIds => setEditing({ __new: true, charIds: charIds || [] });
-  // 一本书 = 竖直书封，封面色按 id 取，白字标题夹紧，底部标记常驻/关键词/停用
-  const book = e => {
+  const charNames = ids => (ids || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean);
+  const q = query.trim().toLowerCase();
+  const shown = list.filter(e => {
+    if (statusFilter === "on" && e.enabled === false) return false;
+    if (statusFilter === "off" && e.enabled !== false) return false;
+    if (scopeFilter !== "all" && !loreScopeEnabled(e, scopeFilter)) return false;
+    if (!q) return true;
+    return [e.title, e.payload, e.keyword, e.category, charNames(e.charIds).join(" ")].join(" ").toLowerCase().includes(q);
+  }).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0));
+  const card = (e, i) => {
     const off = e.enabled === false;
-    const cover = off ? "#9a9a9a" : LORE_COVERS[loreHashN(e.id || e.title) % LORE_COVERS.length];
-    return h("button", { key: e.id, onClick: () => setEditing(e), className: "active:opacity-80 shrink-0",
-      style: { width: 68, height: 96, borderRadius: "3px 6px 6px 3px", background: cover, borderLeft: "5px solid rgba(0,0,0,.22)", boxShadow: "0 3px 6px rgba(0,0,0,.22)", padding: "8px 7px 7px", display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", opacity: off ? 0.55 : 1 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, lineHeight: 1.25, color: "#fff", textAlign: "left", textShadow: "0 1px 2px rgba(0,0,0,.3)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" } }, e.title || "无题"),
-      h("div", { style: { display: "flex", alignItems: "center", gap: 4, minHeight: 8 } },
-        e.alwaysOn ? h("span", { title: "常驻", style: { width: 7, height: 7, borderRadius: 9, background: "#f2c14e", boxShadow: "0 0 0 1px rgba(0,0,0,.15)" } }) : (e.keyword ? h("span", { style: { fontSize: 8, color: "rgba(255,255,255,.9)" } }, "🔑") : null),
-        e.scope && (e.scope.diary || e.scope.debate || e.scope.subjects || e.scope.lifestyle) ? h("span", { style: { width: 5, height: 5, borderRadius: 9, background: "rgba(255,255,255,.65)" } }) : null));
+    const people = charNames(e.charIds);
+    const scopes = loreScopeNames(e);
+    const trigger = e.alwaysOn || !String(e.keyword || "").trim() ? "常驻" : (e.regex ? "正则触发" : "关键词触发");
+    return h("article", { key: e.id, style: { borderTop: "1px solid " + t.line, opacity: off ? .58 : 1 } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 42px", gap: 10, alignItems: "start", padding: "16px 0" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, paddingTop: 4 } }, String(i + 1).padStart(2, "0")),
+        h("button", { onClick: () => setEditing(e), className: "text-left active:opacity-65", style: { minWidth: 0, background: "transparent", border: "none" } },
+          h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, flexShrink: 0 } }, "P" + (e.priority || 3))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 7, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: "5px 10px", marginTop: 10, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+            h("span", null, people.length ? "给 " + people.join("、") : "给所有角色"),
+            h("span", null, "· " + trigger),
+            e.category && e.category !== "默认" ? h("span", null, "· " + e.category) : null),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: scopes.length ? t.fog : t.accent, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, scopes.length ? "去往：" + scopes.join(" / ") : "未选择任何去向，不会注入")),
+        h("button", { onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
+          style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
+          h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
-  // ＋ 占位书：虚线书封，点了在这一层新建
-  const addBook = charIds => h("button", { key: "__add", onClick: () => openNew(charIds), className: "active:opacity-60 shrink-0",
-    style: { width: 68, height: 96, borderRadius: "3px 6px 6px 3px", background: "transparent", border: "1.5px dashed " + t.line, display: "flex", alignItems: "center", justifyContent: "center", color: t.fog, fontSize: 26, fontWeight: 300 } }, "＋");
-  // 一层架子：标题 + 一排立着的书 + 底下的木隔板
-  const shelf = (key, title, arr, newCharIds) => h("div", { key: key, style: { marginBottom: 26 } },
-    h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, arr.length + " 本")),
-    h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, rowGap: 18, paddingBottom: 9 } },
-      arr.map(book).concat([addBook(newCharIds)])),
-    h("div", { style: { height: 7, borderRadius: 3, background: "linear-gradient(#c9a07e,#a8825f)", boxShadow: "0 3px 5px -2px rgba(0,0,0,.35)" } }));
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "世界书", en: "Lore · " + list.length + " 本", onBack: onBack,
-      right: h("button", { onClick: () => openNew([]), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8", style: { paddingTop: 4 } },
-      shelf("__global", "全局通用 · GLOBAL", global, []),
-      characters.map(c => shelf(c.id, (c.remark || c.name) + " · 个人", list.filter(e => (e.charIds || []).includes(c.id)), [c.id]))),
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 px-4 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg } },
+      h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { style: { textAlign: "center" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "世界书"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, marginTop: 2 } }, "LORE INDEX")),
+      h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IPlus, { size: 20, color: t.ink }))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+      h("section", { style: { padding: "20px 0 17px", borderBottom: "1px solid " + t.line } },
+        h("div", { style: { display: "grid", gridTemplateColumns: "1fr auto", gap: 18, alignItems: "end" } },
+          h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.17em", color: t.fog } }, "INJECTION MAP"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: t.ink, marginTop: 6 } }, "设定只去该去的地方")),
+          h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+            h("div", null, enabledN + " 条启用"), h("div", null, constantN + " 条常驻"))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, marginTop: 10 } }, "每条都要同时通过角色、触发条件和去向三道门。没有命中的词条不会占上下文。")),
+      h("section", { style: { padding: "15px 0 13px", borderBottom: "1px solid " + t.line } },
+        h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜索标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, padding: "11px 12px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
+        h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingTop: 11 } },
+          [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => h("button", { key: x[0], onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + (scopeFilter === x[0] ? t.ink : t.line), background: scopeFilter === x[0] ? t.ink : "transparent", color: scopeFilter === x[0] ? t.bg : t.sub, padding: "7px 10px", fontFamily: F_BODY, fontSize: 11 } }, x[1]))),
+        h("div", { style: { display: "flex", gap: 14, marginTop: 11 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
+      h("div", { style: { paddingBottom: 12 } },
+        shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
+          h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条")))),
     editing && h(WorldBookEntrySheet, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
@@ -1308,40 +1352,66 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
 }
 function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
   const t = useTheme();
-  const [f, setF] = useState(() => Object.assign({ title: "", keyword: "", category: "默认", charIds: [], payload: "", regex: false, enabled: true, alwaysOn: false, ensemble: false, priority: 3, scope: { chat: true, subjects: false, debate: false, lifestyle: false, diary: false } }, entry || {}));
+  const isNew = !(entry && entry.id);
+  const [f, setF] = useState(() => {
+    const base = Object.assign({ title: "", keyword: "", category: "世界观", charIds: [], payload: "", regex: false, enabled: true, alwaysOn: true, ensemble: false, priority: 3, scope: { chat: true, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false } }, entry || {});
+    // 旧版没关键词的词条实际一直会注入；编辑时也如实显示成常驻，避免出现“触发模式但没有触发词”的假状态。
+    if (!String(base.keyword || "").trim()) base.alwaysOn = true;
+    return base;
+  });
+  const [error, setError] = useState("");
   const set = p => setF(x => Object.assign({}, x, p));
   const toggleChar = id => setF(x => { const has = (x.charIds || []).includes(id); return Object.assign({}, x, { charIds: has ? x.charIds.filter(i => i !== id) : [...(x.charIds || []), id] }); });
   const setScope = k => setF(x => Object.assign({}, x, { scope: Object.assign({ chat: true }, x.scope, { [k]: !(x.scope && x.scope[k]) }) }));
-  const save = () => { if (!(f.payload || "").trim()) { return; } onSave(Object.assign({}, f, { id: entry && entry.id ? entry.id : "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now() })); };
-  const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", width: "100%", outline: "none" };
-  const lbl = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, fontWeight: 700, color: t.sub, margin: "14px 0 6px", letterSpacing: .3 } }, s);
+  const save = () => {
+    const payload = String(f.payload || "").trim();
+    const keyword = String(f.keyword || "").trim();
+    const hasScope = LORE_SCOPE_UI.some(x => loreScopeEnabled(f, x[0]));
+    if (!payload) { setError("先写下要交给模型的设定内容"); return; }
+    if (!f.alwaysOn && !keyword) { setError("触发模式需要至少一个关键词"); return; }
+    if (!hasScope) { setError("至少选择一个去向，否则这条永远不会被使用"); return; }
+    if (f.regex) { try { new RegExp(keyword, "i"); } catch (_) { setError("正则表达式写错了，模型永远触发不到它"); return; } }
+    onSave(Object.assign({}, f, { title: String(f.title || "").trim() || "未命名设定", payload, keyword, alwaysOn: !!f.alwaysOn, ensemble: false, id: entry && entry.id ? entry.id : "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now() }));
+  };
+  const field = { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 0, padding: "11px 12px", width: "100%", outline: "none" };
+  const lbl = (s, sub) => h("div", { style: { margin: "18px 0 8px" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, s), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null);
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
     h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
     h("button", { onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
-  const SCOPES = [["chat", "聊天"], ["subjects", "查手机"], ["debate", "擂台"], ["lifestyle", "行程"], ["diary", "日记"]];
   return h(Sheet, { onClose: onClose, tall: true },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, entry ? "编辑词条" : "新建词条"),
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, paddingBottom: 13, borderBottom: "1px solid " + t.line } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.17em", color: t.fog } }, isNew ? "NEW LORE" : "EDIT LORE"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, isNew ? "新建设定" : "编辑设定")),
       onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null),
-    lbl("词条名称"),
-    h("input", { value: f.title, onChange: e => set({ title: e.target.value }), placeholder: "Title…", style: field }),
-    lbl("触发关键词（留空+常驻=永远注入；填了则聊到才注入）"),
-    h("input", { value: f.keyword, onChange: e => set({ keyword: e.target.value }), placeholder: "多个用逗号隔开", style: field }),
-    lbl("绑定角色（不选＝全局通用，所有角色可见）"),
-    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, (characters || []).map(c => { const on = (f.charIds || []).includes(c.id); return h("button", { key: c.id, onClick: () => toggleChar(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "5px 12px" } }, c.remark || c.name); })),
-    lbl("注入内容 · PAYLOAD"),
-    h("textarea", { value: f.payload, onChange: e => set({ payload: e.target.value }), rows: 5, placeholder: "这条要注入给模型的设定 / 背景 / 规则…", style: Object.assign({}, field, { resize: "vertical", minHeight: 110, lineHeight: 1.6 }) }),
-    h("div", { style: { height: 8 } }),
-    toggle("启用", "关掉则该词条不参与注入", f.enabled !== false, () => set({ enabled: f.enabled === false })),
-    toggle("常驻模式", "无视关键词，对话时强制注入", !!f.alwaysOn, () => set({ alwaysOn: !f.alwaysOn })),
-    toggle("正则模式", "把关键词当正则表达式匹配", !!f.regex, () => set({ regex: !f.regex })),
-    toggle("群像注入", "让该词条出现在群像剧情选书列表", !!f.ensemble, () => set({ ensemble: !f.ensemble })),
-    h("div", { className: "flex items-center justify-between", style: { padding: "12px 0" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "注入优先级"),
-      h("div", { className: "flex items-center", style: { gap: 8 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { width: 30, height: 30, borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, color: (f.priority || 3) === n ? "#fff" : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n)))),
-    lbl("适用范围（这条参与哪些功能的注入）"),
-    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, SCOPES.map(([k, label]) => { const on = k === "chat" ? (f.scope ? f.scope.chat !== false : true) : !!(f.scope && f.scope[k]); return h("button", { key: k, onClick: () => setScope(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.sub, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "5px 12px" } }, label); })),
-    h("button", { onClick: save, className: "w-full active:opacity-80", style: { marginTop: 20, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"));
+    lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索，不改变模型权重"),
+    h("input", { value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
+    h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),
+    lbl("交给模型的正文", "只写事实、背景或规则；模型看到的是这里，不是标题"),
+    h("textarea", { value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
+    lbl("谁能拿到", "不选角色就是公共设定；绑定后只有该角色本人或有 Ta 在场的群聊能拿到"),
+    h("button", { onClick: () => set({ charIds: [] }), className: "active:opacity-65", style: { width: "100%", textAlign: "left", border: "1px solid " + (!(f.charIds || []).length ? t.ink : t.line), background: !(f.charIds || []).length ? t.ink : "transparent", color: !(f.charIds || []).length ? t.bg : t.sub, padding: "10px 11px", fontFamily: F_BODY, fontSize: 12 } }, "所有角色 · 公共设定"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7, marginTop: 7 } }, (characters || []).map(c => { const on = (f.charIds || []).includes(c.id); return h("button", { key: c.id, onClick: () => toggleChar(c.id), className: "active:opacity-70", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", fontFamily: F_BODY, fontSize: 11.5, color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), padding: "9px 10px" } }, c.remark || c.name); })),
+    lbl("什么时候出现", "常驻适合核心世界规则；触发适合只在谈到某件事时才需要的背景"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
+      [[true, "每次常驻", "不等关键词"], [false, "按话题触发", "命中才注入"]].map(x => h("button", { key: String(x[0]), onClick: () => { set({ alwaysOn: x[0] }); setError(""); }, className: "active:opacity-70 text-left", style: { border: "1px solid " + (!!f.alwaysOn === x[0] ? t.ink : t.line), background: !!f.alwaysOn === x[0] ? t.ink : "transparent", color: !!f.alwaysOn === x[0] ? t.bg : t.ink, padding: "11px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 12.5 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: .65, marginTop: 3 } }, x[2])))),
+    !f.alwaysOn ? h("div", { style: { marginTop: 9 } },
+      h("input", { value: f.keyword, onChange: e => { set({ keyword: e.target.value }); setError(""); }, placeholder: "关键词用逗号分隔，例如：宵禁，通行证，夜巡", style: field }),
+      toggle("把关键词当正则", "仅在你确实需要表达式匹配时打开", !!f.regex, () => set({ regex: !f.regex }))) : null,
+    lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } }, LORE_SCOPE_UI.map(([k, label, desc]) => { const on = loreScopeEnabled(f, k); return h("button", { key: k, onClick: () => { setScope(k); setError(""); }, className: "active:opacity-70 text-left", style: { minHeight: 62, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink, padding: "9px 10px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12 } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
+    lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: 13, color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
+    h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),
+    h("div", { style: { background: t.bg, border: "1px solid " + t.line, padding: "12px", marginTop: 4 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.15em", color: t.fog } }, "INJECTION SUMMARY"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginTop: 6 } },
+        (f.charIds || []).length ? "只给：" + (f.charIds || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean).join("、") : "给所有角色",
+        " · ", f.alwaysOn ? "每次常驻" : "话题触发",
+        " · 去往 ", loreScopeNames(f).join(" / ") || "无")),
+    error ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, lineHeight: 1.5, marginTop: 12 } }, error) : null,
+    h("button", { onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器"));
 }
 // ============================================================
 // FORUM —— 仿贴吧/推特：底部四 tab（主页/搜索/私信/我）

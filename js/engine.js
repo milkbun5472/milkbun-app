@@ -1973,12 +1973,15 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
     opCounts
   };
 }
-// ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
-// entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
+// ── 世界书注入引擎：所有功能都从这一道门按角色/触发词/去向/优先级筛选 ──
+// entries: 结构化词条数组；opts: { charIds:[在场角色id], scope, text:当前语境(供关键词命中) }
+// scope: chat | subjects | lifestyle | diary | study | creative | social | debate
 function loreScopeOn(e, scope) {
   if (!scope) return true;
   const sc = e && e.scope;
   if (scope === "chat") return !sc || sc.chat !== false; // 聊天默认开
+  // 旧版「群像注入」从未被消费。把它兼容为创作开关，老数据不会白勾；新数据统一写 scope.creative。
+  if (scope === "creative" && e && e.ensemble) return true;
   return !!(sc && sc[scope]); // 其余默认关，勾了才进
 }
 function loreKeywordHit(e, text) {
@@ -2033,6 +2036,25 @@ function selectLore(entries, opts) {
 function loreText(entries, opts) {
   return selectLore(entries, opts).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
 }
+// 给世界书 UI 的确定性诊断：解释一条为什么会/不会进某个场景。
+// 向量补捞是发送前的加分通道，UI 不假装能预知；字面触发未命中时明确写「等待关键词或语义召回」。
+function loreEntryState(e, opts) {
+  opts = opts || {};
+  const scope = opts.scope || "chat";
+  const charIds = opts.charIds || [];
+  if (!e || e.enabled === false) return { on: false, code: "disabled", label: "已停用" };
+  if (!String(e.payload || "").trim()) return { on: false, code: "empty", label: "内容为空" };
+  if (!loreScopeOn(e, scope)) return { on: false, code: "scope", label: "未开放到这个去向" };
+  const bind = e.charIds || [];
+  if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return { on: false, code: "character", label: "不属于在场角色" };
+  if (e.alwaysOn || !String(e.keyword || "").trim()) return { on: true, code: "always", label: "会注入 · 常驻" };
+  if (e.regex) {
+    try { new RegExp(String(e.keyword), "i"); } catch (_) { return { on: false, code: "regex", label: "正则写错了" }; }
+  }
+  if (loreKeywordHit(e, opts.text || "")) return { on: true, code: "keyword", label: "会注入 · 已触发" };
+  return { on: false, code: "waiting", label: "等待关键词或语义召回" };
+}
+if (typeof window !== "undefined") window.WorldBookRouting = { loreScopeOn, loreKeywordHit, selectLore, loreText, loreEntryState };
 // 情侣空间【我们的档案】那一块的领句与围栏。三条路共用（单聊 buildBundle、群线上、群线下）——
 // 一层只写一处，别再抄第二遍。围栏那句是必须的：不挡的话他会每句话都把称呼和梗端出来演一遍，
 // 跟记忆库那条「记忆用来不忘、不是用来重演」是同一个病。

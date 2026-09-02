@@ -211,7 +211,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(DreamView, {
-        session: s, active: props.active, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: s, active: props.active, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
       });
@@ -357,6 +357,11 @@
     const cur = scenes.length ? scenes[scenes.length - 1] : null;
     const dreaming = s.status === "dreaming";
     const awaitingPick = dreaming && cur && cur.chosen == null;
+    const scopedWorldbook = function (extra) {
+      const ids = [s.charId].concat((s.guests || []).map(function (g) { return g.id; })).filter(Boolean);
+      const text = (s.keywords || []).concat([extra || ""]).filter(Boolean).join("\n");
+      return props.worldbookFor ? props.worldbookFor(ids, text) : props.worldbook;
+    };
 
     useEffect(() => { const el = feedRef.current; if (el) el.scrollTop = el.scrollHeight; }, [scenes.length, busy, phaseMsg, s.status]);
 
@@ -371,7 +376,7 @@
     async function genFirst() {
       setBusy(true); setPhaseMsg("梦正在成形…");
       try {
-        const first = await weaveFirst(props.active, s, props.worldbook, uName());
+        const first = await weaveFirst(props.active, s, scopedWorldbook("梦境开场"), uName());
         props.onPatch({ scenes: [first] });
       } catch (e) { props.toast && props.toast(e.message || "重试"); }
       setBusy(false); setPhaseMsg("");
@@ -391,7 +396,7 @@
         // 梦碎
         setBusy(true); setPhaseMsg("有什么裂开了…");
         try {
-          const r = await weaveShatter(props.active, sess2, props.worldbook, uName(), chosen.text);
+          const r = await weaveShatter(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text);
           props.onPatch({ scenes: marked, status: "broken", ending: r.collapse, whyWrong: r.why, wrongText: chosen.text, endCot: r.cot || null });
         } catch (e) {
           props.onPatch({ scenes: marked, status: "broken", ending: "梦在你眼前碎成光斑，你猛地醒来，心还在跳。", whyWrong: "", wrongText: chosen.text });
@@ -403,7 +408,7 @@
       if (cur.final) {
         setBusy(true); setPhaseMsg("梦走到了最深处…");
         try {
-          const r = await weaveEnding(props.active, sess2, props.worldbook, uName(), chosen.text);
+          const r = await weaveEnding(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text);
           props.onPatch({ scenes: marked, status: "fulfilled", ending: r.arrive, dreamCore: r.core, endCot: r.cot || null });
         } catch (e) {
           props.onPatch({ scenes: marked, status: "fulfilled", ending: "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。", dreamCore: "" });
@@ -413,7 +418,7 @@
       // 顺应 → 续写下一幕
       setBusy(true); setPhaseMsg("梦在往深处走…");
       try {
-        const next = await weaveNext(props.active, sess2, props.worldbook, uName());
+        const next = await weaveNext(props.active, sess2, scopedWorldbook(chosen.text), uName());
         props.onPatch({ scenes: marked.concat([next]) });
       } catch (e) {
         // 续写失败：把选择保留，让用户重试
@@ -427,7 +432,7 @@
       if (busy) return;
       setBusy(true); setPhaseMsg("梦在往深处走…");
       try {
-        const next = await weaveNext(props.active, s, props.worldbook, uName());
+        const next = await weaveNext(props.active, s, scopedWorldbook("继续梦境"), uName());
         props.onPatch({ scenes: scenes.concat([next]) });
       } catch (e) { props.toast && props.toast(e.message || "再试一次"); }
       setBusy(false); setPhaseMsg("");

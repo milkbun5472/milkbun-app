@@ -305,7 +305,7 @@
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
-        affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, active: props.active, toast: props.toast,
+        affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
         onCancel: () => setView("home"),
         onDone: (session, skipHook) => {
           persist([session].concat(loadSaves().filter(s => s.id !== session.id)));
@@ -475,7 +475,10 @@
         try {
           const run = async update => {
             update(null, existing ? "解读今天这张牌…" : "正在翻开今天的牌…");
-            const list = toGen.map(x => ({ id: x.id, name: x.name, persona: x.persona || "", mood: moodOf(x.id), voiceRef: recentChat(x.id, uName, x.name) }));
+            const list = toGen.map(function (x) {
+              const ownLore = props.worldbookFor ? props.worldbookFor(x.id, card.name + "\n每日一牌") : "";
+              return { id: x.id, name: x.name, persona: (x.persona || "") + (ownLore ? "\n\n【只给你的世界设定】\n" + ownLore : ""), mood: moodOf(x.id), voiceRef: recentChat(x.id, uName, x.name) };
+            });
             const outs = await readDailyForCard(props.active, card, list, uName, props.worldbook);
             const newEntries = toGen.map((x, i) => ({ charId: x.id, charName: x.name, text: outs[i] ? outs[i].text : "" }));
             const merged = (existing && existing.entries || []).concat(newEntries);
@@ -537,7 +540,7 @@
             charName: c.name, charPersona: c.persona || "", uName: uName,
             question: deal.finalQuestion, relText: relText,
             band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
-            voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbook
+            voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbookFor ? props.worldbookFor(c.id, [deal.finalQuestion, cards.map(function (x) { return x.name; }).join("、")].filter(Boolean).join("\n")) : props.worldbook
           });
           const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
             question: deal.finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,

@@ -1194,6 +1194,10 @@
       });
     }, [chapterTaskKey]);
     const chars = cpChars(f.cp, props.characters, props.profile);
+    const storyLore = function (extra) {
+      const ids = chars.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
+      return props.worldbookFor ? props.worldbookFor(ids, [f.title, props.tab && props.tab.name, extra || ""].filter(Boolean).join("\n")) : props.worldbook;
+    };
     function goChap(to) { const chs = f.chapters || []; if (to >= 0 && to < chs.length) { setChapIdx(to); markRead(f.id, to); } }
     // 进来就算读过一次——不然只看了第一章的文永远不会留下记录
     useEffect(function () { markRead(f.id, chapIdx); }, [f.id]);
@@ -1205,7 +1209,7 @@
       if (busyChap) return;
       const newIdx = (f.chapters || []).length; // 新章的索引
       const run = async function () {
-        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, props.worldbook, genOpts());
+        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"), genOpts());
         props.onUpdate(f.id, function (fic) { fic.chapters = (fic.chapters || []).concat([ch]); fic.updatedAt = Date.now(); return fic; });
         props.toast && props.toast("已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
@@ -1225,7 +1229,7 @@
       if (busyRev) return;
       setBusyRev(true);
       try {
-        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, props.worldbook);
+        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, storyLore("书评"));
         props.onUpdate(f.id, function (fic) { fic.reviews = (fic.reviews || []).concat(rv); return fic; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusyRev(false);
@@ -1789,7 +1793,7 @@
       return h(RPThread, {
         session: sess, fic: (props.fics || []).find(function (f) { return f.id === sess.ficId; }),
         tab: (props.tabs || []).find(function (x) { return x.id === sess.tabId; }) || { name: "", desc: "" },
-        active: props.active, characters: props.characters, profile: props.profile, userName: props.userName, worldbook: props.worldbook, toast: props.toast,
+        active: props.active, characters: props.characters, profile: props.profile, userName: props.userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: function () { setSessions(window.Fanfic.loadRP()); setOpenId(null); setView("list"); },
         onUpdate: function (fn) { const list = window.Fanfic.loadRP().map(function (s) { return s.id === sess.id ? fn(Object.assign({}, s)) : s; }); persist(list); }
       });
@@ -1874,6 +1878,11 @@
     const taRef = React.useRef(null);
     function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
     const cpc = cpChars((props.fic && props.fic.cp) || [], props.characters, props.profile);
+    const storyLore = function (extra) {
+      const ids = cpc.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
+      const recent = (s.transcript || []).slice(-8).map(function (x) { return x.text || ""; }).join("\n");
+      return props.worldbookFor ? props.worldbookFor(ids, [props.fic && props.fic.title, props.tab && props.tab.name, recent, extra || ""].filter(Boolean).join("\n")) : props.worldbook;
+    };
     const perFic = (window.Fanfic.loadCfg().perFic) || 3000;
     const rtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 幕文朗读（懒合成，读前800字，重听免费）
     // 用哪个音色读幕文：优先非「我」的主角、且配了音色的那个
@@ -1891,11 +1900,11 @@
         let sess = s;
         // 天降模式：先确定玩家这次的固定身份（一个具体名字），全程锚定，避免被当成用户本人/主角
         if ((s.mode === "passerby" || s.mode === "random") && !s.playerIdentity) {
-          const id = await window.Fanfic.genRPIdentity(props.active, props.fic, props.tab, cpc, s.mode, s.landing, props.userName, props.worldbook);
+          const id = await window.Fanfic.genRPIdentity(props.active, props.fic, props.tab, cpc, s.mode, s.landing, props.userName, storyLore("进入故事"));
           props.onUpdate(function (ss) { ss.playerIdentity = id; return ss; });
           sess = Object.assign({}, s, { playerIdentity: id });
         }
-        const text = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, props.worldbook, perFic);
+        const text = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
         props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: text }]; ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -1907,7 +1916,7 @@
       setInput(""); setWriting(false); setBusy(true);
       props.onUpdate(function (ss) { ss.transcript = (ss.transcript || []).concat([{ who: "me", text: act }]); ss.updatedAt = Date.now(); return ss; });
       try {
-        const text = await window.Fanfic.genRPTurn(props.active, s, props.fic, props.tab, cpc, props.userName, props.worldbook, act, perFic);
+        const text = await window.Fanfic.genRPTurn(props.active, s, props.fic, props.tab, cpc, props.userName, storyLore(act), act, perFic);
         props.onUpdate(function (ss) { ss.transcript = (ss.transcript || []).concat([{ who: "nar", text: text }]); ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -2049,6 +2058,7 @@
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
       const run = async function (updateProgress) {
         const chars = cpChars(cp, characters, props.profile);
+        const routedWorldbook = props.worldbookFor ? props.worldbookFor((cp || []).filter(function (id) { return id && id !== "me"; }), [curTab.name, curTab.desc, (briefs || []).join("\n")].filter(Boolean).join("\n")) : props.worldbook;
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
         let styleText;
@@ -2089,7 +2099,7 @@
           for (let i = 0; i < n; i++) {
             updateProgress && updateProgress({ done: i, total: n }, "长文风分篇生成");
             // ⚠️分篇那条支路也得把这一篇的梗带上，否则长文风下点的梗静默失效
-            const arr = await window.Fanfic.genBatch(props.active, curTab, chars, 1, userName, props.worldbook,
+            const arr = await window.Fanfic.genBatch(props.active, curTab, chars, 1, userName, routedWorldbook,
               Object.assign({}, opts, { briefs: [briefList[i] || ""] }));
             const part = records(arr, i);
             made.push.apply(made, part);
@@ -2097,7 +2107,7 @@
             updateProgress && updateProgress({ done: i + 1, total: n }, "长文风分篇生成");
           }
         } else {
-          const arr = await window.Fanfic.genBatch(props.active, curTab, chars, n, userName, props.worldbook, opts);
+          const arr = await window.Fanfic.genBatch(props.active, curTab, chars, n, userName, routedWorldbook, opts);
           made.push.apply(made, records(arr, 0));
           saveFics(made.concat(loadFics()));
         }
@@ -2168,7 +2178,7 @@
         paper: fPaper,
         onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
-        groups: props.groups || [], userName: userName, worldbook: props.worldbook, toast: props.toast,
+        groups: props.groups || [], userName: userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
@@ -2186,7 +2196,7 @@
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP,
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
-      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, toast: props.toast, onBack: function () { setView("feed"); } });
+      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); } });
     } else {
       // feed / shelf。item 5：收藏(onShelf)的从 feed 移除、只在书架出现
       // 搜的时候连 CP 里那几个人的名字一起搜——「按 CP 找」用的就是这条：
