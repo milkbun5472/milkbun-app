@@ -436,6 +436,34 @@ test("威胁钟不锈死:连着两个掷过骰的拍没人碰就自己走一格;
   assert.equal(touched.camp.clocks[0].idle, undefined, "守密人碰过就清零");
 });
 
+// 探索态(v60.20,照 ai-virtual-phone 的两态循环):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
+test("探索态菜单:只列在这儿的活人、还能翻几次、开着的支线", () => {
+  const { exploreMenu, pickSeed, regionOfNode } = require("../js/trpg.js");
+  const c = Object.assign(camp0(), { pos: "驿站", searched: { 驿站: 2 },
+    npcs: [{ name: "掌柜", alive: true, met: "驿站" }, { name: "游方僧", alive: true, met: "" }, { name: "死人", alive: false, met: "驿站" }, { name: "外地人", alive: true, met: "城郭" }],
+    quests: [{ name: "找马", status: "open" }, { name: "还钱", status: "done" }],
+    mapRegions: [{ name: "河谷", nodes: [{ name: "驿站" }] }, { name: "山里", nodes: [{ name: "山神庙" }] }],
+    sideSeeds: [{ name: "山中野店", region: "山里" }, { name: "马贼", region: "河谷", used: true }, { name: "游商", region: "" }] });
+  const m = exploreMenu(c);
+  assert.deepEqual(m.talk, ["掌柜", "游方僧"]);
+  assert.equal(m.searchLeft, 1);
+  assert.deepEqual(m.quests, ["找马"]);
+  assert.equal(regionOfNode(c, "山神庙"), "山里");
+  assert.equal(pickSeed(c, "山里", () => 0).name, "山中野店", "先抽本区的");
+  assert.equal(pickSeed(c, "河谷", () => 0).name, "游商", "本区用完了才抽没标区的;用过的不再抽");
+  assert.equal(pickSeed(Object.assign({}, c, { sideSeeds: [] }), "山里"), null);
+});
+
+test("探索拍:四下看看记一次翻找;搜满三次就不再给这个按钮", () => {
+  const c = Object.assign(camp0(), { pos: "驿站" });
+  const r = applyTurnPayload(c, { scene: "x", choices: [] }, { explore: "search" });
+  assert.equal(r.camp.searched["驿站"], 1);
+  assert.equal(applyTurnPayload(r.camp, { choices: [] }, { explore: "search" }).camp.searched["驿站"], 2);
+  assert.match(src, /stuck \? \(\(\) => \{/, "没选项时换成探索面板");
+  assert.match(src, /四下看看/); assert.match(src, /让守密人接着讲/);
+  assert.match(src, /choices 给【空数组】,队伍会落回探索态/, "守密人得知道收幕=空选项");
+});
+
 test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立扣", () => {
   const { rollStats: rs } = require("../js/trpg.js");
   const fate = src.match(/const fateOf = luck =>[^;]+;/);

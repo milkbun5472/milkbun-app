@@ -297,6 +297,35 @@
   // 偷来的点子:数字和造成它的故事绑在一起,不藏进面板);sysLine 是文字版,兼容旧渲染。
   // 注意和米娅的差别:角标只从【真的落了账】的变化里长出来——名字对不上被丢弃的,
   // 角标也不出现,绝不渲染一个没生效的变化骗人。
+  // ---- 探索态(参考 ai-virtual-phone 的两态循环,她 9/1 点的:探索得长在戏里) ----
+  // 事件态=守密人在场、有选项;守密人这一拍不给选项=这一幕收了,队伍落回探索态:
+  // 屏上换成【这个地点长出来的】一排交互(四下看看/找名册上的人攀谈/支线/前往/休整),
+  // 点了才调模型;闲逛不烧钱、没人拿话抓你。走路和搜寻各掷一次偶遇骰,从这一区
+  // 还没端出来的支线种子里抽一条,抽中了才回到事件态。
+  const EXPLORE_SEARCH_MAX = 3;         // 一个地点最多翻三次
+  const EXPLORE_ODDS = { travel: 0.15, search: 0.2 };
+  function regionOfNode(camp, name) {
+    const r = (camp.mapRegions || []).find(rg => (rg.nodes || []).some(n => n.name === name));
+    return r ? r.name : "";
+  }
+  function exploreMenu(camp) {
+    const here = camp.pos || camp.place || "";
+    const searched = (camp.searched || {})[here] || 0;
+    return {
+      here,
+      talk: (camp.npcs || []).filter(n => n.alive !== false && (!n.met || n.met === here)).map(n => n.name),
+      searchLeft: Math.max(0, EXPLORE_SEARCH_MAX - searched),
+      quests: (camp.quests || []).filter(q => q.status === "open").map(q => q.name)
+    };
+  }
+  // 抽偶遇:先抽这一区的种子,没有就抽没标区的;rand 可注入(测试用)
+  function pickSeed(camp, regionName, rand) {
+    const pool = (camp.sideSeeds || []).filter(sd => !sd.used && (sd.region === regionName || !sd.region));
+    if (!pool.length) return null;
+    const local = pool.filter(sd => sd.region === regionName);
+    const from = local.length ? local : pool;
+    return from[Math.floor((rand || Math.random)() * from.length)];
+  }
   // HP 先【按人聚合】再夹 ±40(Codex 抓的:以前单条夹 ±40,同一轮写三条 -40
   // 照样一拍掉 120;现在同一人的多条先合计,每人每拍净变化封顶 ±40)。
   function applyTurnPayload(camp, p, opts) {
@@ -520,6 +549,10 @@
       }
     }
     if (typeof p.place === "string" && p.place.trim()) next.place = p.place.trim();
+    if (opts && opts.explore === "search") {
+      const here = camp.pos || camp.place || "";
+      next.searched = Object.assign({}, camp.searched || {}, { [here]: ((camp.searched || {})[here] || 0) + 1 });
+    }
     // 位置跟着地图走(opts.nodes=这场团的地图节点):玩家点了「前往」以那个为准;
     // 否则守密人报的 place 能对上节点名,队伍就真的挪到那儿——地图和叙事一本账
     const nds = opts && opts.nodes;
@@ -1464,7 +1497,7 @@
         "【赶路】叙事跨地图节点时不许瞬移:要么停在动身那一刻(让玩家自己点地图赶路),要么如实更新 place 并把途中写出至少一笔(路况/遭遇/一句对话)。上一拍在甲地下一拍人已站在乙地而中间没有路,是穿帮。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,至少一个是【不推主线的探索】(看看这地方/找人聊/翻东西/绕去邻近节点),危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(四下看看/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1500,6 +1533,7 @@
       const local = (extra || []).slice();
       if (declaration) local.push({ id: rid("rm_"), role: "user", content: declaration, ts: Date.now() });
       if (local.length) update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat(local) })));
+      if (mode && mode.seed) update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { sideSeeds: (c.sideSeeds || []).map(sd => sd.name === mode.seed.name ? Object.assign({}, sd, { used: true }) : sd) })));
       const liveMsgs = camp.msgs.concat(local);
       setBusy(true); setBusyWhat("守密人在推演命运…");
       try {
@@ -1534,10 +1568,14 @@
           return n;
         })();
         const wantLull = !mode && !dice && tenseStreak >= 3 && !camp.ended;
+        const seed = mode && mode.seed;
+        const exploring = !!(mode && mode.explore);
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
         const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
-          + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
+          + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (seed ? "" : Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
+          + (exploring ? "\n〔探索拍〕队伍正在「" + (camp.pos || camp.place) + "」四下看看:写一小段发现——环境细节、一件小东西、一句传闻、名册上某人此刻在干什么;不开危机、不报 needCheck、不报 stageDone、威胁钟不走。" + (seed ? "" : "这一拍没有偶遇:choices 给【空数组】,队伍还留在探索态自己逛。") : "")
+          + (seed ? "\n〔偶遇〕偶遇骰掷中了这一区的支线种子「" + seed.name + "」(触发:" + seed.trigger + (seed.hook ? ";底:" + seed.hook : "") + "):就在这一拍把它自然端出来(quest add 同名),写成眼前真实发生的一件事,结尾给 2-3 个 choices 让队伍接手——这就进入了事件态。" : "")
           + (wantLull ? "\n〔喘口气〕已经连着三拍绷着了,这一拍要让队伍【在戏里】得到一个间歇:眼前的危机暂时甩开或告一段落,队伍到了一个能落脚、能四下看看的地方(照当前地点与世界来定,不要千篇一律)。这一拍不开新危机、不报 needCheck、威胁钟不走;choices 全给探索类——看看这地方、找某个人聊、翻翻手头的东西、绕去地图上邻近的节点——至少 3 个,没有一个是催着往主线赶的。" : "")
           + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "")
           + (ccTry && mode !== "resolve" ? "\n〔队友想赌〕最新亲笔行里「想赌:」后面的动作要碰运气:悬点停住不写成败,needCheck 报 {\"stat\":\"…\",\"who\":\"那位队友的名字\"}——who 必须填亲笔那位队友,不是 " + uName + "。" : "");
@@ -1548,12 +1586,12 @@
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
           if (c.id !== camp.id) return c;
-          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || !!(mode && mode.talk) });
+          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || !!(mode && mode.talk) || (exploring && !seed), explore: mode && mode.explore });
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
           const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), seeds: (nc.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices } }]);
-          if (wantLull) msgs[msgs.length - 1].lull = true;
+          if (wantLull || (exploring && !seed)) msgs[msgs.length - 1].lull = true;
           if (r.gate) msgs.push({ id: rid("rm_"), role: "sys", content: r.gate, ts: Date.now() });
           return Object.assign({}, nc, { msgs });
         }));
@@ -2479,7 +2517,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 3 } }, sel.region + " · " + sel.kind + " · " + (visited[sel.name] ? "去过" : "只是听说过的方向")),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9 } },
               sel.name === camp.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, "队伍就在这里")
-              : canGo ? h("button", { onClick: () => { setMapOpen(false); setSelNode(null); turn("(动身前往「" + sel.name + "」)", null, { travel: sel.name }); }, style: S.btn(true) }, "动身前往")
+              : canGo ? h("button", { onClick: () => { setMapOpen(false); setSelNode(null); const sd = Math.random() < EXPLORE_ODDS.travel ? pickSeed(camp, regionOfNode(camp, sel.name)) : null; turn("(动身前往「" + sel.name + "」)", null, { travel: sel.name, seed: sd }); }, style: S.btn(true) }, "动身前往")
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, busy ? "这一拍还没落定" : "太远了——路要一步步走,先去相邻的地点"),
               h("button", { onClick: () => setSelNode(null), style: S.btn(false) }, "收起"))) : null);
       })() : null;
@@ -2508,7 +2546,20 @@
                 c.check ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, " 🎲" + STAT_ZH[c.check.stat] + (c.check.who ? "·" + c.check.who : "")) : null,
                 c.need ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: lacking ? "#a4442e" : t.fog } }, (lacking ? " ⚠缺" + c.need + "·可硬闯" : " ✓" + c.need)) : null);
             }),
-            stuck ? h("button", { key: "go", onClick: () => turn(""), disabled: busy, style: S.btn(false) }, "让守密人继续 →") : null) : null,
+            stuck ? (() => {
+              // 探索态:这一幕收了,屏上换成这个地点长出来的交互——点了才调模型
+              const ex = exploreMenu(camp);
+              const goSearch = () => { const sd = Math.random() < EXPLORE_ODDS.search ? pickSeed(camp, regionOfNode(camp, ex.here)) : null; turn("(在「" + ex.here + "」四下看看)", null, { explore: "search", seed: sd }); };
+              return [
+                h("div", { key: "exh", style: { width: "100%", fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog } }, "—— 这一幕收了 · 自由活动 ——"),
+                ex.searchLeft ? h("button", { key: "exs", onClick: goSearch, disabled: busy, style: S.btn(false) }, "🔍 四下看看" + (ex.searchLeft < EXPLORE_SEARCH_MAX ? "(还能翻" + ex.searchLeft + "次)" : "")) : null,
+                ex.talk.map(nm => h("button", { key: "ext" + nm, onClick: () => { setTalkNpc(nm); props.toast("攀谈中:" + nm + "——聊完点「谈毕」"); }, disabled: busy, style: S.btn(false) }, "💬 找" + nm + "聊聊")),
+                ex.quests.map(q => h("button", { key: "exq" + q, onClick: () => turn("(着手支线「" + q + "」)"), disabled: busy, style: S.btn(false) }, "📜 " + q)),
+                builtMap ? h("button", { key: "exm", onClick: () => { const nd = builtMap.nodes.find(n => n.name === camp.pos); setMapVB({ cx: nd ? nd.x : builtMap.W / 2, cy: nd ? nd.y : builtMap.H / 2, k: 2 }); setSelNode(camp.pos || null); setMapOpen(true); }, disabled: busy, style: S.btn(false) }, "🧭 动身去别处") : null,
+                h("button", { key: "exr", onClick: () => turn("(队伍暂且停下,就地休整)", null, "rest"), disabled: busy, style: S.btn(false) }, "🏕 歇一会"),
+                h("button", { key: "go", onClick: () => turn(""), disabled: busy, style: Object.assign({}, S.btn(false), { color: t.fog }) }, "▶ 让守密人接着讲")
+              ];
+            })() : null) : null,
           noteOpen ? h("div", { key: "nt", style: { padding: "8px 14px 0" } },
             h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "跟守密人咬耳朵(只给下一回合的幕后指示,不入剧情):比如「节奏快一点」「让某人多点戏」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
           plusOpen ? h("div", { key: "pl", style: { display: "flex", gap: 8, padding: "8px 14px 0", flexWrap: "wrap" } },
@@ -2721,5 +2772,5 @@
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
   if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls };
+  if (typeof module === "object" && module.exports) module.exports = { trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
 })();
