@@ -118,7 +118,10 @@
     // 台下那一层原来的病是【借来的形状】（直播间弹幕＋网感路人），不是「有人在旁边看」这件事本身；
     // v60.26 把整层换成一张客观争点卡，等于把【活的】换成了【记账的】——方向反了。
     const benchBlock = (o.bench || []).map(function (c) {
-      return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500);
+      // 也给一小段他平时跟她怎么说话（比台上那份短得多：他是配角，不值当占那么多）。
+      // 不给的话他只知道一个名字，开口就成了「人家小姑娘」——她 2026-09-02 抓到的正是这个。
+      return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500)
+        + (c.injection ? "\n  （" + c.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(c.injection).replace(/\s+/g, " ").slice(-300) : "");
     }).join("\n");
     const sys = AC() +
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
@@ -128,6 +131,12 @@
         ? "\n【放飞模式】各角色不必死守辩论规矩：可顺着自己性格跑题、抬杠、翻旧账、拿场上某人开玩笑、突然感性或耍无赖、把话题往自己在意处带——只要像 Ta 这个人。但别彻底离题。"
         : "\n【认真辩论】各角色维持人设的同时认真论辩：亮论点给理由，针对 " + uName + " 和彼此的话正面反驳或追问，讲逻辑也讲立场底气。别人身攻击、别空喊口号。") +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
+      // 【和你们吵的这个人是谁】(v60.43 她 2026-09-02 抓到)
+      // 原来整场只发了她一个名字：没有人设、也没有一句话说过「这些人都认识她」。
+      // 于是场边那位开口就是「人家小姑娘现在摆明了…」——他把她当成了路过的第三方。
+      // ⚠️这不是记忆互通（擂台照旧不读主线记忆）：「她是谁」是身份，不是往事。
+      + "\n\n【和你们吵的这个人】" + uName + (o.mePersona ? "\n" + o.mePersona : "") +
+      "\n⚠️台上台下【每一个人都认识她】，她不是路过的陌生人：绝不许把她说成第三方路人（「那姑娘」「小姑娘」「这位小朋友」「某人」这类）。提到她就用你自己平时叫她的那个称呼——**那个称呼本身就该看得出你俩什么关系**。" +
       "\n\n【台上角色（就按这个顺序发言）】\n" + rosterBlocks +
       (o.watch
         ? "\n\n【旁观局】" + uName + " 这一场不上台。你们自己把这场吵起来、吵下去，别对着她说话、别问她怎么看，也别等她表态。"
@@ -337,6 +346,7 @@
           id: "db_" + Date.now(), topic: topic.trim(), mode: mode,
           winCond: mode === "free" ? (winCond.trim() || "") : "",
           spectate: watch,
+          inject: inject,   // 场边那几位也要照这个开关决定给不给「平时怎么说话」（老存档没有＝不给）
           parts: watch ? parts : [me].concat(parts), order: order,
           myOptions: watch ? [] : assigned.myOptions, mySet: watch,
           rounds: [{ turns: [], audience: [], myDone: false, gen: false }],
@@ -459,10 +469,15 @@
         const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, scopedWorldbook(myText), {
           chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
           myText: skip ? "" : myText, transcript: prevTranscript(s), focus: prior && prior.focus, watch: watch,
-          // 场边＝她的角色里【没上台的那些】。至多摆 6 个进上下文（她按次计费）
+          // 她是谁：整场只发一次，台上台下都看得到（身份不是往事，跟「记忆不互通」不冲突）
+          mePersona: String((props.profile && props.profile.persona) || "").replace(/\s+/g, " ").slice(0, 900),
+          // 场边＝她的角色里【没上台的那些】。至多摆 6 个进上下文（她按次计费）；
+          // 各带一小段平时跟她怎么说话——不给的话他只知道一个名字，开口就成了「人家小姑娘」
           bench: (props.crowdChars || []).filter(function (c) {
             return !orderedChars.some(function (x) { return String(x.id) === String(c.id); });
-          }).slice(0, 6)
+          }).slice(0, 6).map(function (c) {
+            return { id: c.id, name: c.name, persona: c.persona, injection: s.inject ? recentChatSnippet(c.id, uName, c.name) : "" };
+          })
         });
         patch(prev => {
           const rounds = prev.rounds.slice();

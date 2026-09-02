@@ -423,7 +423,7 @@ test("旁观局：她不上台，一按就让他们吵，没有「先等你开�
   assert.match(dbt, /if \(watchOnly && picked\.length < 2\)[\s\S]{0,120}"你不上台的话，台上得有两个人才吵得起来"/,
     "开了旁观还只拉一个人，就没得吵了");
   // 存进存档：台上没有「我」这一位，也就不用选边
-  assert.match(dbt, /spectate: watch,\n\s*parts: watch \? parts : \[me\]\.concat\(parts\), order: order,\n\s*myOptions: watch \? \[\] : assigned\.myOptions, mySet: watch,/);
+  assert.match(dbt, /spectate: watch,\n(?:\s*\w+: [^\n]*\n)*\s*parts: watch \? parts : \[me\]\.concat\(parts\), order: order,\n\s*myOptions: watch \? \[\] : assigned\.myOptions, mySet: watch,/);
   // 回合流程：没有「我先说」这一步
   assert.match(dbt, /const watch = !!s\.spectate;/);
   assert.match(dbt, /const myTurnNow = !watch && s\.mySet && !roundMyDone\(cr\);/, "旁观局还在等她先开口");
@@ -437,4 +437,26 @@ test("旁观局：她不上台，一按就让他们吵，没有「先等你开�
   assert.match(dbt, /session\.spectate \? "只在台上这几位里判——「" \+ uName \+ "」这一场没上台，不许判她赢"/);
   // 重试那一路也得知道这是旁观局（本来就没有我这一句）
   assert.match(dbt, /runGen\(t2 && !t2\.skipped \? t2\.text : "", !!\(watch \|\| \(t2 && t2\.skipped\)\)\)/);
+});
+
+// 她 2026-09-02：「这个顾朝怎么就叫我小姑娘了」——场边那位管她叫「人家小姑娘」。
+// 病根：整场只发了她一个【名字】，没有人设，也没有一句话说过「这些人都认识她」。
+// 场边那几位更是只拿到一个名字，开口只能把她当路过的第三方。
+test("擂台得说清她是谁，而且在场每个人都认识她", () => {
+  const i = dbt.indexOf("async function genRound(");
+  const gen = dbt.slice(i, dbt.indexOf("async function genResult", i));
+  assert.match(gen, /【和你们吵的这个人】/, "整场还是只发了她一个名字");
+  assert.match(gen, /o\.mePersona/, "她的人设没发进去");
+  assert.match(gen, /台上台下【每一个人都认识她】，她不是路过的陌生人/);
+  assert.match(gen, /绝不许把她说成第三方路人/);
+  assert.match(gen, /「那姑娘」「小姑娘」/, "得把最容易滑进去的那几个说法点出来");
+  // 判据不是「要礼貌」，是【那个称呼本身就该看得出你俩什么关系】
+  assert.match(gen, /用你自己平时叫她的那个称呼/);
+  assert.match(dbt, /mePersona: String\(\(props\.profile && props\.profile\.persona\) \|\| ""\)/, "没接上");
+  // 场边那几位也得知道自己平时怎么跟她说话，不然只有一个名字
+  assert.match(gen, /平时跟 " \+ uName \+ " 是这么说话的，照这个口气来/);
+  assert.match(dbt, /injection: s\.inject \? recentChatSnippet\(c\.id, uName, c\.name\) : ""/, "场边那份没接上");
+  assert.match(dbt, /inject: inject,/, "开关没存进存档，老局重开就丢了");
+  // 台上那份长、场边那份短：他是配角，不值当占那么多
+  assert.match(gen, /\.slice\(-300\)/, "场边那份没收着给");
 });
