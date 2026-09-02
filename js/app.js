@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.11";
+const APP_VERSION = "v60.12";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6823,13 +6823,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price); delivered = true; }
-      if (parsed.location && (parsed.location.name || parsed.location.coords)) {
+      if (parsed.location && parsed.location.name) {
         pChat(chatKey, p => [...p, {
         role: "assistant",
         turnId: "geo_" + Date.now(),
         kind: "geo",
         name: parsed.location.name || "某处",
-        coords: parsed.location.coords || makeCoords(),
         content: "[位置] " + (parsed.location.name || "某处"),
         ts: Date.now(),
         read: false
@@ -10468,11 +10467,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setCall(null);
   };
   // 随机坐标（位置 stamp 用）
-  const makeCoords = () => {
-    const lat = (Math.random() * 180 - 90).toFixed(4);
-    const lng = (Math.random() * 360 - 180).toFixed(4);
-    return Math.abs(lat) + "° " + (lat >= 0 ? "N" : "S") + ", " + Math.abs(lng) + "° " + (lng >= 0 ? "E" : "W");
-  };
   // ---- 匿名箱 ----
   // 匿名箱的网友:【谁在问】由客户端掷骰,不交给模型。
   // 她 2026-08-30:「网友的 prompt 也放开点,现在感觉就是带着答案去生成问题」——
@@ -15292,7 +15286,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     myBalance: wallet,
     onSendTransfer: (amount, note) => sendTransfer(activeChar.id, amount, note),
     onRespondTransfer: (tid, accept) => respondTransfer(activeChar.id, tid, accept),
-    makeCoords: makeCoords,
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onOffline: () => openOffline(activeChar),
     onOOC: text => oocReply(activeChar.id, text),
@@ -15417,7 +15410,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onDeclineCall: m => { pGChat(activeGroup.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了" + (m.senderName || "TA") + "的通话邀请", ts: Date.now() }]); },
     onSendTransfer: (memberId, amount, note) => sendGroupTransfer(activeGroup.id, memberId, amount, note),
     onRespondTransfer: (tid, accept) => respondGroupTransfer(activeGroup.id, tid, accept),
-    makeCoords: makeCoords,
     toast: toast
   });else if (screen === "contact" && activeChar) body = /*#__PURE__*/React.createElement(ContactDetail, {
     character: activeChar,

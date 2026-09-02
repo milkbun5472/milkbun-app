@@ -4066,7 +4066,6 @@ function ChatThread({
   onOpenStudyInvite,
   onSendTransfer,
   onRespondTransfer,
-  makeCoords,
   onOpenMoments,
   onOffline,
   onOOC,
@@ -4119,7 +4118,15 @@ function ChatThread({
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) : true);
+  // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
+  const geoRecent = React.useMemo(() => {
+    const out = [];
+    (messages || []).forEach(x => {
+      if (x && x.kind === "geo" && x.role === "user" && x.name && out.indexOf(x.name) < 0) out.unshift(x.name);
+    });
+    return out.slice(0, 5);
+  }, [messages]);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) : true);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -4494,6 +4501,7 @@ function ChatThread({
       key: i,
       m: m,
       isU: m.role === "user",
+      who: cName,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     });
@@ -4894,7 +4902,7 @@ function ChatThread({
       background: t.bg,
       border: `1px solid ${t.line}`
     }
-  }, h(PGlyph, {
+  }, h(CGlyph, {
     k: glyph,
     size: 24,
     color: t.sub
@@ -5007,16 +5015,10 @@ function ChatThread({
       setTransferOpen(false);
     }
   }), geoOpen && h(GeoStampSheet, {
-    makeCoords: makeCoords,
+    recent: geoRecent,
     onClose: () => setGeoOpen(false),
-    onSend: (name, coords) => {
-      sendRich({
-        role: "user",
-        kind: "geo",
-        name: name,
-        coords: coords,
-        content: "[位置] " + name
-      });
+    onSend: name => {
+      sendRich({ role: "user", kind: "geo", name: name, content: "[位置] " + name });
       setGeoOpen(false);
     }
   }), stickerOpen && h(Sheet, { onClose: () => setStickerOpen(false), tall: true },
@@ -6578,70 +6580,70 @@ function UnblockReqCard({ m, character, onRespond }) {
             h("button", { onClick: () => onRespond(m.cid, true), className: "flex-1 py-2.5 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "接受"))
         : statusLabel && h("div", { className: "px-4 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: m.status === "accepted" ? t.tint : t.fog } }, statusLabel)));
 }
-// 位置 Geo-Stamp 卡片
-function GeoCard({
-  m,
-  isU,
-  avatar,
-  myAvatar
-}) {
+// 聊天 +面板的图标(v60.12)
+// 原来这排直接借了【查手机那套 app 图标】(PGlyph),于是:
+//   · 「发语音」和「视频通话」在那套里压根没有对应的 key → 两个格子是空白的(她 2026-09-02 截图)
+//   · 群里的「红包」同样没有,只好临时拿一个「¥」字顶着
+//   · 剩下的四对撞车:位置和查找记录都是罗盘、表情包和照片都是相册、
+//     语音通话和通话记录都是听筒、朋友圈和拍一拍都是微信气泡——
+//     一排十一个格子只认得出七个。
+// 借一套现成的没错(见 mobile-ui-layout.md),但借的得是【意思对得上】的那一套。
+// 这一排说的是「往聊天里放什么」,跟手机里装了哪些 app 是两件事,所以给它自己一套。
+function CGlyph({ k, size = 24, color = "#1b1a17" }) {
+  const P = d => h("path", { d: d });
+  const C = (cx, cy, r) => h("circle", { cx: cx, cy: cy, r: r });
+  const R = (x, y, w, ht, rx) => h("rect", { x: x, y: y, width: w, height: ht, rx: rx });
+  const kids = {
+    pin: [P("M12 21.5s-6.6-6.2-6.6-10.6a6.6 6.6 0 1113.2 0c0 4.4-6.6 10.6-6.6 10.6z"), C(12, 10.9, 2.3)],
+    sticker: [P("M4.5 4.5h10.8L19.5 8.7v10.8h-15z"), P("M15.3 4.5v4.2h4.2"), P("M9 13c.9 1.4 4.1 1.4 5 0"), P("M9.3 9.6v.7M14.7 9.6v.7")],
+    picture: [R(3.5, 5, 17, 14, 2), C(8.6, 10, 1.6), P("M20.5 16.5l-5.2-5.2L5 19")],
+    wave: [P("M3.5 10.5v3M7.5 7.5v9M11.5 5v14M15.5 8.5v7M19.5 10.8v2.4")],
+    handset: [P("M21.5 16.9v2.6a1.9 1.9 0 01-2.1 1.9A18.6 18.6 0 013.1 4.6 1.9 1.9 0 015 2.5h2.6a1.9 1.9 0 011.9 1.6c.1 1 .4 1.9.7 2.7a1.9 1.9 0 01-.5 2L8.5 10a15 15 0 005.5 5.5l1.2-1.2a1.9 1.9 0 012-.5c.8.3 1.7.6 2.7.7a1.9 1.9 0 011.6 1.9z")],
+    camcorder: [R(3, 7, 12.5, 10, 2.4), P("M15.5 11.6l5.5-3.1v7l-5.5-3.1z")],
+    clock: [C(12, 12, 8.6), P("M12 7.3V12l3.2 1.9")],
+    magnifier: [C(10.8, 10.8, 6.4), P("M15.4 15.4L20.5 20.5")],
+    grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],
+    bill: [R(2.8, 6.4, 18.4, 11.2, 2), C(12, 12, 2.6), P("M6.4 10v4M17.6 10v4")],
+    hand: [P("M8.4 12.6V6.3a1.6 1.6 0 013.2 0v5.1"), P("M11.6 11.4V5.3a1.6 1.6 0 013.2 0v6.1"), P("M14.8 11.7V7.5a1.6 1.6 0 013.2 0v6.8c0 3.5-2.4 6-5.7 6-2.4 0-3.9-.9-5.2-2.7l-2.2-3a1.6 1.6 0 012.5-2l1.4 1.6")],
+    bars: [P("M4 20.2h16"), P("M7.4 20.2v-8.4M12 20.2V5.4M16.6 20.2v-5.6")],
+    packet: [R(4.2, 3.6, 15.6, 16.8, 2.4), P("M4.2 10.2h15.6"), C(12, 14.2, 2.2)]
+  };
+  return h(Svg, { size: size, color: color, sw: 1.5 }, ...(kids[k] || []));
+}
+// 位置卡:一枚图钉把一张字条按在聊天里(v60.12)
+//
+// 原来这张卡叫 GEO-STAMP:英文小字标头、一个准星、地名用意大利体、底下一行经纬度。
+// 她 2026-09-02:「当初是完全参考了别人的」。病不只是长相像别人——
+// **那行经纬度是随机掷出来的**(makeCoords:lat/lng 全随机),79.6472°N 落在北冰洋里。
+// 这个 app 没有地图也没有 GPS,那张卡却在扮演一台定位仪器,于是它必须借仪器的长相。
+// 现在照实说它是什么:一个人告诉你他在哪儿——**一张递过来的字条**,
+// 纸是这个 app 从头到尾在用的材料(信纸/账簿/周刊/卷宗),图钉是「就在这儿」。
+// 没有坐标,所以不需要装成地图;有的只是地名、谁在那儿、什么时候说的。
+function GeoCard({ m, isU, who, avatar, myAvatar }) {
   const t = useTheme();
+  const hh = new Date(m.ts || Date.now());
+  const clock = String(hh.getHours()).padStart(2, "0") + ":" + String(hh.getMinutes()).padStart(2, "0");
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
-  }, !isU && avatar, h("div", {
-    style: {
-      width: 250,
-      background: "#fff",
-      borderRadius: 16,
-      padding: "14px 16px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
-    }
-  }, h("div", {
-    className: "flex items-center justify-between"
-  }, h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10,
-      letterSpacing: "0.2em",
-      color: t.fog
-    }
-  }, "GEO-STAMP"), h(Svg, {
-    size: 15,
-    color: t.fog,
-    sw: 1.6
-  }, h("circle", {
-    cx: 12,
-    cy: 12,
-    r: 3.2
-  }), h("path", {
-    d: "M12 2v3M12 19v3M2 12h3M19 12h3"
-  }))), h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 20,
-      color: t.ink,
-      marginTop: 6
-    }
-  }, m.name || "某处"), h("div", {
-    className: "flex items-center gap-1.5 mt-2"
-  }, h(Svg, {
-    size: 13,
-    color: t.tint,
-    sw: 1.7
-  }, h("path", {
-    d: "M12 21s-7-6.3-7-11a7 7 0 1114 0c0 4.7-7 11-7 11z"
-  }), h("circle", {
-    cx: 12,
-    cy: 10,
-    r: 2.4
-  })), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.sub
-    }
-  }, m.coords || ""))), isU && myAvatar);
+  }, !isU && avatar,
+    h("div", { style: { position: "relative", width: 214, marginTop: 7 } },
+      // 图钉:钉帽压在纸的上沿外面,底下一小片影子——纸是被按上去的,不是画上去的
+      h("div", {
+        style: { position: "absolute", top: -7, left: 16, width: 15, height: 15, borderRadius: 999,
+          background: t.tint, boxShadow: "0 2px 4px rgba(0,0,0,.28)", zIndex: 2 }
+      }),
+      h("div", {
+        style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 }
+      }),
+      h("div", {
+        style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
+          padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" }
+      },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, m.name || "某处"),
+        h("div", { style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+          (isU ? "我在这儿" : (who || "TA") + " 在这儿") + " · " + clock))),
+    isU && myAvatar);
 }
 // 我转给 TA 的输入卡（只有「我转给 TA」，接受由对方决定）
 function TransferComposeSheet({
@@ -6736,91 +6738,53 @@ function TransferComposeSheet({
     }
   }, "确认转账")));
 }
-// 位置 Geo-Stamp 输入卡
-function GeoStampSheet({
-  makeCoords,
-  onClose,
-  onSend
-}) {
+// 发位置:写一个地名,或者点一个你之前发过的(v60.12)
+//
+// 原来这一页是 Geo-Stamp / SET YOUR LOCATION / CONFIRM & SEND,中间一行随机经纬度,
+// 旁边一个「换一个坐标」的刷新键,底下两颗中英文双语胶囊。她说这是照着别人的做的——
+// 除了长相,它整页都在围着一个【假读数】转:那行坐标是 Math.random() 掷出来的,
+// 刷新键刷的是随机数,「当前位置 / Current」按下去发出去的字面就是「当前位置 / Current」。
+// 现在只留真东西:你写的那个地名,和你之前发过的几个。
+//
+// ⚠️为什么这一层还留半窗(见 .claude/rules/no-half-sheet.md):
+//   它是「选一下就走」的那一种,而且下面那一层【正是它要发进去的那个聊天】——
+//   正好踩中那条规矩里半窗仅有的两种合格形状之一。
+function GeoStampSheet({ recent, onClose, onSend }) {
   const t = useTheme();
-  const [coords, setCoords] = useState(makeCoords ? makeCoords() : "20.1965° N, 78.5395° W");
   const [name, setName] = useState("");
-  const quick = (label, cur) => h("button", {
-    onClick: () => {
-      setName(label);
-      if (cur && makeCoords) setCoords(makeCoords());
-    },
-    className: "px-4 py-2 rounded-full active:opacity-70",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      background: name === label ? t.ink : "transparent",
-      color: name === label ? t.bg2 : t.sub,
-      border: "1px solid " + (name === label ? t.ink : t.line)
-    }
-  }, label);
-  return h(Sheet, {
-    onClose: onClose,
-    tall: true
-  }, h("div", {
-    className: "flex items-start justify-between"
-  }, h("div", null, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 30,
-      color: t.ink
-    }
-  }, "Geo-Stamp"), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      letterSpacing: "0.2em",
-      color: t.fog,
-      marginTop: 2
-    }
-  }, "SET YOUR LOCATION")), h("button", {
-    onClick: () => makeCoords && setCoords(makeCoords()),
-    className: "active:opacity-60",
-    title: "换一个坐标"
-  }, h(Svg, {
-    size: 20,
-    color: t.fog,
-    sw: 1.7
-  }, h("path", {
-    d: "M4 12a8 8 0 0113.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 01-13.7 5.7L4 16M4 20v-4h4"
-  })))), h("div", {
-    className: "text-center py-7",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 22,
-      color: t.ink
-    }
-  }, "~ " + coords + " ~"), h("input", {
-    value: name,
-    onChange: e => setName(e.target.value),
-    placeholder: "输入自定义位置…",
-    className: "w-full outline-none rounded-xl px-4 py-3 mb-4",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 15,
-      background: t.bg,
-      color: t.ink
-    }
-  }), h("div", {
-    className: "flex gap-2 mb-6"
-  }, quick("当前位置 / Current", true), quick("保密区域 / Classified", false)), h("button", {
-    onClick: () => onSend(name.trim() || "当前位置", coords),
-    className: "w-full rounded-full py-3.5",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      letterSpacing: "0.06em",
-      background: t.ink,
-      color: t.bg2
-    }
-  }, "CONFIRM & SEND"));
+  const lift = useKbLift();
+  const v = name.trim();
+  const past = (recent || []).slice(0, 5);
+  return h(Sheet, { onClose: onClose, lift: lift },
+    h(Eyebrow, null, "发个位置"),
+    // 输入行做成纸上的一根横线,不是一个圆角输入框:这一层写的是【一个地名】,不是一段话
+    h("div", { className: "flex items-end gap-2", style: { marginTop: 16, marginBottom: past.length ? 20 : 24 } },
+      h(Svg, { size: 19, color: t.tint, sw: 1.6 },
+        h("path", { d: "M12 21.5s-6.6-6.2-6.6-10.6a6.6 6.6 0 1113.2 0c0 4.4-6.6 10.6-6.6 10.6z" }),
+        h("circle", { cx: 12, cy: 10.9, r: 2.3 })),
+      h("input", {
+        value: name,
+        onChange: e => setName(e.target.value),
+        placeholder: "你现在在哪儿",
+        className: "flex-1 outline-none bg-transparent",
+        style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line, paddingBottom: 7 }
+      })),
+    past.length ? h("div", { style: { marginBottom: 24 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8 } }, "你之前发过"),
+      past.map((x, k) => h("button", {
+        key: k,
+        onClick: () => setName(x),
+        className: "w-full text-left active:opacity-60",
+        style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, padding: "9px 0",
+          borderTop: k ? "1px solid " + t.line : "none" }
+      }, x))) : null,
+    h("button", {
+      onClick: () => v && onSend(v),
+      disabled: !v,
+      className: "w-full active:opacity-80",
+      style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, borderRadius: 12, padding: "13px",
+        background: v ? t.ink : t.bg, color: v ? t.bg2 : t.fog }
+    }, "发出去"));
 }
 // 按消息类型给出可用的长按菜单项：纯文本/图片/位置给全套；表情/语音/转账/红包等
 // 卡片类只给能用的（收藏/多选删除/撤回）——复制/编辑/引用/重Roll 对它们没意义。
@@ -8315,7 +8279,6 @@ function GroupThread({
   onDeclineCall,
   onSendTransfer,
   onRespondTransfer,
-  makeCoords,
   emotes,
   onManageEmotes,
   archCount,
@@ -8324,6 +8287,14 @@ function GroupThread({
 }) {
   const t = useTheme();
   const gsp = settings || {};
+  // 「你之前发过」:从这个群里自己发过的位置卡去重,最近的在前
+  const geoRecent = React.useMemo(() => {
+    const out = [];
+    (messages || []).forEach(x => {
+      if (x && x.kind === "geo" && x.role === "user" && x.name && out.indexOf(x.name) < 0) out.unshift(x.name);
+    });
+    return out.slice(0, 5);
+  }, [messages]);
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
@@ -8407,7 +8378,7 @@ function GroupThread({
     if (typeof r === "number") toast && toast("领到 ¥" + r);
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["poll", "投票", "forum"], ["transfer", "转账", "wallet"], ["rp", "红包", "redpacket"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"]];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -8621,6 +8592,7 @@ function GroupThread({
       key: i,
       m: m,
       isU: m.role === "user",
+      who: m.senderName || ((memberById(m.senderId) || {}).name || "TA"),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })
     });
@@ -8871,9 +8843,7 @@ function GroupThread({
       background: t.bg,
       border: "1px solid " + t.line
     }
-  }, glyph === "redpacket" ? h("span", {
-    style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.sub }
-  }, "¥") : h(PGlyph, {
+  }, h(CGlyph, {
     k: glyph,
     size: 24,
     color: t.sub
@@ -9022,10 +8992,10 @@ function GroupThread({
     meName: meName,
     onClose: () => setRpView(null)
   }), geoOpen && h(GeoStampSheet, {
-    makeCoords: makeCoords,
+    recent: geoRecent,
     onClose: () => setGeoOpen(false),
-    onSend: (name, coords) => {
-      sendRich({ role: "user", kind: "geo", name: name, coords: coords, content: "[位置] " + name });
+    onSend: name => {
+      sendRich({ role: "user", kind: "geo", name: name, content: "[位置] " + name });
       setGeoOpen(false);
     }
   }), photoOpen && h(Sheet, {
