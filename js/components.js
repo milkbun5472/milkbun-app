@@ -4131,6 +4131,17 @@ function ChatThread({
     if (!spk || !spk.voiceId) return;
     tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
   };
+  // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
+  // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
+  const sayDot = (i, m) => {
+    if (!canSpeakMsg(m)) return null;
+    const k = m && m.kind;
+    if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
+    const spk = speakerOf(m);
+    const on = tp.play && tp.play.k === "say" + i;
+    return h(TtsBubbleDot, { key: "d", text: String(m.content || ""), voiceId: spk.voiceId,
+      st: on ? tp.play.st : "idle", onTap: () => speakMsg(i, m) });
+  };
   // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
   const geoRecent = React.useMemo(() => {
     const out = [];
@@ -4748,7 +4759,7 @@ function ChatThread({
         color: t.fog,
         marginTop: 2
       }
-    }, subLine(m))), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
+    }, subLine(m))), sayDot(i, m), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
       title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
       className: "shrink-0 self-center active:opacity-60",
@@ -6053,12 +6064,63 @@ function VoiceMsg({ m, isU, speaker }) {
         (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
 }
+// 气泡上的播放键(v60.29 她 2026-09-02 要的)
+// 「能不能给他气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，
+//   而且不用每次长按才能听」——两件事：**常驻**，而且**分得出花没花过钱**。
+// 听过的那一句在 IDB 里躺着，重播免费；没听过的点一下才去合成、才收费。
+// 所以实心＝听过了随便点，空心＝这一下要花一次。
+const _ttsSeen = new Map();
+// ⚠️光有这张表不够：合成成功时这一颗点【已经挂在屏幕上】了，
+//   它的 cached 是自己的 state，表里改了它不会知道——点完一次还是空心的，
+//   下次进这个聊天才变实。所以记一笔要通知出去。
+const _ttsSubs = new Set();
+const ttsMemoKey = (text, voiceId, emo) => String(voiceId || "") + "|" + String(emo || "") + "|" + String(text || "");
+const markTtsCached = (text, voiceId, emo) => {
+  _ttsSeen.set(ttsMemoKey(text, voiceId, emo), true);
+  _ttsSubs.forEach(f => { try { f(); } catch (e) {} });
+};
+function TtsBubbleDot({ text, voiceId, emo, st, onTap }) {
+  const t = useTheme();
+  const key = ttsMemoKey(text, voiceId, emo);
+  const [cached, setCached] = useState(() => !!_ttsSeen.get(key));
+  useEffect(() => {
+    if (_ttsSeen.has(key)) { setCached(!!_ttsSeen.get(key)); return; }
+    if (typeof ttsCached !== "function") return;
+    let dead = false;
+    // 只读缓存，不打上游，不花钱；查过一次就记在这张表里，别每次重绘都翻一遍 IDB
+    ttsCached(text, voiceId, { emo: emo }).then(v => { _ttsSeen.set(key, v); if (!dead) setCached(v); }).catch(() => {});
+    return () => { dead = true; };
+  }, [key]);
+  useEffect(() => {
+    const f = () => setCached(!!_ttsSeen.get(key));
+    _ttsSubs.add(f);
+    return () => { _ttsSubs.delete(f); };
+  }, [key]);
+  const on = st === "playing" || st === "gen";
+  const solid = cached || on;
+  const ink = solid ? "#fff" : t.fog;
+  return h("button", {
+    onClick: e => { e.stopPropagation(); onTap(); },
+    "aria-label": cached ? "重播这一句（听过了，不花钱）" : "念出来（这一句要先合成一次）",
+    title: cached ? "听过了 · 重播不花钱" : "还没合成过 · 点一下会花一次",
+    className: "shrink-0 self-center active:opacity-60",
+    style: { width: 21, height: 21, borderRadius: 999, marginLeft: 6, padding: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: solid ? t.tint : "transparent",
+      border: solid ? "none" : "1.2px solid " + t.fog }
+  }, st === "gen"
+    ? h("span", { style: { width: 8, height: 8, borderRadius: 2, border: "1.5px solid " + ink, borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
+    : h(Svg, { size: 11, color: ink, sw: 0 },
+        st === "playing"
+          ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: ink })
+          : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: ink })));
+}
 // 懒 TTS 小播放器（通话台词/转录回听共用）：一次只放一条，点了才合成收费；放过的在 ttsSpeak 缓存里，回听免费
 function useTtsPlayer() {
   const [play, setPlay] = useState(null); // {k, st:"gen"|"playing"}
   const audRef = useRef(null);
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
-  const toggle = async (k, text, voiceId) => {
+  const toggle = async (k, text, voiceId, opts) => {
     if (play && play.st === "gen") return;
     if (play && play.k === k && play.st === "playing") { try { audRef.current && audRef.current.pause(); } catch (e) {} setPlay(null); return; }
     if (audRef.current) { try { audRef.current.pause(); } catch (e) {} }
@@ -6067,7 +6129,8 @@ function useTtsPlayer() {
     aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
     setPlay({ k, st: "gen" });
     try {
-      const blob = await ttsSpeak(text, voiceId);
+      const blob = await ttsSpeak(text, voiceId, opts);
+      markTtsCached(text, voiceId, opts && opts.emo);   // 这一句从此免费重播，点亮它
       const url = URL.createObjectURL(blob);
       aud.src = url;
       aud.onended = () => { setPlay(p => p && p.k === k ? null : p); URL.revokeObjectURL(url); };
@@ -8494,6 +8557,17 @@ function GroupThread({
     if (!spk || !spk.voiceId) return;
     tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
   };
+  // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
+  // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
+  const sayDot = (i, m) => {
+    if (!canSpeakMsg(m)) return null;
+    const k = m && m.kind;
+    if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
+    const spk = speakerOf(m);
+    const on = tp.play && tp.play.k === "say" + i;
+    return h(TtsBubbleDot, { key: "d", text: String(m.content || ""), voiceId: spk.voiceId,
+      st: on ? tp.play.st : "idle", onTap: () => speakMsg(i, m) });
+  };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
@@ -8998,7 +9072,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), sayDot(i, m), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。

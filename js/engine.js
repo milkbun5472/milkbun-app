@@ -4083,13 +4083,17 @@ async function jpKanaReading(text) {
 }
 // 合成一段语音：先查缓存，没有才真调 MiniMax（t2a_v2，hex 音频 → mp3 blob）
 // v48.31 opts.emo=作者标注的语气（发语音的角色自己标的，最准）；情绪策略见下
-async function ttsSpeak(text, voiceId, opts) {
+// 缓存钥匙的推导(v60.29 抽出来单开一份)
+// 原来整段埋在 ttsSpeak 里，于是「这一句听过没有」在外面根本算不出同一把钥匙。
+// 她 2026-09-02 要在气泡上标出哪些是缓存过的（重播免费、不再花钱），
+// 照旧那样只能在外面另写一份推导——**两份必然漂走**，
+// 到时候标着「听过」的一点又去合成一次、真花了钱，比不标还坏。
+// 所以只留一份：ttsSpeak 和「查缓存」用的是同一个函数算出来的同一把钥匙。
+function ttsKeyFor(text, voiceId, opts) {
   opts = opts || {};
-  const a = loadTtsApi();
-  if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
   const vid = voiceId || "female-shaonv";
   const txt = String(text || "").trim().slice(0, 800);
-  if (!txt) throw new Error("这条语音没有文字内容");
+  if (!txt) return null;
   // per-voice 沉稳调校（v47.86）：克隆音色若素材本身亢奋（如杨昕燃配的挏马酒），在音色库开「沉稳」——
   // 降语速+降音调+锁 neutral 情绪，把那股端着的兴奋劲压下去；只影响这一个音色
   // trim 匹配（v47.88）：角色档案手填 voiceId 常多打首尾空格→精确匹配对不上
@@ -4122,6 +4126,26 @@ async function ttsSpeak(text, voiceId, opts) {
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
   // hq44 让 v48.31 之前 32k 音质的旧缓存自然失效（同句会用新参数重合成一次，之后照旧缓存免费）
   const key = ttsCacheKey(vid + ":" + (emo || "raw") + ":hq44:lb:" + boost + (slowed ? ":s" + Math.round(spd * 100) : "") + (wantKana ? ":kana" : ""), txt);
+  return { key: key, txt: txt, vid: vid, ve: ve, emo: emo, spd: spd, slowed: slowed, boost: boost, wantKana: wantKana, pit: pit };
+}
+// 这一句合成过没有。只读缓存，不打上游，也就不花钱。
+async function ttsCached(text, voiceId, opts) {
+  try {
+    const d = ttsKeyFor(text, voiceId, opts);
+    if (!d) return false;
+    const hit = await idbAudGet(d.key).catch(() => null);
+    return !!(hit && hit.size > 0);
+  } catch (e) { return false; }
+}
+async function ttsSpeak(text, voiceId, opts) {
+  opts = opts || {};
+  const a = loadTtsApi();
+  if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
+  const vid = voiceId || "female-shaonv";
+  const txt = String(text || "").trim().slice(0, 800);
+  if (!txt) throw new Error("这条语音没有文字内容");
+  const _k = ttsKeyFor(text, voiceId, opts);
+  const ve = _k.ve, emo = _k.emo, spd = _k.spd, slowed = _k.slowed, pit = _k.pit, boost = _k.boost, wantKana = _k.wantKana, key = _k.key;
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
   // 缓存没命中才真去转假名（转换也缓存进最终音频，重听免费）
