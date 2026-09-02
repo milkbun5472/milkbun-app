@@ -12,19 +12,14 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 // 每一次都是「拼的时候漏了一项」。
 
 // 把真函数拿出来跑，别 grep 源码：要证的是【它到底吐出哪几层】。
-const groupBans = (() => {
-  const i = eng.indexOf("function groupBans(opts) {");
-  const body = eng.slice(i, eng.indexOf("\n}", i) + 2);
-  const names = ["ANTI_CLICHE", "INTIMATE_ANTI_CLICHE", "NARRATIVE_ANTI_CLICHE", "WORLDBOOK_RULE",
-    "CHARCARD_RULE", "GROUP_IN_CHARACTER", "GROUP_USER_IS_PRESENT", "CONDESCENDING_TONE_BAN",
-    "REGISTER_FOLLOWS_SCENE", "PERSONA_REGISTER_ANCHOR", "MOOD_TURN_RULE", "STOCK_REPLY_BAN", "ECHO_QUESTION_BAN"];
-  const fn = new Function(...names, "ContentBoundaries", "ReplyPacing", body + "\nreturn groupBans;")(
-    ...names.map(n => "<" + n + ">"), { prompt: "<CB>" }, { reading: () => "<RP>" });
-  return o => fn(o).split("\n\n");
-})();
+// v60.45 起沙箱收进 test/_group-bans.js 一份共用：原来这儿自己抄了一份、
+// 还自己手写一张常量名表，于是 engine 里新加一层就把这个文件整个打崩——
+// 上面写的那个病（同一层写在两处、第二处没跟上），这份测试自己也犯了一次。
+const GB = require("./_group-bans.js");
+const groupBans = GB.layers;
 
 const CORE = ["<ANTI_CLICHE>", "<CB>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
-  "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<REGISTER_FOLLOWS_SCENE>",
+  "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
   "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<RP>"];
 
 test("三处群共用的那一摞，一层都不许少", () => {

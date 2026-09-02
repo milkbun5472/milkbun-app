@@ -18,8 +18,10 @@ const engine = rd("js/engine.js"), theater = rd("js/theater.js"), fanfic = rd("j
 const core = (() => {
   const i = engine.indexOf("function narrativeCore(opts) {");
   const body = engine.slice(i, engine.indexOf("\n}", i) + 2);
-  const stub = ["ANTI_CLICHE", "CHARCARD_RULE", "OFFLINE_NARRATIVE_RUNTIME",
-    "NARRATIVE_ANTI_CLICHE", "INTIMATE_ANTI_CLICHE", "PERSONA_REGISTER_ANCHOR"]
+  // v60.45：常量名从函数体里认出来，别再手写一张表——engine 里给 narrativeCore
+  // 新加一层，这份脚手架就会 ReferenceError（同一层写在两处、第二处没跟上，
+  // 这个病连测试自己都得过一次）。
+  const stub = [...new Set(body.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) || [])]
     .map(n => "const " + n + ' = "<' + n + '>";').join("\n");
   return new Function(stub + "\n" + body + "\nreturn narrativeCore;")();
 })();

@@ -35,7 +35,10 @@ test("四处都吃得到这条刀（言秋那支不发扮演类规则）", () =>
   assert.ok(nr > 0 && bb.indexOf("CONDESCENDING_TONE_BAN") > nr, "要在 notRoleplay 分支之后的 else 里");
   // 单聊线下：走 buildBundle(ctx) + OFFLINE_NARRATIVE_RUNTIME，已经从上面那支吃到了，
   // 不许再插一份（重复注入＝白烧 token，她按次计费）
-  assert.equal((engine.match(/CONDESCENDING_TONE_BAN/g) || []).length, 3,
+  // ⚠️只数代码行：注释里提到这个常量名不算一处（v60.45 的情欲反八股在注释里
+  // 引用了它当教训，这一句就误报成 4 了）。
+  const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  assert.equal((codeOnly(engine).match(/CONDESCENDING_TONE_BAN/g) || []).length, 3,
     "1 处定义 + buildBundle + 群线下；数字变了就核对是新通道接上了还是插重了");
   // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
   // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。

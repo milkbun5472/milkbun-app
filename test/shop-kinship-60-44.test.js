@@ -25,6 +25,16 @@ test("分栏不再是一份通用电商品类词典", () => {
   assert.match(scr, /SHOP_SHIP_WORD = \{ food:/);
 });
 
+// 她 2026-09-02：「maxtoken 开到 65535，那个反正开了也不代表用得到那么多」——
+// 这条得写进规矩里，不然下次有人照那张「阶梯表」把它压回 20000。
+test("「上限是天花板不是花销」这条写进规矩了", () => {
+  const rule = fs.readFileSync(path.join(root, ".claude/rules/max-tokens-floor.md"), "utf8");
+  assert.match(rule, /上限是【天花板】，不是【花销】/);
+  assert.match(rule, /maxtoken 开到 65535/, "她的原话要留着");
+  assert.match(rule, /别拿上面那张表去往下压它/);
+  assert.match(rule, /有些上游对 max_tokens 有自己的硬上限/, "真被上游拒了要认得出来");
+});
+
 test("刷信息流那一处不许再叫模型去抄别人，占位值也不许是样例内容", () => {
   const i = app.indexOf("const genShop = async");
   const g = app.slice(i, app.indexOf("const WISH_CAP", i));
@@ -34,36 +44,11 @@ test("刷信息流那一处不许再叫模型去抄别人，占位值也不许�
   assert.ok(live.indexOf("川味经典红油抄手") < 0 && live.indexOf("地道成都风味") < 0);
   assert.match(g, /\\"name\\":\\"具体商品名\\"/, "占位值要写成说明");
   assert.match(g, /cat === "forhim" \?/, "给他买那一栏得知道自己是在替别人挑");
-  // 一次要写六件东西＝一屏名单那一档（max-tokens-floor.md）
-  assert.match(g, /maxTokens: 19500/);
+  // 她 2026-09-02 亲口定的上限；一次也从 6 件放开到 10~15 件
+  assert.match(g, /maxTokens: 65535/);
+  assert.match(g, /给 10~15 件商品（items 数组至少 10 个元素）/);
+  assert.ok(g.indexOf("正好 6 件") < 0, "还卡在六件");
 });
 
-// 她 2026-09-02：「刷了角色亲属卡好像不进聊天，他不知道我拿来刷了啥」
-test("刷了他的卡，聊天里要留下这笔", () => {
-  const i = app.indexOf("const payWithKinship");
-  const pay = app.slice(i, app.indexOf("// 使用（待收货→我的物品）", i));
-  assert.match(pay, /pChat\(charId, p => \[\.\.\.p, \{ role: "system", kind: "system"/, "这笔没进聊天");
-  assert.match(pay, /"你刷了" \+ \(char \? char\.name : "对方"\) \+ "的亲属卡："/);
-  assert.match(pay, /" · ¥" \+ total/, "花了多少也得写上");
-});
-
-test("他那句话要在聊天里说出口，不是只嘀咕进账单页", () => {
-  const i = app.indexOf("const genKinshipComment");
-  const g = app.slice(i, app.indexOf("// 随身物品 Carry", i));
-  assert.match(g, /pChat\(charId, p => \[\.\.\.p, \{ role: "assistant", content: comment/);
-  assert.match(g, /bumpUnread\(charId, 1\)/, "不在这个聊天里就该有个红点");
-  // 同一次调用的结果，不许为这个再多打一次
-  assert.equal((g.match(/callAI\(/g) || []).length, 1, "为了发这句又多花了一次调用");
-});
-
-// 她 2026-09-02：「亲属卡没有头像，还有样式也改改」
-test("亲属卡看得出是谁给的", () => {
-  const i = comp.indexOf("function KinshipIssueCard(");
-  const k = comp.slice(i, comp.indexOf("// 代付请求卡", i));
-  assert.match(k, /h\(Avatar, \{ character: c, size: 34/, "没有他的头像，就看不出是谁给的");
-  assert.match(k, /"给你开了一张亲属卡"/);
-  assert.ok(k.indexOf("KINSHIP") < 0, "中英对照那一套（同长按菜单那次）");
-  assert.match(k, /"花这张卡，刷的是" \+ \(c\.name \|\| "TA"\) \+ "的钱"/, "底栏还写着「刷 TA 的钱」这种谁都不是的说法");
-  // 上沿那条他的颜色：这张卡是从他那儿来的
-  assert.match(k, /height: 4, background: ink/);
-});
+// 刷卡进聊天那三条挪去了 kinship-no-call-60-45 / kinship-card-face-60-45：
+// v60.44 那一版被她当天推翻了（买东西不该调用、格式不对、卡面太平淡）。

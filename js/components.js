@@ -39,6 +39,17 @@ function bubbleSticker(isU) {
   if (isU) pos.right = -10; else { pos.left = -10; pos.transform = "scaleX(-1)"; }
   return h("img", { src: src, alt: "", style: pos });
 }
+// 一张脸的图片地址（Avatar 和亲属卡卡面共用一份解析）：
+// avatarImage 可能是 iv_ 键（IndexedDB）→ resolveImg 换成 objectURL；base64/http 原样。
+// 拿不到就退到程序化生成的那张（emoji 头像没有图，返回空）。
+function avatarSrcOf(character) {
+  const raw = character && character.avatarImage
+    ? (typeof resolveImg === "function" ? resolveImg(character.avatarImage) : character.avatarImage) : "";
+  if (raw) return raw;
+  if (character && character.avatarEmoji) return "";
+  const seed = (character && (character.id || character.handle || character.name)) || "?";
+  return typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "";
+}
 function Avatar({
   character,
   size = 40,
@@ -4149,7 +4160,7 @@ function ChatThread({
     const dot = sayDot(i, m);
     if (!dot && !sub) return null;
     return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
-      dot, sub ? h("span", null, sub) : null);
+      sub ? h("span", null, sub) : null, dot);
   };
   // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
   const geoRecent = React.useMemo(() => {
@@ -4542,6 +4553,7 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
+    if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -6697,33 +6709,89 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
       h("div", { className: "px-4 py-1.5", style: { background: "rgba(0,0,0,0.14)", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em" } }, footer)),
     isU && myAvatar ? myAvatar : null);
 }
-// 亲属卡（v60.44 重做）
-// 她 2026-09-02：「亲属卡没有头像，还有样式也改改」。
-// 原来是一张通用银行卡：渐变底 + 「亲属卡 · KINSHIP」中英对照 + 一个额度数字。
-// 那个形状搬进任何一个钱包 app 都成立，而且【看不出是谁给的】——
-// 可这张卡的全部意义就是【他把自己的钱开了一道口子给她】：
-// 谁给的、他说了什么，比额度本身重要。
-// 所以：他的头像和名字在最上面，额度是他给的那个数，附言就按他说话的样子摆。
-function KinshipIssueCard({ m, character }) {
+// 亲属卡的卡面（v60.45 重做，聊天里那张 / 钱包汇总页 / 单卡账单页三处共用）
+// 她 2026-09-02：「亲属卡这两边长不一样，而且你改之后的还是略平淡和别的样式差不多」。
+// v60.44 我把原来那张渐变银行卡换成了「头像＋数字＋一条底注」的通用卡片——
+// 认得出是谁给的了，可它跟这个 app 里别的卡长得一模一样，等于没设计。
+// 按 tabs-not-plain-pills 那把尺子先问：这东西在现实里是什么？
+//   是【副卡】——开在别人账户上、给你拿着刷的那一张。它跟普通银行卡的差别只有一个：
+//   卡是你的，账是他的。所以整张卡都该是【他】：
+// · 卡底是他的颜色，他的脸从右边淡淡透出来（换个角色，这张卡就整个变样——搬不去别的 app）
+// · 卡号那一行写他的名字（副卡上印的本来就是主卡持有人）
+// · 底下那条是真卡背面的【签名条】：斜纹米白，他开卡时说的那句话就签在上面
+function KinshipCardFace({ character, limit, used, note, width }) {
   const t = useTheme();
   const c = character || {};
   const ink = c.color || "#6b7a8f";
+  const face = avatarSrcOf(c);
+  const remain = used == null ? null : Math.round(((limit || 0) - (used || 0)) * 100) / 100;
+  const fade = "linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 34%, rgba(0,0,0,0) 72%)";
+  return h("div", { style: { width: width || "100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 8px rgba(0,0,0,.11)" } },
+    // 卡面
+    // ⚠️卡底必须【整块不透明】：原来写成 linear-gradient(ink → rgba(0,0,0,.42))，
+    // 往一个半透明色插值，右半张卡就跟着半透明，页面底色从后面透上来——
+    // 看着就是她说的「两边长不一样」（量下来三层左右边其实一模一样，是颜色在骗眼睛）。
+    // 改成：不透明底色 + 压在上面的一层暗角，脸夹在中间。
+    h("div", { style: { position: "relative", background: ink, color: "#fff", overflow: "hidden" } },
+      face ? h("img", { src: face, alt: "", className: "object-cover", style: {
+        position: "absolute", right: 0, top: 0, height: "100%", width: "58%", opacity: 0.5,
+        maskImage: fade, WebkitMaskImage: fade, pointerEvents: "none"
+      } }) : null,
+      h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none",
+        background: "linear-gradient(118deg, rgba(255,255,255,.09) 0%, rgba(0,0,0,.16) 52%, rgba(0,0,0,.44) 100%)" } }),
+      h("div", { style: { position: "relative", padding: "13px 15px 15px" } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 22 } },
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.22em", opacity: 0.8 } }, "副卡 · SUPPLEMENTARY"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, opacity: 0.95, maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "")),
+        h("div", { className: "flex items-baseline", style: { gap: 7 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em" } }, "¥" + (remain == null ? (limit || 0) : remain)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.82 } }, remain == null ? "额度" : "还能刷")),
+        remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 ¥" + (used || 0) + " · 总额度 ¥" + (limit || 0)))),
+    // 签名条：真卡背面那条，他把话签在上面
+    h("div", { style: {
+      padding: "8px 14px 9px",
+      background: "repeating-linear-gradient(114deg, " + t.bg2 + " 0 7px, rgba(0,0,0,.042) 7px 14px)",
+      borderTop: "1px solid rgba(0,0,0,.10)"
+    } },
+      note
+        ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.45, color: t.ink } }, "「" + note + "」")
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "刷这张卡花的是" + (c.name || "TA") + "的钱")));
+}
+function KinshipIssueCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
   return h("div", { className: "py-1 flex justify-start" },
-    h("div", { style: { width: 246, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 10px rgba(0,0,0,.07)" } },
-      // 上沿一条他的颜色：这张卡是从他那儿来的
-      h("div", { style: { height: 4, background: ink } }),
-      h("div", { style: { padding: "13px 15px 14px" } },
-        h("div", { className: "flex items-center", style: { gap: 9, marginBottom: 12 } },
-          h(Avatar, { character: c, size: 34, radius: 10 }),
-          h("div", { style: { minWidth: 0 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "TA"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "给你开了一张亲属卡"))),
-        h("div", { className: "flex items-baseline", style: { gap: 6 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: t.ink } }, "¥" + (m.limit || 0)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "额度")),
-        m.note ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, "「" + m.note + "」") : null),
-      h("div", { style: { padding: "7px 15px 8px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
-        "花这张卡，刷的是" + (c.name || "TA") + "的钱")));
+    h("div", { style: { width: 252 } },
+      h(KinshipCardFace, { character: c, limit: m.limit || 0, note: m.note || "" }),
+      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+        (c.name || "TA") + "给你开了一张亲属卡")));
+}
+// 刷卡通知（v60.45）
+// 她 2026-09-02：「这个格式不对。而且本来买东西也不应该调用啊。应该做成系统通知放聊天里」。
+// v60.44 我把这笔写成了居中红斜体的 SYSTEM RESPONSE——那个形状是「系统对你说话」，
+// 可这条不是系统在说话，是【他的卡被刷了】这件事本身。
+// 现实里对应的东西是刷卡短信：谁的卡、买了什么、多少钱、还剩多少。就照那个来，
+// 而且跟卡面同一套语言（他的颜色那一道、他的脸），一眼看得出说的是同一张卡。
+function KinshipSpendCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const ink = c.color || "#6b7a8f";
+  return h("div", { className: "my-2 flex justify-center px-6" },
+    h("div", { style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+      // 左沿一道他的颜色：扣的是他的钱
+      h("div", { className: "flex" },
+        h("div", { style: { width: 3, background: ink, flexShrink: 0 } }),
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { padding: "10px 13px 11px" } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 8 } },
+              h(Avatar, { character: c, size: 20, radius: 6 }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                "刷了" + (c.name || "TA") + "的亲属卡")),
+            h("div", { className: "flex items-end", style: { gap: 10 } },
+              h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink } }, m.item || "一笔消费"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-¥" + (m.amount || 0)))),
+          h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
+            m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 ¥" + m.remain)))));
 }
 // 代付请求卡
 function PayLaterCard({ m }) {
@@ -8663,7 +8731,7 @@ function GroupThread({
     const dot = sayDot(i, m);
     if (!dot && !sub) return null;
     return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
-      dot, sub ? h("span", null, sub) : null);
+      sub ? h("span", null, sub) : null, dot);
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };

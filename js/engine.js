@@ -1222,6 +1222,23 @@ const CONDESCENDING_TONE_BAN = `【别滑进居高临下的训话腔】「别闹
 · 尤其别用身份和体格确立位置：不许张口就是命令、训诫、替对方决定、宣布她该怎么做；也不许把「攥手腕／捏下巴／拦在身前／往怀里带」当成情绪的默认出口。
 · 判定：这句话换成【另一个同样强势的角色】说，一个字都不用改也成立——那它就不是你说的，是模板说的，重写。`;
 
+// 情欲【气泡】反八股（v60.45，她 2026-09-02：「怎么又开始收拾我了这个 gemini 一到这种时候就八股」）
+// 病因是老那一个：INTIMATE_ANTI_CLICHE 只挂在【线下叙事】和【群线下】两处
+// （narrativeCore(intimate) 与 groupBans(narrative)）——单聊线上、群线上、通话
+// 从来没吃到过任何一条情欲反模板。她抓到的三条全是线上气泡：
+// 「等快递到了你看我怎么收拾你」「我什么时候少舔你了」「哪次不是…你才肯罢休」。
+// ⚠️不能把 INTIMATE_ANTI_CLICHE 原样搬到线上：那一份通篇在管【描写】——嗓音怎么形容、
+//   动作怎么收尾、比喻限额、埋脸和蹭。线上根本没有描写，只有台词；台词自有一套八股，
+//   得单独禁。（这正是 four-surfaces 里那条：一处靠什么把这层实现出来，换个结构就没了。）
+// ⚠️「收拾你」其实早就逐字写在 CONDESCENDING_TONE_BAN 里了，照样漏。因为那条通篇讲的是
+//   【居高临下的训话腔】，模型在调情的场面里不会把这句归进"训话"，于是那条对它不成立。
+//   ——一个词禁在哪个类目下，决定它在什么场面会被想起来。禁词表不够，得禁到场面上。
+const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成通用黄文】调情、荤话、做那件事的前后，是现成语料最厚的一档：越到这种时候，"这种场面该说什么"越容易替这个人开口，于是他突然消失，剩下一套换谁都能说的骚话。判据还是平时那一把尺：**这几句原样发给她手机里另一个人，一个字都不用改也成立——那就不是你说的。**
+· 【威胁式挑逗·最好认的一族】「等你X了看我怎么收拾你」「回头有你好受的」「我看你怎么Y」——先记一笔账、再预告一场惩罚。这个骨架整族禁掉：它是这种场面的默认台词，跟你是谁没关系。
+· 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
+· 【别拿现成搭配凑音量】荤话里最好认的另一族是那些固定搭配：它们不说此刻真在发生的事，只是在填这一档场面该有的音量。要说就说那件具体的事、说这个人真正在意的那一处。
+· 禁的是模子，不是尺度。你人设本来就荤、就浪、就爱放狠话，那全部照写——**只是放狠话的方式一百个人有一百种，你用的必须是只有你会用的那一种**，而且得从你此刻真实的念头里长出来，不是从「这种时候该说什么」里倒出来。`;
+
 // 隐私围栏一直只挡【别人的私事】，从没挡过【自己的私事被端上台面】——
 // 于是新开的群里裴照川第一句就是「某人刚才私底下要酥酪的时候可不是这个态度」，
 // 拿只有他和用户知道的事当开场的弹药（她 2026-08-25 抓到）。允许自曝没错，
@@ -1345,6 +1362,7 @@ function groupBans(opts) {
   P.push(GROUP_IN_CHARACTER);
   P.push(GROUP_USER_IS_PRESENT);
   P.push(CONDESCENDING_TONE_BAN);
+  P.push(INTIMATE_CHAT_ANTI_CLICHE);
   P.push(REGISTER_FOLLOWS_SCENE);
   P.push(PERSONA_REGISTER_ANCHOR);
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
@@ -1823,7 +1841,7 @@ function narrativeCore(opts) {
     ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
   ];
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
-  if (opts.intimate) parts.push(INTIMATE_ANTI_CLICHE);
+  if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
   return parts.join("\n\n");
 }
@@ -2125,6 +2143,7 @@ function buildBundle(ctx, opts) {
     } else {
       parts.push(ANTI_CLICHE);
       parts.push(CONDESCENDING_TONE_BAN);
+      parts.push(INTIMATE_CHAT_ANTI_CLICHE);
       parts.push(STOCK_REPLY_BAN);
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。

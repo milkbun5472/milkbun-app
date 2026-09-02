@@ -35,7 +35,11 @@ test("三件套要被点名，而且给一把可判定的尺子", () => {
 
 test("这条刀四处都挂上了", () => {
   // 单聊线上 + 单聊线下都走 buildBundle
-  assert.match(engine, /parts\.push\(CONDESCENDING_TONE_BAN\);\n\s*parts\.push\(STOCK_REPLY_BAN\);/);
+  // 冻先后、不冻紧挨着：v60.45 情欲反八股插进了这两条中间（该加的一层）。
+  const rp = engine.slice(engine.indexOf("} else {", engine.indexOf("if (ctx.notRoleplay)")),
+                          engine.indexOf("// 用户通过 OOC 立下的长期行为准则"));
+  assert.ok(rp.indexOf("parts.push(CONDESCENDING_TONE_BAN);") > 0);
+  assert.ok(rp.indexOf("parts.push(STOCK_REPLY_BAN);") > rp.indexOf("parts.push(CONDESCENDING_TONE_BAN);"));
   // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
   // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
   assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "三处群都要有");

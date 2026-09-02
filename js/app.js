@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.44";
+const APP_VERSION = "v60.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -433,6 +433,7 @@ function App() {
   const [shopFeed, setShopFeed] = useState({}); // {cat:[products]} 已生成的商品流
   const [shopBusy, setShopBusy] = useState(false);
   const [activeCardId, setActiveCardId] = useState(null); // 打开的亲属卡账单 charId
+  const [walletView, setWalletView] = useState("main"); // 钱包内页：main | cards（提上来才经得住进详情再退回来）
   const [giftOut, setGiftOut] = useState([]); // 送给角色、在途的礼物 [{id,charId,name,arriveTs,cat}]
   const [carry, setCarry] = useState({}); // 角色随身物品 {charId:{sectionKey:{items}}}
   const [carryGifts, setCarryGifts] = useState({}); // 角色收到的礼物(永久) {charId:[{id,name,receivedTs}]}
@@ -6339,6 +6340,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
+            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，¥" + (m.amount || 0) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 ¥" + m.remain) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -14674,12 +14676,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
         //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
         //   刷出来的永远是同一族商品（见 .claude/rules/prompt-no-content-samples.md）。
-        instruction: "你在给一个人刷购物 App 的信息流。围绕" + topic + "，**务必给正好 6 件商品（items 数组必须有 6 个元素，缺一不可）**。"
+        instruction: "你在给一个人刷购物 App 的信息流。围绕" + topic + "，**给 10~15 件商品（items 数组至少 10 个元素）**。"
           + (cat === "forhim" ? "这一栏是【她想买来送人的】：东西要像是挑给某个具体的人的，不是给自己买的。" : "")
-          + "每件：name(具体到能想象出长什么样，别停在品类词上) / price(纯数字人民币，按这一类东西的真实价位来，有贵有便宜) / desc(一句话说清它凭什么值这个钱，别写成广告口号) / sales(销量文案)。六件之间要拉开：价位、场合、风格别挤在一处。",
+          + "每件：name(具体到能想象出长什么样，别停在品类词上) / price(纯数字人民币，按这一类东西的真实价位来，有贵有便宜) / desc(一句话说清它凭什么值这个钱，别写成广告口号) / sales(销量文案)。这十几件之间要拉开：价位、场合、风格别挤在一处，别一屏全是同一族东西。",
         schemaHint: "{\"items\":[{\"name\":\"具体商品名\",\"price\":纯数字,\"desc\":\"一句话的卖点\",\"sales\":\"销量文案\"}]}",
-        // 一次要写六件东西的名字、卖点、价位＝一屏名单那一档（max-tokens-floor.md）
-        maxTokens: 19500
+        // 她 2026-09-02 亲口定的：「maxtoken 开到 65535，那个反正开了也不代表用得到那么多」。
+        // 上限是【天花板不是花销】——她按次计费、输出不另外收钱，给宽了一分钱也多花不到，
+        // 给窄了反而会让它写到一半停住、再重来一次（那才是真多花一次）。见 max-tokens-floor.md。
+        maxTokens: 65535
       });
       const items = ((d && d.items) || []).map((it, i) => ({
         uid: "p_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 10000),
@@ -14902,19 +14906,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 扣角色余额 + 记卡账单，然后异步生成 TA 对这笔的评论
     adjustCharBalance(charId, -total, "亲属卡消费 · " + items.map(x => x.name).join("、").slice(0, 16), "kinship");
     const entryId = "kl_" + Date.now();
+    const itemText = items.map(x => x.name).join("、");
     updateKinshipCard(charId, cd => ({
       ...cd,
       used: Math.round(((cd.used || 0) + total) * 100) / 100,
-      ledger: [{ id: entryId, ts: Date.now(), amount: total, item: items.map(x => x.name).join("、"), source: "shop", comment: "" }, ...(cd.ledger || [])]
+      ledger: [{ id: entryId, ts: Date.now(), amount: total, item: itemText, source: "shop" }, ...(cd.ledger || [])]
     }));
-    // 刷了他的卡，聊天里得留一条（她 2026-09-02：「他不知道我拿来刷了啥」）。
-    // 原来这笔只写进卡的账单页和他余额里——那两处他自己看不见、下一轮的上下文也读不到，
-    // 于是她刷完他的卡，他在聊天里一无所知。
-    pChat(charId, p => [...p, { role: "system", kind: "system", ts: Date.now(),
-      content: "你刷了" + (char ? char.name : "对方") + "的亲属卡：" + items.map(x => x.name).join("、").slice(0, 40) + " · ¥" + total }]);
+    // 刷了他的卡，聊天里留一条【刷卡通知】——不调模型（她 2026-09-02：
+    // 「本来买东西也不应该调用啊。应该做成系统通知放聊天里然后等我按回复他才反应」）。
+    // v60.44 我在这儿现调了一次模型让他当场评论：她按次计费，而买东西根本不是一次对话，
+    // 是她单方面刷了一下卡；他该在【下次说话时】提这件事，不是被购物按钮拽出来说话。
+    // 所以这条走 kind:"kinbill"（不是 kind:"system"——那一类压根不进模型历史，
+    // 见上面 history 的过滤），role 记在她名下：这是她做的事，他下一轮读得到。
+    pChat(charId, p => [...p, { role: "user", kind: "kinbill", read: true, ts: Date.now(),
+      charId: charId, item: itemText, amount: total,
+      remain: Math.round((remaining - total) * 100) / 100,
+      content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
     items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
-    genKinshipComment(charId, entryId, items.map(x => x.name).join("、"), total);
   };
 
   // 使用（待收货→我的物品）：记谁送的 + 入库日期
@@ -15013,24 +15022,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } catch (e) { toast("加额度失败：" + e.message); }
   };
   // 角色对某笔亲属卡消费的评论（购物刷卡后异步生成）
-  const genKinshipComment = async (charId, entryId, itemText, amount) => {
-    const char = characters.find(c => c.id === charId);
-    if (!char || !active) return;
-    try {
-      const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】用户刷了你给 Ta 的亲属卡，买了「" + itemText + "」花了 ¥" + amount + "。完全代入「" + char.name + "」，写一句你看到这笔花销时的真实反应/想法（宠溺、心疼钱、吐槽、无所谓、暗爽都行，贴合人设与好感），一两句，纯文本不要 JSON。";
-      const raw = await callAI(active, system, [{ role: "user", content: "[亲属卡消费] " + itemText + " ¥" + amount }]);
-      const comment = String(raw || "").replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 120);
-      if (comment) {
-        updateKinshipCard(charId, cd => ({ ...cd, ledger: (cd.ledger || []).map(l => l.id === entryId ? { ...l, comment } : l) }));
-        // 他那句话也要在聊天里说出口——只写进账单页等于他心里嘀咕了一声，她根本听不见。
-        // 同一次调用的结果，不多花钱。
-        pChat(charId, p => [...p, { role: "assistant", content: comment, ts: Date.now(), read: false }]);
-        if (!(viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(charId))) bumpUnread(charId, 1);
-      }
-    } catch (e) {/* silent */}
-  };
-
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
   // ============================================================
@@ -15602,6 +15593,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     onBack: () => setScreen("messages"),
     onSetBalance: setWalletTo,
+    view: walletView,
+    onView: setWalletView,
     onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); }
   });else if (screen === "kincard") body = h(KinshipBill, {
     card: kinshipCards.find(c => c.charId === activeCardId),

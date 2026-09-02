@@ -2591,14 +2591,15 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
     sheetEl);
 }
 
-// ---- 亲属卡账单（每卡流水 + 角色评论 + 申请加额度）----
+// ---- 亲属卡账单（每卡流水 + 申请加额度）----
+// v60.45 撤掉了每笔下面那条「角色评论」：它靠刷卡时现调一次模型来填，
+// 而买东西不该调用（她 2026-09-02）。他要说什么，在聊天里说。
 function KinshipBill({ card, character, onBack, onRaise }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
   const [amt, setAmt] = useState("");
   if (!card) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "亲属卡", en: "Kinship", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
   const c = character || {};
-  const remaining = Math.round(((card.limit || 0) - (card.used || 0)) * 100) / 100;
   const ledger = card.ledger || [];
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
@@ -2606,16 +2607,8 @@ function KinshipBill({ card, character, onBack, onRaise }) {
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, (c.name || "") + " 的亲属卡")),
     h("div", { className: "flex-1 overflow-y-auto" },
       // 卡面
-      h("div", { className: "m-5 p-5", style: { borderRadius: 18, color: "#fff", background: "linear-gradient(135deg," + (c.color || "#6b7a8f") + "," + (c.color || "#3a4652") + ")" } },
-        h("div", { className: "flex items-center justify-between mb-6" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", opacity: 0.85 } }, "亲属卡 · KINSHIP"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, opacity: 0.9 } }, c.name || "")),
-        h("div", { className: "flex items-end justify-between" },
-          h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.75, marginBottom: 2 } }, "剩余额度"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 30, lineHeight: 1 } }, "¥" + remaining)),
-          h("div", { className: "text-right", style: { fontFamily: F_BODY, fontSize: 10.5, opacity: 0.8 } }, "已用 ¥" + (card.used || 0), h("br"), "总额度 ¥" + (card.limit || 0)))),
-      card.note && h("div", { className: "mx-5 -mt-1 mb-2", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.sub } }, "「" + card.note + "」"),
+      h("div", { className: "m-5" },
+        h(KinshipCardFace, { character: c, limit: card.limit || 0, used: card.used || 0, note: card.note || "" })),
       // 申请加额度
       h("div", { className: "px-5 mb-3" },
         !asking
@@ -2636,10 +2629,7 @@ function KinshipBill({ card, character, onBack, onRaise }) {
                 h("div", { className: "min-w-0 flex-1" },
                   h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, l.item),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(l.ts))),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount)),
-              l.comment && h("div", { className: "mt-2 flex items-start gap-2", style: { background: t.bg2, borderRadius: 10, padding: "8px 10px" } },
-                h(Avatar, { character: c, size: 22, radius: 6 }),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.5 } }, l.comment)))))));
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount)))))));
 }
 
 // ============================================================
@@ -8835,9 +8825,14 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
     styleEdit && h(DiaryStyleSheet, { char: characters.find(c => c.id === styleEdit), onSave: onSaveFields, onClose: () => setStyleEdit(null) }));
 }
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard }) {
+function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView }) {
   const t = useTheme();
-  const [view, setView] = useState("main"); // main | cards
+  // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
+  // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
+  // ——mobile-ui-layout 第 3 条「进详情前记住位置、退回来恢复」。
+  // 所以这一层提到 app.js 去拿着：详情页只是盖在上面，退回来还站在原地。
+  const setView = onView || (() => {});
+  view = view || "main"; // main | cards
   const [editing, setEditing] = useState(false);
   const [amt, setAmt] = useState("");
   const cardList = Array.isArray(cards) ? cards : [];
@@ -8858,17 +8853,8 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
         cardList.length === 0 ? h("div", { className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n在聊天设置里开启「允许角色给我亲属卡」，\n合适的时候 TA 会主动给你一张，刷 TA 的钱。")
           : cardList.map(cd => {
             const c = charById(cd.charId) || {};
-            const remaining = Math.round(((cd.limit || 0) - (cd.used || 0)) * 100) / 100;
-            return h("button", { key: cd.charId, onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80", style: { borderRadius: 16, overflow: "hidden", border: "1px solid " + t.line, background: "linear-gradient(135deg," + (c.color || "#6b7a8f") + "," + (c.color || "#3a4652") + ")" } },
-              h("div", { className: "p-4", style: { color: "#fff" } },
-                h("div", { className: "flex items-center justify-between mb-6" },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", opacity: 0.85 } }, "亲属卡 · KINSHIP"),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 12, opacity: 0.9 } }, c.name || "")),
-                h("div", { className: "flex items-end justify-between" },
-                  h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.75, marginBottom: 2 } }, "剩余额度"),
-                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1 } }, "¥" + remaining)),
-                  h("div", { className: "text-right", style: { fontFamily: F_BODY, fontSize: 10.5, opacity: 0.8 } }, "总额度 ¥" + (cd.limit || 0)))));
+            return h("button", { key: cd.charId, onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80" },
+              h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }));
           })));
   }
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },

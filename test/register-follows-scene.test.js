@@ -26,8 +26,11 @@ test("三条没有场景状态机的通道都要挂上「语域跟着场面走�
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   // 顺序也还钉着：语域三件套连成一片
   const seq = GB.layers(GB.OFFLINE);
-  assert.equal(seq.indexOf("<REGISTER_FOLLOWS_SCENE>"), seq.indexOf("<CONDESCENDING_TONE_BAN>") + 1);
-  assert.equal(seq.indexOf("<PERSONA_REGISTER_ANCHOR>"), seq.indexOf("<REGISTER_FOLLOWS_SCENE>") + 1);
+  // ⚠️只钉【先后】，不钉【紧挨着】——上面那句「别冻死相邻」这次栽在自己手里：
+  // v60.45 情欲反八股插进了 CONDESCENDING 和 REGISTER 中间，这一层是该加的，
+  // 断言却因为「必须紧挨着」红了。冻的是长相不是行为。
+  assert.ok(seq.indexOf("<CONDESCENDING_TONE_BAN>") < seq.indexOf("<REGISTER_FOLLOWS_SCENE>"));
+  assert.ok(seq.indexOf("<REGISTER_FOLLOWS_SCENE>") < seq.indexOf("<PERSONA_REGISTER_ANCHOR>"));
 });
 
 test("这条规则必须是对称的：她带过去就不设限，她没带就别自己起头", () => {
