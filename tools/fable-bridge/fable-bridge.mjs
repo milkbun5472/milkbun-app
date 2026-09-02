@@ -25,7 +25,13 @@ function claudeComplete({ system, prompt, model, images, resume, web }) {
     // claude CLI 原生认 anthropic 的 image/base64 内容块。无图时路径与从前逐字节相同。
     const hasImages = Array.isArray(images) && images.length > 0;
     const args = [
-      "-p", ...(hasImages ? ["--input-format", "stream-json", "--verbose"] : [prompt]),
+      // ⭐正文也走 stdin，不走命令行参数（2026-09-02，她报「失败：spawn E2BIG」）。
+      //   E2BIG＝内核嫌 argv 太长，直接不让进程起来——这一轮压根没发出去。
+      //   上面第 18 行早就为 system 记过这一课（改用 --system-prompt-file），
+      //   但【用户那半句】一直还挂在 argv 上，于是话一长就撞同一堵墙。
+      //   `claude -p` 不给正文实参时本来就从 stdin 读，所以只是把话从信封上挪进信封里，
+      //   模型/缓存/续会话/带图那条路一个字节都没变。
+      "-p", ...(hasImages ? ["--input-format", "stream-json", "--verbose"] : []),
       "--tools", web ? "WebSearch" : "",             // 默认关所有工具；「联网」轮只放 WebSearch 一只手
       "--exclude-dynamic-system-prompt-sections",    // 连环境信息那些动态段也去掉，纯人设
       // ⭐缓存特效药(2026-08-14 拓印验尸)：不掐 MCP 时每笔多付 ~30 张工具 schema(≈1.4万 token)
@@ -55,7 +61,7 @@ function claudeComplete({ system, prompt, model, images, resume, web }) {
         cp.stdin.write(JSON.stringify({ type: "user", message: { role: "user", content: blocks } }) + "\n");
         cp.stdin.end();
       } catch (e) {}
-    } else { try { cp.stdin.end(); } catch (e) {} }
+    } else { try { cp.stdin.write(prompt || ""); cp.stdin.end(); } catch (e) {} }
     let out = "", err = "";
     cp.stdout.on("data", d => (out += d));
     cp.stderr.on("data", d => (err += d));
