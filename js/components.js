@@ -4117,6 +4117,20 @@ function ChatThread({
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
+  // 「念出来」(v60.25 她要的「气泡转语音」)：不是语音条也能听。
+  // 门槛跟语音条那一条完全一样——配了 TTS + 这个角色选了音色，而且只有他说的话才有嗓子；
+  // 她自己那句没有音色，菜单里就不该出现这一项。
+  const tp = useTtsPlayer();
+  const speakerOf = m => (m && m.role === "user") ? null : character;
+  const canSpeakMsg = m => {
+    const spk = speakerOf(m);
+    return !!(m && m.content && spk && spk.voiceId && typeof ttsReady === "function" && ttsReady());
+  };
+  const speakMsg = (i, m) => {
+    const spk = speakerOf(m);
+    if (!spk || !spk.voiceId) return;
+    tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
+  };
   // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
   const geoRecent = React.useMemo(() => {
     const out = [];
@@ -5057,10 +5071,11 @@ function ChatThread({
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "小房间"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来")),
     h(IChevR, { size: 17, color: t.fog })
-  )), menu != null && /*#__PURE__*/React.createElement(MsgMenu, {
+  )), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
-    items: menuItemsForKind(messages[menu]),
+    isMine: messages[menu] && messages[menu].role === "user",
+    items: menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])),
     onClose: () => setMenu(null),
     onAction: act => {
       if (act === "multi") {
@@ -5069,6 +5084,8 @@ function ChatThread({
       } else if (act === "quote") {
         const mm = messages[menu];
         if (mm && mm.content) setQuoted(String(mm.content));
+      } else if (act === "speak") {
+        speakMsg(menu, messages[menu]);
       } else onLongPress(act, menu);
       setMenu(null);
     }
@@ -6768,7 +6785,15 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     bill: [R(2.8, 6.4, 18.4, 11.2, 2), C(12, 12, 2.6), P("M6.4 10v4M17.6 10v4")],
     hand: [P("M8.4 12.6V6.3a1.6 1.6 0 013.2 0v5.1"), P("M11.6 11.4V5.3a1.6 1.6 0 013.2 0v6.1"), P("M14.8 11.7V7.5a1.6 1.6 0 013.2 0v6.8c0 3.5-2.4 6-5.7 6-2.4 0-3.9-.9-5.2-2.7l-2.2-3a1.6 1.6 0 012.5-2l1.4 1.6")],
     bars: [P("M4 20.2h16"), P("M7.4 20.2v-8.4M12 20.2V5.4M16.6 20.2v-5.6")],
-    packet: [R(4.2, 3.6, 15.6, 16.8, 2.4), P("M4.2 10.2h15.6"), C(12, 14.2, 2.2)]
+    packet: [R(4.2, 3.6, 15.6, 16.8, 2.4), P("M4.2 10.2h15.6"), C(12, 14.2, 2.2)],
+    // 长按菜单那一列(v60.25)
+    copy: [R(8.4, 3.4, 12, 14.4, 2), P("M15.6 20.6h-9a2 2 0 01-2-2V7.4")],
+    bookmark: [P("M6.2 3.6h11.6v16.8L12 16.2l-5.8 4.2z")],
+    quote: [P("M9.6 6.2C7 7.4 5.6 9.4 5.6 12v5.8h5.6V12H8.4c0-2 .6-3.4 2.2-4.3zM19.4 6.2c-2.6 1.2-4 3.2-4 5.8v5.8H21V12h-2.8c0-2 .6-3.4 2.2-4.3z")],
+    pencil: [P("M16.4 3.6l4 4L8.2 19.8l-4.6 1.2 1.2-4.6z"), P("M14.2 5.8l4 4")],
+    redo: [P("M20 5.6v5.2h-5.2"), P("M19.3 10.8a7.6 7.6 0 10-1.6 6.6")],
+    checklist: [P("M4 6.6l1.8 1.8L9 5"), P("M4 15.6l1.8 1.8L9 13"), P("M12 7.2h8M12 16.2h8")],
+    undo: [P("M4 5.6v5.2h5.2"), P("M4.7 10.8a7.6 7.6 0 111.6 6.6")]
   };
   return h(Svg, { size: size, color: color, sw: 1.5 }, ...(kids[k] || []));
 }
@@ -6973,14 +6998,29 @@ function EmoteBubble({ url, keyword, max }) {
   return h("img", { src: url, alt: kw, title: kw, referrerPolicy: "no-referrer", loading: "lazy",
     style: style, onError: () => setBroken(true) });
 }
-function menuItemsForKind(m) {
-  const full = [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]];
+// 长按一句话能做的事(v60.25 重做)
+//
+// 原来这一列是【大号英文衬线 + 右边一个小号中文】：Copy 复制 / Save 收藏 / Edit 编辑…
+// 她 2026-09-02:「这块样式也是参考别人的」。那两栏一模一样的中英对照，
+// 换个 app 照样成立——它没有从「这是一句谁说过的话」里长出来。
+// 现在只留中文，按【这个动作对这句话做了什么】分三组，组与组之间空一档：
+//   拿走它(复制/收藏/引用) · 动它(编辑/重Roll/念出来) · 撤掉它(多选/撤回)
+// 每条左边一枚字形，撤回单独落在最后一组、用强调色。
+// speak = 她 2026-09-02 要的「气泡转语音」：不是语音条也能听。
+const MSG_MENU = {
+  copy: ["复制", "copy"], fav: ["收藏", "bookmark"], quote: ["引用", "quote"],
+  edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
+  multi: ["多选", "checklist"], recall: ["撤回", "undo"]
+};
+// 一组一个数组；空组会被丢掉，所以不用担心某一档一条都不剩时留下一道空隔断
+function menuItemsForKind(m, canSpeak) {
   const k = m && m.kind;
   const textLike = !k || k === "photo" || k === "location";
-  if (textLike) return full;
-  // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除
-  if (k === "voice") return [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"]];
-  return [["fav", "收藏", "Save"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"]];
+  const listen = canSpeak ? ["speak"] : [];
+  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall"]];
+  // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
+  if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall"]];
+  return [[  "fav"], listen, ["multi", "recall"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。
 function MsgEditSheet({ init, onCancel, onSave }) {
@@ -6999,70 +7039,55 @@ function MsgEditSheet({ init, onCancel, onSave }) {
   return h(Sheet, { onClose: onCancel, tall: true, lift: lift },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h(Eyebrow, null, "编辑消息"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "可拖右下角放大")),
+      // ⚠️原来这儿写着「可拖右下角放大」——**iOS Safari 根本没有那个拖拽角**，
+      //   而她只用手机。而且下面 grow() 本来就是随内容自己长高的，那句话既不成立也用不上。
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "写多长都行，框会自己长")),
     h("textarea", { ref: ref, value: txt, onChange: e => { setTxt(e.target.value); grow(); },
-      style: { width: "100%", minHeight: 150, maxHeight: "50vh", resize: "vertical", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 15, lineHeight: 1.7, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px", outline: "none", overflowY: "auto" } }),
+      style: { width: "100%", minHeight: 150, maxHeight: "50vh", resize: "none", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 15, lineHeight: 1.7, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px", outline: "none", overflowY: "auto" } }),
     h("div", { className: "flex items-center gap-3", style: { marginTop: 16 } },
       h("button", { onClick: onCancel, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 22px", borderRadius: 12, border: "1px solid " + t.line } }, "取消"),
       h("button", { onClick: () => onSave(txt), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "保存")));
 }
-function MsgMenu({
-  message,
-  idx,
-  onClose,
-  onAction,
-  items
-}) {
+function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
   const t = useTheme();
-  if (!items) items = [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-0 z-50 flex items-center justify-center",
-    style: {
-      background: "rgba(20,19,15,0.55)",
-      backdropFilter: "blur(3px)"
+  if (!items) items = [["copy", "fav", "quote"], ["edit", "reroll"], ["multi", "recall"]];
+  const groups = items.filter(g => g && g.length);
+  const txt = String((message && message.content) || "").trim();
+  const row = (k, gi, ri, last) => {
+    const d = MSG_MENU[k];
+    if (!d) return null;
+    const kill = k === "recall";
+    return h("button", {
+      key: k,
+      onClick: () => onAction(k),
+      className: "w-full flex items-center active:bg-black/5",
+      style: { gap: 12, padding: "12px 18px", background: "transparent", border: "none",
+        borderTop: ri ? "1px solid " + t.line : "none", textAlign: "left" }
     },
+      h(CGlyph, { k: d[1], size: 17, color: kill ? t.accent : t.fog }),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, letterSpacing: 1, color: kill ? t.accent : t.ink } }, d[0]));
+  };
+  return h("div", {
+    className: "absolute inset-0 z-50 flex items-center justify-center",
+    style: { background: "rgba(20,19,15,0.55)", backdropFilter: "blur(3px)" },
     onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: e => e.stopPropagation(),
-    className: "w-[74%]",
-    style: {
-      maxWidth: 280
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-3 px-4 py-2.5 rounded-2xl",
-    style: {
-      background: "rgba(255,255,255,0.9)",
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.sub,
-      maxHeight: 100,
-      overflow: "hidden"
-    }
-  }, message && message.content), /*#__PURE__*/React.createElement("div", {
-    className: "rounded-2xl overflow-hidden",
-    style: {
-      background: "rgba(255,255,255,0.96)"
-    }
-  }, items.map(([k, zh, en], i) => /*#__PURE__*/React.createElement("button", {
-    key: k,
-    onClick: () => onAction(k),
-    className: "w-full flex items-center justify-between px-5 py-3.5 active:bg-black/5",
-    style: {
-      borderTop: i > 0 ? `1px solid ${t.line}` : "none"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 17,
-      color: k === "recall" ? t.accent : t.ink
-    }
-  }, en), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.fog
-    }
-  }, zh))))));
+  }, h("div", { onClick: e => e.stopPropagation(), className: "w-[74%]", style: { maxWidth: 268 } },
+    // 被长按的那句话【原样端上来】：还是它在聊天里的那个气泡形状和颜色，
+    // 所以这一列动作明摆着是对着这一句的，不是一张浮在半空的通用菜单。
+    txt ? h("div", {
+      className: "mb-3",
+      style: { display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }
+    }, h("div", {
+      style: { maxWidth: "100%", maxHeight: 96, overflow: "hidden", padding: "9px 13px", borderRadius: 15,
+        fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55,
+        background: isMine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
+        color: isMine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink) }
+    }, txt)) : null,
+    groups.map((g, gi) => h("div", {
+      key: gi,
+      className: "overflow-hidden",
+      style: { background: "rgba(255,255,255,0.96)", borderRadius: 16, marginTop: gi ? 8 : 0 }
+    }, g.map((k, ri) => row(k, gi, ri))))));
 }
 
 // ---- state card: live mood/affinity/wearing/action/thought (auto from chat) ----
@@ -8457,6 +8482,18 @@ function GroupThread({
     });
     return out.slice(0, 5);
   }, [messages]);
+  // 「念出来」(v60.25)：群里说话的人各有各的音色，从 senderId 找回来
+  const tp = useTtsPlayer();
+  const speakerOf = m => (m && m.role === "user") ? null : (m && m.senderId ? memberById(m.senderId) : null);
+  const canSpeakMsg = m => {
+    const spk = speakerOf(m);
+    return !!(m && m.content && spk && spk.voiceId && typeof ttsReady === "function" && ttsReady());
+  };
+  const speakMsg = (i, m) => {
+    const spk = speakerOf(m);
+    if (!spk || !spk.voiceId) return;
+    tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
+  };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
@@ -9252,11 +9289,13 @@ function GroupThread({
   })))), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
-    items: menuItemsForKind(messages[menu]),
+    isMine: messages[menu] && messages[menu].role === "user",
+    items: menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])),
     onClose: () => setMenu(null),
     onAction: act => {
       if (act === "multi") { setSelMode(true); setSelIds([menu]); }
       else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, menu, meName) : String(mm.content)); }
+      else if (act === "speak") { speakMsg(menu, messages[menu]); }
       else onMsgAction && onMsgAction(act, menu);
       setMenu(null);
     }
