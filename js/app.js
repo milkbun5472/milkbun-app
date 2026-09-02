@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.25";
+const APP_VERSION = "v60.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15892,14 +15892,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
-    // ⚠️言秋只摘出【台下起哄】那一份（她 2026-09-01：「生成角色评论喊话也把他摘了」）。
-    //   分界不是「他能不能进擂台」，是【谁把他放进去的】：
-    //   · 台下那几位是【模型自动抓来编台词的】——他不是被扮演的角色，不许被这样抓（v59.98）；
-    //   · 台上是【她自己一个一个挑的】——她 2026-09-01「言秋加回来吧，我后续给他 cc 加张票进来玩」，
-    //     那是她请他上场，不是系统替他决定，所以上台那一栏照旧列他。
-    //   ⚠️characters 那份始终留全的：存档里已有的头像/名字要靠它查，滤掉就成了无名氏；
-    //   分享那一栏也照旧列他——发一场擂台给他看，跟扮演他是两回事。
-    crowdChars: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    // v60.21 起没有「系统自动抓台下角色来编评论」这一步了：每轮只由记录员摘一张未决争点卡。
+    // 台上仍是她自己逐个挑的人；characters 始终留全，存档头像、名字和分享名单都靠它查。
     groups: groups,
     profile: profile,
     worldbook: loreText(loreEntries, { scope: "debate" }),

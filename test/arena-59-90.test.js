@@ -114,19 +114,26 @@ test("发言：台上那个人面前那块名牌，不是左边一条色边的�
   assert.ok(src.indexOf('borderLeft: "3px solid " + tn.color') < 0, "又变回左边一条色边的通用卡片了");
 });
 
-test("台下：一片黑压压的后脑勺，喊声从不同位置冒出来，不是一份名单", () => {
-  const i = dbt.indexOf("const audienceBlock = function (crowd, k) {");
+test("每轮不再让台下排队点评，只留一张能带进下一轮的未决争点卡", () => {
+  const i = dbt.indexOf("async function genRound(");
+  const gen = dbt.slice(i, dbt.indexOf("async function genResult", i));
+  assert.ok(gen.indexOf('"crowd"') < 0 && gen.indexOf("观众弹幕") < 0 && gen.indexOf("随机路人") < 0,
+    "换了皮但还是『台上说完、台下刷一批评论』的同一套流程");
+  assert.match(gen, /\\"focus\\":\{\\"issue\\":\\"未决分歧1~2句\\",\\"question\\":\\"下一轮可追问的一句\\"\}/);
+  assert.match(gen, /不要生成观众、路人、弹幕或昵称/);
+  assert.match(dbt, /last\.focus = r\.focus;/, "争点没存进本轮，刷新就丢了");
+  assert.match(dbt, /focus: prior && prior\.focus/, "下一轮没有吃到上一轮争点，卡片只是摆设");
+  assert.match(dbt, /"未 决 争 点"/);
+  assert.match(dbt, /"下一轮可追问：" \+ focus\.question/);
+  assert.ok(dbt.indexOf("const audienceBlock =") < 0, "台下评论区还在新流程里");
+});
+
+test("旧存档的台下评论不删除，只默认折叠成旧看台记录", () => {
+  const i = dbt.indexOf("const legacyAudience = function");
   const src = dbt.slice(i, dbt.indexOf("\n    };", i));
-  assert.match(src, /radial-gradient\(circle at 9px 12px, rgba\(255,255,255,\.085\) 8px, transparent 8\.5px\)/, "没有那一排后脑勺");
-  // ⚠️v59.98：原来那个按下标错开的缩进是【纯装饰】，可它长得就像「这条在回上一条」——
-  //   一个看上去有意思、其实没意思的信号，比没有还糟（她 2026-09-01 一眼看出来了）。
-  //   现在缩进只在【这条真的在跟台下另一个人说话】时才有，靠的是弹幕里那个 @，是真数据。
-  assert.ok(dbt.indexOf("CROWD_IN") < 0, "那张纯装饰的缩进表又回来了");
-  assert.match(dbt, /const shoutingAt = function \(txt\) \{ return String\(txt \|\| ""\)\.indexOf\("@"\) >= 0; \};/);
-  assert.match(src, /marginLeft: at \? 16 : 0/, "缩进跟「有没有在跟人说话」对不上");
-  assert.match(src, /at \? h\("span", \{ "aria-hidden": "true"[\s\S]{0,120}"└"\) : null/, "缩进了却没说清它是什么意思");
-  assert.ok(src.indexOf("Math.random") < 0, "位置用了随机数，重画一次弹幕就会自己跳");
-  assert.match(src, /"台 下 · " \+ crowd\.length \+ " 个人在喊"/);
+  assert.match(src, /h\("details"/, "旧弹幕没有折叠，会继续长得像参考图");
+  assert.match(src, /"旧看台记录 · " \+ crowd\.length \+ " 条"/);
+  assert.match(dbt, /legacyAudience\(r\.audience, ri2\)/, "旧存档数据彻底看不见了");
 });
 
 test("判定：吊在台子上方那块记分牌", () => {
@@ -180,7 +187,7 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   assert.equal((app.match(/maxTokens: FTOK\./g) || []).length, 10, "论坛还有没接上那份表的");
   assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 8, "一起学还有没接上那份表的");
   // 擂台两处按人数算的，底要够厚
-  assert.match(dbt, /const budget = Math\.min\(32000, 12000 \+ chars\.length \* 3000 \+ o\.count \* 300\);/, "台上那一轮是全场最长的一次输出，底给薄了会写一半停住");
+  assert.match(dbt, /const budget = Math\.min\(32000, 12000 \+ chars\.length \* 3000\);/, "台上那一轮是全场最长的一次输出，底给薄了会写一半停住");
   assert.match(dbt, /maxTokens: Math\.min\(24000, 10000 \+ chars\.length \* 1500\)/, "判词加每人一段感言，一次出，给紧了会断在感言中间");
   // 仓库铁律：这三个文件里不许再出现低于 6000 的 maxTokens
   [["擂台", dbt], ["一起学", stu]].forEach(function (row) {
@@ -347,28 +354,22 @@ test("言秋那一支也给足了（她亲口点名放开的）", () => {
   assert.match(rule, /言秋那一支也给足/, "没写清这条是她亲口点名放开的");
 });
 
-// v59.99 起分界改了：不是「他能不能进擂台」，是【谁把他放进去的】。
-// 她 2026-09-01：「言秋加回来吧宝宝，我后续给他 cc 加张票进来玩」。
-test("言秋：她自己挑得上台，但不许被模型自动抓去台下起哄", () => {
+// v60.21 不再自动抓任何角色去台下编评论；她自己挑谁上台，谁才会进模型。
+test("上台的人只认她亲手挑的名单，不再另抓角色去台下编评论", () => {
   const app2 = R("app.js");
-  // 摘的只有【台下起哄】那一份——那几位是模型自动抓来编台词的
-  assert.match(app2, /crowdChars: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\),/);
-  assert.match(app2, /分界不是「他能不能进擂台」，是【谁把他放进去的】/, "没写清这条分界，下一个人会又把他整个摘掉");
   // ⚠️只看擂台那一段：别的 app 的挂载也写着 characters: liveChars，拿整份 app.js 找会被它们顶住
   const mi = app2.indexOf('else if (screen === "debate") body = h(Debate, {');
   const mount = app2.slice(mi, app2.indexOf("onBack:", mi));
   assert.match(mount, /characters: liveChars,/, "characters 那份被滤了——存档里已有的头像会变成无名氏");
+  assert.ok(mount.indexOf("crowdChars") < 0, "还在额外抓一份台下角色名单");
   // 上台那一栏走全的（她自己一个一个挑）
   assert.match(dbt, /const chars = picked\.map\(id => props\.characters\.find\(c => c\.id === id\)\)/, "上台那一栏又被滤了");
   assert.match(dbt, /props\.characters\.map\(c => \{/, "上台的人那份名单又被滤了");
-  // 台下那一份走 crowdChars
-  assert.match(dbt, /const bench = \(props\.crowdChars \|\| props\.characters\)\.filter\(c => !onIds\.includes\(c\.id\)\)/, "台下起哄那份名单没摘他");
   // 分享那一栏照旧列他
   const pi = dbt.indexOf("const sharePanel = shareOpen");
   const panel = dbt.slice(pi, dbt.indexOf("\n    return h(\"div\", { className: \"h-full flex flex-col\" },", pi));
-  assert.ok(panel.indexOf("crowdChars") < 0, "分享那一栏也把他摘了——发给他看跟扮演他不是一回事");
-  // 一路传到两层（一层写在三处，第三处没跟上）
-  assert.equal((dbt.match(/crowdChars: props\.crowdChars/g) || []).length, 2, "crowdChars 没一路传到 Setup 和 Arena");
+  assert.ok(panel.indexOf("crowdChars") < 0, "分享名单不该再认已经废掉的台下名单");
+  assert.equal((dbt.match(/crowdChars/g) || []).length, 0, "擂台内部还留着自动台下角色通道");
 });
 
 // 她 2026-09-01：「擂台再加一个把我去除的功能纯看他们吵」
@@ -385,10 +386,10 @@ test("旁观局：她不上台，一按就让他们吵，没有「先等你开�
   assert.match(dbt, /const myTurnNow = !watch && s\.mySet && !roundMyDone\(cr\);/, "旁观局还在等她先开口");
   assert.match(dbt, /const needGen = \(watch \|\| roundMyDone\(cr\)\) && !roundGen\(cr\);/);
   assert.match(dbt, /\(watch && needGen\) \? h\("div"[\s\S]{0,700}roundNo === 1 \? "开吵 →" : "让他们接着吵 →"/, "旁观局底下那颗键不对");
-  // 提示词：台下没人插话，别对着她说话
-  assert.match(dbt, /o\.watch\s*\? "\\n\\n【台下没有人插话】"/, "旁观局还在跟他们说「她刚说了什么」");
+  // 提示词：她只旁观，别对着她说话
+  assert.match(dbt, /o\.watch\s*\? "\\n\\n【旁观局】"/, "旁观局还在跟他们说「她刚说了什么」");
   assert.match(dbt, /别对着她说话、别问她怎么看，也别等她表态/);
-  assert.match(dbt, /count: count, watch: watch/, "watch 没传进这一轮的生成");
+  assert.match(dbt, /focus: prior && prior\.focus, watch: watch/, "watch 没传进这一轮的生成");
   // 判词：这一场她没上台，不许判她赢
   assert.match(dbt, /session\.spectate \? "只在台上这几位里判——「" \+ uName \+ "」这一场没上台，不许判她赢"/);
   // 重试那一路也得知道这是旁观局（本来就没有我这一句）
