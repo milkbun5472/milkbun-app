@@ -8089,8 +8089,16 @@ function MemoryLib({
     window.Cloud.memoryCorrectionCandidatesList().then(rows => { if (alive) setCorrections(rows || []); }).catch(() => { if (alive) setCorrections([]); });
     return () => { alive = false; };
   }, [entries]);
-  // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
-  const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
+  // 落灰／快淡了（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)。
+  // ⚠️只此一处定义：下面卡片上的「快淡了」和这里的计数用同一个函数。
+  //   v60.53 我一开始在卡片那儿另写了一份一模一样的判据——「一层写在两处」，
+  //   当场被变异测试抓出来（改一处、测试照样绿）。两处引用，一处定义。
+  // ⚠️它必须跟 app.js 那条对齐：那边真会按这条把记忆软归档，界面这条是【预告】，
+  //   两边说的得是同一批条目，否则她看见的和按钮删掉的不是一回事。
+  const isFading = e => !!(e && (e.surfaceState || "active") === "active" && !e.pinned && !e.open
+    && (e.a || 0) <= 1 && (e.hits || 0) < 2
+    && Date.now() - (Math.max(e.ts || 0, e.lastHit || 0) || Date.now()) >= 120 * 86400000);
+  const witheredCount = (entries || []).filter(isFading).length;
   const openTotal = (entries || []).filter(e => e && e.open && (e.surfaceState || "active") === "active").length;
   const cleanupSummary = (() => {
     const rows = entries || [];
@@ -8293,16 +8301,66 @@ function MemoryLib({
       h(ISearch, { size: 15, color: t.fog }),
       h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜一句话、标签或记得这件事的人",
         className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "transparent", border: "none", padding: "0 0 0 9px" } })),
-    h("div", { className: "flex", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: 3, marginBottom: 9 } },
-      [["all", "全部"], ["open", "未了 " + visibleOpenTotal], ["pinned", "常驻 " + pinnedTotal]].map(([id, label]) => h("button", {
-        key: id, onClick: () => setStatusFilter(id), className: "flex-1 py-1.5 active:opacity-70",
-        style: { borderRadius: 9, background: statusFilter === id ? t.ink : "transparent", color: statusFilter === id ? t.bg2 : t.fog, fontFamily: F_BODY, fontSize: 11.5, boxShadow: statusFilter === id ? "0 2px 7px rgba(0,0,0,.10)" : "none" }
-      }, label))),
-    characters.length ? h("div", { className: "flex items-center overflow-x-auto", style: { gap: 6, paddingBottom: 11 } },
-      [["all", "所有人"]].concat(characters.map(c => [c.id, c.remark || c.name])).map(([id, label]) => h("button", {
-        key: id, onClick: () => setFilter(id), className: "whitespace-nowrap active:opacity-70",
-        style: { fontFamily: F_BODY, fontSize: 11, color: filter === id ? t.ink : t.fog, borderBottom: "1.5px solid " + (filter === id ? t.ink : "transparent"), padding: "5px 7px" }
-      }, label))) : null,
+    // 状态那三档：不摆一排药丸（tabs-not-plain-pills）。
+    // 先问这东西现实里是什么——记忆库是一盒卡片，这三档是【盒里分出来的三摞】，
+    // 而「常驻」是钉住的那张、「未了」是折了角的那张。所以每一档就长成它自己：
+    // 一摞纸（全部）／钉着的一张（常驻）／折了角的一张（未了）。
+    // 选中那一摞抽出来立正（纸色、抬高、带阴影），没选中的矮一截、暗着、像还压在盒里。
+    h("div", { className: "flex items-end", style: { gap: 8, marginBottom: 11, paddingLeft: 2 } },
+      [["all", "全部", activeTotal], ["open", "未了", visibleOpenTotal], ["pinned", "常驻", pinnedTotal]].map(([id, label, n]) => {
+        const on = statusFilter === id;
+        return h("button", { key: id, onClick: () => setStatusFilter(id), className: "active:opacity-70",
+          style: { position: "relative", width: 70, height: on ? 54 : 43, transition: "height .16s", textAlign: "center" } },
+          // 底下那两层纸边：只有「全部」是一摞，另外两档是单张
+          id === "all" ? h(Fragment, null,
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 5, right: 1, top: 4, bottom: 0, borderRadius: 5, background: t.bg2, border: "1px solid " + t.line, opacity: on ? 0.9 : 0.5 } }),
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 3, right: 3, top: 2, bottom: 0, borderRadius: 5, background: t.bg2, border: "1px solid " + t.line, opacity: on ? 0.95 : 0.6 } })) : null,
+          h("span", { style: { position: "absolute", left: 0, right: 6, top: 0, bottom: 0, borderRadius: 5,
+            background: on ? "#fbf9f5" : t.bg2, border: "1px solid " + (on ? t.ink : t.line),
+            boxShadow: on ? "0 3px 9px rgba(0,0,0,.13)" : "none",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
+            // 折角：未了那一张右上角真的缺一块
+            clipPath: id === "open" ? "polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 0 100%)" : "none",
+            opacity: on ? 1 : 0.62 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: on ? 14 : 12.5, lineHeight: 1.1, color: t.ink } }, label),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: on ? t.sub : t.fog, marginTop: 1 } }, n + " 张"),
+            // 卡片上那条横线：索引卡本来就是印着线的
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 8, right: 8, bottom: 7, height: 1, background: t.line, opacity: on ? 1 : 0.6 } })),
+          // 折角那一张：把翻起来的那个小三角画出来，不然只是右上角缺了一块、看不出是折的
+          id === "open" ? h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, top: 0, width: 11, height: 11,
+            background: on ? t.line : "transparent", borderLeft: "1px solid " + (on ? t.ink : t.line), borderBottom: "1px solid " + (on ? t.ink : t.line),
+            clipPath: "polygon(0 0, 100% 100%, 0 100%)", opacity: on ? 1 : 0.62 } }) : null,
+          // 常驻那张上头钉着一枚图钉
+          id === "pinned" ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -3, marginLeft: -9,
+            width: 6, height: 6, borderRadius: 999, background: on ? t.tint : t.fog, boxShadow: "0 0 0 2px " + t.bg } }) : null);
+      })),
+    // 换人不摆一行下划线文字：这个 app 认人靠【脸】，跟关系网那条脸条同一套语汇。
+    // 「所有人」那一格摞着几张小脸，一眼看得出它是「全部」而不是某个人。
+    characters.length ? h("div", { className: "flex items-end overflow-x-auto", style: { gap: 9, paddingBottom: 12 } },
+      [["all", null]].concat(characters.map(c => [c.id, c])).map(([id, c]) => {
+        const on = filter === id;
+        const sz = on ? 38 : 28;
+        return h("button", { key: id, onClick: () => setFilter(id), className: "shrink-0 active:opacity-70",
+          style: { textAlign: "center", paddingTop: on ? 0 : 5, transition: "padding .16s" } },
+          h("div", { style: { width: sz, height: sz, borderRadius: 10, overflow: "hidden", margin: "0 auto", position: "relative",
+            opacity: on ? 1 : 0.45, filter: on ? "none" : "grayscale(0.7)",
+            boxShadow: on ? "0 2px 8px rgba(0,0,0,.18)" : "none", transition: "all .16s" } },
+            id === "all"
+              ? (() => {
+                  // 「所有人」＝几张脸摞在一起：居中、依次错开、后面的压在前面底下
+                  const few = characters.slice(0, 3);
+                  const f = Math.round(sz * 0.52), step = Math.round(sz * 0.17);
+                  const w = f + step * (few.length - 1);
+                  return h("div", { style: { width: "100%", height: "100%", position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 10 } },
+                    few.map((x, i) => h("div", { key: x.id, style: { position: "absolute", left: "50%", top: "50%",
+                      marginLeft: -w / 2 + i * step, marginTop: -f / 2, width: f, height: f, borderRadius: 3, overflow: "hidden",
+                      boxShadow: "0 0 0 1px " + t.bg2, zIndex: few.length - i } },
+                      h(Avatar, { character: x, size: f, radius: 0 }))));
+                })()
+              : h(Avatar, { character: c, size: sz, radius: 0 })),
+          on ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            id === "all" ? "所有人" : (c.remark || c.name)) : null);
+      })) : null,
     h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, letterSpacing: ".13em" } }, "INDEX / " + list.length),
       correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
@@ -8313,9 +8371,9 @@ function MemoryLib({
     list.map((e, index) => {
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
-      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : ""].filter(Boolean);
+      const faded = isFading(e);
+      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : "", faded ? "快淡了" : ""].filter(Boolean);
       const accent = e.open ? "#b06a4f" : e.pinned ? t.tint : t.line;
-      const valence = typeof e.a === "number" ? "情绪 " + ((e.v || 0) > 0 ? "+" : "") + (e.v || 0) + " · 强度 " + e.a : "";
       const trace = refineSrcCount(e);
       return h("button", {
         key: e.id,
@@ -8326,18 +8384,32 @@ function MemoryLib({
       },
         h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, position: "relative" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
-          h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 999, background: accent, boxShadow: "0 0 0 4px " + t.bg, marginTop: 9 } }),
+          // 情绪不再报数字（原来写「情绪 +4 · 强度 2」——那是把内部记分板端上桌）。
+          // 它就画在时间轴上那颗点里：颜色是当时的心情，大小是这件事有多重。
+          // 没评过情绪的是一颗空心小点，一眼看得出「这条还没评」。
+          (() => {
+            const rated = typeof e.a === "number";
+            const a = rated ? Math.max(0, Math.min(5, e.a)) : 0;
+            const v = e.v || 0;
+            const dia = rated ? 5 + a * 1.7 : 6;
+            const col = !rated ? "transparent" : v >= 2 ? "#c98a3c" : v <= -2 ? "#5f7c9a" : "#9a9082";
+            return h("span", {
+              title: rated ? "心情 " + (v > 0 ? "+" : "") + v + " · 分量 " + a : "还没评过情绪",
+              style: { display: "inline-block", width: dia, height: dia, borderRadius: 999,
+                background: col, border: rated ? "none" : "1px solid " + t.fog,
+                opacity: faded ? 0.4 : 1,
+                boxShadow: "0 0 0 4px " + t.bg, marginTop: 9 + (13 - dia) / 2 } });
+          })(),
           index < list.length - 1 ? h("span", { "aria-hidden": "true", style: { position: "absolute", width: 1, background: t.line, left: 18.5, top: 34, bottom: -20 } }) : null),
         h("div", { className: "flex-1 min-w-0", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 15, padding: "11px 13px 10px", boxShadow: "inset 3px 0 0 " + accent } },
           h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 7 } },
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, audienceOf(e) + " · " + sourceLabelOf(e)),
-            states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: e.open ? "#a66550" : t.tint } }, states.join(" · ")) : null),
+            states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: e.open ? "#a66550" : e.pinned ? t.tint : t.fog } }, states.join(" · ")) : null),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
-          h("div", { className: "flex flex-wrap items-center", style: { gap: "3px 8px", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + t.line } },
+          (tags.length || trace) ? h("div", { className: "flex flex-wrap items-center", style: { gap: "3px 8px", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + t.line } },
             tags.map((tag, i) => h("span", { key: "tag_" + i, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub } }, "#" + tag)),
             (e.tags || []).length > 2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "+" + ((e.tags || []).length - 2)) : null,
-            valence ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, valence) : null,
-            trace ? h("span", { title: "原件仍在归档里", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "由 " + trace + " 条旧忆收拢") : null)));
+            trace ? h("span", { title: "原件仍在归档里", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "由 " + trace + " 条旧忆收拢") : null) : null));
     }),
     (superseded.length || archived.length) ? h("div", { style: { marginTop: 18, paddingTop: 13, borderTop: "1px solid " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "历史索引"),

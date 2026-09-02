@@ -37,9 +37,14 @@ test("整理工具进底部弹层，工程仪表再藏一层，主档案只有�
 
 test("档案索引保留角色与状态双层筛选，并把状态与来源收进卡片层级", () => {
   assert.match(memory, /const \[statusFilter, setStatusFilter\] = useState\("all"\)/);
-  assert.match(memory, /\["open", "未了 " \+ visibleOpenTotal\]/);
-  assert.match(memory, /\["pinned", "常驻 " \+ pinnedTotal\]/);
-  assert.match(memory, /\[\["all", "所有人"\]\]\.concat\(characters/);
+  // ⚠️冻的是【有这两层筛选、各自带着自己的计数】，不是那几个标签长什么样。
+  //   v60.53 把状态那排药丸换成了三张索引卡、把人名那行下划线换成了一排脸
+  //   （tabs-not-plain-pills），行为一个字没变，原来那种逐字冻标签的断言却红了。
+  assert.match(memory, /\["open", "未了", visibleOpenTotal\]|\["open", "未了 " \+ visibleOpenTotal\]/);
+  assert.match(memory, /\["pinned", "常驻", pinnedTotal\]|\["pinned", "常驻 " \+ pinnedTotal\]/);
+  assert.match(memory, /\[\["all", null\]\]\.concat\(characters|\[\["all", "所有人"\]\]\.concat\(characters/);
+  assert.match(memory, /setStatusFilter\(id\)/, "状态那一层要能点");
+  assert.match(memory, /setFilter\(id\)/, "角色那一层要能点");
   assert.match(memory, /audienceOf\(e\) \+ " · " \+ sourceLabelOf\(e\)/);
   assert.match(memory, /"历史索引"/);
   assert.match(memory, /\(e\.tags \|\| \[\]\)\.slice\(0, 2\)/);
