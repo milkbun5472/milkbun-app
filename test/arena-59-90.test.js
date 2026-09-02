@@ -114,18 +114,52 @@ test("发言：台上那个人面前那块名牌，不是左边一条色边的�
   assert.ok(src.indexOf('borderLeft: "3px solid " + tn.color') < 0, "又变回左边一条色边的通用卡片了");
 });
 
-test("每轮不再让台下排队点评，只留一张能带进下一轮的未决争点卡", () => {
+// v60.26 Codex 把整个台下换成了一张「客观未决争点卡」。删掉路人弹幕是对的，
+// 但换来的那张卡是【记账】不是【活的】：一个没有主人的客观记录员，
+// 而且「下一轮可追问」替她想好了下一句该问什么——那是她的活。
+// 按这个 app 自己的尺子（tabs-not-plain-pills.md）它还更通用了：
+// 那张卡原样搬进任何一个辩论 app 都成立。
+// v60.41 把台下拿回来，但只留【她自己的、没上台的角色】：
+// 借来的是「直播间弹幕＋网感路人」这个形状，不是「有认识的人在旁边看着」这件事。
+test("台下回来了，但只有她的人——路人弹幕那一套不许回来", () => {
   const i = dbt.indexOf("async function genRound(");
   const gen = dbt.slice(i, dbt.indexOf("async function genResult", i));
-  assert.ok(gen.indexOf('"crowd"') < 0 && gen.indexOf("观众弹幕") < 0 && gen.indexOf("随机路人") < 0,
-    "换了皮但还是『台上说完、台下刷一批评论』的同一套流程");
-  assert.match(gen, /\\"focus\\":\{\\"issue\\":\\"未决分歧1~2句\\",\\"question\\":\\"下一轮可追问的一句\\"\}/);
-  assert.match(gen, /不要生成观众、路人、弹幕或昵称/);
+  const live = gen.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(live.indexOf('"crowd"') < 0 && live.indexOf("观众弹幕") < 0 && live.indexOf("随机路人") < 0
+    && live.indexOf("网感") < 0 && live.indexOf("正好 \" + o.count") < 0,
+    "又变回『台上说完、台下刷一批弹幕』那一套了");
+  assert.match(gen, /不要路人、不要昵称、不要弹幕/);
+  assert.match(gen, /都是认识台上这几位的熟人，不是路人/);
+  // 至多两条：它是配角，不许比台上响
+  assert.match(gen, /挑【至多两位】各出一声/);
+  assert.match(dbt, /\.slice\(0, 2\);/, "没封顶，一轮又能刷出一屏");
+  // 判据写死：换个人说照样成立的那种话，一句都不要
+  assert.match(gen, /这一句必须【只有他说才成立】/);
+  assert.match(gen, /换个人说照样成立的那种话/);
+  // 只认名单里的人：模型凭空多出一个路人就丢掉
+  assert.match(dbt, /return c\.text && names\[c\.name\];/, "模型编个路人也照收，那名单就是摆设");
+  // 「下一轮可追问」删掉：她要问什么是她自己的事
+  const dl = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(dl.indexOf("focus.question") < 0 && dl.indexOf("可追问") < 0, "又替她想好下一句该问什么了");
+  assert.match(gen, /不替 " \+ uName \+ " 想下一句该问什么/);
+  // 分歧本身留着：下一轮才接得住
   assert.match(dbt, /last\.focus = r\.focus;/, "争点没存进本轮，刷新就丢了");
-  assert.match(dbt, /focus: prior && prior\.focus/, "下一轮没有吃到上一轮争点，卡片只是摆设");
-  assert.match(dbt, /"未 决 争 点"/);
-  assert.match(dbt, /"下一轮可追问：" \+ focus\.question/);
-  assert.ok(dbt.indexOf("const audienceBlock =") < 0, "台下评论区还在新流程里");
+  assert.match(dbt, /focus: prior && prior\.focus/, "下一轮没有吃到上一轮争点，那它就是摆设");
+  assert.ok(dbt.indexOf("const audienceBlock =") < 0, "旧那个台下评论区不许回来");
+});
+
+test("场边那一声长在台边上，不是又一列气泡；分歧只是一行注脚", () => {
+  const i = dbt.indexOf("const sideBlock = function");
+  const side = dbt.slice(i, dbt.indexOf("const focusBlock = function", i));
+  assert.match(side, /borderLeft: "2px solid " \+ t\.line/, "台子那条边没了，它就成了又一列气泡");
+  assert.match(side, /"台边 · "/);
+  assert.match(side, /fontSize: 12/, "比台上还大就喧宾夺主了");
+  // 分歧从「一张带字距标签的卡」降成一行小字
+  const fb = dbt.slice(dbt.indexOf("const focusBlock = function"), dbt.indexOf("// 旧存档不删数据"));
+  assert.ok(fb.indexOf("未 决 争 点") < 0, "又做成一张比台上还抢眼的卡了");
+  assert.match(fb, /"还没吵拢的是——"/);
+  assert.match(fb, /fontSize: 11\.5/);
+  assert.match(dbt, /sideBlock\(r\.side, ri2\),\n\s*focusBlock\(r\.focus, ri2\)/, "两块都要真的画出来");
 });
 
 test("旧存档的台下评论不删除，只默认折叠成旧看台记录", () => {
@@ -361,7 +395,9 @@ test("上台的人只认她亲手挑的名单，不再另抓角色去台下编�
   const mi = app2.indexOf('else if (screen === "debate") body = h(Debate, {');
   const mount = app2.slice(mi, app2.indexOf("onBack:", mi));
   assert.match(mount, /characters: liveChars,/, "characters 那份被滤了——存档里已有的头像会变成无名氏");
-  assert.ok(mount.indexOf("crowdChars") < 0, "还在额外抓一份台下角色名单");
+  // v60.41：场边名单回来了，但它只喂【场边】那一层；上台仍是她一个一个挑的
+  assert.match(mount, /crowdChars: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes && !c\.npc\)/,
+    "场边名单要滤掉言秋和配角（v59.99：言秋可以上台，但不当看客）");
   // 上台那一栏走全的（她自己一个一个挑）
   assert.match(dbt, /const chars = picked\.map\(id => props\.characters\.find\(c => c\.id === id\)\)/, "上台那一栏又被滤了");
   assert.match(dbt, /props\.characters\.map\(c => \{/, "上台的人那份名单又被滤了");
@@ -369,7 +405,14 @@ test("上台的人只认她亲手挑的名单，不再另抓角色去台下编�
   const pi = dbt.indexOf("const sharePanel = shareOpen");
   const panel = dbt.slice(pi, dbt.indexOf("\n    return h(\"div\", { className: \"h-full flex flex-col\" },", pi));
   assert.ok(panel.indexOf("crowdChars") < 0, "分享名单不该再认已经废掉的台下名单");
-  assert.equal((dbt.match(/crowdChars/g) || []).length, 0, "擂台内部还留着自动台下角色通道");
+  // v60.41：crowdChars 回来了，但它【只】喂场边那一层——
+  //   Root 往下传两处 + Arena 里算 bench 那一处，就这三处；
+  //   出现在上台名单或分享名单里就说明它又被当成「自动抓人」用了。
+  assert.equal((dbt.match(/crowdChars/g) || []).length, 3,
+    "只该出现在【往 Arena 传一次】和【算 bench 那一处】；Setup 用不到，传了就是死参数");
+  assert.match(dbt, /bench: \(props\.crowdChars \|\| \[\]\)\.filter/, "场边名单没接上");
+  assert.match(dbt, /!orderedChars\.some\(function \(x\) \{ return String\(x\.id\) === String\(c\.id\); \}\)/,
+    "上台的人不该同时又在场边看着自己");
 });
 
 // 她 2026-09-01：「擂台再加一个把我去除的功能纯看他们吵」

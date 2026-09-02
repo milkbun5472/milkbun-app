@@ -7,7 +7,8 @@
 // · 讲道理（维持人设认真论辩）⇄ 随便吵（允许按人设跑题发散）
 // · 立场按人设自动站队；我 1v1 可选边/随机先手，多人一定最后发言
 // · 一轮 = 我先开口 + 所有角色依次接话 + 一张未决争点卡
-// · 不再自动捏造一群台下观众：争点卡只摘出这一轮尚未解决的分歧，并给下一轮一条可追问方向
+// · 台下只有【她自己的、没上台的角色】在场边看着（至多两位出一声），不捏造路人、不刷弹幕
+// · 每轮末尾摘一句「还没吵拢的」带进下一轮；不替她想下一句该问什么
 // · 随时自动存档，从落地页重回；结束后系统判定胜负+判词，角色各自发表感言
 // · 记忆不互通：可注入最近聊天当语气参考，但结束后什么都不写回记忆库
 // 存 localStorage x_debate_saves（随云同步）；模型走全局 callAI + ANTI_CLICHE。
@@ -57,7 +58,7 @@
     (session.rounds || []).forEach((r, ri2) => {
       lines.push("〔第" + (ri2 + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "（" + (tn.stance || "—") + "）：" + tn.text); });
-      if (r.focus && r.focus.issue) lines.push("〔未决争点〕" + r.focus.issue + (r.focus.question ? "；可追问：" + r.focus.question : ""));
+      if (r.focus && r.focus.issue) lines.push("〔这一轮没吵拢的〕" + r.focus.issue);
     });
     return lines.join("\n").slice(-24000);
   }
@@ -69,7 +70,7 @@
     take.forEach((r, k) => {
       lines.push("〔第" + (rs.length - take.length + k + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "：" + tn.text); });
-      if (r.focus && r.focus.issue) lines.push("〔未决争点〕" + r.focus.issue + (r.focus.question ? "；可追问：" + r.focus.question : ""));
+      if (r.focus && r.focus.issue) lines.push("〔这一轮没吵拢的〕" + r.focus.issue);
     });
     return lines.join("\n").slice(-12000);
   }
@@ -113,8 +114,14 @@
       return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) +
         (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
     }).join("\n\n");
+    // 场边（v60.41）：只有【她自己的、没上台的角色】，没有路人、没有昵称、不是弹幕。
+    // 台下那一层原来的病是【借来的形状】（直播间弹幕＋网感路人），不是「有人在旁边看」这件事本身；
+    // v60.26 把整层换成一张客观争点卡，等于把【活的】换成了【记账的】——方向反了。
+    const benchBlock = (o.bench || []).map(function (c) {
+      return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500);
+    }).join("\n");
     const sys = AC() +
-      "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】，然后客观摘出这一轮尚未解决的争点。\n" +
+      "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
       "【辩题】" + meta.topic +
       (casual
@@ -126,11 +133,19 @@
         ? "\n\n【旁观局】" + uName + " 这一场不上台。你们自己把这场吵起来、吵下去，别对着她说话、别问她怎么看，也别等她表态。"
         : "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）")) +
       (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
-      (o.focus && o.focus.issue ? "\n\n【上一轮留下的未决争点】\n" + o.focus.issue + (o.focus.question ? "\n可追问：" + o.focus.question : "") + "\n这一轮要真正碰到它，但不必机械复述。" : "") +
+      (o.focus && o.focus.issue ? "\n\n【上一轮没吵拢的那个分歧】\n" + o.focus.issue + "\n这一轮要真正碰到它，但不必机械复述。" : "") +
+      (benchBlock ? "\n\n【场边看着的人（都是认识台上这几位的熟人，不是路人）】\n" + benchBlock : "") +
       "\n\n【本次任务】\n" +
       "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），充分展开别水，2~6 句，口语带脾气，可点名回应某人。\n" +
-      "2）最后以记录员而非新人物的视角，写一张未决争点卡：issue 是这一轮真正没吵拢的分歧，不复述题目、不判输赢；question 是下一轮最值得追问的一句具体问题，必须能逼至少一方回应本轮漏洞。\n\n" +
-      "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}],\"focus\":{\"issue\":\"未决分歧1~2句\",\"question\":\"下一轮可追问的一句\"}}。turns 顺序同上、每个角色一条。不要生成观众、路人、弹幕或昵称；别加旁白别 markdown。";
+      (benchBlock
+        ? "2）场边那几位里，挑【至多两位】各出一声（也可以一位都不出声，给空数组）。这一声不是评论、不是打分，是【他这个人看着台上那个人，忍不住的一句】。\n" +
+          "⚠️判据：这一句必须【只有他说才成立】——他跟台上那位的旧账、偏袒、看不惯、私心，要在这一句里看得出来。换个人说照样成立的那种话（「说得好」「有道理」「太精彩了」），一句都不要。\n" +
+          "⚠️他是【一直在旁边看着的】，不是每轮新来的：可以接自己上一轮说过的话、可以越看越来气。名字用他本名，不许起昵称、不许凭空多出别人。\n"
+        : "") +
+      (benchBlock ? "3" : "2") + "）最后摘一句这一轮【还没吵拢的那个分歧】：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
+      "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}]" +
+      (benchBlock ? ",\"side\":[{\"name\":\"场边那位的本名\",\"text\":\"忍不住的那一句\"}]" : "") +
+      ",\"focus\":{\"issue\":\"还没吵拢的那个分歧，1~2句\"}}。turns 顺序同上、每个角色一条" + (benchBlock ? "；side 至多两条，名字必须是场边名单里的" : "") + "。不要路人、不要昵称、不要弹幕；别加旁白别 markdown。";
     // 台上几个人各说一大段 + 一张争点卡，仍给足思考预算，避免发言写到一半停住。
     const budget = Math.min(32000, 12000 + chars.length * 3000);
     const raw = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { maxTokens: budget });
@@ -144,8 +159,15 @@
       return { name: c.name, id: c.id, stance: c.stance, color: c.color, text: text || "……", at: hit && hit.at ? String(hit.at).trim() : "" };
     });
     const f = p.focus && typeof p.focus === "object" ? p.focus : {};
-    const focus = { issue: String(f.issue || "").trim(), question: String(f.question || "").trim() };
-    return { turns: turns, focus: focus };
+    // question 删掉了：「下一轮该问什么」是她的活，模型替她想好递过去＝把玩家的位置也占了
+    const focus = { issue: String(f.issue || "").trim() };
+    // 场边只认【名单里的人】：模型凭空多出一个路人就丢掉——那正是当初借来的那个形状
+    const names = {};
+    (o.bench || []).forEach(function (c) { names[String(c.name).trim()] = true; });
+    const side = (Array.isArray(p.side) ? p.side : []).map(function (c) {
+      return { name: String((c && c.name) || "").trim(), text: String((c && c.text) || "").trim() };
+    }).filter(function (c) { return c.text && names[c.name]; }).slice(0, 2);
+    return { turns: turns, focus: focus, side: side };
   }
 
   // ---- 模型：结束结算 —— 一次调用出【胜负判定 + 各角色赛后感言】（省一次 API；玩家不生成感言）----
@@ -223,7 +245,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, crowdChars: props.crowdChars, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
@@ -429,21 +451,26 @@
     // 一次调用批量生成【全部角色发言(按序) + 未决争点】
     const runGen = async (myText, skip) => {
       if (busy) return;   // 连点两下＝白花两次钱（她按次计费）
-      setBusy(true); setPhaseMsg("台上依次接话、记录员在抓争点…");
+      setBusy(true); setPhaseMsg("台上依次接话、场边看着的人也想说两句…");
       try {
         const charParts = s.parts.filter(p => p.kind === "char");
         const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
         const prior = (s.rounds || []).length > 1 ? s.rounds[s.rounds.length - 2] : null;
         const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, scopedWorldbook(myText), {
           chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
-          myText: skip ? "" : myText, transcript: prevTranscript(s), focus: prior && prior.focus, watch: watch
+          myText: skip ? "" : myText, transcript: prevTranscript(s), focus: prior && prior.focus, watch: watch,
+          // 场边＝她的角色里【没上台的那些】。至多摆 6 个进上下文（她按次计费）
+          bench: (props.crowdChars || []).filter(function (c) {
+            return !orderedChars.some(function (x) { return String(x.id) === String(c.id); });
+          }).slice(0, 6)
         });
         patch(prev => {
           const rounds = prev.rounds.slice();
           const last = Object.assign({}, rounds[rounds.length - 1]);
           last.turns = last.turns.concat(r.turns.map(tn => ({ who: "char", id: tn.id, name: tn.name, stance: tn.stance, color: tn.color, text: tn.text, at: tn.at })));
           last.focus = r.focus;
-          last.audience = []; // 新局不再生成台下弹幕；字段保留只为旧存档兼容
+          last.side = r.side || [];
+          last.audience = []; // 旧的台下弹幕字段：只为旧存档兼容，新局不再往里写
           last.gen = true;
           rounds[rounds.length - 1] = last;
           return { rounds: rounds };
@@ -558,14 +585,30 @@
     // ── 回合落点：未决争点 ──────────────────────────────────
     // 不再让一群自动捏造的路人在所有人说完之后排队点评；记录员只留一张没有人格的争点卡。
     // 它不是裁判，不判输赢，只把下一轮真正值得继续咬住的那处漏洞递回来。
+    // 场边那一声（v60.41）
+    // 形状不是弹幕、不是气泡：台子有个边，他们就贴在那条边外头。
+    // 一条竖的台边线 + 本名 + 那句话，小字、靠左——**它是配角，不许比台上响**。
+    const sideBlock = function (side, k) {
+      const list = (side || []).filter(function (x) { return x && x.text; });
+      if (!list.length) return null;
+      return h("div", { key: "side" + k, style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line } },
+        list.map(function (x, i2) {
+          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 } },
+            h("span", { style: { color: t.fog } }, "台边 · "),
+            h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
+            h("span", { style: { color: t.fog } }, "：" ),
+            x.text);
+        }));
+    };
+    // 这一轮没吵拢的那个分歧（v60.41 降级）
+    // v60.26 把它做成一张带字距标签的卡摆在正文里，还附一句「下一轮可追问」——
+    // 前者比台上还抢眼、后者替她想好了下一句该问什么。分歧本身有用（下一轮才接得住），
+    // 但它是【给下一轮看的一行注脚】，不是这一页的主角。
     const focusBlock = function (focus, k) {
-      if (!focus || (!focus.issue && !focus.question)) return null;
-      return h("div", { key: "focus" + k, style: { position: "relative", margin: "4px 2px 18px", padding: "13px 14px 14px", border: "1px dashed " + t.line, background: t.bg2 } },
-        h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
-          h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 99, background: t.accent, boxShadow: "12px 0 0 " + t.tint } }),
-          h("span", { style: { marginLeft: 10, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: t.sub } }, "未 决 争 点")),
-        focus.issue ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.ink } }, focus.issue) : null,
-        focus.question ? h("div", { style: { marginTop: focus.issue ? 9 : 0, paddingTop: focus.issue ? 9 : 0, borderTop: focus.issue ? "1px solid " + t.line : "none", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.accent } }, "下一轮可追问：" + focus.question) : null);
+      const issue = focus && focus.issue;
+      if (!issue) return null;
+      return h("div", { key: "focus" + k, style: { margin: "0 2px 16px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
+        h("span", { style: { letterSpacing: 1 } }, "还没吵拢的是——"), issue);
     };
 
     // 旧存档不删数据：原来的台下弹幕默认折叠，不再占据新玩法的主流程。
@@ -630,6 +673,7 @@
           h("div", { style: { display: "flex", justifyContent: "center", margin: "8px 0 12px" } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, "第 " + (ri2 + 1) + " 回合")),
           (r.turns || []).map(turnCard),
+          sideBlock(r.side, ri2),
           focusBlock(r.focus, ri2),
           legacyAudience(r.audience, ri2))),
         busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, phaseMsg || "…") : null,
