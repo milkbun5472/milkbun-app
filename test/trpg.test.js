@@ -180,8 +180,20 @@ test("休整拍:不推进主线,恢复封顶 +15,队友各提看法", () => {
   assert.match(src, /不报 stageDone/);
 });
 
+// 章要有呼吸(v60.16 代码闸):开章后不到两拍、或本章没掷过骰,守密人报的 stageDone 一律丢掉
+const ripe = () => Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "roll", tier: "ok" }, { role: "gm" }] });
+test("章节闸:才开章或没掷过骰就报完成,丢掉并留幕后事实", () => {
+  const bare = applyTurnPayload(camp0(), { stageDone: true, stageNote: "拿到了名册" });
+  assert.equal(bare.camp.pendingStage, false, "第一拍就翻章,不放行");
+  assert.match(bare.gate, /才开章/);
+  const noRoll = Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "gm" }] });
+  assert.match(applyTurnPayload(noRoll, { stageDone: true }).gate, /没掷过/);
+  assert.equal(applyTurnPayload(ripe(), { stageDone: true, stageNote: "拿到了名册" }).gate, null);
+  assert.match(src, /stageIdx: Math\.min\(c\.stages\.length, c\.stageIdx \+ 1\), stageAt: c\.msgs\.length/, "翻章时要记下起点");
+});
+
 test("章节推进只挂待确认,只有一个计数器(参考项目两处计数会漂)", () => {
-  const { camp } = applyTurnPayload(camp0(), { stageDone: true, stageNote: "拿到了名册" });
+  const { camp } = applyTurnPayload(ripe(), { stageDone: true, stageNote: "拿到了名册" });
   assert.equal(camp.stageIdx, 1, "模型报 stageDone 不直接推进——由玩家点头才 +1");
   assert.equal(camp.pendingStage, "拿到了名册");
   // 源码层面钉死:确认推进只动 stageIdx 这一个计数器
@@ -395,6 +407,30 @@ test("威胁时钟:建钟/推进夹±2/走满亮红/done 拆钟/至多3座", () 
   assert.equal(r4.camp.clocks.length, 0, "爆发后拆钟");
   const three = Object.assign(camp0(), { clocks: [{ name: "a", filled: 0, max: 6 }, { name: "b", filled: 0, max: 6 }, { name: "c", filled: 0, max: 6 }] });
   assert.equal(applyTurnPayload(three, { clock: [{ name: "d", delta: 1 }] }).camp.clocks.length, 3, "第四座不收");
+});
+
+test("失败的代价由代码兜底:体魄/身手失败没见血就 -5,大失败 -10,协力者担一半", () => {
+  const r1 = applyTurnPayload(camp0(), { hp: [] }, { roll: { role: "roll", who: "Lisa", statKey: "agi", tier: "fail" } });
+  assert.equal(r1.camp.party[0].hp, 75);
+  const r2 = applyTurnPayload(camp0(), {}, { roll: { role: "roll", who: "Lisa", assist: "裴照川", statKey: "phy", tier: "fumble" } });
+  assert.equal(r2.camp.party[0].hp, 70); assert.equal(r2.camp.party[1].hp, 95, "协力共担后果");
+  const r3 = applyTurnPayload(camp0(), { hp: [{ name: "Lisa", delta: -12 }] }, { roll: { role: "roll", who: "Lisa", statKey: "agi", tier: "fail" } });
+  assert.equal(r3.camp.party[0].hp, 68, "守密人已经记了血就不再重复扣");
+  const r4 = applyTurnPayload(camp0(), {}, { roll: { role: "roll", who: "Lisa", statKey: "cha", tier: "fail" } });
+  assert.equal(r4.camp.party[0].hp, 80, "谈吐失败不掉血");
+});
+
+test("威胁钟不锈死:连着两拍没人碰就自己走一格,休整/攀谈拍不走", () => {
+  const base = Object.assign(camp0(), { clocks: [{ name: "追兵", filled: 1, max: 6 }] });
+  const r1 = applyTurnPayload(base, {});
+  assert.equal(r1.camp.clocks[0].filled, 1, "第一拍先忍");
+  const r2 = applyTurnPayload(r1.camp, {});
+  assert.equal(r2.camp.clocks[0].filled, 2, "第二拍自己走");
+  assert.equal(r2.camp.clocks[0].idle, undefined);
+  const calm = applyTurnPayload(r1.camp, {}, { calm: true });
+  assert.equal(calm.camp.clocks[0].filled, 1, "休整拍不走");
+  const touched = applyTurnPayload(r1.camp, { clock: [{ name: "追兵", delta: 0 }] });
+  assert.equal(touched.camp.clocks[0].idle, undefined, "守密人碰过就清零");
 });
 
 test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立扣", () => {

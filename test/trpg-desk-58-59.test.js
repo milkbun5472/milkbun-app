@@ -80,7 +80,7 @@ test("块名和块里的小标题不重复写一遍", () => {
 // ── 每一块都能收起来（她 2026-08-30：「每一个都做可缩放吧，除了旅程队伍默认收起来」）──
 test("八块都能收放，默认摊开的只有旅程和队伍", () => {
   const names = (src.match(/sect\("[^"]*", "([^"]+)"/g) || []).map(x => x.slice(x.lastIndexOf('", "') + 4, -1));
-  assert.deepEqual(names.sort(), ["名册", "压力", "队伍", "线索", "行囊", "旅程", "目标", "骰子账"].sort());
+  assert.deepEqual(names.sort(), ["名册", "压力", "队伍", "线索", "行囊", "旅程", "目标", "骰子账", "欧非榜"].sort());
   const def = src.match(/const PANEL_OPEN_BY_DEFAULT = \[([^\]]*)\]/);
   assert.ok(def, "默认开哪几块没有一处登记");
   assert.deepEqual(def[1].split(",").map(x => x.trim().replace(/"/g, "")), ["旅程", "队伍"]);

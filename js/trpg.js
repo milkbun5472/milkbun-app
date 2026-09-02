@@ -537,9 +537,47 @@
     next.choices = normChoices(p.choices, next.party);
     // 章节推进和落幕都只挂【待确认】,由玩家点头才算数——防守密人自导自演一步通关
     // (小剧场 goalReached 同款闸)。章节只有 stageIdx 一个计数器,不会两处各记各的。
-    if (p.stageDone && camp.stageIdx < camp.stages.length) next.pendingStage = String(p.stageNote || "").trim() || "这一章看起来到落点了";
+    // 章要有呼吸——提示词只降概率,这里才保证(她 9/1 抓的:公路喜剧第二拍就翻了第二章):
+    // 开章后至少两拍、且本章掷过一次骰,守密人报的 stageDone 才放行;不够就丢掉并留一条幕后事实
+    let gate = null;
+    if (p.stageDone && camp.stageIdx < camp.stages.length) {
+      const since = (camp.msgs || []).slice(camp.stageAt || 0);
+      const beats = since.filter(m => m.role === "gm").length;
+      const rolled = since.some(m => m.role === "roll") || !!(opts && opts.roll);
+      if (beats >= 2 && rolled) next.pendingStage = String(p.stageNote || "").trim() || "这一章看起来到落点了";
+      else gate = "守密人判定:这一章还没长够(" + (beats < 2 ? "才开章" : "还没掷过一次骰") + "),目标不算达成——继续演,让它节外生枝,别急着盖章";
+    }
+    // 失败不许白摔——提示词说了「hp 扣 5~10」,守密人照样和平主义(首团三跤 HP 纹丝不动)。
+    // 体魄/身手检定失败而这一拍没见血:失败 -5、大失败 -10;协力者共担一半
+    const rl = opts && opts.roll;
+    if (rl && (rl.tier === "fail" || rl.tier === "fumble") && (rl.statKey === "phy" || rl.statKey === "agi")) {
+      const owe = rl.tier === "fumble" ? 10 : 5;
+      [[rl.who, owe], [rl.assist, Math.ceil(owe / 2)]].forEach(([who, d]) => {
+        const m = who ? findMember(next.party, who) : null;
+        if (!m || (hpSum[m.name] || 0) < 0 || m.hp <= 0) return;
+        m.hp = Math.max(0, m.hp - d);
+        notes.push(m.name + " HP-" + d + "(失败的代价)");
+        chips.push({ k: "hp", txt: m.name + " HP-" + d + " →" + m.hp });
+      });
+    }
+    // 威胁钟不许锈死:连着两拍守密人都没碰的钟自己走一格(休整/攀谈拍不走)
+    if (!(opts && opts.calm)) {
+      const touched = (Array.isArray(p.clock) ? p.clock : []).map(r2 => r2 && String(r2.name || "").trim().slice(0, 10));
+      next.clocks = next.clocks.map(c2 => {
+        const strip = x => { const y = Object.assign({}, x); delete y.idle; return y; };
+        if (touched.indexOf(c2.name) >= 0) return strip(c2);
+        const idle = (c2.idle || 0) + 1;
+        if (idle < 2 || c2.filled >= c2.max) return Object.assign({}, c2, { idle });
+        const filled = c2.filled + 1;
+        notes.push("⏰" + c2.name + " " + filled + "/" + c2.max + "(时间在走)");
+        chips.push({ k: filled >= c2.max ? "hp" : "clue", txt: "⏰ " + c2.name + " " + filled + "/" + c2.max + (filled >= c2.max ? "·走满!" : "") });
+        return strip(Object.assign({}, c2, { filled }));
+      });
+    }
+    if (gate) next.gate = gate;
     if (p.ending) next.pendingEnd = String(p.endNote || "").trim() || "故事似乎走到了可以落幕的地方";
-    return { camp: next, chips, sysLine: notes.join(" · ") };
+    const gateOut = next.gate; delete next.gate;
+    return { camp: next, chips, sysLine: notes.join(" · "), gate: gateOut || null };
   }
 
   // ---- 手绘旅程图(纯函数) ----
@@ -1074,7 +1112,7 @@
         + "gauge 按题材配一根专属状态条,写清哪头是坏事、什么让它动。\n"
         + (crew.length ? "mates 给每位队友写只有守密人知道的私念——让他们不只是陪跑。\n" : "这是单人团,mates 给空数组。\n")
         + "outfits 给每位队友和玩家各写一句这个世界的行头(出图锁装用),符合时代与身份。\n"
-        + "feats 按人设与题材给每人 1-2 个专长,从 TA 的职业与经历里长出来,别人人一样。\n"
+        + "feats 按人设与题材给每人 2 个【本团专长】,从 TA 的职业与经历里长出来、且只在这个世界用得上(换个世界就不成立的才对),别人人一样。老队员以前学过的手艺不在这一栏里,不要沿用。\n"
         + "seeds 给【每个区域】埋 1-2 条支线种子:各有不同的触发条件,从节点的底和这个区域的处境里长出来;玩家看不到,触发条件满足时你才端出来。\n"
         + "myline 给玩家本人 2-3 条暗线候选:她会挑一条当自己的秘密目标(队友不知道)。\n"
         + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_B;
@@ -1089,7 +1127,9 @@
       (Array.isArray(p.feats) ? p.feats : []).forEach(f => {
         if (!f || typeof f !== "object") return;
         const mem = findMember(party, f.name);
-        if (!mem || (mem.feats || []).length) return;
+        if (!mem) return;
+        // 专长按世界发(她 9/1 抓的:水网案学的修水管跑到公路喜剧还挂在身上):
+        // 老卡带来的旧专长本团退休,不删——小队卡上那份原样留着,回到那个世界还能用
         mem.feats = (Array.isArray(f.list) ? f.list : []).map(x => x && typeof x === "object" && String(x.name || "").trim() && STAT_ZH[x.stat] ? { name: String(x.name).trim().slice(0, 6), stat: x.stat } : null).filter(Boolean).slice(0, 2);
       });
       const gRaw = p.gauge && typeof p.gauge === "object" ? p.gauge : null;
@@ -1279,7 +1319,7 @@
       setCeremony({ mKey: member.key, who: member.name, statKey: chk.stat, statZh: STAT_ZH[chk.stat], base: member.stats[chk.stat], feat: feat ? feat.name : null, assist: null, mates, bargainText: chk.bargain || null, bargainOn: false, vs: chk.vs || null, harm: !!chk.harm, fate: member.fate || 0, phase: "ready", roll: 0, grade: null, vsRoll: null, vsGrade: null, opposed: null, harmRoll: null, rerolled: false, spent: [], resolve });
     });
     const ceremonyFinish = () => setCeremony(c => {
-      if (c && c.resolve) c.resolve({ roll: c.roll, grade: c.grade, effVal: ceremonyEff(c), feat: c.feat, assist: c.assist, bargainOn: c.bargainOn, bargainText: c.bargainText, vs: c.vs, vsRoll: c.vsRoll, vsGrade: c.vsGrade, opposed: c.opposed, harmRoll: c.harmRoll, spent: c.spent });
+      if (c && c.resolve) c.resolve({ roll: c.roll, rolls: c.rolls || [c.roll], grade: c.grade, effVal: ceremonyEff(c), feat: c.feat, assist: c.assist, bargainOn: c.bargainOn, bargainText: c.bargainText, vs: c.vs, vsRoll: c.vsRoll, vsGrade: c.vsGrade, opposed: c.opposed, harmRoll: c.harmRoll, spent: c.spent });
       return null;
     });
     // 我方骰落定之后的接力:对抗→对面掷;见血→伤害骰;都完了→收
@@ -1326,7 +1366,7 @@
             const grade = gradeCheck(roll, ceremonyEff(c));
             const offer = c.fate > 0 && !c.rerolled && (grade.tier === "fail" || grade.tier === "fumble");
             if (!offer) setTimeout(ceremonyNext, 1200);
-            return Object.assign({}, c, { phase: "done", roll, grade, offer });
+            return Object.assign({}, c, { phase: "done", roll, grade, offer, rolls: (c.rolls || []).concat([roll]) });
           });
         } else setCeremony(c => c && Object.assign({}, c, { roll: 1 + Math.floor(Math.random() * 100) }));
       }, 55);
@@ -1349,7 +1389,7 @@
     // 检定行:把这一掷的全部真相写成一行铁案(守密人照它叙,成长骰也从这里记账)
     const rollLine = (fated, m, chk, res) => {
       const boost = [res.feat ? "专长·" + res.feat + "+15" : null, res.assist ? res.assist.name + "协力+10" : null, res.bargainOn ? "魔鬼交易+15" : null].filter(Boolean);
-      let line = fated + m.name + " 的「" + STAT_ZH[chk.stat] + "」检定:d100=" + res.roll + " / " + res.effVal + (boost.length ? "(" + boost.join(",") + ")" : "") + " → " + res.grade.zh;
+      let line = fated + m.name + " 的「" + STAT_ZH[chk.stat] + "」检定:d100=" + ((res.rolls || []).length > 1 ? res.rolls.join("→重掷 ") : res.roll) + " / " + res.effVal + (boost.length ? "(" + boost.join(",") + ")" : "") + " → " + res.grade.zh;
       if (res.vs) line += ";对抗「" + res.vs.name + "(" + res.vs.val + ")」d100=" + res.vsRoll + "→" + res.vsGrade.zh + " ⇒ " + (res.opposed === "win" ? "对抗胜" : "对抗负");
       if (res.harmRoll != null) line += "〔伤害骰d20=" + res.harmRoll + "·" + harmZh(res.harmRoll) + "〕";
       if (res.bargainOn) line += "〔魔鬼交易成立,代价必兑现:" + res.bargainText + "〕";
@@ -1357,7 +1397,7 @@
       if (res.spent && res.spent.length) line += "〔花" + res.spent.length + "枚命运点:" + res.spent.join("、") + "〕";
       return line;
     };
-    const rollRec = (m, chk, res) => ({ who: m.name, statKey: chk.stat, tier: res.opposed ? (res.opposed === "win" ? (TIER_RANK[res.grade.tier] >= 2 ? res.grade.tier : "ok") : "fail") : res.grade.tier });
+    const rollRec = (m, chk, res) => ({ who: m.name, assist: res.assist ? res.assist.name : null, statKey: chk.stat, tier: res.opposed ? (res.opposed === "win" ? (TIER_RANK[res.grade.tier] >= 2 ? res.grade.tier : "ok") : "fail") : res.grade.tier });
 
     // ---- 滚动摘要(超过 48 条把最老的压进前情账本,只留近 32 条逐句喂) ----
     const maybeSummarize = async campId => {
@@ -1465,7 +1505,8 @@
         // 重试轮(上一拍失败后按「继续」)不重开票:尾巴里已有亲笔就不再问第二遍。
         const lastGm = liveMsgs.map(m => m.role).lastIndexOf("gm");
         const tailHasCC = liveMsgs.slice(lastGm + 1).some(m => m.role === "sys" && String(m.content || "").indexOf("亲笔·") === 0);
-        const cc = (mode && mode.talk) || tailHasCC ? null : await ccDeclare(camp, liveMsgs);
+        // 结算拍(mode==="resolve")不再开票:被结算的正是他上一票的动作,再问就是问第二遍
+        const cc = (mode && mode.talk) || tailHasCC || mode === "resolve" ? null : await ccDeclare(camp, liveMsgs);
         const ccTry = !!(cc && cc.indexOf("想赌:") >= 0);
         if (cc) {
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + cc, ts: Date.now() };
@@ -1486,11 +1527,12 @@
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
           if (c.id !== camp.id) return c;
-          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c) });
+          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || !!(mode && mode.talk) });
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
           const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), seeds: (nc.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices } }]);
+          if (r.gate) msgs.push({ id: rid("rm_"), role: "sys", content: r.gate, ts: Date.now() });
           return Object.assign({}, nc, { msgs });
         }));
         setNote(""); setNoteOpen(false); setDice(false);
@@ -1534,10 +1576,11 @@
       }
       if (c.need && !hasItem(camp.items, c.need)) return turn(c.text + "(没有「" + c.need + "」,硬闯)");
       if (!c.check) return turn(c.text);
-      // 命运选人:守密人没点名就由客户端随机指一个——包括玩家自己
+      // 选项是她点的,骰子默认她自己掷(她 9/1 抓的:面板写她的身手、掷的却是队友的数值);
+      // 只有守密人明确点了在队的队友才换人
       let m = c.check.who ? findMember(camp.party, c.check.who) : null;
-      let fated = "";
-      if (!m) { m = camp.party[Math.floor(Math.random() * camp.party.length)]; fated = "命运选中了 " + m.name + " —— "; }
+      const fated = "";
+      if (!m) m = camp.party[0];
       const res = await runCeremony(m, c.check);
       const line = rollLine(fated, m, c.check, res);
       // 检定行作为既定事实和宣言一起入史;之后哪怕生成失败也不撤——重试沿用这颗骰子。
@@ -1589,7 +1632,7 @@
     // 否决要留回执(Codex 抓的:以前点「还没有」只清横幅,守密人不知道被否过,
     // 下一拍可能又报完成):否决写成一条幕后事实进史,守密人下一拍就看得见
     const confirmStage = ok => update(list => list.map(c => c.id !== camp.id ? c : ok
-      ? Object.assign({}, c, { pendingStage: false, stages: c.stages.map((s, i) => i !== c.stageIdx ? s : Object.assign({}, s, { done: true, note: typeof c.pendingStage === "string" ? c.pendingStage : null })), stageIdx: Math.min(c.stages.length, c.stageIdx + 1) })
+      ? Object.assign({}, c, { pendingStage: false, stages: c.stages.map((s, i) => i !== c.stageIdx ? s : Object.assign({}, s, { done: true, note: typeof c.pendingStage === "string" ? c.pendingStage : null })), stageIdx: Math.min(c.stages.length, c.stageIdx + 1), stageAt: c.msgs.length })
       : Object.assign({}, c, { pendingStage: false, msgs: c.msgs.concat([{ id: rid("rm_"), role: "sys", content: uName + " 判定:本章目标还没有真实达成,继续演;没有新的实质进展前不要再报 stageDone", ts: Date.now() }]) })));
     // 线索板·守密人判定:只裁「值不值得花功夫去验证」,绝不透露对错——
     // 猜没猜中要她自己去剧情里验(Codex 点的菜:调查团的乐趣在验证,不在对答案)
@@ -1639,7 +1682,7 @@
             const ups = {};
             growth.forEach(g => { if (g.key === m.key && g.to > g.from) ups[g.stat] = g.to; });
             const card = homeSquad.members.find(x => x.key === m.key);
-            if (card) { card.stats = Object.assign({}, m.stats, ups); card.feats = (m.feats || []).map(f => Object.assign({}, f)); card.scars = (m.effects || []).filter(e => e.scar).map(e => Object.assign({}, e)); card.runs = (card.runs || 0) + 1; }
+            if (card) { card.stats = Object.assign({}, m.stats, ups); card.scars = (m.effects || []).filter(e => e.scar).map(e => Object.assign({}, e)); card.runs = (card.runs || 0) + 1; }
           });
           homeSquad.runs = (homeSquad.runs || 0) + 1;
           saveSquads(sqv);
@@ -1889,7 +1932,7 @@
       const dieCol = g => !g ? "#f0ece4" : (g.tier === "crit" || g.tier === "hard") ? "#e8c76a" : g.tier === "ok" ? "#f0ece4" : "#e8a08c";
       const btn = (label, fn, col) => h("button", { onClick: fn, style: { padding: "9px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + (col || "#d9d3c8"), background: "transparent", color: col || "#d9d3c8" } }, label);
       return h("div", { style: { position: "fixed", inset: 0, zIndex: 160, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 13, padding: "0 18px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#d9d3c8", textAlign: "center" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + eff + (boost ? "," + boost : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#d9d3c8", textAlign: "center" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + eff + (boost ? "," + boost : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "") + ((ceremony.rolls || []).length > 1 ? " · 上一颗 " + ceremony.rolls.slice(0, -1).join("、") : "")),
         // 对抗:两颗骰并排——你的在左,对面的在右当着你的面滚
         ceremony.vs
           ? h("div", { style: { display: "flex", alignItems: "center", gap: 26 } },
