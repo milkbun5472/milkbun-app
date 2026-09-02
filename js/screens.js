@@ -2976,7 +2976,17 @@ const LETTER_FONTS = [
   { key: "serif", label: "宋体信笺", css: "'Noto Serif SC','Songti SC',serif" },
   { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi',serif" },
   { key: "round", label: "圆体可爱", css: "'Yuanti SC','PingFang SC',sans-serif" },
-  { key: "sans", label: "现代简洁", css: "'PingFang SC',system-ui,sans-serif" }
+  { key: "sans", label: "现代简洁", css: "'PingFang SC',system-ui,sans-serif" },
+  // 下面这些都是 iOS 自带的中文字体，零成本；非 iOS 一路 fallback 回宋/黑
+  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Kaiti SC',cursive" },
+  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Kaiti SC',cursive" },
+  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Kaiti SC',cursive" },
+  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','Songti SC',serif" },
+  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','Songti SC',serif" },
+  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','Songti SC',serif" },
+  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','PingFang SC',sans-serif" },
+  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','PingFang SC'" },
+  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC',sans-serif" }
 ];
 const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); return f ? f.css : LETTER_FONTS[1].css; };
 const LETTER_PAPERS = [
@@ -2984,41 +2994,81 @@ const LETTER_PAPERS = [
   { key: "kraft", label: "牛皮", bg: "#e9ddc6", ink: "#4a3f2c", line: "#d6c7a8" },
   { key: "pink", label: "樱粉", bg: "#fdeef1", ink: "#5a3a44", line: "#f4d6de" },
   { key: "blue", label: "天蓝", bg: "#eef4fb", ink: "#33455a", line: "#d7e4f2" },
-  { key: "mint", label: "薄荷", bg: "#eef7f0", ink: "#2f4a3a", line: "#d5ebda" }
+  { key: "mint", label: "薄荷", bg: "#eef7f0", ink: "#2f4a3a", line: "#d5ebda" },
+  { key: "sepia", label: "旧信", bg: "#f0e4cf", ink: "#5b4527", line: "#dcc9a6" },
+  { key: "lilac", label: "藕荷", bg: "#f3eefa", ink: "#453558", line: "#e2d7f0" },
+  { key: "celadon", label: "竹青", bg: "#e8f0ea", ink: "#2c4740", line: "#cfe0d5" },
+  { key: "apricot", label: "杏黄", bg: "#fdf1de", ink: "#5c4322", line: "#f0dcbb" },
+  { key: "rice", label: "宣纸", bg: "#f7f4ec", ink: "#3b3a34", line: "#e6e1d3" },
+  { key: "slate", label: "石青", bg: "#e6ecef", ink: "#2b3d46", line: "#ccd9de" },
+  { key: "dusk", label: "暮色", bg: "#efe6e2", ink: "#513c3a", line: "#dfd0c9" },
+  // 深色那两张：夜里写信的人也得有纸。ink 反过来是浅色，横格是暗一档的线
+  { key: "night", label: "夜笺", bg: "#2b2f38", ink: "#e3e6ee", line: "#3d434f" },
+  { key: "ink", label: "墨蓝", bg: "#232c3a", ink: "#dfe6f2", line: "#334053" }
 ];
 const letterPaper = key => LETTER_PAPERS.find(p => p.key === key) || LETTER_PAPERS[0];
 
-// 情书设置内容（放进 Sheet）：自动写 / 频率 / 信纸字体 / 纸张样式
-function CoupleLetterSettings({ partner, cfg, onSave }) {
+// 挑纸和挑字体这两样，四处都要用（设置页、写信页），所以做成公用的两块。
+// 纸样不画成一个圆色块——画成【一小张有横格的纸】，上面用那张纸自己的墨色写个「字」：
+// 一张信纸长什么样，只有把横格和墨色一起看见才知道。
+function LetterPaperPick({ value, onPick, withAuto }) {
+  const t = useTheme();
+  const cell = (key, label, bg, ink, line) => {
+    const on = value === key;
+    return h("button", { key, onClick: () => onPick(key), className: "active:opacity-80 flex flex-col items-center", style: { gap: 5, width: 62, paddingTop: 2 } },
+      h("div", { style: { position: "relative", width: 46, height: 58, borderRadius: 3, background: bg, border: (on ? "1.5px solid " + t.ink : "1px solid " + t.line), boxShadow: on ? "0 3px 10px rgba(0,0,0,.16)" : "0 1px 3px rgba(0,0,0,.06)", transform: on ? "translateY(-2px)" : "none", transition: "transform .15s", overflow: "hidden" } },
+        line ? h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(transparent 0 8px," + line + " 8px 9px)", opacity: 0.9 } }) : null,
+        h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: ink || t.ink } }, key === "auto" ? "🎲" : "字"),
+        // 选中不只靠边框：右下角折一个角，形状也变了（色弱和阳光下只剩形状可依）
+        on ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0, borderLeft: "12px solid transparent", borderBottom: "12px solid " + t.ink } }) : null),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? t.ink : t.fog } }, label));
+  };
+  return h("div", { className: "flex flex-wrap", style: { gap: 4 } },
+    withAuto ? cell("auto", "随机", "linear-gradient(135deg,#faf6ee,#fdeef1,#eef4fb,#eef7f0)", "#5a4a44", null) : null,
+    LETTER_PAPERS.map(p => cell(p.key, p.label, p.bg, p.ink, p.line)));
+}
+// 字体：每一款都用它自己写一遍名字，不然全是一样的方块，选了也不知道选的什么
+function LetterFontPick({ value, onPick, withAuto }) {
+  const t = useTheme();
+  const list = withAuto ? LETTER_FONTS : LETTER_FONTS.filter(f => f.css);
+  return h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+    list.map(f => { const on = value === f.key; return h("button", { key: f.key, onClick: () => onPick(f.key), className: "active:opacity-70 flex items-center", style: { gap: 6, minHeight: 40, padding: "8px 13px", borderRadius: 4, fontFamily: f.css || F_BODY, fontSize: 14, background: on ? t.ink : t.bg2, color: on ? t.bg : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+      // 选中那一款左边多一道竖杠（像笔尖压下去的一道），不靠颜色一样分得清
+      on ? h("span", { "aria-hidden": "true", style: { width: 2, height: 14, background: t.bg, borderRadius: 2 } }) : null,
+      f.label); }));
+}
+
+// 情书设置：整页（.claude/rules/no-half-sheet.md）——纸样和字体加起来快三十个，
+// 半窗里挤成两行滑不动；何况这一页不需要同时看见底下那一层。
+function CoupleLetterSettings({ partner, cfg, onSave, onBack }) {
   const t = useTheme();
   const c = Object.assign({ auto: false, freqDays: 7, freqRandom: true, font: "auto", paper: "auto" }, cfg || {});
   const set = patch => onSave(partner.id, Object.assign({}, c, patch));
-  return h("div", null,
-    h(Eyebrow, { style: { marginBottom: 14 } }, "情书设置 · " + partner.name),
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 16 } },
-      h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "自动写情书"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "开启后，进来时 TA 会不定期写（前台生效）")),
-      h("button", { onClick: () => set({ auto: !c.auto }), className: "active:opacity-70", style: { width: 46, height: 27, borderRadius: 999, background: c.auto ? t.ink : t.line, position: "relative", flexShrink: 0 } },
-        h("span", { style: { position: "absolute", top: 3, left: c.auto ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s" } }))),
-    h("div", { style: { marginBottom: 16 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "生成频率（天 / 篇）"),
-      h("div", { className: "flex items-center gap-3" },
-        h("input", { type: "number", value: c.freqDays, onChange: e => set({ freqDays: Math.max(1, +e.target.value || 7) }), className: "w-20 outline-none px-3 py-2 rounded-lg text-center", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("button", { onClick: () => set({ freqRandom: !c.freqRandom }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: c.freqRandom ? t.ink : t.fog } }, (c.freqRandom ? "✓ " : "○ ") + "随机波动"))),
-    h("div", { style: { marginBottom: 16 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "信纸字体"),
-      h("div", { className: "flex gap-2 flex-wrap" },
-        LETTER_FONTS.map(f => h("button", { key: f.key, onClick: () => set({ font: f.key }), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, fontFamily: f.css || F_BODY, fontSize: 13, background: c.font === f.key ? t.ink : t.bg2, color: c.font === f.key ? t.bg2 : t.sub, border: "1px solid " + (c.font === f.key ? t.ink : t.line) } }, f.label)))),
-    h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "纸张样式"),
-      h("div", { className: "flex gap-3 flex-wrap" },
-        h("button", { onClick: () => set({ paper: "auto" }), className: "active:opacity-80 flex flex-col items-center", style: { gap: 4 } },
-          h("div", { style: { width: 40, height: 40, borderRadius: 10, background: "conic-gradient(#faf6ee,#e9ddc6,#fdeef1,#eef4fb,#eef7f0,#faf6ee)", border: c.paper === "auto" ? "2px solid " + t.ink : "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 } }, "🎲"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: c.paper === "auto" ? t.ink : t.fog } }, "随机")),
-        LETTER_PAPERS.map(pp => h("button", { key: pp.key, onClick: () => set({ paper: pp.key }), className: "active:opacity-80 flex flex-col items-center", style: { gap: 4 } },
-          h("div", { style: { width: 40, height: 40, borderRadius: 10, background: pp.bg, border: c.paper === pp.key ? "2px solid " + t.ink : "1px solid " + t.line } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: c.paper === pp.key ? t.ink : t.fog } }, pp.label))))));
+  const sect = (title, sub, body) => h("div", { style: { marginBottom: 26 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: sub ? 3 : 10 } }, title),
+    sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, sub) : null,
+    body);
+  return h("div", { className: "h-full flex flex-col" },
+    h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "情书设置"),
+      h("div", { style: { width: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 22px 40px" } },
+      h("div", { className: "flex items-center justify-between", style: { marginBottom: 24 } },
+        h("div", { style: { paddingRight: 14 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "让 " + partner.name + " 自己写"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "开着的话，你进来时 TA 会不定期写一封（前台生效）")),
+        h("button", { onClick: () => set({ auto: !c.auto }), "aria-label": "自动写情书", className: "active:opacity-70", style: { width: 46, height: 27, borderRadius: 999, background: c.auto ? t.ink : t.line, position: "relative", flexShrink: 0 } },
+          h("span", { style: { position: "absolute", top: 3, left: c.auto ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
+      sect("多久写一封", "随机波动＝在这个天数上下浮动，不会每次都卡着同一天",
+        h("div", { className: "flex items-center", style: { gap: 12 } },
+          h("input", { type: "number", value: c.freqDays, onChange: e => set({ freqDays: Math.max(1, +e.target.value || 7) }), className: "outline-none px-3 py-2 rounded-lg text-center", style: { width: 84, fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "天 / 篇"),
+          h("button", { onClick: () => set({ freqRandom: !c.freqRandom }), className: "active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: c.freqRandom ? t.ink : t.fog } }, (c.freqRandom ? "✓ " : "○ ") + "随机波动"))),
+      sect("TA 用什么纸", "选随机的话，每一封都可能不一样",
+        h(LetterPaperPick, { value: c.paper, onPick: k => set({ paper: k }), withAuto: true })),
+      sect("TA 用什么笔迹", null,
+        h(LetterFontPick, { value: c.font, onPick: k => set({ font: k }), withAuto: true }))));
 }
 
 // 情侣空间·情书：信封列表 + 我也能写(标「我写的」) + 信纸字体/纸张 + 信下双向回复(角色多气泡)
@@ -3077,7 +3127,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 10.5, color: inkA(0.78), lineHeight: 1.25, textAlign: "center", wordBreak: "break-all" } }, mineL ? "我" : partner.name))),
         // 邮戳：盖在邮票右下角，圈里是日期，跟真的一样压过票面
         h("div", { style: { position: "absolute", right: -21, bottom: -8, width: 58, height: 58, borderRadius: 999, border: "1.5px solid " + inkA(0.34), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(9deg)", opacity: 0.9 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1.5, color: inkA(0.42) } }, "MI LK BUN"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1.5, color: inkA(0.42) } }, "见 字 如 面"),
           h("div", { style: { width: 34, borderTop: "1px solid " + inkA(0.26), borderBottom: "1px solid " + inkA(0.26), padding: "1.5px 0", margin: "2px 0", fontFamily: F_BODY, fontSize: 10, color: inkA(0.55), textAlign: "center" } }, (dt.getMonth() + 1) + "·" + dt.getDate()),
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: inkA(0.42) } }, dt.getFullYear())));
       return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
@@ -3145,33 +3195,45 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
       i < sorted.length - 1 ? h("div", { style: { flex: 1, width: 2, background: t.line, marginTop: 2 } }) : null),
     h("div", { style: { flex: 1, minWidth: 0, paddingBottom: 18 } }, envelope(l))); };
 
+  // —— 情书设置：整页 ——
+  if (cfgOpen) return h(CoupleLetterSettings, { partner, cfg, onSave: onSaveCfg, onBack: () => setCfgOpen(false) });
+
+  // —— 自己写一封：整页，而且整页就是那张纸（跟读信那一页同一个身子）——
+  // 原来是半窗：上面糊着列表、下面挤着纸样＋字体＋标题＋正文，正文只剩八行。
+  // 写信这件事最需要的就是【一整张空白的纸】，半窗把它砍掉一半。
+  if (compose) {
+    const pp = letterPaper(cPaper), fc = letterFontCss(cFont);
+    const inkA = a => { const m = /^#(\w{2})(\w{2})(\w{2})$/.exec(pp.ink); return m ? "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")" : pp.ink; };
+    const swatch = (key, bg, ink, line) => h("button", { key, onClick: () => setCPaper(key), "aria-label": "换纸", className: "active:opacity-80 shrink-0", style: { width: 30, height: 38, borderRadius: 2.5, background: bg, border: cPaper === key ? "1.5px solid " + pp.ink : "1px solid " + inkA(0.22), position: "relative", overflow: "hidden" } },
+      h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(transparent 0 6px," + line + " 6px 7px)" } }),
+      cPaper === key ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0, borderLeft: "9px solid transparent", borderBottom: "9px solid " + ink } }) : null);
+    return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
+      h("div", { className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
+        h("button", { onClick: () => setCompose(false), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink })),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, "写给 " + partner.name),
+        h("button", { onClick: doCompose, disabled: !cBody.trim(), className: "active:opacity-60 disabled:opacity-30 flex items-center justify-center", style: { minWidth: 52, height: 40, fontFamily: F_DISPLAY, fontSize: 14, color: pp.ink } }, "寄出")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 24px" } },
+        h("input", { value: cTitle, onChange: e => setCTitle(e.target.value), placeholder: "标题（选填）", style: { width: "100%", outline: "none", background: "transparent", fontFamily: F_DISPLAY, fontSize: 24, color: pp.ink, paddingTop: 6, paddingBottom: 10 } }),
+        h("div", { style: { borderTop: "1.5px solid " + inkA(0.3) } }),
+        h("div", { style: { borderTop: "1px solid " + inkA(0.14), marginTop: 2.5, marginBottom: 16 } }),
+        h("textarea", { value: cBody, onChange: e => setCBody(e.target.value), placeholder: "写下你想对 TA 说的话…", style: { width: "100%", minHeight: "46vh", outline: "none", resize: "none", background: "transparent", fontFamily: fc, fontSize: 15, lineHeight: "31px", color: pp.ink, backgroundImage: "repeating-linear-gradient(transparent 0 30px," + pp.line + " 30px 31px)" } })),
+      // 底下这一条是【文具盒】：一排真的小纸样 + 一排笔迹，就在写字的那张纸边上，随手换
+      h("div", { className: "shrink-0", style: { borderTop: "1px dashed " + inkA(0.22), padding: "8px 0 calc(env(safe-area-inset-bottom) * 0.4 + 8px)" } },
+        h("div", { className: "flex items-center overflow-x-auto", style: { gap: 7, padding: "0 22px 8px" } },
+          LETTER_PAPERS.map(p => swatch(p.key, p.bg, p.ink, p.line))),
+        h("div", { className: "flex items-center overflow-x-auto", style: { gap: 7, padding: "0 22px" } },
+          LETTER_FONTS.filter(f => f.css).map(f => h("button", { key: f.key, onClick: () => setCFont(f.key), className: "active:opacity-70 shrink-0", style: { minHeight: 40, padding: "8px 12px", borderRadius: 3, fontFamily: f.css, fontSize: 13.5, whiteSpace: "nowrap", color: cFont === f.key ? pp.bg : inkA(0.7), background: cFont === f.key ? pp.ink : "transparent", border: "1px solid " + inkA(cFont === f.key ? 0.7 : 0.22) } }, f.label)))));
+  }
+
   return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: "我们的情书", en: "Letters", onBack,
       right: h("div", { className: "flex items-center gap-2" },
         h("button", { onClick: () => setCompose(true), className: "active:opacity-50" }, h(IPlus, { size: 19, color: t.ink })),
         h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink }))) }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      h("button", { onClick: () => onGen(partner), disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { margin: "8px 0 16px", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: t.tint } }, gen ? partner.name + " 提笔中…" : "求 " + partner.name + " 写一封（距上封 ≥ 3 天）"),
-      mine.length === 0 && !gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有情书。求 TA 写一封，或点右上角 ＋ 自己写一封给 TA。") : null,
-      h("div", null, sorted.map(timelineRow))),
-    compose && h(Sheet, { onClose: () => setCompose(false), tall: true }, (() => {
-      const pp = letterPaper(cPaper); const fc = letterFontCss(cFont);
-      return h(Fragment, null,
-        h(Eyebrow, { style: { marginBottom: 12 } }, "写给 " + partner.name + " 的信"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "选纸张"),
-        h("div", { className: "flex gap-2.5 flex-wrap", style: { marginBottom: 12 } },
-          LETTER_PAPERS.map(p => h("button", { key: p.key, onClick: () => setCPaper(p.key), className: "active:opacity-80 flex flex-col items-center", style: { gap: 3 } },
-            h("div", { style: { width: 30, height: 30, borderRadius: 8, background: p.bg, border: cPaper === p.key ? "2px solid " + t.ink : "1px solid " + t.line } }),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: cPaper === p.key ? t.ink : t.fog } }, p.label)))),
-        h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 14 } },
-          LETTER_FONTS.filter(f => f.css).map(f => h("button", { key: f.key, onClick: () => setCFont(f.key), className: "active:opacity-70", style: { padding: "5px 11px", borderRadius: 999, fontFamily: f.css, fontSize: 12.5, background: cFont === f.key ? t.ink : t.bg2, color: cFont === f.key ? t.bg2 : t.sub, border: "1px solid " + (cFont === f.key ? t.ink : t.line) } }, f.label))),
-        h("div", { style: { background: pp.bg, borderRadius: 14, padding: "18px 18px", boxShadow: "0 3px 14px rgba(0,0,0,0.09)" } },
-          h("input", { value: cTitle, onChange: e => setCTitle(e.target.value), placeholder: "标题（选填）", style: { width: "100%", outline: "none", background: "transparent", fontFamily: F_DISPLAY, fontSize: 19, color: pp.ink, borderBottom: "1px solid " + pp.line, paddingBottom: 9, marginBottom: 12 } }),
-          h("textarea", { value: cBody, onChange: e => setCBody(e.target.value), rows: 8, placeholder: "写下你想对 TA 说的话…（就在这张纸上写，效果所见即所得）", style: { width: "100%", outline: "none", resize: "none", background: "transparent", fontFamily: fc, fontSize: 15, lineHeight: 2, color: pp.ink } })),
-        h("button", { onClick: doCompose, disabled: !cBody.trim(), className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 12 } }, "寄给 TA（TA 会回信）"));
-    })()),
-    cfgOpen && h(Sheet, { onClose: () => setCfgOpen(false), tall: true },
-      h(CoupleLetterSettings, { partner, cfg, onSave: onSaveCfg })));
+      h("button", { onClick: () => onGen(partner), disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { margin: "8px 0 16px", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: t.tint } }, gen ? partner.name + " 提笔中…" : "让 " + partner.name + " 写一封（距上封 ≥ 3 天）"),
+      mine.length === 0 && !gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有情书。让 TA 写一封，或点右上角 ＋ 自己写一封给 TA。") : null,
+      h("div", null, sorted.map(timelineRow))));
 }
 
 // 情侣空间·合照墙：把和 TA 的聊天里生成的「我俩合照」(photoKind:"duo") 挂成一面墙，按月分组、点开放大。
