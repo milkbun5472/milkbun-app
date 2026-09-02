@@ -13,7 +13,11 @@ const app = rd("js/app.js"), cloud = rd("js/cloud.js"), screens = rd("js/screens
 test("收信口整条拆干净：没有 server_inbox，也没有投信逻辑", () => {
   [["app.js", app], ["cloud.js", cloud], ["screens.js", screens], ["engine.js", engine]].forEach(([n, s]) => {
     assert.ok(!s.includes("server_inbox"), n + " 还在碰 server_inbox 表");
-    assert.ok(!s.includes("夜巡"), n + " 还留着夜巡字样");
+    // ⚠️只挡【这个功能】，别挡这两个字：v60.35 世界书那版在关键词输入框的
+    //   placeholder 里拿「夜巡」当了个例子词，跟这条流水线毫无关系，却把这条测试顶红了。
+    //   要证的是「夜巡这个功能拆干净了」，不是「全 app 不许出现这两个字」。
+    assert.ok(!/夜巡(信|模式|定时|流水线|开关|任务|函数)|开启夜巡|夜巡(?:\s*[:：=])/.test(s),
+      n + " 还留着夜巡这个功能");
   });
   ["deliverServerInbox", "inboxFetch", "inboxConsume", "__pokeInbox", "x_inboxLastTs", "serverNight"].forEach(k => {
     assert.ok(!app.includes(k), "app.js 残留 " + k);
