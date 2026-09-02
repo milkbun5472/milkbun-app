@@ -18,6 +18,23 @@ test("main chat and every side room use independent history keys", () => {
   assert.equal(Rooms.personFromKey(Rooms.chatKey("p1", side.id)), "p1");
 });
 
+test("app restart hydrates the saved main and side-room histories", () => {
+  const side = Rooms.create("p1", "十七岁的他", "alternate");
+  const sideKey = Rooms.chatKey("p1", side.id);
+  bag.set("x_chat:p1", JSON.stringify([{ role: "user", content: "主房还在" }]));
+  bag.set("x_chat:" + sideKey, JSON.stringify([{ role: "user", content: "侧房也还在" }]));
+
+  const load = (key, fallback) => {
+    const raw = bag.get(key);
+    return raw == null ? fallback : JSON.parse(raw);
+  };
+  const chats = Rooms.hydrateChats([{ id: "p1" }], load);
+
+  assert.equal(chats.p1[0].content, "主房还在");
+  assert.equal(chats[sideKey][0].content, "侧房也还在");
+  assert.deepEqual(Object.keys(chats).sort(), ["p1", sideKey].sort());
+});
+
 test("three permission groups persist independently, including main chat actions", () => {
   const main = Rooms.get("p1", "main");
   main.actions.study = false;

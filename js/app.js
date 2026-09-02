@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.12";
+const APP_VERSION = "v60.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -974,9 +974,13 @@ function App() {
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
     setOfflineApiId(loadJSON("x_offlineApi", null));
     setBgApiId(loadJSON("x_bgApi", null));
-    const cm = {},
+    const cm = window.ChatRooms && typeof window.ChatRooms.hydrateChats === "function"
+        ? window.ChatRooms.hydrateChats(c, loadJSON)
+        : {},
       gm = {};
-    for (const ch of c) cm[ch.id] = loadJSON("x_chat:" + ch.id, []);
+    if (!window.ChatRooms || typeof window.ChatRooms.hydrateChats !== "function") {
+      for (const ch of c) cm[ch.id] = loadJSON("x_chat:" + ch.id, []);
+    }
     const gs = loadJSON("x_groups", []);
     for (const g of gs) gm[g.id] = loadJSON("x_gchat:" + g.id, []);
     setChats(cm);

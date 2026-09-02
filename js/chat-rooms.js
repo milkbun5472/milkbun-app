@@ -105,6 +105,22 @@
   function chatKey(personId, roomId) { return !roomId || roomId === MAIN_ID ? String(personId) : String(personId) + "::room::" + roomId; }
   function isSideKey(key) { return String(key || "").includes("::room::"); }
   function personFromKey(key) { return String(key || "").split("::room::")[0]; }
+  // React 的 chats state 是一张按 chatKey 索引的表。侧房消息一直都有单独写盘，
+  // 但如果启动时只装主房，重开 App 后侧房看起来就会像被清空一样。
+  function hydrateChats(characters, load) {
+    const out = {};
+    if (typeof load !== "function") return out;
+    (Array.isArray(characters) ? characters : []).forEach(character => {
+      const personId = String(character && typeof character === "object" ? character.id || "" : character || "");
+      if (!personId) return;
+      out[personId] = load("x_chat:" + personId, []);
+      list(personId).filter(room => room && !room.main).forEach(room => {
+        const key = chatKey(personId, room.id);
+        out[key] = load("x_chat:" + key, []);
+      });
+    });
+    return out;
+  }
   function readSummaries() {
     try { const v = JSON.parse(localStorage.getItem(SUMMARY_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; }
   }
@@ -173,5 +189,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
+  return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
 });
