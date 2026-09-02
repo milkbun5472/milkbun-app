@@ -331,6 +331,8 @@
     // ⚠️一行放不下就分层，【每一层各有自己那条台面】。用 flex-wrap 让它自己折，
     //   线只会落在最后一折下面，上面那折的东西就悬空了——那就不是摆在台面上了。
     //   每行 flex:1 1 0：一行两样各占一半，末行只剩一样就自己占满，末层不会缺半截。
+    // ⚠️只剩【区域页】在用它了（地点页那一段 v60.03 撤掉，只留图）。
+    //   原来还收 onName / onZone 两个回调给地点页点进区域用——那一段没了，这两个也删掉。
     const surface = function (z, i, opt) {
       const o = opt || {};
       const items = (z.items || []);
@@ -340,7 +342,7 @@
       // 台面压在图上，所以它是【亮的一条】，底下压一道暗影——反过来（暗线亮影）在图上就看不见了
       const ledge = h("div", { style: { height: 3, background: "rgba(244,241,233,.82)", borderRadius: 1, boxShadow: "0 7px 12px -6px rgba(0,0,0,.75)" } });
       return h("div", { key: i, style: { marginTop: i ? 30 : 0 } },
-        h("button", { onClick: o.onName, disabled: !o.onName, className: "w-full text-left flex items-baseline active:opacity-70 disabled:opacity-100", style: { gap: 9 } },
+        h("div", { className: "w-full text-left flex items-baseline", style: { gap: 9 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: o.big ? 24 : 17, lineHeight: 1.35, color: OVER_INK, minWidth: 0 } }, z.name),
           h("span", { style: { flex: 1 } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, whiteSpace: "nowrap" } }, items.length ? "摆着 " + items.length + " 样" : "空着")),
@@ -348,7 +350,7 @@
           return h("div", { key: ri, style: { marginTop: ri ? 14 : 11 } },
             h("div", { className: "flex", style: { alignItems: "flex-end", gap: 7 } },
               row.map(function (x, j) {
-                return h("button", { key: j, onClick: function () { if (o.onZone) o.onZone(); setItem(x); }, className: "text-left active:opacity-70",
+                return h("button", { key: j, onClick: function () { setItem(x); }, className: "text-left active:opacity-70",
                   style: { flex: "1 1 0", minWidth: 0, minHeight: 44, background: OVER_CARD, border: "1px solid " + OVER_LINE, borderBottom: "none", borderRadius: "6px 6px 0 0", padding: o.big ? "13px 14px 14px" : "10px 11px 12px", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" } },
                   h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: o.big ? 16.5 : 13.5, lineHeight: 1.45, color: OVER_INK } }, x.name),
                   (o.big && x.note) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: OVER_SUB, marginTop: 5 } }, x.note) : null,
@@ -428,12 +430,14 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, n ? n + " 处" : "还没去过"));
           }))));
 
-    // ── 一处地方：站在那儿 → 一处一处看过去 ─────────────────
-    // 图是这一整页的地皮，不是顶上一张插图：第一屏是没糊过的原图（区域名就压在它下缘，
-    // 从图里直接点进去），往下翻，图糊开压暗留在底下，台面浮在上面。人始终没离开这处地方。
+    // ── 一处地方：就是这张图 ────────────────────────────────
+    // 图是这一整页的地皮，不是顶上一张插图。区域名压在图的下缘，从图里直接点进去。
+    // ⚠️她 2026-09-01：「住处这块下面那一堆可以不要了，反正别的那些也可以从上面进去，就留图吧」。
+    //   原来图底下还铺着一整段台面（每块区域一条，摆着那儿的东西）——那是同一批入口的第二份，
+    //   而且它把图挤成了「顶上一张插图」。入口图上已经有了，第二份就只是占地方。
+    //   台面这个形状留着，它在【区域页】还是主角（走近了看那一块）。这里只留图。
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
-      const itemCount = zs.reduce(function (n, z) { return n + (z.items || []).length; }, 0);
       return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
         backdrop(open),
         h("div", { className: "relative flex flex-col h-full" },
@@ -442,17 +446,8 @@
             placeHero(open, zs),
             // 第一屏的底比底衬暗一档，直接接会拉出一条横线像坏了。这一段顶上补一道压暗，
             // 一百来像素里化开，翻下去是「图糊了」，不是「换了一页」。
-            h("div", { className: "px-5", style: { paddingTop: 26, backgroundImage: "linear-gradient(180deg,rgba(5,8,10,.3) 0,rgba(5,8,10,0) 116px)" } },
-              // 数量还在，只是不再摆成档案统计——用人话说这处地方是什么样
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.9, color: OVER_SUB } },
-                zs.length
-                  ? (char ? char.name : "他") + "在这儿有 " + zs.length + " 处地方摆着东西，一共 " + itemCount + " 样。"
-                  : (char ? char.name : "他") + "这儿还什么都没摆。"),
-              h("div", { style: { marginTop: 22 } },
-                zs.map(function (z, i) {
-                  return surface(z, i, { onName: function () { setZoneIdx(i); }, onZone: function () { setZoneIdx(i); } });
-                })),
-              h("div", { className: "grid grid-cols-2", style: { gap: 9, marginTop: 30 } },
+            h("div", { className: "px-5", style: { paddingTop: 30, backgroundImage: "linear-gradient(180deg,rgba(5,8,10,.3) 0,rgba(5,8,10,0) 116px)" } },
+              h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
                 h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: OVER_INK, color: "#1b2126", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在再看一遍…" : "再去看一遍"),
                 h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + OVER_LINE, background: OVER_CARD, color: OVER_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),
               h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#e0a49c" } }, "不留这个地方了")))),

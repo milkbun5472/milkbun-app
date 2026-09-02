@@ -83,6 +83,8 @@ test("一块区域长成一条台面，不是两列瓷砖也不是带 › 的设
   assert.match(src, /for \(var r = 0; r < items\.length; r \+= per\)/, "还在靠 flex-wrap 折行");
   assert.ok(src.indexOf("flex-wrap") < 0, "flex-wrap 折出来的上面那折会悬空，不在任何台面上");
   assert.match(src, /flex: "1 1 0"/, "末层只剩一样时会缺半截台面");
+  // ⚠️v60.03 起 opt 只剩 big 一档：onName / onZone 是地点页那一段用的，那一段撤了就跟着删
+  assert.ok(src.indexOf("o.onName") < 0 && src.indexOf("o.onZone") < 0, "撤掉的那两个回调还留着");
   // 名字要全都看得见，不许缩成「N 件」再让人点进去猜
   assert.match(src, /rows\.push\(items\.slice\(r, r \+ per\)\)/, "有东西没被摆出来");
   assert.match(src, /row\.map\(function \(x, j\)/);
@@ -92,19 +94,29 @@ test("一块区域长成一条台面，不是两列瓷砖也不是带 › 的设
   assert.match(src, /minHeight: 44/);
 });
 
-test("一处地方：先站在那儿，再一处一处看过去；数量还在，但不是档案统计", () => {
-  const i = dwell.indexOf('// ── 一处地方：站在那儿 → 一处一处看过去 ─────────────────');
+// ⚠️v60.03 起地点页【只留图】（她 2026-09-01：「下面那一堆可以不要了，反正别的那些
+//   也可以从上面进去，就留图吧」）。图上已经有一整套入口，底下那段台面是同一批入口的
+//   第二份，而且把图挤成了「顶上一张插图」。
+test("一处地方：就是这张图，底下不再铺第二份入口", () => {
+  const i = dwell.indexOf('// ── 一处地方：就是这张图 ────────────────────────────────');
   assert.ok(i > 0, "找不到地点页");
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
   assert.match(src, /flex-1 min-h-0 overflow-y-auto/, "地点页内容多了不会滚");
   assert.match(src, /placeHero\(open, zs\)/);
-  assert.match(src, /surface\(z, i, \{ onName:/, "区域没有用台面那个形状");
-  // 内容不许因为换 UI 丢掉：氛围、归属、几块区域、几件东西，一样都不能少
+  // 图底下不许再铺一遍台面
+  assert.ok(src.indexOf("surface(") < 0, "图底下又铺了一份台面——同一批入口的第二份");
+  assert.ok(src.indexOf("itemCount") < 0, "那句档案式的数量统计又回来了");
+  // 三颗操作键还得在（它们没有别的地方可去）
+  assert.match(src, /"再去看一遍"/);
+  assert.match(src, /"重画这儿的样子" : "画一张这儿的样子"/);
+  assert.match(src, /"不留这个地方了"/);
+  // 内容不许因为换 UI 丢掉：氛围、整屏、入口都在图上
   const hero = dwell.slice(dwell.indexOf("const placeHero = function"), dwell.indexOf("\n    };", dwell.indexOf("const placeHero = function")));
   assert.match(hero, /p\.ambient \? h\("div"[\s\S]{0,260}\}, p\.ambient\)/, "进门第一感觉没了");
   assert.match(hero, /minHeight: "calc\(100dvh - env\(safe-area-inset-top\) - 58px\)"/, "第一屏不再是整屏");
-  assert.match(src, /zs\.length \+ " 处地方摆着东西，一共 " \+ itemCount \+ " 样。"/, "数量丢了或者又摆成统计条");
-  assert.match(src, /char \? char\.name : "他"/, "不知道这是谁的地方了");
+  assert.match(hero, /\(z\.items \|\| \[\]\)\.length \+ " 样"/, "图上那几行看不出每块有几样");
+  // 台面这个形状留着——它在【区域页】还是主角
+  assert.match(dwell, /surface\(zone, 0, \{ big: true \}\)/, "区域页的台面被一起删了");
   // 星图那套结构不许回来
   assert.doesNotMatch(src, /pinTop|pointerEvents|onLeft|backdropFilter/, "星图小签的结构又回来了");
 });

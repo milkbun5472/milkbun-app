@@ -60,9 +60,38 @@
   function uid(pfx) { return (pfx || "wk") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
   // ---- 记者 NPC 人格（采访版叙述者，不碰角色卡）----------------------
+  // 记者是本刊【固定的那一个】：每周、每个角色，都是他在问。
+  // ⚠️原来只有三个形容词（机灵／擅长挖料／俏皮）——答的人有原话样本、问的人只有一串标签，
+  //   于是整篇读成【有声音的人】对【没声音的人】。八卦小报里记者的嗓子本来是好看的那一半。
+  // ⚠️不给他名字：NAME_GUARD 明写「只能用本周出场人物里那几个真名」，
+  //   多一个名字就是多一个会被写进正文的名字。他署名就是「本刊记者」。
+  // ⚠️这里只写【他怎么问】，不写任何示例问题——示例问题会被逐字抄到每个角色头上
+  //   （.claude/rules/prompt-no-content-samples.md）。
+  // 括号动作：中英文圆括号都认；太长的不算动作（那多半是正文里的插话），原样当正文
+  const ACT_RE = /（[^（）]{1,24}）|\([^()]{1,24}\)/g;
+  // 把一段回答切成【正文 / 括号动作】交替的几段，渲染时两种各给一套字
+  function splitAct(text) {
+    const t = String(text || ""); const out = []; let last = 0; let m;
+    ACT_RE.lastIndex = 0;
+    while ((m = ACT_RE.exec(t))) {
+      if (m.index > last) out.push({ text: t.slice(last, m.index), act: false });
+      out.push({ text: m[0], act: true });
+      last = m.index + m[0].length;
+    }
+    if (last < t.length) out.push({ text: t.slice(last), act: false });
+    return out.length ? out : [{ text: t, act: false }];
+  }
+  // 朗读用：只留他真说出口的那些字
+  function spokenOnly(text) { return String(text || "").replace(ACT_RE, "").replace(/\s+/g, " ").trim(); }
+
   const REPORTER_VOICE =
-    "你在扮演一份八卦小报的记者兼狗仔——一个 NPC 叙述者人格，不是要你去演某张角色卡。" +
-    "机灵、擅长挖料、语气俏皮，会追着当事人问私事，但不下流、不低俗。";
+    "你是本刊那位固定的记者兼狗仔——一个 NPC 叙述者人格，不是要你去演某张角色卡。署名就是「本刊记者」。\n" +
+    "· 你每周都在写这本刊，这些人你见过不止一次，别用第一次见面的客套口气。\n" +
+    "· 你的问法是：先把你观察到的那个事实摆出来，再把问号压在它后面。短、直、带一点无礼。\n" +
+    "· 对方绕开时你不放过，但你换个角度问，不是把同一句再念一遍。\n" +
+    "· 你会承认自己猜错，也会当场改口——你要的是问出东西，不是赢。\n" +
+    "· 你的问题也有语气：偶尔半截的追问、偶尔一个语气词，不必句句完整规整。\n" +
+    "· 八卦归八卦，不下流、不低俗，不往人身上泼脏。";
 
   // 人名铁律：焊进每个生成，防止模型照抄 prompt 里的示例名字（曾经把示例「顾暮」写进赛博版）
   const NAME_GUARD =
@@ -593,14 +622,24 @@
       "· 问题要有递进：开场切入 → 追到一个具体关节 → 根据上一答追问或质疑。至少一问让对方不太好答；至少一问必须真正承接上一答，不能彼此独立。\n" +
       "· 记者可以判断错。" + char.name + " 可以纠正前提、回避、反问、拆台或拒答，不必配合记者把预设答案说完整。\n" +
       "· " + char.name + " 必须 IN CHARACTER 回答——语气／态度／软肋／口癖严格贴合角色卡；回答先像人在现场说话，再考虑信息完整，绝不滑成标准好人腔、客服腔或总结稿。\n" +
-      "· 每条回答可另附一个镜头确实看得到的神态或小动作（action）；没有就留空，别用动作替答案做情绪注解。\n" +
+      // ⚠️动作要长在回答【里面】，不是接在句尾。原来 action 是个独立字段，渲染时只能接在
+      //   整段答话后面——那个位置本身就出卖它：读起来是贴上去的舞台指示，不是「当时发生了」。
+      "· 回答里可以夹【括号动作】：写成（……），放在它【真的发生的那一刻】——话说到一半停下来去做的那一下，就夹在那半句后面；不要等整段说完再补一句收尾神态。\n" +
+      // ⚠️一个存在的字段就会被填满。这里必须给硬判据，不能只写「可选」。
+      "  ⚠️绝大多数轮次【不该有】动作。只有当这句话真的让他手上或脸上动了一下时才写，没有就一个括号都别加。\n" +
+      "  ⚠️括号里只许是镜头拍得到的那一下（伸手、别过脸、把杯子放回去这一类具体动作）；情绪注解（他有些无奈／语气冷下来／苦笑）一律不许写——那是替观众下判断，不是拍到的画面。\n" +
+      "  ⚠️一条回答里至多一个括号，括号里至多十来个字。\n" +
+      // ⚠️「每条都两三句」是生成感最明显的那个破绽
+      "· 回答的长短要不齐：至少一轮短到一句、甚至半句（不想说、懒得说、一个字顶回去都算），至少一轮是他真的说开了的一大段。全篇每条都两三句，那是稿子不是采访。\n" +
       "② 狗仔：同一个你，写一段花边小道消息，只报 " + char.name + " 本周的戏。全程「据悉／知情人士向本刊透露／本刊直击」式无实锤爆料，暧昧、留白、点到为止，不给实锤。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
-      '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）","action":"（可选）回答时的神态/小动作一句，没有就空字符串"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
+      '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）；有括号动作就夹在它真的发生的那一处"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
     for (let i = 0; i < 2; i++) {
       try {
         const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 14000);
         if (d && d.interview && Array.isArray(d.interview.qa)) {
+          // action 不再向模型索取（动作现在夹在 a 里）。这里仍收一手：模型顺手吐了也不丢，
+          // 而且老存档里那些 action 照旧显示得出来。
           const qa = d.interview.qa.filter(function (x) { return x && (x.q || x.a); })
             .map(function (x) { return { q: String(x.q || "").trim(), a: String(x.a || "").trim(), action: String(x.action || "").trim() }; });
           const pap = d.paparazzi || {};
@@ -1364,9 +1403,17 @@
           i % 2 ? null : h("span", { style: { gridColumn: 1, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1 } }, "Q"),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, fontFamily: "'STKaiti','KaiTi',serif", fontSize: 14, color: L.muted, lineHeight: 1.7 } }, qa.q),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, marginTop: 7, fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, color: L.ink, lineHeight: 1.82 } },
-              qa.a,
+              // 括号动作现在夹在回答【里面】（v60.03）：按括号切开，括号那几段换个字换个色，
+              // 其余照旧。这样动作留在它真的发生的那一处，不再被挤到整段的最后。
+              splitAct(qa.a).map(function (seg, k) {
+                return seg.act
+                  ? h("span", { key: k, style: { fontFamily: "'STKaiti','KaiTi',serif", fontStyle: "italic", color: L.muted } }, seg.text)
+                  : h("span", { key: k }, seg.text);
+              }),
+              // 老存档里那些接在句尾的 action 照旧显示得出来（新的一律夹在 a 里）
               qa.action ? h("span", { style: { fontFamily: "'STKaiti','KaiTi',serif", fontStyle: "italic", color: L.muted } }, "（" + qa.action + "）") : null,
-              (tp && props.spk && typeof TtsDot === "function") ? h(TtsDot, { k: "wiv" + i, text: qa.a, spk: props.spk, tp: tp }) : null),
+              // ⚠️朗读只念他说的话：括号里那几下是动作，念出来就成了「他伸手」这种旁白
+              (tp && props.spk && typeof TtsDot === "function") ? h(TtsDot, { k: "wiv" + i, text: spokenOnly(qa.a), spk: props.spk, tp: tp }) : null),
           i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null);
       }),
       e.paparazzi && (e.paparazzi.title || e.paparazzi.body) ? h("div", { style: { margin: "26px -10px 0 36px", padding: "17px 18px", background: L.tint, color: "#fff" } },
