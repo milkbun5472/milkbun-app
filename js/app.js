@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.51";
+const APP_VERSION = "v60.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6372,6 +6372,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
+            : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 ¥" + m.ask : "（没说数目，让你看着办）") + "（当时额度 ¥" + (m.limit || 0) + "）"
+              + (m.status === "approved" ? "；你加了 ¥" + (m.add || 0) + "，现在额度 ¥" + (m.newLimit || 0) : m.status === "declined" ? "；你没有加" : "")
+              + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
             : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，¥" + (m.amount || 0) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 ¥" + m.remain) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
@@ -15035,7 +15038,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!char || !card || !active) { toast("无法加额度"); return; }
     const ask = Math.max(0, Math.round(Number(askAmount) || 0));
     const bal = charBalanceOf(charId);
-    pChat(charId, p => [...p, { role: "user", content: "（在亲属卡上向 " + char.name + " 申请把额度加" + (ask ? " ¥" + ask : "") + "）", ts: Date.now(), read: true }]);
+    // 一张【提额申请单】，不是一句加括号的话（她 2026-09-02：「这个申请额度通知略敷衍」）。
+    // rid 是这张单子的身份：等他回话之后要回来往同一张单子上盖戳。
+    const rid = "kr_" + Date.now();
+    pChat(charId, p => [...p, { role: "user", kind: "kinraise", rid: rid, read: true, ts: Date.now(),
+      charId: charId, ask: ask, limit: card.limit || 0, status: "pending",
+      content: "[亲属卡] 向" + char.name + "申请提额" + (ask ? "：想加 ¥" + ask : "（没说要加多少）") }]);
+    const stamp = patch => pChat(charId, p => p.map(x => x.kind === "kinraise" && x.rid === rid ? { ...x, ...patch } : x));
     toast("已向 " + char.name + " 申请加额度");
     try {
       const bundle = buildBundle(ctxFor(char));
@@ -15043,7 +15052,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const raw = await callAI(active, system, [{ role: "user", content: "[申请加额度]" + (ask ? " 希望加 ¥" + ask : "") }]);
       const d = extractJSON(raw) || { addLimit: 0, say: ["……再说吧。"] };
       const add = Math.max(0, Math.round(Number(d.addLimit) || 0));
+      const newLimit = Math.round((((card.limit || 0)) + add) * 100) / 100;
       if (add > 0) updateKinshipCard(charId, cd => ({ ...cd, limit: Math.round(((cd.limit || 0) + add) * 100) / 100 }));
+      // 结果盖回那张单子上：过一会儿回头看这段聊天，得看得见他加没加、加了多少
+      stamp(add > 0 ? { status: "approved", add: add, newLimit: newLimit } : { status: "declined" });
       const words = Array.isArray(d.say) ? d.say.filter(Boolean) : [String(d.say || "")];
       const turnId = "t_" + Date.now();
       for (let i = 0; i < words.length; i++) {
@@ -15051,9 +15063,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         pChat(charId, p => [...p, { role: "assistant", content: words[i], ts: Date.now(), turnId }]);
       }
       toast(add > 0 ? char.name + " 把额度加了 ¥" + add : char.name + " 没有加额度");
-    } catch (e) { toast("加额度失败：" + e.message); }
+    } catch (e) { stamp({ status: "failed" }); toast("加额度失败：" + e.message); }
   };
-  // 角色对某笔亲属卡消费的评论（购物刷卡后异步生成）
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
   // ============================================================

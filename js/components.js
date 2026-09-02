@@ -4554,6 +4554,7 @@ function ChatThread({
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
+    if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -6792,6 +6793,45 @@ function KinshipSpendCard({ m, character }) {
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-¥" + (m.amount || 0)))),
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
             m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 ¥" + m.remain)))));
+}
+// 提额申请单（v60.52）
+// 她 2026-09-02：「这个申请额度通知略敷衍」。原来是一句加了括号的粉气泡
+//   「（在亲属卡上向 顾暮 申请把额度加 ¥3000）」——两处敷衍：
+//   ① 它是【她按了一个键】这件事，不是她说的一句话，长相却是条普通消息；
+//   ② 【他到底加没加、加了多少】只在一闪而过的 toast 里，申请单上一个字都没有，
+//      过一会儿回头看这段聊天，只看得见她开口要钱，看不见结果。
+// 现实里对应的东西是【提额申请】：报上现在多少、想加多少，递过去，等主卡那头批复，
+// 批完那张单子上要盖个戳。所以按那个来，颜色和卡面同一套（他的颜色、他的脸）。
+function KinshipRaiseCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const ink = c.color || "#6b7a8f";
+  const st = m.status || "pending";
+  const done = st === "approved" || st === "declined";
+  const foot = st === "approved" ? "已加 ¥" + (m.add || 0) + " · 现在额度 ¥" + (m.newLimit || 0)
+    : st === "declined" ? (c.name || "TA") + "没有加"
+    : st === "failed" ? "没送出去，回头再试"
+    : "等" + (c.name || "TA") + "回话";
+  const fc = st === "approved" ? "#3f8a54" : st === "declined" ? t.fog : st === "failed" ? t.accent : t.tint;
+  return h("div", { className: "py-1 flex justify-end" },
+    h("div", { style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
+      h("div", { className: "flex" },
+        // 右沿一道他的颜色：批的是他的卡（刷卡通知那张在左沿，一眼分得出谁在动作）
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { padding: "10px 13px 11px" } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 9 } },
+              h(Avatar, { character: c, size: 20, radius: 6 }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                "向" + (c.name || "TA") + "的卡申请提额")),
+            h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "现在 ¥" + (m.limit || 0)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "→"),
+              m.ask
+                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.1, color: t.ink } }, "想加 ¥" + m.ask)
+                : h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: t.ink } }, "你看着加"))),
+          h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: fc } },
+            (done ? "" : "· ") + foot)),
+        h("div", { style: { width: 3, background: ink, flexShrink: 0 } }))));
 }
 // 代付请求卡
 function PayLaterCard({ m }) {
