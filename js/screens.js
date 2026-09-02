@@ -3059,20 +3059,59 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
       const fc = letterFontCss(l.font);
       const mineL = l.authorId === "user";
       const send = () => { if (reply.trim() && !gen) { onReply(partner, l.id, reply.trim(), threadText(l)); setReply(""); } };
+      // ── 一封信就是一整张纸（v60.35）────────────────────────────────────────
+      // 她 2026-09-02：「把这块『情书』框去掉然后让背景纸能透到整个页面」。
+      // 原来顶上是公共 Head：t.bg 的一大块 + 30px「情书」大字，下面才是信纸——
+      // 一封信被装进了一个跟信无关的抽屉里，纸只占下面那半。
+      // 现在整页就是那张纸（连刘海那一条也是纸），顶栏透明浮在纸上。
+      // 日期和落款不再当副标题排在标题下面，而是右上角那张【邮票 + 邮戳】——
+      // 这一处换成任何别的功能都不成立：只有信才有邮票。
+      const inkA = (a) => { const m = /^#(\w{2})(\w{2})(\w{2})$/.exec(pp.ink); return m ? "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")" : pp.ink; };
+      const dt = new Date(l.createdAt);
+      const stamp = h("div", { style: { position: "relative", flexShrink: 0, marginTop: 4 } },
+        // 邮票：齿孔用一圈小圆点切出来（纸色的点压在票边上），票面写寄信人
+        h("div", { style: { position: "relative", width: 62, height: 74, transform: "rotate(-4.5deg)", background: mineL ? "linear-gradient(160deg," + inkA(0.09) + "," + inkA(0.16) + ")" : "linear-gradient(160deg," + inkA(0.13) + "," + inkA(0.07) + ")", boxShadow: "0 1px 3px " + inkA(0.14) } },
+          h("div", { "aria-hidden": "true", style: { position: "absolute", inset: -4, background: "radial-gradient(circle," + pp.bg + " 3.1px, transparent 3.4px) 0 0/10.33px 10.33px", pointerEvents: "none" } }),
+          h("div", { style: { position: "absolute", inset: 6, border: "1px solid " + inkA(0.28), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 3 } },
+            h(IHeart, { size: 15, color: inkA(0.5), filled: true }),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 10.5, color: inkA(0.78), lineHeight: 1.25, textAlign: "center", wordBreak: "break-all" } }, mineL ? "我" : partner.name))),
+        // 邮戳：盖在邮票右下角，圈里是日期，跟真的一样压过票面
+        h("div", { style: { position: "absolute", right: -21, bottom: -8, width: 58, height: 58, borderRadius: 999, border: "1.5px solid " + inkA(0.34), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(9deg)", opacity: 0.9 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1.5, color: inkA(0.42) } }, "MI LK BUN"),
+          h("div", { style: { width: 34, borderTop: "1px solid " + inkA(0.26), borderBottom: "1px solid " + inkA(0.26), padding: "1.5px 0", margin: "2px 0", fontFamily: F_BODY, fontSize: 10, color: inkA(0.55), textAlign: "center" } }, (dt.getMonth() + 1) + "·" + dt.getDate()),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: inkA(0.42) } }, dt.getFullYear())));
       return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
-        h(Head, { zh: "情书", en: mineL ? "我写的" : partner.name, onBack: () => { setOpen(null); setReply(""); } }),
-        h("div", { className: "flex-1 overflow-y-auto px-7 py-5" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: pp.ink, lineHeight: 1.4 } }, l.title || "给你的信"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pp.ink, opacity: 0.6, marginTop: 6, marginBottom: 18 } }, md(l.createdAt) + " · " + (mineL ? "我" : partner.name)),
-          h("div", { style: { fontFamily: fc, fontSize: 15, lineHeight: "31px", color: pp.ink, whiteSpace: "pre-wrap", backgroundImage: "repeating-linear-gradient(transparent 0 30px," + pp.line + " 30px 31px)" } }, l.body),
-          (l.replies || []).length ? h("div", { style: { borderTop: "1px solid " + pp.line, marginTop: 24, paddingTop: 18 } },
-            (l.replies || []).map((r, i) => { const me = r.authorId === "user"; return h("div", { key: i, style: { marginBottom: 16 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pp.ink, opacity: 0.5, marginBottom: 4 } }, me ? "我" : partner.name),
-              h("div", { style: { fontFamily: fc, fontSize: 14.5, lineHeight: 1.95, color: pp.ink, whiteSpace: "pre-wrap", wordBreak: "break-word", paddingLeft: me ? 14 : 0, borderLeft: me ? "2px solid " + pp.line : "none" } }, r.content)); })) : null,
-          gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: pp.ink, opacity: 0.55, marginTop: 12 } }, partner.name + " 正在回信…") : null),
-        h("div", { className: "shrink-0 px-4 py-3 flex items-center gap-2", style: { borderTop: "1px solid " + pp.line } },
-          h("input", { value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, placeholder: "在信下回复…", style: { flex: 1, outline: "none", padding: "9px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13.5, background: "rgba(255,255,255,0.7)", color: pp.ink, border: "1px solid " + pp.line } }),
-          h("button", { onClick: send, disabled: !reply.trim() || gen, className: "active:opacity-70 disabled:opacity-40", style: { background: pp.ink, color: pp.bg, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "9px 16px", borderRadius: 999 } }, "回复")));
+        // 顶栏：透明浮在纸上，只有返回键和一行极轻的落款；右侧等宽占位（mobile-ui-layout §1）
+        h("div", { className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
+          h("button", { onClick: () => { setOpen(null); setReply(""); }, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink })),
+          h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, mineL ? "寄给 " + partner.name : partner.name + " 寄来"),
+          h("div", { style: { width: 40 } })),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 30px" } },
+          h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 16 } },
+            h("div", { style: { flex: 1, minWidth: 0, paddingTop: 6 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: pp.ink, lineHeight: 1.35, wordBreak: "break-word" } }, l.title || "给你的信"),
+              // 信头那两道横线：一粗一细，只有信笺会这么收头
+              h("div", { style: { borderTop: "1.5px solid " + inkA(0.3), marginTop: 12 } }),
+              h("div", { style: { borderTop: "1px solid " + inkA(0.14), marginTop: 2.5 } })),
+            stamp),
+          h("div", { style: { fontFamily: fc, fontSize: 15, lineHeight: "31px", color: pp.ink, whiteSpace: "pre-wrap", marginTop: 14, backgroundImage: "repeating-linear-gradient(transparent 0 30px," + pp.line + " 30px 31px)" } }, l.body),
+          // 信后那几笔：不是聊天记录，是【又及】——写完信之后补上去的话
+          (l.replies || []).length ? h("div", { style: { marginTop: 30 } },
+            h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 18 } },
+              h("div", { style: { flex: 1, borderTop: "1px solid " + inkA(0.16) } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: inkA(0.38) } }, "又 及"),
+              h("div", { style: { flex: 1, borderTop: "1px solid " + inkA(0.16) } })),
+            (l.replies || []).map((r, i) => { const me = r.authorId === "user"; return h("div", { key: i, className: "flex", style: { gap: 10, marginBottom: 15 } },
+              // 落笔的那一点：谁写的就在谁那侧，一个实心一个空心，不靠颜色分
+              h("div", { style: { flexShrink: 0, width: 7, height: 7, borderRadius: 999, marginTop: 8, background: me ? inkA(0.55) : "transparent", border: "1.5px solid " + inkA(0.55) } }),
+              h("div", { style: { flex: 1, minWidth: 0 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1.5, color: inkA(0.42), marginBottom: 3 } }, me ? "我" : partner.name),
+                h("div", { style: { fontFamily: fc, fontSize: 14.5, lineHeight: 1.95, color: inkA(0.88), whiteSpace: "pre-wrap", wordBreak: "break-word" } }, r.content))); })) : null,
+          gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: inkA(0.5), marginTop: 14 } }, partner.name + " 正在回信…") : null),
+        // 写字的地方还是这张纸：一条虚线像撕口，底下一行横格，不另起一块深色输入栏
+        h("div", { className: "shrink-0 flex items-end", style: { gap: 10, padding: "10px 22px calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px dashed " + inkA(0.22) } },
+          h("input", { value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, placeholder: "再添一笔…", style: { flex: 1, minWidth: 0, outline: "none", background: "transparent", padding: "6px 2px", fontFamily: fc, fontSize: 14.5, color: pp.ink, borderBottom: "1px solid " + inkA(0.28) } }),
+          h("button", { onClick: send, disabled: !reply.trim() || gen, className: "active:opacity-60 disabled:opacity-30 flex items-center", style: { gap: 5, fontFamily: F_DISPLAY, fontSize: 14, color: pp.ink, padding: "6px 2px" } }, "附上", h("span", { style: { fontSize: 15, lineHeight: 1 } }, "↵"))));
     }
   }
 
