@@ -1464,7 +1464,7 @@
         "【赶路】叙事跨地图节点时不许瞬移:要么停在动身那一刻(让玩家自己点地图赶路),要么如实更新 place 并把途中写出至少一笔(路况/遭遇/一句对话)。上一拍在甲地下一拍人已站在乙地而中间没有路,是穿帮。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,至少一个是【不推主线的探索】(看看这地方/找人聊/翻东西/绕去邻近节点),危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1516,10 +1516,29 @@
           update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([m]) })));
         }
         const sys = gmSys(camp);
+        // 松紧节奏(她 9/1 提的:探索得有戏里的间歇,不能被戴夫盘问到一半按暂停跑去吃雪糕):
+        // 连着三拍都在紧(掷过骰/掉血/钟在走),这一拍守密人必须写一个喘气的间歇——
+        // 危机暂时甩开、到了能落脚的地方,选项全是探索,不开新危机、不要骰子。
+        // 间歇拍记 lull,连拍数从它之后重数
+        const tenseStreak = (() => {
+          let n = 0;
+          for (let i = liveMsgs.length - 1; i >= 0; i--) {
+            const m = liveMsgs[i];
+            if (m.role !== "gm") continue;
+            if (m.lull) break;
+            const prev = liveMsgs.slice(0, i).reverse().find(x => x.role === "gm" || x.role === "roll");
+            const tense = (prev && prev.role === "roll") || (m.chips || []).some(ch => /HP-|⏰/.test(ch.txt || ""));
+            if (!tense) break;
+            n++;
+          }
+          return n;
+        })();
+        const wantLull = !mode && !dice && tenseStreak >= 3 && !camp.ended;
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
         const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
           + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
+          + (wantLull ? "\n〔喘口气〕已经连着三拍绷着了,这一拍要让队伍【在戏里】得到一个间歇:眼前的危机暂时甩开或告一段落,队伍到了一个能落脚、能四下看看的地方(照当前地点与世界来定,不要千篇一律)。这一拍不开新危机、不报 needCheck、威胁钟不走;choices 全给探索类——看看这地方、找某个人聊、翻翻手头的东西、绕去地图上邻近的节点——至少 3 个,没有一个是催着往主线赶的。" : "")
           + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "")
           + (ccTry && mode !== "resolve" ? "\n〔队友想赌〕最新亲笔行里「想赌:」后面的动作要碰运气:悬点停住不写成败,needCheck 报 {\"stat\":\"…\",\"who\":\"那位队友的名字\"}——who 必须填亲笔那位队友,不是 " + uName + "。" : "");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
@@ -1534,6 +1553,7 @@
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
           const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), seeds: (nc.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices } }]);
+          if (wantLull) msgs[msgs.length - 1].lull = true;
           if (r.gate) msgs.push({ id: rid("rm_"), role: "sys", content: r.gate, ts: Date.now() });
           return Object.assign({}, nc, { msgs });
         }));
