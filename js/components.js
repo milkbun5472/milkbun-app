@@ -4058,8 +4058,7 @@ function ChatThread({
   onSendRich,
   onPat,
   onStartCall,
-  onAcceptCall,
-  onDeclineCall,
+  onCallBack,
   onAskCouple,
   askingCouple,
   onAcceptListen,
@@ -4564,10 +4563,8 @@ function ChatThread({
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 18 }
       }, h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : character })),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "callinvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(CallInviteCard, { m: m, isU: m.role === "user", onAccept: onAcceptCall, onDecline: onDeclineCall }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }), onCallBack: onCallBack });
     if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
@@ -5917,7 +5914,32 @@ function TransText({ text, isU, zhReady }) {
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1 } },
         busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
 }
-// 语音消息：默认只显示语音条（波形+文件名+时长），点一下才展开转文字（TRANSCRIPT）
+// 语音消息（v60.17 她 2026-09-02：「这个语音也是参考别人的，也改成我们自己的吧」）
+//
+// 原来这条长这样：一排七根固定高度的柱子 + AUDIO_MEMO.WAV + 时长，
+// 展开写着 TRANSCRIPT，合成中写着 SYNTH…。跟经纬度那次是同一个病——
+//   · **根本没有那个文件**。AUDIO_MEMO.WAV 是凭空写的一个文件名，
+//     这条消息是一句话，不是硬盘上的一段采样。
+//   · 那七根柱子 `[4,9,6,12,7,10,5]` **每一条语音都一模一样**：
+//     它不是这句话的波形，是一张贴纸。说一个字和说三十个字长得没有区别。
+//   · 三处英文机器标签（AUDIO_MEMO.WAV／SYNTH…／TRANSCRIPT）是那套长相的一部分。
+// 现在只留真东西：这句话【自己的】波形（长短、起伏都从这句话本身算出来）、
+// 多长、他用什么语气说的（模型每条都标了 emo，一直只喂给 TTS，从没给她看过）。
+const VOICE_EMO_ZH = { happy: "笑着说的", sad: "声音低下去了", angry: "带着火气", fearful: "声音发紧", disgusted: "语气嫌恶", surprised: "有点意外" };
+// 这一条自己的波形：根数按时长走(说得久柱子就多)，高低按这句话的字算——
+// 同一句话每次画出来一样，不同的话长得不一样。
+function voiceBars(text, dur) {
+  const src = String(text || "");
+  const n = Math.max(9, Math.min(26, Math.round((Number(dur) || 2) * 2.2)));
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const c = src.charCodeAt(k % Math.max(1, src.length)) || 0;
+    // 两个错开的取样合起来，免得中文连着几个同部首的字画出一条平线
+    const v = (c * 7 + src.charCodeAt((k * 3 + 1) % Math.max(1, src.length)) * 3 + k * 11) % 100;
+    out.push(4 + Math.round(v / 100 * 11));   // 4~15px
+  }
+  return out;
+}
 function VoiceMsg({ m, isU, speaker }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -5928,7 +5950,8 @@ function VoiceMsg({ m, isU, speaker }) {
   const dur = m.dur || Math.max(1, Math.round(String(m.content || "").replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
   const fg = isU ? "#16330a" : t.ink;
-  const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
+  const bars = voiceBars(m.content, dur);
+  const emoZh = VOICE_EMO_ZH[m.emo] || "";
   // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
   const canTts = !isU && speaker && speaker.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
   const playTts = async e => {
@@ -5951,15 +5974,34 @@ function VoiceMsg({ m, isU, speaker }) {
       setPSt("idle"); setPErr(String((err && err.message) || err)); setOpen(true);
     }
   };
-  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 208, borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
-    h("div", { className: "flex items-center gap-2.5 px-3.5", style: { height: 42 } },
-      canTts ? h("button", { onClick: playTts, className: "active:opacity-60 shrink-0", style: { width: 26, height: 26, borderRadius: 999, border: "1.5px solid " + fg, display: "flex", alignItems: "center", justifyContent: "center", color: fg, fontSize: pSt === "gen" ? 10 : 11, background: "transparent" } }, pSt === "gen" ? "…" : (pSt === "playing" ? "⏸" : "▶")) : null,
-      h("div", { className: "flex items-center gap-0.5", style: { height: 15 } }, [4, 9, 6, 12, 7, 10, 5].map((hh, j) => h("span", { key: j, style: { width: 2, height: hh, borderRadius: 2, background: fg, opacity: pSt === "playing" ? 0.95 : 0.55 } }))),
-      h("span", { className: "flex-1", style: { fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", color: fg, opacity: 0.8 } }, pSt === "gen" ? "SYNTH…" : "AUDIO_MEMO.WAV"),
-      h("span", { style: { fontFamily: MONO, fontSize: 11, color: fg, opacity: 0.7 } }, mmss)),
-    open && h("div", { className: "px-3.5 pb-3", style: { borderTop: `1px solid ${isU ? "rgba(0,0,0,0.13)" : t.line}` } },
-      pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "🔇 " + pErr) : null,
-      h("div", { style: { fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, margin: "8px 0 5px" } }, "TRANSCRIPT"),
+  const line = isU ? "rgba(0,0,0,0.13)" : t.line;
+  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 196, borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
+    h("style", null, "@keyframes vm-bar{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1.25)}}"),
+    h("div", { className: "flex items-center gap-2.5 px-3.5", style: { minHeight: 42, paddingTop: 8, paddingBottom: 8 } },
+      canTts ? h("button", {
+        onClick: playTts, className: "active:opacity-60 shrink-0",
+        style: { width: 27, height: 27, borderRadius: 999, border: "none", background: fg, display: "flex", alignItems: "center", justifyContent: "center" }
+      }, pSt === "gen"
+        ? h("span", { style: { width: 9, height: 9, borderRadius: 2, border: "1.6px solid " + (isU ? BUBBLE_SKIN.myBg : t.bg2), borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
+        : h(Svg, { size: 12, color: isU ? BUBBLE_SKIN.myBg : t.bg2, sw: 0 },
+            pSt === "playing"
+              ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 })
+              : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 }))) : null,
+      // 这一条自己的波形：长短起伏都是这句话算出来的，不是七根一成不变的贴纸
+      h("div", { className: "flex items-center flex-1 min-w-0", style: { gap: 1.5, height: 16, overflow: "hidden" } },
+        bars.map((hh, j) => h("span", {
+          key: j,
+          style: { width: 2, height: hh, borderRadius: 2, background: fg, flexShrink: 0,
+            opacity: pSt === "playing" ? 0.95 : 0.5,
+            animation: pSt === "playing" ? "vm-bar .9s ease-in-out infinite" : "none",
+            animationDelay: pSt === "playing" ? (j * 0.055) + "s" : undefined }
+        }))),
+      emoZh ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: fg, opacity: 0.55, flexShrink: 0 } }, emoZh) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: fg, opacity: 0.7, flexShrink: 0 } }, mmss)),
+    open && h("div", { className: "px-3.5 pb-3", style: { borderTop: `1px solid ${line}` } },
+      pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: fg, opacity: 0.45, margin: "8px 0 5px" } },
+        (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + "说的是"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
 }
 // 懒 TTS 小播放器（通话台词/转录回听共用）：一次只放一条，点了才合成收费；放过的在 ttsSpeak 缓存里，回听免费
@@ -6170,20 +6212,107 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
                     h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.day + (g.cloud ? " ☁" : "")),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, g.n + " 条")))))));
 }
-// 来电邀请卡（角色主动打来）：接听→进通话；拒绝→系统提示
-function CallInviteCard({ m, isU, onAccept, onDecline }) {
+// 来电（v60.17，她 2026-09-02：「能不能做顶部浮层的来电显示跟微信语音和视频那样
+// 然后接听和没接听才有聊天记录卡片回执」）
+//
+// 原来角色打电话来是在聊天流里落一张【常驻的卡】，上面挂着「接听／拒绝」两个按钮。
+// 三处不对：
+//   · 电话是【此刻在响】的一件事，不是一条留在记录里的消息。那张卡永远停在那儿，
+//     十天后翻回去还写着「点接听进入通话」——按下去真的会打起来。
+//   · 只有正在看这个聊天时才看得见。人在主屏或别的聊天里，电话响了完全不知道。
+//   · 没接的情况根本没有：不接也不拒，它就永远是「待接听」，聊天记录里没有「未接来电」。
+// 现在分成两样东西：【响的时候】是顶部一条浮层，【响完之后】聊天里留一条回执。
+const CALL_RING_SEC = 30;                     // 响多久没人接就算未接
+const CALL_RING_MS = CALL_RING_SEC * 1000;
+// 一条 callinvite 此刻该显示成什么：响着的不进聊天流（浮层在管），响完的才留回执。
+// ⚠️没标 answered 又已经过了响铃时长的，一律按【未接】显示——
+//   PWA 后台不跑代码，App 关着的时候没人来标记它，光靠标记那一路会漏。
+function callInviteState(m) {
+  if (m.answered) return m.answered;
+  return Date.now() - (Number(m.ts) || 0) > CALL_RING_MS ? "missed" : "ringing";
+}
+// 顶部来电浮层：一部正在响的电话该有的样子——头像上一圈扩散的铃波，
+// 底下一根随时间抽干的细线（那是它还能响多久），两颗真正的话筒键：扣下去的和拿起来的。
+function CallRing({ name, avatar, mode, ts, onAccept, onDecline, onMiss }) {
   const t = useTheme();
+  const video = mode === "video";
+  const [now, setNow] = useState(Date.now());
+  // 用挂钟算剩余时间，不用倒计时累加：App 切后台时 setInterval 会被节流甚至冻住，
+  // 回到前台再按「还剩几拍」算就会多响很久。
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(iv);
+  }, []);
+  const left = Math.max(0, CALL_RING_MS - (now - (Number(ts) || 0)));
+  useEffect(() => { if (left <= 0 && onMiss) onMiss(); }, [left <= 0]);
+  if (left <= 0) return null;
+  const key = mode === "video" ? "camcorder" : "handset";
+  const btn = (bg, rot, act, label) => h("button", {
+    onClick: act,
+    "aria-label": label,
+    className: "flex items-center justify-center active:opacity-70",
+    style: { width: 44, height: 44, borderRadius: 999, background: bg, border: "none", flexShrink: 0 }
+  }, h("span", { style: { display: "block", transform: "rotate(" + rot + "deg)" } },
+    h(CGlyph, { k: "handset", size: 21, color: "#fff" })));
+  return ReactDOM.createPortal(
+    h("div", {
+      style: { position: "fixed", top: safeTop(8), left: 10, right: 10, zIndex: 300,
+        animation: "callring-in .22s ease both" }
+    },
+      h("style", null,
+        "@keyframes callring-in{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}" +
+        "@keyframes callring-wave{0%{opacity:.55;transform:scale(1.02)}100%{opacity:0;transform:scale(1.5)}}"),
+      h("div", {
+        style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 18,
+          boxShadow: "0 12px 34px rgba(0,0,0,.26)", overflow: "hidden" }
+      },
+        h("div", { className: "flex items-center gap-3", style: { padding: "11px 12px" } },
+          h("div", { style: { position: "relative", flexShrink: 0 } },
+            [0, 0.65].map(d => h("div", {
+              key: d,
+              style: { position: "absolute", inset: -3, borderRadius: 15, border: "1.5px solid " + t.tint,
+                animation: "callring-wave 1.3s ease-out infinite", animationDelay: d + "s", pointerEvents: "none" }
+            })),
+            avatar),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name || "TA"),
+            h("div", { className: "flex items-center", style: { gap: 4, marginTop: 1 } },
+              h(CGlyph, { k: key, size: 12, color: t.fog }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+                (video ? "视频通话" : "语音通话") + "邀请"))),
+          h("div", { className: "flex", style: { gap: 9 } },
+            btn("#d9534f", 135, onDecline, "拒绝"),
+            btn("#3faa63", 0, onAccept, "接听"))),
+        // 抽干的这根线就是「还能响多久」——不写数字，电话本来也不报数
+        h("div", { style: { height: 2, background: t.line } },
+          h("div", { style: { height: "100%", width: (left / CALL_RING_MS * 100) + "%", background: t.tint } })))),
+    document.body);
+}
+// 聊天记录里的回执：只有【响完之后】才有这一条。
+// 接听过的不在这儿——那一通结束时会落一条「通话已结束 · 时长」，回执就是它，不重复。
+function CallReceipt({ m, isU, who, avatar, onCallBack }) {
+  const t = useTheme();
+  const st = callInviteState(m);
+  if (st === "ringing" || st === "accepted") return null;
   const video = m.mode === "video";
-  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 232, borderRadius: 16, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
-      h("div", { className: "px-4 pt-3.5 pb-3 flex items-center gap-3" },
-        h("span", { style: { fontSize: 22 } }, video ? "📹" : "📞"),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "邀请你" + (video ? "视频通话" : "语音通话")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.answered ? (m.answered === "accepted" ? "已接听" : "已拒绝") : "点接听进入通话"))),
-      !m.answered && (onAccept || onDecline) && h("div", { className: "flex", style: { borderTop: `1px solid ${t.line}` } },
-        h("button", { onClick: () => onDecline && onDecline(m), className: "flex-1 py-2.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, borderRight: `1px solid ${t.line}` } }, "拒绝"),
-        h("button", { onClick: () => onAccept && onAccept(m), className: "flex-1 py-2.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint, fontWeight: 600 } }, "接听"))));
+  const missed = st === "missed";
+  const hh = new Date(m.ts || Date.now());
+  const clock = String(hh.getHours()).padStart(2, "0") + ":" + String(hh.getMinutes()).padStart(2, "0");
+  const color = missed ? "#c2705a" : t.fog;
+  return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+    !isU && avatar,
+    h("button", {
+      onClick: () => onCallBack && onCallBack(m),
+      className: "flex items-center active:opacity-60",
+      style: { gap: 7, padding: "9px 13px", borderRadius: 13, background: t.bg2,
+        border: "1px solid " + t.line, textAlign: "left" }
+    },
+      h("span", { style: { display: "block", transform: "rotate(135deg)", flexShrink: 0 } },
+        h(CGlyph, { k: "handset", size: 15, color: color })),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: color } },
+        (missed ? "未接" + (video ? "视频" : "语音") + "通话" : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
+      onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
 // 转发的贴吧帖子卡片（私聊/群聊都用）
 // 模型思考链（v56.42，她 2026-08-26 要的）。用途她说得很清楚：
@@ -8276,8 +8405,7 @@ function GroupThread({
   onOffline,
   onSendRich,
   onStartCall,
-  onAcceptCall,
-  onDeclineCall,
+  onCallBack,
   onSendTransfer,
   onRespondTransfer,
   emotes,
@@ -8637,11 +8765,9 @@ function GroupThread({
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "callinvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
-        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h(CallInviteCard, { m: m, isU: m.role === "user", onAccept: onAcceptCall, onDecline: onDeclineCall })));
+    if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user",
+      who: m.senderName || ((memberById(m.senderId) || {}).name || ""),
+      avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }), onCallBack: onCallBack });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "transfer") return h("div", {
       key: i,

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.16";
+const APP_VERSION = "v60.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6857,7 +6857,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const callMode = parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
       if (callMode) {
         await new Promise(r => setTimeout(r, 420));
-        pChat(chatKey, p => [...p, { role: "assistant", kind: "callinvite", mode: callMode, content: "[" + (callMode === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId, read: false }]);
+        {
+          const inv = { role: "assistant", kind: "callinvite", mode: callMode, content: "[" + (callMode === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId, read: false };
+          pChat(chatKey, p => [...p, inv]);
+          // 电话此刻在响 → 顶上浮一条。不管她正开着哪一页都看得见。
+          // ⚠️记的是 chatKey 不是 charId：副本房有自己的一条聊天记录，
+          //   标记「接了/拒了/没接」必须回到那条上，不然回执会落进主线那条。
+          setRinging({ cid: chatKey, m: inv, name: char.name, char: char });
+        }
         delivered = true;
       }
       // TA 拉黑用户
@@ -7870,7 +7877,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const gcm = item.call && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId: gTurnId }]);
+            {
+              const inv = { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId: gTurnId };
+              pGChat(groupId, p => [...p, inv]);
+              setRinging({ gid: groupId, m: inv, name: spk.name, char: spk });
+            }
           }
           // 成员甩表情：按关键词匹配 TA 可用的表情
           const ekw = item.emote && String(item.emote).toLowerCase() !== "null" ? String(item.emote).trim() : null;
@@ -10363,6 +10374,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   useEffect(() => {
     callRef.current = call;
   }, [call]);
+  // ---- 来电浮层(v60.13)----
+  // 角色打电话来时不再往聊天里塞一张常驻的卡,而是顶上浮一条【正在响的电话】。
+  // 它挂在 App 根上,所以人在主屏、在别的聊天、在设置里,电话响了都看得见——
+  // 原来那张卡只有正好开着那个聊天才看得到。
+  // 响完(接了/拒了/没接)聊天里才留一条回执,见 components.js 的 CallReceipt。
+  const [ringing, setRinging] = useState(null); // {gid|cid, m, name, char}
+  const markInvite = (r, how) => {
+    const hit = x => x.kind === "callinvite" && x.ts === r.m.ts;
+    if (r.gid) pGChat(r.gid, p => p.map(x => hit(x) ? { ...x, answered: how } : x));
+    else pChat(r.cid, p => p.map(x => hit(x) ? { ...x, answered: how } : x));
+  };
+  const ringAccept = () => {
+    const r = ringing; if (!r) return;
+    setRinging(null); markInvite(r, "accepted");
+    if (r.gid) startCall(r.char ? [r.char] : groupMembers(groups.find(g => g.id === r.gid) || {}), r.m.mode, r.gid, r.m.senderId || "me");
+    else if (r.char) startCall([r.char], r.m.mode, null, r.char.id);
+  };
+  const ringDecline = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "declined"); };
+  // 没人接:只标记,不弹任何东西——「没接」这件事本来就该是安静的,回执留在聊天里
+  const ringMiss = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "missed"); };
   const startCall = (participants, mode, groupId, caller) => {
     const people = (participants || []).filter(Boolean);
     if (!people.length) return;
@@ -15362,8 +15393,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onStartCall: m => startCall([activeChar], m, null, "me"),
-    onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
-    onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
+    onCallBack: m => startCall([activeChar], m.mode, null, "me"),
     onAskCouple: cid => askCoupleInvite(activeChar.id, cid),
     askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
@@ -15498,8 +15528,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const people = ids.map(id => characters.find(c => c.id === id)).filter(Boolean);
       startCall(people, mode, activeGroup.id, "me");
     },
-    onAcceptCall: m => { pGChat(activeGroup.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); const inv = characters.find(c => c.id === m.senderId); startCall(inv ? [inv] : groupMembers(activeGroup), m.mode, activeGroup.id, m.senderId || "me"); },
-    onDeclineCall: m => { pGChat(activeGroup.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了" + (m.senderName || "TA") + "的通话邀请", ts: Date.now() }]); },
+    onCallBack: m => { const inv = characters.find(c => c.id === m.senderId); startCall(inv ? [inv] : groupMembers(activeGroup), m.mode, activeGroup.id, "me"); },
     onSendTransfer: (memberId, amount, note) => sendGroupTransfer(activeGroup.id, memberId, amount, note),
     onRespondTransfer: (tid, accept) => respondGroupTransfer(activeGroup.id, tid, accept),
     toast: toast
@@ -16429,6 +16458,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     card: homeCard,
     onSave: c => { setHomeCard(c); saveJSON("x_homeCard", c); setCardOpen(false); toast("名片已保存"); },
     onClose: () => setCardOpen(false)
+  }), ringing && !call && h(CallRing, {
+    name: ringing.name,
+    mode: ringing.m.mode,
+    ts: ringing.m.ts,
+    avatar: h(Avatar, { character: ringing.char || { name: ringing.name }, size: 42, radius: 12 }),
+    onAccept: ringAccept,
+    onDecline: ringDecline,
+    onMiss: ringMiss
   }), call && h(CallScreen, {
     participants: call.participants,
     mode: call.mode,

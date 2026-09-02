@@ -80,7 +80,7 @@ test("缓存要记住是谁翻的，而且认得旧格式", () => {
 });
 
 test("中文消息零开销：不多包一层 DOM", () => {
-  const c = comp.slice(comp.indexOf("function TransText"), comp.indexOf("// 语音消息："));
+  const c = comp.slice(comp.indexOf("function TransText"), comp.indexOf("function VoiceMsg("));
   assert.match(c, /if \(!lang\) return text;/, "不是外语就把原字符串原样还回去");
   // 形状照抄语音转文字：点一下展开、上面一条分隔线、一个小标签、下面正文
   assert.match(c, /setOpen\(v => !v\)/, "点一下开、再点一下收");
