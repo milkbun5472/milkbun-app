@@ -4133,6 +4133,9 @@ function ChatThread({
   };
   // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
   // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
+  // 气泡底下那一行：「听一下」和「已读 20:19」并排。
+  // 原来那颗圆钮是【气泡的兄弟】，自己占一格、把整行撑宽（她 2026-09-02：「放的略丑」）；
+  // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
     const k = m && m.kind;
@@ -4141,6 +4144,12 @@ function ChatThread({
     const on = tp.play && tp.play.k === "say" + i;
     return h(TtsBubbleDot, { key: "d", text: String(m.content || ""), voiceId: spk.voiceId,
       st: on ? tp.play.st : "idle", onTap: () => speakMsg(i, m) });
+  };
+  const msgFoot = (i, m, sub) => {
+    const dot = sayDot(i, m);
+    if (!dot && !sub) return null;
+    return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
+      dot, sub ? h("span", null, sub) : null);
   };
   // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
   const geoRecent = React.useMemo(() => {
@@ -4752,14 +4761,7 @@ function ChatThread({
         fontSize: 10.5,
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !selMode && !m.kind && last && subLine(m) && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 9.5,
-        color: t.fog,
-        marginTop: 2
-      }
-    }, subLine(m))), sayDot(i, m), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
       title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
       className: "shrink-0 self-center active:opacity-60",
@@ -6096,24 +6098,31 @@ function TtsBubbleDot({ text, voiceId, emo, st, onTap }) {
     _ttsSubs.add(f);
     return () => { _ttsSubs.delete(f); };
   }, [key]);
+  // ⚠️v60.33 换了位置和长相（她 2026-09-02：「现在放的略丑，难道只能隐藏它不要这个键了嘛」）：
+  //   原来是一颗悬在气泡右边的圆钮——它自己占一格、把整行撑宽，
+  //   在一列气泡里像个没归属的黑点。现在落进气泡底下那一行【和「已读 20:19」并排】：
+  //   那本来就是这条消息的页脚，「这条能听」正是该待在那儿的信息，字号字色都跟它一致。
   const on = st === "playing" || st === "gen";
-  const solid = cached || on;
-  const ink = solid ? "#fff" : t.fog;
+  const ink = st === "gen" ? t.fog : (cached || on) ? t.tint : t.fog;
+  const label = st === "gen" ? "合成中" : st === "playing" ? "停" : cached ? "听一下" : "听一下";
   return h("button", {
     onClick: e => { e.stopPropagation(); onTap(); },
     "aria-label": cached ? "重播这一句（听过了，不花钱）" : "念出来（这一句要先合成一次）",
     title: cached ? "听过了 · 重播不花钱" : "还没合成过 · 点一下会花一次",
-    className: "shrink-0 self-center active:opacity-60",
-    style: { width: 21, height: 21, borderRadius: 999, marginLeft: 6, padding: 0,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: solid ? t.tint : "transparent",
-      border: solid ? "none" : "1.2px solid " + t.fog }
-  }, st === "gen"
-    ? h("span", { style: { width: 8, height: 8, borderRadius: 2, border: "1.5px solid " + ink, borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
-    : h(Svg, { size: 11, color: ink, sw: 0 },
-        st === "playing"
-          ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: ink })
-          : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: ink })));
+    className: "flex items-center active:opacity-60",
+    // 可点区域比看上去大一圈（负 margin 抵掉，排版一点不变）。
+    // ⚠️没做到 40px：再往上撑就会盖住气泡底边，而长按气泡是核心操作，不能被它抢走。
+    style: { gap: 3, padding: "5px 6px", margin: "-3px -6px", background: "transparent", border: "none",
+      fontFamily: F_BODY, fontSize: 9.5, color: ink, opacity: cached || on ? 1 : 0.75 }
+  },
+    h(Svg, { size: 9, color: ink, sw: 0 },
+      st === "playing"
+        ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: ink })
+        : cached
+          ? h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: ink })
+          // 还没合成过：空心三角——形状也不一样，不只靠颜色（色弱和阳光下只剩形状可依）
+          : h("path", { d: "M9 6.4l7.4 5.6L9 17.6z", fill: "none", stroke: ink, strokeWidth: 1.6, strokeLinejoin: "round" })),
+    h("span", null, label));
 }
 // 懒 TTS 小播放器（通话台词/转录回听共用）：一次只放一条，点了才合成收费；放过的在 ttsSpeak 缓存里，回听免费
 function useTtsPlayer() {
@@ -8559,6 +8568,9 @@ function GroupThread({
   };
   // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
   // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
+  // 气泡底下那一行：「听一下」和「已读 20:19」并排。
+  // 原来那颗圆钮是【气泡的兄弟】，自己占一格、把整行撑宽（她 2026-09-02：「放的略丑」）；
+  // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
     const k = m && m.kind;
@@ -8567,6 +8579,12 @@ function GroupThread({
     const on = tp.play && tp.play.k === "say" + i;
     return h(TtsBubbleDot, { key: "d", text: String(m.content || ""), voiceId: spk.voiceId,
       st: on ? tp.play.st : "idle", onTap: () => speakMsg(i, m) });
+  };
+  const msgFoot = (i, m, sub) => {
+    const dot = sayDot(i, m);
+    if (!dot && !sub) return null;
+    return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
+      dot, sub ? h("span", null, sub) : null);
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
@@ -9072,7 +9090,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), sayDot(i, m), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。

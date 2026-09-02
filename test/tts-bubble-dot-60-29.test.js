@@ -32,18 +32,27 @@ test("钥匙对同一句稳定、对不同参数分得开", () => {
   assert.notEqual(ttsCacheKey("v1", "在吗"), ttsCacheKey("v1", "在吗？"), "不同的话不能撞进同一格");
 });
 
-test("播放键常驻在气泡边上，单聊和群聊两处都挂", () => {
-  assert.equal((comp.match(/subLine\(m\)\)\), sayDot\(i, m\)/g) || []).length, 2,
+test("播放键常驻在气泡底下那一行，单聊和群聊两处都挂", () => {
+  // v60.33：它不再是气泡的兄弟（自己占一格、把整行撑宽），而是这条消息页脚的一项，
+  // 和「已读 20:19」并排、同字号同字色。
+  assert.equal((comp.match(/msgFoot\(i, m,/g) || []).length, 2,
     "一处挂一处不挂，等于这个功能在群里不存在");
+  // ⚠️数个数，别用 match：单聊和群聊各有一份 msgFoot，
+  //   用 match 只咬得住第一份，改坏另一份照样是绿的（实测过）。
+  assert.equal((comp.match(/if \(!dot && !sub\) return null;/g) || []).length, 2,
+    "两样都没有时别留一行空的（两份都要）");
+  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9\.5, color: t\.fog/g) || []).length, 2,
+    "字号字色要跟「已读」那一行一致，不然又变成一个抢眼的钮（两份都要）");
   const sd = comp.slice(comp.indexOf("const sayDot = (i, m) =>"), comp.indexOf("const sayDot = (i, m) =>") + 700);
   assert.match(sd, /if \(!canSpeakMsg\(m\)\) return null/, "门槛跟长按菜单那一项同一个");
   assert.match(sd, /k !== "photo" && k !== "location"\) return null/, "语音条自己气泡上已经有一个了");
 });
 
 test("实心＝听过了不花钱，空心＝这一下要合成", () => {
-  assert.match(dot, /const solid = cached \|\| on;/);
-  assert.match(dot, /background: solid \? t\.tint : "transparent"/);
-  assert.match(dot, /border: solid \? "none" : "1\.2px solid " \+ t\.fog/, "只靠颜色区分，色弱和阳光下看不出来");
+  // v60.33 从「气泡右边一颗圆钮」改成「气泡底下那一行的一项」（她：「放的略丑」）
+  assert.match(dot, /ink = st === "gen" \? t\.fog : \(cached \|\| on\) \? t\.tint : t\.fog/);
+  // 实心三角 vs 空心三角：形状也不一样，不只靠颜色（色弱和阳光下只剩形状可依）
+  assert.match(dot, /cached[\s\S]{0,200}?fill: ink \}\)[\s\S]{0,200}?fill: "none", stroke: ink/);
   assert.match(dot, /cached \? "听过了 · 重播不花钱" : "还没合成过 · 点一下会花一次"/, "说清楚花不花钱");
   assert.match(dot, /aria-label/, "读屏读不到");
 });
