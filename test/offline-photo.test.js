@@ -63,11 +63,12 @@ test("出图这件事只有一份实现，单人和群共用", () => {
   assert.equal((shot.match(/generateSelfieImage\(/g) || []).length, 1, "共用的那份里应当只出一次图");
   const gOff = bodyOf(app, "const genGroupOfflineFrom = async (group, workSess) => {");
   assert.equal((gOff.match(/generateSelfieImage\(/g) || []).length, 0, "群线下不许自己再抄一套出图");
-  const sOff = bodyOf(app, "const genOfflineFrom = async (charId, workSess) => {");
+  const sOff = bodyOf(app, "const genOfflineFrom = async (scopeKey, workSess) => {");
   assert.equal((sOff.match(/generateSelfieImage\(/g) || []).length, 0, "单人线下也不许自己再抄一套");
   assert.match(app, /const runOfflineShot = async \(arg\) => \{/);
   assert.match(app, /if \(groupId\) pushGOffMsg\(groupId, \{ \.\.\.r,/, "群那一路没往群会话里写");
-  assert.match(app, /groupId \? patchGOffMsg\(groupId, sid, q\) : patchOffMsg\(char\.id, sid, q\)/, "改一处该同时落到两处线下");
+  assert.match(app, /groupId \? patchGOffMsg\(groupId, sid, q\) : patchOffMsg\(scopeKey, sid, q\)/,
+    "改一处该同时落到群线下或对应主线／侧房线下");
 });
 
 test("冷却那把尺子认得线下的 role（不认就永远解不开）", () => {
@@ -77,12 +78,13 @@ test("冷却那把尺子认得线下的 role（不认就永远解不开）", () 
 });
 
 test("手动拍一张不花模型调用——画面从状态卡长出来", () => {
-  const i = app.indexOf("const offlineShotNow = async (charId, kind) => {");
+  const i = app.indexOf("const offlineShotNow = async (scopeKey, kind) => {");
   assert.ok(i > 0, "找不到手动拍那条");
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.doesNotMatch(seg, /await (generateOffline|callAI|gen[A-Z])/, "手动拍不许顺手再调一次模型");
   assert.match(seg, /freshLiveStateValue\(st, "action"\)/);
-  assert.match(seg, /runOfflineShot\(\{ char, kind, scene \}\)/);
+  assert.match(seg, /runOfflineShot\(\{ char, scopeKey, kind, scene \}\)/,
+    "拍下的照片要回到当前主线或侧房作用域");
 });
 
 test("界面：线下那张卡认得照片，抽屉里能当场拍", () => {

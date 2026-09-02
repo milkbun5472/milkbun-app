@@ -4341,7 +4341,7 @@ function ChatThread({
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
-  schedNow && h("button", {
+  (!room || room.main) && schedNow && h("button", {
     onClick: onOpenSched,
     className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
     style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
@@ -6949,13 +6949,13 @@ function CenterCard({ children, onClose, maxWidth }) {
 }
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, roomName
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
   const [page, setPage] = useState("now"); // 此刻 | Ta 眼里
   const hist = history || [];
-  const dmRaw = decayMood(mood) || { label: "平静", def: true };
+  const dmRaw = decayMood(mood) || (roomName ? null : { label: "平静", def: true });
   const dm = window.MoodLabel ? window.MoodLabel.normalizeMood(dmRaw) : dmRaw;
   const aff = typeof affinity === "number" ? affinity : 50;
   const S = v => String(v == null ? "" : v).trim();
@@ -6972,9 +6972,9 @@ function StateCard({
     h("div", { className: "flex-1 min-w-0" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, character.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
-        (!isNpc && dm) ? h("span", { style: { color: t.accent } }, dm.label) : null,
-        (!isNpc && dm) ? " · " : "",
-        dm && dm.def ? "聊几句就会变"
+        roomName ? h("span", { style: { color: t.accent } }, roomName + " · 心声只留在本房") : (!isNpc && dm) ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        (!roomName && !isNpc && dm) ? " · " : "",
+        roomName ? "" : dm && dm.def ? "聊几句就会变"
           : dm && dm.faded ? "已经平复下去了"
             : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
     h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
@@ -6992,7 +6992,7 @@ function StateCard({
   // 颜色从冷到暖：没什么感觉是灰蓝的，一路暖到深红。
   const heartInk = aff >= 80 ? "#b83b4e" : aff >= 60 ? "#c4606f" : aff >= 40 ? "#c58089" : aff >= 20 ? "#b08a86" : "#8794a6";
   const lvl = Math.max(0, Math.min(100, aff)) / 100;
-  const scale = isNpc ? null : h("div", { className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
+  const scale = (isNpc || roomName) ? null : h("div", { className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
     h("div", { style: { position: "relative", width: 78, height: 78, flexShrink: 0 } },
       h("svg", { viewBox: "0 0 24 24", width: 78, height: 78, "aria-hidden": "true", style: { display: "block", overflow: "visible" } },
         h("defs", null, h("clipPath", { id: "sc-heart" }, h("path", { d: HEART_D }))),
@@ -7035,7 +7035,7 @@ function StateCard({
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [s2.action, s2.wearing].filter(Boolean).join(" · ")) : null))))
     : h(Fragment, null,
-      (!state && !dm) ? h(Empty, { text: "还没有状态", sub: "和" + scTa + "聊几句，状态会自动生成" }) : null,
+      (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? "这间房还没有心声" : "还没有状态", sub: roomName ? "在这里聊过或赴约后，会只为本房留下" : "和" + scTa + "聊几句，状态会自动生成" }) : null,
       // 看得见的：穿着和动作本来就是同一眼看到的东西，合成一段——
       // 拆成两张并排的卡，那是状态面板的做法。
       // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
@@ -7179,6 +7179,7 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
 }
 function OfflineMode({
   char,
+  room,
   profile,
   sessions,
   activeSession,
@@ -7496,9 +7497,9 @@ function OfflineMode({
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + cName),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "线下面对面")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, room && !room.main ? room.name + " · 独立" : "线下面对面")),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.fog, marginBottom: 18 } }, "进入线下后，你和 " + cName + " 默认身处同一个地方，Ta 会带动作、心理与旁白地演绎。可以先铺垫一句开场，选一个文风。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.fog, marginBottom: 18 } }, "进入线下后，你和 " + cName + " 默认身处同一个地方，Ta 会带动作、心理与旁白地演绎。" + (room && !room.main ? "这场只属于「" + room.name + "」，心声和记录不写回主时间线。" : "") + "可以先铺垫一句开场，选一个文风。"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "开场白 / 铺垫第一句剧情"),
         h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*雨下得很大，我推门进了那家咖啡馆，看见你已经坐在窗边*（留空则由 Ta 起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 8 } }, "文风预设"),
@@ -7539,11 +7540,11 @@ function OfflineMode({
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "OFFLINE · 线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "OFFLINE · 线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
-    schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : t.bg2), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
+    (!room || room.main) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : t.bg2), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
       h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
       schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),

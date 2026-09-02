@@ -15,7 +15,8 @@ const singleOffline = engine.match(/async function generateOffline\([\s\S]*?asyn
 const groupOffline = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)[0];
 
 test("单聊线下要发【写】指令，而且是和线上同一份 Gaze.spec", () => {
-  assert.match(app, /oCtx\.gazeSpec = \(!settingsFor\(charId\)\.engineerEyes && window\.Gaze\) \? window\.Gaze\.spec\("对方", charId\) : ""/);
+  assert.match(app, /oCtx\.gazeSpec = \(!sideRoom && !settingsFor\(charId\)\.engineerEyes && window\.Gaze\) \? window\.Gaze\.spec\("对方", charId\) : ""/,
+    "主线线下继续写同一份 Gaze，侧房必须隔离人格成长");
   assert.match(singleOffline, /const gazeSpecBlock = \(!isDigital && ctx\.gazeSpec/, "数字生命不发扮演类规则");
   assert.match(singleOffline, /outputSpec \+ stateBootstrapHint \+ gazeSpecBlock/, "拼进去了才算发，声明一次不算");
   assert.match(singleOffline, /impressionChecked/, "「看过了不用改」这条路线下也得有，否则同一块会被问到天荒地老");

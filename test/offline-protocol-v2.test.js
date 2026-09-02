@@ -84,8 +84,9 @@ test("offline null state semantics preserve durable state and clear stale though
 
 test("ordinary single offline establishes missing durable state exactly once", () => {
   assert.match(app, /const currentOfflineState = statesRef\.current\[charId\] \|\| \{\}/);
-  assert.match(app, /oCtx\.curWear = freshLiveStateValue\(currentOfflineState, "wearing"\)/);
-  assert.match(app, /oCtx\.curAction = freshLiveStateValue\(currentOfflineState, "action"\)/);
+  assert.match(app, /const scopedOfflineState = sideRoom \? \(roomStatesRef\.current\[scopeKey\] \|\| \{\}\) : currentOfflineState/);
+  assert.match(app, /oCtx\.curWear = freshLiveStateValue\(scopedOfflineState, "wearing"\)/);
+  assert.match(app, /oCtx\.curAction = freshLiveStateValue\(scopedOfflineState, "action"\)/);
   const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
   assert.match(single, /const missingStateFields = \[\]/);
   assert.match(single, /!isDigital && !String\(ctx\.curWear \|\| ""\)\.trim\(\)/);

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.14";
+const APP_VERSION = "v60.15";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -259,6 +259,11 @@ function App() {
   const [stateHist, setStateHist] = useState({});
   const statesRef = useRef(states); statesRef.current = states;
   const stateHistRef = useRef(stateHist); stateHistRef.current = stateHist;
+  // 侧房心声是一套独立账：key=person::room::roomId。它不参与主房 states、人格成长或关系 shadow。
+  const [roomStates, setRoomStates] = useState({});
+  const [roomStateHist, setRoomStateHist] = useState({});
+  const roomStatesRef = useRef(roomStates); roomStatesRef.current = roomStates;
+  const roomStateHistRef = useRef(roomStateHist); roomStateHistRef.current = roomStateHist;
   const [directives, setDirectives] = useState({}); // {charId:[{id,text,ts}]} 用户经 OOC 立的长期行为准则
   const [desires, setDesires] = useState({}); // {charId:{list,log,lastMuse}} 欲望盒子（内容只有角色落笔，js 只干体力活，见 js/desire.js）
   const desiresRef = useRef(desires);
@@ -518,6 +523,7 @@ function App() {
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
+  const [stateCardRoomKey, setStateCardRoomKey] = useState(null); // 侧房自己的心声卡；null 才读主房状态
   // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
   const [gazeSeedBusy, setGazeSeedBusy] = useState(false);
   const GAZE_AUTOSEED_MSGS = 10; // 聊够十条(约五个来回)才自动建卡:更早建出来的只会是空话
@@ -578,7 +584,8 @@ function App() {
   const [call, setCall] = useState(null); // {participants:[char], mode:"voice"|"video", groupId, msgs:[]}
   const callRef = useRef(null);
   const [offlineChar, setOfflineChar] = useState(null);
-  const [offlines, setOfflines] = useState({}); // charId -> [session,...] newest-first
+  const [offlineRoomId, setOfflineRoomId] = useState("main");
+  const [offlines, setOfflines] = useState({}); // main charId 或 room chatKey -> [session,...] newest-first
   const [offlineRegisterTelemetry, setOfflineRegisterTelemetry] = useState({}); // v52.68 实验诊断：只驻内存，不进剧情历史/模型
   // 线下模式设置 { [charId 或 "g_"+groupId]: {selfP,userP,describeMe,maxTokens} }
   const [offlineSettings, setOfflineSettings] = useState({});
@@ -742,6 +749,7 @@ function App() {
     setAnon(loadJSON("x_anon", {}));
     setBlocks(loadJSON("x_blocks", {}));
     setStateHist(loadJSON("x_stateHist", {}));
+    setRoomStateHist(loadJSON("x_roomStateHist", {}));
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setCalEvents(loadJSON("x_calEvents", []));
     setPhoneArch(loadJSON("x_phoneArch", {}));
@@ -765,6 +773,7 @@ function App() {
     setAffinities(loadJSON("x_affinities", {}));
     setMoods(loadJSON("x_moods", {}));
     setStates(loadJSON("x_states", {}));
+    setRoomStates(loadJSON("x_roomStates", {}));
     setDirectives(loadJSON("x_directives", {}));
     setDesires(loadJSON("x_desires", {}));
     setMemories(loadJSON("x_memories", {}));
@@ -1515,9 +1524,11 @@ function App() {
   }, []);
   useEffect(() => {
     if (screen === "thread" || screen === "gthread" || offlineChar || offlineGroup || call) {
-      try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onSessionOpenNoMessage(Date.now(), screen === "thread" && activeChar ? activeChar.id : offlineChar ? offlineChar.id : null); } catch (e) {}
+      const sideThread = screen === "thread" && activeRoomId !== "main";
+      const sideOffline = !!offlineChar && offlineRoomId !== "main";
+      try { if (!sideThread && !sideOffline) window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onSessionOpenNoMessage(Date.now(), screen === "thread" && activeChar ? activeChar.id : offlineChar ? offlineChar.id : null); } catch (e) {}
     }
-  }, [screen, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
+  }, [screen, activeRoomId, offlineRoomId, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
   // 剥掉模型偶尔照抄的历史时间标注：〔今天07:57〕/〔昨天20:11〕/〔7/13 07:57〕/〔07:57〕（system 已明令禁止但拦不住，输出侧兜底，她 2026-07-13 截图）
   const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
@@ -1872,6 +1883,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_stateHist", n);
       return n;
     });
+  };
+  const setRoomThought = (roomKey, thought, meta) => {
+    if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
+    const clean = thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(thought) : String(thought || "").trim();
+    const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
+    const next = clean
+      ? { ...prev, thought: clean, thoughtUpdatedAt: ts, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null }
+      : { ...prev, thought: null, thoughtUpdatedAt: 0, ts, turnId: meta && meta.turnId || null };
+    const statesNext = { ...roomStatesRef.current, [roomKey]: next };
+    roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
+    if (!clean) return;
+    const oldHist = roomStateHistRef.current[roomKey] || [];
+    if (oldHist[0] && oldHist[0].thought === clean) return;
+    const histNext = { ...roomStateHistRef.current, [roomKey]: [{ thought: clean, mood: next.mood, ts, turnId: next.turnId }, ...oldHist].slice(0, 60) };
+    roomStateHistRef.current = histNext; setRoomStateHist(histNext); saveJSON("x_roomStateHist", histNext);
   };
   const rollbackCharTurns = (charId, turns, legacyLatest) => {
     if (!window.RerollBranch) return;
@@ -3944,7 +3970,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 触发一次——跳回线上后不再自动弹（尊重你主动离开）；下次从列表重新进这个聊天才会再默认开。
   const autoOfflineRef = useRef(null);
   useEffect(() => {
-    if (screen !== "thread" || !activeChar) { autoOfflineRef.current = null; return; }
+    if (screen !== "thread" || !activeChar || activeRoomId !== "main") { autoOfflineRef.current = null; return; }
     const cid = activeChar.id;
     if (autoOfflineRef.current === cid) return;
     autoOfflineRef.current = cid;
@@ -3954,7 +3980,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const hasActive = (list || []).some(s => s && !s.endTs);
     openOffline(activeChar);
     if (!hasActive) startOffline(cid, {});
-  }, [screen, activeChar]);
+  }, [screen, activeRoomId, activeChar]);
   // ---- 群「默认进线下」（她 2026-07-23，同处一室/常聚的群）：点进开了的群，直接进群线下；随时离开跳回线上。同单聊，进入触发一次。----
   const autoGOfflineRef = useRef(null);
   useEffect(() => {
@@ -4348,20 +4374,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   useEffect(() => {
     offlinesRef.current = offlines;
   }, [offlines]);
-  const pOffline = (charId, updater) => setOfflines(prev => {
-    const before = prev[charId] || [];
+  const offlinePersonId = scopeKey => window.ChatRooms ? window.ChatRooms.personFromKey(scopeKey) : String(scopeKey);
+  const offlineIsRoom = scopeKey => !!(window.ChatRooms && window.ChatRooms.isSideKey(scopeKey));
+  const offlineRoomFor = scopeKey => {
+    if (!offlineIsRoom(scopeKey) || !window.ChatRooms) return null;
+    const personId = offlinePersonId(scopeKey), roomId = String(scopeKey).split("::room::")[1];
+    return window.ChatRooms.get(personId, roomId);
+  };
+  const pOffline = (scopeKey, updater) => setOfflines(prev => {
+    const before = prev[scopeKey] || [];
     const next = updater(before);
-    saveJSON("x_offline:" + charId, next);
-    if (window.ChatLedgerShadow) queueLedger("offline", charId, window.ChatLedgerShadow.addedSessionMessages(before, next), null, charId);
-    const n = { ...prev, [charId]: next };
+    saveJSON("x_offline:" + scopeKey, next);
+    if (!offlineIsRoom(scopeKey) && window.ChatLedgerShadow) queueLedger("offline", scopeKey, window.ChatLedgerShadow.addedSessionMessages(before, next), null, scopeKey);
+    const n = { ...prev, [scopeKey]: next };
     offlinesRef.current = n;
     return n;
   });
-  const pushOffMsg = (charId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); observeSomatic(charId, msg, "offline", "physical"); pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
-  const openOffline = char => {
-    const list = loadJSON("x_offline:" + char.id, []);
-    setOfflines(prev => ({ ...prev, [char.id]: list }));
-    offlinesRef.current = { ...offlinesRef.current, [char.id]: list };
+  const pushOffMsg = (scopeKey, msg) => {
+    const charId = offlinePersonId(scopeKey);
+    if (!offlineIsRoom(scopeKey)) {
+      if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts);
+      observeSomatic(charId, msg, "offline", "physical");
+    }
+    pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s));
+  };
+  const openOffline = (char, room) => {
+    const rid = room && !room.main ? room.id : "main";
+    const scopeKey = window.ChatRooms ? window.ChatRooms.chatKey(char.id, rid) : char.id;
+    const list = loadJSON("x_offline:" + scopeKey, []);
+    setOfflines(prev => ({ ...prev, [scopeKey]: list }));
+    offlinesRef.current = { ...offlinesRef.current, [scopeKey]: list };
+    setOfflineRoomId(rid);
     setOfflineChar(char);
   };
   // 线下滚动总结（她 2026-07-23 报的长线下失忆隐患）：一轮线下长期不结束时，早段既会掉出模型上下文、
@@ -4370,11 +4413,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   只喂前情提要+近窗明细，见 genOfflineFrom）。结束时的整场总结照旧，两者各司其职。
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
   const offSumBusyRef = useRef({});
-  const maybeSummarizeOffline = async charId => {
+  const maybeSummarizeOffline = async scopeKey => {
+    if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
+    const charId = offlinePersonId(scopeKey);
     if (!offlineApiFor(charId) || offSumBusyRef.current[charId]) return;
     const char = characters.find(c => c.id === charId);
     if (!char) return;
-    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs);
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const all = sess.msgs || [];
     const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
@@ -4391,7 +4436,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
         (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
         (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
-        pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
@@ -4400,10 +4445,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   走独立书签/计数，liveMessages 传线下自己这段（否则线上核验会把线下证据全过滤掉）。与滚动总结并行、各抽各的粒度。
   const memExtractCtrOffRef = useRef({});
   const memExtractMarkOffRef = useRef({});
-  const maybeAutoExtractOffline = async charId => {
+  const maybeAutoExtractOffline = async scopeKey => {
+    if (offlineIsRoom(scopeKey)) return;
+    const charId = offlinePersonId(scopeKey);
     const cfg = memCfgRef.current;
     if (!cfg.autoExtract || !active) return;
-    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs);
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const interval = Math.max(1, cfg.extractInterval || 1);
     const cnt = (memExtractCtrOffRef.current[charId] || 0) + 1;
@@ -4448,6 +4495,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const runOfflineShot = async (arg) => {
     const char = arg && arg.char;
     const groupId = arg && arg.groupId;
+    const scopeKey = (arg && arg.scopeKey) || (char && char.id);
     const scene = String((arg && arg.scene) || "").trim();
     if (!char || !offlinePhotoCan(char) || !scene) return false;
     // 合照必须两张参考照都在，否则降级成「她替他拍的单人照」——绝不一张真一张编。
@@ -4460,7 +4508,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const push = extra => {
       const r = { ...row, ...extra };
       if (groupId) pushGOffMsg(groupId, { ...r, id: "gc_" + Date.now(), senderId: char.id, senderName: char.name });
-      else pushOffMsg(char.id, r);
+      else pushOffMsg(scopeKey, r);
     };
     // 占位先挂上，好让她知道在拍——但【图秒回或秒挂】的时候不要挂：
     // 线下那份是 durable 键，两次写进得太近会撞上 WAL 的读回自检（后一次盖掉前一次
@@ -4472,7 +4520,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const patch = q => {
       clearTimeout(holdTimer);
       if (!placed) { placed = true; push(q); return; }
-      return groupId ? patchGOffMsg(groupId, sid, q) : patchOffMsg(char.id, sid, q);
+      return groupId ? patchGOffMsg(groupId, sid, q) : patchOffMsg(scopeKey, sid, q);
     };
     try {
       const st = statesRef.current[char.id] || {};
@@ -4481,7 +4529,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const freshCond = freshLiveStateValue(st, "condition");
       // 连贯参考图：这一场线下里这个人最近一张已生成的图，只取 6 小时内的。
       // 原始参考照永远比生成图可信，只有完全没有参考照时才让生成图临时当锚。
-      const sessList = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[char.id] || []);
+      const sessList = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[scopeKey] || []);
       const sess = sessList.find(x => !x.endTs) || { msgs: [] };
       const prevShot = (sess.msgs || []).slice().reverse()
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
@@ -4539,7 +4587,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 她自己按【拍一张】：零模型调用。画面从此刻的状态卡长出来——
   // 「在哪、在干嘛、穿什么」正好就是一格照片需要的全部，不必再花一次调用去问模型。
-  const offlineShotNow = async (charId, kind) => {
+  const offlineShotNow = async (scopeKey, kind) => {
+    const charId = offlinePersonId(scopeKey);
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
@@ -4547,9 +4596,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const st = statesRef.current[charId] || {};
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
-    await runOfflineShot({ char, kind, scene });
+    await runOfflineShot({ char, scopeKey, kind, scene });
   };
-  const genOfflineFrom = async (charId, workSess) => {
+  const genOfflineFrom = async (scopeKey, workSess) => {
+    const charId = offlinePersonId(scopeKey);
+    const sideRoom = offlineRoomFor(scopeKey);
     const char = characters.find(c => c.id === charId);
     if (!offlineApiFor(charId)) {
       toast("请先到设置配置 API");
@@ -4559,9 +4610,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("先说点什么，或写一句开场");
       return;
     }
-    startLane("c:" + charId);
+    startLane("c:" + scopeKey);
     try {
       const oCtx = ctxFor(char);
+      if (sideRoom) {
+        const rc = sideRoom.cognition || {};
+        oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || []) : "";
+        // 侧房永远不接现实钟、定位和行程；旧房间数据里开过权限也不例外。
+        oCtx.schedNow = ""; oCtx.timeAware = false; oCtx.geo = null;
+        if (!rc.formalMemory) { oCtx.memory = ""; oCtx.memLib = []; oCtx.ccContinuity = ""; oCtx.yanqiuWall = ""; }
+        if (!rc.innerLife) { oCtx.moodLabel = null; oCtx.moodNote = ""; oCtx.gazeText = ""; oCtx.personaGrown = ""; oCtx.personaEvolve = false; }
+        if (!rc.otherScenes) { oCtx.offlineNow = ""; oCtx.groupEcho = ""; oCtx.groupOfflineEcho = ""; oCtx.forumEcho = ""; oCtx.forumPmLog = ""; oCtx.momentLog = ""; }
+      }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
       oCtx.wantReasoning = !settingsFor(charId).engineerEyes && !!settingsFor(charId).showReasoning;
@@ -4569,7 +4629,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 「Ta 眼里」以前只有单聊线上在写：线下读得到这张卡（buildBundle 发 gazeText），
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
-      oCtx.gazeSpec = (!settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
+      oCtx.gazeSpec = (!sideRoom && !settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
       // 他刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
       // 跟线上同一套判据和同一道闸——只认这一场里刚递过来的真照片，换头像另吃七天冷却。
       const _offSeen = settingsFor(charId).engineerEyes ? null : freshOfflinePhoto(charId);
@@ -4581,13 +4641,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
       const currentOfflineState = statesRef.current[charId] || {};
-      oCtx.curWear = freshLiveStateValue(currentOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
-      oCtx.curAction = freshLiveStateValue(currentOfflineState, "action"); // 短时活动不跨几个小时硬续
-      oCtx.curCondition = freshLiveStateValue(currentOfflineState, "condition"); // 伤/病/醉/累：12 小时内有效，好了就清
+      const scopedOfflineState = sideRoom ? (roomStatesRef.current[scopeKey] || {}) : currentOfflineState;
+      oCtx.curWear = freshLiveStateValue(scopedOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
+      oCtx.curAction = freshLiveStateValue(scopedOfflineState, "action"); // 短时活动不跨几个小时硬续
+      oCtx.curCondition = freshLiveStateValue(scopedOfflineState, "condition"); // 伤/病/醉/累：12 小时内有效，好了就清
       const oMemN = osFor(charId).memN;
       // 向量记忆：预热线下这段的查询向量，让下面的同步检索走语义相似度（失败自动纯关键词）
-      if (typeof primeQueryVec === "function" && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
-      if (oMemN != null) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
+      if (typeof primeQueryVec === "function" && (!sideRoom || (sideRoom.cognition || {}).formalMemory) && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
+      if (oMemN != null && (!sideRoom || (sideRoom.cognition || {}).formalMemory)) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
       // 配件·授权门（线下）：线下天然是用户当面在场，只需 已连+已激活给本角色+该角色 opt-in+已解锁
       const offToyOn = !!(typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && settingsFor(charId) && settingsFor(charId).toyEnabled
@@ -4599,7 +4660,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 再与线下逐条记录按 ts 合成一条时间线。只进入本轮 prompt，不写回线下档案。
       // engineerEyes/言秋保持原路径，本修复不碰其专线与上下文预算。
       const _onlineCtxN = Math.max(0, Number(osFor(charId).onlineCtxN ?? settingsFor(charId).ctxN ?? 50));
-      const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[charId] || [])
+      const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[sideRoom ? scopeKey : charId] || [])
         .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog")
         .sort((a, b) => (a.ts || 0) - (b.ts || 0))
         .slice(-_onlineCtxN)
@@ -4621,7 +4682,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _want = res.minimumLengthShortTarget || 0;
         toast("这篇只写到 " + _got + " 字" + (_want ? "，没到你设的 " + _want + " 字" : "") + "（" + res.minimumLengthShortBecause + "）。正文已经保留——想更长就对这条点重写，或把最低字数调低一点", 9000);
       }
-      setOfflineRegisterTelemetry(p => ({ ...p, [charId]: {
+      setOfflineRegisterTelemetry(p => ({ ...p, [scopeKey]: {
         transitionBefore: !!res.registerTransitionBefore,
         transitionAfter: !!res.registerTransitionAfter,
         registerCalibrationInjected: !!res.registerCalibrationInjected,
@@ -4654,7 +4715,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ts: Date.now()
       } }));
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
-      pushOffMsg(charId, {
+      pushOffMsg(scopeKey, {
         id: "c_" + Date.now(),
         role: "char",
         content: res.scene,
@@ -4678,19 +4739,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 这一拍真拍下了一张：不 await，让正文先落地，图自己在后面补进来。
       if (_offSeen && res.photoSeen) applyPhotoSeen(charId, _offSeen, res.photoSeen, _offSeenAvatarOk,
-        (same, note) => pOffline(charId, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
-      if (res.photo && res.photo.scene) runOfflineShot({ char, kind: res.photo.kind, scene: res.photo.scene });
+        (same, note) => pOffline(scopeKey, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
+      if (res.photo && res.photo.scene) runOfflineShot({ char, scopeKey, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
-      if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
-      tickAmbient(charId, {}); // 线下也计动态保底（她 2026-07-13 点名）——在线下泡久了，动态计数不冻结
+      if (!sideRoom && Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
+      if (!sideRoom) tickAmbient(charId, {}); // 侧房不推动主时间线的人格/动态生态
       // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
       // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
       // v55.67 改成每轮必填。这里再加一只计数器：还是不回就说出来，别又变成静默失败。
-      if (res.mood && res.mood.label) { setMoodFor(charId, { ...res.mood, ts: Date.now() }); _moodSkip(charId, true); }
-      else _moodSkip(charId, false);
+      if (!sideRoom) {
+        if (res.mood && res.mood.label) { setMoodFor(charId, { ...res.mood, ts: Date.now() }); _moodSkip(charId, true); }
+        else _moodSkip(charId, false);
+      }
       // Ta 眼里：线下也写。判据和线上完全一样——写了就清零、没写就计一轮，
       // 数出来才分得清「这阵子真没变化」和「它压根不写」。
-      if (window.Gaze && !settingsFor(charId).engineerEyes) {
+      if (!sideRoom && window.Gaze && !settingsFor(charId).engineerEyes) {
         let _offImpWrote = false;
         if (res.impression) { try { _offImpWrote = window.Gaze.applyParsed(charId, res.impression); } catch (e) {} }
         if (!_offImpWrote && res.impressionChecked && window.Gaze.markChecked) {
@@ -4713,18 +4776,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
-      if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
+      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, turnId: offTurnId });
+      else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 jiwen 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
-      setTimeout(() => maybeSummarizeOffline(charId), 120); // 长线下防失忆：攒够就把早段滚动总结进记忆库（仿线上）
-      setTimeout(() => maybeAutoExtractOffline(charId), 200); // 线下也自动抽取离散记忆（她 2026-07-23）
+      setTimeout(() => maybeSummarizeOffline(scopeKey), 120); // 侧房函数内硬隔离，不进入主记忆
+      setTimeout(() => maybeAutoExtractOffline(scopeKey), 200);
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
-      endLane("c:" + charId);
+      endLane("c:" + scopeKey);
     }
   };
-  const startOffline = async (charId, opts) => {
+  const startOffline = async (scopeKey, opts) => {
+    const charId = offlinePersonId(scopeKey);
     const opening = (opts.opening || "").trim();
     const sess = {
       id: "off_" + Date.now(),
@@ -4738,141 +4803,152 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       customNotes: [],
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
-    pOffline(charId, list => [sess, ...list.filter(s => s.endTs)]);
-    if (opening) await genOfflineFrom(charId, sess);
+    pOffline(scopeKey, list => [sess, ...list.filter(s => s.endTs)]);
+    if (opening) await genOfflineFrom(scopeKey, sess);
   };
-  const offlineSend = (charId, text) => pushOffMsg(charId, {
+  const offlineSend = (scopeKey, text) => pushOffMsg(scopeKey, {
     id: "u_" + Date.now(),
     role: "user",
     content: text,
     ts: Date.now()
   });
-  const offlineSendPhoto = (charId, photo) => pushOffMsg(charId, {
+  const offlineSendPhoto = (scopeKey, photo) => pushOffMsg(scopeKey, {
     id: "u_" + Date.now(), role: "user", kind: "photo", imageRef: photo.imageRef,
     desc: photo.desc || "", content: photo.content || "[照片]", ts: Date.now()
   });
-  const offlineReply = async (charId, extraText) => {
-    if (laneBusy("c:" + charId)) return;
-    const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
+  const offlineReply = async (scopeKey, extraText) => {
+    if (laneBusy("c:" + scopeKey)) return;
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) return;
     let msgs = sess.msgs;
     if (extraText && extraText.trim()) {
       const um = { id: "u_" + Date.now(), role: "user", content: extraText.trim(), ts: Date.now() };
-      pushOffMsg(charId, um);
+      pushOffMsg(scopeKey, um);
       msgs = [...msgs, um];
     }
     const autonomousContinue = !!(window.OfflineContinuation && window.OfflineContinuation.isAutonomousContinuation(msgs));
-    await genOfflineFrom(charId, { ...sess, msgs, autonomousContinue });
+    await genOfflineFrom(scopeKey, { ...sess, msgs, autonomousContinue });
   };
   // 线下 OOC：跳出角色和模型直说（问状态 / 肘击 / 立长期准则），把这段线下经过一起喂给它
-  const offlineOOC = async (charId, text) => {
-    if (laneBusy("c:" + charId) || !text || !text.trim()) return;
+  const offlineOOC = async (scopeKey, text) => {
+    const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey);
+    if (laneBusy("c:" + scopeKey) || !text || !text.trim()) return;
     const char = characters.find(c => c.id === charId);
-    const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) { toast("先开一场线下"); return; }
-    pushOffMsg(charId, { id: "u_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
+    pushOffMsg(scopeKey, { id: "u_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
     if (!offlineApiFor(charId)) { toast("请先到设置配置 API"); return; }
-    startLane("c:" + charId);
+    startLane("c:" + scopeKey);
     try {
       const uName = (profile && profile.name) || "我";
       const offText = (sess.msgs || []).filter(m => m.kind !== "ooc").slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
       const res = await oocAsk(offlineApiFor(charId), ctxFor(char), q);
-      if (res.directive && !res.refused) addDirective(charId, res.directive);
-      pushOffMsg(charId, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
+      if (!sideRoom && res.directive && !res.refused) addDirective(charId, res.directive);
+      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
-      endLane("c:" + charId);
+      endLane("c:" + scopeKey);
     }
   };
-  const offlineDelSession = (charId, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
-    const before = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []);
+  const offlineDelSession = (scopeKey, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
+    const before = offlinesRef.current[scopeKey] || loadJSON("x_offline:" + scopeKey, []);
     let idx = before.findIndex(s => sessId != null && s && s.id === sessId);
     if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < before.length) idx = fallbackIndex;
     if (idx < 0) return toast("没找到这条线下记录");
     const next = before.filter((_, i) => i !== idx);
-    const wrote = await commitJSONDurable("x_offline:" + charId, next);
+    const wrote = await commitJSONDurable("x_offline:" + scopeKey, next);
     if (!wrote.durable || !wrote.live) return toast("这次没删成功，记录还在，请再试一次", 5000);
-    const n = { ...offlinesRef.current, [charId]: next };
-    offlinesRef.current = n; setOfflines(prev => ({ ...prev, [charId]: next }));
-    if (window.ChatLedgerShadow) queueLedger("offline", charId, window.ChatLedgerShadow.addedSessionMessages(before, next), null, charId);
+    const n = { ...offlinesRef.current, [scopeKey]: next };
+    offlinesRef.current = n; setOfflines(prev => ({ ...prev, [scopeKey]: next }));
+    if (!offlineIsRoom(scopeKey) && window.ChatLedgerShadow) queueLedger("offline", scopeKey, window.ChatLedgerShadow.addedSessionMessages(before, next), null, scopeKey);
     toast("已删除线下记录");
   }, "删除");
-  const offlineEditMsg = (charId, msgId, text) => pOffline(charId, list => list.map(s => {
+  const offlineEditMsg = (scopeKey, msgId, text) => pOffline(scopeKey, list => list.map(s => {
     if (s.endTs) return s;
     const idx = s.msgs.findIndex(m => m.id === msgId), next = s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m);
-    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "edit", charId, before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
+    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "edit", charId: offlinePersonId(scopeKey), before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
     return { ...s, msgs: next };
   }));
-  const offlineDelMsg = (charId, msgId, fallbackIndex) => pOffline(charId, list => list.map(s => {
+  const offlineDelMsg = (scopeKey, msgId, fallbackIndex) => pOffline(scopeKey, list => list.map(s => {
     if (s.endTs) return s;
     let idx = s.msgs.findIndex(m => msgId != null && m.id === msgId);
     if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < s.msgs.length) idx = fallbackIndex;
     if (idx < 0) return s;
     const next = s.msgs.filter((_, i) => i !== idx);
-    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "delete", charId, before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
+    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "delete", charId: offlinePersonId(scopeKey), before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
     return { ...s, msgs: next };
   }));
-  const offlineRerollMsg = async (charId, msgId) => {
-    if (laneBusy("c:" + charId)) return;
-    const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
+  const offlineRerollMsg = async (scopeKey, msgId) => {
+    const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey);
+    if (laneBusy("c:" + scopeKey)) return;
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
     const truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
     const removed = sess.msgs.slice(idx), turns = removed.map(m => m && m.turnId).filter(Boolean);
-    const y = ledgerYanqiu(); if (y && String(y.id) === String(charId) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "offline", threadId: y.id }, removed);
+    const y = ledgerYanqiu(); if (!sideRoom && y && String(y.id) === String(charId) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "offline", threadId: y.id }, removed);
     const legacyLatest = !turns.length && idx === sess.msgs.map(m => m.role === "char" ? 1 : 0).lastIndexOf(1)
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
-    rollbackCharTurns(charId, turns, legacyLatest);
+    if (!sideRoom) rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
-    pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    if (sideRoom) {
+      const prior = truncated.slice().reverse().find(m => m && m.role === "char" && m.thought);
+      setRoomThought(scopeKey, prior && prior.thought || "", { mood: prior && prior.mood || "", turnId: prior && prior.turnId || null });
+    }
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去，逼模型给一个明显不同的版本（她 2026-07-25：reroll 出来和原文差不多）
     const rerollAvoid = removed.filter(m => m && m.role === "char" && m.content).map(m => String(m.content)).join("\n---\n");
-    await genOfflineFrom(charId, { ...sess, msgs: truncated, rerollAvoid });
+    await genOfflineFrom(scopeKey, { ...sess, msgs: truncated, rerollAvoid });
   };
-  const offlineAddNote = (charId, note) => {
-    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
+  const offlineAddNote = (scopeKey, note) => {
+    pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
     toast("已加入提示");
   };
   // 线下进行中随时切换文风（不同剧情段落用不同笔调）
-  const offlineSetStyle = (charId, patch) => {
-    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste(charId) } : s));
+  const offlineSetStyle = (scopeKey, patch) => {
+    const charId = offlinePersonId(scopeKey);
+    pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste(charId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
-  const endOffline = async charId => {
+  const endOffline = async scopeKey => {
+    const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey), sideRoomData = offlineRoomFor(scopeKey);
     const char = characters.find(c => c.id === charId);
-    const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
+    const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) {
       setOfflineChar(null);
+      setOfflineRoomId("main");
       return;
     }
     // 什么都没发生就直接丢弃，不留空记录
     if ((sess.msgs || []).filter(m => m.role !== "narration").length === 0) {
-      pOffline(charId, list => list.filter(s => s.id !== sess.id));
+      pOffline(scopeKey, list => list.filter(s => s.id !== sess.id));
       setOfflineChar(null);
+      setOfflineRoomId("main");
       return;
     }
-    startLane("c:" + charId);
+    startLane("c:" + scopeKey);
     let summary = "", details = [], opens = [];
     try {
-      if (offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
-    pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
+    if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
     // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
-    details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
-    opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
+    if (!sideRoom) details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
+    if (!sideRoom) opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
-    pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ts: Date.now() }]);
+    if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
-    endLane("c:" + charId);
-    toast(summary ? "已记入记忆库" : "已结束");
+    endLane("c:" + scopeKey);
+    toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」" : (summary ? "已记入记忆库" : "已结束"));
     setOfflineChar(null);
+    setOfflineRoomId("main");
   };
   // ---- 群聊线下模式（多人赴约）----
   useEffect(() => {
@@ -5681,6 +5757,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     opts = opts || {};
     const chatKey = opts.chatKey || charId;
     const room = opts.room || null;
+    const sideRoom = !!(room && !room.main);
     let delivered = false;
     if (laneBusy("c:" + chatKey)) return false;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
@@ -5731,7 +5808,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return false;
     }
-    try { if (!room || (room.writeback && room.writeback.sharedState)) window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
+    try { if (!sideRoom) window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
     startLane("c:" + chatKey);
@@ -5745,7 +5822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 它只是本轮背景，不写记忆、不替角色作决定；本轮真正成功落地后才消费，调用失败可下轮再用。
       let eLiveProjection = null, eAfterglowHint = "";
       try {
-        const eArmed = !opts.proactive && window.InnerLifePromotionGate && window.InnerLifePromotionGate.isPilotEnabled("E", charId);
+        const eArmed = !sideRoom && !opts.proactive && window.InnerLifePromotionGate && window.InnerLifePromotionGate.isPilotEnabled("E", charId);
         if (eArmed && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.liveProjection) {
           eLiveProjection = await window.InnerLifeETidalShadow.liveProjection(charId, Date.now());
           if (eLiveProjection) {
@@ -5769,7 +5846,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const rc = room.cognition;
         if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
         if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
-        if (!rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
+        if (sideRoom || !rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
         if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
       }
       const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
@@ -5880,25 +5957,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【block 拉黑】仅当此刻用户踩中你雷点/说错话、让你以你的人设真的动了「拉黑」的念头，才 block:true 并在 blockreason 写一句原因——极罕见、要有充分理由；否则 block:false、blockreason:null。"
         : "";
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
-      const lastAsstTs = Math.max((function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })(), latestSharedInteractionTs(charId));
+      const localLastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
+      const lastAsstTs = sideRoom ? localLastAsstTs : Math.max(localLastAsstTs, latestSharedInteractionTs(charId));
       const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
       const gapHrs = Math.round(gapMs / 3600000);
-      const gapReopen = gapMs > 3 * 3600000; // 隔 3 小时+ 再开口 ≈ 重开一段话（反映时间+行程变化）
+      const gapReopen = !sideRoom && gapMs > 3 * 3600000; // 侧房不拿现实钟判断“隔了多久”
       // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
       const thoughtSpec = "本轮必须填写：一句角色本人此刻没说出口的第一人称心声";
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
-      const gapHint = gapMs > 2 * 3600000
+      const gapHint = !sideRoom && gapMs > 2 * 3600000
         ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。**隔了这么久，你心里是什么感觉就按你这个人真实的感觉来——高兴、想她、无所谓、有点闷、甚至有点不痛快，都可以；别为了体贴把它硬压成温温的一句。表达的方式仍然是你自己的方式，不是网文里那套摆委屈闹脾气的通用桥段。**\n**⚠️尤其（她 2026-07-18 点名的委屈）：若这段时间里【你俩说过要一起做的事】（她说来找你吃饭/来找你玩/晚点来这类）没在对话里发生，【绝不许】默认她爽约、放你鸽子、故意不来、把你忘了——她多半只是忙、一时忘了、或还没顾上，太正常了，而且软性的『我来找你』本就不是签了字的约会。你可以【就当你俩已经悄悄做过了】、自然把它当成发生过的暖事轻轻带过（如『中午那顿火锅挺香』），或温温问一句『还来吗～』；但绝不拿一件【没发生过的爽约】去质问、赌气、翻旧账。⚠️这一条只管【这件没发生的约】，不外溢：你对「她这段时间没回你」本身是什么感觉，照上面那句、按你自己真实的感觉来。**"
         : "";
       let lastPrivateUserTs = 0;
       for (let i = history.length - 1; i >= 0; i--) { if (history[i] && history[i].role === "user") { lastPrivateUserTs = Number(history[i].ts) || 0; break; } }
       const sharedUserTs = latestUserSharedInteractionTs(charId);
-      let crossChannelHint = sharedUserTs > lastPrivateUserTs
+      const _roomMaySeeOtherScenes = !sideRoom || !!(room && room.cognition && room.cognition.otherScenes);
+      let crossChannelHint = _roomMaySeeOtherScenes && sharedUserTs > lastPrivateUserTs
         ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
       // 你刚在别处说过（v56.79）：单聊以前只知道「她在群里跟我互动过」这个时间戳，
       // 不知道【我自己在群里说了什么】——于是同一个人两边各说一套。四处一样喂：群里那半也接了。
-      const _saidElsewhere = crossChannelSaid(charId, null);
+      const _saidElsewhere = _roomMaySeeOtherScenes ? crossChannelSaid(charId, null) : "";
       const _saidElsewhereHint = _saidElsewhere
         ? "\n\n【你刚在别处说过】下面是你本人最近在群里说过的话（不是别人的话）。这一轮别和它们对不上——时间、安排、答应过的事都要接得上；也别刻意复述或说「我刚在群里说过」，自然一致就行。\n" + _saidElsewhere
         : "";
@@ -5912,12 +5991,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //    成长回响优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
       //    契不契合由 TA 当场定夺；显灵注入即记一次「被想起」（体力活）。
       let desireHint = "";
-      const dEcho = window.DesireKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
+      const dEcho = !sideRoom && window.DesireKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
       if (dEcho) {
         saveDesires(n => { const b = DesireKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
         desireHint = "\n【成长回响】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，别宣布成就、别升华）；气氛实在不合适就轻轻放下、不提也行。";
       } else {
-        const dPick = (window.DesireKit && !opts.proactive && Math.random() < 0.25) ? DesireKit.pickEpiphany(desiresRef.current[charId]) : null;
+        const dPick = (!sideRoom && window.DesireKit && !opts.proactive && Math.random() < 0.25) ? DesireKit.pickEpiphany(desiresRef.current[charId]) : null;
         if (dPick) saveDesires(n => { const b = DesireKit.boxOf(n, charId); DesireKit.touch(b, dPick.id); n[charId] = b; });
         if (dPick) desireHint = "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够、别刻意宣布计划）；若它恰好和 " + uName + " 提过的兴趣或眼下的话题重合，可以顺势提一句『要不我们一起？』；对不上就完全别提、当没这回事。";
       }
@@ -6160,10 +6239,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
       const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
-      const _wearBrief = schedNowBriefFor(char);
+      const _wearBrief = sideRoom ? null : schedNowBriefFor(char);
       const _wearScheduleKey = window.WearingRefresh ? window.WearingRefresh.scheduleKey(_wearBrief, schedLocalDayKey(char)) : "";
       const _latestUserMessage = [...promptHistory].reverse().find(m => m && m.role === "user");
-      const _wearRefreshGate = (!_s.engineerEyes && window.WearingRefresh)
+      const _wearRefreshGate = (!sideRoom && !_s.engineerEyes && window.WearingRefresh)
         ? window.WearingRefresh.evaluate({
             scheduleKey: _wearScheduleKey,
             acknowledgedKey: _liveChatState.wearingScheduleKey,
@@ -6380,7 +6459,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 日记不授权给角色代写；专用日记信箱走自己的链，不经过聊天回复协议。
         parsed.diary = null;
         if (!w.sharedState) {
-          parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
+          parsed.mood = null; parsed.action = null; parsed.wearing = null;
+          if (!sideRoom) parsed.thought = null; // 侧房心声仍保留，但只写进本房的独立账
           parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
         }
         // 心情和印象卡各自还有一道闸，而且【看不见就不许改】：认知里关了「关系与内在状态」时，
@@ -6419,7 +6499,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
       const _roomCanWrite = kind => !window.ChatRooms || !window.ChatRooms.canWrite || window.ChatRooms.canWrite(room, kind);
       if (!_roomSharesState) {
-        parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
+        parsed.mood = null; parsed.action = null; parsed.wearing = null;
+        if (!sideRoom) parsed.thought = null;
         parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
       }
       // salvage 会把 mood 从坏 JSON 里再捞一次，所以那两道细闸也要在它之后再封一遍
@@ -6885,19 +6966,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         }
       }
       // 动态保底：每轮回复计数，很久没发就强制补一条（不影响本轮已自发的）
-      if (!opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });
+      if (!sideRoom && !opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });
       const affinityBefore = affOf(charId);
       if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       // jiwen 阶段二（v48.80）：把这轮互动的好感增量反喂进积温——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
-      try { if (typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getJiwen(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
+      try { if (!sideRoom && typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getJiwen(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
         setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
         _moodSkip(charId, true);
       } else _moodSkip(charId, false);
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
-      observeEmotionAShadow(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
+      if (!sideRoom) observeEmotionAShadow(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
-      if (!opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
+      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};
@@ -6933,7 +7014,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       else if (parsed.condition === null && (statesRef.current[charId] || {}).condition) { st.condition = null; st.conditionUpdatedAt = 0; }
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
-      {
+      if (sideRoom) {
+        setRoomThought(chatKey, parsed.thought, { mood: parsed.mood && parsed.mood.label, turnId });
+      } else {
         const _live = statesRef.current[charId] || {};
         if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") {
           st.thought = parsed.thought; st.thoughtUpdatedAt = stateNow; st.thoughtSkips = 0;
@@ -6954,7 +7037,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           if (_live.thought && skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
         }
       }
-      if (Object.keys(st).length) {
+      if (sideRoom) delete st.thought;
+      if (Object.keys(st).length && (!sideRoom || _roomSharesState)) {
         const liveState = statesRef.current[charId] || {};
         const ns = { ...liveState, ...st, mood: parsed.mood && parsed.mood.label ? parsed.mood.label : liveState.mood, ts: Date.now(), turnId, affinityBefore };
         setStateFor(charId, ns);
@@ -15077,6 +15161,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       return c ? buildBundle(ctxFor(c, { debug: true })) : "";
     } catch (e) { return "生成失败：" + (e.message || e); }
   };
+  const activeOfflineScopeKey = offlineChar
+    ? (window.ChatRooms ? window.ChatRooms.chatKey(offlineChar.id, offlineRoomId) : offlineChar.id)
+    : null;
+  const activeOfflineRoom = activeOfflineScopeKey ? offlineRoomFor(activeOfflineScopeKey) : null;
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
@@ -15263,9 +15351,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept),
     profile: profile,
     disp: { myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
-    onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: schedNowBriefFor(activeChar),
-    onOpenSched: () => { setSelSched(activeChar.id); setScreen("calendar"); },
+    onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
+    schedNow: activeRoomId === "main" ? schedNowBriefFor(activeChar) : null,
+    onOpenSched: activeRoomId === "main" ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
@@ -15291,7 +15379,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendTransfer: (amount, note) => sendTransfer(activeChar.id, amount, note),
     onRespondTransfer: (tid, accept) => respondTransfer(activeChar.id, tid, accept),
     onOpenMoments: () => openMomProfile(activeChar.id, false),
-    onOffline: () => openOffline(activeChar),
+    onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text),
     onDeleteMessages: indices => {
       const set = new Set(indices);
@@ -16198,20 +16286,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onClose: stopPlayer
   }) : null, (() => {
     const scc = stateCardChar || activeChar;
+    const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
+    const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
     return stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
       character: scc,
       isNpc: !!scc.npc,
-      affinity: Math.round(affOf(scc.id)),
-      mood: moods[scc.id],
+      affinity: roomCard ? undefined : Math.round(affOf(scc.id)),
+      mood: roomCard ? null : moods[scc.id],
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
-      state: (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
-      history: stateHist[scc.id] || [],
+      state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
+      history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
+      roomName: roomMeta && roomMeta.name,
+      hideWearAction: roomCard,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
-      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes && !scc.npc,
+      gazeOn: !roomCard && !!window.Gaze && !settingsFor(scc.id).engineerEyes && !scc.npc,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
-      onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); }
+      onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });
   })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, desireBoxOpen && activeChar && window.DesireBoxSheet ? h(window.DesireBoxSheet, {
     char: activeChar,
@@ -16361,37 +16453,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
     char: offlineChar,
+    room: activeOfflineRoom,
     profile: profile,
-    sessions: offlines[offlineChar.id] || [],
-    activeSession: (offlines[offlineChar.id] || []).find(s => !s.endTs) || null,
+    sessions: offlines[activeOfflineScopeKey] || [],
+    activeSession: (offlines[activeOfflineScopeKey] || []).find(s => !s.endTs) || null,
     sending: sending,
     settings: osFor(offlineChar.id),
-    registerTelemetry: offlineRegisterTelemetry[offlineChar.id] || null,
+    registerTelemetry: offlineRegisterTelemetry[activeOfflineScopeKey] || null,
     onSaveSettings: patch => saveOfflineSettings(offlineChar.id, patch),
-    onStart: opts => startOffline(offlineChar.id, opts),
-    onSend: txt => { gachaEarn(offlineChar.id, "offline"); offlineSend(offlineChar.id, txt); },
-    onSendPhoto: photo => offlineSendPhoto(offlineChar.id, photo),
+    onStart: opts => startOffline(activeOfflineScopeKey, opts),
+    onSend: txt => { if (!offlineIsRoom(activeOfflineScopeKey)) gachaEarn(offlineChar.id, "offline"); offlineSend(activeOfflineScopeKey, txt); },
+    onSendPhoto: photo => offlineSendPhoto(activeOfflineScopeKey, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
-    onShoot: kind => offlineShotNow(offlineChar.id, kind),
+    onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
-    onReply: txt => offlineReply(offlineChar.id, txt),
-    onOOC: txt => offlineOOC(offlineChar.id, txt),
-    onAddNote: n => offlineAddNote(offlineChar.id, n),
-    onChangeStyle: patch => offlineSetStyle(offlineChar.id, patch),
+    onReply: txt => offlineReply(activeOfflineScopeKey, txt),
+    onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
+    onAddNote: n => offlineAddNote(activeOfflineScopeKey, n),
+    onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
-    onEditMsg: (mid, txt) => offlineEditMsg(offlineChar.id, mid, txt),
-    onRerollMsg: mid => offlineRerollMsg(offlineChar.id, mid),
-    onDelMsg: (mid, idx) => offlineDelMsg(offlineChar.id, mid, idx),
-    onDelSession: (sid, idx) => offlineDelSession(offlineChar.id, sid, idx),
-    onEnd: () => endOffline(offlineChar.id),
-    onClose: () => setOfflineChar(null),                       // 下拉「对话（回线上）」：只收线下浮层，露出线上聊天
-    onExit: () => { setOfflineChar(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表（她要的：别再退两次）
-    onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: schedNowBriefFor(offlineChar),
+    onEditMsg: (mid, txt) => offlineEditMsg(activeOfflineScopeKey, mid, txt),
+    onRerollMsg: mid => offlineRerollMsg(activeOfflineScopeKey, mid),
+    onDelMsg: (mid, idx) => offlineDelMsg(activeOfflineScopeKey, mid, idx),
+    onDelSession: (sid, idx) => offlineDelSession(activeOfflineScopeKey, sid, idx),
+    onEnd: () => endOffline(activeOfflineScopeKey),
+    onClose: () => { setOfflineChar(null); setOfflineRoomId("main"); },
+    onExit: () => { setOfflineChar(null); setOfflineRoomId("main"); setScreen("messages"); },
+    onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
+    schedNow: offlineIsRoom(activeOfflineScopeKey) ? null : schedNowBriefFor(offlineChar),
     onOpenStyleLab: goStyleLab,
-    onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("calendar"); } // 离开线下浮层→跳到日历（线下浮层是 z-20 会盖住日程屏，得先离开）
+    onOpenSched: offlineIsRoom(activeOfflineScopeKey) ? null : (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); })
   }), offlineGroup && h(GroupOfflineMode, {
     group: offlineGroup,
     profile: profile,
