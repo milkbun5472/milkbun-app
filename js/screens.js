@@ -3479,7 +3479,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { width: 32 } }),   // 右边有两颗键，这儿垫一格，标题才真在正中
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "情书"),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我们的情书"),
       h("button", { onClick: () => setCompose(true), "aria-label": "自己写一封", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 19, color: t.ink })),
       h("button", { onClick: () => setCfgOpen(true), "aria-label": "情书设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(GConfig, { size: 18, color: t.ink }))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { overscrollBehavior: "contain" } },
@@ -3969,11 +3969,21 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       h("div", { className: "flex items-center gap-3" },
         has ? h("button", { onClick: () => onSetCoupleImg(partner.id, field, null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "恢复默认") : null,
         h("button", { onClick: () => ref.current && ref.current.click(), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, has ? "更换" : "上传")));
+    // 顶栏不再是那块 30px「情侣空间」大标题（她 2026-09-02：「这块也弄掉吧」）。
+    // 这一页本来就有一张你俩的封面——让封面自己吃掉安全区、一路顶到刘海，
+    // 返回键和改封面的笔浮在它上面（压一层从上往下的暗角，保证白键在浅色封面上
+    // 也看得见）。省下来的六七十像素直接还给「在一起多少天」那一屏。
+    const coverBg = cprof.bg ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(cprof.bg) : cprof.bg) + ")" : "linear-gradient(135deg,#f3c6d3,#c8b0e0)";
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "情侣空间", en: partner.name, onBack: () => setView(null),
-        right: onSetCoupleImg ? h("button", { onClick: () => setCpEdit(true), className: "active:opacity-50", title: "自定义" }, h(IPencil, { size: 18, color: t.ink })) : null }),
-      h("div", { className: "flex-1 overflow-y-auto pb-8" },
-        h("div", { style: { position: "relative", height: 168, background: cprof.bg ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(cprof.bg) : cprof.bg) + ")" : "linear-gradient(135deg,#f3c6d3,#c8b0e0)" } },
+      h("div", { className: "flex-1 overflow-y-auto pb-8", style: { overscrollBehavior: "contain" } },
+        h("div", { style: { position: "relative", height: "calc(env(safe-area-inset-top, 0px) + 208px)", background: coverBg } },
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: "calc(env(safe-area-inset-top, 0px) + 74px)", background: "linear-gradient(180deg,rgba(0,0,0,.38),rgba(0,0,0,0))", pointerEvents: "none" } }),
+          h("div", { className: "absolute flex items-center", style: { left: 6, right: 6, top: safeTop(4), height: 44 } },
+            h("button", { onClick: () => setView(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#fff" })),
+            h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.45)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, "我和 " + partner.name),
+            onSetCoupleImg
+              ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
+              : h("div", { style: { width: 40 } })),
           h("div", { style: { position: "absolute", left: 22, bottom: -28, display: "flex" } },
             h("div", { style: { borderRadius: 999, border: "3px solid " + t.bg, overflow: "hidden" } }, h(Avatar, { character: paChar, size: 66, radius: 999 })),
             h("div", { style: { marginLeft: -18, borderRadius: 999, border: "3px solid " + t.bg, overflow: "hidden" } }, h(Avatar, { character: myChar, size: 66, radius: 999 })))),
