@@ -4330,7 +4330,7 @@ function ChatThread({
   },
     h("span", { style: { width: 7, height: 7, borderRadius: 99, background: room.main ? t.fog : t.tint } }),
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, room.name),
-    !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "按需补近况" : "独立时间线"),
+    !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.scenario ? "长篇如果" : room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "按需补近况" : "独立时间线"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
@@ -9799,8 +9799,12 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   const unsummarized = roomMsgs.filter(m => m && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const roomMeta = r => r.main
     ? { label: "日常主线", note: "平时想到什么就聊什么", tint: t.tint }
+    : r.scenario
+      ? { label: "长篇如果", note: "另一段年龄、处境或关系", tint: "#9b6d78" }
     : r.preset === "focused"
       ? { label: "一起做件事", note: "课程、计划或长期项目", tint: "#6f8ca6" }
+      : r.preset === "alternate"
+        ? { label: "长篇如果", note: "另一段年龄、处境或关系", tint: "#9b6d78" }
       : r.preset === "isolated"
         ? { label: "不带出门", note: "只在这里成立，不写回主线", tint: "#887b91" }
         : { label: "慢慢聊这件事", note: "给一个长期话题单独留位置", tint: "#8b7860" };
@@ -9820,7 +9824,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
     if (draft.id === saved.id) setDraft(saved);
     window.__toast && window.__toast("下一轮会先补看主聊天的新近况");
   };
-  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立，不进入记忆也不改主线"]];
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["alternate", "长篇如果", "和另一段年龄、处境或关系里的 TA 一直聊下去"], ["isolated", "不带出门", "只在这里成立，不进入记忆也不改主线"]];
   if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
@@ -9839,10 +9843,12 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
           h("div", { className: "flex items-center", style: { gap: 7, margin: "5px 0 4px 17px" } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: meta.tint } }, meta.label),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.purpose || meta.note)),
+          r.scenario && h("div", { style: { margin: "6px 0 4px 17px", padding: "6px 8px", borderRadius: 8, background: meta.tint + "12", borderLeft: "3px solid " + meta.tint, fontFamily: F_BODY, fontSize: 10.5, color: t.sub, lineHeight: 1.5 } }, "本房设定 · " + String(r.scenario).replace(/\s+/g, " ").slice(0, 92)),
           h("div", { style: { marginLeft: 17, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, lastLineFor(r))),
         !r.main && h("div", { className: "flex flex-wrap", style: { gap: 12, margin: "9px 0 0 17px", paddingTop: 8, borderTop: "1px solid " + t.line } },
-          r.syncMode === "ask" && h("button", { onClick: () => requestMainCatchup(r), disabled: !!r.syncOnce, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: r.syncOnce ? t.fog : t.tint } }, r.syncOnce ? "已等下轮补近况" : "下轮补看主聊天"),
-          r.writeback && r.writeback.mainSummary && h("button", { disabled: !pending || summaryBusy, onClick: async () => { if (!pending || !onSummarize || summaryBusy) return; setSummaryBusy(r.id); try { const saved = await onSummarize(r, r.summaryFrame || ""); if (saved) { setRooms(Kit.list(character.id)); if (draft.id === saved.id) setDraft(saved); } } finally { setSummaryBusy(false); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: pending ? t.tint : t.fog } }, summaryBusy === r.id ? "整理中…" : pending ? "把这 " + pending + " 条带回主线" : "没有待带回内容")));
+          r.scenario ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: meta.tint } }, "只留本房 · 不写回主线") : null,
+          !r.scenario && r.syncMode === "ask" && h("button", { onClick: () => requestMainCatchup(r), disabled: !!r.syncOnce, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: r.syncOnce ? t.fog : t.tint } }, r.syncOnce ? "已等下轮补近况" : "下轮补看主聊天"),
+          !r.scenario && r.writeback && r.writeback.mainSummary && h("button", { disabled: !pending || summaryBusy, onClick: async () => { if (!pending || !onSummarize || summaryBusy) return; setSummaryBusy(r.id); try { const saved = await onSummarize(r, r.summaryFrame || ""); if (saved) { setRooms(Kit.list(character.id)); if (draft.id === saved.id) setDraft(saved); } } finally { setSummaryBusy(false); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: pending ? t.tint : t.fog } }, summaryBusy === r.id ? "整理中…" : pending ? "把这 " + pending + " 条带回主线" : "没有待带回内容")));
     })),
     h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
     h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
@@ -9852,8 +9858,12 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "给它留块门牌"),
       h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), placeholder: "房间名字", style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15, outline: "none" } }),
       h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "想在这里慢慢继续什么？例如：把 Lisa-phone 的记忆系统一起修明白", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
+      h("div", { style: { marginTop: 9, padding: "10px 11px", borderRadius: 12, border: "1px solid #c99aa5", background: "rgba(201,154,165,.10)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "本房限定设定 · 每轮最后提醒 TA"),
+        h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 4, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
+        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, "留空就是普通房间；填写后自动隔离主线记忆、心情、关系与写回。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
-        h("button", { onClick: () => { const saved = save(); if (saved) onSelect(saved.id, true); }, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5 } }, "开门进去"),
+        h("button", { disabled: draft.preset === "alternate" && !String(draft.scenario || "").trim(), onClick: () => { const saved = save(); if (saved) onSelect(saved.id, true); }, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: draft.preset === "alternate" && !String(draft.scenario || "").trim() ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, "开门进去"),
         h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
     h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, "认知、记忆和写回边界仍可在聊天设置的「房间与权限」里细调。"));
   const editor = h("div", { style: { minWidth: 0 } },
@@ -9862,17 +9872,23 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, draft.main ? "主聊天的额外权限" : "独立聊天记录与房间边界")),
       h("button", { onClick: save, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "保存")),
     h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
+    !draft.main && h("div", { style: { marginTop: 10, padding: "12px", borderRadius: 14, border: "1px solid #c99aa5", background: "rgba(201,154,165,.11)" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#9b5f6d" } }, "本房限定设定"),
+      h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } }, "这是本房优先级最高的设定，每一轮都会放在提示词最后提醒 TA。"),
+      h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 6, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "10px 11px", borderRadius: 11, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, outline: "none" } }),
+      h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: draft.scenario ? "#9b5f6d" : t.fog, lineHeight: 1.55 } }, draft.scenario ? "支线隔离已生效：只保留人物底稿和本房聊天；不读取现在的记忆、心情、关系、日程，也不写回主线。" : "留空时是普通房间；写下设定后自动变成长篇如果支线。")),
     !draft.main && h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "这间房想慢慢继续什么？", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
-    !draft.main && h("div", { style: { marginTop: 14 } },
+    !draft.main && !draft.scenario && h("div", { style: { marginTop: 14 } },
       h(Eyebrow, null, "主线同步"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
-    group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
+    !draft.scenario && group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
     !draft.main && group("actions", "本房玩法", "只决定这间侧房里，Ta 可以自然提议哪些活动。"),
-    group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    !draft.scenario && group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    !draft.main && draft.scenario && h("div", { style: { marginTop: 16, padding: "11px 12px", borderRadius: 12, border: "1px dashed #c99aa5", fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } }, "长篇如果已启用硬隔离：主线同步、认知权限和写回权限在本房不开放。删空上面的本房设定并保存，才会恢复普通房间规则。"),
     // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
     // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），
     // 这里只是把原因说清楚，别让她以为开关坏了。
-    !draft.main && draft.writeback && draft.writeback.sharedState && draft.cognition && !draft.cognition.innerLife &&
+    !draft.main && !draft.scenario && draft.writeback && draft.writeback.sharedState && draft.cognition && !draft.cognition.innerLife &&
       h("div", { style: { marginTop: 8, padding: "10px 11px", borderRadius: 11, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6 } },
         "⚠️「认知权限 · 关系与内在状态」是关着的，所以这间房看不到旧的心情和印象卡。这两样即使在上面打开也【不会】写回主线——看不见就不许覆盖。想让它改，先把那一项打开。"),
     draft.main && h("div", { style: { marginTop: 18 } },
@@ -9887,7 +9903,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, (draft[k] || (k === "carryCount" ? 4 : 600)) + unit)),
           h(Slider, { value: Number(draft[k] || (k === "carryCount" ? 4 : 600)), min: mn, max: mx, step: st, onChange: v => patch({ [k]: v }) }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, note)))),
-    !draft.main && draft.writeback && draft.writeback.mainSummary && h("div", { style: { marginTop: 18, padding: "14px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+    !draft.main && !draft.scenario && draft.writeback && draft.writeback.mainSummary && h("div", { style: { marginTop: 18, padding: "14px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
       h(Eyebrow, null, "带回主聊天"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, margin: "6px 0 9px" } }, "只整理上次摘要以后新增的内容。开头既是交接语气，也是主聊天理解这段经历的框。"),
       h("div", { className: "flex flex-wrap gap-1.5", style: { marginBottom: 8 } }, summaryPresets.map(([v, l]) => h("button", { key: l, onClick: () => patch({ summaryFrame: v }), style: { padding: "5px 8px", borderRadius: 999, border: "1px solid " + (draft.summaryFrame === v ? t.ink : t.line), background: draft.summaryFrame === v ? t.ink : "transparent", color: draft.summaryFrame === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 10.5 } }, l))),
@@ -9906,7 +9922,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
       rooms.map(r => h("button", { key: r.id, onClick: () => pick(r.id), style: { width: "100%", padding: "9px 8px", borderRadius: 11, border: "1px solid " + (editingId === r.id ? t.ink : t.line), background: editingId === r.id ? t.ink : "transparent", color: editingId === r.id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11.5, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name))),
     h("div", { style: { marginTop: 15, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 7 } }, "新建"),
-      [["everyday","日常房"],["focused","专注房"],["isolated","隔离房"]].map(([preset, label]) => h("button", { key: preset, onClick: () => add(preset), style: { width: "100%", display: "block", padding: "7px 6px", marginBottom: 6, borderRadius: 9, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 10.5, textAlign: "left" } }, "＋ " + label))));
+      [["everyday","日常房"],["focused","专注房"],["alternate","长篇如果"],["isolated","隔离房"]].map(([preset, label]) => h("button", { key: preset, onClick: () => add(preset), style: { width: "100%", display: "block", padding: "7px 6px", marginBottom: 6, borderRadius: 9, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 10.5, textAlign: "left" } }, "＋ " + label))));
   const content = h("div", null,
     !embedded && h("div", { style: { marginBottom: 15 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "房间与权限"),

@@ -417,7 +417,7 @@
       // 只收允许给主房留交接的房间；隔离房仍严格留在本房，不向周刊外流。
       if (typeof window !== "undefined" && window.ChatRooms && typeof window.ChatRooms.list === "function" && typeof window.ChatRooms.chatKey === "function") {
         window.ChatRooms.list(c.id).filter(function (room) {
-          return room && !room.main && room.writeback && room.writeback.mainSummary;
+          return room && !room.main && !room.scenario && room.writeback && room.writeback.mainSummary;
         }).forEach(function (room) {
           loadJSON("x_chat:" + window.ChatRooms.chatKey(c.id, room.id), []).forEach(function (m) {
             if (!inWin(m, win)) return;

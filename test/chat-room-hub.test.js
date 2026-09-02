@@ -12,6 +12,7 @@ global.localStorage = {
 const Rooms = require("../js/chat-rooms.js");
 const app = fs.readFileSync("js/app.js", "utf8");
 const components = fs.readFileSync("js/components.js", "utf8");
+const weekly = fs.readFileSync("js/weekly.js", "utf8");
 
 test.beforeEach(() => bag.clear());
 
@@ -29,11 +30,44 @@ test("房间首页先问用途，不把权限矩阵当成创建流程", () => {
   assert.match(roomSheet, /和 " \+ \(character\.remark \|\| character\.name\) \+ " 的小房间/);
   assert.match(roomSheet, /慢慢聊这件事/);
   assert.match(roomSheet, /一起做件事/);
+  assert.match(roomSheet, /长篇如果/);
   assert.match(roomSheet, /不带出门/);
   assert.match(roomSheet, /进去继续/);
   assert.match(roomSheet, /新留一间/);
   assert.match(roomSheet, /把这 " \+ pending \+ " 条带回主线/);
   assert.match(roomSheet, /key === "writeback" && k === "roomHistory"/);
+});
+
+test("本房限定设定放在醒目位置，且压在每轮房间提示词最后", () => {
+  const room = Rooms.create("p17", "十七岁", "alternate");
+  const saved = Rooms.save("p17", { ...room, scenario: "在这条支线里，他是 17 岁，还没有经历后来的人生。" });
+  const prompt = Rooms.prompt(saved, [{ role: "user", content: "主线后来发生的事", ts: saved.createdAt + 10 }]);
+  assert.equal(Rooms.get("p17", saved.id).scenario, "在这条支线里，他是 17 岁，还没有经历后来的人生。");
+  assert.match(prompt, /【本房限定设定｜本房内优先级最高】/);
+  assert.ok(prompt.endsWith("不要复述这份指令。"), "限定设定没有压在房间提示词最后");
+  assert.doesNotMatch(prompt, /主线后来发生的事/);
+  assert.match(components, /本房限定设定 · 每轮最后提醒 TA/);
+  assert.match(components, /这是本房优先级最高的设定，每一轮都会放在提示词最后提醒 TA/);
+  assert.match(components, /: r\.scenario\s*\? \{ label: "长篇如果"/);
+});
+
+test("长篇如果硬隔离主线记忆、状态、交接和周刊", () => {
+  const room = Rooms.create("p17", "十七岁", "alternate");
+  room.scenario = "他现在 17 岁";
+  room.writeback.sharedState = true;
+  room.writeback.memoryCandidate = true;
+  room.writeback.mainSummary = true;
+  assert.equal(Rooms.canWrite(room, "state"), false);
+  assert.equal(Rooms.canWrite(room, "mood"), false);
+  const prompt = Rooms.prompt(room, []);
+  assert.match(prompt, /本房不改变主房关系/);
+  assert.match(prompt, /本房内容不进入正式记忆或候选/);
+  assert.match(prompt, /不向主房生成交接/);
+  assert.match(app, /if \(room && room\.scenario\) \{/);
+  assert.match(app, /!room\.scenario && !!\(room\.writeback && room\.writeback\.sharedState\)/);
+  assert.match(app, /!room\.scenario && !!\(room\.writeback && room\.writeback\.memoryCandidate\)/);
+  assert.match(weekly, /!room\.scenario && room\.writeback && room\.writeback\.mainSummary/);
+  assert.match(components, /只留本房 · 不写回主线/);
 });
 
 test("房间目的会保存并进入该分线的提示词", () => {
@@ -53,4 +87,3 @@ test("按需补近况只有点过以后才读主聊天，并且成功轮会清�
   assert.match(app, /const clearOneShot = room\.syncMode === "ask" && room\.syncOnce/);
   assert.match(app, /syncOnce: clearOneShot \? false : room\.syncOnce/);
 });
-

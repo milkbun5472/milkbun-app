@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.99";
+const APP_VERSION = "v60.00";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1565,6 +1565,7 @@ function App() {
   });
   const summarizeChatRoom = async (character, room, frame) => {
     if (!window.ChatRooms || !character || !room || room.main) return null;
+    if (room.scenario) { toast("长篇如果只留在本房，不会写成主线经历"); return null; }
     const key = window.ChatRooms.chatKey(character.id, room.id);
     const all = chatsRef.current[key] || loadJSON("x_chat:" + key, []);
     const fresh = all.filter(m => m && Number(m.ts || 0) > Number(room.summaryCursorTs || 0)
@@ -5755,6 +5756,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
         if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
       }
+      // 长篇如果只保留人物底稿和本房自己的历史。当前主线记忆、成长、心情、日程与别处经历
+      // 都属于另一个人生阶段；即使旧房间权限曾经开着，也不能先灌进去再指望末尾一句全擦干净。
+      if (room && room.scenario) {
+        _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = "";
+        _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false;
+        _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null;
+        _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = "";
+      }
       const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_singleHistoryLayout) {
@@ -6362,7 +6371,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         }
         // 日记不授权给角色代写；专用日记信箱走自己的链，不经过聊天回复协议。
         parsed.diary = null;
-        if (!w.sharedState) {
+        if (!w.sharedState || room.scenario) {
           parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
           parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
         }
@@ -6399,7 +6408,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
       if (!parsed.mood || !parsed.mood.label) { const v = salvageStr("label"); if (v) parsed.mood = { ...(parsed.mood || {}), label: v }; }
       // salvage 会从坏 JSON 再捞一次状态字段；隔离房必须在它之后再封一次，不能从侧门污染主房。
-      const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
+      const _roomSharesState = !room || (!room.scenario && !!(room.writeback && room.writeback.sharedState));
       const _roomCanWrite = kind => !window.ChatRooms || !window.ChatRooms.canWrite || window.ChatRooms.canWrite(room, kind);
       if (!_roomSharesState) {
         parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
@@ -6944,7 +6953,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         setStateFor(charId, ns);
         pushStateHist(charId, ns);
       }
-      const _roomMayRemember = !room || !!(room.writeback && room.writeback.memoryCandidate);
+      const _roomMayRemember = !room || (!room.scenario && !!(room.writeback && room.writeback.memoryCandidate));
       if (_roomMayRemember) {
         setTimeout(() => maybeSummarize(charId), 100);
         setTimeout(() => maybeAutoExtract(charId), 300);
