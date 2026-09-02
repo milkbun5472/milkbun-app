@@ -557,10 +557,301 @@ function NpcBrief({ npc, onSave, compact }) {
               h("button", { onClick: e => { e.stopPropagation(); onSave(npc.id, draft); setDraft(null); }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 9, padding: "7px 16px", fontFamily: F_DISPLAY, fontSize: 13 } }, "保存"),
               h("button", { onClick: e => { e.stopPropagation(); setDraft(null); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 8px" } }, "取消")))) : null);
 }
+// ============================================================
+// 关系网（v60.46 重做，她 2026-09-02：「关系页面弄好看点吧，或者推翻重做设计，
+// 我想要像 mindmap 那种可以看到关系网然后拖动看不同地方，然后 npc 的也会显示」）
+// ============================================================
+// 原来是三层列表：角色名单 → 点进去看 TA 的关系 → 卡片。
+// 「谁和谁有关系」这件事本来是【一张网】，拆成一人一页就等于把网剪断了再一根根给你看：
+// 顾暮和沈屿白都认识陆闻这种事，你得点进两个人才能拼出来。
+//
+// 按 tabs-not-plain-pills 那把尺子先问：这东西在现实里是什么？
+//   是【人物关系图】——一板子照片，人和人之间牵一根线，线上写着他俩是什么关系。
+//   所以：节点是【他们真的那张脸】，标签【写在线上】（线在字那儿断开），
+//   不是一堆圆点配一排浮在旁边的药丸。换一批人这张图就整个变样，搬不去别的 app。
+//
+// NPC 也在图上（她点名要）：小一号，用虚线拴在他所属的角色边上——
+// 配角本来就是「某个角色身边的一段关系」，那根虚线说的就是这件事。
+const TIE_R_CHAR = 152;      // 角色离「我」多远
+const TIE_R_NPC = 84;        // 配角离他主人多远
+const TIE_SZ = { me: 62, char: 52, npc: 36 };
+// 她拖过的位置存下来（x_tiesPos）：布局是算出来的，但摆法是她的。
+function tiesLayout(meId, chars, npcHostOf, saved) {
+  const pos = {};
+  const put = (id, x, y) => { const s = saved && saved[id]; pos[id] = s ? { x: s.x, y: s.y } : { x, y }; };
+  put(meId, 0, 0);
+  const n = chars.length;
+  chars.forEach((c, i) => {
+    // 从正上方开始顺时针铺一圈；人多了就往外推一点，别挤成一团
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / Math.max(1, n);
+    const r = TIE_R_CHAR + (n > 6 ? (n - 6) * 13 : 0);
+    put(c.id, Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r));
+    const kids = npcHostOf(c.id);
+    kids.forEach((k, j) => {
+      // 配角挂在他主人【背对圆心】的那一侧，散开一把扇形，不往中间挤
+      const spread = 0.62;
+      const ka = a + (kids.length === 1 ? 0 : (j / (kids.length - 1) - 0.5) * spread * 2);
+      put(k.id, Math.round(pos[c.id].x + Math.cos(ka) * TIE_R_NPC),
+                Math.round(pos[c.id].y + Math.sin(ka) * TIE_R_NPC));
+    });
+  });
+  return pos;
+}
+function TiesMap({ me, profile, characters, allChars, rels, savedPos, onSavePos, onOpenPerson, onEditEdge, onNew, onBack }) {
+  const t = useTheme();
+  const wrapRef = useRef(null);
+  const [k, setK] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [sel, setSel] = useState(null);      // 聚焦的那个人
+  const [drag, setDrag] = useState({});      // 这次会话里拖动过的（还没落盘的也在这儿）
+  const ptr = useRef({ pts: {}, dist: 0, moved: false, node: null, start: null, live: null });
+
+  const isNpc = c => !!(c && c.npc);
+  const chars = (characters || []).filter(c => !isNpc(c));
+  const all = allChars || characters || [];
+  const byId = id => all.find(c => c.id === id);
+  const npcs = all.filter(isNpc);
+  // 配角算在谁身边：他和谁之间有关系，就跟着谁（取第一个非配角的伙伴）
+  const hostOf = npc => {
+    for (const key of Object.keys(rels || {})) {
+      const [f, g] = key.split("->");
+      if (f === npc.id && g !== "me" && !isNpc(byId(g))) return g;
+      if (g === npc.id && f !== "me" && !isNpc(byId(f))) return f;
+    }
+    return null;
+  };
+  const hostMap = {};
+  npcs.forEach(n => { const hh = hostOf(n); if (hh) (hostMap[hh] || (hostMap[hh] = [])).push(n); });
+  const npcHostOf = id => hostMap[id] || [];
+  // 没主人的配角（关系被删光了）也得看得见，跟着「我」这一圈排
+  const orphans = npcs.filter(n => !hostOf(n));
+
+  const base = tiesLayout("me", chars.concat(orphans.map(o => o)), npcHostOf, null);
+  const saved = Object.assign({}, savedPos || {}, drag);
+  const P = id => saved[id] || base[id] || { x: 0, y: 0 };
+
+  // ---- 边：把有向的两条并成一根线 ----
+  const seen = {};
+  const edges = [];
+  Object.keys(rels || {}).forEach(key => {
+    const [f, g] = key.split("->");
+    const ex = id => id === "me" || all.some(c => c.id === id);
+    if (!ex(f) || !ex(g)) return;
+    const a = f === "me" ? f : g === "me" ? g : (f < g ? f : g);
+    const b = a === f ? g : f;
+    const pk = a + "|" + b;
+    if (seen[pk]) return;
+    seen[pk] = 1;
+    const fwd = rels[a + "->" + b], bwd = rels[b + "->" + a];
+    const label = fwd && bwd
+      ? ((fwd.label || "") === (bwd.label || "") ? fwd.label : (fwd.label || "") + " · " + (bwd.label || ""))
+      : (fwd || bwd || {}).label;
+    edges.push({ a, b, label: label || "", both: !!(fwd && bwd), fwd: !!fwd });
+  });
+  // 配角那根虚线（只在图上，不是一段真关系；真关系已经在 edges 里了就不重复画）
+  const tethers = npcs.map(n => ({ a: hostOf(n), b: n.id }))
+    .filter(e => e.a && !seen[(e.a < e.b ? e.a : e.b) + "|" + (e.a < e.b ? e.b : e.a)]);
+
+  const nodes = [{ id: "me", kind: "me" }]
+    .concat(chars.map(c => ({ id: c.id, kind: "char" })))
+    .concat(npcs.map(c => ({ id: c.id, kind: "npc" })));
+  const near = id => {
+    if (!sel) return true;
+    if (id === sel) return true;
+    return edges.concat(tethers).some(e => (e.a === sel && e.b === id) || (e.b === sel && e.a === id));
+  };
+  const edgeLit = e => !sel || e.a === sel || e.b === sel;
+
+  // ---- 手势：空白处拖＝挪画布，人身上拖＝挪那个人，两指＝缩放 ----
+  const onDown = e => {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
+    const p = ptr.current;
+    p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (Object.keys(p.pts).length === 1) { p.moved = false; p.start = { x: e.clientX, y: e.clientY }; }
+    p.dist = 0;
+  };
+  const onMove = e => {
+    const p = ptr.current;
+    if (!p.pts[e.pointerId]) return;
+    const ids = Object.keys(p.pts);
+    if (ids.length === 1) {
+      const p0 = p.pts[e.pointerId], dx = e.clientX - p0.x, dy = e.clientY - p0.y;
+      if (Math.abs(e.clientX - p.start.x) + Math.abs(e.clientY - p.start.y) > 7) p.moved = true;
+      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (p.node) {
+        const id = p.node;
+        // 屏幕上挪多少，世界里就挪多少 ÷ 当前倍率。
+        // ⚠️当前值同时记进 ref：pointermove 比 React 重渲染快得多，
+        // 松手那一下如果去读渲染闭包里的 drag，很可能读到的还是没动过的原位
+        // （walker 里就抓到了这个：落盘的是算出来的基准位，不是她拖到的地方）。
+        const cur = p.live || P(id);
+        p.live = { x: cur.x + dx / k, y: cur.y + dy / k };
+        setDrag(d => ({ ...d, [id]: p.live }));
+      } else setPan(v => ({ x: v.x + dx, y: v.y + dy }));
+    } else if (ids.length === 2) {
+      p.moved = true;
+      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      const two = Object.keys(p.pts).map(i => p.pts[i]);
+      const d = Math.hypot(two[0].x - two[1].x, two[0].y - two[1].y);
+      if (p.dist) setK(v => Math.max(0.42, Math.min(2.6, v * (d / p.dist))));
+      p.dist = d;
+    }
+  };
+  const onUp = e => {
+    const p = ptr.current;
+    delete p.pts[e.pointerId];
+    p.dist = 0;
+    if (!Object.keys(p.pts).length) {
+      if (p.node && p.moved && p.live && onSavePos) onSavePos(p.node, p.live);
+      if (p.node && !p.moved) setSel(s => s === p.node ? null : p.node);
+      else if (!p.node && !p.moved) setSel(null);
+      p.node = null; p.live = null;
+    }
+  };
+  // 第一眼要看得见【整张网】，不是网的中间那一块——她的原话就是「可以看到关系网」。
+  // 所以进来先按所有人的外框自动缩一次；缩太狠字就没法看了，所以夹在 0.5~1 之间。
+  const fitted = useRef(false);
+  const fitNow = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ids = nodes.map(n => n.id);
+    if (!ids.length) return;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    ids.forEach(id => { const p = P(id); const r = TIE_SZ[(nodes.find(n => n.id === id) || {}).kind] / 2 + 26;
+      x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r); y0 = Math.min(y0, p.y - r); y1 = Math.max(y1, p.y + r); });
+    const rect = el.getBoundingClientRect();
+    const kk = Math.max(0.5, Math.min(1.15, Math.min((rect.width - 24) / Math.max(1, x1 - x0), (rect.height - 24) / Math.max(1, y1 - y0))));
+    setK(kk);
+    setPan({ x: -(x0 + x1) / 2 * kk, y: -(y0 + y1) / 2 * kk });
+  };
+  React.useLayoutEffect(() => { if (fitted.current || !wrapRef.current) return; fitted.current = true; fitNow(); });
+  // ⌖ 只把视野拉回来，【不动她摆好的位置】——一个「归位」键顺手把她拖了半天的
+  // 布局清掉，那是最气人的那种按钮。真要清摆法是另一个键，而且只在她真拖过之后才出现。
+  const recenter = () => { setSel(null); fitNow(); };
+  const resetLayout = () => { setDrag({}); setSel(null); if (onSavePos) onSavePos(null, null); setTimeout(fitNow, 0); };
+  const moved = Object.keys(savedPos || {}).length > 0 || Object.keys(drag).length > 0;
+
+  const nameOf = id => id === "me" ? me : (byId(id) || {}).name || "?";
+  const curve = (A, B) => {
+    // 稍微弓一点：两点之间直挺挺一根在密的地方会叠在一起
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+    const bow = Math.min(22, len * 0.09);
+    // 标签再往垂线方向推开一截：短边（配角那种 84px 的）中点正好落在名字上，
+    // 不推的话「乳母」会盖在「裴照川」三个字上。
+    const off = bow / 2 + 10;
+    return { d: "M" + A.x + "," + A.y + " Q" + (mx - dy / len * bow) + "," + (my + dx / len * bow) + " " + B.x + "," + B.y,
+      mx: mx - dy / len * off, my: my + dx / len * off };
+  };
+
+  const nodeDot = (id, kind) => {
+    const p = P(id), sz = TIE_SZ[kind], lit = near(id);
+    const c = byId(id);
+    return h("div", {
+      key: id,
+      onPointerDown: ev => { ptr.current.node = id; ptr.current.live = null; },
+      style: {
+        position: "absolute", left: p.x, top: p.y, width: sz,
+        transform: "translate(-50%,-50%)", textAlign: "center",
+        opacity: lit ? 1 : 0.22, transition: "opacity .18s", touchAction: "none", cursor: "grab",
+        // ⚠️头像是 <img>：不摁住这几条，拖到第二下浏览器就当成【拖图片】，
+        // 直接发 pointercancel 把整个手势掐掉（walker 里数出来的：只走了 2 个 move、0 个 up，
+        // 于是"拖不动、松手存的还是原位"）。iOS 上长按图片弹的那个菜单也是同一个口子。
+        userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none", WebkitTouchCallout: "none"
+      }
+    },
+      // 图片一律不吃事件：手势只归外面这个 div 管，img 连当 target 的机会都没有
+      h("div", { style: {
+        pointerEvents: "none",
+        width: sz, height: sz, borderRadius: kind === "npc" ? 999 : 14, overflow: "hidden",
+        // 选中的那个人身上加一圈他自己的颜色，不是一个通用高亮色
+        boxShadow: sel === id ? "0 0 0 3px " + ((c && c.color) || profile.color || t.tint) + ", 0 3px 12px rgba(0,0,0,.18)"
+          : "0 2px 9px rgba(0,0,0,.14)",
+        background: t.bg2
+      } },
+        id === "me"
+          // 她自己设过头像就用她那张脸——这张网是她的，中间那个不该是一个字母
+          ? (profile.avatarImage
+              ? h(Avatar, { character: { avatarImage: profile.avatarImage }, size: sz, radius: 14 })
+              : h("div", { style: { width: "100%", height: "100%", background: profile.color || t.tint, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: sz * 0.4 } }, String(me).slice(0, 1)))
+          : h(Avatar, { character: c, size: sz, radius: kind === "npc" ? 999 : 14 })),
+      h("div", { style: {
+        fontFamily: F_DISPLAY, fontSize: kind === "npc" ? 10.5 : 12.5, lineHeight: 1.25, marginTop: 4,
+        color: kind === "npc" ? t.fog : t.ink, whiteSpace: "nowrap",
+        // 名字底下垫一层页底色：线从后面穿过去时不会糊在字上
+        background: t.bg, borderRadius: 3, padding: "0 3px", display: "inline-block"
+      } }, id === "me" ? me : nameOf(id)));
+  };
+
+  const selName = sel ? nameOf(sel) : "";
+  const selIsNpc = sel && isNpc(byId(sel));
+  // 顶栏用紧凑标题栏，不用 Head：Head 那个 30px 大标题＋大留白要吃掉三百多像素，
+  // 这一页的正文就是那张图，高度全给它（mobile-ui-layout 第 1 条）。
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center px-1" },
+        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "关系网"),
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, edges.length + " 段关系 · 拖着看，捏着缩放")),
+      h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } },
+        chars.length > 0 ? h("button", { onClick: onNew, className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) : null)),
+    chars.length === 0
+      ? h("div", { className: "flex-1 px-6" }, h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }))
+      : h("div", { ref: wrapRef, className: "flex-1 min-h-0", style: { position: "relative", overflow: "hidden", touchAction: "none" },
+          onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp },
+          h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 0, height: 0,
+            transform: "translate(" + pan.x + "px," + pan.y + "px) scale(" + k + ")" } },
+            h("svg", { width: 3000, height: 3000, style: { position: "absolute", left: -1500, top: -1500, overflow: "visible", pointerEvents: "none" } },
+              h("g", { transform: "translate(1500,1500)" },
+                tethers.map(e => {
+                  const c = curve(P(e.a), P(e.b));
+                  return h("path", { key: "t" + e.a + e.b, d: c.d, fill: "none", stroke: t.fog, strokeWidth: 1, strokeDasharray: "3 4",
+                    opacity: edgeLit(e) ? 0.55 : 0.1 });
+                }),
+                edges.map(e => {
+                  const c = curve(P(e.a), P(e.b));
+                  const col = (byId(e.a === "me" ? e.b : e.a) || {}).color || t.sub;
+                  return h("path", { key: "e" + e.a + e.b, d: c.d, fill: "none", stroke: col,
+                    strokeWidth: e.both ? 1.8 : 1.2, strokeDasharray: e.both ? "" : "6 4",
+                    opacity: edgeLit(e) ? 0.75 : 0.09 });
+                }))),
+            // 关系名写在线上（线在字那儿断开）——这才是「关系图」，不是浮在旁边的一排药丸
+            edges.filter(e => e.label).map(e => {
+              const c = curve(P(e.a), P(e.b));
+              return h("div", { key: "l" + e.a + e.b,
+                onPointerDown: ev => { ev.stopPropagation(); ptr.current.node = null; },
+                onClick: ev => { ev.stopPropagation(); onEditEdge(e.a, e.b); },
+                style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
+                  background: t.bg, padding: "0 5px", borderRadius: 3, whiteSpace: "nowrap",
+                  fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.sub,
+                  opacity: edgeLit(e) ? 1 : 0.12, transition: "opacity .18s", cursor: "pointer" } }, e.label);
+            }),
+            nodes.map(n => nodeDot(n.id, n.kind))),
+          // 选中谁：顶上一条窄带，不盖住图（no-half-sheet：这一层要和图同时看见）
+          sel ? h("div", { style: { position: "absolute", left: 12, right: 12, top: 10, display: "flex", alignItems: "center", gap: 10,
+            background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "8px 10px 8px 12px", boxShadow: "0 2px 10px rgba(0,0,0,.10)" } },
+            h("div", { className: "min-w-0 flex-1" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                selName + (sel === "me" ? "（我）" : "")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
+                (selIsNpc ? "只在群里出场 · " : "") + edges.filter(e => e.a === sel || e.b === sel).length + " 段关系")),
+            h("button", { onClick: () => onOpenPerson(sel), className: "active:opacity-60 shrink-0",
+              style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "4px 2px" } }, "看 TA 的关系 ›")) : null,
+          // 缩放/归位：右下角三个小键（拖和捏都能用，这排是给找不着北的时候按的）
+          h("div", { style: { position: "absolute", right: 12, bottom: 14, display: "flex", flexDirection: "column", gap: 6 } },
+            [["＋", () => setK(v => Math.min(2.6, v * 1.35))],
+             ["－", () => setK(v => Math.max(0.42, v / 1.35))],
+             ["⌖", recenter]].concat(moved ? [["⟲", resetLayout]] : [])
+             .map(([lb, fn]) => h("button", { key: lb, onClick: fn, className: "active:opacity-70",
+              style: { width: 34, height: 34, borderRadius: 11, fontFamily: F_BODY, fontSize: 15, color: t.ink,
+                background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb)))));
+}
 function Ties({
   characters,
   allChars,
   rels,
+  tiePos,
+  onSaveTiePos,
   onSaveNpcBrief,
   profile,
   onBack,
@@ -664,53 +955,8 @@ function Ties({
         : h(Avatar, { character: ch, size: 24, radius: 7 }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, nameOf(id)));
   };
-  const Card = ({ a, b }) => {
-    const fwd = edge(a, b), bwd = edge(b, a);
-    const both = !!fwd && !!bwd;
-    const arrow = both ? "⇄" : fwd ? "→" : "←";
-    let labelText, noteText;
-    if (both) {
-      const same = (fwd.label || "") === (bwd.label || "");
-      labelText = same ? fwd.label : fwd.label + " · " + bwd.label;
-      noteText = (fwd.note || "") === (bwd.note || "") ? fwd.note : [fwd.note, bwd.note].filter(Boolean).join("　／　");
-    } else {
-      const e = fwd || bwd;
-      labelText = e.label; noteText = e.note;
-    }
-    return h("button", {
-      onClick: () => openEdit(a, b),
-      className: "w-full text-left active:opacity-70 mb-2.5",
-      style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px" }
-    },
-      h("div", { className: "flex items-center gap-2 mb-2" },
-        h(Chip, { id: a }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.fog } }, arrow),
-        h(Chip, { id: b })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, labelText || "未命名"),
-      noteText && h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, noteText));
-  };
-
-  // ---- 每个参与者（我 + 各角色）的关系伙伴 ----
-  const participants = [{ id: "me" }, ...characters.map(c => ({ id: c.id }))];
+  // ---- 某个人的关系伙伴 ----
   const partnersOf = id => cards.filter(c => c.a === id || c.b === id);
-
-  // ---- 角色列表行 ----
-  const RosterRow = ({ id }) => {
-    const ch = charOf(id);
-    const n = partnersOf(id).length;
-    return h("button", {
-      onClick: () => setView(id),
-      className: "w-full text-left active:opacity-70 mb-2.5 flex items-center gap-3",
-      style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px" }
-    },
-      id === "me"
-        ? h("div", { style: { width: 40, height: 40, borderRadius: 11, background: profile.color || t.tint, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 16, color: "#fff", flexShrink: 0 } }, me.slice(0, 1))
-        : h(Avatar, { character: ch, size: 40, radius: 11 }),
-      h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, id === "me" ? me + "（我）" : nameOf(id)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: n ? t.sub : t.fog, marginTop: 2 } }, n ? n + " 段关系" : "还没有关系")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog } }, "›"));
-  };
 
   // ---- 详情页某一条（从 selfId 视角看伙伴）----
   const DetailRow = ({ selfId, card }) => {
@@ -778,18 +1024,18 @@ function Ties({
       }));
   }
 
-  // ---- 角色列表视图（默认）----
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, {
-      zh: "关系", en: "Ties / Directory", onBack: onBack,
-      right: characters.length > 0 && h("button", { onClick: openNew, className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink }))
+  // ---- 关系网（默认）----
+  // v60.46 起默认就是那张图；原来那份「角色名单」整个删掉了——
+  // 它答的问题（谁有几段关系）图上一眼就看得见，留着就是两个入口各说一遍。
+  // 单人详情页留着：配角的简介只有那儿能读全文、能改、能删（她 2026-08-25 定的）。
+  return h(Fragment, null,
+    h(TiesMap, {
+      me, profile, characters, allChars: all, rels,
+      savedPos: tiePos, onSavePos: onSaveTiePos,
+      onOpenPerson: id => setView(id),
+      onEditEdge: openEdit,
+      onNew: openNew, onBack: onBack
     }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      characters.length === 0
-        ? h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" })
-        : h(Fragment, null,
-            h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, "点角色查看 TA 的关系")),
-            participants.map(p => h(RosterRow, { key: p.id, id: p.id })))),
     comp && h(RelComposer, {
       comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)

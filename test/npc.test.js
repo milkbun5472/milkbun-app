@@ -93,8 +93,13 @@ test("配角那段关系要在角色的关系页里显示出来", () => {
   assert.match(screens, /const all = allChars \|\| characters;/);
   assert.match(screens, /const exists = id => id === "me" \|\| all\.some\(c => c\.id === id\);/);
   assert.match(screens, /const nameOf = id => id === "me" \? me : \(all\.find/);
-  // 名册（左边那张角色列表）仍然只列真角色，配角只作为伙伴出现在详情里
-  assert.match(screens, /const participants = \[\{ id: "me" \}, \.\.\.characters\.map/);
+  // v60.46 起默认视图是关系网，那张「只列真角色」的名册没了——
+  // 她点名要配角也上图（「然后 npc 的也会显示」）。但两者仍要分得清：
+  // 角色排在「我」周围那一圈，配角小一号、虚线拴在他主人边上。
+  assert.match(screens, /const chars = \(characters \|\| \[\]\)\.filter\(c => !isNpc\(c\)\)/,
+    "圈上那一层只能是真角色，配角混进去就成了一锅");
+  assert.match(screens, /TIE_SZ = \{ me: 62, char: 52, npc: 36 \}/, "配角要小一号");
+  assert.match(screens, /const tethers = npcs\.map/, "配角靠那根虚线说清他是谁身边的");
 });
 
 // 她 2026-08-25：「简介打不开看全部」。配角没有自己的资料页，
