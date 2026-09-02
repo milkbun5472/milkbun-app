@@ -92,20 +92,40 @@ test("歌单备注不许套同一个句式（她 2026-08-29：「有点不自然
 });
 
 test("歌单按【真进歌单几首】重试，不是按模型给了几个候选", () => {
-  const m = appSrc.match(/const genCharPlaylist = async char => \{[\s\S]*?\n  \};/);
-  assert.ok(m, "找不到 genCharPlaylist");
+  // v60.40 起这条漏斗抽成了 collectRealSongs，角色歌单和情侣唱片共用一份——
+  // 所以这里验的是那一份，外加两个调用方都真的走它（写两遍必然有一处忘了跟上）。
+  const m = appSrc.match(/const collectRealSongs = async \(\{[\s\S]*?\n  \};/);
+  assert.ok(m, "找不到 collectRealSongs");
   const s = m[0];
-  assert.match(s, /const TARGET = 12, HARD_CAP = 16, MAX_ROUNDS = 3;/);
-  assert.match(s, /for \(let round = 1; round <= MAX_ROUNDS && added\.length < TARGET; round\+\+\)/);
+  assert.match(s, /for \(let round = 1; round <= \(rounds \|\| 3\) && added\.length < target; round\+\+\)/);
   // 旧的「按候选数重试」必须是删掉，不是留着加一句说它错了
-  assert.doesNotMatch(s, /while \(wants\.length < 12/);
+  assert.doesNotMatch(appSrc, /while \(wants\.length < 12/);
   // 搜过的不重复搜，免得多轮时把额度耗在同一批歌上
   assert.match(s, /if \(tried\.has\(k\)\) continue;/);
-  // 没凑够要说实话，并分清是搜不到还是重复
-  assert.match(s, /只凑到 " \+ added\.length \+ " 首/);
-  assert.match(s, /网易云搜不到 " \+ miss/);
-  assert.match(s, /重复 " \+ dup/);
+  // 两个调用方都得走同一条漏斗
+  const pl = appSrc.match(/const genCharPlaylist = async char => \{[\s\S]*?\n  \};/);
+  const disc = appSrc.match(/const genCoupleDisc = async char => \{[\s\S]*?\n  \};/);
+  assert.ok(pl && disc, "找不到 genCharPlaylist / genCoupleDisc");
+  assert.match(pl[0], /await collectRealSongs\(/);
+  assert.match(disc[0], /await collectRealSongs\(/);
+  // 没凑够要说实话，并分清是搜不到还是重复——两处都要说
+  for (const src of [pl[0], disc[0]]) {
+    assert.match(src, /只凑到 " \+ added\.length \+ " 首/);
+    assert.match(src, /网易云搜不到 " \+ miss/);
+    assert.match(src, /重复 " \+ dup/);
+  }
 });
+
+// 进情侣空间就换成这张唱片直接放（她 2026-09-02 改的），走的时候只带走自己
+test("情侣唱片进空间一律落针，离开只收自己的针", () => {
+  const m = appSrc.match(/const discEnter = cid => \{[\s\S]*?\n  \};/);
+  assert.ok(m, "找不到 discEnter");
+  // 旧的「播放器里有东西在响就不落针」必须是删掉的
+  assert.doesNotMatch(m[0], /!el\.paused/);
+  assert.match(m[0], /if \(discSongsOf\(cid\)\.length\) discPlay\(cid\);/);
+  assert.match(appSrc, /const discLeave = \(\) => \{ if \(discSpinning\(\)\) stopPlayer\(\); \};/);
+});
+
 
 // ── 归档必须发生在覆盖之前，而且绝不许拖累这次刷新 ──
 // 浏览器里够不到 savePhoneApp（它是组件内的闭包），这一层只能静态验。

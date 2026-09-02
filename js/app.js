@@ -390,9 +390,10 @@ function App() {
   const [makeups, setMakeups] = useState({});
   const makeupsRef = useRef({}); makeupsRef.current = makeups;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
-  // 情侣唱片(她 2026-09-01):每对情侣一张「我们的唱片」。铁律一句——播放器永远
-  // 只有一个,唱片只是它的一位懂礼数的客人:进空间【播放器空着才落针】,离开时
-  // 【放的是唱片才收针】,绝不碰她自己正在放的歌。{ [charId]: { songs:[...] } }
+  // 情侣唱片(她 2026-09-01,进出规则 09-02 改):每对情侣一张「我们的唱片」。
+  // 播放器永远只有一个:进空间【一律换成这张唱片并直接放】(她 2026-09-02 亲口改
+  // 的,原来是「空着才落针」,结果她自己有歌在放时唱片一次都没响过);离开时
+  // 【放的是唱片才收针】,绝不顺走她自己的歌。{ [charId]: { songs:[...] } }
   const [coupleDisc, setCoupleDisc] = useState({});
   const coupleDiscRef = useRef({}); coupleDiscRef.current = coupleDisc;
   const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
@@ -14381,15 +14382,104 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     playSong(ss[0], ss.map(x => x.id));
   };
   const discSpinning = () => String(playerSongIdRef.current || "").indexOf("sgd_") === 0;
-  const discEnter = cid => { // 来时见空位才坐:她自己的歌在放就绝不打断;唱片已在机上也不重放
-    const el = audioElRef.current;
-    if (playerSongIdRef.current && el && !el.paused) return;
-    if (discSpinning()) return;
+  // 进空间就换成这张唱片、直接放（她 2026-09-02 亲口改的）。
+  // ⚠️这一条推翻了 2026-09-01 立的「见空位才坐」：那版为了不打断她自己在放的歌，
+  // 于是【只要有东西在响，唱片就永远轮不到】——她那天正放着自己的歌进空间，
+  // 唱片一次都没响过，看着就像这个功能坏了。现在是「进来就落针」。
+  // 收针那一半不动：走的时候仍然【只带走自己】(discLeave 只在放的是 sgd_ 时停)。
+  const discEnter = cid => {
+    if (discSpinning()) return;              // 已经在转就别从头重放
     if (discSongsOf(cid).length) discPlay(cid);
   };
   const discLeave = () => { if (discSpinning()) stopPlayer(); }; // 走时只带走自己
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
+  // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──
+  // 单独抽出来是因为它有两道会吃掉结果的关卡（搜不到 / 已经有了），
+  // 而「按结果重试」这层当初只写在角色歌单里。再写一遍必然是第二处忘了跟上
+  // （.claude/rules/four-surfaces-same-context.md 的同一个形状）。
+  const parseSongWants = rec => {
+    let raw = rec && Array.isArray(rec.songs) ? rec.songs : Array.isArray(rec) ? rec : (rec && (rec.list || rec.data || rec.result || rec.tracks)) || [];
+    return (Array.isArray(raw) ? raw : []).map(w => {
+      if (typeof w === "string") { const parts = w.replace(/^\d+[.、)\s]+/, "").split(/\s*[-–—/]\s*/); return { title: (parts[0] || "").replace(/^《|》$/g, "").trim(), artist: (parts[1] || "").trim(), note: "" }; }
+      return {
+        title: String((w && (w.title || w.name || w.song)) || "").trim(),
+        artist: String((w && (w.artist || w.singer || w.by)) || "").trim(),
+        note: String((w && (w.note || w.thought || w.why || w.mood)) || "").replace(/\s+/g, " ").trim().slice(0, 60)
+      };
+    }).filter(s2 => s2.title);
+  };
+  const neteaseSearchOne = async kw => {
+    try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(kw) + "&limit=1&timestamp=" + Date.now()); const d = await r.json(); return (d && d.result && d.result.songs && d.result.songs[0]) || null; } catch (e) { return null; }
+  };
+  // 按【最后真进去几首】重试，不是按【模型给了几个候选】——候选到入库中间还有两道漏斗
+  const collectRealSongs = async ({ probeOnce, existingIds, mkId, target, cap, rounds }) => {
+    const have = existingIds || new Set();
+    const wants = [], added = [];
+    const seenTitle = new Set(), tried = new Set();
+    let miss = 0, dup = 0;
+    for (let round = 1; round <= (rounds || 3) && added.length < target; round++) {
+      const got = await probeOnce(round === 1 ? "" : "\n【上一轮只凑到 " + added.length + " 首】其中有些歌搜不到、有些和已有的重了。这轮换一批【更好搜、更主流平台上确实有】的歌，别再给上面那些。");
+      got.forEach(w => { const k = w.title.toLowerCase(); if (!seenTitle.has(k)) { seenTitle.add(k); wants.push(w); } });
+      for (const w of wants) {
+        if (added.length >= cap) break;
+        const k = w.title.toLowerCase();
+        if (tried.has(k)) continue;
+        tried.add(k);
+        let hit = await neteaseSearchOne((w.title + " " + (w.artist || "")).trim());
+        if (!hit) hit = await neteaseSearchOne(w.title); // 带歌手搜不到 → 只用歌名再试
+        if (!hit) { miss++; continue; }
+        const nid = String(hit.id);
+        if (added.some(a => a.neteaseId === nid) || have.has(nid)) { dup++; continue; }
+        const cover = ((hit.album || hit.al || {}).picUrl) || null;
+        const artist = (hit.artists || hit.ar || []).map(a => a.name).filter(Boolean).join(" / ") || (w.artist || "");
+        added.push({ id: mkId(nid), source: "netease", neteaseId: nid, title: hit.name || w.title, artist, cover, note: w.note || "", ts: Date.now() });
+      }
+    }
+    return { wants, added, miss, dup };
+  };
+  // 让 TA 往【我们的唱片】里刻几首：跟角色歌单同一条链(推歌→搜真曲→按结果重试)，
+  // 只有【问什么】不一样——那张问的是「你自己私下循环什么」且明说不是恋爱歌单；
+  // 这张问的是「你会放给你俩听的」，B 面刻字是说给她听的。
+  const genCoupleDisc = async char => {
+    if (!char) return;
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!neteaseApi) { toast("先在一起听里配一个网易云搜索接口，才能拉到能播的歌"); return; }
+    setGen(g => ({ ...g, coupleDisc: char.id }));
+    try {
+      const existing = discSongsOf(char.id);
+      const existingIds = new Set(existing.map(s => s.neteaseId).filter(Boolean));
+      const avoidStr = existing.length ? "\n**这张唱片上已经有这些了，别再给、也别给重复的：** " + existing.map(s => s.title).filter(Boolean).slice(0, 40).join("、") : "";
+      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", momentLog: "", forumEcho: "", giftLog: "" });
+      const probeOnce = async nudge => {
+        try {
+          const rec = await runProbe(active, cleanCtx, {
+            instruction: "你是「" + char.name + "」。你和用户是恋人，你们有一张【我们的唱片】——你亲手往上刻歌，进这个空间它就会自己响起来。\n一次性列出 **14 首**你真会放给你们俩听的、**真实存在、主流平台搜得到**的歌（华语/欧美/日韩都行，别编造）。songs 必须给满 14 个元素。\n【这张不是你自己的歌单】它是放给你们俩的：有的是你想让 TA 听见的，有的是某件事之后你才开始循环的，有的只是 TA 在旁边时你会顺手放的。**但也不许十四首全是情歌**——你们相处里有安静的、无聊的、闹的、赌气的、天快亮的时候，那些也该有各自的歌。曲风别一路到底，快慢冷暖要拉开。\n每首写一句 note，刻在这张唱片的 B 面：**为什么是这首**。第一人称，说给 TA 听，不是写乐评。\n【怎么算写对了】：\n· 说的是你和 TA 之间的某件具体的事、某个时刻、某个你没讲出口的念头，不是这首歌本身好在哪；\n· **换一对情侣、换一个角色照样成立的那一句，就是写坏了**；\n· 十四条的句式必须散开——长短差得开，有的很短，有的没说完，有的是问句，有的是抱怨，有的干脆答非所问。**同一个句式全篇最多两条**；\n· 不许出现「治愈」「温暖」「陪伴」「岁月」这类谁都能说的词。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
+            schemaHint: "{\"songs\":[{\"title\":\"歌名\",\"artist\":\"歌手\",\"note\":\"第一人称一句，说给 TA 听\"}]}（songs 必须 14 个元素）",
+            maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535
+          });
+          return parseSongWants(rec);
+        } catch (e) { return []; }
+      };
+      // id 一律 sgd_ 开头——离开空间时靠这个前缀认出「现在放的是不是唱片」
+      const { wants, added, miss, dup } = await collectRealSongs({ probeOnce, existingIds, mkId: nid => "sgd_" + nid, target: 10, cap: 14, rounds: 3 });
+      if (!wants.length) { toast("没生成出歌，重试下"); return; }
+      if (!added.length) { toast("这轮 " + wants.length + " 首网易云一首都没搜到（换个接口或稍后再试）"); return; }
+      const stamped = added.map(x => Object.assign({}, x, { by: "ta" }));
+      saveCoupleDisc(pp => {
+        const cur = pp[char.id] || {};
+        const old = cur.songs || [];
+        const haveIds = new Set(old.map(s => s.neteaseId).filter(Boolean));
+        const fresh = stamped.filter(s2 => !(s2.neteaseId && haveIds.has(s2.neteaseId)));
+        return Object.assign({}, pp, { [char.id]: Object.assign({}, cur, { songs: [...old, ...fresh].slice(0, 30) }) });
+      });
+      const shortNote = added.length < 10
+        ? "（只凑到 " + added.length + " 首" + [miss ? "网易云搜不到 " + miss + " 首" : "", dup ? "重复 " + dup + " 首" : ""].filter(Boolean).map(x => "，" + x).join("") + "，再点一次可以继续刻）"
+        : "";
+      toast(char.name + " 往唱片上刻了 " + added.length + " 首" + shortNote);
+    } catch (e) { toast("生成失败：" + (e.message || "重试")); }
+    finally { setGen(g => ({ ...g, coupleDisc: null })); }
+  };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
   const genCharPlaylist = async char => {
     if (!char) return;
@@ -14405,59 +14495,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const avoidStr = existingTitles.length ? "\n**这张歌单里已经有这些歌了，别再推荐它们、也别推重复的，给全新的：** " + existingTitles.slice(0, 50).join("、") : "";
       // 用干净上下文：去掉手机在听/最近听歌/朋友圈等会污染推荐的字段（否则角色只会照抄用户刚搜的、或查手机里那两首）
       const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
-      // 解析：可能是 {songs:[...]}、裸数组、{list/data/result:[...]}；元素可能是对象或"歌名 - 歌手"字符串
-      const parseWants = rec => {
-        let raw = rec && Array.isArray(rec.songs) ? rec.songs : Array.isArray(rec) ? rec : (rec && (rec.list || rec.data || rec.result || rec.tracks)) || [];
-        return (Array.isArray(raw) ? raw : []).map(w => {
-          if (typeof w === "string") { const parts = w.replace(/^\d+[.、)\s]+/, "").split(/\s*[-–—/]\s*/); return { title: (parts[0] || "").replace(/^《|》$/g, "").trim(), artist: (parts[1] || "").trim(), note: "" }; }
-          return {
-            title: String((w && (w.title || w.name || w.song)) || "").trim(),
-            artist: String((w && (w.artist || w.singer || w.by)) || "").trim(),
-            // 心境：这首歌对 TA 意味着什么（她 2026-08-29 点名，查手机的音乐页看得到）
-            note: String((w && (w.note || w.thought || w.why || w.mood)) || "").replace(/\s+/g, " ").trim().slice(0, 60)
-          };
-        }).filter(s => s.title);
-      };
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
             instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】她 2026-08-29 报「备注有点不自然」——上一版全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
             schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535
           });
-          return parseWants(rec);
+          return parseSongWants(rec);
         } catch (e) { return []; }
       };
-      const searchOne = async kw => {
-        try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(kw) + "&limit=1&timestamp=" + Date.now()); const d = await r.json(); return (d && d.result && d.result.songs && d.result.songs[0]) || null; } catch (e) { return null; }
-      };
-      // 【为什么以前刷不到最低数】（她 2026-08-29：「以前根本刷不到要求的最低数」）
-      // 旧逻辑的重试条件是【模型给了几个候选】（wants.length < 12），可她看到的是
-      // 【最后真进歌单几首】。候选到入库中间还要过两道漏斗：网易云搜不到的直接丢、
-      // 歌单里已经有的跳过。模型老老实实给了 15 个候选、循环立刻满足退出，
-      // 结果搜没搜到、重没重复一概不管，最后进去六七首也照样收工。
-      // 现在改成【按结果重试】：不够就再要一轮，且只搜没试过的候选。
-      const TARGET = 12, HARD_CAP = 16, MAX_ROUNDS = 3;
-      const wants = [], added = [];
-      const seenTitle = new Set(), tried = new Set();
-      let miss = 0, dup = 0;
-      for (let round = 1; round <= MAX_ROUNDS && added.length < TARGET; round++) {
-        const got = await probeOnce(round === 1 ? "" : "\n【上一轮只凑到 " + added.length + " 首】其中有些歌搜不到、有些和已有的重了。这轮换一批【更好搜、更主流平台上确实有】的歌，别再给上面那些。");
-        got.forEach(w => { const k = w.title.toLowerCase(); if (!seenTitle.has(k)) { seenTitle.add(k); wants.push(w); } });
-        for (const w of wants) {
-          if (added.length >= HARD_CAP) break;
-          const k = w.title.toLowerCase();
-          if (tried.has(k)) continue;
-          tried.add(k);
-          let hit = await searchOne((w.title + " " + (w.artist || "")).trim());
-          if (!hit) hit = await searchOne(w.title); // 带歌手搜不到 → 只用歌名再试
-          if (!hit) { miss++; continue; }
-          const nid = String(hit.id);
-          if (added.some(a => a.neteaseId === nid) || existingIds.has(nid)) { dup++; continue; } // 跳过本轮重复 + 歌单里已有的
-          const cover = ((hit.album || hit.al || {}).picUrl) || null;
-          const artist = (hit.artists || hit.ar || []).map(a => a.name).filter(Boolean).join(" / ") || (w.artist || "");
-          added.push({ id: "sg_" + Date.now() + "_" + nid, source: "netease", neteaseId: nid, title: hit.name || w.title, artist, cover, note: w.note || "", ts: Date.now() });
-        }
-      }
+      // 这条漏斗跟情侣唱片共用（见 collectRealSongs）：不够就再要一轮，且只搜没试过的候选
+      const TARGET = 12;
+      const { wants, added, miss, dup } = await collectRealSongs({ probeOnce, existingIds, mkId: nid => "sg_" + Date.now() + "_" + nid, target: TARGET, cap: 16, rounds: 3 });
       if (!wants.length) { toast("没生成出歌，重试下"); return; }
       if (!added.length) { toast("这轮 " + wants.length + " 首网易云一首都没搜到（换个接口或稍后再试）"); return; }
       // 往已有歌单里【追加】新歌、按 neteaseId + 歌名歌手去重；没有就新建
@@ -15898,6 +15947,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onDiscRemove: discRemove,
     onDiscNote: discSetNote,
     onDiscPlay: discPlay,
+    onDiscGen: genCoupleDisc,
+    discGen: gen.coupleDisc,
     onDiscEnter: discEnter,
     onDiscLeave: discLeave,
     discNowId: player.songId,
