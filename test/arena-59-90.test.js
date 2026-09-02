@@ -289,8 +289,8 @@ test("擂台顶栏自己吃刘海，返回键还要点得着", () => {
 });
 
 // 一层写在两处，第二处没跟上——v59.90 改名时「结束判定」有两颗键，只换了一颗。
-test("两颗收台键的字要一样（本轮没生成完那颗、和本轮已完成那颗）", () => {
-  assert.equal((dbt.match(/"收台判胜负"/g) || []).length, 2, "两颗收台键的字不一样");
+test("每一颗收台键的字都要一样（v59.99 起有三颗：旁观局那颗、没生成完那颗、已完成那颗）", () => {
+  assert.equal((dbt.match(/"收台判胜负"/g) || []).length, 3, "有一颗收台键的字跟别的不一样");
   const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(live.indexOf("结束判定") < 0, "还有一颗键留着旧名字");
 });
@@ -347,20 +347,50 @@ test("言秋那一支也给足了（她亲口点名放开的）", () => {
   assert.match(rule, /言秋那一支也给足/, "没写清这条是她亲口点名放开的");
 });
 
-test("擂台：言秋不进台上也不进台下，但查头像和分享照旧认得他", () => {
+// v59.99 起分界改了：不是「他能不能进擂台」，是【谁把他放进去的】。
+// 她 2026-09-01：「言秋加回来吧宝宝，我后续给他 cc 加张票进来玩」。
+test("言秋：她自己挑得上台，但不许被模型自动抓去台下起哄", () => {
   const app2 = R("app.js");
-  // 摘的是【能上台/能起哄】那份名单，不是查头像那份
-  assert.match(app2, /cast: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\),/);
-  assert.match(app2, /characters: liveChars,\n\s*\/\/ ⚠️言秋不进擂台的【台上】也不进【台下】/,
-    "characters 那份被一起滤了——存档里已有的头像会变成无名氏");
-  // 台上那份名单和台下起哄那份都走 cast
-  assert.match(dbt, /const chars = picked\.map\(id => \(props\.cast \|\| props\.characters\)\.find\(c => c\.id === id\)\)/);
-  assert.match(dbt, /\(props\.cast \|\| props\.characters\)\.map\(c => \{/, "上台的人那份名单没换");
-  assert.match(dbt, /const bench = \(props\.cast \|\| props\.characters\)\.filter\(c => !onIds\.includes\(c\.id\)\)/, "台下起哄那份名单没换");
-  // 分享那一栏照旧列他：发一场擂台给他看，跟扮演他是两回事
+  // 摘的只有【台下起哄】那一份——那几位是模型自动抓来编台词的
+  assert.match(app2, /crowdChars: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\),/);
+  assert.match(app2, /分界不是「他能不能进擂台」，是【谁把他放进去的】/, "没写清这条分界，下一个人会又把他整个摘掉");
+  // ⚠️只看擂台那一段：别的 app 的挂载也写着 characters: liveChars，拿整份 app.js 找会被它们顶住
+  const mi = app2.indexOf('else if (screen === "debate") body = h(Debate, {');
+  const mount = app2.slice(mi, app2.indexOf("onBack:", mi));
+  assert.match(mount, /characters: liveChars,/, "characters 那份被滤了——存档里已有的头像会变成无名氏");
+  // 上台那一栏走全的（她自己一个一个挑）
+  assert.match(dbt, /const chars = picked\.map\(id => props\.characters\.find\(c => c\.id === id\)\)/, "上台那一栏又被滤了");
+  assert.match(dbt, /props\.characters\.map\(c => \{/, "上台的人那份名单又被滤了");
+  // 台下那一份走 crowdChars
+  assert.match(dbt, /const bench = \(props\.crowdChars \|\| props\.characters\)\.filter\(c => !onIds\.includes\(c\.id\)\)/, "台下起哄那份名单没摘他");
+  // 分享那一栏照旧列他
   const pi = dbt.indexOf("const sharePanel = shareOpen");
   const panel = dbt.slice(pi, dbt.indexOf("\n    return h(\"div\", { className: \"h-full flex flex-col\" },", pi));
-  assert.ok(panel.indexOf("props.cast") < 0, "分享那一栏也把他摘了——发给他看跟扮演他不是一回事");
-  // 两层都要接上（一层写在三处，第三处没跟上）
-  assert.equal((dbt.match(/cast: props\.cast/g) || []).length, 2, "cast 没一路传到 Setup 和 Arena");
+  assert.ok(panel.indexOf("crowdChars") < 0, "分享那一栏也把他摘了——发给他看跟扮演他不是一回事");
+  // 一路传到两层（一层写在三处，第三处没跟上）
+  assert.equal((dbt.match(/crowdChars: props\.crowdChars/g) || []).length, 2, "crowdChars 没一路传到 Setup 和 Arena");
+});
+
+// 她 2026-09-01：「擂台再加一个把我去除的功能纯看他们吵」
+test("旁观局：她不上台，一按就让他们吵，没有「先等你开口」这一步", () => {
+  // 开关 + 拦法
+  assert.match(dbt, /const \[watchOnly, setWatchOnly\] = useState\(false\)/);
+  assert.match(dbt, /"我不上台，纯看他们吵"/);
+  assert.match(dbt, /if \(watchOnly && picked\.length < 2\)[\s\S]{0,120}"你不上台的话，台上得有两个人才吵得起来"/,
+    "开了旁观还只拉一个人，就没得吵了");
+  // 存进存档：台上没有「我」这一位，也就不用选边
+  assert.match(dbt, /spectate: watch,\n\s*parts: watch \? parts : \[me\]\.concat\(parts\), order: order,\n\s*myOptions: watch \? \[\] : assigned\.myOptions, mySet: watch,/);
+  // 回合流程：没有「我先说」这一步
+  assert.match(dbt, /const watch = !!s\.spectate;/);
+  assert.match(dbt, /const myTurnNow = !watch && s\.mySet && !roundMyDone\(cr\);/, "旁观局还在等她先开口");
+  assert.match(dbt, /const needGen = \(watch \|\| roundMyDone\(cr\)\) && !roundGen\(cr\);/);
+  assert.match(dbt, /\(watch && needGen\) \? h\("div"[\s\S]{0,700}roundNo === 1 \? "开吵 →" : "让他们接着吵 →"/, "旁观局底下那颗键不对");
+  // 提示词：台下没人插话，别对着她说话
+  assert.match(dbt, /o\.watch\s*\? "\\n\\n【台下没有人插话】"/, "旁观局还在跟他们说「她刚说了什么」");
+  assert.match(dbt, /别对着她说话、别问她怎么看，也别等她表态/);
+  assert.match(dbt, /count: count, watch: watch/, "watch 没传进这一轮的生成");
+  // 判词：这一场她没上台，不许判她赢
+  assert.match(dbt, /session\.spectate \? "只在台上这几位里判——「" \+ uName \+ "」这一场没上台，不许判她赢"/);
+  // 重试那一路也得知道这是旁观局（本来就没有我这一句）
+  assert.match(dbt, /runGen\(t2 && !t2\.skipped \? t2\.text : "", !!\(watch \|\| \(t2 && t2\.skipped\)\)\)/);
 });

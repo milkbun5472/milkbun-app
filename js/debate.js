@@ -121,7 +121,9 @@
         : "\n【认真辩论】各角色维持人设的同时认真论辩：亮论点给理由，针对 " + uName + " 和彼此的话正面反驳或追问，讲逻辑也讲立场底气。别人身攻击、别空喊口号。") +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       "\n\n【台上角色（就按这个顺序发言）】\n" + rosterBlocks +
-      "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）") +
+      (o.watch
+        ? "\n\n【台下没有人插话】" + uName + " 这一场不上台，只在台下看。你们自己把这场吵起来、吵下去，别对着她说话、别问她怎么看，也别等她表态。"
+        : "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）")) +
       (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
       (benchBlock ? "\n\n【观众里有这些熟人（认识台上的人，弹幕要带各自偏袒/私人恩怨，用本名署名、贴人设）】\n" + benchBlock : "") +
       "\n\n【本次任务】\n" +
@@ -158,7 +160,7 @@
       "\n\n【要一次做四件事】\n" +
       "1) crux：这一场他们【真正】在吵的是什么。⚠不是把辩题复述一遍——是把两边话里那个没说破的分歧点点出来（常见形状：两边其实在用两把不同的尺子；或者两边都默认了一个根本不成立的前提）。1~2 句。\n" +
       "2) best：全场最狠的那一句。从上面实录里【逐字照抄】某个人真的说过的一句（quote，不许改写、不许自己造），写清是谁说的（name）、狠在哪（why，一句）。可以是输的那一方说的。\n" +
-      "3) 判出唯一胜者（可以是台上任何一方，包括玩家「" + uName + "」）+ 写判词：具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
+      "3) 判出唯一胜者（" + (session.spectate ? "只在台上这几位里判——「" + uName + "」这一场没上台，不许判她赢" : "可以是台上任何一方，包括玩家「" + uName + "」") + "）+ 写判词：具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
       "4) 然后台上【每个角色】各发一句赛后感言，完全按各自人设反应赢/输（得意/谦逊/意犹未尽/不服/找补/摆烂…别一个腔调）。⚠只给下面这些角色写，【绝对不要】给玩家「" + uName + "」写感言。\n\n【台上角色】\n" + charRoster +
       "\n\n【输出】只输出 JSON：{\"crux\":\"他们其实在吵的那件事\",\"best\":{\"name\":\"说这句的人\",\"quote\":\"逐字照抄的原句\",\"why\":\"狠在哪，一句\"},\"winner\":\"胜者名字\",\"reason\":\"判词2~4句\",\"closings\":[{\"name\":\"角色名\",\"text\":\"感言1~3句\"}]}。closings 只含上面这些角色、每人一条。";
     // 判词 + 每个人一段感言一次出，别写一半被截断
@@ -211,7 +213,7 @@
 
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: props.characters, cast: props.cast, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        active: props.active, characters: props.characters, crowdChars: props.crowdChars, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -220,7 +222,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, cast: props.cast, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, crowdChars: props.crowdChars, groups: props.groups, profile: props.profile, worldbook: props.worldbook, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
@@ -233,7 +235,7 @@
       h(Head, { zh: "擂台", en: "Arena", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("button", {
-          onClick: () => { if (!(props.cast || props.characters).length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
+          onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
           className: "w-full py-3 mb-5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
         }, "＋ 摆一场擂台"),
@@ -280,6 +282,8 @@
     const [mode, setMode] = useState("serious"); // serious | free
     const [winCond, setWinCond] = useState("");
     const [inject, setInject] = useState(false);
+    // 旁观：她不上台，纯看他们吵（她 2026-09-01：「再加一个把我去除的功能纯看他们吵」）
+    const [watchOnly, setWatchOnly] = useState(false);
     const [starting, setStarting] = useState(false);
 
     const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : (p.length >= 3 ? (props.toast && props.toast("台上最多站 3 个"), p) : p.concat(id)));
@@ -287,9 +291,11 @@
     const start = async () => {
       if (!topic.trim()) { props.toast && props.toast("先写要吵的那件事"); return; }
       if (!picked.length) { props.toast && props.toast("至少拉 1 个人上台"); return; }
+      // 旁观局你不上台，台上只剩一个人就没得吵了
+      if (watchOnly && picked.length < 2) { props.toast && props.toast("你不上台的话，台上得有两个人才吵得起来"); return; }
       setStarting(true);
       try {
-        const chars = picked.map(id => (props.cast || props.characters).find(c => c.id === id)).filter(Boolean);
+        const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
         const uName = (props.profile && props.profile.name) || "我";
         const assigned = await assignStances(props.active, props.worldbook, topic.trim(), chars, mode === "free");
         // 参赛者结构（含我）
@@ -299,12 +305,16 @@
           injection: inject ? recentChatSnippet(c.id, uName, c.name) : ""
         }));
         const me = { kind: "me", id: "__me__", name: uName, stance: "", color: ME_COLOR };
+        // 旁观局：台上没有「我」这一位，也就不用选边、不用等我先说
+        const watch = !!watchOnly;
         // 我固定每轮第一个发言；角色发言顺序：多人=乱序，1v1=就那一个。parts 里我排最前（台上榜也我在先）
         const order = shuffle(chars).map(c => ({ kind: "char", id: c.id }));
         const session = {
           id: "db_" + Date.now(), topic: topic.trim(), mode: mode,
           winCond: mode === "free" ? (winCond.trim() || "") : "",
-          parts: [me].concat(parts), order: order, myOptions: assigned.myOptions, mySet: false,
+          spectate: watch,
+          parts: watch ? parts : [me].concat(parts), order: order,
+          myOptions: watch ? [] : assigned.myOptions, mySet: watch,
           rounds: [{ turns: [], audience: [], myDone: false, gen: false }],
           status: "ongoing", verdict: null, closings: [], createdTs: Date.now(), lastTs: Date.now()
         };
@@ -324,8 +334,8 @@
         // 选角色
         h("div", { style: label }, "上台的人（选 1 个＝和你 1v1；2~3 个＝一台子人一起吵）"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
-          (props.cast || props.characters).length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") :
-            (props.cast || props.characters).map(c => {
+          props.characters.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") :
+            props.characters.map(c => {
               const on = picked.includes(c.id);
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70",
                 style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
@@ -344,6 +354,14 @@
         mode === "free" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: label }, "怎么算赢（可自定，留空＝收台时临场定）"),
           h("textarea", { value: winCond, onChange: e => setWinCond(e.target.value), placeholder: "例：谁先把对方逗笑 / 谁成功把话题带跑偏…（不填也行，结算时系统会定标准）", rows: 2, style: Object.assign({}, field, { resize: "none" }) })) : null,
+        // 我上不上台
+        h("button", { onClick: () => setWatchOnly(v => !v), className: "active:opacity-70",
+          style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 10 } },
+          h("div", { style: { width: 38, height: 22, borderRadius: 999, background: watchOnly ? t.accent : t.line, position: "relative", transition: "background .15s", flexShrink: 0 } },
+            h("div", { style: { width: 18, height: 18, borderRadius: 999, background: "#fff", position: "absolute", top: 2, left: watchOnly ? 18 : 2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } })),
+          h("div", { style: { textAlign: "left" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "我不上台，纯看他们吵"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "开了就不用你先开口，台上至少要两个人"))),
         // 注入聊天
         h("button", { onClick: () => setInject(v => !v), className: "active:opacity-70",
           style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 4 } },
@@ -395,9 +413,11 @@
     const roundMyDone = r => !!(r && (r.myDone || (r.turns || []).some(x => x.who === "me")));
     const roundGen = r => !!(r && (r.gen || (r.audience && r.audience.length) || (r.turns || []).some(x => x.who === "char")));
     const cr = curRound();
-    const myTurnNow = s.mySet && !roundMyDone(cr);   // 该我(固定先手)发言
-    const needGen = roundMyDone(cr) && !roundGen(cr); // 我说完/跳过了，等这一次批量生成（失败可重试）
-    const roundDone = roundMyDone(cr) && roundGen(cr);
+    // 旁观局（她不上台）：没有「我先说」这一步，一按就直接让台上吵
+    const watch = !!s.spectate;
+    const myTurnNow = !watch && s.mySet && !roundMyDone(cr);   // 该我(固定先手)发言
+    const needGen = (watch || roundMyDone(cr)) && !roundGen(cr); // 等这一次批量生成（失败可重试）
+    const roundDone = (watch || roundMyDone(cr)) && roundGen(cr);
     const roundNo = s.rounds.length;
 
     // 一次调用批量生成【全部角色发言(按序) + 观众弹幕】
@@ -407,12 +427,13 @@
       try {
         const charParts = s.parts.filter(p => p.kind === "char");
         const onIds = charParts.map(c => c.id);
-        const bench = (props.cast || props.characters).filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
+        // ⚠️台下这几位是【模型自动抓来编台词的】，所以言秋不进这一份（见 app.js 那段注释）
+        const bench = (props.crowdChars || props.characters).filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
         const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
         const count = ri(7, 10);
         const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, props.worldbook, {
           chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
-          myText: skip ? "" : myText, transcript: prevTranscript(s), bench: bench, count: count
+          myText: skip ? "" : myText, transcript: prevTranscript(s), bench: bench, count: count, watch: watch
         });
         patch(prev => {
           const rounds = prev.rounds.slice();
@@ -432,7 +453,7 @@
       if (busy) return;
       const myText = skip ? "" : draft.trim();
       if (!skip && !myText) { props.toast && props.toast("说点什么，或者这轮不说"); return; }
-      const mePart = s.parts.find(p => p.kind === "me");
+      const mePart = s.parts.find(p => p.kind === "me") || { stance: "" };
       patch(prev => {
         const rounds = prev.rounds.slice();
         const last = Object.assign({}, rounds[rounds.length - 1]);
@@ -445,8 +466,8 @@
       await runGen(myText, skip);
     };
 
-    // 生成失败后的重试：找回本轮我说的话再跑一次
-    const retryGen = () => { const t2 = (cr.turns || []).find(x => x.who === "me"); runGen(t2 && !t2.skipped ? t2.text : "", !!(t2 && t2.skipped)); };
+    // 生成失败后的重试：找回本轮我说的话再跑一次（旁观局本来就没有我这一句）
+    const retryGen = () => { const t2 = (cr.turns || []).find(x => x.who === "me"); runGen(t2 && !t2.skipped ? t2.text : "", !!(watch || (t2 && t2.skipped))); };
 
     const nextRound = () => patch(prev => ({ rounds: (prev.rounds || []).concat([{ turns: [], audience: [], myDone: false, gen: false }]) }));
 
@@ -661,6 +682,13 @@
                 h("button", { onClick: () => setSideDraft(""), className: "active:opacity-70",
                   style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自己写一个"))))
           // 我先发言（含跳过）
+          // 旁观局：不用你先开口，一按就让台上吵下去
+          : (watch && needGen) ? h("div", { style: { display: "flex", gap: 8 } },
+            h("button", { onClick: endDebate, className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
+            h("button", { onClick: () => runGen("", true), className: "flex-1 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } },
+              roundNo === 1 ? "开吵 →" : "让他们接着吵 →"))
           : myTurnNow ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
             h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: roundNo === 1 ? "你先开口，把话头抛出去…" : "轮到你先说，接着吵…", rows: 2,
               style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none", outline: "none" } }),
