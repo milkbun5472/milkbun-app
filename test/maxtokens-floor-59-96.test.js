@@ -64,3 +64,17 @@ test("主聊天两处都给足，不再分言秋一支和普通角色一支", ()
   assert.equal((app.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
     "首发和重试两处没都给足");
 });
+
+// ⚠️v60.02：上一版扫的时候只认 `maxTokens: 数字` 这个写法，
+//   把【位置传参】那一类整个漏了——weekly 的 genJSON 第四个参数就是 maxTokens，
+//   六处（采访/语录/来信/小报/头版）全卡在 6000 以下，而我报告说扫完了。
+//   所以这一条不只钉数字，还钉那道兜底：进了 genJSON 也得过同一条线。
+test("位置传参那一类也算数：weekly 的 genJSON 六处都过线，而且函数里兜了底", () => {
+  const wk = fs.readFileSync(path.join(root, "js", "weekly.js"), "utf8");
+  assert.match(wk, /const tok = Math\.max\(8000, Number\(maxTokens\) \|\| 0\);/,
+    "genJSON 里没有兜底——以后有人再传个 2000 进来，谁也拦不住");
+  assert.match(wk, /\{ maxTokens: tok \}/);
+  const calls = (wk.match(/genJSON\([^;]*?, (\d+)\)/g) || []).map(x => Number(x.match(/(\d+)\)$/)[1]));
+  assert.equal(calls.length, 6, "genJSON 的调用处不是六处了，核对一下");
+  calls.forEach(function (n) { assert.ok(n >= 8000, "还有一处位置传参低于 8000：" + n); });
+});

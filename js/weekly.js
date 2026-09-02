@@ -544,8 +544,14 @@
   }
 
   // ---- 生成：一次 callAI + extractJSON，外层重试 ----------------------
+  // ⚠️genJSON 的第四个参数【就是 maxTokens】，只是位置传参。
+  //   v59.96 全 app 扫额度时我只认 `maxTokens: 数字` 这个写法，把这里六处漏了
+  //   （采访、语录、来信、小报、头版都卡在 6000 以下）。这里兜一道底线：
+  //   思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额写正文。
+  //   见 .claude/rules/max-tokens-floor.md。
   async function genJSON(active, sys, userContent, maxTokens) {
-    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: maxTokens });
+    const tok = Math.max(8000, Number(maxTokens) || 0);
+    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok });
     return extractJSON(raw);
   }
 
@@ -593,7 +599,7 @@
       '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）","action":"（可选）回答时的神态/小动作一句，没有就空字符串"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 6000);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 14000);
         if (d && d.interview && Array.isArray(d.interview.qa)) {
           const qa = d.interview.qa.filter(function (x) { return x && (x.q || x.a); })
             .map(function (x) { return { q: String(x.q || "").trim(), a: String(x.a || "").trim(), action: String(x.action || "").trim() }; });
@@ -643,7 +649,7 @@
       "\n\n【写信人声纹】\n" + String(personasBlock || "") +
       "\n\n【输出】只输出一个 JSON，不要代码块：\n" +
       '{"quotes":[{"who":"人名","text":"逐字原句","note":"一行小注"}],"desk":{"title":"数据版标题","notes":["对应第1条的点评","对应第2条的点评"]},"correction":"更正启事或空字符串","ads":["分类广告一","分类广告二"],"letters":[{"from":"署名","body":"信的正文","reply":"编者按或空字符串"}]}';
-    const d = await genJSON(active, sys, "开始整理语录与数据版。", 3000);
+    const d = await genJSON(active, sys, "开始整理语录与数据版。", 11000);
     const raw = (d && Array.isArray(d.quotes)) ? d.quotes : [];
     // 逐字验真：模型很爱顺手把原话「修顺」，改过的一律丢掉，不将就
     const hay = String(globalText || "");
@@ -676,7 +682,7 @@
       "\n· 编辑可以给其中至多一封加一句极短的编者按（reply，≤18 字），其余留空。" +
       "\n\n【输出】只输出一个 JSON，不要代码块：\n" +
       '{"letters":[{"from":"署名","body":"信的正文","reply":"编者按或空字符串"}]}';
-    const d = await genJSON(active, sys, "开始整理本周来信。", 2600);
+    const d = await genJSON(active, sys, "开始整理本周来信。", 10600);
     return normalizeLetters(d && d.letters, letterAuthors);
   }
 
@@ -724,7 +730,7 @@
       '{"articles":[{"block":"素材块编号","event":"大白话说清这篇报的是哪件事","title":"这篇的标题","body":"这篇正文（严格遵守上面的声纹与禁止项；只用该腔调，别串味）"},{"block":"","event":"第二件事","title":"第二篇标题","body":"第二篇正文"}]}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本版 3~4 篇小报。", 7000);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本版 3~4 篇小报。", 15000);
         const arr = d && Array.isArray(d.articles) ? d.articles : (d && (d.title || d.body) ? [d] : null);
         if (arr && arr.length) {
           const out = arr.filter(function (a) { return a && (a.title || a.body); })
@@ -764,7 +770,7 @@
       "④ 如果事情不够分：宁可让某些版少写一篇、或去挑更小更边角的事，也绝不许两个版报同一件。\n" +
       "⑤ 每篇都要带上它对应的那句大白话，填进 event 字段（不出现在页面上，只用来查重）。\n" +
       "\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面列出的id之一\",\"articles\":[{\"block\":\"素材块编号\",\"event\":\"大白话说清这篇报的是哪件事\",\"title\":\"\",\"body\":\"\"}]}]}";
-    const d = await genJSON(active, sys, "一次写完这些互不串味的媒体版。", 16000);
+    const d = await genJSON(active, sys, "一次写完这些互不串味的媒体版。", 24000);
     const rows = d && Array.isArray(d.media) ? d.media : [];
     const byId = {};
     // 提示词只是要求，不是保证。代码再硬查两道：
@@ -849,7 +855,7 @@
       '{"headline":"主标题","lead":"导语一段","highlights":["看点一","看点二"],"editorNote":"编者按一句"}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本期封面头版。", 6000);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本期封面头版。", 14000);
         if (d && (d.headline || d.lead)) return {
           headline: String(d.headline || "").trim(), lead: String(d.lead || "").trim(),
           highlights: (Array.isArray(d.highlights) ? d.highlights : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean),
