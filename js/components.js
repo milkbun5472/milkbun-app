@@ -5406,6 +5406,12 @@ function CallScreen({
   };
   const avatarNode = (c, size) => { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return av ? h("img", { src: av, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]); };
   // —— PiP 小屏：悬浮在其它界面上，点一下回全屏，可拖动；计时/消息不中断 ——
+  const recent = list.slice(-16);
+  // ⚠️这两个必须排在【所有提前 return 之前】：下面 minimized 那一支会早退，
+  //   hook 写在它后面＝按缩小键那一下少调一个 hook，React 当场崩
+  //   （她 2026-09-02：「从视频界面按缩小键页面会崩」）。
+  //   仓库里已经吃过一次同样的亏，见 test/translate-detect.test.js 那条。
+  const bgUrl = useIdbImgUrl(bg);
   if (minimized) {
     const onTS = e => { const r = e.currentTarget.getBoundingClientRect(); const tt = e.touches[0]; dragRef.current = { dragging: true, moved: false, grabX: tt.clientX - r.left, grabY: tt.clientY - r.top }; };
     const onTM = e => { if (!dragRef.current.dragging) return; const tt = e.touches[0]; dragRef.current.moved = true; const w = window.innerWidth, hh = window.innerHeight; setPos({ x: Math.max(4, Math.min(w - 150, tt.clientX - dragRef.current.grabX)), y: Math.max(40, Math.min(hh - 60, tt.clientY - dragRef.current.grabY)) }); };
@@ -5419,12 +5425,10 @@ function CallScreen({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#95d16f", lineHeight: 1.2, marginTop: 1 } }, (isVideo ? "视频 " : "语音 ") + mmss)),
       h(IPulse, { size: 15, color: "#95d16f" }));
   }
-  const recent = list.slice(-16);
   // 这一通的画面（v60.35 她点名）：视频通话原来只有一片深色底和一个头像圆，
   // 「看得见对方」这件事只写在提示词里、屏幕上一点都看不出来。
   // 有画面时它铺满整屏当底，上面压一层暗罩让台词还读得清；头像圈就收起来——
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
-  const bgUrl = useIdbImgUrl(bg);
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
