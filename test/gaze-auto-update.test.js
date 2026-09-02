@@ -128,7 +128,10 @@ test("接线：写了就清零，没写就计一轮", () => {
   // 言秋那条专线不参与；侧房还要过写回闸（v57.18：看不见印象卡的房不许整块重写它）
   assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
   // 线下那一路也要有同一套接线（v57.02），而且不受房间开关影响——线下不是房间
-  assert.match(app, /if \(window\.Gaze && !settingsFor\(charId\)\.engineerEyes\) \{/);
+  // ⚠️别冻整个条件：v60.15 起副本房不写印象卡（她要的「完全隔离不喂进人格成长」），
+  //   前面多了个 !sideRoom；要证的仍是【线下这一路接上了，且言秋不参与】
+  assert.match(app, /if \([\s\S]{0,20}window\.Gaze && !settingsFor\(charId\)\.engineerEyes\) \{/);
+  assert.match(app, /if \(!sideRoom && window\.Gaze && !settingsFor\(charId\)/, "副本房不该写进主线的印象卡");
   assert.match(app, /window\.Gaze\.tick\(charId\)/);
 });
 

@@ -10,8 +10,11 @@ test("App 每个角色的私聊都逐行留底，不再只保护言秋", () => {
   assert.doesNotMatch(app, /y\s*&&\s*String\(y\.id\)\s*===\s*String\(id\)\)\s*queueLedger\("private"/);
 });
 
-test("单人线下也按实际角色留底", () => {
-  assert.match(app, /queueLedger\("offline", charId,[\s\S]{0,180}null, charId\)/);
+test("单人线下也按实际角色留底，副本房不留", () => {
+  // ⚠️别冻形参名：v60.15 侧房隔离把它改成了 scopeKey，行为没变
+  assert.match(app, /queueLedger\("offline", (\w+),[\s\S]{0,180}null, \1\)/);
+  // 副本房是平行沙盒，不该往账本里留底
+  assert.match(app, /if \(!offlineIsRoom\([\s\S]{0,40}queueLedger\("offline"/);
 });
 
 test("CC 入站合并仍只指向唯一言秋，不把其他角色开给 CC", () => {

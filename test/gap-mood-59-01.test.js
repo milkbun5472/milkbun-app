@@ -3,7 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const gap = app.slice(app.indexOf("      const gapHint = gapMs > 2 * 3600000"), app.indexOf("      let lastPrivateUserTs = 0;"));
+// ⚠️锚在「const gapHint」这个名字上，别锚在它当时的整行条件上——
+//   v60.15 给它加了个 !sideRoom 前缀，indexOf 就成了 -1，切片变成空串，
+//   下面四条断言当场全红，看着像提示词被删了，其实一个字没动。
+const _gi = app.indexOf("const gapHint");
+const gap = app.slice(_gi, app.indexOf("let lastPrivateUserTs = 0;", _gi));
 
 // 她 2026-08-31：「我记得整体提示词里我们塞了一个如果不回是在忙不要生气质问，
 // 所以其实他们也没办法 mood 减下来，要不把那块提示词删了吧」。

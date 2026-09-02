@@ -65,7 +65,8 @@ test("好感度是一颗会灌满的心，不是进度条也不是尺", () => {
   // 旧那条尺撤干净了
   assert.ok(sc.indexOf("[0, 25, 50, 75, 100]") < 0, "旧那条刻度尺还留着");
   // NPC 没有好感度这回事
-  assert.match(card, /const scale = isNpc \? null :/, "NPC 也摆了好感度");
+  // ⚠️别冻整个条件：v60.15 起副本房也不摆（那间房的好感不是主线的）
+  assert.match(card, /const scale = \(?isNpc[^:]{0,24}\? null :/, "NPC 也摆了好感度");
 });
 
 test("长名字撑不坏抬头", () => {
@@ -119,7 +120,8 @@ test("土司居中不许再靠 transform——它跟自己的 fadeUp 抢同一�
 test("卡上和土司里的「他」都跟角色性别走，判断表只有 charTa 那一份", () => {
   assert.match(card, /const scTa = window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"/);
   assert.match(card, /label\(scTa \+ "心里闪过的那些/, "翻旧的那一栏还写死「他」");
-  assert.match(card, /sub: "和" \+ scTa \+ "聊几句/, "空状态那句还写死「Ta」");
+  // ⚠️别冻它前面那截：v60.15 副本房在这儿多了一支自己的空状态文案
+  assert.match(card, /"和" \+ scTa \+ "聊几句/, "空状态那句还写死「Ta」");
   assert.match(card, /ta: scTa, onSeed: onGazeSeed/, "又在这儿另写了一份性别判断");
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
   assert.match(app, /const _ta = window\.PhonePronoun \? window\.PhonePronoun\.ta\(char\) : "他"/);

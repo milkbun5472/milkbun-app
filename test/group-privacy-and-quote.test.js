@@ -32,8 +32,10 @@ test("封闭群不喂动态计数器——攒够 30 轮会强制发朋友圈", (
   assert.match(app, /if \(!groupClosed\(groupId\)\) _gspoke\.forEach\(id => tickAmbient\(id, \{\}\)\);/);
   assert.match(app, /等于把闭群里的事发到朋友圈上/, "病因写在代码里");
   // 单聊和线下照常计数，别误伤
-  assert.match(app, /tickAmbient\(charId, \{\}\); \/\/ 线下也计动态保底/);
-  assert.match(app, /if \(!opts\.proactive\) tickAmbient\(charId, \{ moment: !!mo/);
+  // ⚠️别冻注释、也别冻前缀：v60.15 起副本房不推主时间线的生态，两处都多了 !sideRoom
+  assert.match(app, /tickAmbient\(charId, \{\}\);/, "线下不计动态保底了");
+  assert.match(app, /!opts\.proactive\) tickAmbient\(charId, \{ moment: !!mo/);
+  assert.match(app, /if \(!sideRoom\) tickAmbient\(charId, \{\}\)/, "副本房不该推主时间线的动态生态");
 });
 
 test("封闭群的内容也不许当朋友圈素材——光不计数还不够", () => {

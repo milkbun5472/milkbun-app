@@ -92,6 +92,7 @@ test("群里这一段落在成员自己那一段，别的成员看不到", () =>
 });
 
 test("单聊也要有——以前它只知道「她在群里跟我互动过」，不知道我说了什么", () => {
-  assert.match(app, /const _saidElsewhere = crossChannelSaid\(charId, null\);/, "单聊没取");
+  // ⚠️别冻整行：v60.15 起它由「这间房看不看得见别的场景」把着门（副本房不喂），取还是取
+  assert.match(app, /_saidElsewhere = [\s\S]{0,60}crossChannelSaid\(charId, null\)/, "单聊没取");
   assert.match(app, /crossChannelHint \+ _saidElsewhereHint \+/, "取了却没拼进每轮任务串");
 });

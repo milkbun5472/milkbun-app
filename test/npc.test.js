@@ -48,8 +48,12 @@ test("① 没有心情、没有好感度", () => {
   assert.match(app, /if \(spk && !spk\.npc && moodLabel\) setMoodFor/, "群线上");
   assert.match(app, /const _bNpc = .*\.npc;/, "群线下");
   // 上下文也别喂：配角没有心情/好感/印象卡/年龄/行程/情侣状态这些层
-  ["配角没有心情", "配角没有好感度", "配角没有印象卡", "配角没有年龄这一层", "配角没有行程", "配角跟用户没有关系线"]
+  ["配角没有心情", "配角没有好感度", "配角没有印象卡", "配角没有年龄这一层", "配角跟用户没有关系线"]
     .forEach(x => assert.ok(app.indexOf(x) > 0, "群线下 ctx 少挡了一层：" + x));
+  // ⚠️行程这一层别再靠注释原文来认（v60.18 时间感知改成按角色/按房开关，
+  //   那句注释顺带改了一个词，这条就红了——行为一个字没变）。对着【代码里的那道闸】问。
+  assert.match(app, /if \(!c \|\| c\.npc[^;]{0,60}\) return;[\s\S]{0,120}schedBriefFor\(c\)/,
+    "群线下 ctx 少挡了一层：配角没有行程");
   assert.match(app, /if \(c\.npc\) \{/, "群线上 memberDesc 要有配角分支");
 });
 
@@ -117,7 +121,8 @@ test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
   // ⚠️v59.77 心声卡重做：心情长在抬头那一行上、好感度改成一条刻度。
   // 要证的还是【配角这两样都不摆】——他们的心情和好感永远不会动，摆出来是假的。
   assert.match(comp, /\(!isNpc && dm\) \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "配角也摆了心情");
-  assert.match(comp, /const scale = isNpc \? null :/, "配角也摆了好感度");
+  // ⚠️别冻整个条件：v60.15 起副本房也不摆（那间房的好感不是主线的）
+  assert.match(comp, /const scale = \(?isNpc[^:]{0,24}\? null :/, "配角也摆了好感度");
   // 穿着/动作/心声照旧显示——那些是真的
   assert.doesNotMatch(comp, /!isNpc && .*hideWearAction/);
 });

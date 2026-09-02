@@ -54,7 +54,8 @@ test("认那一条要认得准，别 undefined 撞 undefined", () => {
   // 要证的是【晚一拍再写】，别跟本轮其他写挤在一起
   assert.match(helpers, /setTimeout\(\(\) => patchNote\(same, note\), 400\)/, "跟本轮其他写挨在一起了");
   assert.match(app, /\(same, note\) => pChat\(chatKey \|\| charId, p => p\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\)\)/, "线上没把那句写回聊天");
-  assert.match(app, /\(same, note\) => pOffline\(charId, list => list\.map\(x => \(\{ \.\.\.x, msgs: \(x\.msgs \|\| \[\]\)\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\) \}\)\)\)/, "线下没把那句写回那一场");
+  // ⚠️别冻形参名（v60.15 侧房隔离改成了 scopeKey）
+  assert.match(app, /\(same, note\) => pOffline\(\w+, list => list\.map\(x => \(\{ \.\.\.x, msgs: \(x\.msgs \|\| \[\]\)\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\) \}\)\)\)/, "线下没把那句写回那一场");
 });
 
 test("换头像留住旧那张，而且不许把她踢出聊天", () => {

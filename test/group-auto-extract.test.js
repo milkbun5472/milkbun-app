@@ -13,7 +13,7 @@ const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
 // 于是她在群里聊了一会儿，记忆库里什么都没有——不是坏了，是这一处压根没接。
 test("四处都要有「每几轮抽一次」，不能只有三处", () => {
   const code = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  ["maybeAutoExtract(charId)", "maybeAutoExtractOffline(charId)",
+  ["maybeAutoExtract(charId)", "maybeAutoExtractOffline(scopeKey)",
    "maybeAutoExtractGroupOffline(group.id)", "maybeAutoExtractGroup(groupId)"]
     .forEach(call => assert.ok(code.indexOf(call) > 0, "没接上：" + call));
   // 群线上要挂在 replyGroup 的 finally 里，和总结并排
