@@ -6697,20 +6697,33 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
       h("div", { className: "px-4 py-1.5", style: { background: "rgba(0,0,0,0.14)", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em" } }, footer)),
     isU && myAvatar ? myAvatar : null);
 }
-// 亲属卡发放卡
+// 亲属卡（v60.44 重做）
+// 她 2026-09-02：「亲属卡没有头像，还有样式也改改」。
+// 原来是一张通用银行卡：渐变底 + 「亲属卡 · KINSHIP」中英对照 + 一个额度数字。
+// 那个形状搬进任何一个钱包 app 都成立，而且【看不出是谁给的】——
+// 可这张卡的全部意义就是【他把自己的钱开了一道口子给她】：
+// 谁给的、他说了什么，比额度本身重要。
+// 所以：他的头像和名字在最上面，额度是他给的那个数，附言就按他说话的样子摆。
 function KinshipIssueCard({ m, character }) {
   const t = useTheme();
   const c = character || {};
+  const ink = c.color || "#6b7a8f";
   return h("div", { className: "py-1 flex justify-start" },
-    h("div", { style: { width: 240, borderRadius: 16, overflow: "hidden", background: "linear-gradient(135deg," + (c.color || "#6b7a8f") + "," + (c.color || "#3a4652") + ")", color: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" } },
-      h("div", { className: "p-4" },
-        h("div", { className: "flex items-center justify-between mb-5" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.14em", opacity: 0.85 } }, "亲属卡 · KINSHIP"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: 0.9 } }, c.name || "")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.75 } }, "额度"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1 } }, "¥" + (m.limit || 0)),
-        m.note && h("div", { className: "mt-2.5", style: { fontFamily: F_BODY, fontSize: 12, opacity: 0.92, lineHeight: 1.5 } }, "「" + m.note + "」")),
-      h("div", { className: "px-4 py-1.5", style: { background: "rgba(0,0,0,0.16)", fontFamily: F_BODY, fontSize: 10.5 } }, "给你的亲属卡 · 刷 TA 的钱")));
+    h("div", { style: { width: 246, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 10px rgba(0,0,0,.07)" } },
+      // 上沿一条他的颜色：这张卡是从他那儿来的
+      h("div", { style: { height: 4, background: ink } }),
+      h("div", { style: { padding: "13px 15px 14px" } },
+        h("div", { className: "flex items-center", style: { gap: 9, marginBottom: 12 } },
+          h(Avatar, { character: c, size: 34, radius: 10 }),
+          h("div", { style: { minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "TA"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "给你开了一张亲属卡"))),
+        h("div", { className: "flex items-baseline", style: { gap: 6 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: t.ink } }, "¥" + (m.limit || 0)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "额度")),
+        m.note ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, "「" + m.note + "」") : null),
+      h("div", { style: { padding: "7px 15px 8px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+        "花这张卡，刷的是" + (c.name || "TA") + "的钱")));
 }
 // 代付请求卡
 function PayLaterCard({ m }) {

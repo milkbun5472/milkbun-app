@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.43";
+const APP_VERSION = "v60.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14670,9 +14670,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const label = (typeof SHOP_CATS !== "undefined" ? SHOP_CATS.find(c => c.key === cat) : null);
       const topic = keyword && keyword.trim() ? "用户搜索关键词「" + keyword.trim() + "」" : "「" + (label ? label.zh : cat) + "」分类";
       const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
-        instruction: "你是一个综合购物 App 的推荐引擎（类似淘宝）。围绕" + topic + "，**务必推荐正好 6 件商品（items 数组必须有 6 个元素，缺一不可）**。每件：name(有画面感的具体商品名) / price(纯数字人民币，符合该品类的合理价位，有高有低) / desc(一句卖点或描述) / sales(销量文案，如「2万+人付款」「8000+人付款」)。要贴合该分类，别跑题。",
-        schemaHint: "{\"items\":[{\"name\":\"川味经典红油抄手\",\"price\":38,\"desc\":\"地道成都风味\",\"sales\":\"2万+人付款\"}]}",
-        maxTokens: 11500
+        // ⚠️别再写「类似淘宝」：那是直接叫它去抄别人（她 2026-09-02 点名这一处是照着别人做的）。
+        // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
+        //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
+        //   刷出来的永远是同一族商品（见 .claude/rules/prompt-no-content-samples.md）。
+        instruction: "你在给一个人刷购物 App 的信息流。围绕" + topic + "，**务必给正好 6 件商品（items 数组必须有 6 个元素，缺一不可）**。"
+          + (cat === "forhim" ? "这一栏是【她想买来送人的】：东西要像是挑给某个具体的人的，不是给自己买的。" : "")
+          + "每件：name(具体到能想象出长什么样，别停在品类词上) / price(纯数字人民币，按这一类东西的真实价位来，有贵有便宜) / desc(一句话说清它凭什么值这个钱，别写成广告口号) / sales(销量文案)。六件之间要拉开：价位、场合、风格别挤在一处。",
+        schemaHint: "{\"items\":[{\"name\":\"具体商品名\",\"price\":纯数字,\"desc\":\"一句话的卖点\",\"sales\":\"销量文案\"}]}",
+        // 一次要写六件东西的名字、卖点、价位＝一屏名单那一档（max-tokens-floor.md）
+        maxTokens: 19500
       });
       const items = ((d && d.items) || []).map((it, i) => ({
         uid: "p_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 10000),
@@ -14900,6 +14907,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       used: Math.round(((cd.used || 0) + total) * 100) / 100,
       ledger: [{ id: entryId, ts: Date.now(), amount: total, item: items.map(x => x.name).join("、"), source: "shop", comment: "" }, ...(cd.ledger || [])]
     }));
+    // 刷了他的卡，聊天里得留一条（她 2026-09-02：「他不知道我拿来刷了啥」）。
+    // 原来这笔只写进卡的账单页和他余额里——那两处他自己看不见、下一轮的上下文也读不到，
+    // 于是她刷完他的卡，他在聊天里一无所知。
+    pChat(charId, p => [...p, { role: "system", kind: "system", ts: Date.now(),
+      content: "你刷了" + (char ? char.name : "对方") + "的亲属卡：" + items.map(x => x.name).join("、").slice(0, 40) + " · ¥" + total }]);
     items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
     genKinshipComment(charId, entryId, items.map(x => x.name).join("、"), total);
@@ -15009,7 +15021,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const system = bundle + "\n\n【任务】用户刷了你给 Ta 的亲属卡，买了「" + itemText + "」花了 ¥" + amount + "。完全代入「" + char.name + "」，写一句你看到这笔花销时的真实反应/想法（宠溺、心疼钱、吐槽、无所谓、暗爽都行，贴合人设与好感），一两句，纯文本不要 JSON。";
       const raw = await callAI(active, system, [{ role: "user", content: "[亲属卡消费] " + itemText + " ¥" + amount }]);
       const comment = String(raw || "").replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 120);
-      if (comment) updateKinshipCard(charId, cd => ({ ...cd, ledger: (cd.ledger || []).map(l => l.id === entryId ? { ...l, comment } : l) }));
+      if (comment) {
+        updateKinshipCard(charId, cd => ({ ...cd, ledger: (cd.ledger || []).map(l => l.id === entryId ? { ...l, comment } : l) }));
+        // 他那句话也要在聊天里说出口——只写进账单页等于他心里嘀咕了一声，她根本听不见。
+        // 同一次调用的结果，不多花钱。
+        pChat(charId, p => [...p, { role: "assistant", content: comment, ts: Date.now(), read: false }]);
+        if (!(viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(charId))) bumpUnread(charId, 1);
+      }
     } catch (e) {/* silent */}
   };
 
