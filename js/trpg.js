@@ -2568,6 +2568,8 @@
             h("button", { onClick: () => addBeat(), disabled: busy, style: S.btn(false) }, "✍ 追加一笔"),
             h("button", { onClick: () => { setChatMode(v => !v); setPlusOpen(false); }, style: S.btn(chatMode) }, "💬 闲聊模式" + (chatMode ? "·开" : "")),
             h("button", { onClick: () => { setPlusOpen(false); turn("(队伍暂且停下,就地休整)", null, "rest"); }, disabled: busy, style: S.btn(false) }, "🏕 休整一拍"),
+            // 她自己也能收幕:守密人还在递选项、但眼前没危机时,把选项收掉就落回探索态(不调模型)
+            camp.choices.length && !camp.pendingStage && !camp.pendingEnd ? h("button", { onClick: () => { setPlusOpen(false); update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { choices: [] }))); }, disabled: busy, style: S.btn(false) }, "🚶 这一幕先到这·自由活动") : null,
             h("button", { onClick: () => { const lockables = camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto); if (lockables.length) { setPlusOpen(false); setShotPick(true); } else genShot(null); }, disabled: busy, style: S.btn(false) }, "📷 当拍画面"),
             h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, camp.cover ? "🎞 重出封面" : "🎞 封面图"),
             camp.cover ? h("button", { onClick: () => { setPlusOpen(false); setBigView({ img: camp.cover, title: camp.title + " · 封面" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
