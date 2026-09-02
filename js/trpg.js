@@ -969,6 +969,8 @@
     const [busyWhat, setBusyWhat] = useState("");
     const [panelOpen, setPanelOpen] = useState(false);
     const [bgmBusy, setBgmBusy] = useState(false);
+    // 开场亲笔票在途的团 id(她 2026-09-01 抓的:「我看你一直没动我以为要我选了你才有」——票在写,屏上却没任何动静)
+    const [openPending, setOpenPending] = useState(null);
     const [draft, setDraft] = useState(null);
     const [pickIds, setPickIds] = useState([]);
     const [kw, setKw] = useState("");
@@ -1230,6 +1232,7 @@
       (async () => {
         const eng = c.party.find(m => m.key !== "user" && typeof props.isEngineer === "function" && props.isEngineer(m.key));
         if (!eng || typeof window === "undefined" || !window.CCSeat) return;
+        setOpenPending(c.id);
         try {
           const ccSys = ["【跑团·进场】你是队伍成员「" + eng.name + "」。下面是这场跑团的开场;你人在场上,守密人给你留了开口的位置——你的第一句话/第一个动作,由你本人来写。只写你自己的亮相,不替别人行动,也不急着破局。",
             "【世界】" + String(c.world || "").slice(0, 600),
@@ -1244,7 +1247,7 @@
           const line = eng.name + (say ? "说:「" + say + "」" : "") + (act ? (say ? " " : "") + act : "");
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + line, ts: Date.now() };
           update(list => list.map(x => x.id !== c.id || x.msgs.some(mm => mm.role === "user") ? x : Object.assign({}, x, { msgs: x.msgs.concat([m]) })));
-        } catch (e) { }
+        } catch (e) { } finally { setOpenPending(p => p === c.id ? null : p); }
       })();
     };
 
@@ -2418,7 +2421,8 @@
           h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "队伍与线索"))),
         panel, resume, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow, epFlow,
-          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "守密人在推演命运…") : null),
+          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "守密人在推演命运…") : null,
+          openPending === camp.id && !busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "✒ 许言秋在写进场词…（等他这一句落下再行动，先动他就进不了场）") : null),
         camp.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已落幕 · 长按任意一拍可分支重走 ——")
         : h("div", { style: { borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.36)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } }, [
           pendingRetry ? h("div", { key: "rt", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0" } },
