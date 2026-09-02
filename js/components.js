@@ -4736,18 +4736,35 @@ function ChatThread({
       style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
   }), sending && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-2"
+    role: "status",
+    "aria-live": "polite",
+    "aria-label": character.name + " 正在输入",
+    className: "flex items-start gap-2 py-1"
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 40,
     radius: 10
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: "12px 14px",
-      background: "#fff",
-      borderRadius: 14
+      minHeight: 40,
+      padding: "9px 13px",
+      background: BUBBLE_SKIN.charBg,
+      color: BUBBLE_SKIN.charText || t.ink,
+      border: BUBBLE_SKIN.charBorder || "none",
+      borderRadius: BUBBLE_SKIN.radius,
+      boxShadow: BUBBLE_SKIN.shadow || "none",
+      display: "flex",
+      alignItems: "center",
+      gap: 8
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: F_BODY,
+      fontSize: 12.5,
+      color: BUBBLE_SKIN.charText || t.fog,
+      opacity: .72
+    }
+  }, "正在输入"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
   }, [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
     key: i,

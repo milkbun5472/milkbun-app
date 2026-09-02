@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.04";
+const APP_VERSION = "v60.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -506,7 +506,12 @@ function App() {
   const anyLaneBusy = () => Object.keys(busyLanesRef.current).length > 0;
   const startLane = key => { busyLanesRef.current = { ...busyLanesRef.current, [key]: true }; setBusyLanes(busyLanesRef.current); };
   const endLane = key => { const n = { ...busyLanesRef.current }; delete n[key]; busyLanesRef.current = n; setBusyLanes(n); };
-  const _curLane = (screen === "gthread" && activeGroup) ? "g:" + activeGroup.id : (activeChar ? "c:" + activeChar.id : null);
+  // 侧房的生成 lane 用的是 person::room::roomId；这里也必须取同一把钥匙。
+  // 以前只看 activeChar.id，主房能亮“正在输入”，侧房请求明明在跑却像毫无反应。
+  const _curChatKey = activeChar
+    ? (window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id)
+    : null;
+  const _curLane = (screen === "gthread" && activeGroup) ? "g:" + activeGroup.id : (_curChatKey ? "c:" + _curChatKey : null);
   const sending = _curLane ? !!busyLanes[_curLane] : false;
   const [gen, setGen] = useState({});
   const [msgTab, setMsgTab] = useState("chats"); // 信息页内部 tab（聊天/通讯录/朋友圈/我）提到 App 层，进角色详情返回时不丢（v48.40）
