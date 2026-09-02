@@ -560,8 +560,10 @@
         chips.push({ k: "hp", txt: m.name + " HP-" + d + " →" + m.hp });
       });
     }
-    // 威胁钟不许锈死:连着两拍守密人都没碰的钟自己走一格(休整/攀谈拍不走)
-    if (!(opts && opts.calm)) {
+    // 威胁钟不许锈死:连着两个【掷过骰的拍】守密人都没碰的钟自己走一格。
+    // 只数掷过骰的拍(她 9/1 提的:每拍都走就没有闲逛的余地了)——逛便利店、跟 NPC 扯闲篇、
+    // 看地图这种没上骰子的拍,钟不动;真正冒险了它才追着你走。休整/攀谈拍同样不走
+    if (!(opts && opts.calm) && opts && opts.roll) {
       const touched = (Array.isArray(p.clock) ? p.clock : []).map(r2 => r2 && String(r2.name || "").trim().slice(0, 10));
       next.clocks = next.clocks.map(c2 => {
         const strip = x => { const y = Object.assign({}, x); delete y.idle; return y; };

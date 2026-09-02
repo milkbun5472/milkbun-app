@@ -420,16 +420,19 @@ test("失败的代价由代码兜底:体魄/身手失败没见血就 -5,大失�
   assert.equal(r4.camp.party[0].hp, 80, "谈吐失败不掉血");
 });
 
-test("威胁钟不锈死:连着两拍没人碰就自己走一格,休整/攀谈拍不走", () => {
+test("威胁钟不锈死:连着两个掷过骰的拍没人碰就自己走一格;闲逛拍、休整/攀谈拍不走", () => {
   const base = Object.assign(camp0(), { clocks: [{ name: "追兵", filled: 1, max: 6 }] });
-  const r1 = applyTurnPayload(base, {});
+  const roll = { roll: { role: "roll", who: "Lisa", statKey: "wit", tier: "ok" } };
+  const idle = applyTurnPayload(base, {});
+  assert.equal(idle.camp.clocks[0].idle, undefined, "没掷骰的闲逛拍连账都不记");
+  const r1 = applyTurnPayload(base, {}, roll);
   assert.equal(r1.camp.clocks[0].filled, 1, "第一拍先忍");
-  const r2 = applyTurnPayload(r1.camp, {});
-  assert.equal(r2.camp.clocks[0].filled, 2, "第二拍自己走");
+  const r2 = applyTurnPayload(r1.camp, {}, roll);
+  assert.equal(r2.camp.clocks[0].filled, 2, "第二个冒险拍自己走");
   assert.equal(r2.camp.clocks[0].idle, undefined);
-  const calm = applyTurnPayload(r1.camp, {}, { calm: true });
+  const calm = applyTurnPayload(r1.camp, {}, Object.assign({ calm: true }, roll));
   assert.equal(calm.camp.clocks[0].filled, 1, "休整拍不走");
-  const touched = applyTurnPayload(r1.camp, { clock: [{ name: "追兵", delta: 0 }] });
+  const touched = applyTurnPayload(r1.camp, { clock: [{ name: "追兵", delta: 0 }] }, roll);
   assert.equal(touched.camp.clocks[0].idle, undefined, "守密人碰过就清零");
 });
 
