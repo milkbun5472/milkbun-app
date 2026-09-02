@@ -5114,6 +5114,7 @@ function CallScreen({
   mode,
   msgs,
   sending,
+  bye,
   onSend,
   onHangup,
   minimized,
@@ -5137,6 +5138,16 @@ function CallScreen({
     buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0,
     speaking: false, ttsCtx: null, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
+  // 他自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
+  // 时长只有这里数着(secRef)，而且他最后那句得在屏幕上留一会儿，
+  // 不能话音未落就黑屏。留 1.8 秒：够看完一句，也不至于像卡住。
+  const byeRef = useRef(false);
+  useEffect(() => {
+    if (!bye || byeRef.current) return;
+    byeRef.current = true;
+    const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
+    return () => clearTimeout(tm);
+  }, [!!bye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
   const lvCommitFinal = (raw, session) => {
@@ -5470,7 +5481,10 @@ function CallScreen({
     // 说完了在等他开口:跟主聊天一样给一个【气泡】,长在他下一句会出现的地方(她 2026-09-02)。
     // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离他的话隔着大半屏，
     // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
-    sending && h("div", { key: "typing", className: "flex flex-col items-start" },
+    bye && h("div", { key: "bye", className: "flex justify-center py-1" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,0.55)" } },
+        (bye.name || "对方") + "挂断了")),
+    !bye && sending && h("div", { key: "typing", className: "flex flex-col items-start" },
       !isGroup ? null : h("span", {
         style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }
       }, "对方"),
@@ -5523,7 +5537,7 @@ function CallScreen({
     size: 17,
     color: "#fff"
   })), h("button", {
-    onClick: () => onHangup(secRef.current),
+    onClick: () => onHangup(secRef.current, "me"),
     className: "shrink-0 flex items-center justify-center",
     style: {
       width: 42,
@@ -6066,7 +6080,8 @@ function CallEndPill({ m, chars }) {
   const tp = useTtsPlayer();
   const spkOf = l => l.senderId && chars ? (chars.find(c => c.id === l.senderId) || null) : null;
   const log = Array.isArray(m.log) ? m.log : [];
-  const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + " 已结束 · 时长 " + m.dur : String(m.content || "").split("\n")[0];
+  // 「他挂了」和「聊完了」在她这儿完全是两件事，这条回执要认出来(v60.24)
+  const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + (m.endedBy ? " · " + m.endedBy + "挂断了 · 时长 " : " 已结束 · 时长 ") + m.dur : String(m.content || "").split("\n")[0];
   return h("div", { className: "flex flex-col items-center my-2" },
     h("span", {
       onClick: log.length ? () => setOpen(o => !o) : undefined,

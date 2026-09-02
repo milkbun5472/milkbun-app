@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.23";
+const APP_VERSION = "v60.24";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10413,6 +10413,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const ringDecline = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "declined"); };
   // 没人接:只标记,不弹任何东西——「没接」这件事本来就该是安静的,回执留在聊天里
   const ringMiss = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "missed"); };
+  // 他要挂电话:只在这通电话上立个牌子。CallScreen 看见了才真的挂——
+  // 时长归它数,而且他最后那句得在屏幕上留一会儿,不能话音未落就黑屏。
+  const markCallBye = (byId, byName, reason) => setCall(c => (c && !c.bye) ? { ...c, bye: { id: byId, name: byName || "", reason: String(reason || "").slice(0, 120) } } : c);
   const startCall = (participants, mode, groupId, caller) => {
     const people = (participants || []).filter(Boolean);
     if (!people.length) return;
@@ -10471,7 +10474,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
         const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
         if (typeof primeQueryVec === "function") await primeQueryVec(callQuery);
-        const sys = buildBundle(ctxFor(char, { chat: true, queryText: callQuery })) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
+        const sys = buildBundle(ctxFor(char, { chat: true, queryText: callQuery })) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
+          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + ",\"hangup\":null}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
@@ -10534,6 +10538,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           if (lines[i].act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: lines[i].act });
           else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: lines[i].speech });
         }
+        // 他自己要挂(v60.24 她点名)：这里只【立个牌子】，真正挂断由 CallScreen 做——
+        // 通话时长只有它数着(secRef)，而且最后那句得留一会儿让她看完/听完。
+        if (d.hangup && String(d.hangup).toLowerCase() !== "null") markCallBye(char.id, char.name, String(d.hangup));
       } else {
         // 群通话：多角色你一言我一语；视频每条可带 action
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
@@ -10545,7 +10552,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const cDirs = cur.groupId ? (directives[cur.groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(x => x.trim()) : [];
         if ((!cur.groupId || (cgs && cgs.memoryInterop)) && typeof primeQueryVec === "function") await primeQueryVec(hist.slice(-8).map(m => m.content).join("\n")); // 向量记忆预热
         const cMem = (!cur.groupId || (cgs && cgs.memoryInterop)) ? formatMemLib(retrieveMemories(memLibRef.current, people[0] && people[0].id, hist.slice(-8).map(m => m.content).join("\n"), { limit: 5 })) : "";
-        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -10555,6 +10562,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             if (isVideo && arr[i].action) pushMsg({ role: "char", act: true, senderId: spk.id, senderName: spk.name, content: String(arr[i].action).replace(/[（）()]/g, "").trim() });
             const gl = splitSayLine(arr[i].text);
             for (const ln of gl) pushMsg(ln.act ? { role: "char", act: true, senderId: spk.id, senderName: spk.name, content: ln.act } : { role: "char", senderId: spk.id, senderName: spk.name, content: ln.speech });
+            if (arr[i].hangup && String(arr[i].hangup).toLowerCase() !== "null") { markCallBye(spk.id, spk.name, String(arr[i].hangup)); break; }
           }
         }
       }
@@ -10564,16 +10572,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       endLane("call");
     }
   };
-  const endCall = sec => {
+  const endCall = (sec, by) => {
     const cur = callRef.current;
     if (cur) {
       const s = Math.max(0, Math.round(Number(sec) || 0));
       const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
-      const label = (cur.mode === "video" ? "视频通话" : "语音通话") + " 已结束 · 时长 " + dur;
+      // 谁挂的要写进这条回执:「他挂了」和「聊完了」在她这儿完全是两件事
+      const byName = by === "them" ? ((cur.bye && cur.bye.name) || (cur.participants[0] || {}).name || "对方") : "";
+      const label = (cur.mode === "video" ? "视频通话" : "语音通话") + (byName ? " · " + byName + "挂断了 · 时长 " : " 已结束 · 时长 ") + dur;
       const callId = "call_" + Date.now();
       // 整通转录存进气泡（点开可回看）；act=视频里的动作行
       const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ts: m.ts || null }));
-      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, content: label, ts: Date.now(), id: callId, log };
+      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, content: label, ts: Date.now(), id: callId, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
       else if (cur.participants[0]) pChat(cur.participants[0].id, p => [...p, bubble]);
       // 挂断后走后台便宜池出 1~2 句摘要：补进气泡（回看小结+线上聊天接得上）+ 入记忆库；太短的通话不折腾
@@ -10581,7 +10591,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (said.length >= 3 && bgActiveRef.current) (async () => {
         try {
           const uN = profile.name || "用户";
-          const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n");
+          const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
+            + (byName ? "\n（这通电话是 " + byName + " 主动挂断的）" : "");
           const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
             "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
             "\"open\":[\"这通电话里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
@@ -16494,11 +16505,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     //   原来这里传的 sending 读的是 busyLanes["c:"+chatKey]（甚至在主屏接起来时压根没有 chatKey），
     //   于是通话里「正在说」那一层永远不亮——她 2026-09-02：「我说完他没有那个输入中的气泡」。
     sending: !!busyLanes.call,
+    bye: call.bye || null,
     minimized: !!call.min,
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),
     onSend: txt => callSend(txt),
-    onHangup: sec => endCall(sec)
+    onHangup: (sec, by) => endCall(sec, by)
   }), anonChar && h(AnonBox, {
     char: anonChar,
     data: anon[anonChar.id],
