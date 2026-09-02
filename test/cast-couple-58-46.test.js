@@ -148,7 +148,14 @@ test("发出邀请不再自动开口，等她点了才回应", () => {
   assert.doesNotMatch(send, /callAI/, "发出邀请这一步不该调模型");
   const card = comp.slice(comp.indexOf("function CoupleInviteCard"), comp.indexOf("// 解除拉黑申请卡片"));
   assert.match(card, /onAsk\(m\.cid\)/, "卡上没有让 TA 回应的按钮");
-  assert.match(card, /m\.status === "pending" \|\| m\.status === "failed"/, "失败之后不能再问一次");
+  // ⚠️冻的是【这两种状态还能再问一次】，不是那个表达式逐字长什么样：
+  //   v60.55 把卡重做成一封信时，m.status 收成了局部的 st，行为一个字没变、断言却红了。
+  // ⚠️冻的是【这两种状态还能再问一次】，不是那个表达式逐字长什么样：
+  //   v60.55 把卡重做成一封信时 m.status 收成了局部的 st，行为一个字没变、断言却红了。
+  //   （第一版改写我把括号转义了，\1 根本没引用到组，变成了永远为真——变异当场没红。）
+  assert.ok(/st === "pending" \|\| st === "failed"/.test(card)
+    || /m\.status === "pending" \|\| m\.status === "failed"/.test(card),
+    "失败之后不能再问一次");
 });
 
 test("她在邀请之后说的话，一起递给 TA", () => {

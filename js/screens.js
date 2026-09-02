@@ -4236,32 +4236,73 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       pickSheet);
   }
 
-  // —— 名册视图（默认）——
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "情侣", en: "Us / Couple", onBack: onBack,
-      right: characters.length > 0 && h("button", { onClick: () => setPick(true), className: "active:opacity-50" }, h(IHeart, { size: 19, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+  // —— 名册视图（默认，v60.55 重做）——
+  // 她 2026-09-02：「这个界面也修一修，当时也是参考了别人的。不一定要这种一个框一个框，
+  //                 显示的文字也不一定要这些。」
+  // 原来是一框一框的卡：每张里都摆一遍【她自己的】头像、每张都写一遍「恋爱中」、
+  // 「有新的情书」是个粉药丸、解除是个 💔 emoji。三样都犯规，而且信息全是重复的。
+  //
+  // 这一页真正的内容是：【好几段关系同时在走，各自走了多远】——那个对比才是她要看的。
+  // 所以不画框，一段就是一条【走过来的路】：按 30 天钉一个刻度，满三个月的刻度高一截，
+  // 末端那个实心点是今天。312 天就是十个刻度那么长，59 天就是短短两个——
+  // 一眼看得出谁走得久。换个 app 这条线不成立（别处没有「同时好几段、各自多久」这回事）。
+  const dayFmt = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+  const maxDays = Math.max(1, ...entries.filter(x => x.st.status === "together").map(x => daysWith(x.st.since) || 0));
+  const trail = n => {
+    // 刻度：每 30 天一根；满 90 天那根高一截（三个月是真的会被记住的那种坎）
+    const ticks = [];
+    for (let d = 30; d <= n; d += 30) ticks.push({ at: d / maxDays, big: d % 90 === 0 });
+    return h("div", { style: { position: "relative", height: 16, marginTop: 7 } },
+      // 底下那条发丝：整页共用一个长度尺，短的那几段才看得出短
+      h("div", { style: { position: "absolute", left: 0, right: 0, top: 7.5, height: 1, background: t.line } }),
+      h("div", { style: { position: "absolute", left: 0, top: 7, height: 2, width: (n / maxDays * 100) + "%", background: "#e08aa0", borderRadius: 2 } }),
+      ticks.map((tk, i) => h("div", { key: i, style: { position: "absolute", left: (tk.at * 100) + "%",
+        top: tk.big ? 3 : 5, width: 1, height: tk.big ? 10 : 6, background: "#e08aa0", opacity: tk.big ? 0.85 : 0.5 } })),
+      h("div", { style: { position: "absolute", left: "calc(" + (n / maxDays * 100) + "% - 3px)", top: 5,
+        width: 6, height: 6, borderRadius: 999, background: "#d16a86" } }));
+  };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 紧凑标题栏（mobile-ui-layout 第 1 条）：原来那个 30px 大标题 + US/COUPLE 占掉小半屏
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center px-1" },
+        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "情侣"),
+        entries.length ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
+          entries.length + " 段 · 最久的走了 " + maxDays + " 天") : null),
+      h("div", { className: "flex items-center justify-end", style: { minWidth: 40 } },
+        characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50" }, h(IHeart, { size: 19, color: t.ink })) : null)),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有情侣关系。点右上角 ♥ 选一位角色发送邀请——邀请会出现在你和 TA 的聊天里，TA 会依据关系与好感决定接不接受。"),
             characters.length > 0 && h("button", { onClick: () => setPick(true), className: "mt-4 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, borderBottom: "1.5px solid " + t.ink, paddingBottom: 2 } }, "♥ 发送情侣邀请"))
         : h(Fragment, null,
-            h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, entries.length + " 段关系")),
-            entries.map(e => {
+            entries.map((e, idx) => {
               const tog = e.st.status === "together";
-              const meChar = { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: (profile && profile.color) || t.accent };
+              const n = tog ? (daysWith(e.st.since) || 0) : 0;
               const tags = tog ? unreadTagsFor(e.char.id) : [];
-              return h("div", { key: e.char.id, className: "relative mb-3", style: { background: t.bg2, border: "1px solid " + (tags.length ? "#ee8aa2" : t.line), borderRadius: 20, padding: "20px 16px 18px", opacity: tog ? 1 : 0.75 } },
-                tags.length ? h("span", { style: { position: "absolute", top: 12, left: 14, width: 9, height: 9, borderRadius: 999, background: "#e0524a" } }) : null,
-                tog && onUnlink ? h("button", { onClick: ev => { ev.stopPropagation(); setUnlinkChar(e.char); }, className: "active:opacity-60", style: { position: "absolute", top: 12, right: 12, width: 30, height: 30, borderRadius: 999, background: t.bg, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 } }, "💔") : null,
-                h("button", { onClick: () => tog && setView(e.char.id), className: "w-full active:opacity-80" },
-                  h("div", { className: "flex items-center justify-center gap-3" },
-                    h("div", { style: { borderRadius: 999, overflow: "hidden", border: "2px solid #f4c6d4" } }, h(Avatar, { character: meChar, size: 58, radius: 999 })),
-                    h(IHeart, { size: 26, color: tog ? "#ee6a8a" : t.line, filled: true }),
-                    h("div", { style: { borderRadius: 999, overflow: "hidden", border: "2px solid #f4c6d4" } }, h(Avatar, { character: e.char, size: 58, radius: 999 }))),
-                  h("div", { style: { textAlign: "center", marginTop: 12, fontFamily: F_DISPLAY, fontSize: 16, color: tog ? "#d16a86" : t.fog } }, tog ? "与 " + e.char.name + " 恋爱中 · " + daysWith(e.st.since) + " 天" : "与 " + e.char.name + " · 邀请待回应…"),
-                  tags.length ? h("div", { style: { textAlign: "center", marginTop: 5 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c02a52", background: "#ffe1ea", borderRadius: 999, padding: "2px 11px" } }, "有新的" + tags.join("、") + " · 点进去看")) : null));
+              return h("div", { key: e.char.id, className: "flex items-start", style: { gap: 13, padding: "16px 0",
+                borderTop: idx === 0 ? "none" : "1px solid " + t.line, opacity: tog ? 1 : 0.6 } },
+                // 她自己的头像原来每张卡里都摆一遍——她知道自己是谁，删掉
+                h("div", { className: "shrink-0", style: { position: "relative" } },
+                  h(Avatar, { character: e.char, size: 52, radius: 14 }),
+                  // 有新情书＝头像上一个红点，跟聊天列表的未读同一套语汇，不是粉药丸
+                  tags.length ? h("span", { style: { position: "absolute", top: -2, right: -2, width: 10, height: 10,
+                    borderRadius: 999, background: "#e0524a", boxShadow: "0 0 0 2px " + t.bg } }) : null),
+                h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
+                  h("div", { className: "flex items-baseline", style: { gap: 8 } },
+                    h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, e.char.name),
+                    tags.length ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: "#c02a52" } }, "新的" + tags.join("、")) : null),
+                  tog
+                    ? h(Fragment, null,
+                        h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
+                          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: "#d16a86" } }, String(n)),
+                          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "天 · 从 " + dayFmt(e.st.since) + " 起")),
+                        trail(n))
+                    : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, "邀请还没有回应")),
+                tog && onUnlink ? h("button", { onClick: ev => { ev.stopPropagation(); setUnlinkChar(e.char); },
+                  "aria-label": "解除情侣关系", className: "shrink-0 active:opacity-60 flex items-start justify-center",
+                  style: { width: 34, height: 34, marginTop: -2 } }, h(CGlyph, { k: "heartbreak", size: 17, color: t.fog })) : null);
             }))),
     unlinkChar && onUnlink ? h(Sheet, { onClose: () => setUnlinkChar(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "解除和 " + unlinkChar.name + " 的情侣关系"),

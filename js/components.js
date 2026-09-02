@@ -6967,6 +6967,12 @@ function TransferCard({
 // 情侣邀请卡片（用户发出，角色自行接受/婉拒）
 // ⚠️不自动回应：她 2026-08-30「还会自动回复不等我说完」——发出去之后她还想再说几句，
 //   所以回应由她点这张卡上的按钮触发，那时候她说的话会一起递给 TA。
+// 情侣邀请卡（v60.55 重做，她 2026-09-02：「情侣邀请卡也一起做好看点」）
+// 原来是一张通用白卡：一个心 + COUPLE INVITE + 一行状态 + 一个按钮——
+// 搬进任何一个 app 都成立，所以它没长在这个 app 上（tabs-not-plain-pills 那把尺子）。
+// 现实里这是什么？是【递过去的那张字条】。而这个 app 里本来就有「情书」这条线，
+// 邀请就是第一封——所以按信来做：纸色、一道折痕、话写在折痕上头，
+// 右上角一枚封蜡：还没回应＝虚线空印，接受＝按实了，婉拒＝印是破的。
 function CoupleInviteCard({
   m,
   character,
@@ -6975,39 +6981,44 @@ function CoupleInviteCard({
 }) {
   const t = useTheme();
   const nm = (character && character.remark) || (character && character.name) || "TA";
-  const info = m.status === "accepted"
-    ? { stamp: "TOGETHER", label: nm + " 接受了 ♥ 你们在一起了", accent: t.accent }
-    : m.status === "declined"
-      ? { stamp: "DECLINED", label: nm + " 婉拒了这份邀请", accent: t.fog }
-      : m.status === "failed"
-        ? { stamp: "—", label: "邀请没有得到回应，可以再问一次", accent: t.fog }
-        : { stamp: "PENDING", label: "想说的话说完了，再让 TA 回应", accent: t.accent };
-  const canAsk = (m.status === "pending" || m.status === "failed") && typeof onAsk === "function";
-  return h("div", {
-    style: {
-      width: 250,
-      background: "#fff",
-      borderRadius: 16,
-      overflow: "hidden",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-      border: "1px solid " + (m.status === "accepted" ? t.accent : t.line)
-    }
-  }, h("div", {
-    className: "flex items-center gap-3 px-4 pt-4 pb-3"
-  }, h(IHeart, { size: 26, color: info.accent }), h("div", null, h("div", {
-    style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.14em", color: t.fog }
-  }, "COUPLE INVITE"), h("div", {
-    style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, color: t.ink, lineHeight: 1.1 }
-  }, "想和你在一起"))), h("div", {
-    className: "px-4 py-2",
-    style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: info.accent }
-  }, asking ? nm + " 正在看……" : info.label),
-    canAsk && h("button", {
+  const st = m.status;
+  const info = st === "accepted"
+    ? { label: nm + " 收下了这封信 · 你们在一起了", tone: "#d16a86" }
+    : st === "declined" ? { label: nm + " 把信退回来了", tone: t.fog }
+    : st === "failed" ? { label: "这封信没送到，可以再递一次", tone: t.fog }
+    : { label: asking ? nm + " 正在拆开……" : "话说完了，等 TA 拆开", tone: t.sub };
+  const canAsk = (st === "pending" || st === "failed") && typeof onAsk === "function";
+  // 封蜡：三种状态三种形状，不是只换个颜色
+  const seal = h("div", { style: { position: "absolute", right: 13, top: 12, width: 26, height: 26 } },
+    h("div", { style: {
+      width: 26, height: 26, borderRadius: 999,
+      background: st === "accepted" ? "#d16a86" : "transparent",
+      border: st === "accepted" ? "none" : "1.5px " + (st === "declined" ? "solid" : "dashed") + " " + (st === "declined" ? t.line : "#e0aebc"),
+      opacity: st === "declined" ? 0.7 : 1,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    } }, h(IHeart, { size: 13, color: st === "accepted" ? "#fff" : (st === "declined" ? t.line : "#e0aebc"), filled: st === "accepted" })),
+    // 退回来的那封：封蜡上一道裂口
+    st === "declined" ? h("div", { style: { position: "absolute", left: 12, top: -1, width: 1.5, height: 28, background: t.bg2, transform: "rotate(16deg)" } }) : null);
+  return h("div", { style: {
+    position: "relative", width: 244, borderRadius: 3, overflow: "hidden",
+    background: "#fbf9f5", border: "1px solid " + t.line, boxShadow: "0 2px 9px rgba(0,0,0,.09)"
+  } },
+    seal,
+    h("div", { style: { padding: "15px 15px 13px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#c99aa8" } }, "第一封"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 21, lineHeight: 1.25, color: "#2a2721", marginTop: 5, paddingRight: 26 } },
+        "想和你在一起")),
+    // 折痕：一道压出来的线（上面一丝暗、下面一丝亮），不是普通分隔线
+    h("div", { style: { height: 1, background: "rgba(0,0,0,.10)" } }),
+    h("div", { style: { height: 1, background: "rgba(255,255,255,.85)" } }),
+    h("div", { style: { padding: "10px 15px 11px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: info.tone } }, info.label),
+    canAsk ? h("button", {
       onClick: function () { if (!asking) onAsk(m.cid); },
       disabled: !!asking,
-      className: "w-full py-2.5 active:opacity-70",
-      style: { borderTop: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 15, color: asking ? t.fog : t.ink, background: "transparent" }
-    }, asking ? "等 TA 回话" : "让 TA 回应"));
+      className: "w-full active:opacity-70",
+      style: { borderTop: "1px dashed " + t.line, padding: "11px 0", fontFamily: F_DISPLAY, fontSize: 15,
+        color: asking ? t.fog : "#b8506c", background: "transparent" }
+    }, asking ? "等 TA 拆开" : "让 TA 拆开这封信") : null);
 }
 // 解除拉黑申请卡片（char→我 我可接受/拒绝；我→char 显示状态）
 function UnblockReqCard({ m, character, onRespond }) {
@@ -7063,7 +7074,13 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     pencil: [P("M16.4 3.6l4 4L8.2 19.8l-4.6 1.2 1.2-4.6z"), P("M14.2 5.8l4 4")],
     redo: [P("M20 5.6v5.2h-5.2"), P("M19.3 10.8a7.6 7.6 0 10-1.6 6.6")],
     checklist: [P("M4 6.6l1.8 1.8L9 5"), P("M4 15.6l1.8 1.8L9 13"), P("M12 7.2h8M12 16.2h8")],
-    undo: [P("M4 5.6v5.2h5.2"), P("M4.7 10.8a7.6 7.6 0 111.6 6.6")]
+    undo: [P("M4 5.6v5.2h5.2"), P("M4.7 10.8a7.6 7.6 0 111.6 6.6")],
+    // 裂开的心：情侣页那个「解除」原来用的是 💔 这个 emoji——仓库铁律说过
+    // 不用 Unicode 方块/爱心字符当图标，要走已有的 SVG 体系（mobile-ui-layout 第 2 条）。
+    // 左右两半各画一笔，中间那道裂缝是折线，不是把心整个描一遍再劈开。
+    heartbreak: [P("M12 20.4S4.2 14.6 4.2 9.6A4.2 4.2 0 0112 7.4"),
+                 P("M12 7.4a4.2 4.2 0 017.8 2.2c0 5-7.8 10.8-7.8 10.8"),
+                 P("M12 4.6l-1.8 3.6 3.4 2.2-2.2 3")]
   };
   return h(Svg, { size: size, color: color, sw: 1.5 }, ...(kids[k] || []));
 }
