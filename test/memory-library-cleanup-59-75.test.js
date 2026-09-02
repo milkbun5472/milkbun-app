@@ -8,11 +8,14 @@ const start = src.indexOf("function MemoryLib(");
 const end = src.indexOf("function MemCfgSheet(", start);
 const memory = src.slice(start, end);
 
-test("记忆库主页面只留一个整理入口，不再把低频工具铺在顶栏", () => {
-  assert.match(memory, /setManageOpen\(v => !v\)/);
-  assert.match(memory, /"整理" \+ \(corrections\.length/);
-  const head = memory.slice(memory.indexOf('zh: "记忆库"'), memory.indexOf("importOpen &&"));
-  assert.doesNotMatch(head, /title: "导入长文进记忆库"|h\(GConfig/);
+test("记忆库使用紧凑安全区顶栏，日常只露整理图标与新增", () => {
+  assert.match(memory, /paddingTop: safeTop\(10\)/);
+  assert.match(memory, /"MEMORY INDEX"/);
+  assert.match(memory, /setManageOpen\(true\)/);
+  assert.match(memory, /aria-label": "整理与维护"/);
+  assert.match(memory, /h\(GConfig/);
+  assert.match(memory, /aria-label": "新增记忆"/);
+  assert.doesNotMatch(memory, /h\(Head, \{/);
 });
 
 test("导入、手动抽取、旧库补评与月度精炼都收进整理区，能力没有删除", () => {
@@ -24,10 +27,20 @@ test("导入、手动抽取、旧库补评与月度精炼都收进整理区，�
   assert.match(memory, /"旧版月度精炼 · "/);
 });
 
-test("工程仪表再藏一层，主列表从空态或记忆卡直接开始", () => {
-  assert.match(memory, /manageOpen \? h\(React\.Fragment/);
+test("整理工具进底部弹层，工程仪表再藏一层，主档案只有一个滚动容器", () => {
+  assert.match(memory, /manageOpen \? h\(Sheet/);
   assert.match(memory, /setDiagOpen\(v => !v\)/);
   assert.match(memory, /h\(EventShelfSection/);
-  assert.match(memory, /placeholder: "搜索记忆内容 \/ 标签 \/ 角色…"/);
-  assert.match(memory, /className: "flex-1 overflow-y-auto px-6 pb-8"\s*\n\s*}, list\.length === 0/);
+  assert.match(memory, /placeholder: "搜一句话、标签或记得这件事的人"/);
+  assert.match(memory, /className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10"/);
+});
+
+test("档案索引保留角色与状态双层筛选，并把状态与来源收进卡片层级", () => {
+  assert.match(memory, /const \[statusFilter, setStatusFilter\] = useState\("all"\)/);
+  assert.match(memory, /\["open", "未了 " \+ visibleOpenTotal\]/);
+  assert.match(memory, /\["pinned", "常驻 " \+ pinnedTotal\]/);
+  assert.match(memory, /\[\["all", "所有人"\]\]\.concat\(characters/);
+  assert.match(memory, /audienceOf\(e\) \+ " · " \+ sourceLabelOf\(e\)/);
+  assert.match(memory, /"历史索引"/);
+  assert.match(memory, /\(e\.tags \|\| \[\]\)\.slice\(0, 2\)/);
 });
