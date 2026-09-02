@@ -25,8 +25,10 @@ test("结束回线上后摘要只负责显示，模型另拿有上限的真实�
   assert.match(app, /【线下实际逐条记录·以原话为准】/);
 });
 
-test("两种线下都沿用全局时间感知开关", () => {
-  assert.match(app, /timeAware: prefs\.timeAware/);
+test("单人线下认角色覆盖，群线下逐成员认各自时间感知", () => {
+  assert.match(app, /timeAware: timeAwareFor\(char\.id\)/);
+  assert.match(app, /memberTimeAware: Object\.fromEntries/);
+  assert.match(app, /timeAware: \(group\.memberIds \|\| \[\]\)\.some\(id => timeAwareFor\(id\)\)/);
   assert.match(engine, /【当前真实时间】/);
 });
 

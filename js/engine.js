@@ -4975,14 +4975,15 @@ async function generateOfflineGroup(p, ctx, session) {
   let timeBlock = "";
   if (ctx.timeAware !== false) {
     timeBlock = "\n\n【当前真实时间】" + now.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" });
-    const tzLines = members.map(c => {
+    const awareMembers = members.filter(c => !ctx.memberTimeAware || ctx.memberTimeAware[c.id] !== false);
+    const tzLines = awareMembers.map(c => {
       if (c.tz === undefined || c.tz === null || String(c.tz).trim() === "") return "";
       const off = parseFloat(c.tz); if (isNaN(off)) return "";
       const local = new Date(now.getTime() + off * 3600000);
       return "· " + c.name + "（UTC" + (off >= 0 ? "+" + off : off) + "）当地约 " + local.toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
     }).filter(Boolean);
     if (tzLines.length) timeBlock += "\n（在场有人处在别的时区，各自按自己那边的钟和作息想事情、说话）\n" + tzLines.join("\n");
-    timeBlock += "\n让当下的时段自然渗进场景（天色、周围动静、各人此刻的状态），别报时刻表。";
+    timeBlock += "\n只有「" + awareMembers.map(c => c.name).join("、") + "」开启了时间感知，可让当下时段自然渗进状态；其余成员不得根据现实钟或行程调整表现。别报时刻表。";
   }
   const system =
     ANTI_CLICHE +

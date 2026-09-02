@@ -4340,7 +4340,7 @@ function ChatThread({
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
-  (!room || room.main) && schedNow && h("button", {
+  (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", {
     onClick: onOpenSched,
     className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
     style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
@@ -7673,7 +7673,7 @@ function OfflineMode({
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
-    (!room || room.main) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : t.bg2), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
+    (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : t.bg2), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
       h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
       schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
@@ -9874,7 +9874,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
-    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
+    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
       h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
     )));
@@ -9922,6 +9922,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
     if (c.formalMemory) bits.push("读记忆");
     if (c.innerLife) bits.push("读关系");
     if (c.mainDelta && r.syncMode !== "frozen") bits.push("补主线");
+    if (c.schedule) bits.push("现实时间");
     if (w.memoryCandidate) bits.push("进记忆");
     if (w.sharedState) bits.push("改状态");
     if (w.mainSummary) bits.push("可交接");
@@ -10086,6 +10087,7 @@ function ChatSettings({
   const [bilingual, setBilingual] = useState(!!settings.bilingual);
   const [proactive, setProactive] = useState(!!settings.proactive);
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
+  const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
   const [wipeMemToo, setWipeMemToo] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -10213,7 +10215,8 @@ function ChatSettings({
       engineerEyes,
       webSearch,
       toyEnabled,
-      defaultOffline
+      defaultOffline,
+      timeAwareMode
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -10254,6 +10257,14 @@ function ChatSettings({
     h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "仍在观察 · 不影响 TA"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),
+  show("relate", { title: "时间感知", ...sec("time-aware") },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
+      "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),
+    h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 12 } },
+      [["inherit", "跟随全局"], ["on", "开启"], ["off", "关闭"]].map(([v, label]) => h("button", {
+        key: v, onClick: () => setTimeAwareMode(v),
+        style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (timeAwareMode === v ? t.ink : t.line), background: timeAwareMode === v ? t.ink : "transparent", color: timeAwareMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 }
+      }, label)))),
   show("route", { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 用哪条线路说话/写字——单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·欲望盒子(灵光独白/小满盘点/毕业蜕变)，全走这条。给特别的人配本人的模型（如接 fable）。群聊多人同台、以及后台体力活（记忆抽取/行程钱包/观测者纸条）仍走全局，不受影响。"),

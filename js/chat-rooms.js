@@ -13,6 +13,7 @@
       ["formalMemory", "正式记忆", "可读取这个人的正式记忆与共同经历"],
       ["innerLife", "关系与内在状态", "可读取关系、情绪与人格成长"],
       ["mainDelta", "主房近况", "侧房回来时补看主聊天后来发生的事"],
+      ["schedule", "现实时间与行程", "可感知现实钟、角色当地时间与当前行程"],
       ["otherScenes", "群聊与线下", "可参考共同群聊和线下相处留下的事实"]
     ],
     actions: [
@@ -46,9 +47,7 @@
       ...base, ...src, personId: String(personId), name: String(src.name || base.name).trim().slice(0, 24) || base.name,
       purpose: String(src.purpose || "").trim().slice(0, 120),
       scenario: String(src.scenario || "").trim().slice(0, 3000),
-      // 侧房不是现实时间线：旧数据里即使开过 schedule，也在归一化时永久关掉。
-      // 这不是可混搭权限，避免 UI 隐藏了开关、底层却继续把现实行程喂进去。
-      cognition: { ...base.cognition, ...(src.cognition || {}), ...(base.main ? {} : { schedule: false }) },
+      cognition: { ...base.cognition, ...(src.cognition || {}) },
       actions: base.main ? bools(GROUPS.actions, false) : { ...base.actions, ...(src.actions || {}) },
       writeback: { ...base.writeback, ...(src.writeback || {}) },
       syncMode: ["follow", "ask", "frozen"].includes(src.syncMode) ? src.syncMode : base.syncMode,
@@ -171,7 +170,9 @@
       }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
-    lines.push("【时间边界】本房不读取现实时间、定位或日程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
+    lines.push(c.schedule
+      ? "【时间边界】本房已开启现实时间与行程，可按角色当地时间、现实钟和当前行程自然回应；若它与本房限定设定冲突，以本房设定为准。"
+      : "【时间边界】本房未开启现实时间与行程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
       "【心声边界】本房的未说出口心声只属于本房，单独保存；不得据此改写主房心声、关系成长或人格成长。");
     if (room.purpose) lines.push("【这间房想慢慢继续的事】" + room.purpose + "。它是这条分线的共同方向，不是每轮必须汇报的任务；相关时自然接着，不相关时正常聊天。");
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");

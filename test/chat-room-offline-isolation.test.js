@@ -17,13 +17,14 @@ const Rooms = require("../js/chat-rooms.js");
 
 test.beforeEach(() => bag.clear());
 
-test("side rooms permanently reject real schedule and say so in the prompt", () => {
-  const room = Rooms.create("p1", "十七岁的他", "alternate");
-  room.cognition.schedule = true; // simulate an old saved room from before the rule changed
-  const saved = Rooms.save("p1", room);
-  assert.equal(saved.cognition.schedule, false);
-  assert.equal(Rooms.GROUPS.cognition.some(([key]) => key === "schedule"), false);
-  assert.match(Rooms.prompt(saved, []), /不读取现实时间、定位或日程/);
+test("each side room chooses whether real time and schedule are available", () => {
+  const alternate = Rooms.create("p1", "十七岁的他", "alternate");
+  assert.equal(alternate.cognition.schedule, false, "长篇如果默认不接现实时间");
+  assert.match(Rooms.prompt(alternate, []), /未开启现实时间与行程/);
+  const saved = Rooms.save("p1", { ...alternate, cognition: { ...alternate.cognition, schedule: true } });
+  assert.equal(saved.cognition.schedule, true);
+  assert.match(Rooms.prompt(saved, []), /已开启现实时间与行程/);
+  assert.equal(Rooms.GROUPS.cognition.some(([key]) => key === "schedule"), true);
 });
 
 test("room offline uses the room chat key and never writes its session into the main offline key", () => {
@@ -42,10 +43,10 @@ test("room thought has its own durable store and side-room replies skip personal
   assert.match(app, /if \(offlineIsRoom\(scopeKey\)\) return; \/\/ 侧房线下只留本房记录/);
 });
 
-test("room offline receives the room prompt while real-time UI strips are hidden", () => {
+test("room offline receives its prompt and only shows schedule when that room enables it", () => {
   assert.match(engine, /ctx\.roomPrompt \? "\\n" \+ ctx\.roomPrompt/);
-  assert.match(components, /\(!room \|\| room\.main\) && schedNow/);
-  assert.match(app, /schedNow: offlineIsRoom\(activeOfflineScopeKey\) \? null/);
+  assert.match(components, /room\.cognition && room\.cognition\.schedule/);
+  assert.match(app, /schedNow: roomTimeAwareFor\(activeOfflineRoom, offlineChar\.id\)/);
   assert.match(components, /room\.name \+ " · 独立线下"/);
 });
 

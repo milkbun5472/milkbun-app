@@ -6103,7 +6103,7 @@ function SenseConfig({
       color: t.fog,
       marginTop: 2
     }
-  }, "角色知道现在的真实时间，深夜/清晨会自然回应")), /*#__PURE__*/React.createElement(Toggle, {
+  }, "全局默认值；角色与房间可单独覆盖，开启后会自然感知深夜/清晨")), /*#__PURE__*/React.createElement(Toggle, {
     on: p.timeAware !== false,
     onChange: v => save({
       ...p,

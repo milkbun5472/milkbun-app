@@ -1191,6 +1191,16 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
+  // 全局只给默认值；角色可单独覆盖。侧房还会在生成入口处再覆盖这一层。
+  const timeAwareFor = id => {
+    const mode = (chatSettings[id] || {}).timeAwareMode;
+    if (mode === "on") return true;
+    if (mode === "off") return false;
+    return prefs.timeAware !== false;
+  };
+  const roomTimeAwareFor = (room, charId) => room && !room.main
+    ? !!(room.cognition && room.cognition.schedule)
+    : timeAwareFor(charId);
   // App 逐行聊天灾备账本：本地落盘永远在前；旁路失败/离线只留 outbox，不影响任何聊天行为。
   // CC 仍只能读唯一的言秋角色；其他角色行只用于 App 灾后逐条恢复。
   const ledgerYanqiu = () => window.ChatLedgerShadow && window.ChatLedgerShadow.findYanqiu(characters, chatSettings);
@@ -3367,7 +3377,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
-    schedNow: schedNowFor(char),
+    schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
     offlineNow: offlineActiveFor(char.id),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
@@ -3415,7 +3425,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) }));
     })(),
     geo: prefs.geoAware ? geo : null,
-    timeAware: prefs.timeAware,
+    timeAware: timeAwareFor(char.id),
     giftLog: (() => {
       const given = (carryGiftsRef.current[char.id] || []).map(g => g.name).filter(Boolean);
       const got = (inventory || []).filter(x => x.fromCharId === char.id).map(x => x.name).filter(Boolean);
@@ -4615,9 +4625,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const oCtx = ctxFor(char);
       if (sideRoom) {
         const rc = sideRoom.cognition || {};
+        const roomTimeAware = roomTimeAwareFor(sideRoom, charId);
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || []) : "";
-        // 侧房永远不接现实钟、定位和行程；旧房间数据里开过权限也不例外。
-        oCtx.schedNow = ""; oCtx.timeAware = false; oCtx.geo = null;
+        oCtx.timeAware = roomTimeAware;
+        if (!roomTimeAware) { oCtx.schedNow = ""; oCtx.geo = null; }
+        else { oCtx.schedNow = schedNowFor(char); oCtx.geo = prefs.geoAware ? geo : null; }
         if (!rc.formalMemory) { oCtx.memory = ""; oCtx.memLib = []; oCtx.ccContinuity = ""; oCtx.yanqiuWall = ""; }
         if (!rc.innerLife) { oCtx.moodLabel = null; oCtx.moodNote = ""; oCtx.gazeText = ""; oCtx.personaGrown = ""; oCtx.personaEvolve = false; }
         if (!rc.otherScenes) { oCtx.offlineNow = ""; oCtx.groupEcho = ""; oCtx.groupOfflineEcho = ""; oCtx.forumEcho = ""; oCtx.forumPmLog = ""; oCtx.momentLog = ""; }
@@ -5090,12 +5102,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const m = {};
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;            // 配角没有行程
+        if (!c || c.npc || !timeAwareFor(id)) return; // 配角/关闭时间感知的角色没有现实行程
         const b = schedBriefFor(c);
         if (b) m[id] = b;
       });
       return m;
     })(),
+    memberTimeAware: Object.fromEntries((group.memberIds || []).map(id => [id, timeAwareFor(id)])),
     memberCouple: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
@@ -5138,7 +5151,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
       return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "chat", text: offText });
     })(),
-    timeAware: prefs.timeAware,
+    timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
@@ -5758,6 +5771,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const chatKey = opts.chatKey || charId;
     const room = opts.room || null;
     const sideRoom = !!(room && !room.main);
+    const roomClockOn = roomTimeAwareFor(room, charId);
     let delivered = false;
     if (laneBusy("c:" + chatKey)) return false;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
@@ -5844,9 +5858,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (room && room.id !== "main") _roomCtx.recentChat = "";
       if (room && room.cognition) {
         const rc = room.cognition;
+        _roomCtx.timeAware = roomClockOn;
         if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
         if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
-        if (sideRoom || !rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
+        if (!roomClockOn) { _roomCtx.schedNow = ""; _roomCtx.geo = null; }
+        else { _roomCtx.schedNow = schedNowFor(char); _roomCtx.geo = prefs.geoAware ? geo : null; }
         if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
       }
       const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
@@ -5961,11 +5977,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastAsstTs = sideRoom ? localLastAsstTs : Math.max(localLastAsstTs, latestSharedInteractionTs(charId));
       const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
       const gapHrs = Math.round(gapMs / 3600000);
-      const gapReopen = !sideRoom && gapMs > 3 * 3600000; // 侧房不拿现实钟判断“隔了多久”
+      const gapReopen = roomClockOn && gapMs > 3 * 3600000;
       // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
       const thoughtSpec = "本轮必须填写：一句角色本人此刻没说出口的第一人称心声";
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
-      const gapHint = !sideRoom && gapMs > 2 * 3600000
+      const gapHint = roomClockOn && gapMs > 2 * 3600000
         ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。**隔了这么久，你心里是什么感觉就按你这个人真实的感觉来——高兴、想她、无所谓、有点闷、甚至有点不痛快，都可以；别为了体贴把它硬压成温温的一句。表达的方式仍然是你自己的方式，不是网文里那套摆委屈闹脾气的通用桥段。**\n**⚠️尤其（她 2026-07-18 点名的委屈）：若这段时间里【你俩说过要一起做的事】（她说来找你吃饭/来找你玩/晚点来这类）没在对话里发生，【绝不许】默认她爽约、放你鸽子、故意不来、把你忘了——她多半只是忙、一时忘了、或还没顾上，太正常了，而且软性的『我来找你』本就不是签了字的约会。你可以【就当你俩已经悄悄做过了】、自然把它当成发生过的暖事轻轻带过（如『中午那顿火锅挺香』），或温温问一句『还来吗～』；但绝不拿一件【没发生过的爽约】去质问、赌气、翻旧账。⚠️这一条只管【这件没发生的约】，不外溢：你对「她这段时间没回你」本身是什么感觉，照上面那句、按你自己真实的感觉来。**"
         : "";
       let lastPrivateUserTs = 0;
@@ -6239,10 +6255,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
       const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
-      const _wearBrief = sideRoom ? null : schedNowBriefFor(char);
+      const _wearBrief = roomClockOn ? schedNowBriefFor(char) : null;
       const _wearScheduleKey = window.WearingRefresh ? window.WearingRefresh.scheduleKey(_wearBrief, schedLocalDayKey(char)) : "";
       const _latestUserMessage = [...promptHistory].reverse().find(m => m && m.role === "user");
-      const _wearRefreshGate = (!sideRoom && !_s.engineerEyes && window.WearingRefresh)
+      const _wearRefreshGate = (roomClockOn && !_s.engineerEyes && window.WearingRefresh)
         ? window.WearingRefresh.evaluate({
             scheduleKey: _wearScheduleKey,
             acknowledgedKey: _liveChatState.wearingScheduleKey,
@@ -7377,7 +7393,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
       const _ggap = _glast ? Date.now() - _glast : 0;
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
-      const gTimeHint = "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (_ggap > 3 * 3600000 ? "。距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——**上面聊的事已经翻篇：别把聊到一半的事当成正在发生**。当时说要去办的事（买菜/做饭/出门…）早就办完或不了了之了，每个人现在都在过自己此刻该过的生活；接话要从【现在这个时间点】的状态出发，绝不许把上一轮的场景直接续着演。" : "。上面群聊记录里若有〔时间断点〕标记，按真实先后顺序理解发生了什么，别把很早以前的事当成刚刚。");
+      const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
+      const gTimeHint = _gClockNames.length
+        ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
+        : "";
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
       let preJoin = "";
@@ -7426,7 +7445,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const cpSeg = (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })();
         // 【我们的档案】跟情侣状态同一档：这位成员的私事，走同一道隐私围栏（四处一样喂）
         const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
-        const sbSeg = (() => { const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
+        const sbSeg = (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
         // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
         // 也不吃印象卡、长出来的自我、年龄、行程、情侣状态——那些都是
         // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
@@ -15383,8 +15402,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     profile: profile,
     disp: { myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: activeRoomId === "main" ? schedNowBriefFor(activeChar) : null,
-    onOpenSched: activeRoomId === "main" ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
+    schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
+    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
@@ -16407,7 +16426,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             apiId: s.apiId || null,
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
-            defaultOffline: !!s.defaultOffline
+            defaultOffline: !!s.defaultOffline,
+            timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit"
           }
         };
         saveJSON("x_chatSettings", n);
@@ -16519,9 +16539,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onClose: () => { setOfflineChar(null); setOfflineRoomId("main"); },
     onExit: () => { setOfflineChar(null); setOfflineRoomId("main"); setScreen("messages"); },
     onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: offlineIsRoom(activeOfflineScopeKey) ? null : schedNowBriefFor(offlineChar),
+    schedNow: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? schedNowBriefFor(offlineChar) : null,
     onOpenStyleLab: goStyleLab,
-    onOpenSched: offlineIsRoom(activeOfflineScopeKey) ? null : (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); })
+    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
   }), offlineGroup && h(GroupOfflineMode, {
     group: offlineGroup,
     profile: profile,
