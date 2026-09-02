@@ -122,7 +122,14 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   assert.ok(m, "找不到 discEnter");
   // 旧的「播放器里有东西在响就不落针」必须是删掉的
   assert.doesNotMatch(m[0], /!el\.paused/);
-  assert.match(m[0], /if \(discSongsOf\(cid\)\.length\) discPlay\(cid\);/);
+  // 而且是【接着上次那首】，不是永远从第一首（她 2026-09-02：后面的永远轮不到）
+  assert.match(m[0], /discPlay\(cid, discNextId\(cid\)\)/);
+  const nx = appSrc.match(/const discNextId = cid => \{[\s\S]*?\n  \};/);
+  assert.ok(nx, "找不到 discNextId");
+  assert.match(nx[0], /\(k \+ 1\) % ss\.length/);
+  // 针位不能只在离开时记（App 被杀/直接切走都不会走 discLeave）：挂在换歌上
+  assert.match(appSrc, /if \(!sid \|\| String\(sid\)\.indexOf\("sgd_"\) !== 0\) return;/);
+  assert.match(appSrc, /lastId: sid/);
   assert.match(appSrc, /const discLeave = \(\) => \{ if \(discSpinning\(\)\) stopPlayer\(\); \};/);
 });
 

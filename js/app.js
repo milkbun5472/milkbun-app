@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.41";
+const APP_VERSION = "v60.42";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14376,10 +14376,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   const discRemove = (cid, id) => saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: (cur.songs || []).filter(x => x.id !== id) } }; });
   const discSetNote = (cid, id, note) => saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: (cur.songs || []).map(x => x.id === id ? { ...x, note: String(note || "").trim() } : x) } }; });
-  const discPlay = cid => {
+  // 从哪一首起（不传就从头）。整批仍然全进 nowBatch，所以放完这一首照样往下走。
+  const discPlay = (cid, fromId) => {
     const ss = discSongsOf(cid); if (!ss.length) return;
+    let i = 0;
+    if (fromId) { const k = ss.findIndex(x => x.id === fromId); if (k >= 0) i = k; }
     saveListen(pp => ({ ...pp, nowBatch: ss.map(x => ({ ...x })), playMode: "order" }));
-    playSong(ss[0], ss.map(x => x.id));
+    playSong(ss[i], ss.map(x => x.id));
+  };
+  // ── 唱片记得上次听到哪儿（她 2026-09-02 报）───────────────────────────────
+  // 「每次进来也永远从第一首开始播，后面的永远没办法轮到了」——是真的：
+  // discPlay 写死 ss[0]，她进出十次就是把第一首听十遍，第七首这辈子轮不到。
+  // 所以每对情侣的唱片记一个针位 lastId，**下次进来从它的下一首接着放**。
+  // ⚠️针位不能只在离开时记：App 被系统杀掉、直接切走都不会走 discLeave。
+  // 所以挂在【正在放的那首歌变了】上——不管是自然放到下一首、锁屏切的、
+  // 还是 TA 在聊天里切的歌，只要放的是这张唱片上的，针位就跟着走。
+  useEffect(() => {
+    const sid = player.songId;
+    if (!sid || String(sid).indexOf("sgd_") !== 0) return;
+    const all = coupleDiscRef.current || {};
+    const cid = Object.keys(all).find(k => ((all[k] || {}).songs || []).some(x => x.id === sid));
+    if (!cid || (all[cid] || {}).lastId === sid) return;
+    saveCoupleDisc(pp => Object.assign({}, pp, { [cid]: Object.assign({}, pp[cid] || {}, { lastId: sid }) }));
+  }, [player.songId]);
+  // 下一次该放哪一首：上次那首的下一首；针位丢了或那首被删了就从头
+  const discNextId = cid => {
+    const ss = discSongsOf(cid); if (!ss.length) return null;
+    const last = ((coupleDiscRef.current || {})[cid] || {}).lastId;
+    const k = last ? ss.findIndex(x => x.id === last) : -1;
+    return ss[k < 0 ? 0 : (k + 1) % ss.length].id;
   };
   const discSpinning = () => String(playerSongIdRef.current || "").indexOf("sgd_") === 0;
   // 进空间就换成这张唱片、直接放（她 2026-09-02 亲口改的）。
@@ -14388,8 +14413,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 唱片一次都没响过，看着就像这个功能坏了。现在是「进来就落针」。
   // 收针那一半不动：走的时候仍然【只带走自己】(discLeave 只在放的是 sgd_ 时停)。
   const discEnter = cid => {
-    if (discSpinning()) return;              // 已经在转就别从头重放
-    if (discSongsOf(cid).length) discPlay(cid);
+    if (discSpinning()) return;              // 已经在转就别打断它
+    if (discSongsOf(cid).length) discPlay(cid, discNextId(cid));  // 接着上次那首往下放
   };
   const discLeave = () => { if (discSpinning()) stopPlayer(); }; // 走时只带走自己
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
@@ -15948,6 +15973,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onDiscNote: discSetNote,
     onDiscPlay: discPlay,
     onDiscGen: genCoupleDisc,
+    discNextIdOf: discNextId,
     discGen: gen.coupleDisc,
     onDiscEnter: discEnter,
     onDiscLeave: discLeave,
@@ -16070,7 +16096,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
-    // 场边（v60.41 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，
+    // 场边（v60.42 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，
     // 但「有认识的人在旁边看着」这件事本身不是，那正是这个擂台跟别家不一样的地方。
     // 言秋照旧不抓进场边（v59.99：他可以上台，但不当看客）。
     // characters 始终留全：存档头像、名字和分享名单都靠它查。
