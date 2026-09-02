@@ -25,7 +25,7 @@ test("known_by 三态在本地、云端与建表里都不许被压平", () => {
 });
 
 test("可见性过滤排在置顶与打分之前，且置顶绕不过权限", () => {
-  const seg = engine.slice(engine.indexOf("function retrieveMemories"), engine.indexOf("function retrieveMemories") + 1600);
+  const seg = engine.slice(engine.indexOf("function retrieveMemories"), engine.indexOf("function retrieveMemories") + 2600);
   assert.match(seg, /const canSee = e => Array\.isArray\(e\.knownBy\)/);
   assert.ok(seg.indexOf("canSee") < seg.indexOf("e.pinned"), "过滤必须在取置顶之前");
   // 语义（用最小实现复刻同一条规则）

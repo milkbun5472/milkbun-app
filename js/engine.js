@@ -2317,7 +2317,17 @@ const TAG_ALIASES = {
 };
 function canonTag(t) { const k = String(t || "").trim(); return TAG_ALIASES[k] || TAG_ALIASES[k.toLowerCase()] || k; }
 function canonTags(tags) { const out = new Set(); (tags || []).forEach(t => { out.add(t); out.add(canonTag(t)); }); return [...out]; }
-function scoreMemEntry(entry, qTokens, now, qVec) {
+// 召回准入先看「有没有相关证据」，再看综合分。旧版只有 score>0.9：一条刚写下、
+// 情绪较强却和本轮毫不相干的记忆，光靠新近度+情绪也可能混进 topK。
+// 阈值不照抄别人的模型分布；0.56/0.50 是沿用本项目原有 (cos-0.38)/0.32
+// 归一化后的中段位置，并把每一项都留进本轮收据，之后可拿真实数据再标定。
+const MEM_SCORE_FLOOR = 0.9;
+const MEM_SEMANTIC_DIRECT = 0.56;
+const MEM_SEMANTIC_ASSOC = 0.50;
+function memQueryNorm(text) {
+  return String(text || "").toLowerCase().replace(/[\s，。、；：,.;:!！?？「」『』"'“”‘’（）()【】\-—]/g, "");
+}
+function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   // 标签归一：原标签 + 别名族根一起进 token/命中，让「日常」「日常生活」「日常互动」互相认得
   const allTags = canonTags(entry.tags);
   const eTokens = memTokens((entry.text || "") + " " + allTags.join(" "));
@@ -2327,14 +2337,17 @@ function scoreMemEntry(entry, qTokens, now, qVec) {
   let tagHit = 0;
   allTags.forEach(tag => { if (qTokens.has(String(tag).toLowerCase())) tagHit += 2; });
   let keyword = overlap + tagHit;
+  let vectorScored = false, cosine = null, semantic = 0;
   // ⭐向量语义（v48.11）：查询向量预热过且该条目已嵌 → 语义相似度和关键词混合。
   // 关键词继续兜底精确名词命中（人名地名向量容易糊），向量管「换了说法也认得」。
   // bge 系余弦分布很窄（完全不相关也有 0.3+），减基线归一化再放大到与关键词分同量级，不然等于没筛。
   if (qVec && qVec.v) {
     const cv = _memVecCache().get(entry.id);
     if (cv && cv.v && cv.m === qVec.m && cv.v.length === qVec.v.length) {
-      const sem = Math.max(0, Math.min(1, (cosSim(qVec.v, cv.v) - 0.38) / 0.32));
-      keyword = keyword * 0.6 + sem * 7;
+      vectorScored = true;
+      cosine = cosSim(qVec.v, cv.v);
+      semantic = Math.max(0, Math.min(1, (cosine - 0.38) / 0.32));
+      keyword = keyword * 0.6 + semantic * 7;
     }
   }
   // ⭐艾宾浩斯（2026-07-09）：记忆有「保持率」——多久没被想起就渐渐淡；被检索到=复习，会刷新并变牢
@@ -2350,7 +2363,18 @@ function scoreMemEntry(entry, qTokens, now, qVec) {
   // 权重池（Ombre Brain 借鉴）：情绪强度 arousal 越高越难忘、未了结 open 的开环会一直惦记 → 更容易被想起
   const arousalW = (aRaw / 5) * 1.1;
   const openW = entry.open ? (0.7 + arousalW * 0.4) : 0;
-  return keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + (entry.pinned ? 100 : 0);
+  const score = keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + (entry.pinned ? 100 : 0);
+  const qNorm = memQueryNorm(queryText), eNorm = memQueryNorm(entry.text);
+  const directText = qNorm.length >= 2 && eNorm.length >= 2 && (eNorm.includes(qNorm) || (eNorm.length <= 80 && qNorm.includes(eNorm)));
+  const lexicalDirect = directText || tagHit > 0 || overlap >= 1.4;
+  const semanticDirect = vectorScored && cosine >= MEM_SEMANTIC_DIRECT;
+  const semanticAssociation = vectorScored && cosine >= MEM_SEMANTIC_ASSOC;
+  const lane = lexicalDirect || semanticDirect ? "main" : (semanticAssociation ? "association" : "none");
+  return {
+    score, lane, vectorScored, cosine, semantic, directText,
+    overlap, tagHit, keyword, retention, recency, arousal: arousalW, open: openW,
+    passesScore: score > MEM_SCORE_FLOOR
+  };
 }
 // 上一轮真实召回快照（仅当前页面内存）：和 MemoryV2Shadow 的匿名统计分工不同，
 // 这里就是给主人在「上下文诊断」里核对【究竟哪几条正文真的进了模型】。
@@ -2374,8 +2398,17 @@ if (typeof window !== "undefined") {
     }
   });
 }
+function attachMemoryRecallMeta(rows, meta) {
+  if (!Array.isArray(rows)) return rows;
+  try { Object.defineProperty(rows, "__recallMeta", { value: meta || {}, configurable: true, enumerable: false }); } catch (e) {}
+  return rows;
+}
+function copyMemoryRecallMeta(from, to) {
+  return attachMemoryRecallMeta(to, from && from.__recallMeta);
+}
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
+  const associationLimit = opts.associationLimit == null ? 1 : Math.max(0, Number(opts.associationLimit) || 0);
   // 可见性必须排在【置顶与打分之前】：先 topK 再过滤会让不可见记忆占掉名额，
   // 而置顶是从这个 list 里另取的，合在这一层才不会被置顶绕过权限。
   //   knownBy 不是数组 → 旧数据，沿用「charIds 为空即全员可见」的老规则
@@ -2385,14 +2418,15 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
     : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId));
   const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && canSee(e));
   if (list.length === 0) {
-    noteMemoryRecallSnapshot(charId, { candidateCount: 0, mode: "keyword", picked: [] }, opts);
+    const emptyMeta = { source: opts.source || "", noHit: true, candidateCount: 0, kindById: {} };
+    noteMemoryRecallSnapshot(charId, { candidateCount: 0, mode: "keyword", picked: [], excluded: [], excludedCounts: {} }, opts);
     // 空召回也是重要收据：否则审计只看得见“想起来时”，看不见“完全没想起来时”。
     try {
       if (opts.touch !== false && opts.source === "chat" && window.MemoryV2Shadow) {
         window.MemoryV2Shadow.observeRetrieval({ charId, queryText, source: "chat", candidateCount: 0, pinned: [], relevant: [], picked: [] });
       }
     } catch (eMemoryV2Empty) {/* 统一影子审计绝不影响召回 */}
-    return [];
+    return attachMemoryRecallMeta([], emptyMeta);
   }
   const qTokens = memTokens(queryText);
   // 向量：只有发送前 primeQueryVec 预热过、缓存命中才拿得到；没有就 null=纯关键词，行为同旧版
@@ -2400,11 +2434,17 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   // ⭐置顶=always-in，【另开一路、不占 topK 相关召回名额】（v48.41 修：原来置顶和普通条挤同一个 topK，
   //   置顶超过 topK 就把相关记忆全饿死了，且不相关的置顶也白占坑）。置顶全进 + 相关的再补 topK 条。
   const pinned = list.filter(e => e.pinned);
-  const scored = list.filter(e => !e.pinned).map(e => ({ e, s: scoreMemEntry(e, qTokens, Date.now(), qVec) }));
-  const scoreById = new Map(scored.map(x => [String(x.e.id), x.s]));
+  const scored = list.filter(e => !e.pinned).map(e => {
+    const why = explainMemEntry(e, qTokens, Date.now(), qVec, queryText);
+    return { e, s: why.score, why };
+  });
   scored.sort((a, b) => b.s - a.s);
-  const relevant = scored.filter(x => x.s > 0.9).slice(0, limit).map(x => x.e);
-  let picked = pinned.concat(relevant);
+  const mainPool = scored.filter(x => x.why.passesScore && x.why.lane === "main");
+  const associationPool = scored.filter(x => x.why.passesScore && x.why.lane === "association");
+  let relevant = mainPool.slice(0, limit).map(x => x.e);
+  let associations = associationPool.slice(0, associationLimit).map(x => x.e);
+  let picked = pinned.concat(relevant, associations);
+  let cooledIds = new Set();
   // Tidal 两分辨率旁路（v49.29）：比较「事件印象 + 少量碎片」与现有精确碎片；永远不改 picked。
   // 只在真实聊天触发，后台预取不记；模块异常/镜像离线全部吞掉。
   try {
@@ -2419,7 +2459,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
     if (RS && (RS.enabled() || RS.liveEnabled()) && list.length) {
       const turn = RS.turnOf(charId);
       const top1 = relevant[0] || null;
-      const pool = scored.filter(x => x.s > 0.9);
+      const pool = mainPool;
       const cooling = window.RecallCooling.select({
         pool, relevant, limit,
         isCooling: id => RS.isCooling(charId, id)
@@ -2433,7 +2473,6 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
         const winMax = pool[1].s;
         wsize = pool.slice(1, Math.max(1, limit)).filter(x => x.s >= winMax * 0.95).length;
       }
-      const cooledIds = new Set(cooled.map(x => x.id));
       RS.observe({ auditVersion: 2, c: RS.charHash(charId), turn, k: baseIds.length, b: baseIds, p: propIds,
         bkt: pool.slice(0, limit).map(x => Math.round(x.s * 10) / 10),
         repeats, replaced, cooled, wsize, empty: relevant.length === 0, touch: opts.touch !== false,
@@ -2451,7 +2490,16 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
           isCooling: RS.liveEnabled() ? id => RS.isCooling(charId, id) : () => false,
           tieSeed: RS.tieEnabled() ? charId + "|" + turn + "|" + String(queryText || "") : null
         });
-        picked = pinned.concat(liveSelection.proposed);
+        cooledIds = RS.liveEnabled() ? new Set(liveSelection.cooled.map(x => String(x.id))) : new Set();
+        relevant = liveSelection.proposed;
+        // 联想位也避开刚浮现过的条目；没有替补时宁可本轮空着，不拿重复感换满额。
+        if (RS.liveEnabled()) associationPool.forEach(x => {
+          if (!x.e.open && RS.isCooling(charId, x.e.id)) cooledIds.add(String(x.e.id));
+        });
+        associations = associationPool
+          .filter(x => !relevant.includes(x.e) && (x.e.open || !RS.liveEnabled() || !RS.isCooling(charId, x.e.id)))
+          .slice(0, associationLimit).map(x => x.e);
+        picked = pinned.concat(relevant, associations);
       }
       if (opts.touch !== false && picked.length) RS.noteSurfaced(charId, picked.filter(e => !e.pinned).map(e => e.id));
     }
@@ -2464,20 +2512,52 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   } catch (eMemoryV2) {/* 统一影子审计绝不影响召回 */}
   // 必须记【所有冷却/并列规则之后】的最终选集，且要在 lastHit/hits 改写前拍下。
   // vectorScored 表示该条确实有同模型同维度向量参与了本轮混合打分；置顶条不经过打分，永远为 false。
+  const pickedIds = new Set(picked.map(e => String(e.id)));
+  const mainIds = new Set(relevant.map(e => String(e.id)));
+  const associationIds = new Set(associations.map(e => String(e.id)));
+  const kindById = {};
+  pinned.forEach(e => { kindById[String(e.id)] = "pinned"; });
+  mainIds.forEach(id => { kindById[id] = "main"; });
+  associationIds.forEach(id => { kindById[id] = "association"; });
+  const excludedAll = scored.filter(x => !pickedIds.has(String(x.e.id))).map(x => {
+    let reason = "relevance_gate";
+    if (!x.why.passesScore) reason = "score_floor";
+    else if (cooledIds.has(String(x.e.id))) reason = "cooldown";
+    else if (x.why.lane === "main") reason = "main_cap";
+    else if (x.why.lane === "association") reason = "association_cap";
+    return { x, reason };
+  });
+  const excludedCounts = excludedAll.reduce((acc, row) => { acc[row.reason] = (acc[row.reason] || 0) + 1; return acc; }, {});
+  const receiptRow = (e, kind, reason) => {
+    const scoredRow = scored.find(x => String(x.e.id) === String(e.id));
+    const why = scoredRow && scoredRow.why;
+    return {
+      id: String(e.id || ""), text: String(e.text || ""), tags: Array.isArray(e.tags) ? e.tags.slice() : [],
+      pinned: !!e.pinned, open: !!e.open, recallKind: kind || "", reason: reason || "",
+      vectorScored: !!(why && why.vectorScored),
+      score: e.pinned ? null : Math.round(((why && why.score) || 0) * 1000) / 1000,
+      scoreParts: why ? {
+        overlap: Math.round(why.overlap * 100) / 100, tagHit: Math.round(why.tagHit * 100) / 100,
+        cosine: why.cosine == null ? null : Math.round(why.cosine * 1000) / 1000,
+        retention: Math.round(why.retention * 1000) / 1000, recency: Math.round(why.recency * 1000) / 1000,
+        arousal: Math.round(why.arousal * 1000) / 1000, open: Math.round(why.open * 1000) / 1000,
+        directText: !!why.directText, lane: why.lane
+      } : null
+    };
+  };
   noteMemoryRecallSnapshot(charId, {
     candidateCount: list.length,
     mode: qVec && qVec.v ? "hybrid" : "keyword",
     model: qVec && qVec.m || "",
-    picked: picked.map(e => {
-      const cv = qVec && qVec.v ? _memVecCache().get(e.id) : null;
-      return {
-        id: String(e.id || ""), text: String(e.text || ""), tags: Array.isArray(e.tags) ? e.tags.slice() : [],
-        pinned: !!e.pinned, open: !!e.open,
-        vectorScored: !!(!e.pinned && cv && cv.v && cv.m === qVec.m && cv.v.length === qVec.v.length),
-        score: e.pinned ? null : Math.round((scoreById.get(String(e.id)) || 0) * 1000) / 1000
-      };
-    })
+    picked: picked.map(e => receiptRow(e, kindById[String(e.id)], "")),
+    excluded: excludedAll.slice(0, 24).map(row => receiptRow(row.x.e, row.x.why.lane, row.reason)),
+    excludedCounts,
+    hiddenCount: Math.max(0, (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active").length - list.length)
   }, opts);
+  attachMemoryRecallMeta(picked, {
+    source: opts.source || "", noHit: picked.length === 0, candidateCount: list.length,
+    kindById, excludedCounts
+  });
   // ⭐检索即复习：被想起的条目刷新 lastHit、hits+1（就地改 entry 对象——lib 就是 memLibRef.current 那份）。
   // 节流持久化：只有当有条目超过 6 小时没被摸过时才写盘，防每轮聊天都重写整个记忆库
   if (opts.touch !== false && picked.length) {
@@ -2542,11 +2622,16 @@ function splitGroupMemories(lib, memberIds, queryText, opts = {}) {
 }
 function formatMemLib(entries) {
   const arr = entries || [];
+  const recallMeta = arr && arr.__recallMeta;
+  if (!arr.length && recallMeta && recallMeta.source === "chat" && recallMeta.noHit) {
+    return "【本轮记忆检索状态】没有相关长期记忆入选。这只表示自动召回未命中，不代表事情没有发生；不要编造过去，也不要主动向对方报告检索过程。若对方明确要求回忆而你确实不确定，可以自然承认一时想不准或向对方确认。";
+  }
   const body = arr.map(e => {
     const tags = (e.tags && e.tags.length) ? "（" + e.tags.join("、") + "）" : "";
     const openMark = e.open ? "〔还没了结·你心里还惦记着〕" : "";
     const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(e.text, e.ts) : "";
-    return "· " + e.text + openMark + tags + (dateAnchor ? " " + dateAnchor : "");
+    const lane = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
+    return "· " + lane + e.text + openMark + tags + (dateAnchor ? " " + dateAnchor : "");
   }).join("\n");
   // ⭐开环别误读成爽约（她 2026-07-18 报的老 bug）：标〔还没了结〕的事，角色老自己脑补成"她说要来却放我鸽子"、几小时后主动消息+心声冲她生气。
   //   真相=她没"不来"、只是【还没来】，"今天"还没过完、软性的"我来找你"更不是签字的约会。给一句读法指引，四条注入路(主聊/线下/群/通话)全覆盖。

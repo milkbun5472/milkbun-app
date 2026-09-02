@@ -5633,6 +5633,36 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     refreshWire();
   };
   const clearWire = () => { if (typeof window !== "undefined") window.__offlineWireCaptures = []; setWireRows([]); };
+  const recallLaneLabel = lane => lane === "pinned" ? "置顶直入" : lane === "association" ? "联想专座" : lane === "main" ? "主召回" : "未过准入";
+  const recallReasonLabel = reason => ({
+    relevance_gate: "没有词面或足够语义证据",
+    score_floor: "综合分未过线",
+    cooldown: "四轮内刚浮现过",
+    main_cap: "主召回名额已满",
+    association_cap: "联想名额已满"
+  })[reason] || reason || "未入选";
+  const recallPartsText = row => {
+    const p = row && row.scoreParts;
+    if (!p) return "";
+    const bits = ["词面 " + p.overlap, "标签 " + p.tagHit];
+    if (p.cosine != null) bits.push("向量 " + p.cosine);
+    bits.push("保持 " + p.retention, "新近 " + p.recency);
+    if (p.arousal) bits.push("情绪 " + p.arousal);
+    if (p.open) bits.push("开环 " + p.open);
+    return bits.join(" · ");
+  };
+  const recallRowView = (row, i, missed) => h("details", {
+    key: (missed ? "miss_" : "hit_") + (row.id || i),
+    style: { borderTop: "1px solid " + t.line, padding: "7px 0 2px" }
+  },
+  h("summary", { style: { cursor: "pointer", fontFamily: F_BODY, fontSize: missed ? 11 : 11.5, color: t.ink, lineHeight: 1.5 } },
+    (missed ? recallReasonLabel(row.reason) + " · " : (i + 1) + ". ") +
+    String(row.text || "（空）").replace(/\s+/g, " ").slice(0, missed ? 42 : 54) +
+    (String(row.text || "").length > (missed ? 42 : 54) ? "…" : "")),
+  h("div", { style: { marginTop: 5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: F_BODY, fontSize: missed ? 10.5 : 11, color: t.sub, lineHeight: 1.65 } }, row.text || "（空）"),
+  h("div", { style: { marginTop: 4, fontFamily: "monospace", fontSize: 9.5, color: t.fog, lineHeight: 1.55 } },
+    recallLaneLabel(row.recallKind) + (row.pinned ? "" : " · " + (row.vectorScored ? "向量参与打分" : "关键词打分") + " · 总分 " + row.score) + (row.tags && row.tags.length ? " · " + row.tags.join(" / ") : "")),
+  row.scoreParts ? h("div", { style: { marginTop: 3, fontFamily: "monospace", fontSize: 9.5, color: t.fog, lineHeight: 1.55 } }, recallPartsText(row)) : null);
   const wireDiff = (() => {
     if (wireRows.length < 2) return [];
     const a = wireRows[wireRows.length - 2].body || {}, b = wireRows[wireRows.length - 1].body || {};
@@ -5746,15 +5776,14 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
         recall ? h("span", { style: { flexShrink: 0, borderRadius: 999, padding: "3px 7px", fontFamily: F_BODY, fontSize: 9.5, color: recall.mode === "hybrid" ? t.tint : t.fog, border: "1px solid " + (recall.mode === "hybrid" ? t.tint : t.line) } }, recall.mode === "hybrid" ? "向量混合" : "关键词") : null),
       recall ? h(React.Fragment, null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8 } },
-          new Date(recall.ts).toLocaleString() + " · 候选 " + recall.candidateCount + " 条 · 最终 " + (recall.picked || []).length + " 条" + (recall.model ? " · " + recall.model : "")),
-        (recall.picked || []).length ? h("div", { style: { marginTop: 7 } }, recall.picked.map((row, i) =>
-          h("details", { key: row.id || i, style: { borderTop: "1px solid " + t.line, padding: "7px 0 2px" } },
-            h("summary", { style: { cursor: "pointer", fontFamily: F_BODY, fontSize: 11.5, color: t.ink, lineHeight: 1.5 } },
-              (i + 1) + ". " + String(row.text || "（空）").replace(/\s+/g, " ").slice(0, 54) + (String(row.text || "").length > 54 ? "…" : "")),
-            h("div", { style: { marginTop: 5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.65 } }, row.text || "（空）"),
-            h("div", { style: { marginTop: 4, fontFamily: "monospace", fontSize: 9.5, color: t.fog } },
-              (row.pinned ? "置顶直入" : (row.vectorScored ? "向量参与打分" : "关键词打分") + " · score " + row.score) + (row.tags && row.tags.length ? " · " + row.tags.join(" / ") : ""))))
-        ) : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "这一轮实际没有召回任何记忆。"))
+          new Date(recall.ts).toLocaleString() + " · 可见候选 " + recall.candidateCount + " 条 · 最终 " + (recall.picked || []).length + " 条" + (recall.hiddenCount ? " · 权限隔离 " + recall.hiddenCount + " 条" : "") + (recall.model ? " · " + recall.model : "")),
+        (recall.picked || []).length
+          ? h("div", { style: { marginTop: 7 } }, recall.picked.map((row, i) => recallRowView(row, i, false)))
+          : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "这一轮实际没有召回任何记忆。"),
+        (recall.excluded || []).length ? h("details", { style: { marginTop: 9, borderTop: "1px dashed " + t.line, paddingTop: 8 } },
+          h("summary", { style: { cursor: "pointer", fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.6 } },
+            "查看没进来的候选 · " + Object.entries(recall.excludedCounts || {}).map(([reason, count]) => recallReasonLabel(reason) + " " + count).join(" / ")),
+          h("div", { style: { marginTop: 5 } }, (recall.excluded || []).map((row, i) => recallRowView(row, i, true)))) : null)
       : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "还没有这一页生命周期内的真实聊天收据。先和 TA 发一轮消息，再回来刷新。")) : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
