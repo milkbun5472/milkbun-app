@@ -70,6 +70,8 @@ test("封面、目录、全文三处都铺同一张纸", () => {
   assert.match(cover, /收了 " \+ list\.length \+ " 篇/, "封面上看不出这本收了几篇");
   assert.match(cover, /borderRadius: "3px 12px 12px 3px"/, "没有书脊那一侧的直角");
   assert.match(cover, /翻开/, "没有「翻开」这个动作");
+  assert.match(cover, /maxWidth: 318/, "日记本又缩回小卡片了");
+  assert.match(cover, /gap: 18, marginTop: 30/, "下面的翻页箭头没有和本子拉开");
   assert.ok(!/fontSize: 72|No\." \+/.test(cover), "又回到大字名字 + 编号那套了");
   const entry = grab("function DiaryEntryView(", "\nfunction fmtClockShort", "全文页");
   assert.match(entry, /pageSkin\(paper, t, \{ corner: false \}\)/, "全文页没铺纸");

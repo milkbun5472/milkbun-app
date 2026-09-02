@@ -8296,7 +8296,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
         h("button", { onClick: () => char.isMe ? onCompose() : onEditStyle(char.id), "aria-label": char.isMe ? "写一篇" : "改文风", className: "active:opacity-50" }, h(IPencil, { size: 17, color: t.ink })),
         h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog })))),
     h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-8" },
-      h("button", { onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: 288 } },
+      h("button", { onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: 318 } },
         h("div", { style: Object.assign({}, pageSkin(paper, t, { base: t.bg2, corner: false, strength: .85 }), {
           position: "relative", width: "100%", aspectRatio: "3 / 4.1", borderRadius: "3px 12px 12px 3px",
           border: "1px solid rgba(" + iRGB + ",.16)", boxShadow: "0 16px 40px rgba(0,0,0,.14)", overflow: "hidden" }) },
@@ -8314,7 +8314,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
           char.motto ? h("div", { style: { position: "absolute", left: "16%", right: "36%", bottom: "9%", fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.8, color: t.fog } }, "「" + char.motto + "」") : null)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 20, letterSpacing: ".1em" } }, "翻开"),
-      characters.length > 1 ? h("div", { className: "flex items-center justify-center", style: { gap: 18, marginTop: 18 } },
+      characters.length > 1 ? h("div", { className: "flex items-center justify-center", style: { gap: 18, marginTop: 30 } },
         h("button", { onClick: () => go(-1), disabled: idx === 0, "aria-label": "上一本", className: "active:opacity-50", style: { opacity: idx === 0 ? .25 : .65, padding: 6 } }, h(IArrow, { size: 18, color: t.ink })),
         h("div", { className: "flex", style: { gap: 6 } }, characters.map((c, i2) => h("span", { key: c.id, style: { width: i2 === idx ? 14 : 5, height: 5, borderRadius: 999, background: t.ink, opacity: i2 === idx ? .7 : .22, transition: "width .2s" } }))),
         h("button", { onClick: () => go(1), disabled: idx === characters.length - 1, "aria-label": "下一本", className: "active:opacity-50", style: { opacity: idx === characters.length - 1 ? .25 : .65, padding: 6, transform: "scaleX(-1)" } }, h(IArrow, { size: 18, color: t.ink }))) : null));
