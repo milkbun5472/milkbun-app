@@ -203,6 +203,13 @@ test("接线：先记标记再打调用；线上线下两路都接上，且都�
   // 言秋和 NPC 不参与
   assert.match(app, /if \(!char \|\| char\.npc \|\| !window\.Gaze \|\| !window\.Gaze\.autoSeedDue\) return/);
   assert.match(app, /if \(settingsFor\(char\.id\)\.engineerEyes\) return/);
-  // 自动那一路失败不吵她，也不重试
-  assert.match(app, /catch \(e\) \{ if \(!auto\) toast\("建卡失败:"/);
+  // 自动那一路失败不吵她（她没按过任何按钮），但必须留下败因——
+  // v59.80 那版是「不吵也不记」，于是一次网络抖动就静悄悄烧掉这个角色仅有的机会
+  // （她 2026-09-02：「另一个死活不填」）。重试上限由 Gaze.autoSeedDue 兜。
+  {
+    const seg = app.slice(app.indexOf("const seedGazeFor"), app.indexOf("const maybeAutoSeedGaze"));
+    const rescue = seg.slice(seg.indexOf("} catch (e)"));
+    assert.ok(/(?:!auto\)|else) toast\("建卡失败/.test(rescue), "只有她亲手按的那一路才弹 toast");
+    assert.ok(/markAutoSeedFail\(char\.id/.test(rescue), "auto 失败要把败因写进卡里");
+  }
 });

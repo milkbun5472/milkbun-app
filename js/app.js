@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.07";
+const APP_VERSION = "v60.09";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -525,7 +525,8 @@ function App() {
     if (gazeSeedBusy || !window.Gaze) return;
     const p = apiFor(char.id);
     if (!p) return auto ? undefined : toast("请先配置 API");
-    // 先记标记再打调用:这一次失败也不重试,绝不变成每轮偷偷多花一次钱
+    // 先记标记再打调用(照周刷那条「先记游标再刷」),但记的是【第几次】不是【试过没有】:
+    // 一次网络抖动不该把这个角色一辈子仅有的机会静悄悄烧掉。上限三次,由 Gaze 那边兜。
     if (auto && window.Gaze.markAutoSeed) window.Gaze.markAutoSeed(char.id);
     setGazeSeedBusy(true);
     try {
@@ -540,7 +541,14 @@ function App() {
       const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
       if (n) toast(auto ? char.name + "写下了" + _ta + "眼里的你" : _ta + "写下了 " + n + " 块");
       else if (!auto) toast(_ta + "暂时没写出什么");
-    } catch (e) { if (!auto) toast("建卡失败:" + (e.message || "重试")); } finally { setGazeSeedBusy(false); }
+      // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白
+      else if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, _ta + "一块也没写出来");
+    } catch (e) {
+      // auto 这一路不弹 toast(她没按过任何按钮,不该被打断),但败因必须写进卡里,
+      // 否则「试过三次都没成」在界面上跟「还没聊够」长得一模一样。
+      if (auto) { if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成"); }
+      else toast("建卡失败:" + (e.message || "重试"));
+    } finally { setGazeSeedBusy(false); }
   };
   // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,
   // 空卡真正被填满靠的是这一次专门的建卡调用(它一次写十块,没有别的字段跟它抢)。

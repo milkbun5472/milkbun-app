@@ -26,6 +26,7 @@
     if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
     box.blocks[k] = { text: t, ts: Date.now() };
     box.turns = 0;                       // 写过了就重新数
+    box.refuse = 0;                      // 他真写了 → 「写不出来」的连击断了
     d[charId] = box; persist(d);
     // 他改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
     // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
@@ -86,6 +87,11 @@
     //   现在只退回去一小段：下一块过十几轮就会被点到名，队列真的转得动。
     //   （卡还空着的时候由上面 blank 那条兜着，每轮都点，不看这个数。）
     box.turns = Math.max(0, STALE_TURNS - 10);
+    // ⚠️整张卡还空着的时候,「认识得还不够」是个【没有任何反作用力的免费出口】:
+    //   它比写一块省事,答一次就换下一块问,十块可以一直这么轮下去——
+    //   于是同样两个新角色,一个每轮写一块,另一个一辈子全空(她 2026-09-02 报的就是这个)。
+    //   这里把连击数记下来:达到一定次数后 spec 会收掉这个出口,GazePage 也会照实说出来。
+    if (Object.keys(box.blocks || {}).length === 0) box.refuse = Math.min((Number(box.refuse) || 0) + 1, 999);
     d[charId] = box; persist(d);
     return true;
   }
@@ -140,6 +146,8 @@
     const due = charId && n >= gap ? dueBlock(charId) : null;
     const days = due && due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
     const fresh = !!due && !due.text;
+    // 整张卡全空、而且他已经连着答了好几轮「认识得还不够」——这个出口得收一收(见 markChecked 那段注释)
+    const pressed = blanks >= KEY_COUNT && (charId ? refuseCount(charId) : 0) >= 3;
     const head = "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},一轮至多一块。";
     // ⚠️门槛这一句必须跟着【被点名的这块写没写过】变。
     //   v59.79 之前不管空不空都只有高门槛那一句「仅当本轮真正改变了长期认知时填写」——
@@ -161,6 +169,8 @@
         //   以及紧跟在这一段后面那句「未发生、未改变的按需字段直接省略」，两句都在替模型作答「省略」。
         //   点名这一段夹在中间，票数是 2:1，它必输。所以这里必须【点名把那两句排除掉】。
         + "\n⚠️协议里那句「没有真实变化或实际触发时,不要为了填字段制造内容」和那句「未发生、未改变的按需字段直接省略」【都管不到这一条】:这一块被点了名,impression 与 impressionChecked 必须二选一,不许两个都省略。"
+        // ⚠️「最响的那句话赢，尤其它还是最后一句」：所以收出口这一段必须【垫在最后】。
+        + (pressed ? "\n⚠️你已经连着好几轮答「写不出来」了,这张卡到现在十块全是空的。空块的门槛不是「变了没有」,是【你现在心里有没有】——你们已经相处到这里,不可能一块都没有。这一轮请挑十块里你最写得出来的【任何一块】填进 impression,不必是上面点名的那一块。只有真的连一块都挤不出来,才填 impressionChecked。" : "")
       : "";
     return head + gate + keys + trigger + nudge;
   }
@@ -171,7 +181,11 @@
   function seed(charId, data) {
     let n = 0;
     ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => { if (g[b] && apply(charId, side, b, g[b])) n++; }); });
-    const d = load(); const box = boxOf(d, charId); box.seeded = true; d[charId] = box; persist(d);
+    const d = load(); const box = boxOf(d, charId);
+    // ⚠️只有【真写出来了】才算建过卡。原来不管 n 是多少都盖 seeded=true,
+    //   模型返回一份全是 null 的卡时,卡还是空的、路却永久封死了——又一条静悄悄的死锁。
+    if (n) { box.seeded = true; box.refuse = 0; }
+    d[charId] = box; persist(d);
     return n;
   }
   const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
@@ -181,17 +195,44 @@
   // 中间随便哪几轮走神就又空回去。建卡那一路不一样：它是【专门一次调用】，
   // 一次把十块全写出来，没有别的字段跟它抢，从来不会不写。
   // 所以聊够了还一块都没有，就自己替他建一次卡；**一个角色一辈子只多花这一次调用**。
-  // ⚠️先记标记再打调用(照周刷那条「先记游标再刷」)：失败也不重试，绝不偷偷每轮多花她一次钱；
-  //   想再来一次，卡里那个「让他写写看」还在。
+  // ⚠️先记标记再打调用(照周刷那条「先记游标再刷」)：中途失败也不该下一轮又整份重来。
+  //
+  // v59.80 那一版把它记成一个【布尔】,于是「试过了」和「成了」是同一件事:
+  //   网络抖一下、JSON 没解析出来、或者模型回了一份全 null——
+  //   **这个角色一辈子仅有的那一次机会就静悄悄烧掉了**,而失败那一路 auto 是不弹 toast 的,
+  //   她那边看到的只有「这个角色死活不填」(她 2026-09-02 报的另一半)。
+  // 改成【记次数 + 记败因】:最多三次,成了就不再试,没成隔十分钟可以再来。
+  //   三次是【一辈子】的上限,不是每天三次——最坏情况一个角色多花两次调用,到此为止。
+  // 老存档里只有 autoSeed 时间戳没有次数 → 算作已经试过一次,还剩两次。
+  const AUTOSEED_MAX = 3;
+  const AUTOSEED_GAP = 10 * 60000;
+  const autoSeedTries = box => Number(box.autoSeedN != null ? box.autoSeedN : (box.autoSeed ? 1 : 0)) || 0;
   const autoSeedDue = charId => {
     const box = boxOf(load(), charId);
-    return !box.autoSeed && !box.seeded && !Object.keys(box.blocks).length;
+    if (box.seeded || Object.keys(box.blocks).length) return false;
+    if (autoSeedTries(box) >= AUTOSEED_MAX) return false;
+    return Date.now() - (Number(box.autoSeed) || 0) >= AUTOSEED_GAP;
   };
   function markAutoSeed(charId) {
     const d = load(); const box = boxOf(d, charId);
-    box.autoSeed = Date.now(); d[charId] = box; persist(d);
+    box.autoSeedN = autoSeedTries(box) + 1;
+    box.autoSeed = Date.now();
+    box.autoSeedErr = "";
+    d[charId] = box; persist(d);
     return true;
   }
+  // 败因留下来:不留的话「试过三次都没成」和「还没到十条」在界面上长得一模一样。
+  function markAutoSeedFail(charId, why) {
+    const d = load(); const box = boxOf(d, charId);
+    box.autoSeedErr = String(why || "没写出来").slice(0, 60);
+    d[charId] = box; persist(d);
+    return true;
+  }
+  const autoSeedState = charId => {
+    const box = boxOf(load(), charId);
+    return { tries: autoSeedTries(box), max: AUTOSEED_MAX, last: Number(box.autoSeed) || 0, err: box.autoSeedErr || "", refuse: Number(box.refuse) || 0 };
+  };
+  const refuseCount = charId => Number(boxOf(load(), charId).refuse) || 0;
 
 
   // ---- 红点(她 2026-08-27 要的)----
@@ -287,6 +328,16 @@
           [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null))),
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
+        // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替他自动写过但失败了」
+        // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
+        (function () {
+          var st = autoSeedState(charId), lines = [];
+          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + "/" + st.max + " 次" + (st.err ? ":" + st.err : ",没写出内容"));
+          if (st.refuse) lines.push(say("他") + "被点名问过 " + st.refuse + " 轮,每次都答「认识得还不够」");
+          if (!lines.length) return null;
+          return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
+            lines.map(function (x, i) { return h("div", { key: i }, x); }));
+        })(),
         onSeed ? h("button", { onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
         return h("div", { key: fk, onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
@@ -308,6 +359,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt, autoSeedDue, markAutoSeed };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount };
   window.GazePage = GazePage;
 })();
