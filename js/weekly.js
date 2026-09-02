@@ -1380,16 +1380,30 @@
       if (!parts.length) return "";
       return parts[Math.min(parts.length - 1, Math.max(0, Math.floor(parts.length / 2)))].trim();
     }
+    // ⚠️她 2026-09-01：「他金句在下面单独重复了一次，而不是直接把文章里那句做成大字号 bold」。
+    //   原来 pullQuoteFor 从正文里挑一句，然后在第一段底下【再印一遍】——同一句话在同一屏出现两次，
+    //   读起来像排版出错，而不像杂志。杂志里那个动作是【把文章里那一句就地放大】，不是复印一份。
+    //   所以现在把含着那句的段落切成【前 / 那一句 / 后】，中间那段就地放大加粗，一个字都不重复。
+    //   ⚠️首字下沉和放大句不许抢同一个位置：那一句正好压在第一段开头时就不放大它。
     function articleBody(a, compact) {
       const paras = (a.body || "").split(/\n+/).filter(Boolean);
       const pull = compact ? "" : pullQuoteFor(a);
+      let hitAt = -1, hitIdx = -1;
+      if (pull) paras.some(function (p, j) { const k = p.indexOf(pull); if (k >= 0) { hitAt = j; hitIdx = k; return true; } return false; });
+      if (hitAt === 0 && hitIdx === 0) hitAt = -1;
+      const paraStyle = { fontFamily: L.bodyFace, fontSize: compact ? 12.5 : (L.face === "mono" ? 13.5 : 14.5), color: "inherit", lineHeight: compact ? 1.72 : (s.voiceId === "tabloid" ? 1.68 : 1.9), marginBottom: compact ? 8 : 10, whiteSpace: "pre-wrap", opacity: .96, textAlign: L.face === "serif" ? "justify" : "left" };
       return h("div", null, paras.map(function (p, j) {
         const first = !compact && j === 0 && p.length > 6;
-        return h("div", { key: j },
-          h("div", { style: { fontFamily: L.bodyFace, fontSize: compact ? 12.5 : (L.face === "mono" ? 13.5 : 14.5), color: "inherit", lineHeight: compact ? 1.72 : (s.voiceId === "tabloid" ? 1.68 : 1.9), marginBottom: compact ? 8 : 10, whiteSpace: "pre-wrap", opacity: .96, textAlign: L.face === "serif" ? "justify" : "left" } },
-            first ? h("span", { style: { float: "left", fontFamily: L.titleFace, fontSize: 42, fontWeight: 700, lineHeight: .88, color: L.tint, marginRight: 7, marginTop: 5 } }, p.slice(0, 1)) : null,
-            first ? p.slice(1) : p),
-          pull && j === 0 ? h("blockquote", { style: { margin: "18px 2px 20px", padding: "2px 0 2px 15px", borderLeft: "4px solid " + L.tint, fontFamily: L.titleFace, fontSize: 22, fontWeight: L.face === "mono" ? 700 : 600, lineHeight: 1.42, color: L.tint } }, pull) : null);
+        const hit = j === hitAt;
+        const before = hit ? p.slice(0, hitIdx) : p;
+        const after = hit ? p.slice(hitIdx + pull.length) : "";
+        const head = (before || first) ? h("div", { style: paraStyle },
+          first ? h("span", { style: { float: "left", fontFamily: L.titleFace, fontSize: 42, fontWeight: 700, lineHeight: .88, color: L.tint, marginRight: 7, marginTop: 5 } }, before.slice(0, 1)) : null,
+          first ? before.slice(1) : before) : null;
+        return h("div", { key: j }, head,
+          // 就是正文里那一句，只是印大了：不加引号、不加边框——加了就成了「另引一段」，又回到重复那个病
+          hit ? h("div", { style: { fontFamily: L.titleFace, fontSize: L.face === "mono" ? 18 : 21, fontWeight: 700, lineHeight: 1.55, color: L.tint, margin: "13px 0 12px", whiteSpace: "pre-wrap" } }, pull) : null,
+          after ? h("div", { style: paraStyle }, after) : null);
       }));
     }
     function pairedArticle(a, i, side) {
@@ -1444,9 +1458,17 @@
             h("div", { style: { display: "grid", gridTemplateColumns: "42px 1fr auto", gap: 9, alignItems: "baseline", padding: "7px 9px", background: i % 2 ? "transparent" : L.pale } },
               h("b", { style: { fontFamily: L.bodyFace, color: L.tint } }, String(i + 1).padStart(2, "0")), h("div", { style: { fontFamily: L.titleFace, fontSize: 15, fontWeight: 700 } }, a.title), h("span", { style: { fontFamily: L.bodyFace, color: i % 2 ? L.muted : L.tint } }, i % 2 ? "→" : "↗")),
             h("div", { style: { padding: "11px 9px 0" } }, articleBody(a, true)));
-          return h("article", { key: i, style: { marginBottom: 18, padding: "14px", border: "1px solid " + L.tint + "88", boxShadow: "5px 5px 0 " + L.tint + "22" } },
-            h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: L.bodyFace, fontSize: 9, color: L.tint, letterSpacing: ".12em", marginBottom: 12 } }, h("b", null, "EXHIBIT " + String.fromCharCode(65 + i)), h("span", null, a.date || "WEEKLY LOG")),
-            h("div", { style: { fontFamily: L.titleFace, fontSize: 21, fontWeight: 700, lineHeight: 1.2, marginBottom: 10 } }, a.title), articleBody(a, false));
+          // ⚠️原来三篇长得一模一样：同一个方框、同一道投影、右上角还都写着一样的「WEEKLY LOG」。
+          //   方框＋投影读起来是【三张卡片】，不是【一版】；一版报纸上的稿子从来不等重，
+          //   头条大、次条小，靠【规矩】（横线）分开，不靠盒子。所以：
+          //   · 头条一条粗规矩、大标题、正文照旧；次条一条细规矩、小标题、正文收紧；
+          //   · 卷宗标签压在规矩上（卷宗边上贴的那种），不再是框里的一行小字；
+          //   · 那个恒定的「WEEKLY LOG」撤掉——三处写着同一句话的东西什么也没说。
+          const lead = i === 0;
+          return h("article", { key: i, style: { marginBottom: lead ? 24 : 20, paddingTop: 0, borderTop: (lead ? "5px solid " : "1px solid ") + L.tint } },
+            h("div", { style: { display: "inline-block", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.paper, background: L.tint, padding: "3px 9px 4px", marginBottom: lead ? 13 : 10 } }, "EXHIBIT " + String.fromCharCode(65 + i)),
+            h("div", { style: { fontFamily: L.titleFace, fontSize: lead ? 26 : 17, fontWeight: 700, lineHeight: 1.2, marginBottom: lead ? 12 : 9 } }, a.title),
+            articleBody(a, !lead));
         })));
     }
     function classicLayout() {

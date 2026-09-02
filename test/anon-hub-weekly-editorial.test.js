@@ -29,8 +29,11 @@ test("匿名问答遵守移动端安全区、单滚动容器与返回位置恢�
 
 test("周刊减去重复英文帽子、长稿加入金句并拉开标题层级", () => {
   assert.match(weekly, /function pullQuoteFor\(/);
-  assert.match(weekly, /h\("blockquote"/);
-  assert.match(weekly, /borderLeft: "4px solid " \+ L\.tint/);
+  // ⚠️冻的是「长稿有金句」，不是「金句长什么样」。v60.01 起金句不再在段落底下
+  //   单独印一遍（那是同一句话在同一屏出现两次），改成把正文里那一句【就地】放大加粗。
+  //   撤掉的那个 blockquote 不许再回来。
+  assert.ok(weekly.indexOf('h("blockquote"') < 0, "金句又回到「在下面单独重复一遍」了");
+  assert.match(weekly, /const before = hit \? p\.slice\(0, hitIdx\) : p;/, "金句没有就地放大");
   assert.match(weekly, /fontSize: 30/);
   assert.match(weekly, /fontSize: 16/);
   assert.doesNotMatch(weekly, /SHORT READ/);
