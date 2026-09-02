@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -73,21 +74,15 @@ test("群里的人是人，不是身份标签的展览", () => {
 test("这条刀群线上群线下都挂上了", () => {
   // ⚠️别冻死相邻：v60.34 起 GROUP_USER_IS_PRESENT 插在这两条中间（她在群里不是旁听）。
   //   要证的是【这几条都在、顺序对】，不是它们中间不许再夹东西。
-  assert.match(app, /GROUP_IN_CHARACTER \+[\s\S]{0,60}"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线上");
-  assert.match(engine, /GROUP_IN_CHARACTER \+\n(?:\s*"\\n\\n" \+ \w+ \+\n)*\s*"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线下");
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("GROUP_IN_CHARACTER"), "三处群都要有");
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
-  {
-    // ⚠️必须切到群通话那一段再断言：群线上那一处形状一模一样，
-    //   不切片的话，把群通话这一条整个删掉照样能匹配到群线上那一处（实测过是绿的）。
-    const gc = app.slice(app.indexOf("// 群通话：多角色你一言我一语"), app.indexOf("【输出】只输出 JSON 数组，按发言先后："));
-    assert.ok(gc.length > 200, "找不到群通话那一段");
-    assert.match(gc, /GROUP_IN_CHARACTER \+[\s\S]{0,80}"\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/, "群通话");
-  }
   assert.equal((engine.match(/GROUP_IN_CHARACTER/g) || []).length +
-               (app.match(/GROUP_IN_CHARACTER/g) || []).length, 4,
-    "1 处定义 + 群线上 + 群线下 + 群通话；数字变了就核对是新通道接上了还是哪条掉了");
+               (app.match(/GROUP_IN_CHARACTER/g) || []).length, 2,
+    "1 处定义 + groupBans；散回三处各拼一遍就说明 bundle 又被绕开了");
 });
 
 // 「彼此不熟就照不熟来」以前只活在 asPrivate（两人旁观局）那一支里，

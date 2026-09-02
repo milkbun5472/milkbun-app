@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = read("app.js"), engine = read("engine.js");
 const codeOnly = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
@@ -25,7 +26,8 @@ test("群聊线上真的拼进 system 了，不是声明完没人引用", () => 
   const seg = app.slice(i, app.indexOf("const system =", i));
   assert.match(seg, /GROUP_MULTI_BUBBLE/, "得挂在 groupOnlineRuntime 上");
   // groupOnlineRuntime 本身进 system，所以挂上去就等于进了 system
-  assert.match(app, /groupOnlineRuntime \+ "\\n\\n" \+ STOCK_REPLY_BAN/);
+  assert.match(app, /groupBans\(\{ echo: false \}\) \+ "\\n\\n" \+ groupOnlineRuntime/,
+    "groupOnlineRuntime 得真的拼进 system");
 });
 
 // 线下是显式差异，不是漏：线下本来就该成段叙事，把话切碎反而是坏的。

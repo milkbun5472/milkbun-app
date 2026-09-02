@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -12,19 +13,20 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   assert.match(engine, /const PERSONA_REGISTER_ANCHOR = /);
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "线上单聊");
-  assert.match(app, /REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/, "线上群聊");
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("PERSONA_REGISTER_ANCHOR"), "三处群都要有");
   assert.match(engine, /OFFLINE_NARRATIVE_RUNTIME \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "单人线下");
-  assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "群线下");
+
   // v54.80 起第五处：narrativeCore 的默认成分，小剧场（演出＋谢幕）和同人文穿越 RP
   // 都从那儿吃到锚——if 线换了身份最容易把年下演成兄长，正是它要防的。
   assert.match(engine, /if \(opts\.register !== false\) parts\.push\(PERSONA_REGISTER_ANCHOR\);/, "叙事底座");
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 单人通话走 buildBundle、从叙事底座那一路吃到锚；群通话原来什么都没有，现在直接注入。
   // 见 .claude/rules/four-surfaces-same-context.md。
-  assert.match(app, /REGISTER_FOLLOWS_SCENE\n\s*\+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "群通话");
   assert.equal((engine.match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
-               (app.match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 7,
-    "1 处定义 + 5 处直接注入（含群通话）+ 1 处经叙事底座；数字变了就核对是新通道接上了还是哪条掉了");
+               (app.match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 5,
+    "1 处定义 + groupBans（三处群共用）+ 单聊线上 + 单人线下 + 叙事底座");
 });
 
 test("锚点必须是双向的，不能变成「一律活泼」的新模板", () => {

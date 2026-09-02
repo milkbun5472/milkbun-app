@@ -1321,6 +1321,39 @@ function offlinePhotoHint(userName, charName, canDuo, isGroup) {
 //   把「热闹」写得很足，却从来没有一句话说过「这个群里还有她一个人」。
 //   模型于是把「像真的群聊」理解成「几个 NPC 自己演一台戏」，用户变成第四面墙外的观众。
 // 判据照这个 app 惯用的那把尺子来：把她从这个群里删掉，这一轮还成不成立。
+// 群里三处共用的那一摞规矩（v60.39）
+// 她 2026-09-02：「群聊我们不能搞个 bundle 吗，感觉都是拼拼凑凑出来的太乱了」。
+// 她说得对，而且这一整轮的 bug 几乎全是这么来的：同一层写在三处，第二处第三处没跟上——
+//   v55.87 群里的王爷变霸总（人设砍到 200 字）／v55.90 群里没有用户人设和情侣状态／
+//   v55.91 群聊把模型放在导演位上／v56.27 群里没人说过「一个人可以连发几条」／
+//   v60.27 通话那一摞【一条都没有】／v60.34 三处群都没说过「她也在群里」。
+// 每一次都是「拼的时候漏了一项」。所以把【三处必然一样】的收成一份，
+// 以后加一层只改这里，三处一起有。
+//
+// ⚠️收的只是【规矩层】。任务句和输出契约三处本来就不一样：
+//   群线上出 JSON 数组（带 quoteId/emote/voice/thought/impression）、
+//   群线下出叙事正文、群通话出 {name,text,action,hangup}。
+//   那是写着理由的合法差异，硬揉成一份只会把三份契约弄坏——所以它们照旧各留各的。
+function groupBans(opts) {
+  opts = opts || {};
+  const P = [ANTI_CLICHE];
+  // 线下是叙事正文，另外两条反八股只有它吃得到（写着理由的差异）
+  if (opts.narrative) { P.push(INTIMATE_ANTI_CLICHE); P.push(NARRATIVE_ANTI_CLICHE); }
+  if (typeof ContentBoundaries !== "undefined") P.push(ContentBoundaries.prompt);
+  if (opts.worldbook !== false) P.push(WORLDBOOK_RULE);
+  P.push(CHARCARD_RULE);
+  P.push(GROUP_IN_CHARACTER);
+  P.push(GROUP_USER_IS_PRESENT);
+  P.push(CONDESCENDING_TONE_BAN);
+  P.push(REGISTER_FOLLOWS_SCENE);
+  P.push(PERSONA_REGISTER_ANCHOR);
+  if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
+  P.push(STOCK_REPLY_BAN);
+  if (typeof ReplyPacing !== "undefined") P.push(ReplyPacing.reading());
+  // 回声禁令：群线上把它包在 ONLINE_CHAT_RULE_V2 里了，别发两遍
+  if (opts.echo) P.push(ECHO_QUESTION_BAN);
+  return P.join("\n\n");
+}
 const GROUP_USER_IS_PRESENT = `【她也在这个群里，不是在旁边看】
 你们几个之间当然可以有自己的话题、自己的梗、自己的来回——那是这个群活着的样子，别收着。
 但她【人就在群里】：整轮下来没有一个人对着她说话，等于当着她的面把她晾在那儿。
@@ -5054,21 +5087,11 @@ async function generateOfflineGroup(p, ctx, session) {
     if (tzLines.length) timeBlock += "\n（在场有人处在别的时区，各自按自己那边的钟和作息想事情、说话）\n" + tzLines.join("\n");
     timeBlock += "\n只有「" + awareMembers.map(c => c.name).join("、") + "」开启了时间感知，可让当下时段自然渗进状态；其余成员不得根据现实钟或行程调整表现。别报时刻表。";
   }
+  // 规矩层收进 groupBans（v60.39）：三处群共用一份，以后加一层只改那儿。
+  // echo=true 是这次顺带补的——群线下原来【只有代码那一道削回声】，
+  // 提示词那一层从来没给过（v55.66 补的是单人线下那一处，群线下没跟上）。
   const system =
-    ANTI_CLICHE +
-    "\n\n" + INTIMATE_ANTI_CLICHE +
-    "\n\n" + NARRATIVE_ANTI_CLICHE +
-    (typeof ContentBoundaries !== "undefined" ? "\n\n" + ContentBoundaries.prompt : "") +
-    (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
-    "\n\n" + CHARCARD_RULE +
-    "\n\n" + GROUP_IN_CHARACTER +
-    "\n\n" + GROUP_USER_IS_PRESENT +
-    "\n\n" + CONDESCENDING_TONE_BAN +
-    "\n\n" + REGISTER_FOLLOWS_SCENE +
-    "\n\n" + PERSONA_REGISTER_ANCHOR +
-    "\n\n" + MOOD_TURN_RULE +
-    "\n\n" + STOCK_REPLY_BAN +
-    (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
+    groupBans({ narrative: true, mood: true, echo: true, worldbook: !!(ctx.worldbook && ctx.worldbook.trim()) }) +
     groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
@@ -47,9 +48,11 @@ test("字段说明本地也补一句：action 有人称硬规则，thought 不�
 test("六条通道都吃得到这条锚（心声在其中每一条里都会出现）", () => {
   // 四处直接注入
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "线上单聊");
-  assert.match(app, /REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/, "线上群聊");
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("PERSONA_REGISTER_ANCHOR"), "三处群（线上/线下/通话）都要有");
   assert.match(engine, /OFFLINE_NARRATIVE_RUNTIME \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "单人线下");
-  assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "群线下");
+
   // 第五处：叙事底座 → 小剧场（演出＋谢幕）与同人文穿越 RP
   assert.match(engine, /if \(opts\.register !== false\) parts\.push\(PERSONA_REGISTER_ANCHOR\);/, "叙事底座");
 });

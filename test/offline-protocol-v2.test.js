@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 
 const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
@@ -36,9 +37,12 @@ test("legacy narrative bans remain archived while group offline still uses them"
   assert.match(engine, /const INTIMATE_ANTI_CLICHE_LEGACY_V1 = `/);
   assert.match(engine, /const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1/);
   assert.match(engine, /const NARRATIVE_ANTI_CLICHE = NARRATIVE_ANTI_CLICHE_LEGACY_V1/);
-  const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)?.[0] || "";
-  assert.match(group, /INTIMATE_ANTI_CLICHE/);
-  assert.match(group, /NARRATIVE_ANTI_CLICHE/);
+  // v60.39 起群线下的规矩层走 groupBans({narrative:true})——这两条是【线下专属】，
+  // 由那个开关带进来；别再去 generateOfflineGroup 的函数体里 grep 常量名。
+  assert.ok(GB.has(GB.OFFLINE, "INTIMATE_ANTI_CLICHE"));
+  assert.ok(GB.has(GB.OFFLINE, "NARRATIVE_ANTI_CLICHE"));
+  assert.ok(!GB.has(GB.ONLINE, "NARRATIVE_ANTI_CLICHE"), "线上不该吃叙事那两条");
+  assert.match(engine, /groupBans\(\{ narrative: true/, "群线下得真的开着 narrative");
 });
 
 test("intimacy context has explicit activation, continuity and reset gates", () => {

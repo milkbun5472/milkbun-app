@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -29,12 +30,14 @@ test("不许在这条里塞具体的示范台词", () => {
 });
 
 test("三处群都挂上了（群线上 / 群线下 / 群通话）", () => {
-  assert.match(app, /GROUP_IN_CHARACTER \+ "\\n\\n" \+ GROUP_USER_IS_PRESENT \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir/, "群线上");
-  assert.match(app, /\+ "\\n\\n" \+ GROUP_IN_CHARACTER \+ "\\n\\n" \+ GROUP_USER_IS_PRESENT \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群通话");
-  assert.match(eng, /"\\n\\n" \+ GROUP_IN_CHARACTER \+\n\s*"\\n\\n" \+ GROUP_USER_IS_PRESENT \+/, "群线下");
-  // 1 处定义 + 三处注入；数字变了就核对是新通道接上了还是哪条掉了
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.has(GB.ONLINE, "GROUP_USER_IS_PRESENT"), "群线上");
+  assert.ok(GB.has(GB.CALL, "GROUP_USER_IS_PRESENT"), "群通话");
+  assert.ok(GB.has(GB.OFFLINE, "GROUP_USER_IS_PRESENT"), "群线下");
+  // 1 处定义 + groupBans 里那一次；散回三处各拼一遍就说明 bundle 又被绕开了
   assert.equal((eng.match(/GROUP_USER_IS_PRESENT/g) || []).length +
-               (app.match(/GROUP_USER_IS_PRESENT/g) || []).length, 4);
+               (app.match(/GROUP_USER_IS_PRESENT/g) || []).length, 2);
 });
 
 test("单聊不发这一条——那儿只有她一个人，没有「把她晾着」这回事", () => {

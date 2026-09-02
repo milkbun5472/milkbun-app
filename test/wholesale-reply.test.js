@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -35,16 +36,16 @@ test("三件套要被点名，而且给一把可判定的尺子", () => {
 test("这条刀四处都挂上了", () => {
   // 单聊线上 + 单聊线下都走 buildBundle
   assert.match(engine, /parts\.push\(CONDESCENDING_TONE_BAN\);\n\s*parts\.push\(STOCK_REPLY_BAN\);/);
-  assert.match(app, /groupOnlineRuntime \+ "\\n\\n" \+ STOCK_REPLY_BAN/, "群线上");
-  assert.match(engine, /MOOD_TURN_RULE \+\n\s*"\\n\\n" \+ STOCK_REPLY_BAN/, "群线下");
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "三处群都要有");
   const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
-  assert.match(app, /CHARCARD_RULE \+ "\\n\\n" \+ STOCK_REPLY_BAN/, "群通话");
   assert.equal((codeOnly(engine).match(/STOCK_REPLY_BAN/g) || []).length +
-               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 5,
-    "1 处定义 + buildBundle + 群线上 + 群线下 + 群通话（注释不算）");
+               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 3,
+    "1 处定义 + buildBundle + groupBans（三处群共用；注释不算）");
 });
 
 // 规则降概率，代码才保证——这一整轮反复验证过的。

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const rule = fs.readFileSync(path.join(root, ".claude/rules/four-surfaces-same-context.md"), "utf8");
@@ -28,11 +29,14 @@ test("单人通话把 buildBundle 漏掉的那三层补上", () => {
 });
 
 test("群通话补齐群线上那一摞——原来一条都没有", () => {
+  // v60.39 起三处群共用 groupBans，所以对着【它吐出哪几层】问，别 grep 拼接
   ["ANTI_CLICHE", "WORLDBOOK_RULE", "CHARCARD_RULE", "STOCK_REPLY_BAN", "GROUP_IN_CHARACTER",
-   "CONDESCENDING_TONE_BAN", "REGISTER_FOLLOWS_SCENE", "PERSONA_REGISTER_ANCHOR", "ECHO_QUESTION_BAN"]
-    .forEach(k => assert.ok(grp.indexOf(k) > 0, "群通话少了一层：" + k));
-  assert.match(grp, /window\.ReplyPacing[\s\S]{0,40}reading\(\)/);
-  assert.match(grp, /window\.ContentBoundaries[\s\S]{0,40}\.prompt/);
+   "GROUP_USER_IS_PRESENT", "CONDESCENDING_TONE_BAN", "REGISTER_FOLLOWS_SCENE",
+   "PERSONA_REGISTER_ANCHOR", "ECHO_QUESTION_BAN"]
+    .forEach(k => assert.ok(GB.has(GB.CALL, k), "群通话少了一层：" + k));
+  assert.ok(GB.layers(GB.CALL).indexOf("<RP>") > 0, "少了「读懂这句话在做什么」");
+  assert.ok(GB.layers(GB.CALL).indexOf("<CB>") > 0, "少了内容边界");
+  assert.match(grp, /const sys = groupBans\(\{ echo: true \}\)/, "群通话没接上这一份");
 });
 
 test("群通话的人设不许再砍成一个标签", () => {

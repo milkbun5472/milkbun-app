@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -18,12 +19,15 @@ test("三条没有场景状态机的通道都要挂上「语域跟着场面走�
   // v55.90 起「语域三件套」再加一条 CONDESCENDING_TONE_BAN，三条连成一片、顺序固定。
   // ⚠️别冻死相邻：v60.34 起 GROUP_USER_IS_PRESENT 插在这两条中间（她在群里不是旁听）。
   //   要证的是【这几条都在、顺序对】，不是它们中间不许再夹东西。
-  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ GROUP_IN_CHARACTER \+[\s\S]{0,60}"\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("REGISTER_FOLLOWS_SCENE"), "三处群都要有");
   // 线上单聊
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
-  // 群线下
-  assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ GROUP_IN_CHARACTER \+\n(?:    "\\n\\n" \+ \w+ \+\n)*    "\\n\\n" \+ CONDESCENDING_TONE_BAN \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
-  assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/);
+  // 顺序也还钉着：语域三件套连成一片
+  const seq = GB.layers(GB.OFFLINE);
+  assert.equal(seq.indexOf("<REGISTER_FOLLOWS_SCENE>"), seq.indexOf("<CONDESCENDING_TONE_BAN>") + 1);
+  assert.equal(seq.indexOf("<PERSONA_REGISTER_ANCHOR>"), seq.indexOf("<REGISTER_FOLLOWS_SCENE>") + 1);
 });
 
 test("这条规则必须是对称的：她带过去就不设限，她没带就别自己起头", () => {

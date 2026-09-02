@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -36,10 +37,9 @@ test("四处都吃得到这条刀（言秋那支不发扮演类规则）", () =>
   // 不许再插一份（重复注入＝白烧 token，她按次计费）
   assert.equal((engine.match(/CONDESCENDING_TONE_BAN/g) || []).length, 3,
     "1 处定义 + buildBundle + 群线下；数字变了就核对是新通道接上了还是插重了");
-  // 群线上
-  assert.match(app, /CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
-  // 群线下
-  assert.match(engine, /CONDESCENDING_TONE_BAN \+\n\s*"\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  assert.ok(GB.allGroupsHave("CONDESCENDING_TONE_BAN"), "三处群都要有");
 });
 
 test("群线上补上【用户是谁】——以前群里只有她一个名字", () => {

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -41,11 +42,17 @@ test("四处都要真的拼进去，不能再只是声明", () => {
   // 群线上：mood 字段只在开了记忆互通时才发，规则跟着字段走
   assert.match(app, /两项只更新共享状态，绝不写进 text 气泡。\\n" \+ MOOD_TURN_RULE/, "群线上");
   // 单聊线下 / 群线下
-  assert.equal((engine.match(/PERSONA_REGISTER_ANCHOR \+\n\s*"\\n\\n" \+ MOOD_TURN_RULE/g) || []).length, 2,
-    "单聊线下 + 群线下都挂在人设声纹锚之后（它是输出协议那一档，别插进语域三件套中间）");
+  // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
+  // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
+  // 单聊线下照旧直接拼；群线下经 groupBans（mood:true），顺序仍在人设声纹锚之后
+  assert.match(engine, /PERSONA_REGISTER_ANCHOR \+\n\s*"\\n\\n" \+ MOOD_TURN_RULE/, "单聊线下");
+  const seq = GB.layers(GB.OFFLINE);
+  assert.equal(seq.indexOf("<MOOD_TURN_RULE>"), seq.indexOf("<PERSONA_REGISTER_ANCHOR>") + 1, "群线下");
+  // 会写心情的才要：群线上的 mood 跟着字段走（在 common 里），通话不写心情
+  assert.ok(!GB.has(GB.CALL, "MOOD_TURN_RULE"), "通话不写心情，别白发一层");
   assert.equal((engine.match(/MOOD_TURN_RULE/g) || []).length +
                (app.match(/MOOD_TURN_RULE/g) || []).length, 6,
-    "1 处定义 + 5 处注入；数字变了就核对是新通道接上了还是哪条掉了");
+    "1 处定义 + groupBans + 单人线下 + 单聊线上两条 + 群线上");
 });
 
 // 心声历史只存档、不回灌进提示词——所以唯一的反馈源就是【你此刻的心情】那一行，
