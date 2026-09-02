@@ -4434,6 +4434,15 @@ function ChatThread({
     }
     return (m.reasoning || (m.searched || []).length || (m.usedTools || []).length) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
+    // 居中那几行（系统行/撤回/沉默/拍一拍/旁白/通话小结）本来是【直接写在背景上】的字。
+    // 素色背景上没事，一换壁纸就被图案打穿——她 2026-09-02 从记账卡起的疑，一路查下来
+    // 这一类全中。跟顶栏同一个办法：设了壁纸就垫一层磨砂，没设壁纸时返回空对象、一个像素都不变。
+    const plate = (pad) => dsp.chatBg ? {
+      display: "inline-block",
+      background: "rgba(255,255,255,0.62)",
+      backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
+      borderRadius: 10, padding: pad || "3px 10px"
+    } : {};
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
     if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m });
     if (m.recalled) return /*#__PURE__*/React.createElement("div", {
@@ -4453,7 +4462,8 @@ function ChatThread({
       style: {
         fontFamily: F_BODY,
         fontSize: 11.5,
-        color: t.fog
+        color: t.fog,
+        ...plate()
       }
     }, m.content));
     if (m.kind === "narration" || m.role === "narration") return h("div", {
@@ -4465,7 +4475,8 @@ function ChatThread({
         fontSize: 12.5,
         fontStyle: "italic",
         lineHeight: 1.7,
-        color: t.fog
+        color: t.fog,
+        ...plate("5px 12px")
       }
     }, m.content), onDeleteMessages ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
@@ -4493,7 +4504,7 @@ function ChatThread({
         maxWidth: "78%"
       }
     }, "OOC · " + m.content));
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character] });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -4504,7 +4515,7 @@ function ChatThread({
     if (m.kind === "system") return h("div", {
       key: i,
       className: "text-center my-4 px-6"
-    }, h("div", {
+    }, h("div", { style: { ...plate("8px 14px"), textAlign: "center" } }, h("div", {
       style: {
         fontFamily: F_BODY,
         fontSize: 13.5,
@@ -4528,7 +4539,7 @@ function ChatThread({
         onClick: e => { e.preventDefault(); e.stopPropagation(); onDeleteMessages([i]); },
         className: "active:opacity-50",
         style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 10, letterSpacing: 0 }
-      }, "✕ 删除") : null));
+      }, "✕ 删除") : null)));
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -4560,9 +4571,9 @@ function ChatThread({
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "unblock_req") return h(UnblockReqCard, { key: i, m: m, character: character, onRespond: onRespondUnblock });
-    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cName + " 撤回了一条消息 · 点看"));
+    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
-    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8 } }, cName + " 看了你的消息，没有回"));
+    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
     if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
@@ -6204,7 +6215,7 @@ function TtsDot({ k, text, spk, tp, dark }) {
   }, me ? (tp.play.st === "gen" ? "…" : "⏸") : "▶");
 }
 // 通话结束气泡：点开回看整通转录（log 由 endCall 存进消息；老消息没 log 就是纯提示条）；sum=挂断后生成的摘要
-function CallEndPill({ m, chars }) {
+function CallEndPill({ m, chars, onBg }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const tp = useTtsPlayer();
@@ -6222,7 +6233,9 @@ function CallEndPill({ m, chars }) {
     // 电话挂了那张图不该跟着没，它是这通电话的一部分。
     (m.shots || []).length ? h("div", { className: "flex justify-center", style: { gap: 6, marginTop: 7, flexWrap: "wrap", maxWidth: "88%" } },
       m.shots.map(k => h(CallShotThumb, { key: k, imgKey: k }))) : null,
-    m.sum && !open ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 } }, m.sum) : null,
+    m.sum && !open ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 },
+      // 这一行原来也是直接写在背景上的字，壁纸一来就看不清
+      onBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 9, padding: "3px 10px" } : {}) }, m.sum) : null,
     open ? h("div", { style: { marginTop: 8, width: "88%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", maxHeight: 300, overflowY: "auto" } },
       log.map((l, j) => l.act
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
@@ -6642,7 +6655,13 @@ function RecordedCard({ m }) {
   return h("div", {
     style: {
       maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
-      background: "rgba(" + tone + ",0.07)", border: "1px solid rgba(" + tone + ",0.22)",
+      // ⚠️底下必须先垫一层【实心】的（她 2026-09-02：「记账卡是透明的」）。
+      //   原来只有一层 7% 的染色，没有底 —— 素色聊天背景上看着没事，
+      //   一换成壁纸，字就被图案直接打穿。染色留着（那是账本/备忘录的颜色），
+      //   但它现在染在实心底上，不是染在壁纸上。
+      background: t.bg2,
+      backgroundImage: "linear-gradient(rgba(" + tone + ",0.07), rgba(" + tone + ",0.07))",
+      border: "1px solid rgba(" + tone + ",0.22)",
       borderLeft: "3px solid rgba(" + tone + ",0.65)"
     }
   },
@@ -6751,7 +6770,11 @@ function KinshipCardFace({ character, limit, used, note, width }) {
     // 签名条：真卡背面那条，他把话签在上面
     h("div", { style: {
       padding: "8px 14px 9px",
-      background: "repeating-linear-gradient(114deg, " + t.bg2 + " 0 7px, rgba(0,0,0,.042) 7px 14px)",
+      // ⚠️斜纹只能画在实心底【上面】：原来把 t.bg2 当成渐变的一半，
+      //   另一半是 rgba(0,0,0,.042) —— 那一半几乎是透明的，壁纸从条纹缝里透上来，
+      //   他签的那句话直接看不清（v60.45 我自己写的，v60.54 修）。
+      background: t.bg2,
+      backgroundImage: "repeating-linear-gradient(114deg, transparent 0 7px, rgba(0,0,0,.042) 7px 14px)",
       borderTop: "1px solid rgba(0,0,0,.10)"
     } },
       note
@@ -6764,7 +6787,10 @@ function KinshipIssueCard({ m, character }) {
   return h("div", { className: "py-1 flex justify-start" },
     h("div", { style: { width: 252 } },
       h(KinshipCardFace, { character: c, limit: m.limit || 0, note: m.note || "" }),
-      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+      // 这一句原来是裸字，壁纸一来就糊了（v60.45 我加的）。它是卡的说明，
+      // 给它一小块底就够——不必知道有没有壁纸，t.bg2 在素色背景上本来就几乎看不出来。
+      h("div", { className: "inline-block", style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog,
+        background: t.bg2, borderRadius: 7, padding: "2px 7px" } },
         (c.name || "TA") + "给你开了一张亲属卡")));
 }
 // 刷卡通知（v60.45）
@@ -9025,6 +9051,7 @@ function GroupThread({
         textAlign: "center",
         maxWidth: "82%",
         lineHeight: 1.5
+        , ...(gChatBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
       }
     }, "— " + m.content + " —"), onDeleteMessages ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
@@ -9032,7 +9059,7 @@ function GroupThread({
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "0 2px" },
       title: "删除旁白"
     }, "✕") : null);
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
     if (m.role === "system") return h("div", {
       key: i,
       className: "flex justify-center py-1"
