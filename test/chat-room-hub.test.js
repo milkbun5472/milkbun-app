@@ -51,23 +51,37 @@ test("本房限定设定放在醒目位置，且压在每轮房间提示词最�
   assert.match(components, /: r\.scenario\s*\? \{ label: "长篇如果"/);
 });
 
-test("长篇如果硬隔离主线记忆、状态、交接和周刊", () => {
+test("长篇如果默认隔离，但认知与写回权限可以自由混搭", () => {
   const room = Rooms.create("p17", "十七岁", "alternate");
   room.scenario = "他现在 17 岁";
+  const mainRows = [{ role: "user", content: "主线后来发生的事", ts: room.createdAt + 10 }];
+  assert.equal(Rooms.canWrite(room, "state"), false);
+  assert.doesNotMatch(Rooms.prompt(room, mainRows), /主线后来发生的事/);
+
+  room.cognition.formalMemory = true;
+  room.cognition.innerLife = true;
+  room.cognition.mainDelta = true;
+  room.syncMode = "follow";
   room.writeback.sharedState = true;
+  room.writeback.stateMood = true;
+  room.writeback.stateGaze = true;
   room.writeback.memoryCandidate = true;
   room.writeback.mainSummary = true;
-  assert.equal(Rooms.canWrite(room, "state"), false);
-  assert.equal(Rooms.canWrite(room, "mood"), false);
-  const prompt = Rooms.prompt(room, []);
-  assert.match(prompt, /本房不改变主房关系/);
-  assert.match(prompt, /本房内容不进入正式记忆或候选/);
-  assert.match(prompt, /不向主房生成交接/);
-  assert.match(app, /if \(room && room\.scenario\) \{/);
-  assert.match(app, /!room\.scenario && !!\(room\.writeback && room\.writeback\.sharedState\)/);
-  assert.match(app, /!room\.scenario && !!\(room\.writeback && room\.writeback\.memoryCandidate\)/);
-  assert.match(weekly, /!room\.scenario && room\.writeback && room\.writeback\.mainSummary/);
-  assert.match(components, /只留本房 · 不写回主线/);
+  assert.equal(Rooms.canWrite(room, "state"), true);
+  assert.equal(Rooms.canWrite(room, "mood"), true);
+  assert.equal(Rooms.canWrite(room, "gaze"), true);
+  const prompt = Rooms.prompt(room, mainRows);
+  assert.match(prompt, /主线后来发生的事/);
+  assert.match(prompt, /本房可影响共同状态/);
+  assert.match(prompt, /重要内容可经过既有闸进入记忆候选/);
+  assert.match(prompt, /离房时可以形成一份可追溯交接/);
+  assert.match(app, /const _roomSharesState = !room \|\| !!\(room\.writeback && room\.writeback\.sharedState\)/);
+  assert.match(app, /const _roomMayRemember = !room \|\| !!\(room\.writeback && room\.writeback\.memoryCandidate\)/);
+  assert.match(weekly, /!room\.main && room\.writeback && room\.writeback\.mainSummary/);
+  assert.match(components, /认知、同步和写回权限可以任意混搭/);
+  assert.match(components, /默认隔离 · 权限可混搭/);
+  assert.doesNotMatch(components, /!draft\.scenario && group\("cognition"/);
+  assert.doesNotMatch(components, /!draft\.scenario && group\("writeback"/);
 });
 
 test("房间目的会保存并进入该分线的提示词", () => {

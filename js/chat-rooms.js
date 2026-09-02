@@ -130,7 +130,6 @@
   // 这个组合，所以这道闸必须在代码里，不能只靠开关摆着好看。
   function canWrite(room, kind) {
     if (!room) return true;                         // 没有房间概念＝主线本身
-    if (room.scenario) return false;                 // 长篇如果只在本房成立，绝不覆盖主线状态
     const w = room.writeback || {}, c = room.cognition || {};
     if (!w.sharedState) return false;
     if (kind === "mood" || kind === "gaze") {
@@ -163,15 +162,15 @@
       lines.push("【一起学邀请规则】先看下面已有课程；主题相关时优先提议续上现有 session。没有合适旧课时，你可以先提出一个轻量课程想法（学什么、为什么此刻想一起学、建议从哪个小点开始），但不能声称已经建课或已经打开界面，必须等对方确认。\n" + (ss.length ? "已有课程：\n" + ss.map(s => "· sessionId=" + s.id + "｜" + (s.title || s.subject || "未命名") + "｜" + (s.subject || "")).join("\n") : "目前没有你参与的已有课程。"));
     }
     const scenarioOn = !!room.scenario;
-    lines.push("【写回边界】" + (w.sharedState && !scenarioOn ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate && !scenarioOn ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary && !scenarioOn ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
-    const mayReadMainDelta = !scenarioOn && (room.syncMode === "follow" || (room.syncMode === "ask" && room.syncOnce));
+    lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
+    const mayReadMainDelta = room.syncMode === "follow" || (room.syncMode === "ask" && room.syncOnce);
     if (c.mainDelta && mayReadMainDelta && Array.isArray(mainMessages)) {
       const since = Number(room.mainCursorTs || room.createdAt || 0);
       const delta = mainMessages.filter(m => Number(m.ts || 0) > since && (m.role === "user" || m.role === "assistant") && m.content).slice(-16);
       if (delta.length) lines.push("【主房后来发生的事｜只作参考，不是本房新消息】\n" + delta.map(m => (m.role === "user" ? "对方" : "你") + "：" + String(m.content).slice(0, 300)).join("\n"));
     }
-    // 必须压在整份本轮任务的最后：人物底稿仍保留，但冲突的年龄、时间、处境和关系阶段以本房为准。
-    if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n若它与主线当前的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准；保持人物核心性格和未被改变的底稿。不得把主线后来发生的经历强塞给这个阶段，也不得声称本房设定已经成为主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
+    // 必须压在整份本轮任务的最后。设定负责校准分线，认知/写回权限仍由 Lisa 自由混搭。
+    if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
   return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
