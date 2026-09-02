@@ -13,11 +13,14 @@ test("主聊天和每一间侧房都用自己的生成状态，不能串钥匙",
   assert.match(app, /endLane\("c:" \+ chatKey\)/);
 });
 
-test("生成期间在聊天流末尾显示角色输入气泡", () => {
+test("生成期间在聊天流末尾显示原来的白色三点气泡", () => {
   const thread = components.slice(components.indexOf("function ChatThread("), components.indexOf("// ---- chat settings"));
+  const indicator = thread.slice(thread.indexOf("}), sending &&"), thread.indexOf("selMode ?", thread.indexOf("}), sending &&")));
   assert.match(thread, /\[messages\.length, sending\]/, "输入气泡出现时要自动滚到底");
-  assert.match(thread, /sending &&[\s\S]*?role: "status"/);
-  assert.match(thread, /"aria-label": character\.name \+ " 正在输入"/);
-  assert.match(thread, /}, "正在输入"/);
-  assert.match(thread, /background: BUBBLE_SKIN\.charBg/);
+  assert.match(indicator, /role: "status"/);
+  assert.match(indicator, /"aria-label": character\.name \+ " 正在输入"/);
+  assert.match(indicator, /padding: "12px 14px"/);
+  assert.match(indicator, /background: "#fff"/);
+  assert.match(indicator, /\[0, 1, 2\]\.map/);
+  assert.doesNotMatch(indicator, /}, "正在输入"/, "气泡里不要出现文字");
 });

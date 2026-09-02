@@ -4739,32 +4739,18 @@ function ChatThread({
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
-    className: "flex items-start gap-2 py-1"
+    className: "flex items-start gap-2"
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 40,
     radius: 10
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      minHeight: 40,
-      padding: "9px 13px",
-      background: BUBBLE_SKIN.charBg,
-      color: BUBBLE_SKIN.charText || t.ink,
-      border: BUBBLE_SKIN.charBorder || "none",
-      borderRadius: BUBBLE_SKIN.radius,
-      boxShadow: BUBBLE_SKIN.shadow || "none",
-      display: "flex",
-      alignItems: "center",
-      gap: 8
+      padding: "12px 14px",
+      background: "#fff",
+      borderRadius: 14
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12.5,
-      color: BUBBLE_SKIN.charText || t.fog,
-      opacity: .72
-    }
-  }, "正在输入"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
   }, [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
     key: i,
