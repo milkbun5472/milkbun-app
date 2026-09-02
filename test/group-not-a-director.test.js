@@ -73,9 +73,13 @@ test("群里的人是人，不是身份标签的展览", () => {
 test("这条刀群线上群线下都挂上了", () => {
   assert.match(app, /GROUP_IN_CHARACTER \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线上");
   assert.match(engine, /GROUP_IN_CHARACTER \+\n\s*"\\n\\n" \+ CONDESCENDING_TONE_BAN/, "群线下");
+
+  // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
+  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  assert.match(app, /GROUP_IN_CHARACTER \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/, "群通话");
   assert.equal((engine.match(/GROUP_IN_CHARACTER/g) || []).length +
-               (app.match(/GROUP_IN_CHARACTER/g) || []).length, 3,
-    "1 处定义 + 群线上 + 群线下；数字变了就核对是新通道接上了还是哪条掉了");
+               (app.match(/GROUP_IN_CHARACTER/g) || []).length, 4,
+    "1 处定义 + 群线上 + 群线下 + 群通话；数字变了就核对是新通道接上了还是哪条掉了");
 });
 
 // 「彼此不熟就照不熟来」以前只活在 asPrivate（两人旁观局）那一支里，

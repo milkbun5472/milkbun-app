@@ -38,9 +38,13 @@ test("这条刀四处都挂上了", () => {
   assert.match(app, /groupOnlineRuntime \+ "\\n\\n" \+ STOCK_REPLY_BAN/, "群线上");
   assert.match(engine, /MOOD_TURN_RULE \+\n\s*"\\n\\n" \+ STOCK_REPLY_BAN/, "群线下");
   const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+
+  // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
+  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  assert.match(app, /CHARCARD_RULE \+ "\\n\\n" \+ STOCK_REPLY_BAN/, "群通话");
   assert.equal((codeOnly(engine).match(/STOCK_REPLY_BAN/g) || []).length +
-               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 4,
-    "1 处定义 + buildBundle + 群线上 + 群线下（注释不算）");
+               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 5,
+    "1 处定义 + buildBundle + 群线上 + 群线下 + 群通话（注释不算）");
 });
 
 // 规则降概率，代码才保证——这一整轮反复验证过的。

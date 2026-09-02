@@ -51,7 +51,10 @@ test("四处旧的固定截断一个都不许留着", () => {
     assert.ok(engine.indexOf(x) < 0, "engine.js 还留着 " + x));
   // 四处都改走同一个函数
   // v56.03 起每处群人设都多一条 NPC 分支（配角走 NPC_PERSONA_CAP 小额度）
-  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "线上群（真角色+配角） + 投票");
+
+  // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
+  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 4, "线上群（真角色+配角） + 投票 + 群通话");
   assert.equal((engine.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "群线下（真角色+配角） + 群 OOC");
 });
 

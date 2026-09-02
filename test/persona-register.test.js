@@ -18,9 +18,13 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   // v54.80 起第五处：narrativeCore 的默认成分，小剧场（演出＋谢幕）和同人文穿越 RP
   // 都从那儿吃到锚——if 线换了身份最容易把年下演成兄长，正是它要防的。
   assert.match(engine, /if \(opts\.register !== false\) parts\.push\(PERSONA_REGISTER_ANCHOR\);/, "叙事底座");
+  // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
+  // 单人通话走 buildBundle、从叙事底座那一路吃到锚；群通话原来什么都没有，现在直接注入。
+  // 见 .claude/rules/four-surfaces-same-context.md。
+  assert.match(app, /REGISTER_FOLLOWS_SCENE\n\s*\+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "群通话");
   assert.equal((engine.match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
-               (app.match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 6,
-    "1 处定义 + 4 处直接注入 + 1 处经叙事底座；数字变了就核对是新通道接上了还是哪条掉了");
+               (app.match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 7,
+    "1 处定义 + 5 处直接注入（含群通话）+ 1 处经叙事底座；数字变了就核对是新通道接上了还是哪条掉了");
 });
 
 test("锚点必须是双向的，不能变成「一律活泼」的新模板", () => {
