@@ -5466,14 +5466,24 @@ function CallScreen({
       className: "active:opacity-60 shrink-0",
       style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
     }, meP ? (tp.play.st === "gen" ? "…" : "⏸") : "▶") : null));
-  })), sending && h("div", {
-    className: "px-6 pb-1",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: "rgba(255,255,255,0.5)"
-    }
-  }, (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说…"), liveSt && h("div", {
+  }),
+    // 说完了在等他开口:跟主聊天一样给一个【气泡】,长在他下一句会出现的地方(她 2026-09-02)。
+    // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离他的话隔着大半屏，
+    // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
+    sending && h("div", { key: "typing", className: "flex flex-col items-start" },
+      !isGroup ? null : h("span", {
+        style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }
+      }, "对方"),
+      h("div", {
+        role: "status", "aria-live": "polite",
+        "aria-label": (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说",
+        style: { padding: "10px 14px", borderRadius: 14, background: skinAlpha(BUBBLE_SKIN.charBg, "24") }
+      }, h("div", { className: "flex gap-1" }, [0, 1, 2].map(i => h("span", {
+        key: i,
+        className: "w-1.5 h-1.5 rounded-full animate-pulse",
+        style: { background: "rgba(255,255,255,0.72)", animationDelay: i * 0.15 + "s" }
+      }))))
+    )), liveSt && h("div", {
     className: "px-6 pb-1",
     style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
   }, "🎙 " + liveSt), h("div", {
