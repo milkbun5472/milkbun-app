@@ -70,8 +70,12 @@ test("封面、目录、全文三处都铺同一张纸", () => {
   assert.match(cover, /收了 " \+ list\.length \+ " 篇/, "封面上看不出这本收了几篇");
   assert.match(cover, /borderRadius: "3px 12px 12px 3px"/, "没有书脊那一侧的直角");
   assert.match(cover, /翻开/, "没有「翻开」这个动作");
-  assert.match(cover, /maxWidth: 318/, "日记本又缩回小卡片了");
-  assert.match(cover, /gap: 18, marginTop: 30/, "下面的翻页箭头没有和本子拉开");
+  assert.match(cover, /px-4/, "外壳还留着太宽的边，日记本肉眼看不出放大");
+  assert.match(cover, /maxWidth: "clamp\(280px, calc\(100vh - 362px\), 350px\)"/, "日记本没有大屏放大、小屏避让的尺寸兜底");
+  assert.match(cover, /left: "13%", right: "9%", top: "18%"/, "只撑大了空纸，封面信息签没有跟着长大");
+  assert.match(cover, /width: 74, height: 74/, "本子长大了，封面照片却还留在旧尺寸");
+  assert.match(cover, /bottom: "calc\(env\(safe-area-inset-bottom\) \* \.4 \+ 18px\)"/, "翻页栏没有锚到底部安全区，整组居中会把下移量抵消");
+  assert.match(cover, /size: 22/, "翻页箭头还是原来的小尺寸，变化看不出来");
   assert.ok(!/fontSize: 72|No\." \+/.test(cover), "又回到大字名字 + 编号那套了");
   const entry = grab("function DiaryEntryView(", "\nfunction fmtClockShort", "全文页");
   assert.match(entry, /pageSkin\(paper, t, \{ corner: false \}\)/, "全文页没铺纸");
