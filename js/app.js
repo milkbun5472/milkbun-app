@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.35";
+const APP_VERSION = "v60.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10439,6 +10439,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const ringMiss = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "missed"); };
   // 他要挂电话:只在这通电话上立个牌子。CallScreen 看见了才真的挂——
   // 时长归它数,而且他最后那句得在屏幕上留一会儿,不能话音未落就黑屏。
+  // ---- 视频通话的画面(v60.33 她点名)----
+  // 「视频通话选择可以为本次通话生成背景图吧就锁脸，谁在电话里都锁」。
+  // 视频通话原来只有一片深色底和一个头像圆——「看得见对方」这件事只写在提示词里，
+  // 屏幕上一点都看不出来。这里就地拍一张：**在电话里的每一个人都拿他自己的参考照锁脸**
+  // （她原话「谁在电话里都锁」），画面从各人此刻的状态卡长出来（在哪、在干嘛、穿什么）。
+  // 只属于这一通：存在 call.bg 上，挂了就没了，不落进聊天记录、不进相册。
+  const callShotCan = () => {
+    const c = callRef.current;
+    if (!c || c.mode !== "video") return false;
+    if (!((typeof imgApiReady === "function") && imgApiReady())) return false;
+    return (c.participants || []).some(p => p && p.refPhoto);
+  };
+  const runCallShot = async () => {
+    const cur = callRef.current;
+    if (!cur || !callShotCan() || cur.bgBusy) return;
+    const withRef = (cur.participants || []).filter(p => p && p.refPhoto);
+    if (!withRef.length) { toast("先给他传一张参考照，才锁得住脸"); return; }
+    setCall(c => c ? { ...c, bgBusy: true } : c);
+    try {
+      const lead = withRef[0];
+      const st = statesRef.current[lead.id] || {};
+      // 电话里每一个人都锁：两个人以上走合影那一路（参考图顺序＝点名顺序，错位脸就串）
+      const cast = withRef.length > 1
+        ? withRef.slice(0, 4).map(c2 => ({ id: c2.id, name: c2.name, appearance: c2.appearance, refPhoto: c2.refPhoto }))
+        : null;
+      const bits = (cur.participants || []).map(p => {
+        const s2 = statesRef.current[p.id] || {};
+        const seg = [freshLiveStateValue(s2, "place"), freshLiveStateValue(s2, "action"), freshLiveStateValue(s2, "wearing")]
+          .map(x => String(x || "").trim()).filter(Boolean).join("，");
+        return seg ? p.name + "：" + seg : "";
+      }).filter(Boolean).join("；");
+      const scene = "这是一通视频通话里对面那一头的画面：" + (bits || "此刻的样子") + "。像手机前置摄像头拍到的，光是他此刻所在地方本来的光。";
+      const refs = (cast ? cast.map(x => x.refPhoto) : [lead.refPhoto]).filter(Boolean);
+      const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast ? "group" : "self", cast: cast, closet: closetTextFor(lead.id) });
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast ? "group" : "self", cast: cast }) });
+      if (!out || !out.blob) throw new Error((out && out.err) || "没出图");
+      const key = "img_call_" + Date.now();
+      await idbImgPut(key, out.blob);
+      // ⚠️换一张【不删旧的】：她 2026-09-02「结束了要留在聊天不能没了」——
+      //   这一通里拍过的每一张挂断后都要落进聊天，删了就真没了。封顶 4 张。
+      setCall(c => c ? { ...c, bg: key, shots: [...(c.shots || []), key].slice(-4), bgBusy: false } : c);
+    } catch (e) {
+      setCall(c => c ? { ...c, bgBusy: false } : c);
+      toast("画面没生成出来：" + ((e && e.message) || "重试"));
+    }
+  };
   const markCallBye = (byId, byName, reason) => setCall(c => (c && !c.bye) ? { ...c, bye: { id: byId, name: byName || "", reason: String(reason || "").slice(0, 120) } } : c);
   const startCall = (participants, mode, groupId, caller) => {
     const people = (participants || []).filter(Boolean);
@@ -10648,7 +10694,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const callId = "call_" + Date.now();
       // 整通转录存进气泡（点开可回看）；act=视频里的动作行
       const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ts: m.ts || null }));
-      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, content: label, ts: Date.now(), id: callId, log };
+      // 这一通里拍过的画面跟着通话记录留下来（她：「结束了要留在聊天不能没了」）
+      const shots = (cur.shots || []).filter(Boolean);
+      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
       else if (cur.participants[0]) pChat(cur.participants[0].id, p => [...p, bubble]);
       // 挂断后走后台便宜池出 1~2 句摘要：补进气泡（回看小结+线上聊天接得上）+ 入记忆库；太短的通话不折腾
@@ -16576,6 +16624,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     //   于是通话里「正在说」那一层永远不亮——她 2026-09-02：「我说完他没有那个输入中的气泡」。
     sending: !!busyLanes.call,
     bye: call.bye || null,
+    bg: call.bg || null,
+    bgBusy: !!call.bgBusy,
+    onShot: callShotCan() ? runCallShot : null,
     minimized: !!call.min,
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),

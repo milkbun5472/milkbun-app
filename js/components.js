@@ -5145,6 +5145,9 @@ function CallScreen({
   msgs,
   sending,
   bye,
+  bg,
+  bgBusy,
+  onShot,
   onSend,
   onHangup,
   minimized,
@@ -5417,17 +5420,38 @@ function CallScreen({
       h(IPulse, { size: 15, color: "#95d16f" }));
   }
   const recent = list.slice(-16);
+  // 这一通的画面（v60.35 她点名）：视频通话原来只有一片深色底和一个头像圆，
+  // 「看得见对方」这件事只写在提示词里、屏幕上一点都看不出来。
+  // 有画面时它铺满整屏当底，上面压一层暗罩让台词还读得清；头像圈就收起来——
+  // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
+  const bgUrl = useIdbImgUrl(bg);
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
       background: isVideo ? "linear-gradient(180deg,#2a2a2e,#111114)" : "linear-gradient(180deg,#3a4a52,#1c2429)",
       paddingTop: "env(safe-area-inset-top)"
     }
-  }, onMinimize && h("button", {
+  }, bgUrl ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+      h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(10,10,12,.58) 0,rgba(10,10,12,.42) 30%,rgba(10,10,12,.74) 100%)" } })) : null, onMinimize && h("button", {
     onClick: onMinimize,
     className: "absolute active:opacity-60 flex items-center justify-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", left: 16, zIndex: 5, width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.14)" }
-  }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M6 9l6 6 6-6" }))), h("div", {
+  }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M6 9l6 6 6-6" }))),
+  onShot ? h("button", {
+    onClick: () => !bgBusy && onShot(),
+    disabled: bgBusy,
+    "aria-label": bg ? "换一张这通的画面" : "拍一张这通的画面",
+    className: "absolute active:opacity-60 flex items-center",
+    style: { top: "calc(env(safe-area-inset-top) + 14px)", right: 16, zIndex: 5, gap: 5,
+      height: 34, padding: "0 12px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.14)",
+      fontFamily: F_BODY, fontSize: 11.5, color: "#fff" }
+  },
+    bgBusy
+      ? h("span", { style: { width: 11, height: 11, borderRadius: 2, border: "1.6px solid #fff", borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
+      : h(CGlyph, { k: "picture", size: 14, color: "#fff" }),
+    h("span", null, bgBusy ? "在拍" : bg ? "换一张" : "看看画面")) : null,
+  h("div", {
     className: "shrink-0 pt-10 pb-3 flex flex-col items-center"
   }, h("div", {
     className: "px-6 text-center",
@@ -5445,7 +5469,7 @@ function CallScreen({
     }
   }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss)), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
-  }, (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
+  }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci,
     style: {
       width: isGroup ? 64 : (isVideo ? 148 : 104),
@@ -6177,6 +6201,10 @@ function CallEndPill({ m, chars }) {
       className: "flex items-center gap-1.5" + (log.length ? " active:opacity-60" : ""),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, background: t.bg2, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, maxWidth: "88%" }
     }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog }), label + (log.length ? (open ? " · 收起" : " · 回看") : "")),
+    // 这一通里拍过的画面留在这儿（她 2026-09-02：「结束了要留在聊天不能没了」）——
+    // 电话挂了那张图不该跟着没，它是这通电话的一部分。
+    (m.shots || []).length ? h("div", { className: "flex justify-center", style: { gap: 6, marginTop: 7, flexWrap: "wrap", maxWidth: "88%" } },
+      m.shots.map(k => h(CallShotThumb, { key: k, imgKey: k }))) : null,
     m.sum && !open ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 } }, m.sum) : null,
     open ? h("div", { style: { marginTop: 8, width: "88%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", maxHeight: 300, overflowY: "auto" } },
       log.map((l, j) => l.act
@@ -6186,6 +6214,25 @@ function CallEndPill({ m, chars }) {
             h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content,
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
+}
+// 通话里拍过的那一张：卡上是缩略图，点开看整张
+function CallShotThumb({ imgKey }) {
+  const t = useTheme();
+  const [zoom, setZoom] = useState(false);
+  const url = useIdbImgUrl(imgKey);
+  if (!url) return null;
+  return h(Fragment, null,
+    h("img", {
+      src: url, alt: "这通电话里的画面", onClick: () => setZoom(true),
+      className: "active:opacity-80",
+      style: { width: 76, height: 76, objectFit: "cover", borderRadius: 10, border: "1px solid " + t.line, display: "block", cursor: "pointer" }
+    }),
+    zoom && ReactDOM.createPortal(
+      h("div", {
+        onClick: () => setZoom(false),
+        style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(12,11,9,.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
+      }, h("img", { src: url, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } })),
+      document.body));
 }
 // 通话记录中心（+面板入口）：这个聊天里所有语音/视频通话按时间列出，点一通回看整通转录——不用回聊天里翻楼
 function CallLogSheet({ calls, chars, onClose }) {
@@ -7896,6 +7943,21 @@ function CotReveal({ cot, requested }) {
     }, (open ? "▾ " : "▸ ") + (missing ? "创作小稿 · 本轮未返回" : "创作小稿 · 看落笔计划")),
     open && h("div", { style: { marginTop: 6, padding: "9px 11px", borderRadius: 10, background: t.bg, border: `1px dashed ${t.line}` } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.72, color: missing ? t.fog : t.sub, whiteSpace: "pre-wrap" } }, missing ? "模型这轮没有按标记格式返回小稿；正文已正常保留。这不代表它没有内部推理。" : String(cot).trim())));
+}
+// 从 IndexedDB 取一张图，换成能用的 objectURL（用完撤掉，别攒着）。
+// v60.35 抽出来：通话页的画面、通话记录卡上的缩略图都要用，
+// 别让这段 blob→URL→revoke 的舞步在三个地方各抄一遍。
+function useIdbImgUrl(imgKey) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true, obj = null;
+    setUrl(null);
+    if (imgKey && typeof idbImgGet === "function") {
+      idbImgGet(imgKey).then(b => { if (alive && b && b.size > 0) { obj = URL.createObjectURL(b); setUrl(obj); } }).catch(() => {});
+    }
+    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
+  }, [imgKey]);
+  return url;
 }
 // 角色自拍气泡：从 IndexedDB 读出生成的图，pending 显示「拍照中」，failed 显示没拍成
 function SelfieBubble({ m }) {
