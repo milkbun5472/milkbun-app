@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.30";
+const APP_VERSION = "v60.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7425,8 +7425,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const _pls = (_pl && _pl.songs) || [];
         const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
         const st = statesRef.current[c.id] || {};
-        const freshWearing = freshLiveStateValue(st, "wearing"), freshAction = freshLiveStateValue(st, "action");
-        const live = gs.memoryInterop && (freshWearing || freshAction) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [freshWearing && "穿着=" + freshWearing, freshAction && "上一动作=" + freshAction].filter(Boolean).join("；") : "";
+        void st;
+        const _now = groupNowSegs(c, { interop: gs.memoryInterop });
+        const live = _now.live;
         // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
         const grown = (window.DesireKit && desiresRef.current[c.id]) ? window.DesireKit.personaText(desiresRef.current[c.id]) : "";
         const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
@@ -7434,18 +7435,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 拿到全文人设＋此刻心情＋好感度，群聊以前只有 200 字人设、别的一层都没有——
         // 于是同一个人在群里只剩「一个古代王爷」这个标签，空白由训练先验补成霸总。
         // 心情和好感是【这个人此刻是谁】、不是【你们之间发生过什么】，所以封闭群照给。
-        const md = window.MoodLabel && window.MoodLabel.settle
-          ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
-          : { label: (moods[c.id] || {}).label || "", note: "" };
-        const mdSeg = md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : "");
-        const afSeg = "\n〔对 " + (profile.name || "用户") + " 的好感〕" + Math.round(affOf(c.id)) + "/100";
+        const mdSeg = _now.mdSeg;
+        const afSeg = _now.afSeg;
         // 年龄按今天现算（她刚做的生日字段，群里一直没吃到）
-        const ageSeg = (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })();
+        const ageSeg = _now.ageSeg;
         // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
-        const cpSeg = (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })();
+        const cpSeg = _now.cpSeg;
         // 【我们的档案】跟情侣状态同一档：这位成员的私事，走同一道隐私围栏（四处一样喂）
         const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
-        const sbSeg = (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
+        const sbSeg = _now.sbSeg;
         // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
         // 也不吃印象卡、长出来的自我、年龄、行程、情侣状态——那些都是
         // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
@@ -7501,7 +7499,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const memLines = members.map(c => {
           const mem = memories[c.id];
           const onlyMine = formatMemLib(gSplit.perChar[String(c.id)] || []);
-          const priv = gs.memoryInterop && gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
+          const priv = gs.memoryInterop ? memberPrivLines(c, gs.privateCtxN) : "";
           // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
           const offBeats = gs.memoryInterop && gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
           // 印象卡跟长期记忆同一档：读一律给（封闭群也给），但必须落在这位成员自己那一段里（隐私围栏见上）
@@ -10389,6 +10387,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }]));
     toast(accept ? nm + " 收下了转账" : nm + " 退回了转账");
   };
+  // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
+  // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
+  // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
+  // 【群通话】那一处每位成员只有一份人设——他既不知道现在几点、
+  // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
+  // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
+  const groupNowSegs = (c, opts) => {
+    const o = opts || {};
+    const st = statesRef.current[c.id] || {};
+    const fw = freshLiveStateValue(st, "wearing"), fa = freshLiveStateValue(st, "action");
+    const md = window.MoodLabel && window.MoodLabel.settle
+      ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
+      : { label: (moods[c.id] || {}).label || "", note: "" };
+    return {
+      live: o.interop && (fw || fa) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [fw && "穿着=" + fw, fa && "上一动作=" + fa].filter(Boolean).join("；") : "",
+      mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
+      afSeg: "\n〔对 " + (profile.name || "用户") + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
+      ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
+      cpSeg: (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })(),
+      sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })()
+    };
+  };
+  // 这位成员最近和用户的单聊（带时间戳）。群聊和群通话共用同一份取法，
+  // 别一处带时间戳一处不带——她那句「在家等他」正是靠时间戳才接得上。
+  const memberPrivLines = (c, n) => (Number(n) > 0
+    ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-Number(n))
+        .map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content
+          + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n")
+    : "");
   // ---- 通话 / 视频（私聊单人 或 群聊多人；发一句回一句，即时）----
   useEffect(() => {
     callRef.current = call;
@@ -10559,7 +10586,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
         const gCallCap = groupPersonaBudget(people.filter(c => !c.npc).length || 1);
-        const memberDesc = people.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap)).join("\n\n");
         const relLines = people.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
         const cWorld = loreText(loreRef.current, { charIds: people.map(c => c.id), scope: "chat", text: hist.map(m => m.content).join("\n") });
         // 群通话补记忆：群 OOC 规矩 + 记忆库检索（不互通的群守封闭分区，不读全局记忆库）——之前群通话两样都没接
@@ -10567,12 +10593,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const cDirs = cur.groupId ? (directives[cur.groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(x => x.trim()) : [];
         if ((!cur.groupId || (cgs && cgs.memoryInterop)) && typeof primeQueryVec === "function") await primeQueryVec(hist.slice(-8).map(m => m.content).join("\n")); // 向量记忆预热
         const cMem = (!cur.groupId || (cgs && cgs.memoryInterop)) ? formatMemLib(retrieveMemories(memLibRef.current, people[0] && people[0].id, hist.slice(-8).map(m => m.content).join("\n"), { limit: 5 })) : "";
+        // 每人那一段【此刻】跟群聊同一份（v60.31）：原来电话里只有一份人设——
+        // 他不知道现在几点，也不知道她刚在私聊里说过什么，只能瞎猜
+        //（她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」）。
+        const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
+        const memberDesc = people.map(c => {
+          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
+          const n = groupNowSegs(c, { interop: gcInterop });
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.mdSeg + n.afSeg + n.ageSeg + n.sbSeg + n.cpSeg;
+        }).join("\n\n");
+        // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
+        // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：
+        //   她把某个群的私聊窗口关掉是【有意的】，电话里替她打开等于把私聊漏进群。
+        //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
+        const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
+        const gcPriv = gcInterop ? people.filter(c => !c.npc).map(c => {
+          const lines = memberPrivLines(c, gcPrivN);
+          return lines ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕最近和用户的私聊：\n" + lines : "";
+        }).filter(Boolean).join("\n\n") : "";
+        const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
+        // 电话里也得知道现在几点：「在家等他」是几分钟前说的，没有钟就接不上
+        const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
+        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
         const sys = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + STOCK_REPLY_BAN
           + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "")
           + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "")
           + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
           + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + ECHO_QUESTION_BAN
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {

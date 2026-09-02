@@ -54,15 +54,22 @@ test("四处旧的固定截断一个都不许留着", () => {
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
-  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 4, "线上群（真角色+配角） + 投票 + 群通话");
+  // v60.31：群通话也分出了配角那一支（配角不吃「此刻」那几层），所以是 5 处
+  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 5,
+    "线上群（真角色+配角） + 投票 + 群通话（真角色+配角）");
   assert.equal((engine.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "群线下（真角色+配角） + 群 OOC");
 });
 
 test("群聊线上补上心情/好感/印象卡", () => {
-  assert.match(app, /const mdSeg = md\.label \? "\\n〔此刻心情〕" \+ md\.label/);
-  assert.match(app, /const afSeg = "\\n〔对 " \+ \(profile\.name \|\| "用户"\) \+ " 的好感〕"/);
+  // ⚠️v60.31 起这几段抽成了共用的 groupNowSegs（群聊和群通话同一份），别再冻在 replyGroup 里那几行上
+  const now = app.slice(app.indexOf("const groupNowSegs ="), app.indexOf("const memberPrivLines ="));
+  assert.ok(now.length > 200, "找不到 groupNowSegs");
+  assert.match(now, /mdSeg: md\.label \? "\\n〔此刻心情〕" \+ md\.label/);
+  assert.match(now, /afSeg: "\\n〔对 " \+ \(profile\.name \|\| "用户"\) \+ " 的好感〕"/);
   // 心情要走平复逻辑，别把三天前那阵气当成此刻
-  assert.match(app, /window\.MoodLabel\.settle\(\(moods\[c\.id\] \|\| \{\}\)\.label, \(moods\[c\.id\] \|\| \{\}\)\.ts, Date\.now\(\)\)/);
+  assert.match(now, /window\.MoodLabel\.settle\(\(moods\[c\.id\] \|\| \{\}\)\.label, \(moods\[c\.id\] \|\| \{\}\)\.ts, Date\.now\(\)\)/);
+  // 群聊那一处真的用了这一份（不是各写各的）
+  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/);
   // 印象卡属于「发生过什么」，只在开了记忆互通时给，而且要落在本人那一段
   assert.match(app, /const gz = window\.Gaze && !settingsFor\(c\.id\)\.engineerEyes \? window\.Gaze\.text\(c\.id, profile\.name \|\| "用户"\) : "";/);
   assert.match(app, /印象卡跟长期记忆同一档/);
@@ -126,8 +133,12 @@ test("写：封闭群一个字都不回流主线", () => {
 });
 
 test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
-  assert.match(app, /const priv = gs\.memoryInterop && gs\.privateCtxN > 0/);
+  // ⚠️v60.31 起取法抽成 memberPrivLines（群聊和群通话共用），门槛仍在调用处
+  assert.match(app, /const priv = gs\.memoryInterop \? memberPrivLines\(c, gs\.privateCtxN\) : ""/);
+  assert.match(app, /const memberPrivLines = \(c, n\) => \(Number\(n\) > 0/, "条数为 0 就不该给");
   assert.match(app, /const offBeats = gs\.memoryInterop && gs\.privateCtxN > 0/);
+  // 带时间戳的那一份：她那句「在家等他」正是靠它才接得上
+  assert.match(app, /memberPrivLines = \(c, n\) =>[\s\S]{0,400}fmtStampAI\(m\.ts\)/);
   assert.match(app, /if \(gs\.preJoinN > 0 && !gs\.memoryInterop\)/, "闭群走 preJoin");
   assert.match(app, /否则同一段私聊会进两遍/);
 });
