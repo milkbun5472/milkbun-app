@@ -1879,6 +1879,11 @@
 
     // 检定仪式浮层:她亲手按「掷」;结果落定后停一拍自动收
     const ceremonyLayer = ceremony && (() => {
+      // 先看剧情(她 2026-09-01 抓的:「还没来得及看更新就要扔骰子了,还不能折叠」):
+      // 掷骰前可以把仪式收成底部一枚小签,先读正文;点签再回来掷。骰子落定后不可收。
+      if (ceremony.peek && ceremony.phase === "ready") return h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { peek: false })), className: "active:opacity-80",
+        style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 78px)", zIndex: 160, padding: "9px 16px", borderRadius: 999, background: "rgba(20,18,16,.92)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 13, boxShadow: "0 8px 22px rgba(0,0,0,.35)", border: "1px solid #6b655a" } },
+        "🎲 " + ceremony.who + " · " + ceremony.statZh + "检定等着掷 · 点开");
       const eff = ceremonyEff(ceremony);
       const boost = [ceremony.feat ? "专长+15" : null, ceremony.assist ? ceremony.assist.name + "协力+10" : null, ceremony.bargainOn ? "交易+15" : null].filter(Boolean).join("·");
       const dieCol = g => !g ? "#f0ece4" : (g.tier === "crit" || g.tier === "hard") ? "#e8c76a" : g.tier === "ok" ? "#f0ece4" : "#e8a08c";
@@ -1908,7 +1913,8 @@
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8378", alignSelf: "center" } }, "协力(共担后果):"),
             ceremony.mates.map(mt => h("button", { key: mt.key, onClick: () => setCeremony(c => c && Object.assign({}, c, { assist: c.assist && c.assist.key === mt.key ? null : mt })), style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#d9d3c8" } }, mt.name))) : null,
           ceremony.bargainText ? h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { bargainOn: !c.bargainOn })), style: { padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.bargainOn ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.bargainOn ? "#e8c76a" : "#d9d3c8", maxWidth: 300 } }, (ceremony.bargainOn ? "😈 已接受交易" : "😈 魔鬼交易:+15") + "(代价:" + ceremony.bargainText + ")") : null,
-          h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: 16, border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷")) : null,
+          h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: 16, border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷"),
+          h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { peek: true })), style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: 12, color: "#8a8378", background: "transparent", border: "none" } }, "先看看刚才发生了什么 ↓")) : null,
         // 命运点抉择:只在失败/大失败落定、还有点数、且没重掷过时出现(对抗时救的是你这颗骰)
         ceremony.phase === "done" && ceremony.offer ? h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" } },
           btn("✦ 重掷(花1枚,新结果必须认)", fateReroll, "#e8c76a"),
