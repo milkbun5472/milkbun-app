@@ -5925,12 +5925,19 @@ function TransText({ text, isU, zhReady }) {
 //   · 三处英文机器标签（AUDIO_MEMO.WAV／SYNTH…／TRANSCRIPT）是那套长相的一部分。
 // 现在只留真东西：这句话【自己的】波形（长短、起伏都从这句话本身算出来）、
 // 多长、他用什么语气说的（模型每条都标了 emo，一直只喂给 TTS，从没给她看过）。
+// ⚠️语气写在【展开之后】那一行，不留在收起来那一行:
+//   「声音低下去了」六个字比波形还宽,一秒的气泡会被它撑得跟六秒的一样长
+//   (她 2026-09-02:「这两秒一秒的太长了吧」)。收起来时这条只说一件事——多长。
+//   展开之后它跟转文字长在一起,读起来也是一句话:「他笑着说的」+ 那句话。
 const VOICE_EMO_ZH = { happy: "笑着说的", sad: "声音低下去了", angry: "带着火气", fearful: "声音发紧", disgusted: "语气嫌恶", surprised: "有点意外" };
 // 这一条自己的波形：根数按时长走(说得久柱子就多)，高低按这句话的字算——
 // 同一句话每次画出来一样，不同的话长得不一样。
+// ⚠️根数的下限就是这条气泡的长度下限(她 2026-09-02:「这两秒一秒的太长了吧」)：
+//   原来下限 9 根、外面还写死 minWidth:196，于是一秒和六秒一样长，
+//   一句「嗯」占掉大半行——语音条的长度本来就该是「他说了多久」，这是它唯一在说的事。
 function voiceBars(text, dur) {
   const src = String(text || "");
-  const n = Math.max(9, Math.min(26, Math.round((Number(dur) || 2) * 2.2)));
+  const n = Math.max(4, Math.min(34, Math.round((Number(dur) || 2) * 2.4)));
   const out = [];
   for (let k = 0; k < n; k++) {
     const c = src.charCodeAt(k % Math.max(1, src.length)) || 0;
@@ -5975,7 +5982,9 @@ function VoiceMsg({ m, isU, speaker }) {
     }
   };
   const line = isU ? "rgba(0,0,0,0.13)" : t.line;
-  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 196, borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
+  // ⚠️没有 minWidth：宽度由内容(播放键+这条自己的波形+时长)自己撑出来，
+  //   于是「多长」这件事在列表里一眼看得见——一秒的就是一小截。
+  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
     h("style", null, "@keyframes vm-bar{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1.25)}}"),
     h("div", { className: "flex items-center gap-2.5 px-3.5", style: { minHeight: 42, paddingTop: 8, paddingBottom: 8 } },
       canTts ? h("button", {
@@ -5988,7 +5997,7 @@ function VoiceMsg({ m, isU, speaker }) {
               ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 })
               : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 }))) : null,
       // 这一条自己的波形：长短起伏都是这句话算出来的，不是七根一成不变的贴纸
-      h("div", { className: "flex items-center flex-1 min-w-0", style: { gap: 1.5, height: 16, overflow: "hidden" } },
+      h("div", { className: "flex items-center", style: { gap: 2, height: 16, minWidth: 0, overflow: "hidden", flexShrink: 1 } },
         bars.map((hh, j) => h("span", {
           key: j,
           style: { width: 2, height: hh, borderRadius: 2, background: fg, flexShrink: 0,
@@ -5996,12 +6005,11 @@ function VoiceMsg({ m, isU, speaker }) {
             animation: pSt === "playing" ? "vm-bar .9s ease-in-out infinite" : "none",
             animationDelay: pSt === "playing" ? (j * 0.055) + "s" : undefined }
         }))),
-      emoZh ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: fg, opacity: 0.55, flexShrink: 0 } }, emoZh) : null,
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: fg, opacity: 0.7, flexShrink: 0 } }, mmss)),
     open && h("div", { className: "px-3.5 pb-3", style: { borderTop: `1px solid ${line}` } },
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: fg, opacity: 0.45, margin: "8px 0 5px" } },
-        (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + "说的是"),
+        (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
 }
 // 懒 TTS 小播放器（通话台词/转录回听共用）：一次只放一条，点了才合成收费；放过的在 ttsSpeak 缓存里，回听免费

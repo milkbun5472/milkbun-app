@@ -84,7 +84,19 @@ test("波形是这一条自己的，不是七根一成不变的贴纸", () => {
   assert.ok(new Set(fn("仓库这破地方回音大得要命", 3)).size > 2, "一条平线不是波形");
   assert.deepEqual(fn("嗯。", 1), b, "同一句话每次画出来要一样");
   assert.ok(a.length > b.length, "说得久，柱子就该多");
+  // 她 2026-09-02：「这两秒一秒的太长了吧」——一秒和二十秒不该差不多长
+  assert.ok(fn("嗯。", 22).length >= fn("嗯。", 1).length * 3, "一秒和二十秒画出来差不多长，那这条就没在说时长");
   a.concat(b).forEach(x => assert.ok(x >= 4 && x <= 15, "柱高越界：" + x));
+});
+
+test("气泡宽度由内容撑出来，不许写死一个下限", () => {
+  const i = comp.indexOf("function VoiceMsg(");
+  const body = comp.slice(i, comp.indexOf("// 懒 TTS 小播放器", i));
+  const row = body.slice(body.indexOf("return h(\"div\""), body.indexOf("open &&"));
+  assert.ok(!/minWidth: [1-9]/.test(row), "写死 minWidth 就等于一秒和六秒一样长");
+  // 语气那几个字比波形还宽，留在收起来那一行会把一秒的撑成六秒的
+  assert.ok(row.indexOf("emoZh") < 0, "语气不该出现在收起来那一行");
+  assert.match(body, /\(emoZh \|\| "说的是"\)/, "语气要挪进展开之后那一行，跟转文字长在一起");
 });
 
 test("模型每条都标了语气，别再只喂给 TTS——她也该看得见", () => {
