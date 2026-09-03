@@ -21,7 +21,8 @@ const A = (() => {
     h: () => null, Svg: null,
     localStorage: {
       getItem: k => (k in store ? store[k] : null),
-      setItem: (k, v) => { store[k] = String(v); }
+      setItem: (k, v) => { store[k] = String(v); },
+      removeItem: k => { delete store[k]; }
     },
     loadJSON: (k, d) => { try { return k in store ? JSON.parse(store[k]) : d; } catch (e) { return d; } },
     callAI: async () => "", parseJSONLoose: () => ({}), extractJSON: () => ({}),

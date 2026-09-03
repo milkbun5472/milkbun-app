@@ -116,6 +116,44 @@
     chatSubs.forEach(fn => { try { fn(a); } catch (e) {} });
     return a;
   }
+  // ---- 「还在生成」这件事也得是共享的（她 2026-09-03：「我问秋秋的时候
+  //      退出界面还在生成的回复就没了」）----
+  // 查下来回复其实没丢：落盘和喊话都照做了，退出去再回来那条在。
+  // 真正的毛病是【看着像丢了】——busy 原来是各个界面自己的 state：
+  //   退出整页那一刻「在想…」就跟着组件一起没了，她回来看见自己那句问话孤零零挂着、
+  //   没有任何还在转的迹象，只能当它丢了。更糟的是这时她会再问一句，
+  //   老那条回完之后接在后面，顺序全乱。
+  // 所以 busy 也提到模块上，谁挂着都看得见；而且它一忙，两处都发不出第二句。
+  let inflight = 0;
+  const busySubs = new Set();
+  function onBusy(fn) { busySubs.add(fn); return () => busySubs.delete(fn); }
+  function isBusy() { return inflight > 0; }
+  function bumpBusy(d) { inflight = Math.max(0, inflight + d); busySubs.forEach(fn => { try { fn(isBusy()); } catch (e) {} }); }
+
+  // ⚠️还有一种是真的丢了：iOS 把整个 App 收走（或者刷新），在飞的那次请求跟着断。
+  //   模块里的 inflight 一起归零，回来之后什么痕迹都没有——她那句问话看着就是被吞了。
+  //   所以发之前在存档里按一个戳，落地/出错就撕掉；开机看见还留着戳，
+  //   就说明上一次没等到回复，明说出来并给她一个重问的入口。
+  const ASK_KEY = "x_assistAsking";
+  function markAsking(q) { try { localStorage.setItem(ASK_KEY, JSON.stringify({ ts: Date.now(), q: String(q || "") })); } catch (e) {} }
+  function clearAsking() { try { localStorage.removeItem(ASK_KEY); } catch (e) {} }
+  function staleAsking() {
+    if (isBusy()) return null;                 // 这会儿真在飞，不是遗留的戳
+    try { const d = JSON.parse(localStorage.getItem(ASK_KEY) || "null"); return d && d.q ? d : null; } catch (e) { return null; }
+  }
+
+  // ---- 改动稿应用没应用，也得记在存档里（她 2026-09-03：
+  //      「应用后退出界面再进来那个应用按钮又出来了」）----
+  // 原来记在界面自己的 done map 里，一退出就没了，再进来按钮又冒出来——
+  // 而她真按第二下的话：往记忆库里就是加两遍，改一小段则会因为找不到原文而报错。
+  // 改动稿本来就住在对话记录里，它的下场当然也该住在那儿。
+  function markPatch(pid, state) {
+    const list = loadChat().map(m => !m.patches ? m : Object.assign({}, m, {
+      patches: m.patches.map(p => p.pid === pid ? Object.assign({}, p, { done: state }) : p)
+    }));
+    return saveChat(list);
+  }
+
   // 发给模型的那一截：从最近往回收，收到字数预算为止
   function chatWindow(list) {
     const all = Array.isArray(list) ? list : [];
@@ -510,7 +548,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, snippetEdit, shownLen };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, snippetEdit, shownLen };
 })();
 
 // ============================================================
@@ -618,18 +656,18 @@
   //   所以 state 只是镜子，真身在 x_assistChat；每次收发都两边一起更新。
   function useAssistChat(ctx, toast) {
     const [msgs, setMsgs] = useState(A.loadChat);
-    const [busy, setBusy] = useState(false);
-    const [done, setDone] = useState({});          // pid -> "已应用" | 错误原文
+    const [busy, setBusy] = useState(A.isBusy);
     const put = list => { A.saveChat(list); };     // 落盘会喊一声，两处一起换（含自己）
-    // 小悬浮屏从不卸载，没有「进来时读一次」这回事——只能靠这一声
+    // 小悬浮屏从不卸载，没有「进来时读一次」这回事——只能靠这一声。
+    // busy 同理：退出整页再回来，「在想…」得还在转。
     useEffect(() => A.onChat(setMsgs), []);
+    useEffect(() => A.onBusy(setBusy), []);
     const send = async text => {
       const q = String(text || "").trim();
-      if (!q || busy) return;
-      // 代码问题在 Assistant.ask 里当场回绝，不走网络；所以这一步不拦 active
+      if (!q || A.isBusy()) return;              // 忙的时候两处都发不出第二句，免得回复串了顺序
       const act = A.activeFor(ctx);
       if (!act && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
-      setBusy(true);
+      A.bumpBusy(1); A.markAsking(q);
       const before = A.loadChat();
       put(before.concat([{ role: "me", text: q, ts: Date.now() }]));
       try {
@@ -637,21 +675,38 @@
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, ts: Date.now() }]));
       } catch (e) {
         put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
-      } finally { setBusy(false); }
+      } finally { A.clearAsking(); A.bumpBusy(-1); }
     };
     const applyOne = p => {
+      if (p.done === "已应用") return;           // 记忆库会加两遍、改一小段会找不到原文
       try {
         const n = A.apply(p, ctx);
-        setDone(d => ({ ...d, [p.pid]: "已应用" }));
+        A.markPatch(p.pid, "已应用");
         toast && toast(p.target === "memory" ? "写进记忆库 " + n + " 条"
           : p.target === "theme" ? "装修上身了" : "改好了，下次生成生效");
       } catch (e) {
-        setDone(d => ({ ...d, [p.pid]: "没应用：" + (e.message || "未知") }));
+        A.markPatch(p.pid, "没应用：" + (e.message || "未知"));
       }
     };
-    const skip = p => setDone(d => ({ ...d, [p.pid]: "跳过了" }));
-    const clear = () => { setDone({}); put([]); };
-    return { msgs, busy, done, send, applyOne, skip, clear };
+    const skip = p => A.markPatch(p.pid, "跳过了");
+    const clear = () => { A.clearAsking(); put([]); };
+    return { msgs, busy, send, applyOne, skip, clear };
+  }
+
+  // 上一次问到一半 App 被系统收走了：明说出来，并给一个重问的入口。
+  // 不说的话她看见的就是自己那句问话孤零零挂着——「回复没了」。
+  function StaleAsk(props) {
+    const t = useTheme(), C = props.C;
+    const [gone, setGone] = useState(false);
+    if (gone || C.busy) return null;
+    const st = A.staleAsking(); if (!st) return null;
+    return h("div", { style: { marginTop: 6, padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: props.big ? 11.5 : 11, color: t.fog, lineHeight: 1.6 } },
+        "上一句没等到回复（App 被系统收走了）"),
+      h("button", { onClick: () => { const q = st.q; A.clearAsking(); setGone(true); C.send(q); },
+        style: { marginTop: 5, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.tint } }, "再问一次"),
+      h("button", { onClick: () => { A.clearAsking(); setGone(true); },
+        style: { marginTop: 5, marginLeft: 12, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.fog } }, "算了"));
   }
 
   // 一串气泡（整页和悬浮屏共用；只有尺寸不同）
@@ -665,7 +720,7 @@
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
-            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: C.done[p.pid], onApply: () => C.applyOne(p), onSkip: () => C.skip(p) }))))));
+            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onSkip: () => C.skip(p) }))))));
   }
 
   // ============================================================
@@ -783,6 +838,7 @@
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "在想…") : null,
+        h(StaleAsk, { C: C, big: true }),
         !C.busy && C.msgs.length === 0
           ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 } },
               QUICK.map(q => h("button", { key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
@@ -927,7 +983,8 @@
                   h("button", { key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true }),
-        C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null),
+        C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null,
+        h(StaleAsk, { C: C })),
       h("div", { style: { display: "flex", gap: 6, padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h("textarea", { value: input, rows: 1, onChange: e => setInput(e.target.value),
           onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); C.send(input); setInput(""); } },

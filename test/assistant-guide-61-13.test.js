@@ -24,7 +24,7 @@ const A = (() => {
   const win = { AssistantManual: MAN };
   const sandbox = {
     React: { useState: () => [] }, h: () => null, Svg: null,
-    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
     loadJSON: (k, d) => { try { return k in store ? JSON.parse(store[k]) : d; } catch (e) { return d; } },
     callAI: async (act, sys) => { box.calls++; box.sys = sys; return box.reply || '{"reply":"好","patches":[]}'; },
     // ⚠️照 engine.js 里那两个真家伙来：extractJSON 会先把所有围栏（```）全局删掉
@@ -213,7 +213,7 @@ test("整页和小球是同一段对话，落在存档里，能清空", () => {
   assert.match(src, /const CHAT_KEY = "x_assistChat";/);
   assert.match(src, /const \[msgs, setMsgs\] = useState\(A\.loadChat\);/, "对话没从存档里读，关掉就没了");
   assert.match(src, /const before = A\.loadChat\(\);/, "发的时候拿的不是存档里那份，两处会各说各的");
-  assert.match(src, /const clear = \(\) => \{ setDone\(\{\}\); put\(\[\]\); \};/);
+  assert.match(src, /const clear = \(\) => \{ A\.clearAsking\(\); put\(\[\]\); \};/);
   // 真跑一遍：写进去读得出来，清空之后是空的
   A.api.saveChat([{ role: "me", text: "一" }]);
   assert.equal(A.api.loadChat().length, 1);
@@ -461,4 +461,73 @@ test("只改一小段的时候，界面摆的就是那一小段", () => {
   assert.match(src, /改一小段（默认走这个）/);
   assert.match(src, /find 必须在原文里【只出现一次】/);
   assert.match(src, /你【绝对不许】整段替换/);
+});
+
+// ── 她 2026-09-03：「我问秋秋的时候退出界面还在生成的回复就没了」
+//    「还有应用后退出界面再进来那个应用按钮又出来了」──────────────
+test("「还在生成」是共享的，退出去再回来还在转", () => {
+  // 查下来回复其实没丢（落盘和喊话都照做了）。真正的毛病是【看着像丢了】：
+  // busy 原来是各个界面自己的 state，退出整页那一刻「在想…」跟着组件一起没了，
+  // 她回来看见自己那句问话孤零零挂着，只能当它丢了。
+  assert.match(src, /let inflight = 0;/);
+  assert.match(src, /const \[busy, setBusy\] = useState\(A\.isBusy\);/, "busy 还是各界面自己的");
+  assert.match(src, /useEffect\(\(\) => A\.onBusy\(setBusy\), \[\]\);/, "没人听这一声");
+  assert.match(src, /A\.bumpBusy\(1\); A\.markAsking\(q\);/);
+  assert.match(src, /finally \{ A\.clearAsking\(\); A\.bumpBusy\(-1\); \}/, "出错也得把忙的牌子摘掉，否则永远发不出话");
+  // 忙的时候两处都发不出第二句——不然老那条回完接在后面，顺序全乱
+  assert.match(src, /if \(!q \|\| A\.isBusy\(\)\) return;/);
+  assert.doesNotMatch(src, /if \(!q \|\| busy\) return;/, "还在看自己那份 busy");
+  // 真跑一遍
+  let seen = [];
+  const off = A.api.onBusy(v => seen.push(v));
+  assert.equal(A.api.isBusy(), false);
+  A.api.bumpBusy(1); assert.equal(A.api.isBusy(), true);
+  A.api.bumpBusy(-1); assert.equal(A.api.isBusy(), false);
+  A.api.bumpBusy(-1); assert.equal(A.api.isBusy(), false, "减到负数就永远不忙了");
+  assert.deepEqual(seen, [true, false, false]);
+  off();
+});
+
+test("真被系统收走的那次，回来要明说，还要给条重问的路", () => {
+  // iOS 把 App 收走（或刷新）时在飞的请求会断，模块里的 inflight 一起归零，
+  // 什么痕迹都没有——她那句问话看着就是被吞了。
+  assert.match(src, /const ASK_KEY = "x_assistAsking";/);
+  A.store[A.api.ASK_KEY] = JSON.stringify({ ts: Date.now(), q: "这一句会被吞掉" });
+  assert.equal((A.api.staleAsking() || {}).q, "这一句会被吞掉");
+  // 这会儿真在飞的话不算遗留的戳，别弹那条提示
+  A.api.bumpBusy(1);
+  assert.equal(A.api.staleAsking(), null, "正在生成还弹「没等到回复」");
+  A.api.bumpBusy(-1);
+  A.api.clearAsking();
+  assert.equal(A.api.staleAsking(), null);
+  // 界面上摆出来了，两处都摆
+  assert.match(src, /function StaleAsk\(props\)/);
+  assert.match(src, /上一句没等到回复/);
+  assert.match(src, /"再问一次"/);
+  assert.equal((src.match(/h\(StaleAsk, \{ C: C/g) || []).length, 2, "整页和小球得都摆");
+});
+
+test("改动稿的下场记在存档里，退出再进来按钮不会又冒出来", () => {
+  // 她真按第二下的话：往记忆库里就是加两遍，改一小段则会因为找不到原文而报错。
+  A.api.saveChat([{ role: "it", text: "给你改一小段", patches: [
+    { pid: "p1", target: "persona", id: "cv", title: "改一句", text: "新句" },
+    { pid: "p2", target: "memory", id: "cv", title: "加一条", text: "他怕打雷" }] }]);
+  A.api.markPatch("p1", "已应用");
+  const back = A.api.loadChat()[0].patches;
+  assert.equal(back[0].done, "已应用", "应用过没记住，一退出按钮又出来了");
+  assert.equal(back[1].done, undefined, "把别的 patch 也标了");
+  A.api.markPatch("p2", "跳过了");
+  assert.equal(A.api.loadChat()[0].patches[1].done, "跳过了");
+  // 界面读的是存档里那一栏，不是自己那份内存 map
+  assert.match(src, /state: p\.done, onApply/);
+  // ⚠️光测 markPatch 本身不够：把 applyOne 里那句调用删掉，函数照样是对的，
+  //   存档里却什么都没记，一退出按钮又冒出来。所以要从 applyOne 里验。
+  const one = src.slice(src.indexOf("    const applyOne = p => {"), src.indexOf("    const skip = p =>"));
+  assert.ok(one.length > 100, "抠不出 applyOne");
+  assert.match(one, /A\.markPatch\(p\.pid, "已应用"\);/, "应用成功了却没记进存档");
+  assert.match(one, /A\.markPatch\(p\.pid, "没应用："/, "失败了也得记，否则她会一直重按");
+  assert.doesNotMatch(src, /const \[done, setDone\] = useState\(\{\}\)/, "旧的那份内存 map 还在");
+  // 代码这一道也拦：已应用的不许再应用一次
+  assert.match(src, /if \(p\.done === "已应用"\) return;/);
+  A.api.saveChat([]);
 });
