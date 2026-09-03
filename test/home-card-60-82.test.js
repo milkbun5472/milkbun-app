@@ -21,7 +21,9 @@ test("骨架换掉了：方头像在右、名字当主角、标签不是药丸",
   assert.doesNotMatch(card, /fontStyle: "italic"/);
   // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
   assert.doesNotMatch(card, /"ARCHIVE"/);
-  assert.match(card, /position: "absolute", top: 10, right: 12/);
+  // v60.88 两颗键改到【右下角】：放右上角要给它让位，头像就被挤到中间去了
+  assert.match(card, /position: "absolute", bottom: 10, right: 12/);
+  assert.doesNotMatch(card, /paddingRight: 62/, "头像那一行不许再为按键留位");
 });
 
 test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {

@@ -2896,13 +2896,15 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
     //   整屏高，主屏直接毁（.claude/rules/home-screen-layout.md）。用 flex:1。
     h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "12px 14px 11px" } },
-      // 她 2026-09-03：「ARCHIVE 去掉」。眉批没了，那两颗键就压到右上角去，
-      // 不再单独占一行——省下来的高度直接还给这一屏（她说太长了一页塞不下）。
-      h("div", { className: "flex", style: { position: "absolute", top: 10, right: 12, gap: 6, zIndex: 2 } },
+      // 眉批去掉之后这两颗键没了自己那一行。放右上角会把头像往中间挤（她 2026-09-03
+      // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
+      // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
+      // 于是头像能贴着右边、键也不用谁给它让位。
+      h("div", { className: "flex", style: { position: "absolute", bottom: 10, right: 12, gap: 6, zIndex: 2 } },
         round(h(IPencil, { size: 13, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
         onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
-      h("div", { className: "flex items-end", style: { gap: 12, paddingRight: 62 } },
+      h("div", { className: "flex items-end", style: { gap: 12 } },
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: ink, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: dim, textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
@@ -2913,7 +2915,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
           h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 48, radius: 12 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
-      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 9, gap: 16 } },
+      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 9, gap: 16, paddingRight: 66 } },
         stats.map((st, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 4 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
           h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow } }, st[1]))))));
