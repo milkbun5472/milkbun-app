@@ -248,16 +248,19 @@ test("预设里只放【它是谁】，安全面和契约不许混进去（她�
 });
 
 // 她 2026-09-03：「给它和我也放头像框，它的头像预设画一只小肥鸟」
-test("两边都有头像框；它默认是那只程序画的小肥鸟", () => {
+// v61.43 她给了自己的图：「左边是头像右边是图标」——程序画的那只换成她那张。
+test("两边都有头像框；它默认是她给的那只小鸡", () => {
   assert.match(src, /function QiuBird\(/);
   assert.match(src, /h\(QiuFace, \{ cfg: props\.cfg, size: av, radius: 9 \}\)/, "它这边没头像");
   assert.match(src, /h\(MeFace, \{ profile: props\.profile, size: av, radius: 9 \}\)/, "我这边没头像");
-  // 换过照片就用照片，没换就是鸟
+  // 换过照片就用照片，没换就是那只鸡
   assert.match(src, /cfg\.avatarImage\s*\?\s*h\(Avatar,/);
-  // 鸟得是画出来的，不是一个 emoji 或者外链图
   const bird = src.slice(src.indexOf("function QiuBird("), src.indexOf("window.QiuBird"));
-  assert.ok((bird.match(/h\("(ellipse|circle|path|rect)"/g) || []).length >= 10, "这只鸟画得太潦草");
-  assert.doesNotMatch(bird, /http|base64/, "头像不许外链");
+  assert.match(bird, /src: "img\/qiu-avatar\.webp"/);
+  // 仍旧不许外链、不许把图 base64 塞进 js（那是要跟着 PWA 一起装的东西）
+  assert.doesNotMatch(bird, /https?:|base64/, "头像不许外链或内嵌 base64");
+  // 原图带透明底，得自己垫一层，否则深色主题下浅黄糊进背景只剩两只眼睛
+  assert.match(bird, /background: "#f7ecd6"/, "没垫底色");
 });
 
 test("挂在 App 里，但一根手指都没碰主屏那几样", () => {
@@ -626,8 +629,14 @@ test("退不了的那两种要明说，不许假装能退", () => {
   assert.match(src, /\.slice\(0, UNDO_KEEP\)/);
 });
 
-test("秋秋的 app 图标也是那只小肥鸟，而且是线稿、跟着主题变色", () => {
-  // ⚠️不能直接摆头像那张彩图：主屏一整套图标都走 Svg 那层（fill:none + stroke=color）。
+test("秋秋的 app 图标用她给的那张画；线稿那只留着当兜底", () => {
+  // v61.43：走的是【和她自己换图标同一条路】——填进 customSrc，不另开一支渲染。
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.webp" \};/);
+  assert.match(comp, /const customSrc = customIcon[\s\S]{0,160}: builtInSrc;/, "自带图没接进那条现成的路");
+  // 她在主题工作台换过的话仍旧她说了算
+  assert.match(comp, /customIcon\s*\n?\s*\? \(typeof resolveImg/, "她换的图标被自带图盖掉了");
+  // 线稿那只还得在：文件夹里 15px 的小图和切换器只认 G 组件
   const g = src.slice(src.indexOf("window.GAssist = p =>"), src.indexOf("const loadJ ="));
   assert.ok(g.length > 200, "抠不出图标");
   assert.doesNotMatch(g, /M19\.6 3\.6a1\.9/, "还是那支笔");

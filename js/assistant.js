@@ -25,7 +25,9 @@
 (function () {
   const useState = React.useState;
 
-  // 主屏那个图标：也是那只小肥鸟（她 2026-09-03：「秋秋的 app 图标也改成小肥鸟」）。
+  // 主屏那个图标：v61.43 起用的是她给的那张画（components.js 的 APP_BUILTIN_ICON），
+  // 走的是「她自己换过图标」那条现成的路。下面这只线稿留着当兜底——
+  // 图没加载出来、或者别处（文件夹里那种 15px 的小图、切换器）只认 G 组件时还得靠它。
   // ⚠️不能直接摆头像那张彩色的画：主屏一整套图标都是 Svg 那层的线稿
   //   （viewBox 24、fill:none、stroke 跟着主题的 color 走）。摆一张彩图进去，
   //   这一格会从那一套里跳出来，而且深浅主题下它不跟着变色。
@@ -685,37 +687,18 @@
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   const A = window.Assistant;
 
-  // ---- 秋秋的默认头像：一只小肥鸟（她 2026-09-03 点的）----
-  // 程序画的，不占存储、不走图库；她自己换了照片就用她那张。
-  // 颜色写死是【故意的】：头像是一张画，不是界面——它自带底色，深浅主题下都看得清，
-  // 跟着主题变色反而会变成一坨认不出的东西。
+  // ---- 秋秋的默认头像（v61.43，她 2026-09-03 给了图：「左边是头像右边是图标」）----
+  // 原来是程序画的那只线稿肥鸟；现在换成她那张画。
+  // ⚠️两张图是从她那一张里切出来的，各自裁掉了透明边、按正方形居中、存成 webp
+  //   （同一张画 png 要 80KB，webp 只要 15KB——这是要跟着 PWA 一起装的东西）。
+  // ⚠️头像那张【原图带透明底】，所以这里自己垫一层奶油底：不垫的话深色主题下
+  //   小鸡的浅黄会糊进深背景里，只剩两只眼睛浮着。
   function QiuBird(props) {
     const z = props.size || 34, r = props.radius != null ? props.radius : z / 2;
-    return h("svg", { width: z, height: z, viewBox: "0 0 44 44", style: { display: "block", borderRadius: r, flexShrink: 0 } },
-      h("rect", { x: 0, y: 0, width: 44, height: 44, rx: r * (44 / z), fill: "#f4e7d0" }),
-      // 呆毛
-      h("path", { d: "M22 6.6c0-2.3 1.3-3.6 2.9-4", stroke: "#e0a93f", strokeWidth: 1.9, strokeLinecap: "round", fill: "none" }),
-      // 身子 + 脑袋：两个圆叠出一只胖鸟的轮廓
-      h("ellipse", { cx: 22, cy: 26.5, rx: 15, ry: 12.4, fill: "#f2c45f" }),
-      h("circle", { cx: 22, cy: 16.6, r: 10.4, fill: "#f6cd72" }),
-      // 肚子那块浅的
-      h("ellipse", { cx: 22, cy: 29.4, rx: 9.4, ry: 8.2, fill: "#fbe1a4" }),
-      // 翅膀
-      h("ellipse", { cx: 32.6, cy: 27.6, rx: 3.9, ry: 6.2, fill: "#e0a93f", transform: "rotate(20 32.6 27.6)" }),
-      h("ellipse", { cx: 11.4, cy: 27.6, rx: 3.9, ry: 6.2, fill: "#e0a93f", transform: "rotate(-20 11.4 27.6)" }),
-      // 眼睛（一点高光，不然像两颗豆子）
-      h("circle", { cx: 18.2, cy: 16, r: 2, fill: "#3b3229" }),
-      h("circle", { cx: 25.8, cy: 16, r: 2, fill: "#3b3229" }),
-      h("circle", { cx: 18.9, cy: 15.3, r: .65, fill: "#fff" }),
-      h("circle", { cx: 26.5, cy: 15.3, r: .65, fill: "#fff" }),
-      // 嘴
-      h("path", { d: "M22 19.2l-2.9 2.5h5.8z", fill: "#e8814a" }),
-      // 腮红
-      h("ellipse", { cx: 13.6, cy: 20.2, rx: 2.4, ry: 1.5, fill: "#ef9d7e", opacity: .55 }),
-      h("ellipse", { cx: 30.4, cy: 20.2, rx: 2.4, ry: 1.5, fill: "#ef9d7e", opacity: .55 }),
-      // 脚
-      h("path", { d: "M18.4 38.6v-2M18.4 38.6l-2 1.5M18.4 38.6l2 1.5M25.6 38.6v-2M25.6 38.6l-2 1.5M25.6 38.6l2 1.5",
-        stroke: "#e8814a", strokeWidth: 1.5, strokeLinecap: "round", fill: "none" }));
+    return h("div", { style: { width: z, height: z, borderRadius: r, flexShrink: 0, overflow: "hidden",
+      background: "#f7ecd6", display: "block" } },
+      h("img", { src: "img/qiu-avatar.webp", alt: "", draggable: false,
+        style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }));
   }
   window.QiuBird = QiuBird;
 

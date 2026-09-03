@@ -746,6 +746,9 @@ function GlassCard({
 // ============================================================
 // HOME — iOS liquid-glass springboard, paged, with dock
 // ============================================================
+// 自带图的 app 图标（不是线稿那一套，是一张真的画）。
+// 主屏那一格是 62×62 的玻璃，图按 cover 铺满、圆角 16——跟她自己换的图标同一个落法。
+const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.webp" };
 function GlassIcon({
   G,
   label,
@@ -764,8 +767,14 @@ function GlassIcon({
   }, []);
   // 她自己换过图标的那几个不上色（那是她的图，别去染它）
   const customIcon = appKey && window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
-  const tone = (!customIcon && appKey && typeof appTone === "function") ? appTone(appKey) : null;
-  const customSrc = customIcon ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon) : "";
+  // 自带图的那几个 app（v61.43：秋秋换成她给的那只小鸡）。
+  // ⚠️走的是【和她自己换图标同一条路】：填进 customSrc 就行，不用另开一支渲染。
+  //   她在主题工作台换过的话仍旧她说了算——customIcon 排在前面。
+  const builtInSrc = (typeof APP_BUILTIN_ICON !== "undefined" && APP_BUILTIN_ICON[appKey]) || "";
+  const tone = (!customIcon && !builtInSrc && appKey && typeof appTone === "function") ? appTone(appKey) : null;
+  const customSrc = customIcon
+    ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon)
+    : builtInSrc;
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
     className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",

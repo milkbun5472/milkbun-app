@@ -23,7 +23,9 @@ function isVersionedAsset(url) {
   return url.origin === self.location.origin && /[?&]v=/.test(url.search);
 }
 function isStaticSameOrigin(url) {
-  return url.origin === self.location.origin && /\.(js|css|png|json|ico)$/.test(url.pathname);
+  // webp 是 v61.43 补的：秋秋的头像和图标是 webp（同一张画 png 要 80KB、webp 只要 15KB）。
+  // 不写进来的话它俩每次都走网络，离线时秋秋就是两个空框。
+  return url.origin === self.location.origin && /\.(js|css|png|webp|json|ico)$/.test(url.pathname);
 }
 self.addEventListener("fetch", (event) => {
   const req = event.request;
