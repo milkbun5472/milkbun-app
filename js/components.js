@@ -269,41 +269,82 @@ function Spinner({
 }
 
 // standard interior header (calm, editorial)
+// 紧凑标题栏（v61.27 把它从「30px 大标题 + 一行英文小字」改过来的）
+//
+// 她 2026-09-03：「你又忘了把头上那一大块游戏去掉，你怎么老是忘」——
+// 而 .claude/rules/mobile-ui-layout.md §1 早就写着：
+//   「普通子页面使用紧凑标题栏：返回键、居中小标题、右侧等宽操作位。
+//     禁止再放 30–40px 大标题和大块上下留白。」
+//
+// ⚠️那为什么会「老是忘」？因为我一直在【一页一页地】改它：穿书那次单独写了一条紧凑栏，
+//   小游戏那次又想着「Head 是全 app 共用的，别动」——于是每来一页就得再想起来一次，
+//   而想不起来是常态。病根不是记性，是这条规矩当时没有一个【落点】：
+//   Head 自己就是那个违规的东西，六十多处都在用它。
+//   改 Head 一处，六十多页一起合规；往后新页面用 Head 就自动是对的。
+//
+// 版式：返回键 / 居中小标题（副标题跟在下面一行）/ 右侧等宽操作位。
+// 左右两边等宽，标题才真的居中——右边没东西时也留着那块空位。
 function Head({
   zh,
   en,
-  onBack,
-  right
+  sub,
+  onBack
+  , right
 }) {
   const t = useTheme();
+  // 副标题：sub 优先；只有 en 时也照发，但中文的 en 不做大写和字距
+  const line = sub || en || "";
+  const cjk = /[一-鿿]/.test(String(line));
+  const SIDE = 46;
   return /*#__PURE__*/React.createElement("div", {
-    className: "shrink-0 px-6 pb-3",
+    className: "shrink-0 flex items-center",
     style: {
       background: t.bg,
-      paddingTop: safeTop(20)
+      paddingTop: safeTop(8),
+      paddingBottom: 8,
+      borderBottom: "1px solid " + t.line
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-4"
-  }, /*#__PURE__*/React.createElement("button", {
+    className: "shrink-0 flex items-center",
+    style: { width: SIDE }
+  }, onBack ? /*#__PURE__*/React.createElement("button", {
     onClick: onBack,
-    className: "active:opacity-50 -ml-3 flex items-center justify-center",
-    style: { width: 44, height: 44 }
-  }, /*#__PURE__*/React.createElement(IArrow, {
-    size: 19,
-    color: t.ink
-  })), right || /*#__PURE__*/React.createElement("div", {
-    className: "w-5"
-  })), /*#__PURE__*/React.createElement("h1", {
+    className: "active:opacity-50 flex items-center justify-center",
+    style: { width: SIDE, height: 34 }
+  }, /*#__PURE__*/React.createElement(IArrow, { size: 18, color: t.ink })) : null), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0",
+    style: { textAlign: "center" }
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_DISPLAY,
       fontWeight: 400,
-      fontSize: 30,
-      lineHeight: 1,
-      color: t.ink
+      fontSize: 15.5,
+      lineHeight: 1.2,
+      color: t.ink,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
     }
-  }, zh), en && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2"
-  }, /*#__PURE__*/React.createElement(Eyebrow, null, en)));
+  }, zh), line ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: F_BODY,
+      fontSize: 9.5,
+      lineHeight: 1.3,
+      marginTop: 1,
+      color: t.fog,
+      letterSpacing: cjk ? 0 : "0.14em",
+      textTransform: cjk ? "none" : "uppercase",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, line) : null), /*#__PURE__*/React.createElement("div", {
+    className: "shrink-0 flex items-center justify-end",
+    // ⚠️右边用 minWidth 不用 width：没东西时它和左边等宽、标题正居中；
+    //   真放了两个按钮（人格档案馆那种「导入 ＋」）就让它撑开，
+    //   写死 46px 的话按钮会溢出来压到标题上。
+    style: { minWidth: SIDE, paddingRight: 8 }
+  }, right || null));
 }
 function AvatarPicker({
   character,

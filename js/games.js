@@ -320,9 +320,34 @@
     const wolfGameDef = GAMES.find(function (g) { return g.key === "werewolf"; });
 
     // ---- 游戏架 ----
+    // 她 2026-09-03：「背景还是无聊」。盒子已经是盒子了，可它们浮在一片纯色上——
+    // 一架游戏总得摆在【什么里面】。所以给这一屏一个柜子：
+    //   · 竖着的木纹（一条条深浅相间的板，宽窄不等，不然像条形码）
+    //   · 四周压暗一圈，中间透出来一点光 —— 柜子是凹进去的，不是一张平面
+    // ⚠️全部从主题色 t.ink 兑出来，深浅主题各自成立；不写死颜色（背景是界面，不是画）。
+    // ⚠️这些叠层是拿 t.ink 直接拼 8 位 hex 的透明度（#rrggbb + "18"）。
+    //   现在全部主题的 ink 都是 6 位 hex，成立；但万一哪天有人写成 rgb()，
+    //   拼出来就是一个非法颜色，整条 backgroundImage 会被浏览器整条丢掉——
+    //   连木纹带柜壁一起没，而且不报错。所以先验一下，不是 6 位 hex 就只铺底色。
+    const hex6 = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+    const cab = !hex6 ? { backgroundColor: t.bg } : {
+      backgroundColor: t.bg,
+      backgroundImage: [
+        // 柜壁：左右两侧压暗，中间透光——这样它是凹进去的一格，不是一张平面
+        "linear-gradient(90deg, " + t.ink + "26 0%, " + t.ink + "00 13%, " + t.ink + "00 87%, " + t.ink + "26 100%)",
+        // 顶上一道压暗，底下也收一点
+        "linear-gradient(180deg, " + t.ink + "1c 0%, " + t.ink + "00 12%, " + t.ink + "00 88%, " + t.ink + "14 100%)",
+        // 木纹：板宽不等（23 / 15 / 31），不然像条形码；每块板一深一浅两条边
+        "repeating-linear-gradient(90deg," +
+          t.ink + "00 0 23px," + t.ink + "18 23px 24px," + t.ink + "05 24px 25px," +
+          t.ink + "00 25px 40px," + t.ink + "12 40px 41px," +
+          t.ink + "00 41px 72px," + t.ink + "1a 72px 73px," + t.ink + "05 73px 74px)"
+      ].join(","),
+      backgroundAttachment: "local"
+    };
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: cab },
         // 没打完的那几局：架子上那一盒【还摊在桌上】，不是一条通用的提示横幅。
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
         (function () {
@@ -375,8 +400,9 @@
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.45 } }, g.min + "~" + g.max + " 人"));
                 }),
                 row.length === 1 ? h("div", { style: { flex: "1 1 0" } }) : null),
-              // 木架线：盒子是坐在架子上的
-              h("div", { style: { height: 3, borderRadius: 2, background: t.line, marginTop: 9, opacity: .9 } }));
+              // 隔板：一块有厚度的板（上面一道亮边、下面一道暗影），盒子坐在它上面
+              h("div", { style: { marginTop: 9, height: 6, borderRadius: "1px 1px 3px 3px", background: t.line,
+                boxShadow: "inset 0 1px 0 " + t.bg2 + ", 0 2px 5px " + t.ink + "1a" } }));
           });
         })(),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", lineHeight: 1.7, marginTop: 4, marginBottom: 6 } }, "从架上抽一盒，叫上想一起玩的角色。")));

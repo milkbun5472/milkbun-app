@@ -2502,24 +2502,19 @@
     function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
 
     return h("div", { className: "h-full flex flex-col" },
-      // ⚠️这一页不用 Head（她 2026-09-03：「那一大块穿书中的标题也没弄掉」）。
-      //   Head 是 30px 大标题 + 一行英文小字，占掉将近三分之一屏——
-      //   而这是【读正文】的一页，上面那一大块把要读的东西整个挤下去了。
-      //   .claude/rules/mobile-ui-layout.md §1：普通子页面一律紧凑标题栏
-      //   （返回键 + 居中小标题 + 右侧等宽操作位）。书名摆在这条上，
-      //   底下那份重复的书名抬头一并撤掉——同一个名字没必要连着写两遍。
-      h("div", { className: "shrink-0 flex items-center", style: { paddingTop: safeTop(8), paddingBottom: 8, paddingLeft: 4, paddingRight: 4, borderBottom: "1px solid " + t.line, background: t.bg } },
-        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 42, height: 34 } }, h(IArrow, { size: 18, color: t.ink })),
-        h("div", { className: "flex-1 min-w-0 text-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.ficTitle || "穿书中"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-            window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""))),
-        // 右侧等宽操作位：收尾挪到这儿——它原来挤在底部输入栏底下，快贴到屏幕边了
-        h("div", { className: "shrink-0 flex items-center justify-center", style: { width: 42, height: 34 } },
-          (props.fic && !s.done && trans.length >= 4)
-            ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 11, color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" } }, endAsk ? "确定？" : "收尾")
-            : null)),
+      // ⚠️v61.27：这里原来自己写了一条紧凑标题栏，因为当时 Head 还是「30px 大标题」。
+      //   Head 已经改成紧凑栏了（components.js），这一份就撤掉——
+      //   同一层东西不许有两个实现，不然下次只会改到其中一处。
+      //   「收尾」放右侧那个等宽操作位；这一步不可逆，所以照旧要点两下。
+      h(Head, {
+        zh: s.ficTitle || "穿书中",
+        sub: window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""),
+        onBack: props.onBack,
+        right: (props.fic && !s.done && trans.length >= 4)
+          ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11, color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" } }, endAsk ? "确定？" : "收尾")
+          : null
+      }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
         endAsk ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, paddingTop: 10 } }, "再点一下右上角就定稿：写完收束和作者的判词，这一版放回书架") : null,

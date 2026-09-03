@@ -161,16 +161,14 @@ test("「生成降落节点」换成人话了", () => {
 test("穿书中那一页不再顶着一块 30px 大标题", () => {
   const th = fic.slice(fic.indexOf("  // 穿书会话（互动叙事）"), fic.indexOf("  // ---------- 底 nav ----------"));
   assert.ok(th.length > 2000, "抠不出 RPThread");
-  // Head 是 30px 大标题 + 一行英文小字，占掉将近三分之一屏，而这是【读正文】的一页
-  assert.doesNotMatch(th, /h\(Head, \{ zh: "穿书中"/, "那一大块还在");
-  // 换成紧凑标题栏：返回键 + 居中小标题 + 右侧等宽操作位（mobile-ui-layout §1）
-  assert.match(th, /paddingTop: safeTop\(8\)/);
-  assert.match(th, /h\(IArrow, \{ size: 18, color: t\.ink \}\)/);
-  assert.match(th, /className: "flex-1 min-w-0 text-center"/, "小标题没居中");
-  assert.match(th, /右侧等宽操作位/);
+  // v61.27：Head 本身已经改成紧凑标题栏了（components.js），所以这一页改回用 Head——
+  // 同一层东西不许有两个实现，不然下次只会改到其中一处。
+  assert.match(th, /h\(Head, \{\n\s+zh: s\.ficTitle \|\| "穿书中",/);
+  assert.match(th, /sub: window\.Fanfic\.rpModeShort/, "副标题没接上");
+  assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
   // 书名只写一遍——底下那份重复的抬头撤掉了
   assert.equal((th.match(/s\.ficTitle/g) || []).length, 1, "书名还是连着写了两遍");
-  // 收尾挪到顶栏那个等宽位，原来挤在底部快贴屏幕边了；照旧要点两下
+  // 收尾在顶栏右侧那个等宽位；照旧要点两下
   assert.match(th, /endAsk \? "确定？" : "收尾"/);
   assert.match(th, /再点一下右上角就定稿/);
   assert.doesNotMatch(th, /"收尾 · 把这一版放回书架"/);

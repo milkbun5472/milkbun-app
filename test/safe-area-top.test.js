@@ -77,7 +77,11 @@ test("逐个顶栏查：谁没让开刘海就报谁的名字", () => {
 test("共用顶栏 Head 自己把状态栏那一条涂上", () => {
   const i = comp.indexOf("function Head(");
   const seg = comp.slice(i, comp.indexOf("\n}\n", i));
-  assert.match(seg, /paddingTop: safeTop\(20\)/, "Head 没让开刘海");
+  // ⚠️钉的是「让开了刘海」，不是「让开 20px」——safeTop(px) 是
+  //   calc(env(safe-area-inset-top) + px)，那个 px 只是刘海底下再留多少喘息，
+  //   多少都不影响让位。v61.27 Head 从 30px 大标题改成紧凑栏，这个数跟着从 20 变 8，
+  //   让位一点没少，这条却红了——那冻的是长相不是行为。
+  assert.match(seg, /paddingTop: safeTop\(\d+\)/, "Head 没让开刘海");
   assert.doesNotMatch(seg, /pt-5/, "让开的高度改用 safeTop 算，别再留 tailwind 的 pt-5 双份");
 });
 

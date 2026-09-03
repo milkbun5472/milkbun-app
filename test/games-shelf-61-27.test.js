@@ -103,3 +103,34 @@ test("没打完的那几局是「还摊在桌上」，不是一条通用横幅",
   assert.match(shelf, /if \(wolfSave\) rows\.push\(/);
   assert.match(shelf, /Object\.keys\(gSaves\)\.forEach/);
 });
+
+// ── 她 2026-09-03：「但是背景还是无聊，还有宝宝你又忘了把头上那一大块游戏去掉」──
+test("架子摆在一个柜子里，不是浮在一片纯色上", () => {
+  assert.match(shelf, /const cab = /);
+  assert.match(shelf, /repeating-linear-gradient\(90deg,/, "没有木纹");
+  assert.match(shelf, /柜壁/, "两侧没压暗，那还是一张平面");
+  assert.match(shelf, /style: cab/, "配好了却没铺上");
+  // 背景是【界面】不是画：必须从主题色兑出来，不许写死
+  //（⚠️切片要从那道 hex6 校验开始，不是从 const cab —— 校验写在它上面一行）
+  const cabSeg = shelf.slice(shelf.indexOf("    // ⚠️这些叠层"), shelf.indexOf("return h(\"div\", { className: \"h-full"));
+  assert.ok(cabSeg.length > 400, "抠不出背景那一段");
+  // 板宽要不等，不然像条形码。真去数那条木纹里每块板有多宽。
+  const grain = /repeating-linear-gradient\(90deg,([\s\S]*?)\)"/.exec(cabSeg);
+  assert.ok(grain, "找不到木纹那一条");
+  // ⚠️每一段长这样：t.ink + "18 23px 24px," —— 开头那两位是【透明度】不是坐标。
+  //   直接拿 /(\d+)(?:px)? (\d+)px/ 去扫，会把 "18 23px" 当成一段，解出来全是错的
+  //   （实测解出 [[0,20],[18,20],[0,21]…]，板宽跟着全错，这条断言等于没测）。
+  //   先把紧跟在引号后面的那两位透明度剥掉，再扫。
+  const cleaned = grain[1].replace(/"[0-9a-f]{2} /g, '"');
+  const stops = [...cleaned.matchAll(/(\d+)(?:px)? (\d+)px/g)].map(m => [Number(m[1]), Number(m[2])]);
+  const plank = stops.map(x => x[1] - x[0]).filter(w => w > 3);   // >3 的才是板，1px 的是板缝
+  assert.ok(plank.length >= 3, "木纹里数不出几块板");
+  assert.ok(new Set(plank).size >= 2, "每块板一样宽，那是条形码不是木纹");
+  assert.doesNotMatch(cabSeg, /#[0-9a-f]{3,8}\b/i, "背景里写死了颜色，换主题就不对了");
+  assert.match(cabSeg, /t\.ink/); assert.match(cabSeg, /t\.bg/);
+  // 拼 8 位 hex 之前先验一道：非法颜色会让整条 backgroundImage 被丢掉，而且不报错
+  assert.match(cabSeg, /const hex6 = \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(t\.ink \|\| ""\)\)/);
+  assert.match(cabSeg, /!hex6 \? \{ backgroundColor: t\.bg \}/);
+  // 隔板要有厚度（上亮边 + 下投影），不再是一条 3px 细线
+  assert.match(shelf, /inset 0 1px 0 " \+ t\.bg2/);
+});
