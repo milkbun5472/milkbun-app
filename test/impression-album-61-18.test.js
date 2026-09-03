@@ -64,3 +64,15 @@ test("台面一直铺到最顶上，顶栏也坐在卡纸上", () => {
 test("单张卡片也压相角，和珍藏册是同一本册子里的东西", () => {
   assert.match(src, /corners\(22\),/);
 });
+
+test("单张卡片是一张贴着胶带的旧相纸，不是一块白圆角", () => {
+  const i = src.indexOf("if (cardId && curChar)");
+  const card = src.slice(i, i + 4200);
+  assert.ok(card.indexOf("background: t.bg2") < 0, "又退回主题白底了");
+  assert.ok(card.indexOf("background: PAPER") >= 0, "卡片没用相纸色");
+  assert.ok(card.indexOf("radial-gradient") >= 0, "相纸没泛旧，还是死白一块");
+  assert.ok(card.indexOf("胶带") >= 0, "少了那条胶带");
+  assert.match(card, /"No\. " \+ String\(idxOf \+ 1\)/, "白边上没有编号");
+  // 纸上的字不许再取主题色：深色主题下 t.ink 是浅的，会和相纸撞成白底白字
+  assert.ok(card.indexOf('color: t.ink, textAlign: "center"') < 0, "引文还在用主题色");
+});

@@ -467,7 +467,9 @@ test("卡片版式照「初形象生成」那套：白点连线标签＋英文�
   assert.match(imp, /boxShadow: "0 0 0 7px rgba\(255,255,255,\.26\)"/, "白点带光晕");
   assert.match(imp, /onLeft \? \[chip, line, dot\] : \[dot, line, chip\]/, "点永远朝画面里侧");
   assert.match(imp, /CHANGE IN IMPRESSION/, "英文水印行");
-  assert.match(imp, /letterSpacing: "\.42em"/);
+  // v61.26：英文水印从相片正下方那一行，挪到白边上跟「No. 04 · 月份」并排，
+  // 字距也跟着收到 .34em——它现在是相纸白边上的印刷小字，不是一行居中标题。
+  assert.match(imp, /letterSpacing: "\.34em"/);
 });
 
 test("跨角色负例：别人的卡喂进生成，各写各的才不会全撞同族意象", () => {

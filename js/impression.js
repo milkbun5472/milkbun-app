@@ -528,12 +528,27 @@
       const e = listOf(curChar).find(x => x.id === cardId);
       const c = (props.characters || []).find(x => x.id === curChar) || {};
       if (!e) { setCardId(null); return null; }
+      // 编号＝这本册子里的第几张（按月份从旧到新，跟珍藏册那页铺的顺序一致）
+      const idxOf = listOf(curChar).findIndex(x => x.id === e.id);
       return h("div", { style: S.wrap }, header(M.monthLabel(e.monthKey)),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 18px 40px" } },
-          h("div", { style: { borderRadius: 16, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.10)" } },
-            h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: t.bg } },
+          // 这一张是【从册子上取下来的那张相纸】（v61.26，她 2026-09-03：「点进卡里面还是白的，
+          // 卡片要不要也做点装饰」）。原来是一块 t.bg2 的白圆角——白得像个弹窗，
+          // 跟外面那本相册不是一件东西。现在：相纸本身泛旧（四角压暖压深，不是纯白）、
+          // 上边斜贴一条胶带、下半张白边上有铅笔写的编号和月份。
+          h("div", { style: { position: "relative", marginTop: 12, background: PAPER,
+            backgroundImage: "radial-gradient(120% 90% at 50% 0,rgba(255,255,255,.55),transparent 55%),"
+              + "radial-gradient(80% 60% at 8% 100%,rgba(146,116,72,.16),transparent 60%),"
+              + "radial-gradient(80% 60% at 96% 6%,rgba(146,116,72,.13),transparent 62%)",
+            padding: 9, boxShadow: "0 16px 40px rgba(0,0,0,.42)", transform: "rotate(-.5deg)" } },
+            // 胶带：斜贴在上边缘，压住相纸和台面的交界——这就是它在册子上的贴法
+            h("div", { style: { position: "absolute", top: -13, left: "50%", width: 104, height: 26,
+              transform: "translateX(-58%) rotate(-3.4deg)", background: "rgba(226,214,186,.62)",
+              borderLeft: "1px dashed rgba(255,255,255,.5)", borderRight: "1px dashed rgba(255,255,255,.5)",
+              boxShadow: "0 2px 6px rgba(0,0,0,.22)", pointerEvents: "none" } }),
+            h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: "rgba(20,17,14,.24)" } },
               e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
-                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: 20 } }, "还没有剪影"),
+                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: "rgba(243,236,224,.6)", textAlign: "center", padding: 20 } }, "还没有剪影"),
               // 这张也压四个相角，和珍藏册那一页是同一本册子里的东西（v61.22）
               corners(22),
               // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
@@ -549,14 +564,19 @@
                     display: "flex", alignItems: "center", gap: 7 } },
                     onLeft ? [chip, line, dot] : [dot, line, chip]);
                 }))),
-            h("div", { style: { padding: "20px 18px 24px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".42em", color: t.fog, textAlign: "center", marginBottom: 10, textIndent: ".42em" } }, "CHANGE IN IMPRESSION"),
-              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+            h("div", { style: { padding: "16px 12px 14px", position: "relative" } },
+              // 相纸下半张那道白边：左边铅笔写的编号和月份，右边这一册的名字
+              h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: "rgba(64,54,42,.86)", letterSpacing: ".04em" } },
+                  "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".34em", color: "rgba(120,100,72,.55)", textIndent: ".34em" } }, "CHANGE IN IMPRESSION")),
+              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "rgba(43,36,28,.95)", textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: t.fog, opacity: .55 } }, "“"),
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: t.ink, textAlign: "center", padding: "0 6px" } }, e.quote),
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: t.fog, opacity: .55, textAlign: "right" } }, "”")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: "rgba(120,100,72,.5)" } }, "“"),
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: "rgba(43,36,28,.95)", textAlign: "center", padding: "0 6px" } }, e.quote),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: "rgba(120,100,72,.5)", textAlign: "right" } }, "”")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(94,79,58,.8)", textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
           h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
