@@ -394,3 +394,71 @@ test("两个界面永远是同一段对话——小悬浮屏从不卸载，得�
   A.api.saveChat([]);
   assert.deepEqual(seen, ["A:2", "B:2"], "退订之后还在收");
 });
+
+// ── 她 2026-09-03：「他是能实际修改卡了吗宝宝比如里面改一小段。
+//    或者能生成实际 css 应用到界面」──────────────────────────────
+test("改一小段：只动那一段，别处一个字节都不动", () => {
+  const orig = "他二十八岁。\n\n他会先理解你，会等你。\n\n他不摆霸总架子。\n\n他尊重你的决定。";
+  const out = A.api.snippetEdit(orig, "他会先理解你，会等你。", "他会先理解你，但不代表他会让步——他等得起，也算得清。");
+  assert.match(out, /他会先理解你，但不代表他会让步/);
+  // 前后一个字节都不许变
+  assert.ok(out.startsWith("他二十八岁。\n\n"), "前面被动过了");
+  assert.ok(out.endsWith("\n\n他不摆霸总架子。\n\n他尊重你的决定。"), "后面被动过了");
+  assert.equal(out.split("他尊重你的决定").length, 2, "别处被顺手改写了");
+});
+
+test("抄不准就不许硬改——找不到、或者有好几处，都要当场报错", () => {
+  const orig = "他会等你。中间。他会等你。";
+  assert.throws(() => A.api.snippetEdit(orig, "他会等你。", "改了"), /不止一处/);
+  assert.throws(() => A.api.snippetEdit(orig, "他压根没说过这句", "改了"), /找不到/);
+  assert.throws(() => A.api.snippetEdit(orig, "  ", "改了"), /没说要改原文里的哪一段/);
+  // 空白对不上是常事（重抄时换了换行）：折成 \s+ 再找一次，按原文边界切
+  const wrapped = "他二十八岁。\n他会\n先理解你。\n他不摆架子。";
+  const out = A.api.snippetEdit(wrapped, "他会 先理解你。", "他会先算清。");
+  assert.equal(out, "他二十八岁。\n他会先算清。\n他不摆架子。");
+  // 折了空白之后【撞出好几处】的，也一样不许硬改——
+  // 这一档比逐字歧义更容易漏：逐字看是一处，折了空白就成了两处。
+  // ⚠️两处都得是「逐字对不上、折了空白才对上」的，不然走的是逐字那条路，测不到这一档
+  const twice = "他会\n等你。中间。他会\t等你。";
+  assert.throws(() => A.api.snippetEdit(twice, "他会 等你。", "改了"), /找不到/);
+});
+
+test("只看过半截就不许整段替换——代码拦，不指望它自觉", () => {
+  // 它自己一直在担心这件事（「我不能把半截当全文直接出 patch」），
+  // 但那只是降概率：模型高兴起来照样会出，那张四千字的卡当场只剩 300 字。
+  // ⚠️开头那一句要在整份里【只出现一次】，不然被歧义那道闸挡下来，测的就不是这条了
+  const long = "他二十八岁，是这家公司的总裁。\n" + "他做事有自己的判断。".repeat(400);
+  const many = Array.from({ length: 20 }, (_, i) => ({ id: "c" + i, name: "角色" + i, persona: long }));
+  const ctx = { characters: many, onPatchCharacter: () => { throw new Error("不该走到写入口"); } };
+  A.api.snapshot({ characters: many }, "随便问问");          // 这一轮只给了开头 300 字
+  assert.throws(() => A.api.apply({ target: "persona", id: "c7", text: "短短一句" }, ctx),
+    /只看过这一栏的前 \d+ 字/);
+  // 同一张卡，这一轮给了全文 → 整段替换放行
+  let got = null;
+  A.api.snapshot({ characters: many }, "看看角色7");
+  A.api.apply({ target: "persona", id: "c7", text: "重写过的整份人设" },
+    { characters: many, onPatchCharacter: (id, p) => { got = { id, p }; } });
+  assert.deepEqual(got, { id: "c7", p: { persona: "重写过的整份人设" } });
+  // 改一小段【不受这道闸限制】——它本来就不会碰别处
+  let got2 = null;
+  A.api.snapshot({ characters: many }, "随便问问");
+  A.api.apply({ target: "persona", id: "c7", find: "他二十八岁，是这家公司的总裁。", text: "他二十九岁，是这家公司的总裁。" },
+    { characters: many, onPatchCharacter: (id, p) => { got2 = p; } });
+  assert.ok(got2 && got2.persona.length === long.length, "改一小段被那道闸挡住了");
+});
+
+test("记忆库不吃这一套（它是往里加的，没有原文那一段）", () => {
+  assert.throws(() => A.api.apply({ target: "memory", id: "c1", find: "x", text: "y" }, {}), /不能改一小段/);
+});
+
+test("只改一小段的时候，界面摆的就是那一小段", () => {
+  assert.match(src, /p\.find\s*\n?\s*\? h\("div"/, "两种改法没分开摆");
+  assert.match(src, /"原文这一段"/);
+  assert.match(src, /别处一个字都不动/);
+  // find 要真的一路带到 patch 上，不然界面和 apply 都看不见它
+  assert.match(src, /find: String\(x\.find \|\| ""\),/);
+  // 提示词里要把两种改法说清，并且默认走「改一小段」
+  assert.match(src, /改一小段（默认走这个）/);
+  assert.match(src, /find 必须在原文里【只出现一次】/);
+  assert.match(src, /你【绝对不许】整段替换/);
+});

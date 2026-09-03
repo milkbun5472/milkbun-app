@@ -325,6 +325,9 @@
         出图配饰: clip(c.photoAccessories, 200) || "（空）",
         有参考照: !!c.refPhoto, 出图画风: c.photoStyle || "realistic"
       };
+      // 记下这一轮给它看过多少字：整段替换之前拿它兜一道（见 apply）
+      shownLen[shownKey("persona", c.id)] = row.人设.length;
+      shownLen[shownKey("appearance", c.id)] = row.外貌.length;
       // 完整与否必须写在卡上，不许让它猜
       row.这张卡是否完整 = full && per.length <= SNAP_ONE;
       if (!row.这张卡是否完整) {
@@ -342,7 +345,7 @@
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","text":"改完的完整内容","why":"为什么这么改，一两句"}]}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question) {
@@ -386,8 +389,14 @@
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
       + "别的一律不许碰，也别假装你改了。**装修只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把界面弄坏。\n\n"
+      + "【两种改法 · 挑对的那一种】\n"
+      + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
+      + "text＝换成的那一段。替换在本地做，原文别处一个字节都不动。\n"
+      + "  find 必须在原文里【只出现一次】；抄不准或者拿不准就别出这条 patch，先问她。\n"
+      + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
+      + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
-      + "· text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」——她要能直接整段替换。\n"
+      + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + manualBlock(question) + "\n\n"
@@ -408,6 +417,8 @@
         pid: "p" + Date.now() + "_" + i,
         target: x.target, id: String(x.id || "").trim(),
         field: String(x.field || "").trim(),
+        find: String(x.find || ""),          // 有 find＝只改这一段，别处一个字节不动
+
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200)
       }));
@@ -416,12 +427,64 @@
     return { reply: reply || "改动稿在下面。", patches };
   }
 
-  // 应用一条改动稿。写入口全在 TARGETS 里，这里只做校验与分发。
+  // ---- 「改一小段」（她 2026-09-03：「比如里面改一小段」）----
+  // 整份重打一遍是危险的：一张四千字的人设，让它整段重写只为了动一句话，
+  // 别处被顺手改写、漏掉一段，她根本看不出来（改前改后并排摆着也没人逐字比四千字）。
+  // 所以真正的「改一小段」是：它逐字抄出原文那一段（find），再给替换的那一段；
+  // 【替换在本地做】，别处一个字节都不动。这不是提示词能保证的事，是代码保证的。
+  const cut30 = t => { const x = String(t || "").replace(/\s+/g, " ").trim(); return x.length > 30 ? x.slice(0, 30) + "…" : x; };
+  const reEsc = t => String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // 空白对不上是常事（它重抄的时候换了换行）：把空白折成 \s+ 再找一次，
+  // 找到了也按【原文的边界】切，替换回去的还是原文那一段。
+  function fuzzySpan(hay, needle) {
+    const pat = String(needle).trim().split(/\s+/).map(reEsc).join("\\s+");
+    if (!pat) return null;
+    let re; try { re = new RegExp(pat, "g"); } catch (e) { return null; }
+    const found = [];
+    let m; while ((m = re.exec(hay)) !== null) { found.push([m.index, m.index + m[0].length]); if (re.lastIndex === m.index) re.lastIndex++; }
+    return found.length === 1 ? found[0] : null;
+  }
+  function snippetEdit(cur, find, repl) {
+    const s0 = String(cur == null ? "" : cur), f = String(find || "");
+    if (!f.trim()) throw new Error("没说要改原文里的哪一段");
+    const i = s0.indexOf(f);
+    if (i >= 0) {
+      if (s0.indexOf(f, i + f.length) >= 0) throw new Error("「" + cut30(f) + "」在原文里出现了不止一处，说不清要改哪一段");
+      return s0.slice(0, i) + repl + s0.slice(i + f.length);
+    }
+    const span = fuzzySpan(s0, f);
+    if (!span) throw new Error("原文里找不到「" + cut30(f) + "」——它可能记错了，没敢动");
+    return s0.slice(0, span[0]) + repl + s0.slice(span[1]);
+  }
+
+  // 上一次给它看过多少字。整段替换之前要拿它兜一道：
+  // 只看过前 300 字就敢整段替换的话，一张四千字的卡当场只剩 300 字——
+  // 这正是它自己一直在担心的那件事（「我不能把半截当全文直接出 patch」），
+  // 光靠它自觉不行，得代码拦住。
+  const shownLen = {};
+  const shownKey = (target, id, field) => target + ":" + id + (field ? ":" + field : "");
+
+  // 应用一条改动稿。写入口全在 TARGETS 里，这里只做校验、算出最终文本，再分发。
   function apply(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) throw new Error("不认识的改动类型");
     if (patch.target !== "style" && !patch.id) throw new Error("这条没说要改谁");
-    return T.write(patch.id, patch, ctx);
+    const p = patch;
+    if (p.find) {
+      // 记忆库是往里加，没有「原文那一段」可言
+      if (p.target === "memory") throw new Error("记忆库是往里加的，不能改一小段");
+      const cur = before(p, ctx);
+      if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
+      return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
+    }
+    // 整段替换：只看过半截就不许整段替换
+    if (p.target === "persona" || p.target === "appearance" || p.target === "profile") {
+      const cur = String(before(p, ctx) || "");
+      const seen = shownLen[shownKey(p.target, p.id, p.field)];
+      if (cur && seen != null && seen < cur.length)
+        throw new Error("它只看过这一栏的前 " + seen + " 字（一共 " + cur.length + " 字），不许整段替换——让它改用「改一小段」，或者先跟它说清是哪张卡");
+    }
+    return T.write(p.id, p, ctx);
   }
 
   // 改之前长什么样——界面要把改前改后并排摆出来
@@ -447,7 +510,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, snippetEdit, shownLen };
 })();
 
 // ============================================================
@@ -521,17 +584,27 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: ".05em" } }, A.labelOf(p, ctx)),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: sm ? 12.5 : 13.5, color: t.ink, marginTop: 2 } }, p.title),
         p.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, lineHeight: 1.6 } }, p.why) : null),
-      h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
-        was ? h("div", { style: { marginBottom: 8 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "改前"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .75 } },
-            open ? was : was.slice(0, cutOld) + (was.length > cutOld ? "…" : ""))) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, was ? "改后" : "新增"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
-          open ? p.text : p.text.slice(0, cutNew) + (p.text.length > cutNew ? "…" : "")),
-        (p.text.length > cutNew || (was && was.length > cutOld))
-          ? h("button", { onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
-          : null),
+      // 只改一小段的时候，摆的就是那一小段——不许把整份原文和整份新文摆出来让她自己找。
+      // 那是这个改法的意义所在：她一眼看得清动了哪儿，也一眼看得出别处没动。
+      p.find
+        ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "原文这一段"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.fog, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .8 } }, p.find),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "8px 0 3px" } }, "换成"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, p.text || "（删掉这一段）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } },
+              was ? "这一栏一共 " + was.length + " 字，别处一个字都不动" : "别处一个字都不动"))
+        : h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
+            was ? h("div", { style: { marginBottom: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "改前"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .75 } },
+                open ? was : was.slice(0, cutOld) + (was.length > cutOld ? "…" : ""))) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, was ? "改后 · 整段替换" : "新增"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
+              open ? p.text : p.text.slice(0, cutNew) + (p.text.length > cutNew ? "…" : "")),
+            (p.text.length > cutNew || (was && was.length > cutOld))
+              ? h("button", { onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
+              : null),
       h("div", { style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
         state
           ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: state === "已应用" ? "#4a8b68" : "#a4442e" } }, state)
