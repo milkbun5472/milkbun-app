@@ -284,8 +284,9 @@ test("详情页把这件衣服本身画进去，底色也取自它自己", () =>
   const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
   assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
-  assert.match(seg, /label\("OCCASION", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
-  assert.match(seg, /label\("MATERIAL", tone\.word\)/, "东西那一路的 eyebrow 是材质");
+  // v61.42 起眉标不留英文（.claude/rules/no-english-titles.md）；钉的是【那一栏说的是什么】，不是那串英文
+  assert.match(seg, /label\("什么场合穿", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
+  assert.match(seg, /label\("什么料子", tone\.word\)/, "东西那一路的 eyebrow 是材质");
   // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍
   // 只看代码，别把提醒这件事的注释本身当成犯规
   const code = seg.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");

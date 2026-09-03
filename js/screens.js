@@ -10000,6 +10000,33 @@ function closetGroups(data) {
   const items = (Array.isArray(data.items) ? data.items : []).filter(x => x && String(x.name || "").trim());
   return items.length ? [{ occasion: "", sets: items.slice(0, CLOSET_MAX_TOTAL) }] : [];
 }
+// 一身衣服该怎么称呼（v61.42，她 2026-09-03 报：「陆衍的衣服写成了这个风格，
+// 但是别人的都是正常描述是啥衣服，所以看陆衍状态卡就只能看到他穿着 xx 场合的衣服」）。
+//
+// 病根在提示词：name 那一栏原来只说「这一身的叫法」，模型于是给了一个【场合名】
+//（「日常采购与平价餐厅出行套」）。可场合已经有 occasion 那一栏了——写两遍，
+// 等于 name 这一栏是空的。而 name 会顺着 carryContextText 进聊天上下文，
+// 模型再照抄进 wearing，状态卡上就成了「他穿着 xx 场合的衣服」。
+//
+// 提示词那头改了（说清 name 要写衣服本身）。这儿是代码这一道：
+// **已经存下来的坏名字不会自己变好**（衣柜一次最多换两件，钉住的还不换），
+// 所以渲染和喂上下文时都过一遍这个函数——认出场合名就退回 note 的头一句。
+// 规则降概率，代码才保证。
+const GARMENT_RE = /[衣裤裙衫袍褂鞋靴帽袄巾襦裳氅]|T恤|外套|夹克|卫衣|西装|毛衣|针织|大衣|风衣|背心|马甲|长衫|旗袍|衬衫|羽绒|开衫|连帽|牛仔|短打|劲装/;
+function outfitLabel(set, occasion) {
+  const name = String((set && set.name) || "").trim();
+  const note = String((set && set.note) || "").trim();
+  if (!name) return note.split(/[，。；,;]/)[0] || "";
+  // 名字里有衣服，就是好名字，原样用
+  if (GARMENT_RE.test(name)) return name;
+  // 没有衣服：note 里要是说清了穿的是什么，拿它头一句顶上
+  const first = note.split(/[，。；,;]/).filter(Boolean)[0] || "";
+  if (GARMENT_RE.test(first)) return first.trim();
+  // note 也说不清（少见）：原样用那个名字。
+  // ⚠️别在这儿「把场合前缀切掉」——切出来是「的那套」这种残句，比原名还糟。
+  //   名字怪一点是提示词那头的事，代码这一道只负责【有更好的就换上】，不负责硬修。
+  return name;
+}
 // 随身物摘要，喂给角色本人（她 2026-08-29：这一整块以前一个字都不进上下文，
 // 是「声明了、生成了、从没被引用过」那个病的原样重演——衣柜里挂着八件衣服，
 // 出图时一件都用不上；包里那把伞，聊天里他掏不出来）。
@@ -10019,7 +10046,7 @@ function carryContextText(box, pins, opts) {
   });
   const groups = closetGroups(b.outfit);
   if (groups.length) {
-    const rows = groups.slice(0, 5).map(g => (g.occasion ? g.occasion + "：" : "") + g.sets.slice(0, 4).map(x => String(x.name).trim()).join("、"));
+    const rows = groups.slice(0, 5).map(g => (g.occasion ? g.occasion + "：" : "") + g.sets.slice(0, 4).map(x => outfitLabel(x, g.occasion)).filter(Boolean).join("、"));
     lines.push("· 衣柜里：" + rows.join("；"));
   }
   if (!lines.length) return "";
@@ -10385,8 +10412,11 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
         + "\n【同一个场合可以有好几套】他在同一种场合下反复挑中的那几套，彼此只有细微差别（颜色、料子、新旧、配的东西不同）——"
         + "那正是一个人有偏好的证据。真讲究的人这里就该厚，不在乎穿什么的人一个场合一套也够。"
         + "\n【场合怎么分】按他真过的日子分，不是按季节表分：他每天要去的地方、要见的人、要撑的场面、独自在家的时候、以及那些不常有但一定得有的场合。场合名要带上他那个世界的说法。"
-        + "\n每套的 name 是这一身的叫法，note 写它由什么组成、什么料子颜色、什么时候穿、哪儿来的。" + tail,
-      schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身的叫法\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}"
+        + "\n【name 写的是衣服本身，不是场合】场合已经有 occasion 那一栏了，name 再写一遍场合，这一栏就等于空的。"
+        + "name 要让人光看它就想象得出他身上穿的是什么：主件是什么、什么颜色或料子、怎么搭的。"
+        + "判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？** 看不出就是写坏了。"
+        + "\nnote 再补：由什么组成、什么料子颜色、什么时候穿、哪儿来的。" + tail,
+      schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}"
     }
   };
   const spec = S[key] || S.bag;
@@ -10423,7 +10453,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
     maxTokens: 24000,
     schemaHint: "{\"bag\":{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]},"
       + "\"pocket\":{\"items\":[...同上]},\"trinket\":{\"items\":[...同上]},"
-      + "\"outfit\":{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身的叫法\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}}",
+      + "\"outfit\":{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}}",
     instruction: "一次推演「" + nm + "」身上和柜子里的四栏东西：包内、口袋、珍藏小物、衣柜。"
       + "\n\n⚠️【同一件东西只许出现在一栏里】四栏是一起写的，你自己分配好：一件东西是「出门要用」「伸手摸得到」"
       + "还是「没用但舍不得」，按下面每一栏的判据挑一栏放，别在两栏里各写一遍、也别换个说法写两遍。"
@@ -10594,7 +10624,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         style: { width: 98, paddingRight: 10, WebkitTapHighlightColor: "transparent" }
       },
         clothFigure({ tone: c, long, w: 88, pinned: isPinned(it), t }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, it.name),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, outfitLabel(it, g.occasion)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2, lineHeight: 1.5, minHeight: 28, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.note || ""));
     };
     // 一格隔间：柜子里的一层。她 2026-08-29 说「页面颜色的米白略单调，没有适配的风格」——
@@ -10790,8 +10820,9 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
               h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 4 } },
                 head,
                 h("div", { className: "flex-1 min-w-0", style: { paddingTop: isCloth ? 10 : 2 } },
-                  isCloth ? label("OCCASION", sheet._occ) : label("MATERIAL", tone.word),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, sheet.name),
+                  // 眉标不留英文（.claude/rules/no-english-titles.md，她 2026-09-03 立）
+                  isCloth ? label("什么场合穿", sheet._occ) : label("什么料子", tone.word),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, isCloth ? outfitLabel(sheet, sheet._occ) : sheet.name),
                   sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, sheet.note) : null)),
               think, pinRow))));
     })();
