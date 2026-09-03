@@ -343,11 +343,14 @@
           t.ink + "00 25px 40px," + t.ink + "12 40px 41px," +
           t.ink + "00 41px 72px," + t.ink + "1a 72px 73px," + t.ink + "05 73px 74px)"
       ].join(","),
-      backgroundAttachment: "local"
     };
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: cab },
+    // ⚠️柜子铺在【外壳】上、顶栏透明——不是铺在滚动区里。
+    //   铺在滚动区里的话，顶栏那一条还是平色，柜子从它下面才开始，
+    //   顶上就横着一道没被盖住的带子（她 2026-09-03 报的就是这个）。
+    //   而且柜子本来就该是【不动】的：盒子在架子上滚，柜子不跟着滚。
+    return h("div", { className: "h-full flex flex-col", style: cab },
+      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         // 没打完的那几局：架子上那一盒【还摊在桌上】，不是一条通用的提示横幅。
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
         (function () {

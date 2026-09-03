@@ -59,3 +59,9 @@ test("公共的那条改好了，就不许再各自另写一条", () => {
   assert.match(th, /h\(Head, \{/, "穿书那一页没用公共的 Head");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
 });
+
+test("外壳自己有底纹时，顶栏让得出去", () => {
+  // 不给这个口子，顶栏会在底纹上压出一条平色带——顶上那截没被盖住。
+  assert.match(HEAD, /, bg\n\}\)|  , bg\n\}\)/, "Head 收不了 bg");
+  assert.match(HEAD, /background: bg \|\| t\.bg,/, "顶栏底色写死了 t.bg，页面没法让它透上来");
+});

@@ -290,6 +290,7 @@ function Head({
   sub,
   onBack
   , right
+  , bg
 }) {
   const t = useTheme();
   // 副标题：sub 优先；只有 en 时也照发，但中文的 en 不做大写和字距
@@ -299,7 +300,11 @@ function Head({
   return /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 flex items-center",
     style: {
-      background: t.bg,
+      // ⚠️默认铺 t.bg；页面外壳自己有底纹时传 bg:"transparent" 让它透上来。
+      //   不给这个口子的话，顶栏会在底纹上压出一条平色带——顶上那截没被盖住
+      //   （她 2026-09-03：「你的小游戏背景又没覆盖顶部」）。
+      //   跟主屏壁纸同一条道理：底铺在外壳上，顶栏透明（home-screen-layout.md）。
+      background: bg || t.bg,
       paddingTop: safeTop(8),
       paddingBottom: 8,
       borderBottom: "1px solid " + t.line

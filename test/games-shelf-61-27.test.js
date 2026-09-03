@@ -134,3 +134,15 @@ test("架子摆在一个柜子里，不是浮在一片纯色上", () => {
   // 隔板要有厚度（上亮边 + 下投影），不再是一条 3px 细线
   assert.match(shelf, /inset 0 1px 0 " \+ t\.bg2/);
 });
+
+// 她 2026-09-03：「你的小游戏背景又没覆盖顶部」
+test("柜子铺在外壳上、顶栏透明——不是铺在滚动区里", () => {
+  // 铺在滚动区里的话，顶栏那一条还是平色，柜子从它下面才开始，
+  // 顶上就横着一道没被盖住的带子。跟主屏壁纸同一条道理：
+  // 底铺在外壳上，顶栏透明（home-screen-layout.md 里那句「这里透明让它透上来」）。
+  assert.match(shelf, /h\("div", \{ className: "h-full flex flex-col", style: cab \}/, "柜子没铺在外壳上");
+  assert.match(shelf, /h\(Head, \{ zh: "小游戏", en: "Games", onBack: props\.onBack, bg: "transparent" \}\)/, "顶栏没透明");
+  assert.doesNotMatch(shelf, /overflow-y-auto px-5 pb-8", style: cab/, "柜子还铺在滚动区里");
+  // 柜子本来就该不动：盒子在架子上滚，柜子不跟着滚
+  assert.doesNotMatch(shelf, /backgroundAttachment/, "还挂着 local，柜子会跟着内容一起滚");
+});
