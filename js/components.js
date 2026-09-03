@@ -653,6 +653,23 @@ function LineArea(props) {
 //   ③ 高光——左上一道斜的镜面反光，右下一团回弹的软光
 // 没壁纸时也成立：亮度提一点＋这一圈边，在米白底上照样看得出是一片玻璃。
 const GLASS_BLUR = "blur(14px) saturate(1.9) brightness(1.06)";
+// 铺了照片壁纸时同一块玻璃要厚一档（她 2026-09-03：「放了背景日历也太透了看不见了，
+// 其他的组件基本上也是」）。素色底下 0.18~0.38 的白足够，可秋叶那种花壁纸一来，
+// 日历那些细线和小号数字直接没了。
+// ⚠️不许无条件加厚：没壁纸的时候那份薄才是她要的玻璃感。
+// 挂在 context 上而不是一路当 props 传：组件有九个，各自又往 GlassCard 里传一遍，
+// 那就是「一层写在九处」，迟早漏掉一个。
+const OnWallpaperCtx = createContext(false);
+const useOnWallpaper = () => useContext(OnWallpaperCtx);
+// 玻璃的填色 + 模糊。CalWidget 原来自己抄了一份一模一样的（两处），现在只留这一份。
+function glassFill(onWallpaper) {
+  return onWallpaper
+    ? { background: "linear-gradient(160deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.44) 55%, rgba(255,255,255,0.55) 100%)",
+        backdropFilter: "blur(22px) saturate(1.5) brightness(1.02)",
+        WebkitBackdropFilter: "blur(22px) saturate(1.5) brightness(1.02)" }
+    : { background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
+        backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR };
+}
 function glassLayers(radius) {
   return [
     // ③ 镜面高光：左上一道斜的，右下一团软的
@@ -682,16 +699,21 @@ function glassLabelInk(onWallpaper, t) {
 }
 // 一片玻璃：radius 圆角，tone 是这个 app 自己的光（可空），children 放在玻璃上面
 function GlassPane({ radius = 17, tone, style, className, children }) {
+  const onWall = useOnWallpaper();
+  const fill = glassFill(onWall);
   return h("div", {
     className: className,
     style: Object.assign({
       position: "relative",
       borderRadius: radius,
-      // 填色只剩两成多，剩下的交给 backdrop-filter——这一步是「塑料板 → 玻璃」的分水岭
-      background: (tone ? tone.wash + ", " : "") + "linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.09) 52%, rgba(255,255,255,0.19) 100%)",
-      backdropFilter: GLASS_BLUR,
-      WebkitBackdropFilter: GLASS_BLUR,
-      border: "1px solid rgba(255,255,255,0.55)",
+      // 填色只剩两成多，剩下的交给 backdrop-filter——这一步是「塑料板 → 玻璃」的分水岭。
+      // 铺了壁纸时厚一档（图标那块比卡片再薄一点，图标本身是线条、比小号数字耐得住）
+      background: (tone ? tone.wash + ", " : "") + (onWall
+        ? "linear-gradient(160deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.34) 52%, rgba(255,255,255,0.44) 100%)"
+        : "linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.09) 52%, rgba(255,255,255,0.19) 100%)"),
+      backdropFilter: fill.backdropFilter,
+      WebkitBackdropFilter: fill.WebkitBackdropFilter,
+      border: "1px solid rgba(255,255,255," + (onWall ? "0.70" : "0.55") + ")",
       boxShadow: "0 6px 18px rgba(30,28,24,0.14), 0 1px 3px rgba(30,28,24,0.10)"
     }, style || {})
   }, glassLayers(radius), children);
@@ -702,15 +724,14 @@ function GlassCard({
   onClick
 }) {
   const t = useTheme();
-  // 跟图标同一块玻璃（GLASS_BLUR），只是填得厚一点——卡里装的是字，得压得住。
-  // 铺了壁纸时组件不再是一块奶白纸板，底下的图会透上来。
+  const onWall = useOnWallpaper();
+  // 跟图标同一块玻璃，只是填得厚一点——卡里装的是字，得压得住。
+  // 铺了壁纸时再厚一档（glassFill），不然花壁纸一来字就没了。
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClick,
     style: {
-      background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
-      backdropFilter: GLASS_BLUR,
-      WebkitBackdropFilter: GLASS_BLUR,
-      border: "1px solid rgba(255,255,255,0.58)",
+      ...glassFill(onWall),
+      border: "1px solid rgba(255,255,255," + (onWall ? "0.72" : "0.58") + ")",
       borderRadius: 22,
       boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
       ...style
@@ -797,7 +818,18 @@ function FolderIcon({ apps, label, onOpen, onWallpaper }) {
   const preview = (apps || []).slice(0, 4);
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
     h(GlassPane, { radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
-      preview.map((a, i) => h("div", { key: i, className: "flex items-center justify-center", style: { background: "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } }, h(a.G, { size: 15, color: t.ink, sw: 1.7 }))),
+      // ⚠️她自己换过图标的那几个 app，这里也得用她那张（她 2026-09-03：「我自己放了个图标
+      //   上去但是他在文件夹里显示不出来更新的图标」）。原来只画 a.G——那是内置的线条图，
+      //   自定义图标从来没被查过。文件夹【展开之后】用的是 GlassIcon，它是查了的，
+      //   所以点开看着是对的、盖上盖子就变回线条图，更像坏了。
+      preview.map((a, i) => {
+        const ref = a.key && window.ThemeStudio ? window.ThemeStudio.iconRef(a.key) : "";
+        const src = ref ? (typeof resolveImg === "function" ? resolveImg(ref) : ref) : "";
+        return h("div", { key: i, className: "flex items-center justify-center", style: { overflow: "hidden", background: src ? "transparent" : "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: src ? "none" : "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } },
+          // 她那张图自己就是一整块画面，别再垫一层白底把它框小
+          src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
+              : h(a.G, { size: 15, color: t.ink, sw: 1.7 }));
+      }),
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i }))),
     h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
@@ -848,6 +880,7 @@ function calAnyEvent(calendar, y, m, d) {
 // 首页 2x2 小组件：当月实时月历 + 有事件的日子下方圆点
 function CalWidget({ now, calendar, onOpen, period }) {
   const t = useTheme();
+  const onWall = useOnWallpaper();
   const y = now.getFullYear(), m = now.getMonth(), today = now.getDate();
   const cal = calendar || { world: {}, chars: {} };
   const pm = periodMap(period); // 经期各阶段：{ 'y-m-d': {t:'period'|'fertile'|'ov'|'safe'} }
@@ -856,7 +889,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
     onClick: onOpen,
     className: "col-span-3 row-span-3 active:opacity-80 text-left",
     // height:100% + flex 列：日历撑满 3 行格高、日期行均匀铺开，下沿和旁边的 app 对齐（之前内容矮一截、底下空一块）
-    style: { height: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
+    style: { height: "100%", display: "flex", flexDirection: "column", ...glassFill(onWall), border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
   },
     h("div", { className: "flex items-baseline justify-between mb-2", style: { flexShrink: 0 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
@@ -904,10 +937,20 @@ function WeatherWidget({ userGeo, onOpen }) {
       }).catch(() => {});
   };
   const wk = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  const detail = open ? h(Sheet, { onClose: function () { setOpen(false); }, tall: true },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
+  // ⚠️原来这是个 Sheet（半窗），而且长在【组件自己】里面。
+  //   Sheet 是 absolute inset-0，主屏又是横向分页的，所以它锚到的是那一页的格子容器，
+  //   不是屏幕：她 2026-09-03 报「翻回上一页才会看到一个半屏的玩意还关不掉」——
+  //   半窗掉在上一页上，关闭用的那块背景也跟着错位，点不到。
+  //   照 .claude/rules/no-half-sheet.md 改成【整页】：这一层的内容
+  //   （24 小时横条 + 7 天列表）根本不需要同时看见底下那一层，本来就该是整页。
+  //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
+  const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
+    h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+    h(Head, { zh: "天气", sub: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 14) : "你所在地"), onBack: function () { setOpen(false); } }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 14 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, (userGeo && userGeo.label ? String(userGeo.label).slice(0, 14) : "你所在地") + " 天气"),
+        // 地名和「天气」两个字都已经在顶栏里了，正文别再写一遍
         w ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 2 } }, wmoEmoji(w.code) + " " + wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°") : null),
       h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "好友地图 ›")),
     fx ? h("div", null,
@@ -928,7 +971,7 @@ function WeatherWidget({ userGeo, onOpen }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
-      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…")) : null;
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
@@ -5122,12 +5165,17 @@ function ChatThread({
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
+    // ⚠️正在输入那一条也是一行消息（她 2026-09-03：「他发消息等待的三个点也还是方的」）。
+    //   它原来是裸的：写死 #fff + 14px 圆角，一个挂点都没有，所以换了皮肤
+    //   满屏气泡都变圆了、只有这一颗还方着——最扎眼的恰恰是它，因为它天天出现。
+    "data-wk": "row",
     className: "flex items-start gap-2"
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 40,
     radius: 10
   }), /*#__PURE__*/React.createElement("div", {
+    "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
     style: {
       padding: "12px 14px",
       background: "#fff",
@@ -9842,8 +9890,10 @@ function GroupThread({
     const _m = messages[i];
     return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m }), row] : [row];
   }), sending && h("div", {
+    "data-wk": "row",
     className: "flex items-center gap-2"
   }, h("div", {
+    "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
     style: {
       padding: "12px 14px",
       background: "#fff",

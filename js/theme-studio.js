@@ -180,8 +180,19 @@
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
     footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", send:"transparent", sendInk:"#0095f6", sendRadius:"999px" })
     + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
+  // ⚠️内置预设是【拷贝】进她编辑框的，不是引用：我改了内置，她手上那份不会跟着变。
+  //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，
+  //   于是「感觉一个没生效」。改内置时把这个数 +1，界面就会提示她重新灌一次。
+  const SKIN_VER = 2;
+  const stamp = (nm, css) => "/* 内置 · " + nm + " · v" + SKIN_VER + " */\n" + css;
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
-    ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]];
+    ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
+  // 编辑框里那段是不是某套内置的【旧版本】：认得出就报出名字和新版本号
+  const cssStale = text => {
+    const m = /^\/\* 内置 · (.+?) · v(\d+) \*\//.exec(String(text || "").trim());
+    if (!m) return null;                       // 不是从内置灌来的（或者她自己删了那行），不管
+    return Number(m[2]) < SKIN_VER ? { name: m[1], from: Number(m[2]), to: SKIN_VER } : null;
+  };
   const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS };
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
@@ -286,7 +297,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, APP_ICONS, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot };
+  g.ThemeStudio = { KEY, APP_ICONS, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

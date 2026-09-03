@@ -15,11 +15,21 @@ const layers = grab("function glassLayers(radius)", "// 图标底下那行字", 
 // 她 2026-08-30：「主界面背景和图标能不能弄更液态玻璃风格，
 // 然后就算放背景图也会保留液态显示」——原来那块是 85% 白的塑料板，铺了壁纸也只看得见奶白。
 test("玻璃是透的：填色压到一半以下，靠 backdrop-filter 把底下的东西吸上来", () => {
+  // ⚠️这条线只对【没铺壁纸】那一档成立。v61.40 起玻璃分两档：
+  //   她 2026-09-03 报「放了背景日历也太透了看不见了」——花壁纸底下 0.3 的白
+  //   压不住日历那些细线和小号数字，那一档必须更厚。
+  //   所以分开钉：素色那档照旧压到一半以下，壁纸那档准它厚、但也不许厚成白板。
   const fill = pane.slice(pane.indexOf("background:"), pane.indexOf("backdropFilter:"));
-  const alphas = (fill.match(/rgba\(255,255,255,([\d.]+)\)/g) || [])
+  const all = (fill.match(/rgba\(255,255,255,([\d.]+)\)/g) || [])
     .map(x => parseFloat(x.match(/,([\d.]+)\)$/)[1]));
-  assert.ok(alphas.length >= 2, "玻璃的填色不见了");
-  assert.ok(Math.max.apply(null, alphas) <= 0.5, "又糊成不透明的白板了：最厚一层 " + Math.max.apply(null, alphas));
+  assert.ok(all.length >= 4, "两档填色抠不全，只有 " + all.length + " 个停点");
+  const wall = all.slice(0, 3), plain = all.slice(3);
+  assert.ok(Math.max.apply(null, plain) <= 0.5,
+    "素色底下又糊成不透明的白板了：最厚一层 " + Math.max.apply(null, plain));
+  assert.ok(Math.max.apply(null, wall) > Math.max.apply(null, plain),
+    "铺了壁纸那一档没有更厚，日历还是会看不见");
+  assert.ok(Math.max.apply(null, wall) <= 0.7,
+    "壁纸那一档厚过头了，玻璃变成白板：最厚一层 " + Math.max.apply(null, wall));
 });
 
 // saturate 是「磨砂白 → 玻璃」的分水岭：玻璃把背后的颜色提亮加浓，磨砂只把它磨白
@@ -42,8 +52,13 @@ test("边缘要有折光和镜面高光两层", () => {
 
 // 一层做法只写一处：图标、文件夹、组件卡、dock 用的必须是同一份配方
 test("同一份配方，四处共用，没人自己另配一套", () => {
-  assert.match(pane, /backdropFilter: GLASS_BLUR/, "GlassPane 没用公共配方");
-  assert.match(card, /backdropFilter: GLASS_BLUR/, "组件卡没用公共配方");
+  // ⚠️钉的是「用的是公共那份」，不是「写着 GLASS_BLUR 这五个字」。
+  //   v61.40 玻璃分成两档之后，公共那份从常量变成了 glassFill(onWallpaper)——
+  //   意思没变（还是一处画、处处用），这条却会红。那冻的是长相不是行为。
+  const shared = /backdropFilter: GLASS_BLUR|glassFill\(onWall\)|fill\.backdropFilter/;
+  assert.match(pane, shared, "GlassPane 没用公共配方");
+  assert.match(card, shared, "组件卡没用公共配方");
+  assert.match(comp, /function glassFill\(onWallpaper\)/, "公共那份不见了");
   const dock = grab('// dock 跟图标同一块玻璃', "}\n  }, dock.map(", 900);
   assert.match(dock, /saturate\(1\.9\) brightness\(1\.05\)/, "dock 没跟上");
   // 凡是白玻璃就不许再有人手写自己那套模糊（压暗的遮罩、深色药丸不算白玻璃）。

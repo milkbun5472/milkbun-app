@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.39";
+const APP_VERSION = "v61.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15710,7 +15710,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
-  });else if (screen === "home") body = /*#__PURE__*/React.createElement(Home, {
+  });else if (screen === "home") body = /*#__PURE__*/React.createElement(OnWallpaperCtx.Provider, {
+    // 铺了照片壁纸时，主屏那几块玻璃要厚一档，不然日历的细线和小号数字会没掉
+    //（她 2026-09-03：「放了背景日历也太透了看不见了，其他的组件基本上也是」）。
+    // 挂在这儿而不是一路当 props 传：组件有九个、各自又往 GlassCard 里传一遍，
+    // 那就是「一层写在九处」。也不动 Home 的根节点（home-screen-layout.md 说了勿改）。
+    value: !!wallpaper
+  }, /*#__PURE__*/React.createElement(Home, {
     now: now,
     characters: liveChars,
     profile: profile,
@@ -15750,7 +15756,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       });
       return d && d.say ? { name: c.remark || c.name, text: String(d.say).trim().slice(0, 120), char: c } : null;
     }
-  });else if (screen === "map") body = (window.MapKit ? h(window.MapKit.CharMap, {
+  }));else if (screen === "map") body = (window.MapKit ? h(window.MapKit.CharMap, {
     characters: liveChars,
     status: mapStatusAll(),
     profile: profile,

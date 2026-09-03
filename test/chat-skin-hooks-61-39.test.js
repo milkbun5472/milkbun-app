@@ -99,3 +99,51 @@ test("微信的时刻是一行没有底的灰字", () => {
     "微信的时刻还顶着一块底");
   assert.doesNotMatch(wx, /\[data-wk="time"\] span \{[^}]*color: #ffffff/, "时刻还是白字");
 });
+
+// ── 她 2026-09-03 追报 ────────────────────────────────────────────────
+// 「我看我头像形状还是没挂上还是方的，他发消息等待的三个点也还是方的，
+//   宝宝你做的感觉一个没生效耶」
+// 两件事，一件是真漏了，一件是【我改的东西根本没到她手上】。
+test("正在输入那三个点也是一条消息，得跟着皮肤走", () => {
+  // 它原来是裸的：写死 #fff + 14px 圆角，一个挂点都没有。
+  // 换了圆气泡的皮肤，满屏都圆了、只有这一颗还方着——而它天天出现，最扎眼。
+  [["单聊", THREAD], ["群聊", GROUP]].forEach(([who, src]) => {
+    const i = src.indexOf('"aria-label": character.name + " 正在输入"');
+    const seg = i >= 0 ? src.slice(i, i + 900) : src.slice(src.indexOf("}), sending && h(\"div\", {"), src.indexOf("}), sending && h(\"div\", {") + 900);
+    assert.ok(seg.length > 100, who + "抠不出正在输入那一段");
+    assert.match(seg, /"data-wk": "bubble", "data-me": "0", "data-kind": "typing"/, who + "的三个点没挂上气泡挂点");
+    assert.match(seg, /"data-wk": "row"/, who + "那一行没挂 row，间距跟别的消息对不齐");
+  });
+});
+
+test("内置预设改了要告诉她——它是拷贝进编辑框的，不是引用", () => {
+  // 这才是「感觉一个没生效」的真病根：挂点全补好了，可她编辑框里那段 CSS
+  // 是改之前灌进去的旧拷贝，选择器还是老的，所以她那颗头像照旧是方的。
+  // 界面上原来一个字都没说，看着就像我做的东西没生效。
+  const ui = fs.readFileSync(path.join(root, "js/theme-studio-ui.js"), "utf8");
+  assert.match(tsSrc, /const SKIN_VER = \d+;/, "内置没有版本号，就没法知道她手上那份旧不旧");
+  assert.match(tsSrc, /"\/\* 内置 · " \+ nm \+ " · v" \+ SKIN_VER \+ " \*\/\\n"/, "灌出去的 CSS 没盖版本戳");
+  assert.ok(typeof TS.cssStale === "function", "cssStale 没挂出去，界面调不到");
+  // 认得出旧的、认得出新的、也不许把她自己写的 CSS 误判成内置
+  const cur = TS.CSS_BUILTINS.thread[0][1];
+  const ver = Number((tsSrc.match(/const SKIN_VER = (\d+);/) || [])[1]);
+  // ⚠️这一整套全靠【改了内置的人记得把 SKIN_VER +1】。忘了 +1，她那份旧 CSS
+  //   就永远不算旧、界面永远不提示，等于白做。所以把内置的内容按住：
+  //   内容变了而版本没跟着变，这条就红，红出来的那句话直接告诉你怎么办。
+  const bare = TS.CSS_BUILTINS.thread.map(x => x[1].replace(/^\/\* 内置 · .+? \*\/\n/, "")).join("\n");
+  const sum = require("node:crypto").createHash("sha256").update(bare).digest("hex").slice(0, 12);
+  assert.deepEqual({ ver, sum }, { ver: 2, sum: "2a06688bdc75" },
+    "内置皮肤的内容变了：把 js/theme-studio.js 里的 SKIN_VER +1，再把这一行的 ver/sum 改成新的。\n" +
+    "不 +1 的话，她编辑框里那份旧 CSS 永远不会被认成旧的，界面也就永远不提示重新灌。");
+  assert.deepEqual(TS.cssStale("/* 内置 · 仿微信 · v" + (ver - 1) + " */\n.a{}"),
+    { name: "仿微信", from: ver - 1, to: ver });
+  assert.equal(TS.cssStale(cur), null, "刚灌进去的被当成旧的了");
+  assert.equal(TS.cssStale(".a{border-radius:9px}"), null, "她自己写的 CSS 被当成内置了");
+  // 版本戳是一行注释，不许把编译打坏
+  const out = TS.compile(TS.normalize({ pageCSS: { thread: cur } }));
+  assert.match(out, /\[data-wk="bubble"\]/, "带上版本戳之后规则被编译丢了");
+  // 界面上得真的说出来
+  assert.match(ui, /studio\.cssStale/, "界面没查陈旧，她永远不知道要重新灌一次");
+  assert.match(ui, /有更新（v/, "查了却没写出来");
+  assert.match(ui, /会盖掉你在这段里改过的东西/, "没提醒重新灌会盖掉她自己的改动");
+});
