@@ -62,3 +62,22 @@ test("序号还是【此刻排第几】算出来的，不存到文章上", () =>
 test("不写死黑白", () => {
   assert.ok(!/#(fff|ffffff|000|000000)\b/i.test(seg), "写死了黑白，换主题就废");
 });
+
+// v61.20 她：「都做吧宝宝，然后点进去做个翻页特效」
+test("书口：右边那条切齐的纸白，卷首那本更厚", () => {
+  assert.match(seg, /const foreEdge = h\("div"/, "没有书口");
+  assert.match(seg, /repeating-linear-gradient\(90deg,/, "书口是一条渐变色带，不是一摞纸的切口");
+  assert.match(seg, /width: isLead \? 7 : 5/, "卷首的书口没有更厚");
+  assert.match(seg, /isLead \? ", 6px 9px 0 -3px "/, "卷首没有多压一层纸");
+  assert.ok((seg.match(/foreEdge, ribbon/g) || []).length === 2, "两支里有一支没接书口");
+});
+
+test("点进去是把封面掀开：绕左边那条边转进来，且尊重「减少动态效果」", () => {
+  const m = src.slice(src.indexOf("  function FicMotionStyles() {"), src.indexOf("  // ---------- 世界观分版"));
+  assert.ok(m, "没有翻页动画");
+  assert.match(m, /@keyframes ficOpenBook\{0%\{opacity:\.35;transform:perspective\(1400px\) rotateY\(-72deg\)\}/);
+  assert.match(m, /transform-origin:left center/, "不是绕书脊那条边转——那就成了普通的翻卡片");
+  assert.match(m, /@media\(prefers-reduced-motion:reduce\)/, "没给关掉动效的人留退路");
+  // 挂在阅读页外面，且换一篇要重放
+  assert.match(src, /h\("div", \{ key: f\.id, className: "fic-open-book relative" \}, h\(Reader, \{/);
+});

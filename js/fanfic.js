@@ -1297,10 +1297,22 @@
     // 不是回到「一个个框」——它没有描边、没有圆角框，边是纸叠出来的。
     const paper = skinShade(t.bg2, skinIsDark(t.bg) ? 0.06 : 0.5);
     const under = skinShade(t.bg2, skinIsDark(t.bg) ? -0.2 : -0.06);
-    // 一叠：本体的影 + 底下错开的两层纸 + 一道极淡的纸边
+    // 一叠：本体的影 + 底下错开的几层纸 + 一道极淡的纸边。
+    // 卷首那本更厚（多压一层、影更沉）——摊在最上面的那一本本来就该有分量。
     const stack = "0 0 0 1px " + hexA(t.ink, .07)
       + ", 2px 3px 0 -1px " + under + ", 4px 6px 0 -2px " + under
-      + ", 0 7px 10px -7px " + hexA(t.ink, .35);
+      + (isLead ? ", 6px 9px 0 -3px " + under + ", 0 11px 14px -8px " + hexA(t.ink, .42)
+                : ", 0 7px 10px -7px " + hexA(t.ink, .35));
+    // 书口：右边那条切齐的纸白。一册纸摞起来切开就是这个样子——
+    // 极细的明暗条纹，越往里越密（不是一条渐变色带）。
+    const foreEdge = h("div", {
+      style: {
+        position: "absolute", right: 0, top: 3, bottom: 3, width: isLead ? 7 : 5,
+        borderRadius: "0 2px 2px 0",
+        background: "repeating-linear-gradient(90deg," + hexA(t.ink, .13) + " 0 .5px," + hexA(t.ink, 0) + " .5px 2px)",
+        boxShadow: "inset 1px 0 0 " + hexA(t.ink, .06)
+      }
+    });
     // 装订边：靠左那一条压深的纸 + 两枚订书钉（同人本就是这么订起来的）
     const staple = function (top) {
       return h("div", { key: "s" + top, style: { position: "absolute", left: 8, top: top, width: 2, height: 9, borderRadius: 1, background: hexA(t.ink, .42) } });
@@ -1319,10 +1331,10 @@
       onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative",
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
-        padding: "14px 15px 13px 30px", marginBottom: 16
+        padding: "14px 20px 13px 30px", marginBottom: 16
       }
     },
-      binding, staple("28%"), staple("62%"), ribbon,
+      binding, staple("28%"), staple("62%"), foreEdge, ribbon,
       h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + hexA(t.ink, .12) } },
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "TOP OF THE FEED"),
         h("span", { style: { flex: 1 } }),
@@ -1339,10 +1351,10 @@
       onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative flex",
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
-        gap: 9, padding: "11px 13px 11px 26px", marginBottom: 13
+        gap: 9, padding: "11px 17px 11px 26px", marginBottom: 13
       }
     },
-      binding, staple("26%"), staple("64%"), ribbon,
+      binding, staple("26%"), staple("64%"), foreEdge, ribbon,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.6, color: hasMe ? t.accent : t.fog, width: 20, flexShrink: 0 } }, no),
       h("div", { className: "min-w-0", style: { flex: 1 } },
         // 封面上那一行：篇名 …………… 字数（目录里页码的位置）
@@ -1356,6 +1368,23 @@
           mine ? h("span", { style: { color: t.accent } }, "　·　我写的") : null),
         h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginTop: 5 } }, summary),
         tagRow(7), statRow(7)));
+  }
+
+  // ---------- 掀开封面：点进一篇时的翻页 ----------
+  // 列表上那一篇是一本订好的册子，点进去就该是【把封面掀开】，不是换一个屏幕。
+  // 绕左边书脊那条边转进来（transform-origin:left），带一道从中缝扫过去的高光。
+  // ⚠️开了「减少动态效果」的人一律不放（无障碍设置，别硬演）。
+  function FicMotionStyles() {
+    return h("style", null,
+      "@keyframes ficOpenBook{0%{opacity:.35;transform:perspective(1400px) rotateY(-72deg)}"
+      + "62%{opacity:1}100%{opacity:1;transform:perspective(1400px) rotateY(0)}}"
+      + "@keyframes ficOpenGlare{0%{opacity:.5}100%{opacity:0}}"
+      + ".fic-open-book{height:100%;transform-origin:left center;backface-visibility:hidden;"
+      + "animation:ficOpenBook .46s cubic-bezier(.22,.71,.2,1) both}"
+      + ".fic-open-book::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:60;"
+      + "background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(0,0,0,0) 42%);"
+      + "animation:ficOpenGlare .46s ease-out both}"
+      + "@media(prefers-reduced-motion:reduce){.fic-open-book,.fic-open-book::after{animation:none!important}}");
   }
 
   // ---------- 世界观分版：书架上那一排书脊（.claude/rules/tabs-not-plain-pills.md）----------
@@ -2742,7 +2771,10 @@
       // ⚠️这一篇用【它自己那张纸】，不是列表那张：外层 Provider 和传给 Reader 的
       // 必须是同一张，否则头上那个小色块跟正文对不上。
       const fPaper = ficPaperFor(f, { paper: paperId });
-      return h(ThemeContext.Provider, { value: ficPaperTheme(appTheme, fPaper) }, h(Reader, {
+      return h(ThemeContext.Provider, { value: ficPaperTheme(appTheme, fPaper) },
+        h(FicMotionStyles, null),
+        // ⚠️key 用这一篇的 id：换一篇就重挂一次，封面才会再掀一遍
+        h("div", { key: f.id, className: "fic-open-book relative" }, h(Reader, {
         paper: fPaper,
         onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
@@ -2751,7 +2783,7 @@
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared
-      }));
+      })));
     }
 
     // ---- 各子页 ----

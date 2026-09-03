@@ -95,7 +95,8 @@ test("每一篇可以有自己的纸；没设的跟着默认走", () => {
   assert.match(seg, /return ficPaper\(cfg\);/, "没设的该退回默认那张");
   // 阅读页用【这一篇】那张，外层 Provider 和传下去的必须是同一张
   assert.match(fic, /const fPaper = ficPaperFor\(f, \{ paper: paperId \}\);/);
-  assert.match(fic, /h\(ThemeContext\.Provider, \{ value: ficPaperTheme\(appTheme, fPaper\) \}, h\(Reader, \{\n\s*paper: fPaper,/,
+  // v61.20 中间多了一层翻页动画的壳（fic-open-book），认的还是「同一张 fPaper」
+  assert.match(fic, /h\(ThemeContext\.Provider, \{ value: ficPaperTheme\(appTheme, fPaper\) \}[\s\S]{0,260}?h\(Reader, \{\n\s*paper: fPaper,/,
     "外层套的纸和传给 Reader 的不是同一张，头上那个小色块会跟正文对不上");
   // 换纸只写这一篇
   assert.match(fic, /onSetPaper: function \(pid\) \{ updateFic\(f\.id, function \(x\) \{ x\.paper = pid; return x; \}\); \}/);
