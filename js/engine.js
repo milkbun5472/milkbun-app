@@ -1860,6 +1860,19 @@ function narrativeCore(opts) {
 // action 还多一层「四处不一样喂」：线上写的是「【每轮都更新】反映你此刻真在做什么、
 // 别照抄上一轮」，线下写的是「有变化才填，否则 null」。线下是一场在推进的戏，
 // 「此刻正在做什么」本来就比线上变得更快，反而被写成了可以不填。
+// 【她那几行是当面说的，不是消息】（v60.78，她 2026-09-03 报）
+// 病是这么长出来的：线下历史里，线上插播那几条【标着】「【线上私聊】」，
+// 她自己在线下说的话【什么都不标】。一边有标签、另一边没有，模型只能猜；
+// 再加上每行前面都挂着〔22:45〕这样的时刻，看着就像一屏聊天记录——
+// 于是他把她说的「不要弄那里」写成了「你扔在沙发垫上的手机屏幕亮着，那三行字跳出来」。
+// 「线下不是隔着手机聊天」这句一直都在，但它说的是【场景】，从来没有一句说过
+// 【她那几行是怎么来的】。一句话在别处成立，不等于在这处也成立。
+// ⚠️这一段要发给【单人线下】和【群线下】两处，所以抽成一份公用的。
+const OFFLINE_USER_IS_PRESENT = `【她说的话是当面说出口的，不是发来的消息】
+历史里 USERNAME 的每一行，只要没有明确标着【线上私聊】，就都是【她此刻人就在你面前】说出口的话、或她当场做的事——不是微信、不是短信、不是她低头在手机上打字发给你的。
+行首那些〔22:45〕只是记录这句话发生在几点，不是聊天记录的时间条。
+⚠️所以绝不许写成「手机屏幕亮起」「消息跳出来」「那几个字发过来」「她用消息指挥我」这一类东西：人就在这儿，话是从她嘴里出来的。真要写她碰手机，只能是这一刻场景里她真的伸手去拿了手机，而不是把她刚说的那句话理解成一条消息。`;
+
 const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 先形成当前场景真正发生的叙事 scene。thought、mood、wearing、action、affinityDelta 等附属字段只记录已经形成的场景与角色状态，不得用于提前规划、解释或塑造 scene。wearing、affinityDelta、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
@@ -4561,6 +4574,7 @@ function offlineFlashbackBlock(scenes) {
 function offlineHistory(msgs, userName, charName) {
   const g = [];
   let prevTs = 0;
+  const mixed = (msgs || []).some(m => m && m._surface === "online");
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
@@ -4568,7 +4582,9 @@ function offlineHistory(msgs, userName, charName) {
       ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
-    const surface = m._surface === "online" ? "【线上私聊】" : "";
+    // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
+    // 模型就得靠猜。所以【这段历史里混进了线上内容】的时候，线下这几行也标出来。
+    const surface = m._surface === "online" ? "【线上私聊】" : (mixed ? "【当面】" : "");
     if (m.role === "char") {
       const l = g[g.length - 1];
       // 线下真拍下来的那一格：和线上同一个落法——说明它【已经拍过了】，
@@ -4815,6 +4831,7 @@ async function generateOffline(p, ctx, session) {
     (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
+    "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。完全代入「" + char.name + "」，人物称谓严格服从本场的【叙事人称】设置。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (ctx.roomPrompt ? "\n" + ctx.roomPrompt : "") +
@@ -5212,6 +5229,7 @@ async function generateOfflineGroup(p, ctx, session) {
     ((Array.isArray(ctx.memberRecent) && ctx.memberRecent.length)
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
+    "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
     "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, true) +
