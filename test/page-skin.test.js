@@ -114,5 +114,7 @@ test("皮铺在【最外层】容器，不是滚动容器（顶部白带那条�
   // 不是「那句 word 还在」。带不带 word 由 fanfic-paper-58-12 那份守着。
   assert.match(fanfic, /style: pageSkin\("paper", t, \{ corner: true \}\)/);
   assert.match(fanfic, /style: pageSkin\("paper", t, \{ strength: \.6 \}\)/);
-  assert.match(fanfic, /pageSkin\("paper", t, \{ base: t\.bg2, corner: false, strength: \.4 \}\)/);
+  // ⚠️同人文的卡片皮 v61.11 撤了：feed 改成目录页，条目不上皮（皮是页面的事）。
+  // base/strength 这一支本身还在 core 里，上面那条用例照跑。
+  assert.doesNotMatch(fanfic, /pageSkin\("paper", t, \{ base: t\.bg2/, "条目又自己上了一层纸皮");
 });

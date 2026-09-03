@@ -97,7 +97,7 @@ test("提示词里把「只是草稿、由她点头」写死", () => {
 });
 
 test("界面必须先摆改前改后再给应用按钮", () => {
-  // 两种改法各有各的摆法（v61.10）：整段替换摆改前/改后，只改一小段摆那一段。
+  // 两种改法各有各的摆法（v61.11）：整段替换摆改前/改后，只改一小段摆那一段。
   assert.match(src, /"改前"/);
   assert.match(src, /"改后 · 整段替换"/);
   assert.match(src, /"原文这一段"/);
@@ -109,7 +109,7 @@ test("界面必须先摆改前改后再给应用按钮", () => {
 
 test("接线：加载、图标、屏幕分发、两个写入口", () => {
   assert.match(index, /<script src="js\/assistant\.js\?v=/);
-  // v61.10 她把它改名叫「秋秋」（存档 key 仍是 assistant，不跟着改名）
+  // v61.11 她把它改名叫「秋秋」（存档 key 仍是 assistant，不跟着改名）
   assert.match(comp, /assistant: \{ kind: "app", zh: "秋秋"/);
   assert.match(app, /screen === "assistant"\) body = h\(AssistantApp, \{/);
   assert.match(app, /onPatchCharacter: \(id, patch\) => pC\(list => list\.map\(c => c\.id === id \? \{ \.\.\.c, \.\.\.patch \} : c\)\)/);

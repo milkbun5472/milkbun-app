@@ -1101,23 +1101,8 @@
     return { color: onDark ? "rgba(255,255,255,.5)" : t.fog, background: "transparent", border: "1px solid " + (onDark ? "rgba(255,255,255,.2)" : t.line) };
   }
   function hexA(hex, a) { return "rgba(" + skinRGB(hex).join(",") + "," + a + ")"; }
-  // 卡片的深浅两套 token。
-  // ⚠️深＝t.ink 底，浅＝t.bg2 底，两套都从主题算：浅色主题里 ink 是深的（深卡压在浅页上），
-  // 深色主题里 ink 是浅的（浅卡压在深页上）——反正永远是【和页面拉开对比的那一块】，
-  // 不写死黑白，她把主题调成什么样这套都成立。
-  function ficTone(dark, t) {
-    if (!dark) return { onDark: false, bg: t.bg2, ink: t.ink, sub: t.sub, fog: t.fog, line: t.line, cp: t.accent, num: t.fog };
-    // ⚠️纸本来就是深的（深夜／墨蓝）时，「高对比那一块」不能再拿 t.ink 当底——
-    // ink 在深色纸上是【浅】的，做出来就是一大块亮米色怼在脸上，
-    // 关灯读正好晃眼，等于把深夜模式做废了。
-    // 深纸上改成【比纸再沉一档】：还是拉得开，但整页仍然是暗的。
-    if (skinIsDark(t.bg)) {
-      const lit = "rgba(" + skinRGB(t.ink).join(",") + ",";
-      return { onDark: true, bg: skinShade(t.bg, -0.34), ink: t.ink, sub: t.sub, fog: t.fog, line: lit + ".14)", cp: t.accent, num: lit + ".30)" };
-    }
-    const on = "rgba(" + skinRGB(t.bg2).join(",") + ",";
-    return { onDark: true, bg: t.ink, ink: t.bg2, sub: on + ".78)", fog: on + ".46)", line: on + ".18)", cp: "#e8907e", num: on + ".32)" };
-  }
+  // ⚠️v61.11 起 feed 不再是「深浅交替的卡片」（她点名去掉框），
+  // 那套 ficTone 随之删掉；标签仍留着 onDark 这一路，供压在深底上的地方用。
   // 往黑里压 / 往白里提一档（k<0 变暗，k>0 变亮）
   function skinShade(hex, k) {
     const c = skinRGB(hex).map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
@@ -1189,6 +1174,14 @@
       style: Object.assign({ fontFamily: F_BODY, fontSize: 10, borderRadius: 4, padding: "1.5px 7px", whiteSpace: "nowrap" }, st)
     }, props.tag);
   }
+  // ---------- feed 里的一篇：翻开这一版之后的【目录条目】----------
+  // 她 2026-09-03：「每一篇文显示的样式也改改吧，现在还是一个个框」。
+  // 原来是一张张圆角描边卡（深浅交替）——框是任何 app 都有的容器，
+  // 而且上面那排书脊已经把这一版做成「抽出来翻开的一本」了，
+  // 翻开一本书，底下不该是一叠卡片，该是这一本的【目录页】。
+  // 所以每一篇就是目录里的一行：编号 → 篇名 → 一路点过去的引导点 → 字数（页码那一格）。
+  // 没有底色、没有描边，靠版面本身分行；条目之间只有一道发丝线。
+  // 「我们之间的设计」＝页边那道朱线：这一篇里有我，才用红笔标出来。
   function FicCard(props) {
     const t = useTheme();
     const f = props.fic, characters = props.characters;
@@ -1198,76 +1191,75 @@
     const hasMe = ficHasMe(f);
     const author = f.author || (mine ? (props.userName || "我") : ficPenName(f.id));
     const words = ficWords(f);
-    // 深浅交替＋序号，全部【由它此刻排在第几位算出来】，不存在文章上。
-    // 于是删掉一篇，下面那篇顶上来就自动变色、序号也跟着重排；
-    // 按标签筛、搜索之后同理——index 是【当前这一屏】的位置，不是它在库里的位置。
+    // 序号仍然【由它此刻排在第几位算出来】，不存在文章上：
+    // 删一篇、筛个标签、搜一下，下面那篇顶上来序号就自动重排。
     const idx = Number(props.index) || 0;
     const isLead = idx === 0 && !props.noLead;
-    const dark = isLead || idx % 2 === 0;
-    const c = ficTone(dark, t);
     const no = String(idx + 1).padStart(2, "0");
-    const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: c.fog } }, txt); };
+    const summary = (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 110);
+    const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, txt); };
+    // 目录页的引导点：篇名之后一路点到右边那格字数。这是目录独有的东西，
+    // 换个 app 就不成立——别处的列表右边不是页码。
+    const leader = h("span", { style: { flex: 1, minWidth: 14, alignSelf: "flex-end", marginBottom: 5, borderBottom: "1px dotted " + t.line } });
+    const pageNo = h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: t.fog, whiteSpace: "nowrap", paddingLeft: 7 } }, fmtNum(words) + " 字");
     const tagRow = function (mt) {
       return (f.tags || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: mt } },
-        (f.tags || []).slice(0, 5).map(function (tag, i) { return h(FicTag, { key: i, tag: tag, onDark: c.onDark, onClick: props.onTag }); })) : null;
+        (f.tags || []).slice(0, 5).map(function (tag, i) { return h(FicTag, { key: i, tag: tag, onClick: props.onTag }); })) : null;
     };
-    const statRow = function (mt, bordered) {
-      return h("div", { className: "flex items-center flex-wrap", style: Object.assign({ gap: 8, marginTop: mt },
-        bordered ? { paddingTop: 9, borderTop: "1px solid " + c.line } : {}) },
-        dot(fmtNum(words) + " 字", "w"),
+    const statRow = function (mt) {
+      return h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: mt } },
         dot(chCount + " 章", "c"),
         h("span", {
           onClick: function (e) { e.stopPropagation(); props.onLike && props.onLike(); },
           className: "active:opacity-60 flex items-center gap-1",
-          style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? c.cp : c.fog }
-        }, h(IHeart, { size: 11, color: f.liked ? c.cp : c.fog, filled: f.liked }), fmtNum(heat.kudos + (f.liked ? 1 : 0))),
+          style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? t.accent : t.fog }
+        }, h(IHeart, { size: 11, color: f.liked ? t.accent : t.fog, filled: f.liked }), fmtNum(heat.kudos + (f.liked ? 1 : 0))),
         (f.reviews || []).length ? dot("评 " + (f.reviews || []).length, "r") : null,
         h("span", { style: { flex: 1 } }),
-        props.readAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: c.cp } }, props.readAt) : null,
-        f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: c.cp } }, "★") : null);
+        props.readAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, props.readAt) : null,
+        f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null);
     };
-    const summary = (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 110);
+    // 页边那道朱线：只有「写我们的」那几篇才有——像有人拿红笔在书页边上划过。
+    // 一屏里没有它就是干净的，有它就一眼跳出来（不是每张卡都描一道边）。
+    const redEdge = hasMe ? h("div", { style: { position: "absolute", left: -9, top: 6, bottom: 8, width: 2, background: t.accent, opacity: .85 } }) : null;
 
-    // 头条：一屏总得有一块压得住的深色，否则整屏明度全挤在一起，眼睛没有落点
+    // 卷首：这一页最上面那一篇。压得住整屏靠的是【字号和双线】，不是一块深底——
+    // 目录页上不该出现一块方框（她点名要去掉的就是框）。
     if (isLead) return h("button", {
-      onClick: props.onOpen, className: "w-full text-left active:opacity-90 mb-2.5 relative",
-      style: { background: c.bg, borderRadius: 16, overflow: "hidden", padding: "15px 16px 13px" }
+      onClick: props.onOpen, className: "w-full text-left active:opacity-70 relative",
+      style: { padding: "2px 0 14px", marginBottom: 10, borderBottom: "1px solid " + t.line }
     },
-      h("div", { style: { position: "absolute", right: -30, bottom: -40, width: 150, height: 150, borderRadius: 999, background: "rgba(" + skinRGB(t.accent).join(",") + ",.22)" } }),
-      h("div", { style: { position: "relative" } },
-        h("div", { className: "flex items-center", style: { gap: 8 } },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: c.fog } }, props.leadLabel || "TOP OF THE FEED"),
-          // 头条没有左边那道色条，所以「有我」这一层落在序号上——
-          // 和下面每一行是同一套说法（序号是暖色＝这篇写的是我们）
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: hasMe ? t.accent : c.num } }, no)),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.15, color: c.ink, marginTop: 7, fontWeight: 500 } }, f.title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.fog, marginTop: 5 } },
-          "by " + author + "　·　" + cpLabel(f.cp, characters, props.userName)),
-        h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12.5, color: c.sub, lineHeight: 1.65, marginTop: 9 } }, summary),
-        tagRow(10), statRow(9, false)));
+      redEdge,
+      h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "TOP OF THE FEED"),
+        h("span", { style: { flex: 1 } }),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: hasMe ? t.accent : t.fog } }, no)),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.18, color: t.ink, fontWeight: 500 } }, f.title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 5 } },
+        "by " + author + "　·　",
+        h("span", { style: { color: t.accent } }, cpLabel(f.cp, characters, props.userName)),
+        "　·　" + fmtNum(words) + " 字"),
+      h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginTop: 8 } }, summary),
+      tagRow(10), statRow(9));
 
     return h("button", {
-      onClick: props.onOpen,
-      className: "w-full text-left active:opacity-80 mb-2.5 relative flex",
-      style: Object.assign({ border: "1px solid " + (dark ? c.bg : t.line), borderRadius: 14, overflow: "hidden", gap: 11, padding: "12px 14px 11px 15px" },
-        // 浅卡也上同一套皮（base 换成 bg2、不要角上的弧和大字、力度压到四成）：
-        // 列表页大半个屏都被卡片盖住，只装修页底等于没装修。深卡是实底，不上皮。
-        dark ? { background: c.bg } : pageSkin("paper", t, { base: t.bg2, corner: false, strength: .4 }))
+      onClick: props.onOpen, className: "w-full text-left active:opacity-70 relative flex",
+      style: { gap: 10, padding: "11px 0 12px", borderBottom: "1px solid " + t.line }
     },
-      // 左边那道：有我＝暖色，别人的 CP＝淡的。一眼分出「写我们的」和「别的」
-      h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: hasMe ? t.accent : c.line } }),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1, color: hasMe ? t.accent : c.num, width: 30, flexShrink: 0, paddingTop: 2 } }, no),
+      redEdge,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.6, color: hasMe ? t.accent : t.fog, width: 22, flexShrink: 0 } }, no),
       h("div", { className: "min-w-0", style: { flex: 1 } },
-        h("div", { className: "flex items-start justify-between", style: { gap: 8 } },
-          h("div", { className: "min-w-0 flex-1" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.28, color: c.ink, fontWeight: 500 } }, f.title),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: c.fog, marginTop: 3 } },
-              // ⚠️子节点要传数组，不能拿 + 去拼——元素被字符串拼接就成了 [object Object]
-              "by " + author + "　·　",
-              h("span", { style: { color: c.cp } }, cpLabel(f.cp, characters, props.userName)))),
-          mine ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.accent, borderRadius: 5, padding: "2px 6px", whiteSpace: "nowrap" } }, "我写的") : null),
-        h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, color: c.sub, lineHeight: 1.6, marginTop: 6 } }, summary),
-        tagRow(8), statRow(8, false)));
+        // 目录那一行：篇名 …………… 字数
+        h("div", { className: "flex items-baseline", style: { gap: 0 } },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, fontWeight: 500, maxWidth: "78%" } }, f.title),
+          leader, pageNo),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
+          // ⚠️子节点要传数组，不能拿 + 去拼——元素被字符串拼接就成了 [object Object]
+          "by " + author + "　·　",
+          h("span", { style: { color: t.accent } }, cpLabel(f.cp, characters, props.userName)),
+          mine ? h("span", { style: { color: t.accent } }, "　·　我写的") : null),
+        h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginTop: 5 } }, summary),
+        tagRow(7), statRow(7)));
   }
 
   // ---------- 世界观分版：书架上那一排书脊（.claude/rules/tabs-not-plain-pills.md）----------
