@@ -124,6 +124,43 @@
     }
   };
 
+  // ---- 落地页的夜空（她 2026-09-03：「不用一个一个框，可以做个星空主题，
+  // 每一颗星都是不同的占卜方向」）----
+  //
+  // 原来是四个并排的框：色块图标 + 名字 + 一行说明。那个形状换个 app 照样成立，
+  // 所以它没长在塔罗上（tabs-not-plain-pills 那把尺子）。
+  // 现在四种问法是天上的四颗星，一条虚线把它们连成一个星座。
+  // 而且【谁亮谁暗由她自己的历史决定】：某一种算得越多，那颗星越大越亮——
+  // 抬头就看得见自己常问的是什么。这一层换个 app 不成立，因为它照的是她的存档。
+  const SKY_W = 360, SKY_H = 296;
+  const STAR_AT = { reading: [66, 96], relation: [236, 62], daily: [292, 176], forchar: [92, 226] };
+  const SKY_CHAIN = ["forchar", "reading", "relation", "daily"];
+  // 背景碎星：种子写死，所以星图每次渲染一模一样，不会自己跳来跳去
+  const SKY_DUST = (function () {
+    let seed = 20260903 >>> 0;
+    const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const near = (x, y) => Object.keys(STAR_AT).some(k => Math.hypot(STAR_AT[k][0] - x, STAR_AT[k][1] - y) < 40);
+    const out = [];
+    let guard = 0;
+    while (out.length < 78 && guard++ < 4000) {
+      const x = rnd() * SKY_W, y = rnd() * SKY_H;
+      if (near(x, y)) continue;
+      out.push({ x: +x.toFixed(1), y: +y.toFixed(1), r: +(0.5 + rnd() * 1.1).toFixed(2),
+        o: +(0.16 + rnd() * 0.5).toFixed(2), tw: rnd() < 0.2 ? +(2.6 + rnd() * 3.4).toFixed(1) : 0 });
+    }
+    return out;
+  })();
+  // 四芒星：一笔画完的星芒，不是一个圆点——圆点是「标记」，星芒才是「星」
+  const sparkle = (cx, cy, R) => {
+    const w = R * 0.16;
+    return "M" + cx + " " + (cy - R) + "Q" + (cx + w) + " " + (cy - w) + " " + (cx + R) + " " + cy
+      + "Q" + (cx + w) + " " + (cy + w) + " " + cx + " " + (cy + R)
+      + "Q" + (cx - w) + " " + (cy + w) + " " + (cx - R) + " " + cy
+      + "Q" + (cx - w) + " " + (cy - w) + " " + cx + " " + (cy - R) + "z";
+  };
+  // 星等：这一种算过几次。0 次也看得见（1 等），算得多的最大到 2 等出头
+  const magOf = n => 1 + Math.min(1.15, (n || 0) * 0.17);
+
   // 牌阵和玩法分开：入口决定“为谁/为什么算”，牌阵只决定桌上怎么摊牌。
   // 基础牌阵 + 主题牌阵册。主题只决定桌面位置，不预设答案，也不替牌面写剧情。
   const SPREADS = {
@@ -348,37 +385,79 @@
         onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
         onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
         className: "active:opacity-70",
-        style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 14px", cursor: "pointer" }
+        // 不再一条一个框（她 2026-09-03 那句「不用一个一个框」也管这一截）：
+        // 一条就是一行，靠一道发丝线分开，左边一颗小星标出它是哪一种问法
+        style: { padding: "9px 2px 9px 0", borderBottom: "1px solid " + t.line, cursor: "pointer",
+          display: "flex", alignItems: "flex-start", gap: 9 }
       },
+        h("svg", { width: 11, height: 11, viewBox: "0 0 12 12", style: { flexShrink: 0, marginTop: 3 } },
+          h("path", { d: sparkle(6, 6, 5), fill: GOLD, opacity: 0.75 })),
+        h("div", { style: { minWidth: 0, flex: 1 } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 3 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, subt),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtDate(s.ts))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-          (s.mode === "daily" ? (s.card ? [cardLabel(s.card)] : []) : (s.cards || []).map(c => c.name)).join(" · ")));
+          (s.mode === "daily" ? (s.card ? [cardLabel(s.card)] : []) : (s.cards || []).map(c => c.name)).join(" · "))));
     };
 
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "塔罗", en: "Tarot", onBack: props.onBack }),
       h("div", { ref: homeScrollRef, className: "flex-1 overflow-y-auto px-5 pb-8" },
-        h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 } },
-          Object.keys(MODES).map(k => {
-            const m = MODES[k];
-            return h("button", {
-              key: k, onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("mode:" + k); },
-              className: "w-full active:opacity-80", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 13 }
-            },
-              h("div", { style: { width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: ACCENT, color: GOLD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, m.icon),
-              h("div", { style: { minWidth: 0 } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, m.zh),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, m.blurb)));
-          })),
+        // ---- 夜空：四种问法是四颗星，亮度照她自己的存档来 ----
+        h("style", null, "@keyframes tarot-tw{0%,100%{opacity:1}50%{opacity:.28}}"),
+        h("div", { style: { margin: "0 -20px 6px", background: "#14112a", position: "relative" } },
+          h("svg", { viewBox: "0 0 " + SKY_W + " " + SKY_H, style: { width: "100%", height: "auto", display: "block" } },
+            h("defs", null,
+              h("radialGradient", { id: "tarotHalo" },
+                h("stop", { offset: "0%", stopColor: "#fff", stopOpacity: 0.5 }),
+                h("stop", { offset: "45%", stopColor: GOLD, stopOpacity: 0.22 }),
+                h("stop", { offset: "100%", stopColor: GOLD, stopOpacity: 0 })),
+              h("radialGradient", { id: "tarotSkyGlow", cx: "72%", cy: "16%", r: "78%" },
+                h("stop", { offset: "0%", stopColor: ACCENT, stopOpacity: 0.85 }),
+                h("stop", { offset: "100%", stopColor: ACCENT, stopOpacity: 0 })),
+              h("linearGradient", { id: "tarotMilky", x1: "0", y1: "0", x2: "1", y2: "1" },
+                h("stop", { offset: "0%", stopColor: "#fff", stopOpacity: 0 }),
+                h("stop", { offset: "50%", stopColor: "#cdc6ef", stopOpacity: 0.09 }),
+                h("stop", { offset: "100%", stopColor: "#fff", stopOpacity: 0 }))),
+            h("rect", { x: 0, y: 0, width: SKY_W, height: SKY_H, fill: "#14112a" }),
+            h("rect", { x: 0, y: 0, width: SKY_W, height: SKY_H, fill: "url(#tarotSkyGlow)" }),
+            // 一条斜着的银河，只是极淡的一带，用来把四颗星托住
+            h("ellipse", { cx: 186, cy: 140, rx: 250, ry: 62, fill: "url(#tarotMilky)", transform: "rotate(-24 186 140)" }),
+            SKY_DUST.map((d, i) => h("circle", { key: "d" + i, cx: d.x, cy: d.y, r: d.r, fill: "#fff", opacity: d.o,
+              style: d.tw ? { animation: "tarot-tw " + d.tw + "s ease-in-out infinite", animationDelay: (i % 7) * 0.4 + "s" } : null })),
+            // 星座连线：虚的、细的、金的——是把它们认成一组的那条线，不是边框
+            h("path", { d: "M" + SKY_CHAIN.map(k => STAR_AT[k].join(" ")).join("L"), fill: "none",
+              stroke: GOLD, strokeWidth: 0.7, strokeDasharray: "1.6 3.6", opacity: 0.42 }),
+            Object.keys(MODES).map(k => {
+              const m = MODES[k], at = STAR_AT[k] || [180, 148], n = (byMode[k] || []).length, mag = magOf(n);
+              const R = 6.6 * mag;
+              return h("g", { key: k, onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("mode:" + k); }, style: { cursor: "pointer" } },
+                h("circle", { cx: at[0], cy: at[1], r: 13 + R * 1.9, fill: "url(#tarotHalo)" }),
+                h("path", { d: sparkle(at[0], at[1], R), fill: "#fff8ea" }),
+                h("path", { d: sparkle(at[0], at[1], R * 2.05), fill: "#fff", opacity: 0.16 }),
+                h("text", { x: at[0], y: at[1] + R + 21, textAnchor: "middle", fontFamily: F_DISPLAY, fontSize: 13.5, fill: "#efe9dc" }, m.zh),
+                h("text", { x: at[0], y: at[1] + R + 33, textAnchor: "middle", fontFamily: F_BODY, fontSize: 7.4, letterSpacing: 1.5, fill: GOLD, opacity: 0.9 }, m.en.toUpperCase()),
+                n ? h("text", { x: at[0], y: at[1] + R + 44, textAnchor: "middle", fontFamily: F_BODY, fontSize: 7.4, fill: "#efe9dc", opacity: 0.42 }, "算过 " + n + " 次") : null,
+                // 手指点得着：视觉上是一颗小星，热区是一整片天（mobile-ui-layout 那条 40px 手感线）
+                h("circle", { cx: at[0], cy: at[1], r: 24, fill: "transparent" }));
+            })),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 7, textAlign: "center", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.2, color: "#efe9dc", opacity: 0.42 } },
+            "点一颗星 · 你问得越多，那颗星越亮")),
         // ---- 历史：搜索 + 类型筛选 + 折叠（条数多也随时找得到）----
         saves.length ? (function () {
           const qlc = histQ.trim().toLowerCase();
           const active = !!qlc || histType !== "all";              // 有搜索或选了具体类型 → 平铺筛选结果
           const matchSess = s => (histType === "all" || s.mode === histType) && (!qlc || sessionText(s).indexOf(qlc) >= 0);
+          // 筛选也照着天上那套来：选中的是一颗亮着的星（实心星芒 + 底下一道金线），
+          // 没选的是一个暗点。形状、明暗、底下那道线一起变，不是只换个填色
+          //（tabs-not-plain-pills：不许直接摆一排药丸）
           const chip = (k, label, cnt) => { const on = histType === k; return h("button", { key: k, onClick: () => setHistType(k), className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 12, color: on ? "#fff" : t.sub, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "5px 12px", whiteSpace: "nowrap" } }, label + (cnt != null ? " " + cnt : "")); };
+            style: { display: "flex", alignItems: "center", gap: 4, padding: "6px 3px 5px", background: "none", border: "none",
+              borderBottom: "1.5px solid " + (on ? GOLD : "transparent"), whiteSpace: "nowrap" } },
+            h("svg", { width: on ? 12 : 8, height: on ? 12 : 8, viewBox: "0 0 12 12", style: { flexShrink: 0 } },
+              on ? h("path", { d: sparkle(6, 6, 5.6), fill: GOLD })
+                 : h("circle", { cx: 6, cy: 6, r: 2, fill: t.fog, opacity: 0.7 })),
+            h("span", { style: { fontFamily: F_BODY, fontSize: on ? 12.5 : 12, color: on ? t.ink : t.fog } }, label + (cnt != null ? " " + cnt : ""))); };
           return h("div", null,
             // 搜索框
             h("div", { style: { position: "relative", marginBottom: 10 } },
@@ -388,21 +467,21 @@
               qlc ? h("button", { onClick: () => setHistQ(""), className: "active:opacity-60", style: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: t.fog, lineHeight: 1 } }, "×") : null),
             // 类型筛选 chips（横滑）
             h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 14 } },
-              [chip("all", "全部", saves.length)].concat(Object.keys(MODES).filter(k => (byMode[k] || []).length).map(k => chip(k, MODES[k].icon + " " + MODES[k].zh, byMode[k].length)))),
+              [chip("all", "全部", saves.length)].concat(Object.keys(MODES).filter(k => (byMode[k] || []).length).map(k => chip(k, MODES[k].zh, byMode[k].length)))),
             // 列表
             active
               ? (function () { const list = sorted.filter(matchSess);
                   return list.length
-                    ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, list.map(histLine))
+                    ? h("div", null, list.map(histLine))
                     : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0" } }, "没找到相关占卜"); })()
               : Object.keys(MODES).filter(k => (byMode[k] || []).length).map(k => {
                   const arr = byMode[k], exp = !!histExp[k], shown = exp ? arr : arr.slice(0, 3);
                   return h("div", { key: "h" + k, style: { marginBottom: 18 } },
                     h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 9 } },
-                      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: GOLD } }, MODES[k].icon),
+                      h("svg", { width: 10, height: 10, viewBox: "0 0 12 12" }, h("path", { d: sparkle(6, 6, 5), fill: GOLD })),
                       h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, letterSpacing: .3 } }, MODES[k].zh),
                       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· " + arr.length)),
-                    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, shown.map(histLine)),
+                    h("div", null, shown.map(histLine)),
                     arr.length > 3 ? h("button", { onClick: () => setHistExp(p => ({ ...p, [k]: !exp })), className: "active:opacity-60",
                       style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, exp ? "收起" : "展开全部 " + arr.length + " 条 ▾") : null);
                 }),
