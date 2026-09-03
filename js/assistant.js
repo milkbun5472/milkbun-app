@@ -25,11 +25,26 @@
 (function () {
   const useState = React.useState;
 
-  // 图标：一支笔搭在方框上（改东西的意思）
+  // 主屏那个图标：也是那只小肥鸟（她 2026-09-03：「秋秋的 app 图标也改成小肥鸟」）。
+  // ⚠️不能直接摆头像那张彩色的画：主屏一整套图标都是 Svg 那层的线稿
+  //   （viewBox 24、fill:none、stroke 跟着主题的 color 走）。摆一张彩图进去，
+  //   这一格会从那一套里跳出来，而且深浅主题下它不跟着变色。
+  //   所以这里画一只【线稿版的同一只鸟】：一样的胖身子、呆毛、小脚。
+  //   眼睛和嘴要单独写 fill（外面那层是 fill:none，不写就是两个空圈）。
   window.GAssist = p => h(Svg, p,
-    h("path", { d: "M4 5.5A1.5 1.5 0 015.5 4h7" }),
-    h("path", { d: "M20 11.5v7a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18.5v-7" }),
-    h("path", { d: "M19.6 3.6a1.9 1.9 0 012.7 2.7L14.6 14 11 15l1-3.6z" }));
+    // 胖身子：上头一个脑袋、下头坐开，一笔连出来
+    h("path", { d: "M12 5.1c-3 0-5.1 2.3-5.1 5.2 0 .7.1 1.4.4 2C5.6 13.3 4.7 14.9 4.7 16.4c0 2.4 3.2 3.8 7.3 3.8s7.3-1.4 7.3-3.8c0-1.5-.9-3.1-2.6-4.1.3-.6.4-1.3.4-2 0-2.9-2.1-5.2-5.1-5.2z" }),
+    // 呆毛
+    h("path", { d: "M11.8 5.2c-.3-1.4.5-2.4 1.8-2.7" }),
+    // 翅膀
+    h("path", { d: "M16 14c.6 1.1.5 2.5-.2 3.4" }),
+    // 眼睛（实心，不然是两个空圈）
+    h("circle", { cx: 10.3, cy: 10.2, r: .95, fill: (p && p.color) || "currentColor", stroke: "none" }),
+    h("circle", { cx: 13.7, cy: 10.2, r: .95, fill: (p && p.color) || "currentColor", stroke: "none" }),
+    // 嘴
+    h("path", { d: "M12 11.9l-1.3 1.3h2.6z", fill: (p && p.color) || "currentColor", stroke: "none" }),
+    // 两只小脚
+    h("path", { d: "M10.2 20.1l-1.1 1.6M13.8 20.1l1.1 1.6" }));
 
   const loadJ = (k, d) => { try { return typeof loadJSON === "function" ? loadJSON(k, d) : JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); } catch (e) { return d; } };
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
@@ -386,9 +401,12 @@
   const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
-  function manualBlock(question) {
+  function manualBlock(question, hereId) {
     const M = MAN(); if (!M) return "";
+    // 她此刻开着的那一页，词条也捎上：这样「这一页是干嘛的」不用她先说出它叫什么
+    const here = hereId ? M.byId(hereId) : null;
     const hits = M.find(question, 4);
+    if (here && !hits.some(x => x.id === here.id)) hits.unshift(here);
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }
@@ -397,7 +415,11 @@
     // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
     //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
     //   跟发出去的窗口用同一份文本，判据才对得上——我们在聊谁，那张卡就是全的。
-    const focus = chatWindow(history).map(m => String(m && m.text || "")).concat([String(question || "")]).join("\n");
+    // ⚠️她此刻开着的那一页上的人也算「在说谁」：站在 V 的聊天里说「他的卡有点 ooc」，
+    //   一个名字都没提，可指的就是他——这张卡必须是全的。
+    const here = pageOf(ctx.page);
+    const focus = chatWindow(history).map(m => String(m && m.text || "")).concat(
+      [String(question || ""), (here && here.who) || ""]).join("\n");
     const snap = snapshot(ctx, focus);
     const cfg = loadCfg();
     const uName = (ctx.profile && ctx.profile.name) || "她";
@@ -437,7 +459,8 @@
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
-      + manualBlock(question) + "\n\n"
+      + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
+      + manualBlock(question, here && here.man) + "\n\n"
       + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
@@ -463,6 +486,52 @@
     const reply = scrubCode(String(d.reply || "").trim());
     if (!reply && !patches.length) throw new Error("没听懂它说什么，再问一次");
     return { reply: reply || "改动稿在下面。", patches };
+  }
+
+  // ---- 她此刻在哪一页（她 2026-09-03 点名要的）----
+  // 借的是 ai-virtual-phone 那个「页面上下文」的【想法】（AGPL，只看不抄）：
+  // 助手知道你正开着哪一页，「这一页」「这里」「他」才有指代对象。
+  // 一张表两用：给它一句人话说清在哪儿，再顺手把这一页的手册词条捎上，
+  // 于是「这一页是干嘛的」不用她先说出这一页叫什么。
+  // 值是 [人话, 手册词条 id]；手册里没有对应词条的就留空。
+  const SCREEN_INFO = {
+    home: ["主屏", "home"], messages: ["消息列表", "chat"],
+    thread: ["和某个角色的单聊", "chat"], gthread: ["一个群聊", "group"],
+    contact: ["某个角色的资料页", "cast"], cast: ["人格档案馆", "cast"],
+    castForm: ["正在编一张角色卡", "cast"], ties: ["关系", "ties"],
+    phone: ["查手机", "phone"], shop: ["购物", "shop"], carry: ["随身物", "carry"],
+    mycloset: ["我的衣柜", "closet"], dwell: ["去处", "dwell"],
+    cwallet: ["钱包", "wallet"], wallet: ["我的钱包", "wallet"], kincard: ["亲属卡账单", "wallet"],
+    ledger: ["记账", "ledger"], calendar: ["日历", "calendar"], memo: ["备忘录", "memo"],
+    map: ["好友地图", "map"], listen: ["一起听", "listen"], diary: ["日记", "diary"],
+    lore: ["世界书", "lore"], memlib: ["记忆库", "memlib"], anon: ["匿名问答", "anon"],
+    study: ["一起学", "study"], fanfic: ["同人文", "fanfic"], read: ["一起读", "read"],
+    weekly: ["周刊", "weekly"], debate: ["擂台", "debate"], dream: ["梦境", "dream"],
+    dreamjournal: ["解梦馆", "dreamjournal"], tarot: ["塔罗", "tarot"],
+    pomodoro: ["番茄钟", "pomodoro"], games: ["小游戏", "games"], trpg: ["跑团", "trpg"],
+    theater: ["小剧场", "theater"], impression: ["月度印象", "impression"],
+    yanqiu: ["秋声", "yanqiu"], loungeapp: ["三席会客", "lounge"],
+    rescue: ["互救台", "rescue"], vpscodex: ["值班室", "vpscodex"],
+    forum: ["论坛", "forum"], momprofile: ["朋友圈", "moments"],
+    us: ["情侣空间", "couple"], capsule: ["时光胶囊", "couple"],
+    favorites: ["收藏", "favorites"], emotes: ["表情包", "emotes"],
+    lifestyle: ["生活方式", ""], stylelab: ["文风台", "stylelab"],
+    config: ["设置", "config"], assistant: ["你自己这一页", "assistant"],
+    codex: ["", ""]
+  };
+  function pageOf(pg) {
+    if (!pg || !pg.screen) return null;
+    const row = SCREEN_INFO[pg.screen];
+    const zh = (row && row[0]) || "";
+    if (!zh) return null;
+    return { zh: zh, man: (row && row[1]) || "", who: pg.charName || "" };
+  }
+  function pageLine(pg) {
+    const p = pageOf(pg); if (!p) return "";
+    return "【她此刻在哪儿】她正开着「" + p.zh + "」"
+      + (p.who ? "，这一页上是「" + p.who + "」" : "")
+      + "。她说「这一页」「这里」"
+      + (p.who ? "「他」「TA」" : "") + "的时候，指的就是这个；别再反问她是哪一页。";
   }
 
   // ---- 「改一小段」（她 2026-09-03：「比如里面改一小段」）----
@@ -502,12 +571,66 @@
   const shownLen = {};
   const shownKey = (target, id, field) => target + ":" + id + (field ? ":" + field : "");
 
+  // ---- 改完还能退回来（她 2026-09-03 点名要的）----
+  // 借的还是 ai-virtual-phone 那个想法（AGPL，只看不抄）：写之前先存一版。
+  // ⚠️它那边是【拿备份代替过目】——直接落库，后悔了翻版本。我们不换：
+  //   秋秋照旧先出改动稿、由她点头。这一层是【第二道网】，管的是
+  //   「点了应用之后才后悔」那一种，她现在完全退不了。
+  // ⚠️也照它那条教训：备份只保了角色卡，CSS/世界书/预设改坏了没得退。
+  //   所以这儿凡是【能写回去】的栏一律存，存不了的那两种明说存不了。
+  const UNDO_KEY = "x_assistUndo";
+  const UNDO_KEEP = 40;
+  // 能退的：原样写回去就行的那几种。
+  // memory 退不了（往里加，没有写回的路）；style 新建也退不了（那要删，不是写回）。
+  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, theme: 1, style: 1 };
+  function undoable(patch) {
+    if (!patch || !UNDOABLE[patch.target]) return false;
+    if (patch.target === "style" && !patch.id) return false;   // 新建的那一份没有「原来的样子」
+    return true;
+  }
+  function loadUndo() { try { const a = JSON.parse(localStorage.getItem(UNDO_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  const undoSubs = new Set();
+  function onUndo(fn) { undoSubs.add(fn); return () => undoSubs.delete(fn); }
+  function saveUndo(list) {
+    const a = (Array.isArray(list) ? list : []).slice(0, UNDO_KEEP);
+    try { localStorage.setItem(UNDO_KEY, JSON.stringify(a)); } catch (e) {}
+    undoSubs.forEach(fn => { try { fn(a); } catch (e) {} });
+    return a;
+  }
+  function pushUndo(patch, ctx) {
+    if (!undoable(patch)) return null;
+    const uid = "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    saveUndo([{
+      uid: uid, pid: patch.pid || "", ts: Date.now(),
+      target: patch.target, id: patch.id, field: patch.field || "",
+      label: labelOf(patch, ctx), title: patch.title || "",
+      prev: String(before(patch, ctx) || "")
+    }].concat(loadUndo()));
+    return uid;
+  }
+  // 退回去：把存下来的那一份原样写回。走的是同一个写入口，不另开一条路。
+  function undo(uid, ctx) {
+    const list = loadUndo();
+    const e = list.find(x => x && x.uid === uid);
+    if (!e) throw new Error("这一条的旧版本已经不在了");
+    if (e.undone) throw new Error("这一条已经退回过了");
+    const T = TARGETS[e.target];
+    if (!T) throw new Error("不认识的改动类型");
+    T.write(e.id, { target: e.target, id: e.id, field: e.field, text: e.prev }, ctx);
+    saveUndo(list.map(x => x.uid === uid ? Object.assign({}, x, { undone: true, undoneAt: Date.now() }) : x));
+    if (e.pid) markPatch(e.pid, "已撤回");
+    return e;
+  }
+
   // 应用一条改动稿。写入口全在 TARGETS 里，这里只做校验、算出最终文本，再分发。
   function apply(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) throw new Error("不认识的改动类型");
     if (patch.target !== "style" && !patch.id) throw new Error("这条没说要改谁");
     const p = patch;
+    // ⚠️存旧版本必须在【写之前】，而且要在算最终文本之前——
+    //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
+    pushUndo(p, ctx);
     if (p.find) {
       // 记忆库是往里加，没有「原文那一段」可言
       if (p.target === "memory") throw new Error("记忆库是往里加的，不能改一小段");
@@ -548,7 +671,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, snippetEdit, shownLen };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_INFO, snippetEdit, shownLen };
 })();
 
 // ============================================================
@@ -645,7 +768,15 @@
               : null),
       h("div", { style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
         state
-          ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: state === "已应用" ? "#4a8b68" : "#a4442e" } }, state)
+          ? h(React.Fragment, null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: state === "已应用" ? "#4a8b68" : state === "已撤回" ? t.fog : "#a4442e" } }, state),
+              // 点了应用之后才后悔的那一种：就在这儿退回去
+              state === "已应用" && A.undoable(p) && props.onUndo
+                ? h("button", { onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
+                : null,
+              state === "已应用" && !A.undoable(p)
+                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : "（新建的，退不了）")
+                : null)
           : h(React.Fragment, null,
               h("button", { onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "应用这条"),
               h("button", { onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过"))));
@@ -688,9 +819,15 @@
         A.markPatch(p.pid, "没应用：" + (e.message || "未知"));
       }
     };
+    const undoOne = p => {
+      const e = A.loadUndo().find(x => x && x.pid === p.pid && !x.undone);
+      if (!e) { toast && toast("这一条的旧版本已经不在了"); return; }
+      try { A.undo(e.uid, ctx); toast && toast("退回去了"); }
+      catch (err) { toast && toast("退不回去：" + (err.message || err)); }
+    };
     const skip = p => A.markPatch(p.pid, "跳过了");
     const clear = () => { A.clearAsking(); put([]); };
-    return { msgs, busy, send, applyOne, skip, clear };
+    return { msgs, busy, send, applyOne, undoOne, skip, clear };
   }
 
   // 上一次问到一半 App 被系统收走了：明说出来，并给一个重问的入口。
@@ -720,7 +857,7 @@
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
-            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onSkip: () => C.skip(p) }))))));
+            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onUndo: () => C.undoOne(p), onSkip: () => C.skip(p) }))))));
   }
 
   // ============================================================
@@ -793,6 +930,8 @@
             cfg.apiId && !cur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8, paddingBottom: 8 } }, "原来挑的那条线路不在了，这会儿走的是全局") : null,
             h("div", { style: { height: 8 } }));
         })(),
+        // 改过的东西：点了应用之后才后悔的那一种，在这儿退
+        h(UndoList, { toast: props.toast, ctx: props.ctx }),
         // 主人格提示词
         h("div", { style: { padding: "14px 14px 0" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "主人格提示词"),
@@ -808,6 +947,36 @@
           draft !== cfg.prompt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8 } }, "改动还没保存") : null)));
   }
 
+  // 改过的东西（她 2026-09-03：要能回滚）。
+  // ⚠️这一层不是「拿备份代替过目」——秋秋照旧先出改动稿由她点头，
+  //   这儿管的是【点了应用之后才后悔】那一种。
+  function UndoList(props) {
+    const t = useTheme();
+    const [list, setList] = useState(A.loadUndo);
+    useEffect(() => A.onUndo(setList), []);
+    const live = (list || []).slice(0, 12);
+    if (!live.length) return null;
+    const when = ts => {
+      const d = Math.max(0, Date.now() - (ts || 0)), m = Math.floor(d / 60000);
+      return m < 1 ? "刚才" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前";
+    };
+    return h("div", { style: { padding: "14px 14px 6px", borderBottom: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "改过的东西"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+        "秋秋改过的这些，改之前那一份还留着（最近 " + A.UNDO_KEEP + " 次）。点「退回」就写回旧的那份。"),
+      live.map(e => h("div", { key: e.uid, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderTop: "1px solid " + t.line } },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: e.undone ? t.fog : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: e.undone ? "line-through" : "none" } }, e.title || e.label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            e.label + " · " + when(e.ts) + (e.prev ? " · 旧的那份 " + e.prev.length + " 字" : " · 原来是空的"))),
+        e.undone
+          ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, "已退回")
+          : h("button", { onClick: () => {
+                try { A.undo(e.uid, props.ctx || {}); props.toast && props.toast("退回去了：" + (e.title || e.label)); }
+                catch (err) { props.toast && props.toast("退不回去：" + (err.message || err)); }
+              }, style: { flexShrink: 0, padding: "5px 11px", borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "退回"))));
+  }
+
   // ============================================================
   // 整页版
   // ============================================================
@@ -821,7 +990,7 @@
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy]);
     const fire = txt => { setInput(""); C.send(txt); };
 
-    if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
+    if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, ctx: props, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
     const QUICK = ["这个 App 都能玩什么", "穿书怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
     return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },

@@ -531,3 +531,110 @@ test("改动稿的下场记在存档里，退出再进来按钮不会又冒出�
   assert.match(src, /if \(p\.done === "已应用"\) return;/);
   A.api.saveChat([]);
 });
+
+// ── 她 2026-09-03：「页面上下文和版本回滚也做了吧，
+//    还有秋秋的 app 图标也改成小肥鸟吧」──────────────────────────
+test("页面上下文：她说「这一页」「他」，有指代对象", () => {
+  // 借的是 ai-virtual-phone 那个想法（AGPL，只看不抄）。
+  const line = A.api.pageLine({ screen: "thread", charName: "V" });
+  assert.match(line, /她此刻在哪儿/);
+  assert.match(line, /和某个角色的单聊/);
+  assert.match(line, /这一页上是「V」/);
+  assert.match(line, /别再反问她是哪一页/);
+  // 没人的页面不许硬说「他」
+  const solo = A.api.pageLine({ screen: "lore", charName: "" });
+  assert.match(solo, /世界书/);
+  assert.doesNotMatch(solo, /「他」/, "这一页上没有人，还教它认「他」");
+  // 认不出来的页面就一个字都不发，别编一个页面名出来
+  assert.equal(A.api.pageLine({ screen: "某个还没登记的页" }), "");
+  assert.equal(A.api.pageLine(null), "");
+  // 一张表两用：人话 + 这一页的手册词条 id
+  const info = A.api.pageOf({ screen: "trpg" });
+  assert.equal(info.zh, "跑团");
+  assert.equal(info.man, "trpg");
+  // 登记的 man 必须真在手册里，不然那一栏是死的
+  Object.keys(A.api.SCREEN_INFO).forEach(k => {
+    const id = A.api.SCREEN_INFO[k][1];
+    if (id) assert.ok(MAN.byId(id), k + " 指着一个手册里没有的词条：" + id);
+  });
+});
+
+test("这一页上的人算「在说谁」——她一个名字都没提也得给全卡", () => {
+  // 站在 V 的聊天里说「他的卡有点 ooc」，指的就是他。
+  const many = Array.from({ length: 20 }, (_, i) => ({
+    id: "c" + i, name: i === 3 ? "V" : "角色" + i,
+    persona: "他二十八岁的总裁。".repeat(350), appearance: "高" }));
+  const sys = A.api.buildSystem(
+    { characters: many, profile: { name: "Lisa" }, page: { screen: "thread", charName: "V" } },
+    "他的卡有点 ooc，你看看", []);
+  const grab = n => (new RegExp('"名字": "' + n + '",[\\s\\S]*?"这张卡是否完整": (true|false)').exec(sys) || [])[1];
+  assert.equal(grab("V"), "true", "站在他的聊天里问「他」，卡还是半截");
+  assert.equal(grab("角色7"), "false");
+  // 这一页的手册词条也捎上了，「这一页是干嘛的」不用她先说页名
+  assert.match(sys, /【聊天（线上）】/);
+  // ⚠️光测 pageLine 本身不够：把 buildSystem 里那句拼接删掉，函数照样是对的，
+  //   发出去的 system 里却一个字都没有。所以要从出口验。
+  assert.match(sys, /【她此刻在哪儿】她正开着「和某个角色的单聊」/, "那句人话没进 system");
+  assert.match(src, /const focus = chatWindow\(history\)[\s\S]{0,200}?here && here\.who/);
+});
+
+test("改完能退回来：写之前先存一版，退回走同一个写入口", () => {
+  // ⚠️不是「拿备份代替过目」——秋秋照旧先出改动稿由她点头，
+  //   这一层管的是【点了应用之后才后悔】那一种。
+  A.store["x_assistUndo"] = "[]";
+  const chars = [{ id: "cv", name: "V", persona: "旧的那份人设" }];
+  let cur = chars[0].persona;
+  const ctx = { characters: chars, onPatchCharacter: (id, p) => { cur = p.persona; chars[0].persona = p.persona; } };
+  A.api.apply({ pid: "p1", target: "persona", id: "cv", title: "改一改", text: "新的那份人设" }, ctx);
+  assert.equal(cur, "新的那份人设");
+  const list = A.api.loadUndo();
+  assert.equal(list.length, 1, "写之前没存版本");
+  assert.equal(list[0].prev, "旧的那份人设", "存的不是旧的那份");
+  assert.equal(list[0].pid, "p1", "跟改动稿对不上，卡上那个「撤回」就找不到它");
+  A.api.undo(list[0].uid, ctx);
+  assert.equal(cur, "旧的那份人设", "退不回去");
+  assert.equal(A.api.loadUndo()[0].undone, true);
+  assert.throws(() => A.api.undo(list[0].uid, ctx), /已经退回过了/);
+  assert.throws(() => A.api.undo("不存在", ctx), /已经不在了/);
+});
+
+test("改一小段也要存【动手之前】那一份，不能存成算完的", () => {
+  // ⚠️算完再存的话，备份下来的已经是新文本了——等于备份了个假的，退回去还是新的。
+  A.store["x_assistUndo"] = "[]";
+  const orig = "他二十八岁。\n他会等你。\n他不摆架子。";
+  const chars = [{ id: "cv", name: "V", persona: orig }];
+  const ctx = { characters: chars, onPatchCharacter: (id, p) => { chars[0].persona = p.persona; } };
+  A.api.apply({ pid: "p9", target: "persona", id: "cv", find: "他会等你。", text: "他会等你——但那不是让步。" }, ctx);
+  assert.match(chars[0].persona, /但那不是让步/);
+  assert.equal(A.api.loadUndo()[0].prev, orig, "备份的是改完之后那一份");
+  A.api.undo(A.api.loadUndo()[0].uid, ctx);
+  assert.equal(chars[0].persona, orig, "退回去之后不是逐字的原文");
+});
+
+test("退不了的那两种要明说，不许假装能退", () => {
+  // 记忆库是往里加的，没有写回的路；新建的文风预设没有「原来的样子」。
+  assert.equal(A.api.undoable({ target: "memory", id: "cv" }), false);
+  assert.equal(A.api.undoable({ target: "style", id: "" }), false);
+  assert.equal(A.api.undoable({ target: "style", id: "s1" }), true);
+  assert.equal(A.api.undoable({ target: "persona", id: "cv" }), true);
+  assert.equal(A.api.undoable({ target: "theme", id: "global" }), true);
+  // 界面上也得说清楚，不然她按了没反应
+  assert.match(src, /记忆库只进不出，退不了/);
+  assert.match(src, /（新建的，退不了）/);
+  // 存这一层也要封顶，不然又是一座坟场
+  assert.match(src, /const UNDO_KEEP = 40;/);
+  assert.match(src, /\.slice\(0, UNDO_KEEP\)/);
+});
+
+test("秋秋的 app 图标也是那只小肥鸟，而且是线稿、跟着主题变色", () => {
+  // ⚠️不能直接摆头像那张彩图：主屏一整套图标都走 Svg 那层（fill:none + stroke=color）。
+  const g = src.slice(src.indexOf("window.GAssist = p =>"), src.indexOf("const loadJ ="));
+  assert.ok(g.length > 200, "抠不出图标");
+  assert.doesNotMatch(g, /M19\.6 3\.6a1\.9/, "还是那支笔");
+  assert.match(g, /h\(Svg, p,/, "没走 Svg 那一层，就不跟着主题变色了");
+  // 眼睛和嘴要单独写 fill，否则在 fill:none 的外层里是两个空圈
+  assert.equal((g.match(/fill: \(p && p\.color\) \|\| "currentColor", stroke: "none"/g) || []).length, 3);
+  assert.doesNotMatch(g, /#[0-9a-f]{3,6}/i, "图标里写死了颜色，深色主题下就瞎了");
+  // 该有的几样：胖身子、呆毛、两只脚
+  assert.match(g, /呆毛/); assert.match(g, /两只小脚/);
+});
