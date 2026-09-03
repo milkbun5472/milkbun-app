@@ -4909,7 +4909,7 @@ function ChatThread({
     size: 16,
     color: "#16330a"
   })), chatMode !== "ooc" && h(ReplyKey, {
-    chars: character, sending: sending, disabled: sending || bk.theyBlocked,
+    sending: sending, disabled: sending || bk.theyBlocked,
     title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复", onClick: reply
   }))), panelOpen && !selMode && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
@@ -6839,43 +6839,38 @@ function KinshipRaiseCard({ m, character }) {
             (done ? "" : "· ") + foot)),
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }))));
 }
-// 「让 TA 回复」那个键（v60.67 重做）。
+// 「让 TA 回复」那个键。图案是她点的名：「那个回复键我想要枫叶」。
 //
-// 它的两版前身都被她退回过：黑圆圈里一颗 ✦（「之前也是参考的嘤」——那颗星每个 AI app
-// 都有，原样搬到别处照样成立），以及 v60.65 的「他的脸」（「看着怪吓人的」——一张被压暗
-// 去色的人脸盯着你，确实吓人）。这一版不借别人的图案，也不拿脸当图案。
+// 这颗键换过三版才落到这儿：黑圆圈 + ✦（「之前也是参考的嘤」——那颗星每个 AI app 都有）、
+// 他的脸（「看着怪吓人的」）、一枚空气泡。这一版是一片枫叶，自己画的：
+// 五瓣、瓣宽、底下一根真的叶柄——瓣细了、柄短了，缩到 23px 就变成一颗星，试了八版才不像。
 //
-// 它在现实里是什么：**答话要落进来的那个气泡，现在还空着。**
-// 所以就照这个 app 自己的气泡画一枚——尾巴冲左（TA 那一侧），正好和旁边那颗发送键
-// 反过来：那只纸飞机往右飞，是我说出去的；这枚气泡从左边冒上来，是等他说。
-// · 平时：只有一圈描边，里头是空的
-// · 生成中：气泡整个上墨，三个点在【气泡里头】跳——这个键自己变成了「他正在打字」
-// · 群里：后面再叠一枚小的，一眼看出这一下不止一个人要说话
-// · 群线上那两档用【描边的虚实】分，不是只换个颜色：
-//   虚线＝回完这一轮就停下等你（有个头），实线＝他们自己会接着聊（连着走）
-const REPLY_BUBBLE_D = "M8.2 4.2h7.6a5 5 0 0 1 5 5v3.6a5 5 0 0 1-5 5h-5.1L5 21.2l.6-3.5"
-  + "a5 5 0 0 1-2.4-4.3V9.2a5 5 0 0 1 5-5z";
-function ReplyKey({ chars, sending, disabled, title, onClick, hold }) {
+// · 平时——一片墨色的叶子，微微歪着
+// · 生成中——叶子红了，还在轻轻晃。转整圈是加载环（哪个 app 都有那一个），
+//   来回晃才是一片正在飘的叶子
+// · 群线上那两档——实心＝他们自己会接着聊，空心＝回完这一轮就停下等你。
+//   「虚」和「实」在这儿是字面意思，不是只换个颜色。
+const MAPLE_D = "M12 2.4L14.8 8.2 19.6 6.6 16.8 11.6 21.6 14.2 12.75 17 12.75 22.2"
+  + " 11.25 22.2 11.25 17 2.4 14.2 7.2 11.6 4.4 6.6 9.2 8.2z";
+function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
-  const many = (Array.isArray(chars) ? chars : [chars]).filter(Boolean).length > 1;
+  const lit = sending ? t.accent : t.ink;
   return h("button", {
     onClick: onClick, disabled: disabled, title: title,
     className: "active:opacity-70 disabled:opacity-40 shrink-0 flex items-center justify-center",
     style: { width: 40, height: 40, borderRadius: 999,
       background: sending ? t.bg : "transparent",
-      border: "1.5px solid " + (sending ? t.ink : t.line), transition: "border-color .18s" }
-  }, h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: t.ink,
-      strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
-    // 群里：后面再露一枚小的，前面那枚往左下让开一点，两枚一叠就是「不止一个人要说话」
-    many ? h("path", { d: REPLY_BUBBLE_D, fill: t.bg, strokeWidth: 2.6,
-      transform: "translate(9.6 -0.6) scale(0.6)" }) : null,
-    h("g", { transform: many ? "translate(-2 3) scale(0.8)" : undefined,
-      strokeWidth: many ? 2 : 1.6 },
-      h("path", { d: REPLY_BUBBLE_D, fill: sending ? t.ink : t.bg,
-        strokeDasharray: hold === true ? (many ? "4 3" : "3.2 2.4") : undefined }),
-      sending ? [0, 1, 2].map(i => h("circle", { key: i, cx: 8.4 + i * 3.6, cy: 11, r: 1.4,
-        fill: t.bg, stroke: "none", className: "animate-pulse",
-        style: { animationDelay: i * 0.15 + "s" } })) : null)));
+      border: "1.5px solid " + (sending ? lit : t.line), transition: "border-color .18s" }
+  },
+    h("style", null, "@keyframes wk-maple{0%{transform:rotate(-8deg) translateY(0)}"
+      + "50%{transform:rotate(11deg) translateY(-1.4px)}100%{transform:rotate(-8deg) translateY(0)}}"),
+    h("div", { className: "flex", style: sending
+      ? { animation: "wk-maple 2.6s ease-in-out infinite" }
+      : { transform: "rotate(-8deg)" } },
+      h("svg", { width: 24, height: 24, viewBox: "0 0 24 24",
+          fill: hold === true ? "none" : lit, stroke: lit,
+          strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" },
+        h("path", { d: MAPLE_D }))));
 }
 // 代付请求卡
 function PayLaterCard({ m }) {
@@ -8079,7 +8074,7 @@ function OfflineMode({
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
-      !oocMode && h(ReplyKey, { chars: char, sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: reply })),
+      !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张：你俩此刻真的在同一个地方，这一格是现拍的。零模型调用——
       // 画面直接从状态卡（此刻在干嘛、穿什么）长出来，只花一次出图的钱。
@@ -8716,7 +8711,7 @@ function GroupOfflineMode({
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
-      !oocMode && h(ReplyKey, { chars: members, sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
+      !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张合影：大家此刻真在同一个地方。零模型调用，只花一次出图。
       onShoot ? h("div", { className: "mb-4" },
@@ -9457,7 +9452,7 @@ function GroupThread({
     size: 16,
     color: "#16330a"
   })), chatMode !== "ooc" && h(ReplyKey, {
-    chars: characters, sending: sending, disabled: sending,
+    sending: sending, disabled: sending,
     // 虚圈＝只让他们回一轮，回完仍旧等你；实圈＝回一轮并开一段自发
     hold: !!gHold,
     title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
