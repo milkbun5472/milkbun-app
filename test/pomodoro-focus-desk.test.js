@@ -52,14 +52,15 @@ test("当前场次持久化，记录实际专注与正常收桌原因", () => {
   assert.match(src, /persistSession\(next\)/);
   assert.match(src, /focusedMinutes/);
   assert.match(src, /interruptReason/);
-  assert.match(src, /暂停次数/);
+  assert.match(src, /"中间停了"/);   // v61.40 结算改成单据口吻
   assert.match(src, /临时有事/);
   assert.match(src, /今天先到这里/);
 });
 
 test("准备页和记录页复用标准 Head，正文只有一个主滚动区", () => {
-  assert.match(src, /h\(Head, \{ zh: "番茄钟", en: "FOCUS DESK"/);
-  assert.match(src, /h\(Head, \{ zh: "专注记录", en: "FOCUS LOG"/);
+  // v61.40：标题不留英文（.claude/rules/no-english-titles.md），记录页也改了名
+  assert.match(src, /h\(Head, \{ zh: "番茄钟", onBack: props\.onBack/);
+  assert.match(src, /h\(Head, \{ zh: "坐过的那些", onBack: \(\) => setView\("setup"\)/);
   assert.match(src, /flex-1 min-h-0 overflow-y-auto px-6/);
   assert.match(src, /safe-area-inset-bottom\) \* 0\.4/);
 });

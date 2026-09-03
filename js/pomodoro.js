@@ -98,35 +98,48 @@
     return (Math.round(n * 10) / 10).toString() + " 分钟";
   }
 
-  // 结局统计卡（结果页 + 往期回看共用；兼容旧版记录字段）
+  // 结算：一张【收桌时留在桌上的单子】（v61.40，她 2026-09-03：「结算的页面也很无聊」）
+  // 原来是从底下掀起来的半窗（还犯了 no-half-sheet.md），里面是一排「键：值」。
+  // 现在是整页：桌面打底，中间一张长条单据——齿孔边、虚线分栏、他的批注写在最底下，
+  // 像收摊时撕下来的那一联。结果页和往期回看共用它（一处画、两处用）。
   function ResultCard(t, rec, char, onClose, tp) {
-    const row = (k, v, tone) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "11px 0", borderBottom: "1px dashed " + t.line } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, k),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: tone || t.ink, fontWeight: 600, textAlign: "right" } }, v));
     const isDone = rec.status === "done";
-    return h("div", { onClick: onClose, style: { position: "absolute", inset: 0, zIndex: 60, background: "rgba(20,18,15,0.58)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "24px 18px calc(env(safe-area-inset-bottom) * 0.4 + 18px)" } },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 390, background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "20px 20px 22px", animation: "fadeUp .2s ease both", maxHeight: "82%", overflowY: "auto" } },
-        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
-          h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.18em", color: t.fog } }, "FOCUS LOG"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: t.ink, marginTop: 4 } }, isDone ? "一起坐住了" : "这一轮先收桌")),
-          h("button", { onClick: onClose, className: "active:opacity-60", style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none" } }, h(IX, { size: 20, color: t.fog }))),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, padding: "14px 0 4px", borderTop: "1px solid " + t.line } }, rec.task),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 5 } }, fmtDate(rec.ts) + " · 对座 " + (rec.charName || (char && char.name) || "")),
-        h("div", { style: { background: t.bg, border: "1px solid " + t.line, padding: "3px 15px", margin: "18px 0" } },
-          row("计划时长", minutesText(rec.minutes)),
-          row("实际专注", minutesText(rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes)),
-          rec.pauseCount != null ? row("暂停次数", String(rec.pauseCount || 0)) : null,
-          rec.interruptReason ? row("收桌原因", rec.interruptReason) : null,
-          rec.escapes != null ? row("旧版 · 退出尝试", String(rec.escapes || 0), rec.escapes ? "#a8433a" : t.ink) : null,
-          rec.wrong != null ? h("div", { style: { display: "flex", justifyContent: "space-between", padding: "11px 0" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "旧版 · 暗号输错"),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: rec.wrong ? "#a8433a" : t.ink, fontWeight: 600 } }, String(rec.wrong || 0))) : null),
-        rec.annotation ? h("div", { style: { padding: "2px 4px 0" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, lineHeight: 1.65, color: t.ink } }, "“" + rec.annotation + "”"),
-          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5, marginTop: 10 } },
-            (tp && char && typeof TtsDot === "function") ? h(TtsDot, { k: "pmd" + rec.id, text: rec.annotation, spk: char, tp }) : null,
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "— " + (rec.charName || (char && char.name) || "")))) : null));
+    const DESKC = "linear-gradient(163deg,#efe9dd,#e5dccb 62%,#dbd0bb)";
+    const row = (k, v, tone) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, padding: "10px 0", borderBottom: "1px dashed rgba(120,96,58,.28)" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5e" } }, k),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: tone || "#3a3024", textAlign: "right" } }, v));
+    // 齿孔：单据上下两条撕口
+    const perf = pos => h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, height: 8,
+      background: "radial-gradient(circle at 6px 4px, transparent 3.4px, #fffdf7 3.6px) 0 0/12px 8px repeat-x" },
+      pos === "top" ? { top: -4, transform: "scaleY(-1)" } : { bottom: -4 }) });
+    return h("div", { className: "h-full flex flex-col", style: { background: DESKC,
+      backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESKC,
+      boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
+      h(Head, { zh: isDone ? "一起坐住了" : "这一轮先收桌", onBack: onClose, bg: "transparent" }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+        h("div", { style: { position: "relative", background: "#fffdf7", padding: "20px 18px 22px", marginTop: 8,
+          boxShadow: "0 10px 26px rgba(80,60,25,.20)", transform: "rotate(-.5deg)" } },
+          perf("top"), perf("bottom"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#3a3024", lineHeight: 1.35 } }, rec.task),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a3925f", marginTop: 6, letterSpacing: ".02em" } },
+            fmtDate(rec.ts) + "　对座 " + (rec.charName || (char && char.name) || "")),
+          h("div", { style: { marginTop: 16, borderTop: "1px solid rgba(120,96,58,.3)" } },
+            row("计划坐多久", minutesText(rec.minutes)),
+            row("实际坐住", minutesText(rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes), isDone ? "#4a6b52" : "#3a3024"),
+            rec.pauseCount != null ? row("中间停了", (rec.pauseCount || 0) + " 次") : null,
+            rec.interruptReason ? row("为什么收桌", rec.interruptReason) : null,
+            rec.escapes != null ? row("旧版 · 想跑", String(rec.escapes || 0), rec.escapes ? "#a8433a" : "#3a3024") : null,
+            rec.wrong != null ? row("旧版 · 暗号输错", String(rec.wrong || 0), rec.wrong ? "#a8433a" : "#3a3024") : null),
+          // 他的批注：写在单子最下面那一格，像顺手划下的一行
+          rec.annotation ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed rgba(120,96,58,.35)" } },
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15.5, lineHeight: 1.95, color: "#3a3024" } }, "“" + rec.annotation + "”"),
+            h("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 9 } },
+              (tp && char && typeof TtsDot === "function") ? h(TtsDot, { k: "pmd" + rec.id, text: rec.annotation, spk: char, tp }) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a3925f" } }, "—— " + (rec.charName || (char && char.name) || "")))) : null),
+        h("button", { onClick: onClose, className: "w-full active:opacity-80",
+          style: { marginTop: 22, background: "#3a3024", color: "#fffdf7", border: "none", borderRadius: 3,
+            padding: "14px 0", fontFamily: F_BODY, fontSize: 13, boxShadow: "0 8px 18px rgba(60,45,25,.22)" } },
+          isDone ? "收好这张单子" : "知道了")));
   }
 
   // ── 发条计时盘（v61.39，她 2026-09-03：「番茄钟的页面还是无聊」）──
@@ -136,13 +149,19 @@
   // 那是别的功能拿不走的形状，所以时长这一栏就做成那个盘，不是四颗药丸。
   //
   // ⚠️盘面按【60 分钟一圈】画：这样 25 分就真的落在四分之一多一点的位置，
-  //   刻度和数字对得上真实的钟面。超过 60 的自定义值转满一圈就停在 60（指针不绕第二圈，
-  //   绕了反而读不出来），但值本身照旧是她填的那个数。
+  //   刻度和数字对得上真实的钟面。
+  // 超过一小时怎么办（她 2026-09-03 问的）：真发条钟拧过头就是【多拧一圈】。
+  //   所以 90 分 = 里圈满一圈 + 指针停在 30；每多一整圈，盘外面多一道细环。
+  //   指针只走余数那一段——绕第二圈的话两个位置会重叠，反而读不出来。
   const DIAL_MAX = 60;
   function Dial({ t, min, onPick, size }) {
-    const S = size || 216, R = S / 2, r = R - 16;
-    const val = Math.max(0, Math.min(DIAL_MAX, Number(min) || 0));
-    const ang = (val / DIAL_MAX) * 360;
+    const S = size || 216, R = S / 2, r = R - 32;   // 边上留够，套得下几道「多拧一圈」的细环
+    const total = Math.max(0, Number(min) || 0);
+    const laps = Math.floor(total / DIAL_MAX);       // 拧满了几整圈
+    const val = total - laps * DIAL_MAX;             // 指针只指余数那一段
+    // 正好整点（60/120）指针指回 12 点、但发条是满的：这时候把最后一圈算成「满」
+    const wound = (val === 0 && laps > 0) ? DIAL_MAX : val;
+    const ang = (wound / DIAL_MAX) * 360;
     const rad = d => (d - 90) * Math.PI / 180;
     const pt = (d, rr) => [R + rr * Math.cos(rad(d)), R + rr * Math.sin(rad(d))];
     // 拧到哪儿：按下/拖动时把坐标换算成分钟。⚠️用 getBoundingClientRect 而不是 offsetX——
@@ -154,7 +173,9 @@
       const cy = (e.touches ? e.touches[0].clientY : e.clientY) - box.top - box.height / 2;
       let deg = Math.atan2(cy, cx) * 180 / Math.PI + 90;
       if (deg < 0) deg += 360;
-      onPick(Math.max(1, Math.round(deg / 360 * DIAL_MAX)));
+      const m = Math.max(1, Math.round(deg / 360 * DIAL_MAX));
+      // 已经拧过几圈就接着往上加：不然拧到第二圈时手一动就掉回一小时以内
+      onPick(laps * DIAL_MAX + m);
     };
     const ticks = [];
     for (let i = 0; i < DIAL_MAX; i++) {
@@ -175,9 +196,16 @@
     const arc = "M " + R + " " + R + " L " + R + " " + (R - (r - 3))
       + " A " + (r - 3) + " " + (r - 3) + " 0 " + (ang > 180 ? 1 : 0) + " 1 " + ax + " " + ay + " Z";
     const [hx, hy] = pt(ang, r - 22);
+    // 拧满的每一圈，在盘外面多套一道细环——一眼数得出「拧了几圈」
+    const lapRings = [];
+    for (let i = 0; i < Math.min(laps, 4); i++) {
+      lapRings.push(h("circle", { key: "l" + i, cx: R, cy: R, r: r + 11 + i * 4,
+        fill: "none", stroke: t.accent, strokeWidth: 1.6, opacity: .5 }));
+    }
     return h("svg", { width: S, height: S, viewBox: "0 0 " + S + " " + S,
       onPointerDown: pick, onPointerMove: e => { if (e.buttons === 1) pick(e); },
       style: { touchAction: "none", cursor: onPick ? "pointer" : "default", display: "block" } },
+      lapRings,
       h("circle", { cx: R, cy: R, r: r + 8, fill: t.bg2, stroke: t.line }),
       h("circle", { cx: R, cy: R, r: r + 2, fill: "none", stroke: t.line, strokeDasharray: "1 3", opacity: .7 }),
       val > 0 ? h("path", { d: arc, fill: t.accent, opacity: .16 }) : null,
@@ -285,27 +313,29 @@
     };
 
     if (view === "result" && result) {
-      return h("div", { className: "h-full", style: { position: "relative", background: t.bg } },
-        h("div", { className: "h-full flex flex-col items-center justify-center", style: { opacity: 0.16 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.25em", color: t.fog } }, "DESK CLEARED"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 58, color: t.ink, marginTop: 12 } }, result.rec.status === "done" ? "✓" : "—")),
-        ResultCard(t, result.rec, result.char, () => { setResult(null); setSess(null); sessRef.current = null; setView("setup"); }, tp));
+      return ResultCard(t, result.rec, result.char, () => { setResult(null); setSess(null); sessRef.current = null; setView("setup"); }, tp);
     }
 
+    // ⚠️结算从半窗改成整页之后，往期那张不能再当兄弟节点挂在列表下面
+    //   （那会变成「列表底下又接了一页」）。要么整页替换，要么就不是整页。
+    if (view === "archive" && detail) return ResultCard(t, detail, charOf(detail.charId), () => setDetail(null), tp);
     if (view === "archive") {
       const archiveRight = h("div", { style: { minWidth: 32, textAlign: "right", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, saves.length);
-      return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-        h(Head, { zh: "专注记录", en: "FOCUS LOG", onBack: () => setView("setup"), right: archiveRight }),
+      const DESKA = "linear-gradient(163deg,#efe9dd,#e5dccb 62%,#dbd0bb)";
+      return h("div", { className: "h-full flex flex-col", style: { background: DESKA,
+        backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESKA,
+        boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
+        h(Head, { zh: "坐过的那些", onBack: () => setView("setup"), right: archiveRight, bg: "transparent" }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
           saves.length === 0
-            ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "48px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "桌上还没有留下记录。")
-            : saves.map((r, i) => h("button", { key: r.id, onClick: () => setDetail(r), className: "w-full text-left active:opacity-70", style: { background: "transparent", border: "none", borderTop: "1px solid " + t.line, padding: "17px 0", display: "grid", gridTemplateColumns: "32px 1fr auto", gap: 10, alignItems: "start" } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, paddingTop: 3 } }, pad2(i + 1)),
+            ? h("div", { style: { borderTop: "1px solid rgba(120,96,58,.24)", padding: "48px 0", fontFamily: F_BODY, fontSize: 13, color: "#8a7a5e" } }, "桌上还没有留下记录。")
+            : saves.map((r, i) => h("button", { key: r.id, onClick: () => setDetail(r), className: "w-full text-left active:opacity-70", style: { background: "transparent", border: "none", borderTop: "1px solid rgba(120,96,58,.24)", padding: "17px 0", display: "grid", gridTemplateColumns: "32px 1fr auto", gap: 10, alignItems: "start" } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a3925f", paddingTop: 3 } }, pad2(i + 1)),
                 h("span", null,
-                  h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, lineHeight: 1.35 } }, r.task),
-                  h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, fmtDate(r.ts) + " · " + r.charName + " · " + minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes))),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.status === "done" ? "#52705b" : t.fog, paddingTop: 3 } }, r.status === "done" ? "完成" : "收桌")))),
-        detail ? ResultCard(t, detail, charOf(detail.charId), () => setDetail(null), tp) : null);
+                  h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 17, color: "#3a3024", lineHeight: 1.35 } }, r.task),
+                  h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e", marginTop: 5 } }, fmtDate(r.ts) + " · " + r.charName + " · " + minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes))),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.status === "done" ? "#4a6b52" : "#a3925f", paddingTop: 3 } }, r.status === "done" ? "完成" : "收桌"))))
+      );
     }
 
     if (view === "focus" && sess) {
@@ -316,16 +346,25 @@
       const bg = c.avatarImage
         ? { backgroundImage: "url(\"" + c.avatarImage + "\")", backgroundSize: "cover", backgroundPosition: "center" }
         : { background: "linear-gradient(160deg," + (c.color || "#3a3a3a") + ",#14140f)" };
+      // 剩下的分钟数：盘上的指针照这个走，跟摆桌那页拧的是同一个盘，只是现在在往回松
+      const leftMin = Math.max(0, Math.ceil(left / 60));
       return h("div", { className: "h-full", style: { position: "relative", ...bg, overflow: "hidden" } },
         h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(9,10,12,0.6),rgba(9,10,12,0.18) 43%,rgba(9,10,12,0.82))" } }),
+        // 桌上那只钟：淡淡浮在中间，指针一分一分往回退
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: "46%", transform: "translate(-50%,-50%)", opacity: .17, pointerEvents: "none" } },
+          h(Dial, { t: { bg2: "transparent", line: "rgba(255,255,255,.5)", ink: "#fff", fog: "rgba(255,255,255,.75)", accent: "#fff" }, min: leftMin, size: 288 })),
         h("div", { style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 18px)", left: 20, right: 18, display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 5 } },
           h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.2em", color: "rgba(255,255,255,0.72)" } }, sess.pausedAt ? "SEAT RESERVED" : "FOCUS DESK"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: "rgba(255,255,255,0.72)" } }, sess.pausedAt ? "座位给你留着" : "这一桌正在坐"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#fff", marginTop: 3 } }, c.name + " 在对面")),
           h("button", { onClick: () => setEndOpen(true), className: "active:opacity-65", style: { minWidth: 52, height: 40, padding: "0 12px", background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.36)", color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, "收桌")),
         h("div", { style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 102px)", left: 22, right: 22, zIndex: 4 } },
           resumed ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.12em", color: "rgba(255,255,255,0.68)", marginBottom: 12 } }, "已接回刚才那一轮") : null,
-          h("div", { key: idx + (sess.pausedAt ? "p" : "r"), style: { width: "min(100%, 310px)", background: "rgba(249,247,241,0.9)", border: "1px solid rgba(255,255,255,0.7)", boxShadow: "0 10px 30px rgba(0,0,0,0.18)", padding: "17px 18px", animation: "fadeUp .35s ease both" } },
+          h("div", { key: idx + (sess.pausedAt ? "p" : "r"), style: { position: "relative", width: "min(100%, 310px)", background: "rgba(249,247,241,0.94)", boxShadow: "0 12px 30px rgba(0,0,0,0.26)", padding: "18px 18px 19px", transform: "rotate(-.8deg)", animation: "fadeUp .35s ease both" } },
+            // 一段胶带把纸条粘在桌上（跟摆桌那页的便签、抽屉里的纸条同一套语言）
+            h("div", { "aria-hidden": "true", style: { position: "absolute", top: -9, left: 22, width: 62, height: 18,
+              transform: "rotate(-3deg)", background: "rgba(226,214,186,.6)",
+              borderLeft: "1px dashed rgba(255,255,255,.55)", borderRight: "1px dashed rgba(255,255,255,.55)" } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#827e75", marginBottom: 9 } }, sess.pausedAt ? "留座纸条" : "桌边纸条 · " + pad2(idx + 1)),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.55, color: "#24221e" } }, sess.pausedAt ? sess.pack.pause : line))),
         h("div", { style: { position: "absolute", left: 22, right: 22, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)", zIndex: 4 } },
@@ -350,7 +389,7 @@
               h("button", { onClick: togglePause, className: "active:opacity-70", style: { position: "absolute", left: 4, top: 4, width: 58, height: 58, borderRadius: 999, background: "rgba(248,246,239,0.92)", border: "1px solid rgba(255,255,255,0.7)", color: "#24221e", fontFamily: F_BODY, fontSize: 12 } }, sess.pausedAt ? "继续" : "暂停")))),
         endOpen ? h("div", { onClick: () => setEndOpen(false), style: { position: "absolute", inset: 0, zIndex: 20, background: "rgba(10,10,12,0.58)", display: "flex", alignItems: "flex-end", padding: "20px 18px calc(env(safe-area-inset-bottom) * 0.4 + 18px)" } },
           h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: "#f5f2eb", border: "1px solid rgba(255,255,255,0.55)", padding: "21px 20px 18px", animation: "fadeUp .2s ease both" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.18em", color: "#8a857c" } }, "CLEAR THE DESK"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: "#8a857c" } }, "收桌"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: "#24221e", marginTop: 7 } }, "这一轮要先收到这里吗？"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#716d65", lineHeight: 1.6, marginTop: 8 } }, "已经坐住的时间会照常留下。选一个原因，方便以后看懂自己的节奏。"),
             h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 18 } },
@@ -391,7 +430,7 @@
     return h("div", { className: "h-full flex flex-col", style: { background: DESK,
       backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESK,
       boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
-      h(Head, { zh: "番茄钟", en: "FOCUS DESK", onBack: props.onBack, right: archiveRight, bg: "transparent" }),
+      h(Head, { zh: "番茄钟", onBack: props.onBack, right: archiveRight, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // ① 桌上那张便签：这一轮只做的一件事。写在纸上，不是写在一个输入框里。
         h("div", { style: { position: "relative", background: "#fdf6d8", padding: "16px 16px 18px",
@@ -400,25 +439,35 @@
           h("div", { "aria-hidden": "true", style: { position: "absolute", top: -10, left: "50%", width: 76, height: 20,
             transform: "translateX(-56%) rotate(-2.6deg)", background: "rgba(226,214,186,.66)",
             borderLeft: "1px dashed rgba(255,255,255,.55)", borderRight: "1px dashed rgba(255,255,255,.55)" } }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: "#a3925f" } }, "ONE THING"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f" } }, "这一轮只做"),
           h("input", { value: task, onChange: e => setTask(e.target.value), placeholder: "这一轮只做…", maxLength: 24,
             style: { width: "100%", fontFamily: F_DISPLAY, fontSize: 21, color: "#3a3024", background: "transparent",
               border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", outline: "none", padding: "9px 0 7px", marginTop: 8 } })),
         // ② 发条计时盘：拧到几分就走几分
         h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 22 } },
           h(Dial, { t: t, min: min, size: 200, onPick: v => setMin(v) }),
-          h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 10 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, lineHeight: 1 } }, String(Number(min) || 0)),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "分钟")),
+          // 超过一小时就按「几小时几分」念——「90 分钟」得在脑子里再换算一次
+          (function () {
+            const v = Number(min) || 0, hh = Math.floor(v / 60), mm = v % 60;
+            return h("div", { className: "flex items-baseline", style: { gap: 5, marginTop: 10 } },
+              hh ? h(Fragment, null,
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, lineHeight: 1 } }, String(hh)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginRight: 3 } }, "小时")) : null,
+              (mm || !hh) ? h(Fragment, null,
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, lineHeight: 1 } }, String(mm)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "分钟")) : null);
+          })(),
           h("div", { className: "flex flex-wrap items-center justify-center", style: { gap: 7, marginTop: 12 } },
-            [15, 25, 45, 60].map(p2 => h("button", { key: p2, onClick: () => setMin(p2), className: "active:opacity-70",
+            [15, 25, 45, 60, 90].map(p2 => h("button", { key: p2, onClick: () => setMin(p2), className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 11.5, minHeight: 34, padding: "0 13px", borderRadius: 999,
                 color: Number(min) === p2 ? t.bg2 : "#6b5b3e", background: Number(min) === p2 ? t.ink : "transparent",
-                border: "1px solid " + (Number(min) === p2 ? t.ink : "rgba(90,72,44,.28)") } }, p2 + " 分")),
+                border: "1px solid " + (Number(min) === p2 ? t.ink : "rgba(90,72,44,.28)") } }, p2 >= 60 ? (p2 / 60) + " 小时" : p2 + " 分")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e" } }, "自定"),
             h("input", { value: String(min), onChange: e => setMin(e.target.value.replace(/[^0-9]/g, "").slice(0, 3)),
               inputMode: "numeric", "aria-label": "自定分钟",
               style: { width: 52, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: "transparent",
-                border: "none", borderBottom: "1px solid rgba(90,72,44,.4)", outline: "none", textAlign: "center", padding: "5px 0" } }))),
+                border: "none", borderBottom: "1px solid rgba(90,72,44,.4)", outline: "none", textAlign: "center", padding: "5px 0" } }),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e" } }, "分"))),
         // ③ 对面的座位
         h("div", { style: { marginTop: 24 } },
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 10 } },

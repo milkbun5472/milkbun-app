@@ -302,8 +302,13 @@ function Head({
   , bg
 }) {
   const t = useTheme();
-  // 副标题：sub 优先；只有 en 时也照发，但中文的 en 不做大写和字距
-  const line = sub || en || "";
+  // 副标题：sub 优先。
+  // ⚠️她 2026-09-03 立：**标题里所有英文都去掉，只留中文——除非这一处压根没写中文。**
+  //   所以有 zh 的时候，纯拉丁的 en 一律不发（那一行「FOCUS DESK」「MOMENTS」谁都看得懂，
+  //   但谁也不需要）。en 里写的是中文时照旧当副标题用——好些地方是拿 en 当 sub 使的。
+  //   改在这一处＝六十多页一起合规；各页自己删迟早漏（见 .claude/rules/no-english-titles.md）。
+  const enCJK = /[一-鿿]/.test(String(en || ""));
+  const line = sub || ((zh && !enCJK) ? "" : (en || "")) || "";
   const cjk = /[一-鿿]/.test(String(line));
   const SIDE = 46;
   return /*#__PURE__*/React.createElement("div", {

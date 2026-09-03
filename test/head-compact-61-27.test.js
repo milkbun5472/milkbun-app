@@ -37,7 +37,9 @@ test("Head 就是那条紧凑标题栏，不再是 30px 大标题", () => {
 test("副标题两种都收得下：英文小字和中文一行", () => {
   // 六十多处调用里 en 传的多半是英文，穿书那处传的是中文副标题。
   // 中文不该被拉字距和大写——那是给英文 eyebrow 用的。
-  assert.match(HEAD, /const line = sub \|\| en \|\| "";/);
+  // v61.40 起有 zh 时纯拉丁的 en 不再发（她立的「标题不留英文」）；
+  // en 里写的是中文时照旧当副标题——所以这一行现在看 enCJK。
+  assert.match(HEAD, /const line = sub \|\| \(\(zh && !enCJK\) \? "" : \(en \|\| ""\)\) \|\| "";/);
   assert.match(HEAD, /const cjk = \/\[一-鿿\]\/\.test\(String\(line\)\);/);
   assert.match(HEAD, /letterSpacing: cjk \? 0 : "0\.14em"/);
   assert.match(HEAD, /textTransform: cjk \? "none" : "uppercase"/);
