@@ -11058,57 +11058,97 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
 // 他想你的时候有时不发消息，而是往你俩的抽屉里放一样东西，等你自己发现。
 // ⚠️这一格【故意不报红点、不显示还有几件没拆】——报了就跟 App 里其余通知一个样，
 // 惊喜就没了。代价是可能白开一次；补偿是拆过的都留在里头，所以从来不会空手而归。
+// ⚠️封面上【一个字的内容都不许露】（v61.33，她 2026-09-03：「这个还没拆不应该显示
+//   说的话的一部分，就是要拆开了才看到」）。原来封着的那张会把 x.title 印在外面，
+//   而悄悄话那一路的 title 就是正文头 16 个字（drawerWhisper 那儿切的）——
+//   等于封面上直接印着他要说的话，拆不拆都一样。
+//   所以封着的时候只有：还没拆、放进来的时刻。别的一律等拆开。
 const DRAWER_KIND = {
-  thing: { zh: "他捡到的", e: "🪶" },
-  word:  { zh: "半句话",   e: "✎" },
-  draw:  { zh: "他画的",   e: "✍" },
+  thing:   { zh: "他捡到的",   ch: "拾", band: "#8a7a52" },
+  word:    { zh: "半句话",     ch: "半", band: "#7d6a86" },
+  draw:    { zh: "他画的",     ch: "画", band: "#7a8a6e" },
   // 悄悄话从 v59.23 起也落这儿（便签墙撤掉，并进来的）
-  whisper: { zh: "一句悄悄话", e: "✉" }
+  whisper: { zh: "一句悄悄话", ch: "悄", band: "#a4736f" }
 };
 function CoupleDrawer({ partner, items, onOpen, onBack }) {
   const t = useTheme();
   const mine = (items || []).filter(x => x.characterId === partner.id);
   const unopened = mine.filter(x => !x.openedTs).length;
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  const nm = partner.remark || partner.name;
+  // 每一样歪一点点，按序号定死（随机的话每次重画都在动）
+  const tilt = i => [-1.1, .7, -.5, 1.2, -.8, .4][i % 6];
+  return h("div", { className: "h-full flex flex-col", style: {
+    // 这一页就是【拉开的抽屉，从上往下看】：衬纸打底，四边压一圈内阴影——
+    // 有了那圈内阴影，一眼就知道自己是在一个盒子里面，不用画木框去说明。
+    background: "#efe6d3",
+    backgroundImage: "repeating-linear-gradient(102deg,rgba(140,116,74,.035) 0 2px,transparent 2px 16px),"
+      + "radial-gradient(120% 80% at 50% -10%,rgba(255,250,238,.75),transparent 60%)",
+    boxShadow: "inset 0 0 46px rgba(96,72,40,.26), inset 0 2px 0 rgba(255,255,255,.35)" } },
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "抽屉"),
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#5d4c31" })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#5d4c31" } }, "抽屉"),
       h("div", { style: { width: 40, height: 40 } })),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
-      h("div", { style: { borderRadius: 20, border: "1px solid #e6dcc9", background: "linear-gradient(140deg,#fbf5e9,#f3ead7)", padding: "16px 15px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#7a6338" } },
+      // 抽屉里侧那张标签：贴在衬纸上，不是一张圆角卡
+      h("div", { style: { position: "relative", background: "#fbf5e6", padding: "14px 15px 13px",
+        borderRadius: 3, boxShadow: "0 5px 14px rgba(96,72,40,.16)", transform: "rotate(-.4deg)" } },
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "#c9a86a" } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#6d5730" } },
           unopened ? "有 " + unopened + " 样还没拆" : mine.length ? "都拆过了" : "现在是空的"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "#9c8656", marginTop: 5 } },
-          (partner.remark || partner.name) + "想你的时候，有时不发消息，就往这儿放一样东西。什么时候放、放什么，你打开才知道。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: "#9b8659", marginTop: 5 } },
+          nm + "想你的时候，有时不发消息，就往这儿放一样东西。什么时候放、放什么，你打开才知道。"),
+        // 她 2026-09-03 问「这里除了悄悄话还会放啥」——那就写在这儿，不用她来问
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 11 } },
+          Object.keys(DRAWER_KIND).map(k => h("span", { key: k, className: "flex items-center",
+            style: { gap: 5, background: "rgba(201,168,106,.14)", borderRadius: 999, padding: "3px 10px 3px 4px" } },
+            h("span", { "aria-hidden": "true", style: { width: 17, height: 17, borderRadius: 5, background: DRAWER_KIND[k].band,
+              color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 10 } }, DRAWER_KIND[k].ch),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, DRAWER_KIND[k].zh))))),
       mine.length
-        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 14 } },
-            mine.map(x => {
+        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 13, marginTop: 16 } },
+            mine.map((x, i) => {
               const k = DRAWER_KIND[x.kind] || DRAWER_KIND.thing;
               const sealed = !x.openedTs;
-              return h("button", {
-                key: x.id, onClick: () => sealed && onOpen(x.id), disabled: !sealed,
-                className: sealed ? "w-full text-left active:opacity-70" : "w-full text-left",
-                style: {
-                  borderRadius: 15, padding: "13px 14px",
-                  border: "1px solid " + (sealed ? "#dfd0ab" : t.line),
-                  background: sealed ? "linear-gradient(135deg,#fdf7e6,#f6eed8)" : t.bg2
-                }
-              },
-                h("div", { className: "flex items-center gap-2" },
-                  h("span", { style: { fontSize: 13 } }, k.e),
-                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: sealed ? "#a68f5c" : t.fog } },
-                    sealed ? "还没拆" : k.zh),
-                  h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: t.fog } }, gachaWhen(x.ts))),
-                sealed
-                  // 拆开之前只露标题。标题是他随手起的，不剧透里头是什么
-                  ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#7a6338", marginTop: 6 } }, x.title || "他放了一样东西进来")
-                  : h(Fragment, null,
-                      // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
-                      (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
-                        ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginTop: 6 } }, x.title) : null,
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, x.text)));
+              if (sealed) {
+                // 封着的：一个折起来、封了口的纸包。正面什么都没写。
+                return h("button", { key: x.id, onClick: () => onOpen(x.id),
+                  className: "w-full text-left active:opacity-80", style: { position: "relative", padding: "17px 16px 16px",
+                    background: "linear-gradient(158deg,#f8f0dc,#efe3c6)", borderRadius: 2,
+                    boxShadow: "0 7px 16px rgba(96,72,40,.20)", transform: "rotate(" + tilt(i) + "deg)", overflow: "hidden" } },
+                  // 折痕：纸是折过才塞进来的
+                  // 两道折痕：纸条是折成三折塞进来的。⚠️只画一道会正好横在字中间，
+                  //   读起来是条分割线不是折痕——两道就没有这个歧义了。
+                  // ⚠️折痕的位置要避开字：它横穿一行字的时候，那行字就像被划掉了。
+                  ["17%", "85%"].map(top => h("div", { key: top, "aria-hidden": "true", style: { position: "absolute",
+                    left: 0, right: 0, top: top, borderTop: "1px solid rgba(150,120,70,.18)",
+                    boxShadow: "0 1px 0 rgba(255,255,255,.75)" } })),
+                  // 右上角掀起来的一角
+                  h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 0, width: 26, height: 26,
+                    background: "linear-gradient(225deg,#e2d4b0 50%,transparent 50%)" } }),
+                  // 封蜡
+                  h("div", { "aria-hidden": "true", style: { position: "absolute", right: 15, top: "50%", marginTop: -11,
+                    width: 22, height: 22, borderRadius: 999, background: "radial-gradient(circle at 36% 32%,#c2705f,#8d3f36)",
+                    boxShadow: "0 2px 4px rgba(80,30,24,.34), inset 0 0 0 3px rgba(255,255,255,.10), inset 0 -3px 5px rgba(60,20,16,.35)" } }),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#7a6338", paddingRight: 44 } }, "还没拆"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d", marginTop: 5, paddingRight: 44 } },
+                    nm + "在 " + gachaWhen(x.ts) + " 放进来的"));
+              }
+              // 拆开的：摊平的那张纸
+              return h("div", { key: x.id, style: { position: "relative", padding: "13px 15px 15px",
+                background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 9px rgba(96,72,40,.11)",
+                transform: "rotate(" + (tilt(i) / 2) + "deg)" } },
+                h("div", { className: "flex items-center", style: { gap: 7 } },
+                  h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                    background: k.band, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: F_DISPLAY, fontSize: 11.5 } }, k.ch),
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d" } }, k.zh),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#b9a785" } }, gachaWhen(x.ts))),
+                // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
+                (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
+                  ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#4e4030", marginTop: 8 } }, x.title) : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text));
             }))
-        : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "30px 16px", marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
+        : h("div", { style: { border: "1px dashed rgba(150,120,70,.32)", borderRadius: 4, padding: "30px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: "#a08b5d", lineHeight: 1.8 } },
             "他还没往里放过东西。", h("div", { style: { marginTop: 4 } }, "这儿不会提醒你——想起来了就来看看。"))));
 }
 

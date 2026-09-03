@@ -203,8 +203,12 @@ test("抽屉那一格不许剧透", () => {
   // 但页面【里头】要说清有几件没拆，不然不知道该点哪一张
   const page = scr.slice(scr.indexOf("function CoupleDrawer({"));
   assert.match(page, /unopened \? "有 " \+ unopened \+ " 样还没拆"/, "进去了也不知道有没有新的");
-  // 没拆之前只露标题，不露正文
-  assert.match(page, /sealed\n\s*\/\/ 拆开之前只露标题[\s\S]*?x\.title \|\| "他放了一样东西进来"/, "没拆就把正文露出来了");
+  // v61.33 收紧成【一个字都不露】：她 2026-09-03 报「还没拆不应该显示说的话的一部分」。
+  // 原来封面上印的是 x.title，而悄悄话那一路的 title 就是正文头 16 个字。
+  const sealedBlk = page.slice(page.indexOf("if (sealed) {"), page.indexOf("// 拆开的：摊平的那张纸"));
+  assert.ok(sealedBlk.length > 200, "封着那一段切歪了");
+  assert.ok(sealedBlk.indexOf("x.title") < 0, "封面上还印着标题");
+  assert.ok(sealedBlk.indexOf("x.text") < 0, "封面上还印着正文");
   // 拆过的留着——所以从来不会白开一次
   assert.match(page, /const mine = \(items \|\| \[\]\)\.filter\(x => x\.characterId === partner\.id\);/, "没按这位恋人筛");
   assert.ok(page.indexOf("!x.openedTs)") > 0 && !/filter\(x => !x\.openedTs\)\.map/.test(page), "拆过的被过滤掉了");

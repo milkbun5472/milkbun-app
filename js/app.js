@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v61.33";
+const APP_VERSION = "v61.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13685,8 +13685,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const t = String(text || "").trim();
     if (!charId || !t) return false;
     setCoupleDrawer(p => {
+      // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
+      //   ——等于她还没拆就已经读到他要说的话了（她 2026-09-03 报的就是这个）。
+      //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
+      //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
       const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
-        title: t.replace(/\s+/g, " ").slice(0, 16), text: t, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+        title: "", text: t, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
       coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
     });
     return true;
