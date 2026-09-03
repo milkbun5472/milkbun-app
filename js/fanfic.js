@@ -641,6 +641,49 @@
     { key: "random", label: "天降 · 随机身份", short: "天降随机" }
   ];
   function rpModeLabel(key) { const m = RP_MODES.find(function (x) { return x.key === key; }); return m ? m.short : key; }
+  // ── 选项这一屏改了两处（v60.91，她 2026-09-03「这几样我都是直接参考了别人的」）──
+  // 「魂穿 / 天降」这几个词不算抄——它们是同人圈的通用说法，跟 AU、年下一样。
+  // 真正的毛病是另外两件：
+  //   ① 「CP 左位 / 右位」是废话：这两个人的名字代码里明明拿得到，而且这篇的 CP
+  //      就是【她和她的角色】——「左位」其实是「穿成我自己」。这个落差别家没有，
+  //      却被两个抽象词盖掉了。所以按钮上直接写名字。
+  //   ② 四个选项全在问【你是谁】，没有一个在问【你知道多少】。而「带着剧透穿进去」
+  //      才是穿书这个题材最核心的乐趣。所以补上第二排：你带着什么进去。
+  function rpModeText(key, cpChars) {
+    const a = cpChars && cpChars[0], b = cpChars && cpChars[1];
+    const who = function (c, fallback) {
+      if (!c) return fallback;
+      return c.isMe ? "穿成我自己（" + c.name + "）" : "穿成 " + c.name;
+    };
+    if (key === "left") return who(a, "魂穿 · 左位");
+    if (key === "right") return who(b, "魂穿 · 右位");
+    return rpModeLabel(key) === key ? key : (RP_MODES.find(function (x) { return x.key === key; }) || {}).label || key;
+  }
+  // 你带着什么进去。⚠️「带着现实的记忆」不是去翻主线记忆库——同人文是平行时空沙盒
+  // （.claude/rules/four-surfaces-same-context.md 里那条合法差异），这一档只是给这场戏
+  // 一个前提：你记得，这个世界里的他不记得。落差本身就是戏，不需要真去读记忆。
+  const RP_KNOWS = [
+    { key: "blank", label: "空手进去", short: "空手", desc: "你对这个故事一无所知，跟里面的人一样两眼一抹黑，只能边走边猜。" },
+    { key: "spoiler", label: "带着剧透", short: "带剧透", desc: "你读完过这篇文，知道后面会发生什么、谁会说哪句话、哪一步是坑。你可以顺着走，也可以提前去拆它。" },
+    { key: "real", label: "带着现实里的记忆", short: "带记忆", desc: "你记得现实里你和 TA 真正的关系——但这个世界里的 TA 完全不认识你。" }
+  ];
+  function rpKnowLabel(key) { const k = RP_KNOWS.find(function (x) { return x.key === key; }); return k ? k.short : ""; }
+  function rpKnowLine(know, mode, cpChars, userName) {
+    const k = RP_KNOWS.find(function (x) { return x.key === know; });
+    if (!k || k.key === "blank") return "";   // 老存档没有这一栏：不发，保持原来的样子
+    if (k.key === "spoiler") {
+      return "【玩家带进去的东西 · 剧透】" + k.desc
+        + "\n所以：玩家可能会做出【只有读过这篇文的人才做得出】的举动——提前挡在某个人前面、把某句话抢在他之前说、绕开原著里那个坑。"
+        + "你要如实承接这种「他怎么会知道」的怪异感：场上的人不知道玩家为什么这么笃定，他们会觉得奇怪、会追问、会起疑。"
+        + "但**你不许替玩家把剧透说出来**，也不许在正文里提示「按原著接下来会……」——玩家知道什么、用不用，是玩家自己的事。";
+    }
+    const other = rpOther(mode, cpChars);
+    return "【玩家带进去的东西 · 现实里的记忆】" + k.desc
+      + (other ? "这个世界里的「" + other.name + "」不认识玩家，也没有那段关系——他就是原著里的他。" : "")
+      + "\n所以这一场的底色是【一边记得、一边不记得】：玩家可能会脱口而出只有他俩才懂的话、下意识做熟悉的动作，"
+      + "而对面只会当成一个陌生人的冒犯或古怪。别把这层落差写成煽情的旁白，让它从对方的困惑和玩家的失手里自己露出来。"
+      + "⚠️这个世界是平行的：不许直接引用现实里发生过的具体事件当剧情，只有玩家自己心里记得。";
+  }
   // 玩家固定扮演谁（魂穿=某主角名；天降=session.playerIdentity.name）
   function rpPlayerName(mode, cpChars, identity) {
     const a = cpChars[0], b = cpChars[1];
@@ -691,7 +734,7 @@
     if (d && d.name) return { name: String(d.name).slice(0, 20), role: String(d.role || "").slice(0, 90) };
     return { name: "无名路人", role: "一个刚好路过的陌生人" };
   }
-  function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity) {
+  function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity, know) {
     // 穿书 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
     const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
     parts.push("【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
@@ -706,6 +749,7 @@
       : {}));
     parts.push("【玩家的身份 / 穿进去的方式】" + rpRoleDesc(mode, cpChars, userName, identity));
     parts.push(rpAnchorLine(mode, cpChars, identity));
+    { const kl = rpKnowLine(know, mode, cpChars, userName); if (kl) parts.push(kl); }
     if (style && style.trim()) parts.push("【文风】\n" + style.trim());
     // ⚠️世界书：这个参数一路从 RPApp 传到这儿，然后【从没被引用过】——
     // 声明了但没人用，比压根没写更坏，看代码以为已经在发了
@@ -722,8 +766,9 @@
   // 生成可选降落节点（3-4 个）
   // 不收 worldbook：降落点是【从原著正文里挑】的，那些场景本来就已经合着世界书写成了。
   // 留一个没人引用的参数比缺一层更坏——看代码会以为它在发。
-  async function genLandings(active, fic, tab, cpChars, mode, userName) {
+  async function genLandings(active, fic, tab, cpChars, mode, userName, know) {
     const sys = ANTI_CLICHE + "\n\n你在为一场『穿书』的互动叙事挑【降落节点】。玩家会这样穿进去：" + rpRoleDesc(mode, cpChars, userName) +
+      (rpKnowLine(know, mode, cpChars, userName) ? "\n" + rpKnowLine(know, mode, cpChars, userName) : "") +
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
       "\n\n从原著里挑 3-4 个适合玩家空降切入、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
       "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
@@ -781,7 +826,7 @@
   // 开场：安置玩家进降落节点，收在第一个抉择处境
   async function genRPStart(active, session, fic, tab, cpChars, userName, worldbook, perFic) {
     const id = session.playerIdentity;
-    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id) +
+    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id, session.know) +
       "\n\n【本场起点】玩家从这个节点空降：「" + session.landing.label + "」——" + session.landing.scene +
       "\n\n现在写【开场】：用两三段把玩家安置进这个场景（" + (id ? "玩家这次的固定身份是「" + id.name + "」（" + id.role + "），开场自然点明并让 TA 入场" : "以玩家的身份视角") + "），营造氛围、带出在场关键人物，最后自然收在一个需要玩家做出反应/抉择的处境上，然后停下等玩家开口。";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.max(12000, Math.min(20000, (perFic || 3000) + 8000)) });
@@ -789,7 +834,7 @@
   }
   // 玩家行动 → 推进 + 下一个抉择处境
   async function genRPTurn(active, session, fic, tab, cpChars, userName, worldbook, userAction, perFic) {
-    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity) +
+    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity, session.know) +
       "\n\n【本场起点】「" + session.landing.label + "」——" + session.landing.scene +
       "\n承接玩家最新的行动，推进剧情、让相关角色真实反应，写两三百字，再自然收在下一个需要玩家抉择的处境上停下。\n" + rpAnchorLine(session.mode, cpChars, session.playerIdentity) + "（切记：别把玩家换人、别对调 CP 位置、别把玩家当成现实用户本人。）";
     const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.max(11000, Math.min(20000, (perFic || 2400) + 8000)) });
@@ -812,7 +857,7 @@
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
-    loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, rpModeLabel: rpModeLabel
+    loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
   };
 
   // ============================================================
@@ -1779,6 +1824,7 @@
     const [openId, setOpenId] = useState(null);
     const [newFic, setNewFic] = useState(null);
     const [mode, setMode] = useState("left");
+    const [know, setKnow] = useState("blank");
     const [landings, setLandings] = useState(null);
     const [busy, setBusy] = useState("");
     const shelf = (props.fics || []).filter(function (f) { return window.Fanfic.protectedFic(f); });
@@ -1806,7 +1852,7 @@
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿进【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
           shelf.length ? shelf.map(function (f) {
-            return h("button", { key: f.id, onClick: function () { setNewFic(f); setMode("left"); setLandings(null); setView("setup"); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+            return h("button", { key: f.id, onClick: function () { setNewFic(f); setMode("left"); setKnow("blank"); setLandings(null); setView("setup"); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, f.title),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName)));
           }) : h(Empty, { text: "书架空空", sub: "先去收藏几篇再来穿" })));
@@ -1819,13 +1865,13 @@
       async function makeLandings() {
         if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
         setBusy("land");
-        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName); setLandings(lds); }
+        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, know); setLandings(lds); }
         catch (e) { props.toast && props.toast(String(e.message || e)); }
         setBusy("");
       }
       function startSession(landing) {
         const cfg = window.Fanfic.loadCfg();
-        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, landing: landing, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
+        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
         persist([sess].concat(window.Fanfic.loadRP()));
         setOpenId(sess.id); setNewFic(null); setLandings(null); setView("thread");
       }
@@ -1834,10 +1880,19 @@
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 2 } }, newFic.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 16 } }, cpLabel(newFic.cp, props.characters, props.userName)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "穿进去的方式"),
-          h("div", { className: "grid grid-cols-2 gap-2 mb-6" }, RP_MODES.filter(function (m) { return modeAvail(m.key); }).map(function (m) {
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "你穿成谁"),
+          h("div", { className: "grid grid-cols-2 gap-2 mb-5" }, RP_MODES.filter(function (m) { return modeAvail(m.key); }).map(function (m) {
             const on = mode === m.key;
-            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, m.label);
+            // 按钮上写真名（「穿成 沈屿白」「穿成我自己」），不再是抽象的「CP 左位 / 右位」
+            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, window.Fanfic.rpModeText(m.key, cpc));
+          })),
+          // 第二排：你带着什么进去。四个「你是谁」之外的另一维——穿书真正的乐趣在这儿
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "你带着什么进去"),
+          h("div", { className: "mb-6" }, window.Fanfic.RP_KNOWS.map(function (k) {
+            const on = know === k.key;
+            return h("button", { key: k.key, onClick: function () { setKnow(k.key); setLandings(null); }, className: "w-full text-left active:opacity-70 mb-2", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, k.label),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.55, marginTop: 3, opacity: on ? 0.75 : 0.62 } }, k.desc));
           })),
           !landings ? h("button", { onClick: makeLandings, disabled: busy === "land", className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.accent, padding: "12px", borderRadius: 12, opacity: busy === "land" ? 0.6 : 1 } }, busy === "land" ? "推演降落点中…" : "生成降落节点")
             : h("div", null,
@@ -1860,7 +1915,7 @@
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, window.Fanfic.rpModeLabel(s.mode) + " · " + (s.landing && s.landing.label || "") + " · " + ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, window.Fanfic.rpModeLabel(s.mode) + (window.Fanfic.rpKnowLabel(s.know) ? " · " + window.Fanfic.rpKnowLabel(s.know) : "") + " · " + (s.landing && s.landing.label || "") + " · " + ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步")),
             h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
         }) : h(Empty, { text: "还没有穿书存档", sub: "点右上「＋ 新穿书」开始" })));
   }

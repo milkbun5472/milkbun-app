@@ -82,8 +82,11 @@ test("世界书真的进了穿书的 system——原来一路传到底、从没�
   // 身份也要合得上世界书
   const j = fic.indexOf("  async function genRPIdentity(");
   assert.match(fic.slice(j, j + 1400), /这个身份要合得上里面的设定与禁忌/);
-  // 降落点用不上就把参数删掉，别留个没人引用的
-  assert.match(fic, /async function genLandings\(active, fic, tab, cpChars, mode, userName\) \{/);
+  // 降落点用不上就把参数删掉，别留个没人引用的（worldbook 就是那个反面教材）。
+  // v60.91 多了个 know（你带着什么进去）——它是【真被引用的】，见下面那一句。
+  assert.match(fic, /async function genLandings\(active, fic, tab, cpChars, mode, userName, know\) \{/);
+  const gi = fic.indexOf("async function genLandings(");
+  assert.match(fic.slice(gi, gi + 900), /rpKnowLine\(know, mode, cpChars, userName\)/, "know 收了却没用，就是又一个 worldbook");
   assert.doesNotMatch(fic, /genLandings\(props\.active, newFic, tabOf\(newFic\), cpc, mode, props\.userName, props\.worldbook\)/);
 });
 
