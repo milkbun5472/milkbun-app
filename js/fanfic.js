@@ -1291,18 +1291,39 @@
         props.readAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, props.readAt) : null,
         f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null);
     };
-    // 页边那道朱线：只有「写我们的」那几篇才有——像有人拿红笔在书页边上划过。
-    // 一屏里没有它就是干净的，有它就一眼跳出来（不是每张卡都描一道边）。
-    const redEdge = hasMe ? h("div", { style: { position: "absolute", left: -9, top: 6, bottom: 8, width: 2, background: t.accent, opacity: .85 } }) : null;
+    // ⚠️v61.19：目录行是对的，但它【平在纸上】（她 2026-09-03：「还是一块平的」）。
+    // 一篇同人文在现实里是一本【订起来的薄册子】，所以每一篇就照薄册子来画：
+    // 左边一道装订边＋两枚订书钉、册子底下压着两三层错开的纸、一道自己的影。
+    // 不是回到「一个个框」——它没有描边、没有圆角框，边是纸叠出来的。
+    const paper = skinShade(t.bg2, skinIsDark(t.bg) ? 0.06 : 0.5);
+    const under = skinShade(t.bg2, skinIsDark(t.bg) ? -0.2 : -0.06);
+    // 一叠：本体的影 + 底下错开的两层纸 + 一道极淡的纸边
+    const stack = "0 0 0 1px " + hexA(t.ink, .07)
+      + ", 2px 3px 0 -1px " + under + ", 4px 6px 0 -2px " + under
+      + ", 0 7px 10px -7px " + hexA(t.ink, .35);
+    // 装订边：靠左那一条压深的纸 + 两枚订书钉（同人本就是这么订起来的）
+    const staple = function (top) {
+      return h("div", { key: "s" + top, style: { position: "absolute", left: 8, top: top, width: 2, height: 9, borderRadius: 1, background: hexA(t.ink, .42) } });
+    };
+    const binding = h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 19, background: "linear-gradient(90deg," + hexA(t.ink, .11) + "," + hexA(t.ink, .02) + ")" } });
+    // 「写我们的」那几篇：从册子上口垂下来的一根红书签带
+    const ribbon = hasMe ? h("div", {
+      style: {
+        position: "absolute", right: 15, top: -3, width: 8, height: 21, background: t.accent,
+        clipPath: "polygon(0 0,100% 0,100% 100%,50% 74%,0 100%)"
+      }
+    }) : null;
 
-    // 卷首：这一页最上面那一篇。压得住整屏靠的是【字号和双线】，不是一块深底——
-    // 目录页上不该出现一块方框（她点名要去掉的就是框）。
+    // 卷首：这一页最上面那一本，摊开着——所以它更厚（影更沉）、字更大。
     if (isLead) return h("button", {
-      onClick: props.onOpen, className: "w-full text-left active:opacity-70 relative",
-      style: { padding: "2px 0 14px", marginBottom: 10, borderBottom: "1px solid " + t.line }
+      onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative",
+      style: {
+        background: paper, borderRadius: 2, boxShadow: stack,
+        padding: "14px 15px 13px 30px", marginBottom: 16
+      }
     },
-      redEdge,
-      h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + t.line } },
+      binding, staple("28%"), staple("62%"), ribbon,
+      h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + hexA(t.ink, .12) } },
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "TOP OF THE FEED"),
         h("span", { style: { flex: 1 } }),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: hasMe ? t.accent : t.fog } }, no)),
@@ -1315,15 +1336,18 @@
       tagRow(10), statRow(9));
 
     return h("button", {
-      onClick: props.onOpen, className: "w-full text-left active:opacity-70 relative flex",
-      style: { gap: 10, padding: "11px 0 12px", borderBottom: "1px solid " + t.line }
+      onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative flex",
+      style: {
+        background: paper, borderRadius: 2, boxShadow: stack,
+        gap: 9, padding: "11px 13px 11px 26px", marginBottom: 13
+      }
     },
-      redEdge,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.6, color: hasMe ? t.accent : t.fog, width: 22, flexShrink: 0 } }, no),
+      binding, staple("26%"), staple("64%"), ribbon,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.6, color: hasMe ? t.accent : t.fog, width: 20, flexShrink: 0 } }, no),
       h("div", { className: "min-w-0", style: { flex: 1 } },
-        // 目录那一行：篇名 …………… 字数
+        // 封面上那一行：篇名 …………… 字数（目录里页码的位置）
         h("div", { className: "flex items-baseline", style: { gap: 0 } },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, fontWeight: 500, maxWidth: "78%" } }, f.title),
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, fontWeight: 500, maxWidth: "76%" } }, f.title),
           leader, pageNo),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
           // ⚠️子节点要传数组，不能拿 + 去拼——元素被字符串拼接就成了 [object Object]

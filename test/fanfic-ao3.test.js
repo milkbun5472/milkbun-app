@@ -78,7 +78,7 @@ test("「我们之间的设计」＝CP 里有没有我，一眼看得出", () =>
   // 但认的是【这三处都还在表这一层】，不是某一串具体的 CSS。
   // v61.12 起 feed 是目录页不是卡片：左边那道色条变成【页边的朱线】（只有有我的才有），
   // 序号仍然跟着换色。认的还是「这几处都还在表这一层」，不是某一串具体的 CSS。
-  assert.match(fic, /const redEdge = hasMe \? h\("div"/, "页边那道朱线");
+  assert.match(fic, /const ribbon = hasMe \? h\("div"/, "「有我」那根红书签带");
   assert.match(fic, /color: hasMe \? t\.accent : t\.fog/, "列表行的序号");
   assert.match(fic, /fontSize: 11\.5, color: hasMe \? t\.accent : t\.fog/, "卷首的序号");
   assert.match(fic, /background: _hasMe \? t\.accent : t\.line/, "阅读页那道");
