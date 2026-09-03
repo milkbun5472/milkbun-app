@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.84";
+const APP_VERSION = "v60.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14858,12 +14858,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });
 
   // 送礼物给角色（结算送礼 / 待收货转赠 共用）：礼物按品类送达用时「在路上」，到点 promoteGifts 里 TA 才 cue 到、并永久存进 TA 随身物品
-  const sendGiftToChar = (charId, itemName, cat) => {
+  // ⚠hand=true 是【转赠】：东西已经送到她手上了，转手就是转手，不该再从头跑一遍快递
+  //（她 2026-09-03 报的：「我买了东西送到了，选择转赠的时候显示还有一段时间」）。
+  // 这一路不进 giftOut，直接落成已送达 + 存进 TA 的随身物品。
+  const sendGiftToChar = (charId, itemName, cat, hand) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     const giftId = "gf_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-    const arriveTs = Date.now() + deliverMsForCat(cat, itemName);
-    pChat(charId, p => [...p, { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: false, item: { name: itemName }, content: "[礼物] 送给你：" + itemName, ts: Date.now(), read: true }]);
+    const now = Date.now();
+    const arriveTs = hand ? now : now + deliverMsForCat(cat, itemName);
+    pChat(charId, p => [...p, { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: !!hand, hand: !!hand, item: { name: itemName }, content: "[礼物] " + (hand ? "当面给你：" : "送给你：") + itemName, ts: now, read: true }]);
+    if (hand) {
+      setCarryGifts(prev => {
+        const list = prev[charId] || [];
+        const n = { ...prev, [charId]: [{ id: giftId, name: itemName, receivedTs: now }, ...list] };
+        carryGiftsRef.current = n; saveJSON("x_carryGifts", n);
+        return n;
+      });
+      toast("已转交给 " + (char.remark || char.name) + "，东西现在在 Ta 手上");
+      return;
+    }
     setGiftOut(p => { const n = [...p, { id: giftId, charId, name: itemName, arriveTs, cat: cat || null }]; giftOutRef.current = n; saveJSON("x_giftOut", n); return n; });
     toast("礼物已下单，送给 " + (char.remark || char.name) + "，在路上");
   };
@@ -15057,7 +15071,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const o = ordersRef.current.find(x => x.id === orderId);
     if (!o) return;
     saveOrders(p => p.filter(x => x.id !== orderId));
-    sendGiftToChar(charId, o.name, o.cat);
+    sendGiftToChar(charId, o.name, o.cat, true);
   };
   // 结算入口
   const checkout = (uids, mode, target) => {

@@ -6814,22 +6814,53 @@ function FicShareCard({ m, isU }) {
         f.excerpt && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, f.excerpt),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "文 / " + (f.author || "佚名")))));
 }
+// 她 2026-09-03：「礼物卡还是差点意思，能不能做个礼物盒之类的」。
+// 原来是一张红渐变卡片 + 一颗心 + 一行小字——换个 app 照样成立，所以它没长在这儿。
+// 现在它真的是【一个盒子】：牛皮纸的盒身、一条压过盖子的丝带、系在丝带上的一张吊牌。
+// 状态不靠换颜色，靠【盖子】：在路上＝盖子严丝合缝盖着；送到了＝盖子掀起一角，
+// 里头露出一线暗，丝带松了。一眼就看得出这份礼物到没到。
 function GiftCard({ m, isU, now, avatar, myAvatar }) {
   const t = useTheme();
   const name = (m.item && m.item.name) || m.name || "礼物";
   const toChar = m.dir === "toChar";
+  const open = toChar ? !!m.delivered : false;
   let footer;
-  if (toChar) footer = m.delivered ? "已送达 · TA 收到了" : (m.arriveTs ? "在路上 · 还有 " + giftFmtLeft(m.arriveTs - (now || Date.now())) : "已送出");
+  if (toChar) footer = m.hand ? "当面交到 TA 手上" : (m.delivered ? "已送达 · TA 收到了" : (m.arriveTs ? "在路上 · 还有 " + giftFmtLeft(m.arriveTs - (now || Date.now())) : "已送出"));
   else footer = "TA 给你寄的 · 在「我的」查看物流";
+  const KRAFT = "#e6d8bd", KRAFT_D = "#d8c6a3", RIBBON = "#b8443c", RIBBON_D = "#93332d";
+  const RIB_X = 40;                       // 丝带压在离左边这么远的地方
+  const band = extra => h("div", { style: Object.assign({ position: "absolute", left: RIB_X - 9, width: 18,
+    background: "linear-gradient(90deg," + RIBBON_D + "," + RIBBON + " 42%," + RIBBON_D + ")" }, extra) });
   return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
     !isU && avatar ? avatar : null,
-    h("div", { style: { width: 224, borderRadius: 16, overflow: "hidden", background: "linear-gradient(135deg,#c25a4a,#9a3f37)", color: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" } },
-      h("div", { className: "px-4 pt-3.5 pb-3" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.2em", opacity: 0.85 } }, "GIFT · 礼物"),
-        h("div", { className: "flex items-center gap-2.5 mt-2" },
-          h(IHeart, { size: 22, color: "#fff" }),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.2 } }, name))),
-      h("div", { className: "px-4 py-1.5", style: { background: "rgba(0,0,0,0.14)", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em" } }, footer)),
+    h("div", { style: { width: 224 } },
+      h("div", { style: { position: "relative", height: 118, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
+        // 盒身
+        h("div", { style: { position: "absolute", left: 0, right: 0, top: 28, bottom: 0, borderRadius: "3px 3px 9px 9px",
+          background: "linear-gradient(180deg," + KRAFT + "," + KRAFT_D + ")" } }),
+        band({ top: 28, bottom: 0 }),
+        // 盖子（掀开那一档：抬起来、歪一点，底下露出一线暗）
+        open ? h("div", { style: { position: "absolute", left: 6, right: 6, top: 26, height: 8, borderRadius: 3, background: "#2a2119", opacity: .55 } }) : null,
+        h("div", { style: { position: "absolute", left: -3, right: -3, top: open ? 2 : 18, height: 27, borderRadius: 5,
+          background: "linear-gradient(180deg," + KRAFT_D + "," + KRAFT + ")", border: "1px solid rgba(70,52,28,.14)",
+          transform: open ? "rotate(-2.4deg)" : "none", transformOrigin: "6% 100%", transition: "top .28s ease, transform .28s ease" } },
+          band({ top: 0, bottom: 0, left: RIB_X - 6 })),
+        // 蝴蝶结压在盖子上：两个耳朵 + 一个结
+        h("div", { style: { position: "absolute", left: RIB_X - 3, top: open ? 4 : 20, transform: open ? "rotate(-2.4deg)" : "none", transformOrigin: "0 100%", transition: "top .28s ease, transform .28s ease" } },
+          h("div", { style: { position: "absolute", left: -17, top: -3, width: 17, height: 12, borderRadius: "9px 3px 9px 9px", background: RIBBON, transform: "rotate(-12deg)" } }),
+          h("div", { style: { position: "absolute", left: 6, top: -3, width: 17, height: 12, borderRadius: "3px 9px 9px 9px", background: RIBBON, transform: "rotate(12deg)" } }),
+          h("div", { style: { position: "absolute", left: -3, top: 0, width: 12, height: 8, borderRadius: 4, background: RIBBON_D } })),
+        // 吊牌：一张挂在丝带上的小纸片，名字写在上面
+        h("div", { style: { position: "absolute", left: RIB_X + 20, right: 12, top: 46, padding: "7px 11px 8px 16px",
+          background: "#fbf7ee", borderRadius: "2px 8px 8px 2px", border: "1px solid rgba(70,52,28,.16)",
+          boxShadow: "0 1px 2px rgba(46,38,29,.10)", transform: "rotate(-1.2deg)" } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: "0.22em", color: "#a08a63" } }, toChar ? "FOR YOU" : "FOR ME"),
+          // 名字长了就两行打住：吊牌撑破盒子就不是吊牌了
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.25, color: "#3a3025", marginTop: 2, wordBreak: "break-word",
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, name),
+          // 吊牌上打的那个孔
+          h("div", { style: { position: "absolute", left: 6, top: "50%", marginTop: -2.5, width: 5, height: 5, borderRadius: 999, background: "rgba(70,52,28,.22)" } }))),
+      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.04em", color: t.fog, textAlign: isU ? "right" : "left" } }, footer)),
     isU && myAvatar ? myAvatar : null);
 }
 // 亲属卡的卡面（v60.45 重做，聊天里那张 / 钱包汇总页 / 单卡账单页三处共用）
