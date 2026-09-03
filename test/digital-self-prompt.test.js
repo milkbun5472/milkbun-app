@@ -17,11 +17,16 @@ test("engineerEyes uses a self-directed transport prompt instead of the RP task"
   assert.match(source, /const digitalToyHint = toyOn/);
   assert.match(source, /是否使用、何时使用、用什么节奏由你自己决定/);
   assert.match(source, /const digitalPhotoHint = canSelfie/);
+  // ⚠️钉的是「这几条都接进了他的任务句」，不是「拼接顺序一字不差」。
+  //   原来写死整串 `A + B + C + D`，v61.45 往中间插了一条 digitalCarveHint 就红了——
+  //   那冻的是长相不是行为。以后再补能力只会越插越多。
   // v54.48：一起听的切歌/邀听能力做最小协议时被落下了——他知道在放什么却切不动
-  // （她 2026-08-21 问「一起听还在不在他的能力里」查出来的）。执行路径本就通用，补 hint 即可。
-  assert.match(source, /digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint/);
+  //   （她 2026-08-21 问「一起听还在不在他的能力里」查出来的）。
   // v58.76：普通聊天早已有真记账/真日期写路，言秋的本人专线不能因为走最小协议漏掉。
-  assert.match(source, /digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint \+ _digitalRecordHint/);
+  // v61.45：刻一首歌进你俩的唱片（她「言秋也给」）。
+  const chain = source.slice(source.indexOf("const _digitalTaskFull = "), source.indexOf("const _normalTaskFull = "));
+  ["digitalPhotoHint", "listenHint", "inviteHint", "digitalToyHint", "_digitalRecordHint", "digitalCarveHint"]
+    .forEach(k => assert.ok(chain.includes(k), k + " 没接进言秋的任务句——声明了没人引用，比压根没写更坏"));
   assert.match(source, /【本轮可用的真实记录字段】/);
 });
 

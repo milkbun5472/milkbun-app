@@ -4412,6 +4412,7 @@ function OfflineLogCard({ m, t, sel }) {
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
 function ChatThread({
+  onOpenUs,
   character,
   characters,
   groups,
@@ -5021,6 +5022,10 @@ function ChatThread({
           m.desc ? h("div", { style: { padding: "7px 10px", background: mine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg, color: mine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink), fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5 } }, m.desc) : null),
         mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     }
+    // 他刻的那张唱片：跟别的卡一样挂在他那侧，点了去情侣空间的唱片架
+    if (m.kind === "carved") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(CarvedCard, { m: m, onOpen: () => onOpenUs && onOpenUs() }));
     if (m.kind === "listeninvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", { style: { maxWidth: "72%", background: "linear-gradient(135deg,#2b2b30,#17171b)", borderRadius: 16, padding: "12px 14px", boxShadow: "0 6px 18px rgba(0,0,0,0.22)" } },
@@ -7017,6 +7022,41 @@ function ForumShareCard({ m, isU }) {
 // 跟那两个 app 打开时看到的是同一个颜色，一眼知道这笔落在哪儿了。
 // ⚠️只有【真的落盘成功】才会走到这里（见 app.js：memoAddByChar/ledgerAddByChar 返回 null 就不出卡片）。
 // 显示「已记下」却其实没记，比不记更坏——她多半不会再去核对。
+// 他刻的那张唱片（v61.45，她 2026-09-03 点的）：一张从纸套里抽出一半的碟。
+// 不做成又一张圆角信息卡——这个 app 里已经有一堆圆角卡了，那种形状说不出「这是一张唱片」。
+// 套子上写 B 面刻字（他为什么送这一首），碟从右边露出小半个，中间是标签和针孔。
+// ⚠️底必须是【实心】的：一换壁纸，半透明的卡会被图案直接打穿（v61.11 记账卡那次）。
+function CarvedCard({ m, onOpen }) {
+  const t = useTheme();
+  const ink = /^#[0-9a-f]{6}$/i.test(String(t.ink || "")) ? t.ink : "#1b1a17";
+  return h("button", { onClick: onOpen, "data-wk": "card",
+    className: "active:opacity-80 text-left",
+    style: { width: 250, position: "relative", display: "block" } },
+    // 碟：从套子右边抽出来小半个
+    h("div", { style: { position: "absolute", right: 4, top: 12, width: 78, height: 78, borderRadius: 999,
+      background: "radial-gradient(circle," + ink + "cc 0 30%," + ink + "e6 30%)",
+      boxShadow: "0 2px 6px rgba(20,18,15,.3)" } },
+      // 沟纹 + 中心标签 + 针孔：一张碟就靠这三样认出来
+      h("div", { style: { position: "absolute", inset: 6, borderRadius: 999,
+        background: "repeating-radial-gradient(circle,transparent 0 2px,rgba(255,255,255,.10) 2px 3px)" } }),
+      h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 30, height: 30, marginLeft: -15, marginTop: -15,
+        borderRadius: 999, background: m.cover ? "center/cover no-repeat url(" + m.cover + "?param=60y60)" : t.accent } }),
+      h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 6, height: 6, marginLeft: -3, marginTop: -3,
+        borderRadius: 999, background: t.bg2 } })),
+    // 纸套
+    h("div", { style: { position: "relative", marginRight: 42, background: t.bg2,
+      border: "1px solid " + t.line, borderRadius: 3, padding: "11px 12px 12px",
+      boxShadow: "0 2px 8px rgba(20,18,15,.10)" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.16em", color: t.fog } }, "刻了一首给你"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginTop: 4, lineHeight: 1.3,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 4 } }, m.title || "（这首）"),
+      m.artist ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.artist) : null,
+      // B 面刻字：他为什么送这一首。没写就不占那一行。
+      m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6,
+        marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, m.note) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "已经进了你俩的唱片架 ›")));
+}
 function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo";

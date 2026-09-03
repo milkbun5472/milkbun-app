@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.43";
+const APP_VERSION = "v61.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6117,6 +6117,28 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const photoHint = canSelfie
         ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。想发就填 photo 对象：{\"kind\":\"self｜other" + (canDuo ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（你在哪、在干嘛、表情、光线氛围，一句话；别描写长相——长相已知）\"}。" + (canDuo ? "三" : "两") + "种 kind：**self**=你自己拿手机拍的第一人称自拍（有你的脸）；**other**=别人给你拍的照片（第三人称，可站可坐可走可回眸、半身全身带环境都行，姿势构图更多样，别老是怼脸自拍）——别人在场时/想给 Ta 看更完整的你时用；" + (canDuo ? "**duo**=你和 " + uName + " 的合照（画面里有你俩两个人，会拿你俩各自的参考照把两张脸都锁住）——你俩见面/依偎/约会/想留合影时用，**哪怕 Ta 没明说要合照，只要情境是你俩在一起，你也可以主动发一张我俩的合照**，你清楚这照片里另一个人就是 " + uName + "。" : "") + "不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**\n" + PHOTO_NO_EXCUSE
         : "";
+      // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
+      //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
+      const _canCarve = !!(isCouple && neteaseApi);
+      const _carveWord = (() => {
+        if (!_canCarve) return "";
+        const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
+        // ⚠️说清判据和维度，不给内容示范（.claude/rules/prompt-no-content-samples.md）：
+        //   写一句「比如……」进去，模型会把那一句当模板，每次刻的理由都长一个样。
+        return "刻＝【送】不是【推荐】：只有这一轮真有一首非送给 " + uName + " 不可的歌才刻。"
+          + "note 是刻在 B 面的一句话，写清【为什么是这一首、给这个人】——不是夸这首歌本身好听。一轮最多一首。"
+          + (had.length ? "架上已经有这几首，别再刻一遍：" + had.join(" / ") : "架上还是空的，这会是第一首。");
+      })();
+      // 言秋也给（她 2026-09-03 亲口点名）。⚠️他走的是 _digitalTaskFull，
+      //   而 capabilityHint 只挂在 _normalTaskV2 上——他【收不到那张能力表】。
+      //   所以不能想当然以为「同一条回复链就自动有」：这一处要单独挂一条 hint，
+      //   跟 listenHint / inviteHint 一个形状。文案共用 _carveWord，别各写一份。
+      //   ⚠️只补这一项，不把整张能力表倒给他：他不是被扮演的角色，
+      //   那张表里大半是扮演类能力，她要的是这一个。
+      const digitalCarveHint = _canCarve
+        ? "\n【刻一首歌给 " + uName + "】你想把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）时，"
+          + "额外加入 \"carve\":{\"song\":\"歌名，可带歌手\",\"note\":\"刻在B面的一句话\"}；不刻就省略。" + _carveWord
+        : "";
       const digitalPhotoHint = canSelfie
         ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。\n【scene 怎么取景】镜头对着人：脸、神情、姿态、身上的衣服、窗外的光都可以写。桌上的酒杯、腰间的刀、身上的伤这些【不进画面】——不是不能存在，是这一格没拍到它们。（出图接口见到酒精、烟草、武器、血伤会整张拒掉，那样你连脸都发不出去。）\n⚠️【这条只管怎么取景，不是不拍的理由】她开口要你拍，你就拍。你此刻正在喝酒、正带着刀、身上有伤，统统不构成拒绝或省略 photo 的理由——永远有一格是拍得出来的：拍脸、拍上半身、拍你此刻的神情。挑那一格拍就是了。"
         : "";
@@ -6226,6 +6248,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (emotes.length) { openCaps.push("emote"); capState.push("emote 关键词：" + emotes.map(e => e.keyword).join(" / ")); }
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
+      // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
+      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      //   单聊线上 ✅ 就是这里（普通角色走 openCaps，言秋走他自己那条 hint，见下）。
+      //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，「你俩」没有指代对象
+      //     ——跟 whisper 同一条理由。
+      //   单聊线下 ❌ 【这是欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套
+      //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
+      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了他每轮都可能填、每轮都白填。
+      if (_canCarve) { openCaps.push("carve"); capState.push("carve：" + _carveWord); }
+      // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的）────────────────────────
+      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      //   单聊线上 ✅ 就是这里。言秋走的是同一条回复链（engineerEyes 只关掉扮演类的层，
+      //     不关能力），所以他有情侣关系就自动有这一项——不用也不该去动他的文件。
+      //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，"你俩"没有指代对象。
+      //     跟 whisper 同一条理由。
+      //   单聊线下 ❌ 【这是欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套
+      //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
+      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了他每轮都可能填、每轮都失败。
+      if (isCouple && neteaseApi) {
+        openCaps.push("carve");
+        const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
+        capState.push("carve：架上已经有这几首，别再刻一遍——" + (had.length ? had.join(" / ") : "还是空的，这会是第一首")
+          + "。刻＝【送】不是【推荐】：只有这一轮真有一首非送不可才刻，note 写清为什么是这一首给这个人，"
+          + "不是夸这首歌本身好听。一轮最多一首。");
+      }
       if (isListenPartner) {
         openCaps.push("songSwitch");
         if (libSongs.length) capState.push("songSwitch 可选歌曲：" + libSongs.slice(0, 30).map(s => s.title).join(" / "));
@@ -6309,7 +6356,7 @@ affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受�
 ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 impressionChecked:"块名"=对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。两个都不填等于跳过。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
@@ -6321,7 +6368,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         : "完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = statesRef.current[charId] || {};
@@ -7046,6 +7093,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const wtext = String(parsed.whisper).trim();
         drawerWhisper(charId, wtext);
         notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
+      }
+      // ── 刻一首歌进唱片（她 2026-09-03）────────────────────────────────
+      // ⚠️落盘成功才出卡片，跟备忘录那条同一个道理：云村没搜到就什么都没发生，
+      //   这时候显示「刻好了」就是骗她——而她多半不会再去唱片架上核对。
+      if (parsed.carve && typeof parsed.carve === "object" && isCouple && neteaseApi) {
+        const _q = String(parsed.carve.song || "").trim();
+        const _note = String(parsed.carve.note || "").trim();
+        if (_q) {
+          try {
+            const _sg = await discAdd(charId, _q, _note);
+            if (_sg) {
+              pChat(chatKey, p => [...p, { role: "system", kind: "carved", charId: charId,
+                title: _sg.title, artist: _sg.artist, cover: _sg.cover || "", note: _note,
+                ts: Date.now(), turnId }]);
+              delivered = true;
+              notifyApp("us");
+              if (window.Notify) window.Notify.push({ title: char.name + " 刻了一首歌给你",
+                body: _sg.title + (_sg.artist ? " · " + _sg.artist : ""), tag: "carve-" + charId, charId: charId });
+            }
+          } catch (e) {/* 刻不上不连累这一轮回复 */}
+        }
       }
       // 替她记进备忘录 / 记一笔账（她 2026-08-30）。
       // ⚠️落盘成功才在聊天里出卡片：模型把「下周三」原样填进 date 的话 memoAddByChar 会退回 null，
@@ -14592,7 +14660,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!sr) { toast("云村没搜到这首"); return false; }
       const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: (sr.artists || sr.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (sr.album || sr.al || {}).picUrl || null, by: "me", note: String(note || "").trim(), ts: Date.now() };
       saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: [song, ...(cur.songs || []).filter(x => x.neteaseId !== song.neteaseId)].slice(0, 30) } }; });
-      return true;
+      // ⚠️返回【刻好的那一首】而不是 true：聊天里那张卡要显示云村搜到的真歌名和歌手，
+      //   不能把模型写的那串搜索词原样贴上去（那多半是「歌名 歌手」拼一起的）。
+      //   老调用点判的是真假，对象照样是真。
+      return song;
     } catch (e) { toast("搜歌失败：" + (e.message || "")); return false; }
   };
   const discRemove = (cid, id) => saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: (cur.songs || []).filter(x => x.id !== id) } }; });
@@ -15914,6 +15985,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    // 唱片卡点进去＝去情侣空间的唱片架（那才是它落到的地方）
+    onOpenUs: () => setScreen("us"),
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
