@@ -106,7 +106,7 @@ test("界面必须先摆改前改后再给应用按钮", () => {
 
 test("接线：加载、图标、屏幕分发、两个写入口", () => {
   assert.match(index, /<script src="js\/assistant\.js\?v=/);
-  // v61.01 她把它改名叫「秋秋」（存档 key 仍是 assistant，不跟着改名）
+  // v61.03 她把它改名叫「秋秋」（存档 key 仍是 assistant，不跟着改名）
   assert.match(comp, /assistant: \{ kind: "app", zh: "秋秋"/);
   assert.match(app, /screen === "assistant"\) body = h\(AssistantApp, \{/);
   assert.match(app, /onPatchCharacter: \(id, patch\) => pC\(list => list\.map\(c => c\.id === id \? \{ \.\.\.c, \.\.\.patch \} : c\)\)/);

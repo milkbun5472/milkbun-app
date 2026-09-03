@@ -268,3 +268,36 @@ test("挂在 App 里，但一根手指都没碰主屏那几样", () => {
   const iM = index.indexOf("js/assistant-manual.js"), iA = index.indexOf("js/assistant.js");
   assert.ok(iM > 0 && iA > iM, "手册没挂上，或者挂在了帮手后面");
 });
+
+// 她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」
+test("线路：不选＝跟随全局，选了就走那条；解析只写一处", () => {
+  assert.match(src, /apiId: d\.apiId \|\| ""/, "配置里没有这一栏");
+  // 解析是一个函数，三处共用
+  assert.match(src, /function activeFor\(ctx\) \{/);
+  assert.match(src, /const hit = cfg\.apiId && \(ctx\.apiProfiles \|\| \[\]\)\.find\(p => p && p\.id === cfg\.apiId\);/);
+  assert.match(src, /return hit \|\| \(ctx && ctx\.active\) \|\| null;/, "挑的那条不在了要退回全局，不能直接断线");
+  // 界面里不许再各写一遍
+  assert.equal((src.match(/cfg\.apiId && \(ctx\.apiProfiles/g) || []).length, 1, "解析被抄成了两处");
+  // 收发真的用解析出来的那条，不是原样的 ctx.active
+  assert.match(src, /const act = A\.activeFor\(ctx\);/);
+  assert.match(src, /await A\.ask\(act, ctx, before, q\)/, "还在拿没解析过的那条发请求");
+  assert.doesNotMatch(src, /A\.ask\(ctx\.active,/);
+});
+
+test("设置页摆得出来，而且照线下/后台那两栏的形状", () => {
+  assert.match(src, /"秋秋走哪条线路"/);
+  assert.match(src, /line\("", "跟随全局",/, "第一行不是「跟随全局」");
+  assert.match(src, /list\.map\(p => line\(p\.id, nameOf\(p\), p\.model/, "底下没有一行一条线路");
+  assert.match(src, /put\(\{ apiId: id \|\| "" \}\)/);
+  // 挑过的线路被删掉了要说清楚，不能默默换一条
+  assert.match(src, /原来挑的那条线路不在了/);
+  // 一条都没配过的时候得给条路走
+  assert.match(src, /还没配过线路，去 设置 · 文字模型 加一条/);
+});
+
+test("App 把线路表和全局那条都递下去了，两处都递", () => {
+  assert.match(app, /h\(window\.AssistantDock, \{[\s\S]{0,400}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "小悬浮屏没收到线路表");
+  assert.match(app, /h\(AssistantApp, \{[\s\S]{0,400}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "整页没收到线路表");
+  // 秋秋的设置页也要收到，不然那一栏画不出来
+  assert.match(src, /h\(AssistantSetup, \{ toast: props\.toast, apiProfiles: props\.apiProfiles, active: props\.active,/);
+});

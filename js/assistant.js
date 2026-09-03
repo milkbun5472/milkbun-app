@@ -69,13 +69,26 @@
       // ⚠️用 `in` 判，不能用 `||`：她按「清空」存的是空串，
       //   走 `||` 会当成没设过、把默认那份又发回去，等于清空按钮是假的。
       prompt: ("prompt" in d) ? String(d.prompt) : DEFAULT_PROMPT,
-      ballOn: d.ballOn !== false
+      ballOn: d.ballOn !== false,
+      // 走哪条线路：空＝跟随全局（线上主模型），否则是某条线路的 id。
+      // 形状照线下和后台那两处来（screens.js 的 routeBox）——这是第三处，
+      // 不许自己另发明一套（一层写在三处，第三处没跟上，就是这个库最常犯的病）。
+      apiId: d.apiId || ""
     };
   }
   function saveCfg(patch) {
     const next = { ...loadCfg(), ...patch };
     try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch (e) {}
     return next;
+  }
+
+  // 她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」。
+  // ⚠️解析只写这一处：整页、小悬浮屏、设置页三处都叫它，
+  //   别在界面里各写一遍 `cfg.apiId && profiles.find(...)`。
+  function activeFor(ctx) {
+    const cfg = loadCfg();
+    const hit = cfg.apiId && (ctx.apiProfiles || []).find(p => p && p.id === cfg.apiId);
+    return hit || (ctx && ctx.active) || null;
   }
 
   // ---- 这一段对话（她 2026-09-03：「它聊天也要有上下文然后可以清空」）----
@@ -346,7 +359,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, CHAT_KEEP };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, CHAT_KEEP, activeFor };
 })();
 
 // ============================================================
@@ -451,12 +464,13 @@
       const q = String(text || "").trim();
       if (!q || busy) return;
       // 代码问题在 Assistant.ask 里当场回绝，不走网络；所以这一步不拦 active
-      if (!ctx.active && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
+      const act = A.activeFor(ctx);
+      if (!act && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
       setBusy(true);
       const before = A.loadChat();
       put(before.concat([{ role: "me", text: q, ts: Date.now() }]));
       try {
-        const r = await A.ask(ctx.active, ctx, before, q);
+        const r = await A.ask(act, ctx, before, q);
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, ts: Date.now() }]));
       } catch (e) {
         put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
@@ -537,6 +551,30 @@
             width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
             background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
             h("div", { style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
+        // 走哪条线路（她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」）
+        // 摆法照设置里【线下与创作模型】那一栏：第一行是「跟随全局」，底下一行一条线路。
+        (function () {
+          const list = props.apiProfiles || [];
+          const cur = list.find(p => p && p.id === cfg.apiId);
+          const nameOf = p => (p && (p.name || p.model)) || "未命名线路";
+          const line = (id, title, sub) => {
+            const on = (cfg.apiId || "") === (id || "");
+            return h("button", { key: id || "_global", onClick: () => put({ apiId: id || "" }), style: {
+              width: "100%", textAlign: "left", padding: "9px 11px", marginTop: 6, borderRadius: 11,
+              border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+              sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: on ? t.bg2 : t.fog, opacity: on ? .75 : 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null);
+          };
+          return h("div", { style: { padding: "14px 14px 4px", borderBottom: "1px solid " + t.line } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "秋秋走哪条线路"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+              "不选＝跟随全局，跟聊天用的主模型同一条。也可以单独给它挑一条——它干的是查功能、出改动稿这种活，配一条便宜快的就够。"),
+            line("", "跟随全局", (props.active && (props.active.name || props.active.model)) || "还没配主模型"),
+            list.map(p => line(p.id, nameOf(p), p.model || "还没选模型")),
+            !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, paddingBottom: 8 } }, "还没配过线路，去 设置 · 文字模型 加一条") : null,
+            cfg.apiId && !cur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8, paddingBottom: 8 } }, "原来挑的那条线路不在了，这会儿走的是全局") : null,
+            h("div", { style: { height: 8 } }));
+        })(),
         // 主人格提示词
         h("div", { style: { padding: "14px 14px 0" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "主人格提示词"),
@@ -565,7 +603,7 @@
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy]);
     const fire = txt => { setInput(""); C.send(txt); };
 
-    if (page === "setup") return h(AssistantSetup, { toast: props.toast, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
+    if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
     const QUICK = ["这个 App 都能玩什么", "穿书怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
     return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },

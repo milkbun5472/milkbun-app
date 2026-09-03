@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v61.02";
+const APP_VERSION = "v61.03";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16490,9 +16490,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     toast: toast,
     onBack: backFromStyleLab
   });else if (screen === "assistant") body = h(AssistantApp, {
-    // 帮手：改文风/人设/外貌、往记忆库加条目、查「为什么没生效」。
+    // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
-    active: offlineActive,
+    // active＝跟随全局那一档走的线路；她在秋秋设置里单独挑了别的就走那条。
+    active: active,
+    apiProfiles: apiProfiles,
     characters: liveChars,
     profile: profile,
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
@@ -16759,7 +16761,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 通话中不出现——那会儿屏幕上正有更要紧的事，一颗球压在上面只会挡路。
     if (!window.AssistantDock || call || ringing) return null;
     return h(window.AssistantDock, {
-      active: offlineActive,
+      // 她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」。
+      // active 是【跟随全局】那一档要走的线路（＝线上主模型，和线下/后台的兜底同一条）；
+      // 挑了别的线路的话由 Assistant.activeFor 解析，解析只写在那一处。
+      active: active,
+      apiProfiles: apiProfiles,
       characters: liveChars,
       profile: profile,
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
