@@ -18,7 +18,9 @@ const cut = (from, to, what) => {
 
 test("① 文件夹盖着的时候也用她换的那张图标", () => {
   const fi = cut("function FolderIcon(", "function FolderOverlay(", "文件夹磁贴");
-  assert.match(fi, /window\.ThemeStudio\.iconRef\(a\.key\)/, "文件夹磁贴没查自定义图标");
+  // v61.44：「这个 app 显示哪张图」收成了一个 appIconSrc（她自己换的 → 自带图 → 线稿）。
+  // 这一格自己抄一份优先级，正是它两次显示错图标的原因。
+  assert.match(fi, /const src = appIconSrc\(a\.key\);/, "文件夹磁贴没查自定义图标");
   assert.match(fi, /h\("img", \{ src: src/, "查了却没画出来");
   // 有自定义图时不许再垫那层白底——她那张图自己就是一整块画面
   assert.match(fi, /src \? "transparent" : "rgba\(255,255,255,0\.52\)"/, "自定义图标底下还垫着白块");

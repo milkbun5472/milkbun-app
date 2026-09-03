@@ -703,6 +703,22 @@ function glassLabelInk(onWallpaper, t) {
     : { color: t.sub, textShadow: "0 1px 2px rgba(255,255,255,0.7)" };
 }
 // 一片玻璃：radius 圆角，tone 是这个 app 自己的光（可空），children 放在玻璃上面
+// 自带图的 app 图标（不是线稿那一套，是一张真的画）。
+// 主屏那一格是 62×62 的玻璃，图按 cover 铺满、圆角 16——跟她自己换的图标同一个落法。
+const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.webp" };
+// ⚠️「这个 app 该显示哪张图」只许有这一个答案（她 2026-09-03 报：
+//   「他在文件夹里文件夹小图显示不出来换上的，还是原来的丑鸟」）。
+//   同一个形状今天犯了两次：先是文件夹预览不认【她自己换的图标】，
+//   修完之后我又把【自带图】只写进了 GlassIcon——于是文件夹里还是线稿。
+//   两次都是「一层写在两处」。现在收成一个函数，主屏磁贴 / 文件夹预览 / 拖动时那个虚影
+//   全走它；以后再多一处，也是加一行调用，不是再抄一遍这个优先级。
+//   顺序：她自己换的 → 自带图 → 都没有就返回空串（调用方去画线稿 G）。
+function appIconSrc(appKey) {
+  if (!appKey) return "";
+  const ref = window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
+  if (ref) return typeof resolveImg === "function" ? resolveImg(ref) : ref;
+  return APP_BUILTIN_ICON[appKey] || "";
+}
 function GlassPane({ radius = 17, tone, style, className, children }) {
   const onWall = useOnWallpaper();
   const fill = glassFill(onWall);
@@ -746,9 +762,6 @@ function GlassCard({
 // ============================================================
 // HOME — iOS liquid-glass springboard, paged, with dock
 // ============================================================
-// 自带图的 app 图标（不是线稿那一套，是一张真的画）。
-// 主屏那一格是 62×62 的玻璃，图按 cover 铺满、圆角 16——跟她自己换的图标同一个落法。
-const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.webp" };
 function GlassIcon({
   G,
   label,
@@ -766,15 +779,9 @@ function GlassIcon({
     return () => window.removeEventListener("lisa-theme-change", fn);
   }, []);
   // 她自己换过图标的那几个不上色（那是她的图，别去染它）
-  const customIcon = appKey && window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
-  // 自带图的那几个 app（v61.43：秋秋换成她给的那只小鸡）。
-  // ⚠️走的是【和她自己换图标同一条路】：填进 customSrc 就行，不用另开一支渲染。
-  //   她在主题工作台换过的话仍旧她说了算——customIcon 排在前面。
-  const builtInSrc = (typeof APP_BUILTIN_ICON !== "undefined" && APP_BUILTIN_ICON[appKey]) || "";
-  const tone = (!customIcon && !builtInSrc && appKey && typeof appTone === "function") ? appTone(appKey) : null;
-  const customSrc = customIcon
-    ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon)
-    : builtInSrc;
+  // 她自己换过图标、或者这个 app 自带一张画的，都不上色（那是一张图，别去染它）
+  const customSrc = appIconSrc(appKey);
+  const tone = (!customSrc && appKey && typeof appTone === "function") ? appTone(appKey) : null;
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
     className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",
@@ -832,13 +839,14 @@ function FolderIcon({ apps, label, onOpen, onWallpaper }) {
   const preview = (apps || []).slice(0, 4);
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
     h(GlassPane, { radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
-      // ⚠️她自己换过图标的那几个 app，这里也得用她那张（她 2026-09-03：「我自己放了个图标
-      //   上去但是他在文件夹里显示不出来更新的图标」）。原来只画 a.G——那是内置的线条图，
-      //   自定义图标从来没被查过。文件夹【展开之后】用的是 GlassIcon，它是查了的，
-      //   所以点开看着是对的、盖上盖子就变回线条图，更像坏了。
+      // ⚠️这里显示哪张图，一律问 appIconSrc（她 2026-09-03 两次报同一个形状：
+      //   先是「我自己放了个图标上去但是他在文件夹里显示不出来更新的图标」，
+      //   修完之后又是「文件夹小图显示不出来换上的，还是原来的丑鸟」）。
+      //   两次都是因为这一格自己抄了一份优先级、漏掉了新加的那一档。
+      //   文件夹【展开之后】走 GlassIcon（那边一直是对的），所以点开看着没问题、
+      //   盖上盖子就变回线稿——比整个都不对更像坏了。
       preview.map((a, i) => {
-        const ref = a.key && window.ThemeStudio ? window.ThemeStudio.iconRef(a.key) : "";
-        const src = ref ? (typeof resolveImg === "function" ? resolveImg(ref) : ref) : "";
+        const src = appIconSrc(a.key);
         return h("div", { key: i, className: "flex items-center justify-center", style: { overflow: "hidden", background: src ? "transparent" : "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: src ? "none" : "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } },
           // 她那张图自己就是一整块画面，别再垫一层白底把它框小
           src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
@@ -2976,7 +2984,13 @@ function Home({
     if (dragKey.slice(0, 2) === "f_") return h("span", { style: { fontSize: 24 } }, "📁");
     const gi = REG[dragKey];
     if (!gi) return null;
-    if (gi.kind === "app") return h(gi.G, { size: 32, color: t.ink, sw: 1.6 });
+    // 拖动时手指底下那个虚影：也得是她看见的那张图，不然一拖起来就换了个图标
+    if (gi.kind === "app") {
+      const src = appIconSrc(dragKey);
+      return src
+        ? h("img", { src: src, alt: "", style: { width: 44, height: 44, objectFit: "cover", borderRadius: 12, display: "block" } })
+        : h(gi.G, { size: 32, color: t.ink, sw: 1.6 });
+    }
     if (gi.kind === "decor") return h("span", { style: { fontSize: 25 } }, homeDecorMeta(gi.which).glyph);
     return h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, { card: "名片", cal: "日历", music: "音乐", map: "地图" }[gi.which] || "组件");
   })()), openFolder && folders[openFolder] && h(FolderOverlay, {

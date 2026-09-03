@@ -633,9 +633,11 @@ test("秋秋的 app 图标用她给的那张画；线稿那只留着当兜底", 
   // v61.43：走的是【和她自己换图标同一条路】——填进 customSrc，不另开一支渲染。
   const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
   assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.webp" \};/);
-  assert.match(comp, /const customSrc = customIcon[\s\S]{0,160}: builtInSrc;/, "自带图没接进那条现成的路");
-  // 她在主题工作台换过的话仍旧她说了算
-  assert.match(comp, /customIcon\s*\n?\s*\? \(typeof resolveImg/, "她换的图标被自带图盖掉了");
+  // v61.44：收成一个 appIconSrc——主屏磁贴、文件夹小图、拖动虚影都问它
+  assert.match(comp, /const customSrc = appIconSrc\(appKey\);/, "自带图没接进那条现成的路");
+  // 她在主题工作台换过的话仍旧她说了算（iconRef 在自带图前面）
+  const fn = comp.slice(comp.indexOf("function appIconSrc("));
+  assert.ok(fn.indexOf("iconRef(appKey)") < fn.indexOf("APP_BUILTIN_ICON[appKey]"), "她换的图标被自带图盖掉了");
   // 线稿那只还得在：文件夹里 15px 的小图和切换器只认 G 组件
   const g = src.slice(src.indexOf("window.GAssist = p =>"), src.indexOf("const loadJ ="));
   assert.ok(g.length > 200, "抠不出图标");

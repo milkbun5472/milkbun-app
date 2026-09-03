@@ -84,11 +84,13 @@ test("没点名的 key 也得落进已有的色相里，不会算出个 undefine
 
 // 她自己换过图标的那几个不上色——染她的图是不对的
 test("换过图标的 app 不上色", () => {
-  const i = comp.indexOf("  const customIcon = appKey && window.ThemeStudio");
-  const j = comp.indexOf("  const customSrc =", i);
+  // v61.44：换成了统一的 appIconSrc（她自己换的图 + app 自带的图都归它），
+  // 所以「不上色」的判断也从 customIcon 改看 customSrc。
+  const i = comp.indexOf("  const customSrc = appIconSrc(appKey);");
+  const j = comp.indexOf("  return /*#__PURE__*/React.createElement(\"button\"", i);
   assert.ok(i > 0 && j > i, "抠不出 GlassIcon 里取色那两行");
   const seg = comp.slice(i, j).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.match(seg, /!customIcon/, "上色时没排除她自己换的图标");
+  assert.match(seg, /!customSrc/, "上色时没排除她自己换的图标");
 });
 
 // .claude/rules/home-screen-layout.md：主屏的尺寸一个都不许动，这次只动颜色
