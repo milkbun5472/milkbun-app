@@ -5064,20 +5064,22 @@ function ChatThread({
   }, h(ModePicker, {
     modes: [
       ["chat", "说话", "一条一条发过去，他在那头看手机"],
-      ["offline", "见面", "不隔着屏幕了，写你人在场做什么"],
-      ["narr", "旁白", "这一条不是你说的，是天气、是灯、是谁推门进来"],
+      ["narr", "旁白", "不是你说的话——下雨了、灯灭了、三天后。写完他就当已经发生"],
       ["ooc", "出戏", "绕过他，直接跟演他的那位说（OOC）"]
     ],
+    elsewhere: [["offline", "见面", "不隔着屏幕了，写你人在场做什么"]],
     cur: chatMode,
     onPick: mk => { setModeOpen(false); onModeTap(mk); }
   }, onOpenRooms && h("button", {
     onClick: () => { setModeOpen(false); onOpenRooms(); },
-    className: "w-full flex items-center px-3 active:opacity-60 text-left",
-    style: { marginTop: 8, paddingTop: 13, paddingBottom: 4, borderTop: "1px solid " + t.line }
-  }, h("div", { className: "flex-1" },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "小房间"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来")),
-    h(IChevR, { size: 17, color: t.fog })
+    className: "w-full flex items-center gap-2.5 active:opacity-60 text-left",
+    style: { padding: "8px 10px 8px 7px" }
+  }, h("div", { style: { width: 3, flexShrink: 0 } }),
+    h("div", { style: { width: 54, display: "flex", justifyContent: "center", opacity: 0.42 } },
+      h(IChevR, { size: 20, color: t.ink })),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "小房间"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来"))
   ))), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
@@ -6902,26 +6904,37 @@ function ModeSwatch({ k }) {
     fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: t.fog }) },
     "(", h("div", { style: { width: 18 } }, bar("100%", t.fog), bar("62%", t.fog, 3)), ")");
 }
-function ModePicker({ modes, cur, onPick, children }) {
+// ⚠️这几档的【顺序】不是按「先聊天再线下再旁白再 OOC」排的——那个排法跟别处一样，
+// 而且它排的是「功能的轻重」，不是这个 app 里真实发生的事。
+// 这儿分两截，分界是【按下去之后你还在不在这一屏】：
+//   上面三档发进眼前这个聊天（说话／旁白／出戏），按完你还在原地；
+//   下面那截是换个地方待着（见面＝走去线下、小房间＝挪进另一间屋），按完这一屏就没了。
+// 她 2026-09-03 问「顺序理论上还是一样的吧」——是一样，所以按这条重排。
+function ModePicker({ modes, elsewhere, cur, onPick, children }) {
   const t = useTheme();
+  const eyebrow = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5,
+    letterSpacing: 1.2, color: t.fog, marginBottom: 10 } }, txt);
+  const row = ([mk, mzh, mdesc]) => {
+    const on = mk === cur;
+    return h("button", { key: mk, onClick: () => onPick(mk),
+      className: "w-full flex items-stretch gap-2.5 text-left active:opacity-60",
+      style: { borderRadius: 12, padding: "8px 10px 8px 7px", marginBottom: 4,
+        background: on ? t.bg : "transparent" } },
+      h("div", { style: { width: 3, borderRadius: 2, flexShrink: 0,
+        background: on ? t.ink : "transparent" } }),
+      h("div", { style: { opacity: on ? 1 : 0.42, display: "flex", alignItems: "center" } },
+        h(ModeSwatch, { k: mk })),
+      h("div", { className: "flex-1 min-w-0 flex flex-col justify-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, mzh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, mdesc)));
+  };
   return h("div", null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 10 } },
-      "这一条怎么进去"),
-    modes.map(([mk, mzh, mdesc]) => {
-      const on = mk === cur;
-      return h("button", { key: mk, onClick: () => onPick(mk),
-        className: "w-full flex items-stretch gap-2.5 text-left active:opacity-60",
-        style: { borderRadius: 12, padding: "8px 10px 8px 7px", marginBottom: 4,
-          background: on ? t.bg : "transparent" } },
-        h("div", { style: { width: 3, borderRadius: 2, flexShrink: 0,
-          background: on ? t.ink : "transparent" } }),
-        h("div", { style: { opacity: on ? 1 : 0.42, display: "flex", alignItems: "center" } },
-          h(ModeSwatch, { k: mk })),
-        h("div", { className: "flex-1 min-w-0 flex flex-col justify-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, mzh),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, mdesc)));
-    }),
-    children);
+    eyebrow("这一条发进这个聊天"),
+    modes.map(row),
+    h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 12 } },
+      eyebrow("或者，换个地方说"),
+      (elsewhere || []).map(row),
+      children));
 }
 
 // 代付请求卡
@@ -9638,9 +9651,9 @@ function GroupThread({
   }, h(ModePicker, {
     modes: [
       ["chat", "群里说话", "照常发，谁接话看他们自己"],
-      ["offline", "见面", "一屋子人不隔着屏幕了"],
       ["ooc", "出戏", "绕过所有人，直接跟演他们的那位说（OOC）"]
     ],
+    elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]],
     cur: chatMode,
     onPick: mk => {
       setModeOpen(false);
