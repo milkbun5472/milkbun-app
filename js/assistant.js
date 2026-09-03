@@ -270,28 +270,70 @@
   }
 
   // ---- 现状快照：让它看得见 app 此刻的样子，才谈得上「诊断」 ----
-  // ⚠️人设【给全文】（她 2026-09-03：「我之前问它人设的事它说看不到全部，
-  //   改成它能看也能直接帮我改吧」）。原来砍到 220 字——她的人设普遍四千多字，
-  //   220 字之后剩下的只是一个标签，它当然说自己看不到；更糟的是它会照着那半截去改。
-  //   额度用群聊那一层现成的（每人封顶 6000、总预算 30000、地板 1500），
-  //   不自己再拍一套截断规则——一层写在两处，第二处迟早跟不上。
-  //   真截断了 groupPersonaText 会在尾巴上写明白，它就不会把半截当全文。
-  const budgetOf = n => (typeof groupPersonaBudget === "function" ? groupPersonaBudget(n) : 6000);
-  const personaOf = (txt, b) => (typeof groupPersonaText === "function" ? groupPersonaText(txt, b) : String(txt || "").slice(0, b));
-  function snapshot(ctx) {
+  // 她 2026-09-03：「我之前问它人设的事它说看不到全部，改成它能看也能直接帮我改吧」。
+  //
+  // v61.05 我拿群聊那一层的额度来截（groupPersonaBudget），还是不行——
+  // ⚠️**借层要连它的理由一起借。** 那个额度是【按在场人数分总预算】：群里五个人，
+  //   一份 system 里装五张卡，所以要摊。可这份快照里装的是【她所有的角色】，
+  //   二十来张卡摊下来每张只剩 1500 字（地板），V 的卡照样断在半截，
+  //   它照样说「我不能把半截当全文直接出 patch」。理由没跟过来，数就是错的。
+  //
+  // 真正的判据是：**她这会儿在说谁，那张卡就必须是全的。**
+  //   · 她（或最近几句里）点到名字的那张 → 全文，单张封顶 20000（比她最长的卡还宽）
+  //   · 全部加起来装得下 → 索性全给（角色少的时候本来就没必要挑）
+  //   · 剩下那些 → 只给个开头，并且【在这张卡上写明它不完整】——
+  //     不写明的话它只能靠猜，猜错就是拿半截去改她攒了很久的东西。
+  const SNAP_ONE = 20000;      // 单张卡封顶
+  const SNAP_TOTAL = 24000;    // 加起来不超过这个数就全给
+  const SNAP_BRIEF = 300;      // 给不下的那些留个开头，够它认出这是谁
+  const clipRaw = (v, n) => { const x = String(v == null ? "" : v).trim(); return x.length <= n ? x : x.slice(0, n); };
+
+  // 哪几张卡要给全文：在这段对话里【被提到过】的，按最后一次提到的位置排，最近的优先。
+  // ⚠️只看当前这一句是不够的——她上一句常常是「宝宝你再看看呢」，名字在前面提的。
+  //   所以拿【要发给模型的那整段窗口】来找：说过的名字都算，这才叫「在说谁」。
+  //   同时封个数，不然一段长对话里提过八个角色，八张全卡一起塞进去。
+  const SNAP_FULL_MAX = 4;
+  function focusIds(list, focus, max) {
+    const f = String(focus || "");
+    const hit = [];
+    (list || []).forEach(c => {
+      const n = c && c.name ? String(c.name) : "";
+      if (!n) return;
+      const at = f.lastIndexOf(n);
+      if (at >= 0) hit.push({ id: c.id, at: at });
+    });
+    hit.sort((a, b) => b.at - a.at);
+    return new Set(hit.slice(0, max || SNAP_FULL_MAX).map(x => x.id));
+  }
+
+  function snapshot(ctx, focus) {
     const list = ctx.characters || [];
-    const b = budgetOf(list.length);
-    const chars = list.map(c => ({
-      名字: c.name, id: c.id,
-      一句话简介: clip(c.tagline, 80) || "（空）",
-      人设: personaOf(c.persona, b),
-      外貌: personaOf(c.appearance, Math.min(2000, b)) ,
-      生日: c.birthday || "（空）", 性别: c.gender || "（没填，一律用 TA）",
-      出图定妆: clip(c.photoCanon, 200) || "（空）",
-      出图常服: clip(c.photoOutfit, 200) || "（空）",
-      出图配饰: clip(c.photoAccessories, 200) || "（空）",
-      有参考照: !!c.refPhoto, 出图画风: c.photoStyle || "realistic"
-    }));
+    const bulk = list.reduce((n, c) => n + String(c.persona || "").length + String(c.appearance || "").length, 0);
+    const allFit = bulk <= SNAP_TOTAL;
+    const hot = focusIds(list, focus, SNAP_FULL_MAX);
+    const chars = list.map(c => {
+      const full = allFit || hot.has(c.id);
+      const per = String(c.persona || "").trim(), app = String(c.appearance || "").trim();
+      const row = {
+        名字: c.name, id: c.id,
+        一句话简介: clip(c.tagline, 80) || "（空）",
+        人设: full ? clipRaw(per, SNAP_ONE) : (clipRaw(per, SNAP_BRIEF) || "（空）"),
+        外貌: full ? clipRaw(app, 4000) : (clipRaw(app, 120) || "（空）"),
+        生日: c.birthday || "（空）", 性别: c.gender || "（没填，一律用 TA）",
+        出图定妆: clip(c.photoCanon, 200) || "（空）",
+        出图常服: clip(c.photoOutfit, 200) || "（空）",
+        出图配饰: clip(c.photoAccessories, 200) || "（空）",
+        有参考照: !!c.refPhoto, 出图画风: c.photoStyle || "realistic"
+      };
+      // 完整与否必须写在卡上，不许让它猜
+      row.这张卡是否完整 = full && per.length <= SNAP_ONE;
+      if (!row.这张卡是否完整) {
+        row.注意 = full
+          ? "这一份长得超出了单张上限，尾巴被截了。别照这一份出 patch，跟她说一声。"
+          : "这里只给了开头 " + SNAP_BRIEF + " 字。要改这张卡就跟她确认是谁，下一轮你就会拿到全文——别照这半截改。";
+      }
+      return row;
+    });
     const styles = loadJ("x_offlineStyles", []).map(s => ({ 名称: s.name, id: s.key, 字数: String(s.prompt || "").length }));
     const offSet = loadJ("x_offlineSettings", {});
     const errs = (typeof window !== "undefined" && window.__errLog ? window.__errLog : []).slice(-5)
@@ -310,8 +352,12 @@
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }
 
-  function buildSystem(ctx, question) {
-    const snap = snapshot(ctx);
+  function buildSystem(ctx, question, history) {
+    // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
+    //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
+    //   跟发出去的窗口用同一份文本，判据才对得上——我们在聊谁，那张卡就是全的。
+    const focus = chatWindow(history).map(m => String(m && m.text || "")).concat([String(question || "")]).join("\n");
+    const snap = snapshot(ctx, focus);
     const cfg = loadCfg();
     const uName = (ctx.profile && ctx.profile.name) || "她";
     const ts = TS();
@@ -333,7 +379,9 @@
       + "模型不认可选字段；出图被上游审核拒。这种时候通常不需要改动稿，除非改一处设置就能解决。\n\n"
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
-      + "· persona 角色人设　· appearance 角色外貌（下面的快照里给的就是全文；真太长被截了会在尾巴上写明，别把半截当全文）\n"
+      + "· persona 角色人设　· appearance 角色外貌\n"
+      + "  ⚠️快照里每张角色卡都带一栏【这张卡是否完整】。为 true 就是全文，放心照它出 patch、别再说自己看不到；"
+      + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
@@ -352,7 +400,7 @@
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
     const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
       .concat([{ role: "user", content: String(text || "") }]);
-    const raw = await callAI(active, buildSystem(ctx, text), msgs, { maxTokens: 12000, timeout: 120000 });
+    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 12000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)
@@ -399,7 +447,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem };
 })();
 
 // ============================================================

@@ -305,21 +305,61 @@ test("App 把线路表和全局那条都递下去了，两处都递", () => {
 });
 
 // ── 她 2026-09-03 的三条 ────────────────────────────────────────
-test("人设给全文，不再砍成一个标签", () => {
-  // 「我之前问它人设的事它说看不到全部」——原来砍到 220 字，
-  // 她的人设普遍四千多字，220 字之后剩下的只是一个标签；更糟的是它会照着那半截去改。
-  const long = "他是先帝的第七子。".repeat(400);        // ≈3600 字
-  const snap = A.api.snapshot({ characters: [{ id: "c1", name: "裴照川", persona: long, appearance: "高" }] });
-  assert.ok(snap.角色[0].人设.length > 3000, "人设还是被砍成了 " + snap.角色[0].人设.length + " 字");
-  assert.doesNotMatch(src, /人设: clip\(c\.persona, 220\)/, "旧的那把刀还在");
-  // 额度用群聊那一层现成的，不自己再拍一套
-  assert.match(src, /groupPersonaBudget/);
-  assert.match(src, /groupPersonaText/);
+// 二十来张卡、每张四千多字——她真实的局面
+const many = Array.from({ length: 20 }, (_, i) => ({
+  id: "c" + i, name: i === 3 ? "V" : "角色" + i,
+  persona: "他是二十八岁的总裁。".repeat(350), appearance: "高"
+}));
+const cardOf = (snap, name) => snap.角色.find(x => x.名字 === name);
+
+test("在说谁，那张卡就必须是全的", () => {
+  // 「我之前问它人设的事它说看不到全部」→ 原来砍到 220 字。
+  // v61.05 换成群聊那一层的额度，还是不行——那个额度是【按在场人数分总预算】的，
+  // 二十来张卡摊下来每张只剩 1500 字（地板），V 的卡照样断在半截。
+  // ⚠️借层要连它的理由一起借：群聊要摊是因为一份 system 里装五张卡，
+  //   这份快照装的是她【所有】角色，理由压根不成立。
+  const snap = A.api.snapshot({ characters: many }, "宝宝你看看 V 的人设卡有点 ooc");
+  const v = cardOf(snap, "V");
+  assert.equal(v.这张卡是否完整, true, "点了名的那张还是半截");
+  assert.equal(v.人设.length, many[3].persona.length, "给过去的不是全文，是 " + v.人设.length + " 字");
+  assert.doesNotMatch(src, /人设: clip\(c\.persona, 220\)/, "220 那把刀还在");
+  // 判「有没有【调用】它」，不是「文件里有没有这个词」——
+  // 上头那段注释就是写给下一个人看的（别再借那个按人数摊的额度），得留着。
+  assert.doesNotMatch(src, /groupPersonaBudget\(/, "又借回那个按人数摊的额度了");
+  assert.match(src, /借层要连它的理由一起借/, "为什么撤掉它的原因没留下，下一个人还会借回来");
+  // 没在说的那些只给开头，而且卡上写明它不完整——不写明它只能靠猜
+  const other = cardOf(snap, "角色7");
+  assert.equal(other.这张卡是否完整, false);
+  assert.ok(other.人设.length <= 320, "没在说的那些也全给了，白花一堆上下文");
+  assert.match(other.注意, /别照这半截改/);
   // 它能改的那几栏，快照里也得看得见，不然是在盲改
   ["一句话简介", "生日", "性别", "出图定妆", "出图常服", "出图配饰"].forEach(k =>
-    assert.ok(k in snap.角色[0], "档案里的「" + k + "」它看不见"));
-  // 提示词里要说清「给的就是全文」，不然它还会说自己看不到
-  assert.match(src, /快照里给的就是全文/);
+    assert.ok(k in v, "档案里的「" + k + "」它看不见"));
+});
+
+test("角色少的时候索性全给，没必要挑", () => {
+  const few = many.slice(0, 3).map(c => ({ ...c, persona: "他是二十八岁的总裁。".repeat(60) }));
+  const snap = A.api.snapshot({ characters: few }, "随便问问");
+  few.forEach(c => assert.equal(cardOf(snap, c.name).这张卡是否完整, true, c.name + " 没给全"));
+});
+
+test("「你再看看呢」也算在说 V——判据看的是整段对话，不是最后一句", () => {
+  // 她上一句常常一个名字都不带，名字在前面提的。只看当前这一句，卡就又变成半截。
+  const hist = [{ role: "me", text: "宝宝你看看 V 的人设卡有点 ooc" }, { role: "it", text: "抓到几个软肋…" }];
+  const sys = A.api.buildSystem({ characters: many, profile: { name: "Lisa" } }, "宝宝你再看看呢", hist);
+  const grab = n => (new RegExp('"名字": "' + n + '",[\\s\\S]*?"这张卡是否完整": (true|false)').exec(sys) || [])[1];
+  assert.equal(grab("V"), "true", "这一句没提名字，V 的卡就又断了");
+  assert.equal(grab("角色7"), "false", "顺手把所有人的卡都全给了");
+  // 找名字用的就是【要发出去的那段窗口】，跟发的是同一份文本
+  assert.match(src, /const focus = chatWindow\(history\)\.map/);
+  // 一段长对话里提过八个人，也不能八张全卡一起塞
+  assert.match(src, /const SNAP_FULL_MAX = 4;/);
+  const hot = A.api.focusIds(many, "角色1 角色2 角色5 角色7 角色9 V", 4);
+  assert.equal(hot.size, 4, "封不住数");
+  assert.ok(hot.has("c3"), "最后提到的那个（V）该排在最前");
+  // 提示词里要说清那一栏怎么用，不然它照旧嘴上说「我看不到」
+  assert.match(src, /这张卡是否完整/);
+  assert.match(src, /为 true 就是全文，放心照它出 patch、别再说自己看不到/);
 });
 
 test("上下文按字数收，不再死板地只发最近几条", () => {
