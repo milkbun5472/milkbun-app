@@ -181,7 +181,12 @@ test("那颗圆点翻的就是群设置里的 autoChat，不另立一个会打�
   assert.match(comp, /const gHold = gs\.autoChat === false;/, "白/黑读的就是 autoChat");
   assert.match(comp, /onSaveSettings\(\{ autoChat: gHold \}\)/, "点一下就翻它");
   // 状态要看得见：底下那颗按钮跟着变色，顶栏副标题也写一句
-  assert.match(comp, /background: gHold \? t\.bg2 : t\.ink/, "底下那颗按钮没跟着变白");
+  // ⚠️冻的是【这一档在按钮上看得见】，不是它用哪个属性表达：
+  //   v60.64 那颗键从「黑圆圈+✦」改成了他的脸，两档改用【圈的虚实】分
+  //   （虚＝回完就停，实＝会接着聊），比换个填色更看得出来。
+  assert.match(comp, /hold: !!gHold/, "这一档没传给底下那颗键");
+  assert.match(comp, /"1\.5px " \+ \(hold === true \? "dashed" : "solid"\)/,
+    "两档要在键上看得出来，而且不能只差一个颜色");
   assert.match(comp, /gHold \? " · 等我接话" : ""/, "顶栏没写出当前是哪一档");
 });
 

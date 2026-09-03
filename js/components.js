@@ -4908,30 +4908,10 @@ function ChatThread({
   }, /*#__PURE__*/React.createElement(ISend, {
     size: 16,
     color: "#16330a"
-  })), chatMode !== "ooc" && /*#__PURE__*/React.createElement("button", {
-    onClick: reply,
-    disabled: sending || bk.theyBlocked,
-    title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复",
-    className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0",
-    style: {
-      width: 40,
-      height: 40,
-      borderRadius: 999,
-      background: t.ink
-    }
-  }, sending ? h("div", {
-    className: "flex gap-0.5"
-  }, [0, 1, 2].map(i => h("span", {
-    key: i,
-    className: "w-1 h-1 rounded-full animate-pulse",
-    style: {
-      background: t.bg2,
-      animationDelay: i * 0.15 + "s"
-    }
-  }))) : h(ISpark, {
-    size: 19,
-    color: t.bg2
-  })))), panelOpen && !selMode && h("div", {
+  })), chatMode !== "ooc" && h(ReplyKey, {
+    chars: character, sending: sending, disabled: sending || bk.theyBlocked,
+    title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复", onClick: reply
+  }))), panelOpen && !selMode && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     style: {
       background: t.bg2,
@@ -6859,6 +6839,47 @@ function KinshipRaiseCard({ m, character }) {
             (done ? "" : "· ") + foot)),
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }))));
 }
+// 「让 TA 回复」那个键（v60.64 重做，她 2026-09-02：「聊天回复键的样式也改改吧，
+// 之前也是参考的」）。原来是一个黑圆圈 + ✦ ——那是每个 AI app 都有的那颗星，
+// 原样搬到别处照样成立，所以它没长在这个 app 上（tabs-not-plain-pills 那把尺子）。
+//
+// 这个键真正在做的事是【把话头递给谁】。而这个 app 里，那个「谁」是有脸的。
+// 所以键就是他的脸：
+// · 平时压暗去色 —— 他这会儿没说话，戳一下叫他
+// · 生成中 —— 脸亮起来、盖一层暗、三个点浮在上面：这个键自己变成了「他正在说」
+// · 被拉黑 —— 灰到底，戳不动（disabled 那层透明度接手）
+// 群里就是几张脸叠着，一眼看得出这一下会叫醒谁。
+// hold（只群线上有）：true＝回完这一轮就停下等你，false＝他们自己会接着聊。
+// 这两种用【圈的虚实】分，不是只换个颜色——虚线是「有个头」，实线是「会连着走」。
+function ReplyKey({ chars, sending, disabled, title, onClick, hold }) {
+  const t = useTheme();
+  const few = (Array.isArray(chars) ? chars : [chars]).filter(Boolean).slice(0, 3);
+  const faces = few.length <= 1
+    ? h(Avatar, { character: few[0] || {}, size: 40, radius: 999 })
+    : h("div", { style: { position: "relative", width: 40, height: 40 } },
+        few.map((c, i) => {
+          const f = 22, step = few.length === 2 ? 11 : 9;
+          const w = f + step * (few.length - 1);
+          return h("div", { key: c.id || i, style: { position: "absolute", left: "50%", top: "50%",
+            marginLeft: -w / 2 + i * step, marginTop: -f / 2, width: f, height: f,
+            borderRadius: 999, overflow: "hidden", boxShadow: "0 0 0 1.5px " + t.bg2, zIndex: few.length - i } },
+            h(Avatar, { character: c, size: f, radius: 999 }));
+        }));
+  return h("button", {
+    onClick: onClick, disabled: disabled, title: title,
+    className: "active:opacity-70 disabled:opacity-40 shrink-0",
+    style: { position: "relative", width: 40, height: 40, borderRadius: 999, overflow: "hidden",
+      background: t.bg,
+      border: "1.5px " + (hold === true ? "dashed" : "solid") + " "
+        + (sending || hold != null ? t.ink : t.fog) }
+  },
+    h("div", { style: { position: "absolute", inset: 0,
+      filter: sending ? "none" : "grayscale(0.6) brightness(0.94)", transition: "filter .18s" } }, faces),
+    sending ? h("div", { style: { position: "absolute", inset: 0, background: "rgba(20,18,15,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
+      [0, 1, 2].map(i => h("span", { key: i, className: "rounded-full animate-pulse",
+        style: { width: 4, height: 4, background: "#fff", animationDelay: i * 0.15 + "s" } }))) : null);
+}
 // 代付请求卡
 function PayLaterCard({ m }) {
   const t = useTheme();
@@ -8061,7 +8082,7 @@ function OfflineMode({
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
-      !oocMode && h("button", { onClick: reply, disabled: sending, title: "让 Ta 演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
+      !oocMode && h(ReplyKey, { chars: char, sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张：你俩此刻真的在同一个地方，这一格是现拍的。零模型调用——
       // 画面直接从状态卡（此刻在干嘛、穿什么）长出来，只花一次出图的钱。
@@ -8698,7 +8719,7 @@ function GroupOfflineMode({
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
-      !oocMode && h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
+      !oocMode && h(ReplyKey, { chars: members, sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张合影：大家此刻真在同一个地方。零模型调用，只花一次出图。
       onShoot ? h("div", { className: "mb-4" },
@@ -9438,32 +9459,13 @@ function GroupThread({
   }, h(ISend, {
     size: 16,
     color: "#16330a"
-  })), chatMode !== "ooc" && h("button", {
-    onClick: onReply,
-    disabled: sending,
-    // 白的时候按它＝只让他们回一轮，回完仍旧等你；黑的时候＝回一轮并开一段自发
+  })), chatMode !== "ooc" && h(ReplyKey, {
+    chars: characters, sending: sending, disabled: sending,
+    // 虚圈＝只让他们回一轮，回完仍旧等你；实圈＝回一轮并开一段自发
+    hold: !!gHold,
     title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
-    className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0",
-    style: {
-      width: 40,
-      height: 40,
-      borderRadius: 999,
-      background: gHold ? t.bg2 : t.ink,
-      border: gHold ? "1.5px solid " + t.ink : "none"
-    }
-  }, sending ? h("div", {
-    className: "flex gap-0.5"
-  }, [0, 1, 2].map(i => h("span", {
-    key: i,
-    className: "w-1 h-1 rounded-full animate-pulse",
-    style: {
-      background: gHold ? t.ink : t.bg2,
-      animationDelay: i * 0.15 + "s"
-    }
-  }))) : h(ISpark, {
-    size: 19,
-    color: gHold ? t.ink : t.bg2
-  }))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
+    onClick: onReply
+  })), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
