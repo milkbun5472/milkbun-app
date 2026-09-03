@@ -4571,7 +4571,12 @@ function offlineFlashbackBlock(scenes) {
     + "\n这几段用掉了。这一轮不要再讲一遍，也不要换个说法重讲；真想往回想，就换一件没讲过的，或者干脆不回想——眼前正在发生的事本身就够写。";
 }
 
-function offlineHistory(msgs, userName, charName) {
+// ⚠️时间感知关了就【不许在历史里盖时刻戳】（v61.16，她 2026-09-03：「我明明没开时间感知
+//   为啥他还是知道现在几点」）。关掉这个开关的时候，system 里那块【当前真实时间】确实
+//   已经不发了——但每一条历史前面还盖着〔今天14:32〕，最后一条就是她刚发的那句，
+//   等于把当前时刻原样告诉了他，比直接发那一行还准。
+//   相对间隔（「中间隔了约三小时」）留着：那是对话连不连得上的事，不是现实几点的事。
+function offlineHistory(msgs, userName, charName, clock) {
   const g = [];
   let prevTs = 0;
   const mixed = (msgs || []).some(m => m && m._surface === "online");
@@ -4579,9 +4584,9 @@ function offlineHistory(msgs, userName, charName) {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
     const gap = prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + (clock === false ? "" : "，到 " + fmtStampAI(ts)) + " ——〕\n"
       : "";
-    const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
+    const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
     // 模型就得靠猜。所以【这段历史里混进了线上内容】的时候，线下这几行也标出来。
     const surface = m._surface === "online" ? "【线上私聊】" : (mixed ? "【当面】" : "");
@@ -4597,7 +4602,7 @@ function offlineHistory(msgs, userName, charName) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
       // 她递过来的真照片：跟线上同一个落法。光一句「[照片]」什么都不说，
       // 而图只对最近两张作视觉输入附上——一滑出去他就什么都不记得了。
       const shown = (m.kind === "photo" && m.imageRef)
@@ -4851,7 +4856,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name);
+  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -5090,16 +5095,16 @@ async function summarizeOffline(p, ctx, session) {
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
 // 把群聊线下 msgs 映射成 API 对话：char beat 归 assistant（带发言人名），narration/user 归 user，合并连发
-function offlineGroupHistory(msgs, userName) {
+function offlineGroupHistory(msgs, userName, clock) {
   const g = [];
   let prevTs = 0;
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
     const gap = prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + (clock === false ? "" : "，到 " + fmtStampAI(ts)) + " ——〕\n"
       : "";
-    const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
+    const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
       // 拍下来的那一格（和单人线下同一个落法）：说明已经拍过了，别再原样拍一张。
       const shot = m.kind === "selfie"
@@ -5111,7 +5116,7 @@ function offlineGroupHistory(msgs, userName) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
       const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : userName + "：" + raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
@@ -5249,7 +5254,7 @@ async function generateOfflineGroup(p, ctx, session) {
       : "") +
     cotSystemBlock(cotT) +
     "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——仅当这一段真正改变了该角色对用户或他俩关系的某一块长期认知才填，极少发生；第一人称亲笔、锚在刚发生的事上、在旧认知上小幅演进\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
-  const hist = offlineGroupHistory(session.msgs, userName);
+  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
