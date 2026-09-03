@@ -6777,8 +6777,8 @@ function BubbleSkinConfig({ toast }) {
   const [s, setS] = useState(() => Object.assign({}, BUBBLE_SKIN)); // 草稿：从当前皮肤复制一份
   const [folded, setFolded] = useState(true); // v48.38：默认折起，点标题展开（试衣镜太长）
   const set = patch => setS(p => Object.assign({}, p, patch));
-  const save = () => { Object.assign(BUBBLE_SKIN, s); try { localStorage.setItem("x_bubbleSkin", JSON.stringify(s)); } catch (e) {} toast && toast("皮肤已保存，聊天页立即生效"); };
-  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); Object.assign(BUBBLE_SKIN, d); try { localStorage.removeItem("x_bubbleSkin"); } catch (e) {} toast && toast("已恢复出厂皮肤"); };
+  const save = () => { Object.assign(BUBBLE_SKIN, s); try { localStorage.setItem("x_bubbleSkin", JSON.stringify(s)); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("皮肤已保存，聊天页立即生效"); };
+  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); Object.assign(BUBBLE_SKIN, d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("已恢复出厂皮肤"); };
   const inSt = { width: "100%", outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   // 一行一个字段：row("标签", "字段名", "占位提示")——加新字段就抄一行
   const row = (label, key, ph) => h("div", { className: "mb-2.5" },
@@ -6801,6 +6801,10 @@ function BubbleSkinConfig({ toast }) {
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "气泡皮肤 · Bubble Skin"),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
     folded ? null : h(React.Fragment, null,
+    // 一键换整套（v61.05）：跟单聊 ••• 里那一格是同一个组件，一处画两处用。
+    // 换完把草稿也同步过去，试衣镜和下面那些字段立刻跟着变（否则看着像没生效）。
+    h("div", { style: { marginTop: 10 } },
+      h(BubbleSkinPresets, { onPick: (k, next) => { setS(Object.assign({}, next)); toast && toast("换成整套皮肤了"); } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, marginBottom: 10 } }, "颜色填 #hex 或一整段渐变 linear-gradient(...)；贴纸填图片地址（assets/xx.png 或 https）；描边/贴纸留空=不启用。试衣镜实时预览，保存后全 app 生效。"),
     h("div", { style: { padding: "14px 14px 10px", borderRadius: 12, background: s.chatBg || t.bg, border: "1px solid " + t.line, marginBottom: 12, overflow: "hidden" } },
       bub(false, "试衣镜：TA 的气泡"),

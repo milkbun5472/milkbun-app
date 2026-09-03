@@ -18,6 +18,29 @@
     ["all","全 App"],["home","主屏"],["thread","单聊（含线下浮层）"],["gthread","群聊（含群线下浮层）"],
     ["messages","朋友圈"],["forum","论坛"],["config","设置"],["games","小游戏"],["fanfic","同人文"],["trpg","跑团"]
   ];
+  // ── 内置 CSS 预设 + 每页 5 个自己的槽位（v61.05，她 2026-09-03 点名）──────
+  // 「内置」是只读的起手式：点一下把整段 CSS 灌进编辑框，她再改。
+  // 「槽位」是她自己的：每一页 5 个，存在 x_themeCssSlots，跟主题档案分开——
+  // 草稿反复存取不该把正在用的主题搅进去。
+  const WECHAT_CSS = "[data-wk=\"chat\"], [data-wk=\"body\"] {\n  background: #ededed !important;\n  background-image: none !important;\n}\n\n[data-wk=\"chathead\"] {\n  background: #ededed !important;\n  border-bottom: 1px solid #d9d9d9 !important;\n  color: #111 !important;\n}\n\n[data-wk=\"time\"] span {\n  display: inline-block !important;\n  background: #dadada !important;\n  color: #fff !important;\n  font-size: 11px !important;\n  line-height: 1 !important;\n  padding: 4px 7px !important;\n  border-radius: 4px !important;\n}\n\n[data-wk=\"avatar\"] img,\n[data-wk=\"avatar\"] > * {\n  border-radius: 5px !important;\n}\n\n[data-wk=\"bubble\"] {\n  border-radius: 6px !important;\n  padding: 10px 13px !important;\n  font-size: 16px !important;\n  line-height: 1.45 !important;\n  box-shadow: none !important;\n  border: none !important;\n  position: relative !important;\n}\n\n[data-wk=\"bubble\"][data-me=\"0\"] {\n  background: #ffffff !important;\n  color: #111111 !important;\n}\n\n[data-wk=\"bubble\"][data-me=\"1\"] {\n  background: #95ec69 !important;\n  color: #111111 !important;\n}\n\n[data-wk=\"bubble\"]::before {\n  content: \"\" !important;\n  position: absolute !important;\n  top: 13px !important;\n  width: 9px !important;\n  height: 9px !important;\n  transform: rotate(45deg) !important;\n}\n[data-wk=\"bubble\"][data-me=\"0\"]::before {\n  left: -3px !important;\n  background: #ffffff !important;\n}\n[data-wk=\"bubble\"][data-me=\"1\"]::before {\n  right: -3px !important;\n  background: #95ec69 !important;\n}\n\n[data-wk=\"bubble\"][data-kind=\"photo\"],\n[data-wk=\"bubble\"][data-kind=\"sticker\"] {\n  background: transparent !important;\n  padding: 0 !important;\n}\n[data-wk=\"bubble\"][data-kind=\"photo\"]::before,\n[data-wk=\"bubble\"][data-kind=\"sticker\"]::before { display: none !important; }\n\n[data-wk=\"msg\"] { padding-top: 5px !important; padding-bottom: 5px !important; }\n[data-wk=\"row\"] { gap: 9px !important; }\n\n[data-wk=\"composer\"] {\n  background: #f7f7f7 !important;\n  border-top: 1px solid #d9d9d9 !important;\n}\n[data-wk=\"composer\"] input,\n[data-wk=\"composer\"] textarea {\n  background: #ffffff !important;\n  border: none !important;\n  border-radius: 5px !important;\n  color: #111 !important;\n  font-size: 16px !important;\n}";
+  const CSS_BUILTINS = { thread: [["仿微信", WECHAT_CSS]], gthread: [["仿微信", WECHAT_CSS]] };
+  const SLOT_KEY = "x_themeCssSlots";
+  const SLOT_MAX = 5;
+  const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };
+  const pageSlots = page => { const a = loadSlots()[page]; return Array.isArray(a) ? a.slice(0, SLOT_MAX) : []; };
+  const saveSlot = (page, i, name, css) => {
+    const all = loadSlots(); const a = Array.isArray(all[page]) ? all[page].slice(0, SLOT_MAX) : [];
+    while (a.length < SLOT_MAX) a.push(null);
+    a[i] = { name: String(name || ("预设 " + (i + 1))).slice(0, 12), css: String(css || "") };
+    all[page] = a; try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
+    return a;
+  };
+  const clearSlot = (page, i) => {
+    const all = loadSlots(); const a = Array.isArray(all[page]) ? all[page].slice(0, SLOT_MAX) : [];
+    while (a.length < SLOT_MAX) a.push(null);
+    a[i] = null; all[page] = a; try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
+    return a;
+  };
   const fresh = () => ({ version: 1, name: "我的主题", icons: {}, globalCSS: "", pageCSS: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
@@ -104,7 +127,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, APP_ICONS, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode };
+  g.ThemeStudio = { KEY, APP_ICONS, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

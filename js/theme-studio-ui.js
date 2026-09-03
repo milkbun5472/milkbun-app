@@ -6,7 +6,12 @@
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     const [section, setSection] = useState("icons"), [page, setPage] = useState("home"), [previewing, setPreviewing] = useState(false);
     const iconFile = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
-    useEffect(() => () => { clearTimeout(previewTimer.current); if (studio.isPreviewing()) studio.cancelPreview(); }, []);
+    // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
+    //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
+    //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
+    //   30 秒到点自动撤销由 ThemeStudio.preview 自己那个计时器负责（它不随界面走），
+    //   这儿只清掉本地那个「按钮还亮着」的计时器。
+    useEffect(() => () => { clearTimeout(previewTimer.current); }, []);
     const patchDraft = p => setDraft(d => studio.normalize({ ...d, ...p }));
     const preview = () => { try { studio.preview(draft); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已临时预览；30 秒后自动撤销"); } catch (e) { toast("不能预览：" + e.message); } };
     const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); setPendingBase(null); setPendingWallpaper(undefined); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
@@ -30,11 +35,16 @@
       catch (err) { toast("导入失败：" + (err.message || err)); }
     };
     const tab = (id, title, sub) => h("button", { onClick: () => setSection(id), className: "active:opacity-70", style: { padding: "14px 10px", borderRadius: 16, textAlign: "left", background: section === id ? t.ink : t.bg2, color: section === id ? t.bg2 : t.ink, border: "1px solid " + t.line } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title), h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
+    const [slots, setSlots] = useState(() => studio.pageSlots(page));
+    useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
     const setCSS = v => page === "all" ? patchDraft({ globalCSS: v }) : patchDraft({ pageCSS: { ...draft.pageCSS, [page]: v } });
     const esc = v => String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const previewPage = section === "icons" || page === "all" ? "home" : page;
     const iconImg = key => { const ref = draft.icons[key]; return ref ? '<img src="' + esc(resolveImg(ref)) + '" alt="">' : '<span>' + ({ chat:"✉",forum:"☷",games:"◇",diary:"▤",tarot:"✦",study:"⌁",fanfic:"⌘",config:"⚙" }[key] || "○") + '</span>'; };
+    // 聊天那两页在预览里要【铺满整个框】：她 2026-09-03 报「预览这里颜色套不进全框」——
+    // 底下 body 有 18px 内边距，于是四周留着一圈主题米白，改的颜色像是没铺到边。
+    const chatPreview = previewPage === "thread" || previewPage === "gthread";
     const previewBody = (() => {
       // ⚠️预览必须跟【真页面同一套挂点】（v61.03，她 2026-09-03 报「不行啊」）：
       //   原来这儿是自己编的一套 header / .message-bubble / footer，真页面上一个都没有。
@@ -50,7 +60,7 @@
           + '<div data-wk="bubble" data-me="' + (me ? 1 : 0) + '" data-kind="text" class="message-bubble ' + (me ? "me" : "them") + '">' + txt + '</div>'
           + '</div></div>';
         return '<div data-wk="chat" class="wxwrap">'
-          + '<div data-wk="chathead" class="wxhead"><b>' + (previewPage === "thread" ? "沈屿白" : "三个人的小群") + '</b><small>刚刚</small></div>'
+          + '<div data-wk="chathead" class="wxhead"><b>' + (previewPage === "thread" ? "秋秋" : "三个人的小群") + '</b><small>刚刚</small></div>'
           + '<div data-wk="body" class="chat">'
           + '<div data-wk="time" class="tm"><span>昨天 22:41</span></div>'
           + row(false, "我刚才想到一件事。") + row(true, "讲给我听听。")
@@ -66,7 +76,7 @@
       return '<header><b>Lisa\'s phone</b><small>今天也在这里</small></header><main class="icons"><i>' + iconImg("chat") + '<b>消息</b></i><i>' + iconImg("forum") + '<b>论坛</b></i><i>' + iconImg("study") + '<b>一起学</b></i><i>' + iconImg("fanfic") + '<b>同人文</b></i><i>' + iconImg("tarot") + '<b>塔罗</b></i><i>' + iconImg("games") + '<b>小游戏</b></i></main>';
     })();
     const previewCSS = (() => { try { return studio.compile(draft).replace(/<\/style/gi,"<\\/style"); } catch (_) { return ""; } })();
-    const previewDoc = '<!doctype html><html data-lisa-screen="' + esc(previewPage) + '"><head><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:' + esc(t.bg) + ';color:' + esc(t.ink) + ';font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body{padding:18px}header{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 16px;border-bottom:1px solid ' + esc(t.line) + '}header b{font-size:24px}small{color:' + esc(t.fog) + ';font-size:10px}main{padding-top:16px}.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 10px}.icons i{display:grid;place-items:center;gap:6px;font-style:normal;font-size:10px}.icons i>span,.icons i>img{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.65);box-shadow:0 5px 14px rgba(0,0,0,.08);object-fit:cover;font-size:22px}.icons b{font-weight:500}article{padding:14px;margin-bottom:10px;border:1px solid ' + esc(t.line) + ';border-radius:16px;background:rgba(255,255,255,.42)}article h3{margin:5px 0 9px;font-size:15px}article p{margin:5px 0;line-height:1.65;font-size:12px}.wxwrap{display:flex;flex-direction:column;min-height:calc(100vh - 36px)}.wxhead{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 12px;border-bottom:1px solid ' + esc(t.line) + '}.wxhead b{font-size:20px}.chat{flex:1;display:flex;flex-direction:column;gap:9px;padding-top:12px}.tm{text-align:center}.tm span{font-size:10px;color:' + esc(t.fog) + '}.msg{display:block}.row{display:flex;align-items:flex-start;gap:8px}.row.me{justify-content:flex-end}.row.them{justify-content:flex-start}.av{flex:none;width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#cdc7bf,#8f8a81)}.message-bubble{max-width:72%;padding:11px 13px;border-radius:17px;background:#fff;font-size:12px;line-height:1.55}.message-bubble.me{background:#f5b9c5}.message-bubble.them{background:#b8d5ee}.wxfoot{margin-top:12px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}footer{position:absolute;left:18px;right:18px;bottom:16px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}</style><style>' + previewCSS + '</style></head><body>' + previewBody + '</body></html>';
+    const previewDoc = '<!doctype html><html data-lisa-screen="' + esc(previewPage) + '"><head><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:' + esc(t.bg) + ';color:' + esc(t.ink) + ';font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body{padding:18px}' + (chatPreview ? 'body{padding:0}.wxwrap{min-height:100vh}.wxhead{padding:14px 16px 12px}.chat{padding:12px 14px}.wxfoot{margin:0 14px 14px}' : '') + 'header{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 16px;border-bottom:1px solid ' + esc(t.line) + '}header b{font-size:24px}small{color:' + esc(t.fog) + ';font-size:10px}main{padding-top:16px}.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 10px}.icons i{display:grid;place-items:center;gap:6px;font-style:normal;font-size:10px}.icons i>span,.icons i>img{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.65);box-shadow:0 5px 14px rgba(0,0,0,.08);object-fit:cover;font-size:22px}.icons b{font-weight:500}article{padding:14px;margin-bottom:10px;border:1px solid ' + esc(t.line) + ';border-radius:16px;background:rgba(255,255,255,.42)}article h3{margin:5px 0 9px;font-size:15px}article p{margin:5px 0;line-height:1.65;font-size:12px}.wxwrap{display:flex;flex-direction:column;min-height:calc(100vh - 36px)}.wxhead{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 12px;border-bottom:1px solid ' + esc(t.line) + '}.wxhead b{font-size:20px}.chat{flex:1;display:flex;flex-direction:column;gap:9px;padding-top:12px}.tm{text-align:center}.tm span{font-size:10px;color:' + esc(t.fog) + '}.msg{display:block}.row{display:flex;align-items:flex-start;gap:8px}.row.me{justify-content:flex-end}.row.them{justify-content:flex-start}.av{flex:none;width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#cdc7bf,#8f8a81)}.message-bubble{max-width:72%;padding:11px 13px;border-radius:17px;background:#fff;font-size:12px;line-height:1.55}.message-bubble.me{background:#f5b9c5}.message-bubble.them{background:#b8d5ee}.wxfoot{margin-top:12px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}footer{position:absolute;left:18px;right:18px;bottom:16px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}</style><style>' + previewCSS + '</style></head><body>' + previewBody + '</body></html>';
     return h("div", null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
@@ -76,7 +86,30 @@
       section === "css" && h("div", null,
         h("select", { value: page, onChange: e => setPage(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, marginBottom: 10 } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
+        // ── 内置预设 + 这一页自己的 5 个槽位（v61.05，她 2026-09-03 要的）──
+        (studio.CSS_BUILTINS[page] || []).length ? h("div", { style: { marginTop: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "内置（点一下灌进上面的编辑框，再改成你要的）"),
+          h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+            studio.CSS_BUILTINS[page].map(([nm, code]) => h("button", { key: nm, onClick: () => { setCSS(code); toast("「" + nm + "」已灌进编辑框，先预览看看"); },
+              className: "active:opacity-70", style: { minHeight: 40, padding: "8px 13px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, nm)))) : null,
+        h("div", { style: { marginTop: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "这一页可以存 " + studio.SLOT_MAX + " 套：点空格＝把现在这段存进去；点存过的＝读出来"),
+          h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+            Array.from({ length: studio.SLOT_MAX }).map((_, i) => {
+              const sl = slots[i];
+              return h("div", { key: i, className: "flex items-center", style: { gap: 4, minHeight: 40, padding: "6px 8px 6px 11px", borderRadius: 10, border: "1px solid " + t.line, background: sl ? t.bg2 : "transparent" } },
+                h("button", { onClick: () => {
+                    if (sl) { setCSS(sl.css); toast("读出「" + sl.name + "」"); return; }
+                    const cur = page === "all" ? (draft.globalCSS || "") : (draft.pageCSS[page] || "");
+                    if (!cur.trim()) { toast("编辑框还是空的，先写点东西再存"); return; }
+                    let nm = ""; try { nm = window.prompt("给这一套起个名字（12 字内）", "预设 " + (i + 1)) || ""; } catch (_) { nm = "预设 " + (i + 1); }
+                    if (nm === "") return;                    // 取消就什么都不做
+                    setSlots(studio.saveSlot(page, i, nm, cur)); toast("存好了：" + nm);
+                  }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: sl ? t.ink : t.fog } },
+                  sl ? (i + 1) + " " + sl.name : (i + 1) + " 空"),
+                sl ? h("button", { onClick: () => setSlots(studio.clearSlot(page, i)), "aria-label": "清掉这一套", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 3px" } }, "×") : null);
+            })))),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
         h("div", { className: "flex gap-2" }, h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"), h("button", { onClick: () => importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")), h("input", { ref: importFile, type: "file", accept: ".json,application/json", onChange: importTheme, style: { display: "none" } })),

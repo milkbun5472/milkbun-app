@@ -20,8 +20,110 @@ const BUBBLE_SKIN = {
 };
 // v3（第六课）：皮肤从写死常量升级成可换装——localStorage x_bubbleSkin 覆盖上面的默认值。
 // 设置→主题→气泡皮肤 里改；BUBBLE_SKIN_DEFAULTS 留一份出厂快照给「恢复默认」。
+// ── 气泡皮肤压在主题 CSS 上面（v61.05）───────────────────────────────────────
+// 她 2026-09-03：「设置里有个聊天气泡，改了 css 就会把它的预设 override，
+//   能不能改成这边的预设在上面」。
+// 病因：皮肤是【内联样式】，而主题 CSS 为了盖过内联样式必须写 !important，
+//   于是 CSS 一写就把皮肤整个压死——她在设置里换皮肤看着毫无反应。
+// 办法：皮肤也用一张 <style> 发出去、同样带 !important，并且【永远排在主题那张
+//   后面】（同权重时后来的赢）。所以：换皮肤 = 重新 append 一次，它就又到最后了。
+// 分工因此清楚了：颜色/圆角/投影/聊天页底色 → 皮肤说话；
+//   气泡的尖角、顶栏、输入栏、时间戳这些皮肤管不到的 → 主题 CSS 说话，互不打架。
+function applyBubbleSkinCSS() {
+  if (typeof document === "undefined") return;
+  const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
+  const S = BUBBLE_SKIN, out = [];
+  const one = (sel, decls) => { const d = decls.filter(Boolean); if (d.length) out.push(sel + "{" + d.join("") + "}"); };
+  one('[data-wk="bubble"][data-me="1"]', [
+    S.myBg ? "background:" + q(S.myBg) + " !important;" : "",
+    S.myText ? "color:" + q(S.myText) + " !important;" : "",
+    "border:" + (S.myBorder ? q(S.myBorder) : "none") + " !important;",
+    "border-radius:" + (Number(S.radius) || 0) + "px !important;",
+    "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
+  ]);
+  one('[data-wk="bubble"][data-me="0"]', [
+    S.charBg ? "background:" + q(S.charBg) + " !important;" : "",
+    S.charText ? "color:" + q(S.charText) + " !important;" : "",
+    "border:" + (S.charBorder ? q(S.charBorder) : "none") + " !important;",
+    "border-radius:" + (Number(S.radius) || 0) + "px !important;",
+    "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
+  ]);
+  // 聊天页底色：只在皮肤真设过时才发（留空＝跟主题走，不该抢主题 CSS 的话）
+  if (S.chatBg) one('[data-wk="chat"],[data-wk="body"]', ["background:" + q(S.chatBg) + " !important;", "background-image:none !important;"]);
+  let el = document.getElementById("wk-skin-css");
+  if (!el) { el = document.createElement("style"); el.id = "wk-skin-css"; }
+  el.textContent = out.join("\n");
+  document.head.appendChild(el);   // 重新 append＝挪到最后，永远压在主题那张上面
+}
+// 预设皮肤那一排按钮：两处共用（设置→气泡皮肤、单聊 ••• 里的聊天设置），
+// 一处画、两处用——各写一份迟早有一处漏掉新加的皮肤。
+function BubbleSkinPresets({ onPick, note }) {
+  const t = useTheme();
+  const cur = (() => { try { return localStorage.getItem("x_bubbleSkinPreset") || ""; } catch (e) { return ""; } })();
+  const [pick, setPick] = useState(cur);
+  const tap = k => {
+    const next = applyBubblePreset(k);
+    try { localStorage.setItem("x_bubbleSkinPreset", k); } catch (e) {}
+    setPick(k);
+    if (onPick) onPick(k, next);
+  };
+  return h("div", null,
+    h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+      BUBBLE_PRESETS.map(p => { const on = pick === p.key;
+        return h("button", { key: p.key, onClick: () => tap(p.key), className: "active:opacity-70 flex items-center",
+          style: { gap: 6, minHeight: 40, padding: "7px 12px", borderRadius: 10,
+            background: on ? t.ink : t.bg2, color: on ? t.bg : t.sub,
+            border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 12.5 } },
+          // 每一档带一颗自己的色点：光看名字认不出「薄荷」和「水墨」差在哪
+          h("span", { style: { width: 12, height: 12, borderRadius: 3, background: p.tint, border: "1px solid rgba(0,0,0,.12)", flexShrink: 0 } }),
+          p.name); })),
+    note === false ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 7 } },
+      "点一下就整套换掉（底色、字色、圆角、投影、聊天页底色），立刻生效。想再细调，去下面那些字段改。"));
+}
+// ── 预设皮肤（v61.05，她 2026-09-03：「把这套仿微信主题放到单聊那边做预设皮肤选择键」）──
+// 一键换整套：底色、字色、圆角、投影、聊天页底色一起换。
+// ⚠️为什么做成【皮肤】而不是【主题 CSS】：她同一轮还报了「改了 css 就会把气泡预设
+//   override」。皮肤是内联样式，选一下立刻生效、也看得见；CSS 是给细节用的另一层。
+//   两层分工清楚了，就不会互相打架（见 skinCSSGuard 那一段）。
+// 每一套都得把【所有会变的栏】写全：漏一栏就会残留上一套的值，换来换去越换越脏。
+const BUBBLE_PRESETS = [
+  { key: "default", name: "出厂", tint: "#f7b6c2", patch: null },
+  { key: "wechat", name: "仿微信", tint: "#95ec69", patch: {
+      myBg: "#95ec69", myText: "#111111", myBorder: "", charBg: "#ffffff", charText: "#111111", charBorder: "",
+      radius: 6, shadow: "none", chatBg: "#ededed" } },
+  { key: "ink", name: "水墨", tint: "#3f4a52", patch: {
+      myBg: "#3f4a52", myText: "#f4f1ea", myBorder: "", charBg: "#f7f5ef", charText: "#2b2a26", charBorder: "1px solid #e2ded2",
+      radius: 10, shadow: "none", chatBg: "#efece4" } },
+  { key: "dusk", name: "暮色", tint: "#8d6b8f", patch: {
+      myBg: "linear-gradient(180deg,#a4809f,#8d6b8f)", myText: "#fdf7fb", myBorder: "", charBg: "#fbf6f8", charText: "#3f3038", charBorder: "",
+      radius: 18, shadow: "0 2px 6px rgba(80,50,70,.12)", chatBg: "#f3ecef" } },
+  { key: "mint", name: "薄荷", tint: "#7fbfa4", patch: {
+      myBg: "#7fbfa4", myText: "#0f2a20", myBorder: "", charBg: "#ffffff", charText: "#22332c", charBorder: "1px solid #dfeee7",
+      radius: 14, shadow: "0 1px 3px rgba(0,0,0,.05)", chatBg: "#eef5f1" } },
+  { key: "paper", name: "旧纸", tint: "#c8a06a", patch: {
+      myBg: "#e8d3ae", myText: "#41341f", myBorder: "", charBg: "#fbf6ea", charText: "#3b3428", charBorder: "1px solid #e6dcc4",
+      radius: 4, shadow: "none", chatBg: "#f1e9d8" } }
+];
+// 换一套：出厂那一档回 defaults，其余把 patch 盖在 defaults 上（不是盖在当前值上，
+// 否则上一套残留的描边/贴纸会跟着新皮肤一起留下来）。
+function bubblePresetSkin(key) {
+  const p = BUBBLE_PRESETS.find(x => x.key === key);
+  return Object.assign({}, BUBBLE_SKIN_DEFAULTS, (p && p.patch) || {});
+}
+function applyBubblePreset(key) {
+  const next = bubblePresetSkin(key);
+  Object.assign(BUBBLE_SKIN, next);
+  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(next)); } catch (e) {}
+  applyBubbleSkinCSS();
+  return next;
+}
 const BUBBLE_SKIN_DEFAULTS = Object.assign({}, BUBBLE_SKIN);
 try { Object.assign(BUBBLE_SKIN, JSON.parse(localStorage.getItem("x_bubbleSkin") || "{}")); } catch (e) {}
+// 开机就把皮肤那张 style 发出去（否则第一次进聊天页要等她去设置里点一下才生效）
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { try { applyBubbleSkinCSS(); } catch (e) {} });
+  else { try { applyBubbleSkinCSS(); } catch (e) {} }
+}
 // 给皮肤底色追加两位透明度（如 "eb"≈92%）：只有六位 #hex 能拼，渐变/rgba 原样返回
 function skinAlpha(c, a) { return (typeof c === "string" && c[0] === "#" && c.length === 7) ? c + a : c; }
 // OOC 有两种历史形态：普通 OOC 气泡，以及单聊里保留旧视觉的 SYSTEM RESPONSE。
@@ -4533,7 +4635,12 @@ function ChatThread({
   (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", {
     onClick: onOpenSched,
     className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
-    style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
+    // ⚠️底色改成【透明】（v61.05，她 2026-09-03：「行程这个颜色改不了，改成跟随框的颜色」）：
+    //   原来写死 t.bg，于是主题 CSS 把聊天页刷成别的颜色时，这一条还留着主题米白，
+    //   横在最上面像块补丁。透明＝它自己没颜色，底下那一层什么色它就是什么色。
+    //   自定义过聊天背景图时仍旧垫一层半透明白，不然字压在图上读不清。
+    "data-wk": "now",
+    style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : "transparent"), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
   },
     h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
     h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
@@ -5057,15 +5164,19 @@ function ChatThread({
     onClick: send,
     disabled: sending || !input.trim(),
     className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
+    // 发送键原来直接刷「我的气泡色」，默认那个粉太跳（她 2026-09-03：「改成好看点的颜色」）。
+    // 改成跟主题的强调色走：换主题它就跟着换，不再是一颗谁都不搭的粉圆点。
+    // data-wk="send" 是给主题工作室的挂点。
+    "data-wk": "send",
     style: {
       width: 40,
       height: 40,
       borderRadius: 999,
-      background: BUBBLE_SKIN.myBg
+      background: t.accent
     }
   }, /*#__PURE__*/React.createElement(ISend, {
     size: 16,
-    color: "#16330a"
+    color: "#fff"
   })), chatMode !== "ooc" && h(ReplyKey, {
     sending: sending, disabled: sending || bk.theyBlocked,
     title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复", onClick: reply
@@ -11021,6 +11132,12 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，点气泡旁边的「译」直接展开——"
       + "不再走免费翻译接口。说这句话的人自己译，语气和上下文都对得上。中文消息不受影响。")),
+    // 一键换皮肤（她 2026-09-03：「放到单聊那边做预设皮肤选择键，这样方便我换」）。
+    // ••• 打开的就是这一页，所以这一格摆在这儿＝在单聊里两下就换完。
+    h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 7 } }, "气泡皮肤 · 一键换"),
+      // 不弹 toast：按钮自己就变了状态，气泡也当场换了，再弹一句是噪音
+      h(BubbleSkinPresets, null)),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
