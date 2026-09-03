@@ -2,7 +2,14 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v61.35";
+// 思念攒够的那一刻，多大概率是【去空间里留一样东西】而不是直接发消息。
+// v58.85 定的 0.3；v61.35 抬到 0.45（她 2026-09-03 同意）——因为同一轮还查出
+// where 三选一里有两档都通向悄悄话（note 那一档的便签墙 v59.23 就撤了），
+// 于是拾/半/画 实际只有一成上下能轮上。两件事一起改：出口收成两档 + 概率抬一档。
+// ⚠️放在模块顶上而不是组件里：用它的地方（积温那个 tick）在文件前面几千行，
+//   写在组件里就是靠 TDZ 的时序侥幸（v59.22 已经栽过一次）。
+const COUPLE_LEAVE_P = 0.45;
+const APP_VERSION = "v61.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4302,8 +4309,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
-          // 三成的概率：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
-          else if (((couplesRef.current || {})[cid] || {}).status === "together" && Math.random() < 0.3)
+          // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
+          else if (((couplesRef.current || {})[cid] || {}).status === "together" && Math.random() < COUPLE_LEAVE_P)
             leaveInCoupleSpace(c, jwStyle);
           else replyNow(cid, "", null, { proactive: true, jiwen: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
@@ -13024,7 +13031,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const livedMaterial = ambientMaterialFor(char, { limit: 20 });
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
+        instruction: "你们已是恋人。以「" + char.name + "」身份，往你俩私密的那个抽屉里放一张给用户的小纸条（她哪天想起来才会打开）——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
       drawerWhisper(char.id, String(d.whisper || "").trim());
@@ -13096,15 +13103,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
-          + "【留在哪儿】三选一——\n"
+          + "【留在哪儿】二选一——\n"
           + "· drawer＝往你俩的抽屉里放一样东西，她要哪天想起来才会打开。**没话要说的时候就放这儿**：\n"
           + "  再配一个 kind：thing＝你今天真的经手过的一样小物件，要说清它是在哪儿、怎么到你手上的；"
           + "word＝半句没头没尾的话，不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上；"
           + "draw＝你随手画的，那就描述这张画上有什么，别描述你为什么画。\n"
-          + "· note＝往便签墙上贴一张（随手写的一两句，像便利贴）——这一档是【说给她听的】。\n"
           + "· timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"where\":\"drawer 或 note 或 timeline\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"text\":\"留下的内容\",\"title\":\"drawer 和 timeline 给一个短标题（抽屉那一档是她拆开前唯一看不到的东西，所以随便写都行，不许剧透内容）；note 留空\"}"
+        schemaHint: "{\"where\":\"drawer 或 timeline\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"text\":\"留下的内容\",\"title\":\"timeline 给一个短标题；drawer 那一档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
       });
       const txt = String((d && d.text) || "").trim();
       if (!txt) return false;
@@ -13112,7 +13118,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const kind = ["thing", "word", "draw"].indexOf(String(d.kind || "")) >= 0 ? String(d.kind) : "thing";
         setCoupleDrawer(p => {
           const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-            title: String(d.title || "").trim().slice(0, 20), text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+            title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
           coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
         });
       } else if (d.where === "timeline") {
@@ -13123,7 +13129,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           saveJSON("x_coupleTimeline", n); return n;
         });
       } else {
-        drawerWhisper(char.id, txt);
+        // ⚠️兜底不再走 drawerWhisper（v61.35）。原来的第三档 note＝「往便签墙上贴一张」，
+        //   可便签墙 v59.23 就撤掉了，它的产物被当成悄悄话塞进抽屉——三选一里两个出口
+        //   通向同一样东西，而模型还以为自己在往一个不存在的墙上贴。这是她 2026-09-03
+        //   问「另外仨咋触发啊」时查出来的：拾/半/画 几乎永远轮不上。
+        //   现在 where 只有两档；认不出来的一律当 drawer 落，别再变成第四个悄悄话。
+        setCoupleDrawer(p => {
+          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: "word",
+            title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+          coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+        });
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }

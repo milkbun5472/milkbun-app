@@ -42,19 +42,24 @@ test("要的是【落差】，不是让他复述一遍她写的", () => {
 // ⚠️这一条的全部意义在于【不多花钱】：App 里本来就有「思念出口」，这里只是多一个出口。
 test("不新开定时器、不多花一次调用——只是把思念的出口换了一个", () => {
   const fire = grab(app, "          if (activeOffScene) offlineReply(cid);", "          return; // 一次一个，错峰");
-  assert.match(fire, /else if \(\(\(couplesRef\.current \|\| \{\}\)\[cid\] \|\| \{\}\)\.status === "together" && Math\.random\(\) < 0\.3\)\n *leaveInCoupleSpace\(c, jwStyle\);/,
+  // v61.35：那个 0.3 收成了模块级常量 COUPLE_LEAVE_P（现在是 0.45，她 2026-09-03 定的）
+  assert.match(fire, /else if \(\(\(couplesRef\.current \|\| \{\}\)\[cid\] \|\| \{\}\)\.status === "together" && Math\.random\(\) < COUPLE_LEAVE_P\)\n *leaveInCoupleSpace\(c, jwStyle\);/,
     "没接在思念那条现成的链上,或者不是 else 分支（那就是多花一次）");
   assert.ok(fire.indexOf("else replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
   // 只对正式在一起的那位；三成，天天留就成了另一种刷屏
   assert.match(fire, /status === "together"/, "没在一起的也往情侣空间里塞");
-  assert.match(fire, /Math\.random\(\) < 0\.3/, "概率没有卡住");
+  assert.match(fire, /Math\.random\(\) < COUPLE_LEAVE_P/, "概率没有卡住");
+  assert.match(app, /^const COUPLE_LEAVE_P = 0\.\d+;$/m, "概率没有一个能改的常量");
   assert.ok(!/setInterval|setTimeout/.test(nocomment(leave)), "自己又开了一条定时器");
 });
 
 test("留下的东西落进的是【已经会渲染它】的那两个地方", () => {
   // v59.23：便签墙撤了，他留下的那一路改落抽屉（抽屉本来就认 kind + openedTs）；
   // 时光轴那一路不变，本来就认 byCharacter。
-  assert.match(leave, /drawerWhisper\(char\.id, txt\)/, "他留的那一张没落进抽屉");
+  // v61.35：where 的第三档 note（便签墙）删了——那面墙 v59.23 就撤掉了，
+  // 它的产物却被当成悄悄话塞进抽屉，等于三个出口里两个通向同一样东西。
+  // 现在认不出 where 的一律当 drawer 落，所以这里改盯【落进抽屉】这件事本身。
+  assert.match(leave, /kind: "word",[\s\S]{0,300}saveJSON\("x_coupleDrawer", n\)/, "他留的那一张没落进抽屉");
   assert.match(scr, /whisper: \{ zh: "一句悄悄话"/, "抽屉不认这一类，渲染出来是「他捡到的」");
   assert.match(leave, /byCharacter: true, unread: true/, "时光轴那条没标成他写的");
   assert.match(scr, /ev\.byCharacter \?/, "时光轴不认 byCharacter 了");

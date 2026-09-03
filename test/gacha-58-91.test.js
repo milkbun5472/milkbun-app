@@ -183,7 +183,8 @@ test("抽屉挂在已有的思念出口上，不是新开一条调用链", () =>
   const _li = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint) => {");
   const leave = app.slice(_li, app.indexOf("\n  };", _li) + 4);
   assert.equal((leave.match(/runProbe\(/g) || []).length, 1, "抽屉多开了一次调用——它该跟便签/时光轴共用那一次");
-  assert.match(leave, /drawer 或 note 或 timeline/, "落点里没有抽屉");
+  // v61.35 收成两档（note 那一档的便签墙 v59.23 就撤了，见 couple-leave-outlets-61-35）
+  assert.match(leave, /drawer 或 timeline/, "落点里没有抽屉");
   assert.match(leave, /if \(d\.where === "drawer"\) \{/, "抽屉那一支没接上");
   assert.match(leave, /\["thing", "word", "draw"\]\.indexOf\(String\(d\.kind \|\| ""\)\) >= 0/, "kind 没兜底,模型写错就存了个野值");
   assert.match(leave, /openedTs: null/, "放进来就是拆开的状态——那还惊喜什么");
