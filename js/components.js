@@ -2868,16 +2868,26 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   const dim = onCover ? "rgba(255,255,255,.78)" : t.fog;
   const shadow = onCover ? "0 1px 6px rgba(0,0,0,.5)" : "none";
   // 这本档案里真实攒下的东西（跟恋爱无关）：认识几个人 / 多少条记忆 / 来了第几天
-  const readJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
-  const memLib = readJSON("x_memLib", []);
-  const memN = Array.isArray(memLib) ? memLib.length : 0;
-  // 第几天：从这本档案里最早那条记忆算起；一条都还没有就是第 1 天
-  const firstTs = (Array.isArray(memLib) ? memLib : []).reduce((mn, m) => {
-    const ts = Number(m && (m.ts || m.createdAt)) || 0;
-    return ts && (!mn || ts < mn) ? ts : mn;
-  }, 0);
-  const dayN = firstTs ? Math.max(1, Math.floor((Date.now() - firstTs) / 86400000) + 1) : 1;
-  const stats = [[(characters || []).length, "认识"], [memN, "记忆"], [dayN, "天"]];
+  // ⚠️必须走 loadJSON，不许直接 localStorage.getItem：x_memLib 早就搬进 IDB 文字仓了
+  //   （IDB_TEXT_PREFIXES），迁移成功后 localStorage 里那份是【被删掉的】。
+  //   上一版就是直接读 localStorage → 永远是 null → 记忆恒为 0、天数恒为 1
+  //   （她 2026-09-03 报「为啥记忆库和天数都不对」）。这个坑 2026-08-26 在
+  //   「重建记忆向量」那个按钮上原样犯过一次，代码里有注释，我还是踩了第二遍。
+  const stats = React.useMemo(() => {
+    const rd = (k, d) => { try { return (typeof loadJSON === "function" ? loadJSON(k, d) : d); } catch (e) { return d; } };
+    const lib = rd("x_memLib", []);
+    const memN = Array.isArray(lib) ? lib.length : 0;
+    // 第几天：从这本档案里最早的那条东西算起（记忆 → 朋友圈 → 情书），一条都没有就是第 1 天
+    let first = 0;
+    const eat = ts => { const n = Number(ts) || 0; if (n && (!first || n < first)) first = n; };
+    (Array.isArray(lib) ? lib : []).forEach(m => eat(m && (m.ts || m.createdAt)));
+    const mom = rd("x_moments", []); (Array.isArray(mom) ? mom : []).forEach(m => eat(m && m.ts));
+    const lts = rd("x_coupleLetters", []); (Array.isArray(lts) ? lts : []).forEach(m => eat(m && m.createdAt));
+    const dayN = first ? Math.max(1, Math.floor((Date.now() - first) / 86400000) + 1) : 1;
+    return [[(characters || []).length, "认识"], [memN, "记忆"], [dayN, "天"]];
+    // 只在名片挂上来时算一次：这几样都是慢慢长的，不值得每次重渲都翻一遍仓库
+    // eslint-disable-next-line
+  }, [(characters || []).length]);
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
     style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
@@ -2885,25 +2895,25 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
     //   整屏高，主屏直接毁（.claude/rules/home-screen-layout.md）。用 flex:1。
-    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "11px 14px 12px" } },
-      // 眉批 + 右上两颗键
-      h("div", { className: "flex items-center", style: { gap: 8 } },
-        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.22em", color: dim, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden" } }, "ARCHIVE"),
+    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "12px 14px 11px" } },
+      // 她 2026-09-03：「ARCHIVE 去掉」。眉批没了，那两颗键就压到右上角去，
+      // 不再单独占一行——省下来的高度直接还给这一屏（她说太长了一页塞不下）。
+      h("div", { className: "flex", style: { position: "absolute", top: 10, right: 12, gap: 6, zIndex: 2 } },
         round(h(IPencil, { size: 13, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
         onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
-      h("div", { className: "flex items-end", style: { gap: 12, marginTop: 6 } },
+      h("div", { className: "flex items-end", style: { gap: 12, paddingRight: 62 } },
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.05, color: ink, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: dim, textShadow: shadow, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: ink, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: dim, textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
-          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: dim, textShadow: shadow, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, tags.join("　/　")) : null),
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 15, padding: 2.5,
+          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: dim, textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, tags.join("　/　")) : null),
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 14, padding: 2.5,
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
-          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 54, radius: 13 }))),
+          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 48, radius: 12 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
-      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 11, gap: 18 } },
+      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 9, gap: 16 } },
         stats.map((st, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 4 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
           h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow } }, st[1]))))));
@@ -2925,7 +2935,7 @@ function HomeCardSheet({ card, profile, onSave, onClose }) {
     h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "昵称", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: sign, onChange: e => setSign(e.target.value), placeholder: "签名", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: tagStr, onChange: e => setTagStr(e.target.value), placeholder: "标签，逗号隔开", style: Object.assign({}, inp, { marginBottom: 6 }) }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "标签会显示成 #Design #Mood。名片和聊天里的「我」是分开的，改这里不影响角色对你的认知。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "名片和聊天里的「我」是分开的，改这里不影响角色对你的认知。"),
     // 名片封面：垫在整张卡底下的那张图。没设的话用你头像的颜色调一层光，不是白板。
     h("div", { className: "flex items-center", style: { gap: 12, marginBottom: 22 } },
       h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-80", style: { width: 92, height: 56, borderRadius: 12, flexShrink: 0, overflow: "hidden", border: "1px solid " + t.line,

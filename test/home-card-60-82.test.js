@@ -12,19 +12,25 @@ const card = comp.slice(comp.indexOf("function HomeCard("), comp.indexOf("functi
 
 test("骨架换掉了：方头像在右、名字当主角、标签不是药丸", () => {
   // 头像：方的（radius 13），而且排在名字后面＝在右边
-  assert.match(card, /h\(Avatar, \{ character: \{ name: profile\.name[\s\S]{0,80}radius: 13 \}\)/);
-  assert.ok(card.indexOf("fontSize: 26") < card.indexOf("radius: 13 }"), "名字要排在头像前面（名字左、头像右）");
+  assert.match(card, /h\(Avatar, \{ character: \{ name: profile\.name[\s\S]{0,90}radius: 12 \}\)/);
+  assert.ok(card.indexOf("fontSize: 26") < card.indexOf("radius: 12 }"), "名字要排在头像前面（名字左、头像右）");
   // 标签不再是药丸：没有 borderRadius:999 的标签，改成一行用「/」隔开
   assert.match(card, /tags\.join\("　\/　"\)/);
   // 签名不再加引号、不再斜体
   assert.doesNotMatch(card, /"“" \+ sign/);
   assert.doesNotMatch(card, /fontStyle: "italic"/);
-  // 顶上多一行眉批
-  assert.match(card, /letterSpacing: "0\.22em"[\s\S]{0,120}"ARCHIVE"/);
+  // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
+  assert.doesNotMatch(card, /"ARCHIVE"/);
+  assert.match(card, /position: "absolute", top: 10, right: 12/);
 });
 
 test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {
   assert.match(card, /\[\(characters \|\| \[\]\)\.length, "认识"\], \[memN, "记忆"\], \[dayN, "天"\]/);
+  // ⚠️x_memLib 住在 IDB 文字仓，localStorage 里那份迁移后是被删掉的：
+  // 直接 getItem 会让记忆恒为 0、天数恒为 1（她 2026-09-03 报，这坑犯过第二遍）
+  assert.match(card, /loadJSON\(k, d\)/, "必须走 loadJSON");
+  // 只看真的执行的那一句（注释里提到 getItem 是在解释为什么不能那么读）
+  assert.doesNotMatch(card, /localStorage\.getItem\("x_/, "不许直接读 localStorage");
   assert.doesNotMatch(card, /"(Following|Follower|Like)"/i, "抄成社交数据就又成了任何 app");
   assert.doesNotMatch(card, /couples/, "名片不该再读情侣数据");
   // 底下那排是左对齐的一行，不是社交资料页那种三等分格子
