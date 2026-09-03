@@ -7025,21 +7025,24 @@ const MAPLE_VB = "246 78 532 686";
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
   const lit = sending ? t.accent : t.ink;
+  // v60.96 她 2026-09-03：「不要圆框，就一片叶子」，并说照言秋在秋声那片叶子的样式。
+  // 圆框和那圈边是【按钮】的零件，不是叶子的：一片落下来的叶子不会自带一个圈。
+  // 所以框整个撤掉——40×40 只剩一个透明的可点区域（手感线还在，mobile-ui-layout），
+  // 看得见的就是那一片叶子本身，也因此可以画大一点（24 → 27）。
+  // 生成中那一档不再靠「圈变色」说话，改成叶子自己上色 + 继续轻轻晃。
   return h("button", {
     onClick: onClick, disabled: disabled, title: title,
-    className: "active:opacity-70 disabled:opacity-40 shrink-0 flex items-center justify-center",
-    style: { width: 40, height: 40, borderRadius: 999,
-      background: sending ? t.bg : "transparent",
-      border: "1.5px solid " + (sending ? lit : t.line), transition: "border-color .18s" }
+    className: "active:opacity-60 disabled:opacity-40 shrink-0 flex items-center justify-center",
+    style: { width: 40, height: 40, background: "transparent", border: "none", padding: 0 }
   },
     h("style", null, "@keyframes wk-maple{0%{transform:rotate(-8deg) translateY(0)}"
       + "50%{transform:rotate(11deg) translateY(-1.4px)}100%{transform:rotate(-8deg) translateY(0)}}"),
     h("div", { className: "flex", style: sending
       ? { animation: "wk-maple 2.6s ease-in-out infinite" }
       : { transform: "rotate(-8deg)" } },
-      h("svg", { width: 18.6, height: 24, viewBox: MAPLE_VB,
+      h("svg", { width: 21, height: 27, viewBox: MAPLE_VB,
           fill: hold === true ? "none" : lit, stroke: lit,
-          strokeWidth: hold === true ? 30 : 38, strokeLinejoin: "round" },
+          strokeWidth: hold === true ? 34 : 30, strokeLinejoin: "round" },
         h("path", { d: MAPLE_D }))));
 }
 

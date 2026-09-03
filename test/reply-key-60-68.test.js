@@ -5,7 +5,10 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const _i = comp.indexOf("const MAPLE_D");
-const key = comp.slice(_i, comp.indexOf("\n// 代付请求卡", _i));
+// ⚠️只切到 ReplyKey 结束为止：原来切到「代付请求卡」那条注释，中间早就插进了
+// 别的组件（输入档位那张单子），于是这里的断言会误伤到别人的样式。
+const _end = comp.indexOf("\n// 「这一条怎么进去」", _i);
+const key = comp.slice(_i, _end > 0 ? _end : comp.indexOf("\n// 代付请求卡", _i));
 
 // 「让 TA 回复」那个键。她 2026-09-02 点的名：「那个回复键我想要枫叶」。
 // 在这之前退回过三版：黑圆圈 + ✦（「之前也是参考的嘤」）、他的脸（「看着怪吓人的」）、
@@ -88,6 +91,12 @@ test("被拉黑仍然戳不动，且说得清为什么", () => {
   assert.match(key, /disabled: disabled/);
 });
 
-test("点得着：还是 40px（mobile-ui-layout 那条手感线）", () => {
-  assert.match(key, /width: 40, height: 40, borderRadius: 999/);
+// v60.96 她：「不要圆框，就一片叶子」——框是【按钮】的零件，不是叶子的
+test("没有圆框了，但可点区域还是 40px（mobile-ui-layout 那条手感线）", () => {
+  assert.match(key, /width: 40, height: 40, background: "transparent", border: "none"/);
+  assert.doesNotMatch(key, /borderRadius: 999/, "圆框还在");
+  assert.doesNotMatch(key, /border: "1\.5px solid/, "那圈边还在");
+  // 生成中不再靠圈变色说话，靠叶子自己上色 + 继续晃
+  assert.match(key, /const lit = sending \? t\.accent : t\.ink/);
+  assert.match(key, /animation: "wk-maple/);
 });
