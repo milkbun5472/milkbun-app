@@ -768,3 +768,112 @@ test("秘典落幕解密,不在过程中泄底", () => {
   // 预览页只亮第一章,后面的章节走到才揭晓
   assert.match(src, /未揭晓,推进到才亮出|\?\?\?/);
 });
+
+// ============================================================
+// 她 2026-09-03:「看看 codex 更新的跑团,看看有啥能更改的让它丰富一点」。
+// 查下来缺的是【人】那一维——面板上全是 HP/属性/威胁钟/线索/支线,
+// 队友只有「能力 + 一句私念」,没有任何东西记着他跟你这一路处得怎么样。
+// 补了四样:羁绊 / 翻章的幕间 / NPC 人情账 / 队友手上的牌。
+// ============================================================
+const { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START } = require("../js/trpg.js");
+
+const camp1 = () => Object.assign(camp0(), {
+  party: [{ key: "user", name: "Lisa", hp: 80, maxHp: 100, stats: { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 } },
+          { key: "c1", name: "裴照川", hp: 100, maxHp: 100, stats: { phy: 60, agi: 55, wit: 70, cha: 65, luck: 40 } },
+          { key: "c2", name: "陆衍", hp: 90, maxHp: 100, stats: { phy: 45, agi: 70, wit: 60, cha: 50, luck: 55 } }],
+  npcs: [{ name: "老周", role: "船工", stance: "未明", alive: true }]
+});
+
+test("羁绊:开团 50,玩家自己不挂羁绊", () => {
+  const c = camp1();
+  assert.equal(bondVal(c.party[1]), BOND_START);
+  assert.equal(bondVal(c.party[0]), null, "玩家头上不该有羁绊");
+  assert.equal(bondZh(BOND_START), "同行");
+});
+
+test("羁绊:必须写清因为哪件事——没写 why 的整条丢掉", () => {
+  const { camp, chips } = applyTurnPayload(camp1(), { bond: [
+    { name: "裴照川", delta: 1, why: "你替他挡了那一刀" },
+    { name: "陆衍", delta: 2 }] });
+  assert.equal(bondVal(camp.party[1]), 55, "一档 5 点");
+  assert.equal(bondVal(camp.party[2]), BOND_START, "没写 why 的不落账");
+  assert.ok(chips.some(x => /🔗 裴照川\+5 · 你替他挡了那一刀/.test(x.txt)), "角标要把那件事一起钉上");
+  assert.deepEqual(camp.party[1].bondLog.map(x => x.why), ["你替他挡了那一刀"]);
+});
+
+test("羁绊:单人夹 ±2 档,一拍最多动两个人,名字对不上丢弃", () => {
+  const c = camp1();
+  c.party.push({ key: "c3", name: "阿箬", hp: 100, maxHp: 100, stats: { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 } });
+  const { camp } = applyTurnPayload(c, { bond: [
+    { name: "裴照川", delta: 9, why: "他把命交给你了" },
+    { name: "陆衍", delta: -9, why: "你当众驳了他" },
+    { name: "阿箬", delta: 2, why: "你护着她" },
+    { name: "查无此人", delta: 2, why: "凭空冒出来的" }] });
+  assert.equal(bondVal(camp.party[1]), 60, "+2 档封顶");
+  assert.equal(bondVal(camp.party[2]), 40, "-2 档封顶");
+  assert.equal(bondVal(camp.party[3]), BOND_START, "第三个人这一拍不落账——一拍全队齐刷刷变动那是记账不是相处");
+});
+
+test("羁绊:是骰面上的差别,不是形容词", () => {
+  assert.equal(bondBoost({ key: "c1", bond: BOND_HIGH }), 5, "交底的替你出手更卖力");
+  assert.equal(bondBoost({ key: "c1", bond: BOND_LOW }), -5, "离心的没怎么使劲");
+  assert.equal(bondBoost({ key: "c1", bond: BOND_START }), 0);
+  assert.equal(bondBoost({ key: "user", name: "Lisa" }), 0, "玩家自己没有这一档");
+  // 加成只在 ceremonyEff 这一个口子里算,别处只负责显示
+  assert.match(src, /const ceremonyEff = c => Math\.min\(95, c\.base \+ \(c\.feat \? 15 : 0\) \+ \(c\.assist \? 10 : 0\) \+ \(c\.bargainOn \? 15 : 0\) \+ \(c\.bond \|\| 0\)\)/);
+  assert.match(src, /bond: bondBoost\(member\)/, "掷骰那一刻要把这个人的羁绊算进去");
+  assert.match(src, /res\.bond > 0 \? "羁绊\+5" : res\.bond < 0 \? "离心-5" : null/, "检定行里要写出来是哪一档给的");
+});
+
+test("羁绊要真的喂回守密人:状态表、规则块、落幕都得看得见", () => {
+  assert.match(src, /羁绊" \+ bv \+ "\(" \+ bondZh\(bv\) \+ "\)"/, "状态表里要有羁绊");
+  assert.match(src, /【羁绊·队友这一路怎么看你】/, "规则块没发出去");
+  assert.match(src, /【队友那几段按羁绊来写】/, "落幕那几段要按羁绊写");
+  // 只降概率不够:why 空的丢弃、±2 夹紧、一拍两人这三道都在代码里(见上面几条)
+});
+
+test("人情账:欠谁的记在名册上,两清了要能销账", () => {
+  const r1 = applyTurnPayload(camp1(), { npc: [{ name: "老周", debt: "owed", debtNote: "你替他瞒了那船货" }] });
+  assert.deepEqual(r1.camp.npcs[0].debt, { side: "owed", note: "你替他瞒了那船货" });
+  assert.ok(r1.chips.some(x => /🤝 老周欠你·你替他瞒了那船货/.test(x.txt)));
+  const r2 = applyTurnPayload(r1.camp, { npc: [{ name: "老周", debt: "clear" }] });
+  assert.equal(r2.camp.npcs[0].debt, undefined, "还清了就销账");
+  const r3 = applyTurnPayload(r2.camp, { npc: [{ name: "老周", debt: "胡写的" }] });
+  assert.equal(r3.camp.npcs[0].debt, undefined, "只认 owe/owed/clear");
+  assert.match(src, /【人情账】/, "规则块没发出去");
+  assert.match(src, /debt\.side === "owe" \? uName \+ "欠他"/, "名册喂回去时要带上这笔账");
+});
+
+test("队友手上的牌:选项写明谁掏什么,点了真的从那个人身上扣", () => {
+  const cs = normChoices([{ text: "让陆衍掏出解毒剂", approach: "ally", use: { name: "解毒剂(陆衍)×2", who: "陆衍" } },
+                          { text: "不存在的人掏东西", use: { name: "绳索", who: "查无此人" } }],
+                         camp1().party);
+  assert.deepEqual(cs[0].use, { name: "解毒剂", who: "陆衍" }, "持有人和数量的尾巴要剥掉");
+  assert.deepEqual(cs[1].use, { name: "绳索", who: null }, "人对不上就只丢 who,选项本身还在");
+  const c = camp1();
+  c.items = [{ name: "解毒剂", holder: "陆衍", n: 2 }];
+  const { camp, chips } = applyTurnPayload(c, {}, { useItem: { name: "解毒剂", who: "陆衍" } });
+  assert.equal(camp.items[0].n, 1, "真的扣掉一件");
+  assert.ok(chips.some(x => /🃏 陆衍掏出·解毒剂/.test(x.txt)));
+  assert.match(src, /【队友掏东西】/, "规则块没发出去");
+  assert.match(src, /const useMode = c\.use && hasItem\(camp\.items, c\.use\.name\) \? \{ use: c\.use \} : null/, "点选项时要把这张牌传下去");
+});
+
+test("幕间:翻章之后那一拍,而且不能在 confirmStage 里直接开", () => {
+  // ⚠那一刻闭包里的 camp 还是旧的(stageIdx 没加),直接调 turn 会把幕间写成上一章的戏
+  assert.match(src, /const confirmStage = \(ok, withLull\) => \(withLull && ok && setLullDue\(true\)/);
+  assert.match(src, /useEffect\(\(\) => \{\n\s*if \(!lullDue \|\| !camp \|\| busy \|\| camp\.ended\) return;/);
+  assert.match(src, /turn\("\(这一章就此翻过——动身之前,队伍先松一口气\)", null, "lull"\)/);
+  assert.match(src, /mode === "lull" \? "\\n〔幕间〕/, "幕间那一段提示词");
+  // 幕间不掷骰、钟不走、落回自由活动
+  assert.match(src, /calm: mode === "rest" \|\| mode === "lull"/, "幕间那一拍威胁钟不许走");
+  assert.match(src, /\(mode === "rest" \|\| mode === "lull"\) \? "interlude"/, "场景型固定成休整");
+  // 她可以不要这一拍(按次计费,别硬塞)
+  assert.match(src, /confirmStage\(true, false\), style: S\.btn\(false\) \}, "翻过·直接接着演"/);
+});
+
+test("打出一张牌只是附注,不该顺手吃掉喘气拍", () => {
+  // 原来是 !mode 才给喘气拍;use 走 mode 之后要显式排除,否则连着三拍绷着的间歇会被吞掉
+  assert.match(src, /const specialMode = mode && \(typeof mode === "string" \|\| mode\.talk \|\| mode\.travel \|\| mode\.explore \|\| mode\.seed\)/);
+  assert.match(src, /const wantLull = !specialMode && !dice && tenseStreak >= 3/);
+});
