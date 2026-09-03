@@ -7,7 +7,9 @@ const fic = R("fanfic.js"), engine = R("engine.js"), screens = R("screens.js");
 // rpMessages 是纯函数，抠出来真跑
 const M = (() => {
   const a = fic.indexOf("  const RP_WINDOW_CHARS = 9000;");
-  const b = fic.indexOf("  // 开场：安置玩家进降落节点");
+  // ⚠️收尾锚在【函数】上，不要锚在注释上：注释是会被重写的
+  //（v61.15 把「降落节点」这套话换成人话，这条当场抠空、报「抠不出 rpMessages」）。
+  const b = fic.indexOf("  async function genRPStart(");
   assert.ok(a > 0 && b > a, "抠不出 rpMessages");
   return new Function(fic.slice(a, b) + "\nreturn rpMessages;")();
 })();

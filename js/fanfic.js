@@ -756,20 +756,31 @@
   // 天降模式：先确定玩家这次的固定身份（一个具体名字），供全程锚定
   async function genRPIdentity(active, fic, tab, cpChars, mode, landing, userName, worldbook) {
     const sys = ANTI_CLICHE + "\n\n你在为一场穿书互动叙事【确定玩家这次的固定身份】。穿进去的方式：" + rpRoleDesc(mode, cpChars, userName, null) +
-      "\n世界观：" + tab.name + "。降落点：「" + (landing && landing.label || "") + "」——" + (landing && landing.scene || "") +
+      "\n世界观：" + tab.name + "。他从这儿进去：「" + (landing && landing.label || "") + "」——" + (landing && landing.scene || "") +
       (worldbook && worldbook.trim() ? "\n【全局世界书（这个身份要合得上里面的设定与禁忌）】\n" + worldbook.trim().slice(0, 3000) : "") +
       "\n【原著正文节选】\n" + rpStory(fic).slice(0, 2500) +
       "\n\n给玩家安排一个具体、贴合这个世界观的固定身份（" + (mode === "passerby" ? "一个原著里没有的路人 / 配角" : "一个合理有趣的身份，可与原著相关也可全新") + "）。这个身份不能是原著已有的两位主角、也不能叫『" + (userName || "用户") + "』。\n" +
       "只输出 JSON：{\"name\":\"这个身份的名字 / 称谓\",\"role\":\"一句话身份说明（职业 / 处境 / 和主角是什么关系或毫无关系）\"}";
     const raw = await callAI(active, sys, [{ role: "user", content: "定身份。" }], { maxTokens: 8400 });
-    let d = extractJSON(raw);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const d = rpJSON(raw);
     if (d && d.name) return { name: String(d.name).slice(0, 20), role: String(d.role || "").slice(0, 90) };
     return { name: "无名路人", role: "一个刚好路过的陌生人" };
   }
   function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity, know) {
     // 穿书 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
     const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
+    // ⚠️穿书是【第六处】（她 2026-09-03：「穿书这块是不是没有喂禁八股那一堆，一堆八股」）。
+    //   .claude/rules/four-surfaces-same-context.md 那张名单点了五处：
+    //   单聊线上／单聊线下／群线上／群线下／通话——穿书压根没在上面，
+    //   于是「六处都接上了」每次都是真的，穿书每次都漏。跟 v60.27 通话那次一模一样的形状。
+    //   narrativeCore 白得了去人机味／角色卡准则／叙事反陈词滥调／亲密反模板／语气年龄锚，
+    //   剩下这几条是【别处一条条 push 进去的】，谁都没想着给这儿：
+    if (typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+    if (typeof CONDESCENDING_TONE_BAN !== "undefined") parts.push(CONDESCENDING_TONE_BAN);
+    if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") parts.push(REGISTER_FOLLOWS_SCENE);
+    if (typeof STOCK_REPLY_BAN !== "undefined") parts.push(STOCK_REPLY_BAN);
+    if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
+    if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) parts.push(ReplyPacing.reading());
     parts.push("【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
     parts.push("【世界观：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     // ⚠️天降模式下玩家【就是】场上的第三个人，这时绝不能发 cpBlock 那条
@@ -796,18 +807,18 @@
     parts.push(RP_RULES);
     return parts.join("\n\n");
   }
-  // 生成可选降落节点（3-4 个）
-  // 不收 worldbook：降落点是【从原著正文里挑】的，那些场景本来就已经合着世界书写成了。
+  // 挑几个能进去的地方（3-4 个）。她 2026-09-03 让把「降落节点」这套话换掉——
+  // 它是从工程那边搬来的词，读起来像在填表；这是一本书，进去的是【某一页某一处】。
+  // 不收 worldbook：这几处是【从原著正文里挑】的，那些场景本来就已经合着世界书写成了。
   // 留一个没人引用的参数比缺一层更坏——看代码会以为它在发。
   async function genLandings(active, fic, tab, cpChars, mode, userName, know) {
-    const sys = ANTI_CLICHE + "\n\n你在为一场『穿书』的互动叙事挑【降落节点】。玩家会这样穿进去：" + rpRoleDesc(mode, cpChars, userName) +
+    const sys = ANTI_CLICHE + "\n\n你在为一场『穿书』挑【几个能进去的地方】。玩家会这样穿进去：" + rpRoleDesc(mode, cpChars, userName) +
       (rpKnowLine(know, mode, cpChars, userName) ? "\n" + rpKnowLine(know, mode, cpChars, userName) : "") +
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
-      "\n\n从原著里挑 3-4 个适合玩家空降切入、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
+      "\n\n从原著里挑 3-4 个适合玩家插进去、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
       "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
-    const raw = await callAI(active, sys, [{ role: "user", content: "给降落节点。" }], { maxTokens: 9600 });
-    let d = extractJSON(raw);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 9600 });
+    const d = rpJSON(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     // 不硬截断成半句：只在超长时于句读处截，末尾补省略号
     const trimScene = function (s) {
@@ -901,6 +912,18 @@
       + "已经作废的那几页，当它们从来没写进这本书。";
   }
   // 页边批注：写这一栏的时候换一个人格——不是引擎，是这篇文的作者本人
+  // ⚠️她 2026-09-03：「生成穿书的时候也给作者一个迷你人设吧用于她吐槽的语气」。
+  //   只写「你是作者本人、有脾气」是不够的：那是一个【类型】，不是一个人，
+  //   于是每篇文的作者吐槽起来都是同一个腔。开局给她一张小卡（三行），
+  //   往后每一句批注都从这张卡长出来——换一篇文，那个人就换了。
+  function rpAuthorCard(session) {
+    const c = session && session.authorCard;
+    if (!c || !(c.who || c.why || c.sore)) return "";
+    return "\n【这位作者是个什么人（她这一句要从这儿长出来）】\n"
+      + (c.who ? "· 她是谁：" + c.who + "\n" : "")
+      + (c.why ? "· 她为什么写这篇：" + c.why + "\n" : "")
+      + (c.sore ? "· 她最护着的那一点：" + c.sore + "（被动到这儿，她的反应最大）\n" : "");
+  }
   function rpAuthorBlock(fic, session) {
     const an = rpAuthorName(fic);
     const dev = Number.isFinite(session && session.dev) ? session.dev : 0;
@@ -908,6 +931,7 @@
     return "【页边批注 · 这一栏换一个人写】\n"
       + "写 note 的时候你不再是引擎。你是「" + an + "」——这篇文的作者本人，趴在自己的稿子边上，"
       + "看着有人在你写的世界里走动，把你写好的东西一点一点改掉。\n"
+      + rpAuthorCard(session)
       + "这一句是【手写在页边的】，不是说给玩家听的：自言自语，不解释剧情、不总结这一拍、不夸玩家、更不是旁白。\n"
       + "语气跟着【被改了多少】走——还走在你写的那条道上时是一种反应，"
       + "你的人被写出了你没写过的样子时是另一种，你写的一整页被拦下作废时又是另一种；"
@@ -925,12 +949,48 @@
       + "}\n"
       + (wantNote ? rpAuthorBlock(fic, session) + "\n" : "");
   }
-  // 解析一拍：JSON 拿不到就整段当正文——正文永远不许因为格式没解析出来而丢
-  function rpParseTurn(raw) {
-    const txt = String(raw || "").trim();
+  // ⚠️她 2026-09-03 报「格式会掉」，截图里正文直接从 `{"scene":"药片落在…` 开始。
+  //   病根有两层：
+  //   ① 解析走的是 extractJSON，它不管字符串里的【裸换行】——而 scene 是分段正文，
+  //      段与段之间必然有真换行，那在 JSON 里是非法的，于是每次都解析失败。
+  //      engine.js 里的 parseJSONLoose 正是为这个存在的（它会先 escapeJsonStringControls），
+  //      别处早就在用，只有这条链还在用光板的 extractJSON。
+  //   ② 解析失败之后的兜底是「整段当正文」——于是那一整串 JSON 原样糊到她眼前。
+  //      兜底不能是「原样端上去」，得先把 scene 那一段抠出来。
+  function rpJSON(txt) {
+    if (typeof parseJSONLoose === "function") { const d = parseJSONLoose(txt); if (d && typeof d === "object") return d; }
     let d = extractJSON(txt);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(txt)); } catch (e) {} }
-    if (!d || typeof d !== "object" || !d.scene) return { text: txt, hit: "", dev: null, note: "" };
+    return (d && typeof d === "object") ? d : null;
+  }
+  // 最后一道：连 parseJSONLoose 都认不出来时，手工把 scene 那一段捞出来。
+  // ⚠️实测 parseJSONLoose 挡不住的就这几种（裸换行和截断它都能治）：
+  //   · 正文里有【没转义的引号】——中文正文里「"」太常见了，这是最容易发生的一种；
+  //   · 键名没加引号、或者用了单引号；
+  //   · 一口气吐了两个 JSON 对象。
+  // 所以这里不能「见到第一个引号就收尾」——那会把正文截在半路。
+  // 要找【结构上的那个收尾引号】：它后面紧跟着逗号+下一个键，或者紧跟收尾的大括号。
+  function rpSalvage(txt) {
+    const t = String(txt || "");
+    const m = /["']?scene["']?\s*:\s*(["'])/.exec(t);
+    if (!m) return null;
+    const rest = t.slice(m.index + m[0].length);
+    const end = /["']\s*(?:,\s*["']?(?:hit|dev|note|beats|verdict|author)["']?\s*:|\}\s*$|\}\s*[\r\n])/.exec(rest);
+    let body = end ? rest.slice(0, end.index) : rest;   // 一个结构标记都没有＝整份被截断，那就全都要
+    // 一遍走完所有转义，别串着 replace（\\n 会被前一步的结果二次处理）
+    body = body.replace(/\\(.)/g, function (m0, c) { return c === "n" ? "\n" : c === "t" ? "\t" : c === "r" ? "" : c; });
+    return body.trim() || null;
+  }
+  const rpGrab = function (txt, key) { const m = new RegExp('"' + key + '"\\s*:\\s*"([^"\\\\]*)"').exec(String(txt || "")); return m ? m[1] : ""; };
+  // 解析一拍：正文永远不许丢，也永远不许把一串 JSON 当正文端上去
+  function rpParseTurn(raw) {
+    const txt = String(raw || "").trim();
+    const d = rpJSON(txt);
+    if (!d || !d.scene) {
+      const sv = rpSalvage(txt);
+      if (sv) return { text: sv, hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
+      return { text: txt, hit: "", dev: null, note: "" };
+    }
     return {
       text: String(d.scene || "").trim() || txt,
       hit: String(d.hit || "").trim(),
@@ -938,7 +998,7 @@
       note: String(d.note || "").trim().slice(0, 60)
     };
   }
-  // 开场：安置玩家进降落节点，收在第一个抉择处境；顺手把这本书的骨架一起抽出来
+  // 开场：把玩家安置进她挑的那一处，收在第一个抉择处境；顺手把这本书的骨架一起抽出来
   // ⚠️骨架不另开一次调用：开场这一次的 system 里本来就压着整篇原著，
   //   再问一次等于同样的料付两回钱（她按次计费）。
   async function genRPStart(active, session, fic, tab, cpChars, userName, worldbook, perFic) {
@@ -946,22 +1006,32 @@
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id, session.know) +
       "\n\n【本场起点】玩家从这个节点空降：「" + session.landing.label + "」——" + session.landing.scene +
       "\n\n现在写【开场】：用两三段把玩家安置进这个场景（" + (id ? "玩家这次的固定身份是「" + id.name + "」（" + id.role + "），开场自然点明并让 TA 入场" : "以玩家的身份视角") + "），营造氛围、带出在场关键人物，最后自然收在一个需要玩家做出反应/抉择的处境上，然后停下等玩家开口。" +
-      "\n\n【同时抽出这本书的骨架】从降落点【之后】的剧情里，挑 3-" + RP_BEATS_N + " 件「原著里本来一定会发生的事」，按先后排。每一件都要满足：\n" +
+      "\n\n【同时抽出这本书的骨架】从她进去那一处【之后】的剧情里，挑 3-" + RP_BEATS_N + " 件「原著里本来一定会发生的事」，按先后排。每一件都要满足：\n" +
       "· 是【一件具体发生的事】，不是一段气氛、一种关系状态——一句话说得清谁在什么场合做了什么、结果怎样；\n" +
       "· 【拦得住】：玩家赶到现场、抢先开口、把人拉走，都有可能把它挡下来，而挡下来之后故事会真的往别处走；\n" +
       "· 几件之间不许是同一件事的几个阶段，要落在故事的不同处。\n" +
+      "\n\n【同时给这篇文的作者「" + rpAuthorName(fic) + "」一张小卡】她往后要在页边说话，得先是个具体的人。三行，各一句：\n" +
+      "· who：她是谁——年纪、在做什么、什么处境，一句话说到能认出是这一个人，不是「一位太太」。\n" +
+      "· why：她为什么写这篇——写的时候她自己在想什么、在借这两个人说什么，从这篇文的内容里推出来。\n" +
+      "· sore：她最护着的哪一点——这篇文里她最不肯让人碰的那样东西（某个人的某一面、某个决定、某一段关系的分寸）。\n" +
+      "三行都要贴着【这一篇】长，不是随便一个网文作者都成立的话。\n\n" +
       "【输出格式】只输出一个合法 JSON 对象：\n" +
-      "{\"scene\":\"开场正文，正常分段\",\"beats\":[{\"label\":\"这一页叫什么，≤10字，用原著里的说法\",\"page\":\"原著这一页本来写的是什么：谁、在哪、做了什么、结果怎样，40-80字，把话说完整\",\"cue\":\"什么时候算走到了这一页——那个当口的信号，一句话，供引擎自己判定\"}]}";
+      "{\"scene\":\"开场正文，正常分段\",\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\"},\"beats\":[{\"label\":\"这一页叫什么，≤10字，用原著里的说法\",\"page\":\"原著这一页本来写的是什么：谁、在哪、做了什么、结果怎样，40-80字，把话说完整\",\"cue\":\"什么时候算走到了这一页——那个当口的信号，一句话，供引擎自己判定\"}]}";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.max(14000, Math.min(22000, (perFic || 3000) + 10000)) });
     const txt = String(raw || "").trim();
-    let d = extractJSON(txt);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(txt)); } catch (e) {} }
-    const scene = (d && d.scene) ? String(d.scene).trim() : txt;
+    const d = rpJSON(txt);
+    const scene = (d && d.scene) ? String(d.scene).trim() : (rpSalvage(txt) || txt);
+    const ac = (d && d.author && typeof d.author === "object") ? d.author : {};
+    const authorCard = {
+      who: String(ac.who || "").trim().slice(0, 120),
+      why: String(ac.why || "").trim().slice(0, 120),
+      sore: String(ac.sore || "").trim().slice(0, 120)
+    };
     const arr = (d && Array.isArray(d.beats)) ? d.beats : [];
     const beats = arr.filter(function (x) { return x && x.label && x.page; }).slice(0, RP_BEATS_N).map(function (x, i) {
       return { id: "b" + (i + 1), label: String(x.label).slice(0, 14), page: String(x.page).trim().slice(0, 140), cue: String(x.cue || "").trim().slice(0, 90), state: "pending" };
     });
-    return { text: scene, beats: beats };
+    return { text: scene, beats: beats, authorCard: authorCard };
   }
   // 玩家行动 → 推进 + 下一个抉择处境（并判定有没有走到骨架的某一页、作者要不要在旁边说一句）
   // opts: { resolve: {beat, keep}, wantNote:bool }
@@ -1013,9 +1083,11 @@
       "\nverdict 就按上面这个人格写，只是这一次她看的是【整本】不是一拍：她认不认这一版、认到什么程度。不超过 40 字。";
     const raw = await callAI(active, sys, rpMessages(session, null), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
     const txt = String(raw || "").trim();
-    let d = extractJSON(txt);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(txt)); } catch (e) {} }
-    return { text: (d && d.scene) ? String(d.scene).trim() : txt, verdict: (d && d.verdict) ? String(d.verdict).trim().slice(0, 60) : "" };
+    const d = rpJSON(txt);
+    return {
+      text: (d && d.scene) ? String(d.scene).trim() : (rpSalvage(txt) || txt),
+      verdict: (d && d.verdict) ? String(d.verdict).trim().slice(0, 60) : rpGrab(txt, "verdict").slice(0, 60)
+    };
   }
   // 把走完的这一版拧成一篇文放回书架：她走过的那版，跟原篇并排摆着
   function rpToFic(session, fic, verdict) {
@@ -2084,7 +2156,7 @@
           }) : h(Empty, { text: "书架空空", sub: "先去收藏几篇再来穿" })));
     }
 
-    // 设定穿进去的方式 + 生成降落节点
+    // 设定穿进去的方式 + 挑一处进去
     if (view === "setup") {
       const cpc = charsOf(newFic);
       // legacy 的那几档不进选单（老存档照旧读得出来，见 RP_MODES 上的注释）
@@ -2121,15 +2193,15 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, k.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.55, marginTop: 3, opacity: on ? 0.75 : 0.62 } }, k.desc));
           })),
-          !landings ? h("button", { onClick: makeLandings, disabled: busy === "land", className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.accent, padding: "12px", borderRadius: 12, opacity: busy === "land" ? 0.6 : 1 } }, busy === "land" ? "推演降落点中…" : "生成降落节点")
+          !landings ? h("button", { onClick: makeLandings, disabled: busy === "land", className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.accent, padding: "12px", borderRadius: 12, opacity: busy === "land" ? 0.6 : 1 } }, busy === "land" ? "正在翻这本书…" : "翻翻这本书，看能从哪儿进去")
             : h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "选一个降落节点（从这一段开始）"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "从哪儿进去"),
               landings.map(function (ld) {
                 return h("button", { key: ld.id, onClick: function () { startSession(ld); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, ld.label),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, ld.scene));
               }),
-              h("button", { onClick: function () { setLandings(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "重新生成降落点"))));
+              h("button", { onClick: function () { setLandings(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "换几个地方看看"))));
     }
 
     // 存档列表
@@ -2244,7 +2316,7 @@
           sess = Object.assign({}, s, { playerIdentity: id });
         }
         const r = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
-        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
+        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; ss.authorCard = r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
     }
@@ -2316,13 +2388,28 @@
     function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
 
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "穿书中", en: window.Fanfic.rpModeShort(s.mode, cpc), onBack: props.onBack }),
+      // ⚠️这一页不用 Head（她 2026-09-03：「那一大块穿书中的标题也没弄掉」）。
+      //   Head 是 30px 大标题 + 一行英文小字，占掉将近三分之一屏——
+      //   而这是【读正文】的一页，上面那一大块把要读的东西整个挤下去了。
+      //   .claude/rules/mobile-ui-layout.md §1：普通子页面一律紧凑标题栏
+      //   （返回键 + 居中小标题 + 右侧等宽操作位）。书名摆在这条上，
+      //   底下那份重复的书名抬头一并撤掉——同一个名字没必要连着写两遍。
+      h("div", { className: "shrink-0 flex items-center", style: { paddingTop: safeTop(8), paddingBottom: 8, paddingLeft: 4, paddingRight: 4, borderBottom: "1px solid " + t.line, background: t.bg } },
+        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 42, height: 34 } }, h(IArrow, { size: 18, color: t.ink })),
+        h("div", { className: "flex-1 min-w-0 text-center" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.ficTitle || "穿书中"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""))),
+        // 右侧等宽操作位：收尾挪到这儿——它原来挤在底部输入栏底下，快贴到屏幕边了
+        h("div", { className: "shrink-0 flex items-center justify-center", style: { width: 42, height: 34 } },
+          (props.fic && !s.done && trans.length >= 4)
+            ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11, color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" } }, endAsk ? "确定？" : "收尾")
+            : null)),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
-        // 书名/起点抬头
-        h("div", { className: "text-center py-4 mb-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, s.ficTitle),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginTop: 3 } }, window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""))),
+        endAsk ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, paddingTop: 10 } }, "再点一下右上角就定稿：写完收束和作者的判词，这一版放回书架") : null,
+        h("div", { style: { height: 8 } }),
         // 书脊：原著后面本来会发生的那几页，走过一页在脊上就落一个记号
         h(RPSpine, { t: t, beats: beats, spoiler: spoiler, sel: sel, onPick: setSel }),
         selBeat ? h("div", { className: "mb-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px 10px" } },
@@ -2381,9 +2468,8 @@
                 h("button", { onClick: send, disabled: !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 38, height: 38, borderRadius: 999, background: t.accent } }, h(ISend, { size: 15, color: "#fff" })))
             : h("button", { onClick: function () { setWriting(true); }, className: "w-full active:opacity-70 px-4 mb-1 mt-1", style: { background: "transparent" } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12, textAlign: "center" } }, "✒ 写下你的行动")),
-          // 收尾：这一步不可逆（写完判词、这一版就定稿了），所以要点两下
-          trans.length >= 4 ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "w-full active:opacity-60 pb-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: endAsk ? t.accent : t.fog, padding: "6px" } },
-            endAsk ? "再点一下就定稿：写完收束和作者的判词，这一版放回书架" : "收尾 · 把这一版放回书架") : null)
+          // 收尾挪到顶栏右侧那个等宽位了（这一步不可逆，所以照旧要点两下）
+          null)
         : null);
   }
 
