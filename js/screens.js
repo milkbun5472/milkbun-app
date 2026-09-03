@@ -4744,10 +4744,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           h("button", { onClick: () => onPlayResult(s), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: t.ink }, title: "现在播放" }, ic("play", t.bg2, 15)),
           h("button", { onClick: () => setPickFor({ song: s, isResult: true }), className: "shrink-0 active:opacity-60", style: { fontSize: 18, color: t.tint, padding: "0 3px" }, title: "加到歌单" }, "＋"),
           cookie ? h("button", { onClick: () => openCvAdd(s), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint, padding: "0 3px" }, title: "加进网易云歌单" }, "☁＋") : null))) ) : null,
-    // 全部歌曲（这里删歌只影响「全部」，不动歌单）
-    songs.length ? h("div", { style: { marginTop: 16 } },
-      h(Eyebrow, { style: { marginBottom: 8 } }, "全部 · " + songs.length),
-      h("div", { className: "space-y-2" }, songs.map(s => songRow(s, { canRename: true })))) : null,
+    // ⚠️「全部歌曲」搬去「我的」了（v61.42）：这一栏现在是【设置】——
+    //   接口、Cookie、登录、把歌弄进来。歌本身是她的东西，归「我的」。
+    //   原来叫「曲库」却装着一整页设置，名字和内容对不上，这是她说「很乱」的一处。
     // 添加：链接ID / 本地 + 接口设置（折叠在下方）
     h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", marginTop: 18 } },
       h(Eyebrow, { style: { marginBottom: 10 } }, "添加歌曲"),
@@ -4806,6 +4805,63 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const favs = songs.filter(s => s.fav);
   const isFavView = openPl === "__fav__";
   const openPlObj = isFavView ? { id: "__fav__", name: "我喜欢的音乐", songs: favs } : (playlists.find(p => p.id === openPl) || null);
+  // ⚠️这几个公共渲染器【必须定义在 mineTab 之前】：mineTab 是 `const x = h(...)`，
+  //   渲染时立刻求值，引用后面声明的 const 会 TDZ 白屏（跟上面 cv 那条一样的坑）。
+  //   v61.42 之前它们在云村区、也就是 mineTab 后面，于是「我的」里只能【又抄一份】
+  //   歌单行——同一个东西两份实现。她 2026-09-03 说「一段一段加的所以看起来很乱」，
+  //   这就是最直接的一处。
+  // 统一的歌行：播放(带scrobble) / 红心 / 收进家 / ☁＋入她的网易云歌单；
+  // opts.removable=从她自己的歌单里真删这首；opts.trash=FM 垃圾桶
+  const cloudRow = (s, opts) => { const o = opts || {}; return h("div", { key: s.id, className: "flex items-center gap-2 py-2", style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => playCloud(s, o.srcId), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
+      h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: s.cover ? "center/cover no-repeat url(" + s.cover + "?param=80y80)" : t.bg2 } }),
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云"))),
+    h("button", { onClick: () => likeSong(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 16, color: (cv.likeIds && cv.likeIds.has(String(s.id))) ? "#d0503e" : t.fog } }, (cv.likeIds && cv.likeIds.has(String(s.id))) ? "♥" : "♡"),
+    h("button", { onClick: () => onAddNeteaseResult(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 18, color: t.fog }, title: "收进咱家歌库" }, "＋"),
+    h("button", { onClick: () => openCvAdd(s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint }, title: "加进网易云歌单" }, "☁＋"),
+    o.removable ? h("button", { onClick: () => removeFromRealPl(o.removable, s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 15, color: "#a4442e" }, title: "从这个网易云歌单移除" }, "－") : null,
+    o.trash ? h("button", { onClick: () => trashFm(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 14, color: t.fog }, title: "不喜欢，少推这类" }, "🗑") : null,
+    h("button", { onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 28, height: 28, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 13))); };
+  // 分栏＝唱片架里的【分隔卡】（tabs-not-plain-pills.md：药丸换个 app 照样成立，等于没做）。
+  // 一起听在现实里就是一箱唱片，翻的人靠竖在里头的分隔卡找段落——卡上沿露在唱片之上，
+  // 中间挖一个拇指缺口好把它勾出来。选中的那张【抽出来一截】：更高、纸色、
+  // 底边直接长进下面的内容里（没有下框线）；没选的压回箱底：矮一截、暗一档、缺口看不见。
+  // 形状/高度/位置/颜色四样一起变，不是只填个色——色弱和阳光下只剩形状可依。
+  const cvChip = (k, label) => {
+    const on = cv.sub === k;
+    const paper = t.bg2, sunk = typeof mix === "function" ? t.bg : t.bg;
+    return h("button", { key: k, onClick: () => setCvSub(k), className: "relative active:opacity-80",
+      style: {
+        alignSelf: "flex-end",            // 没选的那张往下沉，上沿参差不齐——像真的压在后面
+        height: on ? 44 : 34,
+        padding: on ? "0 16px 0" : "0 14px",
+        fontFamily: F_BODY, fontSize: on ? 13.5 : 12.5,
+        color: on ? t.ink : t.fog,
+        background: on ? paper : sunk,
+        border: "1px solid " + t.line,
+        borderBottom: on ? "1px solid " + paper : "1px solid " + t.line,
+        borderRadius: on ? "10px 10px 0 0" : "8px 8px 0 0",
+        marginBottom: -1,                 // 选中那张的底边压在内容区的上框线上，接成一片
+        boxShadow: on ? "0 -1px 3px rgba(30,28,24,.06)" : "inset 0 -6px 8px -6px rgba(30,28,24,.18)"
+      } },
+      // 拇指缺口：只有被抽出来的那张露得出来
+      on ? h("span", { style: { position: "absolute", left: "50%", top: -1, width: 22, height: 9,
+        marginLeft: -11, borderRadius: "0 0 11px 11px", background: t.bg,
+        borderLeft: "1px solid " + t.line, borderRight: "1px solid " + t.line, borderBottom: "1px solid " + t.line } }) : null,
+      h("span", { style: { position: "relative", top: on ? 5 : 0 } }, label));
+  };
+  const cvPlRow = pl => h("div", { key: pl.id, className: "w-full flex items-center gap-3 py-2", style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => openCloudPl(pl), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
+      h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
+      h("div", { className: "min-w-0 flex-1" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.freq ? " · " + pl.freq : pl.mine ? "" : " · 收藏")))),
+    pl.mine ? h("button", { onClick: () => delRealPl(pl), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a4442e" } }, "删") : null,
+    h("span", { style: { color: t.fog, fontSize: 16 } }, "›"));
+  const cvSection = (title, right) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, marginTop: 14 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title), right || null);
   const mineTab = h("div", { className: "px-6 pb-6" },
     openPlObj
       ? h("div", null, // 歌单详情（含「我喜欢的音乐」）
@@ -4831,14 +4887,33 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我喜欢的音乐"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 网易云账号"))),
-            (cv.pls || []).filter(p => p.mine).length ? h("div", { style: { marginTop: 10 } },
-              h(Eyebrow, { style: { marginBottom: 6 } }, "网易云歌单"),
-              (cv.pls || []).filter(p => p.mine).slice(0, 10).map(pl => h("button", { key: pl.id, onClick: () => { setNav("cloud"); openCloudPl(pl); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
-                h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=80y80)" : t.bg2 } }),
-                h("div", { className: "min-w-0 flex-1" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首")),
-                h("span", { style: { color: t.fog, fontSize: 16 } }, "›")))) : null,
+            // 我建的（网易云里我自己建的，可删）。⚠️「我喜欢的音乐」不列进来——
+            // 它是账号自动建的那一张，上面已经有一张专门的大卡了。列进来就是同一样东西两份。
+            (() => { const mine = (cv.pls || []).filter(p => p.mine && p.name !== "我喜欢的音乐");
+              return mine.length ? h("div", { style: { marginTop: 12 } },
+                h(Eyebrow, { style: { marginBottom: 6 } }, "我建的 · " + mine.length),
+                mine.map(cvPlRow)) : null; })(),
+            // 新建收在这一段末尾：低频操作，不该占着顶上第一眼
+            h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+              h("input", { value: cvPlName, onChange: e => setCvPlName(e.target.value), placeholder: "在网易云账号里新建歌单", style: field }),
+              h("button", { onClick: () => { if (cvPlName.trim()) createRealPl(cvPlName.trim()); }, disabled: !cvPlName.trim(),
+                className: "active:opacity-70 disabled:opacity-40",
+                style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 10, padding: "0 14px" } }, "建")),
+            // 我收藏的（别人的歌单，没有写权限，所以不给删）
+            (() => { const fav = (cv.pls || []).filter(p => !p.mine);
+              return fav.length ? h("div", { style: { marginTop: 14 } },
+                h(Eyebrow, { style: { marginBottom: 6 } }, "我收藏的 · " + fav.length),
+                fav.map(cvPlRow)) : null; })(),
+            // 最近播放：原来藏在「发现」的第四个药丸里，可它答的是「我听过什么」——是我的东西。
+            h(Eyebrow, { style: { marginTop: 16, marginBottom: 2 } }, "最近播放"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "含在这儿听的——每次播放都会登记进你账号的听歌记录"),
+            cv.recent
+              ? (cv.recent.length ? cv.recent.slice(0, 15).map(s2 => cloudRow(s2))
+                 : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0", textAlign: "center" } }, "没有最近播放"))
+              // ⚠️写成 onClick: loadRecent 会 TDZ——那是【立刻取引用】，而 loadRecent
+              //   声明在云村区、也就是这一段后面。包一层箭头才是等点了再取。
+              : h("button", { onClick: () => loadRecent(), className: "w-full active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "12px 0" } }, "看最近播放的 →"),
             h(Eyebrow, { style: { marginTop: 14, marginBottom: 2 } }, "本地 · 一起听")) : null,
           // 本地收藏（点左侧打开看列表；右侧圆钮直接播放）
           h("div", { className: "w-full flex items-center gap-3", style: { marginTop: 8, background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px" } },
@@ -4859,6 +4934,10 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             plCharPick
               ? h("div", { className: "flex flex-wrap gap-2" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPlCharPick(false); onGenCharPlaylist(c); }, className: "active:opacity-70 flex items-center gap-1.5", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 10px 5px 5px" } }, h(Avatar, { character: c, size: 24, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.name))))
               : h("button", { onClick: () => setPlCharPick(true), disabled: !!genCharPl, className: "w-full active:opacity-70 disabled:opacity-50", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "9px", borderRadius: 10 } }, genCharPl ? "生成中…" : "选一个角色生成")),
+          // 全部歌曲（从「曲库」搬来）：这里删歌只影响「全部」，不动歌单
+          songs.length ? h("div", { style: { marginTop: 16 } },
+            h(Eyebrow, { style: { marginBottom: 8 } }, "全部 · " + songs.length),
+            h("div", { className: "space-y-2" }, songs.map(s2 => songRow(s2, { canRename: true })))) : null,
           // 已有歌单列表
           playlists.length ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "歌单 · " + playlists.length),
@@ -5026,31 +5105,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       toast(liked ? "已取消红心（同步到网易云）" : "❤ 已红心（同步到网易云）");
     } catch (e) { toast("红心没同步上"); }
   };
-  // 统一的歌行：播放(带scrobble) / 红心 / 收进家 / ☁＋入她的网易云歌单；
-  // opts.removable=从她自己的歌单里真删这首；opts.trash=FM 垃圾桶
-  const cloudRow = (s, opts) => { const o = opts || {}; return h("div", { key: s.id, className: "flex items-center gap-2 py-2", style: { borderBottom: "1px solid " + t.line } },
-    h("button", { onClick: () => playCloud(s, o.srcId), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
-      h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: s.cover ? "center/cover no-repeat url(" + s.cover + "?param=80y80)" : t.bg2 } }),
-      h("div", { className: "min-w-0" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云"))),
-    h("button", { onClick: () => likeSong(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 16, color: (cv.likeIds && cv.likeIds.has(String(s.id))) ? "#d0503e" : t.fog } }, (cv.likeIds && cv.likeIds.has(String(s.id))) ? "♥" : "♡"),
-    h("button", { onClick: () => onAddNeteaseResult(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 18, color: t.fog }, title: "收进咱家歌库" }, "＋"),
-    h("button", { onClick: () => openCvAdd(s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint }, title: "加进网易云歌单" }, "☁＋"),
-    o.removable ? h("button", { onClick: () => removeFromRealPl(o.removable, s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 15, color: "#a4442e" }, title: "从这个网易云歌单移除" }, "－") : null,
-    o.trash ? h("button", { onClick: () => trashFm(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 14, color: t.fog }, title: "不喜欢，少推这类" }, "🗑") : null,
-    h("button", { onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 28, height: 28, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 13))); };
-  const cvChip = (k, label) => h("button", { key: k, onClick: () => setCvSub(k), className: "active:opacity-70", style: { padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, background: cv.sub === k ? t.ink : t.bg2, color: cv.sub === k ? t.bg2 : t.sub, border: "1px solid " + (cv.sub === k ? t.ink : t.line) } }, label);
-  const cvPlRow = pl => h("div", { key: pl.id, className: "w-full flex items-center gap-3 py-2", style: { borderBottom: "1px solid " + t.line } },
-    h("button", { onClick: () => openCloudPl(pl), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
-      h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
-      h("div", { className: "min-w-0 flex-1" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.freq ? " · " + pl.freq : pl.mine ? "" : " · 收藏")))),
-    pl.mine ? h("button", { onClick: () => delRealPl(pl), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a4442e" } }, "删") : null,
-    h("span", { style: { color: t.fog, fontSize: 16 } }, "›"));
-  const cvSection = (title, right) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, marginTop: 14 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title), right || null);
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
       ? h("div", null,
@@ -5077,43 +5131,44 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                 h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
                 cv.results.length ? cv.results.map(s => cloudRow(s)) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
             : h("div", null,
-                h("div", { className: "flex gap-2 flex-wrap" }, cvChip("rec", "推荐"), cvChip("pls", "歌单"), cvChip("top", "排行榜"), cvChip("recent", "最近播放")),
+                h("div", { className: "flex gap-1.5 items-end", style: { marginTop: 4 } }, cvChip("rec", "今天给你的"), cvChip("top", "大家在听")),
+                h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2, borderRadius: (cv.sub === "rec" ? "0 10px 10px 10px" : "10px 10px 10px 10px"), padding: "2px 12px 12px" } },
                 cv.sub === "rec" ? h("div", null,
-                  // 我喜欢的音乐入口
-                  h("button", { onClick: openLikePl, className: "w-full flex items-center gap-3 active:opacity-80", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "10px 12px", textAlign: "left" } },
-                    h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff" } }, "♥"),
-                    h("div", { className: "min-w-0 flex-1" },
-                      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "我喜欢的音乐"),
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 和网易云 App 同一份")),
-                    h("span", { style: { color: t.fog, fontSize: 16 } }, "›")),
+                  // ⚠️这儿原来还摆着一张「我喜欢的音乐」入口卡。撤掉了：
+                  //   这一栏是【发现】——装还不属于她的东西；「我喜欢的音乐」是她已经有的，
+                  //   在「我的」里有一张专门的大卡。同一样东西原来在三个地方各有一份。
                   (cv.daily && cv.daily.length) ? h("div", null,
                     cvSection("每日推荐", h("button", { onClick: () => playAllCloud(cv.daily), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
                     cv.daily.slice(0, 30).map(s => cloudRow(s))) : null,
                   cvSection("私人FM", h("button", { onClick: loadFm, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, cv.fm ? "↻ 再来一批" : "▶ 开一波")),
                   cv.fm ? (cv.fm.length ? cv.fm.map(s => cloudRow(s, { trash: true })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "都丢垃圾桶了，再来一批")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 0 8px" } }, "网易云那套私人电台——🗑 会真实反馈「不喜欢」")) : null,
-                cv.sub === "pls" ? h("div", null,
-                  h("div", { className: "flex gap-2", style: { marginTop: 12, marginBottom: 4 } },
-                    h("input", { value: cvPlName, onChange: e => setCvPlName(e.target.value), placeholder: "在网易云账号里新建歌单", style: field }),
-                    h("button", { onClick: () => { if (cvPlName.trim()) createRealPl(cvPlName.trim()); }, disabled: !cvPlName.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, "建")),
-                  (cv.pls && cv.pls.length) ? cv.pls.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, cv.busy ? "拉歌单中…" : "还没拉到歌单")) : null,
                 cv.sub === "top" ? h("div", { style: { marginTop: 6 } },
                   cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
-                cv.sub === "recent" ? h("div", { style: { marginTop: 6 } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, "含在这儿听的——每次播放都会登记进你账号的听歌记录"),
-                  cv.recent ? (cv.recent.length ? cv.recent.map(s => cloudRow(s)) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没有最近播放")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉记录中…")) : null,
-                (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null)));
+                (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
 
   return h("div", { className: "h-full flex flex-col relative", style: { background: t.bg } },
     h(Head, { zh: "一起听", en: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) : "Listen", onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
     h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
-    // 底部 tab（v54.51 网易云化）：推荐 / 播放 / 我的 / 曲库——连了账号推荐在首位当门面
+    // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
+    // 所以看起来很乱，你帮他重新排序一下」）：
+    //   **这首歌已经是我的了吗？**
+    //   还不是 → 发现（搜、日推、私人FM、排行榜）
+    //   已经是 → 我的（我喜欢的、我的歌单、最近播放、本地收藏、全部歌曲）
+    //   正在放 → 在放
+    //   压根不是歌 → 设置（接口、Cookie、登录、把歌弄进来）
+    // 这样每样东西只有一个家。原来「我喜欢的音乐」在三处各有一份、歌单散在两个 tab、
+    // 「曲库」里装的全是设置——都是因为没有这句判据，只能按加进来的先后往上摞。
     h("div", { className: "shrink-0 flex items-stretch", style: { borderTop: "1px solid " + t.line, background: t.bg } },
-      (apiBase && cookie) ? navBtn("cloud", "推荐", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
+      (apiBase && cookie) ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
-      navBtn("home", (apiBase && cookie) ? "曲库" : "首页", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" })))),
+      navBtn("home", (apiBase && cookie) ? "设置" : "首页", (apiBase && cookie)
+        ? h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },
+            h("circle", { cx: 12, cy: 12, r: 3.2 }),
+            h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" }))
+        : h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" })))),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
 }

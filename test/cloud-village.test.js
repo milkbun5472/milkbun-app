@@ -4,7 +4,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const scr = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
-const seg = scr.slice(scr.indexOf("云村 tab（v54.46 全量返工）"), scr.indexOf("// 底部三 tab"));
+// ⚠️切【整个一起听】，不是只切云村那一段。v61.42 按「这首歌已经是我的了吗」重排之后，
+// 公共的歌行/歌单行（cloudRow / cvPlRow）挪到了 mineTab 前面——它们本来就是两个 tab
+// 共用的东西，再挂在「云村区」这个名字底下就不对了。切窄了这几条会在真代码没坏的
+// 情况下报红（v61.42 就红了一次），那冻的是位置不是行为。
+const seg = scr.slice(scr.indexOf("function ListenTogether("), scr.indexOf("// 设置·情侣问答自定义题库"));
 
 // v54.46：她搬到 VPS 后要把网易云"完全搬进"一起听——登录后大致就是网易云本云，
 // 而且所有操作（红心/加歌单/建删歌单/FM垃圾桶）都要真实反映回她的网易云账号。
@@ -27,7 +31,10 @@ test("云村的写：每一条都真实写回她的网易云账号", () => {
   assert.match(seg, /\/like\?id=/, "红心");
   // 删除是破坏性操作，必须走 App 自绘确认层（iOS/PWA 可能永久吞掉系统 confirm），
   // 文案也要说清是真删，并且只有确认回调里才请求网易云。
-  const del = seg.slice(seg.indexOf("const delRealPl"), seg.indexOf("const cloudRow"));
+  // ⚠️切到【它自己那一段结束】，别切到「下一个碰巧跟在后面的东西」——
+  //   原来是切到 const cloudRow 为止，v61.42 把 cloudRow 挪到前面去，这里就切出个空串了。
+  const _i = seg.indexOf("const delRealPl");
+  const del = seg.slice(_i, seg.indexOf("\n  const ", _i + 10));
   assert.match(del, /requestAppConfirm\("删掉网易云歌单「" \+ pl\.name \+ "」？", "会真的从你的网易云账号删除。"/);
   assert.match(del, /async \(\) => \{[\s\S]*await nj\("\/playlist\/delete\?id=" \+ pl\.id\)/);
 });
