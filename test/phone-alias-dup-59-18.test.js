@@ -73,7 +73,12 @@ test("两道都接上了：提示词发别名，存之前再筛一遍", () => {
   // ② 代码这一道：规则只降概率
   const save = cut(app, "  const savePhoneApp = (charId, key, d) => {", "      saveJSON(\"x_phone\", n);");
   assert.match(save, /key === "wechat" && window\.PhoneKit/, "存之前没筛");
-  assert.match(save, /dropDupWechat\(d, phoneTakenNames\(c0\)\)/, "筛的时候用的不是同一份名单");
+  // ⚠️钉的是「筛用的和提示词用的是同一份名单」，不是「写成一行」。
+  //   v61.38 把名单提成 wxTaken 复用（合并之后还要再筛一次，见 phone-npc-dup-avatar-61-38），
+  //   意思一点没变，这条却红了——那冻的是长相不是行为。
+  const src = (save.match(/phoneTakenNames\(c0\)/g) || []).length;
+  assert.ok(src >= 1, "名单不是从 phoneTakenNames 来的");
+  assert.match(save, /dropDupWechat\(d, (phoneTakenNames\(c0\)|wxTaken)\)/, "筛的时候用的不是同一份名单");
   assert.match(save, /phoneMergeSaved\(key, cur\[key\], d/, "存的时候没并旧的");
   // 挂出去的那个全局
   assert.match(ph, /window\.PhoneKit = \{/, "PhoneKit 没挂出去，app.js 调不到");

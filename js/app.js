@@ -9,7 +9,7 @@
 // ⚠️放在模块顶上而不是组件里：用它的地方（积温那个 tick）在文件前面几千行，
 //   写在组件里就是靠 TDZ 的时序侥幸（v59.22 已经栽过一次）。
 const COUPLE_LEAVE_P = 0.45;
-const APP_VERSION = "v61.37";
+const APP_VERSION = "v61.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9407,7 +9407,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 每轮私聊回复后调用：三类动态计数 + 到阈值强制发一条（posted=这条回复已自发的类型，就不重复强制）
   const tickAmbient = (charId, posted) => {
     const char = characters.find(c => c.id === charId);
-    if (!char) return;
+    // ⚠️NPC 不进这套生态。他会从群聊那两个调用点进来（_spoke 里有谁就 tick 谁），
+    //   然后被推去发朋友圈——而朋友圈界面认的是 liveChars（不含 NPC），
+    //   components.js 那句 `if (!isMine && !c) return null` 会把它整条丢掉。
+    //   结果就是她 2026-09-03 看到的：toast 说「萧成烨发了条朋友圈」，
+    //   点进朋友圈一条都没有。存了、看不见、还弹了个假消息。
+    if (!char || char.npc) return;
     posted = posted || {};
     const isCouple = couples[charId] && couples[charId].status === "together";
     const cur = ambientCountRef.current[charId] || { moment: 0, whisper: 0, forum: 0, capsule: 0, lastForumTs: Date.now() };
@@ -9737,8 +9742,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0 };
       });
       const last = messages[messages.length - 1];
-      const groupAvatar = group.avatarImage || group.avatar || (memberIds.map(id => characters.find(c => c.id === id)).find(c => c && c.avatarImage) || {}).avatarImage;
-      const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages };
+      // 这个群里【除他以外】的真人。两个地方要用：群头像的兜底，和下面 phoneTakenNames 的避重名单。
+      const others = memberIds.filter(id => id !== char.id).map(id => characters.find(c => c.id === id)).filter(Boolean);
+      // ⚠️兜底只能从别人里挑。原来是从 memberIds 整个里挑第一个有头像的——
+      // 而机主自己几乎总排在最前面，于是【他手机里的群，头像全是他自己】
+      //（她 2026-09-03 报：「已有npc头像会变成他自己的」）。
+      // 微信的群头像是成员拼图，无论如何都不会只是「你」。
+      const groupAvatar = group.avatarImage || group.avatar || (others.find(c => c.avatarImage) || {}).avatarImage;
+      const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages,
+        // 群里这几个真人的所有叫法，带给避重名单用（群名本身不是人名，不带）
+        memberNames: others.reduce((a, c) => a.concat([c.name, c.remark]), []).filter(Boolean) };
       if (spectatePrivate) {
         const pairKey = memberIds.map(String).sort().join("|");
         const prev = spectatePrivateByPair.get(pairKey);
@@ -9756,7 +9769,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const out = [];
     const add = v => { const t = String(v || "").trim(); if (t && out.indexOf(t) < 0) out.push(t); };
     phoneWechatActual(char).forEach(c => {
-      if (c.type === "group") return;   // 群不算：一个群里当然可以有认识的人
+      // ⚠️群里那几个【真人】要收进来（她 2026-09-03 报：陆闻出现两次，一个真的一个假的）。
+      //   原来整条群会话直接 return，于是只在群里跟他说过话的人从来不进避重名单，
+      //   模型就大大方方给同一个人再造一个假私聊。收的是【成员的名字】不是群名——
+      //   群名不是人名，把群名塞进避重名单会误伤。
+      (c.memberNames || []).forEach(add);
+      if (c.type === "group") return;   // 群会话本身的名字不算：那是群名
       add(c.name);
       // 会话名对得上哪个角色卡，就把那张卡上的所有叫法一起收进来
       (characters || []).forEach(o => {
@@ -9803,9 +9821,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (key === "health" && window.PhoneKit) {
       try { d = window.PhoneKit.gateVisits(d, ((phonesRef.current || {})[charId] || {})[key]); } catch (e) {}
     }
+    let wxTaken = null;
     if (key === "wechat" && window.PhoneKit) {
       const c0 = (characters || []).find(x => x.id === charId);
-      if (c0) { try { d = window.PhoneKit.dropDupWechat(d, phoneTakenNames(c0)); } catch (e) {/* 去重失败不连累刷新 */} }
+      if (c0) {
+        try { wxTaken = phoneTakenNames(c0); d = window.PhoneKit.dropDupWechat(d, wxTaken); } catch (e) {/* 去重失败不连累刷新 */}
+      }
     }
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
@@ -9828,7 +9849,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const cur = p[charId] || {};
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
       // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
-      const merged = typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d;
+      let merged = typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d;
+      // ⚠️去重原来只筛【这一轮模型新写的】，已经攒进名册里的那几条永远退不出来。
+      //   陆闻早先被当成 NPC 存过一次，后来他成了真角色——那条假私聊就一直挂在列表里，
+      //   往后每一轮都照抄回来。名册每次是【整份重写】的，所以合并完再筛一次，
+      //   存量也就跟着清掉了，不用她手动去删。
+      if (key === "wechat" && wxTaken && window.PhoneKit) {
+        try { merged = window.PhoneKit.dropDupWechat(merged, wxTaken); } catch (e) {/* 同上，不连累刷新 */}
+      }
       const entry = { ...merged, _at: Date.now() };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
       const n = {
