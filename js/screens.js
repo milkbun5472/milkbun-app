@@ -3977,16 +3977,37 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     // 中段透空给照片，到两百多像素处收成 t.bg，底下那些卡片照旧看得清。
     const coverBg = cprof.bg ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(cprof.bg) : cprof.bg) + ")" : "linear-gradient(135deg,#f3c6d3,#c8b0e0)";
     const ST = "env(safe-area-inset-top, 0px)";
-    // ⚠️收口那一段只能写 transparent，不许拼 t.bg+"00"——主题色可能被她在主题工坊
-    // 改成 rgb()/hsl()，那种拼法会整条渐变作废（整页背景直接没了）。
-    const veil = "linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.08) calc(" + ST + " + 70px),transparent calc(" + ST + " + 118px),transparent calc(" + ST + " + 140px)," + t.bg + " calc(" + ST + " + 215px))";
-    // ── 两枚扣在一起的环（她：「头像这个圆框有点无聊」）──────────────────
-    // 原来是两个 3px 纯色圆边——任何 app 的头像都长这样。改成【两枚交叠的环】：
-    // 各自一个颜色，左边那枚的右半弧再画一次压在右边那枚上面，就成了扣起来的样子。
-    // 这个形状只在「两个人」这里成立，一个人的头像做不出来。
+    // ⚠️收口那一段不许拼 t.bg+"00"：主题色可能被她在主题工坊改成 rgb()/hsl()，
+    // 那种拼法会让整条渐变作废——整页背景直接没了。要透明就写 transparent，
+    // 要半透明走 bgA()（认不出来的格式就退回不透明，宁可挡住也不能整条失效）。
+    const bgA = a2 => {
+      const c = String(t.bg || "").trim();
+      let m = /^#([0-9a-f]{6})$/i.exec(c);
+      if (m) { const n = parseInt(m[1], 16); return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a2 + ")"; }
+      m = /^#([0-9a-f]{3})$/i.exec(c);
+      if (m) { const q = m[1].split("").map(x => parseInt(x + x, 16)); return "rgba(" + q[0] + "," + q[1] + "," + q[2] + "," + a2 + ")"; }
+      m = /^rgba?\(([^)]+)\)$/i.exec(c);
+      if (m) { const q = m[1].split(",").map(x => x.trim()); if (q.length >= 3) return "rgba(" + q[0] + "," + q[1] + "," + q[2] + "," + a2 + ")"; }
+      return c;
+    };
+    // 她 2026-09-02 第二遍：「背景还是不是一整页。是固定住了。」
+    // 固定住是对的，错的是上一版到 safe+215px 就收成【不透明】的 t.bg —— 那等于
+    // 照片只活在顶上那一截，往下还是一片素底。现在收成【半透明的一层薄纱】(.86)，
+    // 而渐变的最后一个色会一直铺到页底，所以整页都还看得见那张图，字也照样读得清。
+    const veil = "linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.08) calc(" + ST + " + 76px),transparent calc(" + ST + " + 130px)," + bgA(0.86) + " calc(" + ST + " + 250px))";
+    // ── 两枚扣在一起的环（v60.61 修细节）───────────────────────────────────
+    // 上一版那道交叠弧是照着 74px 画的，可环实际是 72px——差这 2px，弧就飘到环外面，
+    // 变成一道没来由的橙线。这一版尺寸全由 A/RING/GAP/OVER 算出来，不再手填：
+    //   环外径 D = A + 2*(RING+GAP)，右边那枚往左压 OVER，
+    //   交叠带的起点就是 (D-OVER)/D，弧只取上半圈 → 上半左压右、下半右压左＝扣住了。
+    const A = 62, RING = 3, GAP = 2, OVER = 18;
+    const D = A + 2 * (RING + GAP);
+    const weaveFrom = Math.round((D - OVER) / D * 100);
     const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
-    const ringed = (ch, ring, ml) => h("div", { style: { marginLeft: ml || 0, borderRadius: 999, padding: 3, background: ring, boxShadow: "0 2px 10px rgba(0,0,0,.22), 0 0 0 1.5px rgba(255,255,255,.5)" } },
-      h("div", { style: { borderRadius: 999, overflow: "hidden", display: "block", border: "2px solid " + t.bg } }, h(Avatar, { character: ch, size: 62, radius: 999 })));
+    const ringed = (ch, ring, ml) => h("div", { style: { marginLeft: ml || 0, width: D, height: D, borderRadius: 999, background: ring, boxShadow: "0 3px 12px rgba(0,0,0,.26)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
+      // 环和照片之间留一圈极浅的缝：封面再花，这两张脸也分得开
+      h("div", { style: { width: A + 2 * GAP, height: A + 2 * GAP, borderRadius: 999, background: "rgba(255,255,255,.92)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("div", { style: { borderRadius: 999, overflow: "hidden", lineHeight: 0 } }, h(Avatar, { character: ch, size: A, radius: 999 }))));
     return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: coverBg } },
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: veil, pointerEvents: "none" } }),
       // 顶栏浮在封面上，不跟着滚（返回键任何时候都够得着）
@@ -4001,9 +4022,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         h("div", { style: { position: "relative", height: 150 } },
           h("div", { style: { position: "absolute", left: 22, bottom: -30, display: "flex", alignItems: "flex-end" } },
             ringed(paChar, ringA),
-            ringed(myChar, ringB, -18),
+            ringed(myChar, ringB, -OVER),
             // 交叠那一段：把左边那枚环的右半弧再画一次，压在右边这枚上面 → 两枚扣住了
-            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: 74, height: 74, borderRadius: 999, border: "3px solid " + ringA, clipPath: "polygon(74% 0,100% 0,100% 52%,74% 52%)", pointerEvents: "none" } }))),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: D, height: D, borderRadius: 999, border: RING + "px solid " + ringA, clipPath: "polygon(" + weaveFrom + "% 0," + weaveFrom + "% 50%,100% 50%,100% 0)", pointerEvents: "none" } }))),
         h("div", { className: "px-6", style: { marginTop: 40 } },
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
