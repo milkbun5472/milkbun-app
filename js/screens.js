@@ -3986,11 +3986,17 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bLetterLast = bLetters.slice().sort((a, b) => itemTs(b) - itemTs(a))[0];
     const cleanSnippet = value => String(value || "").replace(/\s+/g, " ").trim().slice(0, 56);
     const recentItems = [];
-    (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", icon: "💌", label: "情书", text: cleanSnippet(x.title || x.body) }));
-    (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", icon: "📔", label: "交换日记", text: cleanSnippet(x.content) }));
-    (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", icon: "📅", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
-    bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", icon: "🖼️", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
-    bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", icon: "✦", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
+    // ⚠️这几行原来各挂一个 emoji（💌📔📅🖼️✦），装在一个圆角小方块里。她 2026-09-03 报
+    //   「有些有 emoji 有些还是一个方框」——两件事一起坏了：彩色 emoji 和单色符号（✦）
+    //   混在一排里本来就不是一套；而 🖼️ 这类带变体选择符的字，在她机器上直接渲染成豆腐块。
+    //   这一页底下「收着的」那一列书脊已经有一套现成的语言了：一条色带认一样东西。
+    //   所以这里改用同一条色带，一个字符都不放——不放字符，就不会有字体渲不出来这回事。
+    const BAND = { letters: "#b08d52", exdiary: "#b08a66", timeline: "#7f8ea6", album: "#a8735e", wishes: "#b0728e" };
+    (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", label: "情书", text: cleanSnippet(x.title || x.body) }));
+    (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", label: "交换日记", text: cleanSnippet(x.content) }));
+    (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
+    bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
+    bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
     recentItems.sort((a, b) => b.ts - a.ts);
     const bRecent = recentItems.slice(0, 5);
     const sameDay = ts => { const d = new Date(ts || 0); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") === todayK; };
@@ -4002,7 +4008,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         className: "w-full flex items-center gap-2 active:opacity-60",
         style: { textAlign: "left", padding: "5px 0" }
       },
-        h("span", { style: { fontSize: 13 } }, x.icon),
+        h("span", { "aria-hidden": "true", style: { width: 4, height: 13, borderRadius: 99, background: BAND[x.sub] || "#d9c8d0", flexShrink: 0 } }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#765865", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text)))) : null;
     const imgRow = (label, ref, field, has) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, label),
@@ -4076,8 +4082,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h("span", { className: "flex items-center gap-1", style: { background: "#ffe1ea", color: "#c02a52", borderRadius: 999, padding: "3px 12px" } },
                   h(IHeart, { size: 12, color: "#e0528a", filled: true }),
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5 } }, "甜蜜值 " + (Math.round((sweet.value || 0) * 10) / 10))),
-                onSetSince ? h("button", { onClick: () => { const d = new Date(cp[view].since || Date.now()); setSinceVal(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); setSinceEdit(v => !v); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, sinceEdit ? "收起" : "✎ 起始日") : null)),
-            h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : "#ffd0dc", color: sweetDone ? t.fog : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } }, sweetDone ? "已打卡" : "❤️ 打卡")),
+                onSetSince ? h("button", { onClick: () => { const d = new Date(cp[view].since || Date.now()); setSinceVal(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); setSinceEdit(v => !v); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, sinceEdit ? "收起" : h("span", { className: "flex items-center", style: { gap: 4 } }, h(IPencil, { size: 11, color: t.tint }), "起始日")) : null)),
+            h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : "#ffd0dc", color: sweetDone ? t.fog : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } },
+              sweetDone ? "已打卡" : h("span", { className: "flex items-center", style: { gap: 5 } }, h(IHeart, { size: 13, color: "#c02a52", filled: true }), "打卡"))),
           sinceEdit ? h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
             h("input", { type: "date", value: sinceVal, onChange: e => setSinceVal(e.target.value), className: "outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
             h("button", { onClick: () => { if (sinceVal) { onSetSince(partner.id, sinceVal); setSinceEdit(false); } }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "8px 18px", borderRadius: 10 } }, "保存"),
@@ -4114,7 +4121,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "从你俩的角落里捞出来")),
             h("div", { style: { borderTop: "1px solid " + t.line } },
               bRecent.length ? bRecent.map(x => h("button", { key: x.id, onClick: () => setSub(x.sub), className: "w-full active:opacity-60", style: { display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", gap: 8, padding: "11px 0", borderBottom: "1px solid " + t.line, textAlign: "left" } },
-                h("span", { style: { width: 27, height: 27, borderRadius: 9, background: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, x.icon),
+                h("span", { "aria-hidden": "true", style: { width: 4, height: 26, borderRadius: 99, background: BAND[x.sub] || t.line, justifySelf: "start", marginLeft: 11 } }),
                 h("div", { className: "min-w-0" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, x.label)),
@@ -4127,7 +4134,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#68513d", marginTop: 8 } }, "我们的档案"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a745e", marginTop: 22 } }, bArchiveN ? "已封存 " + bArchiveN + "/" + COUPLE_ARCHIVE_FIELDS.length + " 页" : "称呼、梗与小仪式")),
             h("button", { onClick: () => setSub("wishes"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f8edef", border: "1px solid #ebd4da", position: "relative", overflow: "hidden" } },
-              h("div", { style: { position: "absolute", right: 10, top: 6, fontSize: 42, color: "rgba(174,75,105,.12)" } }, "✦"),
+              // 和左边那张的「档」配成一对：两张卡的水印得是同一种东西（一个汉字），
+              // 原来这儿是个 ✦ ——一张汉字一张符号，并排摆着就是两套
+              h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(174,75,105,.10)" } }, "愿"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a46d7e", letterSpacing: ".14em" } }, "SOMEDAY"),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#8e4960", marginTop: 8 } }, "愿望板"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a46d7e", marginTop: 22 } }, bWishes.length ? bWishOpen + " 件还在等 · " + bWishes.filter(w => w.status === "done").length + " 件实现" : "把以后钉在这里"))),
@@ -4266,7 +4275,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   return wall("disc", { w: "100%", radius: 14, tilt: 0.6, pad: "12px 14px", bg: "linear-gradient(140deg,#2c2732,#1d1a24)", border: "1px solid #3d3648",
                     kids: h("div", { className: "flex items-center", style: { gap: 13 } },
                       h("div", { style: { position: "relative", width: 46, height: 46, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #101014 0 30%, #2b2b30 31% 61%, #17171b 62%)", boxShadow: "0 6px 16px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", animation: dOn ? "wk-spin 6s linear infinite" : "none" } },
-                        dLast && dLast.cover ? h("img", { src: dLast.cover, style: { width: 22, height: 22, borderRadius: 999, objectFit: "cover" } }) : h("span", { style: { fontSize: 12 } }, "♪")),
+                        dLast && dLast.cover ? h("img", { src: dLast.cover, style: { width: 22, height: 22, borderRadius: 999, objectFit: "cover" } }) : h("span", { "aria-hidden": "true", style: { width: 9, height: 9, borderRadius: 999, background: "#0d0d10", boxShadow: "0 0 0 3px rgba(230,223,242,.16)" } })),
                       h("div", { className: "flex-1 min-w-0" },
                         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".18em", color: "rgba(200,190,215,.55)" } }, "OUR RECORD"),
                         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#e6dff2", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
