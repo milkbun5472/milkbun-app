@@ -17,6 +17,22 @@ test("按钮上写真名，「穿成我自己」认得出是她", () => {
   assert.match(fic, /"你穿成谁"/);
   // 存档里那份 key 不许改名（改了旧档读不出来）
   assert.match(fic, /\{ key: "left", label: "魂穿 · CP 左位"/);
+  // v60.93：正在玩的那一屏、存档行的短名也要写真名（她：「这里没改呢」）
+  assert.match(fic, /function rpModeShort\(key, cpChars\)/);
+  assert.match(fic, /c\.isMe \? "我自己" : c\.name/);
+  assert.doesNotMatch(fic, /window\.Fanfic\.rpModeLabel\(s\.mode\)/, "还有地方在用不带名字的短名");
+});
+
+// 她 2026-09-03：「天降路人删了吧就留一个随机」
+test("天降只剩「随机身份」，但 passerby 这个字留着给老存档认", () => {
+  const m = fic.match(/const RP_MODES = \[[\s\S]*?\n  \];/);
+  assert.ok(m, "找不到 RP_MODES");
+  assert.match(m[0], /\{ key: "passerby",[^}]*legacy: true \}/, "老存档还得读得出这一档");
+  assert.doesNotMatch(m[0], /\{ key: "random",[^}]*legacy/, "随机这一档不能被一起藏掉");
+  // 选单按 legacy 过滤，不是把整条删掉
+  assert.match(fic, /return !!m && !m\.legacy;/);
+  // 提示词里仍旧认得 passerby，老局接着玩不会变味
+  assert.match(fic, /if \(mode === "passerby"\) return identity && identity\.name/);
 });
 
 test("多了一维：你带着什么进去", () => {

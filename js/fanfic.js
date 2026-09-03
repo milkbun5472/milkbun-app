@@ -637,10 +637,21 @@
   const RP_MODES = [
     { key: "left", label: "魂穿 · CP 左位", short: "魂穿左位" },
     { key: "right", label: "魂穿 · CP 右位", short: "魂穿右位" },
-    { key: "passerby", label: "天降 · 路人 / 配角", short: "天降路人" },
+    // ⚠️passerby 留在表里【只为了老存档还认得出这个字】，选单里不再出现
+    //   （她 2026-09-03：「天降路人删了吧就留一个随机」）——它和 random 本来就
+    //   高度重合：random 抽出来的多半也是个路人，多这一档只是让人多做一次选择。
+    { key: "passerby", label: "天降 · 路人 / 配角", short: "天降路人", legacy: true },
     { key: "random", label: "天降 · 随机身份", short: "天降随机" }
   ];
   function rpModeLabel(key) { const m = RP_MODES.find(function (x) { return x.key === key; }); return m ? m.short : key; }
+  // 短名（存档行、穿书中那一屏顶上）也要写真名——她 2026-09-03：「这里没改呢」。
+  // 拿不到 cpChars 的地方仍旧回落到 rpModeLabel，不至于空着。
+  function rpModeShort(key, cpChars) {
+    const a = cpChars && cpChars[0], b = cpChars && cpChars[1];
+    const c = key === "left" ? a : key === "right" ? b : null;
+    if (key === "left" || key === "right") return c ? (c.isMe ? "我自己" : c.name) : rpModeLabel(key);
+    return rpModeLabel(key);
+  }
   // ── 选项这一屏改了两处（v60.91，她 2026-09-03「这几样我都是直接参考了别人的」）──
   // 「魂穿 / 天降」这几个词不算抄——它们是同人圈的通用说法，跟 AU、年下一样。
   // 真正的毛病是另外两件：
@@ -857,7 +868,7 @@
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
-    loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
+    loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
   };
 
   // ============================================================
@@ -1861,7 +1872,8 @@
     // 设定穿进去的方式 + 生成降落节点
     if (view === "setup") {
       const cpc = charsOf(newFic);
-      const modeAvail = function (k) { if (k === "left") return true; if (k === "right") return true; return true; };
+      // legacy 的那几档不进选单（老存档照旧读得出来，见 RP_MODES 上的注释）
+      const modeAvail = function (k) { const m = RP_MODES.find(function (x) { return x.key === k; }); return !!m && !m.legacy; };
       async function makeLandings() {
         if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
         setBusy("land");
@@ -1915,7 +1927,7 @@
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, window.Fanfic.rpModeLabel(s.mode) + (window.Fanfic.rpKnowLabel(s.know) ? " · " + window.Fanfic.rpKnowLabel(s.know) : "") + " · " + (s.landing && s.landing.label || "") + " · " + ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, window.Fanfic.rpModeShort(s.mode, charsOf({ cp: s.cp })) + (window.Fanfic.rpKnowLabel(s.know) ? " · " + window.Fanfic.rpKnowLabel(s.know) : "") + " · " + (s.landing && s.landing.label || "") + " · " + ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步")),
             h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
         }) : h(Empty, { text: "还没有穿书存档", sub: "点右上「＋ 新穿书」开始" })));
   }
@@ -1932,7 +1944,8 @@
     const prevLen = React.useRef(trans.length);
     const taRef = React.useRef(null);
     function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
-    const cpc = cpChars((props.fic && props.fic.cp) || [], props.characters, props.profile);
+    // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然顶上又变回「魂穿左位」
+    const cpc = cpChars((props.fic && props.fic.cp) || s.cp || [], props.characters, props.profile);
     const storyLore = function (extra) {
       const ids = cpc.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
       const recent = (s.transcript || []).slice(-8).map(function (x) { return x.text || ""; }).join("\n");
@@ -1987,13 +2000,13 @@
     function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
 
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "穿书中", en: window.Fanfic.rpModeLabel(s.mode), onBack: props.onBack }),
+      h(Head, { zh: "穿书中", en: window.Fanfic.rpModeShort(s.mode, cpc), onBack: props.onBack }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
         // 书名/起点抬头
         h("div", { className: "text-center py-4 mb-2" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, s.ficTitle),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginTop: 3 } }, window.Fanfic.rpModeLabel(s.mode) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginTop: 3 } }, window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""))),
         // 正文（叙事段落 + 我用羽毛笔写进去的行动），最后一段按 reveal 逐段显示
         trans.map(function (e, i) {
           if (e.who === "me") return h("div", { key: i, className: "my-5", style: { borderLeft: "2px solid " + t.accent, paddingLeft: 12 } },
