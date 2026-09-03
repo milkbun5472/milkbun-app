@@ -2635,7 +2635,7 @@ function Home({
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
       inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });
     }
-    else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
+    else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, couples: couples, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, onOpen: function () { return onOpenApp("us"); } });
@@ -2835,41 +2835,103 @@ function Home({
     h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),
     h("button", { onClick: addDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 18, borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } }, "放到桌面上")));
 }
-// 主页名片（与聊天「我」人设解耦）：昵称 + 签名 + #标签；铅笔改名片，点头像改聊天人设/头像
-function HomeCard({ card, profile, onEditCard, onEditProfile, onOpenCodex }) {
+// 主页名片（v60.82 重做）——她 2026-09-03：「我头像那个框太单调了」，附了四张参考图。
+//
+// 原来这张卡就是【左边一个圆头像 + 右边三行字】：任何 app 的个人卡都长这样，
+// 所以它放在哪儿都成立，等于没设计。参考图里那几张之所以好看，靠的是三样：
+//   ① 一张自己的封面垫在底下（人是站在自己挑的那张图前面的）；
+//   ② 头像压在封面边上，有一圈实的环，从图里"立"出来；
+//   ③ 底下一排真的数字——那几个数说明这个人在这儿干了什么。
+// 前两样是形状，第三样是内容。这三样里最重要的是第三样：
+// 数字必须是【这个 app 才有的】，抄成 Following / Follower / Like 就又成了任何 app。
+// 所以这三格是：认识几个人 / 在一起几个人 / 最长那段谈了多少天 —— 换个 app 立刻不成立。
+function HomeCard({ card, profile, characters, couples, onEditCard, onEditProfile, onOpenCodex }) {
   const t = useTheme();
   const c = card || {};
   const name = c.name || profile.name || "点此设置昵称";
   const sign = c.sign || "";
   const tags = (c.tags || []).filter(Boolean);
-  return h(GlassCard, { style: { padding: 16, marginBottom: 14 } },
-    h("div", { className: "flex items-start gap-4" },
-      h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0 } }, h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: profile.color || t.accent }, size: 56, radius: 999 })),
-      h("div", { className: "flex-1 min-w-0", style: { paddingTop: 1 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
-        // 签名锁单行（省略号）：多行/长签名都不再把名片撑大，卡片高度固定
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, fontStyle: "italic", color: t.fog, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, sign ? "“" + sign.replace(/\s*\n\s*/g, " ") + "”" : "点铅笔写一句签名"),
-        // #标签紧凑横排：缩小内边距/字号/间距，让标签在同一行流式排布（不再一个一行竖着堆），窄了自动换行、一行通常放得下三个左右
-        tags.length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8 } }, tags.map((tg, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "#" + tg))) : null),
-      h("div", { className: "flex flex-col gap-1.5", style: { flexShrink: 0 } },
-        h("button", { onClick: onEditCard, className: "active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line } }, h(IPencil, { size: 14, color: t.fog })),
-        onOpenCodex ? h("button", { onClick: onOpenCodex, className: "active:opacity-60 flex items-center justify-center", title: "攻略", style: { width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.fog } }, "?") : null)));
+  const accent = profile.color || t.accent;
+  const cover = c.cover ? (typeof resolveImg === "function" ? resolveImg(c.cover) : c.cover) : "";
+  // 没设封面时也不能是一块白板：用她自己的头像色调出一层斜向的光，跟主题底色接得住
+  // ⚠️这张卡是网格里的一格，行比它高时它会被【拉满】——所以底图和暗角必须画在
+  //   卡本身上（多层 background 叠着），不能画在里面那个 padding 盒子上：
+  //   画在里面就会像预览里那样，下半张卡空出一块没盖到的白。
+  const skin = cover
+    ? { backgroundImage: "linear-gradient(105deg,rgba(0,0,0,.46) 0%,rgba(0,0,0,.24) 48%,rgba(0,0,0,.06) 100%),url(\"" + cover + "\")",
+        backgroundSize: "cover,cover", backgroundPosition: "center,center" }
+    : { backgroundImage: "linear-gradient(135deg," + accent + "2e 0%," + accent + "12 42%,rgba(255,255,255,0) 74%)" };
+  const onCover = !!cover;                       // 有图＝字要压在图上，得换一套颜色
+  const ink = onCover ? "#fff" : t.ink;
+  const dim = onCover ? "rgba(255,255,255,.82)" : t.fog;
+  const shadow = onCover ? "0 1px 6px rgba(0,0,0,.5)" : "none";
+  // 这一屋子真实的数字（只算真的有的，没有的那一格不占位置）
+  const chars = (characters || []).length;
+  const cp = couples || {};
+  const together = Object.keys(cp).filter(k => cp[k] && cp[k].status === "together");
+  const days = together.reduce((mx, k) => {
+    const since = cp[k] && cp[k].since;
+    return since ? Math.max(mx, Math.floor((Date.now() - since) / 86400000) + 1) : mx;
+  }, 0);
+  const stats = [[chars, "认识"], together.length ? [together.length, "在一起"] : null, days ? [days, "第几天"] : null].filter(Boolean);
+  const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
+    style: { width: 30, height: 30, borderRadius: 999, flexShrink: 0,
+      background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
+      border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
+  // ⚠️不许给里面那层写 height:100%：卡在网格里是自动高的时候，100% 会顶着算回去
+  //   （实测能把卡撑到整屏高，主屏就毁了——.claude/rules/home-screen-layout.md）。
+  //   改成卡自己是 flex 列、里面那层 flex:1：自动高时按内容，被行拉高时才铺满。
+  return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
+    // 里面这层只管排版：h-full + 底下那排数 marginTop:auto，卡被拉高时数字贴着底边走
+    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "14px 14px 0" } },
+      h("div", { className: "flex items-start", style: { gap: 13 } },
+        // 头像：一圈实的环 + 一点阴影，从底图里立出来（参考图那三张都是这么干的）
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 999, padding: 2.5,
+            background: onCover ? "rgba(255,255,255,.9)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.22)" } },
+          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 56, radius: 999 })),
+        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 2 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: ink, textShadow: shadow, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          // 签名锁单行（省略号）：多行/长签名都不再把名片撑大，卡片高度固定
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, fontStyle: "italic", color: dim, textShadow: shadow, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, sign ? "“" + sign.replace(/\s*\n\s*/g, " ") + "”" : "点铅笔写一句签名"),
+          tags.length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 7 } }, tags.map((tg, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: onCover ? "#fff" : t.sub, background: onCover ? "rgba(255,255,255,.18)" : "rgba(255,255,255,0.5)", border: "1px solid " + (onCover ? "rgba(255,255,255,.4)" : t.line), borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "#" + tg))) : null),
+        h("div", { className: "flex flex-col gap-1.5", style: { flexShrink: 0 } },
+          round(h(IPencil, { size: 14, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+          onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null)),
+      // 底下那一排数：这几个数只有这个 app 有，换成 Following/Follower 就又成了任何 app
+      h("div", { className: "flex", style: { marginTop: "auto", paddingTop: 12, borderTop: "1px solid " + (onCover ? "rgba(255,255,255,.22)" : t.line) } },
+        stats.map((st, i) => h("div", { key: i, className: "flex-1", style: { textAlign: "center", padding: "7px 0 8px",
+            borderLeft: i ? "1px solid " + (onCover ? "rgba(255,255,255,.16)" : t.line) : "none" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow, marginTop: 3 } }, st[1]))))));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
-function HomeCardSheet({ card, onSave, onClose }) {
+function HomeCardSheet({ card, profile, onSave, onClose }) {
   const t = useTheme();
   const c = card || {};
   const [name, setName] = useState(c.name || "");
   const [sign, setSign] = useState(c.sign || "");
   const [tagStr, setTagStr] = useState((c.tags || []).join(", "));
+  const [cover, setCover] = useState(c.cover || "");
+  const coverRef = useRef(null);
   const inp = { width: "100%", outline: "none", padding: "10px 2px", fontFamily: F_BODY, fontSize: 16, color: t.ink, background: "transparent", border: "none", borderBottom: "1px solid " + t.line };
-  const save = () => onSave({ name: name.trim(), sign: sign.trim(), tags: tagStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
+  const save = () => onSave({ name: name.trim(), sign: sign.trim(), cover: cover || "", tags: tagStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
+  const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") resizeImageFile(f, 900, 0.82).then(d => setCover(d)); e.target.value = ""; };
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginBottom: 18 } }, "编辑名片"),
     h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "昵称", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: sign, onChange: e => setSign(e.target.value), placeholder: "签名", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: tagStr, onChange: e => setTagStr(e.target.value), placeholder: "标签，逗号隔开", style: Object.assign({}, inp, { marginBottom: 6 }) }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 22 } }, "标签会显示成 #Design #Mood。名片和聊天里的「我」是分开的，改这里不影响角色对你的认知。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "标签会显示成 #Design #Mood。名片和聊天里的「我」是分开的，改这里不影响角色对你的认知。"),
+    // 名片封面：垫在整张卡底下的那张图。没设的话用你头像的颜色调一层光，不是白板。
+    h("div", { className: "flex items-center", style: { gap: 12, marginBottom: 22 } },
+      h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-80", style: { width: 92, height: 56, borderRadius: 12, flexShrink: 0, overflow: "hidden", border: "1px solid " + t.line,
+        background: cover ? "center/cover no-repeat url(\"" + cover + "\")" : "linear-gradient(135deg," + ((profile && profile.color) || t.accent) + "2e," + t.bg2 + ")" } },
+        cover ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "选一张")),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "名片封面"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "垫在整张名片底下。放了图之后名字和签名会自动换成白字加暗角。")),
+      cover ? h("button", { onClick: () => setCover(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "去掉") : null,
+      h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover })),
     h("div", { className: "flex gap-3" },
       h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 0" } }, "取消"),
       h("button", { onClick: save, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.bg2, background: t.ink, borderRadius: 14, padding: "13px 0" } }, "保存")));
