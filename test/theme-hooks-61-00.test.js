@@ -21,12 +21,15 @@ test("我和他分得开，图片那种气泡也认得出", () => {
   assert.match(comp, /"data-wk": "bubble", "data-me": isU \? "1" : "0", "data-kind": m\.kind \|\| "text"/);
 });
 
-test("挂点只是名字，不带任何样式——加了不该改变现在的长相", () => {
-  // data-wk 那几行里不许夹带 style / className
-  const lines = comp.split("\n").filter(l => l.indexOf('"data-wk"') >= 0);
-  assert.ok(lines.length >= 9, "挂点行数不对");
-  lines.forEach(l => {
-    assert.ok(l.indexOf("style:") < 0, "挂点那一行顺手改了样式：" + l.trim());
-    assert.ok(l.indexOf("className:") < 0, "挂点那一行顺手改了 class：" + l.trim());
-  });
+test("挂点只是一个写死的名字，夹带不了任何东西", () => {
+  // 原来这条是靠「data-wk 那一行里不许出现 style:」来保证「加挂点不改长相」的。
+  // 那是个代理判据，只在【挂点都落在没样式的元素上】时才成立。
+  // v61.39 起挂点要落到卡片盒子、群聊外壳这些【本来就带样式】的元素上——
+  // 皮肤要改的恰恰就是它们。照旧那么查，等于禁止给任何有样式的东西挂点。
+  // 改成查真正查得到的那一半：名字必须是写死的字符串字面量，
+  // 拼不进变量、模板串或表达式，也就带不进任何值。
+  const all = [...comp.matchAll(/"data-wk":\s*([^,\n]+)/g)].map(m => m[1].trim());
+  assert.ok(all.length >= 30, "挂点只剩 " + all.length + " 个，是不是被删了");
+  const bad = all.filter(v => !/^"[a-z]+"$/.test(v));
+  assert.deepEqual(bad, [], "这些挂点不是写死的名字，能把值夹带进 DOM：\n  " + bad.join("\n  "));
 });

@@ -160,6 +160,12 @@ function avatarSrcOf(character) {
   const seed = (character && (character.id || character.handle || character.name)) || "?";
   return typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "";
 }
+// ⚠️挂点长在【组件自己】身上，不在调用点上（她 2026-09-03：「如果设置了圆头像
+//   只有角色是圆的，而且他们发的卡啊照片啊头像还是方的」）。
+//   病根：全 app 只有一处调用点写了 data-wk="avatar"——单聊里对方那一颗。
+//   她自己那颗、群聊里每个人的、卡片上的、转账/礼物/位置卡里的，一个都没挂，
+//   于是页面 CSS 里的圆头像只圆了一颗。一处一处补是补不完的（补完也会漏下一处）。
+//   页面 CSS 本来就按 html[data-lisa-screen] 限定在那一页，所以全 app 挂满不会外溢。
 function Avatar({
   character,
   size = 40,
@@ -170,6 +176,7 @@ function Avatar({
   // 缓存没命中（iv_ 键但库里没图）→ src 为空 → 落到下面首字母兜底，不显示破图。
   const src = character && character.avatarImage ? (typeof resolveImg === "function" ? resolveImg(character.avatarImage) : character.avatarImage) : "";
   if (src) return /*#__PURE__*/React.createElement("img", {
+    "data-wk": "avatar",
     src: src,
     alt: "",
     className: "object-cover shrink-0",
@@ -182,11 +189,13 @@ function Avatar({
   // 她自己设过 emoji 就还用 emoji（那是她挑的）；否则不再摆首字母方块，
   // 按 id/名字哈希给一张自动头像（有池子用池子里的图，没有就程序化画）。
   if (character && character.avatarEmoji) return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "avatar",
     className: "flex items-center justify-center shrink-0",
     style: { width: size, height: size, borderRadius: rad, background: character.color || "#c2bdb1", color: "#f6f4ef", fontSize: size * 0.4, fontFamily: F_DISPLAY }
   }, character.avatarEmoji);
   const seed = (character && (character.id || character.handle || character.name)) || "?";
   return /*#__PURE__*/React.createElement("img", {
+    "data-wk": "avatar",
     src: typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "",
     alt: "", className: "object-cover shrink-0",
     style: { width: size, height: size, borderRadius: rad }
@@ -4339,7 +4348,7 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
 // 澄清她的疑问：卡片短≠细节丢——喂给模型的一直是完整 transcript（app.js 注入），这里只是让她也能翻看。
 function OfflineLogCard({ m, t, sel }) {
   const [open, setOpen] = useState(false);
-  return h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
+  return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过 · OFFLINE"),
     m.content,
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
@@ -6902,7 +6911,7 @@ function ChatForwardCard({ m, isU, onOpen }) {
   const items = chatForwardItems(m);
   const preview = items.slice(0, 2);
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("button", { onClick: () => onOpen && onOpen(m), className: "active:opacity-70 text-left",
+    h("button", { "data-wk": "card", onClick: () => onOpen && onOpen(m), className: "active:opacity-70 text-left",
       style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "px-3.5 pt-3 pb-2.5" },
         h("div", { className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.35, color: t.ink } }, chatForwardTitle(m)),
@@ -6929,7 +6938,7 @@ function ForumShareCard({ m, isU }) {
   const t = useTheme();
   const p = m.post || {};
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
+    h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog } }, "贴吧 · " + (p.board || "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title || ""),
@@ -6947,7 +6956,7 @@ function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo";
   const tone = isMemo ? "122,106,154" : "79,109,90";
-  return h("div", {
+  return h("div", { "data-wk": "card",
     style: {
       maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
       // ⚠️底下必须先垫一层【实心】的（她 2026-09-02：「记账卡是透明的」）。
@@ -6969,7 +6978,7 @@ function RecordedCard({ m }) {
 function ShopAskCard({ m }) {
   const t = useTheme();
   const a = m.ask || {};
-  return h("div", { style: { width: 216, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid #ececf0", boxShadow: "0 1px 4px rgba(0,0,0,.06)" } },
+  return h("div", { "data-wk": "card", style: { width: 216, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid #ececf0", boxShadow: "0 1px 4px rgba(0,0,0,.06)" } },
     h("div", { style: { height: 4, background: "linear-gradient(90deg,#ff5000,#ff9500)" } }),
     h("div", { style: { padding: "10px 12px 11px" } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.16em", color: "#ff5000" } }, "SHOPPING"),
@@ -6986,7 +6995,7 @@ function PhonePeekCard({ m, isU }) {
   const p = m.peek || {};
   const hid = p.tier === "hidden";
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 242, borderRadius: 14, overflow: "hidden", background: hid ? "rgba(182,71,60,.07)" : t.bg2, border: "1px solid " + (hid ? "rgba(182,71,60,.32)" : t.line) } },
+    h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: hid ? "rgba(182,71,60,.07)" : t.bg2, border: "1px solid " + (hid ? "rgba(182,71,60,.32)" : t.line) } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
         // what：翻的是手机还是他的包／衣柜（v57.96 随身物也能摆到他面前了）
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } }, "翻他" + (p.what || "手机") + " · " + (p.label || "")),
@@ -6999,7 +7008,7 @@ function FicShareCard({ m, isU }) {
   const t = useTheme();
   const f = m.fic || {};
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
+    h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog } }, "同人文" + (f.cpText ? " · " + f.cpText : "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, f.title || ""),
@@ -7019,6 +7028,8 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
   let footer;
   if (toChar) footer = m.hand ? "当面交到 TA 手上" : (m.delivered ? "已送达 · TA 收到了" : (m.arriveTs ? "在路上 · 还有 " + giftFmtLeft(m.arriveTs - (now || Date.now())) : "已送出"));
   else footer = "TA 给你寄的 · 在「我的」查看物流";
+  // ⚠️礼物这一张【故意不挂 data-wk="card"】：它不是一块圆角卡面，是盒身／丝带／盖子
+  //   分层画出来的一个包裹。套上统一圆角只会把这张画切坏。
   const KRAFT = "#e6d8bd", KRAFT_D = "#d8c6a3", RIBBON = "#b8443c", RIBBON_D = "#93332d";
   const RIB_X = 40;                       // 丝带压在离左边这么远的地方
   const band = extra => h("div", { style: Object.assign({ position: "absolute", left: RIB_X - 9, width: 18,
@@ -7072,7 +7083,7 @@ function KinshipCardFace({ character, limit, used, note, width }) {
   const face = avatarSrcOf(c);
   const remain = used == null ? null : Math.round(((limit || 0) - (used || 0)) * 100) / 100;
   const fade = "linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 34%, rgba(0,0,0,0) 72%)";
-  return h("div", { style: { width: width || "100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 8px rgba(0,0,0,.11)" } },
+  return h("div", { "data-wk": "card", style: { width: width || "100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 8px rgba(0,0,0,.11)" } },
     // 卡面
     // ⚠️卡底必须【整块不透明】：原来写成 linear-gradient(ink → rgba(0,0,0,.42))，
     // 往一个半透明色插值，右半张卡就跟着半透明，页面底色从后面透上来——
@@ -7130,7 +7141,7 @@ function KinshipSpendCard({ m, character }) {
   const c = character || {};
   const ink = c.color || "#6b7a8f";
   return h("div", { className: "my-2 flex justify-center px-6" },
-    h("div", { style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
       // 左沿一道他的颜色：扣的是他的钱
       h("div", { className: "flex" },
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }),
@@ -7166,7 +7177,7 @@ function KinshipRaiseCard({ m, character }) {
     : "等" + (c.name || "TA") + "回话";
   const fc = st === "approved" ? "#3f8a54" : st === "declined" ? t.fog : st === "failed" ? t.accent : t.tint;
   return h("div", { className: "py-1 flex justify-end" },
-    h("div", { style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
+    h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
       h("div", { className: "flex" },
         // 右沿一道他的颜色：批的是他的卡（刷卡通知那张在左沿，一眼分得出谁在动作）
         h("div", { style: { flex: 1, minWidth: 0 } },
@@ -7310,7 +7321,7 @@ function PayLaterCard({ m }) {
   const bc = paid ? "#3f8a54" : declined ? t.fog : t.tint;
   const names = (m.items || []).map(x => x.name).join("、");
   return h("div", { className: "py-1 flex justify-end" },
-    h("div", { style: { width: 236, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + t.line } },
+    h("div", { "data-wk": "card", style: { width: 236, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + t.line } },
       h("div", { className: "px-4 pt-3.5 pb-3" },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.18em", color: t.fog } }, "PAY FOR ME · 代付请求"),
         h("div", { className: "mt-1.5", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.3 } }, names || "购物清单"),
@@ -7332,7 +7343,7 @@ function TransferCard({
   // 头像跟位置卡同一个摆法：对方的在左、我的在右（她 2026-08-27：「转账旁边没有头像」）
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
-  }, !isU && avatar, h("div", {
+  }, !isU && avatar, h("div", { "data-wk": "card",
     style: {
       width: 250,
       background: "#fff",
@@ -7442,7 +7453,7 @@ function CoupleInviteCard({
     } }, h(IHeart, { size: 13, color: st === "accepted" ? "#fff" : (st === "declined" ? t.line : "#e0aebc"), filled: st === "accepted" })),
     // 退回来的那封：封蜡上一道裂口
     st === "declined" ? h("div", { style: { position: "absolute", left: 12, top: -1, width: 1.5, height: 28, background: t.bg2, transform: "rotate(16deg)" } }) : null);
-  return h("div", { style: {
+  return h("div", { "data-wk": "card", style: {
     position: "relative", width: 244, borderRadius: 3, overflow: "hidden",
     background: "#fbf9f5", border: "1px solid " + t.line, boxShadow: "0 2px 9px rgba(0,0,0,.09)"
   } },
@@ -7473,7 +7484,7 @@ function UnblockReqCard({ m, character, onRespond }) {
   const body = fromChar ? (m.reason || "想和你和好") : (m.plea || "希望你能解除拉黑");
   const statusLabel = m.status === "accepted" ? "已接受 · 解除拉黑" : m.status === "declined" ? (fromChar ? "你拒绝了" : nm + " 拒绝了 · 可继续尝试") : (fromChar ? "" : "等待 " + nm + " 回应……");
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 250, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + (pending ? t.accent : t.line) } },
+    h("div", { "data-wk": "card", style: { width: 250, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + (pending ? t.accent : t.line) } },
       h("div", { className: "px-4 pt-3.5 pb-3" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.12em", color: t.accent, marginBottom: 4 } }, "解除拉黑申请"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: t.ink } }, body)),
@@ -7553,6 +7564,7 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
         style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 }
       }),
       h("div", {
+        "data-wk": "card",
         style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
           padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" }
       },
@@ -9219,6 +9231,11 @@ function GroupOfflineMode({
         h("button", { onClick: () => { setEndConfirm(false); onEnd(); }, disabled: sending, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, background: t.accent, color: "#fff", borderRadius: 8 } }, sending ? "总结中…" : "结束并总结")))));
 }
 // ---- group chat ----
+// ⚠️页面 CSS 的挂点（data-wk=chat/chathead/body/msg/time/row/bubble/composer，
+//   头像由 Avatar 组件自己挂）。单聊和群聊【两页各有五套皮肤】
+//   （theme-studio.js 的 CSS_BUILTINS = { thread, gthread }），
+//   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
+//   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
   group,
   groups,
@@ -9430,6 +9447,7 @@ function GroupThread({
   // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
   const gHold = gs.autoChat === false;
   return h("div", {
+    "data-wk": "chat",
     className: "h-full flex flex-col",
     style: gChatBg ? {
       backgroundImage: "url(\"" + resolveImg(gChatBg) + "\")",
@@ -9440,6 +9458,7 @@ function GroupThread({
       background: BUBBLE_SKIN.chatBg || t.bg // 群聊也吃皮肤的全局聊天背景
     }
   }, h("div", {
+    "data-wk": "chathead",
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     style: {
       paddingTop: safeTop(20),
@@ -9500,6 +9519,7 @@ function GroupThread({
   }))), h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
+    "data-wk": "body",
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
   }, archCount > 0 ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder("g_" + group.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
@@ -9751,8 +9771,10 @@ function GroupThread({
     }
     return h("div", {
       key: i,
-    }, showGroupTime && h("div", { className: "flex justify-center", style: { margin: "13px 0 8px" } },
+      "data-wk": "msg", "data-me": isU ? "1" : "0"
+    }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", style: { margin: "13px 0 8px" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: "0.02em" } }, groupTimeLabel)), h("div", {
+      "data-wk": "row",
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
       className: "flex flex-col",
@@ -9793,6 +9815,7 @@ function GroupThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
       style: {
         position: "relative", // 贴纸锚点
         padding: "9px 13px",
@@ -9884,6 +9907,7 @@ function GroupThread({
     h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)),
     h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
   !selMode && h("div", {
+    "data-wk": "composer",
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     style: {
       background: t.bg2,
@@ -9920,6 +9944,7 @@ function GroupThread({
     onClick: send,
     disabled: sending || !input.trim(),
     className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
+    "data-wk": "send",
     style: {
       width: 40,
       height: 40,

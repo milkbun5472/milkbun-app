@@ -46,13 +46,15 @@
 '  color: ' + o.timeInk + ' !important;',
 '  font-size: 11px !important;',
 '  line-height: 1 !important;',
-'  padding: 4px 8px !important;',
+'  padding: ' + o.timePad + ' !important;',
 '  border-radius: ' + o.timeRadius + ' !important;',
 '}',
 '',
+'[data-wk="avatar"],',
 '[data-wk="avatar"] img,',
 '[data-wk="avatar"] > * {',
 '  border-radius: ' + o.avatar + ' !important;',
+'  overflow: hidden !important;',
 '}',
 '',
 '[data-wk="bubble"] {',
@@ -76,22 +78,24 @@
 '}',
 ''
   ].concat(o.tail ? [
-'/* 气泡尖角：把一个小方块转 45 度贴在气泡边上 */',
+'/* 气泡尖角：一个真三角，长在气泡边上。',
+'   原来是转 45 度的小方块浮在旁边——那是两块分开的东西，凑近看接不上。 */',
 '[data-wk="bubble"]::before {',
 '  content: "" !important;',
 '  position: absolute !important;',
-'  top: 13px !important;',
-'  width: 9px !important;',
-'  height: 9px !important;',
-'  transform: rotate(45deg) !important;',
+'  top: 12px !important;',
+'  width: 0 !important;',
+'  height: 0 !important;',
+'  border-top: 5px solid transparent !important;',
+'  border-bottom: 5px solid transparent !important;',
 '}',
 '[data-wk="bubble"][data-me="0"]::before {',
-'  left: -3px !important;',
-'  background: ' + o.theirBg + ' !important;',
+'  left: -5px !important;',
+'  border-right: 5px solid ' + o.theirBg + ' !important;',
 '}',
 '[data-wk="bubble"][data-me="1"]::before {',
-'  right: -3px !important;',
-'  background: ' + o.myBg + ' !important;',
+'  right: -5px !important;',
+'  border-left: 5px solid ' + o.myBg + ' !important;',
 '}',
 '',
 '/* 图片和表情不该套气泡底色，尖角也得收起来 */',
@@ -106,8 +110,21 @@
 '  box-shadow: none !important;',
 '}',
 '',
+'/* 转账、礼物、位置、亲属卡、分享…… 气泡外面那些卡片 */',
+'[data-wk="card"] {',
+'  border-radius: ' + o.card + ' !important;',
+'  overflow: hidden !important;',
+'}',
+'',
+'/* 发出来的照片和表情：气泡本身被扒光了，圆角得落在图上 */',
+'[data-wk="bubble"] img,',
+'[data-wk="bubble"][data-kind="photo"] > *,',
+'[data-wk="bubble"][data-kind="sticker"] > * {',
+'  border-radius: ' + o.photo + ' !important;',
+'}',
+'',
 '[data-wk="msg"] { padding-top: ' + o.gap + 'px !important; padding-bottom: ' + o.gap + 'px !important; }',
-'[data-wk="row"] { gap: 9px !important; }',
+'[data-wk="row"] { gap: ' + o.rowGap + 'px !important; }',
 '',
 '[data-wk="composer"] {',
 '  background: ' + o.footBg + ' !important;',
@@ -120,35 +137,48 @@
 '  border-radius: ' + o.inputRadius + ' !important;',
 '  color: ' + o.headInk + ' !important;',
 '  font-size: 16px !important;',
+'}',
+'',
+'[data-wk="send"] {',
+'  background: ' + o.send + ' !important;',
+'  color: ' + o.sendInk + ' !important;',
+'  border: none !important;',
+'  border-radius: ' + o.sendRadius + ' !important;',
 '}'
   ]).join("\n");
-  // 微信：方气泡、带尖角、灰底，时间是一颗灰药丸
+  // 微信：方气泡、带尖角、灰底。⚠️时刻是一行【没有底】的灰字——
+  // 原来给了它一颗灰药丸配白字，那是别家的样子，一眼就出戏。
   const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111",
-    timeBg:"#dadada", timeInk:"#ffffff", timeRadius:"4px", avatar:"5px", radius:"6px", shadow:"none",
+    timeBg:"transparent", timeInk:"#b2b2b2", timeRadius:"0", timePad:"0", avatar:"4px", radius:"5px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
-    tail:true, gap:5, footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px" });
+    tail:true, gap:6, rowGap:10, card:"4px", photo:"4px",
+    footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px", send:"#07c160", sendInk:"#ffffff", sendRadius:"4px" });
   // LINE：亮绿自己、白对方，底偏蓝灰，气泡很圆、也带尖角
   const LINE_CSS = chatSkinCSS({ bg:"#d7e0ea", head:"#d7e0ea", line:"#b9c6d4", headInk:"#1f1f1f",
-    timeBg:"rgba(0,0,0,.28)", timeInk:"#ffffff", timeRadius:"999px", avatar:"999px", radius:"18px", shadow:"none",
+    timeBg:"rgba(0,0,0,.28)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 10px", avatar:"999px", radius:"18px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
-    tail:true, gap:5, footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px" });
+    tail:true, gap:5, rowGap:9, card:"16px", photo:"16px",
+    footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px", send:"#06c755", sendInk:"#ffffff", sendRadius:"999px" });
   // Telegram：自己那侧淡到几乎白的青绿，圆角中等，没有尖角，气泡有一点点浮起
   const TELEGRAM_CSS = chatSkinCSS({ bg:"#e6ebee", head:"#ffffff", line:"#dfe4e7", headInk:"#0f1419",
-    timeBg:"rgba(0,0,0,.22)", timeInk:"#ffffff", timeRadius:"999px", avatar:"999px", radius:"12px",
+    timeBg:"rgba(0,0,0,.22)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 10px", avatar:"999px", radius:"12px",
     shadow:"0 1px 2px rgba(16,35,47,.08)",
     theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#eeffde", myInk:"#0f1419",
-    tail:false, gap:4, footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"14px" });
+    tail:false, gap:4, rowGap:9, card:"10px", photo:"10px",
+    footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"14px", send:"transparent", sendInk:"#3390ec", sendRadius:"999px" });
   // WhatsApp：认得出的那个米底，浅绿自己、白对方，带尖角
   const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21",
-    timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", avatar:"999px", radius:"8px",
+    timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", timePad:"5px 11px", avatar:"999px", radius:"8px",
     shadow:"0 1px 1px rgba(11,20,26,.13)",
     theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
-    tail:true, gap:4, footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"10px" });
+    tail:true, gap:4, rowGap:9, card:"8px", photo:"7px",
+    footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"10px", send:"#00a884", sendInk:"#ffffff", sendRadius:"999px" });
   // Insta DM：白底、气泡特别圆、自己那侧紫蓝渐变白字，没有尖角
   const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111",
-    timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", avatar:"999px", radius:"22px", shadow:"none",
+    timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", timePad:"0", avatar:"999px", radius:"22px", shadow:"none",
     theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
-    tail:false, gap:3, footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px" })
+    tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
+    footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", send:"transparent", sendInk:"#0095f6", sendRadius:"999px" })
     + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
     ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]];
