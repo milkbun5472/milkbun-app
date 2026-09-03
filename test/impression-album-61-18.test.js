@@ -44,3 +44,23 @@ test("叠得多厚＝攒了几个月，不是纯装饰", () => {
   assert.ok(src.indexOf("Math.random()") < 0 || src.indexOf("Math.random().toString(36)") >= 0,
     "别用随机角度，页面会抖");
 });
+
+test("台面一直铺到最顶上，顶栏也坐在卡纸上", () => {
+  // 她 2026-09-03：「这背景没延伸到顶部啊」——原来只有正文那块是卡纸，
+  // 顶栏还留在主题米白上，看着像相册上面压了一条白边。
+  const i = src.indexOf("wrap: {");
+  const wrap = src.slice(i, i + 320);
+  assert.ok(wrap.indexOf("MOUNT") >= 0, "S.wrap 没铺台面色");
+  assert.ok(wrap.indexOf("background: t.bg }") < 0, "S.wrap 又退回主题底色了");
+  // 顶栏自己不许再画一条主题色分隔线，字也得是浅的（深台面上深字＝看不见）
+  const j = src.indexOf("const header = ");
+  const head = src.slice(j, j + 620);
+  assert.ok(head.indexOf('borderBottom: "1px solid " + t.line') < 0, "顶栏还带着主题色分隔线");
+  assert.ok(head.indexOf("rgba(243,236,224,.95)") >= 0, "顶栏标题不是浅色");
+  // 正文那块不再自己铺一次底，免得两层叠出色差
+  assert.match(src, /const pageStyle = \{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px" \};/);
+});
+
+test("单张卡片也压相角，和珍藏册是同一本册子里的东西", () => {
+  assert.match(src, /corners\(22\),/);
+});

@@ -350,13 +350,55 @@
       .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
       .map(x => ({ title: x.title, tags: x.tags, quote: x.quote }));
 
-    const S = {
-      wrap: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg },
-      btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", color: on ? "#fff" : t.ink, fontFamily: F_BODY, fontSize: 12 })
+    // ---- 相册那套零件（v61.18，她 2026-09-03：「首页和进去角色页面都还是很普通」）----
+    // 判据照旧：这套形状搬到别的功能上还成立吗？不成立才对。
+    // 月度印象在现实里是【一本按月贴的剪影相册】——所以列表不是网格，是相册内页：
+    // 深色卡纸台面上贴着一张张相纸，四角用相角压住，每张微微歪一点（人手贴的从来不齐），
+    // 底下手写月份。空的那格是还没贴上去的相角位，不是一个虚线按钮。
+    const MOUNT = "rgba(28,24,20,.90)";          // 卡纸台面（相册内页那块深色底）
+    const PAPER = "#f3ece0";                     // 相纸白边
+    // 每张歪的角度由序号定死：随机的话每次重画都在动，像页面在抖
+    const tilt = i => [-1.6, 1.1, -0.7, 1.8, -1.2, .6][i % 6];
+    // 相角：压在相片四角上的那个三角形纸角。⚠️别用「转 45 度的方块」——那样四个角
+    //   会从相纸外面支出去，看着是四颗黑菱形，不是相角。用 clipPath 切出真三角，
+    //   而且贴在【相片里面】的角上，才是相角压住照片的样子。
+    const CLIP = { tl: "polygon(0 0,100% 0,0 100%)", tr: "polygon(100% 0,100% 100%,0 0)",
+      bl: "polygon(0 0,0 100%,100% 100%)", br: "polygon(100% 0,100% 100%,0 100%)" };
+    const corner = (pos, size) => {
+      const st = { position: "absolute", width: size, height: size, clipPath: CLIP[pos],
+        background: "linear-gradient(135deg,rgba(58,49,39,.95),rgba(30,25,20,.86))", pointerEvents: "none" };
+      st[pos[0] === "t" ? "top" : "bottom"] = 0;
+      st[pos[1] === "l" ? "left" : "right"] = 0;
+      return h("div", { key: pos, style: st });
     };
-    const header = (title, right) => h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: back, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
-      h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, title), right || null);
+    const corners = size => ["tl", "tr", "bl", "br"].map(x => corner(x, size));
+    // 一张贴在卡纸上的相纸
+    const plate = (opts, inner) => h("div", { style: Object.assign({ position: "relative", background: PAPER,
+      padding: opts.edge == null ? 6 : opts.edge, boxShadow: "0 7px 18px rgba(0,0,0,.38)",
+      transform: "rotate(" + (opts.deg || 0) + "deg)" }, opts.style || {}) },
+      h("div", { style: { position: "relative", width: "100%", aspectRatio: opts.ratio || "3 / 4",
+        overflow: "hidden", background: "rgba(20,17,14,.30)" } }, inner, corners(opts.corner || 18)));
+    // 相册内页：深色卡纸 + 一点点纸纹（两道极淡的斜光，不是纯色块）
+    // 底已经由 S.wrap 一路铺到顶了，这儿只管留白
+    const pageStyle = { flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px" };
+    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: "rgba(243,236,224,.92)",
+      letterSpacing: ".04em" };
+    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.45)", lineHeight: 1.85 };
+
+    const S = {
+      // ⚠️台面要一直铺到最顶上（她 2026-09-03：「这背景没延伸到顶部啊」）：
+      //   原来只有正文那块是卡纸，顶栏还留在主题米白上，看着像相册上面压了一条白边。
+      //   相册就是一整块台面，顶栏只是浮在它上面的一行字。
+      wrap: { position: "relative", height: "100%", display: "flex", flexDirection: "column",
+        background: MOUNT + " linear-gradient(146deg,rgba(255,255,255,.055),transparent 42%,rgba(0,0,0,.16))",
+        backgroundBlendMode: "overlay" },
+      btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : "rgba(243,236,224,.34)"),
+        background: on ? t.accent : "transparent", color: on ? "#fff" : "rgba(243,236,224,.9)", fontFamily: F_BODY, fontSize: 12 })
+    };
+    const header = (title, right) => h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid rgba(243,236,224,.13)" } },
+      h("button", { onClick: back, style: { background: "none", border: "none", color: "rgba(243,236,224,.92)", fontSize: 19, padding: "2px 6px" } }, "←"),
+      h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: "rgba(243,236,224,.95)" } }, title), right || null);
     function back() {
       if (cardId) return setCardId(null);
       if (curChar) return setCurChar(null);
@@ -487,11 +529,13 @@
       const c = (props.characters || []).find(x => x.id === curChar) || {};
       if (!e) { setCardId(null); return null; }
       return h("div", { style: S.wrap }, header(M.monthLabel(e.monthKey)),
-        h("div", { style: { flex: 1, overflowY: "auto", padding: "18px 18px 40px" } },
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 18px 40px" } },
           h("div", { style: { borderRadius: 16, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.10)" } },
             h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: t.bg } },
               e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
                 : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: 20 } }, "还没有剪影"),
+              // 这张也压四个相角，和珍藏册那一页是同一本册子里的东西（v61.22）
+              corners(22),
               // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
               h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
                 (e.tags || []).slice(0, 3).map((tag, i) => {
@@ -519,42 +563,6 @@
             h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
             h("button", { onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
-
-    // ---- 相册那套零件（v61.18，她 2026-09-03：「首页和进去角色页面都还是很普通」）----
-    // 判据照旧：这套形状搬到别的功能上还成立吗？不成立才对。
-    // 月度印象在现实里是【一本按月贴的剪影相册】——所以列表不是网格，是相册内页：
-    // 深色卡纸台面上贴着一张张相纸，四角用相角压住，每张微微歪一点（人手贴的从来不齐），
-    // 底下手写月份。空的那格是还没贴上去的相角位，不是一个虚线按钮。
-    const MOUNT = "rgba(28,24,20,.90)";          // 卡纸台面（相册内页那块深色底）
-    const PAPER = "#f3ece0";                     // 相纸白边
-    // 每张歪的角度由序号定死：随机的话每次重画都在动，像页面在抖
-    const tilt = i => [-1.6, 1.1, -0.7, 1.8, -1.2, .6][i % 6];
-    // 相角：压在相片四角上的那个三角形纸角。⚠️别用「转 45 度的方块」——那样四个角
-    //   会从相纸外面支出去，看着是四颗黑菱形，不是相角。用 clipPath 切出真三角，
-    //   而且贴在【相片里面】的角上，才是相角压住照片的样子。
-    const CLIP = { tl: "polygon(0 0,100% 0,0 100%)", tr: "polygon(100% 0,100% 100%,0 0)",
-      bl: "polygon(0 0,0 100%,100% 100%)", br: "polygon(100% 0,100% 100%,0 100%)" };
-    const corner = (pos, size) => {
-      const st = { position: "absolute", width: size, height: size, clipPath: CLIP[pos],
-        background: "linear-gradient(135deg,rgba(58,49,39,.95),rgba(30,25,20,.86))", pointerEvents: "none" };
-      st[pos[0] === "t" ? "top" : "bottom"] = 0;
-      st[pos[1] === "l" ? "left" : "right"] = 0;
-      return h("div", { key: pos, style: st });
-    };
-    const corners = size => ["tl", "tr", "bl", "br"].map(x => corner(x, size));
-    // 一张贴在卡纸上的相纸
-    const plate = (opts, inner) => h("div", { style: Object.assign({ position: "relative", background: PAPER,
-      padding: opts.edge == null ? 6 : opts.edge, boxShadow: "0 7px 18px rgba(0,0,0,.38)",
-      transform: "rotate(" + (opts.deg || 0) + "deg)" }, opts.style || {}) },
-      h("div", { style: { position: "relative", width: "100%", aspectRatio: opts.ratio || "3 / 4",
-        overflow: "hidden", background: "rgba(20,17,14,.30)" } }, inner, corners(opts.corner || 18)));
-    // 相册内页：深色卡纸 + 一点点纸纹（两道极淡的斜光，不是纯色块）
-    const pageStyle = { flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px",
-      background: MOUNT + " linear-gradient(146deg,rgba(255,255,255,.055),transparent 42%,rgba(0,0,0,.16))",
-      backgroundBlendMode: "overlay" };
-    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: "rgba(243,236,224,.92)",
-      letterSpacing: ".04em" };
-    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.45)", lineHeight: 1.85 };
 
     // ---- 某个角色的珍藏册：一本按月贴的相册 ----
     if (curChar) {
