@@ -1514,6 +1514,15 @@ const LORE_SCOPE_UI = [
   ["social", "公开世界", "朋友圈、论坛与周刊"],
   ["debate", "擂台"].concat(["辩论与裁决"])
 ];
+// 每个去向一个字的印记（她 2026-09-03：「codex 重新做了一版世界书变得好平淡」）。
+// 那一版是一张通用的索引页：编号 + 标题 + 摘要 + 一行「去往：A / B / C」，
+// 原样搬到任何一个后台管理界面都成立。
+// 这一版拿这个 app 真正独有的那件事当骨架：一条设定要【盖够章】才送得出去——
+// 八个去向就是八个格子，去的那几处盖上章。顶上的筛选和每一条身上的，是同一排格子，
+// 所以那一排既是筛选器、也是这些印记的对照表。
+const LORE_STAMP = { chat: "聊", subjects: "机", lifestyle: "生", diary: "记", study: "读", creative: "创", social: "世", debate: "擂" };
+// 筛选那一排底下的名字要一行放得下（「聊天与线下」换行会把整排顶歪），列表里仍用全名
+const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: "生活", diary: "日记", study: "共读", creative: "创作", social: "公开", debate: "擂台" };
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
@@ -1536,24 +1545,48 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
     if (!q) return true;
     return [e.title, e.payload, e.keyword, e.category, charNames(e.charIds).join(" ")].join(" ").toLowerCase().includes(q);
   }).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0));
+  // 一排章：去的那几处盖上，没去的留着空格。全没盖＝这条根本发不出去，整排转红
+  const stampRow = e => {
+    const none = !LORE_SCOPE_UI.some(x => loreScopeEnabled(e, x[0]));
+    return h("div", { style: { display: "flex", gap: 3, flexWrap: "wrap" } },
+      LORE_SCOPE_UI.map(x => {
+        const on = loreScopeEnabled(e, x[0]);
+        return h("span", { key: x[0], title: x[1],
+          style: { width: 17, height: 17, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: F_BODY, fontSize: 10, lineHeight: 1,
+            color: on ? t.bg : (none ? t.accent : t.fog),
+            background: on ? t.ink : "transparent",
+            border: "1px solid " + (on ? t.ink : (none ? t.accent + "66" : t.line)),
+            opacity: on ? 1 : (none ? 1 : .7) } }, LORE_STAMP[x[0]] || "?");
+      }),
+      none ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, alignSelf: "center", marginLeft: 4 } }, "一处也没盖 · 发不出去") : null);
+  };
   const card = (e, i) => {
     const off = e.enabled === false;
-    const people = charNames(e.charIds);
-    const scopes = loreScopeNames(e);
-    const trigger = e.alwaysOn || !String(e.keyword || "").trim() ? "常驻" : (e.regex ? "正则触发" : "关键词触发");
-    return h("article", { key: e.id, style: { borderTop: "1px solid " + t.line, opacity: off ? .58 : 1 } },
-      h("div", { style: { display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 42px", gap: 10, alignItems: "start", padding: "16px 0" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, paddingTop: 4 } }, String(i + 1).padStart(2, "0")),
+    const people = (e.charIds || []).map(id => (characters || []).find(x => x.id === id)).filter(Boolean);
+    const kw = String(e.keyword || "").trim();
+    const always = e.alwaysOn || !kw;
+    return h("article", { key: e.id, style: { borderTop: "1px solid " + t.line, opacity: off ? .5 : 1 } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 42px", gap: 10, alignItems: "start", padding: "15px 0 16px" } },
         h("button", { onClick: () => setEditing(e), className: "text-left active:opacity-65", style: { minWidth: 0, background: "transparent", border: "none" } },
-          h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, flexShrink: 0 } }, "P" + (e.priority || 3))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 7, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: "5px 10px", marginTop: 10, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
-            h("span", null, people.length ? "给 " + people.join("、") : "给所有角色"),
-            h("span", null, "· " + trigger),
-            e.category && e.category !== "默认" ? h("span", null, "· " + e.category) : null),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: scopes.length ? t.fog : t.accent, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, scopes.length ? "去往：" + scopes.join(" / ") : "未选择任何去向，不会注入")),
+          // 这一条什么时候会翻出来：常驻是一枚夹在书里的签，关键词就把那个词本身写出来
+          h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } },
+            always
+              ? h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: 10, color: t.ink } },
+                  h("span", { style: { width: 7, height: 12, background: t.ink, clipPath: "polygon(0 0,100% 0,100% 100%,50% 74%,0 100%)", display: "inline-block" } }), "常驻")
+              : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", maxWidth: 168, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  (e.regex ? "/" + kw + "/" : "「" + kw + "」") + " 才翻出来"),
+            e.category && e.category !== "默认" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, e.category) : null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginLeft: "auto" } }, "P" + (e.priority || 3))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
+          // 给谁看：这个 app 里「谁」是有脸的，别写成一串名字
+          h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginTop: 10, flexWrap: "wrap" } },
+            people.length
+              ? h("div", { style: { display: "flex", alignItems: "center" } }, people.slice(0, 4).map((c, ix) => h("div", { key: c.id, style: { marginLeft: ix ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 1.5px " + t.bg } }, h(Avatar, { character: c, size: 19, radius: 999 }))),
+                  people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
+              : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "所有角色"),
+            h("span", { style: { marginLeft: "auto" } }, stampRow(e)))),
         h("button", { onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
@@ -1561,24 +1594,31 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     h("div", { className: "shrink-0 px-4 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg } },
       h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { textAlign: "center" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "世界书"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, marginTop: 2 } }, "LORE INDEX")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "世界书"),
       h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IPlus, { size: 20, color: t.ink }))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
-      h("section", { style: { padding: "20px 0 17px", borderBottom: "1px solid " + t.line } },
-        h("div", { style: { display: "grid", gridTemplateColumns: "1fr auto", gap: 18, alignItems: "end" } },
-          h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.17em", color: t.fog } }, "INJECTION MAP"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: t.ink, marginTop: 6 } }, "设定只去该去的地方")),
-          h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
-            h("div", null, enabledN + " 条启用"), h("div", null, constantN + " 条常驻"))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, marginTop: 10 } }, "每条都要同时通过角色、触发条件和去向三道门。没有命中的词条不会占上下文。")),
-      h("section", { style: { padding: "15px 0 13px", borderBottom: "1px solid " + t.line } },
-        h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜索标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, padding: "11px 12px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
-        h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingTop: 11 } },
-          [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => h("button", { key: x[0], onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + (scopeFilter === x[0] ? t.ink : t.line), background: scopeFilter === x[0] ? t.ink : "transparent", color: scopeFilter === x[0] ? t.bg : t.sub, padding: "7px 10px", fontFamily: F_BODY, fontSize: 11 } }, x[1]))),
-        h("div", { style: { display: "flex", gap: 14, marginTop: 11 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
+      // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
+      // 只留一句说清这本书怎么用，和两个真的数
+      h("section", { style: { padding: "14px 0 13px", borderBottom: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
+          "一条设定要盖够章才送得出去：给谁看、什么时候翻出来、去哪几处，三样都对上才会进上下文。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻")),
+      // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
+      h("section", { style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
+        h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
+        h("div", { style: { display: "flex", gap: 9, overflowX: "auto", paddingTop: 12, WebkitOverflowScrolling: "touch" } },
+          [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => {
+            const on = scopeFilter === x[0];
+            const ch = x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?");
+            const zh = x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]);
+            return h("button", { key: x[0], onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0",
+              style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
+              h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
+                background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, ch),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", color: on ? t.ink : t.fog } }, zh));
+          })),
+        h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
       h("div", { style: { paddingBottom: 12 } },
         shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),

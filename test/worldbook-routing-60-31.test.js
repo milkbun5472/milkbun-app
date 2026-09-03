@@ -58,8 +58,12 @@ assert.equal(routing.loreEntryState(triggered, { scope: "study", text: "讲讲�
 
 const scopeKeys = ["chat", "subjects", "lifestyle", "diary", "study", "creative", "social", "debate"];
 for (const key of scopeKeys) assert.match(screens, new RegExp('\\["' + key + '",'), "UI 缺少去向：" + key);
-assert.match(screens, /设定只去该去的地方/, "世界书首页应明确表达路由心智模型");
-assert.match(screens, /角色、触发条件和去向三道门/, "世界书首页应解释三道筛选门");
+// ⚠这两条冻的是【首页有没有把那三道门说清楚】，不是那两句话的原文——
+// v60.87 把首页重做了（她说上一版「好平淡」），文案跟着换了，但三道门一句没少。
+// 冻长相的写法会让「改得更好」和「改坏了」一样红。
+const wbSeg = screens.slice(screens.indexOf("function WorldBook({ entries"), screens.indexOf("function WorldBookEntrySheet("));
+["给谁", "什么时候", "去哪"].forEach(k => assert.ok(wbSeg.includes(k), "世界书首页没说清这一道门：" + k));
+assert.match(wbSeg, /进上下文|才会注入|送得出去/, "世界书首页要说清没过门就不会被送出去");
 assert.doesNotMatch(screens, /群像注入/, "新 UI 不应继续暴露从未生效的旧开关名");
 assert.match(screens, /flex-1 min-h-0 overflow-y-auto px-5/, "世界书应只有一个主滚动区");
 
