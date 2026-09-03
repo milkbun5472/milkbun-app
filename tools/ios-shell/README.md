@@ -23,6 +23,27 @@
 **插上手机，打开这个工程，按一次 ▶ Run。** 完事。
 （不用改任何代码；日历上排个每周提醒最省心。）
 
+### 弹「不受信任的开发者」怎么办
+
+> 你的设备管理设置不允许在这台 iPhone 上使用开发者
+> "Apple Development: hyodorisa@gmail.com (…)" 的 App。
+
+**设置 → 通用 → VPN与设备管理 → 「开发者App」那一栏
+→ `Apple Development: hyodorisa@gmail.com` → 信任。**
+
+（英文系统：Settings → General → VPN & Device Management → Developer App）
+
+⚠️ 两个会卡住的地方：
+
+- **手机必须联网。** iOS 要连 Apple 的服务器验一次证书才肯让你按「信任」。
+  没网的话那一栏可能压根不出现，或者点下去转圈然后失败。
+- **那一栏是空的** = 这次 Run 其实没装上去。回 Xcode 看报错，
+  装成功了才会有这一条。
+
+⚠️ 这一步**每次换了证书都要重来一遍**（比如换了 Apple ID、
+改了 Bundle Identifier、或者证书过期后系统重新签了一张）。
+平常只按 ▶ Run 续签是不会再弹的——弹了就说明证书换了张新的。
+
 ## 说清楚的边界
 
 - **能得到**：全屏无 Safari 边框、独立图标进程、锁屏推送仍走站内已有的 Web Push、
