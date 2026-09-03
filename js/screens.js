@@ -4906,7 +4906,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                 fav.map(cvPlRow)) : null; })(),
             // 最近播放：原来藏在「发现」的第四个药丸里，可它答的是「我听过什么」——是我的东西。
             h(Eyebrow, { style: { marginTop: 16, marginBottom: 2 } }, "最近播放"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "含在这儿听的——每次播放都会登记进你账号的听歌记录"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "你网易云账号的听歌记录——在这儿听的也会登记进去。这是「听过什么」，不是「存了什么」"),
             cv.recent
               ? (cv.recent.length ? cv.recent.slice(0, 15).map(s2 => cloudRow(s2))
                  : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0", textAlign: "center" } }, "没有最近播放"))
@@ -4934,11 +4934,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             plCharPick
               ? h("div", { className: "flex flex-wrap gap-2" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPlCharPick(false); onGenCharPlaylist(c); }, className: "active:opacity-70 flex items-center gap-1.5", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 10px 5px 5px" } }, h(Avatar, { character: c, size: 24, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.name))))
               : h("button", { onClick: () => setPlCharPick(true), disabled: !!genCharPl, className: "w-full active:opacity-70 disabled:opacity-50", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "9px", borderRadius: 10 } }, genCharPl ? "生成中…" : "选一个角色生成")),
-          // 全部歌曲（从「曲库」搬来）：这里删歌只影响「全部」，不动歌单
-          songs.length ? h("div", { style: { marginTop: 16 } },
-            h(Eyebrow, { style: { marginBottom: 8 } }, "全部 · " + songs.length),
-            h("div", { className: "space-y-2" }, songs.map(s2 => songRow(s2, { canRename: true })))) : null,
-          // 已有歌单列表
+          // 已有歌单列表（角色生成的歌单也在这儿）
           playlists.length ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "歌单 · " + playlists.length),
             h("div", { className: "space-y-2" }, playlists.map(pl => { const ch = pl.charId ? (characters || []).find(c => c.id === pl.charId) : null; const q = (pl.songs || []).map(s => s.id); return h("div", { key: pl.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "10px 12px" } },
@@ -4946,7 +4942,18 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
               h("button", { onClick: () => setOpenPl(pl.id), className: "flex-1 min-w-0 text-left active:opacity-70" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (pl.songs || []).length + " 首" + (ch ? " · " + ch.name : ""))),
-              h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 16))); }))) : null));
+              h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 16))); }))) : null,
+          // ⚠️「存在这儿的」必须排在歌单列表【后面】：它动辄几十首，插在前面就把
+          //   角色生成的那几个歌单挤到翻不到的地方（她 2026-09-03 报的正是这个，
+          //   v61.42 是我插错了位置）。最长的那一段永远垫底。
+          songs.length ? h("div", { style: { marginTop: 18 } },
+            h(Eyebrow, { style: { marginBottom: 2 } }, "存在这儿的 · " + songs.length),
+            // ⚠️它跟上面的「最近播放」不是一回事，得说清楚，不然两栏看着一样
+            //  （她 2026-09-03：「这个最近播放和下面的全部有啥区别」）：
+            //   最近播放＝你听过什么（网易云账号的记录）；这一栏＝你在这儿存了什么。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } },
+              "咱家歌库里存着的歌——跟网易云账号没关系，在这儿删只影响这一栏，不动任何歌单"),
+            h("div", { className: "space-y-2" }, songs.map(s2 => songRow(s2, { canRename: true })))) : null));
 
   // 底部导航
   const navBtn = (k, label, iconEl) => h("button", { onClick: () => setNav(k), className: "flex-1 flex flex-col items-center gap-1 active:opacity-70 py-2", style: { color: nav === k ? t.ink : t.fog } }, iconEl, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label));
@@ -5150,31 +5157,29 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                   cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
                 (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
 
-  // ── 底：一箱唱片的木台面（v61.43，她 2026-09-03：「都还是米白的」）──────
-  // 这个 app 在现实里是什么？播放页早就画着一张真的碟，分栏是唱片架里的分隔卡——
-  // 那整页就该是【碟和分隔卡待着的那个地方】：一块木台面。原来碟浮在一片米白上，
-  // 等于把唱机摆在一张白纸上。
-  // ⚠️底纹铺在【最外面这个外壳】上、Head 传 bg:"transparent"（mobile-ui-layout.md §3.5）；
-  //   铺在滚动区上的话顶栏那条会是平色，顶上横一道没盖住的带子。
-  // ⚠️不挂 backgroundAttachment:"local"——内容在动，木头不该跟着动。
-  // ⚠️自定义/深色主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失；
-  //   验不过就退回纯色（跟小游戏那个柜子同一个写法）。
+  // ── 底：唱片自己的那圈纹（v61.44）──────────────────────────────
+  // v61.43 我做成了木台面，她 2026-09-03：「这个木头出现率是不是有点高了最近」——
+  // 是真的：小游戏那架柜子已经是木头了，再来一块木头，两页就成了同一个材质。
+  // 判据还是那句「原样搬到别的 app 里还成立吗」：木纹搬去哪儿都成立，所以它不说明
+  // 这是什么东西；**唱片的同心纹只有音乐这一处成立**。
+  // 圆心放在碟真正待的位置（播放页那张碟的圆心），整页就是那张碟放大之后荡出去的纹。
+  // ⚠️底纹铺在【最外面这个外壳】上、Head 传 bg:"transparent"（mobile-ui-layout.md §3.5）。
+  // ⚠️不挂 backgroundAttachment:"local"——内容在动，碟不该跟着动。
+  // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
+  //   整层静默消失；两个都验，验不过退回纯色。
   const hex6 = v => /^#[0-9a-f]{6}$/i.test(String(v || ""));
   const crate = !(hex6(t.ink) && hex6(t.accent)) ? { background: t.bg } : {
     backgroundColor: t.bg,
     backgroundImage: [
-      // ⚠️木头的【暖】只能来自 t.accent（默认 #c25a4a 那个赭色）——
-      //   拿 t.ink 叠出来的是灰调条纹，那不是木头，是瓦楞纸。
-      //   用 accent 而不是硬写一个棕：换主题它跟着换，冷色主题下就是那个主题的材质。
-      "linear-gradient(180deg," + t.accent + "2e 0%," + t.accent + "1c 100%)",
-      // 箱盖投下来的那道影：只压顶上一条，让顶栏坐进箱子里而不是浮在外面
-      "linear-gradient(180deg," + t.ink + "3d 0px," + t.ink + "1a 54px," + t.ink + "12 130px," + t.ink + "12 100%)",
-      // 竖着的木纹——唱片是竖着插在箱里的，纹路跟着竖。宽窄不齐才像木头，
-      // 等宽等距那是瓦楞纸。
-      "repeating-linear-gradient(90deg," + t.ink + "00 0px," + t.ink + "00 13px," + t.ink + "1c 13px," + t.ink + "1c 14px)",
-      "repeating-linear-gradient(90deg," + t.ink + "00 0px," + t.ink + "00 37px," + t.ink + "13 37px," + t.ink + "13 40px)",
-      "repeating-linear-gradient(90deg," + t.ink + "00 0px," + t.ink + "00 71px," + t.ink + "0e 71px," + t.ink + "0e 75px)",
-      "repeating-linear-gradient(90deg," + t.ink + "00 0px," + t.ink + "00 103px," + t.ink + "17 103px," + t.ink + "17 105px)"
+      // 中心那圈亮：碟面反的光，从圆心往外淡出去
+      "radial-gradient(circle at 50% 240px," + t.accent + "1f 0%," + t.accent + "10 38%,transparent 72%)",
+      // 沟纹：一圈一圈的细线。⚠️间距不能等宽——真唱片外圈疏、里圈密，
+      //   一套等距同心圆看着像靶子。所以叠三套疏密不同的。
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "0d 5px," + t.ink + "0d 6px)",
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "08 22px," + t.ink + "08 24px)",
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "0b 57px," + t.ink + "0b 59px)",
+      // 四角压暗：碟离得越远越暗，页面才不是一张平纸
+      "radial-gradient(circle at 50% 240px,transparent 40%," + t.ink + "14 100%)"
     ].join(",")
   };
   return h("div", { className: "h-full flex flex-col relative", style: crate },
