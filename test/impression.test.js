@@ -209,8 +209,11 @@ test("文案与剪影能分开重来，且不给整张重刷的误触入口", ()
     "只重写文案的那条路绝不能碰出图");
   assert.match(imp, /"只重写文案"/);
   assert.match(imp, /"只重出剪影"/);
-  // 已写过的月份不给整张重来（那会连剪影一起白刷一次）
-  assert.match(imp, /hasThis \? props\.toast\("点进那张卡片，可以只重写文案或只重出剪影"\) : make\(curChar, openMonth\)/);
+  // 已写过的月份不给整张重来（那会连剪影一起白刷一次）。
+  // v61.18 改成相册版式之后，做法从「按钮变成一句提示」换成了【那一格根本不出现】——
+  // 相片已经贴在这一页上了，再摆一个空相角位是自己骗自己。要换东西请点那张相片。
+  assert.match(imp, /const emptySlot = hasThis \? null :/);
+  assert.ok(imp.indexOf("onClick: () => make(curChar, openMonth)") > 0, "没写过的那个月还得能点着写");
 });
 
 // v54.06：两张卡是同一个骨架（我推演了…→她一句话→我的逻辑全部破产），
@@ -342,7 +345,7 @@ test("归档一个角色只拉一次，并且封闭群不拉", () => {
 
 test("界面上要分开报本地与云端的条数", () => {
   assert.match(imp, /"（记录共 " \+ b\.chatAll \+ " 条：本地 " \+ b\.local \+ " · 云端归档 " \+ b\.cloud \+ "）"/);
-  assert.match(imp, /if \(arching && !archs\[curChar\]\) return h\("div", \{ style: \{ marginTop: 4 \} \}, "正在拉云端归档…"\);/);
+  assert.match(imp, /if \(arching && !archs\[curChar\]\) return h\("div", \{ style: footNote \}, "正在拉云端归档…"\);/);
   assert.match(imp, /if \(!archs\[curChar\] && !arching\) ensureArch\(curChar\);/, "进页面就拉，不然那行数字继续误导");
 });
 

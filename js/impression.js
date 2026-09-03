@@ -520,7 +520,43 @@
             h("button", { onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
 
-    // ---- 某个角色的珍藏册 ----
+    // ---- 相册那套零件（v61.18，她 2026-09-03：「首页和进去角色页面都还是很普通」）----
+    // 判据照旧：这套形状搬到别的功能上还成立吗？不成立才对。
+    // 月度印象在现实里是【一本按月贴的剪影相册】——所以列表不是网格，是相册内页：
+    // 深色卡纸台面上贴着一张张相纸，四角用相角压住，每张微微歪一点（人手贴的从来不齐），
+    // 底下手写月份。空的那格是还没贴上去的相角位，不是一个虚线按钮。
+    const MOUNT = "rgba(28,24,20,.90)";          // 卡纸台面（相册内页那块深色底）
+    const PAPER = "#f3ece0";                     // 相纸白边
+    // 每张歪的角度由序号定死：随机的话每次重画都在动，像页面在抖
+    const tilt = i => [-1.6, 1.1, -0.7, 1.8, -1.2, .6][i % 6];
+    // 相角：压在相片四角上的那个三角形纸角。⚠️别用「转 45 度的方块」——那样四个角
+    //   会从相纸外面支出去，看着是四颗黑菱形，不是相角。用 clipPath 切出真三角，
+    //   而且贴在【相片里面】的角上，才是相角压住照片的样子。
+    const CLIP = { tl: "polygon(0 0,100% 0,0 100%)", tr: "polygon(100% 0,100% 100%,0 0)",
+      bl: "polygon(0 0,0 100%,100% 100%)", br: "polygon(100% 0,100% 100%,0 100%)" };
+    const corner = (pos, size) => {
+      const st = { position: "absolute", width: size, height: size, clipPath: CLIP[pos],
+        background: "linear-gradient(135deg,rgba(58,49,39,.95),rgba(30,25,20,.86))", pointerEvents: "none" };
+      st[pos[0] === "t" ? "top" : "bottom"] = 0;
+      st[pos[1] === "l" ? "left" : "right"] = 0;
+      return h("div", { key: pos, style: st });
+    };
+    const corners = size => ["tl", "tr", "bl", "br"].map(x => corner(x, size));
+    // 一张贴在卡纸上的相纸
+    const plate = (opts, inner) => h("div", { style: Object.assign({ position: "relative", background: PAPER,
+      padding: opts.edge == null ? 6 : opts.edge, boxShadow: "0 7px 18px rgba(0,0,0,.38)",
+      transform: "rotate(" + (opts.deg || 0) + "deg)" }, opts.style || {}) },
+      h("div", { style: { position: "relative", width: "100%", aspectRatio: opts.ratio || "3 / 4",
+        overflow: "hidden", background: "rgba(20,17,14,.30)" } }, inner, corners(opts.corner || 18)));
+    // 相册内页：深色卡纸 + 一点点纸纹（两道极淡的斜光，不是纯色块）
+    const pageStyle = { flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px",
+      background: MOUNT + " linear-gradient(146deg,rgba(255,255,255,.055),transparent 42%,rgba(0,0,0,.16))",
+      backgroundBlendMode: "overlay" };
+    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: "rgba(243,236,224,.92)",
+      letterSpacing: ".04em" };
+    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.45)", lineHeight: 1.85 };
+
+    // ---- 某个角色的珍藏册：一本按月贴的相册 ----
     if (curChar) {
       const c = (props.characters || []).find(x => x.id === curChar) || {};
       // 一进来就把云端归档拉好：不然那行素材统计报的是本地窗口的数，等于继续误导
@@ -530,61 +566,89 @@
       const openMonth = M.latestWritable();
       const hasThis = mine.some(x => x.monthKey === openMonth);
       const openAt = new Date(M.nextOpenAt());
+      // 空相角位：这个月还没贴上去的那一格。它长得就是「一张相片该在的地方」，
+      // 不是一个虚线按钮——按钮换个功能照样成立，这一格不行。
+      // 已经贴上去的月份不再多摆一个空位——那张相片就在这一页上，摆两次等于自己骗自己。
+      const emptySlot = hasThis ? null : h("div", { onClick: () => make(curChar, openMonth),
+        style: { position: "relative", width: "calc((100% - 26px) / 2)", cursor: "pointer" } },
+        h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4",
+          border: "1px dashed rgba(243,236,224,.30)", display: "flex", alignItems: "center", justifyContent: "center",
+          textAlign: "center", padding: 12, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8,
+          color: "rgba(243,236,224,.62)" } },
+          busy ? "在写…" : "贴上 " + M.monthLabel(openMonth) + "的那一张",
+          corners(15)),
+        h("div", { style: Object.assign({}, handLabel, { marginTop: 8, color: "rgba(243,236,224,.55)" }) },
+          M.monthLabel(openMonth)));
       return h("div", { style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
           h("button", { onClick: () => backfill(curChar), disabled: !!busy || !!backfillState, style: S.btn(false) },
             backfillState && backfillState.charId === curChar
               ? (backfillState.phase === "scan" ? "统计中…" : backfillState.phase === "confirm" ? "待确认…" : "补齐中…") : "补齐")),
-        h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 34px" } },
-          // 已经写过就不给整张重来的入口：那会连剪影一起重刷一遍，白花一次出图。
-          // 想换东西请进卡片，那里能分开「只重写文案」和「只重出剪影」。
-          h("button", { onClick: () => hasThis ? props.toast("点进那张卡片，可以只重写文案或只重出剪影") : make(curChar, openMonth), disabled: !!busy,
-            style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: hasThis ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 4 } },
-            busy ? "在写…" : (hasThis ? M.monthLabel(openMonth) + " 已写过 · 点卡片可单独重写" : "写 " + M.monthLabel(openMonth) + "的印象")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginBottom: 14, lineHeight: 1.7 } },
-            "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。",
-            // 素材数就摆在这儿：写不出来的时候一眼看得出是没素材、还是根本没读到
+        h("div", { style: pageStyle },
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: "26px 26px", alignItems: "flex-start" } },
+            mine.map((e, i) => h("div", { key: e.id, onClick: () => setCardId(e.id),
+              style: { width: "calc((100% - 26px) / 2)" } },
+              plate({ deg: tilt(i), corner: 15 },
+                e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+                  : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: F_BODY, fontSize: 11, color: "rgba(243,236,224,.55)" } }, "只有字")),
+              h("div", { style: Object.assign({}, handLabel, { marginTop: 9 }) }, M.monthLabel(e.monthKey)),
+              // 三个词写成相片底下那行铅笔小字，不是一排药丸
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.55)", marginTop: 2,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                (e.tags || []).slice(0, 3).join(" · ") || e.title || ""))),
+            emptySlot),
+          // 页脚：本月为什么还不能写 + 素材数，压在页面最底下，像相册页边上的铅笔注记
+          h("div", { style: { marginTop: 26, paddingTop: 14, borderTop: "1px solid rgba(243,236,224,.14)" } },
+            h("div", { style: footNote },
+              "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。"),
             (function () {
-              if (arching && !archs[curChar]) return h("div", { style: { marginTop: 4 } }, "正在拉云端归档…");
+              if (arching && !archs[curChar]) return h("div", { style: footNote }, "正在拉云端归档…");
               let b = null;
               try { b = M.materialBreakdown(curChar, c.name, openMonth, uName, props.groups, archOf(curChar)); } catch (e) { return null; }
               const cloudOk = !!archs[curChar];
-              return h("div", { style: { marginTop: 4 } },
+              return h("div", { style: footNote },
                 M.monthLabel(openMonth) + "素材：单聊+线下 " + b.direct + " 条 · 群 " + b.group + " 条",
                 h("br"),
                 "（记录共 " + b.chatAll + " 条：本地 " + b.local + " · 云端归档 " + b.cloud + "）",
                 cloudOk ? null : h("span", null, h("br"), "⚠️云端归档没拉到，只数了本地那 " + b.local + " 条——旧消息都在云上"));
-            })()),
-          mine.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
-            mine.map(e => h("div", { key: e.id, onClick: () => setCardId(e.id), style: { width: "calc((100% - 10px) / 2)" } },
-              h("div", { style: { width: "100%", aspectRatio: "3 / 4", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
-                e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null,
-                h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(transparent, rgba(20,18,16,.78))", color: "#f3ece0", fontFamily: F_BODY, fontSize: 11 } },
-                  (e.tags || []).slice(0, 2).join(" · "))),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5 } }, M.monthLabel(e.monthKey)),
-              e.title ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title) : null)))
-            : h("div", { style: { textAlign: "center", marginTop: 60, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有印象。", h("br"), "写一个月看看，或者点右上角补齐。")));
+            })(),
+            mine.length ? null : h("div", { style: Object.assign({}, footNote, { marginTop: 6 }) },
+              "这本还是空的。写一个月看看，或者点右上角补齐。"))));
     }
 
-    // ---- 头像墙 ----
+    // ---- 头像墙：一摞一摞的相片，谁的厚就是谁攒得多 ----
     return h("div", { style: S.wrap }, header("月度印象"),
-      h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 34px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
-          "每个月，每个人眼里的你长得都不一样。一张剪影、三个词、一句他亲口说的话。"),
-        (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
-          (props.characters || []).map(c => {
+      h("div", { style: pageStyle },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(243,236,224,.62)", lineHeight: 1.9, marginBottom: 20 } },
+          "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句他亲口说的话。"),
+        (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
+          (props.characters || []).map((c, i) => {
             const n = (book[c.id] || []).length;
-            // 珍藏册正文从旧到新铺；头像墙封面仍取最近那张，不能因为展示顺序改了就倒回最老月份。
+            // 珍藏册正文从旧到新铺；封面仍取最近那张，不能因为展示顺序改了就倒回最老月份。
             const cover = listOf(c.id).slice().reverse().find(x => x.img);
-            return h("div", { key: c.id, onClick: () => setCurChar(c.id), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
-              h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
-                cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .5 } }) : null,
-                h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
-                  avatarOf(c, 48))),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, n ? n + " 个月" : "还没有"));
+            // 叠得多厚＝攒了几个月。这一层不是装饰：它把「n 个月」这件事画了出来，
+            // 所以底下那行不必再重复报数，只写名字和月份数就够。
+            const depth = Math.min(3, n);
+            const back = [];
+            for (let k = depth; k >= 1; k--) back.push(h("div", { key: k, style: { position: "absolute",
+              inset: 0, background: PAPER, opacity: .5 + .15 * (depth - k), borderRadius: 1,
+              transform: "rotate(" + (k % 2 ? -1 : 1) * (2.4 + k * 2.2) + "deg) translateY(" + (k * 2.5) + "px)",
+              boxShadow: "0 4px 12px rgba(0,0,0,.3)" } }));
+            return h("div", { key: c.id, onClick: () => setCurChar(c.id),
+              style: { width: "calc((100% - 44px) / 3)", textAlign: "center" } },
+              h("div", { style: { position: "relative" } },
+                back,
+                plate({ deg: tilt(i), corner: 13, ratio: "1 / 1" },
+                  cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
+                  h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
+                    avatarOf(c, 44)))),
+              h("div", { style: Object.assign({}, handLabel, { marginTop: 10, fontSize: 12, overflow: "hidden",
+                textOverflow: "ellipsis", whiteSpace: "nowrap" }) }, c.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(243,236,224,.5)", marginTop: 1 } },
+                n ? n + " 个月" : "还没有"));
           }))
-          : h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有角色。")));
+          : h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: "rgba(243,236,224,.6)" } }, "还没有角色。")));
   }
   window.ImpressionApp = ImpressionApp;
 })();
