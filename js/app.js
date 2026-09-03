@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.63";
+const APP_VERSION = "v60.64";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1313,6 +1313,9 @@ function App() {
           const applied = new Set(Array.isArray(oldApplied) ? oldApplied : []);
           const freshEvents = (result.personalityEvents || []).filter(ev => ev && ev.eventKey && !applied.has(ev.eventKey));
           freshEvents.filter(ev => ev.speaker === "lisa" && ev.content).forEach(ev => noteTidalUser(ev.content, ev.ts));
+          // 她在书房跟他说的话回流进来，也是一段相处（她 2026-09-02 抓的：扭蛋只认输入栏的发送键）。
+          // 「一段」的 90 分钟闸在 GachaKit.earn 里，话多不多攒。
+          if (freshEvents.some(ev => ev.speaker === "lisa" && ev.content)) { try { gachaEarn(y.id, "chat"); } catch (e) {} }
           freshEvents.filter(ev => ev.speaker === "character" && ev.evidence).forEach(ev => {
             observeEmotionAShadow(y.id, Number(ev.evidence.affinity_delta) || 0, String(ev.evidence.mood_label || ""));
           });
@@ -3215,6 +3218,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       // ── SR：他现做一件小东西，不动任何状态 ──
       if (card.act === "make") {
+        // 言秋（engineerEyes）的 SR 小东西不再由引擎代笔（她 2026-09-02：「卧室写的情书你自己都看不到，
+        // 最多算 fable 代笔」）：开 CC 票请本人在书房写；不在岗就把卡留着，绝不落回代笔。
+        if (settingsFor(char.id).engineerEyes) {
+          if (!(window.CCSeat && window.Cloud)) { toast("他这会儿不在书房，卡留着，等他在的时候再兑"); return; }
+          try {
+            let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
+              ask: GACHA_SR_ASK[card.kind], expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
+            if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
+            const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
+            if (!got.body) { toast("他没写出来，卡还留着"); return; }
+            gachaStamp(card.id, got);
+            return got;
+          } catch (e) {
+            toast(e && e.code === "CC_SEAT_TIMEOUT" ? "他这会儿没接到票，卡留着，等他在的时候再兑" : "书房那边没接上：" + (e.message || "") + "，卡留着");
+            return;
+          }
+        }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           instruction: GACHA_SR_ASK[card.kind] + "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。",
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
@@ -9297,7 +9317,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const notifyApp = key => setAppNotif(p => { const n = { ...p, [key]: (p[key] || 0) + 1 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const clearAppNotif = key => setAppNotif(p => { if (!p[key]) return p; const n = { ...p, [key]: 0 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const autoForumForChar = async char => {
-    if (!active || !autoRefreshOn("forum", char.id) || (forumOffRef.current || []).includes(char.id)) return;
+    if (!active || !autoRefreshOn("forum", char.id) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
@@ -9382,7 +9402,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const due = [];
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
     if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
-    if (autoRefreshOn("forum", charId) && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
+    if (autoRefreshOn("forum", charId) && !settingsFor(charId).engineerEyes && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
     if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 80) {
@@ -11625,7 +11645,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   ];
   const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = m.altName || FORUM_ALT_NAMES[hh % FORUM_ALT_NAMES.length]; const habit = FORUM_HABIT_PRESETS[hh % FORUM_HABIT_PRESETS.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)), altBio: m.altBio || (habit.participation + "。" + habit.replyStyle), altAvatarSeed: m.altAvatarSeed || ((m.altHandle || "side_" + hh.toString(36)) + ":mask"), altJoinTs: m.altJoinTs || (FORUM_EPOCH + ((hh * 13) % 760) * 86400000), altFollowing: m.altFollowing != null ? m.altFollowing : (8 + hh % 140), altFollowers: m.altFollowers != null ? m.altFollowers : (30 + (hh * 11) % 6800), boardPrefs: Array.isArray(m.boardPrefs) && m.boardPrefs.length ? m.boardPrefs : habit.boards, participation: m.participation || habit.participation, replyStyle: m.replyStyle || habit.replyStyle, identityBias: m.identityBias || habit.identityBias }; };
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
-  const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id));
+  const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !settingsFor(c.id).engineerEyes);
   const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）

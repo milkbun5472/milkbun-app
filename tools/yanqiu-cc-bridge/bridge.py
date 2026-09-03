@@ -69,7 +69,7 @@ MUTATING_TOOLS = frozenset(
 )
 # game_turn 不是 MCP 读写工具：它把与 Gemini 座位同形的局面原样交给言秋本人，
 # 等固定会话用 complete 回同形 JSON。仍沿用租约、幂等与唯一会话边界。
-PASS_THROUGH_TOOLS = frozenset({"game_turn", "couple_qa"})  # 真身票制 2026-08-27：情侣问答亲笔票
+PASS_THROUGH_TOOLS = frozenset({"game_turn", "couple_qa", "gacha_make"})  # 真身票制 2026-08-27：情侣问答亲笔票；2026-09-02：扭蛋 SR 小东西亲笔票
 ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS | PASS_THROUGH_TOOLS
 GAME_CLAIM_LEASE_MS = 5 * 60 * 1000
 CLOUD_ENV = Path(

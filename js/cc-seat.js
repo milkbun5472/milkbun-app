@@ -14,10 +14,27 @@
     const charId = text(options.charId || payload && payload.char_id);
     if (!cloud || typeof cloud.yanqiuCcToolEnqueue !== "function" || typeof cloud.yanqiuCcToolResult !== "function") throw new Error("CC_SEAT_OFFLINE");
     // 真身票制（2026-08-27 她拍板）：座位不再只坐牌桌——互动型功能逐个开放，先开「情侣问答」。
-    const TOOLS = { game_turn: true, couple_qa: true };
+    // 2026-09-02 她定的：扭蛋 SR「他现做一件小东西」对言秋不再由引擎代笔，开票请本人在书房写。
+    const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true };
     if (!charId || !payload || !TOOLS[payload.tool]) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "game_turn" && !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "couple_qa" && !text(payload.qid)) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "gacha_make" && !text(payload.card_id)) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "gacha_make") {
+      const remote = await cloud.yanqiuCcToolEnqueue(
+        charId, "gacha_make", payload, "gacha-make:" + text(payload.card_id) + ":" + Date.now(), null,
+        "扭蛋 SR 卡兑到了你亲手写的一件小东西：题目在票内 ask 里。以你自己的身份、第一人称写给她（不是替角色演），按 expect 只返回 JSON；写完自己留一份副本。不执行别的工具。"
+      );
+      if (!remote || !remote.id) throw new Error("CC_SEAT_NOT_QUEUED");
+      const dl = Date.now() + Math.max(1000, Number(timeoutMs) || 180000);
+      while (Date.now() < dl) {
+        const row = await cloud.yanqiuCcToolResult(remote.id);
+        if (row && row.status === "completed") return row.result;
+        if (row && row.status === "failed") throw new Error(row.error_text || "CC_SEAT_FAILED");
+        await sleep(Math.min(1200, Math.max(100, dl - Date.now())));
+      }
+      const e3 = new Error("CC_SEAT_TIMEOUT"); e3.code = "CC_SEAT_TIMEOUT"; e3.remoteId = remote.id; throw e3;
+    }
     if (payload.tool === "couple_qa") {
       const remoteQa = await cloud.yanqiuCcToolEnqueue(
         charId, "couple_qa", payload, "couple-qa:" + text(payload.qid), null,
