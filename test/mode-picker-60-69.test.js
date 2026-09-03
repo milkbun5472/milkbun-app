@@ -42,19 +42,26 @@ test("选中不靠右边打个勾：自己上墨、纸色垫起来、左边立�
 });
 
 test("单聊和群聊是同一张单子——不许一处改了另一处没跟上", () => {
-  assert.equal((comp.match(/h\(ModePicker, \{/g) || []).length, 2,
-    "单聊线上 / 群聊线上，两处都得走这一张");
+  // v60.79 起线下那张「切换」也走同一张（单聊线上 / 群聊线上 / 单人线下 / 群线下）
+  assert.equal((comp.match(/h\(ModePicker, \{/g) || []).length, 4,
+    "输入档位那两处、线下切换那两处，四处都得走这一张");
+  assert.equal((comp.match(/head: "你们现在在哪"/g) || []).length, 2, "线下那张换了抬头，但还是同一张单子");
   assert.match(comp, /\["narr", "旁白"/, "单聊那张要有旁白这一档");
   assert.match(comp, /\["chat", "群里说话"/, "群聊那张的第一档是群里说话");
 });
 
 test("顺序按【按下去之后你还在不在这一屏】分两截，不是照着别处那个排法", () => {
   // 她 2026-09-03：「顺序理论上还是一样的吧」——是一样，所以按这条重排。
-  assert.match(pick, /eyebrow\("这一条发进这个聊天"\)/);
-  assert.match(pick, /eyebrow\("或者，换个地方说"\)/);
+  // v60.79 起两句抬头可以换（线下那张叫「你们现在在哪 / 回看」），默认仍是这两句
+  assert.match(pick, /eyebrow\(head \|\| "这一条发进这个聊天"\)/);
+  assert.match(pick, /eyebrow\(tail \|\| "或者，换个地方说"\)/);
+  // 下半截没东西可放时整段不画——别留一条空标题和一道悬空的线
+  assert.match(pick, /const hasTail = \(\(elsewhere \|\| \[\]\)\.length > 0\) \|\| !!children;/);
+  assert.match(pick, /hasTail \? h\("div", \{ style: \{ borderTop/);
   assert.match(pick, /borderTop: "1px solid " \+ t\.line/, "两截之间要有一道分界");
   // 上面那截：发完你还在原地；下面那截：这一屏就没了
-  const one = comp.slice(comp.indexOf("h(ModePicker, {"));
+  // 单聊线上那一处：它是唯一带 narr 的那张
+  const one = comp.slice(comp.indexOf('["narr", "旁白"') - 400);
   const oneModes = one.slice(one.indexOf("modes: ["), one.indexOf("elsewhere:"));
   // ⚠️先确认三档都在，再比先后——少了一档时 indexOf 给 -1，「-1 < 5」照样成立，
   // 那一版变异是绿的（这一条第一次写就栽在这儿）。

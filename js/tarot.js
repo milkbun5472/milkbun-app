@@ -222,6 +222,14 @@
     inner: { zh: "自我", hint: "愿望、盲点与修复" },
     custom: { zh: "我的", hint: "自己保存的牌阵" }
   };
+  // 每一组用【它自己的摊牌形状】当图标（她 2026-09-03 那条：tab 不许只是基础款）。
+  // 一排药丸换个 app 照样成立；这几个点是牌摆在桌上的样子，换个 app 就不成立了。
+  const SPREAD_GLYPH = {
+    basic: [[3, 6], [6, 6], [9, 6]],                    // 一字排开的三张
+    relation: [[3.4, 4.4], [8.6, 4.4], [6, 8.6]],       // 你、Ta，和你们之间那一张
+    inner: [[6, 6], [6, 2.6], [3.1, 8], [8.9, 8]],      // 一张在中间，其余围着它
+    custom: [[4, 6], [8, 6]]                            // 自己写的，先摆两张占位
+  };
   const DEFAULT_SPREAD = { reading: "guide", relation: "love", forchar: "timeline" };
   const CUSTOM_SPREAD_KEY = "x_tarot_custom_spreads";
   function loadCustomSpreads() { return loadJSON(CUSTOM_SPREAD_KEY, []).filter(x => x && x.id && Array.isArray(x.positions)); }
@@ -759,11 +767,17 @@
               style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : SKY_INK, background: on ? ACCENT : SKY_PANEL, border: "1px solid " + (on ? ACCENT : SKY_LINE), borderRadius: 999, padding: "8px 15px" } }, c.name);
           })),
         !m.daily ? h("div", { style: label }, "怎么摊牌") : null,
-        !m.daily ? h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 10, WebkitOverflowScrolling: "touch" } },
+        !m.daily ? h("div", { style: { display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4, marginBottom: 12, WebkitOverflowScrolling: "touch" } },
           Object.keys(SPREAD_GROUPS).filter(g => g !== "custom" || customSpreads.length).map(g => {
             const on = spreadGroup === g, meta = SPREAD_GROUPS[g];
+            // 选中：点亮、点变大、底下一道金线；没选：暗点、小、没有线。
+            // 形状/大小/那道线一起变，不是只换个填色
             return h("button", { key: g, onClick: () => setSpreadGroup(g), className: "active:opacity-70",
-              style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: on ? "#fff" : SKY_DIM, background: on ? ACCENT : SKY_PANEL, border: "1px solid " + (on ? ACCENT : SKY_LINE), borderRadius: 999, padding: "6px 12px" } }, meta.zh);
+              style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "4px 2px 5px", background: "none", border: "none", borderBottom: "1.5px solid " + (on ? GOLD : "transparent") } },
+              h("svg", { width: 22, height: 22, viewBox: "0 0 12 12" },
+                (SPREAD_GLYPH[g] || SPREAD_GLYPH.basic).map((pt, ix) => h("circle", { key: ix, cx: pt[0], cy: pt[1], r: on ? 1.5 : 1.05, fill: on ? GOLD : SKY_MUTE })),
+                g === "custom" ? h("rect", { x: 1.6, y: 2.4, width: 8.8, height: 7.2, rx: 1.4, fill: "none", stroke: on ? GOLD : SKY_MUTE, strokeWidth: 0.7, strokeDasharray: "1.4 1.4" }) : null),
+              h("span", { style: { fontFamily: F_BODY, fontSize: on ? 12 : 11.5, color: on ? SKY_INK : SKY_MUTE } }, meta.zh));
           })) : null,
         !m.daily ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 20 } },
           Object.keys(allSpreads).filter(k => (allSpreads[k].group || "basic") === spreadGroup).map(k => {

@@ -6979,7 +6979,7 @@ function ModeSwatch({ k }) {
 //   上面三档发进眼前这个聊天（说话／旁白／出戏），按完你还在原地；
 //   下面那截是换个地方待着（见面＝走去线下、小房间＝挪进另一间屋），按完这一屏就没了。
 // 她 2026-09-03 问「顺序理论上还是一样的吧」——是一样，所以按这条重排。
-function ModePicker({ modes, elsewhere, cur, onPick, children }) {
+function ModePicker({ modes, elsewhere, cur, onPick, children, head, tail }) {
   const t = useTheme();
   const eyebrow = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5,
     letterSpacing: 1.2, color: t.fog, marginBottom: 10 } }, txt);
@@ -6997,13 +6997,14 @@ function ModePicker({ modes, elsewhere, cur, onPick, children }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, mzh),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, mdesc)));
   };
+  const hasTail = ((elsewhere || []).length > 0) || !!children;
   return h("div", null,
-    eyebrow("这一条发进这个聊天"),
+    eyebrow(head || "这一条发进这个聊天"),
     modes.map(row),
-    h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 12 } },
-      eyebrow("或者，换个地方说"),
+    hasTail ? h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 12 } },
+      eyebrow(tail || "或者，换个地方说"),
       (elsewhere || []).map(row),
-      children));
+      children) : null);
 }
 
 // 代付请求卡
@@ -8098,7 +8099,8 @@ function OfflineMode({
     className: "absolute inset-0 z-30 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }
   }, h("div", {
     onClick: e => e.stopPropagation(), className: "w-full p-5 pb-8", style: { background: t.bg2, borderTopLeftRadius: 18, borderTopRightRadius: 18 }
-  }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title), children));
+    // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
+  }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
   if (readView) {
@@ -8189,10 +8191,25 @@ function OfflineMode({
           usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
     offlineSetSheet(),
-    modeOpen && sheet("切换", h("div", { className: "space-y-1" },
-      h("button", { onClick: () => { setModeOpen(false); onClose(); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "💬 对话（回到线上聊天）"),
-      h("div", { className: "w-full py-3 px-2", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.tint, background: t.bg, borderRadius: 10 } }, "🎬 赴约 · 线下相处（当前）✓"),
-      h("button", { onClick: () => { setModeOpen(false); setPastOpen(true); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "🗂 往期线下记录"))),
+    // 线下这张「切换」原来还是老样子：一排 emoji + 一行字 + 一个勾。
+    // 换成和输入档位同一张单子（v60.69 那套：左边一小片就是这一档长什么样，
+    // 选中的自己上墨、纸色垫起来、左边立一道墨条），省得同一件事两种长相。
+    modeOpen && sheet("", h(ModePicker, {
+      head: "你们现在在哪",
+      modes: [
+        ["chat", "说话", "回到手机上，一条一条发"],
+        ["offline", "见面", "就是现在这样：写你人在场做什么"]
+      ],
+      cur: "offline",
+      onPick: mk => { setModeOpen(false); if (mk === "chat") onClose(); },
+      tail: "回看"
+    }, h("button", { onClick: () => { setModeOpen(false); setPastOpen(true); },
+      className: "w-full flex items-center gap-2.5 active:opacity-60 text-left", style: { padding: "8px 10px 8px 7px" } },
+      h("div", { style: { width: 3, flexShrink: 0 } }),
+      h("div", { style: { width: 54, display: "flex", justifyContent: "center", opacity: 0.42 } }, h(IChevR, { size: 20, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "往期线下记录"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h("div", { className: "space-y-2", style: { maxHeight: "52vh", overflowY: "auto" } },
       (sessions || []).filter(s => s.endTs).length === 0
         ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "24px 0" } }, "还没有已结束的线下记录。")
@@ -8204,7 +8221,11 @@ function OfflineMode({
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
-      onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说 / 立长期准则", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.10)" : "transparent" } }, "OOC"),
+      // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
+      // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
+      // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
+      // 否则进去了就出不来。
+      oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.10)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
@@ -8234,9 +8255,15 @@ function OfflineMode({
       h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1600, 0.86).then(setPhotoImg); e.target.value = ""; } }),
       h("input", { value: photoDesc, onChange: e => setPhotoDesc(e.target.value), placeholder: "配一句话（可不填）", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
       h("button", { onClick: sendPhoto, disabled: !photoImg || sending, className: "w-full py-3 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "发送照片"))),
-    noteOpen && sheet("给 Ta 一个提示（临时导演）", h("div", null,
+    noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
+      h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 你其实在生气 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入提示"))),
+      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入提示"),
+      onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过 " + cName + "，直接跟演 Ta 的那位说：让它改写这一拍、问问状态，或者立一条以后都算数的规矩。"),
+        h("button", { onClick: () => { setNoteOpen(false); setOocMode(true); }, className: "w-full py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 8 } }, "切到出戏说")) : null)),
     endConfirm && sheet("结束这段线下？", h("div", null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "结束后会把这段经过总结进记忆库，记录也会保存下来供回看。"),
       h("div", { className: "flex gap-3" },
@@ -8439,7 +8466,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
     h("div", { style: offCardSkin(t, (spk && spk.color) || t.tint) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         spk ? h(Avatar, { character: spk, size: 28, radius: 14 }) : null,
-        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub } },
+        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           (m.senderName || (spk && spk.name) || "") + (m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : " · 自拍")),
         timeEl,
         (editable && onDelete) ? h("button", { onClick: () => onDelete(m.id, msgIndex), className: "active:opacity-50", title: "删除" }, h(ITrash, { size: 15, color: t.fog })) : null),
@@ -8479,7 +8506,9 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
     h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
-        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
+        // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
+        // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
+        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),
@@ -8683,7 +8712,8 @@ function GroupOfflineMode({
     className: "absolute inset-0 z-30 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }
   }, h("div", {
     onClick: e => e.stopPropagation(), className: "w-full p-5 pb-8", style: { background: t.bg2, borderTopLeftRadius: 18, borderTopRightRadius: 18 }
-  }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title), children));
+    // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
+  }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
   if (readView) {
@@ -8825,10 +8855,23 @@ function GroupOfflineMode({
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
           usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
-    modeOpen && sheet("切换", h("div", { className: "space-y-1" },
-      h("button", { onClick: () => { setModeOpen(false); onClose(); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "💬 群聊（回到线上群）"),
-      h("div", { className: "w-full py-3 px-2", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.tint, background: t.bg, borderRadius: 10 } }, "🎬 多人线下（当前）✓"),
-      h("button", { onClick: () => { setModeOpen(false); setPastOpen(true); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "🗂 往期线下记录"))),
+    // 同单人线下：换成和输入档位同一张单子
+    modeOpen && sheet("", h(ModePicker, {
+      head: "你们现在在哪",
+      modes: [
+        ["chat", "群里说话", "回到手机上，照常在群里发"],
+        ["offline", "见面", "就是现在这样：一屋子人不隔着屏幕"]
+      ],
+      cur: "offline",
+      onPick: mk => { setModeOpen(false); if (mk === "chat") onClose(); },
+      tail: "回看"
+    }, h("button", { onClick: () => { setModeOpen(false); setPastOpen(true); },
+      className: "w-full flex items-center gap-2.5 active:opacity-60 text-left", style: { padding: "8px 10px 8px 7px" } },
+      h("div", { style: { width: 3, flexShrink: 0 } }),
+      h("div", { style: { width: 54, display: "flex", justifyContent: "center", opacity: 0.42 } }, h(IChevR, { size: 20, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "往期线下记录"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h("div", { className: "space-y-2", style: { maxHeight: "52vh", overflowY: "auto" } },
       (sessions || []).filter(s => s.endTs).length === 0
         ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "24px 0" } }, "还没有已结束的线下记录。")
@@ -8841,7 +8884,8 @@ function GroupOfflineMode({
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
-      onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
+      // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
+      oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
@@ -8864,10 +8908,15 @@ function GroupOfflineMode({
       h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1600, 0.86).then(setPhotoImg); e.target.value = ""; } }),
       h("input", { value: photoDesc, onChange: e => setPhotoDesc(e.target.value), placeholder: "配一句话（可不填）", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
       h("button", { onClick: sendPhoto, disabled: !photoImg || sending, className: "w-full py-3 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "发送照片"))),
-    noteOpen && sheet("给他们一个提示（临时导演）", h("div", null,
+    noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
+      h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, "保存后影响接下来 2 次成功演绎；失败不扣，用完会留档但不再注入。"),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入未来 2 轮"))),
+      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入未来 2 轮"),
+      onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过在场所有人，直接跟演他们的那位说：让它改写这一拍，或者问问状态。"),
+        h("button", { onClick: () => { setNoteOpen(false); setOocMode(true); }, className: "w-full py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 8 } }, "切到出戏说")) : null)),
     endConfirm && sheet("结束这段线下？", h("div", null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "结束后会把这段经过总结进记忆库，记录也会保存下来供回看。"),
       h("div", { className: "flex gap-3" },

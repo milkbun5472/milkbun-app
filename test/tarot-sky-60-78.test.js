@@ -163,3 +163,17 @@ test("店里那句动静改成每次跟着这一卦生成，本地那五句只�
   assert.match(src, /shopMoment: out\.moment \|\| shopMoment/, "模型没给才回落到本地那五句");
   assert.match(src, /const SHOP_MOMENTS = \[/, "兜底那几句不许删——模型不给就没得写了");
 });
+
+test("牌阵分组不是一排药丸：每一组用它自己的摊牌形状当图标", () => {
+  // 她 2026-09-03 那条 tab 规矩：一排药丸换个 app 照样成立；
+  // 这几个点是牌真的摆在桌上的样子，换个 app 就不成立了
+  assert.match(src, /const SPREAD_GLYPH = \{/);
+  const glyph = src.slice(src.indexOf("const SPREAD_GLYPH = {"), src.indexOf("const DEFAULT_SPREAD"));
+  ["basic", "relation", "inner", "custom"].forEach(g =>
+    assert.ok(glyph.indexOf(g + ": [[") >= 0, g + " 这一组没有自己的形状"));
+  const row = src.slice(src.indexOf("Object.keys(SPREAD_GROUPS)"), src.indexOf("!m.daily ? h(\"div\", { style: { display: \"grid\""));
+  assert.equal(row.indexOf("borderRadius: 999"), -1, "又摆回药丸了");
+  assert.match(row, /borderBottom: "1\.5px solid " \+ \(on \? GOLD : "transparent"\)/, "选中要有一道金线");
+  assert.match(row, /r: on \? 1\.5 : 1\.05/, "选中那几点要变大——不能只靠颜色");
+  assert.match(row, /fill: on \? GOLD : SKY_MUTE/);
+});
