@@ -150,6 +150,26 @@
     }
     return out;
   })();
+  // 整页都是这片夜空（她 2026-09-03 补的：「历史记录的收纳这一块能不能也有星空背景全屏，
+  // 因为下面现在也很空」）。天幕不是只铺在星座那一截：往下滚，碎星跟着一起走，
+  // 底下那一截是同一片天，历史就写在天上。
+  const NIGHT = "#14112a";
+  const SKY_INK = "#efe9dc";                       // 天上的字
+  const SKY_DIM = "rgba(239,233,220,.55)";         // 天上的小字
+  const SKY_LINE = "rgba(239,233,220,.13)";        // 天上的发丝线
+  // 往下滚那一截的碎星：拿同一颗种子摊成一张 360×420 的贴图，CSS 平铺。
+  // 用背景图而不是再画一屏 SVG——历史可以很长，节点数不能跟着长。
+  const SKY_TILE = (function () {
+    let seed = 907120260903 % 4294967291 >>> 0;
+    const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const dots = [];
+    for (let i = 0; i < 34; i++) {
+      const x = (rnd() * 360).toFixed(1), y = (rnd() * 420).toFixed(1);
+      const r = (0.6 + rnd() * 1.05).toFixed(2), o = (0.1 + rnd() * 0.34).toFixed(2);
+      dots.push("radial-gradient(circle " + r + "px at " + x + "px " + y + "px, rgba(255,255,255," + o + ") 0, rgba(255,255,255,0) 100%)");
+    }
+    return dots.join(",");
+  })();
   // 四芒星：一笔画完的星芒，不是一个圆点——圆点是「标记」，星芒才是「星」
   const sparkle = (cx, cy, R) => {
     const w = R * 0.16;
@@ -387,25 +407,34 @@
         className: "active:opacity-70",
         // 不再一条一个框（她 2026-09-03 那句「不用一个一个框」也管这一截）：
         // 一条就是一行，靠一道发丝线分开，左边一颗小星标出它是哪一种问法
-        style: { padding: "9px 2px 9px 0", borderBottom: "1px solid " + t.line, cursor: "pointer",
+        style: { padding: "9px 2px 9px 0", borderBottom: "1px solid " + SKY_LINE, cursor: "pointer",
           display: "flex", alignItems: "flex-start", gap: 9 }
       },
         h("svg", { width: 11, height: 11, viewBox: "0 0 12 12", style: { flexShrink: 0, marginTop: 3 } },
           h("path", { d: sparkle(6, 6, 5), fill: GOLD, opacity: 0.75 })),
         h("div", { style: { minWidth: 0, flex: 1 } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 3 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, subt),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtDate(s.ts))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SKY_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, subt),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: SKY_DIM, flexShrink: 0 } }, fmtDate(s.ts))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SKY_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           (s.mode === "daily" ? (s.card ? [cardLabel(s.card)] : []) : (s.cards || []).map(c => c.name)).join(" · "))));
     };
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "塔罗", en: "Tarot", onBack: props.onBack }),
-      h("div", { ref: homeScrollRef, className: "flex-1 overflow-y-auto px-5 pb-8" },
+    // ⚠这一页不走公共 Head（她 2026-09-03：「那一大块塔罗标题你没弄」）：
+    // 那是 30px 大标题 + 一整块留白，仓库铁律里普通子页面本来就该用紧凑标题栏
+    //（mobile-ui-layout 第 1 条）。这儿更进一步——标题就写在天上，返回键压在星星上。
+    return h("div", { className: "h-full flex flex-col", style: { background: NIGHT } },
+      h("style", null, "@keyframes tarot-tw{0%,100%{opacity:1}50%{opacity:.28}}"),
+      h("div", { className: "shrink-0 flex items-center", style: { paddingTop: safeTop(6), paddingLeft: 8, paddingRight: 8, paddingBottom: 2 } },
+        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } },
+          h(IArrow, { size: 19, color: SKY_INK })),
+        h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 16.5, color: SKY_INK } }, "塔罗"),
+        h("div", { style: { width: 44, flexShrink: 0 } })),
+      h("div", { ref: homeScrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8",
+        // 底下那一截也是天：同一片碎星跟着内容一起往上走
+        style: { backgroundImage: SKY_TILE, backgroundSize: "360px 420px", backgroundRepeat: "repeat" } },
         // ---- 夜空：四种问法是四颗星，亮度照她自己的存档来 ----
-        h("style", null, "@keyframes tarot-tw{0%,100%{opacity:1}50%{opacity:.28}}"),
-        h("div", { style: { margin: "0 -20px 6px", background: "#14112a", position: "relative" } },
+        h("div", { style: { margin: "0 -20px 6px", position: "relative" } },
           h("svg", { viewBox: "0 0 " + SKY_W + " " + SKY_H, style: { width: "100%", height: "auto", display: "block" } },
             h("defs", null,
               h("radialGradient", { id: "tarotHalo" },
@@ -419,7 +448,7 @@
                 h("stop", { offset: "0%", stopColor: "#fff", stopOpacity: 0 }),
                 h("stop", { offset: "50%", stopColor: "#cdc6ef", stopOpacity: 0.09 }),
                 h("stop", { offset: "100%", stopColor: "#fff", stopOpacity: 0 }))),
-            h("rect", { x: 0, y: 0, width: SKY_W, height: SKY_H, fill: "#14112a" }),
+            h("rect", { x: 0, y: 0, width: SKY_W, height: SKY_H, fill: NIGHT }),
             h("rect", { x: 0, y: 0, width: SKY_W, height: SKY_H, fill: "url(#tarotSkyGlow)" }),
             // 一条斜着的银河，只是极淡的一带，用来把四颗星托住
             h("ellipse", { cx: 186, cy: 140, rx: 250, ry: 62, fill: "url(#tarotMilky)", transform: "rotate(-24 186 140)" }),
@@ -441,7 +470,9 @@
                 // 手指点得着：视觉上是一颗小星，热区是一整片天（mobile-ui-layout 那条 40px 手感线）
                 h("circle", { cx: at[0], cy: at[1], r: 24, fill: "transparent" }));
             })),
-          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 7, textAlign: "center", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.2, color: "#efe9dc", opacity: 0.42 } },
+          // ⚠这一行别压在星图上：最底下那颗星的名字＋英文＋「算过 N 次」已经排到 285，
+          // 绝对定位一压就撞上。放在流里，顺便把天和底下的搜索框隔开一点
+          h("div", { style: { textAlign: "center", padding: "2px 0 10px", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.2, color: SKY_INK, opacity: 0.42 } },
             "点一颗星 · 你问得越多，那颗星越亮")),
         // ---- 历史：搜索 + 类型筛选 + 折叠（条数多也随时找得到）----
         saves.length ? (function () {
@@ -456,15 +487,16 @@
               borderBottom: "1.5px solid " + (on ? GOLD : "transparent"), whiteSpace: "nowrap" } },
             h("svg", { width: on ? 12 : 8, height: on ? 12 : 8, viewBox: "0 0 12 12", style: { flexShrink: 0 } },
               on ? h("path", { d: sparkle(6, 6, 5.6), fill: GOLD })
-                 : h("circle", { cx: 6, cy: 6, r: 2, fill: t.fog, opacity: 0.7 })),
-            h("span", { style: { fontFamily: F_BODY, fontSize: on ? 12.5 : 12, color: on ? t.ink : t.fog } }, label + (cnt != null ? " " + cnt : ""))); };
+                 : h("circle", { cx: 6, cy: 6, r: 2, fill: SKY_DIM })),
+            h("span", { style: { fontFamily: F_BODY, fontSize: on ? 12.5 : 12, color: on ? SKY_INK : SKY_DIM } }, label + (cnt != null ? " " + cnt : ""))); };
           return h("div", null,
             // 搜索框
             h("div", { style: { position: "relative", marginBottom: 10 } },
-              h("span", { style: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: t.fog } }, "🔍"),
+              h("svg", { width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: SKY_DIM, strokeWidth: 1.8, style: { position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" } },
+                h("circle", { cx: 10.8, cy: 10.8, r: 6.4 }), h("path", { d: "M15.4 15.4L20.5 20.5" })),
               h("input", { value: histQ, onChange: e => setHistQ(e.target.value), placeholder: "搜角色 / 问题 / 牌名…",
-                style: { width: "100%", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 32px 9px 32px", outline: "none" } }),
-              qlc ? h("button", { onClick: () => setHistQ(""), className: "active:opacity-60", style: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: t.fog, lineHeight: 1 } }, "×") : null),
+                style: { width: "100%", fontFamily: F_BODY, fontSize: 13.5, color: SKY_INK, background: "rgba(255,255,255,.045)", border: "1px solid " + SKY_LINE, borderRadius: 999, padding: "9px 32px 9px 34px", outline: "none" } }),
+              qlc ? h("button", { onClick: () => setHistQ(""), className: "active:opacity-60", style: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: SKY_DIM, lineHeight: 1 } }, "×") : null),
             // 类型筛选 chips（横滑）
             h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 14 } },
               [chip("all", "全部", saves.length)].concat(Object.keys(MODES).filter(k => (byMode[k] || []).length).map(k => chip(k, MODES[k].zh, byMode[k].length)))),
@@ -473,20 +505,27 @@
               ? (function () { const list = sorted.filter(matchSess);
                   return list.length
                     ? h("div", null, list.map(histLine))
-                    : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0" } }, "没找到相关占卜"); })()
+                    : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: SKY_DIM, padding: "24px 0" } }, "没找到相关占卜"); })()
               : Object.keys(MODES).filter(k => (byMode[k] || []).length).map(k => {
                   const arr = byMode[k], exp = !!histExp[k], shown = exp ? arr : arr.slice(0, 3);
                   return h("div", { key: "h" + k, style: { marginBottom: 18 } },
                     h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 9 } },
                       h("svg", { width: 10, height: 10, viewBox: "0 0 12 12" }, h("path", { d: sparkle(6, 6, 5), fill: GOLD })),
-                      h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, letterSpacing: .3 } }, MODES[k].zh),
-                      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· " + arr.length)),
+                      h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: SKY_INK, letterSpacing: .3 } }, MODES[k].zh),
+                      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_DIM } }, "· " + arr.length)),
                     h("div", null, shown.map(histLine)),
                     arr.length > 3 ? h("button", { onClick: () => setHistExp(p => ({ ...p, [k]: !exp })), className: "active:opacity-60",
-                      style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, exp ? "收起" : "展开全部 " + arr.length + " 条 ▾") : null);
+                      style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: GOLD } }, exp ? "收起" : "展开全部 " + arr.length + " 条 ▾") : null);
                 }),
-            h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按一条可撕掉"));
-        })() : null
+            h("div", { style: { marginTop: 12, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: SKY_DIM, opacity: .8 } }, "长按一条可撕掉"));
+        })()
+        // 一卦都还没算过时别留一屏空白：说清这底下会长出什么
+        : h("div", { style: { textAlign: "center", padding: "34px 0 10px" } },
+          // ⚠tailwind 的 preflight 把 svg 设成了 display:block——不写 inline-block
+          // 这颗星会自己贴到左边去，居中的只有它下面那两行字
+          h("svg", { width: 15, height: 15, viewBox: "0 0 12 12", style: { opacity: .5, display: "inline-block" } }, h("path", { d: sparkle(6, 6, 5.4), fill: GOLD })),
+          h("div", { style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 14, color: SKY_INK } }, "这片天还是空的"),
+          h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: SKY_DIM } }, "点上面一颗星摊开第一卦。算过的都留在这儿，按问法各归各的星座。"))
       ),
       confirmNode);
   }
