@@ -9736,12 +9736,10 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
     h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "/ " + zh));
 
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    // Header
-    h("div", { className: "shrink-0 px-6 pb-4 flex items-start justify-between", style: { paddingTop: safeTop(24) } },
-      h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, color: t.ink, lineHeight: 1 } }, "Emote Matrix"),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.3em", color: t.fog, marginTop: 6 } }, "EXPRESSION & MIMICRY")),
-      h("button", { onClick: onBack, className: "flex items-center justify-center active:opacity-60", style: { width: 40, height: 40, borderRadius: 999, border: "1px solid " + t.line } }, h("span", { style: { fontSize: 20, color: t.ink } }, "×"))),
+    // ⚠️这里原来是一块 34px 斜体大标题 + 一行大字距英文 + safeTop(24) 的留白，
+    //   占掉近三分之一屏（.claude/rules/mobile-ui-layout.md §1 点名不许）。
+    //   换成公共的 Head——全 app 那条紧凑栏，别再自己写一份。
+    h(Head, { zh: "表情包", en: "Emote Matrix", onBack: onBack }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
       // CATEGORIES
       h("div", { className: "flex items-center justify-between", style: { marginTop: 4 } },

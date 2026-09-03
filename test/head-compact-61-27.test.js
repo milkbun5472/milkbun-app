@@ -65,3 +65,39 @@ test("外壳自己有底纹时，顶栏让得出去", () => {
   assert.match(HEAD, /, bg\n\}\)|  , bg\n\}\)/, "Head 收不了 bg");
   assert.match(HEAD, /background: bg \|\| t\.bg,/, "顶栏底色写死了 t.bg，页面没法让它透上来");
 });
+
+// ── v61.30 全库扫一遍 ────────────────────────────────────────────────────
+// 上面几条只钉住了 Head 自己。她 2026-09-03：「你去审计一波把全部有大块的页面
+//（不仅仅是首页还有进去的单独界面）弄掉」——审出来【表情包】那一页压根没用 Head，
+// 自己摆了一块 34px 斜体大标题 + safeTop(24) 的留白，占掉近三分之一屏。
+// 改好它容易，问题是【没有任何一条测试拦得住下一页再这么写】：Head 改对了，
+// 绕开 Head 的那些页一条都不受影响，而且不会留下任何可以 grep 的痕迹
+//（.claude/rules/four-surfaces-same-context.md 的那条判据）。所以这条改成扫全库。
+test("没有哪一页绕开 Head 自己摆一块大标题", () => {
+  const JSDIR = path.join(root, "js");
+  const bad = [];
+  for (const f of fs.readdirSync(JSDIR).filter(x => x.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(JSDIR, f), "utf8");
+    // 只看顶栏范围：某个 safeTop( 之后 600 字符内的字号。页面正文里的大字
+    //（日记标题输入框、账本金额、周刊封面）不归这条管——那些不是顶栏。
+    const tops = [...src.matchAll(/safeTop\(/g)].map(m => m.index);
+    const re = /fontSize: ([\d.]+)/g;
+    let m;
+    while ((m = re.exec(src))) {
+      if (Number(m[1]) < 26) continue;
+      if (!tops.some(i => m.index > i && m.index - i < 600)) continue;
+      const ctx = src.slice(Math.max(0, m.index - 130), m.index + 130);
+      // 返回键那个 ‹ 本来就得是 26–29px 才点得着，它不是标题
+      if (ctx.includes('"‹"')) continue;
+      if (ALLOW.some(a => ctx.includes(a))) continue;
+      bad.push(f + " 第" + src.slice(0, m.index).split("\n").length + "行 " + m[1] + "px");
+    }
+  }
+  assert.deepEqual(bad, [],
+    "这几处在顶栏位置摆了大标题，改用 h(Head, {...})；\n" +
+    "确实不是顶栏的（比如锁屏那个钟）写进 ALLOW 并说明理由：\n  " + bad.join("\n  "));
+});
+// 确实不是标题的，连理由一起写在这儿
+const ALLOW = [
+  'lineHeight: 1.06, color: "#1e1c18"' // 查手机锁屏那个大钟——它就是锁屏本身，不是顶栏
+];
