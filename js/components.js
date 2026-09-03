@@ -6839,46 +6839,43 @@ function KinshipRaiseCard({ m, character }) {
             (done ? "" : "· ") + foot)),
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }))));
 }
-// 「让 TA 回复」那个键（v60.64 重做，她 2026-09-02：「聊天回复键的样式也改改吧，
-// 之前也是参考的」）。原来是一个黑圆圈 + ✦ ——那是每个 AI app 都有的那颗星，
-// 原样搬到别处照样成立，所以它没长在这个 app 上（tabs-not-plain-pills 那把尺子）。
+// 「让 TA 回复」那个键（v60.67 重做）。
 //
-// 这个键真正在做的事是【把话头递给谁】。而这个 app 里，那个「谁」是有脸的。
-// 所以键就是他的脸：
-// · 平时压暗去色 —— 他这会儿没说话，戳一下叫他
-// · 生成中 —— 脸亮起来、盖一层暗、三个点浮在上面：这个键自己变成了「他正在说」
-// · 被拉黑 —— 灰到底，戳不动（disabled 那层透明度接手）
-// 群里就是几张脸叠着，一眼看得出这一下会叫醒谁。
-// hold（只群线上有）：true＝回完这一轮就停下等你，false＝他们自己会接着聊。
-// 这两种用【圈的虚实】分，不是只换个颜色——虚线是「有个头」，实线是「会连着走」。
+// 它的两版前身都被她退回过：黑圆圈里一颗 ✦（「之前也是参考的嘤」——那颗星每个 AI app
+// 都有，原样搬到别处照样成立），以及 v60.65 的「他的脸」（「看着怪吓人的」——一张被压暗
+// 去色的人脸盯着你，确实吓人）。这一版不借别人的图案，也不拿脸当图案。
+//
+// 它在现实里是什么：**答话要落进来的那个气泡，现在还空着。**
+// 所以就照这个 app 自己的气泡画一枚——尾巴冲左（TA 那一侧），正好和旁边那颗发送键
+// 反过来：那只纸飞机往右飞，是我说出去的；这枚气泡从左边冒上来，是等他说。
+// · 平时：只有一圈描边，里头是空的
+// · 生成中：气泡整个上墨，三个点在【气泡里头】跳——这个键自己变成了「他正在打字」
+// · 群里：后面再叠一枚小的，一眼看出这一下不止一个人要说话
+// · 群线上那两档用【描边的虚实】分，不是只换个颜色：
+//   虚线＝回完这一轮就停下等你（有个头），实线＝他们自己会接着聊（连着走）
+const REPLY_BUBBLE_D = "M8.2 4.2h7.6a5 5 0 0 1 5 5v3.6a5 5 0 0 1-5 5h-5.1L5 21.2l.6-3.5"
+  + "a5 5 0 0 1-2.4-4.3V9.2a5 5 0 0 1 5-5z";
 function ReplyKey({ chars, sending, disabled, title, onClick, hold }) {
   const t = useTheme();
-  const few = (Array.isArray(chars) ? chars : [chars]).filter(Boolean).slice(0, 3);
-  const faces = few.length <= 1
-    ? h(Avatar, { character: few[0] || {}, size: 40, radius: 999 })
-    : h("div", { style: { position: "relative", width: 40, height: 40 } },
-        few.map((c, i) => {
-          const f = 22, step = few.length === 2 ? 11 : 9;
-          const w = f + step * (few.length - 1);
-          return h("div", { key: c.id || i, style: { position: "absolute", left: "50%", top: "50%",
-            marginLeft: -w / 2 + i * step, marginTop: -f / 2, width: f, height: f,
-            borderRadius: 999, overflow: "hidden", boxShadow: "0 0 0 1.5px " + t.bg2, zIndex: few.length - i } },
-            h(Avatar, { character: c, size: f, radius: 999 }));
-        }));
+  const many = (Array.isArray(chars) ? chars : [chars]).filter(Boolean).length > 1;
   return h("button", {
     onClick: onClick, disabled: disabled, title: title,
-    className: "active:opacity-70 disabled:opacity-40 shrink-0",
-    style: { position: "relative", width: 40, height: 40, borderRadius: 999, overflow: "hidden",
-      background: t.bg,
-      border: "1.5px " + (hold === true ? "dashed" : "solid") + " "
-        + (sending || hold != null ? t.ink : t.fog) }
-  },
-    h("div", { style: { position: "absolute", inset: 0,
-      filter: sending ? "none" : "grayscale(0.6) brightness(0.94)", transition: "filter .18s" } }, faces),
-    sending ? h("div", { style: { position: "absolute", inset: 0, background: "rgba(20,18,15,0.55)",
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
-      [0, 1, 2].map(i => h("span", { key: i, className: "rounded-full animate-pulse",
-        style: { width: 4, height: 4, background: "#fff", animationDelay: i * 0.15 + "s" } }))) : null);
+    className: "active:opacity-70 disabled:opacity-40 shrink-0 flex items-center justify-center",
+    style: { width: 40, height: 40, borderRadius: 999,
+      background: sending ? t.bg : "transparent",
+      border: "1.5px solid " + (sending ? t.ink : t.line), transition: "border-color .18s" }
+  }, h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: t.ink,
+      strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
+    // 群里：后面再露一枚小的，前面那枚往左下让开一点，两枚一叠就是「不止一个人要说话」
+    many ? h("path", { d: REPLY_BUBBLE_D, fill: t.bg, strokeWidth: 2.6,
+      transform: "translate(9.6 -0.6) scale(0.6)" }) : null,
+    h("g", { transform: many ? "translate(-2 3) scale(0.8)" : undefined,
+      strokeWidth: many ? 2 : 1.6 },
+      h("path", { d: REPLY_BUBBLE_D, fill: sending ? t.ink : t.bg,
+        strokeDasharray: hold === true ? (many ? "4 3" : "3.2 2.4") : undefined }),
+      sending ? [0, 1, 2].map(i => h("circle", { key: i, cx: 8.4 + i * 3.6, cy: 11, r: 1.4,
+        fill: t.bg, stroke: "none", className: "animate-pulse",
+        style: { animationDelay: i * 0.15 + "s" } })) : null)));
 }
 // 代付请求卡
 function PayLaterCard({ m }) {
