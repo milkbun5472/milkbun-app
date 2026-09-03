@@ -35,6 +35,22 @@ test("天降只剩「随机身份」，但 passerby 这个字留着给老存档�
   assert.match(fic, /if \(mode === "passerby"\) return identity && identity\.name/);
 });
 
+// 她 2026-09-03：「同人文确实能写两个角色之间的，所以不一定是我自己」
+test("CP 是两个角色时，那几句话照样成立", () => {
+  const m = fic.match(/function rpKnowLine\([\s\S]*?\n  \}/);
+  assert.ok(m, "找不到 rpKnowLine");
+  // 分两种局面写：她在 CP 里 / 她不在
+  assert.match(m[0], /const mine = \(cpChars \|\| \[\]\)\.filter\(function \(c\) \{ return c && c\.isMe; \}\)\[0\]/);
+  assert.match(m[0], /一边记得、一边不记得/, "她在 CP 里那一支");
+  assert.match(m[0], /我认识你们，你们不认识我/, "她不在 CP 里那一支");
+  // 选项说明本身也不许写死成「你和 TA 的关系」
+  const k = fic.match(/const RP_KNOWS = \[[\s\S]*?\n  \];/)[0];
+  assert.doesNotMatch(k, /你和 TA 真正的关系/);
+  assert.match(k, /你记得现实里的他们/);
+  // 另一边没有角色卡（A × 原创）时也别让人猜
+  assert.match(fic, /return "穿成 原创的那位"/);
+});
+
 test("多了一维：你带着什么进去", () => {
   const m = fic.match(/const RP_KNOWS = \[[\s\S]*?\n  \];/);
   assert.ok(m, "找不到 RP_KNOWS");

@@ -649,7 +649,7 @@
   function rpModeShort(key, cpChars) {
     const a = cpChars && cpChars[0], b = cpChars && cpChars[1];
     const c = key === "left" ? a : key === "right" ? b : null;
-    if (key === "left" || key === "right") return c ? (c.isMe ? "我自己" : c.name) : rpModeLabel(key);
+    if (key === "left" || key === "right") return c ? (c.isMe ? "我自己" : c.name) : "原创的那位";
     return rpModeLabel(key);
   }
   // ── 选项这一屏改了两处（v60.91，她 2026-09-03「这几样我都是直接参考了别人的」）──
@@ -662,12 +662,14 @@
   //      才是穿书这个题材最核心的乐趣。所以补上第二排：你带着什么进去。
   function rpModeText(key, cpChars) {
     const a = cpChars && cpChars[0], b = cpChars && cpChars[1];
-    const who = function (c, fallback) {
-      if (!c) return fallback;
+    // 这篇可能是「A × 原创」，另一边压根没有对应的角色卡——那就说清楚是原创的那位，
+    // 别退回「魂穿 · 右位」让人猜（她 2026-09-03：CP 不一定有她，也不一定两边都在册）
+    const who = function (c) {
+      if (!c) return "穿成 原创的那位";
       return c.isMe ? "穿成我自己（" + c.name + "）" : "穿成 " + c.name;
     };
-    if (key === "left") return who(a, "魂穿 · 左位");
-    if (key === "right") return who(b, "魂穿 · 右位");
+    if (key === "left") return who(a);
+    if (key === "right") return who(b);
     return rpModeLabel(key) === key ? key : (RP_MODES.find(function (x) { return x.key === key; }) || {}).label || key;
   }
   // 你带着什么进去。⚠️「带着现实的记忆」不是去翻主线记忆库——同人文是平行时空沙盒
@@ -676,7 +678,10 @@
   const RP_KNOWS = [
     { key: "blank", label: "空手进去", short: "空手", desc: "你对这个故事一无所知，跟里面的人一样两眼一抹黑，只能边走边猜。" },
     { key: "spoiler", label: "带着剧透", short: "带剧透", desc: "你读完过这篇文，知道后面会发生什么、谁会说哪句话、哪一步是坑。你可以顺着走，也可以提前去拆它。" },
-    { key: "real", label: "带着现实里的记忆", short: "带记忆", desc: "你记得现实里你和 TA 真正的关系——但这个世界里的 TA 完全不认识你。" }
+    // ⚠️说明不许写死成「你和 TA 的关系」：这篇的 CP 可能是【两个角色】，她根本不在里面
+    //   （她 2026-09-03：「同人文确实能写两个角色之间的，所以不一定是我自己」）。
+    //   写成「现实里的他们」，CP 里有没有她都说得通。
+    { key: "real", label: "带着现实里的记忆", short: "带记忆", desc: "你记得现实里的他们——可这个世界里，没有人认识你。" }
   ];
   function rpKnowLabel(key) { const k = RP_KNOWS.find(function (x) { return x.key === key; }); return k ? k.short : ""; }
   function rpKnowLine(know, mode, cpChars, userName) {
@@ -688,12 +693,29 @@
         + "你要如实承接这种「他怎么会知道」的怪异感：场上的人不知道玩家为什么这么笃定，他们会觉得奇怪、会追问、会起疑。"
         + "但**你不许替玩家把剧透说出来**，也不许在正文里提示「按原著接下来会……」——玩家知道什么、用不用，是玩家自己的事。";
     }
+    // 现实里的记忆这一档，分两种局面写——上一版只写了「你和 TA 的关系」，
+    // 那是把「CP 一定有她」当成了前提。CP 是两个角色时她不在里面，那句话就成了空话。
     const other = rpOther(mode, cpChars);
-    return "【玩家带进去的东西 · 现实里的记忆】" + k.desc
-      + (other ? "这个世界里的「" + other.name + "」不认识玩家，也没有那段关系——他就是原著里的他。" : "")
-      + "\n所以这一场的底色是【一边记得、一边不记得】：玩家可能会脱口而出只有他俩才懂的话、下意识做熟悉的动作，"
-      + "而对面只会当成一个陌生人的冒犯或古怪。别把这层落差写成煽情的旁白，让它从对方的困惑和玩家的失手里自己露出来。"
-      + "⚠️这个世界是平行的：不许直接引用现实里发生过的具体事件当剧情，只有玩家自己心里记得。";
+    const mine = (cpChars || []).filter(function (c) { return c && c.isMe; })[0];
+    const wearing = (mode === "left" || mode === "right") ? rpPlayerName(mode, cpChars, null) : null;
+    const head = "【玩家带进去的东西 · 现实里的记忆】";
+    const tailRule = "\n⚠️这个世界是平行的：不许直接引用现实里发生过的具体事件当剧情，只有玩家自己心里记得。"
+      + "别把这层落差写成煽情的旁白，让它从对方的困惑和玩家的失手里自己露出来。";
+    if (mine) {
+      // 这篇写的就是她和她的角色：那是「一边记得、一边不记得」
+      return head + "玩家记得现实里 TA 和" + (other ? "「" + other.name + "」" : "对方") + "真正的关系"
+        + (wearing && wearing !== mine.name ? "——尽管这一场里 TA 顶着「" + wearing + "」的身份" : "")
+        + "。而这个世界里的" + (other ? "「" + other.name + "」" : "对方") + "不认识 TA，也没有那段关系，他就是原著里的他。"
+        + "\n所以这一场的底色是【一边记得、一边不记得】：玩家可能会脱口而出只有他俩才懂的话、下意识做熟悉的动作，"
+        + "而对面只会当成一个陌生人的冒犯或古怪。" + tailRule;
+    }
+    // 这篇写的是【两个角色之间】，她不在这段关系里：那是「我认识你们，你们不认识我」
+    const names = (cpChars || []).filter(Boolean).map(function (c) { return "「" + c.name + "」"; }).join("和");
+    return head + "玩家在现实里【真的认识" + (names || "这两个人") + "】——处过、说过话、知道他们私下是什么样子"
+      + (wearing ? "；而这一场里 TA 顶着" + (other ? "其中一位（" + wearing + "）" : "「" + wearing + "」") + "的身份进来" : "")
+      + "。但这个世界里的他们从没见过玩家，也不知道自己被谁认识着。"
+      + "\n所以这一场的底色是【我认识你们，你们不认识我】：玩家会一眼看穿某个人在硬撑、会知道哪句话戳得到谁，"
+      + "也可能失手叫出只有现实里才用的称呼——而他们只会觉得这个陌生人怪得离奇。" + tailRule;
   }
   // 玩家固定扮演谁（魂穿=某主角名；天降=session.playerIdentity.name）
   function rpPlayerName(mode, cpChars, identity) {
