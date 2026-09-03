@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.61";
+const APP_VERSION = "v60.62";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8416,6 +8416,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       toast("已拉黑");
     }
   };
+  // 问模型一个「答应还是不答应」——⚠️【读不出来 ≠ 他不答应】。
+  // 她 2026-09-02 问情侣邀请的通过率，查下来才发现：原来两处都写成
+  //   const d = extractJSON(raw) || {};  ...  d.accept ? 接受 : 拒绝
+  // 模型这一次没把 JSON 写好（多说一句话、少个括号），extractJSON 就返回 null，
+  // 于是 d.accept 是 undefined、直接落进【拒绝】那一支——她看到的是他一句解释都没有
+  // 地拒了她，可他根本没说过这话。情侣邀请那一下还不可逆（setCoupleFor(null)）。
+  // 旁边 runProbe 早就有这个待遇了（「按次计费，让她自己去点第二次是没道理的」），
+  // 这两处一直没跟上——又是「一层写在两处，第二处没跟上」。
+  // 规矩：读不出来就重问一次；还是读不出来就【明说读不出来】，让调用方标成「再问一次」，
+  //       绝不替他做决定。accept 缺字段也算读不出来（能解析 ≠ 他表了态）。
+  const _yesVal = v => v === true || v === "true" || v === 1 || v === "1";
+  const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
+  const askYesNo = async (route, system, messages, opts) => {
+    let d = extractJSON(await callAI(route, system, messages, opts));
+    if (!_hasAccept(d)) {
+      d = extractJSON(await callAI(route, system
+        + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、"
+        + "不要前后多说一个字、所有括号引号都要闭合，accept 必须是 true 或 false。", messages, opts));
+    }
+    if (!_hasAccept(d)) return { ok: false };
+    return { ok: true, accept: _yesVal(d.accept), say: Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []), d: d };
+  };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
   const blockedReaction = async charId => {
     if (laneBusy("c:" + charId) || !active) { if (!active) toast("请先配置 API"); return; }
@@ -8451,7 +8473,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     pChat(charId, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
     startLane("c:" + charId);
     try {
-      const raw = await callAI(apiFor(char.id), buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const r = await askYesNo(apiFor(char.id), buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
         + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "")
@@ -8464,12 +8486,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
         + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
         + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 8800 });
-      const d = extractJSON(raw) || {};
-      pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: d.accept ? "accepted" : "declined" } : m));
-      const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      if (d.accept) { setBlockFor(charId, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
+      // 读不出来就把申请留在 pending，别记这一次 tries，也别当成他拒绝了
+      if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
+      const says = r.say;
+      if (r.accept) { setBlockFor(charId, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
       else { setBlockFor(charId, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
-      says.forEach((w, i) => setTimeout(() => pChat(charId, p => d.accept
+      says.forEach((w, i) => setTimeout(() => pChat(charId, p => r.accept
         ? [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]
         : [...p, { role: "system", kind: "system", content: char.name + "：" + w, ts: Date.now() }]), 300 + i * 650));
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + charId); }
@@ -12891,10 +12914,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const after = (at >= 0 ? line.slice(at + 1) : []).filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()).slice(-12)
         .map(m => ({ role: m.role, content: m.content }));
       const bundle = buildBundle(ctxFor(char));
-      const raw = await callAI(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
+      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
         after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 8500 });
-      const d = extractJSON(raw) || {};
-      respondCoupleInvite(charId, cid, !!d.accept, Array.isArray(d.say) ? d.say : []);
+      // 读不出来【不算他拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
+      // 原来这儿是 !!d.accept —— 解析一失败就是不可逆的婉拒。
+      if (!r.ok) {
+        pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: "failed" } : m));
+        toast("没读懂 TA 的回应，可以再问一次");
+        return;
+      }
+      respondCoupleInvite(charId, cid, r.accept, r.say);
     } catch (e) {
       // 失败：卡片标记成「没得到回应」，pending 留着，她可以再点一次
       pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: "failed" } : m));
