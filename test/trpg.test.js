@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, normSceneMeta, normSiteActions } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -215,6 +215,17 @@ test("normChoices:坏检定只丢检定不丢选项,who 校验进队伍", () => 
   assert.equal(out[2].check, null, "属性名不合法→只丢 check,选项还在");
   assert.equal(out[3].check.who, null, "队里没这人→降级成命运选人");
   assert.equal(out[3].need, "铜钥匙");
+});
+
+test("场景桌:场景类型、行动路数与地点动作都做严格归一", () => {
+  const meta = normSceneMeta({ sceneMeta: { type: "investigation", objective: "查清谁换了货单", stakes: "巡夜人会封仓" } }, camp0());
+  assert.deepEqual(meta, { type: "investigate", objective: "查清谁换了货单", stakes: "巡夜人会封仓" });
+  assert.equal(normSceneMeta({ sceneMeta: { type: "nonsense" } }, Object.assign(camp0(), { sceneMeta: { type: "social", objective: "旧目标", stakes: "" } })).type, "social", "坏类型沿用旧场景,不把桌牌打空");
+  assert.deepEqual(normSiteActions(["查值班册", "查值班册", { text: "敲空心墙" }, "摸排暗门", "第四条不要"]), ["查值班册", "敲空心墙", "摸排暗门"]);
+  const choices = normChoices([{ text: "让裴照川拆锁", approach: "ally", risk: "会留下撬痕", payoff: "不惊动守卫" }], camp0().party);
+  assert.equal(choices[0].approach, "ally");
+  assert.equal(choices[0].risk, "会留下撬痕");
+  assert.equal(choices[0].payoff, "不惊动守卫");
 });
 
 test("foldHist:守密人一侧 assistant,其余并入 user,连续同侧合并", () => {
@@ -443,15 +454,29 @@ test("探索态菜单:只列在这儿的活人、还能翻几次、开着的支�
     npcs: [{ name: "掌柜", alive: true, met: "驿站" }, { name: "游方僧", alive: true, met: "" }, { name: "死人", alive: false, met: "驿站" }, { name: "外地人", alive: true, met: "城郭" }],
     quests: [{ name: "找马", status: "open" }, { name: "还钱", status: "done" }],
     mapRegions: [{ name: "河谷", nodes: [{ name: "驿站" }] }, { name: "山里", nodes: [{ name: "山神庙" }] }],
-    sideSeeds: [{ name: "山中野店", region: "山里" }, { name: "马贼", region: "河谷", used: true }, { name: "游商", region: "" }] });
+    sideSeeds: [{ name: "山中野店", region: "山里" }, { name: "马贼", region: "河谷", used: true }, { name: "游商", region: "" }],
+    siteActions: { 驿站: ["查马厩蹄印", "翻住客簿"] }, siteDone: { 驿站: ["查马厩蹄印"] } });
   const m = exploreMenu(c);
   assert.deepEqual(m.talk, ["掌柜", "游方僧"]);
   assert.equal(m.searchLeft, 1);
   assert.deepEqual(m.quests, ["找马"]);
+  assert.deepEqual(m.siteActions, ["翻住客簿"], "此地专属动作只出现没做过的");
   assert.equal(regionOfNode(c, "山神庙"), "山里");
   assert.equal(pickSeed(c, "山里", () => 0).name, "山中野店", "先抽本区的");
   assert.equal(pickSeed(c, "河谷", () => 0).name, "游商", "本区用完了才抽没标区的;用过的不再抽");
   assert.equal(pickSeed(Object.assign({}, c, { sideSeeds: [] }), "山里"), null);
+});
+
+test("场景桌落账:场景轨迹、地点动作和已打出的地点牌一起进状态", () => {
+  const c = Object.assign(camp0(), { pos: "驿站", sceneTrail: ["social"], siteActions: {}, siteDone: {} });
+  const r = applyTurnPayload(c, { sceneMeta: { type: "investigate", objective: "查货单", stakes: "证据会被烧" }, siteActions: ["翻住客簿", "查马厩蹄印"], choices: [] }, { siteAction: "翻住客簿" });
+  assert.equal(r.camp.sceneMeta.type, "investigate");
+  assert.deepEqual(r.camp.sceneTrail, ["social", "investigate"]);
+  assert.deepEqual(r.camp.siteActions["驿站"], ["翻住客簿", "查马厩蹄印"]);
+  assert.deepEqual(r.camp.siteDone["驿站"], ["翻住客簿"]);
+  assert.match(src, /这一拍打出的牌/);
+  assert.match(src, /〔主动调用〕/);
+  assert.match(src, /拿去验证/);
 });
 
 test("探索拍:四下看看记一次翻找;搜满三次就不再给这个按钮", () => {
@@ -459,7 +484,7 @@ test("探索拍:四下看看记一次翻找;搜满三次就不再给这个按钮
   const r = applyTurnPayload(c, { scene: "x", choices: [] }, { explore: "search" });
   assert.equal(r.camp.searched["驿站"], 1);
   assert.equal(applyTurnPayload(r.camp, { choices: [] }, { explore: "search" }).camp.searched["驿站"], 2);
-  assert.match(src, /stuck \? \(\(\) => \{/, "没选项时换成探索面板");
+  assert.match(src, /stuck \? h\("div"/, "没选项时换成探索面板");
   assert.match(src, /四下看看/); assert.match(src, /让守密人接着讲/);
   assert.match(src, /choices 给【空数组】,队伍会落回探索态/, "守密人得知道收幕=空选项");
 });
@@ -502,7 +527,7 @@ test("舆图可拖可捏:单套 pointer 处理两指,拖动不算点选,视口�
 });
 
 test("闲聊模式:说话走加戏不推进,行动按钮变闲聊", () => {
-  assert.match(src, /if \(chatMode\) return addBeat\(text\)/);
+  assert.match(src, /if \(chatMode\) \{ clearPlayed\(\); return addBeat\(text\); \}/);
   assert.match(src, /让队友们自然接话/);
   assert.match(src, /闲聊两句\(不推进剧情、不动状态\)/);
 });
