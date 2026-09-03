@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.62";
+const APP_VERSION = "v60.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14478,11 +14478,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 于是【只要有东西在响，唱片就永远轮不到】——她那天正放着自己的歌进空间，
   // 唱片一次都没响过，看着就像这个功能坏了。现在是「进来就落针」。
   // 收针那一半不动：走的时候仍然【只带走自己】(discLeave 只在放的是 sgd_ 时停)。
+  // ⚠️唱片是【暂借】她的播放器，借完得还（她 2026-09-02 报：
+  //   「出来音乐会停（这个确实要这样）但是我原来的悬浮播放器也跟着没了」）。
+  //   原来 discEnter 直接 discPlay 盖掉她正在放的歌，discLeave 又只会 stopPlayer——
+  //   于是进一趟情侣空间，她自己那首歌就没了，连悬浮播放器一起消失。
+  //   现在进门前先把【她那首歌 + 队列 + 放到哪儿了 + 当时是不是真在放】记下来，
+  //   出门原样还回去。进来前本来就没在放的，出门停着才对，不许凭空给她开一首。
+  const discPrevRef = useRef(null);
   const discEnter = cid => {
     if (discSpinning()) return;              // 已经在转就别打断它
-    if (discSongsOf(cid).length) discPlay(cid, discNextId(cid));  // 接着上次那首往下放
+    if (!discSongsOf(cid).length) return;
+    const prevId = playerSongIdRef.current;
+    const el = audioElRef.current;
+    // ⚠️静音保活那首也要还：它占着 iOS 的音频会话，被顺手停掉＝后台保活断了。
+    //   它本来就是「像歌一样播的一段静音」，playSong(KEEPALIVE_ID) 走的是同一条路。
+    discPrevRef.current = (prevId && resolveSong(prevId)) ? {
+      id: prevId,
+      queue: (((listenRef.current || {}).nowQueue) || []).slice(),
+      t: (el && el.currentTime) || 0,
+      playing: !!(el && !el.paused)
+    } : null;
+    discPlay(cid, discNextId(cid));           // 接着上次那首往下放
   };
-  const discLeave = () => { if (discSpinning()) stopPlayer(); }; // 走时只带走自己
+  const discLeave = async () => {
+    if (!discSpinning()) { discPrevRef.current = null; return; }  // 唱片压根没落针：她自己的歌照放，别动
+    const prev = discPrevRef.current;
+    discPrevRef.current = null;
+    // 进来前本来就没在放 → 停干净（她说的「出来音乐会停，这个确实要这样」）
+    if (!prev || !resolveSong(prev.id)) { stopPlayer(); return; }
+    // 有得还就直接换回去，不先 stopPlayer——那会让播放器闪一下没影
+    await playSong(prev.id, prev.queue.length ? prev.queue : undefined);
+    const el2 = audioElRef.current;
+    if (!el2) return;
+    if (prev.t > 1) { try { el2.currentTime = prev.t; } catch (e) {} }   // 还回原来那个位置
+    if (!prev.playing) { el2.pause(); setPlayer(p => ({ ...p, playing: false })); } // 原来是暂停的就还它一个暂停
+  };
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──

@@ -120,8 +120,13 @@ test("歌单按【真进歌单几首】重试，不是按模型给了几个候�
 test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   const m = appSrc.match(/const discEnter = cid => \{[\s\S]*?\n  \};/);
   assert.ok(m, "找不到 discEnter");
-  // 旧的「播放器里有东西在响就不落针」必须是删掉的
-  assert.doesNotMatch(m[0], /!el\.paused/);
+  // 旧的「播放器里有东西在响就不落针」必须是删掉的（那一版让唱片永远轮不到）。
+  // ⚠️冻的是【有没有这道闸】，不是「!el.paused 这几个字出现过没有」：
+  //   v60.63 起 discEnter 也读 !el.paused，但那是记「她原来那首是不是真在放」
+  //   （好在离开时原样还回去），跟要不要落针没关系。逐字冻字符串会误伤到它。
+  const guards = m[0].match(/if \(.*?\) return;/g) || [];
+  assert.deepEqual(guards, ["if (discSpinning()) return;", "if (!discSongsOf(cid).length) return;"],
+    "discEnter 只许有这两道闸：已经在转 / 这对没有唱片——别再加「播放器忙就不落针」");
   // 而且是【接着上次那首】，不是永远从第一首（她 2026-09-02：后面的永远轮不到）
   assert.match(m[0], /discPlay\(cid, discNextId\(cid\)\)/);
   const nx = appSrc.match(/const discNextId = cid => \{[\s\S]*?\n  \};/);
@@ -130,7 +135,13 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   // 针位不能只在离开时记（App 被杀/直接切走都不会走 discLeave）：挂在换歌上
   assert.match(appSrc, /if \(!sid \|\| String\(sid\)\.indexOf\("sgd_"\) !== 0\) return;/);
   assert.match(appSrc, /lastId: sid/);
-  assert.match(appSrc, /const discLeave = \(\) => \{ if \(discSpinning\(\)\) stopPlayer\(\); \};/);
+  // 「离开只收自己的针」——冻的是这件事，不是那一行长什么样。
+  // v60.63 起 discLeave 还要把她进来之前那首还回去（她报：出来自己的悬浮播放器也没了），
+  // 所以它不再是一行；但「唱片没落针就一个音符都别动她的」这条没变。
+  const dl = appSrc.match(/const discLeave = async \(\) => \{[\s\S]*?\n  \};/);
+  assert.ok(dl, "找不到 discLeave");
+  assert.match(dl[0], /if \(!discSpinning\(\)\) \{ discPrevRef\.current = null; return; \}/,
+    "唱片没落针就该原样退出，别去动她自己在放的歌");
 });
 
 
