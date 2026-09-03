@@ -6842,8 +6842,12 @@ function KinshipRaiseCard({ m, character }) {
 //   来回晃才是一片正在飘的叶子
 // · 群线上那两档——实心＝他们自己会接着聊，空心＝回完这一轮就停下等你。
 //   「虚」和「实」在这儿是字面意思，不是只换个颜色。
-const MAPLE_D = "M12 2.4L14.8 8.2 19.6 6.6 16.8 11.6 21.6 14.2 12.75 17 12.75 22.2"
-  + " 11.25 22.2 11.25 17 2.4 14.2 7.2 11.6 4.4 6.6 9.2 8.2z";
+// v60.72 换成她给的那张：一片真正的枫叶（加拿大那片的画法——她人在加拿大），
+// 五瓣、瓣尖分明、深 V 的凹口、底下一根细柄。上一版是我自己描的一片，
+// 缩到 23px 还是更像一颗星；这一片的凹口够深，小到 23px 也还认得出是叶子。
+// viewBox 直接切在叶子的外框上（246 78 532 686），所以它在键里是满的，不用再缩放对齐。
+const MAPLE_D = "m 512,81.5 -45.7,85.3 c -5.2,9.7 -14.5,8.8 -23.8,3.6 l -33.1,-17.1 24.7,131.1 c 5.2,27.6 -14,27.6 -23.4,15.9 l -57.7,-64.6 -9.4,32.8 c -1.1,4.3 -5.9,8.9 -13.2,7.8 l -73,-15.3 19.2,69.7 c 4.1,15.5 7.3,22 -4.2,26.1 l -26.1,12.3 126.1,102.4 c 5,3.9 7.6,10.9 5.7,17.2 l -11,36.3 122.5,-14.5 c 3.8,-0.4 10.3,5.9 10.2,10.3 l -5.7,129.9 21,0 -3.3,-129.6 c 0,-4.4 5.9,-11 9.7,-10.6 l 122.5,14.5 -11,-36.3 c -1.8,-6.3 0.7,-13.3 5.7,-17.2 l 126.1,-102.4 -26.1,-12.3 c -11.5,-4.1 -8.3,-10.6 -4.2,-26.1 l 19.2,-69.7 -73,15.3 c -7.3,1.1 -12.1,-3.5 -13.2,-7.8 l -9.4,-32.8 -57.7,64.6 c -9.4,11.7 -28.6,11.7 -23.4,-15.9 l 24.7,-131.1 -33.1,17.1 c -9.3,5.2 -18.6,6.1 -23.8,-3.6 z";
+const MAPLE_VB = "246 78 532 686";
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
   const lit = sending ? t.accent : t.ink;
@@ -6859,9 +6863,9 @@ function ReplyKey({ sending, disabled, title, onClick, hold }) {
     h("div", { className: "flex", style: sending
       ? { animation: "wk-maple 2.6s ease-in-out infinite" }
       : { transform: "rotate(-8deg)" } },
-      h("svg", { width: 24, height: 24, viewBox: "0 0 24 24",
+      h("svg", { width: 18.6, height: 24, viewBox: MAPLE_VB,
           fill: hold === true ? "none" : lit, stroke: lit,
-          strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" },
+          strokeWidth: hold === true ? 30 : 38, strokeLinejoin: "round" },
         h("path", { d: MAPLE_D }))));
 }
 
