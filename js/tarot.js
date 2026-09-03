@@ -59,10 +59,7 @@
       const rank = RANKS.find(r => c.name === suit + r) || "";
       core = (SUIT_KEYS[suit] || "当下经验") + "；" + (RANK_KEYS[rank] || "变化中的阶段");
     }
-    return { keywords: core, text: c.rev ? "逆位提醒：这股力量可能受阻、过量或转向内在；先看哪里失衡，不急着把它圆成好事。" : "正位提示：这股力量正在较直接地显现；结合牌位，看它邀请你承认、推进或守住什么。",
-      // 牌背上那一句：三张牌一起翻过来时，长的那句会三张一模一样地占满整面，
-      // 关键词（每张都不同）反而被压下去。短句只说正逆这一档，剩下的留给关键词
-      short: c.rev ? "逆位：受阻、过量，或转向内里" : "正位：这股力量正面地显现" };
+    return { keywords: core, text: c.rev ? "逆位提醒：这股力量可能受阻、过量或转向内在；先看哪里失衡，不急着把它圆成好事。" : "正位提示：这股力量正在较直接地显现；结合牌位，看它邀请你承认、推进或守住什么。" };
   }
   function fmtDate(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   // 一次占卜里可被搜索命中的所有文字（角色名/问题/牌名/每日各角色/收束）
@@ -868,9 +865,9 @@
         // 牌义那一面：还是这张牌的形状与底色，只是翻过去写着字
         faceUp !== false && meaning ? h("div", { style: { position: "absolute", inset: 6, border: "1px solid rgba(184,145,80,.42)", borderRadius: 8, padding: "7px 8px", overflow: "hidden", textAlign: "left", display: "flex", flexDirection: "column", justifyContent: "center" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: GOLD, opacity: .9, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pos || "牌义"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 11 : 12.5, color: "#f4efe4", marginBottom: 3 } }, c.name + (c.rev ? "·逆" : "·正")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8.5 : 9.5, lineHeight: 1.5, color: GOLD, marginBottom: 4 } }, cardReference(c).keywords),
-          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 9.5, lineHeight: 1.6, color: "rgba(244,239,228,.72)" } }, cardReference(c).short)) : null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 10.5 : 12, color: "#f4efe4", marginBottom: 2 } }, c.name + (c.rev ? "·逆" : "·正")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8.5 : 9, lineHeight: 1.45, color: GOLD, marginBottom: 4 } }, cardReference(c).keywords),
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 9, lineHeight: 1.55, color: "rgba(244,239,228,.74)" } }, cardReference(c).text)) : null,
         faceUp === false || meaning ? null : [
         h("img", { src: cardImage(c), alt: c.name, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: c.rev ? "rotate(180deg) scale(1.02)" : "scale(1.02)", transformOrigin: "center", background: "#e8dfcf" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "42%", background: "linear-gradient(transparent,rgba(20,15,28,.88))" } }),

@@ -151,9 +151,12 @@ test("牌义搬到牌背上：翻开之后再点一下就翻过去，而且能�
   assert.match(src, /faceUp !== false && meaning \? h\("div"/);
   assert.equal(src.indexOf('key: "ref" + i'), -1, "牌阵底下那一列牌义小卡该整个删掉");
   assert.match(src, /再点一张牌，翻过去看它的牌义/, "得告诉她这一下能干什么");
-  // 三张一起翻过来时，长句会三张一模一样地霸屏；牌背上用短句，让关键词唱主角
-  assert.match(src, /short: c\.rev \? "逆位：受阻、过量，或转向内里" : "正位：这股力量正面地显现"/);
-  assert.match(src, /cardReference\(c\)\.short\)\) : null/);
+  // 牌背上放的是【原来那段完整牌意】：她 2026-09-03 说「你删的那个牌意原来的挺好的，
+  // 我本来是想把它放卡背面的」。v60.78 我嫌三张一起翻过来时那句长得一样，自作主张
+  // 换成了短句——不是她要的。short 那一版整个删掉了。
+  assert.equal(src.indexOf("short: c.rev"), -1, "自作主张那版短句该删干净");
+  assert.match(src, /cardReference\(c\)\.keywords\)/, "关键词（每张都不同）要在");
+  assert.match(src, /cardReference\(c\)\.text\)\) : null/, "底下那段是完整牌意，不是缩写");
 });
 
 test("店里那句动静改成每次跟着这一卦生成，本地那五句只当兜底", () => {
