@@ -16,12 +16,16 @@
   const h = React.createElement;
 
   // 图标：一片落着的秋叶（自言自语落在墙上）
+  // v60.99 起聊天那颗「让 TA 回复」的键也用这一片（她 2026-09-03：「直接偷他那片过来」）。
+  // 所以多了一个 dash：群线上「只回一轮」那一档要画成虚线（「虚」在那儿是字面意思）。
+  // ⚠️只加可选参数、不改原来的样子：不传 dash 时跟以前一模一样，秋声那边一个像素都不动。
   window.GYanqiuLeaf = function (props) {
     const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17", fill = (props && props.fill) || "none";
+    const dash = (props && props.dash) ? { strokeDasharray: "9 3" } : null;
     return h("svg", { width: size, height: size, viewBox: "0 0 48 48", fill: "none" },
-      h("path", { d: "M38 10C26 10 14 16 12 30c8 2 22-2 26-20z", fill: fill, stroke: color, strokeWidth: 2.6, strokeLinejoin: "round" }),
-      h("path", { d: "M12 30c-2 4-3 7-3 10", stroke: color, strokeWidth: 2.6, strokeLinecap: "round" }),
-      h("path", { d: "M17 27c4-1 10-4 14-9", stroke: color, strokeWidth: 2, strokeLinecap: "round" }));
+      h("path", Object.assign({ d: "M38 10C26 10 14 16 12 30c8 2 22-2 26-20z", fill: fill, stroke: color, strokeWidth: 2.6, strokeLinejoin: "round" }, dash)),
+      h("path", Object.assign({ d: "M12 30c-2 4-3 7-3 10", stroke: color, strokeWidth: 2.6, strokeLinecap: "round" }, dash)),
+      h("path", Object.assign({ d: "M17 27c4-1 10-4 14-9", stroke: color, strokeWidth: 2, strokeLinecap: "round" }, dash)));
   };
 
   // 图钉：一个带高光的小圆头，钉在纸顶

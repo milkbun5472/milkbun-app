@@ -4,36 +4,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const _i = comp.indexOf("const MAPLE_D");
-// ⚠️只切到 ReplyKey 结束为止：原来切到「代付请求卡」那条注释，中间早就插进了
-// 别的组件（输入档位那张单子），于是这里的断言会误伤到别人的样式。
-const _end = comp.indexOf("\n// 「这一条怎么进去」", _i);
-const key = comp.slice(_i, _end > 0 ? _end : comp.indexOf("\n// 代付请求卡", _i));
+const yq = fs.readFileSync(path.join(root, "js/yanqiu.js"), "utf8");
+const _i = comp.indexOf("function ReplyKey(");
+const key = comp.slice(_i, comp.indexOf("\n}\n", _i));
 
-// 「让 TA 回复」那个键。她 2026-09-02 点的名：「那个回复键我想要枫叶」。
-// 在这之前退回过三版：黑圆圈 + ✦（「之前也是参考的嘤」）、他的脸（「看着怪吓人的」）、
-// 一枚空气泡。所以这一条钉的是：图案是自己画的、是一片枫叶、四处同一个键。
-
-// 路径是相对指令（m/l/c），只取每段的落点走成绝对坐标——够验对称和外形了
-function anchors(d) {
-  const toks = d.replace(/([mlczMLCZ])/g, " $1 ").trim().split(/[\s,]+/);
-  const out = []; let x = 0, y = 0, i = 0, cmd = "";
-  while (i < toks.length) {
-    const tk = toks[i];
-    if (/^[mlczMLCZ]$/.test(tk)) { cmd = tk; i++; continue; }
-    if (cmd === "z" || cmd === "Z" || !cmd) { i++; continue; }
-    const n = (cmd === "c" || cmd === "C") ? 6 : 2;
-    const v = toks.slice(i, i + n).map(Number); i += n;
-    if (v.length < n || v.some(q => !Number.isFinite(q))) break;
-    x += v[n - 2]; y += v[n - 1];
-    out.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
-    if (cmd === "m") cmd = "l";
-  }
-  return out;
-}
-const dm = key.match(/const MAPLE_D = "([^"]+)"/);
-const dStr = dm ? dm[1] : "";
-const P = anchors(dStr);
+// 「让 TA 回复」那个键。她 2026-09-02 点的名：「那个回复键我想要枫叶」，
+// 2026-09-03 又改口：「参考言秋在秋声做的……直接偷他那片过来」。
+// 在这之前退回过好几版：黑圆圈 + ✦（「之前也是参考的嘤」）、他的脸（「看着怪吓人的」）、
+// 一枚空气泡、我自己描的枫叶、真枫叶。所以这一条钉的是：
+// 图案是【这个 app 自己有的那片叶子】、只有一份、四处同一个键。
 
 test("既不借那颗星，也不拿脸当图案，四处同一个键", () => {
   assert.equal((comp.match(/ISpark/g) || []).length, 0, "✦ 还在");
@@ -42,39 +21,38 @@ test("既不借那颗星，也不拿脸当图案，四处同一个键", () => {
     "单聊线上 / 单人线下 / 群线下 / 群线上，四处都是同一个键");
 });
 
-test("叶子是一条闭合路径，左右对称（v60.72 换成她给的那片真枫叶）", () => {
-  assert.ok(dStr.trim().endsWith("z"), "路径没闭合");
-  assert.ok(P.length >= 20, "点太少——这一片是五瓣带深凹口的枫叶，不是几个尖");
-  const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
-  // 容差 15/1024（≈1.4%）：这一片是照旗子那片描的，两边差个十来个单位，肉眼看不出来。
-  // 但歪成星形、缺一瓣、或者哪一侧塌了，都会在这一步露馅。
-  for (const [x, y] of P) {
-    assert.ok(P.some(q => Math.abs(q[0] - (1024 - x)) < 15 && Math.abs(q[1] - y) < 15),
-      "(" + x + "," + y + ") 找不到对称的那一半——叶子歪了");
-  }
-  assert.ok(Math.max(...xs) - Math.min(...xs) >= 500, "叶面不够宽");
-  // 叶柄：最底下那两个点紧挨着中轴，而且比叶面低一截（缩到 23px 全靠这根柄）
-  const blade = Math.max(...ys.filter(y => y <= 600));
-  const bottom = P.filter(p => p[1] > 600);
-  assert.equal(bottom.length, 2, "叶柄是两个点一根柄");
-  assert.ok(Math.abs(bottom[0][0] - bottom[1][0]) <= 30, "柄太粗了，看着像楔子不像柄");
-  assert.ok(Math.max(...ys) - blade >= 90, "柄太短了，缩小之后整片就成了星");
-  // viewBox 切在叶子的外框上，键里那片才是满的
-  assert.match(key, /const MAPLE_VB = "246 78 532 686"/);
-  assert.match(key, /viewBox: MAPLE_VB/);
+test("用的就是言秋那片叶子本人，不是照着又抄一份", () => {
+  assert.match(key, /window\.GYanqiuLeaf/, "没去拿他那片");
+  assert.match(key, /h\(Leaf, \{ size: 30, color: lit, dash: hold === true \}\)/);
+  // ⚠️路径只许有一份：抄一份的话，他哪天改了自己那片，聊天这颗就悄悄跟他分了家
+  assert.doesNotMatch(comp, /M38 10C26 10 14 16 12 30c8 2 22-2 26-20z/, "components.js 里又抄了一份叶子");
+  assert.match(yq, /M38 10C26 10 14 16 12 30c8 2 22-2 26-20z/, "原件不在 yanqiu.js 了");
+  // 那片枫叶连同它的常量整个撤干净，不许留着没人用的
+  assert.doesNotMatch(comp, /MAPLE_D|MAPLE_VB/);
 });
 
-test("生成中：叶子红了，还在轻轻晃（不是转圈的加载环）", () => {
-  assert.match(key, /const lit = sending \? t\.accent : t\.ink/, "生成中该变红");
+test("加 dash 是可选参数，秋声那边一个像素都不动", () => {
+  assert.match(yq, /const dash = \(props && props\.dash\) \? \{ strokeDasharray: "9 3" \} : null;/);
+  // 不传 dash 时 Object.assign 加的是 null，等于什么都没加
+  assert.match(yq, /Object\.assign\(\{ d: "M38 10C26/);
+});
+
+test("没有圆框，但可点区域还是 40px（mobile-ui-layout 那条手感线）", () => {
+  assert.match(key, /width: 40, height: 40, background: "transparent", border: "none"/);
+  assert.doesNotMatch(key, /borderRadius: 999/, "圆框还在");
+  assert.doesNotMatch(key, /border: "1\.5px solid/, "那圈边还在");
+});
+
+test("生成中：叶子上色，还在轻轻晃（不是转圈的加载环）", () => {
+  assert.match(key, /const lit = sending \? t\.accent : t\.ink/, "生成中该变色");
   assert.equal((key.match(/animate-spin/g) || []).length, 0, "转整圈就成了通用加载环");
   assert.match(key, /@keyframes wk-maple\{0%\{transform:rotate\(-8deg\)/);
   assert.match(key, /50%\{transform:rotate\(11deg\)/, "要来回晃，不能只往一边转");
   assert.match(key, /animation: "wk-maple/, "晃只在生成中那一档");
 });
 
-test("群线上那两档：实心／空心，不是只换个颜色", () => {
-  // hold=true 只回一轮（回完停下等你）；false 他们自己会接着聊
-  assert.match(key, /fill: hold === true \? "none" : lit/);
+test("群线上那两档：实线／虚线，不是只换个颜色", () => {
+  assert.match(key, /dash: hold === true/);
   assert.match(comp, /hold: !!gHold/, "群线上要把这一档传进来");
 });
 
@@ -89,14 +67,4 @@ test("被拉黑仍然戳不动，且说得清为什么", () => {
   assert.match(comp, /disabled: sending \|\| bk\.theyBlocked/);
   assert.match(comp, /bk\.theyBlocked \? "TA 拉黑了你，无法回复" : "让 TA 回复"/);
   assert.match(key, /disabled: disabled/);
-});
-
-// v60.96 她：「不要圆框，就一片叶子」——框是【按钮】的零件，不是叶子的
-test("没有圆框了，但可点区域还是 40px（mobile-ui-layout 那条手感线）", () => {
-  assert.match(key, /width: 40, height: 40, background: "transparent", border: "none"/);
-  assert.doesNotMatch(key, /borderRadius: 999/, "圆框还在");
-  assert.doesNotMatch(key, /border: "1\.5px solid/, "那圈边还在");
-  // 生成中不再靠圈变色说话，靠叶子自己上色 + 继续晃
-  assert.match(key, /const lit = sending \? t\.accent : t\.ink/);
-  assert.match(key, /animation: "wk-maple/);
 });
