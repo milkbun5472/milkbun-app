@@ -132,7 +132,7 @@ test("内置预设改了要告诉她——它是拷贝进编辑框的，不是�
   //   内容变了而版本没跟着变，这条就红，红出来的那句话直接告诉你怎么办。
   const bare = TS.CSS_BUILTINS.thread.map(x => x[1].replace(/^\/\* 内置 · .+? \*\/\n/, "")).join("\n");
   const sum = require("node:crypto").createHash("sha256").update(bare).digest("hex").slice(0, 12);
-  assert.deepEqual({ ver, sum }, { ver: 2, sum: "2a06688bdc75" },
+  assert.deepEqual({ ver, sum }, { ver: 3, sum: "18690df48dc9" },
     "内置皮肤的内容变了：把 js/theme-studio.js 里的 SKIN_VER +1，再把这一行的 ver/sum 改成新的。\n" +
     "不 +1 的话，她编辑框里那份旧 CSS 永远不会被认成旧的，界面也就永远不提示重新灌。");
   assert.deepEqual(TS.cssStale("/* 内置 · 仿微信 · v" + (ver - 1) + " */\n.a{}"),
@@ -146,4 +146,58 @@ test("内置预设改了要告诉她——它是拷贝进编辑框的，不是�
   assert.match(ui, /studio\.cssStale/, "界面没查陈旧，她永远不知道要重新灌一次");
   assert.match(ui, /有更新（v/, "查了却没写出来");
   assert.match(ui, /会盖掉你在这段里改过的东西/, "没提醒重新灌会盖掉她自己的改动");
+});
+
+// ── 她 2026-09-03 再追报 ──────────────────────────────────────────────
+// 「ins 的发送键看不到。还有我觉得 whatsapp line telegram 这几个也太像了宝宝你弄一弄」
+test("发送键不许透明——图标颜色是写死的 #fff", () => {
+  // ⚠️ISend 拿的是 color 属性（写死 "#fff"），不是 currentColor，
+  //   所以 CSS 里给 [data-wk="send"] 设 color 没用。底一透明就是白图标落在白底上。
+  //   这跟 tabs-not-plain-pills.md 里那条「绝不许写死 #fff」是同一个坑。
+  const send = comp.slice(comp.indexOf('"data-wk": "send"'), comp.indexOf('"data-wk": "send"') + 320);
+  assert.match(send, /color: "#fff"/, "图标不再写死 #fff 的话，这条推理要重写");
+  TS.CSS_BUILTINS.thread.forEach(([nm, css]) => {
+    const m = /\[data-wk="send"\] \{[^}]*background: ([^;]+) !important;/.exec(css);
+    assert.ok(m, nm + " 没给发送键上色");
+    assert.ok(!/transparent|rgba\([^)]*,\s*0(\.0+)?\)/.test(m[1]),
+      nm + " 的发送键是透明底：白图标落在白底上，她就看不见了（现在是 " + m[1].trim() + "）");
+  });
+});
+
+test("五套之间真的分得开——不是只换了个色相", () => {
+  // 判据照 tabs-not-plain-pills.md：原样搬到另一家还成立，就等于没做。
+  // whatsapp / line / telegram 原来都是「浅底 + 白气泡 + 一块有色气泡 + 圆头像 + 尖角」。
+  const feat = TS.CSS_BUILTINS.thread.map(([nm, css]) => {
+    const g = re => { const m = re.exec(css); return m ? m[1].trim() : ""; };
+    return {
+      nm,
+      底: g(/\[data-wk="chat"\][^{]*\{[^}]*background-image: ([^;]+) !important;/).slice(0, 40),
+      已读在气泡里: /align-self: flex-end !important;/.test(css),
+      尖角: /border-right: 5px solid/.test(css),
+      气泡圆角: g(/\[data-wk="bubble"\] \{[^}]*border-radius: ([^;]+) !important;/)
+    };
+  });
+  const sig = feat.map(f => [f.底, f.已读在气泡里, f.尖角, f.气泡圆角].join("|"));
+  const dup = sig.filter((x, i) => sig.indexOf(x) !== i);
+  assert.deepEqual(dup, [],
+    "有两套长得一模一样（底/已读位置/尖角/圆角全同）：\n  " +
+    feat.map((f, i) => f.nm + " → " + sig[i]).join("\n  "));
+  // 三家各自那件最认脸的事
+  const by = nm => feat.find(f => f.nm === nm);
+  assert.ok(by("仿 WhatsApp").底.startsWith("url("), "WhatsApp 的底没有那层涂鸦——光靠米色跟别家分不开");
+  assert.ok(by("仿 Telegram").底.startsWith("linear-gradient"), "Telegram 的底不是渐变");
+  assert.equal(by("仿 Telegram").尖角, false, "Telegram 不该有尖角");
+  assert.equal(by("仿 LINE").已读在气泡里, false, "LINE 的已读该在气泡外面");
+  assert.equal(by("仿 WhatsApp").已读在气泡里, true, "WhatsApp 的已读该在气泡里");
+});
+
+test("已读那一行两处都挂了，而且认得出是谁说的", () => {
+  // 单聊和群聊各有一份 msgFoot——「一层写在两处」，两处都得挂
+  assert.equal((comp.match(/"data-wk": "meta", "data-me"/g) || []).length, 2,
+    "msgFoot 有两份（单聊/群聊），得两处都挂");
+  // ⚠️塞进气泡那一路不许 absolute 到 [data-wk="msg"]（那是【整行】）：
+  //   对方那侧会把已读甩到屏幕最右边，离气泡十万八千里。
+  const wa = TS.CSS_BUILTINS.thread.find(x => x[0] === "仿 WhatsApp")[1];
+  assert.doesNotMatch(wa, /\[data-wk="msg"\] \{ position: relative/, "又锚到整行上了");
+  assert.match(wa, /align-self: flex-end !important;/, "没落在气泡那一列的右缘");
 });

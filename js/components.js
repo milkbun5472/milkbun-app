@@ -4510,7 +4510,10 @@ function ChatThread({
   const msgFoot = (i, m, sub) => {
     const dot = sayDot(i, m);
     if (!dot && !sub) return null;
-    return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
+    // 已读/时间那一行是皮肤最认脸的一处：WhatsApp 把它塞进气泡里右下角，
+    // LINE 甩在气泡外面贴着底边，Telegram 在气泡里、更淡。没有挂点就只能三家长一样。
+    return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0",
+      className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
       sub ? h("span", null, sub) : null, dot);
   };
   // 「你之前发过」:从这个聊天里自己发过的位置卡去重,最近的在前
@@ -9369,7 +9372,10 @@ function GroupThread({
   const msgFoot = (i, m, sub) => {
     const dot = sayDot(i, m);
     if (!dot && !sub) return null;
-    return h("span", { className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
+    // 已读/时间那一行是皮肤最认脸的一处：WhatsApp 把它塞进气泡里右下角，
+    // LINE 甩在气泡外面贴着底边，Telegram 在气泡里、更淡。没有挂点就只能三家长一样。
+    return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0",
+      className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } },
       sub ? h("span", null, sub) : null, dot);
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]

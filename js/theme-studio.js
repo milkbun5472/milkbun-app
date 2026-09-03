@@ -30,8 +30,10 @@
   //   各写一份的话，以后 data-wk 挂点一改，就得记得改五遍——迟早漏。
   const chatSkinCSS = o => [
 '[data-wk="chat"], [data-wk="body"] {',
-'  background: ' + o.bg + ' !important;',
-'  background-image: none !important;',
+'  background-color: ' + o.bg + ' !important;',
+'  background-image: ' + (o.bgArt || "none") + ' !important;',
+'  background-size: ' + (o.bgSize || "auto") + ' !important;',
+'  background-attachment: scroll !important;',
 '}',
 '',
 '[data-wk="chathead"] {',
@@ -123,6 +125,27 @@
 '  border-radius: ' + o.photo + ' !important;',
 '}',
 '',
+'/* 已读和时间：各家摆的位置完全不一样，这一处最认脸 */',
+'[data-wk="meta"] {',
+'  font-size: ' + o.metaSize + ' !important;',
+'  color: ' + o.metaInk + ' !important;',
+'  margin-top: ' + o.metaTop + ' !important;',
+'}'
+  ].concat(o.metaInBubble ? [
+'/* 塞进气泡里：贴着那一条的右下角，跟正文挤在同一块底上 */',
+'/* ⚠️不能 absolute 到 [data-wk="msg"] 上——那是【整行】，对方那侧会把已读甩到屏幕最右边。',
+'   气泡和已读是同一个 flex 列的两个孩子，列宽＝气泡宽，所以 align-self:flex-end',
+'   正好落在气泡右缘；再用负的上边距把它提进气泡多留出来的那截底里。 */',
+'[data-wk="bubble"] { padding-bottom: 19px !important; }',
+'[data-wk="meta"] {',
+'  align-self: flex-end !important;',
+'  margin-top: -17px !important;',
+'  margin-right: 11px !important;',
+'  position: relative !important;',
+'  z-index: 1 !important;',
+'}'
+  ] : []).concat([
+'',
 '[data-wk="msg"] { padding-top: ' + o.gap + 'px !important; padding-bottom: ' + o.gap + 'px !important; }',
 '[data-wk="row"] { gap: ' + o.rowGap + 'px !important; }',
 '',
@@ -145,45 +168,77 @@
 '  border: none !important;',
 '  border-radius: ' + o.sendRadius + ' !important;',
 '}'
-  ]).join("\n");
+  ])).join("\n");
+  // 各家最认脸的其实不是配色，是【底】和【已读那一行摆在哪】。
+  // 她 2026-09-03：「whatsapp line telegram 这几个也太像了」——是真的：
+  // 三家原来都是「浅底 + 对方白气泡 + 自己一块有色气泡 + 圆头像 + 尖角」，
+  // 只有色相不一样。照 tabs-not-plain-pills.md 那条判据：原样搬到另一家还成立，
+  // 就等于没做。所以这一版按各家真正分得开的地方重配。
+  //
+  // ⚠️底纹是我自己画的几何图形，不是谁家的素材；只学「有没有底纹、什么密度」。
+  const wave = c => "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E"
+    + "%3Cg fill='none' stroke='%23" + c + "' stroke-width='1.6' stroke-linecap='round'%3E"
+    + "%3Cpath d='M14 20h16M14 26h10'/%3E%3Ccircle cx='86' cy='22' r='7'/%3E"
+    + "%3Cpath d='M20 62c4-7 12-7 16 0s12 7 16 0'/%3E%3Cpath d='M92 58v14M85 65h14'/%3E"
+    + "%3Cpath d='M28 98l7-7 7 7'/%3E%3Ccircle cx='78' cy='100' r='5'/%3E%3Cpath d='M56 34h8v8h-8z'/%3E"
+    + "%3C/g%3E%3C/svg%3E\")";
+
   // 微信：方气泡、带尖角、灰底。⚠️时刻是一行【没有底】的灰字——
   // 原来给了它一颗灰药丸配白字，那是别家的样子，一眼就出戏。
   const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111",
     timeBg:"transparent", timeInk:"#b2b2b2", timeRadius:"0", timePad:"0", avatar:"4px", radius:"5px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
     tail:true, gap:6, rowGap:10, card:"4px", photo:"4px",
+    metaSize:"9.5px", metaInk:"#b2b2b2", metaTop:"3px", metaInBubble:false,
     footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px", send:"#07c160", sendInk:"#ffffff", sendRadius:"4px" });
-  // LINE：亮绿自己、白对方，底偏蓝灰，气泡很圆、也带尖角
-  const LINE_CSS = chatSkinCSS({ bg:"#d7e0ea", head:"#d7e0ea", line:"#b9c6d4", headInk:"#1f1f1f",
-    timeBg:"rgba(0,0,0,.28)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 10px", avatar:"999px", radius:"18px", shadow:"none",
+
+  // LINE：底是一块干净的蓝灰，没有底纹；气泡特别圆、留白也大；
+  // 最认脸的是【已读和时间甩在气泡外面】，字比别家还小一号。
+  const LINE_CSS = chatSkinCSS({ bg:"#8ca0b3", head:"#5b6b7c", line:"rgba(0,0,0,.16)", headInk:"#ffffff",
+    timeBg:"rgba(0,0,0,.30)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 11px", avatar:"999px", radius:"20px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
-    tail:true, gap:5, rowGap:9, card:"16px", photo:"16px",
+    tail:true, gap:6, rowGap:9, card:"18px", photo:"18px",
+    metaSize:"8.5px", metaInk:"rgba(255,255,255,.85)", metaTop:"3px", metaInBubble:false,
     footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px", send:"#06c755", sendInk:"#ffffff", sendRadius:"999px" });
-  // Telegram：自己那侧淡到几乎白的青绿，圆角中等，没有尖角，气泡有一点点浮起
-  const TELEGRAM_CSS = chatSkinCSS({ bg:"#e6ebee", head:"#ffffff", line:"#dfe4e7", headInk:"#0f1419",
-    timeBg:"rgba(0,0,0,.22)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 10px", avatar:"999px", radius:"12px",
-    shadow:"0 1px 2px rgba(16,35,47,.08)",
-    theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#eeffde", myInk:"#0f1419",
-    tail:false, gap:4, rowGap:9, card:"10px", photo:"10px",
-    footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"14px", send:"transparent", sendInk:"#3390ec", sendRadius:"999px" });
-  // WhatsApp：认得出的那个米底，浅绿自己、白对方，带尖角
-  const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21",
+
+  // Telegram：底是一整片暖紫渐变（它默认就是一张渐变壁纸，不是平色）；
+  // 气泡不带尖角、几乎不留投影，密度最紧；已读和时间【在气泡里】。
+  const TELEGRAM_CSS = chatSkinCSS({ bg:"#8f7bb8",
+    bgArt:"linear-gradient(150deg,#b39ddb 0%,#9575cd 34%,#7e8fd0 68%,#64b5c6 100%)", bgSize:"cover",
+    head:"#ffffff", line:"#e4e7ea", headInk:"#0f1419",
+    timeBg:"rgba(0,0,0,.26)", timeInk:"#ffffff", timeRadius:"999px", timePad:"3px 9px", avatar:"999px", radius:"13px",
+    shadow:"0 1px 1px rgba(16,35,47,.10)",
+    theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#effdde", myInk:"#0f1419",
+    tail:false, gap:3, rowGap:8, card:"11px", photo:"11px",
+    metaSize:"9px", metaInk:"rgba(90,120,90,.75)", metaTop:"0", metaInBubble:true,
+    footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"16px", send:"#3390ec", sendInk:"#ffffff", sendRadius:"999px" });
+
+  // WhatsApp：认得出的那个米底【上面有一层浅浅的涂鸦】——这才是它最认脸的地方，
+  // 光靠米色跟别家分不开。气泡方得多，已读和时间也【在气泡里】。
+  const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", bgArt:wave("d3c9b8"), bgSize:"120px 120px",
+    head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21",
     timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", timePad:"5px 11px", avatar:"999px", radius:"8px",
     shadow:"0 1px 1px rgba(11,20,26,.13)",
     theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
     tail:true, gap:4, rowGap:9, card:"8px", photo:"7px",
-    footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"10px", send:"#00a884", sendInk:"#ffffff", sendRadius:"999px" });
-  // Insta DM：白底、气泡特别圆、自己那侧紫蓝渐变白字，没有尖角
+    metaSize:"9px", metaInk:"rgba(17,27,33,.45)", metaTop:"0", metaInBubble:true,
+    footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"22px", send:"#00a884", sendInk:"#ffffff", sendRadius:"999px" });
+
+  // Insta DM：白底、气泡特别圆、自己那侧紫蓝渐变白字，没有尖角。
+  // ⚠️发送键不许透明：图标颜色是写死的 #fff，透明底＝白图标落在白底上，
+  //   她 2026-09-03 就报了「ins 的发送键看不到」。同 tabs-not-plain-pills.md
+  //   那条「绝不许写死 #fff」的坑。
   const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111",
     timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", timePad:"0", avatar:"999px", radius:"22px", shadow:"none",
     theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
-    footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", send:"transparent", sendInk:"#0095f6", sendRadius:"999px" })
+    metaSize:"9px", metaInk:"#8e8e8e", metaTop:"3px", metaInBubble:false,
+    footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", send:"#0095f6", sendInk:"#ffffff", sendRadius:"999px" })
     + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
   // ⚠️内置预设是【拷贝】进她编辑框的，不是引用：我改了内置，她手上那份不会跟着变。
   //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，
   //   于是「感觉一个没生效」。改内置时把这个数 +1，界面就会提示她重新灌一次。
-  const SKIN_VER = 2;
+  const SKIN_VER = 3;
   const stamp = (nm, css) => "/* 内置 · " + nm + " · v" + SKIN_VER + " */\n" + css;
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
     ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
