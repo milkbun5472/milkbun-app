@@ -30,9 +30,8 @@ test("最近发生长成一叠通知，不跟底下的书脊撞版式（v61.29�
   // app 小图标是汉字（一定渲得出来），不是 emoji
   assert.match(seg, /const APPCH = \{ letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿" \};/);
   assert.match(seg, /APPCH\[x\.sub\] \|\| "·"/);
-  // 通知的三件套：毛玻璃、越往下越缩、右上角写「多久以前」而不是日期
+  // 通知的两件套：毛玻璃、右上角写「多久以前」而不是日期
   assert.match(seg, /backdropFilter: "blur\(10px\)"/);
-  assert.match(seg, /width: \(100 - i \* 2\.2\) \+ "%"/);
   assert.match(seg, /const notifyAgo = ts =>/);
   assert.match(seg, /return "刚刚";/);
   // 老的 icon 字段整条链都不许再有
@@ -42,9 +41,26 @@ test("最近发生长成一叠通知，不跟底下的书脊撞版式（v61.29�
   assert.ok(seg.indexOf('height: 26, borderRadius: 99, background: BAND') < 0, "通知里还挂着书脊色带");
 });
 
-test("一叠通知的阴影透明度得是小数，别拼成 .9", () => {
-  // "." + (12 - i) 到第四张就成了 ".9"＝90% 不透明，底下两张会拖着两块黑影
-  assert.match(seg, /rgba\(92,60,74," \+ \(0\.12 - i \* 0\.018\)\.toFixed\(3\)/);
+// v61.31 她：「这个通知栏做小一点吧，每次只显示三条固定高度，然后可以 scroll 看历史 15 条」
+test("通知只露三条、高度写死、里面自己滚，历史留 15 条", () => {
+  assert.match(src, /const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;/);
+  // 高度必须由行高算出来：另拍一个像素值就是「一层写在两处」，一改行高第三条会露半截
+  assert.match(src, /const NOTIFY_H = NOTIFY_ROW \* NOTIFY_SHOW \+ NOTIFY_GAP \* \(NOTIFY_SHOW - 1\);/);
+  assert.match(seg, /height: NOTIFY_H, overflowY: "auto", overscrollBehavior: "contain"/);
+  assert.match(seg, /height: NOTIFY_ROW,/);
+  assert.match(seg, /recentItems\.slice\(0, NOTIFY_KEEP\)/);
+});
+
+test("能滚之后，越往下越淡越窄那一层必须去掉", () => {
+  // 那是给「只有五条、一眼看全」做的；一旦能滚，第 8 条会淡到看不见、窄得对不齐。
+  assert.ok(seg.indexOf("(0.82 - i * 0.09)") < 0, "还留着越往下越淡");
+  assert.ok(seg.indexOf('width: (100 - i * 2.2)') < 0, "还留着越往下越窄");
+  assert.ok(seg.indexOf("(0.12 - i * 0.018)") < 0, "还留着按序号算的阴影");
+});
+
+test("没到头的时候底下压一层渐隐，而且是主题色不是写死的粉", () => {
+  assert.match(seg, /bRecent\.length > NOTIFY_SHOW \?/);
+  assert.match(seg, /"linear-gradient\(transparent," \+ bgA\(0\.9\) \+ "\)"/);
 });
 
 test("能复用现成 SVG 的地方就复用（打卡、起始日）", () => {

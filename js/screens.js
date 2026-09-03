@@ -3785,6 +3785,12 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
           className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: 14, color: t.bg2, background: t.ink, borderRadius: 12, padding: "10px 0" } }, busy ? "去云村找这首…" : "刻进唱片"))))
 }
 
+// 情侣空间「最近发生」那一叠通知的尺寸（v61.31，她 2026-09-03：
+// 「做小一点，每次只显示三条固定高度，然后可以 scroll 看历史 15 条」）。
+// ⚠️高度必须由行高算出来，不许另拍一个像素值：一改行高就得记得同步改那个数，
+// 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
+const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
+const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
 function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
@@ -4013,7 +4019,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
     bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
     recentItems.sort((a, b) => b.ts - a.ts);
-    const bRecent = recentItems.slice(0, 5);
+    // 15 条＝能往回翻一阵，又不至于把整页撑长（她 2026-09-03：「固定高度，
+    // 可以 scroll 看历史 15 条」）。看得见的永远只有三条，剩下的靠滚。
+    const bRecent = recentItems.slice(0, NOTIFY_KEEP);
     const sameDay = ts => { const d = new Date(ts || 0); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") === todayK; };
     const bToday = recentItems.filter(x => sameDay(x.ts)).slice(0, 2);
     const bTodayRows = bToday.length ? h("div", { style: { borderTop: "1px solid #eadde3", padding: "9px 13px" } },
@@ -4134,34 +4142,41 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 9 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "最近发生"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "从你俩的角落里捞出来")),
-            // ── 通知中心那一叠（v61.29）──
+            // ── 通知中心那一叠（v61.29 立，v61.31 收成固定高度）──
             // 上一版这里是「一条色带＋一行字」，跟底下「收着的」那一列书脊长得一模一样
             // ——她 2026-09-03 说「跟收着的重复了」。两处说的本来就不是一件事：
             // 书脊是【一直在那儿的东西】（一本一本翻），这里是【刚发生的事】。
             // 刚发生的事在手机上长什么样，是有现成答案的：一叠通知卡。
-            // 所以这一段按通知来做——毛玻璃卡片、左边一枚 app 小图标、右上角时刻、
-            // 最上面那张最新、越往下越往后缩一点，像刚推上来还没散开的一叠。
-            h("div", { style: { display: "flex", flexDirection: "column", gap: 7 } },
-              bRecent.length ? bRecent.map((x, i) => h("button", { key: x.id, onClick: () => setSub(x.sub),
-                className: "w-full active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10,
-                  padding: "10px 12px", textAlign: "left", borderRadius: 16,
-                  background: "rgba(255,255,255," + (0.82 - i * 0.09).toFixed(2) + ")",
-                  border: "1px solid rgba(146,114,128,.16)",
-                  backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-                  // ⚠️别拼 "." + (12 - i)：到第四张就成了 ".9"＝90% 不透明，一叠通知底下
-                  //   两张会拖着两块黑影。透明度要算成小数再 toFixed。
-                  boxShadow: "0 " + (6 - i) + "px " + (16 - i * 2) + "px rgba(92,60,74," + (0.12 - i * 0.018).toFixed(3) + ")",
-                  // 越往下越窄一点：一叠通知堆在一起就是这个样子，最新那张在最上面
-                  width: (100 - i * 2.2) + "%", marginLeft: (i * 1.1) + "%" } },
-                h("span", { "aria-hidden": "true", style: { width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-                  background: BAND[x.sub] || t.line, color: "#fff", display: "flex", alignItems: "center",
-                  justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15,
-                  boxShadow: "inset 0 -6px 10px rgba(0,0,0,.10)" } }, APPCH[x.sub] || "·"),
-                h("div", { className: "min-w-0 flex-1" },
-                  h("div", { className: "flex items-baseline", style: { gap: 6 } },
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".04em", color: "#96788a", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.label),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#b09aa6", flexShrink: 0 } }, notifyAgo(x.ts))),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4b3b44", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))))
+            //
+            // v61.31（她：「做小一点，每次只显示三条固定高度，然后可以 scroll 看历史 15 条」）：
+            // 卡片整体收小一号，容器钉死三条的高度、里面自己滚。
+            // ⚠️越往下越淡越窄那一层【必须去掉】：那是给「只有五条、一眼看全」做的。
+            //   一旦能滚，第 8 条会淡到看不见、窄得对不齐——同一个效果换个前提就成了 bug。
+            h("div", { style: { position: "relative" } },
+              bRecent.length ? h(Fragment, null,
+                h("div", { style: { height: NOTIFY_H, overflowY: "auto", overscrollBehavior: "contain",
+                  display: "flex", flexDirection: "column", gap: NOTIFY_GAP, paddingRight: 2,
+                  WebkitOverflowScrolling: "touch" } },
+                  bRecent.map(x => h("button", { key: x.id, onClick: () => setSub(x.sub),
+                    className: "w-full active:opacity-70 shrink-0", style: { display: "flex", alignItems: "center", gap: 9,
+                      height: NOTIFY_ROW, padding: "0 11px", textAlign: "left", borderRadius: 14,
+                      background: "rgba(255,255,255,.8)", border: "1px solid rgba(146,114,128,.16)",
+                      backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+                      boxShadow: "0 3px 10px rgba(92,60,74,.07)" } },
+                    h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                      background: BAND[x.sub] || t.line, color: "#fff", display: "flex", alignItems: "center",
+                      justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 13,
+                      boxShadow: "inset 0 -5px 9px rgba(0,0,0,.10)" } }, APPCH[x.sub] || "·"),
+                    h("div", { className: "min-w-0 flex-1" },
+                      h("div", { className: "flex items-baseline", style: { gap: 6 } },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".04em", color: "#96788a", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.label),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: "#b09aa6", flexShrink: 0 } }, notifyAgo(x.ts))),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4b3b44", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text)))))
+                ,
+                // 底下压一层渐隐：不写「往下还有」也看得出这一叠没到头
+                bRecent.length > NOTIFY_SHOW ? h("div", { "aria-hidden": "true", style: { position: "absolute",
+                  left: 0, right: 0, bottom: 0, height: 22, borderRadius: "0 0 14px 14px", pointerEvents: "none",
+                  background: "linear-gradient(transparent," + bgA(0.9) + ")" } }) : null)
                 : h("div", { style: { borderRadius: 16, border: "1px dashed rgba(146,114,128,.28)", padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", lineHeight: 1.8 } }, "还没有推送。", h("br"), "便签、情书、日记、合照和实现了的愿望都会推到这儿。"))),
           h("section", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 } },
             h("button", { onClick: () => setSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
