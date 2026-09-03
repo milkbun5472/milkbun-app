@@ -146,17 +146,22 @@ test("牌义搬到牌背上：翻开之后再点一下就翻过去，而且能�
   assert.match(src, /const \[flipped, setFlipped\] = useState\(\[\]\)/, "翻着的是【一组】牌，不是一次只能一张");
   assert.match(src, /const tapCard = i => revealed\.indexOf\(i\) < 0 \? revealCard\(i\)\n\s*: setFlipped\(p => p\.indexOf\(i\) >= 0 \? p\.filter\(x => x !== i\) : p\.concat\(i\)\)/,
     "第一下翻开、第二下翻到牌义、再一下翻回来");
-  assert.match(src, /cardTile\(c, \(s\.spread \|\| \[\]\)\[i\] \|\| "", i, false, revealed\.indexOf\(i\) >= 0, \(\) => tapCard\(i\), flipped\.indexOf\(i\) >= 0\)/);
   // 牌义那一面画在牌里，不是牌阵底下另起一列小卡
   assert.match(src, /faceUp !== false && meaning \? h\("div"/);
   assert.equal(src.indexOf('key: "ref" + i'), -1, "牌阵底下那一列牌义小卡该整个删掉");
-  assert.match(src, /再点一张牌，翻过去看它的牌义/, "得告诉她这一下能干什么");
-  // 牌背上放的是【原来那段完整牌意】：她 2026-09-03 说「你删的那个牌意原来的挺好的，
-  // 我本来是想把它放卡背面的」。v60.78 我嫌三张一起翻过来时那句长得一样，自作主张
-  // 换成了短句——不是她要的。short 那一版整个删掉了。
-  assert.equal(src.indexOf("short: c.rev"), -1, "自作主张那版短句该删干净");
+  // 牌背上写的是【这一张真正的分析】（她 2026-09-03 更正：「我其实想要实际分析放背面」）。
+  // 没有分析（还没解完 / 旧存档）才退回本地那段正逆牌意。
+  assert.equal(src.indexOf("short: c.rev"), -1, "中途那版缩写该删干净");
   assert.match(src, /cardReference\(c\)\.keywords\)/, "关键词（每张都不同）要在");
-  assert.match(src, /cardReference\(c\)\.text\)\) : null/, "底下那段是完整牌意，不是缩写");
+  assert.match(src, /meaning === true \? cardReference\(c\)\.text : meaning\)/, "背面第一顺位是真正的分析");
+  assert.match(src, /flipped\.indexOf\(i\) < 0 \? false : \(\(\(s\.reads \|\| \[\]\)\[i\] \|\| \{\}\)\.text \|\| true\)\)/, "把这一张的分析传进去");
+  // 摊开的那一张占满一行：110px 宽塞 80~180 字，一行只有八个字
+  assert.match(src, /\? \{ flex: "1 1 100%", width: "100%", maxWidth: "100%" \}/);
+  assert.match(src, /aspectRatio: \(meaning && faceUp !== false\) \? "auto" : "2\/3\.4"/, "摊开那面不锁长宽比，长多少长多高");
+  // 同一段话不许读两遍：下面那份逐张解读只剩名头和补牌
+  assert.equal(src.indexOf('fontSize: 14, lineHeight: 1.8, color: SKY_INK, whiteSpace: "pre-wrap" } }, r.text)'), -1,
+    "下面那份又把分析重复了一遍");
+  assert.match(src, /点一张牌翻过去，背面写的就是这一张的分析 · 可以同时翻好几张/);
 });
 
 test("店里那句动静改成每次跟着这一卦生成，本地那五句只当兜底", () => {

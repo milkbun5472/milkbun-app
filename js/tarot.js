@@ -859,21 +859,30 @@
     //   没翻开＝牌背 ✦ → 点一下翻开＝牌面 → 再点一下翻过去＝这张牌的牌义
     // 牌义原来是牌阵底下另起的一列小卡，跟牌隔着半屏；现在它就在这张牌的背面。
     // 想同时看几张就翻几张——flipped 是一个数组，不是一次只能有一张。
-    const cardTile = (c, pos, i, small, faceUp, onFlip, meaning) => h("div", { key: "c" + i, style: { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
-      h("button", { onClick: onFlip || null, disabled: !onFlip, className: onFlip ? "active:opacity-80" : "", style: { width: "100%", position: "relative", aspectRatio: "2/3.4", borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", transition: "transform .35s ease", transform: faceUp === false ? "rotateY(180deg)" : "rotateY(0deg)" } },
+    // 翻到背面那一张【占满一行】：110px 宽的一列里塞 80~180 字，一行只有八个字，
+    // 读起来像挤在书脊上。摊开占一整行，正好是一段话该有的宽度；没翻的还是并排的小牌
+    const cardTile = (c, pos, i, small, faceUp, onFlip, meaning) => h("div", { key: "c" + i, style: (meaning && faceUp !== false)
+      ? { flex: "1 1 100%", width: "100%", maxWidth: "100%" }
+      : { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
+      // ⚠翻到背面那一档不锁死长宽比：背面写的是这张牌【真正的分析】(80~180 字)，
+      // 钉着 2:3.4 只有两条路——要么裁字要么塞进一个滚动条，两条都不像一张牌。
+      // 让它长多少就长多高，短的那张有 minHeight 兜着，还是一张牌的样子
+      h("button", { onClick: onFlip || null, disabled: !onFlip, className: onFlip ? "active:opacity-80" : "", style: { width: "100%", position: "relative", aspectRatio: (meaning && faceUp !== false) ? "auto" : "2/3.4", minHeight: 0, borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", transition: "transform .35s ease", transform: faceUp === false ? "rotateY(180deg)" : "rotateY(0deg)" } },
         faceUp === false ? h("div", { style: { position: "absolute", inset: 7, border: "1px solid rgba(184,145,80,.5)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: GOLD, fontSize: small ? 17 : 24, transform: "rotateY(180deg)" } }, "✦") : null,
         // 牌义那一面：还是这张牌的形状与底色，只是翻过去写着字
-        faceUp !== false && meaning ? h("div", { style: { position: "absolute", inset: 6, border: "1px solid rgba(184,145,80,.42)", borderRadius: 8, padding: "7px 8px", overflow: "hidden", textAlign: "left", display: "flex", flexDirection: "column", justifyContent: "center" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: GOLD, opacity: .9, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pos || "牌义"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 10.5 : 12, color: "#f4efe4", marginBottom: 2 } }, c.name + (c.rev ? "·逆" : "·正")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8.5 : 9, lineHeight: 1.45, color: GOLD, marginBottom: 4 } }, cardReference(c).keywords),
-          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 9, lineHeight: 1.55, color: "rgba(244,239,228,.74)" } }, cardReference(c).text)) : null,
+        faceUp !== false && meaning ? h("div", { style: { position: "relative", width: "100%", border: "1px solid rgba(184,145,80,.42)", borderRadius: 8, padding: "11px 13px 13px", textAlign: "left" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 10, letterSpacing: 1, color: GOLD, opacity: .9, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pos || "牌义"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 10.5 : 15, color: "#f4efe4", marginBottom: 2 } }, c.name + (c.rev ? "·逆" : "·正")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8.5 : 10.5, lineHeight: 1.45, color: GOLD, marginBottom: 7 } }, cardReference(c).keywords),
+          // 这张牌真正的那段分析。没有（还没解完 / 旧存档）才退回本地那句正逆提示
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 13, lineHeight: 1.75, color: "rgba(244,239,228,.86)", whiteSpace: "pre-wrap" } }, meaning === true ? cardReference(c).text : meaning)) : null,
         faceUp === false || meaning ? null : [
         h("img", { src: cardImage(c), alt: c.name, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: c.rev ? "rotate(180deg) scale(1.02)" : "scale(1.02)", transformOrigin: "center", background: "#e8dfcf" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "42%", background: "linear-gradient(transparent,rgba(20,15,28,.88))" } }),
         h("div", { style: { position: "absolute", left: 5, right: 5, bottom: 6, fontFamily: F_DISPLAY, fontSize: small ? 11.5 : 13.5, color: "#fff", textAlign: "center", lineHeight: 1.2, textShadow: "0 1px 2px #000" } }, c.name),
         h("div", { style: { position: "absolute", right: 5, top: 5, fontFamily: F_BODY, fontSize: small ? 8 : 9, color: "#fff", background: c.rev ? "rgba(137,64,77,.86)" : "rgba(42,74,58,.82)", borderRadius: 999, padding: "2px 6px" } }, c.rev ? "逆" : "正")]),
-      pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, textAlign: "center", marginTop: 6 } }, pos) : null);
+      // 摊开的那一张自己头上已经写着牌位了，底下不用再写一遍
+      (pos && !(meaning && faceUp !== false)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, textAlign: "center", marginTop: 6 } }, pos) : null);
 
     // ---- 每日一牌：今天【一张】牌，各角色解读同一张 ----
     if (s.mode === "daily") {
@@ -967,17 +976,19 @@
             border: forwarded ? "1px solid rgba(184,145,80,.3)" : "1px solid transparent", borderRadius: 12, padding: "12px 0" }
         }, fwd ? "正在转发…" : (forwarded ? "✓ 已转发给 " + s.charName : "把这一卦转发给 " + s.charName)) : null,
         // 牌阵
-        h("div", { style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 } },
-          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i, false, revealed.indexOf(i) >= 0, () => tapCard(i), flipped.indexOf(i) >= 0))),
+        h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap", marginBottom: 22 } },
+          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i, false, revealed.indexOf(i) >= 0, () => tapCard(i),
+            flipped.indexOf(i) < 0 ? false : (((s.reads || [])[i] || {}).text || true)))),
         h("div", { style: { margin: "-6px 0 18px", fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE, textAlign: "center" } },
-          allRevealed ? "再点一张牌，翻过去看它的牌义 · 可按牌位补牌（全局最多 3 张）" : "逐张点牌翻开；全部翻完才揭示完整解读"),
+          allRevealed ? "点一张牌翻过去，背面写的就是这一张的分析 · 可以同时翻好几张" : "逐张点牌翻开；全部翻完才揭示完整解读"),
         // 逐张解读
-        allRevealed ? (s.reads || []).map((r, i) => h("div", { key: "r" + i, style: { marginBottom: 16 } },
+        // 逐张的分析已经写在各自的牌背上（她 2026-09-03 点的），这儿不再重复一遍——
+        // 同一段话读两遍。留下的是这一张的名头、朗读，和「给这个牌位补一张」
+        allRevealed ? (s.reads || []).map((r, i) => h("div", { key: "r" + i, style: { marginBottom: 14 } },
           h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: GOLD, background: "rgba(184,145,80,.13)", borderRadius: 6, padding: "1px 8px" } }, r.pos || (s.spread || [])[i] || ("第" + (i + 1) + "张")),
             cards[i] ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE } }, cardLabel(cards[i])) : null,
             dot("tr" + i, r.text, char)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: SKY_INK, whiteSpace: "pre-wrap" } }, r.text),
           supplements.filter(x => x.posIndex === i).map((x, j) => h("div", { key: x.id || ("sp" + i + j), style: { display: "flex", gap: 10, marginTop: 10, padding: 10, borderRadius: 11, background: "rgba(184,145,80,.07)", border: "1px solid rgba(184,145,80,.24)" } },
             cardTile(x.card, "补牌", 100 + i * 10 + j, true, true),
             h("div", { style: { flex: 1, minWidth: 0 } },
