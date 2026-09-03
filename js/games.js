@@ -170,6 +170,121 @@
   // ============================================================
   // 中枢（书架式游戏卡）
   // ============================================================
+  // ============================================================
+  // 游戏盒面（她 2026-09-03：「小游戏的界面还是有点普通无聊」）
+  //
+  // 原来这一屏是一列一模一样的圆角卡：emoji + 名字 + 一句说明。
+  // 判据（.claude/rules/tabs-not-plain-pills.md）：**原样搬到另一个 app 里还成立吗？**
+  // 成立——那就是一张设置页的功能列表，换成「订阅方案」「导出格式」照样能用。
+  // 而 emoji 是最省事也最不说明问题的图：🎲 换到哪个 app 里都是🎲。
+  //
+  // 那先问：这个 app 在现实里是什么？——**架子上摆的一摞桌游盒**。
+  // 每一盒的封面画的就是那副游戏本身长什么样：卧底是一叠词条纸、狼人杀是夜里的身份牌、
+  // 海龟汤是一碗冒着问号的汤、25 问是划掉的格子、真心话是躺倒的瓶子、
+  // 阿瓦隆是一排任务圈、大富翁是棋盘角上两颗骰子、UNO 是扇开的一把牌。
+  // 盒子有厚度（底下那道深边）、坐在一条木架线上——这才是「一架游戏」，不是一列条目。
+  //
+  // ⚠️盒面的颜色是【故意写死】的：它是一张画，不是界面。
+  //   八个盒子各有各的色，摆在一起才像一架收藏；跟着主题一起变色反而全糊成一片。
+  //   （同 assistant.js 里那只鸟的理由。）狼人杀和 UNO 用深色盒面，本来就该是夜里的。
+  // paper=盒面底色 · ink=盒面上画画的墨 · hot=这一盒的重点色
+  // band/bandInk=下缘那条名字带。⚠️两个深色盒（狼人杀、UNO）必须单列 band：
+  //   拿 ink 当带子色的话，深盒底下会挂一条【浅色】带——整架就它俩反过来了。
+  const LID = {
+    spy:       { paper: "#efe7d8", ink: "#4a4438", hot: "#b0553f", band: "#4a4438", bandInk: "#efe7d8" },
+    haigui:    { paper: "#dde8e5", ink: "#364a46", hot: "#4f8378", band: "#364a46", bandInk: "#dde8e5" },
+    q25:       { paper: "#eae5ef", ink: "#443c4d", hot: "#7a5f96", band: "#443c4d", bandInk: "#eae5ef" },
+    tod:       { paper: "#f3e2db", ink: "#55403a", hot: "#c26a4e", band: "#55403a", bandInk: "#f3e2db" },
+    werewolf:  { paper: "#23262e", ink: "#cdd2db", hot: "#8f97a8", band: "#14161b", bandInk: "#cdd2db" },
+    avalon:    { paper: "#e6e2d3", ink: "#3f4436", hot: "#8a6a2f", band: "#3f4436", bandInk: "#e6e2d3" },
+    monopoly:  { paper: "#e5eee1", ink: "#3a4837", hot: "#5d8b4c", band: "#3a4837", bandInk: "#e5eee1" },
+    uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" }
+  };
+  function GameLid(props) {
+    const k = props.k, c = LID[k] || LID.spy;
+    const S = function (tag, at, kids) { return h(tag, at, kids); };
+    const art = {
+      // 一叠词条纸：三张错开，最上面那张的字排得不一样——那就是卧底手里的那张
+      spy: [
+        h("g", { key: "a", transform: "rotate(-7 34 46)" }, h("rect", { x: 18, y: 28, width: 34, height: 42, rx: 3, fill: c.ink, opacity: .13 })),
+        h("g", { key: "b", transform: "rotate(4 46 44)" }, h("rect", { x: 30, y: 24, width: 34, height: 42, rx: 3, fill: c.ink, opacity: .2 })),
+        h("rect", { key: "c", x: 44, y: 20, width: 36, height: 44, rx: 3, fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
+        h("path", { key: "d", d: "M51 31h22M51 39h22M51 47h13", stroke: c.ink, strokeWidth: 2.2, strokeLinecap: "round", opacity: .5 }),
+        h("path", { key: "e", d: "M51 55h17", stroke: c.hot, strokeWidth: 2.6, strokeLinecap: "round" })
+      ],
+      // 一碗汤，热气弯成一个问号
+      haigui: [
+        h("path", { key: "a", d: "M28 44h64c0 16-14 24-32 24S28 60 28 44z", fill: c.ink, opacity: .18 }),
+        h("ellipse", { key: "b", cx: 60, cy: 44, rx: 32, ry: 6.5, fill: c.hot, opacity: .55 }),
+        h("path", { key: "c", d: "M24 44h72", stroke: c.ink, strokeWidth: 2.4, strokeLinecap: "round", opacity: .6 }),
+        h("path", { key: "d", d: "M54 32c0-5 8-5 8-10s-6-6-8-2", stroke: c.hot, strokeWidth: 3, strokeLinecap: "round", fill: "none" }),
+        h("circle", { key: "e", cx: 54, cy: 37, r: 1.9, fill: c.hot })
+      ],
+      // 五乘五的格子，划掉了几个
+      q25: (function () {
+        const out = [], off = { 0: 1, 3: 1, 6: 1, 7: 1, 11: 1, 12: 1, 15: 1 };
+        for (let i = 0; i < 25; i++) {
+          const x = 26 + (i % 5) * 14, y = 16 + Math.floor(i / 5) * 14;
+          out.push(h("rect", { key: "r" + i, x: x, y: y, width: 11, height: 11, rx: 2, fill: "none", stroke: c.ink, strokeWidth: 1.3, strokeOpacity: .45 }));
+          if (off[i]) out.push(h("path", { key: "x" + i, d: "M" + (x + 2.5) + " " + (y + 2.5) + "l6 6M" + (x + 8.5) + " " + (y + 2.5) + "l-6 6", stroke: c.hot, strokeWidth: 1.8, strokeLinecap: "round" }));
+        }
+        return out;
+      })(),
+      // 躺倒的瓶子，底下一圈转过的轨迹
+      tod: [
+        h("ellipse", { key: "a", cx: 60, cy: 46, rx: 34, ry: 17, fill: "none", stroke: c.ink, strokeWidth: 1.6, strokeDasharray: "3 5", strokeOpacity: .4 }),
+        h("rect", { key: "b", x: 40, y: 36, width: 34, height: 19, rx: 9.5, fill: c.hot, opacity: .85 }),
+        h("rect", { key: "c", x: 72, y: 41, width: 12, height: 9, rx: 2.5, fill: c.hot }),
+        h("rect", { key: "d", x: 82, y: 39.5, width: 4, height: 12, rx: 1.6, fill: c.ink, opacity: .6 }),
+        h("path", { key: "e", d: "M46 41h9", stroke: "#fff", strokeWidth: 2, strokeLinecap: "round", opacity: .65 })
+      ],
+      // 夜里的身份牌：一轮月亮，中间那张翻起一角露出狼耳
+      werewolf: [
+        h("path", { key: "m", d: "M92 14a13 13 0 10 -0.1 19A15 15 0 0192 14z", fill: c.hot, opacity: .8 }),
+        h("rect", { key: "a", x: 20, y: 34, width: 26, height: 36, rx: 3, fill: c.ink, opacity: .18, transform: "rotate(-9 33 52)" }),
+        h("rect", { key: "b", x: 74, y: 34, width: 26, height: 36, rx: 3, fill: c.ink, opacity: .18, transform: "rotate(9 87 52)" }),
+        h("rect", { key: "c", x: 47, y: 30, width: 27, height: 38, rx: 3, fill: c.ink, opacity: .32 }),
+        h("path", { key: "d", d: "M53 50l3.5-9 4 5.5 5-5.5 3.5 9z", fill: c.hot, opacity: .95 }),
+        h("circle", { key: "e", cx: 57, cy: 56, r: 1.5, fill: c.paper }),
+        h("circle", { key: "f", cx: 64, cy: 56, r: 1.5, fill: c.paper })
+      ],
+      // 一排任务圈：成了两个、崩了一个、还剩两个空的；上面横着一把剑
+      avalon: [
+        h("path", { key: "s", d: "M40 22h38l8 3.2-8 3.2H40z", fill: c.ink, opacity: .55 }),
+        h("rect", { key: "g", x: 35, y: 15.5, width: 3.4, height: 19, rx: 1.4, fill: c.ink, opacity: .7 }),
+        h("rect", { key: "h", x: 26, y: 22.6, width: 9, height: 4.2, rx: 1.6, fill: c.hot, opacity: .85 }),
+        h("circle", { key: "p", cx: 24, cy: 24.7, r: 3.1, fill: c.ink, opacity: .6 })
+      ].concat([0, 1, 2, 3, 4].map(function (i) {
+        const cx = 24 + i * 18, done = i < 2, bad = i === 2;
+        return h("g", { key: "q" + i },
+          h("circle", { cx: cx + 6, cy: 50, r: 8.5, fill: done ? c.hot : "none", opacity: done ? .8 : 1, stroke: c.ink, strokeWidth: 1.6, strokeOpacity: done ? 0 : .45 }),
+          bad ? h("path", { d: "M" + (cx + 2) + " 46l8 8M" + (cx + 10) + " 46l-8 8", stroke: c.hot, strokeWidth: 2, strokeLinecap: "round" }) : null);
+      })),
+      // 棋盘角上两颗骰子
+      monopoly: [
+        h("path", { key: "b", d: "M18 66V22h44", stroke: c.ink, strokeWidth: 2, strokeOpacity: .35, fill: "none" })
+      ].concat([0, 1, 2, 3].map(function (i) {
+        return h("rect", { key: "c" + i, x: 18, y: 22 + i * 11, width: 11, height: 10, rx: 1.5, fill: i % 2 ? c.hot : c.ink, opacity: i % 2 ? .55 : .18 });
+      })).concat([0, 1, 2].map(function (i) {
+        return h("rect", { key: "d" + i, x: 31 + i * 11, y: 22, width: 10, height: 10, rx: 1.5, fill: i % 2 ? c.hot : c.ink, opacity: i % 2 ? .55 : .18 });
+      })).concat([
+        h("rect", { key: "e", x: 62, y: 38, width: 22, height: 22, rx: 5, fill: "#fff", opacity: .95, stroke: c.ink, strokeOpacity: .3, transform: "rotate(-10 73 49)" }),
+        h("circle", { key: "f", cx: 68, cy: 45, r: 2, fill: c.ink }), h("circle", { key: "g", cx: 78, cy: 53, r: 2, fill: c.ink }),
+        h("rect", { key: "h", x: 82, y: 46, width: 19, height: 19, rx: 4.5, fill: c.hot, opacity: .9, transform: "rotate(12 91 55)" }),
+        h("circle", { key: "i", cx: 91, cy: 55, r: 1.9, fill: "#fff" })
+      ]),
+      // 扇开的一把牌
+      uno: [0, 1, 2, 3].map(function (i) {
+        const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
+        return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
+          h("rect", { x: 48, y: 22, width: 24, height: 36, rx: 3.5, fill: col }),
+          h("ellipse", { cx: 60, cy: 40, rx: 7.5, ry: 11, fill: c.paper, opacity: .9, transform: "rotate(-20 60 40)" }));
+      })
+    };
+    return h("svg", { viewBox: "0 0 120 84", style: { display: "block", width: "100%", height: "auto", background: c.paper } },
+      art[k] || art.spy);
+  }
+
   function Games(props) {
     const t = useTheme();
     const [game, setGame] = useState(null);       // 进入配置的游戏
@@ -208,40 +323,63 @@
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
-        // 未打完的存档：继续 / 弃掉
-        wolfSave ? h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 13, background: t.tint + "16", border: "1px solid " + t.tint, margin: "2px 0 14px" } },
-          h("div", { style: { fontSize: 22 } }, "🐺"),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "狼人杀 · 上一局没打完"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "第 " + (wolfSave.cycle || 1) + " 个昼夜 · " + ((wolfSave.players || []).filter(function (p) { return p.alive; }).length) + " 人存活")),
-          h("button", { onClick: function () { setSession({ game: wolfGameDef, config: wolfSave.config, resume: true, saved: wolfSave }); }, style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "继续"),
-          h("button", { onClick: function () { clearWolf(); setSaveTick(function (x) { return x + 1; }); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 4px" } }, "弃掉")) : null,
-        // 通用存档条：每种没打完的游戏各一条
-        Object.keys(gSaves).map(function (k) {
-          const snap = gSaves[k]; if (!snap) return null;
-          const def = GAMES.find(function (g) { return g.key === k; }); if (!def) return null;
-          return h("div", { key: "gs_" + k, style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 13, background: t.tint + "16", border: "1px solid " + t.tint, margin: "2px 0 14px" } },
-            h("div", { style: { fontSize: 22 } }, def.emoji),
-            h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, def.zh + " · 上一局没打完"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, snap.label || "点继续接着玩")),
-            h("button", { onClick: function () { setSession({ game: def, config: snap.config, resume: true, saved: snap }); }, style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "继续"),
-            h("button", { onClick: function () { clearGameSave(k); setSaveTick(function (x) { return x + 1; }); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 4px" } }, "弃掉"));
-        }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 14px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
-        h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
-          GAMES.map(function (g) {
-            return h("button", { key: g.key, onClick: function () { setGame(g); },
-              className: "active:opacity-80", style: { textAlign: "left", display: "flex", gap: 13, padding: "15px 15px", borderRadius: 15, background: t.bg2, border: "1px solid " + t.line } },
-              h("div", { style: { fontSize: 30, lineHeight: 1, width: 40, textAlign: "center", flexShrink: 0, marginTop: 2 } }, g.emoji),
+        // 没打完的那几局：架子上那一盒【还摊在桌上】，不是一条通用的提示横幅。
+        // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
+        (function () {
+          const rows = [];
+          if (wolfSave) rows.push({ k: "werewolf", def: wolfGameDef, sub: "第 " + (wolfSave.cycle || 1) + " 个昼夜 · " + ((wolfSave.players || []).filter(function (p) { return p.alive; }).length) + " 人存活",
+            go: function () { setSession({ game: wolfGameDef, config: wolfSave.config, resume: true, saved: wolfSave }); },
+            drop: function () { clearWolf(); setSaveTick(function (x) { return x + 1; }); } });
+          Object.keys(gSaves).forEach(function (k) {
+            const snap = gSaves[k]; if (!snap) return;
+            const def = GAMES.find(function (g) { return g.key === k; }); if (!def) return;
+            rows.push({ k: k, def: def, sub: snap.label || "点继续接着玩",
+              go: function () { setSession({ game: def, config: snap.config, resume: true, saved: snap }); },
+              drop: function () { clearGameSave(k); setSaveTick(function (x) { return x + 1; }); } });
+          });
+          if (!rows.length) return null;
+          return h("div", { style: { marginBottom: 18 } }, rows.map(function (r) {
+            if (!r.def) return null;
+            const c = LID[r.k] || LID.spy;
+            return h("div", { key: "open_" + r.k, style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10 } },
+              // 掀开的盒盖：斜着搭在一边
+              h("div", { style: { width: 58, flexShrink: 0, borderRadius: 6, overflow: "hidden", transform: "rotate(-7deg)", boxShadow: "0 2px 0 " + c.band + ", 0 5px 10px rgba(0,0,0,.18)" } },
+                h(GameLid, { k: r.k })),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, g.zh),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: .5, textTransform: "uppercase" } }, g.en)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55, marginTop: 4 } }, g.desc),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, g.rule)));
-          })),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", lineHeight: 1.7, marginTop: 20 } }, "选一个玩法，叫上想一起玩的角色吧。")));
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".14em", color: t.fog } }, "还摊在桌上"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.def.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.sub)),
+              h("button", { onClick: r.go, className: "active:opacity-80", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "接着玩"),
+              h("button", { onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "7px 2px" } }, "收了"));
+          }));
+        })(),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
+        // 一架游戏盒：两个一排，每排底下压一条木架线
+        (function () {
+          const rows = [];
+          for (let i = 0; i < GAMES.length; i += 2) rows.push(GAMES.slice(i, i + 2));
+          return rows.map(function (row, ri) {
+            return h("div", { key: "row" + ri, style: { marginBottom: 20 } },
+              h("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" } },
+                row.map(function (g) {
+                  const c = LID[g.key] || LID.spy;
+                  return h("button", { key: g.key, onClick: function () { setGame(g); }, className: "active:opacity-85",
+                    style: { flex: "1 1 0", minWidth: 0, textAlign: "left", padding: 0, background: "transparent" } },
+                    // 盒子：盒面 + 底下那道深边＝盒子的厚度，所以它是个盒子不是一张卡
+                    h("div", { style: { borderRadius: 9, overflow: "hidden", boxShadow: "0 3px 0 " + c.band + ", 0 7px 14px rgba(0,0,0,.20)" } },
+                      h(GameLid, { k: g.key }),
+                      // 盒面下缘那条压印的名字带，跟真的桌游盒一样
+                      h("div", { style: { background: c.band, padding: "6px 8px 7px" } },
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: c.bandInk, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.zh),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: c.bandInk, opacity: .58, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.en))),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.45 } }, g.min + "~" + g.max + " 人"));
+                }),
+                row.length === 1 ? h("div", { style: { flex: "1 1 0" } }) : null),
+              // 木架线：盒子是坐在架子上的
+              h("div", { style: { height: 3, borderRadius: 2, background: t.line, marginTop: 9, opacity: .9 } }));
+          });
+        })(),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", lineHeight: 1.7, marginTop: 4, marginBottom: 6 } }, "从架上抽一盒，叫上想一起玩的角色。")));
   }
 
   // ============================================================
