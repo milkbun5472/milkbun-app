@@ -59,7 +59,10 @@
       const rank = RANKS.find(r => c.name === suit + r) || "";
       core = (SUIT_KEYS[suit] || "当下经验") + "；" + (RANK_KEYS[rank] || "变化中的阶段");
     }
-    return { keywords: core, text: c.rev ? "逆位提醒：这股力量可能受阻、过量或转向内在；先看哪里失衡，不急着把它圆成好事。" : "正位提示：这股力量正在较直接地显现；结合牌位，看它邀请你承认、推进或守住什么。" };
+    return { keywords: core, text: c.rev ? "逆位提醒：这股力量可能受阻、过量或转向内在；先看哪里失衡，不急着把它圆成好事。" : "正位提示：这股力量正在较直接地显现；结合牌位，看它邀请你承认、推进或守住什么。",
+      // 牌背上那一句：三张牌一起翻过来时，长的那句会三张一模一样地占满整面，
+      // 关键词（每张都不同）反而被压下去。短句只说正逆这一档，剩下的留给关键词
+      short: c.rev ? "逆位：受阻、过量，或转向内里" : "正位：这股力量正面地显现" };
   }
   function fmtDate(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   // 一次占卜里可被搜索命中的所有文字（角色名/问题/牌名/每日各角色/收束）
@@ -157,6 +160,20 @@
   const SKY_INK = "#efe9dc";                       // 天上的字
   const SKY_DIM = "rgba(239,233,220,.55)";         // 天上的小字
   const SKY_LINE = "rgba(239,233,220,.13)";        // 天上的发丝线
+  const SKY_MUTE = "rgba(239,233,220,.38)";        // 天上最轻的那一档字
+  const SKY_PANEL = "rgba(255,255,255,.05)";       // 天上的浅色面（原来纸上的 bg2）
+  // 塔罗这一整个 app 都在夜里：落地页、入座页、结果页共用这一条紧凑标题栏。
+  // 公共 Head 是 30px 大标题 + 一整块留白，仓库铁律里子页面本来就不该那样
+  //（mobile-ui-layout 第 1 条）；这儿再往前一步——标题写在天上。
+  const NightHead = ({ title, onBack, right }) => h("div", { className: "shrink-0 flex items-center",
+    style: { paddingTop: safeTop(6), paddingLeft: 8, paddingRight: 8, paddingBottom: 2 } },
+    h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } },
+      h(IArrow, { size: 19, color: SKY_INK })),
+    h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 16.5, color: SKY_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+    h("div", { style: { width: 44, flexShrink: 0, display: "flex", justifyContent: "flex-end" } }, right || null));
+  // 每一页都是同一片天：底色 + 会滚那一层的碎星贴图，三处共用这两个盒子
+  const nightPage = { background: NIGHT };
+  const nightBody = { backgroundImage: null, backgroundSize: "360px 420px", backgroundRepeat: "repeat" };
   // 往下滚那一截的碎星：拿同一颗种子摊成一张 360×420 的贴图，CSS 平铺。
   // 用背景图而不是再画一屏 SVG——历史可以很长，节点数不能跟着长。
   const SKY_TILE = (function () {
@@ -170,6 +187,7 @@
     }
     return dots.join(",");
   })();
+  nightBody.backgroundImage = SKY_TILE;
   // 四芒星：一笔画完的星芒，不是一个圆点——圆点是「标记」，星芒才是「星」
   const sparkle = (cx, cy, R) => {
     const w = R * 0.16;
@@ -289,12 +307,16 @@
       "· summary（50~120 字）：把几张牌连成一句话的走向或一句真心的提醒。\n" +
       "· readerSummary（220~520 字）：最后以占卜师视角重新综合全副牌。必须明确牌与牌之间怎样互相加强、抵消或转折，结合问题给出当下判断、风险和可执行建议；忠于以上本地牌义锚点，不要写成空泛心灵鸡汤，也不要复述逐张解读。\n" +
       "· " + thoughtAsk + "（20~50 字）。\n" +
-      "【输出】只输出 JSON：{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}...],\"summary\":\"短收束\",\"readerSummary\":\"占卜师综合总结\",\"charThought\":\"角色本人的一句反应\"}。别加解释、别加代码块。";
+      "· moment（16~34 字）：这副牌落桌的【那一刻】，桌边或店里的一个具体动静——光、声音、手上的一个动作、茶、窗外走过的人。要贴这一次的场合和解牌的人，别写心理活动、别点评牌面、别提问题内容。\n" +
+      "【输出】只输出 JSON：{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}...],\"summary\":\"短收束\",\"readerSummary\":\"占卜师综合总结\",\"charThought\":\"角色本人的一句反应\",\"moment\":\"落桌那一刻的一句动静\"}。别加解释、别加代码块。";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始解牌。" }], { maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535 });
     const p = extractJSON(raw) || {};
     let reads = Array.isArray(p.reads) ? p.reads.filter(r => r && r.text).map((r, i) => ({ pos: r.pos || spread[i] || "", text: String(r.text).trim() })) : [];
     if (!reads.length) reads = [{ pos: spread[0] || "", text: String(raw || "牌面模糊，重试。").trim() }];
-    return { reads: reads, summary: String(p.summary || "").trim(), readerSummary: String(p.readerSummary || p.summary || "").trim(), charThought: String(p.charThought || "").trim() };
+    return { reads: reads, summary: String(p.summary || "").trim(), readerSummary: String(p.readerSummary || p.summary || "").trim(), charThought: String(p.charThought || "").trim(),
+      // 「店主把洗好的牌放回深色绒布上」那句原来是本地五选一，一轮一轮转下来就眼熟了。
+      // 现在解牌时顺手生成一句贴着这一卦的（模型没给才回落到本地那五句）。
+      moment: String(p.moment || "").trim().slice(0, 40) };
   }
 
   async function readSupplement(active, session, char, uName, pos, card) {
@@ -423,16 +445,11 @@
     // ⚠这一页不走公共 Head（她 2026-09-03：「那一大块塔罗标题你没弄」）：
     // 那是 30px 大标题 + 一整块留白，仓库铁律里普通子页面本来就该用紧凑标题栏
     //（mobile-ui-layout 第 1 条）。这儿更进一步——标题就写在天上，返回键压在星星上。
-    return h("div", { className: "h-full flex flex-col", style: { background: NIGHT } },
+    return h("div", { className: "h-full flex flex-col", style: nightPage },
       h("style", null, "@keyframes tarot-tw{0%,100%{opacity:1}50%{opacity:.28}}"),
-      h("div", { className: "shrink-0 flex items-center", style: { paddingTop: safeTop(6), paddingLeft: 8, paddingRight: 8, paddingBottom: 2 } },
-        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } },
-          h(IArrow, { size: 19, color: SKY_INK })),
-        h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 16.5, color: SKY_INK } }, "塔罗"),
-        h("div", { style: { width: 44, flexShrink: 0 } })),
-      h("div", { ref: homeScrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8",
-        // 底下那一截也是天：同一片碎星跟着内容一起往上走
-        style: { backgroundImage: SKY_TILE, backgroundSize: "360px 420px", backgroundRepeat: "repeat" } },
+      h(NightHead, { title: "塔罗", onBack: props.onBack }),
+      // 底下那一截也是天：同一片碎星跟着内容一起往上走
+      h("div", { ref: homeScrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: nightBody },
         // ---- 夜空：四种问法是四颗星，亮度照她自己的存档来 ----
         h("div", { style: { margin: "0 -20px 6px", position: "relative" } },
           h("svg", { viewBox: "0 0 " + SKY_W + " " + SKY_H, style: { width: "100%", height: "auto", display: "block" } },
@@ -534,7 +551,6 @@
   // 发起：选角色（+问题）→ 抽牌 → 解牌
   // ============================================================
   function Setup(props) {
-    const t = useTheme();
     const m = MODES[props.modeKey];
     const [charId, setCharId] = useState("");
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
@@ -663,8 +679,8 @@
           const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
             question: deal.finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,
             cards: cards, reads: out.reads, summary: out.summary, readerSummary: out.readerSummary, charThought: out.charThought,
-            consent: deal.intent ? { decision: deal.intent.decision, line: deal.intent.line } : null,
-            shopMoment: shopMoment, revealed: [], supplements: [], followups: [], ts: Date.now() };
+            consent: deal.intent ? { decision: deal.intent.decision, line: deal.intenSKY_LINE } : null,
+            shopMoment: out.moment || shopMoment, revealed: [], supplements: [], followups: [], ts: Date.now() };
           props.onDone(session);
           return session;
         };
@@ -684,30 +700,30 @@
       setSpreadEditor(false); setSpreadName(""); setSpreadPositions("");
     };
 
-    const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
+    const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: SKY_DIM, marginBottom: 8, letterSpacing: .3 };
 
-    if (busy) return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: m.zh, en: m.en, onBack: props.onCancel }),
-      h("div", { className: "flex-1 flex flex-col items-center justify-center px-8" },
+    if (busy) return h("div", { className: "h-full flex flex-col", style: nightPage },
+      h(NightHead, { title: m.zh, onBack: props.onCancel }),
+      h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-8", style: nightBody },
         h("div", { style: { fontSize: 40, color: ACCENT, marginBottom: 18 } }, m.icon),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, textAlign: "center" } }, phase || "…")));
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SKY_INK, textAlign: "center" } }, phase || "…")));
 
     if (deal) {
       const chosen = deal.chosen || [];
       const pickCard = i => setDeal(prev => prev.chosen.indexOf(i) >= 0 || prev.chosen.length >= spread.length ? prev : { ...prev, pending: prev.pending === i ? null : i });
       const confirmCard = () => setDeal(prev => prev.pending == null || prev.chosen.indexOf(prev.pending) >= 0 || prev.chosen.length >= spread.length ? prev : { ...prev, chosen: prev.chosen.concat(prev.pending), pending: null });
       const reshuffle = () => setDeal(prev => ({ ...prev, pool: shuffle(DECK).map(c0 => ({ name: c0.name, major: c0.major, image: c0.image, rev: Math.random() < 0.34 })), chosen: [], pending: null, shuffleNo: (prev.shuffleNo || 1) + 1 }));
-      return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "亲手选牌", en: "Choose Your Cards", onBack: () => setDeal(null) }),
-        h("div", { className: "flex-1 overflow-y-auto px-5 pb-40" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 13 } }, "先洗牌，再凭第一眼点一张。牌会抬起；按确认后才算抽到。牌背不会提前泄露牌面。"),
+      return h("div", { className: "h-full flex flex-col", style: nightPage },
+        h(NightHead, { title: "亲手选牌", onBack: () => setDeal(null) }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-40", style: nightBody },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SKY_DIM, lineHeight: 1.7, marginBottom: 13 } }, "先洗牌，再凭第一眼点一张。牌会抬起；按确认后才算抽到。牌背不会提前泄露牌面。"),
           h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 13 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "完整 78 张 · 第 " + (deal.shuffleNo || 1) + " 次洗牌"),
-            h("button", { onClick: reshuffle, className: "active:opacity-70", style: { flexShrink: 0, padding: "7px 11px", borderRadius: 999, border: "1px solid " + t.line, color: ACCENT, background: t.bg2, fontFamily: F_BODY, fontSize: 11.5 } }, chosen.length ? "重新洗牌（清空已选）" : "↻ 洗牌")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE } }, "完整 78 张 · 第 " + (deal.shuffleNo || 1) + " 次洗牌"),
+            h("button", { onClick: reshuffle, className: "active:opacity-70", style: { flexShrink: 0, padding: "7px 11px", borderRadius: 999, border: "1px solid " + SKY_LINE, color: GOLD, background: SKY_PANEL, fontFamily: F_BODY, fontSize: 11.5 } }, chosen.length ? "重新洗牌（清空已选）" : "↻ 洗牌")),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(4, spread.length) + ",minmax(0,1fr))", gap: 7, marginBottom: 18 } },
-            spread.map((pos, i) => h("div", { key: pos + i, style: { minHeight: 54, padding: "7px 5px", borderRadius: 9, border: "1px solid " + (chosen[i] != null ? GOLD : t.line), background: chosen[i] != null ? "rgba(184,145,80,.08)" : t.bg2, textAlign: "center" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 4 } }, "第 " + (i + 1) + " 张"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, lineHeight: 1.3 } }, pos)))),
+            spread.map((pos, i) => h("div", { key: pos + i, style: { minHeight: 54, padding: "7px 5px", borderRadius: 9, border: "1px solid " + (chosen[i] != null ? GOLD : SKY_LINE), background: chosen[i] != null ? "rgba(184,145,80,.08)" : SKY_PANEL, textAlign: "center" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: SKY_MUTE, marginBottom: 4 } }, "第 " + (i + 1) + " 张"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_INK, lineHeight: 1.3 } }, pos)))),
           h("div", { style: { overflowX: "auto", WebkitOverflowScrolling: "touch", margin: "0 -20px", padding: "8px 20px 12px" } },
             h("div", { style: { position: "relative", width: 630, height: 244, margin: "0 auto" } }, deal.pool.map((c0, i) => {
               const row = i < 39 ? 0 : 1, col = i % 39, selectedAt = chosen.indexOf(i), committed = selectedAt >= 0, pending = deal.pending === i;
@@ -716,75 +732,75 @@
                 style: { position: "absolute", left: col * 14.6, top: row * 112 + curve + (pending ? -20 : committed ? -10 : 0), width: 62, height: 100, zIndex: pending ? 300 : committed ? 220 + selectedAt : i + 1, borderRadius: 8, border: "1px solid " + (pending || committed ? GOLD : "rgba(184,145,80,.42)"), background: "linear-gradient(145deg,#211c34," + ACCENT + ")", boxShadow: pending ? "0 10px 20px rgba(35,28,58,.28),0 0 0 2px rgba(184,145,80,.22)" : "0 2px 4px rgba(25,20,40,.16)", color: GOLD, transition: "top .18s ease,box-shadow .18s ease", transform: "rotate(" + ((col - 19) * .18) + "deg)" } },
                 h("div", { style: { position: "absolute", inset: 5, border: "1px solid rgba(184,145,80,.4)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: "radial-gradient(circle,rgba(184,145,80,.1),transparent 62%)" } }, committed ? String(selectedAt + 1) : "✦"));
             }))),
-          h("div", { style: { minHeight: 45, textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: deal.pending == null ? t.fog : ACCENT, lineHeight: 1.6 } }, deal.pending == null ? (chosen.length === spread.length ? "牌已选齐，可以摆上桌了。" : "点一张牌，它会从牌阵里抬起来。") : "这张还没有翻开。确认后，它会成为第 " + (chosen.length + 1) + " 张。"),
-          h("div", { style: { textAlign: "center", marginTop: 5, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已选 " + chosen.length + " / " + spread.length)),
-        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 82%,transparent)" } },
+          h("div", { style: { minHeight: 45, textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: deal.pending == null ? SKY_MUTE : ACCENT, lineHeight: 1.6 } }, deal.pending == null ? (chosen.length === spread.length ? "牌已选齐，可以摆上桌了。" : "点一张牌，它会从牌阵里抬起来。") : "这张还没有翻开。确认后，它会成为第 " + (chosen.length + 1) + " 张。"),
+          h("div", { style: { textAlign: "center", marginTop: 5, fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE } }, "已选 " + chosen.length + " / " + spread.length)),
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + NIGHT + " 82%,transparent)" } },
           deal.pending != null ? h("button", { onClick: confirmCard, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "确认选择第 " + (chosen.length + 1) + " 张") :
-            h("button", { onClick: finishDeal, disabled: chosen.length !== spread.length, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: chosen.length === spread.length ? ACCENT : t.fog, borderRadius: 12, padding: "13px 0" } }, chosen.length === spread.length ? "把 " + spread.length + " 张牌摆上桌" : "先选满 " + spread.length + " 张")));
+            h("button", { onClick: finishDeal, disabled: chosen.length !== spread.length, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: chosen.length === spread.length ? ACCENT : SKY_MUTE, borderRadius: 12, padding: "13px 0" } }, chosen.length === spread.length ? "把 " + spread.length + " 张牌摆上桌" : "先选满 " + spread.length + " 张")));
     }
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: m.zh, en: m.en, onBack: props.onCancel }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 20 } }, m.blurb + "。"),
-        h("div", { style: { marginBottom: 18, padding: "10px 12px", borderLeft: "2px solid " + GOLD, background: "rgba(184,145,80,0.06)", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub } }, shopMoment),
+    return h("div", { className: "h-full flex flex-col", style: nightPage },
+      h(NightHead, { title: m.zh, onBack: props.onCancel }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-32", style: nightBody },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SKY_MUTE, lineHeight: 1.7, marginBottom: 20 } }, m.blurb + "。"),
+        h("div", { style: { marginBottom: 18, padding: "10px 12px", borderLeft: "2px solid " + GOLD, background: "rgba(184,145,80,0.06)", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: SKY_DIM } }, shopMoment),
         // 每日一牌：一次抽全部角色
         m.daily ? h("button", { onClick: () => setDailyAll(v => !v), className: "w-full active:opacity-80",
-          style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 13px", background: isDailyAll ? "rgba(74,63,107,0.08)" : t.bg2, border: "1px solid " + (isDailyAll ? ACCENT : t.line), borderRadius: 11, marginBottom: 16 } },
+          style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 13px", background: isDailyAll ? "rgba(74,63,107,0.08)" : SKY_PANEL, border: "1px solid " + (isDailyAll ? ACCENT : SKY_LINE), borderRadius: 11, marginBottom: 16 } },
           h("div", { style: { textAlign: "left" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "让全部角色都解读"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "所有人解读今天【同一张】牌，一次生成全部（省次数），进去挨个看")),
-          h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (isDailyAll ? ACCENT : t.line), background: isDailyAll ? ACCENT : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, isDailyAll ? "✓" : "")) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: SKY_INK } }, "让全部角色都解读"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, marginTop: 2, lineHeight: 1.5 } }, "所有人解读今天【同一张】牌，一次生成全部（省次数），进去挨个看")),
+          h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (isDailyAll ? ACCENT : SKY_LINE), background: isDailyAll ? ACCENT : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, isDailyAll ? "✓" : "")) : null,
         isDailyAll ? null : h("div", { style: label }, props.modeKey === "forchar" ? "替谁算" : props.modeKey === "relation" ? "算你和谁" : "请谁替你解牌"),
         isDailyAll ? null : h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 } },
           props.characters.map(c => {
             const on = charId === c.id;
             return h("button", { key: c.id, onClick: () => { setCharId(prev => prev === c.id ? "" : c.id); setGate(null); }, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
+              style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : SKY_INK, background: on ? ACCENT : SKY_PANEL, border: "1px solid " + (on ? ACCENT : SKY_LINE), borderRadius: 999, padding: "8px 15px" } }, c.name);
           })),
         !m.daily ? h("div", { style: label }, "怎么摊牌") : null,
         !m.daily ? h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 10, WebkitOverflowScrolling: "touch" } },
           Object.keys(SPREAD_GROUPS).filter(g => g !== "custom" || customSpreads.length).map(g => {
             const on = spreadGroup === g, meta = SPREAD_GROUPS[g];
             return h("button", { key: g, onClick: () => setSpreadGroup(g), className: "active:opacity-70",
-              style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: on ? "#fff" : t.sub, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "6px 12px" } }, meta.zh);
+              style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: on ? "#fff" : SKY_DIM, background: on ? ACCENT : SKY_PANEL, border: "1px solid " + (on ? ACCENT : SKY_LINE), borderRadius: 999, padding: "6px 12px" } }, meta.zh);
           })) : null,
         !m.daily ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 20 } },
           Object.keys(allSpreads).filter(k => (allSpreads[k].group || "basic") === spreadGroup).map(k => {
             const sp = allSpreads[k], on = spreadKey === k;
             return h("button", { key: k, onClick: () => setSpreadKey(k), className: "active:opacity-70",
-              style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: on ? "rgba(74,63,107,0.1)" : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 11 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, fontWeight: on ? 700 : 500 } }, sp.zh),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3, lineHeight: 1.4 } }, sp.hint));
+              style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: on ? "rgba(74,63,107,0.1)" : SKY_PANEL, border: "1px solid " + (on ? ACCENT : SKY_LINE), borderRadius: 11 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SKY_INK, fontWeight: on ? 700 : 500 } }, sp.zh),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: SKY_MUTE, marginTop: 3, lineHeight: 1.4 } }, sp.hint));
           }),
-          h("button", { onClick: () => setSpreadEditor(v => !v), className: "active:opacity-70", style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: t.bg2, border: "1px dashed " + ACCENT, borderRadius: 11 } },
+          h("button", { onClick: () => setSpreadEditor(v => !v), className: "active:opacity-70", style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: SKY_PANEL, border: "1px dashed " + ACCENT, borderRadius: 11 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT, fontWeight: 700 } }, "＋ 自定义牌阵"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "自己写 1～8 个牌位"))) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: SKY_MUTE, marginTop: 3 } }, "自己写 1～8 个牌位"))) : null,
         spreadEditor ? h("div", { style: { margin: "-10px 0 20px", padding: 12, background: "rgba(74,63,107,.05)", border: "1px solid rgba(74,63,107,.18)", borderRadius: 12 } },
-          h("input", { value: spreadName, onChange: e => setSpreadName(e.target.value), placeholder: "牌阵名字", style: { width: "100%", marginBottom: 8, padding: "9px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", fontFamily: F_BODY, fontSize: 13 } }),
-          h("textarea", { value: spreadPositions, onChange: e => setSpreadPositions(e.target.value), rows: 4, placeholder: "每行一个牌位\n如：我真正想要的\n我没看见的阻碍\n下一步", style: { width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55 } }),
+          h("input", { value: spreadName, onChange: e => setSpreadName(e.target.value), placeholder: "牌阵名字", style: { width: "100%", marginBottom: 8, padding: "9px 10px", borderRadius: 9, border: "1px solid " + SKY_LINE, background: SKY_PANEL, color: SKY_INK, outline: "none", fontFamily: F_BODY, fontSize: 13 } }),
+          h("textarea", { value: spreadPositions, onChange: e => setSpreadPositions(e.target.value), rows: 4, placeholder: "每行一个牌位\n如：我真正想要的\n我没看见的阻碍\n下一步", style: { width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid " + SKY_LINE, background: SKY_PANEL, color: SKY_INK, outline: "none", resize: "none", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55 } }),
           h("button", { onClick: saveSpread, className: "w-full active:opacity-75", style: { marginTop: 8, padding: "9px 0", borderRadius: 9, color: "#fff", background: ACCENT, fontFamily: F_BODY, fontSize: 12.5 } }, "保存并选中")) : null,
         supportsQuestionOwner ? h("div", { style: label }, "谁来定这次的问题") : null,
         supportsQuestionOwner ? h("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
           [["user", props.modeKey === "forchar" ? "我替 Ta 问" : "我来问"], ["character", "让 Ta 自己问"]].map(it => h("button", {
             key: it[0], onClick: () => { setQuestionOwner(it[0]); setGate(null); }, className: "active:opacity-70",
-            style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: questionOwner === it[0] ? "#fff" : t.ink, background: questionOwner === it[0] ? ACCENT : t.bg2, border: "1px solid " + (questionOwner === it[0] ? ACCENT : t.line), borderRadius: 999, padding: "9px 10px" }
+            style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: questionOwner === it[0] ? "#fff" : SKY_INK, background: questionOwner === it[0] ? ACCENT : SKY_PANEL, border: "1px solid " + (questionOwner === it[0] ? ACCENT : SKY_LINE), borderRadius: 999, padding: "9px 10px" }
           }, it[1]))) : null,
         supportsQuestionOwner && questionOwner === "user" ? h("div", { style: label }, props.modeKey === "forchar" ? "你想替 Ta 问的事" : "你想问的事") : null,
         supportsQuestionOwner && questionOwner === "user" ? h("textarea", { value: q, onChange: e => setQ(e.target.value), rows: 3, placeholder: props.modeKey === "forchar" ? "如：Ta 最近真正放不下的是什么？" : m.qHint,
-          style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none", resize: "none", marginBottom: 8 } }) : null,
-        supportsQuestionOwner && questionOwner === "character" ? h("div", { style: { marginBottom: 14, padding: "10px 12px", borderRadius: 11, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog } }, "洗牌前会先问 Ta。Ta 会按自己的近况挑问题，不会由系统硬塞一个秘密。") : null,
+          style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: SKY_INK, background: SKY_PANEL, border: "1px solid " + SKY_LINE, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none", resize: "none", marginBottom: 8 } }) : null,
+        supportsQuestionOwner && questionOwner === "character" ? h("div", { style: { marginBottom: 14, padding: "10px 12px", borderRadius: 11, border: "1px dashed " + SKY_LINE, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: SKY_MUTE } }, "洗牌前会先问 Ta。Ta 会按自己的近况挑问题，不会由系统硬塞一个秘密。") : null,
         !supportsQuestionOwner && !m.daily && spreadKey === "choice" ? h("div", { style: label }, "把两个选择写清楚") : null,
         !supportsQuestionOwner && !m.daily && spreadKey === "choice" ? h("textarea", { value: q, onChange: e => setQ(e.target.value), rows: 3, placeholder: "A：……\nB：……",
-          style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none", resize: "none", marginBottom: 8 } }) : null,
+          style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: SKY_INK, background: SKY_PANEL, border: "1px solid " + SKY_LINE, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none", resize: "none", marginBottom: 8 } }) : null,
         gate ? h("div", { style: { marginBottom: 14, padding: "11px 13px", borderRadius: 11, background: gate.decision === "refuse" ? "rgba(170,80,80,.07)" : "rgba(74,63,107,.07)", border: "1px solid " + (gate.decision === "refuse" ? "rgba(170,80,80,.25)" : "rgba(74,63,107,.2)") } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: gate.decision === "refuse" ? "#a85b5b" : GOLD, marginBottom: 4 } }, gate.decision === "refuse" ? "Ta 这次不想算" : gate.decision === "hesitate" ? "Ta 犹豫了一下，还是坐下了" : "Ta 答应了"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.65 } }, gate.line)) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: SKY_INK, lineHeight: 1.65 } }, gate.line)) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, lineHeight: 1.7 } },
           m.daily ? "今天只有【一张】牌，所有人解读同一张。" : "会摊开 " + spread.length + " 张牌：" + spread.join(" · ") + "。",
           h("br"), "牌是随机抽出的，模型只解读、不挑牌。")
       ),
-      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + NIGHT + " 78%,transparent)" } },
         h("button", { onClick: go, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, m.daily ? "翻开今日牌" : "洗牌 · 去选牌")));
   }
@@ -809,7 +825,6 @@
   }
 
   function SessionView(props) {
-    const t = useTheme();
     const s = props.session;
     const m = MODES[s.mode] || {};
     const [fwd, setFwd] = useState(false);
@@ -819,6 +834,7 @@
     const [followBusy, setFollowBusy] = useState(false);
     const oldSession = !Array.isArray(s.revealed);
     const [revealed, setRevealed] = useState(oldSession ? (s.cards || []).map((_, i) => i) : s.revealed);
+    const [flipped, setFlipped] = useState([]);   // 这一屏翻到牌义那一面的有哪几张（可以同时好几张）
     const [supplements, setSupplements] = useState(Array.isArray(s.supplements) ? s.supplements : []);
     const [suppBusy, setSuppBusy] = useState(null);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 解牌朗读（懒合成，重听免费）
@@ -827,33 +843,44 @@
     const dot = function (k, text, spk) { return (tp && spk && typeof TtsDot === "function") ? h(TtsDot, { k: k, text: text, spk: spk, tp: tp }) : null; };
 
     // 一张牌片
-    const cardTile = (c, pos, i, small, faceUp, onFlip) => h("div", { key: "c" + i, style: { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
+    // 一张牌有三面（她 2026-09-03 点的：「每张牌的解释放在牌后面点开可以看到，
+    // 每次可以显示超过一张的背面」）：
+    //   没翻开＝牌背 ✦ → 点一下翻开＝牌面 → 再点一下翻过去＝这张牌的牌义
+    // 牌义原来是牌阵底下另起的一列小卡，跟牌隔着半屏；现在它就在这张牌的背面。
+    // 想同时看几张就翻几张——flipped 是一个数组，不是一次只能有一张。
+    const cardTile = (c, pos, i, small, faceUp, onFlip, meaning) => h("div", { key: "c" + i, style: { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
       h("button", { onClick: onFlip || null, disabled: !onFlip, className: onFlip ? "active:opacity-80" : "", style: { width: "100%", position: "relative", aspectRatio: "2/3.4", borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", transition: "transform .35s ease", transform: faceUp === false ? "rotateY(180deg)" : "rotateY(0deg)" } },
         faceUp === false ? h("div", { style: { position: "absolute", inset: 7, border: "1px solid rgba(184,145,80,.5)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: GOLD, fontSize: small ? 17 : 24, transform: "rotateY(180deg)" } }, "✦") : null,
-        faceUp === false ? null : [
+        // 牌义那一面：还是这张牌的形状与底色，只是翻过去写着字
+        faceUp !== false && meaning ? h("div", { style: { position: "absolute", inset: 6, border: "1px solid rgba(184,145,80,.42)", borderRadius: 8, padding: "7px 8px", overflow: "hidden", textAlign: "left", display: "flex", flexDirection: "column", justifyContent: "center" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: GOLD, opacity: .9, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pos || "牌义"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 11 : 12.5, color: "#f4efe4", marginBottom: 3 } }, c.name + (c.rev ? "·逆" : "·正")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8.5 : 9.5, lineHeight: 1.5, color: GOLD, marginBottom: 4 } }, cardReference(c).keywords),
+          h("div", { style: { fontFamily: F_BODY, fontSize: small ? 8 : 9.5, lineHeight: 1.6, color: "rgba(244,239,228,.72)" } }, cardReference(c).short)) : null,
+        faceUp === false || meaning ? null : [
         h("img", { src: cardImage(c), alt: c.name, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: c.rev ? "rotate(180deg) scale(1.02)" : "scale(1.02)", transformOrigin: "center", background: "#e8dfcf" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "42%", background: "linear-gradient(transparent,rgba(20,15,28,.88))" } }),
         h("div", { style: { position: "absolute", left: 5, right: 5, bottom: 6, fontFamily: F_DISPLAY, fontSize: small ? 11.5 : 13.5, color: "#fff", textAlign: "center", lineHeight: 1.2, textShadow: "0 1px 2px #000" } }, c.name),
         h("div", { style: { position: "absolute", right: 5, top: 5, fontFamily: F_BODY, fontSize: small ? 8 : 9, color: "#fff", background: c.rev ? "rgba(137,64,77,.86)" : "rgba(42,74,58,.82)", borderRadius: 999, padding: "2px 6px" } }, c.rev ? "逆" : "正")]),
-      pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 6 } }, pos) : null);
+      pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, textAlign: "center", marginTop: 6 } }, pos) : null);
 
     // ---- 每日一牌：今天【一张】牌，各角色解读同一张 ----
     if (s.mode === "daily") {
       const entries = s.entries || [];
       const dc = s.card || (entries[0] && entries[0].card); // 兼容旧数据（旧版每人各一张时取第一张）
-      return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: m.zh, en: m.en, onBack: props.onBack }),
-        h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14, textAlign: "center" } }, fmtDate(s.ts) + " · 今天的牌"),
+      return h("div", { className: "h-full flex flex-col", style: nightPage },
+        h(NightHead, { title: m.zh, onBack: props.onBack }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: nightBody },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE, marginBottom: 14, textAlign: "center" } }, fmtDate(s.ts) + " · 今天的牌"),
           // 今天这一张牌（全体共用）
           dc ? h("div", { style: { display: "flex", justifyContent: "center", marginBottom: 8 } }, cardTile(dc, "", 0, false, true)) : null,
-          dc ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 22 } }, cardLabel(dc)) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 12, letterSpacing: .3 } }, "各人怎么看这张牌"),
-          entries.map((e, i) => h("div", { key: i, style: { marginBottom: 15, paddingBottom: 15, borderBottom: i < entries.length - 1 ? "1px solid " + t.line : "none" } },
+          dc ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: SKY_DIM, marginBottom: 22 } }, cardLabel(dc)) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: SKY_DIM, marginBottom: 12, letterSpacing: .3 } }, "各人怎么看这张牌"),
+          entries.map((e, i) => h("div", { key: i, style: { marginBottom: 15, paddingBottom: 15, borderBottom: i < entries.length - 1 ? "1px solid " + SKY_LINE : "none" } },
             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 3 } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.charName),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SKY_INK } }, e.charName),
               dot("td" + i, e.text, chOf(e.charId))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink } }, e.text)))));
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: SKY_INK } }, e.text)))));
     }
 
     // ---- reading / relation / forchar ----
@@ -888,6 +915,9 @@
       setRevealed(next);
       props.onUpdate && props.onUpdate({ ...s, revealed: next, supplements: supplements });
     };
+    // 翻到牌义那一面 / 翻回牌面。可以同时翻着好几张——只留在这一屏，不写进存档
+    const tapCard = i => revealed.indexOf(i) < 0 ? revealCard(i)
+      : setFlipped(p => p.indexOf(i) >= 0 ? p.filter(x => x !== i) : p.concat(i));
     const allRevealed = cards.every((_, i) => revealed.indexOf(i) >= 0);
     const addSupplement = async (i, pos) => {
       if (suppBusy != null) return;
@@ -908,64 +938,61 @@
       setSuppBusy(null);
     };
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: m.zh || "占卜", en: m.en, onBack: props.onBack }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
+    return h("div", { className: "h-full flex flex-col", style: nightPage },
+      h(NightHead, { title: m.zh || "占卜", onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: nightBody },
         // 抬头
         h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: GOLD, fontWeight: 700 } }, m.icon),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, subject)),
-        s.shopMoment ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, margin: "5px 0 12px", paddingLeft: 9, borderLeft: "2px solid " + GOLD } }, s.shopMoment) : null,
-        s.consent && s.consent.line ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 10 } }, s.charName + "入座前说：『" + s.consent.line + "』") : null,
-        s.mode !== "daily" && s.question ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, fontStyle: "italic", marginBottom: 16 } }, "「" + s.question + "」") : h("div", { style: { height: 12 } }),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SKY_INK } }, subject)),
+        s.shopMoment ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, lineHeight: 1.6, margin: "5px 0 12px", paddingLeft: 9, borderLeft: "2px solid " + GOLD } }, s.shopMoment) : null,
+        s.consent && s.consenSKY_LINE ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SKY_DIM, marginBottom: 10 } }, s.charName + "入座前说：『" + s.consenSKY_LINE + "』") : null,
+        s.mode !== "daily" && s.question ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SKY_DIM, fontStyle: "italic", marginBottom: 16 } }, "「" + s.question + "」") : h("div", { style: { height: 12 } }),
         // 「给角色算一卦」的主动作必须在牌面之前看得见，不能埋到整篇解读和追问区之后。
         s.mode === "forchar" && props.onForwardToChat ? h("button", {
           onClick: doForward, disabled: fwd || forwarded, className: "w-full active:opacity-80",
           style: { margin: "0 0 18px", fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700,
-            color: forwarded ? ACCENT : "#fff", background: forwarded ? "rgba(74,63,107,.08)" : (fwd ? t.fog : ACCENT),
-            border: forwarded ? "1px solid rgba(74,63,107,.22)" : "1px solid transparent", borderRadius: 12, padding: "12px 0" }
+            color: forwarded ? GOLD : "#fff", background: forwarded ? "rgba(184,145,80,.12)" : (fwd ? SKY_MUTE : ACCENT),
+            border: forwarded ? "1px solid rgba(184,145,80,.3)" : "1px solid transparent", borderRadius: 12, padding: "12px 0" }
         }, fwd ? "正在转发…" : (forwarded ? "✓ 已转发给 " + s.charName : "把这一卦转发给 " + s.charName)) : null,
         // 牌阵
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 } },
-          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i, false, revealed.indexOf(i) >= 0, () => revealCard(i)))),
-        h("div", { style: { margin: "-6px 0 18px", fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center" } },
-          allRevealed ? "牌已全部翻开 · 可按牌位补牌（全局最多 3 张）" : "逐张点牌翻开；全部翻完才揭示完整解读"),
-        cards.map((c, i) => revealed.indexOf(i) < 0 ? null : h("div", { key: "ref" + i, style: { marginBottom: 9, padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: GOLD, marginBottom: 3 } }, ((s.spread || [])[i] || "第 " + (i + 1) + " 张") + " · " + cardReference(c).keywords),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, cardReference(c).text))),
+          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i, false, revealed.indexOf(i) >= 0, () => tapCard(i), flipped.indexOf(i) >= 0))),
+        h("div", { style: { margin: "-6px 0 18px", fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE, textAlign: "center" } },
+          allRevealed ? "再点一张牌，翻过去看它的牌义 · 可按牌位补牌（全局最多 3 张）" : "逐张点牌翻开；全部翻完才揭示完整解读"),
         // 逐张解读
         allRevealed ? (s.reads || []).map((r, i) => h("div", { key: "r" + i, style: { marginBottom: 16 } },
           h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: ACCENT, background: "rgba(74,63,107,0.1)", borderRadius: 6, padding: "1px 8px" } }, r.pos || (s.spread || [])[i] || ("第" + (i + 1) + "张")),
-            cards[i] ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, cardLabel(cards[i])) : null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: GOLD, background: "rgba(184,145,80,.13)", borderRadius: 6, padding: "1px 8px" } }, r.pos || (s.spread || [])[i] || ("第" + (i + 1) + "张")),
+            cards[i] ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SKY_MUTE } }, cardLabel(cards[i])) : null,
             dot("tr" + i, r.text, char)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, r.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: SKY_INK, whiteSpace: "pre-wrap" } }, r.text),
           supplements.filter(x => x.posIndex === i).map((x, j) => h("div", { key: x.id || ("sp" + i + j), style: { display: "flex", gap: 10, marginTop: 10, padding: 10, borderRadius: 11, background: "rgba(184,145,80,.07)", border: "1px solid rgba(184,145,80,.24)" } },
             cardTile(x.card, "补牌", 100 + i * 10 + j, true, true),
             h("div", { style: { flex: 1, minWidth: 0 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: GOLD, fontWeight: 700, marginBottom: 4 } }, cardLabel(x.card) + " · " + cardReference(x.card).keywords),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.65 } }, x.text)))),
-          supplements.length < 3 ? h("button", { onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11.5, color: ACCENT, border: "1px dashed rgba(74,63,107,.35)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SKY_INK, lineHeight: 1.65 } }, x.text)))),
+          supplements.length < 3 ? h("button", { onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11.5, color: GOLD, border: "1px dashed rgba(184,145,80,.42)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
         // 占卜师综合收束：旧存档没有 readerSummary 时回退到原 summary。
-        allRevealed && (s.readerSummary || s.summary) ? h("div", { style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(74,63,107,.08),rgba(184,145,80,.07))", border: "1px solid rgba(74,63,107,0.24)", borderRadius: 13 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: ACCENT, marginBottom: 7 } }, "占卜师总结 · READER'S SYNTHESIS"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.readerSummary || s.summary)) : null,
+        allRevealed && (s.readerSummary || s.summary) ? h("div", { style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(122,104,176,.14),rgba(184,145,80,.10))", border: "1px solid rgba(184,145,80,.26)", borderRadius: 13 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: GOLD, marginBottom: 7 } }, "占卜师总结 · READER'S SYNTHESIS"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: SKY_INK, whiteSpace: "pre-wrap" } }, s.readerSummary || s.summary)) : null,
         // 角色本人对这几张牌的想法
-        allRevealed && s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 13 } },
+        allRevealed && s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: SKY_PANEL, border: "1px solid " + SKY_LINE, borderRadius: 13 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: GOLD, flexShrink: 0 } }, s.charName + "："),
-          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, fontStyle: "italic" } }, s.charThought),
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: SKY_INK, fontStyle: "italic" } }, s.charThought),
           dot("tct", s.charThought, char)) : null,
-        allRevealed && char ? h("div", { style: { marginTop: 20, paddingTop: 17, borderTop: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 3 } }, "小桌边继续聊"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 11 } }, "追问只留在这次占卜里；转发进聊天后，才会进入聊天上下文。"),
+        allRevealed && char ? h("div", { style: { marginTop: 20, paddingTop: 17, borderTop: "1px solid " + SKY_LINE } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SKY_INK, marginBottom: 3 } }, "小桌边继续聊"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SKY_MUTE, lineHeight: 1.5, marginBottom: 11 } }, "追问只留在这次占卜里；转发进聊天后，才会进入聊天上下文。"),
           followups.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 } }, followups.map(x => h("div", {
-            key: x.id, style: { alignSelf: x.role === "user" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "9px 11px", borderRadius: 12, background: x.role === "user" ? "rgba(74,63,107,.1)" : t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" }
+            key: x.id, style: { alignSelf: x.role === "user" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "9px 11px", borderRadius: 12, background: x.role === "user" ? "rgba(184,145,80,.13)" : SKY_PANEL, border: "1px solid " + SKY_LINE, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: SKY_INK, whiteSpace: "pre-wrap" }
           }, x.content))) : null,
           h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },
             h("textarea", { value: followText, onChange: e => setFollowText(e.target.value), rows: 2, placeholder: "再问一句，或只是和 Ta 聊聊这副牌…", disabled: followBusy,
-              style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 10px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5 } }),
+              style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + SKY_LINE, background: SKY_PANEL, color: SKY_INK, padding: "9px 10px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5 } }),
             h("button", { onClick: sendFollowup, disabled: followBusy || !followText.trim(), className: "active:opacity-70",
-              style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? t.fog : ACCENT, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说"))) : null,
+              style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? SKY_MUTE : ACCENT, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说"))) : null,
         null));
   }
 

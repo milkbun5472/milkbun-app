@@ -24,7 +24,7 @@ test("旧的那四个框整个删掉了，不是留在那儿说它是错的", ()
   assert.equal(codeOnly.indexOf('borderRadius: 14, padding: "14px 16px"'), -1, "旧的模式框还在");
   assert.equal((codeOnly.match(/MODES\[k\]\.icon/g) || []).length, 0, "那几个 emoji 图标还挂在界面上");
   // 说明文字搬去了各自的入口页（那儿本来就写着一遍），天上只留名字
-  assert.match(src, /fontSize: 12, color: t\.fog, lineHeight: 1\.7, marginBottom: 20 \} \}, m\.blurb/, "入口页得留着那一句说明");
+  assert.match(src, /lineHeight: 1\.7, marginBottom: 20 \} \}, m\.blurb/, "入口页得留着那一句说明");
 });
 
 test("谁亮谁暗照她自己的存档来——这一层换个 app 就不成立了", () => {
@@ -79,20 +79,22 @@ const landing = (() => {
 test("落地页不再顶着那一大块标题：紧凑标题栏，返回键压在星星上", () => {
   // 公共 Head 是 30px 大标题 + 一整块留白（mobile-ui-layout 第 1 条明说子页面不许这样）
   assert.equal(landing.indexOf('h(Head, { zh: "塔罗"'), -1, "又把那一大块标题装回去了");
-  assert.match(landing, /paddingTop: safeTop\(6\)/, "顶栏自己吃安全区，不另垫一条状态栏空带");
-  assert.match(landing, /h\(IArrow, \{ size: 19, color: SKY_INK \}\)/, "返回键得是天上的浅色，不是墨色");
-  assert.match(landing, /width: 44, height: 44/, "返回键的可点区域不许缩水");
-  assert.match(landing, /fontSize: 16\.5, color: SKY_INK \} \}, "塔罗"\)/, "标题是居中小标题");
-  assert.match(landing, /h\("div", \{ style: \{ width: 44, flexShrink: 0 \} \}\)/, "右边要留等宽操作位，标题才真的居中");
-  // 别的页面照旧用 Head——这一版只动落地页
-  assert.ok((src.match(/h\(Head, \{ zh: m\.zh/g) || []).length >= 2, "入口页和结果页的 Head 不该被顺手删掉");
+  assert.match(landing, /h\(NightHead, \{ title: "塔罗", onBack: props\.onBack \}\)/, "落地页要用那条共用的紧凑标题栏");
+  // 三处（落地/入座/结果）共用同一条，别一层写在三处
+  assert.equal((src.match(/h\(Head, \{/g) || []).length, 0, "整个塔罗都不该再用那条 30px 大标题的公共 Head");
+  assert.ok((src.match(/h\(NightHead, \{/g) || []).length >= 5, "落地/入座/选牌/生成中/结果，每一页都得走这一条");
+  assert.match(src, /const NightHead = \(\{ title, onBack, right \}\)[\s\S]{0,700}paddingTop: safeTop\(6\)/, "顶栏自己吃安全区");
+  assert.match(src, /const NightHead[\s\S]{0,700}h\(IArrow, \{ size: 19, color: SKY_INK \}\)/, "返回键得是天上的浅色");
+  assert.match(src, /const NightHead[\s\S]{0,700}width: 44, height: 44/, "返回键的可点区域不许缩水");
+  assert.match(src, /const NightHead[\s\S]{0,900}width: 44, flexShrink: 0/, "右边要留等宽操作位，标题才真的居中");
+  // v60.78 起整个塔罗都在夜里，入座页与结果页也走同一条（见上一条断言）
 });
 
 test("整页都是这片天：往下滚，碎星跟着一起走", () => {
-  assert.match(landing, /className: "h-full flex flex-col", style: \{ background: NIGHT \}/, "整页底色是夜色");
-  assert.match(landing, /className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8"/, "正文那一层要 min-h-0，否则在 flex 里滚不动");
-  assert.match(landing, /backgroundImage: SKY_TILE, backgroundSize: "360px 420px", backgroundRepeat: "repeat"/,
-    "底下那一截的碎星贴在【会滚的那一层】上，才会跟着内容走");
+  assert.match(landing, /className: "h-full flex flex-col", style: nightPage/, "整页底色是夜色");
+  assert.match(landing, /className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: nightBody/, "正文那一层要 min-h-0（在 flex 里才滚得动），并且贴着碎星");
+  assert.match(src, /nightBody\.backgroundImage = SKY_TILE;/, "碎星贴在【会滚的那一层】上，才会跟着内容走");
+  assert.match(src, /const nightBody = \{ backgroundImage: null, backgroundSize: "360px 420px", backgroundRepeat: "repeat" \}/);
   // 贴图是画出来的背景图，不是再铺一屏 SVG——历史可以很长，节点数不能跟着长
   assert.match(src, /const SKY_TILE = \(function \(\)/);
   assert.match(src, /radial-gradient\(circle " \+ r \+ "px at "/);
@@ -121,4 +123,43 @@ test("那一行「点一颗星」不压在星图上", () => {
   // 最底下那颗星的名字＋英文＋「算过 N 次」已经排到 285，绝对定位一压就撞上
   const cap = landing.slice(landing.indexOf("点一颗星 · 你问得越多") - 400, landing.indexOf("点一颗星 · 你问得越多"));
   assert.equal(cap.indexOf("position: \"absolute\""), -1, "又压回星图上了，会和最底下那颗星的字撞在一起");
+});
+
+// 她 2026-09-03 再补三件：「里面的背景还是白的」；店主那句要不要留；
+// 「每张牌的解释放在牌后面点开可以看到，每次可以显示超过一张的背面」。
+
+test("入座页和结果页也在夜里——纸上那套颜色一处都不剩", () => {
+  const inside = (() => {
+    const i = src.indexOf("  function Setup(props) {"), j = src.indexOf("  window.Tarot = Tarot;");
+    assert.ok(i > 0 && j > i);
+    return src.slice(i, j);
+  })();
+  assert.deepEqual([...new Set(inside.match(/\bt\.[a-zA-Z0-9]+/g) || [])], [],
+    "入座页/选牌页/结果页里还留着纸上那套颜色");
+  // 拿不到主题就别声明它：留一个没人读的 const t 是下一个人踩的坑
+  assert.equal((inside.match(/const t = useTheme\(\);/g) || []).length, 0);
+  assert.ok((inside.match(/style: nightPage/g) || []).length >= 4, "每一页的外壳都要是夜色");
+  assert.ok((inside.match(/style: nightBody/g) || []).length >= 4, "会滚的那一层都要贴着碎星");
+});
+
+test("牌义搬到牌背上：翻开之后再点一下就翻过去，而且能同时翻好几张", () => {
+  assert.match(src, /const \[flipped, setFlipped\] = useState\(\[\]\)/, "翻着的是【一组】牌，不是一次只能一张");
+  assert.match(src, /const tapCard = i => revealed\.indexOf\(i\) < 0 \? revealCard\(i\)\n\s*: setFlipped\(p => p\.indexOf\(i\) >= 0 \? p\.filter\(x => x !== i\) : p\.concat\(i\)\)/,
+    "第一下翻开、第二下翻到牌义、再一下翻回来");
+  assert.match(src, /cardTile\(c, \(s\.spread \|\| \[\]\)\[i\] \|\| "", i, false, revealed\.indexOf\(i\) >= 0, \(\) => tapCard\(i\), flipped\.indexOf\(i\) >= 0\)/);
+  // 牌义那一面画在牌里，不是牌阵底下另起一列小卡
+  assert.match(src, /faceUp !== false && meaning \? h\("div"/);
+  assert.equal(src.indexOf('key: "ref" + i'), -1, "牌阵底下那一列牌义小卡该整个删掉");
+  assert.match(src, /再点一张牌，翻过去看它的牌义/, "得告诉她这一下能干什么");
+  // 三张一起翻过来时，长句会三张一模一样地霸屏；牌背上用短句，让关键词唱主角
+  assert.match(src, /short: c\.rev \? "逆位：受阻、过量，或转向内里" : "正位：这股力量正面地显现"/);
+  assert.match(src, /cardReference\(c\)\.short\)\) : null/);
+});
+
+test("店里那句动静改成每次跟着这一卦生成，本地那五句只当兜底", () => {
+  assert.match(src, /· moment（16~34 字）/, "解牌时顺便要这一句");
+  assert.match(src, /\\"moment\\":\\"落桌那一刻的一句动静\\"/, "schema 里没这一栏，模型不会给");
+  assert.match(src, /moment: String\(p\.moment \|\| ""\)\.trim\(\)\.slice\(0, 40\)/);
+  assert.match(src, /shopMoment: out\.moment \|\| shopMoment/, "模型没给才回落到本地那五句");
+  assert.match(src, /const SHOP_MOMENTS = \[/, "兜底那几句不许删——模型不给就没得写了");
 });

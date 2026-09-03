@@ -106,5 +106,9 @@ test("给角色算一卦的转发按钮在牌面前可见，并明确回执", ()
 test("店主只作为低存在感环境，不替角色解牌", () => {
   assert.match(tarot, /const SHOP_MOMENTS/);
   assert.match(tarot, /店主退到书架后面，把这张小桌留给你们/);
-  assert.match(tarot, /shopMoment: shopMoment/);
+  // v60.78 起这一句改成解牌时顺便生成（她 2026-09-03：本地五句转两轮就眼熟了），
+  // 本地那几句退成兜底。⚠冻的是【它只是环境】，不是它从哪儿来：
+  // 生成的那一句同样不许点评牌面、不许提问题、不许替角色说话
+  assert.match(tarot, /shopMoment: out\.moment \|\| shopMoment/);
+  assert.match(tarot, /别写心理活动、别点评牌面、别提问题内容/);
 });
