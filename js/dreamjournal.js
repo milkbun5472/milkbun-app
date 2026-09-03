@@ -32,18 +32,37 @@
     return [...cnt.entries()].filter(x => x[1] >= 2).sort((a, b) => b[1] - a[1]).slice(0, topN || 10);
   }
 
-  // ---- 解梦 prompt：人设腔调 + 四条馆规 ----
-  function interpretSys(char, entry, priorMotifs) {
-    const motifTxt = priorMotifs && priorMotifs.length ? "她的梦里近来反复出现：" + priorMotifs.map(x => x[0] + "×" + x[1]).join("、") + "。若和本梦有关可以点一句，无关就别硬扯。" : "";
-    return "你是「" + char.name + "」。人设（保持你的说话腔调）：" + String(char.persona || "").slice(0, 400) + "\n\n" +
-      "她刚把自己昨晚的梦（或梦的残渣）讲给你听，请你按你的性格给她解梦。\n" +
-      "【馆规】\n" +
-      "· 残渣也能解：哪怕只有一种颜色、一种情绪，也从那一点出发编织意义；素材少就少说，别脑补她没讲的情节。\n" +
-      "· 用你自己的方式解：可以玄学、可以科学、可以胡说八道地可爱，但必须像你会说的话。\n" +
-      "· 禁止心理诊断腔：不许出现『焦虑症』『创伤』『建议就医』这类词，你是她的人不是她的医生。\n" +
-      "· 篇幅 120~250 字，最后可以送她一句简短的『今日梦签』。\n" +
-      (motifTxt ? "· " + motifTxt + "\n" : "") +
-      "直接输出解梦内容本身，不要 JSON、不要引号包裹、不要开场白式的复述。";
+  // ---- 解梦 prompt（v61.47 重接）----
+  // 她 2026-09-03 问：「人设心情最近聊天防八股那些有全部喂进去吗」——**一条都没有**。
+  // 原来这一处自己拼 sys：人设截到 400 字、没有心情、没有好感、没有最近聊天、
+  // 反八股一条都没发。那正是 v55.87「群里的王爷变霸总」的病根形状
+  //（人设只剩一个标签，空白由训练先验补上——解梦这种题材，先验就是心理测试小作文）。
+  //
+  // 改法照匿名信箱那次（v61.37）：走 runProbe({voice:true})，
+  // buildBundle 那一整份就是白得的（人设全文/心情/好感/印象卡/记忆/反陈词滥调/
+  // 居高临下/三件套/亲密反模板/内容边界），站位也从「分析师」换成「他本人在说话」。
+  // 剩下三条只能靠调用点 push 的，在这儿补上——理由和匿名箱一模一样：
+  //   · 回声禁令：她讲完一个梦，最顺手的开口就是把她的话原样复述一遍再问「你梦见了X？」
+  //   · 语域跟场面走：睡醒了跟人讲梦，跟正经聊天不是一个分寸
+  //   · 读懂这句话在做什么：她有时候只是想说说，不是来要一个解释
+  function interpretInstruction(char, entry, priorMotifs, uName) {
+    const motifTxt = priorMotifs && priorMotifs.length
+      ? "\n· 她的梦里近来反复出现：" + priorMotifs.map(x => x[0] + "×" + x[1]).join("、") + "。若和本梦有关可以点一句，无关就别硬扯。"
+      : "";
+    return (uName || "她") + "刚把自己昨晚的梦（或梦的残渣）讲给你听，请你按你自己的性格给她解梦。\n"
+      + "【馆规】\n"
+      + "· 残渣也能解：哪怕只有一种颜色、一种情绪，也从那一点出发编织意义；素材少就少说，别脑补她没讲的情节。\n"
+      + "· 用你自己的方式解：可以玄学、可以科学、可以胡说八道地可爱，但必须像你会说的话。\n"
+      + "· 禁止心理诊断腔：不许出现『焦虑症』『创伤』『建议就医』这类词，你是她的人不是她的医生。\n"
+      + "· 篇幅 120~250 字。"
+      + motifTxt
+      + "\n· 【梦签】另给一句短的『今日梦签』（十来个字），是你写给她的，不是通用吉利话——"
+      + "换个角色说出来就不成立才算写对了。"
+      + (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n\n" + ECHO_QUESTION_BAN : "")
+      + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : "")
+      + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "")
+      + "\n\n【这是刚睡醒的人在讲梦】她可能还迷糊、讲得颠三倒四、或者只想说说而已。"
+      + "不是每次都得给她一个解释——顺着你自己的性子来。";
   }
 
   // ---- 语音听写（复用 Ears；没有 Ears/不支持=纯手打，不报错）----
@@ -70,7 +89,11 @@
   // ---- D 步骤 2：TA们的梦 · 懒生成 prompt（拍板：后台池模型；梦≠记忆；剧情主权）----
   function dreamGenSys(char, row, excerpts, reality) {
     const r = reality || {};
-    return "你是「" + char.name + "」。人设：" + String(char.persona || "").slice(0, 300) + "\n\n" +
+    // ⚠️人设别再截到 300 字（v61.47）：只剩一个标签的话，空白由训练先验补上，
+    //   梦就长成「谁都能做的那种梦」。反八股这两条也一起给上。
+    return (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
+      + (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "")
+      + "你是「" + char.name + "」。人设：" + String(char.persona || "").slice(0, 6000) + "\n\n" +
       "你昨晚睡着后做了一场梦。下面是入梦材料——你昨天真实经历的对话片段和情绪状态。请把它们揉成一场【你的梦】。\n" +
       "【当日对话片段】\n" + (excerpts.length ? excerpts.map(x => "· " + x).join("\n") : "（昨天没什么对话，梦从情绪里长出来）") + "\n" +
       "【情绪残渣】" + (row.peaks || []).map(p => p.axis + "=" + p.value).join("、") + (row.relationActiveAxes && row.relationActiveAxes.length ? "｜关系张力：" + row.relationActiveAxes.join("、") : "") + "\n\n" +
@@ -164,10 +187,27 @@
           if (!p) throw new Error("没有可用的 API 线路");
           const motifs = motifTop(loadLog().filter(e => e.id !== entry.id), 5);
           const body = entry.kind === "none" ? "（她说昨晚没做梦，或者什么都不记得了。）" : entry.text;
-          const raw = await callAI(p, interpretSys(char, entry, motifs), [{ role: "user", content: "【她的梦】\n" + body }], { maxTokens: 14400 });
-          const clean = String(raw || "").trim();
+          const uName = (props.profile && props.profile.name) || "她";
+          const ctx = props.ctxFor ? props.ctxFor(char) : null;
+          let clean = "", sign = "";
+          if (ctx && typeof runProbe === "function") {
+            const d = await runProbe(p, ctx, {
+              voice: true,
+              instruction: interpretInstruction(char, entry, motifs, uName)
+                + "\n\n【她讲的梦】\n" + body,
+              schemaHint: "{\"text\":\"解梦正文\",\"sign\":\"今日梦签（一句短的，可空）\"}",
+              maxTokens: 14400
+            });
+            clean = String((d && d.text) || "").trim();
+            sign = String((d && d.sign) || "").trim();
+          } else {
+            // 没拿到 ctx（老调用方）也别整个坏掉：退回原来那条直发的路
+            const raw = await callAI(p, interpretInstruction(char, entry, motifs, uName),
+              [{ role: "user", content: "【她的梦】\n" + body }], { maxTokens: 14400 });
+            clean = String(raw || "").trim();
+          }
           if (!clean) throw new Error("解梦人走神了，再试一次");
-          const next = loadLog().map(e => e.id === entry.id ? { ...e, interpretations: [...(e.interpretations || []), { charId: char.id, name: char.remark || char.name, text: clean, ts: Date.now() }] } : e);
+          const next = loadLog().map(e => e.id === entry.id ? { ...e, interpretations: [...(e.interpretations || []), { charId: char.id, name: char.remark || char.name, text: clean, sign: sign, ts: Date.now() }] } : e);
           saveLog(next);
           return clean;
         };
@@ -240,7 +280,11 @@
               h("button", { key: c.id, onClick: () => interpret(e, c), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, background: t.bg2 } }, c.remark || c.name))) : null,
             (e.interpretations || []).map((it, i) => h("div", { key: i, style: { marginTop: 8, background: t.bg, borderRadius: 10, padding: "8px 11px", borderLeft: "3px solid " + t.tint } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, it.name + " 的解法"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text)))))))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text),
+              // 梦签：单独一行，像从解梦正文里撕下来的那一条（v61.47 起单独一个字段；
+              // 旧记录没有这一栏，不显示就是了）
+              it.sign ? h("div", { style: { marginTop: 9, paddingTop: 8, borderTop: "1px dashed " + t.line,
+                fontFamily: F_DISPLAY, fontSize: 13.5, color: t.tint, letterSpacing: ".02em" } }, "「" + it.sign + "」") : null))))))),
       )
     );
   }

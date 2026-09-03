@@ -42,9 +42,11 @@ test("树洞的语域要单独点明：对陌生人和对熟人不是一个分�
   assert.match(app, /【这是树洞，不是聊天】/);
 });
 
-test("这条规矩自己也得改：名单从六处变七处", () => {
+test("这条规矩自己也得改：匿名信箱得在名单上", () => {
   const rule = fs.readFileSync(".claude/rules/four-surfaces-same-context.md", "utf8");
-  assert.match(rule, /名单是【七处】/);
+  // ⚠️别钉那个总数：每补一处它就变一次（v61.47 已经变成八处了）。
+  // 要钉的是【这一处在不在名单上】，不是名单有多长。
+  assert.match(rule, /名单是【[一二三四五六七八九十]+处】[^\n]*匿名信箱/);
   assert.match(rule, /匿名信箱是第七处/);
   // 每补一处都要在那张表里留一行，否则下一个人还会漏
   assert.match(rule, /\| v61\.37 \| \*\*匿名信箱也不在这张名单上\*\*/);
