@@ -53,9 +53,26 @@ test("通讯录顶上是群聊和标签两个入口，下面才是字母分组",
   const gi = seg.indexOf('entry("群聊"'), ti = seg.indexOf('entry("标签"'), si = seg.indexOf("secs.map(sec =>");
   assert.ok(gi > 0 && ti > gi, "群聊在标签上面");
   assert.ok(si > ti, "两个入口都要排在字母分组上面");
-  assert.match(seg, /pinyinSections\(characters\)/);
+  assert.match(comp, /pinyinSections\(characters\)/);
   assert.match(seg, /id: "mcontact-" \+ sec\.letter/, "字母分组要有锚点，右边索引才跳得过去");
-  assert.match(seg, /jump\(sec\.letter\)/);
+  // v60.73：索引条搬出了滚动区（原来跟着内容滚，得下滑一段才露出来），
+  // 所以它不在这一段里；这里只钉「列表和索引用的是同一份分组」。
+  assert.match(seg, /const secs = contactSecs\.length \? contactSecs/, "列表和索引必须共用同一份分组");
+});
+
+// 她 2026-09-03：「通讯录旁边的字母不是固定在侧边的，要下滑才有」
+test("A-Z 索引钉在不滚的那一层，且跟着滚动高亮当前那一格", () => {
+  assert.match(comp, /const listRef = useRef\(null\)/);
+  assert.match(comp, /ref: listRef,\n\s*className: "h-full overflow-y-auto"/, "滚动容器要拿得到 ref");
+  // 索引条是滚动容器的兄弟，挂在 relative 的外壳上
+  assert.match(comp, /className: "flex-1 min-h-0", style: \{ position: "relative" \}/);
+  assert.match(comp, /tab === "contacts" && characters\.length > 6 && contactSecs\.length > 1/);
+  assert.match(comp, /position: "absolute", right: 0, top: 0, bottom: 0, width: 24/);
+  // 旧的那条（absolute 挂在会滚的内容上）必须是删掉的，不是留着
+  assert.doesNotMatch(comp, /右侧 A-Z 索引条/);
+  // 滚到哪一段哪一格上墨
+  assert.match(comp, /setCurLetter\(c => c === cur \? c : cur\)/);
+  assert.match(comp, /const on = curLetter === sec\.letter/);
 });
 
 test("群聊入口列出所有群，标签走原来那个分组管理", () => {

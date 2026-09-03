@@ -3057,6 +3057,33 @@ function Messages({
   };
   const shownItems = chatItems.filter(hitItem);
   // 长按置顶：按住 ~0.5s 触发 onTogglePin，并拦掉随后的点击（避免误进聊天）
+  // ── 通讯录那条 A-Z（v60.73，她 2026-09-03 报「不是固定在侧边的，要下滑才有」）──
+  // 病因：那条索引原来 position:absolute 挂在【列表内容】上，而列表内容自己在滚——
+  // 于是它跟着内容一起往上跑，得滑一段才露出来。它必须挂在【不滚的那一层】上。
+  // 所以分组、跳转、当前字母都提到组件这一层，索引条渲染成滚动容器的兄弟，钉在右边。
+  const listRef = useRef(null);
+  const contactSecs = (tab === "contacts" && typeof pinyinSections === "function") ? pinyinSections(characters) : [];
+  const [curLetter, setCurLetter] = useState("");
+  const jumpLetter = L => { try { const el = document.getElementById("mcontact-" + L); if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" }); setCurLetter(L); } catch (e) {} };
+  // 滚到哪一段，索引上那一格就跟着上墨——不然这条尺只是一排能点的字
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || tab !== "contacts" || !contactSecs.length) return;
+    const onScroll = () => {
+      const top = el.getBoundingClientRect().top + 6;
+      let cur = contactSecs[0].letter;
+      for (const sec of contactSecs) {
+        const n = document.getElementById("mcontact-" + sec.letter);
+        if (!n) continue;
+        if (n.getBoundingClientRect().top <= top) cur = sec.letter; else break;
+      }
+      setCurLetter(c => c === cur ? c : cur);
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+    // eslint-disable-next-line
+  }, [tab, characters.length, contactSecs.length]);
   const pressT = useRef({}); const longFired = useRef(false);
   const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => { longFired.current = true; onTogglePin && onTogglePin(id); }, 500); };
   const endPress = id => clearTimeout(pressT.current[id]);
@@ -3110,8 +3137,9 @@ function Messages({
   }, h(IPlus, {
     size: 20,
     color: t.ink
-  })) : null)), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto"
+  })) : null)), h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
+    ref: listRef,
+    className: "h-full overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
     h("div", { className: "px-4 pt-1 pb-2" },
       h("div", { className: "flex items-center gap-2 px-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
@@ -3125,7 +3153,9 @@ function Messages({
   ), tab === "contacts" && (() => {
     // 通讯录（v56.40，她 2026-08-26 要微信那样）：顶上两个收纳入口，下面按首字母分组，右边一条 A-Z 索引。
     // 有备注按备注的首字母，没备注按本名——她明说的。
-    const secs = typeof pinyinSections === "function" ? pinyinSections(characters) : [{ letter: "#", items: characters }];
+    // ⚠️分组只算一次（contactSecs 在组件那一层）：右边那条索引和这里的列表必须是
+    // 同一份，各算各的迟早会有一边多出个字母、点了跳不动。
+    const secs = contactSecs.length ? contactSecs : [{ letter: "#", items: characters }];
     const entry = (label, sub, colors, icon, onClick) => h("button", { key: label, onClick: onClick,
       className: "w-full flex items-center justify-between px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
       h("div", { className: "flex items-center gap-3" },
@@ -3134,8 +3164,11 @@ function Messages({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, label),
         sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, sub) : null),
       h(IChevR, { size: 15, color: t.line }));
-    const jump = L => { try { const el = document.getElementById("mcontact-" + L); if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" }); } catch (e) {} };
-    return h("div", { className: "py-1", style: { position: "relative" } },
+    // 米色一片太素（她 2026-09-03）。通讯录现实里是【一本带拇指索引的名册】，
+    // 所以这一页给它名册该有的两样：左边一道装订线（两根，一粗一细），
+    // 右边页口伸出来的字母舌。都是从「名册」长出来的，换个功能就不成立。
+    return h("div", { className: "py-1", style: { position: "relative", background: t.bg,
+        backgroundImage: "linear-gradient(90deg,transparent 0 12px," + t.line + " 12px 13px,transparent 13px 15.5px," + t.line + " 15.5px 16px,transparent 16px)" } },
       entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
         [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
         () => setGroupList(true)),
@@ -3145,7 +3178,9 @@ function Messages({
       characters.length === 0
         ? h(Empty, { text: "通讯录是空的", sub: "去人格档案馆录入角色" })
         : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, sec.letter),
+            h("div", { style: { padding: "9px 0 4px 20px" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.14em", color: t.sub,
+                background: t.bg2, border: "1px solid " + t.line, borderRadius: "3px 9px 9px 3px", padding: "2px 12px 2px 9px" } }, sec.letter)),
             sec.items.map(c => h("button", { key: c.id, onClick: () => onOpenContact(c),
               className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
               h(Avatar, { character: c, size: 42, radius: 9 }),
@@ -3157,13 +3192,7 @@ function Messages({
                       style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px" } }, g.name)))
                   : null),
               h(IChevR, { size: 15, color: t.line }))))))
-      ,
-      // 右侧 A-Z 索引条：只列真的有人的那些字母
-      characters.length > 6 && secs.length > 1
-        ? h("div", { style: { position: "absolute", right: 2, top: 96, bottom: 8, width: 18, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1, zIndex: 5 } },
-            secs.map(sec => h("button", { key: sec.letter, onClick: () => jump(sec.letter), className: "active:opacity-50",
-              style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.15, color: t.fog, padding: "0" } }, sec.letter)))
-        : null);
+      );
   })(), tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
     moments: moments,
@@ -3280,7 +3309,24 @@ function Messages({
   }, "按角色查看收藏的消息")), h(IChevR, {
     size: 16,
     color: t.line
-  })))), composeOpen && h(MomentCompose, {
+  })))),
+    // ── 右边那条 A-Z：不是一排飘着的小字，是【书口上的字母舌】 ──
+    // 通讯录现实里就是一本带拇指索引的名册：字母舌从右边页口伸出来，翻到哪一段
+    // 哪一片就凸出来。换成别的功能这形状立刻不成立——只有名册才按字母切页口。
+    tab === "contacts" && characters.length > 6 && contactSecs.length > 1
+      ? h("div", { style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 24, zIndex: 5,
+          display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 2,
+          // 页口：一叠纸的侧面，几道极浅的竖线
+          backgroundImage: "repeating-linear-gradient(90deg," + t.line + " 0 1px,transparent 1px 4px)",
+          backgroundSize: "10px 100%", backgroundRepeat: "no-repeat", backgroundPosition: "right center" } },
+          contactSecs.map(sec => { const on = curLetter === sec.letter;
+            return h("button", { key: sec.letter, onClick: () => jumpLetter(sec.letter),
+              className: "active:opacity-60",
+              style: { width: on ? 24 : 17, minHeight: 15, borderRadius: "5px 0 0 5px",
+                background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line), borderRight: "none",
+                color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "13px",
+                paddingRight: 2, transition: "width .12s, background .12s" } }, sec.letter); }))
+      : null), composeOpen && h(MomentCompose, {
     friendGroups,
     characters,
     onPost: onPostMoment,
