@@ -158,16 +158,104 @@ test("小球能拖、位置记得住、夹得回屏内", () => {
   assert.match(seg, /onPointerDown: onDown/);
   assert.match(seg, /saveDock\(\{ \.\.\.loadDock\(\), x: now\.x, y: now\.y \}\)/, "拖完不存位置，下次又回原处");
   assert.match(seg, /Math\.max\(6, Math\.min\(x, vw\(\) - w - 6\)\)/, "不夹回屏内的话，拖出去就点不着了");
-  // 挪一点点算点一下，挪多了算拖——不区分的话点开永远失灵
-  assert.match(seg, /d\.moved <= 4/);
   assert.match(seg, /顶上这条就是把手/, "窗口本身拖不动");
 });
 
-test("整页和悬浮屏共用同一套改动稿卡片，不是各抄一份", () => {
+// 她 2026-09-03：「小球搞个 toggle 吧，现在有时候不触发」
+test("点开走 click，不挂在 pointerup 上——手指抖两下不该算拖", () => {
+  const seg = src.slice(src.indexOf("function AssistantDock("));
+  assert.match(seg, /onClick: \(\) => \{ if \(!swallowIfDragged\(\)\) setOpen\(true\); \}/,
+    "点开还挂在 pointerup 上的话，十次里有几次会被当成拖");
+  assert.doesNotMatch(seg, /onPointerUp: onUp\(/, "旧的那套 pointerup 兼当点击还留着");
+  // 真拖过要把紧接着那个 click 吞掉，否则一拖完就弹开
+  assert.match(seg, /const swallowIfDragged = \(\) => \{ if \(movedRef\.current\) \{ movedRef\.current = false; return true; \}/);
+  // 门槛得按手指来，不是按鼠标
+  const m = seg.match(/const MOVE_MIN = (\d+);/);
+  assert.ok(m && Number(m[1]) >= 6, "拖的门槛太小，按下去抖一下就被当成拖了");
+});
+
+test("量屏高跟 App 外壳同一把尺子，底部留白跟主聊天输入栏同一把尺子", () => {
+  // 她 2026-09-03：「聊天框下面又太高了没有遵循规则」——
+  // iOS 独立 app 里 window.innerHeight 是小视口，比外壳的 100vh 矮一截，
+  // 拿它算浮窗就浮在半空、底下空一大条。
+  assert.match(src, /const vhOf = \(\) => \{[\s\S]*?getElementById\("root"\)/, "还在拿 innerHeight 当屏高");
+  const seg = src.slice(src.indexOf("function AssistantDock("));
+  assert.doesNotMatch(seg, /window\.innerHeight/, "浮窗里还直接用着 innerHeight");
+  assert.match(src, /style\.cssText = "position:fixed;left:-9999px;height:" \+ COMPOSER_PAD_BOTTOM/,
+    "底部留白没照 COMPOSER_PAD_BOTTOM 量，等于自己拍了个数");
+  assert.match(seg, /const maxY = H - hh - sb - 8;/, "夹回屏内时没把安全区算进去");
+  // 整页那一版的输入栏也照同一把尺子
+  assert.match(src, /paddingBottom: "calc\(" \+ COMPOSER_PAD_BOTTOM \+ " \+ 10px\)"/);
+});
+
+test("三处共用同一套气泡和改动稿卡片，不是各抄一份", () => {
   assert.equal((src.match(/function PatchCard\(/g) || []).length, 1);
   assert.equal((src.match(/function useAssistChat\(/g) || []).length, 1);
-  assert.match(src, /h\(PatchCard, \{ key: p\.pid, p: p, ctx: props, state/, "整页没用公共卡片");
-  assert.match(src, /h\(PatchCard, \{ key: p\.pid, p: p, ctx: props, compact: true/, "悬浮屏没用公共卡片");
+  assert.equal((src.match(/function Bubbles\(/g) || []).length, 1);
+  assert.equal((src.match(/h\(PatchCard, \{ key: p\.pid/g) || []).length, 1, "卡片被抄成了两处");
+  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg \}\)/, "整页没用公共气泡");
+  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg, compact: true \}\)/, "悬浮屏没用公共气泡");
+});
+
+// 她 2026-09-03：「把问改和查毛病合并一起」
+test("两档合成一档：查毛病的那套话直接进主提示词，不再另开一个模式", () => {
+  assert.doesNotMatch(src, /setMode\("diagnose"\)/, "「查毛病」那个开关还在");
+  assert.doesNotMatch(src, /mode === "diagnose"/, "还按模式分叉");
+  assert.match(src, /查毛病的时候先看下面的现状快照/, "合并之后查毛病那套话也跟着没了");
+  // ask 不该再收一个没人用的 mode——声明了没人引用比压根没写更坏
+  assert.match(src, /async function ask\(active, ctx, history, text\)/);
+});
+
+// 她 2026-09-03：「它聊天也要有上下文然后可以清空」
+test("整页和小球是同一段对话，落在存档里，能清空", () => {
+  assert.match(src, /const CHAT_KEY = "x_assistChat";/);
+  assert.match(src, /const \[msgs, setMsgs\] = useState\(A\.loadChat\);/, "对话没从存档里读，关掉就没了");
+  assert.match(src, /const before = A\.loadChat\(\);/, "发的时候拿的不是存档里那份，两处会各说各的");
+  assert.match(src, /const clear = \(\) => \{ setDone\(\{\}\); put\(\[\]\); \};/);
+  // 攒着不封顶就是又一座坟场（phone-data-layers.md）
+  assert.match(src, /const CHAT_KEEP = 60;/);
+  assert.match(src, /\.slice\(-CHAT_KEEP\)/);
+  // 上下文真的发回去了
+  assert.match(src, /\(history \|\| \[\]\)\.slice\(-14\)/);
+});
+
+// 她 2026-09-03：「开个设置页预设帮手名字叫秋秋，参考一下这个提示词写个可以改的预设」
+test("设置页：名字、头像、主人格提示词、小球开关", () => {
+  assert.match(src, /const DEFAULT_NAME = "秋秋";/);
+  assert.match(src, /function AssistantSetup\(/);
+  assert.match(src, /"主人格提示词"/);
+  ["默认", "清空", "保存"].forEach(b => assert.ok(src.indexOf('btn("' + b + '"') > 0, "设置页缺了「" + b + "」"));
+  assert.match(src, /put\(\{ ballOn: !cfg\.ballOn \}\)/, "小球没有开关");
+  assert.match(src, /if \(!cfg\.ballOn\) return null;/, "开关关了小球还在");
+  // 清空之后不许把默认那份又发回去
+  assert.match(src, /\("prompt" in d\) \? String\(d\.prompt\) : DEFAULT_PROMPT/, "按了清空，下次读还是默认那份，等于清空是假的");
+  // 头像走图库存引用，不把 base64 塞进配置
+  assert.match(src, /imgToVault/, "头像直接存 base64 会把本地存储撑爆");
+});
+
+test("预设里只放【它是谁】，安全面和契约不许混进去（她删得掉的东西不能是那些）", () => {
+  const m = src.match(/const DEFAULT_PROMPT = \[([\s\S]*?)\]\.join\("\\n"\);/);
+  assert.ok(m, "找不到默认预设");
+  const p0 = m[1];
+  assert.match(p0, /秋秋/);
+  assert.match(p0, /你必须诚实/);
+  assert.doesNotMatch(p0, /style |persona |appearance |theme |memory /, "能改哪几样混进预设里了——她删一行就等于把白名单删了");
+  assert.doesNotMatch(p0, /JSON|patches|框架|代码/, "输出契约或代码那道门混进预设里了");
+  // 清空了也得知道自己是谁，不然退回一张通用助手的脸
+  assert.match(src, /cfg\.prompt\.trim\(\) \|\| \("你是「" \+ cfg\.name \+ "」/);
+});
+
+// 她 2026-09-03：「给它和我也放头像框，它的头像预设画一只小肥鸟」
+test("两边都有头像框；它默认是那只程序画的小肥鸟", () => {
+  assert.match(src, /function QiuBird\(/);
+  assert.match(src, /h\(QiuFace, \{ cfg: props\.cfg, size: av, radius: 9 \}\)/, "它这边没头像");
+  assert.match(src, /h\(MeFace, \{ profile: props\.profile, size: av, radius: 9 \}\)/, "我这边没头像");
+  // 换过照片就用照片，没换就是鸟
+  assert.match(src, /cfg\.avatarImage\s*\?\s*h\(Avatar,/);
+  // 鸟得是画出来的，不是一个 emoji 或者外链图
+  const bird = src.slice(src.indexOf("function QiuBird("), src.indexOf("window.QiuBird"));
+  assert.ok((bird.match(/h\("(ellipse|circle|path|rect)"/g) || []).length >= 10, "这只鸟画得太潦草");
+  assert.doesNotMatch(bird, /http|base64/, "头像不许外链");
 });
 
 test("挂在 App 里，但一根手指都没碰主屏那几样", () => {

@@ -2125,7 +2125,7 @@ function Home({
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream },
     trpg: { kind: "app", zh: "跑团", G: window.GTrpg || GGame },
     impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream },
-    assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty },
+    assistant: { kind: "app", zh: "秋秋", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty }
   };
   // 装饰也是主屏注册项，但不进入安全网：用户删掉后不会被系统当成“丢失组件”补回来。

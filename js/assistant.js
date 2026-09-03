@@ -34,6 +34,61 @@
   const loadJ = (k, d) => { try { return typeof loadJSON === "function" ? loadJSON(k, d) : JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); } catch (e) { return d; } };
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
   const MAN = () => (typeof window !== "undefined" && window.AssistantManual) || null;
+
+  // ---- 她的那份预设（她 2026-09-03：「开个设置页预设帮手名字叫秋秋，
+  //      参考一下这个提示词写个可以改的预设」）----
+  // ⚠️这份【主人格提示词】是给她改的，所以只放【它是谁、怎么说话、干哪两件事】。
+  //   底下那些结构（能改哪几样、代码那道门、输出成什么形状）一律不进这份预设——
+  //   那是安全面和契约，被她随手删掉一行就会出事。两边不许混在一起。
+  const CFG_KEY = "x_assistCfg";
+  const DEFAULT_NAME = "秋秋";
+  const DEFAULT_PROMPT = [
+    "你是「秋秋」，这个手机里的向导。",
+    "",
+    "性格：机灵、稳当、不端着。话短，说人话，不客套也不掉书袋；有点小幽默，但绝不刻薄。",
+    "说话风格：像旁边坐着的朋友——先答那句要紧的，再补一句要留神的。偶尔用一个 emoji，别用第二个。",
+    "用户是女性，别用男性称呼。",
+    "你不是被扮演的角色，也不进任何一段剧情——你只管这个 App 本身。",
+    "",
+    "你在的地方：一个私人的 AI 陪伴手机。主屏四页，摆着聊天、人格档案馆、查手机、购物、去处、",
+    "世界书、记忆库、同人文、跑团、塔罗、擂台、梦境……她在里面养着几个角色，跟他们线上聊、",
+    "线下演、开群、打电话。你是这个手机里的桌面向导。",
+    "",
+    "你要做两件事：",
+    "① 答「这个怎么用」——说清在哪一页、点哪儿、有什么要留神的。",
+    "② 动手改——她说想改什么，你出一份改动稿，她过目之后点了应用才真的写进去。",
+    "",
+    "重要：你必须诚实。不知道的说不知道，做不到的说做不到，不要编造你没有的功能或能力。",
+    "超出你能改的范围的事，如实告诉她你暂时做不到。"
+  ].join("\n");
+  function loadCfg() {
+    let d = {}; try { d = JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {}; } catch (e) { d = {}; }
+    return {
+      name: d.name || DEFAULT_NAME,
+      avatarImage: d.avatarImage || "",
+      // ⚠️用 `in` 判，不能用 `||`：她按「清空」存的是空串，
+      //   走 `||` 会当成没设过、把默认那份又发回去，等于清空按钮是假的。
+      prompt: ("prompt" in d) ? String(d.prompt) : DEFAULT_PROMPT,
+      ballOn: d.ballOn !== false
+    };
+  }
+  function saveCfg(patch) {
+    const next = { ...loadCfg(), ...patch };
+    try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch (e) {}
+    return next;
+  }
+
+  // ---- 这一段对话（她 2026-09-03：「它聊天也要有上下文然后可以清空」）----
+  // ⚠️整页和小悬浮屏是【同一段对话】，不是两段：在小球里问了半句、点开整页接着说，
+  //   这才叫上下文。所以它落在存档里，两处都读同一份。
+  const CHAT_KEY = "x_assistChat";
+  const CHAT_KEEP = 60;
+  function loadChat() { try { const a = JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function saveChat(list) {
+    const a = (Array.isArray(list) ? list : []).slice(-CHAT_KEEP);
+    try { localStorage.setItem(CHAT_KEY, JSON.stringify(a)); } catch (e) {}
+    return a;
+  }
   const TS = () => (typeof window !== "undefined" && window.ThemeStudio) || null;
 
   // 角色档案里【除了人设和外貌之外】还能改的那几栏。
@@ -202,20 +257,27 @@
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }
 
-  function buildSystem(ctx, mode, question) {
+  function buildSystem(ctx, question) {
     const snap = snapshot(ctx);
+    const cfg = loadCfg();
     const uName = (ctx.profile && ctx.profile.name) || "她";
     const ts = TS();
     const pages = ts ? (ts.PAGES || []).map(x => x[0] + "＝" + x[1]).join("、") : "";
-    return "你是这个私人 App 里的【向导】。把 " + uName + " 当成刚走进这个世界的人：她问哪样东西是什么、在哪儿、怎么用，你都答得上来，而且答得具体——说清在哪一页、点哪儿、有什么要留神的。\n"
-      + "说话短、直接、不客套，不用敬语堆砌，也别把她的问题复述一遍再答。\n\n"
+    // ① 她那份预设（可改、可清空）。清空了也不能没人称——留一句最短的兜底，
+    //    否则模型不知道自己是谁，会退回「一个通用助手」那张脸。
+    const persona = cfg.prompt.trim() || ("你是「" + cfg.name + "」，这个 App 里的向导。话短、直接、不客套。");
+    // ② 底下这些是结构和安全面，不进那份预设，她删不掉
+    return persona + "\n\n"
       + "【最要紧的一条：不许编】\n"
       + "下面那份目录和详细，就是这个 App 的全部。手册里没写的细节，你就说不确定、让她点开看看——"
       + "编一个听起来很合理的功能出来，比答不上来坏得多。\n"
       + "她问的东西在目录里但详细没给全，就照目录那一句答，别往下展开。\n\n"
       + "【不答的那一类】这个 App 是【怎么造出来的】一律不答：代码、框架、文件、数据存在哪、技术选型。"
       + "她问到就一句话挡回去，然后把话拉回「你想改哪儿？我可以动手」。\n"
-      + "⚠️「哪儿不对劲 / 报错 / 没生效」不属于这一类——那是要你帮她查的，照查。\n\n"
+      + "⚠️「哪儿不对劲 / 报错 / 没生效」不属于这一类——那是要你帮她查的，照查。\n"
+      + "查毛病的时候先看下面的现状快照，指出最可能卡在哪一步、怎么验证。常见成因："
+      + "文风存了但这一局没切过去（线下顶栏 STYLE 那条会显示「未设文风」）；自定义文风与通用叙事准则冲突；"
+      + "模型不认可选字段；出图被上游审核拒。这种时候通常不需要改动稿，除非改一处设置就能解决。\n\n"
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
       + "· persona 角色人设　· appearance 角色外貌\n"
@@ -227,23 +289,17 @@
       + "· text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」——她要能直接整段替换。\n"
       + "· 一次别超过 3 条 patch；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
-      + (mode === "diagnose"
-        ? "【这一轮她在问「为什么没生效」】先看下面的现状快照，指出最可能卡在哪一步，说清怎么验证。\n"
-          + "常见成因：文风存了但这一局没切过去（线下顶栏 STYLE 那条会显示「未设文风」）；"
-          + "自定义文风与通用叙事准则冲突；模型不认可选字段（不吐 photo/thought 这类）；出图被上游审核拒。\n"
-          + "诊断轮通常不需要 patch，除非改一处设置就能解决。\n\n"
-        : "")
       + manualBlock(question) + "\n\n"
       + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
 
-  async function ask(active, ctx, history, text, mode) {
+  async function ask(active, ctx, history, text) {
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
-    const msgs = (history || []).slice(-8).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
+    const msgs = (history || []).slice(-14).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
       .concat([{ role: "user", content: String(text || "") }]);
-    const raw = await callAI(active, buildSystem(ctx, mode, text), msgs, { maxTokens: 12000, timeout: 120000 });
+    const raw = await callAI(active, buildSystem(ctx, text), msgs, { maxTokens: 12000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)
@@ -289,19 +345,68 @@
     return (T ? T.zh : "?") + (hit ? " · " + hit.name : (patch.target === "style" ? " · 新建" : "")) + fld;
   }
 
-  window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY };
+  window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, CHAT_KEEP };
 })();
 
 // ============================================================
 // 界面：一问一答 + 改动稿卡片（改前/改后并排，逐条应用）
-//   · AssistantApp  整页版（主屏第三页那个图标）
-//   · AssistantDock 小悬浮屏（她 2026-09-03 要的：能拖，边看功能边问）
+//   · AssistantApp   整页版（主屏第三页那个图标）
+//   · AssistantDock  小悬浮屏（能拖，边看功能边问）
+//   · AssistantSetup 设置页（名字 / 头像 / 主人格提示词 / 小球开关）
+// 三处共用同一段对话、同一份改动稿卡片、同一套收发。
 // ============================================================
 (function () {
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   const A = window.Assistant;
 
-  // ---- 改动稿卡片：整页和悬浮屏共用一份 ----
+  // ---- 秋秋的默认头像：一只小肥鸟（她 2026-09-03 点的）----
+  // 程序画的，不占存储、不走图库；她自己换了照片就用她那张。
+  // 颜色写死是【故意的】：头像是一张画，不是界面——它自带底色，深浅主题下都看得清，
+  // 跟着主题变色反而会变成一坨认不出的东西。
+  function QiuBird(props) {
+    const z = props.size || 34, r = props.radius != null ? props.radius : z / 2;
+    return h("svg", { width: z, height: z, viewBox: "0 0 44 44", style: { display: "block", borderRadius: r, flexShrink: 0 } },
+      h("rect", { x: 0, y: 0, width: 44, height: 44, rx: r * (44 / z), fill: "#f4e7d0" }),
+      // 呆毛
+      h("path", { d: "M22 6.6c0-2.3 1.3-3.6 2.9-4", stroke: "#e0a93f", strokeWidth: 1.9, strokeLinecap: "round", fill: "none" }),
+      // 身子 + 脑袋：两个圆叠出一只胖鸟的轮廓
+      h("ellipse", { cx: 22, cy: 26.5, rx: 15, ry: 12.4, fill: "#f2c45f" }),
+      h("circle", { cx: 22, cy: 16.6, r: 10.4, fill: "#f6cd72" }),
+      // 肚子那块浅的
+      h("ellipse", { cx: 22, cy: 29.4, rx: 9.4, ry: 8.2, fill: "#fbe1a4" }),
+      // 翅膀
+      h("ellipse", { cx: 32.6, cy: 27.6, rx: 3.9, ry: 6.2, fill: "#e0a93f", transform: "rotate(20 32.6 27.6)" }),
+      h("ellipse", { cx: 11.4, cy: 27.6, rx: 3.9, ry: 6.2, fill: "#e0a93f", transform: "rotate(-20 11.4 27.6)" }),
+      // 眼睛（一点高光，不然像两颗豆子）
+      h("circle", { cx: 18.2, cy: 16, r: 2, fill: "#3b3229" }),
+      h("circle", { cx: 25.8, cy: 16, r: 2, fill: "#3b3229" }),
+      h("circle", { cx: 18.9, cy: 15.3, r: .65, fill: "#fff" }),
+      h("circle", { cx: 26.5, cy: 15.3, r: .65, fill: "#fff" }),
+      // 嘴
+      h("path", { d: "M22 19.2l-2.9 2.5h5.8z", fill: "#e8814a" }),
+      // 腮红
+      h("ellipse", { cx: 13.6, cy: 20.2, rx: 2.4, ry: 1.5, fill: "#ef9d7e", opacity: .55 }),
+      h("ellipse", { cx: 30.4, cy: 20.2, rx: 2.4, ry: 1.5, fill: "#ef9d7e", opacity: .55 }),
+      // 脚
+      h("path", { d: "M18.4 38.6v-2M18.4 38.6l-2 1.5M18.4 38.6l2 1.5M25.6 38.6v-2M25.6 38.6l-2 1.5M25.6 38.6l2 1.5",
+        stroke: "#e8814a", strokeWidth: 1.5, strokeLinecap: "round", fill: "none" }));
+  }
+  window.QiuBird = QiuBird;
+
+  // 头像框：她换过照片就用照片，没换就是那只鸟
+  function QiuFace(props) {
+    const cfg = props.cfg || A.loadCfg();
+    return cfg.avatarImage
+      ? h(Avatar, { character: { name: cfg.name, avatarImage: cfg.avatarImage }, size: props.size || 34, radius: props.radius })
+      : h(QiuBird, { size: props.size || 34, radius: props.radius });
+  }
+  function MeFace(props) {
+    const p = props.profile || {};
+    return h(Avatar, { character: { id: "me", name: p.name || "我", avatarImage: p.avatarImage, avatarEmoji: p.avatarEmoji, color: p.color }, size: props.size || 34, radius: props.radius });
+  }
+
+  // ---- 改动稿卡片：三处共用一份 ----
   // ⚠️别为悬浮屏另抄一份窄版出来。改前改后、应用/跳过这套东西是【一层】，
   //   抄成两份就等着哪天只改了其中一处（four-surfaces-same-context.md 那个形状）。
   function PatchCard(props) {
@@ -334,24 +439,27 @@
               h("button", { onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过"))));
   }
 
-  // ---- 一段对话的公共脑子：整页和悬浮屏共用同一套收发与应用 ----
+  // ---- 一段对话的公共脑子：整页和悬浮屏共用同一段，落在存档里 ----
+  // ⚠️两处各存各的话就不叫上下文了：在小球里问了半句、点开整页接着说，它得记得。
+  //   所以 state 只是镜子，真身在 x_assistChat；每次收发都两边一起更新。
   function useAssistChat(ctx, toast) {
-    const [msgs, setMsgs] = useState([]);          // {role:"me"|"it", text, patches?}
+    const [msgs, setMsgs] = useState(A.loadChat);
     const [busy, setBusy] = useState(false);
     const [done, setDone] = useState({});          // pid -> "已应用" | 错误原文
-    const send = async (text, mode) => {
+    const put = list => { setMsgs(A.saveChat(list)); };
+    const send = async text => {
       const q = String(text || "").trim();
       if (!q || busy) return;
       // 代码问题在 Assistant.ask 里当场回绝，不走网络；所以这一步不拦 active
       if (!ctx.active && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
       setBusy(true);
-      const hist = msgs.concat([{ role: "me", text: q }]);
-      setMsgs(hist);
+      const before = A.loadChat();
+      put(before.concat([{ role: "me", text: q, ts: Date.now() }]));
       try {
-        const r = await A.ask(ctx.active, ctx, msgs, q, mode);
-        setMsgs(h2 => h2.concat([{ role: "it", text: r.reply, patches: r.patches }]));
+        const r = await A.ask(ctx.active, ctx, before, q);
+        put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, ts: Date.now() }]));
       } catch (e) {
-        setMsgs(h2 => h2.concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [] }]));
+        put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
       } finally { setBusy(false); }
     };
     const applyOne = p => {
@@ -365,7 +473,83 @@
       }
     };
     const skip = p => setDone(d => ({ ...d, [p.pid]: "跳过了" }));
-    return { msgs, busy, done, send, applyOne, skip };
+    const clear = () => { setDone({}); put([]); };
+    return { msgs, busy, done, send, applyOne, skip, clear };
+  }
+
+  // 一串气泡（整页和悬浮屏共用；只有尺寸不同）
+  function Bubbles(props) {
+    const t = useTheme(), sm = !!props.compact, C = props.C, av = sm ? 24 : 30;
+    return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
+      ? h("div", { key: i, style: { display: "flex", justifyContent: "flex-end", alignItems: "flex-start", gap: 7, marginBottom: sm ? 9 : 12 } },
+          h("div", { style: { maxWidth: "78%", padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
+          h(MeFace, { profile: props.profile, size: av, radius: 9 }))
+      : h("div", { key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
+          h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
+            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: C.done[p.pid], onApply: () => C.applyOne(p), onSkip: () => C.skip(p) }))))));
+  }
+
+  // ============================================================
+  // 设置页：名字 / 头像 / 主人格提示词 / 小球开关
+  // ============================================================
+  function AssistantSetup(props) {
+    const t = useTheme();
+    const [cfg, setCfg] = useState(A.loadCfg);
+    const [draft, setDraft] = useState(() => A.loadCfg().prompt);
+    const [name, setName] = useState(() => A.loadCfg().name);
+    const put = patch => setCfg(A.saveCfg(patch));
+    const row = { padding: "12px 14px", borderBottom: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 12 };
+    const btn = (label, onClick, strong) => h("button", { key: label, onClick: onClick, style: {
+      flex: 1, padding: "11px", borderRadius: 12, border: "none",
+      background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } }, label);
+    return h("div", { style: { height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, flexShrink: 0 } },
+        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
+        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "设置")),
+      h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) * 0.4 + 24px)" } },
+        // 头像 + 名字
+        h("div", { style: row },
+          h(QiuFace, { cfg: cfg, size: 54, radius: 16 }),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("input", { value: name, onChange: e => setName(e.target.value), onBlur: () => put({ name: name.trim() || A.DEFAULT_NAME }),
+              placeholder: A.DEFAULT_NAME,
+              style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, outline: "none" } }),
+            h("div", { style: { display: "flex", gap: 10, marginTop: 7 } },
+              h("label", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "换张头像",
+                h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
+                  const f = e.target.files && e.target.files[0]; if (!f) return;
+                  try {
+                    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
+                    // 图片走图库，只存引用——直接把 base64 塞进配置会把本地存储撑爆
+                    const ref = typeof imgToVault === "function" ? await imgToVault(b64) : b64;
+                    put({ avatarImage: ref }); props.toast && props.toast("头像换好了");
+                  } catch (err) { props.toast && props.toast("这张存不下：" + (err.message || err)); }
+                } })),
+              cfg.avatarImage ? h("button", { onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "换回那只鸟") : null))),
+        // 小球开关
+        h("div", { style: row },
+          h("div", { style: { flex: 1 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "桌面小球"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "每一页角落里都跟着，能拖到任何地方；点一下开合")),
+          h("button", { onClick: () => put({ ballOn: !cfg.ballOn }), style: {
+            width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
+            background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
+            h("div", { style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
+        // 主人格提示词
+        h("div", { style: { padding: "14px 14px 0" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "主人格提示词"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
+            "它是谁、怎么说话、干哪两件事，都写在这儿，随你改。\n（能改哪几样东西、不答代码那道门、输出成什么形状——这些是底下钉死的，删不掉。）"),
+          h("textarea", { value: draft, onChange: e => setDraft(e.target.value), rows: 14,
+            style: { width: "100%", marginTop: 10, padding: "12px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2,
+              fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.ink, resize: "none", outline: "none", minHeight: 260 } }),
+          h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+            btn("默认", () => setDraft(A.DEFAULT_PROMPT)),
+            btn("清空", () => setDraft("")),
+            btn("保存", () => { put({ prompt: draft }); props.toast && props.toast("存好了"); }, true)),
+          draft !== cfg.prompt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8 } }, "改动还没保存") : null)));
   }
 
   // ============================================================
@@ -374,77 +558,83 @@
   function AssistantApp(props) {
     const t = useTheme();
     const [input, setInput] = useState("");
-    const [mode, setMode] = useState("chat");      // chat | diagnose
+    const [page, setPage] = useState("chat");      // chat | setup
+    const [cfg, setCfg] = useState(A.loadCfg);
     const C = useAssistChat(props, props.toast);
     const scroller = useRef(null);
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy]);
-    const fire = txt => { setInput(""); C.send(txt, mode); };
-    const [dockHidden, setDockHidden] = useState(() => { try { return !!(JSON.parse(localStorage.getItem("x_assistDock") || "{}").hidden); } catch (e) { return false; } });
+    const fire = txt => { setInput(""); C.send(txt); };
 
-    const S = {
-      wrap: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg },
-      chip: on => ({ padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", color: on ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 11.5 })
-    };
-    const QUICK = mode === "diagnose"
-      ? ["我设的文风好像没生效", "线下出图老是失败", "心声好久不更新了"]
-      : ["这个 App 都能玩什么", "穿书怎么玩", "帮我把现在的文风改得更克制一点"];
+    if (page === "setup") return h(AssistantSetup, { toast: props.toast, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
-    return h("div", { style: S.wrap },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
-        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "帮手"),
-        h("button", { onClick: () => setMode("chat"), style: S.chip(mode === "chat") }, "问 · 改"),
-        h("button", { onClick: () => setMode("diagnose"), style: S.chip(mode === "diagnose") }, "查毛病")),
-      h("div", { ref: scroller, style: { flex: 1, overflowY: "auto", padding: "14px 14px 20px" } },
+    const QUICK = ["这个 App 都能玩什么", "穿书怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
+    return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, flexShrink: 0 } },
+        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 4px" } }, "←"),
+        h(QiuFace, { cfg: cfg, size: 28, radius: 9 }),
+        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, cfg.name),
+        C.msgs.length ? h("button", { onClick: C.clear, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 6px" } }, "清空") : null,
+        h("button", { onClick: () => setPage("setup"), style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "4px 4px" } }, "设置")),
+      h("div", { ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px" } },
         C.msgs.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
-              mode === "diagnose"
-                ? "哪儿不对劲就问。它看得见你现在的角色、文风预设、线下设置和最近的报错，会告诉你卡在哪一步。"
-                : "这个 App 里任何一样东西是什么、在哪儿、怎么用，都可以问它。\n它也能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，还能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（它不答这个 App 是怎么造出来的——代码、框架那一类。）")
+              "这个 App 里任何一样东西是什么、在哪儿、怎么用，都可以问我。哪儿不对劲、没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
           : null,
-        dockHidden && C.msgs.length === 0
-          ? h("button", { onClick: () => {
-                try { const d = JSON.parse(localStorage.getItem("x_assistDock") || "{}"); d.hidden = false; localStorage.setItem("x_assistDock", JSON.stringify(d)); } catch (e) {}
-                setDockHidden(false); props.toast && props.toast("小球放回来了，回到别的页面就能看见");
-              }, style: { marginTop: 14, padding: "8px 14px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "把小球放回来")
-          : null,
-        C.msgs.map((m, i) => m.role === "me"
-          ? h("div", { key: i, style: { display: "flex", justifyContent: "flex-end", marginBottom: 12 } },
-              h("div", { style: { maxWidth: "82%", padding: "8px 12px", borderRadius: 14, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.text))
-          : h("div", { key: i, style: { marginBottom: 14 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.8, whiteSpace: "pre-wrap" } }, m.text),
-              (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props, state: C.done[p.pid], onApply: () => C.applyOne(p), onSkip: () => C.skip(p) })))),
+        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "在想…") : null,
         !C.busy && C.msgs.length === 0
           ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 } },
               QUICK.map(q => h("button", { key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
           : null),
-      h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", gap: 8, padding: "10px 14px", paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 10px)", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1,
-          placeholder: mode === "diagnose" ? "哪儿不对劲？" : "问功能，或者说想改什么",
+          placeholder: "问功能、查毛病，或者说想改什么",
           style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none", maxHeight: 120 } }),
         h("button", { onClick: () => fire(input), disabled: C.busy, style: { padding: "8px 16px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, C.busy ? "…" : "问")));
   }
   window.AssistantApp = AssistantApp;
 
   // ============================================================
-  // 小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）
+  // 小悬浮屏
   //
   // ⚠️这一层为什么可以不是整页（.claude/rules/no-half-sheet.md）：
   //   那条规矩的判据是「这一层的内容，需要同时看见它下面那一层吗？」——
-  //   这里的答案是【需要】，而且是全部的意义所在：她要一边看着某个功能一边问它、
+  //   这里的答案是【需要】，而且是全部的意义所在：她要一边看着某个功能一边问、
   //   一边让它改。整页会把要研究的那个东西整个盖掉，那就等于没有这个功能。
-  //   也不是半窗：半窗是钉死在屏幕下半截的，这个能拖到任何地方、让开你正在看的那块。
+  //   也不是半窗：半窗钉死在屏幕下半截，这个能拖到任何地方、让开你正在看的那块。
   // ============================================================
   const DOCK_KEY = "x_assistDock";
   const BALL = 46;
   const loadDock = () => { try { return JSON.parse(localStorage.getItem(DOCK_KEY) || "{}") || {}; } catch (e) { return {}; } };
   const saveDock = d => { try { localStorage.setItem(DOCK_KEY, JSON.stringify(d)); } catch (e) {} };
 
+  // ⚠️量屏高不许用 window.innerHeight（她 2026-09-03：「聊天框下面又太高了没有遵循规则」）。
+  //   整个 app 的外壳写的是 height:100vh，而 iOS 独立 app 里 innerHeight 是【小视口】，
+  //   比 100vh 矮一截——拿它算，浮窗就会浮在半空、底下空一大条。
+  //   跟 App 的外壳量同一把尺子：直接量根节点。
+  const vhOf = () => {
+    try { const el = document.getElementById("root"); const r = el && el.getBoundingClientRect(); if (r && r.height > 200) return r.height; } catch (e) {}
+    return (typeof window !== "undefined" && window.innerHeight) || 800;
+  };
+  // 底部留白也跟主聊天输入栏同一把尺子（COMPOSER_PAD_BOTTOM，0.4 条安全区），
+  // 不自己拍一个数（.claude/rules/mobile-ui-layout.md §2）。
+  let _sbCache = null;
+  const safeBottom = () => {
+    if (_sbCache != null) return _sbCache;
+    try {
+      const d = document.createElement("div");
+      d.style.cssText = "position:fixed;left:-9999px;height:" + COMPOSER_PAD_BOTTOM;
+      document.body.appendChild(d);
+      _sbCache = Math.round(d.getBoundingClientRect().height) || 0;
+      document.body.removeChild(d);
+    } catch (e) { _sbCache = 0; }
+    return _sbCache;
+  };
+
   function AssistantDock(props) {
     const t = useTheme();
     const [open, setOpen] = useState(false);
-    const [hidden, setHidden] = useState(() => !!loadDock().hidden);
+    const [cfg, setCfg] = useState(A.loadCfg);
     const [input, setInput] = useState("");
     const [pos, setPos] = useState(() => {
       const d = loadDock();
@@ -453,52 +643,64 @@
     const C = useAssistChat(props, props.toast);
     const scroller = useRef(null);
     const dragRef = useRef(null);
-    useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy]);
+    const movedRef = useRef(false);
+    useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy, open]);
+    // 设置页里把小球关了/开了，这边要跟上（同一个存档，两处都在看）
+    useEffect(() => {
+      const tick = setInterval(() => { const n = A.loadCfg(); setCfg(c => (c.ballOn === n.ballOn && c.name === n.name && c.avatarImage === n.avatarImage) ? c : n); }, 2000);
+      return () => clearInterval(tick);
+    }, []);
 
     const vw = () => (typeof window !== "undefined" && window.innerWidth) || 390;
-    const vh = () => (typeof window !== "undefined" && window.innerHeight) || 800;
     const panelW = () => Math.min(348, vw() - 20);
-    const panelH = () => Math.min(452, Math.max(280, vh() - 150));
-    // 默认落在右下角，避开底栏；-1 表示「还没拖过，用默认位置」
+    const panelH = () => Math.min(430, Math.max(260, vhOf() - 170));
     const at = () => {
+      const H = vhOf(), sb = safeBottom();
       const w = open ? panelW() : BALL, hh = open ? panelH() : BALL;
+      // 默认落在右下角。球要让开底栏（别压着 tab bar 和输入框），窗就贴着底边。
       const x = pos.x < 0 ? vw() - w - 12 : pos.x;
-      const y = pos.y < 0 ? vh() - hh - 96 : pos.y;
-      // 夹回屏内：拖到边上、或者横竖屏切换之后，别让它跑出去点不着
-      return { x: Math.max(6, Math.min(x, vw() - w - 6)), y: Math.max(6, Math.min(y, vh() - hh - 6)) };
+      const y = pos.y < 0 ? H - hh - sb - (open ? 10 : 84) : pos.y;
+      const maxY = H - hh - sb - 8;
+      return { x: Math.max(6, Math.min(x, vw() - w - 6)), y: Math.max(6, Math.min(y, Math.max(6, maxY))) };
     };
     const a = at();
 
-    // 拖：按下记起点，移动时跟手，抬起时看挪了多远——挪得少就当成点了一下
+    // ── 拖 vs 点（她 2026-09-03：「现在有时候不触发」）──
+    // 原来点开是挂在 pointerup 上、并且要求位移 ≤4px。手指按下去总会抖那么两三下，
+    // 4px 这个门槛按不住，于是十次里有几次被当成拖、点了没反应。
+    // 改成【拖归 pointer 事件，点归 click】：浏览器自己会在一次轻点后补一个 click，
+    // 这条路稳得多；真拖过就把紧接着那个 click 吞掉。门槛也放宽到 8px。
+    const MOVE_MIN = 8;
     const onDown = e => {
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
-      dragRef.current = { x0: e.clientX, y0: e.clientY, px: a.x, py: a.y, moved: 0 };
+      movedRef.current = false;
+      dragRef.current = { x0: e.clientX, y0: e.clientY, px: a.x, py: a.y };
     };
     const onMove = e => {
       const d = dragRef.current; if (!d) return;
       const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
-      d.moved = Math.max(d.moved, Math.abs(dx) + Math.abs(dy));
-      if (d.moved > 4) { e.preventDefault(); setPos({ x: d.px + dx, y: d.py + dy }); }
+      if (!movedRef.current && Math.abs(dx) + Math.abs(dy) < MOVE_MIN) return;
+      movedRef.current = true;
+      e.preventDefault();
+      setPos({ x: d.px + dx, y: d.py + dy });
     };
-    const onUp = tapAction => e => {
+    const endDrag = () => {
       const d = dragRef.current; dragRef.current = null;
-      if (!d) return;
-      if (d.moved <= 4) { tapAction && tapAction(); return; }
-      const now = at();
-      saveDock({ ...loadDock(), x: now.x, y: now.y });
+      if (d && movedRef.current) { const now = at(); saveDock({ ...loadDock(), x: now.x, y: now.y }); }
     };
-    const hide = () => { setOpen(false); setHidden(true); saveDock({ ...loadDock(), hidden: true }); props.toast && props.toast("小球收起来了 · 去「帮手」那一页能叫回来"); };
+    const swallowIfDragged = () => { if (movedRef.current) { movedRef.current = false; return true; } return false; };
+    const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };
 
-    if (hidden) return null;
-
+    if (!cfg.ballOn) return null;
     const base = { position: "fixed", zIndex: 940, touchAction: "none" };
 
-    // 收起来的样子：一颗小球
-    if (!open) return h("div", {
+    // 收起来的样子：一颗小球，点一下开合
+    if (!open) return h("div", { ...dragProps,
+      onClick: () => { if (!swallowIfDragged()) setOpen(true); },
       style: { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
-        background: t.ink, boxShadow: "0 4px 14px rgba(0,0,0,.24)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" },
-      onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp(() => setOpen(true)), onPointerCancel: onUp(null)
-    }, h(window.GAssist, { size: 21, color: t.bg2 }));
+        background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
+        display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
+      h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
 
     // 展开的样子：一扇能拖的小窗
     return h("div", {
@@ -507,34 +709,30 @@
         display: "flex", flexDirection: "column", overflow: "hidden" }
     },
       // 顶上这条就是把手：按住它拖窗
-      h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "9px 8px 9px 12px", borderBottom: "1px solid " + t.line, background: t.bg2, cursor: "grab", touchAction: "none" },
-        onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp(null), onPointerCancel: onUp(null) },
-        h("div", { style: { width: 22, height: 3, borderRadius: 2, background: t.line, marginRight: 2 } }),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "帮手"),
-        h("button", { onPointerDown: e => e.stopPropagation(), onClick: hide, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "4px 6px" } }, "收起来"),
-        h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => setOpen(false), style: { background: "none", border: "none", fontSize: 15, color: t.sub, padding: "2px 8px" } }, "－")),
-      h("div", { ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 12px 14px" } },
+      h("div", { ...dragProps, onClick: () => { swallowIfDragged(); },
+        style: { display: "flex", alignItems: "center", gap: 7, padding: "8px 8px 8px 11px", borderBottom: "1px solid " + t.line, background: t.bg2, cursor: "grab", flexShrink: 0 } },
+        h("div", { style: { width: 18, height: 3, borderRadius: 2, background: t.line, flexShrink: 0 } }),
+        h(QiuFace, { cfg: cfg, size: 22, radius: 7 }),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cfg.name),
+        C.msgs.length ? h("button", { onPointerDown: e => e.stopPropagation(), onClick: C.clear, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "4px 5px" } }, "清空") : null,
+        h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => setOpen(false), style: { background: "none", border: "none", fontSize: 15, color: t.sub, padding: "2px 7px" } }, "－")),
+      h("div", { ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 12px 12px" } },
         C.msgs.length === 0
           ? h("div", null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.85 } },
-                "这一页的东西怎么用，问我。也可以让我直接改：装修、文风、角色档案。\n拖着顶上那条能把我挪开。"),
+                "这一页的东西怎么用，问我。哪儿不对劲也问。想改的话我直接动手：装修、文风、角色档案。\n拖着顶上那条能把我挪开。"),
               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
                 ["这一页是干嘛的", "这个 App 都能玩什么", "把这一页的字调大一点"].map(q =>
-                  h("button", { key: q, onClick: () => C.send(q, "chat"), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
+                  h("button", { key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
           : null,
-        C.msgs.map((m, i) => m.role === "me"
-          ? h("div", { key: i, style: { display: "flex", justifyContent: "flex-end", marginBottom: 9 } },
-              h("div", { style: { maxWidth: "84%", padding: "6px 10px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text))
-          : h("div", { key: i, style: { marginBottom: 11 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
-              (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props, compact: true, state: C.done[p.pid], onApply: () => C.applyOne(p), onSkip: () => C.skip(p) })))),
+        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null),
-      h("div", { style: { display: "flex", gap: 6, padding: "8px 10px 10px", borderTop: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", gap: 6, padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h("textarea", { value: input, rows: 1, onChange: e => setInput(e.target.value),
-          onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); C.send(input, "chat"); setInput(""); } },
+          onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); C.send(input); setInput(""); } },
           placeholder: "问点什么…",
           style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none", maxHeight: 84 } }),
-        h("button", { onClick: () => { C.send(input, "chat"); setInput(""); }, disabled: C.busy,
+        h("button", { onClick: () => { C.send(input); setInput(""); }, disabled: C.busy,
           style: { padding: "7px 13px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, C.busy ? "…" : "问")));
   }
   window.AssistantDock = AssistantDock;
