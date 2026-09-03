@@ -9,6 +9,13 @@
 // ⚠️放在模块顶上而不是组件里：用它的地方（积温那个 tick）在文件前面几千行，
 //   写在组件里就是靠 TDZ 的时序侥幸（v59.22 已经栽过一次）。
 const COUPLE_LEAVE_P = 0.45;
+// 壁纸那两个滑杆的取值收口：存进来的可能是旧版本、手改过的存档、或者 NaN。
+// 收在一处，读的地方和写的地方共用（各写一份迟早对不上）。
+const clampFx = (v, dflt, max) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return dflt;
+  return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
+};
 const APP_VERSION = "v61.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
@@ -486,6 +493,10 @@ function App() {
   };
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [wallpaper, setWallpaper] = useState("");
+  // 壁纸上压的那一层：面纱浓度 + 背景虚化（她 2026-09-03 要的）。
+  // 她发的那两张参考图之所以压得住图标，就是照片上都有一层很淡的白纱；
+  // 我们原来是照片原样直接铺，什么都没压，所以图挑得深一点就翻车。
+  const [wallFx, setWallFx] = useState({ veil: 22, blur: 0 });
   const [prefs, setPrefs] = useState({
     timeAware: true,
     geoAware: false
@@ -976,6 +987,7 @@ function App() {
       ...loadJSON("x_theme", {})
     });
     setWallpaper(loadJSON("x_wallpaper", ""));
+    { const f = loadJSON("x_wallFx", null); if (f && typeof f === "object") setWallFx({ veil: clampFx(f.veil, 22), blur: clampFx(f.blur, 0, 20) }); }
     setPrefs(loadJSON("x_prefs", {
       timeAware: true,
       geoAware: false
@@ -16775,6 +16787,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_wallpaper", w);
       toast(w ? "壁纸已更新" : "已恢复默认背景");
     },
+    wallFx: wallFx,
+    onSaveWallFx: f => {
+      const n = { veil: clampFx(f && f.veil, 22), blur: clampFx(f && f.blur, 0, 20) };
+      setWallFx(n); saveJSON("x_wallFx", n);
+    },
     prefs: prefs,
     onSavePrefs: p => {
       setPrefs(p);
@@ -16813,9 +16830,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")"
             : (typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG : theme.bg))
         : theme.bg,
-      height: "100vh" // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
+      height: "100vh", // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
+      // ⚠️只有在【真要画那层面纱】时才加 isolation（v61.38）。
+      //   面纱那一层用的是 z-index:-1（画在父节点背景之上、正文之下）。可负层叠的孩子
+      //   只有在【父节点自己是一个层叠上下文】时才会停在父节点背景上面；否则它会一路
+      //   掉到最近的祖先上下文后面，也就是【躲到壁纸底下】——渲染出来一点变化都没有，
+      //   这一版第一稿就是这么坏的（截图两张一模一样才发现）。
+      //   isolation 只改绘制顺序、不改任何几何（home-screen-layout.md 管的是布局）；
+      //   而且写成条件式：没开这个功能时，根节点的 style 跟以前一个字都不差。
+      isolation: (screen === "home" && wallpaper && (wallFx.veil > 0 || wallFx.blur > 0)) ? "isolate" : undefined
     }
-  }, isStandalone ? /*#__PURE__*/React.createElement("div", {
+  },
+  // 壁纸上那一层面纱＋虚化（v61.38，她 2026-09-03：「加吧宝宝」）。
+  // ⚠️不许改根节点的布局（home-screen-layout.md）。所以这一层是 position:absolute
+  //   + **z-index:-1**：负层叠的孩子画在【父节点的背景之上、正常流内容之下】，
+  //   既盖住了壁纸、又压在图标底下，而且完全不参与布局——根节点的 flex、100vh、
+  //   那条 safe-area 空带一个字都没动。
+  // ⚠️backdrop-filter 虚的是【它背后那张壁纸】，所以不用把图再铺一遍——
+  //   铺两遍等于同一张图解码两次，还得两处各自维护一份 cover/position。
+  // ⚠️inset 往外扩一圈：blur 会在边缘取到画布外的透明像素，不扩就是四边一圈淡边。
+  //   根节点本来就有 overflow-hidden，扩出去的部分会被切掉。
+  screen === "home" && wallpaper && (wallFx.veil > 0 || wallFx.blur > 0)
+    ? /*#__PURE__*/React.createElement("div", {
+        "aria-hidden": "true",
+        style: {
+          position: "absolute", inset: -(wallFx.blur * 2 + 2), zIndex: -1, pointerEvents: "none",
+          background: "rgba(255,252,247," + (wallFx.veil / 100) + ")",
+          backdropFilter: wallFx.blur ? "blur(" + wallFx.blur + "px)" : "none",
+          WebkitBackdropFilter: wallFx.blur ? "blur(" + wallFx.blur + "px)" : "none"
+        }
+      })
+    : null,
+  isStandalone ? /*#__PURE__*/React.createElement("div", {
     style: _safeTop,
     className: "shrink-0"
   }) : null, /*#__PURE__*/React.createElement(DevBadges, null), (function () {

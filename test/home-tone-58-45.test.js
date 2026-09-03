@@ -96,7 +96,9 @@ test("主屏的骨架没被这次改色碰到", () => {
   // v58.48 起 Home 只剩一支（底搬到根节点，两支合并），根节点那一处在 app.js
   assert.equal((comp.match(/height: "100vh"/g) || []).length, 1, "Home 的 100vh 变了");
   const app0 = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(app0, /height: "100vh" \/\/ 100vh=large viewport/, "根节点的 100vh 变了");
+  // v61.38 后面又跟了一个属性（面纱那层的 isolation），所以这行末尾多了个逗号。
+  // 要钉的是【那个值没变】，不是那一行的标点。
+  assert.match(app0, /height: "100vh",? \/\/ 100vh=large viewport/, "根节点的 100vh 变了");
   assert.match(comp, /className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col"/, "内容区的 pt-3 没了");
   assert.match(comp, /env\(safe-area-inset-top\)/, "刘海空带没了");
 });

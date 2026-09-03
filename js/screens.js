@@ -6303,7 +6303,7 @@ function Config(props) {
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "qa" && section(h(CoupleQAConfig, { characters: props.characters, custom: props.coupleQACustom, onSave: props.onSaveCustomQA, toast: props.toast })),
-      page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper })),
+      page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar }),
@@ -6893,11 +6893,27 @@ function ThemeConfig({
   theme,
   onSave,
   wallpaper,
-  onSaveWallpaper
+  onSaveWallpaper,
+  wallFx,
+  onSaveWallFx
 }) {
   const t = useTheme();
   const [th, setTh] = useState(theme);
   const fileRef = useRef(null);
+  // 壁纸上压的那一层（v61.38）。滑的时候本地先动，松手才落盘——
+  // 每挪一格就 saveJSON 一次的话，拖一趟能写上百次。
+  const [fx, setFx] = useState(() => ({ veil: (wallFx && wallFx.veil) || 0, blur: (wallFx && wallFx.blur) || 0 }));
+  const putFx = (k, v) => setFx(p => Object.assign({}, p, { [k]: Number(v) }));
+  const commitFx = next => { const n = next || fx; onSaveWallFx && onSaveWallFx(n); };
+  const fxRow = (k, zh, max, hint) => h("div", { style: { marginTop: 12 } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, zh),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, fx[k] + (k === "blur" ? " px" : " %"))),
+    h("input", { type: "range", min: 0, max: max, step: 1, value: fx[k],
+      onChange: e => putFx(k, e.target.value),
+      onMouseUp: () => commitFx(), onTouchEnd: () => commitFx(),
+      style: { width: "100%", accentColor: t.ink } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } }, hint));
   const pickWallpaper = async e => {
     const file = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -6937,9 +6953,18 @@ function ThemeConfig({
       flexShrink: 0,
       cursor: "pointer",
       border: `1px solid ${t.line}`,
-      background: wallpaper ? `center/cover no-repeat url(${wallpaper})` : "linear-gradient(165deg, #efe9df 0%, #e6ddd0 55%, #ddd2c4 100%)"
+      background: wallpaper ? `center/cover no-repeat url(${wallpaper})` : "linear-gradient(165deg, #efe9df 0%, #e6ddd0 55%, #ddd2c4 100%)",
+      position: "relative",
+      overflow: "hidden"
     }
-  }), /*#__PURE__*/React.createElement("div", {
+  },
+  // 缩略图上照着主屏那一层画一遍——滑杆挪一格这儿就跟着变，不用退出去看
+  wallpaper ? h("div", { "aria-hidden": "true", style: {
+    position: "absolute", inset: -(fx.blur * 2 + 2),
+    background: "rgba(255,252,247," + (fx.veil / 100) + ")",
+    backdropFilter: fx.blur ? "blur(" + fx.blur + "px)" : "none",
+    WebkitBackdropFilter: fx.blur ? "blur(" + fx.blur + "px)" : "none"
+  } }) : null), /*#__PURE__*/React.createElement("div", {
     className: "flex-1"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => fileRef.current && fileRef.current.click(),
@@ -6961,7 +6986,14 @@ function ThemeConfig({
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
-  }, "恢复默认背景"))), /*#__PURE__*/React.createElement("input", {
+  }, "恢复默认背景"))),
+  // 两个滑杆只在真有壁纸时出现——没壁纸时它俩什么都改不了，摆在那儿只会让人按了没反应
+  wallpaper ? h("div", { style: { marginTop: 14 } },
+    fxRow("veil", "面纱", 60, "照片上压一层暖白。图挑得深一点、花一点，就把它调高；参考那种「浅雾感」的主屏都有这一层。"),
+    fxRow("blur", "虚化", 20, "把背景虚掉，图标会立刻跳出来。0 就是照片原样。"),
+    h("button", { onClick: () => { const n = { veil: 22, blur: 0 }; setFx(n); commitFx(n); },
+      className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "恢复推荐值")) : null,
+  /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: "image/*",
