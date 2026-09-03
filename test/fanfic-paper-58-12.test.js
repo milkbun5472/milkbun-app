@@ -52,7 +52,7 @@ test("页底那个特大词去掉了（同人文这两页）", () => {
   // ⚠️认【这个文件里任何一处 pageSkin 都不许带 word】，不是查那两个旧字符串——
   // 只查旧串的话，换个词加回来测试照样绿（第一版就是这么漏的）
   const calls = fic.match(/pageSkin\([^;]*?\)\)?[,\s]/g) || [];
-  // v61.11 卡片那一处 pageSkin 撤了（feed 改成目录页，条目不再自己上皮），剩最外层和阅读页
+  // v61.12 卡片那一处 pageSkin 撤了（feed 改成目录页，条目不再自己上皮），剩最外层和阅读页
   assert.ok(calls.length >= 2, "pageSkin 的调用处找不全：" + calls.length);
   calls.forEach(c => assert.ok(c.indexOf("word") < 0, "还有一处带着页底大字：" + c.trim().slice(0, 90)));
   assert.doesNotMatch(fic, /wordLift/, "抬词那一层也该跟着撤干净");
@@ -74,7 +74,7 @@ test("⚠️所有 return 都得包在纸里——阅读页那支是提前 retur
   assert.match(fic, /const t = ficPaperTheme\(appTheme, ficPaper\(\{ paper: paperId \}\)\);/);
 });
 
-// v61.11 起 feed 不再有「高对比的深色卡」——她点名去掉框，改成翻开这一本的目录页，
+// v61.12 起 feed 不再有「高对比的深色卡」——她点名去掉框，改成翻开这一本的目录页，
 // ficTone 整个删掉了。深纸上的读感现在由纸本身（ficPaperTheme）负责，这条测试随之撤掉。
 
 test("在设置里换一张，立刻重绘", () => {

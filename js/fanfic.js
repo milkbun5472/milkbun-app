@@ -1173,7 +1173,7 @@
     return { color: onDark ? "rgba(255,255,255,.5)" : t.fog, background: "transparent", border: "1px solid " + (onDark ? "rgba(255,255,255,.2)" : t.line) };
   }
   function hexA(hex, a) { return "rgba(" + skinRGB(hex).join(",") + "," + a + ")"; }
-  // ⚠️v61.11 起 feed 不再是「深浅交替的卡片」（她点名去掉框），
+  // ⚠️v61.12 起 feed 不再是「深浅交替的卡片」（她点名去掉框），
   // 那套 ficTone 随之删掉；标签仍留着 onDark 这一路，供压在深底上的地方用。
   // 往黑里压 / 往白里提一档（k<0 变暗，k>0 变亮）
   function skinShade(hex, k) {
@@ -1337,58 +1337,95 @@
   // ---------- 世界观分版：书架上那一排书脊（.claude/rules/tabs-not-plain-pills.md）----------
   // 原来是一排圆角药丸——任何 app 都能用的那一种，等于没设计。
   // 这个 app 现实里是【一架子同人本】：一版就是一本，所以分版就长成书脊。
-  // 没选的立在架上（矮一截、暗、竖着的书名）；选中的那本被抽出来翻开——
-  // 满高、纸色、底下那条搁板线在它这儿断开，直接长进下面这一版的 feed 里。
-  // 换个 app 就不成立：别处的分栏底下不是一本翻开的书。
+  //
+  // ⚠️v61.12：只把药丸换成竖排的字还不够（她 2026-09-03：「现在还是很简约风，
+  // 没有书架的感觉」）——书脊之所以是书脊，靠的是【布面有颜色、上下两道烫金压线、
+  // 每本高矮不齐、底下压着一块搁板】。少了这几样它就只是竖着写字的方块。
+  // 所以这一版把这几样都画出来：布色由版名算（同一版永远同一色）、深浅由主题算，
+  // 字色从布色本身推（深布浅字/浅布深字），不写死黑白。
+  function shadeRGB(rgb, k) {
+    return rgb.map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
+  }
+  function rgbStr(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (a == null ? 1 : a) + ")"; }
+  function rgbLum(c) { return (c[0] * 299 + c[1] * 587 + c[2] * 114) / 1000; }
+  // 一本书的布面：颜色从版名算出来，深浅从主题的 accent/ink 派生——
+  // 换主题整架子跟着换，但同一版永远还是那个色（她认色找版）。
+  function ficSpineTone(name, t) {
+    const seed = ficHash("spine:" + String(name || ""));
+    const base = skinRGB((seed >> 4) % 3 === 0 ? t.ink : t.accent);
+    const cloth = shadeRGB(base, [-0.45, -0.3, -0.16, 0.04, 0.17, 0.29][seed % 6]);
+    const dark = rgbLum(cloth) < 128;
+    return {
+      cloth: cloth,
+      // 书名：从布色本身推，保证同一块布上永远读得出（不写死黑白）
+      ink: rgbStr(shadeRGB(cloth, dark ? 0.84 : -0.7)),
+      // 烫金压线：布色提亮/压深一档
+      foil: rgbStr(shadeRGB(cloth, dark ? 0.5 : -0.34), 0.75),
+      // 高矮不齐：一架子书本来就不是切齐的
+      lift: [0, -5, 3, -2, 6, -3][(seed >> 7) % 6]
+    };
+  }
   function TabBar(props) {
     const t = useTheme();
-    const SPINE_H = 58, OFF_H = 44;
+    const SPINE_H = 66, OFF_H = 52;
+    const rule = function (pos, color) {
+      return h("div", { style: Object.assign({ position: "absolute", left: 3, right: 3, height: 1, background: color }, pos) });
+    };
     return h("div", { className: "shrink-0 px-5 pb-2", style: { overflowX: "auto", WebkitOverflowScrolling: "touch" } },
-      h("div", {
-        style: {
-          display: "flex", flexWrap: "nowrap", alignItems: "flex-end", gap: 5,
-          width: "max-content", minWidth: "100%", paddingTop: 4,
-          // 搁板：这一排书立在它上面
-          borderBottom: "1px solid " + t.line
-        }
-      },
-        props.tabs.map(function (tab) {
-          const on = tab.id === props.activeId;
-          return h("button", {
-            key: tab.id,
-            onClick: function () { if (on && !tab.seed) props.onEdit(tab); else props.onPick(tab.id); },
-            onDoubleClick: function () { if (!tab.seed) props.onEdit(tab); },
-            title: tab.name,
-            className: "shrink-0 active:opacity-80 flex items-center justify-center",
+      h("div", { style: { width: "max-content", minWidth: "100%" } },
+        h("div", { style: { display: "flex", flexWrap: "nowrap", alignItems: "flex-end", gap: 3, paddingTop: 8 } },
+          props.tabs.map(function (tab) {
+            const on = tab.id === props.activeId;
+            const sp = ficSpineTone(tab.name, t);
+            return h("button", {
+              key: tab.id,
+              onClick: function () { if (on && !tab.seed) props.onEdit(tab); else props.onPick(tab.id); },
+              onDoubleClick: function () { if (!tab.seed) props.onEdit(tab); },
+              title: tab.name,
+              className: "shrink-0 active:translate-y-px relative flex items-center justify-center",
+              style: {
+                // 选中＝被抽出来翻开的那一本：满高、纸色、压到搁板前面去
+                height: on ? SPINE_H : OFF_H + sp.lift, width: on ? 36 : 29,
+                marginBottom: on ? -7 : 0, zIndex: on ? 3 : 1,
+                borderRadius: "4px 4px 0 0", overflow: "hidden", padding: "9px 0",
+                background: on ? t.bg : rgbStr(sp.cloth),
+                // 布面的光：左右两道暗、中间提一点，才像一个圆的书脊而不是一块色板
+                backgroundImage: on ? "none"
+                  : "linear-gradient(90deg,rgba(0,0,0,.22),rgba(255,255,255,.10) 34%,rgba(255,255,255,.04) 62%,rgba(0,0,0,.20))",
+                border: on ? "1px solid " + t.line : "none",
+                borderBottom: on ? "none" : undefined,
+                boxShadow: on ? "0 3px 10px rgba(0,0,0,.20)" : "inset -1px 0 0 rgba(0,0,0,.16)",
+                color: on ? t.ink : sp.ink,
+                fontFamily: F_DISPLAY, fontSize: on ? 13 : 12.5, fontWeight: on ? 600 : 500,
+                writingMode: "vertical-rl", textOrientation: "upright",
+                letterSpacing: "0.05em", lineHeight: 1, whiteSpace: "nowrap"
+              }
+            },
+              // 上下两道烫金压线——书脊上那两条，认书脊全靠它
+              rule({ top: 5 }, on ? t.line : sp.foil),
+              rule({ bottom: on ? 7 : 5 }, on ? t.line : sp.foil),
+              h("span", { style: { position: "relative" } },
+                String(tab.name || "").slice(0, on ? 4 : 3), (on && !tab.seed) ? "✎" : ""));
+          }),
+          // 架子上还空着的那一格
+          h("button", {
+            onClick: props.onAdd, className: "shrink-0 active:opacity-60 flex items-center justify-center",
+            "aria-label": "新建世界观",
             style: {
-              // 选中＝抽出来翻开的那一本：满高、纸色、压住搁板线（marginBottom -1）
-              height: on ? SPINE_H : OFF_H, width: on ? 34 : 27, marginBottom: on ? -1 : 0,
-              borderRadius: "4px 4px 0 0", overflow: "hidden", padding: "7px 0",
-              background: on ? t.bg : t.bg2,
-              // 选中那本的边只有三面——底下是敞开的，接进正文
-              border: "1px solid " + (on ? t.ink : t.line),
-              borderBottom: on ? "none" : "1px solid " + t.line,
-              // 立着的那几本压在后面：右侧一道暗边当书与书之间的缝
-              boxShadow: on ? "0 -2px 6px rgba(0,0,0,.10)" : "inset -2px 0 0 rgba(0,0,0,.05)",
-              color: on ? t.ink : t.sub,
-              fontFamily: F_DISPLAY, fontSize: on ? 13 : 12, fontWeight: on ? 600 : 400,
-              writingMode: "vertical-rl", textOrientation: "upright",
-              letterSpacing: on ? "0.06em" : "0.04em", lineHeight: 1,
-              whiteSpace: "nowrap"
+              height: OFF_H - 6, width: 29, borderRadius: "4px 4px 0 0", marginLeft: 4,
+              border: "1px dashed " + t.line, borderBottom: "none",
+              color: t.fog, fontFamily: F_BODY, fontSize: 15, background: "transparent"
             }
-          }, String(tab.name || "").slice(0, on ? 4 : 3), (on && !tab.seed) ? "✎" : "");
-        }),
-        // 空位：架子上还留着的那一格
-        h("button", {
-          onClick: props.onAdd, className: "shrink-0 active:opacity-60 flex items-center justify-center",
-          "aria-label": "新建世界观",
+          }, "+"),
+          h("div", { style: { flex: 1, minWidth: 10 } })),
+        // 搁板：一排书立在它上面，板面朝上收一道暗（书压出来的影），板底一道厚边
+        h("div", {
           style: {
-            height: OFF_H, width: 27, borderRadius: "4px 4px 0 0",
-            border: "1px dashed " + t.line, borderBottom: "1px dashed " + t.line,
-            color: t.fog, fontFamily: F_BODY, fontSize: 15, background: "transparent"
+            height: 7, borderRadius: 2,
+            background: "linear-gradient(180deg," + hexA(t.ink, .26) + "," + hexA(t.ink, .13) + ")",
+            boxShadow: "inset 0 2px 3px rgba(0,0,0,.22), 0 2px 5px " + hexA(t.ink, .16)
           }
-        }, "+"),
-        h("div", { style: { flex: 1, minWidth: 8 } })));
+        })));
   }
 
   // ---------- 生成配置弹窗（齿轮）----------

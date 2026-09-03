@@ -5,7 +5,7 @@ const path = require("node:path");
 const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 // ficTagStyle 真跑（skinRGB 从 core 借过来）。
-// ⚠️v61.11 起 feed 不再是深浅交替的卡片（她点名去掉框，改成翻开这一本的目录页），
+// ⚠️v61.12 起 feed 不再是深浅交替的卡片（她点名去掉框，改成翻开这一本的目录页），
 // ficTone 随之删掉，这里只剩标签那一套。
 const F = (() => {
   const a = fic.indexOf("  function ficTagStyle(kind, t, onDark) {");

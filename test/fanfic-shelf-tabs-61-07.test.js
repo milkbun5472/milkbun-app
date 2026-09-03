@@ -24,11 +24,30 @@ test("是书脊：竖排书名 + 只有上面两个角是圆的", () => {
   assert.match(seg, /borderRadius:\s*"4px 4px 0 0"/);
 });
 
-test("选中那本是抽出来翻开的：更高、纸色、底边敞开接进正文", () => {
-  assert.match(seg, /height:\s*on\s*\?\s*SPINE_H\s*:\s*OFF_H/, "选中的不比别的高");
+test("选中那本是抽出来翻开的：更高、纸色、压到搁板前面", () => {
+  assert.match(seg, /height:\s*on\s*\?\s*SPINE_H\s*:\s*OFF_H \+ sp\.lift/, "选中的不比别的高");
   assert.match(seg, /background:\s*on\s*\?\s*t\.bg\s*:/, "选中的不是纸色");
   assert.match(seg, /borderBottom:\s*on\s*\?\s*"none"/, "选中那本底边没敞开");
-  assert.match(seg, /borderBottom:\s*"1px solid "\s*\+\s*t\.line/, "搁板线不见了");
+  assert.match(seg, /marginBottom:\s*on\s*\?\s*-7/, "选中那本没压到搁板前面来");
+});
+
+// v61.12：光把药丸换成竖排的字还不够（她：「现在还是很简约风，没有书架的感觉」）
+test("真的画成一架子书：布面有色、上下两道烫金压线、高矮不齐、底下一块搁板", () => {
+  assert.match(seg, /const sp = ficSpineTone\(tab\.name, t\);/, "书脊没有自己的布色");
+  assert.match(seg, /background:\s*on\s*\?\s*t\.bg\s*:\s*rgbStr\(sp\.cloth\)/, "没选中的还是没布色");
+  assert.match(seg, /rule\(\{ top: 5 \}/, "书脊上那两道烫金压线没了");
+  assert.match(seg, /rule\(\{ bottom: on \? 7 : 5 \}/);
+  assert.match(seg, /OFF_H \+ sp\.lift/, "一架子书切得齐平了——真书架不是这样");
+  assert.match(seg, /const plank|height: 7, borderRadius: 2/, "搁板不见了");
+  assert.match(seg, /boxShadow: "inset 0 2px 3px rgba\(0,0,0,\.22\), 0 2px 5px "/, "搁板没有书压出来的影和板底的厚边");
+});
+
+test("布色和字色都从主题算，同一版永远同一色", () => {
+  const tone = src.slice(src.indexOf("  function ficSpineTone(name, t) {"), src.indexOf("  function TabBar(props) {"));
+  assert.match(tone, /ficHash\("spine:"/, "布色不是从版名算的，换个顺序颜色就跳");
+  assert.match(tone, /skinRGB\(\(seed >> 4\) % 3 === 0 \? t\.ink : t\.accent\)/, "布色没从主题派生");
+  assert.match(tone, /ink: rgbStr\(shadeRGB\(cloth, dark \? 0\.84 : -0\.7\)\)/, "字色不是从布色本身推的（深布浅字/浅布深字）");
+  assert.ok(!/#fff|#000/i.test(tone), "写死了黑白");
 });
 
 test("选中态不只靠一个色差：高度、宽度、字重都跟着变", () => {
