@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.75";
+const APP_VERSION = "v60.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15699,7 +15699,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     moments: moments,
     cover: (momTarget && momTarget.isMe) ? momentsCover.me : (momTarget ? momentsCover[momTarget.id] : ""),
-    signature: (momTarget && momTarget.isMe) ? (profile.tagline || "") : (momTarget ? ((anon[momTarget.id] && anon[momTarget.id].bio) || "") : ""),
+    // 朋友圈的签名和封面接【查手机·微信】那份（她 2026-09-03）。
+    // 原来接的是匿名信箱的 bio——那是他在树洞里挂的马甲，跟朋友圈根本不是一个身份，
+    // 于是这儿写着一句谁都认不出是他的话。现在改成 phones[cid].wechat.me：
+    // 签名 signature、封面 cover（一句画面描述）。两栏都在 🌱 那一档，偶尔才变。
+    // 还没查过手机的角色仍旧回落到旧那几样，不至于空着。
+    signature: (momTarget && momTarget.isMe) ? (profile.tagline || "")
+      : (momTarget ? (((((phones[momTarget.id] || {}).wechat || {}).me || {}).signature)
+        || (anon[momTarget.id] && anon[momTarget.id].bio) || "") : ""),
+    coverText: (momTarget && !momTarget.isMe) ? ((((phones[momTarget.id] || {}).wechat || {}).me || {}).cover || "") : "",
     gen: gen.moment,
     friendGroups: friendGroups,
     onSetCover: uri => setMomentCover(momTarget && momTarget.isMe ? "me" : (momTarget && momTarget.id), uri),

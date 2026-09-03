@@ -3956,7 +3956,7 @@ function MomentsFeed({
   }, c.name))))));
 }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ isMe, character, profile, characters, moments, cover, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const t = useTheme();
   const [compose, setCompose] = useState(false);
   const [commenting, setCommenting] = useState(null);
@@ -3968,7 +3968,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   if (!isMe && !character) return null;
   const author = isMe ? { name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color } : character;
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
-  // 签名：优先用传进来的（角色页=匿名箱生成的 bio 签名），否则回落到 motto/tagline
+  // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
   const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
   const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => onSetCover(d)); e.target.value = ""; };
@@ -3992,6 +3992,10 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
 
   return h("div", { className: "h-full flex flex-col" },
     h("div", { style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
+      // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张他挑的图，
+      // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
+      (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,.88)", textShadow: "0 1px 5px rgba(0,0,0,.5)", maxWidth: 250 } }, coverText)) : null,
       h("button", { onClick: onBack, className: "active:opacity-60", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 14, width: 34, height: 34, borderRadius: 999, background: "rgba(0,0,0,0.32)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IArrow, { size: 19, color: "#fff" })),
       h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: 11.5, color: "#fff" } }, cover ? "换封面" : "设封面"),
       h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover }),
@@ -3999,10 +4003,12 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
         h("div", { style: { textAlign: "right", maxWidth: 190, paddingTop: 2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1, color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.55)" } }, name)),
         h(Avatar, { character: author, size: 64, radius: 14 }))),
-    h("div", { className: "flex-1 overflow-y-auto", style: { paddingTop: 44 } },
-      // 签名放头像下面（头像悬在封面下缘，签名落在内容区右侧、深色）
-      sign && h("div", { style: { textAlign: "right", padding: "0 18px", marginBottom: 6 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")),
+    // 签名钉在头像底下、跟着封面走，不进滚动区（她 2026-09-03：
+    // 「签名固定在头像下面，现在是会跟着朋友圈一起翻上去」——签名是这个人的
+    // 名牌，不是动态流里的第一条，翻上去就等于这一页没有主人了）。
+    sign ? h("div", { className: "shrink-0", style: { textAlign: "right", padding: "46px 18px 6px" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
       isMe && h("div", { className: "px-5 pb-1 flex justify-end" }, h("button", { onClick: () => setCompose(true), className: "flex items-center gap-1.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, h(PGlyph, { k: "album", size: 14, color: t.ink }), " 发一条")),
       gen && h(Spinner, { label: "正在发朋友圈…" }),
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
