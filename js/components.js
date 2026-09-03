@@ -88,22 +88,30 @@ function BubbleSkinPresets({ onPick, note }) {
 // 每一套都得把【所有会变的栏】写全：漏一栏就会残留上一套的值，换来换去越换越脏。
 const BUBBLE_PRESETS = [
   { key: "default", name: "出厂", tint: "#f7b6c2", patch: null },
+  // 底下这几套是照各家聊天软件的【浅色默认皮】配的（她 2026-09-03 点名换成这几个）。
+  // 只抄配色和圆角这几个数，不碰任何图标、字体、商标——那些是人家的东西。
   { key: "wechat", name: "仿微信", tint: "#95ec69", patch: {
       myBg: "#95ec69", myText: "#111111", myBorder: "", charBg: "#ffffff", charText: "#111111", charBorder: "",
       radius: 6, shadow: "none", chatBg: "#ededed" } },
-  { key: "ink", name: "水墨", tint: "#3f4a52", patch: {
-      myBg: "#3f4a52", myText: "#f4f1ea", myBorder: "", charBg: "#f7f5ef", charText: "#2b2a26", charBorder: "1px solid #e2ded2",
-      radius: 10, shadow: "none", chatBg: "#efece4" } },
-  { key: "dusk", name: "暮色", tint: "#8d6b8f", patch: {
-      myBg: "linear-gradient(180deg,#a4809f,#8d6b8f)", myText: "#fdf7fb", myBorder: "", charBg: "#fbf6f8", charText: "#3f3038", charBorder: "",
-      radius: 18, shadow: "0 2px 6px rgba(80,50,70,.12)", chatBg: "#f3ecef" } },
-  { key: "mint", name: "薄荷", tint: "#7fbfa4", patch: {
-      myBg: "#7fbfa4", myText: "#0f2a20", myBorder: "", charBg: "#ffffff", charText: "#22332c", charBorder: "1px solid #dfeee7",
-      radius: 14, shadow: "0 1px 3px rgba(0,0,0,.05)", chatBg: "#eef5f1" } },
-  { key: "paper", name: "旧纸", tint: "#c8a06a", patch: {
-      myBg: "#e8d3ae", myText: "#41341f", myBorder: "", charBg: "#fbf6ea", charText: "#3b3428", charBorder: "1px solid #e6dcc4",
-      radius: 4, shadow: "none", chatBg: "#f1e9d8" } }
+  // LINE：自己那侧是那个亮绿，对方白气泡，底是偏蓝的浅灰，圆角很圆
+  { key: "line", name: "仿 LINE", tint: "#06c755", patch: {
+      myBg: "#06c755", myText: "#ffffff", myBorder: "", charBg: "#ffffff", charText: "#1f1f1f", charBorder: "",
+      radius: 18, shadow: "none", chatBg: "#d7e0ea" } },
+  // Telegram：自己那侧是淡到几乎白的青绿，对方纯白，底是冷灰
+  { key: "telegram", name: "仿 Telegram", tint: "#eeffde", patch: {
+      myBg: "#eeffde", myText: "#0f1419", myBorder: "", charBg: "#ffffff", charText: "#0f1419", charBorder: "",
+      radius: 12, shadow: "0 1px 2px rgba(16,35,47,.08)", chatBg: "#e6ebee" } },
+  // WhatsApp：自己那侧浅绿，对方白，底是那个认得出的米灰
+  { key: "whatsapp", name: "仿 WhatsApp", tint: "#d9fdd3", patch: {
+      myBg: "#d9fdd3", myText: "#111b21", myBorder: "", charBg: "#ffffff", charText: "#111b21", charBorder: "",
+      radius: 8, shadow: "0 1px 1px rgba(11,20,26,.13)", chatBg: "#efeae2" } },
+  // Instagram DM：自己那侧是紫蓝渐变、白字，对方浅灰，气泡特别圆，底纯白
+  { key: "insta", name: "仿 Insta DM", tint: "#8134af", patch: {
+      myBg: "linear-gradient(135deg,#4f5bd5,#8134af)", myText: "#ffffff", myBorder: "",
+      charBg: "#efefef", charText: "#111111", charBorder: "",
+      radius: 22, shadow: "none", chatBg: "#ffffff" } }
 ];
+
 // 换一套：出厂那一档回 defaults，其余把 patch 盖在 defaults 上（不是盖在当前值上，
 // 否则上一套残留的描边/贴纸会跟着新皮肤一起留下来）。
 function bubblePresetSkin(key) {
