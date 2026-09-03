@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.89";
+const APP_VERSION = "v60.90";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10865,7 +10865,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     "笨拙的外行问法:问得直,但不刁",
     "带着预设去问,问句本身已经站好了立场",
     "先替他答了一半,等他来反驳",
-    "只丢半句就停了,剩下的留给他自己填",
+    // ⚠️这一面原来写的是「只丢半句就停了」——模型把它读成了【标点模板】：
+    // 整组十条全用「……」收尾，她 2026-09-03 报「有些问题是省略号没说完」。
+    // 改成说清楚要的是【话说得不圆】，不是【句子断在半截】。
+    "话说得不圆整就问出来了:想问什么是清楚的,只是没替他把话说漂亮",
     "问得很具体,具体到一个动作或某一个时刻",
     "把两件不相干的事摆在一起,问他哪一个更像他",
     "请教的姿态,其实想看的是他会不会敷衍",
@@ -11146,6 +11149,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       + "一整组读下来该像同一个人在连着发问,跟别的组一读就分得开。\n"
       + "但同一组里的 " + ANON_POOL_PER_ROLL + " 条也不许互相重复:同一个立场、同一个方向、同一种开口,照样能问出十件不一样的事。\n"
       + "问题可以很笨、可以问偏、可以问到人家根本不想答的地方。别每句都一样长,别都用同一个句式收尾。\n"
+      + "⚠️**每一条都得是问完了的一句话**:话可以糙、可以拐弯、可以没头没尾地起头,但不许把句子断在半截用「……」吊着——"
+      + "那不是「留白」,是没写完,收到的人只会觉得这条坏了。整批里以省略号收尾的最多两条。\n"
       + (have ? "\n【库里已经有这些了,一句都不要重复,也不要换个说法再写一遍】" + have : "")
       + "\n【输出】只输出合法 JSON,无 markdown 无多余文字,groups 要有 " + rolls + " 组、顺序跟上面一致："
       + "{\"groups\":[{\"items\":[{\"question\":\"这一句问话\"}]}]}";
@@ -11159,7 +11164,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     });
     if (!raws.length && d && Array.isArray(d.items)) d.items.forEach(x => raws.push(x));
     const seen = {}; (cur || []).forEach(q => { seen[q] = 1; });
-    const fresh = raws.map(x => String((x && x.question) || x || "").trim()).filter(q => q && !seen[q] && (seen[q] = 1));
+    let fresh = raws.map(x => String((x && x.question) || x || "").trim()).filter(q => q && !seen[q] && (seen[q] = 1));
+    // 断在半截的那种,提示词只能降概率(整组十条同一个形状,模型一犯就是十条),
+    // 所以这儿再兜一道:一批里最多留 2 条省略号收尾的,多出来的直接丢掉——
+    // 反正一批攒 90 条,丢几条不心疼,比让她在箱子里连着看到十条没说完的强。
+    const tail = q => /(?:…{1,2}|\.{3,}|。{3,})\s*$/.test(q);
+    let ell = 0;
+    fresh = fresh.filter(q => !tail(q) || ++ell <= 2);
     if (!fresh.length) throw new Error("这一批一句都没攒出来");
     const next = saveAnonPool([...(cur || []), ...fresh]);
     if (!quiet) toast("题库又攒了 " + fresh.length + " 条,现在有 " + next.length + " 条");
