@@ -2635,7 +2635,7 @@ function Home({
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
       inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });
     }
-    else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, couples: couples, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
+    else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, onOpen: function () { return onOpenApp("us"); } });
@@ -2835,17 +2835,21 @@ function Home({
     h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),
     h("button", { onClick: addDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 18, borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } }, "放到桌面上")));
 }
-// 主页名片（v60.82 重做）——她 2026-09-03：「我头像那个框太单调了」，附了四张参考图。
+// 主页名片（v60.84 再改）——她 2026-09-03 又发来一张别家的截图：
+// 「还是得改改，和这个太像了。就是我的意思是可以重组位置和能填的东西，不要的也能删。
+//   还有那仨数字能不能搞点别的和恋爱无关的」。
 //
-// 原来这张卡就是【左边一个圆头像 + 右边三行字】：任何 app 的个人卡都长这样，
-// 所以它放在哪儿都成立，等于没设计。参考图里那几张之所以好看，靠的是三样：
-//   ① 一张自己的封面垫在底下（人是站在自己挑的那张图前面的）；
-//   ② 头像压在封面边上，有一圈实的环，从图里"立"出来；
-//   ③ 底下一排真的数字——那几个数说明这个人在这儿干了什么。
-// 前两样是形状，第三样是内容。这三样里最重要的是第三样：
-// 数字必须是【这个 app 才有的】，抄成 Following / Follower / Like 就又成了任何 app。
-// 所以这三格是：认识几个人 / 在一起几个人 / 最长那段谈了多少天 —— 换个 app 立刻不成立。
-function HomeCard({ card, profile, characters, couples, onEditCard, onEditProfile, onOpenCodex }) {
+// 上一版只换了皮（加封面、加数字），【骨架没动】——还是那家的那副骨架：
+//   圆头像在左 → 名字 / 斜体带引号的一句 / 两颗药丸标签在中 → 圆铅笔在右。
+// 皮再厚也没用，一眼看过去还是同一张卡。所以这一版动的是【位置】：
+//   · 头像换成方的、挪到【右边】（那家是左边的圆头像，这是最认脸的一处）；
+//   · 名字放大、左对齐当主角，签名不再加引号也不再斜体居中；
+//   · 标签不再是药丸，改成一行用「/」隔开的小字——药丸是最通用的那个零件；
+//   · 顶上加一行极小的眉批（这本档案的编号），右上角才是那两颗键；
+//   · 底下那排数左对齐、没有分隔线，不再是「三等分格子」那种社交资料页排法。
+// 数字也换了：她说【和恋爱无关】。所以是【认识几个人 / 攒了多少条记忆 / 来了第几天】,
+// 说的是她在这本档案里干了多少事，跟谈没谈恋爱没关系。
+function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpenCodex }) {
   const t = useTheme();
   const c = card || {};
   const name = c.name || profile.name || "点此设置昵称";
@@ -2853,56 +2857,56 @@ function HomeCard({ card, profile, characters, couples, onEditCard, onEditProfil
   const tags = (c.tags || []).filter(Boolean);
   const accent = profile.color || t.accent;
   const cover = c.cover ? (typeof resolveImg === "function" ? resolveImg(c.cover) : c.cover) : "";
-  // 没设封面时也不能是一块白板：用她自己的头像色调出一层斜向的光，跟主题底色接得住
-  // ⚠️这张卡是网格里的一格，行比它高时它会被【拉满】——所以底图和暗角必须画在
-  //   卡本身上（多层 background 叠着），不能画在里面那个 padding 盒子上：
-  //   画在里面就会像预览里那样，下半张卡空出一块没盖到的白。
+  // ⚠️底图和暗角必须画在【卡本身】上（多层 background 叠着）：卡是网格里的一格，
+  //   行比它高时会被拉满，画在里面那个 padding 盒子上就会空出没盖到的一块。
   const skin = cover
-    ? { backgroundImage: "linear-gradient(105deg,rgba(0,0,0,.46) 0%,rgba(0,0,0,.24) 48%,rgba(0,0,0,.06) 100%),url(\"" + cover + "\")",
+    ? { backgroundImage: "linear-gradient(100deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,.26) 52%,rgba(0,0,0,.06) 100%),url(\"" + cover + "\")",
         backgroundSize: "cover,cover", backgroundPosition: "center,center" }
     : { backgroundImage: "linear-gradient(135deg," + accent + "2e 0%," + accent + "12 42%,rgba(255,255,255,0) 74%)" };
-  const onCover = !!cover;                       // 有图＝字要压在图上，得换一套颜色
+  const onCover = !!cover;
   const ink = onCover ? "#fff" : t.ink;
-  const dim = onCover ? "rgba(255,255,255,.82)" : t.fog;
+  const dim = onCover ? "rgba(255,255,255,.78)" : t.fog;
   const shadow = onCover ? "0 1px 6px rgba(0,0,0,.5)" : "none";
-  // 这一屋子真实的数字（只算真的有的，没有的那一格不占位置）
-  const chars = (characters || []).length;
-  const cp = couples || {};
-  const together = Object.keys(cp).filter(k => cp[k] && cp[k].status === "together");
-  const days = together.reduce((mx, k) => {
-    const since = cp[k] && cp[k].since;
-    return since ? Math.max(mx, Math.floor((Date.now() - since) / 86400000) + 1) : mx;
+  // 这本档案里真实攒下的东西（跟恋爱无关）：认识几个人 / 多少条记忆 / 来了第几天
+  const readJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
+  const memLib = readJSON("x_memLib", []);
+  const memN = Array.isArray(memLib) ? memLib.length : 0;
+  // 第几天：从这本档案里最早那条记忆算起；一条都还没有就是第 1 天
+  const firstTs = (Array.isArray(memLib) ? memLib : []).reduce((mn, m) => {
+    const ts = Number(m && (m.ts || m.createdAt)) || 0;
+    return ts && (!mn || ts < mn) ? ts : mn;
   }, 0);
-  const stats = [[chars, "认识"], together.length ? [together.length, "在一起"] : null, days ? [days, "第几天"] : null].filter(Boolean);
+  const dayN = firstTs ? Math.max(1, Math.floor((Date.now() - firstTs) / 86400000) + 1) : 1;
+  const stats = [[(characters || []).length, "认识"], [memN, "记忆"], [dayN, "天"]];
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
-    style: { width: 30, height: 30, borderRadius: 999, flexShrink: 0,
+    style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
-  // ⚠️不许给里面那层写 height:100%：卡在网格里是自动高的时候，100% 会顶着算回去
-  //   （实测能把卡撑到整屏高，主屏就毁了——.claude/rules/home-screen-layout.md）。
-  //   改成卡自己是 flex 列、里面那层 flex:1：自动高时按内容，被行拉高时才铺满。
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
-    // 里面这层只管排版：h-full + 底下那排数 marginTop:auto，卡被拉高时数字贴着底边走
-    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "14px 14px 0" } },
-      h("div", { className: "flex items-start", style: { gap: 13 } },
-        // 头像：一圈实的环 + 一点阴影，从底图里立出来（参考图那三张都是这么干的）
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 999, padding: 2.5,
-            background: onCover ? "rgba(255,255,255,.9)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.22)" } },
-          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 56, radius: 999 })),
-        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 2 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: ink, textShadow: shadow, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
-          // 签名锁单行（省略号）：多行/长签名都不再把名片撑大，卡片高度固定
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, fontStyle: "italic", color: dim, textShadow: shadow, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, sign ? "“" + sign.replace(/\s*\n\s*/g, " ") + "”" : "点铅笔写一句签名"),
-          tags.length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 7 } }, tags.map((tg, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: onCover ? "#fff" : t.sub, background: onCover ? "rgba(255,255,255,.18)" : "rgba(255,255,255,0.5)", border: "1px solid " + (onCover ? "rgba(255,255,255,.4)" : t.line), borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "#" + tg))) : null),
-        h("div", { className: "flex flex-col gap-1.5", style: { flexShrink: 0 } },
-          round(h(IPencil, { size: 14, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
-          onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null)),
-      // 底下那一排数：这几个数只有这个 app 有，换成 Following/Follower 就又成了任何 app
-      h("div", { className: "flex", style: { marginTop: "auto", paddingTop: 12, borderTop: "1px solid " + (onCover ? "rgba(255,255,255,.22)" : t.line) } },
-        stats.map((st, i) => h("div", { key: i, className: "flex-1", style: { textAlign: "center", padding: "7px 0 8px",
-            borderLeft: i ? "1px solid " + (onCover ? "rgba(255,255,255,.16)" : t.line) : "none" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow, marginTop: 3 } }, st[1]))))));
+    // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
+    //   整屏高，主屏直接毁（.claude/rules/home-screen-layout.md）。用 flex:1。
+    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "11px 14px 12px" } },
+      // 眉批 + 右上两颗键
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.22em", color: dim, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden" } }, "ARCHIVE"),
+        round(h(IPencil, { size: 13, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
+      // 名字在左当主角，方头像挪到右边
+      h("div", { className: "flex items-end", style: { gap: 12, marginTop: 6 } },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.05, color: ink, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: dim, textShadow: shadow, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+            sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
+          // 标签不做药丸：一行小字，用「/」隔开
+          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: dim, textShadow: shadow, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, tags.join("　/　")) : null),
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 15, padding: 2.5,
+            background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
+          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 54, radius: 13 }))),
+      // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
+      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 11, gap: 18 } },
+        stats.map((st, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 4 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow } }, st[1]))))));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
 function HomeCardSheet({ card, profile, onSave, onClose }) {

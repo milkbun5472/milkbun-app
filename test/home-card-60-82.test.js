@@ -1,6 +1,8 @@
-// 主页名片重做（她 2026-09-03：「我头像那个框太单调了」，附了四张参考图）。
-// 钉三样：① 卡有自己的封面；② 底下那排数是【这个 app 才有的】；
-// ③ 不许给里面那层写 height:100%（会把卡撑到整屏高，主屏就毁了）。
+// 主页名片（她 2026-09-03 两轮：先说「太单调」，看过第一版又说「和这个太像了……
+// 可以重组位置和能填的东西，不要的也能删。还有那仨数字能不能搞点别的和恋爱无关的」）。
+//
+// 第一版只换了皮，骨架还是那家的：圆头像在左 → 名字/斜体引号一句/两颗药丸 → 圆铅笔在右。
+// 所以这条钉的是【骨架真的换了】+【数字跟恋爱无关】+【不许把主屏撑坏】。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -8,28 +10,38 @@ const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 const card = comp.slice(comp.indexOf("function HomeCard("), comp.indexOf("function HomeCardSheet("));
 
-test("卡有自己的封面，没设封面也不是一块白板", () => {
-  assert.match(card, /const cover = c\.cover/);
-  assert.match(card, /backgroundImage: "linear-gradient\(105deg,rgba\(0,0,0,\.46\)/, "有图时要压暗角，字才读得清");
-  assert.match(card, /linear-gradient\(135deg," \+ accent \+ "2e/, "没图时用她头像的颜色调一层光");
-  // 有图/没图两套字色，深色主题和照片上都不能只靠一种
-  assert.match(card, /const ink = onCover \? "#fff" : t\.ink/);
+test("骨架换掉了：方头像在右、名字当主角、标签不是药丸", () => {
+  // 头像：方的（radius 13），而且排在名字后面＝在右边
+  assert.match(card, /h\(Avatar, \{ character: \{ name: profile\.name[\s\S]{0,80}radius: 13 \}\)/);
+  assert.ok(card.indexOf("fontSize: 26") < card.indexOf("radius: 13 }"), "名字要排在头像前面（名字左、头像右）");
+  // 标签不再是药丸：没有 borderRadius:999 的标签，改成一行用「/」隔开
+  assert.match(card, /tags\.join\("　\/　"\)/);
+  // 签名不再加引号、不再斜体
+  assert.doesNotMatch(card, /"“" \+ sign/);
+  assert.doesNotMatch(card, /fontStyle: "italic"/);
+  // 顶上多一行眉批
+  assert.match(card, /letterSpacing: "0\.22em"[\s\S]{0,120}"ARCHIVE"/);
 });
 
-test("底下那排数是这个 app 才有的，不是 Following/Follower/Like", () => {
-  assert.match(card, /"认识"/);
-  assert.match(card, /"在一起"/);
-  assert.match(card, /"第几天"/);
-  // 只看真的印出去的字符串（注释里提到 Following 是在解释为什么不能抄）
+test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {
+  assert.match(card, /\[\(characters \|\| \[\]\)\.length, "认识"\], \[memN, "记忆"\], \[dayN, "天"\]/);
   assert.doesNotMatch(card, /"(Following|Follower|Like)"/i, "抄成社交数据就又成了任何 app");
-  // 没有的那一格不占位置（还没谈恋爱时不该挂两个 0）
-  assert.match(card, /together\.length \? \[together\.length, "在一起"\] : null/);
-  assert.match(card, /days \? \[days, "第几天"\] : null/);
+  assert.doesNotMatch(card, /couples/, "名片不该再读情侣数据");
+  // 底下那排是左对齐的一行，不是社交资料页那种三等分格子
+  assert.doesNotMatch(card, /borderLeft: i \?/);
+  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: "auto"/);
+});
+
+test("卡有自己的封面，没设封面也不是一块白板", () => {
+  assert.match(card, /const cover = c\.cover/);
+  assert.match(card, /linear-gradient\(100deg,rgba\(0,0,0,\.5\)/, "有图时要压暗角，字才读得清");
+  assert.match(card, /linear-gradient\(135deg," \+ accent \+ "2e/, "没图时用她头像的颜色调一层光");
+  assert.match(card, /const ink = onCover \? "#fff" : t\.ink/);
 });
 
 test("绝不许给里面那层写 height:100%——那会把卡撑到整屏高", () => {
   assert.doesNotMatch(card, /height: "100%"/);
   assert.match(card, /display: "flex", flexDirection: "column" \}, skin\)/, "卡自己是 flex 列");
-  assert.match(card, /flex: 1, minHeight: 0, padding: "14px 14px 0"/, "里面那层用 flex:1，不是 100%");
+  assert.match(card, /flex: 1, minHeight: 0/, "里面那层用 flex:1，不是 100%");
   assert.match(card, /marginTop: "auto"/, "被行拉高时那排数贴着底边");
 });
