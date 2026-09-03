@@ -4461,6 +4461,7 @@ function ChatThread({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
+    "data-wk": "chat",
     style: dsp.chatBg ? {
       backgroundImage: "url(\"" + resolveImg(dsp.chatBg) + "\")",
       backgroundSize: "cover",
@@ -4471,6 +4472,7 @@ function ChatThread({
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
+    "data-wk": "chathead",
     style: {
       paddingTop: safeTop(20),
       background: dsp.chatBg ? "rgba(255,255,255,0.55)" : t.bg2,
@@ -4560,6 +4562,7 @@ function ChatThread({
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
   }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
+    "data-wk": "body",
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-1"
   }, archCount > 0 ? h("button", {
@@ -4807,9 +4810,17 @@ function ChatThread({
     const isU = m.role === "user";
     return /*#__PURE__*/React.createElement("div", {
       key: part ? i + ":" + part : i,
-      className: "py-1"
+      className: "py-1",
+      // ── 主题工作室的挂点（v61.00）──────────────────────────────────────
+      // 这一屏的气泡全是内联样式、一个 class 都没有，用户想在主题工作室里改样子
+      // 只能写 [style*="pre-wrap"] 这种一碰就碎的选择器。所以钉几个稳定的名字：
+      // data-wk=chat/chathead/body/msg/time/row/avatar/bubble/composer，
+      // 外加 data-me="1|0" 分我和他。这些【只是名字，不带任何样式】——
+      // 加了不影响现在的长相，删了才会让别人写好的主题失效，所以别改名。
+      "data-wk": "msg", "data-me": isU ? "1" : "0"
     }, part === 0 && (i === 0 || messages[i - 1].turnId !== m.turnId || m.ts - (messages[i - 1].ts || 0) > 180000) ? /*#__PURE__*/React.createElement("div", {
-      className: "text-center mb-1"
+      className: "text-center mb-1",
+      "data-wk": "time"
     }, /*#__PURE__*/React.createElement("span", {
       style: {
         fontFamily: F_BODY,
@@ -4817,11 +4828,13 @@ function ChatThread({
         color: t.fog
       }
     }, fmtStamp(m.ts))) : null, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
+      className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start"),
+      "data-wk": "row"
     }, !isU && /*#__PURE__*/React.createElement("button", {
       onClick: onOpenState,
       className: "shrink-0 active:opacity-70",
-      title: "查看 " + cName + " 的心声"
+      title: "查看 " + cName + " 的心声",
+      "data-wk": "avatar"
     }, /*#__PURE__*/React.createElement(Avatar, {
       character: character,
       size: 40,
@@ -4855,6 +4868,7 @@ function ChatThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : m.kind === "photo" ? () => setDescView(m.desc) : undefined,
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
       style: {
         position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
         padding: m.kind === "photo" ? "8px 10px" : "9px 13px",
@@ -5007,6 +5021,7 @@ function ChatThread({
     h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
+    "data-wk": "composer",
     style: {
       background: t.bg2,
       borderTop: quoted ? "none" : `1px solid ${t.line}`,

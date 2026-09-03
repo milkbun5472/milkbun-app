@@ -82,7 +82,9 @@ test("共用顶栏 Head 自己把状态栏那一条涂上", () => {
 });
 
 test("单聊和群聊顶栏顶到屏幕最上沿，壁纸从它后面透上来", () => {
-  const hits = (comp.match(/className: "shrink-0 px-4 pb-3 flex items-center gap-3",\n\s*style: \{\n\s*paddingTop: safeTop\(20\)/g) || []).length;
+  // ⚠️中间允许夹别的属性（v61.00 加了主题工作室的 data-wk 挂点）：
+  //   这条钉的是「两个顶栏都吃 safeTop(20)」，不是「className 后面紧跟着 style」。
+  const hits = (comp.match(/className: "shrink-0 px-4 pb-3 flex items-center gap-3",\n(?:\s*"[^"]+": [^\n]*\n)*\s*style: \{\n\s*paddingTop: safeTop\(20\)/g) || []).length;
   assert.equal(hits, 2, "单聊和群聊两个顶栏都要接，现在只有 " + hits + " 个");
 });
 
