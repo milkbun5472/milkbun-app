@@ -43,6 +43,44 @@ test("不许答成一台判词机器：长短、不下结论、心情、说人�
   assert.match(box, /别用『其实\/本质上\/无非是』这种给人上课的开场/);
 });
 
+test("凡是【他亲口说的话】都换了站位，凡是推演数据的照旧坐分析师那把椅子", () => {
+  // 她 2026-09-03：「都改了吧宝宝我不知道是谁放的嘤」——同一个病根扫一遍。
+  const has = (fn, zh) => { const i = app.indexOf(fn); assert.ok(i > 0, "抠不出：" + zh);
+    const seg = app.slice(i - 900, i + 40); assert.ok(seg.indexOf("voice: true") >= 0, zh + " 还坐在分析师的椅子上"); };
+  // 他亲口说 / 亲手写的那些
+  [["instruction: GACHA_SR_ASK[card.kind]", "扭蛋SR"],
+   ["instruction: GACHA_SSR_ASK[card.act]", "扭蛋SSR"],
+   ['的身份去论坛随手发一个帖', "论坛发帖"],
+   ['身份发一条朋友圈', "朋友圈"],
+   ['身份在贴吧「" + board + "」发一条帖', "贴吧发帖"],
+   ['你之前被分享看过的那篇同人文', "同人文更新的反应"],
+   ['【这一轮发生在贴吧的私信框里】', "贴吧私信·大号"],
+   ['上悄悄贴一张给用户的小纸条', "便签墙悄悄话"],
+   ['但记在这儿的是【', "交换记忆"],
+   ['你走到你俩共同的那个小空间里', "情侣空间留东西"],
+   ['你们要一起出门。给这一次配两身衣服', "挑衣服"],
+   ['你俩有一个「情侣问答小本」', "情侣问答"],
+   ['里回答了一道题', "情侣问答·接话"],
+   ['共用一本【交换日记】', "交换日记"],
+   ['为你俩的恋爱时间轴写一条此刻的「感慨」', "时间轴感慨"],
+   ['给用户写一封**情书**', "情书"],
+   ['在情书里一来一回', "情书回应"],
+   ['你们有一张【我们的唱片】', "唱片刻歌"],
+   ['你自己私下真会单曲循环', "私下的歌单"],
+   ['把决定交给了手机主屏上的「命运转盘」', "命运转盘"],
+   ['DesireKit.museSpec(char, box)', "灵光独白（本体亲笔）"]].forEach(x => has(x[0], x[1]));
+  assert.match(app, /Object\.assign\(\{ voice: true \}, spec\)\); \/\/ 小满盘点/, "小满盘点/冬至自述（本体亲笔）");
+  assert.match(app, /\{ voice: true, instruction: instruction, schemaHint: "\{\\"say\\"/, "转发给他之后那一句反应");
+  // 推演数据那些不许跟着改：坐错椅子会让行程/账本开始「说话」
+  const notVoice = (fn, zh) => { const i = app.indexOf(fn); assert.ok(i > 0, "抠不出：" + zh);
+    assert.equal(app.slice(i - 700, i + 40).indexOf("voice: true"), -1, zh + " 不该换站位——它产出的是数据不是话"); };
+  [['推演此刻「" + char.name + "」手机屏幕的真实状态', "查手机"],
+   ['推演「" + char.name + "」的财务档案', "财务档案"],
+   ['为「" + char.name + "」设计 Ta 在匿名社交', "马甲设计"],
+   ['为「" + c.name + "」设计 Ta 的贴吧资料', "贴吧资料"],
+   ['你在给一个人刷购物 App 的信息流', "购物信息流"]].forEach(x => notVoice(x[0], x[1]));
+});
+
 test("匿名箱照旧不许知道问的是谁", () => {
   const one = app.slice(app.indexOf("const askAnon = async (char, q)"), app.indexOf("const askAnon = async (char, q)") + 2200);
   assert.match(one, /你不知道问的其实是/, "这一层是这个玩法的根，不许在改口吻时弄丢");

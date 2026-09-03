@@ -27,9 +27,12 @@ test("转赠是当面转手：不再从头跑一遍快递", () => {
   assert.match(gift, /toast\("已转交给 " \+ \(char\.remark \|\| char\.name\) \+ "，东西现在在 Ta 手上"\)/);
 });
 
-test("模型那边读到的也是「已经在手上」", () => {
-  // 历史里那条礼物按 delivered 分两种说法——转赠落成 delivered:true，它就说对了
-  assert.match(app, /m\.delivered \? "（已送到你手上）" : "（外卖\/快递还在路上）"/);
+test("模型那边读到的也是「已经在手上」，在路上的还得说清还有多久", () => {
+  // 历史里那条礼物按 delivered 分说法——转赠落成 delivered:true，它就说对了。
+  // v60.92 又补了到达时刻（她：「礼物他好像不知道还有多久到」）：
+  // 只说「还在路上」的话，她问他还要多久，他答不上来。
+  assert.match(app, /m\.hand \? "（" \+ uName \+ "当面交到你手上了）" : "（已送到你手上）"/);
+  assert.match(app, /m\.arriveTs && m\.arriveTs > Date\.now\(\) \? "，大约还有 " \+ gapPhrase\(m\.arriveTs - Date\.now\(\)\) \+ "到" : "，快到了"/);
 });
 
 // 她同一句：「礼物卡还是差点意思，能不能做个礼物盒之类的」

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v60.92";
+const APP_VERSION = "v60.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3236,6 +3236,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           }
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
           instruction: GACHA_SR_ASK[card.kind] + "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。",
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 11000
@@ -3252,6 +3253,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         return { title: "他写给你的一封信", body: "已经放进情侣空间的情书里了" };
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: GACHA_SSR_ASK[card.act] + "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。",
         schemaHint: card.act === "gaze" ? "{\"side\":\"me 或 us\",\"block\":\"那一块的名字\",\"body\":\"这一块重写之后的全文\"}"
           : card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
@@ -6391,7 +6393,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
-            : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
+            // 还有多久到也要说（她 2026-09-03：「礼物他好像不知道还有多久到」）——
+            // 只写「还在路上」，他就只能干等着，问他还要多久也答不上来
+            : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
+              + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
+                : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 ¥" + m.ask : "（没说数目，让你看着办）") + "（当时额度 ¥" + (m.limit || 0) + "）"
               + (m.status === "approved" ? "；你加了 ¥" + (m.add || 0) + "，现在额度 ¥" + (m.newLimit || 0) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
@@ -9332,6 +9338,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const forumHabit = charForumMeta(char);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：" + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + "；真需要遮一下的时候，他习惯用" + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
         schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
@@ -9425,7 +9432,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!active || !window.DesireKit) return false;
     try {
       const box = DesireKit.housekeep(DesireKit.boxOf(desiresRef.current, char.id));
-      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), DesireKit.museSpec(char, box)); // 灵光独白=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, DesireKit.museSpec(char, box))); // 灵光独白=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
       DesireKit.applyMuse(box, d, schedDayKey(new Date()));
       saveDesires(n => { n[char.id] = box; });
       return true;
@@ -9492,7 +9499,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (!r.due) continue;
         try {
           const spec = r.due === "solstice" ? DesireKit.solsticeSpec(c, box) : DesireKit.mellowSpec(c, box);
-          const d = await runProbe(bgApiFor(c.id), leanWriteCtx(ctxFor(c)), spec); // 小满盘点/冬至自述/毕业蜕变诗/人格档案落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+          const d = await runProbe(bgApiFor(c.id), leanWriteCtx(ctxFor(c)), Object.assign({ voice: true }, spec)); // 小满盘点/冬至自述/毕业蜕变诗/人格档案落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
           if (r.due === "solstice") DesireKit.applySolstice(box, d, today); else DesireKit.applyMellow(box, d, today);
           saveDesires(n => { n[c.id] = box; });
         } catch (e) {}
@@ -11200,14 +11207,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!qs.length) throw new Error("题库是空的,先去攒一批");
       // 只这一枪带上下文:问题已经写死,他倒推不了,人格照旧是完整的
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "「" + char.name + "」的匿名树洞(网名:" + nn + ")里来了 " + qs.length + " 条陌生人的提问,他一条条看下来。\n"
+        voice: true,
+        instruction: "你的匿名树洞(网名:" + nn + ")里来了 " + qs.length + " 条陌生人的提问,你一条条看下来。\n"
           + "【提问】\n" + qs.map((q, i) => (i + 1) + ". " + q).join("\n") + "\n"
-          + "逐条应对,顺序照上面来。他不知道这些人是谁,这些人也不认识他——"
-          + "所以有的问题问偏了、问得莫名其妙、或者建立在一个错的前提上,他可以直接说不是这样。\n"
-          + "【不是每条都得答】:被问到痛处、心情不好、这人让他不舒服,可以只回半句、装没看见、顶回去;"
-          + "真不想答的那条把 skip 置为 true,answer 留空,note 里写一句他当时的反应。\n"
-          + "别背教科书、别客服腔、别每条都一样长。",
-        schemaHint: "{\"items\":[{\"answer\":\"他的回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时,他当时的反应(一句,可空)\"}]}"
+          + "逐条应对,顺序照上面来。你不知道这些人是谁,这些人也不认识你——"
+          + "所以有的问题问偏了、问得莫名其妙、或者建立在一个错的前提上,你可以直接说不是这样。\n"
+          + "【不是每条都得答】:被问到痛处、心情不好、这人让你不舒服,可以只回半句、装没看见、顶回去;"
+          + "真不想答的那条把 skip 置为 true,answer 留空,note 里写一句你当时的反应。\n"
+          + "【别把自己答成一台判词机器】这是你在手机上一条条划过去随手打的字:\n"
+          + "· 长短要不一样——有的只值两三个字或一个『嗯』,有的你会难得多打两三行;绝不许每条都是同样长度、同样节奏的一句陈述句。\n"
+          + "· 不是每条都要盖章定性。可以反问回去、只挑其中半句接、嗤一声、说点只沾一点边的事、也可以承认自己也不知道。\n"
+          + "· 你此刻的心情写在上面——烦的时候就短、就冲;松快的时候话会多一点。别每条都是同一个温度。\n"
+          + "· 说人话:别背教科书、别客服腔、别用『其实/本质上/无非是』这种给人上课的开场。",
+        schemaHint: "{\"items\":[{\"answer\":\"你的回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时,你当时的反应(一句,可空)\"}]}"
       });
       const outs = (d && Array.isArray(d.items)) ? d.items : [];
       const base = Date.now();
@@ -11438,6 +11450,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         return out;
       })();
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
+        voice: true,
         instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
         schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
       });
@@ -12142,6 +12155,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const anonB = board === "匿名吧";
     try {
       const d = await runProbeRetry(active, ctxFor(char), {
+        voice: true,
         instruction: "以「" + char.name + "」身份在贴吧「" + board + "」发一条帖（" + forumBoardVoice(board) + "）。内容和 Ta 最近的心情 / 对话 / 生活相关，但这是 Ta 不围着对方转的一面。自行选择 identity=main（大号）或 alt（固定小号）；匿名吧必须 identity=anonymous。小号/匿名不能自曝真实身份。给 title 和 body（2-4 句）。",
         schemaHint: "{\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文\"}",
         maxTokens: FTOK.post
@@ -12358,7 +12372,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
     try {
       // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥8000）
-      const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
+      const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { voice: true, instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
       const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
       if (say.length) pChat(toChar.id, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
     } catch (e) {/* 卡已在，反应失败静默 */}
@@ -12418,6 +12432,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const isStar = starIds.indexOf(ch.id) >= 0;
       try {
         const react = await runProbe(apiFor(ch.id), ctxFor(ch), {
+          voice: true,
           instruction: "你之前被分享看过的那篇同人文《" + fic.title + "》更新了第" + chapNo + "章，你刚读完，开头是「" + excerpt + "」。" + (isStar ? "（这篇是【以你为主角写的】，你清楚自己正被人当小说人物编排，读新章时带着这份被写的自觉——好气又好笑/在意剧情怎么写你/想知道后面被安排成什么样。）" : "") + "按你的人设和此刻心情随口说两句读后感/催更/吐槽（1-2 句，可多气泡），别复述剧情、别客服腔。",
           schemaHint: "{\"say\":[\"气泡1\"]}", maxTokens: 8000 // 思考预算从这里扣，给紧了直接空返回
         });
@@ -12577,6 +12592,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (pmChar) {
         const meHandle = (forumMe && forumMe.handle) || profile.name || "对方";
         const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
+          voice: true,
           instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
             + "⚠️**你俩都知道对面是谁**——这不是陌生人搭讪，是换了个地方说话；论坛上是公开场合，私信框里只有你们两个。\n"
             + "⚠️但这毕竟是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
@@ -13002,6 +13018,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const livedMaterial = ambientMaterialFor(char, { limit: 20 });
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
@@ -13040,6 +13057,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, coupleRecall: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们是恋人。下面这件事你俩都在场，但记在这儿的是【" + (profile.name || "她") + "那一版】。\n"
           + "【她记下的】" + String(pick.text).slice(0, 300) + "\n"
           + "现在以「" + char.name + "」的身份写【你记得的那一版】。\n"
@@ -13069,6 +13087,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const leaveInCoupleSpace = async (char, styleHint) => {
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
@@ -13586,6 +13605,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, dateFit: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们要一起出门。给这一次配两身衣服：一身你自己的，一身给 " + (profile.name || "她") + " 的。\n"
           + (String(hint || "").trim() ? "这次要去的地方／场合：" + String(hint).trim() + "\n" : "")
           + "两身要【配得上同一个场合、也配得上彼此】——站在一起像是一道出门的，不是各穿各的。\n"
@@ -13715,6 +13735,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         // ⚠️这里【不许】把她的答案递进来。递了他就是在回话，不是在答题——
         // 两份答案摆在一起才有意思，而那要求他写的时候确实没看过她那份。
+        voice: true,
         instruction: "你们是恋人。你俩有一个「情侣问答小本」，规矩是【同一道题各写各的、两边都写完才互相看】。"
           + "现在轮到你以「" + char.name + "」的身份写你那一份。\n【题目】" + item.question + "\n"
           + "她那一份已经封着了，你看不到，也不用去猜她会怎么写——就照你自己真实的想法答。"
@@ -13783,6 +13804,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, coupleQA: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，请以「" + char.name + "」的身份重新回答同一道题——真挚、贴合人设、顺着用户的回答接话，2-4 句，别喊口号，答完整别中途断。\n【题目】" + entry.question + "\n【用户的回答】" + (entry.myAnswer || "（TA 没写）"),
         schemaHint: "{\"answer\":\"你的回答\"}",
         maxTokens: 9400
@@ -13846,6 +13868,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!char || !page) return;
       const uN = profile.name || "对方";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
+        voice: true,
         instruction: "你们是恋人，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
         maxTokens: 14000
@@ -13887,6 +13910,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, coupleTL: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们是恋人。以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
@@ -13964,6 +13988,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, coupleLetter: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
         instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。一个标题 + 一段完整的信（150-300 字，贴人设，可回顾你们的点滴、说心里话，结尾落款），别喊口号、别写成流水账。信要写完整，别中途断。",
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
         maxTokens: 8000
@@ -14027,6 +14052,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setGen(g => ({ ...g, coupleLetter: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
+        voice: true,
         instruction: "你们是恋人，在情书里一来一回。" + (isNewLetter ? "用户刚给你写了一封情书，你读完后回应" : "顺着下面的情书往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。\n【情书往来】\n" + (context || ""),
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 12000
@@ -14618,6 +14644,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
+            voice: true,
             instruction: "你是「" + char.name + "」。你和用户是恋人，你们有一张【我们的唱片】——你亲手往上刻歌，进这个空间它就会自己响起来。\n一次性列出 **14 首**你真会放给你们俩听的、**真实存在、主流平台搜得到**的歌（华语/欧美/日韩都行，别编造）。songs 必须给满 14 个元素。\n【这张不是你自己的歌单】它是放给你们俩的：有的是你想让 TA 听见的，有的是某件事之后你才开始循环的，有的只是 TA 在旁边时你会顺手放的。**但也不许十四首全是情歌**——你们相处里有安静的、无聊的、闹的、赌气的、天快亮的时候，那些也该有各自的歌。曲风别一路到底，快慢冷暖要拉开。\n每首写一句 note，刻在这张唱片的 B 面：**为什么是这首**。第一人称，说给 TA 听，不是写乐评。\n【怎么算写对了】：\n· 说的是你和 TA 之间的某件具体的事、某个时刻、某个你没讲出口的念头，不是这首歌本身好在哪；\n· **换一对情侣、换一个角色照样成立的那一句，就是写坏了**；\n· 十四条的句式必须散开——长短差得开，有的很短，有的没说完，有的是问句，有的是抱怨，有的干脆答非所问。**同一个句式全篇最多两条**；\n· 不许出现「治愈」「温暖」「陪伴」「岁月」这类谁都能说的词。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
             schemaHint: "{\"songs\":[{\"title\":\"歌名\",\"artist\":\"歌手\",\"note\":\"第一人称一句，说给 TA 听\"}]}（songs 必须 14 个元素）",
             maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535
@@ -14662,6 +14689,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
+            voice: true,
             instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】她 2026-08-29 报「备注有点不自然」——上一版全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
             schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535
           });
@@ -15629,6 +15657,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : characters[0];
       if (!c) return null;
       const d = await runProbe(bgActive, ctxFor(c), {
+        voice: true,
         instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
         schemaHint: "{\"say\":\"一两句话\"}",
         maxTokens: 14000   // cheap_required 线路已显式配置时仍保留完整思考预算
