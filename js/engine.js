@@ -5674,7 +5674,19 @@ async function oocAskGroup(p, ctx, question) {
   return { reply: String(raw || "").trim(), directive: null, refused: false };
 }
 async function runProbe(p, ctx, probe) {
-  const system = "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。\n\n" + buildBundle(ctx) + "\n\n【推演任务】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
+  // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
+  // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。
+  // 但有几处产出的是【他亲口说的话】（匿名箱的回答就是），
+  // 用分析师的站位写出来的必然是判语体：一句陈述、一个结论、没有活人的语气长短。
+  // 她 2026-09-03 报的「回答感觉很容易被压成标签」，病根在这一行，不在料给得够不够。
+  // probe.voice = true 的那几处换成【就是他本人在打字】，料一个字不少（同一个 bundle）。
+  const head = probe.voice
+    ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。下面写的是你的一切：你的人设、你此刻的心情、你和对方最近说过的话。\n"
+      + "你不是在分析这个人，你【就是】这个人，正拿着手机打字。输出要严格按 JSON，但每一句正文都是你亲口打出来的话——"
+      + "该长就长、该只回两个字就两个字，语气跟着你此刻的心情走，别写成一条条冷静的判词。"
+    : "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。";
+  const system = head + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。
