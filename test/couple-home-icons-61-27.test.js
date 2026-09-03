@@ -25,12 +25,26 @@ test("情侣空间主页的代码里没有 emoji，也没有靠字体撑的符�
   assert.deepEqual([...new Set(bad)], [], "还留着这些字符当图标：" + [...new Set(bad)].join(" "));
 });
 
-test("最近发生那一列改用书脊色带，一个字符都不放", () => {
+test("最近发生长成一叠通知，不跟底下的书脊撞版式（v61.29）", () => {
   assert.match(seg, /const BAND = \{ letters: "#b08d52", exdiary: "#b08a66", timeline:/);
-  assert.match(seg, /background: BAND\[x\.sub\] \|\| t\.line/);
+  // app 小图标是汉字（一定渲得出来），不是 emoji
+  assert.match(seg, /const APPCH = \{ letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿" \};/);
+  assert.match(seg, /APPCH\[x\.sub\] \|\| "·"/);
+  // 通知的三件套：毛玻璃、越往下越缩、右上角写「多久以前」而不是日期
+  assert.match(seg, /backdropFilter: "blur\(10px\)"/);
+  assert.match(seg, /width: \(100 - i \* 2\.2\) \+ "%"/);
+  assert.match(seg, /const notifyAgo = ts =>/);
+  assert.match(seg, /return "刚刚";/);
   // 老的 icon 字段整条链都不许再有
   assert.ok(seg.indexOf("icon:") < 0, "recentItems 还在挂 icon");
   assert.ok(seg.indexOf("x.icon") < 0, "还在渲染 x.icon");
+  // 那条 4px 色带只该留在【今天】那两行和书脊上，不该再出现在通知里
+  assert.ok(seg.indexOf('height: 26, borderRadius: 99, background: BAND') < 0, "通知里还挂着书脊色带");
+});
+
+test("一叠通知的阴影透明度得是小数，别拼成 .9", () => {
+  // "." + (12 - i) 到第四张就成了 ".9"＝90% 不透明，底下两张会拖着两块黑影
+  assert.match(seg, /rgba\(92,60,74," \+ \(0\.12 - i \* 0\.018\)\.toFixed\(3\)/);
 });
 
 test("能复用现成 SVG 的地方就复用（打卡、起始日）", () => {

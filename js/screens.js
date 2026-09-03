@@ -3992,6 +3992,21 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     //   这一页底下「收着的」那一列书脊已经有一套现成的语言了：一条色带认一样东西。
     //   所以这里改用同一条色带，一个字符都不放——不放字符，就不会有字体渲不出来这回事。
     const BAND = { letters: "#b08d52", exdiary: "#b08a66", timeline: "#7f8ea6", album: "#a8735e", wishes: "#b0728e" };
+    // 通知卡左边那枚小图标上写的字（v61.29，她 2026-09-03：「最近发生也是一排线，
+    // 跟收着的重复了，改成做个小 notification 样式吧」）。一个汉字，不是 emoji——
+    // 汉字一定渲得出来，也跟「档」「愿」那两张水印是同一套写法。
+    const APPCH = { letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿" };
+    // 通知右上角那个时刻：通知栏从来不写「8月29日」，写的是「刚刚」「12分钟前」。
+    // 隔了一天以上才退回日期——那时候「多久以前」已经不好数了。
+    const notifyAgo = ts => {
+      const d = Number(ts) || 0; if (!d) return "";
+      const m = Math.floor((Date.now() - d) / 60000);
+      if (m < 1) return "刚刚";
+      if (m < 60) return m + " 分钟前";
+      if (m < 24 * 60) return Math.floor(m / 60) + " 小时前";
+      if (m < 48 * 60) return "昨天";
+      return new Date(d).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+    };
     (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", label: "情书", text: cleanSnippet(x.title || x.body) }));
     (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", label: "交换日记", text: cleanSnippet(x.content) }));
     (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
@@ -4119,14 +4134,35 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 9 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "最近发生"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "从你俩的角落里捞出来")),
-            h("div", { style: { borderTop: "1px solid " + t.line } },
-              bRecent.length ? bRecent.map(x => h("button", { key: x.id, onClick: () => setSub(x.sub), className: "w-full active:opacity-60", style: { display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", gap: 8, padding: "11px 0", borderBottom: "1px solid " + t.line, textAlign: "left" } },
-                h("span", { "aria-hidden": "true", style: { width: 4, height: 26, borderRadius: 99, background: BAND[x.sub] || t.line, justifySelf: "start", marginLeft: 11 } }),
-                h("div", { className: "min-w-0" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, x.label)),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, x.ts ? new Date(x.ts).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) : "")))
-                : h("div", { style: { borderBottom: "1px solid " + t.line, padding: "18px 0", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "这里会慢慢收进便签、情书、日记、合照和你们完成的小愿望。"))),
+            // ── 通知中心那一叠（v61.29）──
+            // 上一版这里是「一条色带＋一行字」，跟底下「收着的」那一列书脊长得一模一样
+            // ——她 2026-09-03 说「跟收着的重复了」。两处说的本来就不是一件事：
+            // 书脊是【一直在那儿的东西】（一本一本翻），这里是【刚发生的事】。
+            // 刚发生的事在手机上长什么样，是有现成答案的：一叠通知卡。
+            // 所以这一段按通知来做——毛玻璃卡片、左边一枚 app 小图标、右上角时刻、
+            // 最上面那张最新、越往下越往后缩一点，像刚推上来还没散开的一叠。
+            h("div", { style: { display: "flex", flexDirection: "column", gap: 7 } },
+              bRecent.length ? bRecent.map((x, i) => h("button", { key: x.id, onClick: () => setSub(x.sub),
+                className: "w-full active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 12px", textAlign: "left", borderRadius: 16,
+                  background: "rgba(255,255,255," + (0.82 - i * 0.09).toFixed(2) + ")",
+                  border: "1px solid rgba(146,114,128,.16)",
+                  backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+                  // ⚠️别拼 "." + (12 - i)：到第四张就成了 ".9"＝90% 不透明，一叠通知底下
+                  //   两张会拖着两块黑影。透明度要算成小数再 toFixed。
+                  boxShadow: "0 " + (6 - i) + "px " + (16 - i * 2) + "px rgba(92,60,74," + (0.12 - i * 0.018).toFixed(3) + ")",
+                  // 越往下越窄一点：一叠通知堆在一起就是这个样子，最新那张在最上面
+                  width: (100 - i * 2.2) + "%", marginLeft: (i * 1.1) + "%" } },
+                h("span", { "aria-hidden": "true", style: { width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                  background: BAND[x.sub] || t.line, color: "#fff", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15,
+                  boxShadow: "inset 0 -6px 10px rgba(0,0,0,.10)" } }, APPCH[x.sub] || "·"),
+                h("div", { className: "min-w-0 flex-1" },
+                  h("div", { className: "flex items-baseline", style: { gap: 6 } },
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".04em", color: "#96788a", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.label),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#b09aa6", flexShrink: 0 } }, notifyAgo(x.ts))),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4b3b44", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))))
+                : h("div", { style: { borderRadius: 16, border: "1px dashed rgba(146,114,128,.28)", padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", lineHeight: 1.8 } }, "还没有推送。", h("br"), "便签、情书、日记、合照和实现了的愿望都会推到这儿。"))),
           h("section", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 } },
             h("button", { onClick: () => setSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
               h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(115,91,67,.08)" } }, "档"),
