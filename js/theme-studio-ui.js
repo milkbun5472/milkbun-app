@@ -5,7 +5,6 @@
     const [draft, setDraft] = useState(() => studio.load());
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     const [section, setSection] = useState("icons"), [page, setPage] = useState("home"), [previewing, setPreviewing] = useState(false);
-    const [skinTick, setSkinTick] = useState(0);   // 换了皮肤要重画那张预览
     const iconFile = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
@@ -41,7 +40,7 @@
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
     const setCSS = v => page === "all" ? patchDraft({ globalCSS: v }) : patchDraft({ pageCSS: { ...draft.pageCSS, [page]: v } });
     const esc = v => String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    const previewPage = section === "skin" ? "thread" : (section === "icons" || page === "all" ? "home" : page);
+    const previewPage = section === "icons" || page === "all" ? "home" : page;
     const iconImg = key => { const ref = draft.icons[key]; return ref ? '<img src="' + esc(resolveImg(ref)) + '" alt="">' : '<span>' + ({ chat:"✉",forum:"☷",games:"◇",diary:"▤",tarot:"✦",study:"⌁",fanfic:"⌘",config:"⚙" }[key] || "○") + '</span>'; };
     // 聊天那两页在预览里要【铺满整个框】：她 2026-09-03 报「预览这里颜色套不进全框」——
     // 底下 body 有 18px 内边距，于是四周留着一圈主题米白，改的颜色像是没铺到边。
@@ -76,36 +75,19 @@
       if (previewPage === "config") return '<header><b>设置</b><small>Config</small></header><main><article><h3>外观与壁纸</h3><p>颜色、字体和主屏背景　›</p></article><article><h3>主题工作台</h3><p>图标、页面 CSS 与预览　›</p></article></main>';
       return '<header><b>Lisa\'s phone</b><small>今天也在这里</small></header><main class="icons"><i>' + iconImg("chat") + '<b>消息</b></i><i>' + iconImg("forum") + '<b>论坛</b></i><i>' + iconImg("study") + '<b>一起学</b></i><i>' + iconImg("fanfic") + '<b>同人文</b></i><i>' + iconImg("tarot") + '<b>塔罗</b></i><i>' + iconImg("games") + '<b>小游戏</b></i></main>';
     })();
+    // ⚠️灌 CSS 之前先把气泡皮肤退回出厂（v61.13）：皮肤那张 style 带 !important、
+    //   而且永远排在主题 CSS 后面（v61.05 她要的「预设压在 CSS 上面」）。所以只要她
+    //   身上还挂着一套皮肤，这里灌进去的 CSS 就一个字也看不见——按下去像是坏了。
+    //   现在皮肤和 CSS 预设是同一件事的两种写法，留一种就好，点这里＝改用 CSS 这一种。
+    const clearSkin = () => { try { if (typeof applyBubblePreset === "function") applyBubblePreset("default"); localStorage.setItem("x_bubbleSkinPreset", ""); } catch (_) {} };
     const previewCSS = (() => { try { return studio.compile(draft).replace(/<\/style/gi,"<\\/style"); } catch (_) { return ""; } })();
-    // 预览里的气泡用【真的皮肤值】，不是写死那两块粉蓝——否则换完皮肤预览还是老样子，
-    // 这一栏就等于没法看。带 !important 是照真机里的分工来：皮肤压在页面 CSS 上面。
-    const skinCSS = (() => {
-      const sk = (typeof BUBBLE_SKIN === "object" && BUBBLE_SKIN) ? BUBBLE_SKIN : null;
-      if (!sk || !chatPreview) return "";
-      void skinTick;
-      const one = (sel, bg, fg, bd) => sel + "{background:" + esc(bg || "#fff") + " !important;color:" + esc(fg || "#111") + " !important;"
-        + (bd ? "border:1px solid " + esc(bd) + " !important;" : "")
-        + "border-radius:" + (Number(sk.radius) || 0) + "px !important;box-shadow:" + esc(sk.shadow || "none") + " !important}";
-      return one(".message-bubble.me", sk.myBg, sk.myText, sk.myBorder)
-        + one(".message-bubble.them", sk.charBg, sk.charText, sk.charBorder)
-        + (sk.chatBg ? "html,body,.wxwrap{background:" + esc(sk.chatBg) + " !important}" : "");
-    })();
-    const previewDoc = '<!doctype html><html data-lisa-screen="' + esc(previewPage) + '"><head><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:' + esc(t.bg) + ';color:' + esc(t.ink) + ';font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body{padding:18px}' + (chatPreview ? 'body{padding:0}.wxwrap{min-height:100vh}.wxhead{padding:14px 16px 12px}.chat{padding:12px 14px}.wxfoot{margin:0 14px 14px}' : '') + 'header{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 16px;border-bottom:1px solid ' + esc(t.line) + '}header b{font-size:24px}small{color:' + esc(t.fog) + ';font-size:10px}main{padding-top:16px}.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 10px}.icons i{display:grid;place-items:center;gap:6px;font-style:normal;font-size:10px}.icons i>span,.icons i>img{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.65);box-shadow:0 5px 14px rgba(0,0,0,.08);object-fit:cover;font-size:22px}.icons b{font-weight:500}article{padding:14px;margin-bottom:10px;border:1px solid ' + esc(t.line) + ';border-radius:16px;background:rgba(255,255,255,.42)}article h3{margin:5px 0 9px;font-size:15px}article p{margin:5px 0;line-height:1.65;font-size:12px}.wxwrap{display:flex;flex-direction:column;min-height:calc(100vh - 36px)}.wxhead{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 12px;border-bottom:1px solid ' + esc(t.line) + '}.wxhead b{font-size:20px}.chat{flex:1;display:flex;flex-direction:column;gap:9px;padding-top:12px}.tm{text-align:center}.tm span{font-size:10px;color:' + esc(t.fog) + '}.msg{display:block}.row{display:flex;align-items:flex-start;gap:8px}.row.me{justify-content:flex-end}.row.them{justify-content:flex-start}.av{flex:none;width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#cdc7bf,#8f8a81)}.message-bubble{max-width:72%;padding:11px 13px;border-radius:17px;background:#fff;font-size:12px;line-height:1.55}.message-bubble.me{background:#f5b9c5}.message-bubble.them{background:#b8d5ee}.wxfoot{margin-top:12px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}footer{position:absolute;left:18px;right:18px;bottom:16px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}</style><style>' + previewCSS + '</style><style>' + skinCSS + '</style></head><body>' + previewBody + '</body></html>';
+    const previewDoc = '<!doctype html><html data-lisa-screen="' + esc(previewPage) + '"><head><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:' + esc(t.bg) + ';color:' + esc(t.ink) + ';font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body{padding:18px}' + (chatPreview ? 'body{padding:0}.wxwrap{min-height:100vh}.wxhead{padding:14px 16px 12px}.chat{padding:12px 14px}.wxfoot{margin:0 14px 14px}' : '') + 'header{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 16px;border-bottom:1px solid ' + esc(t.line) + '}header b{font-size:24px}small{color:' + esc(t.fog) + ';font-size:10px}main{padding-top:16px}.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 10px}.icons i{display:grid;place-items:center;gap:6px;font-style:normal;font-size:10px}.icons i>span,.icons i>img{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.65);box-shadow:0 5px 14px rgba(0,0,0,.08);object-fit:cover;font-size:22px}.icons b{font-weight:500}article{padding:14px;margin-bottom:10px;border:1px solid ' + esc(t.line) + ';border-radius:16px;background:rgba(255,255,255,.42)}article h3{margin:5px 0 9px;font-size:15px}article p{margin:5px 0;line-height:1.65;font-size:12px}.wxwrap{display:flex;flex-direction:column;min-height:calc(100vh - 36px)}.wxhead{display:flex;align-items:end;justify-content:space-between;padding:4px 2px 12px;border-bottom:1px solid ' + esc(t.line) + '}.wxhead b{font-size:20px}.chat{flex:1;display:flex;flex-direction:column;gap:9px;padding-top:12px}.tm{text-align:center}.tm span{font-size:10px;color:' + esc(t.fog) + '}.msg{display:block}.row{display:flex;align-items:flex-start;gap:8px}.row.me{justify-content:flex-end}.row.them{justify-content:flex-start}.av{flex:none;width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#cdc7bf,#8f8a81)}.message-bubble{max-width:72%;padding:11px 13px;border-radius:17px;background:#fff;font-size:12px;line-height:1.55}.message-bubble.me{background:#f5b9c5}.message-bubble.them{background:#b8d5ee}.wxfoot{margin-top:12px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}footer{position:absolute;left:18px;right:18px;bottom:16px;border:1px solid ' + esc(t.line) + ';border-radius:999px;padding:11px 14px;color:' + esc(t.fog) + ';font-size:11px}</style><style>' + previewCSS + '</style></head><body>' + previewBody + '</body></html>';
     return h("div", null,
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("skin","气泡皮肤","一键换整套"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginBottom: 10 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.APP_ICONS.map(([key,label]) => { const ref = draft.icons[key], src = ref ? resolveImg(ref) : ""; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, "恢复原图标") : null); })),
         h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } })),
-      // ── 气泡皮肤（v61.08，她 2026-09-03：「你把 preset 放到设置里的主题工作室那边吧」）──
-      // 皮肤和页面 CSS 本来就是同一件事的两层，该在同一个工作台里挨着放：
-      // 皮肤＝一键换整套（内联，压在 CSS 上面），CSS＝细调。分在两个 App 里她得来回找。
-      section === "skin" && h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginBottom: 10 } },
-          "点一下立刻生效，底下那张预览也跟着换。皮肤压在页面 CSS 上面——想让 CSS 说了算，就先选「出厂」。"),
-        typeof BubbleSkinPresets === "function"
-          ? h(BubbleSkinPresets, { onPick: () => { setSkinTick(n => n + 1); toast("换成整套皮肤了"); } })
-          : null),
       section === "css" && h("div", null,
         h("select", { value: page, onChange: e => setPage(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, marginBottom: 10 } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
@@ -114,7 +96,7 @@
         (studio.CSS_BUILTINS[page] || []).length ? h("div", { style: { marginTop: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "内置（点一下灌进上面的编辑框，再改成你要的）"),
           h("div", { className: "flex flex-wrap", style: { gap: 7 } },
-            studio.CSS_BUILTINS[page].map(([nm, code]) => h("button", { key: nm, onClick: () => { setCSS(code); toast("「" + nm + "」已灌进编辑框，先预览看看"); },
+            studio.CSS_BUILTINS[page].map(([nm, code]) => h("button", { key: nm, onClick: () => { setCSS(code); clearSkin(); toast("「" + nm + "」已灌进编辑框，先预览看看"); },
               className: "active:opacity-70", style: { minHeight: 40, padding: "8px 13px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, nm)))) : null,
         h("div", { style: { marginTop: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "这一页可以存 " + studio.SLOT_MAX + " 套：点空格＝把现在这段存进去；点存过的＝读出来"),

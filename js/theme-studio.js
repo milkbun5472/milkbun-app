@@ -22,8 +22,137 @@
   // 「内置」是只读的起手式：点一下把整段 CSS 灌进编辑框，她再改。
   // 「槽位」是她自己的：每一页 5 个，存在 x_themeCssSlots，跟主题档案分开——
   // 草稿反复存取不该把正在用的主题搅进去。
-  const WECHAT_CSS = "[data-wk=\"chat\"], [data-wk=\"body\"] {\n  background: #ededed !important;\n  background-image: none !important;\n}\n\n[data-wk=\"chathead\"] {\n  background: #ededed !important;\n  border-bottom: 1px solid #d9d9d9 !important;\n  color: #111 !important;\n}\n\n[data-wk=\"time\"] span {\n  display: inline-block !important;\n  background: #dadada !important;\n  color: #fff !important;\n  font-size: 11px !important;\n  line-height: 1 !important;\n  padding: 4px 7px !important;\n  border-radius: 4px !important;\n}\n\n[data-wk=\"avatar\"] img,\n[data-wk=\"avatar\"] > * {\n  border-radius: 5px !important;\n}\n\n[data-wk=\"bubble\"] {\n  border-radius: 6px !important;\n  padding: 10px 13px !important;\n  font-size: 16px !important;\n  line-height: 1.45 !important;\n  box-shadow: none !important;\n  border: none !important;\n  position: relative !important;\n}\n\n[data-wk=\"bubble\"][data-me=\"0\"] {\n  background: #ffffff !important;\n  color: #111111 !important;\n}\n\n[data-wk=\"bubble\"][data-me=\"1\"] {\n  background: #95ec69 !important;\n  color: #111111 !important;\n}\n\n[data-wk=\"bubble\"]::before {\n  content: \"\" !important;\n  position: absolute !important;\n  top: 13px !important;\n  width: 9px !important;\n  height: 9px !important;\n  transform: rotate(45deg) !important;\n}\n[data-wk=\"bubble\"][data-me=\"0\"]::before {\n  left: -3px !important;\n  background: #ffffff !important;\n}\n[data-wk=\"bubble\"][data-me=\"1\"]::before {\n  right: -3px !important;\n  background: #95ec69 !important;\n}\n\n[data-wk=\"bubble\"][data-kind=\"photo\"],\n[data-wk=\"bubble\"][data-kind=\"sticker\"] {\n  background: transparent !important;\n  padding: 0 !important;\n}\n[data-wk=\"bubble\"][data-kind=\"photo\"]::before,\n[data-wk=\"bubble\"][data-kind=\"sticker\"]::before { display: none !important; }\n\n[data-wk=\"msg\"] { padding-top: 5px !important; padding-bottom: 5px !important; }\n[data-wk=\"row\"] { gap: 9px !important; }\n\n[data-wk=\"composer\"] {\n  background: #f7f7f7 !important;\n  border-top: 1px solid #d9d9d9 !important;\n}\n[data-wk=\"composer\"] input,\n[data-wk=\"composer\"] textarea {\n  background: #ffffff !important;\n  border: none !important;\n  border-radius: 5px !important;\n  color: #111 !important;\n  font-size: 16px !important;\n}";
-  const CSS_BUILTINS = { thread: [["仿微信", WECHAT_CSS]], gthread: [["仿微信", WECHAT_CSS]] };
+  // ── 内置聊天皮肤（v61.13，她 2026-09-03：「就在页面 css 里面那栏线上里面存预设，
+  //    然后点击可以看见 css 预设在编辑框里可以再自己改」）──
+  // 五套照各家聊天软件【浅色默认皮】配的配色，只抄颜色、圆角、气泡尖角这几件事，
+  // 不碰任何图标、字体、商标——那些是人家的东西。
+  // ⚠️一处画、五处用：五套的差别只有底下 SKINS 里那十几个数，骨架共用 chatSkinCSS。
+  //   各写一份的话，以后 data-wk 挂点一改，就得记得改五遍——迟早漏。
+  const chatSkinCSS = o => [
+'[data-wk="chat"], [data-wk="body"] {',
+'  background: ' + o.bg + ' !important;',
+'  background-image: none !important;',
+'}',
+'',
+'[data-wk="chathead"] {',
+'  background: ' + o.head + ' !important;',
+'  border-bottom: 1px solid ' + o.line + ' !important;',
+'  color: ' + o.headInk + ' !important;',
+'}',
+'',
+'[data-wk="time"] span {',
+'  display: inline-block !important;',
+'  background: ' + o.timeBg + ' !important;',
+'  color: ' + o.timeInk + ' !important;',
+'  font-size: 11px !important;',
+'  line-height: 1 !important;',
+'  padding: 4px 8px !important;',
+'  border-radius: ' + o.timeRadius + ' !important;',
+'}',
+'',
+'[data-wk="avatar"] img,',
+'[data-wk="avatar"] > * {',
+'  border-radius: ' + o.avatar + ' !important;',
+'}',
+'',
+'[data-wk="bubble"] {',
+'  border-radius: ' + o.radius + ' !important;',
+'  padding: 10px 13px !important;',
+'  font-size: 16px !important;',
+'  line-height: 1.45 !important;',
+'  box-shadow: ' + o.shadow + ' !important;',
+'  border: none !important;',
+'  position: relative !important;',
+'}',
+'',
+'[data-wk="bubble"][data-me="0"] {',
+'  background: ' + o.theirBg + ' !important;',
+'  color: ' + o.theirInk + ' !important;',
+'}',
+'',
+'[data-wk="bubble"][data-me="1"] {',
+'  background: ' + o.myBg + ' !important;',
+'  color: ' + o.myInk + ' !important;',
+'}',
+''
+  ].concat(o.tail ? [
+'/* 气泡尖角：把一个小方块转 45 度贴在气泡边上 */',
+'[data-wk="bubble"]::before {',
+'  content: "" !important;',
+'  position: absolute !important;',
+'  top: 13px !important;',
+'  width: 9px !important;',
+'  height: 9px !important;',
+'  transform: rotate(45deg) !important;',
+'}',
+'[data-wk="bubble"][data-me="0"]::before {',
+'  left: -3px !important;',
+'  background: ' + o.theirBg + ' !important;',
+'}',
+'[data-wk="bubble"][data-me="1"]::before {',
+'  right: -3px !important;',
+'  background: ' + o.myBg + ' !important;',
+'}',
+'',
+'/* 图片和表情不该套气泡底色，尖角也得收起来 */',
+'[data-wk="bubble"][data-kind="photo"]::before,',
+'[data-wk="bubble"][data-kind="sticker"]::before { display: none !important; }'
+  ] : []).concat([
+'',
+'[data-wk="bubble"][data-kind="photo"],',
+'[data-wk="bubble"][data-kind="sticker"] {',
+'  background: transparent !important;',
+'  padding: 0 !important;',
+'  box-shadow: none !important;',
+'}',
+'',
+'[data-wk="msg"] { padding-top: ' + o.gap + 'px !important; padding-bottom: ' + o.gap + 'px !important; }',
+'[data-wk="row"] { gap: 9px !important; }',
+'',
+'[data-wk="composer"] {',
+'  background: ' + o.footBg + ' !important;',
+'  border-top: 1px solid ' + o.line + ' !important;',
+'}',
+'[data-wk="composer"] input,',
+'[data-wk="composer"] textarea {',
+'  background: ' + o.inputBg + ' !important;',
+'  border: none !important;',
+'  border-radius: ' + o.inputRadius + ' !important;',
+'  color: ' + o.headInk + ' !important;',
+'  font-size: 16px !important;',
+'}'
+  ]).join("\n");
+  // 微信：方气泡、带尖角、灰底，时间是一颗灰药丸
+  const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111",
+    timeBg:"#dadada", timeInk:"#ffffff", timeRadius:"4px", avatar:"5px", radius:"6px", shadow:"none",
+    theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
+    tail:true, gap:5, footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px" });
+  // LINE：亮绿自己、白对方，底偏蓝灰，气泡很圆、也带尖角
+  const LINE_CSS = chatSkinCSS({ bg:"#d7e0ea", head:"#d7e0ea", line:"#b9c6d4", headInk:"#1f1f1f",
+    timeBg:"rgba(0,0,0,.28)", timeInk:"#ffffff", timeRadius:"999px", avatar:"999px", radius:"18px", shadow:"none",
+    theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
+    tail:true, gap:5, footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px" });
+  // Telegram：自己那侧淡到几乎白的青绿，圆角中等，没有尖角，气泡有一点点浮起
+  const TELEGRAM_CSS = chatSkinCSS({ bg:"#e6ebee", head:"#ffffff", line:"#dfe4e7", headInk:"#0f1419",
+    timeBg:"rgba(0,0,0,.22)", timeInk:"#ffffff", timeRadius:"999px", avatar:"999px", radius:"12px",
+    shadow:"0 1px 2px rgba(16,35,47,.08)",
+    theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#eeffde", myInk:"#0f1419",
+    tail:false, gap:4, footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"14px" });
+  // WhatsApp：认得出的那个米底，浅绿自己、白对方，带尖角
+  const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21",
+    timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", avatar:"999px", radius:"8px",
+    shadow:"0 1px 1px rgba(11,20,26,.13)",
+    theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
+    tail:true, gap:4, footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"10px" });
+  // Insta DM：白底、气泡特别圆、自己那侧紫蓝渐变白字，没有尖角
+  const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111",
+    timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", avatar:"999px", radius:"22px", shadow:"none",
+    theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
+    tail:false, gap:3, footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px" })
+    + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
+  const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
+    ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]];
+  const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS };
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
   const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };

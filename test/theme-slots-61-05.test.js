@@ -60,12 +60,14 @@ test("每一页 5 个槽位，另有只读的内置预设", () => {
   // 简写导出（pageSlots）和显式写法（pageSlots: pageSlots）都算
   ["pageSlots", "saveSlot", "clearSlot"].forEach(f =>
     assert.match(st, new RegExp("[,{]\\s*" + f + "\\s*[,}:]"), f + " 没导出"));
-  assert.match(st, /const CSS_BUILTINS = \{ thread: \[\["仿微信", WECHAT_CSS\]\], gthread:/);
-  // 内置那段必须是真能用的 CSS（挂点对得上真页面）
-  const wx = st.match(/const WECHAT_CSS = "([\s\S]*?)";\n/);
-  assert.ok(wx && wx[1].length > 500, "内置的仿微信 CSS 太短，像是没写全");
-  ["bubble", "composer", "chathead"].forEach(k =>
-    assert.ok(wx[1].indexOf('data-wk=\\"' + k + '\\"') >= 0, "内置 CSS 里少了 " + k));
+  // v61.13：五套聊天皮肤都在这一栏里（她要的是「点一下灌进编辑框还能自己改」，
+  // 不是另开一页开关）。两页共用同一份 CHAT_SKINS。
+  assert.match(st, /const CSS_BUILTINS = \{ thread: CHAT_SKINS, gthread: CHAT_SKINS \};/);
+  ["仿微信", "仿 LINE", "仿 Telegram", "仿 WhatsApp", "仿 Insta DM"].forEach(nm =>
+    assert.ok(st.indexOf('["' + nm + '"') >= 0, "内置里少了「" + nm + "」"));
+  // 一处画、五处用：骨架只能有一份，不许各写一套 CSS
+  assert.equal((st.match(/data-wk=\\?"bubble\\?"\]\[data-me/g) || []).length <= 4, true,
+    "看起来有人把骨架又抄了一份，五套的差别只该是那十几个数");
   assert.match(ui, /studio\.pageSlots\(page\)/);
   assert.match(ui, /studio\.saveSlot\(page, i, nm, cur\)/);
 });
