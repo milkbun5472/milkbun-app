@@ -3969,24 +3969,41 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       h("div", { className: "flex items-center gap-3" },
         has ? h("button", { onClick: () => onSetCoupleImg(partner.id, field, null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "恢复默认") : null,
         h("button", { onClick: () => ref.current && ref.current.click(), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, has ? "更换" : "上传")));
-    // 顶栏不再是那块 30px「情侣空间」大标题（她 2026-09-02：「这块也弄掉吧」）。
-    // 这一页本来就有一张你俩的封面——让封面自己吃掉安全区、一路顶到刘海，
-    // 返回键和改封面的笔浮在它上面（压一层从上往下的暗角，保证白键在浅色封面上
-    // 也看得见）。省下来的六七十像素直接还给「在一起多少天」那一屏。
+    // ── 封面就是这一页的底（v60.58，她 2026-09-02）─────────────────────────
+    // 「让整页都吃到背景，然后下滑的时候背景不会漂移」。
+    // 原来封面是【滚动区里的第一块 208px】：往下滑它就跟着跑掉，页面剩下一片素底。
+    // 现在把它贴在【不滚动的那一层】上（root），内容浮在上面滚——所以它一动不动，
+    // 也一路铺到刘海和页底。上面盖一层渐变：最顶上压暗一点让白色的键看得见，
+    // 中段透空给照片，到两百多像素处收成 t.bg，底下那些卡片照旧看得清。
     const coverBg = cprof.bg ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(cprof.bg) : cprof.bg) + ")" : "linear-gradient(135deg,#f3c6d3,#c8b0e0)";
-    return h("div", { className: "h-full flex flex-col" },
-      h("div", { className: "flex-1 overflow-y-auto pb-8", style: { overscrollBehavior: "contain" } },
-        h("div", { style: { position: "relative", height: "calc(env(safe-area-inset-top, 0px) + 208px)", background: coverBg } },
-          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: "calc(env(safe-area-inset-top, 0px) + 74px)", background: "linear-gradient(180deg,rgba(0,0,0,.38),rgba(0,0,0,0))", pointerEvents: "none" } }),
-          h("div", { className: "absolute flex items-center", style: { left: 6, right: 6, top: safeTop(4), height: 44 } },
-            h("button", { onClick: () => setView(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#fff" })),
-            h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.45)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, "我和 " + partner.name),
-            onSetCoupleImg
-              ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
-              : h("div", { style: { width: 40 } })),
-          h("div", { style: { position: "absolute", left: 22, bottom: -28, display: "flex" } },
-            h("div", { style: { borderRadius: 999, border: "3px solid " + t.bg, overflow: "hidden" } }, h(Avatar, { character: paChar, size: 66, radius: 999 })),
-            h("div", { style: { marginLeft: -18, borderRadius: 999, border: "3px solid " + t.bg, overflow: "hidden" } }, h(Avatar, { character: myChar, size: 66, radius: 999 })))),
+    const ST = "env(safe-area-inset-top, 0px)";
+    // ⚠️收口那一段只能写 transparent，不许拼 t.bg+"00"——主题色可能被她在主题工坊
+    // 改成 rgb()/hsl()，那种拼法会整条渐变作废（整页背景直接没了）。
+    const veil = "linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.08) calc(" + ST + " + 70px),transparent calc(" + ST + " + 118px),transparent calc(" + ST + " + 140px)," + t.bg + " calc(" + ST + " + 215px))";
+    // ── 两枚扣在一起的环（她：「头像这个圆框有点无聊」）──────────────────
+    // 原来是两个 3px 纯色圆边——任何 app 的头像都长这样。改成【两枚交叠的环】：
+    // 各自一个颜色，左边那枚的右半弧再画一次压在右边那枚上面，就成了扣起来的样子。
+    // 这个形状只在「两个人」这里成立，一个人的头像做不出来。
+    const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
+    const ringed = (ch, ring, ml) => h("div", { style: { marginLeft: ml || 0, borderRadius: 999, padding: 3, background: ring, boxShadow: "0 2px 10px rgba(0,0,0,.22), 0 0 0 1.5px rgba(255,255,255,.5)" } },
+      h("div", { style: { borderRadius: 999, overflow: "hidden", display: "block", border: "2px solid " + t.bg } }, h(Avatar, { character: ch, size: 62, radius: 999 })));
+    return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: coverBg } },
+      h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: veil, pointerEvents: "none" } }),
+      // 顶栏浮在封面上，不跟着滚（返回键任何时候都够得着）
+      h("div", { className: "shrink-0 flex items-center", style: { position: "relative", zIndex: 2, padding: "0 6px", paddingTop: safeTop(4), height: "calc(" + ST + " + 48px)" } },
+        h("button", { onClick: () => setView(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#fff" })),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.5)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, "我和 " + partner.name),
+        onSetCoupleImg
+          ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
+          : h("div", { style: { width: 40 } })),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-8", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
+        // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
+        h("div", { style: { position: "relative", height: 150 } },
+          h("div", { style: { position: "absolute", left: 22, bottom: -30, display: "flex", alignItems: "flex-end" } },
+            ringed(paChar, ringA),
+            ringed(myChar, ringB, -18),
+            // 交叠那一段：把左边那枚环的右半弧再画一次，压在右边这枚上面 → 两枚扣住了
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: 74, height: 74, borderRadius: 999, border: "3px solid " + ringA, clipPath: "polygon(74% 0,100% 0,100% 52%,74% 52%)", pointerEvents: "none" } }))),
         h("div", { className: "px-6", style: { marginTop: 40 } },
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
