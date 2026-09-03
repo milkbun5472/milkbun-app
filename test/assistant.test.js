@@ -31,8 +31,12 @@ const A = (() => {
   return { api: sandbox.window.Assistant, store };
 })();
 
-test("能改的只有白名单那四样", () => {
-  assert.deepEqual(Object.keys(A.api.TARGETS).sort(), ["appearance", "memory", "persona", "style"]);
+// ⚠️这张表是【安全面】，所以故意冻死成员：多一样就是多一处能写坏她数据的口子，
+// 加东西必须同时改这里，让人看见自己在扩权。v61.00 她要「css 装修 + 更新人物档案」，
+// 于是多了 theme 和 profile 两样。
+test("能改的只有白名单那几样", () => {
+  assert.deepEqual(Object.keys(A.api.TARGETS).sort(),
+    ["appearance", "memory", "persona", "profile", "style", "theme"]);
   assert.match(src, /不在这张表里的一律不许碰/);
 });
 
