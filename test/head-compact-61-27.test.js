@@ -101,3 +101,18 @@ test("没有哪一页绕开 Head 自己摆一块大标题", () => {
 const ALLOW = [
   'lineHeight: 1.06, color: "#1e1c18"' // 查手机锁屏那个大钟——它就是锁屏本身，不是顶栏
 ];
+
+// 她 2026-09-03：「但是你放这里言秋不也会看到」——这张工单一开始被我放进
+// .claude/rules/，那个目录每个会话开头都会被整份读进上下文，包括只是来说说话的窗口。
+// 铁律值得每轮都背着，一张会越删越短的清单不值得。工单挪去仓库根目录，
+// 铁律里只留一行指路——那一行要是指空了，等于没人知道还有这张单子。
+test("装修工单在根目录，铁律里那行指路指得着", () => {
+  assert.ok(!fs.existsSync(path.join(root, ".claude/rules/screen-skin-worklist.md")),
+    "工单又回到 .claude/rules/ 了——那儿每个会话都整份读，别拿它装清单");
+  const m = rule.match(/仓库根目录 `([^`]+)`/);
+  assert.ok(m, "mobile-ui-layout.md 里那行指路没了，工单就成孤儿了");
+  assert.ok(fs.existsSync(path.join(root, m[1])), "指路指向 " + m[1] + "，但那个文件不在");
+  // 那三条永久规矩得留在铁律里，别跟着工单一起被删掉
+  assert.match(rule, /底纹铺在【外壳】上，顶栏透明/, "底纹那条规矩没落进铁律");
+  assert.match(rule, /backgroundAttachment: "local"/, "「底纹不许跟着滚」那句没了");
+});
