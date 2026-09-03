@@ -67,7 +67,13 @@ test("A-Z 索引钉在不滚的那一层，且跟着滚动高亮当前那一格"
   // 索引条是滚动容器的兄弟，挂在 relative 的外壳上
   assert.match(comp, /className: "flex-1 min-h-0", style: \{ position: "relative" \}/);
   assert.match(comp, /tab === "contacts" && characters\.length > 6 && contactSecs\.length > 1/);
-  assert.match(comp, /position: "absolute", right: 0, top: 0, bottom: 0, width: 24/);
+  assert.match(comp, /position: "absolute", right: 0, top: 0, bottom: 0, width: 26/);
+  // v60.74：手机上这条尺要能【按住一路滑过去】，不是只能一个个点
+  assert.match(comp, /onPointerDown: e => \{ railScrub\.current = true; scrubTo\(e\.clientY\)/);
+  assert.match(comp, /const scrubTo = y =>/);
+  // 也别再把它做成纸：页口竖线和纸舌头都得是删掉的（她：这是手机上的通讯录）
+  assert.doesNotMatch(comp, /页口：一叠纸的侧面/);
+  assert.doesNotMatch(comp, /borderRadius: "3px 9px 9px 3px"/);
   // 旧的那条（absolute 挂在会滚的内容上）必须是删掉的，不是留着
   assert.doesNotMatch(comp, /右侧 A-Z 索引条/);
   // 滚到哪一段哪一格上墨

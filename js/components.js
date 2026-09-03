@@ -3064,6 +3064,20 @@ function Messages({
   const listRef = useRef(null);
   const contactSecs = (tab === "contacts" && typeof pinyinSections === "function") ? pinyinSections(characters) : [];
   const [curLetter, setCurLetter] = useState("");
+  const railRef = useRef(null);
+  const railScrub = useRef(false);
+  // 手指按在这条尺上滑：按 y 找到指头底下那一格，直接跳过去
+  const scrubTo = y => {
+    const el = railRef.current; if (!el) return;
+    let hit = null;
+    for (const n of el.children) {
+      const r = n.getBoundingClientRect();
+      if (y >= r.top && y <= r.bottom) { hit = n.getAttribute("data-letter"); break; }
+      if (!hit && y < r.top) { hit = n.getAttribute("data-letter"); break; }
+    }
+    if (!hit && el.lastChild) hit = el.lastChild.getAttribute("data-letter");
+    if (hit) jumpLetter(hit);
+  };
   const jumpLetter = L => { try { const el = document.getElementById("mcontact-" + L); if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" }); setCurLetter(L); } catch (e) {} };
   // 滚到哪一段，索引上那一格就跟着上墨——不然这条尺只是一排能点的字
   useEffect(() => {
@@ -3164,11 +3178,11 @@ function Messages({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, label),
         sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, sub) : null),
       h(IChevR, { size: 15, color: t.line }));
-    // 米色一片太素（她 2026-09-03）。通讯录现实里是【一本带拇指索引的名册】，
-    // 所以这一页给它名册该有的两样：左边一道装订线（两根，一粗一细），
-    // 右边页口伸出来的字母舌。都是从「名册」长出来的，换个功能就不成立。
-    return h("div", { className: "py-1", style: { position: "relative", background: t.bg,
-        backgroundImage: "linear-gradient(90deg,transparent 0 12px," + t.line + " 12px 13px,transparent 13px 15.5px," + t.line + " 15.5px 16px,transparent 16px)" } },
+    // ⚠️v60.74 撤掉了上一版的「名册纸感」（装订线 / 页口竖线 / 字母做成纸舌头）。
+    // 她 2026-09-03：「这是手机上的通讯录，倒也不用做跟纸一样」——对的：
+    // 这一页在现实里的对应物就是【手机通讯录】本身，给它糊一层纸反而是往回退。
+    // 「材质要从这个东西本身长出来」那条判据没错，错在我把它读成了「一定要像实物」。
+    return h("div", { className: "py-1", style: { position: "relative", background: t.bg } },
       entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
         [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
         () => setGroupList(true)),
@@ -3178,9 +3192,7 @@ function Messages({
       characters.length === 0
         ? h(Empty, { text: "通讯录是空的", sub: "去人格档案馆录入角色" })
         : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
-            h("div", { style: { padding: "9px 0 4px 20px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.14em", color: t.sub,
-                background: t.bg2, border: "1px solid " + t.line, borderRadius: "3px 9px 9px 3px", padding: "2px 12px 2px 9px" } }, sec.letter)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, sec.letter),
             sec.items.map(c => h("button", { key: c.id, onClick: () => onOpenContact(c),
               className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
               h(Avatar, { character: c, size: 42, radius: 9 }),
@@ -3310,22 +3322,23 @@ function Messages({
     size: 16,
     color: t.line
   })))),
-    // ── 右边那条 A-Z：不是一排飘着的小字，是【书口上的字母舌】 ──
-    // 通讯录现实里就是一本带拇指索引的名册：字母舌从右边页口伸出来，翻到哪一段
-    // 哪一片就凸出来。换成别的功能这形状立刻不成立——只有名册才按字母切页口。
+    // ── 右边那条 A-Z：就按手机通讯录那条来（v60.74）──────────────────────
+    // 不做成纸的页口了（见上面那条）。手机上这条尺该有的是三样：从头到尾都在、
+    // 当前那个字母看得出来、**手指按住能一路滑过去**（滑动比一个个点准得多，
+    // 这才是它在手机上真正的用法）。整条 24px 宽，指头够得着。
     tab === "contacts" && characters.length > 6 && contactSecs.length > 1
-      ? h("div", { style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 24, zIndex: 5,
-          display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 2,
-          // 页口：一叠纸的侧面，几道极浅的竖线
-          backgroundImage: "repeating-linear-gradient(90deg," + t.line + " 0 1px,transparent 1px 4px)",
-          backgroundSize: "10px 100%", backgroundRepeat: "no-repeat", backgroundPosition: "right center" } },
+      ? h("div", { ref: railRef, style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 26, zIndex: 5,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
+          touchAction: "none" },
+          onPointerDown: e => { railScrub.current = true; scrubTo(e.clientY); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+          onPointerMove: e => { if (railScrub.current) scrubTo(e.clientY); },
+          onPointerUp: () => { railScrub.current = false; },
+          onPointerCancel: () => { railScrub.current = false; } },
           contactSecs.map(sec => { const on = curLetter === sec.letter;
-            return h("button", { key: sec.letter, onClick: () => jumpLetter(sec.letter),
-              className: "active:opacity-60",
-              style: { width: on ? 24 : 17, minHeight: 15, borderRadius: "5px 0 0 5px",
-                background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line), borderRight: "none",
-                color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "13px",
-                paddingRight: 2, transition: "width .12s, background .12s" } }, sec.letter); }))
+            return h("div", { key: sec.letter, "data-letter": sec.letter,
+              style: { width: 20, minHeight: 14, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center",
+                background: on ? t.accent : "transparent", color: on ? "#fff" : t.fog,
+                fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1, transition: "background .12s, color .12s" } }, sec.letter); }))
       : null), composeOpen && h(MomentCompose, {
     friendGroups,
     characters,
