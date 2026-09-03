@@ -1270,28 +1270,61 @@
         tagRow(8), statRow(8, false)));
   }
 
-  // ---------- 世界观 tab 栏（可横滑 + 末尾 +；自定义版块点已选再点=编辑）----------
+  // ---------- 世界观分版：书架上那一排书脊（.claude/rules/tabs-not-plain-pills.md）----------
+  // 原来是一排圆角药丸——任何 app 都能用的那一种，等于没设计。
+  // 这个 app 现实里是【一架子同人本】：一版就是一本，所以分版就长成书脊。
+  // 没选的立在架上（矮一截、暗、竖着的书名）；选中的那本被抽出来翻开——
+  // 满高、纸色、底下那条搁板线在它这儿断开，直接长进下面这一版的 feed 里。
+  // 换个 app 就不成立：别处的分栏底下不是一本翻开的书。
   function TabBar(props) {
     const t = useTheme();
+    const SPINE_H = 58, OFF_H = 44;
     return h("div", { className: "shrink-0 px-5 pb-2", style: { overflowX: "auto", WebkitOverflowScrolling: "touch" } },
-      h("div", { style: { display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 8, width: "max-content" } },
+      h("div", {
+        style: {
+          display: "flex", flexWrap: "nowrap", alignItems: "flex-end", gap: 5,
+          width: "max-content", minWidth: "100%", paddingTop: 4,
+          // 搁板：这一排书立在它上面
+          borderBottom: "1px solid " + t.line
+        }
+      },
         props.tabs.map(function (tab) {
           const on = tab.id === props.activeId;
           return h("button", {
             key: tab.id,
             onClick: function () { if (on && !tab.seed) props.onEdit(tab); else props.onPick(tab.id); },
             onDoubleClick: function () { if (!tab.seed) props.onEdit(tab); },
-            className: "shrink-0 active:opacity-70",
+            title: tab.name,
+            className: "shrink-0 active:opacity-80 flex items-center justify-center",
             style: {
-              fontFamily: F_BODY, fontSize: 13.5, whiteSpace: "nowrap", padding: "5px 14px", borderRadius: 999,
-              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line)
+              // 选中＝抽出来翻开的那一本：满高、纸色、压住搁板线（marginBottom -1）
+              height: on ? SPINE_H : OFF_H, width: on ? 34 : 27, marginBottom: on ? -1 : 0,
+              borderRadius: "4px 4px 0 0", overflow: "hidden", padding: "7px 0",
+              background: on ? t.bg : t.bg2,
+              // 选中那本的边只有三面——底下是敞开的，接进正文
+              border: "1px solid " + (on ? t.ink : t.line),
+              borderBottom: on ? "none" : "1px solid " + t.line,
+              // 立着的那几本压在后面：右侧一道暗边当书与书之间的缝
+              boxShadow: on ? "0 -2px 6px rgba(0,0,0,.10)" : "inset -2px 0 0 rgba(0,0,0,.05)",
+              color: on ? t.ink : t.sub,
+              fontFamily: F_DISPLAY, fontSize: on ? 13 : 12, fontWeight: on ? 600 : 400,
+              writingMode: "vertical-rl", textOrientation: "upright",
+              letterSpacing: on ? "0.06em" : "0.04em", lineHeight: 1,
+              whiteSpace: "nowrap"
             }
-          }, tab.name, (on && !tab.seed) ? " ✎" : "");
+          }, String(tab.name || "").slice(0, on ? 4 : 3), (on && !tab.seed) ? "✎" : "");
         }),
+        // 空位：架子上还留着的那一格
         h("button", {
-          onClick: props.onAdd, className: "shrink-0 active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 15, padding: "4px 12px", borderRadius: 999, color: t.fog, border: "1px dashed " + t.line }
-        }, "+")));
+          onClick: props.onAdd, className: "shrink-0 active:opacity-60 flex items-center justify-center",
+          "aria-label": "新建世界观",
+          style: {
+            height: OFF_H, width: 27, borderRadius: "4px 4px 0 0",
+            border: "1px dashed " + t.line, borderBottom: "1px dashed " + t.line,
+            color: t.fog, fontFamily: F_BODY, fontSize: 15, background: "transparent"
+          }
+        }, "+"),
+        h("div", { style: { flex: 1, minWidth: 8 } })));
   }
 
   // ---------- 生成配置弹窗（齿轮）----------
