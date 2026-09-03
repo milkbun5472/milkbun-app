@@ -566,11 +566,14 @@
                 }))),
             h("div", { style: { padding: "16px 12px 14px", position: "relative" } },
               // 相纸下半张那道白边：左边铅笔写的编号和月份，右边这一册的名字
-              h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between",
+              // ⚠️两边都得 nowrap：这一行是相纸下沿【铅笔写的一行小字】，
+              // 断成两行就不是一行小字了（她 2026-09-03 截图：右边那句折成了两行）。
+              // 窄机上宁可字距收窄，也不许换行——所以右边这句字号和字距都压了一档。
+              h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8,
                 paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: "rgba(64,54,42,.86)", letterSpacing: ".04em" } },
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: "rgba(64,54,42,.86)", letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".34em", color: "rgba(120,100,72,.55)", textIndent: ".34em" } }, "CHANGE IN IMPRESSION")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: "rgba(120,100,72,.55)", textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, "CHANGE IN IMPRESSION")),
               e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "rgba(43,36,28,.95)", textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
                 h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: "rgba(120,100,72,.5)" } }, "“"),

@@ -1065,19 +1065,50 @@
   // ============================================================
   // 每个媒体腔一套自己的视觉:同样的字排成一样的样子，那还是四篇一样的东西。
   // tint=版块主色 / rule=分隔线画法 / face=正文字体取向 / deco=版头装饰字符
-  const VOICE_LOOK = {
-    victorian:  { tint: "#765337", face: "serif", titleFace: "Georgia,'Songti SC',serif", bodyFace: "'Songti SC',Georgia,serif", deco: "❦", eyebrow: "letterpress", ink: "#35271d", muted: "#806e5d", paper: "#f4ead6", pale: "#e6d2b5" },
-    cyberpunk:  { tint: "#55c9c0", face: "mono", titleFace: "'Archivo',ui-monospace,monospace", bodyFace: "ui-monospace,'SFMono-Regular',monospace", deco: "▮▮▯", eyebrow: "datastream", ink: "#d9fffb", muted: "#78aaa8", paper: "#101b21", pale: "#18343a" },
-    republican: { tint: "#9b3f49", face: "serif", titleFace: "'STKaiti','KaiTi','Songti SC',serif", bodyFace: "'Songti SC','STKaiti',serif", deco: "❁", eyebrow: "old shanghai", ink: "#352a28", muted: "#8b746d", paper: "#f2e8d8", pale: "#e7d2c8" },
-    editorial:  { tint: "#282828", face: "serif", titleFace: "'Times New Roman','Songti SC',serif", bodyFace: "'Songti SC',Georgia,serif", deco: "—", eyebrow: "editorial", ink: "#171717", muted: "#666", paper: "#f5f3ed", pale: "#dedbd2" },
-    naturalist: { tint: "#47724b", face: "serif", titleFace: "Optima,'Songti SC',serif", bodyFace: "'Songti SC',Georgia,serif", deco: "✿", eyebrow: "field notes", ink: "#263d2b", muted: "#758472", paper: "#edf2e5", pale: "#d9e4d2" },
-    noir:       { tint: "#c3a55d", face: "mono", titleFace: "'Courier New','Songti SC',monospace", bodyFace: "'Songti SC','Courier New',serif", deco: "▲", eyebrow: "case file", ink: "#eee9df", muted: "#aaa6a0", paper: "#202124", pale: "#343537" },
-    tabloid:    { tint: "#d12f28", face: "sans", titleFace: "Impact,'Arial Black','Heiti SC',sans-serif", bodyFace: "'Heiti SC','PingFang SC',sans-serif", deco: "★", eyebrow: "exclusive", ink: "#171717", muted: "#76635b", paper: "#fff1d6", pale: "#f3d7a9" },
-    markets:    { tint: "#167164", face: "mono", titleFace: "'Archivo',ui-monospace,monospace", bodyFace: "ui-monospace,'SFMono-Regular',monospace", deco: "↗", eyebrow: "closing bell", ink: "#173a34", muted: "#617e78", paper: "#e5f0e9", pale: "#cfe1d7" },
-    tribunal:   { tint: "#75523a", face: "serif", titleFace: "'Songti SC',Georgia,serif", bodyFace: "'Songti SC',Georgia,serif", deco: "§", eyebrow: "hearing record", ink: "#33271f", muted: "#84766c", paper: "#eee8dd", pale: "#ddd0bd" },
-    sportsdesk: { tint: "#2369a1", face: "sans", titleFace: "'Arial Narrow','Heiti SC',sans-serif", bodyFace: "'PingFang SC','Heiti SC',sans-serif", deco: "●", eyebrow: "match report", ink: "#142d43", muted: "#667d90", paper: "#e8f1f7", pale: "#caddea" }
+  // ⚠️v61.29：原来这十套的字体只在【西文】上分得开（Georgia / Impact / Courier…），
+  // 而周刊的标题和正文几乎全是中文——中文一律落回系统那一款，
+  // 于是十个腔调看着是同一种字（她 2026-09-03：「字体还是默认的没有区分」）。
+  // 分中文字体才算真的分：宋（端正）/ 楷（旧、手写气）/ 黑（响、硬）三路，
+  // 系统缺的那两款从 Google Fonts 拉（免费、可商用），而且【用到哪一款才拉哪一款】。
+  const WEEKLY_WEBFONTS = {
+    "Noto Sans SC": "https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap",
+    "ZCOOL XiaoWei": "https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap",
+    "Ma Shan Zheng": "https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap"
   };
-  function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
+  // 中文字体动辄几 MB，所以不预载：某一腔第一次上屏时才插它那一条 <link>，插过就不再插。
+  function ensureWeeklyFont(stack) {
+    if (typeof document === "undefined" || !stack) return;
+    Object.keys(WEEKLY_WEBFONTS).forEach(function (name) {
+      if (String(stack).indexOf(name) < 0) return;
+      const id = "wkfont-" + name.replace(/\s+/g, "-");
+      if (document.getElementById(id)) return;
+      const el = document.createElement("link");
+      el.id = id; el.rel = "stylesheet"; el.href = WEEKLY_WEBFONTS[name];
+      document.head.appendChild(el);
+    });
+  }
+  const VOICE_LOOK = {
+    // 宋：端正、旧书感
+    victorian:  { tint: "#765337", face: "serif", titleFace: "Georgia,'Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "❦", eyebrow: "letterpress", ink: "#35271d", muted: "#806e5d", paper: "#f4ead6", pale: "#e6d2b5" },
+    editorial:  { tint: "#282828", face: "serif", titleFace: "'Times New Roman','Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "—", eyebrow: "editorial", ink: "#171717", muted: "#666", paper: "#f5f3ed", pale: "#dedbd2" },
+    tribunal:   { tint: "#75523a", face: "serif", titleFace: "'Noto Serif SC','Songti SC',Georgia,serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "§", eyebrow: "hearing record", ink: "#33271f", muted: "#84766c", paper: "#eee8dd", pale: "#ddd0bd" },
+    // 楷／细宋：旧、手写气。民国那腔用毛笔楷（马善政），田野笔记用站酷小薇（细宋楷）
+    republican: { tint: "#9b3f49", face: "serif", titleFace: "'Ma Shan Zheng','STKaiti','KaiTi',serif", bodyFace: "'ZCOOL XiaoWei','STKaiti','Songti SC',serif", deco: "❁", eyebrow: "old shanghai", ink: "#352a28", muted: "#8b746d", paper: "#f2e8d8", pale: "#e7d2c8" },
+    naturalist: { tint: "#47724b", face: "serif", titleFace: "'ZCOOL XiaoWei',Optima,'Songti SC',serif", bodyFace: "'ZCOOL XiaoWei','Songti SC',Georgia,serif", deco: "✿", eyebrow: "field notes", ink: "#263d2b", muted: "#758472", paper: "#edf2e5", pale: "#d9e4d2" },
+    // 黑：响、硬。小报最重，体育次之
+    tabloid:    { tint: "#d12f28", face: "sans", titleFace: "Impact,'Arial Black','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'Noto Sans SC','PingFang SC',sans-serif", deco: "★", eyebrow: "exclusive", ink: "#171717", muted: "#76635b", paper: "#fff1d6", pale: "#f3d7a9" },
+    sportsdesk: { tint: "#2369a1", face: "sans", titleFace: "'Arial Narrow','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'PingFang SC','Noto Sans SC',sans-serif", deco: "●", eyebrow: "match report", ink: "#142d43", muted: "#667d90", paper: "#e8f1f7", pale: "#caddea" },
+    noir:       { tint: "#c3a55d", face: "mono", titleFace: "'Courier New','Noto Sans SC','Heiti SC',monospace", bodyFace: "'Noto Serif SC','Songti SC','Courier New',serif", deco: "▲", eyebrow: "case file", ink: "#eee9df", muted: "#aaa6a0", paper: "#202124", pale: "#343537" },
+    // 机器腔：西文等宽 + 中文黑，两边都不带一点书卷气
+    cyberpunk:  { tint: "#55c9c0", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "▮▮▯", eyebrow: "datastream", ink: "#d9fffb", muted: "#78aaa8", paper: "#101b21", pale: "#18343a" },
+    markets:    { tint: "#167164", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "↗", eyebrow: "closing bell", ink: "#173a34", muted: "#617e78", paper: "#e5f0e9", pale: "#cfe1d7" }
+  };
+  function lookOf(id) {
+    const L = VOICE_LOOK[id] || VOICE_LOOK.editorial;
+    // 取到哪一腔就把它要的中文字体拉进来（拉过不重拉）
+    ensureWeeklyFont(L.titleFace); ensureWeeklyFont(L.bodyFace);
+    return L;
+  }
   function WeeklyMotionStyles() {
     return h("style", null,
       "@keyframes weeklyPageNext{0%{opacity:.18;transform:perspective(1100px) rotateY(7deg) translateX(22px);filter:blur(1px)}55%{opacity:.92}100%{opacity:1;transform:perspective(1100px) rotateY(0) translateX(0);filter:blur(0)}}" +

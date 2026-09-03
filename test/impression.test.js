@@ -467,9 +467,12 @@ test("卡片版式照「初形象生成」那套：白点连线标签＋英文�
   assert.match(imp, /boxShadow: "0 0 0 7px rgba\(255,255,255,\.26\)"/, "白点带光晕");
   assert.match(imp, /onLeft \? \[chip, line, dot\] : \[dot, line, chip\]/, "点永远朝画面里侧");
   assert.match(imp, /CHANGE IN IMPRESSION/, "英文水印行");
-  // v61.26：英文水印从相片正下方那一行，挪到白边上跟「No. 04 · 月份」并排，
-  // 字距也跟着收到 .34em——它现在是相纸白边上的印刷小字，不是一行居中标题。
-  assert.match(imp, /letterSpacing: "\.34em"/);
+  // v61.26：英文水印从相片正下方那一行，挪到白边上跟「No. 04 · 月份」并排。
+  // v61.29 又收了一档（.22em / 8.5px）并两边都 nowrap——她截图里它折成了两行，
+  // 而这一行是「相纸白边上的一行铅笔小字」，断行就不成立了。
+  assert.match(imp, /letterSpacing: "\.22em"/);
+  const row = imp.slice(imp.indexOf("相纸下半张那道白边"), imp.indexOf("CHANGE IN IMPRESSION") + 60);
+  assert.equal((row.match(/whiteSpace: "nowrap"/g) || []).length, 2, "这一行两边必须都不许换行");
 });
 
 test("跨角色负例：别人的卡喂进生成，各写各的才不会全撞同族意象", () => {
