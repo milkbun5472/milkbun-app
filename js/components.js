@@ -4367,7 +4367,7 @@ function ChatThread({
       letterSpacing: "0.08em",
       color: chatMode === "chat" ? t.fog : t.accent
     }
-  }, (chatMode === "narr" ? "旁白注入" : chatMode === "ooc" ? "OOC 指令" : "对话") + " · 轻触切换"))), /*#__PURE__*/React.createElement("button", {
+  }, (chatMode === "narr" ? "旁白" : chatMode === "ooc" ? "出戏" : "说话") + " · 轻触切换"))), /*#__PURE__*/React.createElement("button", {
     onClick: onOpenSettings,
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IDots, {
@@ -4885,7 +4885,7 @@ function ChatThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "narr" ? "写一段旁白 / 设定场景…" : chatMode === "ooc" ? "OOC：直接和模型说，可让它调整或问状态…" : "发一条消息…",
+    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "发一条消息…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
@@ -5061,26 +5061,16 @@ function ChatThread({
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
     onClose: () => setModeOpen(false)
-  }, h("div", {
-    style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 10 }
-  }, "输入模式"), [["chat", "对话", "与角色直接交流"], ["offline", "赴约", "进入线下模式"], ["narr", "旁白注入", "设定背景与环境"], ["ooc", "OOC 指令", "越过角色下达指令"]].map(([mk, mzh, mdesc]) => h("button", {
-    key: mk,
-    onClick: () => {
-      setModeOpen(false);
-      onModeTap(mk);
-    },
-    className: "w-full flex items-center py-3 px-3 active:opacity-60 text-left",
-    style: { borderRadius: 12, background: mk === chatMode ? t.bg : "transparent", marginBottom: 4 }
-  }, h("div", {
-    className: "flex-1"
-  }, h("div", {
-    style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink }
-  }, mzh), h("div", {
-    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 }
-  }, mdesc)), mk === chatMode && h(ICheck, {
-    size: 18,
-    color: t.tint
-  }))), onOpenRooms && h("button", {
+  }, h(ModePicker, {
+    modes: [
+      ["chat", "说话", "一条一条发过去，他在那头看手机"],
+      ["offline", "见面", "不隔着屏幕了，写你人在场做什么"],
+      ["narr", "旁白", "这一条不是你说的，是天气、是灯、是谁推门进来"],
+      ["ooc", "出戏", "绕过他，直接跟演他的那位说（OOC）"]
+    ],
+    cur: chatMode,
+    onPick: mk => { setModeOpen(false); onModeTap(mk); }
+  }, onOpenRooms && h("button", {
     onClick: () => { setModeOpen(false); onOpenRooms(); },
     className: "w-full flex items-center px-3 active:opacity-60 text-left",
     style: { marginTop: 8, paddingTop: 13, paddingBottom: 4, borderTop: "1px solid " + t.line }
@@ -5088,7 +5078,7 @@ function ChatThread({
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "小房间"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来")),
     h(IChevR, { size: 17, color: t.fog })
-  )), menu != null && h(MsgMenu, {
+  ))), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
@@ -6872,6 +6862,68 @@ function ReplyKey({ sending, disabled, title, onClick, hold }) {
           strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" },
         h("path", { d: MAPLE_D }))));
 }
+
+// 「这一条怎么进去」——切输入档位的那张单子（v60.69 重做）。
+//
+// 她 2026-09-03 把两张截图并排放着问：「这俩会不会太像了嘤」。是像——
+// 另一个 app 的那张单子和我们这张，四行的名字和说明**一个字都不差**
+// （「对话 / 与角色直接交流」「赴约 / 进入线下模式」「旁白注入 / 设定背景与环境」
+// 「OOC 指令 / 越过角色下达指令」），连「图标+名字+小字+右边一个勾」的排法都一样。
+//
+// 所以这一版不再【描述】这几档，改成【把每一档的样子画出来】：
+// 每行左边那一小片，就是这条消息发出去之后真正长的样子——
+// 一来一回的气泡 / 带头像的一段叙述 / 居中那行小斜体 / 括号里的一句话。
+// 换个 app 这四片就不成立了，因为它们画的是这个 app 自己的气泡和旁白。
+// 选中的那一档也不靠打勾：它自己上墨、纸色垫起来、左边立一道墨条。
+const MODE_SW = { width: 54, height: 34, borderRadius: 8, flexShrink: 0, overflow: "hidden" };
+// 样张自己是一小张纸：单子那张纸是 t.bg2，样张就得比它亮一档才立得出来
+function ModeSwatch({ k }) {
+  const t = useTheme();
+  const bar = (w, c, mt) => h("div", { style: { width: w, height: 2, borderRadius: 2,
+    background: c || t.ink, opacity: c ? 0.9 : 0.5, marginTop: mt || 0 } });
+  const paper = { background: t.bg, border: "1px solid " + t.line };
+  const box = kids => h("div", { style: Object.assign({}, MODE_SW, paper, { padding: "5px 5px" }) }, kids);
+  // 线上：一来一回两个气泡，颜色就是她自己设的那套气泡皮肤
+  if (k === "chat") return box([
+    h("div", { key: "a", style: { width: 21, height: 9, borderRadius: 5, background: BUBBLE_SKIN.charBg } }),
+    h("div", { key: "b", style: { width: 26, height: 9, borderRadius: 5, background: BUBBLE_SKIN.myBg, marginTop: 4, marginLeft: "auto" } })]);
+  // 线下：带头像的一张叙述卡
+  if (k === "offline") return box(
+    h("div", { className: "flex gap-1.5" },
+      h("div", { style: { width: 11, height: 11, borderRadius: 999, background: t.ink, opacity: 0.28, flexShrink: 0 } }),
+      h("div", { style: { flex: 1 } }, bar("100%"), bar("74%", null, 3), bar("88%", null, 3))));
+  // 旁白：居中那两行小斜体
+  if (k === "narr") return h("div", { style: Object.assign({}, MODE_SW, paper, {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }) },
+    bar(26, t.fog), bar(15, t.fog));
+  // 出戏：一句括号里的话
+  return h("div", { style: Object.assign({}, MODE_SW, paper, { display: "flex",
+    alignItems: "center", justifyContent: "center", gap: 2,
+    fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: t.fog }) },
+    "(", h("div", { style: { width: 18 } }, bar("100%", t.fog), bar("62%", t.fog, 3)), ")");
+}
+function ModePicker({ modes, cur, onPick, children }) {
+  const t = useTheme();
+  return h("div", null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 10 } },
+      "这一条怎么进去"),
+    modes.map(([mk, mzh, mdesc]) => {
+      const on = mk === cur;
+      return h("button", { key: mk, onClick: () => onPick(mk),
+        className: "w-full flex items-stretch gap-2.5 text-left active:opacity-60",
+        style: { borderRadius: 12, padding: "8px 10px 8px 7px", marginBottom: 4,
+          background: on ? t.bg : "transparent" } },
+        h("div", { style: { width: 3, borderRadius: 2, flexShrink: 0,
+          background: on ? t.ink : "transparent" } }),
+        h("div", { style: { opacity: on ? 1 : 0.42, display: "flex", alignItems: "center" } },
+          h(ModeSwatch, { k: mk })),
+        h("div", { className: "flex-1 min-w-0 flex flex-col justify-center" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, mzh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, mdesc)));
+    }),
+    children);
+}
+
 // 代付请求卡
 function PayLaterCard({ m }) {
   const t = useTheme();
@@ -8709,7 +8761,7 @@ function GroupOfflineMode({
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
-      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
+      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
       !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
@@ -9000,7 +9052,7 @@ function GroupThread({
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
     }
-  }, chatMode === "ooc" ? "OOC 指令 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
+  }, chatMode === "ooc" ? "出戏 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
   // 记忆互通关掉时本来就不会自发，这颗开关也就不出现——免得按了没反应
   gs.memoryInterop && chatMode !== "ooc" ? h("button", {
     onClick: () => onSaveSettings && onSaveSettings({ autoChat: gHold }),
@@ -9428,7 +9480,7 @@ function GroupThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "ooc" ? "OOC：直接和模型说，可让它调整或问状态…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
+    placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
@@ -9583,27 +9635,19 @@ function GroupThread({
     }
   }), modeOpen && h(Sheet, {
     onClose: () => setModeOpen(false)
-  }, h("div", {
-    style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 10 }
-  }, "输入模式"), [["chat", "群聊", "在群里正常收发消息"], ["ooc", "OOC 指令", "越过所有角色直接和模型说"], ["offline", "赴约", "进入多人线下模式"]].map(([mk, mzh, mdesc]) => h("button", {
-    key: mk,
-    onClick: () => {
+  }, h(ModePicker, {
+    modes: [
+      ["chat", "群里说话", "照常发，谁接话看他们自己"],
+      ["offline", "见面", "一屋子人不隔着屏幕了"],
+      ["ooc", "出戏", "绕过所有人，直接跟演他们的那位说（OOC）"]
+    ],
+    cur: chatMode,
+    onPick: mk => {
       setModeOpen(false);
       if (mk === "offline") onOffline && onOffline();
       else setChatMode(mk);
-    },
-    className: "w-full flex items-center py-3 px-3 active:opacity-60 text-left",
-    style: { borderRadius: 12, background: mk === chatMode ? t.bg : "transparent", marginBottom: 4 }
-  }, h("div", {
-    className: "flex-1"
-  }, h("div", {
-    style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink }
-  }, mzh), h("div", {
-    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 }
-  }, mdesc)), mk === chatMode && h(ICheck, {
-    size: 18,
-    color: t.tint
-  })))), menu != null && h(MsgMenu, {
+    }
+  })), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
