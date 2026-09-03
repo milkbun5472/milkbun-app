@@ -95,12 +95,37 @@
   // ⚠️整页和小悬浮屏是【同一段对话】，不是两段：在小球里问了半句、点开整页接着说，
   //   这才叫上下文。所以它落在存档里，两处都读同一份。
   const CHAT_KEY = "x_assistChat";
-  const CHAT_KEEP = 60;
+  const CHAT_KEEP = 200;
+  // 发回去的窗口按【字数】收，不按条数（她 2026-09-03：「上下文可以放开点反正按次计费」）。
+  // 原来死板地只发最近 14 条：一句「帮我看看这份人设」加上它那段长回答就吃掉两条，
+  // 聊上七八个来回，前面说过的东西一点痕迹都不留。
+  // 按次计费＝多发这些字一分钱也多花不到，省它才是纯亏（max-tokens-floor.md 同一个道理）。
+  const CTX_CHARS = 60000;
+  const CTX_MIN = 30;        // 再长也至少留这么多条，别把最近几轮也挤掉
   function loadChat() { try { const a = JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  // ⚠️两个界面看同一段对话，可小悬浮屏【从不卸载】——它挂在 App 根上，
+  //   换页也不重建，于是它手里一直是自己那份旧的内存副本：
+  //   在整页里聊完退出去，再点开小球，看见的是空的（她 2026-09-03：「退出界面聊天记录又没了」）。
+  //   光靠「进来时读一次」修不好，因为它压根没有「再进来」这回事。
+  //   所以落盘的时候喊一声，两处一起换。
+  const chatSubs = new Set();
+  function onChat(fn) { chatSubs.add(fn); return () => chatSubs.delete(fn); }
   function saveChat(list) {
     const a = (Array.isArray(list) ? list : []).slice(-CHAT_KEEP);
     try { localStorage.setItem(CHAT_KEY, JSON.stringify(a)); } catch (e) {}
+    chatSubs.forEach(fn => { try { fn(a); } catch (e) {} });
     return a;
+  }
+  // 发给模型的那一截：从最近往回收，收到字数预算为止
+  function chatWindow(list) {
+    const all = Array.isArray(list) ? list : [];
+    let chars = 0, cut = all.length;
+    for (let i = all.length - 1; i >= 0; i--) {
+      const c = String(all[i].text || "").length + 16;
+      if (all.length - i > CTX_MIN && chars + c > CTX_CHARS) break;
+      chars += c; cut = i;
+    }
+    return all.slice(cut);
   }
   const TS = () => (typeof window !== "undefined" && window.ThemeStudio) || null;
 
@@ -245,11 +270,26 @@
   }
 
   // ---- 现状快照：让它看得见 app 此刻的样子，才谈得上「诊断」 ----
+  // ⚠️人设【给全文】（她 2026-09-03：「我之前问它人设的事它说看不到全部，
+  //   改成它能看也能直接帮我改吧」）。原来砍到 220 字——她的人设普遍四千多字，
+  //   220 字之后剩下的只是一个标签，它当然说自己看不到；更糟的是它会照着那半截去改。
+  //   额度用群聊那一层现成的（每人封顶 6000、总预算 30000、地板 1500），
+  //   不自己再拍一套截断规则——一层写在两处，第二处迟早跟不上。
+  //   真截断了 groupPersonaText 会在尾巴上写明白，它就不会把半截当全文。
+  const budgetOf = n => (typeof groupPersonaBudget === "function" ? groupPersonaBudget(n) : 6000);
+  const personaOf = (txt, b) => (typeof groupPersonaText === "function" ? groupPersonaText(txt, b) : String(txt || "").slice(0, b));
   function snapshot(ctx) {
-    const chars = (ctx.characters || []).map(c => ({
+    const list = ctx.characters || [];
+    const b = budgetOf(list.length);
+    const chars = list.map(c => ({
       名字: c.name, id: c.id,
-      人设: clip(c.persona, 220) || "（空）",
-      外貌: clip(c.appearance, 120) || "（空）",
+      一句话简介: clip(c.tagline, 80) || "（空）",
+      人设: personaOf(c.persona, b),
+      外貌: personaOf(c.appearance, Math.min(2000, b)) ,
+      生日: c.birthday || "（空）", 性别: c.gender || "（没填，一律用 TA）",
+      出图定妆: clip(c.photoCanon, 200) || "（空）",
+      出图常服: clip(c.photoOutfit, 200) || "（空）",
+      出图配饰: clip(c.photoAccessories, 200) || "（空）",
       有参考照: !!c.refPhoto, 出图画风: c.photoStyle || "realistic"
     }));
     const styles = loadJ("x_offlineStyles", []).map(s => ({ 名称: s.name, id: s.key, 字数: String(s.prompt || "").length }));
@@ -293,7 +333,7 @@
       + "模型不认可选字段；出图被上游审核拒。这种时候通常不需要改动稿，除非改一处设置就能解决。\n\n"
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
-      + "· persona 角色人设　· appearance 角色外貌\n"
+      + "· persona 角色人设　· appearance 角色外貌（下面的快照里给的就是全文；真太长被截了会在尾巴上写明，别把半截当全文）\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
@@ -310,7 +350,7 @@
   async function ask(active, ctx, history, text) {
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
-    const msgs = (history || []).slice(-14).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
       .concat([{ role: "user", content: String(text || "") }]);
     const raw = await callAI(active, buildSystem(ctx, text), msgs, { maxTokens: 12000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
@@ -359,7 +399,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, CHAT_KEEP, activeFor };
+    loadCfg, saveCfg, DEFAULT_PROMPT, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor };
 })();
 
 // ============================================================
@@ -459,7 +499,9 @@
     const [msgs, setMsgs] = useState(A.loadChat);
     const [busy, setBusy] = useState(false);
     const [done, setDone] = useState({});          // pid -> "已应用" | 错误原文
-    const put = list => { setMsgs(A.saveChat(list)); };
+    const put = list => { A.saveChat(list); };     // 落盘会喊一声，两处一起换（含自己）
+    // 小悬浮屏从不卸载，没有「进来时读一次」这回事——只能靠这一声
+    useEffect(() => A.onChat(setMsgs), []);
     const send = async text => {
       const q = String(text || "").trim();
       if (!q || busy) return;

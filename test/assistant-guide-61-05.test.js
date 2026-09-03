@@ -207,16 +207,18 @@ test("两档合成一档：查毛病的那套话直接进主提示词，不再�
 });
 
 // 她 2026-09-03：「它聊天也要有上下文然后可以清空」
+// （封顶数和窗口大小别冻在这儿——底下「上下文按字数收」那条按判据管着，
+//   这里只管「有没有落盘、发的时候读的是不是同一份、清不清得掉」。）
 test("整页和小球是同一段对话，落在存档里，能清空", () => {
   assert.match(src, /const CHAT_KEY = "x_assistChat";/);
   assert.match(src, /const \[msgs, setMsgs\] = useState\(A\.loadChat\);/, "对话没从存档里读，关掉就没了");
   assert.match(src, /const before = A\.loadChat\(\);/, "发的时候拿的不是存档里那份，两处会各说各的");
   assert.match(src, /const clear = \(\) => \{ setDone\(\{\}\); put\(\[\]\); \};/);
-  // 攒着不封顶就是又一座坟场（phone-data-layers.md）
-  assert.match(src, /const CHAT_KEEP = 60;/);
-  assert.match(src, /\.slice\(-CHAT_KEEP\)/);
-  // 上下文真的发回去了
-  assert.match(src, /\(history \|\| \[\]\)\.slice\(-14\)/);
+  // 真跑一遍：写进去读得出来，清空之后是空的
+  A.api.saveChat([{ role: "me", text: "一" }]);
+  assert.equal(A.api.loadChat().length, 1);
+  A.api.saveChat([]);
+  assert.equal(A.api.loadChat().length, 0);
 });
 
 // 她 2026-09-03：「开个设置页预设帮手名字叫秋秋，参考一下这个提示词写个可以改的预设」
@@ -300,4 +302,55 @@ test("App 把线路表和全局那条都递下去了，两处都递", () => {
   assert.match(app, /h\(AssistantApp, \{[\s\S]{0,400}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "整页没收到线路表");
   // 秋秋的设置页也要收到，不然那一栏画不出来
   assert.match(src, /h\(AssistantSetup, \{ toast: props\.toast, apiProfiles: props\.apiProfiles, active: props\.active,/);
+});
+
+// ── 她 2026-09-03 的三条 ────────────────────────────────────────
+test("人设给全文，不再砍成一个标签", () => {
+  // 「我之前问它人设的事它说看不到全部」——原来砍到 220 字，
+  // 她的人设普遍四千多字，220 字之后剩下的只是一个标签；更糟的是它会照着那半截去改。
+  const long = "他是先帝的第七子。".repeat(400);        // ≈3600 字
+  const snap = A.api.snapshot({ characters: [{ id: "c1", name: "裴照川", persona: long, appearance: "高" }] });
+  assert.ok(snap.角色[0].人设.length > 3000, "人设还是被砍成了 " + snap.角色[0].人设.length + " 字");
+  assert.doesNotMatch(src, /人设: clip\(c\.persona, 220\)/, "旧的那把刀还在");
+  // 额度用群聊那一层现成的，不自己再拍一套
+  assert.match(src, /groupPersonaBudget/);
+  assert.match(src, /groupPersonaText/);
+  // 它能改的那几栏，快照里也得看得见，不然是在盲改
+  ["一句话简介", "生日", "性别", "出图定妆", "出图常服", "出图配饰"].forEach(k =>
+    assert.ok(k in snap.角色[0], "档案里的「" + k + "」它看不见"));
+  // 提示词里要说清「给的就是全文」，不然它还会说自己看不到
+  assert.match(src, /快照里给的就是全文/);
+});
+
+test("上下文按字数收，不再死板地只发最近几条", () => {
+  // 她 2026-09-03：「上下文可以放开点反正按次计费」
+  assert.doesNotMatch(src, /\(history \|\| \[\]\)\.slice\(-1?[0-9]\)/, "还在按条数砍");
+  assert.match(src, /const msgs = chatWindow\(history\)\.map/);
+  const many = Array.from({ length: 80 }, (_, i) => ({ role: i % 2 ? "it" : "me", text: "字".repeat(40) }));
+  assert.equal(A.api.chatWindow(many).length, 80, "八十条短消息也该全发");
+  // 真有人贴了几篇长文进来，也不能把窗口撑爆
+  const huge = Array.from({ length: 80 }, () => ({ role: "me", text: "字".repeat(5000) }));
+  assert.equal(A.api.chatWindow(huge).length, A.api.CTX_MIN, "长的时候没收住");
+  assert.ok(A.api.CTX_CHARS >= 40000, "窗口给得太紧了：按次计费，省这些字一分钱省不到");
+  assert.ok(A.api.CHAT_KEEP >= 150, "存档留太少");
+  assert.match(src, /\.slice\(-CHAT_KEEP\)/, "存档不封顶就是又一座坟场");
+});
+
+test("两个界面永远是同一段对话——小悬浮屏从不卸载，得有人喊它", () => {
+  // 「退出界面聊天记录又没了」：整页里聊完退出去，再点开小球看见的是空的。
+  // 病根是小球挂在 App 根上、换页也不重建，手里一直是自己那份旧的内存副本；
+  // 「进来时读一次」修不好它——它压根没有「再进来」这回事。
+  assert.match(src, /const chatSubs = new Set\(\);/);
+  assert.match(src, /chatSubs\.forEach\(fn => \{ try \{ fn\(a\); \} catch \(e\) \{\} \}\);/, "落盘的时候没喊");
+  assert.match(src, /useEffect\(\(\) => A\.onChat\(setMsgs\), \[\]\);/, "界面没听这一声");
+  assert.match(src, /const put = list => \{ A\.saveChat\(list\); \};/, "还在自己 setState，那就只有自己换");
+  // 真跑一遍：两个订阅者，其中一个写，另一个要收到
+  const seen = [];
+  const off1 = A.api.onChat(l => seen.push("A:" + l.length));
+  const off2 = A.api.onChat(l => seen.push("B:" + l.length));
+  A.api.saveChat([{ role: "me", text: "一" }, { role: "it", text: "二" }]);
+  assert.deepEqual(seen, ["A:2", "B:2"], "有人没收到");
+  off1(); off2();
+  A.api.saveChat([]);
+  assert.deepEqual(seen, ["A:2", "B:2"], "退订之后还在收");
 });
