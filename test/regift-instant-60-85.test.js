@@ -39,7 +39,10 @@ test("礼物卡改成一个真的盒子：盒身、丝带、吊牌", () => {
   assert.equal(card.indexOf('background: "linear-gradient(135deg,#c25a4a,#9a3f37)"'), -1, "那张红渐变卡片该整个删掉");
   assert.match(card, /const KRAFT = "#e6d8bd"/, "盒身是牛皮纸");
   assert.match(card, /const band = extra =>/, "压过盖子的那条丝带");
-  assert.match(card, /FOR YOU/, "吊牌上写着给谁");
+  // 她 2026-09-03：「礼物盒上这个英文 for u 不要了」——吊牌上只留名字
+  assert.equal(card.indexOf("FOR YOU"), -1, "那行英文该删干净");
+  assert.equal(card.indexOf("FOR ME"), -1, "那行英文该删干净");
+  assert.match(card, /borderRadius: "2px 8px 8px 2px"/, "吊牌还是那张挂在丝带上的小纸片");
   assert.match(card, /position: "absolute", left: RIB_X - 3, top: open \? 4 : 20/, "蝴蝶结跟着盖子一起动");
 });
 

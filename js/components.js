@@ -6851,12 +6851,12 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
           h("div", { style: { position: "absolute", left: 6, top: -3, width: 17, height: 12, borderRadius: "3px 9px 9px 9px", background: RIBBON, transform: "rotate(12deg)" } }),
           h("div", { style: { position: "absolute", left: -3, top: 0, width: 12, height: 8, borderRadius: 4, background: RIBBON_D } })),
         // 吊牌：一张挂在丝带上的小纸片，名字写在上面
-        h("div", { style: { position: "absolute", left: RIB_X + 20, right: 12, top: 46, padding: "7px 11px 8px 16px",
+        h("div", { style: { position: "absolute", left: RIB_X + 20, right: 12, top: 50, padding: "11px 11px 12px 16px",
           background: "#fbf7ee", borderRadius: "2px 8px 8px 2px", border: "1px solid rgba(70,52,28,.16)",
           boxShadow: "0 1px 2px rgba(46,38,29,.10)", transform: "rotate(-1.2deg)" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: "0.22em", color: "#a08a63" } }, toChar ? "FOR YOU" : "FOR ME"),
+          // 吊牌上只写名字（她 2026-09-03：「礼物盒上这个英文 for u 不要了」）。
           // 名字长了就两行打住：吊牌撑破盒子就不是吊牌了
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.25, color: "#3a3025", marginTop: 2, wordBreak: "break-word",
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: "#3a3025", wordBreak: "break-word",
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, name),
           // 吊牌上打的那个孔
           h("div", { style: { position: "absolute", left: 6, top: "50%", marginTop: -2.5, width: 5, height: 5, borderRadius: 999, background: "rgba(70,52,28,.22)" } }))),
