@@ -127,6 +127,16 @@ test("存档封顶，而且排序键得是存档里真有的字段", () => {
   assert.doesNotMatch(seg, /\(y\.ts \|\| 0\)/);
   // 存档确实是 createdAt/updatedAt，没有 ts
   assert.match(fic, /createdAt: Date\.now\(\), updatedAt: Date\.now\(\) \};\n\s*persist\(\[sess\]/);
-  // 每走一步都会 bump，所以正在玩的那局永远在最前面、不会被挤掉
-  assert.equal((fic.match(/ss\.updatedAt = Date\.now\(\);/g) || []).length, 3, "开场/行动/推进各一处");
+  // 每走一步都会 bump，所以正在玩的那局永远在最前面、不会被挤掉。
+  // ⚠️原来数的是「ss.updatedAt 出现 3 次」——那冻的是长相不是行为：
+  // v60.97 多了「结算原著这一页」和「收尾」两处落笔，次数从 3 变 5，
+  // 行为一点没坏，测试却红了。改成按判据数：【凡是往 transcript 里落笔的地方，都得 bump】。
+  const writes = fic.split("ss.transcript =").slice(1);
+  assert.ok(writes.length >= 3, "找不到往 transcript 落笔的地方了");
+  writes.forEach((seg, k) => {
+    const end = seg.indexOf("return ss;");
+    assert.ok(end > 0, "第 " + (k + 1) + " 处落笔没在 onUpdate 回调里");
+    assert.match(seg.slice(0, end), /ss\.updatedAt = Date\.now\(\);/,
+      "第 " + (k + 1) + " 处往 transcript 落了笔却没 bump updatedAt，这一局会被挤掉");
+  });
 });

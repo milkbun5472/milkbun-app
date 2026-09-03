@@ -37,8 +37,18 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   assert.match(app, /maxTokens: Math\.min\(20000, 8500 \+ batch\.length \* 60\)/);
   assert.match(app, /maxTokens: Math\.min\(24000, 11200 \+ members\.length \* 900\)/);
   assert.match(eng, /maxTokens: Math\.min\(20000, 8800 \+ \(entries \|\| \[\]\)\.length \* 40\)/);
-  assert.match(fic, /maxTokens: Math\.max\(12000, Math\.min\(20000, \(perFic \|\| 3000\) \+ 8000\)\)/);
-  assert.match(fic, /maxTokens: Math\.max\(11000, Math\.min\(20000, \(perFic \|\| 2400\) \+ 8000\)\)/);
+  // ⚠️同人文这两处别冻公式的【长相】。规矩只说了「不许往下调」，
+  // 而冻住字面量的话，往上抬也会红——v60.97 穿书那一次正是这样：
+  // 开场那一拍现在除了正文还要带回这本书的骨架，抬上限是对的，测试却拦住了。
+  // 改成按判据：地板和上限都不许低于当初那个数。
+  const fml = [...fic.matchAll(/maxTokens: Math\.max\((\d+), Math\.min\((\d+), \(perFic \|\| (\d+)\) \+ (\d+)\)\)/g)]
+    .map(m => m.slice(1).map(Number));
+  assert.ok(fml.length >= 2, "同人文那两处算出来的上限找不到了");
+  fml.forEach(([floor, cap, base, add]) => {
+    assert.ok(floor >= 11000, "地板掉到 " + floor + " 了");
+    assert.ok(cap >= 20000, "上限掉到 " + cap + " 了");
+    assert.ok(add >= 8000, "加给思考的那一份掉到 " + add + " 了");
+  });
   assert.match(rd, /maxTokens: Math\.min\(20000, 9500 \+ n \* 400\)/);
   assert.match(scr, /maxTokens: key === "outfit" \? 14000 : 12000/);
 });
