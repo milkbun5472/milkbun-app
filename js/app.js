@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.13";
+const APP_VERSION = "v62.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3067,13 +3067,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     grab(() => A(loadJSON("x_read_books", [])).filter(b => b && String(b.partnerId || "") === String(char.id))
       .sort((a, b) => (b.lastReadTs || 0) - (a.lastReadTs || 0)).slice(0, 2)
       .forEach(b => L.push("· 你和她在一起读《" + b.title + "》，" + (day(b.lastReadTs) || "最近") + "读过")));
+    // ⚠️这两样的字段名 v62.14 之前全是【照着我以为的样子】写的，没有一处对着真存档验过，
+    //   而桩数据又是照着代码编的，于是测试和代码一起错、一路绿到线上（见 heart-together 测试顶上那段）。
+    //   一起学：真记录是 character_ids[] + teacher_id + created_at，没有 charId 也没有 ts
+    //     → String(undefined || "") === "c1" 永远为假，这一条【从上线起就没出现过】。
     grab(() => { const seen = {};
-      A(loadJSON("x_study_sessions", [])).filter(x => x && String(x.charId || "") === String(char.id))
-        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+      A(loadJSON("x_study_sessions", [])).filter(x => x && (A(x.character_ids).some(id => String(id) === String(char.id))
+          || String(x.teacher_id || "") === String(char.id)))
+        .sort((a, b) => (b.updated_at || b.created_at || 0) - (a.updated_at || a.created_at || 0))
         .forEach(x => { const k = String(x.subject || "").trim();
-          if (k && !seen[k] && Object.keys(seen).length < 1) { seen[k] = 1; L.push("· 你和她一起学过『" + k + "』（" + (day(x.ts) || "最近") + "）"); } }); });
-    grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && (!x.charId || String(x.charId) === String(char.id)))
-      .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.text || x.title || "").slice(0, 40))));
+          if (k && !seen[k] && Object.keys(seen).length < 1) { seen[k] = 1; L.push("· 你和她一起学过『" + k + "』（" + (day(x.updated_at || x.created_at) || "最近") + "）"); } }); });
+    //   时间线：真记录是 characterId + title/content，没有 charId 也没有 text
+    //     → !x.charId 对每一条都成立，于是【谁发呆都能读到所有人的恋爱时间轴】。
+    //       而且只取第 1 条、数组又是新的在前，等于永远端上全库最新那一条——
+    //       她昨天跟陆闻记的里程碑，今天会从沈屿白嘴里说出来。这是隐私围栏，不是文案问题。
+    grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && String(x.characterId || "") === String(char.id))
+      .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.title || x.content || "").slice(0, 40))));
     if (!L.length) return "";
     return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
       + L.slice(0, 6).join("\n")
