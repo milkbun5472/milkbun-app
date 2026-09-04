@@ -43,21 +43,22 @@ test("骨架是【和开场同一次调用】抽出来的——多一层玩法�
   assert.match(seg, /state: "pending"/);
 });
 
-test("开场真的把骨架带回来了，模型不按格式写也不至于开不了场", async () => {
+// v62.50：加笔不再由引擎写开场——原文本身就是开场，这一枪只抽骨架
+test("开场那一枪只抽骨架，不写正文", async () => {
   const S = { playerIdentity: null, landing: { label: "三更值房", scene: "只剩一盏灯" }, mode: "left", know: "spoiler" };
-  F.__say(JSON.stringify({ scene: "开场正文", beats: [
+  F.__say(JSON.stringify({ beats: [
     { label: "灯下那盏茶", page: "他把凉茶换了一盏热的。", cue: "灯将尽的时候" },
     { label: "卷宗被掉包", page: "宗册被换掉一页。", cue: "宗册离手的当口" }] }));
   const r = await F.genRPStart(null, S, {}, {}, [], "我", "", 3000);
-  assert.equal(r.text, "开场正文");
+  assert.equal(r.text, undefined, "开场正文不归它写了（原文就是开场）");
   assert.equal(r.beats.length, 2, "骨架没被接住——那这一版玩法整个不存在");
   assert.equal(r.beats[0].id, "b1");
   assert.equal(r.beats[0].state, "pending");
   assert.equal(r.beats[1].label, "卷宗被掉包");
-  // 模型这次没按格式写：开场正文照样要拿到，只是这一局没有骨架
+  // 模型这次没按格式写：这一局没有骨架，但照样开得了场（原文摆在那儿）
   F.__say("他推门进来的时候，肩上还落着雪。");
   const raw = await F.genRPStart(null, S, {}, {}, [], "我", "", 3000);
-  assert.match(raw.text, /肩上还落着雪/, "格式没解析出来就把开场丢了");
+  assert.deepStrictEqual(raw.beats, [], "解析不出来就该是空骨架，不许抛错");
   assert.deepEqual(raw.beats, []);
 });
 
@@ -171,7 +172,9 @@ test("「轮到我了」认的是最后一段【叙事】，不是最后一条",
   // 批注和结算掉的页都排在叙事后面：拿 trans.length-1 判的话，
   // 逐段展开和底部那个入口会一起失灵
   assert.match(fic, /for \(let i = trans\.length - 1; i >= 0; i--\) \{ if \(trans\[i\]\.who === "nar"\)/);
-  assert.match(fic, /const canAct = !busy && lastNarIdx >= 0 && !moreToReveal && !s\.done;/);
+  // v62.50：读原文时也轮得到我——开局第一条是原文（who:"src"），lastNarIdx 还是 -1，
+  // 用老条件的话「点住那一句动笔」永远出不来
+  assert.match(fic, /const canAct = !busy && trans\.length > 0 && !moreToReveal && !s\.done;/);
   assert.doesNotMatch(fic, /const lastIsNar = /, "旧的那套判断还留着");
 });
 

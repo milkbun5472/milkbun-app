@@ -880,6 +880,38 @@
     "5. 尊重玩家的选择哪怕大幅偏离原著——原著是底子不是铁轨，玩家在改写它；但人物性格与世界设定要连贯。\n" +
     "6. 只输出叙事正文，不要任何元信息、标题、格式标签，也别替玩家总结心情。";
   function rpStory(fic) { return (fic.chapters || []).map(function (c, i) { return "〔第" + (i + 1) + "章〕\n" + (c.content || ""); }).join("\n\n"); }
+  // ── 原稿：加笔玩的就是【她已经写好的那些字】（v62.50 换掉了整个循环）───────
+  // 原来的循环是「引擎写一段 → 停在抉择处 → 玩家自由输入 → 再来一遍」。
+  // 那个循环梦境有、跑团有、小剧场有、如果馆也有——所以骨架和页边怎么改都还是像别的。
+  // 加笔手里有一样别处都没有的东西：**这篇文的原文就在那儿**，可玩家从头到尾看不见它。
+  // 现在屏幕上就是原文，一段一段往下读；要动手就点住其中一句，从那句起把后面改掉。
+  // ⚠️存档里【不复制整篇原文】：只有真正读到的那几段跟着 transcript 走（历史、窗口预算、
+  //   前情摘要那几套都是按 transcript 算的，src 不进去的话它们全看不见这段故事）。
+  //   还没读到的部分一个字都不存——它在 fic 里躺着。
+  function rpParas(fic) {
+    return (fic && fic.chapters || []).reduce(function (acc, c) {
+      String((c && c.content) || "").split(/\n{2,}/).forEach(function (x) { const t = x.trim(); if (t) acc.push(t); });
+      return acc;
+    }, []);
+  }
+  // 断句：句号问号感叹号省略号收尾，标点跟着前一句走（点的是「一句话」，不是半句）
+  function rpSentences(text) {
+    const out = String(text || "").match(/[^。！？…!?]*[。！？…!?]+["」』）)]*|[^。！？…!?]+$/g);
+    return (out || [String(text || "")]).map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  // 落点那句话在原文第几段：模型给一小段原句，拿它去认；认不出就从头
+  function rpFindPara(paras, quote) {
+    const q = String(quote || "").replace(/\s+/g, "").slice(0, 12);
+    if (!q) return 0;
+    for (let i = 0; i < paras.length; i++) if (paras[i].replace(/\s+/g, "").indexOf(q) >= 0) return i;
+    return 0;
+  }
+  // 还剩几成是她写的（原稿剩余）：作废的段落不算
+  function rpLeftPct(session, paras) {
+    const total = (paras || []).length || 1;
+    const dead = ((session && session.voided) || []).length;
+    return Math.max(0, Math.round((total - dead) / total * 100));
+  }
   function rpAnchorLine(mode, cpChars, identity) {
     const me = rpPlayerName(mode, cpChars, identity), other = rpOther(mode, cpChars);
     if (me) return "【身份锚点（全程不变）】玩家 = 「" + me + "」，第二人称『你』永远指 " + me + "。绝不把玩家换成原著里的别的角色，也绝不当成现实里操作游戏的那个人（哪怕上下文里出现过别的名字，也不许拿来套在玩家头上）。" + (other ? "另一位「" + other.name + "」是对方 / NPC，绝不和玩家对调或混同。" : "");
@@ -960,7 +992,8 @@
       "· temper：【有人改她的文时她是哪一路】——一句话说清她的反应路数：是死死往回拽、是嘴上骂着手上还给你圆、"
       + "是觉得有意思跟着你把故事推得更离谱、还是先冷着看你能走多远。这一栏要从上面三行长出来，不是随便挑一种。\n" +
       "四行都要贴着【这一篇】长，不是随便一个网文作者都成立的话。\n" +
-      "只输出合法 JSON 对象：{\"landings\":[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}],\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\",\"temper\":\"\"}}";
+      "⚠️每个起点还要给一条 quote：【从原文里原样抄】那个地方开头的 8-14 个字，一个字都不许改、不许改写——我们要拿它在原文里认出这一段，认不出就只能从第一段开始。\n" +
+      "只输出合法 JSON 对象：{\"landings\":[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\",\"quote\":\"原文里那一段开头的 8-14 字，原样抄\"}],\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\",\"temper\":\"\"}}";
     const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 12000 });
     const d = rpJSON(raw);
     // 老写法直接吐一个数组，新写法包在 landings 里——两种都认，不然换个模型就空了
@@ -980,7 +1013,7 @@
       const m = cut.match(/^[\s\S]*[。！？…，、；]/);
       return (m ? m[0] : cut) + "…";
     };
-    const out = arr.filter(function (x) { return x && x.label; }).slice(0, 4).map(function (x) { return { id: uid("ld"), label: String(x.label).slice(0, 16), scene: trimScene(x.scene) }; });
+    const out = arr.filter(function (x) { return x && x.label; }).slice(0, 4).map(function (x) { return { id: uid("ld"), label: String(x.label).slice(0, 16), scene: trimScene(x.scene), quote: String(x.quote || "").trim().slice(0, 24) }; });
     if (!out.length) out.push({ id: uid("ld"), label: "从头开始", scene: "从故事最初的场景切入" });
     // 顺手把她收进作者库：这篇文的作者从此是个有简介的人，不只是一个笔名
     if (card.who || card.temper) upsertAuthor({ name: rpAuthorName(fic), bio: card.who, style: card.why, sore: card.sore });
@@ -1025,9 +1058,10 @@
     }
     all.slice(cut).forEach(function (e) {
       if (e.who === "note" || e.who === "pull") return;  // 批注是页边的、伸手已经写进正文了，都不再回灌
-      if (e.who === "nar") { const last = msgs[msgs.length - 1]; if (last && last.role === "assistant") last.content += "\n\n" + e.text; else msgs.push({ role: "assistant", content: e.text }); }
+      // 原文和改出来的文字在模型眼里是同一条故事线，都是 assistant 那一边
+      if (e.who === "nar" || e.who === "src") { const last = msgs[msgs.length - 1]; if (last && last.role === "assistant") last.content += "\n\n" + e.text; else msgs.push({ role: "assistant", content: e.text }); }
       else if (e.who === "page") msgs.push({ role: "user", content: pageLine(e) });
-      else msgs.push({ role: "user", content: "【我的行动】" + e.text });
+      else msgs.push({ role: "user", content: (e.from ? "【我从原文这一句起动笔：「" + String(e.from).slice(0, 60) + "」】" : "") + "【我的行动】" + e.text });
     });
     if (newAction != null) msgs.push({ role: "user", content: "【我的行动】" + newAction });
     return msgs;
@@ -1122,8 +1156,9 @@
       + "{\"scene\":\"叙事正文，正常分段（段与段之间空一行），不许出现任何标题、标签或元信息\","
       + "\"pull\":" + (wantPull ? "\"作者这一拍伸的那一手，一句（见【作者伸手】）\"" : "\"开场这一拍她还没伸手，填空字符串\"") + ","
       + "\"hit\":\"这一拍把玩家推到了骨架里哪一页的当口？填那一页的 id；没推到就填空字符串\","
-      + "\"dev\":这场故事此刻偏离原著多远的整数0-100（原样走着＝低，人物被写出原著里没有的样子、原著的页被拦下＝高），"
-      + "\"note\":" + (wantNote ? "\"作者写在页边的那一句（见【页边批注】）\"" : "\"这一拍不要批注，填空字符串\"")
+      + "\"dev\":这场故事此刻偏离原著多远的整数0-100（原样走着＝低，人物被写出原著里没有的样子、原著的段落被改掉＝高），"
+      + "\"note\":" + (wantNote ? "\"作者写在页边的那一句（见【页边批注】）\"" : "\"这一拍不要批注，填空字符串\"") + ","
+      + "\"voidAhead\":她这一手连后面几段原文也不要了的段数（0-2 的整数；把故事接回原来那条道的填 0）"
       + "}\n"
       + (wantPull ? rpPullBlock(fic, session) + "\n" : "")
       + (wantNote ? rpAuthorBlock(fic, session) + "\n" : "");
@@ -1167,12 +1202,13 @@
     const d = rpJSON(txt);
     if (!d || !d.scene) {
       const sv = rpSalvage(txt);
-      if (sv) return { text: sv, pull: rpGrab(txt, "pull").slice(0, 40), hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
-      return { text: txt, pull: "", hit: "", dev: null, note: "" };
+      if (sv) return { text: sv, pull: rpGrab(txt, "pull").slice(0, 40), voidAhead: 0, hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
+      return { text: txt, pull: "", voidAhead: 0, hit: "", dev: null, note: "" };
     }
     return {
       text: String(d.scene || "").trim() || txt,
       pull: String(d.pull || "").trim().slice(0, 40),
+      voidAhead: Math.max(0, Math.min(2, Math.round(+d.voidAhead || 0))),
       hit: String(d.hit || "").trim(),
       dev: Number.isFinite(+d.dev) ? Math.max(0, Math.min(100, Math.round(+d.dev))) : null,
       note: String(d.note || "").trim().slice(0, 60)
@@ -1185,8 +1221,10 @@
     const id = session.playerIdentity;
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id, session.know) +
       "\n\n【本场起点】玩家从这个节点空降：「" + session.landing.label + "」——" + session.landing.scene +
-      "\n\n现在写【开场】：用两三段把玩家安置进这个场景（" + (id ? "玩家这次的固定身份是「" + id.name + "」（" + id.role + "），开场自然点明并让 TA 入场" : "以玩家的身份视角") + "），营造氛围、带出在场关键人物，最后自然收在一个需要玩家做出反应/抉择的处境上，然后停下等玩家开口。" +
-      "\n\n【同时抽出这本书的骨架】从她进去那一处【之后】的剧情里，挑 3-" + RP_BEATS_N + " 件「原著里本来一定会发生的事」，按先后排。每一件都要满足：\n" +
+      // v62.50：加笔不再由引擎写开场——【原文本身就是开场】，玩家进去先读她写的字。
+      //   这一枪只干一件事：把这本书后面的骨架抽出来压在书脊上。
+      "\n\n⚠️这一次【不要写任何正文】：玩家会直接读原著的字，开场不归你写。" +
+      "\n\n【抽出这本书的骨架】从她进去那一处【之后】的剧情里，挑 3-" + RP_BEATS_N + " 件「原著里本来一定会发生的事」，按先后排。每一件都要满足：\n" +
       "· 是【一件具体发生的事】，不是一段气氛、一种关系状态——一句话说得清谁在什么场合做了什么、结果怎样；\n" +
       "· 【拦得住】：玩家赶到现场、抢先开口、把人拉走，都有可能把它挡下来，而挡下来之后故事会真的往别处走；\n" +
       "· 几件之间不许是同一件事的几个阶段，要落在故事的不同处。\n" +
@@ -1196,11 +1234,10 @@
       "· sore：她最护着的哪一点——这篇文里她最不肯让人碰的那样东西（某个人的某一面、某个决定、某一段关系的分寸）。\n" +
       "三行都要贴着【这一篇】长，不是随便一个网文作者都成立的话。\n\n" +
       "【输出格式】只输出一个合法 JSON 对象：\n" +
-      "{\"scene\":\"开场正文，正常分段\",\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\"},\"beats\":[{\"label\":\"这一页叫什么，≤10字，用原著里的说法\",\"page\":\"原著这一页本来写的是什么：谁、在哪、做了什么、结果怎样，40-80字，把话说完整\",\"cue\":\"什么时候算走到了这一页——那个当口的信号，一句话，供引擎自己判定\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.max(14000, Math.min(22000, (perFic || 3000) + 10000)) });
+      "{\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\"},\"beats\":[{\"label\":\"这一页叫什么，≤10字，用原著里的说法\",\"page\":\"原著这一页本来写的是什么：谁、在哪、做了什么、结果怎样，40-80字，把话说完整\",\"cue\":\"什么时候算走到了这一页——那个当口的信号，一句话，供引擎自己判定\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "抽骨架。" }], { maxTokens: Math.max(14000, Math.min(22000, (perFic || 3000) + 10000)) });
     const txt = String(raw || "").trim();
     const d = rpJSON(txt);
-    const scene = (d && d.scene) ? String(d.scene).trim() : (rpSalvage(txt) || txt);
     const ac = (d && d.author && typeof d.author === "object") ? d.author : {};
     const authorCard = {
       who: String(ac.who || "").trim().slice(0, 120),
@@ -1211,7 +1248,7 @@
     const beats = arr.filter(function (x) { return x && x.label && x.page; }).slice(0, RP_BEATS_N).map(function (x, i) {
       return { id: "b" + (i + 1), label: String(x.label).slice(0, 14), page: String(x.page).trim().slice(0, 140), cue: String(x.cue || "").trim().slice(0, 90), state: "pending" };
     });
-    return { text: scene, beats: beats, authorCard: authorCard };
+    return { beats: beats, authorCard: authorCard };
   }
   // 玩家行动 → 推进 + 下一个抉择处境（并判定有没有走到骨架的某一页、作者要不要在旁边说一句）
   // opts: { resolve: {beat, keep}, wantNote:bool }
@@ -1230,6 +1267,22 @@
         "先写出它【被挡住】的那个瞬间：本来就要成的事，在最后一步上没成，场上的人先是没反应过来，然后才是各自的反应——" +
         "有人松口气、有人失了算盘、有人在心里记下玩家这一手。原著这一页塌了，后面的因果要跟着变，别装作没事发生。" +
         "写完再自然收在下一个需要玩家反应的处境上停下。";
+    } else if (o.cut) {
+      // v62.50 加笔真正的那一刀：玩家在【原文的某一句】上伸了手。
+      // 从这句往后，她写的那一段就作废了——你要写的是【顶替它的那一段】。
+      task = "\n【这一拍要写的 · 玩家在原文上动了笔】\n"
+        + "他点住的是原文里的这一句：「" + String(o.cut.sentence || "").slice(0, 120) + "」\n"
+        + (o.cut.rest ? "原文这一句往后本来还写着：「" + String(o.cut.rest).slice(0, 400) + "」——**这一段从此作废，它不会这样发生了。**\n" : "")
+        + "承接玩家的行动，把【顶替这一段】的新文字写出来：从他伸手的那一刻起，这个场面实际变成了什么样。\n"
+        + "⚠️三件事必须做到：\n"
+        + "· 接得上前面那半句——玩家点的是句子中间，你要从那儿自然接住，不许重开一个场景；\n"
+        + "· 写作废掉的那部分【本来会发生、现在没发生】所带来的实际后果，别装作原文没写过；\n"
+        + "· 用原文的笔调写，别换成另一个人的文风——这一段是从她那篇文里长出来的。\n"
+        + (o.cut.next ? "【接下来原文还写着】「" + String(o.cut.next).slice(0, 300) + "」\n"
+            + "作者会在这一拍伸手（见下面那一段）。她如果是要把故事接回她那条道的，"
+            + "这一拍的收尾就该让上面这段原文【还接得上】；她如果是跟着玩家一起往远处推的，"
+            + "就在 voidAhead 里说清她连后面几段原文也不要了（0-2 段）。\n" : "")
+        + "写两三百字，收在下一个需要玩家反应的地方停下。";
     } else {
       task = "\n承接玩家最新的行动，推进剧情、让相关角色真实反应，写两三百字，再自然收在下一个需要玩家抉择的处境上停下。";
     }
@@ -1280,7 +1333,11 @@
   // 把走完的这一版拧成一篇文放回书架：她走过的那版，跟原篇并排摆着
   function rpToFic(session, fic, verdict) {
     const now = Date.now();
+    const dead = session.voided || [];
     const body = (session.transcript || []).map(function (e) {
+      // 原文那几段也是这一版的一部分——这一版本来就是【她的字 + 你改的字】。
+      // 作废掉的那几段不进：它们在这一版里没有发生过。
+      if (e.who === "src") return dead.indexOf(e.i) >= 0 ? "" : String(e.text || "").trim();
       if (e.who === "nar") return String(e.text || "").trim();
       if (e.who === "me") return String(e.text || "").trim();
       if (e.who === "page") return "〔原著这一页「" + (e.label || "") + "」——" + (e.keep ? "照原样发生了" : "被拦下了，没有发生") + "〕";
@@ -1291,6 +1348,7 @@
     const tail = "\n\n———\n这一版由「" + (session.playerIdentity && session.playerIdentity.name ? session.playerIdentity.name : "穿进来的那个人") + "」走出来："
       + bs.filter(function (b) { return b.state !== "pending"; }).map(function (b) { return "「" + b.label + "」" + (b.state === "broken" ? "被拦下" : "照原样"); }).join("；")
       + (broken ? "。这本书被改了 " + broken + " 处。" : "。一页也没改。")
+      + (dead.length ? "\n原稿有 " + dead.length + " 段被改掉了。" : "")
       + (verdict ? "\n作者写在末页：" + verdict : "");
     return {
       id: uid("fic"), tabId: session.tabId, cp: session.cp || [],
@@ -1320,7 +1378,7 @@
     authorFics: authorFics, authorCPStats: authorCPStats, genAuthors: genAuthors,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
-    loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
+    loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpFindPara: rpFindPara, rpLeftPct: rpLeftPct, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
   };
 
   // ============================================================
@@ -2475,7 +2533,11 @@
       }
       function startSession(landing) {
         const cfg = window.Fanfic.loadCfg();
-        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, authorCard: authorCard, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
+        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, authorCard: authorCard, style: window.Fanfic.activeStyleText(cfg), transcript: [],
+          // 加笔从【原文的哪一段】开始读。⚠️只存下标，不存原文：存一份就有两份，
+          //   而且每一局都复制一遍全文。voided ＝ 被改掉／被她也不要了的那几段。
+          paraIdx: window.Fanfic.rpFindPara(window.Fanfic.rpParas(newFic), landing.quote), voided: [],
+          createdAt: Date.now(), updatedAt: Date.now() };
         persist([sess].concat(window.Fanfic.loadRP()));
         setOpenId(sess.id); setNewFic(null); setLandings(null); setAuthorCard(null); setView("thread");
       }
@@ -2520,7 +2582,7 @@
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文，钻进去在她写好的东西上动笔。开局会从原著里抽出后面本来会发生的几页压在书脊上：走到哪一页，你可以让它照原样发生，也可以把它拦下来——拦下的那一页从此作废。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，有人觉得你改得有意思、跟着推得更离谱），然后在页边写一句。她是哪一路，开局挑落点时就定下来了。收尾时这一版会当成一篇文放回书架。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "挑一篇收藏的同人文，进去读**她真正写下的那些字**。要动手就【点住其中一句】——从那句起，她写的就作废了，换成你改出来的。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，好让后面的原文还接得上；有人觉得你改得有意思，连着后面几段也不要了），然后在页边写一句。她是哪一路，开局挑落点时就定下来。顶上那条「原稿剩余」是这篇文还剩几成是她写的。收尾时这一版会当成一篇文放回书架。"),
         sorted.length ? sorted.map(function (s) {
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
@@ -2577,6 +2639,11 @@
     const [reveal, setReveal] = useState(99);       // 最后一段叙事已显示的段落数（初次进来全显）
     const [sel, setSel] = useState(null);           // 书脊上点开的那一页
     const [endAsk, setEndAsk] = useState(false);    // 收尾要点两下（这一步不可逆）
+    const [cut, setCut] = useState(null);           // 点住的那一句：{i, sentence, rest}
+    // 这篇文的原稿。⚠️只在这儿算一次，不进存档：还没读到的部分一个字都不存。
+    const paras = window.Fanfic.rpParas(props.fic);
+    const leftPct = window.Fanfic.rpLeftPct(s, paras);
+    const moreSrc = Number.isFinite(s.paraIdx) ? s.paraIdx < paras.length : false;
     const taRef = React.useRef(null);
     function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
     // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然顶上又变回「魂穿左位」
@@ -2631,22 +2698,57 @@
           sess = Object.assign({}, s, { playerIdentity: id });
         }
         const r = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
-        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; // ⚠️选落点那一枪已经给过一张（还带 temper）——这儿只在【没有】的时候补，
-        //   不许覆盖：覆盖了就把她的脾气冲掉了，而设定页上刚给她看过那一句。
-        ss.authorCard = ss.authorCard || r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
+        props.onUpdate(function (ss) {
+          // 开场就是【原文的第一段】——引擎不写开场（v62.50）
+          const i0 = Number.isFinite(ss.paraIdx) ? ss.paraIdx : 0;
+          ss.transcript = paras[i0] ? [{ who: "src", i: i0, text: paras[i0] }] : [];
+          ss.paraIdx = i0 + (paras[i0] ? 1 : 0);
+          ss.beats = r.beats || [];
+          // ⚠️选落点那一枪已经给过一张（还带 temper）——这儿只在【没有】的时候补，
+          //   不许覆盖：覆盖了就把她的脾气冲掉了，而设定页上刚给她看过那一句。
+          ss.authorCard = ss.authorCard || r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss;
+        });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
     }
     React.useEffect(function () { if (trans.length === 0) start(); }, []);
 
-    async function send() {
+    // 往下读一段原文（一分钱不花：这几段是她本来就写好的字）
+    function readOn() {
+      props.onUpdate(function (ss) {
+        const i = Number.isFinite(ss.paraIdx) ? ss.paraIdx : 0;
+        if (!paras[i]) return ss;
+        ss.transcript = (ss.transcript || []).concat([{ who: "src", i: i, text: paras[i] }]);
+        ss.paraIdx = i + 1; ss.updatedAt = Date.now();
+        return ss;
+      });
+    }
+    // 从原文的某一句起动笔：那一段【从这句往后】作废，你写你做了什么，
+    // 引擎把后面改掉；她再伸手把故事往回接（或者跟你一起推远）。
+    async function send(cutFrom) {
       const act = input.trim(); if (!act || busy) return;
-      setInput(""); setWriting(false); setBusy(true);
+      setInput(""); setWriting(false); setCut(null); setBusy(true);
       const note = wantNote();
-      props.onUpdate(function (ss) { ss.transcript = (ss.transcript || []).concat([{ who: "me", text: act }]); ss.updatedAt = Date.now(); return ss; });
+      const cut = cutFrom || null;
+      props.onUpdate(function (ss) {
+        ss.transcript = (ss.transcript || []).concat([{ who: "me", text: act, from: cut ? cut.sentence : "" }]);
+        if (cut) ss.voided = (ss.voided || []).concat([cut.i]).filter(function (x, k, a) { return a.indexOf(x) === k; });
+        ss.updatedAt = Date.now(); return ss;
+      });
       try {
-        const r = await window.Fanfic.genRPTurn(props.active, s, props.fic, props.tab, cpc, props.userName, storyLore(act), act, perFic, { wantNote: note });
+        const nextPara = cut && paras[(Number.isFinite(s.paraIdx) ? s.paraIdx : 0)] || "";
+        const r = await window.Fanfic.genRPTurn(props.active, s, props.fic, props.tab, cpc, props.userName, storyLore(act), act, perFic,
+          { wantNote: note, cut: cut ? { sentence: cut.sentence, rest: cut.rest, next: nextPara } : null });
         applyTurn(r);
+        // 她跟着一起把故事推远时，会连后面几段原文也不要了
+        if (r.voidAhead > 0) props.onUpdate(function (ss) {
+          const from = Number.isFinite(ss.paraIdx) ? ss.paraIdx : 0;
+          const more = [];
+          for (let k = 0; k < r.voidAhead && paras[from + k]; k++) more.push(from + k);
+          ss.voided = (ss.voided || []).concat(more);
+          ss.paraIdx = from + more.length; ss.updatedAt = Date.now();
+          return ss;
+        });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
     }
@@ -2694,13 +2796,33 @@
 
     const lastParas = lastNarIdx >= 0 ? trans[lastNarIdx].text.split(/\n{2,}/).map(function (x) { return x.trim(); }).filter(Boolean) : [];
     const moreToReveal = lastNarIdx >= 0 && reveal < lastParas.length;
-    const canAct = !busy && lastNarIdx >= 0 && !moreToReveal && !s.done; // 读完当前叙事才轮到我
+    // v62.50：读原文的时候也轮得到我——加笔的入口就是【点住原文里的一句】。
+    //   开局第一条是原文（who:"src"），lastNarIdx 还是 -1，用老条件的话按钮永远不出现。
+    const canAct = !busy && trans.length > 0 && !moreToReveal && !s.done;
     const hitBeat = s.pendingHit ? beats.find(function (bt) { return bt.id === s.pendingHit; }) : null;
     const spoiler = s.know === "spoiler";
     const selBeat = sel ? beats.find(function (bt) { return bt.id === sel; }) : null;
     const brokenN = beats.filter(function (bt) { return bt.state === "broken"; }).length;
     const authorName = window.Fanfic.rpAuthorName(props.fic);
 
+    // 一段【原文】：她写的字。浅一档、行距更宽、可以逐句点。
+    // ⚠️和你改出来的那些字必须一眼分得开——不能只靠颜色（色弱和阳光下只剩形状可依）：
+    //   原文左边留白、字浅、行距宽；你的那些字顶格、墨色、行距正常。
+    function srcPara(e, key) {
+      const dead = (s.voided || []).indexOf(e.i) >= 0;
+      const sentences = window.Fanfic.rpSentences(e.text);
+      const last = !dead && e.i === (Number.isFinite(s.paraIdx) ? s.paraIdx - 1 : -1);
+      return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 2.15, color: dead ? t.fog : t.sub,
+          margin: "0 0 16px", paddingLeft: 12, borderLeft: "1px solid " + (dead ? "transparent" : t.line),
+          textDecoration: dead ? "line-through" : "none", opacity: dead ? .55 : 1 } },
+        sentences.map(function (sn, j) {
+          // 只有【还没读过头】的那一段能下笔：往回改早就翻过去的段落会把整条时间线拧乱
+          if (dead || !last || s.done || busy) return h("span", { key: j }, sn);
+          const on = cut && cut.i === e.i && cut.sentence === sn;
+          return h("span", { key: j, onClick: function () { setCut(on ? null : { i: e.i, sentence: sn, rest: sentences.slice(j + 1).join("") }); setWriting(!on); },
+            style: { cursor: "pointer", borderBottom: on ? "2px solid " + t.accent : "1px dotted " + hexA(t.ink, .28), background: on ? hexA(t.accent, .12) : "transparent", color: on ? t.ink : "inherit" } }, sn);
+        }));
+    }
     // 一段叙事正文
     function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
 
@@ -2722,6 +2844,12 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
         endAsk ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, paddingTop: 10 } }, "再点一下右上角就定稿：写完收束和作者的判词，这一版放回书架") : null,
         h("div", { style: { height: 8 } }),
+        // 原稿剩余：偏离度不再是一个抽象数字，是【这篇文还剩几成是她写的】
+        paras.length ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 8px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".14em", color: t.fog, whiteSpace: "nowrap" } }, "原稿剩余"),
+          h("span", { style: { flex: 1, height: 3, background: t.line, position: "relative" } },
+            h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: leftPct + "%", background: t.ink, opacity: .7 } })),
+          h("span", { style: { fontFamily: "monospace", fontSize: 10, color: t.fog } }, leftPct + "%")) : null,
         // 书脊：原著后面本来会发生的那几页，走过一页在脊上就落一个记号
         h(RPSpine, { t: t, beats: beats, spoiler: spoiler, sel: sel, onPick: setSel }),
         selBeat ? h("div", { className: "mb-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px 10px" } },
@@ -2731,8 +2859,10 @@
             (selBeat.state !== "pending" || spoiler) ? selBeat.page : "你是空手进来的——走到跟前才知道这一页写的是什么。")) : null,
         // 正文（叙事段落 + 我写进去的行动 + 结算掉的页 + 作者的页边批注）
         trans.map(function (e, i) {
+          if (e.who === "src") return srcPara(e, i);
           if (e.who === "me") return h("div", { key: i, className: "my-5", style: { borderLeft: "2px solid " + t.accent, paddingLeft: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: t.accent, marginBottom: 3 } }, "✒ 你写下"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: t.accent, marginBottom: 3 } },
+              e.from ? "✒ 从「" + String(e.from).slice(0, 12) + "…」这句起，你写下" : "✒ 你写下"),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.85, color: t.accent, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere" } }, e.text));
           if (e.who === "page") return h("div", { key: i, className: "my-4 flex items-center gap-2" },
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }),
@@ -2771,6 +2901,11 @@
         busy ? h(Spinner, { label: trans.length ? "剧情推进中…" : "开场中…" }) : null,
         // 逐段展开
         moreToReveal ? h("button", { onClick: function () { setReveal(reveal + 1); }, className: "w-full active:opacity-60 mt-1 mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px" } }, "▾ 显示下一段（" + reveal + "/" + lastParas.length + "）") : null,
+        // 往下读一段她写的字（一分钱不花：这几段本来就在那儿）
+        (!s.done && !busy && !moreToReveal && moreSrc) ? h("button", { onClick: readOn, className: "w-full active:opacity-60 mt-1 mb-3",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "11px", border: "1px dashed " + t.line, borderRadius: 10, background: "transparent" } },
+          "▾ 接着读她写的（还剩 " + (paras.length - s.paraIdx) + " 段）") : null,
+        (!s.done && !moreSrc && paras.length) ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0 12px" } }, "—— 她写的到这儿就没了 ——") : null,
         s.done ? h("div", { className: "text-center py-6", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8 } },
           "—— 这一版到此为止 ——", h("br"), brokenN ? "这本书被你改了 " + brokenN + " 处，已经放回书架" : "你一页也没改，这一版已经放回书架") : null),
       // 底部：走到原著某一页的当口 → 先决定它发不发生；否则读完了才出现"写下你的行动"
@@ -2785,12 +2920,17 @@
               h("button", { onClick: function () { resolve(hitBeat, false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "10px", borderRadius: 10 } }, "拦下这一页")))
         : props.fic && canAct ? h("div", { className: "shrink-0" },
           writing
-            ? h("div", { className: "flex items-end gap-2 px-4 py-3", style: { background: t.bg2, borderTop: "1px solid " + t.line } },
+            ? h("div", { className: "px-4 py-3", style: { background: t.bg2, borderTop: "1px solid " + t.line } },
+              cut ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 6, lineHeight: 1.5 } },
+                "从「" + String(cut.sentence).slice(0, 18) + (String(cut.sentence).length > 18 ? "…" : "") + "」这一句起，往后她写的就作废了")
+                : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "没点句子＝接着往下写，她写的那些留着"),
+              h("div", { className: "flex items-end gap-2" },
                 h("span", { style: { color: t.accent, fontSize: 16, paddingBottom: 5 } }, "✒"),
-                h("textarea", { ref: taRef, value: input, autoFocus: true, rows: 1, onChange: function (e) { setInput(e.target.value); autoGrow(); }, onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }, placeholder: "写下你的行动 / 说的话…（Enter 发送，Shift+Enter 换行）", className: "flex-1 outline-none resize-none", style: { minWidth: 0, fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: "transparent", borderBottom: "1px solid " + t.line, padding: "4px 2px", maxHeight: 130, overflowY: "auto", wordBreak: "break-word" } }),
-                h("button", { onClick: send, disabled: !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 38, height: 38, borderRadius: 999, background: t.accent } }, h(ISend, { size: 15, color: "#fff" })))
+                h("textarea", { ref: taRef, value: input, autoFocus: true, rows: 1, onChange: function (e) { setInput(e.target.value); autoGrow(); }, onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(cut); } }, placeholder: "写下你的行动 / 说的话…（Enter 发送，Shift+Enter 换行）", className: "flex-1 outline-none resize-none", style: { minWidth: 0, fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: "transparent", borderBottom: "1px solid " + t.line, padding: "4px 2px", maxHeight: 130, overflowY: "auto", wordBreak: "break-word" } }),
+                h("button", { onClick: function () { send(cut); }, disabled: !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 38, height: 38, borderRadius: 999, background: t.accent } }, h(ISend, { size: 15, color: "#fff" }))))
             : h("button", { onClick: function () { setWriting(true); }, className: "w-full active:opacity-70 px-4 mb-1 mt-1", style: { background: "transparent" } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12, textAlign: "center" } }, "✒ 写下你的行动")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12, textAlign: "center" } },
+                  moreSrc ? "✒ 点住上面那一句，从那儿动笔" : "✒ 写下你的行动")),
           // 收尾挪到顶栏右侧那个等宽位了（这一步不可逆，所以照旧要点两下）
           null)
         : null);

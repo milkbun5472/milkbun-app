@@ -109,14 +109,15 @@ test("压根不是 JSON 的那次照旧原样当正文——这条不许坏", ()
 });
 
 test("穿书这条链上四处解析全换过来了，不许只治一半", () => {
-  ["genRPStart", "genRPTurn", "genRPEnding", "genRPIdentity", "genLandings"].forEach(fn => {
+  // ⚠️genRPStart v62.50 起不写正文了（原文就是开场），所以它没有正文可救
+  ["genRPTurn", "genRPEnding", "genRPIdentity", "genLandings"].forEach(fn => {
     const i = fic.indexOf("async function " + fn + "(");
     assert.ok(i > 0, "找不到 " + fn);
     const seg = fic.slice(i, i + 3200);
     assert.doesNotMatch(seg, /let d = extractJSON\(/, fn + " 还在用光板的 extractJSON");
   });
-  // 会出长正文的那三处还要有救回正文的那条路
-  ["genRPStart", "genRPEnding"].forEach(fn => {
+  // 会出长正文的那几处还要有救回正文的那条路（genRPStart 已经不写正文了）
+  ["genRPEnding"].forEach(fn => {
     const i = fic.indexOf("async function " + fn + "(");
     assert.match(fic.slice(i, i + 3200), /rpSalvage\(txt\)/, fn + " 解析失败之后没救正文");
   });
