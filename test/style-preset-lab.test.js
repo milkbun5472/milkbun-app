@@ -186,7 +186,9 @@ test("版本指纹一致，两个新文件都挂上了", () => {
 
 test("首页能点进去", () => {
   assert.match(comp, /stylelab: \{ kind: "app", zh: "文风台"/);
-  assert.ok(comp.indexOf('"vpscodex", "assistant", "stylelab"') > 0, "默认布局里没有它，新装的人找不到");
+  // v61.58：默认布局改成她那套，文风台收在默认的「工作台」文件夹里
+  assert.match(comp, /f_def_desk:\s+\{ name: "工作台", keys: \["stylelab", "assistant"\] \}/, "默认布局里没有它，新装的人找不到");
+  assert.ok(comp.indexOf('"f_def_desk"') > 0, "那个文件夹本身没摆上去");
 });
 
 // —— 她 2026-08-23 传了一份 Ako 1.91 酒馆预设，要拆成能勾的模块 ——

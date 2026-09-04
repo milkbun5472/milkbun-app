@@ -2232,6 +2232,22 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
     h("input", { type: "range", min: -12, max: 12, step: 1, value: normalizeHomeDecorTilt(tilt), onChange: function (e) { onTilt(normalizeHomeDecorTilt(e.target.value)); }, "aria-label": "微调装饰倾斜角度", style: { width: "100%", marginTop: 10, accentColor: accent || HOME_DECOR_ACCENTS[0] } }),
     h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, h("span", null, "左斜 12°"), h("span", null, "右斜 12°")));
 }
+// 默认自带的三个文件夹与八个之外的收纳（她 2026-09-03 给了三张她自己主屏的截图：
+// 「按这个布局把 app 的默认布局摆成这样」）。原来第三页是二十多个图标铺一屏，
+// 新装的人一进来就是一面图标墙；她自己的摆法是【组件当主角、app 收进文件夹】。
+// ⚠️只在【第一次装】时铺（x_homeLayout 和 x_homeFolders 都空）——
+// 已经在用的人自己摆过的一律不动。
+const DEFAULT_FOLDERS = {
+  f_def_check: { name: "查一查", keys: ["phone", "shop", "cwallet"] },
+  f_def_daily: { name: "每日看", keys: ["weekly", "tarot", "carry"] },
+  f_def_ties:  { name: "角色关系", keys: ["cast", "ties", "lore", "dwell"] },
+  f_def_play:  { name: "玩一玩", keys: ["games", "trpg", "theater"] },
+  f_def_dream: { name: "梦与印象", keys: ["dream", "dreamjournal", "impression"] },
+  f_def_read:  { name: "看和吵", keys: ["read", "debate"] },
+  f_def_desk:  { name: "工作台", keys: ["stylelab", "assistant"] },
+  f_def_do:    { name: "一起做", keys: ["study", "pomodoro", "fanfic"] },
+  f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
+};
 function Home({
   now,
   characters,
@@ -2298,7 +2314,14 @@ function Home({
   const [styleDecorTilt, setStyleDecorTilt] = useState(0);
   const [decorBusy, setDecorBusy] = useState(false);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
-  const [folders, setFolders] = useState(function () { return loadJSON("x_homeFolders", {}); });
+  const [folders, setFolders] = useState(function () {
+    var st = loadJSON("x_homeFolders", {});
+    if (st && Object.keys(st).length) return st;
+    // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
+    // 免得凭空冒出九个文件夹压在她自己摆的图标上。
+    var L = loadJSON("x_homeLayout", {});
+    return (L && Object.keys(L).length) ? st : JSON.parse(JSON.stringify(DEFAULT_FOLDERS));
+  });
   const foldersRef = useRef(folders); foldersRef.current = folders;
   const [hoverKey, setHoverKey] = useState(null); // 拖拽悬停的合并目标（放大提示）
   const hoverRef = useRef({ key: null, timer: null });
@@ -2369,11 +2392,16 @@ function Home({
   decorations.forEach(function (d) { if (d && d.id) REG[d.id] = { kind: "decor", which: d.type, decor: d }; });
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
+  // 三页照她截图的摆法：每页都由一个整行组件领头，图标只作为文件夹点缀在组件旁边。
+  // ⚠️顺序＝dense 排布的先后，不是坐标：整行组件先落，2×2 的组件占中间，
+  // 1×1 的文件夹自动补进左边那一列的空当（跟截图里日历左侧那三个文件夹是同一回事）。
   const DEFAULT_LAYOUT = [
-    ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "anon", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
-    ["w_muyu", "w_weather", "w_wheel"]
+    ["w_card", "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
+    // ⚠️这一页的图标顺序是【算过色相】的：挨着的两个图标色相至少差 40
+    //（test/home-tone-58-45.test.js），所以别凭手感调换位置，换完要重跑那份测试。
+    ["w_memo", "w_weather", "memlib", "f_def_play", "f_def_dream", "f_def_desk",
+      "w_ledger", "w_us", "anon", "yanqiu", "f_def_do", "f_def_read"],
+    ["w_music", "w_map", "w_muyu", "w_wheel", "f_def_ops"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
