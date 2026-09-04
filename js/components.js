@@ -1722,7 +1722,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const monthView = () => h("div", { className: "flex-1 flex flex-col min-h-0 px-3" },
     h("div", { className: "shrink-0 flex items-center justify-between px-2 pt-1 pb-1" },
       h("button", { onClick: () => shift(-1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "‹"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 34, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
+      // 月名收成 20px：顶栏那行年份才 16px，34px 的月名压在底下是「顶上还有一大块」
+      // 那个病（mobile-ui-layout §1）。格子和日期照旧放大——她要的大是格子，不是标题。
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
       h("button", { onClick: () => shift(1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
     view === "mine" ? h("div", { className: "shrink-0 flex items-center gap-3 px-2 pb-1 flex-wrap" },
       ["period", "fertile", "ov", "safe"].map(k => h("span", { key: k, className: "flex items-center gap-1" },
@@ -1842,7 +1844,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const visSet = per.visibleTo || [];
   const toggleVis = id => onSavePeriod({ visibleTo: visSet.includes(id) ? visSet.filter(x => x !== id) : [...visSet, id] });
 
-  return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
+  // 外壳自己铺底：原来没写 background，全靠父层透过来——这一页得自己是一张纸
+  return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: t.bg2 } },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(16) } },
@@ -4165,7 +4168,8 @@ function Messages({
   const guardClick = fn => { if (longFired.current) { longFired.current = false; return; } fn(); };
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
   const unreadBadge = un => un > 0 && h("span", { style: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, un > 99 ? "99+" : un);
-  const rowBg = id => pinnedSet.has(id) ? "rgba(0,0,0,0.035)" : "transparent";
+  // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
+  const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   const renderCharRow = it => { const c = it.c, last = it.last, un = unreadMap[c.id] || 0; return h("button", Object.assign({ key: it.key, onClick: () => guardClick(() => onOpenThread(c)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(c.id) } }, longProps(c.id)),
     h("div", { className: "relative shrink-0" }, h(Avatar, { character: c, size: 50, radius: 10 }), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
@@ -4178,41 +4182,26 @@ function Messages({
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
     last && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+  // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
+  // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     style: {
-      background: t.bg2
+      background: t.bg
     }
-  }, h("div", {
-    className: "shrink-0 px-5 pb-3",
-    style: {
-      paddingTop: safeTop(20),
-      background: t.bg2,
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, h("div", {
-    className: "flex items-center justify-between"
-  }, h("div", {
-    className: "flex items-center gap-2"
-  }, h("button", {
-    onClick: onBack,
-    className: "active:opacity-50 -ml-1"
-  }, h(IArrow, {
-    size: 19,
-    color: t.ink
-  })), h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 24,
+  }, h(Head, {
+    zh: TITLES[tab],
+    onBack: onBack,
+    bg: "transparent",
+    right: tab === "chats" ? h("button", {
+      onClick: onNewGroup,
+      className: "active:opacity-50 flex items-center justify-center",
+      style: { width: 46, height: 34 }
+    }, h(IPlus, {
+      size: 20,
       color: t.ink
-    }
-  }, TITLES[tab])), tab === "chats" ? h("button", {
-    onClick: onNewGroup,
-    className: "active:opacity-50"
-  }, h(IPlus, {
-    size: 20,
-    color: t.ink
-  })) : null)), h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
+    })) : null
+  }), h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
     ref: listRef,
     className: "h-full overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
@@ -4284,7 +4273,7 @@ function Messages({
     onClick: onEditProfile,
     className: "w-full flex items-center gap-4 p-4 active:opacity-70",
     style: {
-      background: t.bg,
+      background: t.bg2,
       borderRadius: 16,
       border: `1px solid ${t.line}`
     }
@@ -4318,7 +4307,7 @@ function Messages({
   })), h("button", {
     onClick: () => onOpenMomProfile && onOpenMomProfile("me", true),
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#5a6b8a,#33415c)" }
@@ -4334,7 +4323,7 @@ function Messages({
   })), h("button", {
     onClick: onOpenWallet,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#2f3a42,#171d21)" }
@@ -4353,7 +4342,7 @@ function Messages({
     // 都该在「我」这一屏里，不该是主屏上一个跟角色 app 并排的格子。
     onClick: onOpenMyCloset,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#8a7a5c,#5c5040)" }
@@ -4369,7 +4358,7 @@ function Messages({
   })), h("button", {
     onClick: onOpenFavorites,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#c25a4a,#8a3a30)" }
@@ -4750,8 +4739,11 @@ function MomentsFeed({
   const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
   const [imgView, setImgView] = useState(null);
   const [delId, setDelId] = useState(null);
+  // 信息流自己铺白底（外壳的地是灰的）：朋友圈那种 app 的正文从来是一张白纸，
+  // 格子靠分隔线认，不靠父层透过来的那点米色
   return /*#__PURE__*/React.createElement("div", {
-    className: "pb-8"
+    className: "pb-8 min-h-full",
+    style: { background: t.bg2 }
   }, delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelete(delId); setDelId(null); }, onCancel: () => setDelId(null) }), imgView && h(Sheet, {
     onClose: () => setImgView(null),
     tall: true
@@ -4783,11 +4775,13 @@ function MomentsFeed({
       whiteSpace: "pre-wrap"
     }
   }, imgView)), /*#__PURE__*/React.createElement("div", {
-    className: "px-5 py-4 flex items-center justify-between",
+    // 这一行只剩两个动作键（no-english-titles：原来左边那行英文眉标是装饰，
+    // 这一页叫什么顶栏已经写了）
+    className: "px-5 py-3 flex items-center justify-end",
     style: {
       borderBottom: `1px solid ${t.line}`
     }
-  }, /*#__PURE__*/React.createElement(Eyebrow, null, "Moments · 朋友圈"), h("div", {
+  }, h("div", {
     className: "flex items-center gap-4"
   }, h("button", {
     onClick: onCompose,
@@ -5051,7 +5045,9 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("input", { value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发")) : null);
 
-  return h("div", { className: "h-full flex flex-col" },
+  // 封面底下那一整段自己铺白底：原来没写 background，父层给什么就是什么——
+  // 这一页是某个人的朋友圈主页，封面以下就该是他自己那张白纸
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg2 } },
     h("div", { style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
       // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张他挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
@@ -9348,15 +9344,15 @@ function OfflineMode({
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "OFFLINE · 线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
-    (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : t.bg2), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
+    (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : "transparent"), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
       h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
       schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
@@ -10019,11 +10015,11 @@ function GroupOfflineMode({
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "OFFLINE · 多人线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
