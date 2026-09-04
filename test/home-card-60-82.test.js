@@ -24,7 +24,7 @@ test("骨架换掉了：方头像在右、名字当主角、标签不是药丸",
   // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
   assert.doesNotMatch(card, /"ARCHIVE"/);
   // v60.88 两颗键改到【右下角】：放右上角要给它让位，头像就被挤到中间去了
-  assert.match(card, /position: "absolute", bottom: 7, right: 12/);
+  assert.match(card, /position: "absolute", bottom: 7, right: 17\.5/);
   assert.doesNotMatch(card, /paddingRight: 62/, "头像那一行不许再为按键留位");
 });
 
@@ -68,7 +68,7 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
   assert.ok(!/#(?:3|4|5|6)[0-9a-f]{5}/i.test(card), "写死了某个棕色，换主题就废");
   // 第一眼名字、第二眼签名与标签、第三眼那排数
   assert.match(card, /color: onCover \? ink : inkA\(\.92\)/, "名字还是纯墨");
-  assert.match(card, /color: onCover \? dim : inkA\(\.7\)/, "签名还压在 t.fog 上，玻璃底上读不清");
+  assert.match(card, /color: onCover \? dim : inkA\(\.63\)/, "签名的浓淡不对");
   // v61.64：签名是一小段话，给整块到头像为止的宽度、自然折行、最多两行
   assert.match(card, /className: "line-clamp-2"[\s\S]{0,200}sign \? sign\.replace/, "签名不是两行文本区");
   assert.match(card, /whiteSpace: "normal"/, "签名还是 nowrap");
@@ -86,7 +86,7 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
 test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不许写死高度）", () => {
   assert.match(card, /padding: "10px 14px 9px"/);
   assert.match(card, /width: 21, height: 21, borderRadius: 999/, "两颗小键没缩");
-  assert.match(card, /bottom: 7, right: 12, gap: 9/, "两颗键之间没拉开");
+  assert.match(card, /bottom: 7, right: 17\.5, gap: 9/, "两颗键没对齐到头像正下方");
   // ⚠️主屏铁律：里面这层不许写 height:100%（.claude/rules/home-screen-layout.md）
   assert.doesNotMatch(card, /height: "100%"/);
 });

@@ -3339,7 +3339,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
       // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
       // 于是头像能贴着右边、键也不用谁给它让位。
-      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 12, gap: 9, zIndex: 2 } },
+      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 17.5, gap: 9, zIndex: 2 } },
         round(h(IPencil, { size: 11, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
         onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
@@ -3354,7 +3354,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
           // 签名是一小段话，不是一个副标题：给它整块【到头像为止】的宽度，
           // 自然折行、最多两行（超了才截）。原来 nowrap＋省略号，写长一点就只剩半句，
           // 而卡片中间那块空档正好是留给它的（她 2026-09-03 转的意见）。
-          h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.25, color: onCover ? dim : inkA(.7), textShadow: shadow, marginTop: 10, whiteSpace: "normal", overflowWrap: "break-word" } },
+          h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.25, color: onCover ? dim : inkA(.63), textShadow: shadow, marginTop: 10, whiteSpace: "normal", overflowWrap: "break-word" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
           // ⚠️两个标签同一级，只有中间那道斜杠更淡——所以不能再 join 成一串，
@@ -3364,7 +3364,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
               return h(React.Fragment, { key: i },
                 i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.5)" : inkA(.34) } }, "　/　") : null, tg);
             })) : null),
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 14, padding: 2.5,
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 14, padding: 2.5,
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
           h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
