@@ -4392,51 +4392,136 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // 剪贴板 —— 一叠复制过的纸条。最重要的不是内容，是【发没发出去】。
 // 没发出去的那条单独一档：纸条压在最上面、红边、单独标出来。
 // ============================================================
+// ── 剪贴板：一叠纸条（v62.55 重做）──────────────────────────────────
+// 注释里从来就写着「一叠纸条」，纸上却是暗底 + 圆角 12 的卡片 + 左边一道色边——
+// 那是通用的深色列表，搬到任何一个 app 都成立（审美审计 2026-09-04 点名）。
+//
+// 剪贴板里躺的是【从别处撕下来的一片字】：他复制了，有的发出去了，有的一直捏在手里。
+// 所以每一条就长成一张纸条：纸色、方角（纸没有圆角）、微微歪着叠在桌上、
+// 底边是撕口。没发出去的那几张多两样东西——别着一枚回形针，和一道折痕（捏皱过）。
+//
+// 撕口用 clipPath 画在一条独立的窄带上，坐标全是百分比：polygon 里塞 calc()
+// 在老一点的 WebKit 上会整块静默失效，纸条就变成齐口的方块。
+const CLIP_DESK = "#1c1d21";       // 桌面：夜里的书桌
+const CLIP_PAPER = "#f2ece0";      // 纸条
+const CLIP_PAPER2 = "#eae3d4";     // 压在下面那几张，暗一档
+const CLIP_INK = "#2f2c26";        // 纸上的字
+const CLIP_DIM = "#8b8477";        // 纸上的小字
+const CLIP_HOT = "#b4483c";        // 回形针 / 没发出去的那一档
+const CLIP_DESKINK = "rgba(240,238,232,.5)";
+// 确定性的锯齿：同一张纸每次渲染撕口一样，不会刷一次变一个形状
+const clipTorn = seed => {
+  const N = 26, pts = ["0% 0%", "100% 0%"];
+  for (let k = N; k >= 0; k--) {
+    const r = Math.abs(Math.sin((k + 1) * 12.9898 + seed * 78.233) * 43758.5453) % 1;
+    pts.push(((k / N) * 100).toFixed(2) + "% " + (30 + r * 70).toFixed(1) + "%");
+  }
+  return "polygon(" + pts.join(",") + ")";
+};
+// 回形针：程序画的，别用 📎——emoji 在她机器上会渲成豆腐块
+function ClipPin({ color, size }) {
+  const w = size || 24;
+  return h("svg", { width: w, height: w * 1.35, viewBox: "0 0 24 32", "aria-hidden": "true", style: { display: "block", overflow: "visible" } },
+    h("path", {
+      d: "M17 7.5v13.8a5.8 5.8 0 0 1-11.6 0V6.8a3.7 3.7 0 0 1 7.4 0v14.2a1.8 1.8 0 0 1-3.6 0V8.4",
+      fill: "none", stroke: color, strokeWidth: 2.1, strokeLinecap: "round", strokeLinejoin: "round"
+    }));
+}
 function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
   const held = items.filter(x => x.sent === false);
   const sent = items.filter(x => x.sent !== false);
-  const BG = "#1a1a1d", CARD = "#252529", INK = "#e9e9ec", DIM = "rgba(233,233,236,.44)", HOT = "#e0736b";
-  const slip = (it, i, isHeld) => h("button", {
-    key: i, onClick: () => setOpen(it), className: "w-full text-left active:opacity-75",
-    style: {
-      background: CARD, borderRadius: 12, padding: "15px 16px", marginBottom: 10,
-      borderLeft: isHeld ? "3px solid " + HOT : "3px solid rgba(233,233,236,.14)"
-    }
-  }, h("div", {
-    style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: INK, display: "-webkit-box", WebkitLineClamp: isHeld ? 4 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
-  }, it.text || ""),
-  h("div", { className: "flex items-center", style: { gap: 7, marginTop: 10 } },
-    it.from ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: DIM, border: "1px solid rgba(233,233,236,.16)", borderRadius: 6, padding: "2px 7px" } }, it.from) : null,
-    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: DIM } }, it.time || ""),
-    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: isHeld ? HOT : DIM } }, isHeld ? "一直没发出去" : "已发出")));
+  // 一张纸条。isHeld 的那几张：回形针 + 折痕 + 纸色亮一档（它在最上面）。
+  const slip = (it, i, isHeld) => {
+    const seed = i + (isHeld ? 3 : 11);
+    const tilt = ((seed % 5) - 2) * 0.6;   // 叠不齐：-1.2° ~ +1.2°
+    return h("div", { key: i, style: { position: "relative", marginBottom: isHeld ? 18 : 13, paddingTop: isHeld ? 8 : 0 } },
+      h("button", {
+        onClick: () => setOpen(it), className: "w-full text-left active:opacity-90",
+        style: {
+          position: "relative", display: "block", background: isHeld ? CLIP_PAPER : CLIP_PAPER2,
+          borderRadius: 2, padding: "15px 16px 20px", transform: "rotate(" + tilt + "deg)",
+          boxShadow: "0 1px 0 rgba(0,0,0,.22), 0 10px 18px -14px rgba(0,0,0,.9)"
+        }
+      },
+        // 捏皱过的那一道折痕：只有没发出去的那几张才有
+        // 捏皱过的折痕。⚠️横平、通到两边的一道会被读成【分隔线】而不是折痕
+        // （第一版正好压在正文和落款之间，看着就是一条 hr）。所以斜着走、两头不到边、更淡。
+        isHeld ? h("div", {
+          "aria-hidden": "true",
+          style: { position: "absolute", left: "7%", right: "11%", top: "46%", height: 1, background: "rgba(47,44,38,.075)", boxShadow: "0 1px 0 rgba(255,255,255,.5)", transform: "rotate(-1.4deg)" }
+        }) : null,
+        h("div", {
+          style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: CLIP_INK, display: "-webkit-box", WebkitLineClamp: isHeld ? 4 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
+        }, it.text || ""),
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 11 } },
+          it.from ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: CLIP_DIM } }, "从 " + it.from) : null,
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: CLIP_DIM } }, it.time || ""),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: isHeld ? CLIP_HOT : CLIP_DIM } }, isHeld ? "没发出去" : "已发出")),
+        // 撕口：贴在纸条底边的一条窄带，纸色一致，锯齿是 clipPath 切出来的
+        h("div", {
+          "aria-hidden": "true",
+          style: {
+            position: "absolute", left: 0, right: 0, bottom: -8, height: 9,
+            background: isHeld ? CLIP_PAPER : CLIP_PAPER2, clipPath: clipTorn(seed), WebkitClipPath: clipTorn(seed)
+          }
+        })),
+      // 回形针别在纸条左上角，一半探到纸外
+      isHeld ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 15, top: 0, transform: "rotate(-11deg)", pointerEvents: "none" } },
+        h(ClipPin, { color: CLIP_HOT, size: 21 })) : null);
+  };
+  // ── 详情：整页，不是半窗（no-half-sheet）────────────────────────────
+  // 原来是从底下掀起来的半窗。这一层的内容是一整段他复制下来的话，
+  // 三行说不完，而且压根不需要同时看见底下那一列——按规矩就该是整页。
+  // 整页之后还多了一件事能做：把这张纸条摊开成一整张纸铺满屏幕。
   const detail = open ? (function () {
     const isHeld = open.sent === false;
-    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(0,0,0,.55)", zIndex: 30 }, onClick: () => setOpen(null) },
-      h("div", { onClick: e => e.stopPropagation(), style: { background: CARD, borderRadius: "20px 20px 0 0", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)", maxHeight: "82%", overflowY: "auto", borderTop: isHeld ? "2px solid " + HOT : "none" } },
-        h("div", { className: "flex items-center justify-between gap-3" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: isHeld ? HOT : DIM } }, [open.from, open.time, isHeld ? "复制了，一直没发出去" : "已发出"].filter(Boolean).join(" · ")),
-          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: DIM, padding: "0 4px" } }, "✕")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 2, color: INK, marginTop: 16, whiteSpace: "pre-wrap" } }, open.text || ""),
+    return h("div", { className: "absolute inset-0 h-full min-h-0 flex flex-col", style: { background: CLIP_DESK, zIndex: 30 } },
+      h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+        h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CLIP_DESKINK })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CLIP_DESKINK } }, isHeld ? "没发出去的那张" : "复制过的那张"),
+        h("div", { style: { width: 40, height: 40 } })),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 18px 28px" } },
+        h("div", { style: { position: "relative", paddingTop: 10 } },
+          h("div", {
+            style: {
+              position: "relative", background: CLIP_PAPER, borderRadius: 2, padding: "24px 22px 34px",
+              transform: "rotate(-0.35deg)", boxShadow: "0 1px 0 rgba(0,0,0,.22), 0 16px 26px -18px rgba(0,0,0,.9)"
+            }
+          },
+            isHeld ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: "6%", right: "13%", top: "38%", height: 1, background: "rgba(47,44,38,.075)", boxShadow: "0 1px 0 rgba(255,255,255,.5)", transform: "rotate(-1.1deg)" } }) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: isHeld ? CLIP_HOT : CLIP_DIM, marginBottom: 14 } },
+              [open.from ? "从 " + open.from : "", open.time, isHeld ? "复制了，一直没发出去" : "已发出"].filter(Boolean).join(" · ")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 2.05, color: CLIP_INK, whiteSpace: "pre-wrap" } }, open.text || ""),
+            h("div", {
+              "aria-hidden": "true",
+              style: { position: "absolute", left: 0, right: 0, bottom: -8, height: 10, background: CLIP_PAPER, clipPath: clipTorn(2), WebkitClipPath: clipTorn(2) }
+            })),
+          isHeld ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 20, top: 0, transform: "rotate(-11deg)", pointerEvents: "none" } },
+            h(ClipPin, { color: CLIP_HOT, size: 26 })) : null),
         onPeek ? h("button", {
           onClick: () => onPeek({ tier: isHeld ? "hidden" : "quiet", label: isHeld ? "剪贴板里没发出去的一段" : "剪贴板", title: open.from || "", text: open.text }),
           className: "w-full active:opacity-60",
-          style: { marginTop: 22, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (isHeld ? "rgba(224,115,107,.5)" : "rgba(233,233,236,.2)"), color: isHeld ? HOT : INK }
+          style: { marginTop: 26, padding: "13px 0", borderRadius: 2, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (isHeld ? "rgba(180,72,60,.55)" : "rgba(240,238,232,.22)"), color: isHeld ? "#e0918a" : CLIP_DESKINK }
         }, isHeld ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
-  const sec = (title, list, isHeld) => list.length ? h("section", { key: title },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".18em", color: isHeld ? HOT : DIM, padding: "4px 2px 9px" } }, title),
+  // 分栏名不做成英文眉标：这一叠是什么，用中文说一句就够
+  const sec = (title, list, isHeld) => list.length ? h("section", { key: title, style: { marginBottom: 22 } },
+    h("div", { className: "flex items-center", style: { gap: 9, padding: "2px 2px 12px" } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isHeld ? "#e0918a" : CLIP_DESKINK } }, title),
+      h("span", { "aria-hidden": "true", style: { flex: 1, height: 1, background: "rgba(240,238,232,.13)" } }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(240,238,232,.32)" } }, list.length + " 张")),
     list.map((x, i) => slip(x, i, isHeld))) : null;
-  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BG } },
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CLIP_DESK } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: INK })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: INK } }, "剪贴板"),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CLIP_DESKINK })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CLIP_DESKINK } }, "剪贴板"),
+      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK }))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } },
       items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
-        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: DIM } }, "剪贴板是空的")),
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
     detail);
 }
 // ============================================================
