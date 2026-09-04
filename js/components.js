@@ -1236,7 +1236,9 @@ function UsWidget({ characters, couples, sweet, onOpen, dot }) {
   const days = cp && cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
   const svRaw = p && sweet && sweet[p.id] ? Number(sweet[p.id].value) : null;
   const sv = svRaw != null && isFinite(svRaw) ? Math.round(svRaw * 10) / 10 : null;
-  return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer", position: "relative" } },
+  // 钉了尺寸时把这张卡撑满那一格（不然 4×1 的格子里它靠在上边，底下空一条）
+  const forced = homeSize && homeSize !== "auto";
+  return h(GlassCard, { onClick: onOpen, style: { padding: forced ? "10px 16px" : "12px 16px", cursor: "pointer", position: "relative", height: forced ? "100%" : "auto", display: forced ? "flex" : "block", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
     dot ? h("span", { style: { position: "absolute", top: 10, right: 12, width: 8, height: 8, borderRadius: 999, background: "#e0524a" } }) : null,
     p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
       h(Avatar, { character: p, size: 44, radius: 999 }),
@@ -2026,8 +2028,20 @@ function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
 if (typeof window !== "undefined") window.homePlaceDenseXY = homePlaceDenseXY;
 if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize; window.homeRepackMove = homeRepackMove; window.homeGridRebuild = homeGridRebuild; }
 
+// 一格的高度（和空格的 minHeight 78 同源，多出的 4 是给组件内容留的余量）与格与格之间的缝。
+// 有了这两个数，「N 行」才真的等于一个固定高度——不然行高是内容撑的，
+// 挑了 4×1 的组件照样长成两行那么高（她 2026-09-03：「我改成 4x1 还是放不进去一整排空的」）。
+const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8;
+function homeSpanHeight(rows) { return rows * HOME_ROW_UNIT + (rows - 1) * HOME_ROW_GAP; }
+// 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
+// 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide" };
+function homeSizeOf(key, sizes) {
+  var v = sizes && sizes[key];
+  return v || HOME_SIZE_DEFAULT[key] || "auto";
+}
 function homeItemSpan(key, it, sizes) {
-  var wanted = sizes && sizes[key];
+  var wanted = homeSizeOf(key, sizes);
   var p = HOME_SIZE_PRESETS.find(function (x) { return x.id === wanted; });
   return p && p.cols && p.rows ? [p.cols, p.rows] : defaultHomeItemSpan(it);
 }
@@ -3069,7 +3083,12 @@ function Home({
     // 所有组件/装饰都从同一份占格设置取尺寸；spanOf/placeDense 也走这条，视觉和落位不会各算各的。
     const span = (it.kind === "widget" || it.kind === "decor") ? homeItemSpan(key, it, widgetSizes) : [1, 1];
     const gCol = "span " + span[0], gRow = "span " + span[1];
-    const homeSize = widgetSizes[key] || "auto";
+    const homeSize = homeSizeOf(key, widgetSizes);
+    // ⚠️「N 行」要真的是 N 行高：挑了尺寸的组件把高度钉死（rows×82 + 缝），
+    // 内容超出就裁掉——不钉的话行高由内容撑，挑了 4×1 还是长成两行那么高，
+    // 于是底下空着一整排也塞不进东西。没挑过的（auto）照旧按内容高，
+    // 名片、日历那种自己会算高度的不受影响。
+    const fixedH = (it.kind === "widget" || it.kind === "decor") && homeSize !== "auto" ? homeSpanHeight(span[1]) : null;
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -3079,7 +3098,7 @@ function Home({
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
-    else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, onOpen: function () { return onOpenApp("us"); } });
+    else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
     else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } });
@@ -3105,6 +3124,7 @@ function Home({
       key: key, "data-appkey": key,
       style: {
         gridColumn: gCol, gridRow: gRow,
+        height: fixedH || undefined, overflow: fixedH ? "hidden" : undefined,
         animation: editMode && !isDrag && !isHoverTgt ? "wk-jiggle .32s ease-in-out infinite" : "none",
         transform: isDrag ? "scale(1.08)" : (isHoverTgt ? "scale(1.2)" : "none"),
         opacity: isDrag ? 0.28 : 1,
