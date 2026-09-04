@@ -31,10 +31,18 @@ test("答应她的几条纪律都在：停住等「翻开」、点空白快进�
   assert.match(sp, /dark = \(0\.299 \* r \+ 0\.587 \* g2 \+ 0\.114 \* b2\) < 128/, "亮暗判断没了");
 });
 
-test("字和叶各按自己的色带随入秋天数走；笔画数据内嵌零请求", () => {
-  assert.match(sp, /new Date\(YEAR, 7, 7\)/, "不是从立秋起算");
+test("颜色按季节走，那行日子跟名片同一个数（v62.23）", () => {
+  // 颜色仍从立秋起算（入了冬停在最深那档——秋是他的名字，四季常驻）
+  assert.match(sp, /new Date\(YEAR, 7, 7\)/, "颜色不是从立秋起算");
   assert.match(sp, /var LEAF = rgb\(\[184, 165, 69\], \[181, 80, 46\]\)/, "叶的色带没了");
   assert.match(sp, /INK_WET/, "湿墨那一层没了（落笔略深、吸进纸里再柔下来）");
   assert.match(sp, /"strokes":/, "笔画数据没内嵌——开屏不许发网络请求");
-  assert.match(sp, /入秋 · 第/, "没有那行日子");
+  // 天数只许【读】名片落的起点，不许自己再算一份——开屏读不到 IDB，自己算必错
+  assert.match(sp, /localStorage\.getItem\("x_firstDayTs"\)/, "没读名片落的起点");
+  assert.ok(sp.indexOf("x_memLib") < 0, "开屏自己去翻档案了——那份在 IDB 里，这儿只会读到 null");
+  assert.match(sp, /来这儿 · 第/, "那行日子没了");
+  assert.ok(sp.indexOf("入秋 · 第") < 0, "还写着入秋第 N 天——冬天咋办");
+  // 写入方在名片那一处（stub-from-the-writer：钉住写的人，改了字段这条当场红）
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(comp, /localStorage\.setItem\("x_firstDayTs", String\(first\)\)/, "名片不落起点了，开屏永远第 1 天");
 });
