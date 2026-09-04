@@ -158,8 +158,18 @@
 '  background: ' + o.inputBg + ' !important;',
 '  border: none !important;',
 '  border-radius: ' + o.inputRadius + ' !important;',
-'  color: ' + o.headInk + ' !important;',
+// ⚠️输入框的字色必须配【输入框自己的底】。原来这里刷的是 headInk——顶栏的字色。
+//   顶栏底深的皮肤（LINE 那块蓝灰）headInk 是白的，落到浅色输入框上就是白底白字，
+//   她 2026-09-03 报「这个皮肤输入框的字是白色的」。
+//   同一条坑 tabs-not-plain-pills.md 里写过：一块底的字色不许从别处借。
+'  color: ' + o.inputInk + ' !important;',
 '  font-size: 16px !important;',
+'}',
+'[data-wk="composer"] input::placeholder,',
+'[data-wk="composer"] textarea::placeholder {',
+// 占位字不跟着走的话，浏览器拿 color 淡一层——白字淡一层还是白的
+'  color: ' + o.inputHint + ' !important;',
+'  opacity: 1 !important;',
 '}',
 '',
 '[data-wk="send"] {',
@@ -190,7 +200,7 @@
     theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
     tail:true, gap:6, rowGap:10, card:"4px", photo:"4px",
     metaSize:"9.5px", metaInk:"#b2b2b2", metaTop:"3px", metaInBubble:false,
-    footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px", send:"#07c160", sendInk:"#ffffff", sendRadius:"4px" });
+    footBg:"#f7f7f7", inputBg:"#ffffff", inputRadius:"5px", inputInk:"#111111", inputHint:"#b2b2b2", send:"#07c160", sendInk:"#ffffff", sendRadius:"4px" });
 
   // LINE：底是一块干净的蓝灰，没有底纹；气泡特别圆、留白也大；
   // 最认脸的是【已读和时间甩在气泡外面】，字比别家还小一号。
@@ -199,7 +209,7 @@
     theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
     tail:true, gap:6, rowGap:9, card:"18px", photo:"18px",
     metaSize:"8.5px", metaInk:"rgba(255,255,255,.85)", metaTop:"3px", metaInBubble:false,
-    footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px", send:"#06c755", sendInk:"#ffffff", sendRadius:"999px" });
+    footBg:"#ffffff", inputBg:"#f2f4f6", inputRadius:"999px", inputInk:"#1f1f1f", inputHint:"#98a2ab", send:"#06c755", sendInk:"#ffffff", sendRadius:"999px" });
 
   // Telegram：底是一整片暖紫渐变（它默认就是一张渐变壁纸，不是平色）；
   // 气泡不带尖角、几乎不留投影，密度最紧；已读和时间【在气泡里】。
@@ -211,7 +221,7 @@
     theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#effdde", myInk:"#0f1419",
     tail:false, gap:3, rowGap:8, card:"11px", photo:"11px",
     metaSize:"9px", metaInk:"rgba(90,120,90,.75)", metaTop:"0", metaInBubble:true,
-    footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"16px", send:"#3390ec", sendInk:"#ffffff", sendRadius:"999px" });
+    footBg:"#ffffff", inputBg:"#f1f3f5", inputRadius:"16px", inputInk:"#0f1419", inputHint:"#8b959e", send:"#3390ec", sendInk:"#ffffff", sendRadius:"999px" });
 
   // WhatsApp：认得出的那个米底【上面有一层浅浅的涂鸦】——这才是它最认脸的地方，
   // 光靠米色跟别家分不开。气泡方得多，已读和时间也【在气泡里】。
@@ -222,7 +232,7 @@
     theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
     tail:true, gap:4, rowGap:9, card:"8px", photo:"7px",
     metaSize:"9px", metaInk:"rgba(17,27,33,.45)", metaTop:"0", metaInBubble:true,
-    footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"22px", send:"#00a884", sendInk:"#ffffff", sendRadius:"999px" });
+    footBg:"#f0f2f5", inputBg:"#ffffff", inputRadius:"22px", inputInk:"#111b21", inputHint:"#8696a0", send:"#00a884", sendInk:"#ffffff", sendRadius:"999px" });
 
   // Insta DM：白底、气泡特别圆、自己那侧紫蓝渐变白字，没有尖角。
   // ⚠️发送键不许透明：图标颜色是写死的 #fff，透明底＝白图标落在白底上，
@@ -233,12 +243,12 @@
     theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
     metaSize:"9px", metaInk:"#8e8e8e", metaTop:"3px", metaInBubble:false,
-    footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", send:"#0095f6", sendInk:"#ffffff", sendRadius:"999px" })
+    footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", inputInk:"#111111", inputHint:"#8e8e8e", send:"#0095f6", sendInk:"#ffffff", sendRadius:"999px" })
     + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
   // ⚠️内置预设是【拷贝】进她编辑框的，不是引用：我改了内置，她手上那份不会跟着变。
   //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，
   //   于是「感觉一个没生效」。改内置时把这个数 +1，界面就会提示她重新灌一次。
-  const SKIN_VER = 3;
+  const SKIN_VER = 4;
   const stamp = (nm, css) => "/* 内置 · " + nm + " · v" + SKIN_VER + " */\n" + css;
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
     ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);

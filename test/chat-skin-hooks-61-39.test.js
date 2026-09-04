@@ -132,7 +132,7 @@ test("内置预设改了要告诉她——它是拷贝进编辑框的，不是�
   //   内容变了而版本没跟着变，这条就红，红出来的那句话直接告诉你怎么办。
   const bare = TS.CSS_BUILTINS.thread.map(x => x[1].replace(/^\/\* 内置 · .+? \*\/\n/, "")).join("\n");
   const sum = require("node:crypto").createHash("sha256").update(bare).digest("hex").slice(0, 12);
-  assert.deepEqual({ ver, sum }, { ver: 3, sum: "18690df48dc9" },
+  assert.deepEqual({ ver, sum }, { ver: 4, sum: "0e6510d3f1d2" },
     "内置皮肤的内容变了：把 js/theme-studio.js 里的 SKIN_VER +1，再把这一行的 ver/sum 改成新的。\n" +
     "不 +1 的话，她编辑框里那份旧 CSS 永远不会被认成旧的，界面也就永远不提示重新灌。");
   assert.deepEqual(TS.cssStale("/* 内置 · 仿微信 · v" + (ver - 1) + " */\n.a{}"),
