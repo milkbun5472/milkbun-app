@@ -1832,7 +1832,11 @@ const HOME_SIZE_PRESETS = [
   { id: "short", name: "短条", note: "2 × 1", cols: 2, rows: 1, glyph: "▬" },
   { id: "square", name: "方块", note: "2 × 2", cols: 2, rows: 2, glyph: "■" },
   { id: "wide", name: "长条", note: "4 × 1", cols: 4, rows: 1, glyph: "━" },
-  { id: "large", name: "大卡", note: "4 × 2", cols: 4, rows: 2, glyph: "▰" }
+  { id: "large", name: "大卡", note: "4 × 2", cols: 4, rows: 2, glyph: "▰" },
+  // 她 2026-09-03：「我也觉得要加两档有 3 的」——2 和 4 之间跳太狠，
+  // 很多摆不下的洞就是这么留下的（3 格宽正好给日历那种让出一列）
+  { id: "three", name: "三格条", note: "3 × 1", cols: 3, rows: 1, glyph: "▭" },
+  { id: "threetall", name: "三格块", note: "3 × 2", cols: 3, rows: 2, glyph: "▮" }
 ];
 // 装饰不是换图标的文字卡：每一种都有自己的内容语义、默认尺寸和渲染骨架。
 const HOME_DECOR_TYPES = [
@@ -2036,6 +2040,8 @@ function homeSpanHeight(rows) { return rows * HOME_ROW_UNIT + (rows - 1) * HOME_
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
 const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide" };
+// 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
+const HOME_FREE_HEIGHT = { w_card: true };
 function homeSizeOf(key, sizes) {
   var v = sizes && sizes[key];
   return v || HOME_SIZE_DEFAULT[key] || "auto";
@@ -2053,6 +2059,14 @@ function homeWidgetPresetStyle(id, t, kind) {
   if (id === "polaroid") return Object.assign(base, { padding: kind === "photo" ? "9px 9px 23px" : "12px 12px 20px", borderRadius: 6, overflow: "hidden", background: "#fffdf8", border: "1px solid rgba(35,31,27,.12)", boxShadow: "0 9px 21px rgba(35,31,27,.18)" });
   if (id === "film") return Object.assign(base, { padding: kind === "photo" ? 9 : 12, borderRadius: 13, overflow: "hidden", color: "#f6f0e7", background: "#1f1e1b", border: "1px solid #080808", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.12),0 10px 22px rgba(20,18,15,.24)" });
   return Object.assign(base, { padding: kind === "photo" ? 7 : 11, borderRadius: 2, overflow: "hidden", background: "rgba(248,243,234,.96)", border: "1.5px solid " + t.ink, boxShadow: "4px 4px 0 rgba(30,28,24,.12)" });
+}
+// 图上印着的那行小字（票根的存根号、明信片的邮编格、杂志的刊号…）。
+// 她 2026-09-03：「任何有英文字母在图上的都要可以编辑换成我要的词」。
+// 没填就用这一款自带的那句；填了就整条换掉（中文英文都行，空格也算填了？不算——
+// 只认非空白，免得手滑清空之后图上留一块空白）。
+function dmark(item, fallback) {
+  var v = item && typeof item.mark === "string" ? item.mark.trim() : "";
+  return v || fallback;
 }
 function HomeDecorItem({ item, preset, now }) {
   const t = useTheme();
@@ -2106,10 +2120,10 @@ function HomeDecorItem({ item, preset, now }) {
         h("div", { style: { position: "absolute", right: "12%", bottom: "12%", width: 25, height: 25, borderRadius: 999, background: "#9d5547", boxShadow: "inset 0 0 0 3px rgba(91,35,31,.18)", color: "rgba(255,238,213,.78)", fontFamily: "Georgia,serif", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 } }, "L"));
     } else if (frame === "evidence2") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#242321" : "#eee9dc", border: "1px solid rgba(62,55,43,.24)" } },
-        h("div", { style: { position: "absolute", left: 8, top: 7, fontFamily: "monospace", fontSize: 7, color: dark ? "rgba(255,255,255,.5)" : "#725f50", letterSpacing: ".12em" } }, "EVIDENCE / " + String((now instanceof Date ? now : new Date()).getDate()).padStart(2, "0")),
+        h("div", { style: { position: "absolute", left: 8, top: 7, fontFamily: "monospace", fontSize: 7, color: dark ? "rgba(255,255,255,.5)" : "#725f50", letterSpacing: ".12em" } }, dmark(item, "EVIDENCE / ") + String((now instanceof Date ? now : new Date()).getDate()).padStart(2, "0")),
         photo(srcs[0], 0, { position: "absolute", left: "6%", top: "20%", width: "52%", height: "58%", transform: "rotate(-3deg)", border: "5px solid #fbfaf4", boxShadow: "0 5px 12px rgba(30,28,24,.2)" }),
         photo(srcs[1], 1, { position: "absolute", right: "5%", bottom: "8%", width: "46%", height: "53%", transform: "rotate(4deg)", border: "5px solid #fbfaf4", boxShadow: "0 5px 12px rgba(30,28,24,.2)" }),
-        h("div", { style: { position: "absolute", right: "9%", top: "8%", border: "2px solid #a94e42", color: "#a94e42", padding: "3px 5px", transform: "rotate(7deg)", fontFamily: "monospace", fontSize: 7, letterSpacing: ".1em" } }, "ARCHIVED"),
+        h("div", { style: { position: "absolute", right: "9%", top: "8%", border: "2px solid #a94e42", color: "#a94e42", padding: "3px 5px", transform: "rotate(7deg)", fontFamily: "monospace", fontSize: 7, letterSpacing: ".1em" } }, dmark(item, "ARCHIVED")),
         h("div", { style: { position: "absolute", left: "27%", top: "15%", width: 9, height: 25, border: "2px solid #777", borderRadius: 999, transform: "rotate(8deg)", zIndex: 4 } }));
     } else if (frame === "audioPhoto") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#161514" : "#e8e0d5" } },
@@ -2121,7 +2135,7 @@ function HomeDecorItem({ item, preset, now }) {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#171614" : "#d9d2c6" } },
         h("div", { style: { position: "absolute", left: "27%", top: "3%", width: "46%", height: "94%", padding: "6px 7px 15px", display: "grid", gridTemplateRows: "repeat(4,minmax(0,1fr))", gap: 3, background: "#fffdf8", boxShadow: "0 7px 18px rgba(28,24,20,.24)", transform: "rotate(-1.5deg)" } },
           srcs.map(function (src, i) { return photo(src, i, { minHeight: 0, border: "1px solid rgba(34,30,26,.12)" }); }),
-          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: "monospace", fontSize: 6, letterSpacing: ".15em", color: "#7a7065" } }, "PHOTO BOOTH")),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: "monospace", fontSize: 6, letterSpacing: ".15em", color: "#7a7065" } }, dmark(item, "PHOTO BOOTH"))),
         h("div", { style: { position: "absolute", right: "9%", top: "9%", width: 19, height: 38, border: "1px dashed rgba(78,66,54,.38)", borderRadius: 999, transform: "rotate(9deg)" } }));
     } else if (frame === "window4") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, padding: 11, position: "relative", overflow: "hidden", background: dark ? "#282522" : "#ded4c2", boxShadow: "inset 0 0 0 5px rgba(91,70,48,.16)" } },
@@ -2135,10 +2149,10 @@ function HomeDecorItem({ item, preset, now }) {
           var pos = i === 0 ? { left: "5%", top: "9%", transform: "rotate(-5deg)", zIndex: 1 } : { right: "4%", bottom: "8%", transform: "rotate(5deg)", zIndex: 2 };
           return h("div", { key: i, style: Object.assign({ position: "absolute", width: "62%", height: "57%", padding: "6px 6px 15px", background: "#fffaf0", border: "1px solid rgba(92,69,43,.2)", boxShadow: "0 6px 14px rgba(36,29,22,.2)" }, pos) },
             photo(srcs[i], i, { width: "100%", height: "100%" }),
-            h("span", { style: { position: "absolute", left: 7, bottom: 4, fontFamily: "Georgia,serif", fontSize: 7, color: "#76614d", fontStyle: "italic" } }, i ? "wish you were here" : "from somewhere"),
-            h("span", { style: { position: "absolute", right: 6, bottom: 3, width: 15, height: 12, border: "1px dashed #a56b5d", color: "#a56b5d", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center" } }, "AIR"));
+            h("span", { style: { position: "absolute", left: 7, bottom: 4, fontFamily: "Georgia,serif", fontSize: 7, color: "#76614d", fontStyle: "italic" } }, i ? "wish you were here" : dmark(item, "from somewhere")),
+            h("span", { style: { position: "absolute", right: 6, bottom: 3, width: 15, height: 12, border: "1px dashed #a56b5d", color: "#a56b5d", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center" } }, dmark(item, "AIR")));
         }),
-        h("div", { style: { position: "absolute", right: "8%", top: "8%", width: 31, height: 31, border: "2px solid rgba(153,77,66,.55)", borderRadius: 999, color: "rgba(153,77,66,.7)", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(12deg)" } }, "POST"));
+        h("div", { style: { position: "absolute", right: "8%", top: "8%", width: 31, height: 31, border: "2px solid rgba(153,77,66,.55)", borderRadius: 999, color: "rgba(153,77,66,.7)", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(12deg)" } }, dmark(item, "POST")));
     } else if (frame === "locket2") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "radial-gradient(circle at 50% 45%,#332923,#171514 72%)" : "radial-gradient(circle at 50% 45%,#f3e6d0,#ddd0ba 72%)" } },
         h("div", { style: { position: "absolute", left: "50%", top: "2%", width: 16, height: 22, border: "3px solid " + (dark ? "#ad8b55" : "#a98249"), borderRadius: 999, transform: "translateX(-50%)" } }),
@@ -2150,13 +2164,13 @@ function HomeDecorItem({ item, preset, now }) {
         h("div", { style: { position: "absolute", left: "49.6%", top: "23%", bottom: "21%", width: 2, background: dark ? "rgba(224,188,116,.66)" : "rgba(119,83,38,.55)", zIndex: 4 } }));
     } else if (frame === "magazine3") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", padding: 8, background: dark ? "#121212" : "#f4efe6", color: dark ? "#f6efe6" : "#201d19" } },
-        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Arial Black,Arial,sans-serif", fontSize: 10, letterSpacing: "-.05em", zIndex: 4 } }, "WEEKEND"),
-        h("div", { style: { position: "absolute", right: 9, top: 6, fontFamily: "monospace", fontSize: 6, letterSpacing: ".14em", opacity: .55, zIndex: 4 } }, "VOL. 01"),
+        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Arial Black,Arial,sans-serif", fontSize: 10, letterSpacing: "-.05em", zIndex: 4 } }, dmark(item, "WEEKEND")),
+        h("div", { style: { position: "absolute", right: 9, top: 6, fontFamily: "monospace", fontSize: 6, letterSpacing: ".14em", opacity: .55, zIndex: 4 } }, dmark(item, "VOL. 01")),
         h("div", { style: { position: "absolute", left: 8, right: 8, top: 21, bottom: 8, display: "grid", gridTemplateColumns: "1.58fr .82fr", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 5 } },
           photo(srcs[0], 0, { gridRow: "1 / 3", minWidth: 0, minHeight: 0 }),
           photo(srcs[1], 1, { minWidth: 0, minHeight: 0 }),
           photo(srcs[2], 2, { minWidth: 0, minHeight: 0 })),
-        h("div", { style: { position: "absolute", left: 13, bottom: 14, maxWidth: "58%", padding: "3px 5px", background: dark ? "#f2e8d9" : "#201d19", color: dark ? "#181614" : "#fffaf0", fontFamily: F_DISPLAY, fontSize: 9, lineHeight: 1.15, zIndex: 5 } }, caption || "A SMALL STORY"));
+        h("div", { style: { position: "absolute", left: 13, bottom: 14, maxWidth: "58%", padding: "3px 5px", background: dark ? "#f2e8d9" : "#201d19", color: dark ? "#181614" : "#fffaf0", fontFamily: F_DISPLAY, fontSize: 9, lineHeight: 1.15, zIndex: 5 } }, caption || dmark(item, "A SMALL STORY")));
     } else if (frame === "route3") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#1e211f" : "#e8e2d2", backgroundImage: "linear-gradient(" + (dark ? "rgba(255,255,255,.04)" : "rgba(98,91,74,.08)") + " 1px,transparent 1px),linear-gradient(90deg," + (dark ? "rgba(255,255,255,.04)" : "rgba(98,91,74,.08)") + " 1px,transparent 1px)", backgroundSize: "17px 17px" } },
         h("div", { style: { position: "absolute", left: "15%", top: "24%", width: "70%", height: "48%", border: "2px dashed " + (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)"), borderColor: (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)") + " transparent " + (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)"), borderRadius: "50%", transform: "rotate(-8deg)" } }),
@@ -2171,7 +2185,7 @@ function HomeDecorItem({ item, preset, now }) {
         ["14%", "76%", "50%"].map(function (left, i) { return h("span", { key: i, style: { position: "absolute", left: left, top: i === 2 ? "68%" : "45%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", transform: "rotate(-45deg)", background: i === 1 ? "#b85d54" : "#496f6b", boxShadow: "0 2px 4px rgba(0,0,0,.18)", zIndex: 5 } }); }));
     } else if (frame === "drawer4") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", padding: "21px 8px 8px", background: dark ? "#24201b" : "#cdbb9c", border: "4px solid " + (dark ? "#4a3b2c" : "#927657"), boxShadow: "inset 0 0 0 2px rgba(255,255,255,.14)" } },
-        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Georgia,serif", fontSize: 8, letterSpacing: ".16em", color: dark ? "#dac39d" : "#5f4934" } }, "CABINET OF MOMENTS"),
+        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Georgia,serif", fontSize: 8, letterSpacing: ".16em", color: dark ? "#dac39d" : "#5f4934" } }, dmark(item, "CABINET OF MOMENTS")),
         h("div", { style: { width: "100%", height: "100%", display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 6 } },
           srcs.map(function (src, i) { return h("div", { key: i, style: { position: "relative", minWidth: 0, minHeight: 0, padding: 4, background: dark ? "#332b23" : "#e8dcc5", border: "1px solid " + (dark ? "#65513d" : "#9f8568"), boxShadow: "inset 0 2px 7px rgba(35,25,17,.18)" } },
             photo(src, i, { width: "100%", height: "100%", border: "1px solid rgba(67,48,31,.22)" }),
@@ -2308,7 +2322,7 @@ function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
         ref ? h("button", { type: "button", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClear(i); }, className: "active:opacity-65", "aria-label": "清空第 " + (i + 1) + " 张照片", style: { position: "absolute", right: 5, top: 5, zIndex: 2, width: 23, height: 23, borderRadius: 999, background: "rgba(20,19,17,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 15, lineHeight: "23px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,.2)" } }, "×") : null);
     }));
 }
-function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, tilt, onSurface, onBorderMode, onAccent, onAlign, onBadge, onTilt }) {
+function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt }) {
   const t = useTheme();
   function choiceRow(items, value, onChange) {
     return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + items.length + ",minmax(0,1fr))", gap: 7 } }, items.map(function (x) {
@@ -2333,7 +2347,13 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
         choiceRow([{ id: "left", name: "居左" }, { id: "center", name: "居中" }], align || "left", onAlign)),
       h("label", { style: { minWidth: 0 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, "角标（可留空）"),
-        h("input", { value: badge || "", onChange: function (e) { onBadge(e.target.value); }, maxLength: 12, placeholder: "NEW / 私藏 / 01", style: { width: "100%", height: 38, outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, padding: "0 9px" } }))),
+        h("input", { value: badge || "", onChange: function (e) { onBadge(e.target.value); }, maxLength: 12, placeholder: "新 / 私藏 / 01", style: { width: "100%", height: 38, outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, padding: "0 9px" } }))),
+    // 图上印死的那行小字（票根的存根号、明信片的邮编格、杂志的刊号…）——
+    // 她 2026-09-03：「任何有英文字母在图上的都要可以编辑换成我要的词」
+    onMark ? h("label", { style: { display: "block", marginTop: 15 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, "图上那行小字（留空＝用这一款自带的）"),
+      h("input", { value: mark || "", onChange: function (e) { onMark(e.target.value); }, maxLength: 18, placeholder: "换成你要的词",
+        style: { width: "100%", height: 38, outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "0 11px" } })) : null,
     h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16, marginBottom: 8 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog } }, "摆放角度"),
       h("div", { style: { minWidth: 42, textAlign: "right", fontFamily: "monospace", fontSize: 11.5, color: t.ink } }, (normalizeHomeDecorTilt(tilt) > 0 ? "+" : "") + normalizeHomeDecorTilt(tilt) + "°")),
@@ -2414,6 +2434,7 @@ function Home({
   const [decorDraftAccent, setDecorDraftAccent] = useState(HOME_DECOR_ACCENTS[0]);
   const [decorDraftAlign, setDecorDraftAlign] = useState("left");
   const [decorDraftBadge, setDecorDraftBadge] = useState("");
+  const [decorDraftMark, setDecorDraftMark] = useState("");
   const [decorDraftTilt, setDecorDraftTilt] = useState(0);
   const [styleDecorText, setStyleDecorText] = useState("");
   const [styleDecorDetail, setStyleDecorDetail] = useState("");
@@ -2424,6 +2445,7 @@ function Home({
   const [styleDecorAccent, setStyleDecorAccent] = useState(HOME_DECOR_ACCENTS[0]);
   const [styleDecorAlign, setStyleDecorAlign] = useState("left");
   const [styleDecorBadge, setStyleDecorBadge] = useState("");
+  const [styleDecorMark, setStyleDecorMark] = useState("");
   const [styleDecorTilt, setStyleDecorTilt] = useState(0);
   const [decorBusy, setDecorBusy] = useState(false);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
@@ -2684,11 +2706,12 @@ function Home({
       setStyleDecorAccent(d.accent || HOME_DECOR_ACCENTS[0]);
       setStyleDecorAlign(d.align || "left");
       setStyleDecorBadge(d.badge || "");
+      setStyleDecorMark(d.mark || "");
       setStyleDecorTilt(normalizeHomeDecorTilt(d.tilt));
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -2711,7 +2734,7 @@ function Home({
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
     var text = decorDraftText.trim();
     var meta = homeDecorMeta(decorDraftType);
-    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, align: decorDraftAlign, badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
+    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, align: decorDraftAlign, mark: decorDraftMark.trim(), badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
@@ -2733,10 +2756,10 @@ function Home({
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
     if (it.which === "photo") {
-      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
+      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     } else {
       var meta = homeDecorMeta(it.which);
-      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
+      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     }
     if (typeof toast === "function") toast("桌面内容已经更新");
   }
@@ -3088,7 +3111,10 @@ function Home({
     // 内容超出就裁掉——不钉的话行高由内容撑，挑了 4×1 还是长成两行那么高，
     // 于是底下空着一整排也塞不进东西。没挑过的（auto）照旧按内容高，
     // 名片、日历那种自己会算高度的不受影响。
-    const fixedH = (it.kind === "widget" || it.kind === "decor") && homeSize !== "auto" ? homeSpanHeight(span[1]) : null;
+    // ⚠️高度一律钉死（她 2026-09-03：「能不能把长度固定了，不给他撑大」）：
+    // 行高只要还由内容撑，同样的「一行」就会时高时矮，摆位永远算不准。
+    // 唯一的例外是名片：它的高度是她一版一版调出来的，钉成 82 会被裁掉半张。
+    const fixedH = (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1]) : null;
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -3266,6 +3292,7 @@ function Home({
         accent: styleDecorAccent,
         align: styleDecorAlign,
         badge: styleDecorBadge,
+        mark: styleDecorMark, onMark: setStyleDecorMark,
         tilt: styleDecorTilt,
         onSurface: setStyleDecorSurface,
         onBorderMode: setStyleDecorBorderMode,
@@ -3303,6 +3330,7 @@ function Home({
       accent: decorDraftAccent,
       align: decorDraftAlign,
       badge: decorDraftBadge,
+      mark: decorDraftMark, onMark: setDecorDraftMark,
       tilt: decorDraftTilt,
       onSurface: setDecorDraftSurface,
       onBorderMode: setDecorDraftBorderMode,
