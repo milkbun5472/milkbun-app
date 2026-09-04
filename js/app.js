@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.32";
+const APP_VERSION = "v62.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -410,6 +410,9 @@ function App() {
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   const [coupleTrips, setCoupleTrips] = useState([]);
   const coupleTripsRef = useRef([]); coupleTripsRef.current = coupleTrips;
+  const [coupleGarden, setCoupleGarden] = useState({});
+  const coupleGardenRef = useRef({}); coupleGardenRef.current = coupleGarden;
+  const [gardenGen, setGardenGen] = useState(null);
   const [tripGen, setTripGen] = useState(null);   // 正在给哪个角色排攻略
   // 情侣唱片(她 2026-09-01,进出规则 09-02 改):每对情侣一张「我们的唱片」。
   // 播放器永远只有一个:进空间【一律换成这张唱片并直接放】(她 2026-09-02 亲口改
@@ -944,6 +947,7 @@ function App() {
     setOpeners(loadJSON("x_openers", {}));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
     setCoupleTrips(loadJSON("x_coupleTrips", []));
+    setCoupleGarden(loadJSON("x_coupleGarden", {}));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
     setGachaLuck(loadJSON("x_gachaLuck", {}));
@@ -3293,6 +3297,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!window.GachaKit || !charId) return 0;
     const r = window.GachaKit.earn(gachaPtsRef.current || {}, charId, kind, Date.now(), gachaDay());
     gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box);
+    // 花房（v62.33）吃同一份：GachaKit 刚判定「真的相处了一段」，花就长同一口。
+    // 种没种、开没开花全由 GardenKit.feed 自己判，这儿不加任何新闸。
+    if (r.got > 0) try { gardenFeed(charId, r.got); } catch (e) {}
     return r.got;   // v62.09：打卡那头要知道真给了没有，别在 toast 里谎报
   };
   const gachaPull = (char, n) => {
@@ -4391,6 +4398,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             () => markGreet(cid, "a", key)
           );
           return;                                                    // 一次一个，错峰
+        }
+      } catch (e) {}
+      // —— 花开主动（v62.33）：你们一起养的那盆开了，他来说一声——一茬只说一次，
+      //    闸照纪念日那条路（在聊的/不在旁边/不深夜/一次一个错峰）。
+      try {
+        for (const c of characters) {
+          const cp2 = (couplesRef.current || {})[c.id];
+          if (!cp2 || cp2.status !== "together") continue;
+          const g2 = (coupleGardenRef.current || {})[c.id];
+          if (!g2 || !g2.bloomTs || g2.told) continue;
+          if (laneBusy("c:" + c.id) || viewRef.current.charId === c.id) continue;
+          if (hist(c).length < 2) continue;
+          if (currentlyTogetherWithChar(c.id)) continue;
+          const hr2 = Math.floor(charLocalMin(c) / 60);
+          if (hr2 < 8 || hr2 > 23) continue;
+          window.DeliveryCommit.once("bloom:" + c.id + ":" + g2.bloomTs,
+            () => replyNow(c.id, "", null, { proactive: true, bloom: { species: g2.species, why: g2.why } }),
+            () => saveGarden(p => ({ ...p, [c.id]: { ...(p[c.id] || {}), told: true } }))
+          );
+          return;                                                // 一次一个，错峰
         }
       } catch (e) {}
       // —— 备忘录·到期提醒主动：今天到期(未完成)、且有可见角色在聊 → 其中一位主动提醒一次（每条每天一次）——
@@ -6126,7 +6153,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
-      const outlet = opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -6259,6 +6286,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "从你记得的那件具体的事说起，而不是从「今天是我们的纪念日」说起。"
         + "合你性子的话可以顺手准备点什么，把 gift 填成一件【只有你会想到送给 Ta 的东西】；不想送就 null。"
         + "别质问 Ta 记没记得，也别硬煽情。1~3 条短消息。" : "";
+      const bloomHint = opts.bloom ? "\n\n【此刻·你们一起养的那盆" + opts.bloom.species + "开花了】你【主动】说这件事。"
+        + "它是靠你们真实的相处一点点长到开花的——这一茬里你们真的一起过了些日子。"
+        + (opts.bloom.why ? "当初挑它的时候你说过「" + opts.bloom.why + "」，现在它真开了。" : "")
+        + "从这盆花说到你们，别写成植物播报、也别硬煽情。1~2 条短消息。" : "";
       const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
       // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
@@ -6304,7 +6335,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n⚠️不是换几个字就算新的：**同一个起手式**（同样先报备在哪、同样先问她作息、"
           + "同样从今天干了什么讲起）也算重复。这一次换一个【别的东西】起头。"
         : "";
-      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // ⚠️v59.28 重写。她 2026-09-01 发来四个角色的截图：主动开口全长成同一个骨架——
           // ①「我在哪/刚做完什么」→②「顺带买了/带了什么」→③「你今天起床没有/吃没吃」。
@@ -13616,6 +13647,56 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
   // 而且在这之前发生过的事永远补不回来）。零调用。
+  // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
+  // 花靠你们真实的相处长（gachaEarn 那头顺手喂），不靠浇水按钮；机制注释在 js/garden.js 顶上。
+  // 这儿只有四件事：存、喂、他挑种（全程唯一花调用的一步）、收干花再种。
+  const saveGarden = updater => setCoupleGarden(p => {
+    const n = typeof updater === "function" ? updater(p) : updater;
+    coupleGardenRef.current = n; saveJSON("x_coupleGarden", n); return n;
+  });
+  const gardenFeed = (charId, amount) => {
+    if (!window.GardenKit) return;
+    const g = (coupleGardenRef.current || {})[charId];
+    if (!g || !g.species) return;
+    const next = window.GardenKit.feed(g, amount, Date.now());
+    if (next !== g) saveGarden(p => ({ ...p, [charId]: next }));
+  };
+  const gardenPlantGen = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setGardenGen(char.id);
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你们是恋人。你们共同的空间里要种下一盆花，由你来挑。以「" + char.name + "」的身份：\n"
+          + "· species：一种真实存在的花或植物——你真会想跟 Ta 一起养的那一种，不是花语大全里最好听的那一种。\n"
+          + "· why：为什么是它，说给 Ta 听的一句。判据：**换一对情侣照样成立的那一句，就是挑坏了**——"
+          + "它得连着你俩之间真实发生过的某件事、或某个只有你们才有的偏好。\n"
+          + "· color：它开出来的主色，给一个十六进制色号。",
+        schemaHint: "{\"species\":\"花名\",\"why\":\"为什么是它——说给 Ta 听的一句\",\"color\":\"#RRGGBB\"}",
+        maxTokens: 8000
+      });
+      const sp = String((d && d.species) || "").replace(/\s+/g, " ").trim().slice(0, 16);
+      if (!sp) throw new Error("他没挑出来，重试下");
+      const color = /^#[0-9a-fA-F]{6}$/.test(String(d.color || "").trim()) ? String(d.color).trim() : "#c98a9e";
+      saveGarden(p => {
+        const old = p[char.id] || {};
+        return { ...p, [char.id]: { species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
+          kept: Array.isArray(old.kept) ? old.kept : [] } };
+      });
+      coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? "——他说「" + cSnip(d.why, 60) + "」" : ""), "花房");
+    } catch (e) { toast("失败：" + (e.message || "重试")); }
+    finally { setGardenGen(null); }
+  };
+  // 收一枚干花：这一茬进册子，盆空出来等他再挑（零调用）
+  const gardenKeep = charId => {
+    const g = (coupleGardenRef.current || {})[charId];
+    if (!g || !g.bloomTs) return;
+    saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
+      kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
+    coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
+    toast("收好了一枚干花");
+  };
   // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）─────────────────────────────
   // 不开新门：入口在愿望板「一起去」那一类上。它不是新模块，是把旧件接成一条线：
   // 愿望（想去哪）→ 他排攻略（全程唯一花调用的一步）→ 带着行程走一场线下（机制现成，
@@ -16814,6 +16895,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onRevealQA: revealCoupleQA,
     onPlanWish: planWish,
     coupleTrips: coupleTrips,
+    coupleGarden: coupleGarden,
+    onGardenPlant: gardenPlantGen,
+    onGardenKeep: gardenKeep,
+    gardenGen: gardenGen,
     onTripStart: tripStart,
     onTripPlan: tripPlanGen,
     onTripDepart: tripDepart,

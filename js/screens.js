@@ -3967,6 +3967,86 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
       })) : h("div", { style: { margin: "26px 4px 0", padding: "30px 16px", textAlign: "center", border: "1.5px dashed rgba(70,45,15,.35)", borderRadius: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#5c4726", lineHeight: 1.9 } }, "板上还空着。", h("br"), "先钉一件不急着完成、但不想忘记的事。")));
 }
 
+// ── 情侣空间·花房（v62.33）────────────────────────────────────────────────
+// 盆栽全程序画：一只陶盆，按长势画芽/叶/苞/花——花色是他挑的那个色。
+// 打盹（一周没相处）只是姿态压淡，不掉任何东西（不惩罚，见 js/garden.js 顶上）。
+function GardenPlant({ g, size }) {
+  const sp = g && g.species;
+  const stage = (typeof GardenKit !== "undefined" && sp) ? GardenKit.stageOf(g.fed).key : "empty";
+  const doze = typeof GardenKit !== "undefined" && GardenKit.dozing(g, Date.now());
+  const C = (g && g.color) || "#c98a9e";
+  const kids = [];
+  const leaf = (x, y, rot, len) => kids.push(h("ellipse", { key: "lf" + x + y, cx: x, cy: y, rx: len, ry: len * 0.42,
+    fill: "#6f9a58", transform: "rotate(" + rot + " " + x + " " + y + ")" }));
+  // 盆 + 土（一直都在）
+  kids.push(h("path", { key: "pot", d: "M28 88 L72 88 L66 116 L34 116 Z", fill: "#b5764a" }));
+  kids.push(h("rect", { key: "rim", x: 25, y: 84, width: 50, height: 7, rx: 2.5, fill: "#a4643c" }));
+  kids.push(h("ellipse", { key: "soil", cx: 50, cy: 85, rx: 21, ry: 4.5, fill: "#5d4630" }));
+  if (stage === "seed") kids.push(h("circle", { key: "seed", cx: 50, cy: 83, r: 2.4, fill: "#8a6a42" }));
+  if (stage === "sprout") {
+    kids.push(h("path", { key: "st", d: "M50 84 L50 72", stroke: "#6f9a58", strokeWidth: 3, strokeLinecap: "round", fill: "none" }));
+    leaf(45, 71, -35, 7); leaf(55, 71, 35, 7);
+  }
+  if (stage === "leaf" || stage === "bud" || stage === "bloom") {
+    kids.push(h("path", { key: "st", d: "M50 84 C 50 70 49 56 50 " + (stage === "leaf" ? 46 : 36), stroke: "#5f8a4a", strokeWidth: 3.4, strokeLinecap: "round", fill: "none" }));
+    leaf(42, 72, -40, 9); leaf(58, 68, 40, 9); leaf(43, 58, -32, 8);
+    if (stage !== "leaf") leaf(57, 52, 34, 8);
+  }
+  if (stage === "bud") kids.push(h("ellipse", { key: "bud", cx: 50, cy: 32, rx: 6, ry: 8.5, fill: C, opacity: 0.85 }),
+    h("path", { key: "sep", d: "M46 38 Q50 44 54 38", stroke: "#5f8a4a", strokeWidth: 2.4, fill: "none", strokeLinecap: "round" }));
+  if (stage === "bloom") {
+    for (let i = 0; i < 6; i++) kids.push(h("ellipse", { key: "pt" + i, cx: 50, cy: 27, rx: 5.5, ry: 10,
+      fill: C, opacity: 0.92, transform: "rotate(" + (i * 60) + " 50 36)" }));
+    kids.push(h("circle", { key: "core", cx: 50, cy: 36, r: 4.5, fill: "#e8c26a" }));
+  }
+  return h("svg", { width: size || 60, height: (size || 60) * 1.2, viewBox: "0 0 100 120",
+    style: { display: "block", flexShrink: 0, opacity: doze ? 0.62 : 1 } }, kids);
+}
+
+// 花房整页（no-half-sheet）。规矩就三条：花是他挑的；它吃你们真实的相处（不靠浇水按钮，
+// 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
+function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
+  const t = useTheme();
+  const g = data || {};
+  const kept = Array.isArray(g.kept) ? g.kept : [];
+  const st = (typeof GardenKit !== "undefined" && g.species) ? GardenKit.stageOf(g.fed) : null;
+  const doze = typeof GardenKit !== "undefined" && GardenKit.dozing(g, Date.now());
+  const bloomed = !!g.bloomTs;
+  const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h(Head, { zh: "花房", sub: partner.remark || partner.name, onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
+      g.species ? h(Fragment, null,
+        h("div", { style: { marginTop: 14, borderRadius: 20, padding: "22px 18px 18px", textAlign: "center",
+          background: "linear-gradient(170deg,#f5f8f0,#eaf0e2)", border: "1px solid #dbe4cf" } },
+          h("div", { style: { display: "flex", justifyContent: "center" } }, h(GardenPlant, { g: g, size: 150 })),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#43552f", marginTop: 10 } }, g.species),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#7a8a62", marginTop: 4 } },
+            st.zh + " · " + fmtD(g.plantedTs) + " 种下"),
+          g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「" + g.why + "」") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, textAlign: "center", marginTop: 12 } },
+          doze ? "它在打盹——你们回来，它就接着长。" : "它吃你们真实的相处：聊过天、线下待过、打过卡，它就长一点。没有进度条——长到哪儿，看它自己。"),
+        bloomed ? h("button", { onClick: onKeep, className: "w-full active:opacity-70",
+          style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } },
+          "收一枚干花 · 让盆空出来") : null)
+      : h(Fragment, null,
+        h("div", { style: { marginTop: 16, borderRadius: 20, padding: "26px 18px", textAlign: "center", border: "1.5px dashed " + t.line } },
+          h("div", { style: { display: "flex", justifyContent: "center" } }, h(GardenPlant, { g: {}, size: 110 })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 8 } },
+            kept.length ? "盆空着。让 " + partner.name + " 再挑一种。" : "窗台上有一只空盆。种什么，让 " + partner.name + " 来挑。")),
+        h("button", { onClick: onPlant, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } },
+          gen ? partner.name + " 挑着…" : "让 " + partner.name + " 挑一种花")),
+      kept.length ? h("div", { style: { marginTop: 24 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 9 } }, "干花册"),
+        kept.map((k, i) => h("div", { key: i, className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: "1px solid " + t.line } },
+          h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, k.species),
+            k.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + k.why + "」") : null),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtD(k.ts) + " 收")))) : null));
+}
+
 // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）──────────────────────────────
 // 整页（no-half-sheet）。它长成【一张登机牌 + 他手写批注的行程册】：现实里一趟旅行
 // 留在手里的就是这两样。从愿望板「一起去」进来，返回也回愿望板（一层层退）。
@@ -4106,7 +4186,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4268,6 +4348,12 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
       onDepart: wish => { onTripStart && onTripStart(partner.id, wish); openSub("trip"); },
       onOpenTrips: () => openSub("trip"),
+      onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：花房（v62.33）
+  if (partner && cp[view] && cp[view].status === "together" && sub === "garden") {
+    return h(CoupleGarden, { partner, data: (coupleGarden || {})[partner.id] || {}, gen: gardenGen === partner.id,
+      onPlant: () => onGardenPlant && onGardenPlant(partner), onKeep: () => onGardenKeep && onGardenKeep(partner.id),
       onBack: () => setSub(null) });
   }
   // 情侣空间子模块：旅行（v62.26，从愿望板进，返回也回愿望板——一层层退）
@@ -4729,6 +4815,21 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   kids: h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "抽屉"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
+                // 窗台（v62.33）：一条浅绿横卡，盆栽小图 + 长势。花是活的，每天进来长势微变
+                (function () {
+                  const g3 = (coupleGarden || {})[bCid] || {};
+                  const st3 = (typeof GardenKit !== "undefined" && g3.species) ? GardenKit.stageOf(g3.fed) : null;
+                  const keptN = Array.isArray(g3.kept) ? g3.kept.length : 0;
+                  return wall("garden", { w: "100%", radius: 10, tilt: -0.4, pad: "10px 14px", bg: "#f2f6ec", border: "1px solid #dbe4cf",
+                    kids: h("div", { className: "flex items-center", style: { gap: 12 } },
+                      h(GardenPlant, { g: g3, size: 46 }),
+                      h("div", { className: "flex-1 min-w-0" },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#8a9a72" } }, "窗台"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#54663e", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          g3.species ? st3.zh + " · " + g3.species : keptN ? "盆空着 · 收过 " + keptN + " 枚干花" : "还空着一只盆"),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a9a72", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          g3.species ? (g3.why ? "「" + one(g3.why, 24) + "」" : "它吃你们真实的相处") : "让 " + partner.name + " 挑一种来养"))) });
+                })(),
                 // 唱机:整宽一条——小唱片在转,是这面墙上唯一会动的东西
                 (function () {
                   const dSongs = (((coupleDisc || {})[bCid] || {}).songs || []);
