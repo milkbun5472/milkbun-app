@@ -69,9 +69,9 @@ function denseRows(REG, keys) {
   }
   return rows;
 }
-// v61.93：行数不再写死，是量出来的（把剩下的地方除以 5）。sandbox 里量不到，
-// 就按兜底的 7 行算，第一页仍是 6（顶上要让出时钟那一块）。
-const ROWCAP = 7;
+// v61.93 起行数是量出来的（把剩下的地方分给各行），sandbox 里量不到就按兜底的 7 行算。
+// v61.97：第一页不再单独少一行——页面能上下滑，硬减一行会把日历挤到第二页。
+const ROWCAP = 6;
 const reach = (L, fr) => {
   const s = new Set();
   L.forEach(a => (a || []).forEach(k => { if (!/^sp_/.test(k)) s.add(k); }));
@@ -85,8 +85,7 @@ const WIDGETS_7ROWS = ["w_map", "w_us", "w_muyu", "w_card", "w_wheel", "w_music"
 test("这组组件确实会排出超过 6 行（不然这条测试是空转的）", () => {
   const { REG } = makeHome({ 0: [] }, {});
   const raw = denseRows(REG, WIDGETS_7ROWS);
-  // 第一页的额度是 ROWCAP-1（要让出时钟那一块），样本只要超过它就卡得出问题
-  assert.ok(raw > ROWCAP - 1, "这组样本本身只有 " + raw + " 行，卡不出问题，得换一组");
+  assert.ok(raw > ROWCAP, "这组样本本身只有 " + raw + " 行，卡不出问题，得换一组");
   let cells = 0;
   for (const k of WIDGETS_7ROWS) { const s = spanOfIndependently(REG, k); cells += s[0] * s[1]; }
   assert.ok(cells <= 24, "样本得是【格数没超但行数超了】才说明只按格数卡不住，现在 " + cells + " 格");
@@ -107,8 +106,7 @@ test("买单：任何一页都不许排到 6 行以外", () => {
     const L = api.buildLayout(saved);
     L.forEach((keys, pi) => {
       const r = denseRows(REG, keys);
-      const cap = pi === 0 ? ROWCAP - 1 : ROWCAP;   // 第一页要让出时钟那一块
-      assert.ok(r <= cap, name + " 的第 " + (pi + 1) + " 页排了 " + r + " 行，超出屏幕看不到了");
+      assert.ok(r <= ROWCAP, name + " 的第 " + (pi + 1) + " 页排了 " + r + " 行，超出屏幕看不到了");
     });
   }
 });

@@ -95,7 +95,7 @@ test("放不下时先往上挪，挪到顶还压着人才算真的放不下", ()
   assert.match(seg, /var hitsAt = function \(r0\)/, "还是只算落点那一处");
   assert.match(seg, /for \(var rr = r02 - 1; hit > 1 && rr >= 0; rr--\)/, "没有往上挪的那一步");
   // 行数一律用量出来的，不许再写死 6
-  assert.match(seg, /var capR = Math\.max\(3, \(rowCapRef\.current \|\| 6\) - \(t0\.p === 0 \? 1 : 0\)\);/);
+  assert.match(seg, /var capR = Math\.max\(3, rowCapRef\.current \|\| 6\);/);
   assert.ok(!/Math\.min\(tpos\.r, 6 - h2\)/.test(comp), "还留着写死的 6 行");
   assert.ok(!/rows > 6 \|\|/.test(comp), "溢出防线还按写死的 6 行判");
 });

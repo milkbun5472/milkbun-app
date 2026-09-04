@@ -2065,7 +2065,7 @@ if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize;
 // 一行有多高，是【把剩下的地方分出来】的，不是拍死的像素（她 2026-09-03：
 // 「比起 fixed px，我们不能做 relative px 吗，就固定把剩下的位置去掉 dock 以后除以 5」）。
 // HOME_ROW_UNIT 只是量出来之前的兜底值；真正在用的是量完算出的那个 unit。
-const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN = 88;
+const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN = 76;
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
@@ -2465,13 +2465,15 @@ function Home({
       // ⚠️之前是反过来的（先定 5 行、再限一行最高 120），于是高屏上 5 行只占到
       // 三分之二，底下那截还是空着（她 2026-09-03：「看起来没区别」）。
       var n0 = Math.floor((usable + HOME_ROW_GAP) / (HOME_ROW_MIN + HOME_ROW_GAP));
-      n0 = Math.max(4, Math.min(7, n0 || HOME_ROWS_PER_PAGE));
+      n0 = Math.max(5, Math.min(7, n0 || HOME_ROWS_PER_PAGE));
       var u = Math.floor((usable - (n0 - 1) * HOME_ROW_GAP) / n0);
-      u = Math.max(56, u);
+      u = Math.max(72, u);
       setRowUnit(u);
-      // 没有时钟的那几页用同一个行高，自然多放一行
+      // ⚠️行数只能【往上】放宽，绝不能比原来的 6 行少：页面本来就能上下滑，
+      // 六行是老规矩；按屏幕高度往下卡的话，小屏上日历（3×3）会被挤到第二页去
+      // （她 2026-09-03：「现在日历也放不下第一页了」）。
       var n = Math.floor((h0 + HOME_ROW_GAP) / (u + HOME_ROW_GAP));
-      setRowCap(Math.max(4, Math.min(9, n)));
+      setRowCap(Math.max(6, Math.min(9, n)));
     }
     measure();
     if (typeof window === "undefined") return;
@@ -2704,10 +2706,10 @@ function Home({
     // 超出容量的项按原顺序整体溢到下一页开头（连锁下去，最后一页放不下就自动开新页）；空格不搬、下一页会重新补
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按 6 行算，
     // 跟量出来之前的默认值一致。
-    // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按 7 行算，
-    // 于是第一页仍是老的 6 行，跟量出来之前的行为一致。
-    var capRows = Math.max(4, (typeof rowCapRef !== "undefined" && rowCapRef && rowCapRef.current) || 7);
-    var rowCapAt = function (pi) { return pi === 0 ? Math.max(3, capRows - 1) : capRows; };
+    // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按老规矩 6 行算。
+    var capRows = Math.max(4, (typeof rowCapRef !== "undefined" && rowCapRef && rowCapRef.current) || 6);
+    // 第一页不再少一行：页面能上下滑，硬减一行反而把日历挤走了（v61.97）
+    var rowCapAt = function (pi) { return capRows; };
     for (var ci = 0; ci < out.length; ci++) {
       var cw = 0, ckeep = [], cspill = [];
       var ROWCAP = rowCapAt(ci), CAP = ROWCAP * 4;
@@ -2881,7 +2883,7 @@ function Home({
       if (!tpos || !s2) return;
       // ⚠️行数不再写死 6：它现在是量出来的（v61.93），第一页还要让出时钟那一块。
       // 写死的话，在别的机型上要么白空一行、要么把脚印按到不存在的行上。
-      var capR = Math.max(3, (rowCapRef.current || 6) - (t0.p === 0 ? 1 : 0));
+      var capR = Math.max(3, rowCapRef.current || 6);
       var w2 = Math.min(4, s2[0]), h2 = Math.min(capR, s2[1]);
       var c02 = Math.min(tpos.c, 4 - w2);
       var hitsAt = function (r0) {
@@ -2912,12 +2914,12 @@ function Home({
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf, Math.max(3, (rowCapRef.current || 6) - (t2.p === 0 ? 1 : 0)));
+      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf, Math.max(3, rowCapRef.current || 6));
       if (moved) {
         // 溢出防线：重排后超过 6 行说明这一页真装不下，整个不动、明说，绝不静默挤人去别页
         // 同上：行数按量出来的来（第一页少一行）
-        var capTo = Math.max(3, (rowCapRef.current || 6) - (t2.p === 0 ? 1 : 0));
-        var capFr = Math.max(3, (rowCapRef.current || 6) - (f.p === 0 ? 1 : 0));
+        var capTo = Math.max(3, rowCapRef.current || 6);
+        var capFr = capTo;
         var over = homePlaceDenseXY(moved.to, spanOf).rows > capTo || (f.p !== t2.p && homePlaceDenseXY(moved.from, spanOf).rows > capFr);
         if (over) {
           if (typeof window !== "undefined" && window.__toast) window.__toast("这一页满了，装不下它——先挪走点东西");
