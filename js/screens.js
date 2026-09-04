@@ -5774,12 +5774,36 @@ function CoupleQAConfig({ characters, custom, onSave, toast }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, count + " 题 · " + (cur ? cur.name : "")),
       h("button", { onClick: save, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "保存")));
 }
-// 思维链 COT（全局通用）设置：开关 + 思考方式 + 预设存取。线下/同人文/梦境共用一套。
-const COT_TEMPLATE =
-  "· 此刻{{char}}的情绪与身体状态：TA现在最在意什么、身上什么感觉最强？\n" +
-  "· 上一幕/上一句的张力：{{user}}刚才的话或动作，对{{char}}意味着什么？别答非所问。\n" +
-  "· 这一步往哪推：顺着上面的情绪，{{char}}接下来最自然会做/说什么？只推进一点点，别跳戏、别提前写没发生的剧情。\n" +
-  "· 落笔前自检：有没有八股翻译腔（如「空气中弥漫着」「嘴角勾起一抹弧度」「不易察觉的」）、超雄爹味、说教、OOC？有就换成贴人设的具体写法再落笔。";
+// 创作小稿（原「思维链 COT」）设置：开关 + 检查方式 + 预设存取。
+// ⚠️实际在用它的只有这四处（v62.31 对着代码核过一遍）：
+//   同人文（fanfic.js 两处）／梦境（dream.js 四处）／群聊线下（engine.js）／
+//   单人线下【但只有数字生命】——普通角色 v52.66 起就不注入了。
+//   线上聊天从来不走这条。界面上的说明必须跟这份名单对得上，
+//   不然她按了开关看不到动静，只会以为是坏了。
+// 内置预设：v62.31 全部重写。原来那一份是从别处参考来的通用 RP 模板
+// （「此刻的情绪与身体状态」那种），换个角色、换个 app 都照样成立——
+// 按 tabs-not-plain-pills 和 prompt-no-content-samples 那两条判据，这就是写坏了。
+// 现在这三套是从这个 app 自己的规矩里长出来的：回声禁令、语域跟场面走、
+// 读懂这句话在做什么、换个角色还成立就是写坏了。
+// ⚠️只写【判据】和【维度】，不给具体句子当例子——给了就会被逐字抄进正文。
+const COT_BUILTIN = [
+  { name: "照人写", note: "日常都用这套", think:
+    "· 这一句在做什么：{{user}}刚才那句是撒娇、试探、玩笑、抱怨，还是真的在说一件难事？先认出来，再决定接多重。\n" +
+    "· {{char}}此刻的处境：人在哪儿、手上正做着什么、身上有没有不舒服——这些决定他怎么开口，不是背景板。\n" +
+    "· 只推一步：这一段往前走哪一件事？别把后面的都写完，也别把上一段换个说法重讲一遍。\n" +
+    "· 换个角色还成立吗：把这段话放进另一个角色嘴里，如果照样成立，就是没写出这个人，重写。" },
+  { name: "专治八股", note: "他开始说套话时换这套", think:
+    "· 回声：开头是不是把{{user}}的话原样反问回去了？是就删掉，直接接住。\n" +
+    "· 语域：这个场面——谁在场、什么关系、什么时辰、什么身份——该有的分寸，和现在这一段是不是一回事？\n" +
+    "· 成套话术：有没有滑进「先安抚、再解释、最后保证」那一整套？只做这一轮真正需要做的那一件。\n" +
+    "· 形容词换具体：靠形容词撑起来的句子，一律换成一个具体的动作、一件具体的东西、或一句具体的话。\n" +
+    "· 训话腔：有没有站在高处点评{{user}}、替他总结、教他做人？有就删。" },
+  { name: "贴着上一句", note: "要张力、要慢下来时用", think:
+    "· 上一句留的口子：{{user}}那句里有没有他自己没说完、或者故意不说的那半句？{{char}}接不接得住？\n" +
+    "· 这一拍的分量：该轻轻带过，还是该停下来？按对方给的重量来——不要自动加码，也不要把重的写轻。\n" +
+    "· 身体先于话：{{char}}开口之前，身上先发生了什么？\n" +
+    "· 别替对方作答：写到需要{{user}}回应的地方就停，不要替他答完再接着往下写。" }
+];
 function CotConfig({ toast, activeProfile }) {
   const t = useTheme();
   const [cfg, setCfg] = useState(() => loadCotConfig());
@@ -5798,9 +5822,10 @@ function CotConfig({ toast, activeProfile }) {
     } else setThink((cfg.think || "") + tok);
   };
   const loadPreset = name => {
-    const pr = (cfg.presets || []).find(x => x.name === name);
+    // 内置的和她自己存的同名时，以她自己的为准——她改过的那一份才是她要的
+    const pr = (cfg.presets || []).find(x => x.name === name) || COT_BUILTIN.find(x => x.name === name);
     setSel(name);
-    if (pr) { save({ ...cfg, think: pr.think }); toast && toast("已载入预设「" + name + "」"); }
+    if (pr) { save({ ...cfg, think: pr.think }); toast && toast("已载入「" + name + "」"); }
   };
   const saveAsPreset = () => {
     const name = (window.prompt("给这套思考方式起个名字（如：温柔向 / 高张力 / 专治八股）") || "").trim();
@@ -5822,22 +5847,22 @@ function CotConfig({ toast, activeProfile }) {
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "单人线下会先写正文、再留一条简短创作旁注；同人文、梦境与群线下仍使用写作计划。它不是模型的隐秘推理，不进正文。留空 = 不启用。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这四处：同人文、梦境、群聊线下、以及线下的数字生命——普通角色的单人线下和所有线上聊天都不走这条。它不是模型的隐秘推理，不进正文，每条正文旁能展开看。留空 = 不启用。")),
       h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
     activeProfile ? h("div", { className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "线下保险已暂停小稿：它曾导致 stop 空正文。同人文仍会尝试。" : "线下小稿可正常尝试；若模型不按格式返回，会保留正文并标明未返回。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "这个模型在线下写小稿时返回过空正文，已自动停掉线下这一路（同人文、梦境照常尝试）。" : "这个模型可以正常写小稿；万一不按格式返回，会保住正文并标明这一轮没写成。"),
       modelStatus.disabled ? h("button", { onClick: () => { if (typeof retryOfflineCotModel === "function") retryOfflineCotModel(activeProfile); setModelStatus(offlineCotModelStatus(activeProfile)); toast && toast("已解除保险，下一轮重新试一次"); }, className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "重新试一次") : null) : null,
     // 预设
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline gap-2 mb-2" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "预设"),
-        h("span", { style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 1, color: t.fog } }, "PRESETS"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "存好几套，换着用不用重填")),
       h("div", { className: "flex gap-2" },
         h("select", { value: sel, onChange: e => loadPreset(e.target.value), style: { ...inputSt, flex: 1, appearance: "none", WebkitAppearance: "none" } },
-          h("option", { value: "" }, (cfg.presets || []).length ? "选择预设载入…" : "（还没有预设）"),
-          (cfg.presets || []).map(pr => h("option", { key: pr.name, value: pr.name }, pr.name))),
+          h("option", { value: "" }, "选择一套载入…"),
+          h("optgroup", { label: "内置" }, COT_BUILTIN.map(pr => h("option", { key: "b:" + pr.name, value: pr.name }, pr.name + " · " + pr.note))),
+          (cfg.presets || []).length ? h("optgroup", { label: "我存的" }, (cfg.presets || []).map(pr => h("option", { key: pr.name, value: pr.name }, pr.name))) : null),
         h("button", { onClick: saveAsPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 11, border: "1px solid " + t.line, color: t.ink } }, "存为"),
         h("button", { onClick: delPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 14px", borderRadius: 11, border: "1px solid " + t.line, color: "#a24a4a" } }, "删除"))),
     // 思考方式
@@ -5845,11 +5870,13 @@ function CotConfig({ toast, activeProfile }) {
       h("div", { className: "flex items-baseline justify-between mb-2" },
         h("div", { className: "flex items-baseline gap-2" },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "小稿检查方式"),
-          h("span", { style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 1, color: t.fog } }, "HOW TO THINK")),
-        h("button", { onClick: () => { if (!(cfg.think || "").trim() || window.confirm("用示例模板替换当前内容？")) setThink(COT_TEMPLATE); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "插入示例模板")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "落笔前先按这几条过一遍")),
+        h("div", { className: "flex gap-2 flex-wrap" }, COT_BUILTIN.map(function (pr) {
+          return h("button", { key: pr.name, onClick: function () { if (!(cfg.think || "").trim() || window.confirm("用「" + pr.name + "」替换当前内容？")) { setThink(pr.think); setSel(pr.name); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, pr.name);
+        }))),
       h("div", { className: "flex gap-2 mb-2" }, chip("{{char}}", () => insertVar("{{char}}")), chip("{{user}}", () => insertVar("{{user}}"))),
       h("textarea", { ref: taRef, value: cfg.think || "", onChange: e => setThink(e.target.value), rows: 9,
-        placeholder: "写下你希望创作小稿检查的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 小稿不进正文，每条正文旁可展开查看\n· 想治八股词/超雄/OOC？示例模板里有现成检查",
+        placeholder: "写下你希望创作小稿检查的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 小稿不进正文，每条正文旁可展开查看\n· 上面三套内置的可以直接点，点完再改成你要的",
         style: { width: "100%", outline: "none", resize: "vertical", padding: "11px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。检查越具体，正文通常越贴；小稿会占少量输出额度。")));
 }
