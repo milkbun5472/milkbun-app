@@ -41,8 +41,11 @@ test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {
   assert.doesNotMatch(card, /borderLeft: i \?/);
   // v61.60：空档改留在【签名和标签之间】，所以那排数不再靠 marginTop:auto 顶到最底，
   // 改成跟着标签走的小间距——两层连成一组，卡片中间不再空一块
-  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: 9, paddingTop: 0/);
-  assert.match(card, /marginTop: "auto", paddingTop: 12[\s\S]{0,220}tags\.map/, "空档没留在签名和标签之间");
+  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: 5, paddingTop: 0/);
+  // v61.85：左栏这几个纵向间距是卡片长高的唯一来源，总额度钉死在 5+4+5
+  const mt = (card.match(/marginTop: (\d+)/g) || []).map(x => +x.split(" ")[1]);
+  assert.ok(mt.reduce((a, b) => a + b, 0) <= 16, "左栏的纵向间距又加回去了，卡片会被撑高：" + mt.join("+"));
+  assert.match(card, /marginTop: "auto", paddingTop: 4[\s\S]{0,220}tags\.map/, "空档没留在签名和标签之间");
   assert.match(card, /className: "flex-1 min-w-0 self-stretch flex flex-col"/, "左栏没撑满这一行，标签沉不下去");
 });
 
