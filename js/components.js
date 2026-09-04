@@ -1983,6 +1983,50 @@ function homeRepackResize(arr, key, spanFn, newSpan) {
   return out.concat(displaced);
 }
 if (typeof window !== "undefined") { window.homePlaceDenseXY = homePlaceDenseXY; window.homeRepackResize = homeRepackResize; }
+// 拖拽落子（同页/跨页通用）也走钉格：from 落到 to 的锚点格上，其余真项原地不动。
+// 被压到的先试 from 的旧锚点（自然形成互换），放不下再去页尾。返回 {from, to}（同页时两者是同一份）。
+function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
+  var same = fromArr === toArr;
+  var fPos0 = homePlaceDenseXY(fromArr, spanFn);
+  var tPos0 = same ? fPos0 : homePlaceDenseXY(toArr, spanFn);
+  var fi = fromArr.indexOf(fromKey), ti = toArr.indexOf(toKey);
+  if (fi < 0 || ti < 0) return null;
+  var mineOld = fPos0.pos[fi], target = tPos0.pos[ti], s = spanFn(fromKey);
+  if (!mineOld || !target || !s) return null;
+  var w = Math.min(4, s[0]), h = s[1];
+  var r0 = target.r, c0 = Math.min(target.c, 4 - w);
+  var build = function (arr, pos0, includeFrom) {
+    var occ = {}, anchors = {}, displaced = [];
+    var stamp = function (k, r, c, ww, hh) { anchors[r + "," + c] = k; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) occ[i + "," + j] = k; };
+    var fits = function (r, c, ww, hh) { if (c + ww > 4 || c < 0) return false; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) if (occ[i + "," + j]) return false; return true; };
+    if (includeFrom) stamp(fromKey, r0, c0, w, h);
+    arr.forEach(function (k, i) {
+      if (k === fromKey || /^sp_/.test(k)) return;
+      var pp = pos0.pos[i]; if (!pp) return;
+      if (fits(pp.r, pp.c, pp.w, pp.h)) stamp(k, pp.r, pp.c, pp.w, pp.h);
+      else displaced.push({ k: k, w: pp.w, h: pp.h });
+    });
+    // 被压到的先试 from 的旧锚点（同页才有意义）——放得下就是一次干净互换
+    var still = [];
+    displaced.forEach(function (d) {
+      if (same && includeFrom && fits(mineOld.r, Math.min(mineOld.c, 4 - d.w), d.w, d.h)) stamp(d.k, mineOld.r, Math.min(mineOld.c, 4 - d.w), d.w, d.h);
+      else still.push(d.k);
+    });
+    var maxR = 0;
+    Object.keys(occ).forEach(function (kk) { var r = parseInt(kk, 10); if (r + 1 > maxR) maxR = r + 1; });
+    var out = [], n = 0, uniq = Date.now().toString(36) + Math.floor(Math.random() * 90);
+    for (var r = 0; r < maxR; r++) for (var c = 0; c < 4; c++) {
+      var k2 = anchors[r + "," + c];
+      if (k2) out.push(k2);
+      else if (!occ[r + "," + c]) out.push("sp_mv" + uniq + "_" + n++);
+    }
+    return out.concat(still);
+  };
+  if (same) { var one = build(fromArr, fPos0, true); return { from: one, to: one }; }
+  return { from: build(fromArr, fPos0, false), to: build(toArr, tPos0, true) };
+}
+if (typeof window !== "undefined") window.homeRepackMove = homeRepackMove;
+
 function homeItemSpan(key, it, sizes) {
   var wanted = sizes && sizes[key];
   var p = HOME_SIZE_PRESETS.find(function (x) { return x.id === wanted; });
@@ -2707,8 +2751,14 @@ function Home({
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      // 空格换过去时给个全新 id：补位生成器的 id 是「页内确定性」的（sp_<页>_<n>），
-      // 原 id 跨页迁移后原页会再生成同名补位 → 两个页出现重复 data-appkey，命中就乱了
+      // v61.67 钉格落子：落点=目标的锚点格，其余真项原地不动；被压到的先试原位（互换），
+      // 不再按数组下标硬换——大组件一换整页 dense 重排，就是她说的「流式移动」。
+      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf);
+      if (moved) {
+        L[f.p] = moved.from;
+        if (t2.p !== f.p) L[t2.p] = moved.to;
+        return persistLayout(L);
+      }
       L[f.p][f.i] = SP_RE.test(toKey) ? "sp_x" + Date.now().toString(36) + Math.floor(Math.random() * 100) : toKey;
       L[t2.p][t2.i] = fromKey;
       return persistLayout(L);
