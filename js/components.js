@@ -1052,7 +1052,8 @@ function MemoWidget({ onOpen, homeSize }) {
   if (oneRow) {
     const first = items[0];
     return h(GlassCard, { onClick: onOpen, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
-      h("span", { style: { fontSize: 14, flexShrink: 0 } }, "📌"),
+      // 图标走 SVG 那一套，不用 emoji（她 2026-09-04：「备忘录和情侣空间这里还是用的 emoji，不统一」）
+      h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(IPin, { size: 15, color: t.accent })),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, "备忘录"),
       first
         ? h("span", { className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
@@ -1063,7 +1064,7 @@ function MemoWidget({ onOpen, homeSize }) {
   }
   return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer", height: homeSize && homeSize !== "auto" ? "100%" : "auto", overflow: "hidden" } },
     h("div", { className: "flex items-center gap-2", style: { marginBottom: items.length ? 8 : 0 } },
-      h("span", { style: { fontSize: 14 } }, "📌"),
+      h("span", { className: "flex items-center" }, h(IPin, { size: 15, color: t.accent })),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "备忘录"),
       h("span", { className: "flex-1" }),
       items.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "最近提醒") : null),
@@ -1275,14 +1276,17 @@ function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
             h("span", { style: { fontSize: 12.5, color: t.fog } }, "在一起第 "),
             h("span", { style: { margin: "0 2px", fontFamily: F_DISPLAY, fontSize: 21, fontWeight: 700, color: "#e78fa1", lineHeight: 1 } }, String(days)),
             h("span", { style: { fontSize: 12.5, color: t.fog } }, " 天")) : null),
-        h("div", { style: { paddingRight: partners.length > 1 ? 48 : 24, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } },
-          sv != null ? "💗 甜蜜值 " + sv : "点开去看看你们的小空间")),
+        h("div", { className: "flex items-center", style: { gap: 5, paddingRight: partners.length > 1 ? 48 : 24, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } },
+          sv != null ? h(React.Fragment, null,
+            h(IHeart, { size: 12, color: "#e78fa1", filled: true }),
+            h("span", null, "甜蜜值 " + sv)) : h("span", null, "点开去看看你们的小空间"))),
       h("div", { className: "flex gap-1 items-center", style: { position: "absolute", right: 14, bottom: 9 } },
         partners.length > 1
           ? partners.map((x, i) => h("span", { key: x.id, style: { width: i === ix % partners.length ? 10 : 4, height: 4, borderRadius: 999, background: i === ix % partners.length ? t.accent : t.line, transition: "all .3s" } }))
-          : h("span", { style: { fontSize: 14, lineHeight: 1 } }, "💗")))
+          : h(IHeart, { size: 13, color: "#e78fa1", filled: true })))
     : h("div", { className: "flex items-center gap-3" },
-        h("div", { className: "flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 999, background: "rgba(255,255,255,0.6)", fontSize: 19 } }, "💗"),
+        h("div", { className: "flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 999, background: "rgba(255,255,255,0.6)" } },
+          h(IHeart, { size: 20, color: "#e78fa1", filled: true })),
         h("div", { className: "flex-1" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "情侣空间"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "还没有正式在一起的 TA"))));
