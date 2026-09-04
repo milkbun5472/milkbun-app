@@ -11893,15 +11893,18 @@ function ChatSettings({
       key: "E", title: "余温 · 已开启", tone: "暖色",
       text: "你点回复时，上一段交流留下的心情色彩和没说完的注意点，可能轻轻带进这一轮。只影响当下衔接，不会冒充经历、不会写进记忆，也不会强拉旧话题。"
     });
-    if (aGate.mode === "pilot" && !aGate.emergencyOff) live.push({
-      key: "A", title: "立体情绪 · 已开启", tone: "情绪",
-      text: "受伤、生气、焦虑、温暖和疲劳会作为背景偏色轻调语气；它不能替 TA 决定说什么，单轮变化也有封顶。"
-    });
+    // ⚠️A【从来没有接上真实语气】（v62.36 查实，她 2026-09-04 问「这个还在用吗」）：
+    //   isPilotEnabled 全 app 只被调用过一次，而且是给 E 用的（app.js 那句 eArmed）；
+    //   "A" 那一路一次都没接过，A 的投影从来没进过任何 prompt。
+    //   所以这里不许再按「已开启」报——**开了闸、后面没有管子**，那句话是界面在说谎。
+    //   哪天真把 isPilotEnabled("A", …) 接进 buildBundle，再把这一条搬回 live。
+    shadow.push(aGate.mode === "pilot" && !aGate.emergencyOff
+      ? "A 情绪立体化：你已经授权，但这一层【还没接上真实语气】——目前仍然只是观察"
+      : "A 情绪立体化：只观察，不影响语气");
     live.push({
       key: "dongnian", title: "动念 · 已开启", tone: "主动性",
       text: "只影响 TA 什么时候主动来找你，以及主动开口时的轻微姿态；不会改普通聊天回复。详细进度就在下方。"
     });
-    if (aGate.mode !== "pilot" || aGate.emergencyOff) shadow.push("A 情绪立体化：只观察，不影响语气");
     if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("B 关系轴：只观察，不制造伤口或关系转折");
     shadow.push("C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言");
     return { live, shadow };
