@@ -34,6 +34,11 @@ test("答应她的几条纪律都在：停住等「翻开」、点空白快进�
 test("颜色按季节走，那行日子跟名片同一个数（v62.23）", () => {
   // 颜色仍从立秋起算（入了冬停在最深那档——秋是他的名字，四季常驻）
   assert.match(sp, /new Date\(YEAR, 7, 7\)/, "颜色不是从立秋起算");
+  // v62.25 环境全是真实时间：背景词/左上编号按四立翻季节，不许写死（她：「按实际季节来」）
+  assert.match(sp, /\["WINTER", "04"\].*\["SPRING", "01"\].*\["SUMMER", "02"\].*\["AUTUMN", "03"\]/, "季节没按四立划分");
+  assert.ok(sp.indexOf('"SEASON 03<br>"') < 0 && sp.indexOf('/ AUTUMN"') < 0, "编号或季节词又写死了");
+  // 她 2026-09-04：「秋字稍微有点糊」——【字】那层 blur 不许回来（远景叶影的糊是故意的，不管）
+  assert.ok(!/overflow:visible;filter:blur/.test(sp), "字又糊了");
   assert.match(sp, /var LEAF = rgb\(\[184, 165, 69\], \[181, 80, 46\]\)/, "叶的色带没了");
   assert.match(sp, /INK_WET/, "湿墨那一层没了（落笔略深、吸进纸里再柔下来）");
   assert.match(sp, /"strokes":/, "笔画数据没内嵌——开屏不许发网络请求");
