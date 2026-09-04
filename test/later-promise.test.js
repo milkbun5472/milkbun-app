@@ -6,7 +6,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
 
 // 她 2026-08-26：「有时候他们会说等我 xxx 再找你，能不能设定让他们真的主动发，
-// 不用等 jiwen 满。如果我那段时间没上 app 等下一次补上。」
+// 不用等 dongnian 满。如果我那段时间没上 app 等下一次补上。」
 test("协议里有约回字段，而且明说没说过就别填", () => {
   assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事"\}/);
   assert.match(app, /只有你这一轮【真的说了】/);
@@ -23,17 +23,17 @@ test("落盘时校验时长，同一个人只留最新那一个", () => {
   assert.match(seg, /saveJSON\("x_promises", n\)/);
 });
 
-// 关键：这条不该受积温门槛管——那是「攒够思念才开口」，这是他自己许的约
-test("到点就发，不看积温、不看 45 分钟底线", () => {
+// 关键：这条不该受动念门槛管——那是「攒够思念才开口」，这是他自己许的约
+test("到点就发，不看动念、不看 45 分钟底线", () => {
   const pi = app.indexOf("// ── 约回（v56.49）");
-  const ji = app.indexOf("const jw = (typeof window !== \"undefined\" && window.__jiwen");
-  assert.ok(pi > 0 && ji > pi, "约回那段必须排在积温那段前面");
+  const ji = app.indexOf("const jw = (typeof window !== \"undefined\" && window.__dongnian");
+  assert.ok(pi > 0 && ji > pi, "约回那段必须排在动念那段前面");
   const seg = app.slice(pi, app.indexOf("      try {\n        for (const c of characters) {", pi));
-  assert.ok(!/__jiwen/.test(seg), "别去查积温状态");
+  assert.ok(!/__dongnian/.test(seg), "别去查动念状态");
   assert.ok(!/floorMin/.test(seg), "别套 45 分钟底线");
   assert.ok(!/hr < 8 \|\| hr > 23/.test(seg), "不看时段——app 不开就不会跑，能跑说明她醒着");
   assert.match(seg, /Date\.now\(\) >= x\.dueTs/);
-  assert.match(seg, /jiwenFiredRef\.current\[pm\.charId\] = Date\.now\(\)/, "刚发过要压住积温，别紧跟着再来一条");
+  assert.match(seg, /dongnianFiredRef\.current\[pm\.charId\] = Date\.now\(\)/, "刚发过要压住动念，别紧跟着再来一条");
 });
 
 // 「那段时间没上 app 等下一次补上」——所以过期的不能丢，要一直欠着

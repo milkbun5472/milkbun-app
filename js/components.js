@@ -11078,7 +11078,7 @@ function ChatSettings({
   onGenerateTemperament,
   onSaveTemperament,
   aShadowPanel,
-  jiwenState,
+  dongnianState,
   activeRoomId,
   onSelectRoom,
   onSummarizeRoom,
@@ -11144,7 +11144,7 @@ function ChatSettings({
       text: "受伤、生气、焦虑、温暖和疲劳会作为背景偏色轻调语气；它不能替 TA 决定说什么，单轮变化也有封顶。"
     });
     live.push({
-      key: "jiwen", title: "积温 · 已开启", tone: "主动性",
+      key: "dongnian", title: "动念 · 已开启", tone: "主动性",
       text: "只影响 TA 什么时候主动来找你，以及主动开口时的轻微姿态；不会改普通聊天回复。详细进度就在下方。"
     });
     if (aGate.mode !== "pilot" || aGate.emergencyOff) shadow.push("A 情绪立体化：只观察，不影响语气");
@@ -11152,17 +11152,17 @@ function ChatSettings({
     shadow.push("C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言");
     return { live, shadow };
   })();
-  const renderJiwenGauge = () => h("div", { style: { marginTop: 12, padding: "12px", borderRadius: 12, border: "1px dashed " + t.line } }, (() => {
-    if (!jiwenState) return h("div", null,
-      h(Eyebrow, null, "积温实时进度"),
+  const renderDongnianGauge = () => h("div", { style: { marginTop: 12, padding: "12px", borderRadius: 12, border: "1px dashed " + t.line } }, (() => {
+    if (!dongnianState) return h("div", null,
+      h(Eyebrow, null, "动念实时进度"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.7 } },
         "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"));
-    const c = Math.max(0, Math.min(1, Number(jiwenState.connection) || 0));
+    const c = Math.max(0, Math.min(1, Number(dongnianState.connection) || 0));
     const pct = Math.round((c / 0.5) * 100);
     const stage = c >= 0.5 ? "忍不住了 · 随时会开口" : c >= 0.35 ? "已经想找你了 · 在等一个合适的时机" : c >= 0.2 ? "偶尔想起你" : "刚聊过，还不想你";
     const mark = x => h("div", { style: { position: "absolute", left: (x / 0.5 * 100) + "%", top: -2, bottom: -2, width: 1, background: t.fog, opacity: 0.55 } });
     return h("div", null,
-      h(Eyebrow, null, "积温实时进度"),
+      h(Eyebrow, null, "动念实时进度"),
       h("div", { style: { position: "relative", height: 8, borderRadius: 999, background: t.bg, marginTop: 10 } },
         h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, pct) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog, transition: "width .3s" } }),
         mark(0.35), mark(0.5)),
@@ -11171,7 +11171,7 @@ function ChatSettings({
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.toFixed(3) + " / 0.35")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
         "两道竖线是「开始想找你」(0.35) 和「忍不住」(0.50)。你回一句话它就清零重来；关着 app 的时间也算数（一次最多补 12 小时）。"
-        + (jiwenState.pride >= 0.5 ? "\n此刻 TA 还端着（傲娇 " + Number(jiwenState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")));
+        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着（傲娇 " + Number(dongnianState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")));
   })());
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
@@ -11268,7 +11268,7 @@ function ChatSettings({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, item.title),
         h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "#4a8b68", border: "1px solid #4a8b68", borderRadius: 999, padding: "2px 7px" } }, item.tone)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, item.text))),
-    renderJiwenGauge(),
+    renderDongnianGauge(),
     h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "仍在观察 · 不影响 TA"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),

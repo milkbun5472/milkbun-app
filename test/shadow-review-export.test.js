@@ -43,7 +43,7 @@ test("原生分享桥拒绝时不能继续假报导出成功", async () => {
   await assert.rejects(() => window.ShadowReview._saveText("audit.json", "{}"), /没有打开/);
 });
 
-test("人格审计会导出现役 jiwen 五轴但不泄露聊天正文", async () => {
+test("人格审计会导出现役 dongnian 五轴但不泄露聊天正文", async () => {
   const stored = {
     ayu: {
       connection: 0.4567, pride: 0.1, valence: -0.2345, arousal: 0.6, immersion: 0.25,
@@ -61,7 +61,7 @@ test("人格审计会导出现役 jiwen 五轴但不泄露聊天正文", async (
       } } }),
       report: async () => ({ sampleCount: 12, spanHours: 36 })
     },
-    __jiwen: {
+    __dongnian: {
       ayu: {
         state: stored.ayu,
         triggers: [{ action: "contact", reason: "private" }, { action: "unknown", text: "private" }]
@@ -70,16 +70,16 @@ test("人格审计会导出现役 jiwen 五轴但不泄露聊天正文", async (
   };
   vm.runInNewContext(source, { window, navigator: {}, document: {}, URL, Blob, File, console });
   const audit = await window.ShadowReview.build([{ id: "ayu", name: "阿屿" }], "test");
-  assert.equal(audit.innerLife.jiwenLive.mode, "live");
-  assert.equal(audit.innerLife.jiwenLive.affectsLiveBehavior, true);
-  assert.deepEqual(Array.from(audit.innerLife.jiwenLive.characters[0].triggerActions), ["contact"]);
-  assert.equal(audit.innerLife.jiwenLive.characters[0].axes.connection, 0.457);
-  assert.deepEqual({ ...audit.innerLife.jiwenLive.characters[0].lastActivity }, {
+  assert.equal(audit.innerLife.dongnianLive.mode, "live");
+  assert.equal(audit.innerLife.dongnianLive.affectsLiveBehavior, true);
+  assert.deepEqual(Array.from(audit.innerLife.dongnianLive.characters[0].triggerActions), ["contact"]);
+  assert.equal(audit.innerLife.dongnianLive.characters[0].axes.connection, 0.457);
+  assert.deepEqual({ ...audit.innerLife.dongnianLive.characters[0].lastActivity }, {
     type: "reading", at: "2026-08-24T11:00:00.000Z"
   });
   assert.equal(audit.innerLife.legacyNineDrivesStatus.mode, "retired_shadow");
-  const comparison = audit.innerLife.jiwenVsA.characters[0];
-  assert.equal(comparison.sharedAxes.connection.jiwen, 0.457);
+  const comparison = audit.innerLife.dongnianVsA.characters[0];
+  assert.equal(comparison.sharedAxes.connection.dongnian, 0.457);
   assert.equal(comparison.sharedAxes.connection.aShadow, 0.2);
   assert.equal(comparison.sharedAxes.connection.delta, -0.257);
   assert.equal(comparison.aAddedAxes.warmth, 0.7);

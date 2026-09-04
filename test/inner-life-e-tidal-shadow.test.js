@@ -57,7 +57,7 @@ test("回前台只推进超时，不会把 uncertain 判醒", async () => {
 test("maybe_sleeping 只记录 wouldHold，不真正阻断调用方", async () => {
   const shadow = runtime();
   await shadow.onUserMessage("晚安", 4000);
-  assert.equal(await shadow.noteWouldHold("jiwen", 4001), true);
+  assert.equal(await shadow.noteWouldHold("dongnian", 4001), true);
   const report = await shadow.report();
   assert.equal(report.kinds.would_hold, 1);
 });

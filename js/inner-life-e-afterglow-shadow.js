@@ -198,7 +198,7 @@
   function safeDiagnostic(input, ownerHash) {
     const allowedKinds = ["packet_created", "packet_duplicate", "packet_expired", "would_surface", "live_surface", "tidal_transition", "would_hold"];
     const allowedStates = ["awake", "maybe_sleeping", "uncertain", null];
-    const allowedOutlets = ["foreground_proactive", "jiwen", "birthday", "reminder", "eyes_alert", "weather", "greeting", "night_watch", null];
+    const allowedOutlets = ["foreground_proactive", "dongnian", "birthday", "reminder", "eyes_alert", "weather", "greeting", "night_watch", null];
     const kind = allowedKinds.includes(input && input.kind) ? input.kind : null;
     if (!kind) return null;
     return {

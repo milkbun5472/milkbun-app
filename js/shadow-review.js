@@ -24,15 +24,15 @@
     };
   };
   const finiteRound = value => Number.isFinite(Number(value)) ? Math.round(Number(value) * 1000) / 1000 : null;
-  const readStoredJiwen = () => {
+  const readStoredDongnian = () => {
     try {
       const raw = window.localStorage && window.localStorage.getItem("x_jiwen");
       const parsed = raw ? JSON.parse(raw) : {};
       return parsed && typeof parsed === "object" ? parsed : {};
     } catch (e) { return {}; }
   };
-  const cleanJiwen = (char, label, stored) => {
-    const live = window.__jiwen && window.__jiwen[char.id];
+  const cleanDongnian = (char, label, stored) => {
+    const live = window.__dongnian && window.__dongnian[char.id];
     const state = live && live.state || stored && stored[char.id];
     if (!state || typeof state !== "object") return null;
     const triggers = Array.isArray(live && live.triggers) ? live.triggers : [];
@@ -68,11 +68,11 @@
     const eGates = chars.map(char => ({ charId: char.id, name: char.remark || char.name || char.id, gate: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.state("E", char.id) : null }));
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
-    const a = [], b = [], drives = [], somatic = [], jiwen = [], storedJiwen = readStoredJiwen();
+    const a = [], b = [], drives = [], somatic = [], dongnian = [], storedDongnian = readStoredDongnian();
     for (const char of chars) {
       const label = char.remark || char.name || char.id;
-      const jiwenRow = cleanJiwen(char, label, storedJiwen);
-      if (jiwenRow) jiwen.push(jiwenRow);
+      const dongnianRow = cleanDongnian(char, label, storedDongnian);
+      if (dongnianRow) dongnian.push(dongnianRow);
       if (window.InnerLifeAShadow) {
         const state = await safe("A state", () => window.InnerLifeAShadow.get(owner, char.id));
         const report = await safe("A report", () => window.InnerLifeAShadow.report(owner, char.id));
@@ -110,13 +110,13 @@
     const ownerMismatches = a.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name)
       .concat(b.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name));
     const aByChar = Object.fromEntries(a.map(row => [row.charId, row]));
-    const jiwenVsA = jiwen.map(row => {
+    const dongnianVsA = dongnian.map(row => {
       const aRow = aByChar[row.charId], current = aRow && aRow.state && aRow.state.emotion && aRow.state.emotion.current;
       const sharedAxes = {};
       ["connection", "pride", "valence", "arousal", "immersion"].forEach(key => {
-        const jiwenValue = finiteRound(row.axes[key]);
+        const dongnianValue = finiteRound(row.axes[key]);
         const aValue = current ? finiteRound(current[key]) : null;
-        sharedAxes[key] = { jiwen: jiwenValue, aShadow: aValue, delta: jiwenValue != null && aValue != null ? finiteRound(aValue - jiwenValue) : null };
+        sharedAxes[key] = { dongnian: dongnianValue, aShadow: aValue, delta: dongnianValue != null && aValue != null ? finiteRound(aValue - dongnianValue) : null };
       });
       return {
         charId: row.charId, name: row.name,
@@ -140,7 +140,7 @@
       memoryV2: "shadow",
       contextBudget: "shadow",
       insightCandidates: "shadow",
-      jiwen: "live",
+      dongnian: "live",
       innerLifeE: eGates.some(x => x.gate && x.gate.mode === "pilot") ? "pilot" : "shadow",
       innerLifeA: a.some(x => x.gate && x.gate.mode === "pilot") ? "pilot" : "shadow",
       somatic: "shadow"
@@ -167,25 +167,25 @@
       memory, innerLife: {
         E: e && typeof e === "object" ? { ...e, readiness: eReadiness, gates: eGates } : { report: e, readiness: eReadiness, gates: eGates }, A: a, B: b, C: c, somatic,
         somaticReview: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(somatic) : { unavailable: true },
-        jiwenLive: {
+        dongnianLive: {
           mode: "live",
           axes: ["connection", "pride", "valence", "arousal", "immersion"],
           affectsLiveBehavior: true,
           livePaths: ["private_proactive", "group_proactive", "group_offline_proactive"],
           containsChatText: false,
-          characters: jiwen
+          characters: dongnian
         },
-        jiwenVsA: {
+        dongnianVsA: {
           mode: "review_only",
           changedLiveBehavior: false,
           sharedAxisLabels: { connection: "连接/挂念", pride: "骄傲/端着", valence: "情绪正负", arousal: "唤醒度", immersion: "沉浸度" },
           aAddedAxisLabels: { hurt: "受伤", anger: "愤怒", anxiety: "焦虑", warmth: "温度", fatigue: "疲劳" },
-          characters: jiwenVsA
+          characters: dongnianVsA
         },
         legacyNineDrivesStatus: {
           mode: "retired_shadow",
           affectsLiveBehavior: false,
-          note: "旧九维只作历史对照，不是 jiwen，也不能据此开阀或解释当前主动消息。"
+          note: "旧九维只作历史对照，不是 dongnian，也不能据此开阀或解释当前主动消息。"
         },
         legacyNineDrives: drives
       }, personality

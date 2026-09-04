@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict");
 const test=require("node:test");
-const {JiwenEmotionA:Core}=require("../js/jiwen.js");
+const {DongnianEmotionA:Core}=require("../js/dongnian.js");
 const B=require("../js/inner-life-b-shadow.js");
 
 const msgs=[
@@ -40,7 +40,7 @@ test("detector 输出必须逐字证据有效，坏 quote 和未启用轴被丢�
 
 test("observe 串行写进同一 A 状态行，但不改十维情绪",async()=>{
   let row=null,calls=0,diagnostics=0;
-  globalThis.JiwenEmotionA=Core;
+  globalThis.DongnianEmotionA=Core;
   globalThis.InnerLifeAShadow={hash:x=>"h_"+x,get:async()=>row,put:async(_o,_c,next)=>(row=structuredClone(next)),addRelationDiagnostic:async()=>{diagnostics++;}};
   const char={id:"char_1783061729716",name:"沈屿白"},before=Core.createState("h_ayu",1).emotion.current;
   const result=await B.observe({ownerId:"owner",char,messages:msgs,runDetector:async()=>{calls++;return {events:[{axis:"boundary",kind:"harm",confidence:1,explicitRelationMeaning:true,playfulContext:false,repairKind:null,evidenceMessageIds:["u2"],evidenceQuotes:["不再继续推你"]}]};}});
@@ -55,7 +55,7 @@ test("非试点完全不调用 detector",async()=>{
 
 test("detector 失败只记无正文失败诊断，不向外抛错",async()=>{
   let diagnostic=null;
-  globalThis.JiwenEmotionA=Core;
+  globalThis.DongnianEmotionA=Core;
   globalThis.InnerLifeAShadow={hash:x=>"h_"+x,get:async()=>null,put:async()=>null,addRelationDiagnostic:async(_o,_c,input)=>{diagnostic=input;}};
   const out=await B.observe({ownerId:"owner",char:{id:"char_1783354607122",name:"顾暮"},messages:msgs,runDetector:async()=>{throw new Error("secret raw response");}});
   assert.equal(out.saved,false);assert.equal(out.error,"B shadow detector failed");assert.equal(diagnostic.detectorFailed,true);assert.equal(JSON.stringify(diagnostic).includes("secret raw response"),false);

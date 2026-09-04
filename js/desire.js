@@ -406,7 +406,7 @@
         h("button", { onClick: () => setShowDriveShadow(v => !v), className: "w-full text-left active:opacity-60", style: { color: t.fog } },
           "历史档案 · 退休九维（不影响 TA） " + (showDriveShadow ? "▾" : "▸")),
         showDriveShadow ? h(React.Fragment, null,
-          h("div", { style: { marginTop: 7, color: t.fog } }, "旧九维只留作 A 与 jiwen 的历史对账；不进 prompt、不改语气、不触发主动消息。"),
+          h("div", { style: { marginTop: 7, color: t.fog } }, "旧九维只留作 A 与 dongnian 的历史对账；不进 prompt、不改语气、不触发主动消息。"),
           h("div", { style: { marginTop: 5, color: t.sub } }, "旧读数：" + driveShadow.top.map(x => (window.DesireDriveShadow.labels[x.key] || x.key) + " " + (x.delta >= 0 ? "+" : "") + x.delta).join(" · ")),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, marginTop: 8 } },
           Object.keys(window.DesireDriveShadow.labels).map(k => {

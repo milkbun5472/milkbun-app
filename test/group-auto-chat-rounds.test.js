@@ -16,7 +16,7 @@ const scan = (() => {
 // —— 把真的那段巡检抠出来跑，别拿模型推理代替测量 ——
 // 环境全是桩：群、设置、成员、额度卡、replyGroup 只记账不发请求。
 function drive(opts) {
-  const { minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true, holdAfter = 0, resumeAfterMin = 0 } = opts || {};
+  const { minutes, rounds, maxMsg, perRound = 5, dongnian = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true, holdAfter = 0, resumeAfterMin = 0 } = opts || {};
   const src = (() => {
     const i = app.indexOf("const scanAutoGroups = () => {");
     return app.slice(i, app.indexOf("\n    };", i) + 6);
@@ -39,8 +39,8 @@ function drive(opts) {
     groupOfflinesRef: { current: { [G]: goff } },
     loadJSON: (k, d) => d,
     InteractionClock: require("../js/interaction-clock.js"),
-    jiwenFiredRef: { current: {} },
-    getJiwen: () => ({ applyDelta() {} }),
+    dongnianFiredRef: { current: {} },
+    getDongnian: () => ({ applyDelta() {} }),
     autoChatCycleRef: { current: store },
     autoChatRoundsRef: { current: {} },
     autoChatMsgsRef: { current: {} },
@@ -50,7 +50,7 @@ function drive(opts) {
     AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
     Math: Object.assign(Object.create(Math), { random: () => rand }),
     Date: { now: () => NOW },
-    window: { __jiwen: jiwen ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {},
+    window: { __dongnian: dongnian ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {},
       InteractionClock: require("../js/interaction-clock.js") }
   };
   const scan = new Function(...Object.keys(env), src + "\nreturn scanAutoGroups;")(...Object.values(env));
@@ -85,8 +85,8 @@ test("拿她的设置真跑一遍：5 轮一轮不少", () => {
   assert.deepEqual(got.map(x => x.budget), [50, 45, 40, 35, 30], "剩余条数预算要一轮轮递减");
 });
 
-test("有 jiwen 的群也一样跑满——动念只管起聊那一下", () => {
-  assert.equal(drive({ minutes: 3, rounds: 5, maxMsg: 50, jiwen: true }).length, 5);
+test("有 dongnian 的群也一样跑满——动念只管起聊那一下", () => {
+  assert.equal(drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true }).length, 5);
 });
 
 test("总条数上限先到就先停", () => {
@@ -110,8 +110,8 @@ test("动念只管起聊那一下，后面几轮不再要新的思念", () => {
   const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {", i);
   assert.ok(gate > i, "没有把动念这道门收进【第一轮】里");
   const seg = scan.slice(gate, gate + 1100);
-  assert.match(seg, /if \(anyJiwen && !urgeChars\.length\) continue;/, "起聊仍要有人真想找她");
-  assert.match(seg, /jiwenFiredRef\.current\[c\.id\] = now;/, "认领冷却要留在门里面");
+  assert.match(seg, /if \(anyDongnian && !urgeChars\.length\) continue;/, "起聊仍要有人真想找她");
+  assert.match(seg, /dongnianFiredRef\.current\[c\.id\] = now;/, "认领冷却要留在门里面");
   assert.match(seg, /applyDelta\(\{ connection: -0\.28 \}\)/, "泄思念也要留在门里面");
 });
 
@@ -130,18 +130,18 @@ test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
   assert.match(scan, /replyGroup\(gid, \{ auto: true, msgBudget: totalCap - msgsSoFar/, "剩余预算没往下传");
 });
 
-test("没配 jiwen 的群照旧纯闲置触发，一个字没变", () => {
+test("没配 dongnian 的群照旧纯闲置触发，一个字没变", () => {
   const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {");
   const seg = scan.slice(gate, gate + 1100);
-  assert.match(seg, /let anyJiwen = false;/, "没 jiwen 的群该直接放行");
+  assert.match(seg, /let anyDongnian = false;/, "没 dongnian 的群该直接放行");
 });
 
-// 她 2026-08-27：「就是要按黑键之后无视 jiwen」——她已经明说了要他们聊，
+// 她 2026-08-27：「就是要按黑键之后无视 dongnian」——她已经明说了要他们聊，
 // 别再让「此刻有没有人想我」这道门拦着自发链条接上。
 test("按过黑键的那一段，第一轮不等谁动念", () => {
-  const cold = drive({ minutes: 3, rounds: 5, maxMsg: 50, jiwen: true, urge: false });
+  const cold = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, urge: false });
   assert.equal(cold.length, 0, "没人动念、也没按黑键 → 本来就不该起聊");
-  const kicked = drive({ minutes: 3, rounds: 5, maxMsg: 50, jiwen: true, urge: false, kicked: true });
+  const kicked = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, urge: false, kicked: true });
   assert.equal(kicked.length, 5, "按过黑键就该一路接满 5 轮，实际 " + kicked.length + " 轮");
 });
 

@@ -41,6 +41,6 @@ test("规则只降概率：他自己说过的开口原样发回去", () => {
   assert.match(avoid, /你前几次就是这么开口的，一句都不许再用/, "没把原话发回去");
   assert.match(avoid, /同一个起手式/, "只挡了字面重复，换几个字照样过");
   // ⚠️两处任务串都要接上——「一层写在两处，第二处没跟上」在这份文件里犯过太多次
-  assert.equal((app.match(/callHint \+ proactiveHintAll \+ jiwenHint/g) || []).length, 2, "两处任务串没都接上");
-  assert.ok(!/callHint \+ proactiveHint \+ jiwenHint/.test(app), "还有一处用的是没带避重的那个");
+  assert.equal((app.match(/callHint \+ proactiveHintAll \+ dongnianHint/g) || []).length, 2, "两处任务串没都接上");
+  assert.ok(!/callHint \+ proactiveHint \+ dongnianHint/.test(app), "还有一处用的是没带避重的那个");
 });

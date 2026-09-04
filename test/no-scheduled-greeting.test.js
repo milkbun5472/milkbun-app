@@ -8,7 +8,7 @@ const codex = fs.readFileSync(path.join(root, "js/codex.js"), "utf8");
 
 // v54.77（她 2026-08-22：「早安晚安也停了吧，就留真正挂念的时候发」）。
 // 前情：v54.76 刚修好「午夜翻页导致晚安重发」，但她要的不是修准点，是根本不要打卡式问候。
-// 定时问候到点必发、跟心情无关，本来就压着积温那套真实动机。
+// 定时问候到点必发、跟心情无关，本来就压着动念那套真实动机。
 
 test("定时早晚安整块下线：判定、窗口、去重、投递四样都不在了", () => {
   ["greetSlotFor", "greetDayKey", "schedWakeSleep", "nearMin"].forEach(k =>
@@ -22,12 +22,12 @@ test("定时早晚安整块下线：判定、窗口、去重、投递四样都�
   assert.ok(!app.includes('"greeting"'), "outlet 里还留着 greeting 分类");
 });
 
-test("真正挂念的那条路一根都不许动：积温主动照旧", () => {
-  assert.match(app, /jiwenFiredRef\.current\[cid\] = Date\.now\(\);/);
-  assert.match(app, /replyNow\(cid, "", null, \{ proactive: true, jiwen: jwStyle,/, "线上主动");
+test("真正挂念的那条路一根都不许动：动念主动照旧", () => {
+  assert.match(app, /dongnianFiredRef\.current\[cid\] = Date\.now\(\);/);
+  assert.match(app, /replyNow\(cid, "", null, \{ proactive: true, dongnian: jwStyle,/, "线上主动");
   assert.match(app, /if \(activeOffScene\) offlineReply\(cid\);/, "线下自己动一拍");
-  assert.match(app, /opts\.jiwen \? "jiwen"/, "出口分类还得认得积温");
-  // 45 秒一轮的 tick 与 14 秒首踢都还在，积温靠它推进
+  assert.match(app, /opts\.dongnian \? "dongnian"/, "出口分类还得认得动念");
+  // 45 秒一轮的 tick 与 14 秒首踢都还在，动念靠它推进
   assert.match(app, /const kick = setTimeout\(tick, 14000\);/);
   assert.match(app, /const timer = setInterval\(tick, 45000\);/);
 });
@@ -43,7 +43,7 @@ test("生日祝福不是打卡问候，要活着", () => {
 
 test("tick 里留了字条，说明问候是【停掉的】不是【漏写的】", () => {
   assert.match(app, /定时早晚安已于 v54\.77 整块下线/);
-  assert.match(app, /只剩两个理由：真攒够思念（积温，就在上面）、以及你生日/);
+  assert.match(app, /只剩两个理由：真攒够思念（动念，就在上面）、以及你生日/);
 });
 
 test("说明书跟着改口，别再写着有早晚安", () => {

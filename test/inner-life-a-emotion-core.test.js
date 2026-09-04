@@ -1,11 +1,11 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { JiwenEmotionA: A } = require("../js/jiwen.js");
+const { DongnianEmotionA: A } = require("../js/dongnian.js");
 
 const T0 = Date.UTC(2026,6,17,12,0,0);
 
-test("统一模型恰好十维，旧 jiwen 五轴原值无损迁移", () => {
+test("统一模型恰好十维，旧 dongnian 五轴原值无损迁移", () => {
   const old={connection:.42,pride:.3,valence:-.2,arousal:.1,immersion:.7,lastTick:"2026-07-17T00:00:00Z"};
   const state=A.migrateLegacyFive(old,"char",T0);
   assert.equal(Object.keys(state.emotion.current).length,10);

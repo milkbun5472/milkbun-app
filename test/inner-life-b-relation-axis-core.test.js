@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict");
 const test=require("node:test");
-const {JiwenEmotionA:B}=require("../js/jiwen.js");
+const {DongnianEmotionA:B}=require("../js/dongnian.js");
 const T0=Date.UTC(2026,6,17,12,0,0);
 const harm=(axis,id,extra={})=>({axis,kind:"harm",confidence:.9,explicitRelationMeaning:true,playfulContext:false,evidenceMessageIds:[id],at:T0+Number(id.replace(/\D/g,""))*1000,...extra});
 

@@ -14,12 +14,12 @@ test("单聊主动不再依赖正在打开该聊天，也不会保留重复 thre
   assert.match(components, /不必打开这个聊天/);
 });
 
-test("群聊可认领积温 contact，点名动念角色并阻止旧快照再触发私聊", () => {
+test("群聊可认领动念 contact，点名动念角色并阻止旧快照再触发私聊", () => {
   assert.match(app, /urgeCharIds: urgeChars\.map\(c => c\.id\)/);
-  assert.match(app, /jiwenFiredRef\.current\[c\.id\] = now/);
+  assert.match(app, /dongnianFiredRef\.current\[c\.id\] = now/);
   assert.match(app, /setTimeout\(scanAutoGroups, 11000\)/);
   assert.match(app, /setTimeout\(tick, 14000\)/);
   assert.match(app, /这轮自然动念/);
   assert.match(app, /由 TA 自然先开口/);
-  assert.match(app, /Date\.now\(\) - \(jiwenFiredRef\.current\[cid\] \|\| 0\) < 25 \* 60000/);
+  assert.match(app, /Date\.now\(\) - \(dongnianFiredRef\.current\[cid\] \|\| 0\) < 25 \* 60000/);
 });

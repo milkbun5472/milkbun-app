@@ -6,7 +6,7 @@
 // v58.85 定的 0.3；v61.35 抬到 0.45（她 2026-09-03 同意）——因为同一轮还查出
 // where 三选一里有两档都通向悄悄话（note 那一档的便签墙 v59.23 就撤了），
 // 于是拾/半/画 实际只有一成上下能轮上。两件事一起改：出口收成两档 + 概率抬一档。
-// ⚠️放在模块顶上而不是组件里：用它的地方（积温那个 tick）在文件前面几千行，
+// ⚠️放在模块顶上而不是组件里：用它的地方（动念那个 tick）在文件前面几千行，
 //   写在组件里就是靠 TDZ 的时序侥幸（v59.22 已经栽过一次）。
 const COUPLE_LEAVE_P = 0.45;
 // 壁纸那两个滑杆的取值收口：存进来的可能是旧版本、手改过的存档、或者 NaN。
@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.50";
+const APP_VERSION = "v61.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -241,7 +241,7 @@ function App() {
   const [momentsCover, setMomentsCover] = useState({}); // { me: dataURI, [charId]: dataURI } 朋友圈封面
   const [momTarget, setMomTarget] = useState(null);     // 朋友圈个人页目标 { id, isMe }
   // 约回（v56.49，她 2026-08-26：「他们会说等我 xxx 再找你，能不能真的主动发」）：
-  // [{id, charId, dueTs, about, createdTs}]。到点就发，不看积温攒没攒够；
+  // [{id, charId, dueTs, about, createdTs}]。到点就发，不看动念攒没攒够；
   // 那段时间她没开 app 就一直欠着，下次开 app 补上——app 不开就没有任何东西在跑。
   const [promises, setPromises] = useState([]);
   const promisesRef = useRef([]); promisesRef.current = promises;
@@ -1137,7 +1137,7 @@ function App() {
       const row = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
       const report = await window.InnerLifeAShadow.report(ownerId, activeChar.id);
       const bReport = window.InnerLifeBShadow ? await window.InnerLifeBShadow.report(ownerId, activeChar) : null;
-      if (alive) { setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null); setAShadowPanel({ state: row, projection: row && window.JiwenEmotionA ? window.JiwenEmotionA.displayProjection(row) : null, report, bReport }); }
+      if (alive) { setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null); setAShadowPanel({ state: row, projection: row && window.DongnianEmotionA ? window.DongnianEmotionA.displayProjection(row) : null, report, bReport }); }
     })();
     return () => { alive = false; };
   }, [chatSettingsOpen, activeChar && activeChar.id]);
@@ -1149,7 +1149,7 @@ function App() {
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`;
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
-      const next = window.JiwenEmotionA.temperamentFromAnchors(words, false);
+      const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);
       if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
       setTemperamentDraft(next);
       toast("性情草稿已生成 · 还没有保存");
@@ -1157,29 +1157,29 @@ function App() {
     finally { setTemperamentBusy(false); }
   };
   const saveTemperamentAnchors = async words => {
-    if (!activeChar || !window.InnerLifeAShadow || !window.JiwenEmotionA) return false;
+    if (!activeChar || !window.InnerLifeAShadow || !window.DongnianEmotionA) return false;
     const ownerId = await aShadowOwnerId(), charHash = window.InnerLifeAShadow.hash(activeChar.id);
     let state = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
-    if (!state) state = window.JiwenEmotionA.createState(charHash, Date.now());
-    state.emotion.temperament = window.JiwenEmotionA.temperamentFromAnchors(words, true);
+    if (!state) state = window.DongnianEmotionA.createState(charHash, Date.now());
+    state.emotion.temperament = window.DongnianEmotionA.temperamentFromAnchors(words, true);
     state.revision = Number(state.revision || 0) + 1; state.updatedTs = Date.now();
     const saved = await window.InnerLifeAShadow.put(ownerId, activeChar.id, state);
     if (!saved) { toast("性情锚点保存失败"); return false; }
-    setTemperamentDraft(saved.emotion.temperament); setAShadowPanel(p => ({ ...(p || {}), state: saved, projection: window.JiwenEmotionA.displayProjection(saved) })); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
+    setTemperamentDraft(saved.emotion.temperament); setAShadowPanel(p => ({ ...(p || {}), state: saved, projection: window.DongnianEmotionA.displayProjection(saved) })); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
   };
   const observeEmotionAShadow = (charId, affinityDelta, moodLabel) => {
     try {
-      if (!window.InnerLifeAShadow || !window.JiwenEmotionA || !charId) return;
+      if (!window.InnerLifeAShadow || !window.DongnianEmotionA || !charId) return;
       setTimeout(async () => {
         try {
           const ownerId = await aShadowOwnerId(), now = Date.now();
           let state = await window.InnerLifeAShadow.get(ownerId, charId);
-          if (!state) state = window.JiwenEmotionA.createState(window.InnerLifeAShadow.hash(charId), now);
+          if (!state) state = window.DongnianEmotionA.createState(window.InnerLifeAShadow.hash(charId), now);
           const elapsed = Math.max(0, Math.min(720, (now - Number(state.updatedTs || now)) / 60000));
-          if (elapsed > 0) state = window.JiwenEmotionA.regress(state, elapsed, now);
-          const result = window.JiwenEmotionA.applyEvent(state, { affinityDelta: Number.isFinite(Number(affinityDelta)) ? Number(affinityDelta) : 0, moodLabel: moodLabel || "" }, now);
+          if (elapsed > 0) state = window.DongnianEmotionA.regress(state, elapsed, now);
+          const result = window.DongnianEmotionA.applyEvent(state, { affinityDelta: Number.isFinite(Number(affinityDelta)) ? Number(affinityDelta) : 0, moodLabel: moodLabel || "" }, now);
           const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
-          const projection = window.JiwenEmotionA.displayProjection(saved);
+          const projection = window.DongnianEmotionA.displayProjection(saved);
           await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
           if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
         } catch (e) {}
@@ -1949,7 +1949,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setMoods(p => { const n = { ...p }; if (current && current.mood) n[charId] = { label: current.mood, ts: Date.now() }; else delete n[charId]; saveJSON("x_moods", n); return n; });
     if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
   };
-  // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、jiwen 思念和断档提示共用这一只钟。
+  // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、dongnian 思念和断档提示共用这一只钟。
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
   //（她 2026-08-27：顾暮在两个群里几乎同时给了两套说法，一边说六点半到家、一边另说一套）。
   // 只取【TA 自己刚说过的原话】——不是别人的话，所以不构成隐私泄露，别的成员也拿不到这一段。
@@ -3931,7 +3931,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   });
   // 后台保活已并进「一起听」：播放里那首「静音保活」曲目即占住 iOS 音频会话（见 playSong 的 keepalive 分支）。
   // 单聊主动统一走下面的全局巡检：不要求打开 TA 的聊天，并由 pChat 在别处正常挂未读。
-  // 旧的 thread-only 20 秒定时器已删除，避免和积温主动抢跑/双发。
+  // 旧的 thread-only 20 秒定时器已删除，避免和动念主动抢跑/双发。
   // ---- 群聊自发（她 2026-07-23）：开了「记忆互通」的群闲置到间隔，成员自己顺着往下聊——
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
   //   不要求你正盯着那个群：App 还活着时可在别的页面生成，pGChat 会正常挂群未读；iOS 杀进程后仍需未来的云端任务。
@@ -4020,18 +4020,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 轮数上限、总条数上限和闲置间隔，那三样才是她在设置里调的东西。
         let urgeChars = [];
         if (rounds === 0 && !cycle.kicked) {
-          let anyJiwen = false;
+          let anyDongnian = false;
           gm.forEach(c => {
-            const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id];
+            const jw = typeof window !== "undefined" && window.__dongnian && window.__dongnian[c.id];
             if (!jw) return;
-            anyJiwen = true;
+            anyDongnian = true;
             // 同一份思念只能被一个出口认领；群聊认领后 25 分钟内，单聊巡检不会再拿旧快照重复发。
-            if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (jiwenFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
+            if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (dongnianFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
           });
-          if (anyJiwen && !urgeChars.length) continue;
+          if (anyDongnian && !urgeChars.length) continue;
           urgeChars.forEach(c => {
-            jiwenFiredRef.current[c.id] = now;
-            try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
+            dongnianFiredRef.current[c.id] = now;
+            try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
           });
         }
         // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
@@ -4041,12 +4041,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
     };
     const timer = setInterval(scanAutoGroups, 20000);
-    // 等积温首算完，先让群聊拿一次思念出口机会；单聊全局巡检会再晚三秒。
+    // 等动念首算完，先让群聊拿一次思念出口机会；单聊全局巡检会再晚三秒。
     const kick = setTimeout(scanAutoGroups, 11000);
     return () => { clearTimeout(kick); clearInterval(timer); };
   }, [groups, groupSettings, sending, offlineGroup]);
-  // ---- 群线下 jiwen 驱动自发（她 2026-07-23）：开着群线下浮层、闲置、群里有成员此刻「想动/想聊」(jiwen contact 触发)，
-  //   成员就自己往下演一拍（groupOfflineReply 空输入=自主续演）。没成员载 jiwen 就不自动（她手动「让他们演绎」）。
+  // ---- 群线下 dongnian 驱动自发（她 2026-07-23）：开着群线下浮层、闲置、群里有成员此刻「想动/想聊」(dongnian contact 触发)，
+  //   成员就自己往下演一拍（groupOfflineReply 空输入=自主续演）。没成员载 dongnian 就不自动（她手动「让他们演绎」）。
   //   防跑飞：距你最后一句自发≥12拍就歇；泄一点思念别连发；只前台浮层开着时跑。
   useEffect(() => {
     if (!offlineGroup) return;
@@ -4058,12 +4058,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let sinceUser = 0; for (let i = sess.msgs.length - 1; i >= 0; i--) { if (sess.msgs[i].role === "user") break; sinceUser++; }
       if (sinceUser >= 12) return;
       const gmm = (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-      let anyJiwen = false; const urge = [];
-      gmm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urge.push(c); } });
-      if (!anyJiwen || !urge.length) return; // 没 jiwen 或 此刻没人动念 → 不自发（手动演绎照旧）
+      let anyDongnian = false; const urge = [];
+      gmm.forEach(c => { const jw = typeof window !== "undefined" && window.__dongnian && window.__dongnian[c.id]; if (jw) { anyDongnian = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urge.push(c); } });
+      if (!anyDongnian || !urge.length) return; // 没 dongnian 或 此刻没人动念 → 不自发（手动演绎照旧）
       const lastTs = sess.msgs[sess.msgs.length - 1].ts || 0;
       if (Date.now() - lastTs < 150000 * (1 + Math.random() * 0.5)) return; // 闲置约 2.5~3.75 分钟才推进一拍
-      urge.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.2 }); } catch (e) {} }); // 泄一点，别下tick又触发
+      urge.forEach(c => { try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.2 }); } catch (e) {} }); // 泄一点，别下tick又触发
       groupOfflineReply(gid);
     }, 20000);
     return () => clearInterval(timer);
@@ -4277,7 +4277,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // viewRef 命中「正在看这个聊天/线下浮层开着这个角色」时跳过（那种由前台 20s 定时器即时负责，避免双发）；
       // 按角色当地作息只在 8~23 点发，别半夜 ping。一次一个错峰。
       // ── 约回（v56.49）：他亲口说过「等我 xxx 再找你」，到点就发 ──
-      // 排在积温前面，而且【不看积温、不看 45 分钟底线】——那是「攒够思念才开口」的门槛，
+      // 排在动念前面，而且【不看动念、不看 45 分钟底线】——那是「攒够思念才开口」的门槛，
       // 这条是他自己许下的约，性质不一样。也不看时段：app 不开就不会跑，能跑说明她醒着。
       // 她那段时间没开 app → 这条一直欠着，下次开 app 补上（她 2026-08-26 明说要这样）。
       try {
@@ -4291,7 +4291,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (currentlyTogetherWithChar(pm.charId)) continue; // 人就在旁边，不用发消息
           if (viewRef.current.charId === pm.charId) continue; // 她正看着这个聊天，前台那套负责
           drop();
-          jiwenFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让积温紧跟着再来一条
+          dongnianFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让动念紧跟着再来一条
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
           // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
           replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
@@ -4318,29 +4318,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
           const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
           if (!activeOffScene && !ms.length) continue;
-          // ⭐jiwen 阶段二（v48.80/81）：有 jiwen 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
-          //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 jiwen=45min 底线(真时机 jiwen 说了算)，没 jiwen(引擎没载)兜底 3h。
-          const jw = (typeof window !== "undefined" && window.__jiwen && window.__jiwen[cid]) || null;
+          // ⭐dongnian 阶段二（v48.80/81）：有 dongnian 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
+          //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 dongnian=45min 底线(真时机 dongnian 说了算)，没 dongnian(引擎没载)兜底 3h。
+          const jw = (typeof window !== "undefined" && window.__dongnian && window.__dongnian[cid]) || null;
           const floorMin = jw ? 45 : 180;
           const offMsgs = activeOffScene ? (activeOffScene.msgs || []) : [];
           const lastInteract = Math.max(ms.length ? (ms[ms.length - 1].ts || 0) : 0, latestSharedInteractionTs(cid), offMsgs.length ? (offMsgs[offMsgs.length - 1].ts || 0) : 0);
           if (Date.now() - lastInteract < floorMin * 60000) continue;
-          if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // jiwen 说「还没想到要联系」→ 不动
-          if (Date.now() - (jiwenFiredRef.current[cid] || 0) < 25 * 60000) continue;
+          if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // dongnian 说「还没想到要联系」→ 不动
+          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
           if (charAwakeState(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
           }
-          jiwenFiredRef.current[cid] = Date.now();
+          dongnianFiredRef.current[cid] = Date.now();
           let jwStyle = "";
-          try { const eng = getJiwen(c); if (eng && jw) { jwStyle = (eng.getStyleGuidance() + "\n" + eng.getPromptContext()).trim(); eng.applyDelta({ connection: -0.28 }); } } catch (e) {} // 注入当前五轴语气 + 发完泄一点思念(别下一tick又触发)
+          try { const eng = getDongnian(c); if (eng && jw) { jwStyle = (eng.getStyleGuidance() + "\n" + eng.getPromptContext()).trim(); eng.applyDelta({ connection: -0.28 }); } } catch (e) {} // 注入当前五轴语气 + 发完泄一点思念(别下一tick又触发)
           // 这条消息真正「想发」的时刻：越过阈值那一刻。夹在【上次互动之后】和【一分钟前】之间，
           // 免得排到历史里去、或者干脆写成未来。
-          const _cross = jiwenCrossedRef.current[cid] || 0;
+          const _cross = dongnianCrossedRef.current[cid] || 0;
           const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
-          jiwenCrossedRef.current[cid] = 0;
+          dongnianCrossedRef.current[cid] = 0;
           if (activeOffScene) offlineReply(cid);                                 // 思念攒够 → 线下自己动一拍
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
@@ -4348,42 +4348,44 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
           else if (((couplesRef.current || {})[cid] || {}).status === "together" && Math.random() < COUPLE_LEAVE_P)
             leaveInCoupleSpace(c, jwStyle);
-          else replyNow(cid, "", null, { proactive: true, jiwen: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
+          else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}
       // 定时早晚安已于 v54.77 整块下线（她 2026-08-22：「早安晚安也停了吧，就留真正挂念的时候发」）。
-      // 打卡式问候本来就压着上面那套积温：到点必发、跟心情无关，久了就成了背景噪音。
-      // 现在角色主动开口只剩两个理由：真攒够思念（积温，就在上面）、以及你生日。
+      // 打卡式问候本来就压着上面那套动念：到点必发、跟心情无关，久了就成了背景噪音。
+      // 现在角色主动开口只剩两个理由：真攒够思念（动念，就在上面）、以及你生日。
     };
-    // 等积温 8 秒首算和群聊 11 秒认领机会走完，再决定是否落到单聊；否则单聊会永远抢先吃掉 contact。
+    // 等动念 8 秒首算和群聊 11 秒认领机会走完，再决定是否落到单聊；否则单聊会永远抢先吃掉 contact。
     const kick = setTimeout(tick, 14000);
     const timer = setInterval(tick, 45000);
     return () => { clearTimeout(kick); clearInterval(timer); };
   }, [characters, active]);
-  // ── 积温·活人感引擎（jiwen，v48.47 阶段一：引擎+接线）──
+  // ── 动念·活人感引擎（dongnian，v48.47 阶段一：引擎+接线）──
   // 五轴连续状态随时间漂移（思念/傲娇/愉悦/唤醒/沉浸），到阈值产生「想联系」的触发。
-  // ⚠️阶段一【只推进状态+观测，触发不真发消息】——结果 stash 到 window.__jiwen 供调参；阶段二再放开去驱动主动消息。
-  const jiwenRef = useRef({});          // charId -> 引擎实例（缓存，保住闭包内 valence 边际递减记录）
-  const jiwenTickRef = useRef({});      // charId -> 上次 tick 毫秒
+  // ⚠️阶段一【只推进状态+观测，触发不真发消息】——结果 stash 到 window.__dongnian 供调参；阶段二再放开去驱动主动消息。
+  const dongnianRef = useRef({});          // charId -> 引擎实例（缓存，保住闭包内 valence 边际递减记录）
+  const dongnianTickRef = useRef({});      // charId -> 上次 tick 毫秒
   // charId -> 上次已知用户最新消息 ts（对方回话→思念清零）。
   // ⚠️必须持久化（v56.51）：原来是个纯内存 ref，每次开 app 都是空的 → 第一次 tick 时
   // 「用户最新消息比记录的新」永远成立 → resetConnection() 把思念清零。于是她每隔一两小时
-  // 开一次 app，积温就被清一次，永远到不了 0.35 的 contact 阈值——她 2026-08-26：
-  // 「jiwen 也没用，主动消息绝对都开了的一个人没有」。开机从 x_jiwenSeen 读回来。
-  const jiwenLastUserRef = useRef(null);
-  const jiwenSeen = () => {
-    if (!jiwenLastUserRef.current) jiwenLastUserRef.current = loadJSON("x_jiwenSeen", {}) || {};
-    return jiwenLastUserRef.current;
+  // 开一次 app，动念就被清一次，永远到不了 0.35 的 contact 阈值——她 2026-08-26：
+  // 「jiwen 也没用，主动消息绝对都开了的一个人没有」（她原话；那会儿还叫 jiwen，
+  // v61.51 才改名叫动念——⚠️引文按她当时说的留着，别跟着改名一起改，那是篡改她说的话）。
+  // 开机从 x_jiwenSeen 读回来（⚠️存档键没跟着改名，改了会让所有角色的积累清零）。
+  const dongnianLastUserRef = useRef(null);
+  const dongnianSeen = () => {
+    if (!dongnianLastUserRef.current) dongnianLastUserRef.current = loadJSON("x_jiwenSeen", {}) || {};
+    return dongnianLastUserRef.current;
   };
-  const jiwenSeenSet = (cid, ts) => { const m = jiwenSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
-  const jiwenCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
-  const jiwenFiredRef = useRef({});     // charId -> 上次 jiwen 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
-  const getJiwen = char => {
-    if (!char || typeof createJiwen !== "function") return null;
-    if (jiwenRef.current[char.id]) return jiwenRef.current[char.id];
+  const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
+  const dongnianCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
+  const dongnianFiredRef = useRef({});     // charId -> 上次 dongnian 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
+  const getDongnian = char => {
+    if (!char || typeof createDongnian !== "function") return null;
+    if (dongnianRef.current[char.id]) return dongnianRef.current[char.id];
     const uName = (profile && profile.name) || "她";
-    const eng = createJiwen({
+    const eng = createDongnian({
       persona: { subjectName: uName, selfName: char.name, subjectPronoun: "ta" },
       getLastMessage: () => {
         const arr = chatsRef.current[char.id] || [];
@@ -4401,33 +4403,33 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[char.id] || null; } catch (e) { return null; } },
       onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[char.id] = st; saveJSON("x_jiwen", m); } catch (e) {} }
     });
-    jiwenRef.current[char.id] = eng;
+    dongnianRef.current[char.id] = eng;
     return eng;
   };
   useEffect(() => {
-    if (typeof createJiwen !== "function") return;
-    window.__jiwen = window.__jiwen || {};
+    if (typeof createDongnian !== "function") return;
+    window.__dongnian = window.__dongnian || {};
     const step = async () => {
       const now = Date.now();
       for (const char of characters) {
         const arr = chatsRef.current[char.id] || [];
         if (!arr.length) continue;                                // 没聊过的不跑
-        const eng = getJiwen(char); if (!eng) continue;
+        const eng = getDongnian(char); if (!eng) continue;
         // 对方（用户）最新消息比上次记录的新 → 思念清零（闭环，不碰任何发送路径）
         let lastUserTs = latestUserSharedInteractionTs(char.id);
         for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].role === "user") { lastUserTs = Math.max(lastUserTs, arr[i].ts || 0); break; } }
-        const seenTs = jiwenSeen()[char.id] || 0;
+        const seenTs = dongnianSeen()[char.id] || 0;
         if (lastUserTs && lastUserTs > seenTs) {
-          jiwenSeenSet(char.id, lastUserTs);
+          dongnianSeenSet(char.id, lastUserTs);
           // 首次见到这个角色（还没有记录）时不清零：那不是「她刚回话」，
           // 只是我们第一次认识这段历史。清了就等于每装一次 app 都从零开始。
           if (seenTs) { try { await eng.resetConnection(); } catch (e) {} }
         }
-        // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，jiwen 内部封顶 60 分钟）
-        let baseTs = jiwenTickRef.current[char.id];
+        // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，dongnian 内部封顶 60 分钟）
+        let baseTs = dongnianTickRef.current[char.id];
         if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
         const mins = (now - baseTs) / 60000;
-        jiwenTickRef.current[char.id] = now;
+        dongnianTickRef.current[char.id] = now;
         try {
           let triggers;
           if (mins >= 0.2) {
@@ -4443,9 +4445,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               triggers = await eng.tick(chunk); credit -= chunk; done += chunk;
               if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done * 60000;
             } while (credit > 0.2);
-            if (crossed != null) jiwenCrossedRef.current[char.id] = crossed;
+            if (crossed != null) dongnianCrossedRef.current[char.id] = crossed;
           } else triggers = eng.checkThresholds();
-          window.__jiwen[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
+          window.__dongnian[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
         } catch (e) {}
       }
     };
@@ -4883,7 +4885,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
       if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, turnId: offTurnId });
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
-      // 线下角色自己冒泡（如 jiwen 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
+      // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
       setTimeout(() => maybeSummarizeOffline(scopeKey), 120); // 侧房函数内硬隔离，不进入主记忆
       setTimeout(() => maybeAutoExtractOffline(scopeKey), 200);
@@ -5870,7 +5872,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
-      const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -6049,8 +6051,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
       const proactiveHintAll = proactiveHint + openerAvoid;
-      // jiwen 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
-      const jiwenHint = opts.jiwen && String(opts.jiwen).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.jiwen).trim() : "";
+      // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
+      const dongnianHint = opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "";
       const aff = Math.round(affOf(charId));
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -6393,7 +6395,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
-      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
+      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
@@ -6441,7 +6443,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + jiwenHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
       const _roomHint = window.ChatRooms && room ? window.ChatRooms.prompt(room, chatsRef.current[charId] || []) : "";
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -6643,7 +6645,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
       // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
       const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
-      // 约回：他这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看积温。
+      // 约回：他这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看动念。
       try {
         const lp = parsed.laterPromise;
         const mins = lp && Number(lp.minutes);
@@ -7166,8 +7168,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!sideRoom && !opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });
       const affinityBefore = affOf(charId);
       if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
-      // jiwen 阶段二（v48.80）：把这轮互动的好感增量反喂进积温——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
-      try { if (!sideRoom && typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getJiwen(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
+      // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
+      try { if (!sideRoom && typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
         setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
         _moodSkip(charId, true);
@@ -17072,7 +17074,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenerateTemperament: generateTemperamentDraft,
     onSaveTemperament: saveTemperamentAnchors,
     aShadowPanel: aShadowPanel,
-    jiwenState: (typeof window !== "undefined" && window.__jiwen && window.__jiwen[activeChar.id] && window.__jiwen[activeChar.id].state) || null,
+    dongnianState: (typeof window !== "undefined" && window.__dongnian && window.__dongnian[activeChar.id] && window.__dongnian[activeChar.id].state) || null,
     activeRoomId: activeRoomId,
     onSelectRoom: (roomId, close) => {
       setActiveRoomId(roomId || "main");

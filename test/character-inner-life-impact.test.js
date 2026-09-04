@@ -17,12 +17,12 @@ test("E 只有角色 gate 真开且未紧急关闭才显示为已开启", () => 
   assert.match(source, /不会冒充经历、不会写进记忆/);
 });
 
-test("积温说明不冒充普通回复的人格控制器", () => {
-  assert.match(source, /积温 · 已开启/);
+test("动念说明不冒充普通回复的人格控制器", () => {
+  assert.match(source, /动念 · 已开启/);
   assert.match(source, /只影响 TA 什么时候主动来找你/);
   assert.match(source, /不会改普通聊天回复/);
   assert.match(source, /详细进度就在下方/);
-  assert.match(source, /renderJiwenGauge\(\)/);
+  assert.match(source, /renderDongnianGauge\(\)/);
 });
 
 test("未开闸的 A B C 均写清只观察", () => {

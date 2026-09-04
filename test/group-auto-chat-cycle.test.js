@@ -27,7 +27,7 @@ test("群设置可配置 1 至 48 小时刷新周期并保存", () => {
 });
 
 test("不必盯着群聊页也能自发，并由既有群消息路径挂未读", () => {
-  const autoBlock = app.slice(app.indexOf("// ---- 群聊自发"), app.indexOf("// ---- 群线下 jiwen"));
+  const autoBlock = app.slice(app.indexOf("// ---- 群聊自发"), app.indexOf("// ---- 群线下 dongnian"));
   assert.doesNotMatch(autoBlock, /screen !== "gthread" \|\| !activeGroup/);
   assert.match(autoBlock, /for \(const group of groups\)/);
   assert.match(autoBlock, /replyGroup\(gid, \{ auto: true/);

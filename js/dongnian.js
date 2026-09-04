@@ -1,13 +1,23 @@
 // ============================================================
-// 积温 — 不靠概率骰子的 AI 角色主动意识引擎（vendored，MIT，来源 github.com/ClaraShafiq/jiwen）
+// 动念 — 不靠概率骰子的 AI 角色主动意识引擎
+//
+// ⚠️【出处·不许删】算法不是我们写的：移植自 github.com/ClaraShafiq/jiwen（MIT，原名「积温」）。
+//   MIT 允许我们改、也允许我们换名字用，但要求保留出处和许可声明——这个仓库是公开的。
+//   我们这边叫【动念】（她 2026-09-03 定：「jiwen 是别人那边拿过来参考的名字，
+//   我们也改成自己的名字吧」）。代码里已经在用这个词了：
+//   「群里有成员此刻『想动/想聊』」「可认领动念的同时会…」——扶正的是我们自己的说法。
+//
+// ⚠️【存档键不许跟着改名】localStorage 的 x_jiwen / x_jiwenSeen 保持原样。
+//   那两个键里装着每个角色一直在涨的五轴状态；改名＝全体从零开始、等于集体失忆。
+//   键名是内部字段，她在界面上看不见，留着没有任何代价。
 // 五轴连续状态：connection / pride / valence / arousal / immersion
 // 数学漂移 + 阈值触发 + 可注入持久化/消息源/LLM分析
 // ⭐接进 Lisa-phone：v48.47 先只做引擎+接线（跑通再放开触发去真发消息）
-// 全文用 IIFE 包住，只把 createJiwen 挂到 window，别泄漏 clamp/defaultPromptContext 等常见名
+// 全文用 IIFE 包住，只把 createDongnian 挂到 window，别泄漏 clamp/defaultPromptContext 等常见名
 // ============================================================
 ;(function () {
 /**
- * 创建一个积温引擎实例。
+ * 创建一个动念引擎实例。
  *
  * @param {Object} opts
  * @param {Object} [opts.initialState]   — 初始状态（默认全 0）
@@ -22,8 +32,8 @@
  * @param {Object}  [opts.persona]       — 人格描述文本（用于默认 prompt context）
  *   { subjectName: '她', selfName: '你', subjectPronoun: '她' }
  */
-function createJiwen(opts) {
-  if (!opts) throw new Error('积温: opts is required');
+function createDongnian(opts) {
+  if (!opts) throw new Error('动念: opts is required');
 
   // ── 轴定义 ──────────────────────
   const axes = opts.axes || {
@@ -168,7 +178,7 @@ function createJiwen(opts) {
         state = { ...DEFAULT_STATE, ...saved };
       }
     } catch (e) {
-      console.warn('[积温] load failed, using defaults:', e.message);
+      console.warn('[动念] load failed, using defaults:', e.message);
     }
     _loaded = true;
   }
@@ -178,7 +188,7 @@ function createJiwen(opts) {
     try {
       await opts.onSave({ ...state });
     } catch (e) {
-      console.error('[积温] save failed:', e.message);
+      console.error('[动念] save failed:', e.message);
     }
   }
 
@@ -363,7 +373,7 @@ function createJiwen(opts) {
     // 详细模式：每次 tick 都打状态
     if (verbose) {
       log(
-        `[积温] tick ${mins}min | ` +
+        `[动念] tick ${mins}min | ` +
         `c:${stateBefore.connection.toFixed(2)}→${state.connection.toFixed(2)} ` +
         `p:${stateBefore.pride.toFixed(2)}→${state.pride.toFixed(2)} ` +
         `v:${stateBefore.valence.toFixed(2)}→${state.valence.toFixed(2)} ` +
@@ -375,7 +385,7 @@ function createJiwen(opts) {
     } else if (triggers.length > 0) {
       // 默认模式：仅阈值触发时打印
       log(
-        `[积温] tick ${mins}min | ` +
+        `[动念] tick ${mins}min | ` +
         `c:${stateBefore.connection.toFixed(2)}→${state.connection.toFixed(2)} ` +
         `p:${stateBefore.pride.toFixed(2)}→${state.pride.toFixed(2)} ` +
         `v:${stateBefore.valence.toFixed(2)}→${state.valence.toFixed(2)} ` +
@@ -600,7 +610,7 @@ function createJiwen(opts) {
       ? `沉浸于${state.lastActivity.type}` : '空闲';
 
     return [
-      `[积温] c:${c.toFixed(2)}(${cLabel}) p:${p.toFixed(2)}(${pLabel}) v:${v.toFixed(2)}(${vLabel}) a:${a.toFixed(2)}(${aLabel}) i:${i.toFixed(2)}(${iLabel})`,
+      `[动念] c:${c.toFixed(2)}(${cLabel}) p:${p.toFixed(2)}(${pLabel}) v:${v.toFixed(2)}(${vLabel}) a:${a.toFixed(2)}(${aLabel}) i:${i.toFixed(2)}(${iLabel})`,
       `userStatus: ${state.userStatus || 'active'}`,
       state.lastActivity ? `lastActivity: ${state.lastActivity.type} @ ${state.lastActivity.at}` : null,
     ].filter(Boolean).join(' | ');
@@ -758,7 +768,7 @@ function clamp(v, min, max) {
 }
 
 // ─── A 情绪立体化 · 十维纯逻辑核（DORMANT / shadow only）─────────────
-// 与 createJiwen 同文件、复用同一脊柱；现役实例尚未接入，不改 prompt/主动行为。
+// 与 createDongnian 同文件、复用同一脊柱；现役实例尚未接入，不改 prompt/主动行为。
 const A_AXES = Object.freeze({
   connection:[0,1], pride:[-1,1], valence:[-1,1], arousal:[-1,1], immersion:[0,1],
   hurt:[0,1], anger:[0,1], anxiety:[0,1], warmth:[0,1], fatigue:[0,1]
@@ -978,8 +988,8 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const DongnianEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
-if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
-if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};
+if (typeof window !== "undefined") { window.createDongnian = createDongnian; window.DongnianEmotionA=DongnianEmotionA; }
+if (typeof module === "object" && module.exports) module.exports={createDongnian,DongnianEmotionA};
 })();

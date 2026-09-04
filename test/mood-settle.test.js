@@ -10,7 +10,7 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 // 她 2026-08-24：「过好久不聊了心情还是会平复的吧。我的实时心情是不是连着人格系统的」
 //
 // 查下来：不会平复，而且【会衰减的东西不出口，出口的东西不衰减】——
-// 积温那五根轴有随时间回归设定点的漂移，但只 stash 在 window.__jiwen 里做观测，
+// 动念那五根轴有随时间回归设定点的漂移，但只 stash 在 window.__dongnian 里做观测，
 // 从不回流到心情标签也不进提示词；而 moods[id] 每轮被覆盖一次之后就一直躺着，
 // 提示词照样把它当【你此刻的心情】原样注进去。三天前那阵气，三天后回来还在演。
 
@@ -70,5 +70,5 @@ test("提示词端：淡了要带上说明，彻底平复就别再报「此刻�
 test("会衰减的和出口的接上了——这条注释是这次改动的由来，别弄丢", () => {
   const mood = fs.readFileSync(path.join(root, "js/mood-label.js"), "utf8");
   assert.match(mood, /会衰减的东西不出口，出口的东西不衰减/);
-  assert.match(mood, /valenceRegress/, "说明白积温那边本来就有漂移");
+  assert.match(mood, /valenceRegress/, "说明白动念那边本来就有漂移");
 });
