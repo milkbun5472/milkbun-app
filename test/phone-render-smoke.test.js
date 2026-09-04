@@ -451,17 +451,16 @@ test("每个有账号的 app 都给了他自己的平台 ID", () => {
     assert.match(P.phoneProbeSpec(k, char, [], "", []).instruction, /不是本名照抄/, k + " 没说清昵称不是本名"));
 });
 
-test("想买清单的封面色不再洗白到近白", () => {
-  const P = loadPhone();
-  // 她 2026-08-29：「第四个框颜色没盖住」——原来第二档统一渐变到 #f2f2f6
-  assert.equal(P.WISH_COVERS.length, 5);
-  P.WISH_COVERS.forEach((pair, i) => {
-    assert.equal(pair.length, 2, "第 " + i + " 档封面不是两档色");
-    const l = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
-    assert.ok(l(pair[1]) < 0.95, "第 " + i + " 档的浅端 " + pair[1] + " 太接近白，看着像没铺满");
-    assert.ok(l(pair[1]) > l(pair[0]), "第 " + i + " 档应当是深→浅");
-  });
-  assert.doesNotMatch(SRC, /\+ ",#f2f2f6\)"/);
+test("一直没下手的那几样不再摆成货架：没有封面色块", () => {
+  // v62.58 审美审计：两列渐变卡 + 卡里一个首字方块，是这一页最后一件电商家具。
+  // 那个渐变色块跟东西本身毫无关系——它只是在替一张不存在的商品图占位。
+  // 所以整张 WISH_COVERS 连同它的用法一起删了（不是留着不用）。
+  assert.doesNotMatch(SRC.split("\n").map(l => l.split("//")[0]).join("\n"), /WISH_COVERS/);
+  const w = SRC.slice(SRC.indexOf("// ── 一直没下手的"), SRC.indexOf("// ── 我的订单 ──"));
+  assert.doesNotMatch(w, /grid-cols-2/, "又摆回两列货架了");
+  assert.doesNotMatch(w, /linear-gradient/);
+  // 换成册子上的记号：一条一样，左边一枚朱砂圈
+  assert.match(w, /border: "1\.4px solid " \+ SHOP_MARK/);
 });
 
 test("指标名再长也不会被压成一条竖字", () => {

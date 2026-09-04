@@ -2928,23 +2928,16 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // ⚠️结构色一律走常量（跟外卖那次同一个理由）：散着字面值，换一次色必有找漏的。
 const SHOP_ACCENT = "#3f5f8a";   // 靛蓝：小标题、状态、店名旁的强调
 const SHOP_MARK = "#b1493c";     // 朱砂：钱、还没舍得付的那几件
-const SHOP_BG = "#eef1f4";       // 冷青纸
-const SHOP_CARD = "#ffffff";
+// v62.58 审美审计点名：这一页「把电商骨架拆干净了，但说好的『册页』一个元素都没长出来」。
+// 底原来是一层冷青渐变——渐变是任何 app 都能铺的一层，纸不是。
+// 改成毛边纸：本色偏冷但确实是纸，加一层【帘纹】（手工纸对着光看见的那种竖纹）。
+const SHOP_BG = "#e6e9ec";       // 毛边纸（本色偏冷：这一册跟外卖那套暖色要分得开）
+const SHOP_LAID = "repeating-linear-gradient(90deg, rgba(31,39,51,.045) 0 1px, transparent 1px 6px)";
+const SHOP_FRAME = "rgba(31,39,51,.34)";  // 版框那两道边栏线
 const SHOP_INK = "#1f2733";      // 靛墨
 const SHOP_DIM = "#8b95a3";      // 冷灰
 const SHOP_BODY = "#414d5e";     // 正文
 const SHOP_LINE = "#e3e8ee";     // 分隔线
-const SHOP_SOFT = "#f2f5f8";     // 卡里再嵌一块的底
-// 想买清单的封面色。原来第二档统一渐变到 #f2f2f6（近白），浅色那几档（米、蓝）
-// 走到一半就洗白了，看着像色块没铺满（她 2026-08-29 报「第四个框颜色没盖住」）。
-// 改成同色系深→浅两档，整块封面都还是那个颜色。
-const WISH_COVERS = [
-  ["#7f9ab8", "#cfdbe8"],
-  ["#8fa9a2", "#d3e0dc"],
-  ["#b7a276", "#e4dac2"],
-  ["#a8848a", "#ded0d2"],
-  ["#8c8fae", "#d5d6e2"]
-];
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
@@ -2960,7 +2953,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const ms = (monthStats && typeof monthStats === "object" && isFinite(Number(monthStats.spend))) ? monthStats : null;
   const habit = (data.habit && typeof data.habit === "object") ? data.habit : {};
   const initial = String(char.name || "?").trim().slice(0, 1);
-  const card = (kids, extra) => h("div", { style: Object.assign({ background: SHOP_CARD, borderRadius: 18, padding: "18px 18px", marginBottom: 14 }, extra || {}) }, kids);
+  // 要跳出来的那一段，用【墨围】——册子里把一段话框起来的那道细线框，
+  // 不是一张白色圆角卡（白卡叠在纸上就是把这一页拉回通用列表）。
+  const card = (kids, extra) => h("div", { style: Object.assign({ border: "1px solid " + SHOP_FRAME, borderRadius: 0, padding: "15px 14px", marginBottom: 14, background: "rgba(255,255,255,.34)" }, extra || {}) }, kids);
   // ⚠️白卡叠白卡是电商的排版（她 2026-09-01：「结构还是太像了」）。
   // 这几节的行本来就自带细线分隔，外面再套一层白卡纯属多余——而正是那层白卡
   // 让整页读起来像货架。改成一份清单：细线分节、留白分段，白卡只留给真要跳出来的地方。
@@ -2971,16 +2966,20 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 4 } }, k),
     h("div", { style: { fontFamily: F_BODY, fontSize: quiet ? 12 : 13.5, lineHeight: 1.75, color: quiet ? SHOP_DIM : SHOP_BODY, wordBreak: "break-word" } }, v));
   const plain = (kids, extra) => h("div", { style: Object.assign({ marginBottom: 16 }, extra || {}) }, kids);
-  const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 12px" } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: SHOP_INK } }, title),
-    right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, right) : null);
-  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: SHOP_DIM, background: SHOP_SOFT, borderRadius: 7, padding: "3px 9px" } }, txt);
+  // 版心标题：字号收一档，底下压一道【界行】——册页里每一栏都靠界行分开，
+  // 21px 大标题 + 右侧一句灰字是通用的 section header，换个 app 照样成立。
+  const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "2px 0 7px", marginBottom: 10, borderBottom: "1px solid " + SHOP_FRAME, gap: 10 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, letterSpacing: ".06em", color: SHOP_INK } }, title),
+    right ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, flexShrink: 0 } }, right) : null);
+  // 小签：方角、只有一道细边。圆角 7 的填色药丸是标签组件，册页上没有这种东西。
+  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: SHOP_DIM, border: "1px solid " + SHOP_LINE, borderRadius: 0, padding: "2px 8px" } }, txt);
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "active:opacity-60",
     style: {
-      marginTop: 12, width: "100%", padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12,
-      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e4e4ea"), color: tier === "hidden" ? "#b6473c" : "#55555e"
+      // 册页上不摆圆角药丸：这一枚是框在框里的一行字，跟墨围同一种边
+      marginTop: 14, width: "100%", padding: "10px 0", borderRadius: 0, fontFamily: F_BODY, fontSize: 12,
+      border: "1px solid " + (tier === "hidden" ? "rgba(177,73,60,.5)" : SHOP_FRAME), color: tier === "hidden" ? SHOP_MARK : SHOP_BODY
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   // ⚠️账户卡整个撤了（v59.48，她 2026-09-01：「购物这块结构还是太像了」）。
@@ -3018,22 +3017,28 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
           // 他为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1)))))))) : null;
-  // ── 想买清单（两列卡片；why 是这一格的命） ──
+  // ── 一直没下手的 ─────────────────────────────────────────────
+  // 原来是【两列渐变卡 + 卡里一个首字方块】：那是货架缩略图，是这一页上最后一件
+  // 电商家具（审美审计 2026-09-04）。何况那个渐变色块跟东西本身毫无关系——
+  // 它只是在替一张不存在的商品图占位。
+  // 册子里「看了很久没买」的东西不长成货架，长成【圈起来的那几条】：
+  // 一条一样，界行分开，条目左边一枚朱砂圈——圈点是册子上真会有的记号。
   const wish = A(data.wish);
   const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("一直没下手的", wish.length + " 样"),
-    h("div", { className: "grid grid-cols-2 gap-3", style: { marginBottom: 14 } }, wish.map((it, i) => h("button", {
-      key: i, className: "text-left active:opacity-70",
+    h("div", { style: { marginBottom: 16 } }, wish.map((it, i) => h("button", {
+      key: i, className: "w-full text-left active:opacity-70",
       // ⚠️点开是看，不是发。转发一律要走详情里那颗单独的按钮——
       // 列表项直接触发转发是不可逆动作，手一滑就发出去了（她 2026-08-29 中招）。
       onClick: () => setSheet({ kind: "wish", it: it }),
-      style: { background: SHOP_CARD, borderRadius: 16, overflow: "hidden" }
-    }, h("div", { style: { height: 96, background: "linear-gradient(150deg," + WISH_COVERS[i % WISH_COVERS.length][0] + "," + WISH_COVERS[i % WISH_COVERS.length][1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
-      h("div", { style: { width: 46, height: 46, borderRadius: 13, background: "rgba(255,255,255,.62)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: "#5d5d66" } }, String(it.title || "?").trim().slice(0, 1))),
-    h("div", { style: { padding: "12px 13px 15px" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.4, color: SHOP_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.title || ""),
-      it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 6 } }, it.shop) : null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK, marginTop: 7 } }, shopMoney(it.price)),
-      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: SHOP_DIM, marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null))))) : null;
+      style: { display: "block", padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" }
+    },
+      h("div", { className: "flex items-baseline", style: { gap: 9 } },
+        // 朱砂圈：程序画的空心圈，不是图标字体也不是 emoji
+        h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 9, height: 9, borderRadius: 99, border: "1.4px solid " + SHOP_MARK, transform: "translateY(-1px)" } }),
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, it.title || ""),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK, whiteSpace: "nowrap" } }, shopMoney(it.price))),
+      it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4, paddingLeft: 18 } }, it.shop) : null,
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: SHOP_BODY, marginTop: 6, paddingLeft: 18, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null)))) : null;
   // ── 我的订单 ──
   const orders = A(data.orders);
   const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("买过的", orders.length + " 次"),
@@ -3047,7 +3052,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         // 状态不画成一枚绿标（那是平台的订单状态徽章）；取消掉的那一单才值得说一句
         o.status === "已取消" ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: SHOP_MARK } }, "后来退了") : null),
       o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: SHOP_INK, marginTop: 6, wordBreak: "break-word" } }, o.title) : null,
-      A(o.items).length ? h("div", { key: "it", style: { background: SHOP_SOFT, borderRadius: 13, padding: "13px 14px", marginTop: 12 } },
+      // 一单里买了哪几样：靠上下两道界行圈出来，不再嵌一块白底圆角。
+      // 纸上再叠一块浅色圆角＝把这一页拉回通用列表（审美审计点名的正是这一类）。
+      A(o.items).length ? h("div", { key: "it", style: { borderTop: "1px solid " + SHOP_LINE, borderBottom: "1px solid " + SHOP_LINE, padding: "10px 2px", marginTop: 12 } },
         A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid " + SHOP_LINE : "none", marginTop: j ? 10 : 0 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
@@ -3083,9 +3090,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     [T("他是什么时候点下那个付款的"), habit.how]
   ].filter(x => x[1]);
   const habitSec = habitAsks.length ? h("section", { key: "hb" }, secTitle("买东西这件事上", "他的取舍"),
-    h("div", { style: { background: SHOP_CARD, borderRadius: 18, padding: "2px 18px 8px", marginBottom: 14 } },
-      habitAsks.map(([q, v], i) => h("div", { key: i }, askRow(q, askLine(v)))),
-    ),
+    card(habitAsks.map(([q, v], i) => h("div", { key: i }, askRow(q, askLine(v))))),
     peekBtn("quiet", T("他买东西的样子"), T("他的取舍"), habitAsks.map(([q, v]) => q + "：" + v).join("｜"))) : null;
   // ── 常逛店铺 ──
   const shops = A(data.shops);
@@ -3180,34 +3185,58 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: SHOP_INK })),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })));
-  // ── 详情弹层：看全文的地方，也是唯一能转发的地方 ──
+  // ── 详情：整页，不是半窗（no-half-sheet）───────────────────────────
+  // 原来是从底下掀起来的半窗。这一层的正文是他为什么想买这样东西——
+  // 那是这一格的命，从来不是三行能说完的，也不需要同时看见底下那一列。
+  // 整页之后它就是册子里【单独一叶】：一样东西占一叶，理由抄在下面。
   const sheetNode = sheet && sheet.kind === "wish" ? (function () {
     const it = sheet.it || {};
     return h("div", {
-      className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,18,16,.42)", zIndex: 30 },
-      onClick: () => setSheet(null)
-    }, h("div", {
-      onClick: e => e.stopPropagation(),
-      style: { background: SHOP_CARD, borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
-    }, h("div", { className: "flex items-start justify-between gap-3" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, "想买清单"),
-      h("button", { onClick: () => setSheet(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: SHOP_DIM, padding: "0 4px" } }, "✕")),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: SHOP_INK, marginTop: 10 } }, it.title || ""),
-    it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 7 } }, it.shop) : null,
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_MARK, marginTop: 10 } }, shopMoney(it.price)),
-    it.why ? h("div", { style: { background: SHOP_SOFT, borderRadius: 13, padding: "14px 15px", marginTop: 16 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM } }, T("他为什么想买")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: SHOP_BODY, marginTop: 7, whiteSpace: "pre-wrap" } }, it.why)) : null,
-    peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜"))));
+      className: "absolute inset-0 h-full min-h-0 flex flex-col",
+      style: { background: SHOP_BG, backgroundImage: SHOP_LAID, zIndex: 30 }
+    },
+      h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+        h("button", { onClick: () => setSheet(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: SHOP_INK })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, "一直没下手的"),
+        h("div", { style: { width: 40, height: 40 } })),
+      h("div", {
+        className: "flex-1 min-h-0 flex flex-col",
+        style: { margin: "2px 13px 10px", border: "0.8px solid " + SHOP_FRAME, boxShadow: "0 0 0 2.5px " + SHOP_BG + ", 0 0 0 4px " + SHOP_FRAME }
+      },
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 22px" } },
+          h("div", { className: "flex items-baseline", style: { gap: 10 } },
+            h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 10, height: 10, borderRadius: 99, border: "1.5px solid " + SHOP_MARK, transform: "translateY(-2px)" } }),
+            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.45, color: SHOP_INK, wordBreak: "break-word" } }, it.title || "")),
+          h("div", { className: "flex items-baseline", style: { gap: 10, marginTop: 9, paddingLeft: 20, paddingBottom: 12, borderBottom: "1px solid " + SHOP_FRAME } },
+            it.shop ? h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, it.shop) : h("div", { style: { flex: 1 } }),
+            h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 19, color: SHOP_MARK } }, shopMoney(it.price))),
+          it.why ? h("div", { style: { marginTop: 16 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 8 } }, T("他为什么想买")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2.05, color: SHOP_BODY, whiteSpace: "pre-wrap", textIndent: "2em" } }, it.why)) : null,
+          peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜")))));
   })() : null;
+  // 叶码：册页每一叶底下都有一个。中文数字，不是「1 / 3」——那是分页控件。
+  const YE = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+  const folio = h("div", { key: "folio", style: { textAlign: "center", padding: "22px 0 4px", fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: ".3em", color: SHOP_DIM } },
+    "第 " + (YE[Math.max(0, PAGES.findIndex(x => x.key === page.key))] || "一") + " 叶");
   return h("div", {
     className: "h-full min-h-0 flex flex-col relative",
-    // 顶上那道渐变原来是橙粉的，跟新的靛蓝一屏两种脾气。换成同色系往上收一点。
-    style: { background: "linear-gradient(178deg,#dae3ee 0%,#e6ecf2 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
+    // 底纹铺在【最外那层外壳】上，顶栏透上来（mobile-ui-layout §3.5）；
+    // 不挂 backgroundAttachment:"local"——内容在动，纸不该跟着动。
+    style: { background: SHOP_BG, backgroundImage: SHOP_LAID }
   }, chrome,
-  h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-    h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + SHOP_ACCENT, background: "rgba(255,255,255,.58)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: SHOP_DIM } }, page.lead),
-    body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
+  // 版框：外粗内细的双边栏，册页最认得出的那个记号。它属于【这一叶】，
+  // 所以钉在外面不跟着滚；正文在框里滚。
+  h("div", {
+    className: "flex-1 min-h-0 flex flex-col",
+    style: { margin: "2px 13px 10px", border: "0.8px solid " + SHOP_FRAME, boxShadow: "0 0 0 2.5px " + SHOP_BG + ", 0 0 0 4px " + SHOP_FRAME }
+  },
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 14px 18px" } },
+      // 小序：册子正文前那一小段，缩两格、比正文小一号、底下压一道界行。
+      // 原来是「左边一道 3px 色条 + 右侧圆角」——那是引用块，任何 app 都有。
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: SHOP_DIM, textIndent: "2em", paddingBottom: 12, marginBottom: 14, borderBottom: "1px solid " + SHOP_LINE } }, page.lead),
+      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord),
+      body.length ? folio : null)),
   nav, sheetNode);
 }
 // ============================================================

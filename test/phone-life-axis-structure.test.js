@@ -184,8 +184,10 @@ test("购物走靛蓝与朱砂，不是电商那个橙", () => {
   assert.ok(ph.indexOf("SHOP_ORANGE") < 0, "电商那个橙还留着");
   assert.ok(shopping.indexOf("rgba(255,106,43") < 0, "橙色的半透明尾巴还剩着");
   assert.ok(shopping.indexOf("#ffe6d8") < 0, "顶上那道橙粉渐变还在");
-  ["SHOP_BODY", "SHOP_LINE", "SHOP_SOFT"].forEach(k =>
-    assert.match(ph, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量，换色得挨个找"));
+  // v62.58：SHOP_SOFT / SHOP_CARD 那两块「纸上再叠一层浅底/白卡」的颜色整个删了
+  // （册页上不摆白卡）。接它们班的是版框那道边栏线。
+  ["SHOP_BODY", "SHOP_LINE", "SHOP_FRAME"].forEach(k =>
+    assert.match(ph, new RegExp("const " + k + ' = "'), "结构色 " + k + " 没有常量，换色得挨个找"));
 });
 
 // 她 2026-09-01（配着一张左右对比图）：「购物这块结构还是太像了」
