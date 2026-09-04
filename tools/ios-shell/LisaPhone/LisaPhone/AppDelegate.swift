@@ -185,14 +185,49 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     }
   }
 
+  // 大文件导出走分片：一次 postMessage 塞几十 MB 会被 WK 消息通道噎死（她 9/3 丢档案发现的病根之一）。
+  private var exportChunks: [String: [String]] = [:]
+
   private func handleNativeExport(_ rawBody: Any,
                                   replyHandler: @escaping (Any?, String?) -> Void) {
+    if let body = rawBody as? [String: Any], let op = body["op"] as? String {
+      switch op {
+      case "begin":
+        let id = UUID().uuidString
+        exportChunks[id] = []
+        replyHandler(["ok": true, "id": id], nil); return
+      case "chunk":
+        guard let id = body["id"] as? String, exportChunks[id] != nil,
+              let part = body["text"] as? String else {
+          replyHandler(["ok": false, "error": "bad_chunk"], nil); return
+        }
+        exportChunks[id]!.append(part)
+        replyHandler(["ok": true, "n": exportChunks[id]!.count], nil); return
+      case "end":
+        guard let id = body["id"] as? String, let parts = exportChunks[id],
+              let rawName = body["filename"] as? String, !rawName.isEmpty, rawName.count <= 180 else {
+          replyHandler(["ok": false, "error": "bad_end"], nil); return
+        }
+        exportChunks[id] = nil
+        presentExport(filename: rawName, text: parts.joined(), replyHandler: replyHandler); return
+      case "abort":
+        if let id = body["id"] as? String { exportChunks[id] = nil }
+        replyHandler(["ok": true], nil); return
+      default:
+        replyHandler(["ok": false, "error": "unknown_op"], nil); return
+      }
+    }
     guard let body = rawBody as? [String: Any],
           let rawName = body["filename"] as? String,
           let text = body["text"] as? String,
           !rawName.isEmpty, rawName.count <= 180 else {
       replyHandler(["ok": false, "error": "bad_export_request"], nil); return
     }
+    presentExport(filename: rawName, text: text, replyHandler: replyHandler)
+  }
+
+  private func presentExport(filename rawName: String, text: String,
+                             replyHandler: @escaping (Any?, String?) -> Void) {
     var filename = URL(fileURLWithPath: rawName).lastPathComponent
     filename = filename.replacingOccurrences(of: ":", with: "-")
     guard !filename.isEmpty else {

@@ -3957,6 +3957,26 @@ async function saveTextFile(filename, text, mime) {
   mime = mime || "application/json";
   const bridge = typeof window !== "undefined" && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeExport;
   if (bridge && typeof bridge.postMessage === "function") {
+    // ⚠️大备份必须分片喂给原生侧：整段几十 MB 的 postMessage 会把 WK 消息通道噎死，
+    // 按钮按了毫无反应（她 2026-09-03 丢档那晚的病根之一）。3MB 一片，走 begin/chunk/end。
+    const CHUNK = 3 * 1024 * 1024;
+    if (text.length > CHUNK) {
+      const begun = await bridge.postMessage({ op: "begin", filename: filename });
+      if (!begun || begun.ok !== true || !begun.id) throw new Error("原生导出没接活（begin 失败）");
+      const id = begun.id;
+      try {
+        for (let i = 0; i < text.length; i += CHUNK) {
+          const r = await bridge.postMessage({ op: "chunk", id: id, text: text.slice(i, i + CHUNK) });
+          if (!r || r.ok !== true) throw new Error("传到第 " + (Math.floor(i / CHUNK) + 1) + " 片断了");
+        }
+        const done = await bridge.postMessage({ op: "end", id: id, filename: filename });
+        if (!done || done.ok !== true) throw new Error("原生保存面板没有打开");
+        return "native";
+      } catch (e) {
+        try { bridge.postMessage({ op: "abort", id: id }); } catch (_) {}
+        throw e;
+      }
+    }
     const result = await bridge.postMessage({ filename: filename, text: text, mime: mime });
     if (!result || result.ok !== true) throw new Error("原生保存面板没有打开");
     return "native";
