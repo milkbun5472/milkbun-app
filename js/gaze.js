@@ -347,12 +347,22 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
           (function () {
-            // 复看过、但没改 → 明说一句。「没改」是他真的又想了一遍的结果,不是这一块被忘了。
+            // 这一块【上次什么时候被碰过】。她 2026-09-04：「有些角色的 Ta 眼里确实一直
+            // 不显示上次什么时候想过，没改」——病根是这一行原来【只在复看过又没改时】才出现，
+            // 而「复看没改」要模型主动填 impressionChecked，本来就少；写过一次之后
+            // 从没被复看的块（绝大多数），这里一个字都没有，看着就像这一块没有时间。
+            // 时间本来就在 b.ts 里，只是没画出来。现在两种情况都说：
+            //   复看过没改 → 「N 天前又想了一遍 · 没改」（他真又想了一遍，不是被忘了）
+            //   只写过     → 「N 天前写的」
+            if (!b || !b.text) return null;
             var ck = (box.checks || {})[fk] || 0;
-            if (!ck || ck <= ((b && b.ts) || 0)) return null;
-            var dd = Math.floor((Date.now() - ck) / 86400000);
+            var checked = ck > (b.ts || 0);
+            var when = checked ? ck : (Number(b.ts) || 0);
+            if (!when) return null;
+            var dd = Math.floor((Date.now() - when) / 86400000);
+            var ago = dd >= 1 ? dd + " 天前" : "今天";
             return h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 1, color: "rgba(172,138,91,.55)", marginTop: 5 } },
-              (dd >= 1 ? dd + " 天前" : "今天") + "又想了一遍 · 没改");
+              ago + (checked ? "又想了一遍 · 没改" : "写的"));
           })(),
           b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
       revs.length ? h("button", { onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },

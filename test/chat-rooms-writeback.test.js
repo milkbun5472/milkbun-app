@@ -54,9 +54,12 @@ test("没有房间概念（主线本身）一律照写，别把旧数据锁死",
 
 test("两道闸都要在代码里，解析后一次、salvage 之后再一次", () => {
   assert.match(app, /if \(!window\.ChatRooms\.canWrite\(room, "mood"\)\) parsed\.mood = null;/);
-  assert.match(app, /if \(!window\.ChatRooms\.canWrite\(room, "gaze"\)\) parsed\.impression = null;/);
+  // v61.80 起这道闸同时封 impressionChecked：它不改内容，却照样往主线那张卡写
+  // 「他又想了一遍」的时刻——只封 impression 是漏了半边。
+  assert.match(app, /if \(!window\.ChatRooms\.canWrite\(room, "gaze"\)\) \{ parsed\.impression = null; parsed\.impressionChecked = null; \}/);
   assert.match(app, /const _roomCanWrite = kind =>/);
   assert.match(app, /if \(!_roomCanWrite\("mood"\)\) parsed\.mood = null;/, "salvage 会把 mood 再捞回来，之后要再封一次");
+  assert.match(app, /if \(!_roomCanWrite\("gaze"\)\) \{ parsed\.impression = null; parsed\.impressionChecked = null; \}/);
   assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
 });
 

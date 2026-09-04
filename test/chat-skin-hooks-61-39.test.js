@@ -66,6 +66,9 @@ test("皮肤用到的每一个挂点，单聊和群聊都得有", () => {
     if (k === "avatar") { if (!has(comp.slice(comp.indexOf("function Avatar({"), comp.indexOf("\nfunction Eyebrow({")))) missing.push("avatar（Avatar 组件）"); return; }
     // 卡片是一批共用组件（转账/礼物/位置/亲属卡…），两页都在用，同理不按页查
     if (k === "card") { if ((comp.match(/"data-wk": "card"/g) || []).length < 10) missing.push("card（卡片组件）"); return; }
+    // 通话挂断回执那颗药丸是 CallEndPill 画的，单聊群聊都用它——同头像/卡片一样不按页查。
+    // noteink 只长在它里面（那个话筒图标），所以整条只查这一个组件。
+    if (k === "noteink") { if (!has(comp.slice(comp.indexOf("function CallEndPill("), comp.indexOf("function CallShotThumb(")))) missing.push("noteink（CallEndPill）"); return; }
     // 此刻日程条只有单聊有：一个群里几个人各有各的行程，摆不出一条「此刻」。
     // ⚠️这个例外自己会失效——下面那一条钉着「群聊确实没有 schedNow」，
     //   哪天群聊真加了这条，那一条先红，这里就得跟着补上。
@@ -144,7 +147,7 @@ test("内置预设改了要告诉她——它是拷贝进编辑框的，不是�
   //   内容变了而版本没跟着变，这条就红，红出来的那句话直接告诉你怎么办。
   const bare = TS.CSS_BUILTINS.thread.map(x => x[1].replace(/^\/\* 内置 · .+? \*\/\n/, "")).join("\n");
   const sum = require("node:crypto").createHash("sha256").update(bare).digest("hex").slice(0, 12);
-  assert.deepEqual({ ver, sum }, { ver: 4, sum: "9c043fa21c4c" },
+  assert.deepEqual({ ver, sum }, { ver: 5, sum: "254e2578bf59" },
     "内置皮肤的内容变了：把 js/theme-studio.js 里的 SKIN_VER +1，再把这一行的 ver/sum 改成新的。\n" +
     "不 +1 的话，她编辑框里那份旧 CSS 永远不会被认成旧的，界面也就永远不提示重新灌。");
   assert.deepEqual(TS.cssStale("/* 内置 · 仿微信 · v" + (ver - 1) + " */\n.a{}"),

@@ -1383,10 +1383,12 @@ function computeLedger(w) {
 }
 
 // app 图标（线性，黑白）
+// wk：主题工作室的挂点，原样转给 Svg（图标的 stroke 是属性，皮肤压得住）
 function PGlyph({
   k,
   size = 26,
-  color = "#1b1a17"
+  color = "#1b1a17",
+  wk
 }) {
   const P = d => h("path", {
     d
@@ -1442,6 +1444,7 @@ function PGlyph({
   return h(Svg, {
     size,
     color,
+    wk,
     sw: 1.5
   }, ...(kids[k] || []));
 }

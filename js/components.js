@@ -5070,6 +5070,7 @@ function ChatThread({
       key: i,
       className: "text-center py-1.5"
     }, /*#__PURE__*/React.createElement("span", {
+      "data-wk": "note",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -5080,6 +5081,7 @@ function ChatThread({
       key: i,
       className: "text-center py-1.5"
     }, h("span", {
+      "data-wk": "note",
       style: {
         fontFamily: F_BODY,
         fontSize: 11.5,
@@ -5192,9 +5194,9 @@ function ChatThread({
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "unblock_req") return h(UnblockReqCard, { key: i, m: m, character: character, onRespond: onRespondUnblock });
-    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
+    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
-    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
+    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
     if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
@@ -6843,15 +6845,19 @@ function CallEndPill({ m, chars, onBg }) {
   const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + (m.endedBy ? " · " + m.endedBy + "挂断了 · 时长 " : " 已结束 · 时长 ") + m.dur : String(m.content || "").split("\n")[0];
   return h("div", { className: "flex flex-col items-center my-2" },
     h("span", {
+      // 挂断回执和它下面那句小结都飘在聊天底上：换了皮肤，底是皮肤的、字还是主题的灰
+      // ——她 2026-09-04：「语音挂断后的 summary 也是灰的在 line 皮肤看不见」。
+      // 跟时间分割那颗药丸同一档处理（挂点 note，见 theme-studio 里那条规则）。
+      "data-wk": "note",
       onClick: log.length ? () => setOpen(o => !o) : undefined,
       className: "flex items-center gap-1.5" + (log.length ? " active:opacity-60" : ""),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, background: t.bg2, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, maxWidth: "88%" }
-    }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog }), label + (log.length ? (open ? " · 收起" : " · 回看") : "")),
+    }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog, wk: "noteink" }), label + (log.length ? (open ? " · 收起" : " · 回看") : "")),
     // 这一通里拍过的画面留在这儿（她 2026-09-02：「结束了要留在聊天不能没了」）——
     // 电话挂了那张图不该跟着没，它是这通电话的一部分。
     (m.shots || []).length ? h("div", { className: "flex justify-center", style: { gap: 6, marginTop: 7, flexWrap: "wrap", maxWidth: "88%" } },
       m.shots.map(k => h(CallShotThumb, { key: k, imgKey: k }))) : null,
-    m.sum && !open ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 },
+    m.sum && !open ? h("div", { "data-wk": "note", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 },
       // 这一行原来也是直接写在背景上的字，壁纸一来就看不清
       onBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 9, padding: "3px 10px" } : {}) }, m.sum) : null,
     open ? h("div", { style: { marginTop: 8, width: "88%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", maxHeight: 300, overflowY: "auto" } },
@@ -10165,7 +10171,7 @@ function GroupThread({
       }
       // 只显示被引用的原话，不写「引用 XXX：」——是谁说的代码里有 replyToSenderName，
       // 界面上照旧只摆一句原文就够了（她 2026-08-24）
-    }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+    }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),

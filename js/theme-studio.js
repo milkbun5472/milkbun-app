@@ -62,6 +62,24 @@
 '  border-radius: ' + o.timeRadius + ' !important;',
 '}',
 '',
+/* 居中那几行系统小字：撤回、已读不回、拍一拍、通话挂断回执和它下面那句小结。
+   它们跟时间分割条是【同一件事】——飘在聊天底上的系统提示，所以吃同一套旋钮。
+   （她 2026-09-04：「语音挂断后的 summary 也是灰的在 line 皮肤看不见」，
+   病根就是这几行还留着主题的灰、底却换成了皮肤的。）
+   ⚠️底跟时间条同一块，字却单独一档 noteInk：时间条是【扫一眼就过】的四个字，
+   各家真实配色本来就很淡（微信 #b2b2b2 压在 #ededed 上只有 1.8）；
+   通话小结是【要读的一句话】，照抄那个淡度等于没修。 */
+'[data-wk="note"] {',
+'  background: ' + o.noteBg + ' !important;',
+'  color: ' + o.noteInk + ' !important;',
+'  border: none !important;',
+'  border-radius: ' + (o.timeRadius === "0" ? "9px" : o.timeRadius) + ' !important;',
+'  padding: ' + (o.timePad === "0" ? "3px 10px" : o.timePad) + ' !important;',
+'  -webkit-backdrop-filter: none !important;',
+'  backdrop-filter: none !important;',
+'}',
+'svg[data-wk="noteink"] { stroke: ' + o.noteInk + ' !important; }',
+'',
 '[data-wk="avatar"],',
 '[data-wk="avatar"] img,',
 '[data-wk="avatar"] > * {',
@@ -216,7 +234,7 @@
   // 微信：方气泡、带尖角、灰底。⚠️时刻是一行【没有底】的灰字——
   // 原来给了它一颗灰药丸配白字，那是别家的样子，一眼就出戏。
   const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111", headDim:"#8a8a8a",
-    timeBg:"transparent", timeInk:"#b2b2b2", timeRadius:"0", timePad:"0", avatar:"4px", radius:"5px", shadow:"none",
+    timeBg:"transparent", timeInk:"#b2b2b2", timeRadius:"0", timePad:"0", noteBg:"transparent", noteInk:"#6b6b6b", avatar:"4px", radius:"5px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
     tail:true, gap:6, rowGap:10, card:"4px", photo:"4px",
     metaSize:"9.5px", metaInk:"#b2b2b2", metaTop:"3px", metaInBubble:false,
@@ -225,7 +243,7 @@
   // LINE：底是一块干净的蓝灰，没有底纹；气泡特别圆、留白也大；
   // 最认脸的是【已读和时间甩在气泡外面】，字比别家还小一号。
   const LINE_CSS = chatSkinCSS({ bg:"#8ca0b3", head:"#5b6b7c", line:"rgba(0,0,0,.16)", headInk:"#ffffff", headDim:"rgba(255,255,255,.62)",
-    timeBg:"rgba(0,0,0,.30)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 11px", avatar:"999px", radius:"20px", shadow:"none",
+    timeBg:"rgba(0,0,0,.30)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 11px", noteBg:"rgba(0,0,0,.34)", noteInk:"#ffffff", avatar:"999px", radius:"20px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
     tail:true, gap:6, rowGap:9, card:"18px", photo:"18px",
     metaSize:"8.5px", metaInk:"rgba(255,255,255,.85)", metaTop:"3px", metaInBubble:false,
@@ -236,7 +254,7 @@
   const TELEGRAM_CSS = chatSkinCSS({ bg:"#8f7bb8",
     bgArt:"linear-gradient(150deg,#b39ddb 0%,#9575cd 34%,#7e8fd0 68%,#64b5c6 100%)", bgSize:"cover",
     head:"#ffffff", line:"#e4e7ea", headInk:"#0f1419", headDim:"#707579",
-    timeBg:"rgba(0,0,0,.26)", timeInk:"#ffffff", timeRadius:"999px", timePad:"3px 9px", avatar:"999px", radius:"13px",
+    timeBg:"rgba(0,0,0,.26)", timeInk:"#ffffff", timeRadius:"999px", timePad:"3px 9px", noteBg:"rgba(0,0,0,.30)", noteInk:"#ffffff", avatar:"999px", radius:"13px",
     shadow:"0 1px 1px rgba(16,35,47,.10)",
     theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#effdde", myInk:"#0f1419",
     tail:false, gap:3, rowGap:8, card:"11px", photo:"11px",
@@ -247,7 +265,7 @@
   // 光靠米色跟别家分不开。气泡方得多，已读和时间也【在气泡里】。
   const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", bgArt:wave("d3c9b8"), bgSize:"120px 120px",
     head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21", headDim:"#667781",
-    timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", timePad:"5px 11px", avatar:"999px", radius:"8px",
+    timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", timePad:"5px 11px", noteBg:"#ffffff", noteInk:"#54656f", avatar:"999px", radius:"8px",
     shadow:"0 1px 1px rgba(11,20,26,.13)",
     theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
     tail:true, gap:4, rowGap:9, card:"8px", photo:"7px",
@@ -259,7 +277,7 @@
   //   她 2026-09-03 就报了「ins 的发送键看不到」。同 tabs-not-plain-pills.md
   //   那条「绝不许写死 #fff」的坑。
   const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111", headDim:"#8e8e8e",
-    timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", timePad:"0", avatar:"999px", radius:"22px", shadow:"none",
+    timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", timePad:"0", noteBg:"transparent", noteInk:"#737373", avatar:"999px", radius:"22px", shadow:"none",
     theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
     metaSize:"9px", metaInk:"#8e8e8e", metaTop:"3px", metaInBubble:false,
@@ -268,7 +286,7 @@
   // ⚠️内置预设是【拷贝】进她编辑框的，不是引用：我改了内置，她手上那份不会跟着变。
   //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，
   //   于是「感觉一个没生效」。改内置时把这个数 +1，界面就会提示她重新灌一次。
-  const SKIN_VER = 4;
+  const SKIN_VER = 5;
   const stamp = (nm, css) => "/* 内置 · " + nm + " · v" + SKIN_VER + " */\n" + css;
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
     ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);

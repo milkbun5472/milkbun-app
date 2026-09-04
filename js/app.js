@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.79";
+const APP_VERSION = "v61.80";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5937,6 +5937,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       base = [...base, um];
     }
     const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
+    // 她撤回的那几条：搭这一轮的便车过去（v61.80 起不再单独调一次模型）。
+    // 只挑【他还没回过话】的那几条——他一开口，这件事就算过去了，下一轮不该再提。
+    // ⚠️看没看到由代码判，不交给模型：撤得快就【连原文都不发过去】。
+    //   把原文给出去再让它自己填 saw，等于把它必然会漏的东西塞它嘴里
+    //   （.claude/rules 那条「规则降概率，代码才保证」在这一处的落法）。
+    const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当他没看清
+    const _recallHint = (() => {
+      let lastHe = 0;
+      for (const m of base) if (m && m.role === "assistant" && !m.recalled) lastHe = Math.max(lastHe, Number(m.ts) || 0);
+      const fresh = base.filter(m => m && m.recalled && m.role === "user" && (Number(m.ts) || 0) >= lastHe).slice(-3);
+      if (!fresh.length) return "";
+      const lines = fresh.map(m => {
+        const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
+        const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
+        return seen && m.content
+          ? "· 撤掉的那条你瞥见了，写的是「" + String(m.content).slice(0, 80) + "」"
+          : "· 撤得太快，你只看到「对方撤回了一条消息」，没看清写的什么";
+      });
+      return "\n【刚刚 " + ((profile && profile.name) || "对方") + " 撤回了消息】\n" + lines.join("\n")
+        + "\n多数时候当没看见就好；只有你这个人真的会追一句（或者刚好戳到你在意的事）才提，而且提完就过去，别揪着不放。";
+    })();
     // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
     // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
     const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
@@ -6427,9 +6448,9 @@ wearing: string，仅在穿着发生变化时填写。若你在 word 里明确�
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
-【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
+【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。recall 也一样是【日常】动作：真人撤回多半不是什么大事——打错字、发漏了半句、同一条手滑发了两遍、话说重了想换个说法、点错了发给不该发的人；「说漏嘴、后悔」只是其中一种，不是唯一一种。撤完通常紧跟一条改好的——word 里补上就行。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 impressionChecked:"块名"=对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。两个都不填等于跳过。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
@@ -6490,7 +6511,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
       const _roomHint = window.ChatRooms && room ? window.ChatRooms.prompt(room, chatsRef.current[charId] || []) : "";
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -6679,14 +6700,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (!w.sharedState) {
           parsed.mood = null; parsed.action = null; parsed.wearing = null;
           if (!sideRoom) parsed.thought = null; // 侧房心声仍保留，但只写进本房的独立账
-          parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
+          // ⚠️impressionChecked 也得一起封：它虽然不改内容，却会往主线那张卡写 checks
+          //   （「他又想了一遍」也是主线上的一笔）。只封 impression 是漏了半边。
+          parsed.affinityDelta = 0; parsed.impression = null; parsed.impressionChecked = null; parsed.laterPromise = null;
         }
         // 心情和印象卡各自还有一道闸，而且【看不见就不许改】：认知里关了「关系与内在状态」时，
         // 这间房读不到旧心情、读不到印象卡原文，却照样能覆盖它们——心情要拿上一轮当起点，
         // 印象卡更是整块重写，凭空覆盖等于抹掉（她 2026-08-28 让查的冲突③）。
         if (window.ChatRooms && window.ChatRooms.canWrite) {
           if (!window.ChatRooms.canWrite(room, "mood")) parsed.mood = null;
-          if (!window.ChatRooms.canWrite(room, "gaze")) parsed.impression = null;
+          if (!window.ChatRooms.canWrite(room, "gaze")) { parsed.impression = null; parsed.impressionChecked = null; }
         }
       }
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
@@ -6719,11 +6742,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!_roomSharesState) {
         parsed.mood = null; parsed.action = null; parsed.wearing = null;
         if (!sideRoom) parsed.thought = null;
-        parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
+        // ⚠️同上：impressionChecked 也得封（只封 impression 是漏了半边）
+        parsed.affinityDelta = 0; parsed.impression = null; parsed.impressionChecked = null; parsed.laterPromise = null;
       }
       // salvage 会把 mood 从坏 JSON 里再捞一次，所以那两道细闸也要在它之后再封一遍
       if (!_roomCanWrite("mood")) parsed.mood = null;
-      if (!_roomCanWrite("gaze")) parsed.impression = null;
+      if (!_roomCanWrite("gaze")) { parsed.impression = null; parsed.impressionChecked = null; }
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
       if (parsed.thought != null && window.ThoughtVoiceGuard) {
@@ -7401,18 +7425,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
   };
 
-  // 我撤回一条消息后，角色按人设/心情反应：有没有看到那条、会不会追问
-  const reactToMyRecall = async (charId, text) => {
-    if (!active || sending) return;
-    const char = characters.find(c => c.id === charId); if (!char) return;
-    startLane("c:" + charId);
-    try {
-      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户刚刚撤回了一条发给你的消息，那条原本的内容是：「" + text + "」。完全代入「" + char.name + "」，按你的人设、注意力和此刻心情，决定：你有没有『看到』那条被撤回的消息（saw）；看到了的话会不会追问/调侃/在意。有人眼疾手快都看到了、会追问「你刚撤回了啥」；有人根本没注意、就当没发生。用即时通讯口吻，短句。\n【输出】只输出 JSON：{\"saw\":true或false,\"say\":[\"气泡1\"]}（没看到或不在意时 say 给空数组）", [{ role: "user", content: "（用户撤回了一条消息）" }], { maxTokens: 8700 });
-      const d = extractJSON(raw) || {};
-      const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      says.forEach((w, i) => setTimeout(() => pChat(charId, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), 500 + i * 650));
-    } catch (e) {/* silent */} finally { endLane("c:" + charId); }
-  };
+  // v61.80 撤走了 reactToMyRecall：她「现在我撤回啥也会直接主动触发他聊天」。
+  //   原来每撤回一条就【立刻单独调一次模型】，让角色当场表态。三个问题：
+  //   ① 她按次计费——撤回多半是自己打错字/发漏了，为这个花一次调用不值；
+  //   ② 撤回不是一个对话回合，它换来一条冒出来的消息，比不理还突兀；
+  //   ③ 那次调用把【原文照发给模型】再让它自己填 saw——给了就会漏，
+  //      「规则降概率，代码才保证」：看没看到该由代码判，没看到就压根别给原文。
+  //   现在改成【搭下一轮的便车】：撤回这件事记在历史里，她下次说话时随上下文一起过去，
+  //   角色想提就提、不想提就当没看见——那才是真实聊天里撤回的样子，而且零额外调用。
+  //   （落点在 recallHintFor，往下找。）
 
   // ---- long-press actions ----
   const addFavorite = (charId, m) => {
@@ -7434,11 +7455,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } else if (act === "recall") {
       const orig = m;
       pChat(threadKey, p => {
-        const next = p.map((x, i) => i === idx ? { ...x, recalled: true } : x);
+        // recalledTs：撤得多快，决定他到底看没看见（recallHintFor 用它判）。
+        const next = p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now() } : x);
         try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "recall", charId: activeChar.id, before: p, after: next, targetIndex: idx }); } catch (e) {}
         return next;
       });
-      if (orig && orig.role === "user" && orig.content) reactToMyRecall(activeChar.id, orig.content);
+      // ⚠️别在这儿调模型（见 recallHintFor 上面那段）：撤回搭下一轮的便车。
     } else if (act === "edit") {
       const cid = activeChar.id;
       setEditMsg({ content: m.content || "", onSave: nv => pChat(threadKey, p => {
@@ -7819,7 +7841,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；想送的人填 gift 就真送到，但绝不是每轮都该送，也别几个人抢着送。别把这张单子念出来。）\n"
           + (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
         : "";
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
