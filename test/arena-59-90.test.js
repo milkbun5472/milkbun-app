@@ -17,7 +17,8 @@ test("改名叫「擂台」，而且五处都跟上了（一层写在五处，�
   assert.match(comp, /debate: \{ kind: "app", zh: "擂台", G: GDebate \}/, "首页那格还叫辩论");
   assert.match(scr, /\["debate", "擂台"\]/, "世界书的适用范围那一栏没跟上");
   assert.match(scr, /\["x_debate_saves", "擂台存档"\]/, "存档清单那一栏没跟上");
-  assert.match(ts, /\["debate","擂台"\]/, "主题工坊那一栏没跟上");
+  // v62.02：换图标那一栏不再自己抄名单，改成现读主屏那份（REG + dock）——
+  // 上面第 17 行钉的 REG 就是它的唯一来源，这儿不用再单钉一遍。
   // ⚠️存档键不许改：改了她之前的场次全部消失
   assert.match(dbt, /loadJSON\("x_debate_saves"/, "存档键被一起改了，旧存档会全丢");
   assert.match(dbt, /saveJSON\("x_debate_saves"/);

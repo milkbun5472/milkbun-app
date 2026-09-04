@@ -3071,6 +3071,24 @@ function Home({
     G: GConfig
   }];
   const clearLP = function () { if (lpRef.current) { clearTimeout(lpRef.current); lpRef.current = null; } };
+  // 主题工作台的「换图标」照这份名单列 —— 它就是主屏此刻真正在摆的那些。
+  // ⚠️她 2026-09-04：「有些 app 都不在里面没法改，有些在里面但是不是真 app」。
+  //   病根是那边在 theme-studio.js 里【自己抄了一份平行名单】，然后走散了：
+  //     · 去处(dwell)、匿名问答(anon) 是真 app，那份里没有 → 改不了图标；
+  //     · 备忘录(memo)、朋友圈(moments) 在那份里，主屏上却没有这两个 app；
+  //     · dock 消息那格 key 是 "messages"，那边写的是 "chat"——名字对不上，
+  //       所以那一格【换了图标从来就没生效过】。
+  //   名单不许再抄第二份：这儿把 REG 和 dock 里【真有的】原样发出去。
+  //   （REG 里还有 widget 和 decor，只挑 kind==="app" 那些。）
+  useEffect(function () {
+    if (typeof window === "undefined") return;
+    window.HomeAppList = function () {
+      const rows = [];
+      Object.keys(REG).forEach(function (k) { if (REG[k] && REG[k].kind === "app") rows.push([k, REG[k].zh]); });
+      dock.forEach(function (d) { rows.push([d.key, d.zh]); });
+      return rows;
+    };
+  });
   const onTS = e => {
     const tch = e.touches[0];
     dragRef.current = { x: tch.clientX, y: tch.clientY, w: e.currentTarget.offsetWidth || 360, dir: null, d: 0 };

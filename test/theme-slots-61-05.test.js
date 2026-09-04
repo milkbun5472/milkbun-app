@@ -33,11 +33,10 @@ test("离开主题台不再撤销预览——那个按钮的用处就是出去�
 });
 
 // ④ 预览里的名字 + 颜色铺满整框
-test("预览：名字是秋秋，聊天那两页铺满整个框", () => {
-  assert.match(ui, /previewPage === "thread" \? "秋秋"/);
-  assert.match(ui, /const chatPreview = previewPage === "thread" \|\| previewPage === "gthread";/);
-  assert.match(ui, /chatPreview \? 'body\{padding:0\}/);
-});
+// v62.02 撤了：这一条钉的是那个 iframe 假页面里的细节（秋秋这个名字、聊天页铺满框），
+// 而那整块已经删掉了（她：「应用前预览也根本没有，删了吧」）。
+// 那两处当初是修它修出来的（v61.03 补挂点、v61.05 补铺满）——修了两轮还是对不上，
+// 说明该修的不是它。删掉，不留一条钉着不存在的东西的测试。
 
 // ⑤⑥「气泡预设被 css override」+「仿微信做成预设皮肤选择键」
 test("气泡皮肤压在主题 CSS 上面，且有一排一键预设（含仿微信）", () => {

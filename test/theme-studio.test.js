@@ -39,11 +39,15 @@ test("主题配置归一化且保留图标和页面草稿", () => {
   assert.equal(p.version, 1);
 });
 
-test("主题工作台在设置内提供隔离的实时草稿预览", () => {
+// v62.02 撤了：「应用前预览」那个 iframe 删掉了（她 2026-09-04：「这个页面下面的
+// 应用前预览也根本没有，删了吧」）。它是自己搭的一套假页面，跟真页面只共享挂点名字；
+// 修过两轮还是对不上，她照着它调、上机就不是那样——比没有预览更坏。
+// 真正管用的是「先预览 30 秒」：它改的是【真 app 本身】。这条改成钉那一个。
+test("主题工作台的预览改的是真 app 本身，不是 iframe 里一套假页面", () => {
   const ui = fs.readFileSync("js/theme-studio-ui.js", "utf8");
-  assert.match(ui, /应用前预览/);
-  assert.match(ui, /草稿实时显示在这里，不会改动正在使用的主题/);
-  assert.match(ui, /title:\s*"主题样式预览"/);
-  assert.match(ui, /sandbox:\s*""/);
-  assert.match(ui, /srcDoc:\s*previewDoc/);
+  const code = ui.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.match(code, /先预览 30 秒/);
+  assert.match(code, /studio\.preview\(draft\)/);
+  assert.match(code, /30 秒后自动撤销/);
+  assert.doesNotMatch(code, /h\("iframe"/, "那个假页面又回来了");
 });

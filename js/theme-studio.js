@@ -5,15 +5,19 @@
   const KEY = "x_theme_studio";
   const STYLE_ID = "lisa-theme-studio-style";
   const PREVIEW_MS = 30000;
-  const APP_ICONS = [
-    ["cast","人格档案馆"],["ties","关系"],["phone","查手机"],["shop","购物"],["carry","随身物"],
-    ["cwallet","钱包"],["lore","世界书"],["memlib","记忆库"],["diary","日记"],["memo","备忘录"],
-    ["study","一起学"],["fanfic","同人文"],["weekly","周刊"],["read","一起读"],["debate","擂台"],
-    ["dream","梦境"],["tarot","塔罗"],["pomodoro","番茄钟"],["games","小游戏"],
-    ["dreamjournal","解梦馆"],["yanqiu","秋声"],["rescue","互救台"],["vpscodex","值班室"],
-    ["loungeapp","三席会客"],["theater","小剧场"],["trpg","跑团"],["impression","月度印象"],
-    ["assistant","帮手"],["stylelab","文风台"],["chat","消息"],["moments","朋友圈"],["forum","论坛"],["config","设置"]
-  ];
+  // 换图标能改哪些 app —— 名单【不在这里】：它由 components.js 的 HOME_APP_DEFS
+  // 一份说了算（主屏摆的就是那一份）。她 2026-09-04 报「有些 app 都不在里面没法改，
+  // 有些在里面但是不是真 app」——病根就是这儿原来自己抄了一份平行名单，然后走散了：
+  //   · 去处 / 匿名问答 是真 app，这份名单里没有 → 改不了图标；
+  //   · 备忘录 / 朋友圈 在这份名单里，主屏上却没有这两个 app；
+  //   · dock 的消息那格 key 是 "messages"，这儿写的是 "chat" → 换了从来没生效过。
+  // ⚠️兜底那份只在 components.js 还没加载时用得上（顺序上不该发生），
+  //   而且【故意只留几个】：留一份完整副本，就等于又抄了一遍，迟早再走散一次。
+  const APP_ICONS_FALLBACK = [["cast", "人格档案馆"], ["phone", "查手机"], ["config", "设置"]];
+  const appIconList = () => {
+    try { if (typeof window !== "undefined" && typeof window.HomeAppList === "function") return window.HomeAppList(); } catch (e) {}
+    return APP_ICONS_FALLBACK;
+  };
   const PAGES = [
     ["all","全 App"],["home","主屏"],["thread","单聊（含线下浮层）"],["gthread","群聊（含群线下浮层）"],
     ["messages","朋友圈"],["forum","论坛"],["config","设置"],["games","小游戏"],["fanfic","同人文"],["trpg","跑团"]
@@ -400,7 +404,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, APP_ICONS, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
