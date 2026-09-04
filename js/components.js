@@ -2739,14 +2739,43 @@ function Home({
   }
   // 放下：from 和 to 交换位置（to 是空格＝挪过去原位留洞；to 是别的项＝互换；跨页同理）
   function placeDrop(fromKey, toKey) {
+    // v61.72 先验地（在 setState 外面做，updater 里不许有副作用/异常）：
+    // 脚印全落空格=放；只压到一个人=互换；压到两个以上或整页装不下=拒收并明说。
+    // 她 9/3：歌一放整页炸、被迫从下往上倒着摆——挤人去别页的「聪明」全部取缔。
+    (function () {
+      var L0 = buildLayout(layout);
+      var f0 = findSlot(L0, fromKey), t0 = findSlot(L0, toKey);
+      if (!f0 || !t0) return;
+      var toArr = L0[t0.p];
+      var tp = homePlaceDenseXY(toArr, spanOf);
+      var tpos = tp.pos[toArr.indexOf(toKey)], s2 = spanOf(fromKey);
+      if (!tpos || !s2) return;
+      var w2 = Math.min(4, s2[0]), h2 = Math.min(6, s2[1]);
+      var r02 = Math.min(tpos.r, 6 - h2), c02 = Math.min(tpos.c, 4 - w2);
+      var hit = 0;
+      toArr.forEach(function (k, i) {
+        if (k === fromKey || SP_RE.test(k)) return;
+        var pp = tp.pos[i]; if (!pp) return;
+        if (Math.max(r02, pp.r) < Math.min(r02 + h2, pp.r + pp.h) && Math.max(c02, pp.c) < Math.min(c02 + w2, pp.c + pp.w)) hit++;
+      });
+      if (hit > 1) {
+        if (typeof window !== "undefined" && window.__toast) window.__toast("这里放不下：会压到 " + hit + " 个东西。先腾出 " + w2 + "×" + h2 + " 的空位再放");
+        placeDrop.__refused = true;
+      } else placeDrop.__refused = false;
+    })();
+    if (placeDrop.__refused) return;
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      // v61.67 钉格落子：落点=目标的锚点格，其余真项原地不动；被压到的先试原位（互换），
-      // 不再按数组下标硬换——大组件一换整页 dense 重排，就是她说的「流式移动」。
       var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf);
       if (moved) {
+        // 溢出防线：重排后超过 6 行说明这一页真装不下，整个不动、明说，绝不静默挤人去别页
+        var over = homePlaceDenseXY(moved.to, spanOf).rows > 6 || (f.p !== t2.p && homePlaceDenseXY(moved.from, spanOf).rows > 6);
+        if (over) {
+          if (typeof window !== "undefined" && window.__toast) window.__toast("这一页满了，装不下它——先挪走点东西");
+          return prev;
+        }
         L[f.p] = moved.from;
         if (t2.p !== f.p) L[t2.p] = moved.to;
         return persistLayout(L);
