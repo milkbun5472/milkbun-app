@@ -39,7 +39,11 @@ test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {
   assert.doesNotMatch(card, /couples/, "名片不该再读情侣数据");
   // 底下那排是左对齐的一行，不是社交资料页那种三等分格子
   assert.doesNotMatch(card, /borderLeft: i \?/);
-  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: "auto"/);
+  // v61.60：空档改留在【签名和标签之间】，所以那排数不再靠 marginTop:auto 顶到最底，
+  // 改成跟着标签走的小间距——两层连成一组，卡片中间不再空一块
+  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: 5, paddingTop: 0/);
+  assert.match(card, /marginTop: "auto", paddingTop: 6[\s\S]{0,220}tags\.map/, "空档没留在签名和标签之间");
+  assert.match(card, /className: "flex-1 min-w-0 self-stretch flex flex-col"/, "左栏没撑满这一行，标签沉不下去");
 });
 
 test("卡有自己的封面，没设封面也不是一块白板", () => {

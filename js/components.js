@@ -3183,14 +3183,19 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
         onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
       h("div", { className: "flex items-end", style: { gap: 12 } },
-        h("div", { className: "flex-1 min-w-0" },
+        // ⚠️空档要留在【签名和标签之间】，不是留在标签和底下那排数之间。
+        // 原来左栏只按内容高，多出来的高度全被底下那排的 marginTop:auto 吃掉，
+        // 于是四层信息全贴在上下两边、卡片正中空一块（她 2026-09-03 转的意见）。
+        // 改法：左栏自己撑满这一行（self-stretch + flex 列），标签用 marginTop:auto
+        // 沉到中部；那排数改成跟着标签走的小间距，两层连成一组。
+        h("div", { className: "flex-1 min-w-0 self-stretch flex flex-col" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: onCover ? ink : inkA(.92), textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: onCover ? dim : inkA(.7), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
           // ⚠️两个标签同一级，只有中间那道斜杠更淡——所以不能再 join 成一串，
           // 一串只能有一个颜色。仍然是一行小字，不是药丸也不是标签胶囊。
-          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: "auto", paddingTop: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             tags.map(function (tg, i) {
               return h(React.Fragment, { key: i },
                 i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.5)" : inkA(.34) } }, "　/　") : null, tg);
@@ -3203,7 +3208,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
       // 收紧成【一行连续的 metadata】：三项之间不再靠一大段空隙分开，
       // 改成一颗小圆点断开（比空隙更明确、又比分隔线轻）。仍然不是三个格子、三个胶囊。
-      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 7, gap: 7, paddingRight: 66 } },
+      h("div", { className: "flex items-baseline", style: { marginTop: 5, paddingTop: 0, gap: 7, paddingRight: 66 } },
         stats.map((st, i) => h(React.Fragment, { key: i },
           i ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, lineHeight: 1, color: onCover ? "rgba(255,255,255,.45)" : inkA(.26), textShadow: shadow } }, "•") : null,
           h("span", { className: "flex items-baseline", style: { gap: 3.5 } },
