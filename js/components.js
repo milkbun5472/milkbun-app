@@ -1927,6 +1927,62 @@ function defaultHomeItemSpan(it) {
   if (it.which === "weather" || it.which === "ledger") return [2, 1];
   return [4, 1];
 }
+// ⭐主屏「户口制」修补（她 2026-09-03：放大组件会把邻居从 b1 挤到 a1、全页重排）。
+// 这两枚是纯函数：按 dense 规则算出每项的锚点格 (r,c)，以及「改一个人的尺寸、其他人原地不动」的重排。
+function homePlaceDenseXY(keys, spanFn) {
+  var grid = [], rows = 0, pos = [];
+  var free = function (r, c, w, hh) {
+    for (var i = r; i < r + hh; i++) { var row = grid[i]; if (row) for (var j = c; j < c + w; j++) if (row[j]) return false; }
+    return true;
+  };
+  (keys || []).forEach(function (k, idx) {
+    var s = spanFn(k); if (!s) { pos[idx] = null; return; }
+    var w = s[0], hh = s[1];
+    for (var r = 0; ; r++) {
+      for (var c = 0; c + w <= 4; c++) {
+        if (!free(r, c, w, hh)) continue;
+        for (var i = r; i < r + hh; i++) { if (!grid[i]) grid[i] = []; for (var j = c; j < c + w; j++) grid[i][j] = 1; }
+        pos[idx] = { r: r, c: c, w: w, h: hh };
+        if (r + hh > rows) rows = r + hh;
+        return;
+      }
+    }
+  });
+  return { rows: rows, pos: pos };
+}
+// 把 arr 里 key 的尺寸换成 newSpan，其余真项钉在原来的格子上；被新脚印压到的挤去末尾重新找位。
+// 返回新的页数组（含把几何还原出来所需的空格）；key 不在页里返回 null。
+function homeRepackResize(arr, key, spanFn, newSpan) {
+  arr = arr || [];
+  var idx = arr.indexOf(key);
+  if (idx < 0 || !newSpan) return null;
+  var old = homePlaceDenseXY(arr, spanFn);
+  var mine = old.pos[idx];
+  if (!mine) return null;
+  var w = Math.min(4, newSpan[0]), h = newSpan[1];
+  var r0 = mine.r, c0 = Math.min(mine.c, 4 - w); // 靠右放不下就往左顶一顶，行不动
+  var occ = {}, anchors = {};
+  var stamp = function (k, r, c, ww, hh) { anchors[r + "," + c] = k; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) occ[i + "," + j] = k; };
+  var fits = function (r, c, ww, hh) { if (c + ww > 4) return false; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) if (occ[i + "," + j]) return false; return true; };
+  stamp(key, r0, c0, w, h);
+  var displaced = [];
+  arr.forEach(function (k, i) {
+    if (i === idx || /^sp_/.test(k)) return;
+    var p = old.pos[i]; if (!p) return;
+    if (fits(p.r, p.c, p.w, p.h)) stamp(k, p.r, p.c, p.w, p.h);
+    else displaced.push(k);
+  });
+  var maxR = 0;
+  Object.keys(occ).forEach(function (kk) { var r = parseInt(kk, 10); if (r + 1 > maxR) maxR = r + 1; });
+  var out = [], n = 0, uniq = Date.now().toString(36);
+  for (var r = 0; r < maxR; r++) for (var c = 0; c < 4; c++) {
+    var k2 = anchors[r + "," + c];
+    if (k2) out.push(k2);
+    else if (!occ[r + "," + c]) out.push("sp_rz" + uniq + "_" + n++);
+  }
+  return out.concat(displaced);
+}
+if (typeof window !== "undefined") { window.homePlaceDenseXY = homePlaceDenseXY; window.homeRepackResize = homeRepackResize; }
 function homeItemSpan(key, it, sizes) {
   var wanted = sizes && sizes[key];
   var p = HOME_SIZE_PRESETS.find(function (x) { return x.id === wanted; });
@@ -2538,6 +2594,20 @@ function Home({
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[key] = preset; saveJSON("x_homeWidgetStyles", n); return n; });
   }
   function setWidgetSize(key, size) {
+    // 换尺寸不许全页重排（她 2026-09-03）：先按旧尺寸记下每个人站的格子，
+    // 只让新脚印压到的那几个挪窝，其他人原地不动。
+    var it = REG[key];
+    var preset = HOME_SIZE_PRESETS.find(function (x) { return x.id === size; });
+    var newSpan = preset && preset.cols && preset.rows ? [preset.cols, preset.rows] : (it ? defaultHomeItemSpan(it) : [1, 1]);
+    setLayout(function (prev) {
+      var L = buildLayout(prev).map(function (a) { return a.slice(); });
+      var s = findSlot(L, key);
+      if (!s) return prev;
+      var repacked = homeRepackResize(L[s.p], key, spanOf, newSpan);
+      if (!repacked) return prev;
+      L[s.p] = repacked;
+      return persistLayout(L);
+    });
     setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[key] = size; saveJSON("x_homeWidgetSizes", n); return n; });
   }
   function updateDecoration(id, patch) {
