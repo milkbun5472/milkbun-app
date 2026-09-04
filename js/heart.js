@@ -15,6 +15,8 @@
 //     岔出来的  ← 「从旧念想岔出的藤」（原话）
 //   保留的两个：落灰、毕业——中文里本来就这么说，不是那份文档造的。
 //
+//   ⚠️lastMellow / lastSolstice / lastObserve 这几个字段名是【存进 x_desires 的】，
+//     名字里还带着旧词的影子，但改了就读不回上次跑到哪儿——一律不动。
 //   · 心上：角色自己攒下的「想做的事」（不是待办，是搁在心上的念想）。
 //     每条：内容/来源/权重/碰触次数/上次碰触/状态(active|ash落灰)。
 //   · 每日发呆：跟行程同一套 tick（首开/回前台/跨天），每角色每天一次
@@ -39,6 +41,24 @@
   //                           briefs:[{ts,type,target,note}], avoid:[{topic,level,ts}], echoPending } }
   // entry = { id, text, root, source:'echo'|'spark'|'vine', parentId?, weight, touches, lastTouch, born,
   //           tracks:[{ts,text}], status:'active'|'ash'|'graduated'|'withered', poem?, gradTs?, witherTs? }
+  // ── 这几栏各是什么层（照 .claude/rules/phone-data-layers.md 那两问分）──────
+  //   ⚠️那份外面的参考文档把这些一律叫「source_type 枚举」，平铺成一张表。
+  //   我们有自己的分层法，判据是那两问：
+  //     ① 这一栏变了，是「他变了」还是「系统忘了」？
+  //     ② 它说的是「发生过什么」还是「现在有哪些」？
+  //
+  //   list 念想      → 📚名册：答「现在心上有哪些」。会退出——落灰、毕业、没接住
+  //                    都是退出的方式。⚠️所以它【不是纯累积】：只进不出会攒成念头坟场。
+  //   tracks 做过的  → 📚日志：答「发生过什么」。只进不出是对的，做过就是做过。
+  //   log 发呆       → 📚日志：那天他确实这么呆过。
+  //   persona        → 🌱缓慢演化：长出来的自我。只有他本人落笔，机器一个字都不许写。
+  //   milestones     → 📚日志：一季一篇，攒着看。
+  //   briefs 旁人纸条 → ♻️快照：递过一次就算数，采不采随他；下一轮重新观测。
+  //   avoid 不想碰的 → 🔒硬钉死：雷区是身体的事，除非他自己改口，不该被谁刷掉。
+  //
+  //   ⚠️别把「名册」和「日志」混成一栏——那是查手机那边踩过的坑：拉黑只进不出
+  //   攒成坟场、常去的店一路攒到十八家。判一栏是不是名册，问一句就够：
+  //   **这一栏里的东西会不会「不再是」？**
   function boxOf(all, charId) {
     const b = (all || {})[charId] || {};
     return {
@@ -59,14 +79,42 @@
   function livingList(box) { return box.list.filter(e => e.status === "active" || e.status === "ash"); }
 
   // ---- 体力活：没接住 + 落灰（不碰内容，只按时间戳整理）----
+  // 心上不设总量上限（那份文档说的，也对：不该因为「太多了」就催他扔掉什么）。
+  // ⚠️但「落灰」不能是终点站——按她自己那条名册判据（这一栏里的东西会不会「不再是」），
+  //   落了灰又整整半年没被想起的，那就是真的放下了，不该永远占着位子。
+  //   照相册回收站那个先例（deleted 超过 30 天自动退出）：给它一个出口。
+  //   三道保险，防的是"手一抖删掉他的过去"：
+  //     ① 只清【落灰】的——active 的不动，graduated（已经长成他的一部分）更不动；
+  //     ② 落灰之后还要再过 LETGO_DAYS 才算数；
+  //     ③ 总数不到 KEEP_FLOOR 一条都不清——盒子本来就少的时候，清了只剩空架子。
+  const LETGO_DAYS = 180, KEEP_FLOOR = 120;
   function housekeep(box) {
     const now = Date.now();
     // 没接住：一闪念（spark）出生 24h 内没被任何一次发呆/显灵再想起 → 消散不留痕
     box.list = box.list.filter(e => !(e.source === "spark" && !(e.touches > 0) && now - (e.born || 0) > 86400000));
     // 落灰：30 天没被想起的念想蒙灰（不删——哪天被重新想起会拂去灰）
     box.list.forEach(e => {
-      if (e.status === "active" && now - (e.lastTouch || e.born || 0) > 30 * 86400000) e.status = "ash";
+      if (e.status === "active" && now - (e.lastTouch || e.born || 0) > 30 * 86400000) {
+        e.status = "ash";
+        e.ashTs = now;                        // 落灰是哪天——放下那道闸要从这天起算
+      }
     });
+    // ⚠️老存档里的落灰条目没有 ashTs（这一版之前落的灰）。不能拿 born/lastTouch 顶替——
+    //   那会让它们一上来就"已经放下半年了"，升级当天集体消失。补一个【从现在起算】的
+    //   时刻：谁都不会被追溯删掉，半年的钟从这一版开始走。
+    box.list.forEach(e => { if (e.status === "ash" && !e.ashTs) e.ashTs = now; });
+    // 放下了：落灰又过了半年没被想起 → 让位。
+    // ⚠️只削到地板为止，不是"符合条件的全清"：200 条陈年落灰会被清成 0 条，
+    //   她打开一看整个心上空了，那不像"放下"，像丢数据。最老的先走，留够 KEEP_FLOOR。
+    if (box.list.length > KEEP_FLOOR) {
+      const over = box.list.length - KEEP_FLOOR;
+      const gone = box.list
+        .filter(e => e.status === "ash" && now - (e.ashTs || now) > LETGO_DAYS * 86400000)
+        .sort((x, y) => (x.ashTs || 0) - (y.ashTs || 0))   // 灰得最久的先走
+        .slice(0, over)
+        .reduce((m, e) => (m[e.id] = 1, m), {});
+      if (Object.keys(gone).length) box.list = box.list.filter(e => !gone[e.id]);
+    }
     return box;
   }
 
@@ -176,9 +224,21 @@
   }
 
   // ============================================================
-  // P2 · 三节奏的后两拍：盘一盘（每10天小校准）+ 回头看（每90天季度自述）
+  // P2 · 三节奏的后两拍：盘一盘（小校准）+ 回头看（一季自述）
   // ============================================================
-  const MELLOW_DAYS = 10, SOLSTICE_DAYS = 90;
+  // ⚠️【这几个数必须是 7 的整数倍】——她自己的规矩，写在
+  //   .claude/rules/phone-data-layers.md 里（那儿定的是就诊间隔 14 天）：
+  //     「它要跟【每周自动刷一次】那条链对齐，每隔一次周刷正好能带上一条。
+  //       不是整周的话会跟周次错开——某几周赶得上、某几周赶不上，看着像随机。」
+  //
+  //   原来是 10 天和 90 天：那是照着外面那份文档的「小满日(10天)／冬至日(90天)」来的
+  //   ——二十四节气的隐喻，跟这个 app 没关系，而且都不是整周。10 天的周期每次往后挪
+  //   3 天，绕着一周转，落在星期几毫无规律。而这个 app 自己的节律就是【周】：
+  //   进入新的一周第一次打开就补刷（phoneWeekKey）、周刊、每周自动刷一次。
+  //
+  //   14 = 两周整（比原来的 10 天更疏；她按次计费，这也更省）
+  //   91 = 13 周整 = 正好一季，「一季自述」那层语义没丢
+  const MELLOW_DAYS = 14, SOLSTICE_DAYS = 91;
   function daysBetweenKeys(a, b) { // "YYYY-MM-DD" 差多少天
     try { return Math.round((new Date(b) - new Date(a)) / 86400000); } catch (e) { return 0; }
   }
@@ -195,6 +255,7 @@
     return { due: null, inited: false };
   }
   // 旁人到期单独判（和盘一盘/回头看互不排队，可同天各跑各的）
+  // 7 = 一周整，本来就对齐，不用改。
   const OBSERVE_DAYS = 7;
   function observeDue(box, todayKey) {
     return !!box.lastObserve && daysBetweenKeys(box.lastObserve, todayKey) >= OBSERVE_DAYS;
