@@ -1613,8 +1613,8 @@
     async function regenCover(sec) {
       setBusyUnit(sec.id);
       try {
-        const mat = window.Weekly.weekMaterial(win, props.characters || [], props.groups || [], props.userName);
-        const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
+        const mat = window.Weekly.weekMaterial(win, (props.autoCharacters || props.characters || []), props.groups || [], props.userName); // v62.43 每个角色的记录喂不喂进周刊＝设置里周刊的按角色开关
+        const charsWithMat = ((props.autoCharacters || props.characters || [])).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const personasBlock = window.Weekly.personasFor(charsWithMat, props.userName);
         const empty = mat.global.length === 0;
         const fresh = await window.Weekly.genCover(props.active, personasBlock, window.Weekly.linesToText(mat.global, 8000), empty);
@@ -1664,8 +1664,8 @@
     async function regenMedia(sec) {
       setBusyUnit(sec.id);
       try {
-        const mat = window.Weekly.weekMaterial(win, props.characters || [], props.groups || [], props.userName);
-        const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
+        const mat = window.Weekly.weekMaterial(win, (props.autoCharacters || props.characters || []), props.groups || [], props.userName); // v62.43 每个角色的记录喂不喂进周刊＝设置里周刊的按角色开关
+        const charsWithMat = ((props.autoCharacters || props.characters || [])).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const personasBlock = window.Weekly.personasFor(charsWithMat, props.userName);
         const empty = mat.global.length === 0;
         // 重刷一版时，本期别的版已经报过的事要避开——否则重刷出来的还是那件最扎眼的
@@ -1684,8 +1684,8 @@
       if (!v || busyUnit) return;
       setBusyUnit("add_voice_" + v.id);
       try {
-        const mat = window.Weekly.weekMaterial(win, props.characters || [], props.groups || [], props.userName);
-        const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
+        const mat = window.Weekly.weekMaterial(win, (props.autoCharacters || props.characters || []), props.groups || [], props.userName); // v62.43 每个角色的记录喂不喂进周刊＝设置里周刊的按角色开关
+        const charsWithMat = ((props.autoCharacters || props.characters || [])).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const articles = await window.Weekly.genMedia(
           props.active, v, window.Weekly.personasFor(charsWithMat, props.userName),
           window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0,

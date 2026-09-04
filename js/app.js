@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.44";
+const APP_VERSION = "v62.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10040,11 +10040,54 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //     而且什么提示都没有。「挂在别人身上搭便车，别人没了它也跟着没」。
   //  ② 【只写一处】。这一串本来在三个地方各抄了一遍，加一步就得记得改三处——
   //     v55.x 起反复栽的就是这个形状（这一层写在三处，第四处没跟上）。
+  // 月度印象自动出卡（v62.45，她 2026-09-04：「月度印象和周刊这俩可以开关」）：
+  // 进入新的一月后第一次唤起，给开了开关的角色补写【上个月】的印象卡。
+  // 不是闹钟（PWA 后台不跑代码），和周刊/查手机同一个形状；一人失手不拖累后面。
+  const impressionAutoRunRef = useRef(false);
+  const autoImpressionSweep = async () => {
+    if (impressionAutoRunRef.current || !offlineActive || !autoRefreshOn("impression") || !window.Impression) return;
+    impressionAutoRunRef.current = true;
+    try {
+      const M = window.Impression;
+      const monthKey = M.latestWritable();
+      const uName = profile.name || "她";
+      const book0 = M.load();
+      const todo = liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("impression", c.id)
+        && !((book0[c.id] || []).some(x => x.monthKey === monthKey)));
+      for (const char of todo) {
+        try {
+          // 素材面照 ImpressionApp 的 make：云端归档 + 本地窗口 + 互通群（封闭群不算）
+          const arch = {};
+          try { arch["c:" + char.id] = (window.Cloud && await window.Cloud.chatArchiveGet(char.id)) || []; } catch (e) { arch["c:" + char.id] = []; }
+          for (const g of (groups || [])) {
+            const gs0 = gsFor(g.id);
+            if (gs0 && gs0.memoryInterop === false) continue;
+            if (!(g.memberIds || []).includes(char.id)) continue;
+            try { arch["g:" + g.id] = (window.Cloud && await window.Cloud.chatArchiveGet("g_" + g.id)) || []; } catch (e) { arch["g:" + g.id] = []; }
+          }
+          const rows = M.monthMaterial(char.id, char.name, monthKey, uName, groups, arch);
+          if (rows.length < 6) continue; // 这个月没什么来往，写不出印象，安静跳过
+          const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(char.id, uName) || "").slice(0, 900) : "";
+          const cur = M.load();
+          const past = (cur[char.id] || []).filter(x => x.monthKey !== monthKey).map(x => x.quote);
+          const others = Object.keys(cur).filter(k => k !== char.id).flatMap(k => cur[k] || [])
+            .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8).map(x => ({ title: x.title, tags: x.tags, quote: x.quote }));
+          const d = await M.genText(offlineActive, char, profile, monthKey, rows, gazeText, { turn: 0, past, others });
+          let img = null;
+          try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, profile, { tags: d.tags, title: d.title }); } catch (e) {}
+          const next = M.load();
+          next[char.id] = [{ id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, turn: 0, ts: Date.now() }]
+            .concat((next[char.id] || []).filter(x => x.monthKey !== monthKey));
+          M.save(next);
+        } catch (e) {/* 单人失手不拖累后面几个 */}
+      }
+    } finally { impressionAutoRunRef.current = false; }
+  };
   const wakeSweeps = async () => {
     if (!active || !characters.length) return;
     deliverDeskLog();
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
-      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep];
+      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
   };
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
