@@ -553,10 +553,19 @@ function annivNext(a, nowTs) {
   const now = new Date(nowTs || Date.now()); now.setHours(0, 0, 0, 0);
   const mk = y => { const d = new Date(y, (a.month || 1) - 1, a.day || 1); d.setHours(0, 0, 0, 0); return d; };
   const yearly = a.yearlyRepeat !== false || !a.createdAt;
+  // 年份（v62.41，她 2026-09-04：「我们的日子能不能设定年份，不然……明年二月我想填
+  // 今年 7 月的事情就填不了了」）。原来【只有月和日】：不重复的那一档只能拿 createdAt
+  // 去猜是哪一年——猜的规矩是「从建的那一年往后找第一个」，所以站在明年二月，
+  // 「7 月」永远指向明年七月，**今年七月这个日子根本表达不出来**。
+  // 存了 year 就照它来，一天不猜；老存档没有 year，照旧走 createdAt 那条。
+  const yr = Number(a.year);
+  const hasYear = Number.isFinite(yr) && yr > 1900 && yr < 3000;
   let t;
   if (yearly) {
     t = mk(now.getFullYear());
     if (t < now) t = mk(now.getFullYear() + 1);
+  } else if (hasYear) {
+    t = mk(yr);
   } else {
     const c = new Date(a.createdAt); c.setHours(0, 0, 0, 0);
     t = mk(c.getFullYear());

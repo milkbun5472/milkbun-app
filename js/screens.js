@@ -3144,29 +3144,68 @@ function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
   useEffect(() => { onRead && onRead(partner.id); }, []);
   const pending = mine.find(e => e.author === "user" && !e.replied);
   const fmtD = ds => { const p = String(ds || "").split("-"); return p.length === 3 ? p[0] + " 年 " + parseInt(p[1], 10) + " 月 " + parseInt(p[2], 10) + " 日" : ds; };
+  // ── v62.41（她 2026-09-04：「交换日记的里面的样式也没弄还是一张纸」）──────
+  // 上一版每一页都是一个圆角框 + 一条虚线 —— 搬去任何 app 都成立。
+  // 这一页现实里是【一本轮流传的本子】，所以照本子来做：
+  //   · 纸上有横格，正文的行高跟格距对齐，字是真写在格子上的；
+  //   · 左边一条装订边，上面是缝线；
+  //   · **谁写的那一页，装订边就在哪一侧** —— 本子递到对面，就是翻过来那一面。
+  //     这一条同时顶掉了「选中态只靠颜色」那个毛病：位置也变了，不只是换个纸色。
+  //   · 本子在 TA 那边的时候，那一页的位置是【空的】：一个虚线框，本子真不在。
+  const RULE_H = 26;                       // 格距；正文 lineHeight 必须跟它相等
+  const paperOf = isMe => ({
+    background: (isMe ? "#fdfaf3" : "#fdf4f2"),
+    backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 " + (RULE_H - 1) + "px,"
+      + (isMe ? "rgba(120,105,70,.16)" : "rgba(150,100,105,.16)") + " " + (RULE_H - 1) + "px " + RULE_H + "px)",
+    backgroundPosition: "0 34px"
+  });
+  // 装订边：一条布脊 + 五针缝线
+  const seam = isMe => h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", top: 0, bottom: 0, width: 17,
+    background: isMe ? "linear-gradient(90deg,#e0d3b4,#efe6d2)" : "linear-gradient(90deg,#e8cbc8,#f4dedb)",
+    display: "flex", flexDirection: "column", justifyContent: "space-evenly", alignItems: "center" }, isMe ? { left: 0 } : { right: 0 }) },
+    [0, 1, 2, 3, 4].map(i2 => h("span", { key: i2, style: { width: 1.5, height: 9, borderRadius: 2, background: "rgba(90,70,50,.30)" } })));
   const page = e => {
     const isMe = e.author === "user";
-    return h("div", { key: e.id, style: { background: isMe ? t.bg2 : "linear-gradient(150deg,#fdf3ee,#f7ebf0)", border: "1px solid " + (isMe ? t.line : "#eed6d2"), borderRadius: 16, padding: "14px 16px", marginBottom: 14 } },
-      h("div", { style: { borderBottom: "1px dashed " + t.line, paddingBottom: 8, marginBottom: 10 } },
-        h("div", { className: "flex items-center justify-between" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, fmtD(e.date)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isMe ? t.tint : "#b0708a" } }, isMe ? "我写的" : partner.name + " 写的")),
-        (e.weather || e.mood) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, (e.weather ? "天气：" + e.weather : "") + (e.weather && e.mood ? " · " : "") + (e.mood ? "心情：" + e.mood : "")) : null),
-      h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, e.content),
-      isMe && !e.replied ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, fontStyle: "italic" } }, "本子在 TA 那边 · 这几天会回你一页") : null);
+    return h("div", { key: e.id, style: Object.assign({ position: "relative", borderRadius: 3, marginBottom: 15,
+      padding: isMe ? "12px 15px 15px 28px" : "12px 28px 15px 15px",
+      border: "1px solid " + (isMe ? "#e6dac0" : "#eed6d2"),
+      boxShadow: "0 8px 20px rgba(70,52,40,.11)",
+      transform: "rotate(" + (isMe ? -0.35 : 0.35) + "deg)" }, paperOf(isMe)) },
+      seam(isMe),
+      h("div", { className: "flex items-baseline justify-between", style: { height: 22 } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#6b5a45" } }, fmtD(e.date)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isMe ? "#a08a5e" : "#b0708a" } }, isMe ? "我写的" : partner.name + " 写的")),
+      (e.weather || e.mood) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1907a", marginBottom: 2 } },
+        (e.weather ? "天气：" + e.weather : "") + (e.weather && e.mood ? " · " : "") + (e.mood ? "心情：" + e.mood : "")) : null,
+      h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: RULE_H + "px", color: "#4b3f33", whiteSpace: "pre-wrap" } }, e.content),
+      isMe && !e.replied ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1907a", marginTop: 6, fontStyle: "italic" } }, "写完了，本子递过去了") : null);
   };
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "交换日记", en: partner.name, onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+    backgroundImage: "repeating-linear-gradient(135deg,rgba(120,95,70,.03) 0 2px,rgba(0,0,0,0) 2px 7px)" } },
+    h(Head, { zh: "交换日记", en: partner.name, onBack, bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginTop: 4, marginBottom: 12 } }, "一本只有你俩看的本子：想写就写一页，TA 会在三天内找个时候回一页——写 TA 那天的事、和没说出口的话。"),
-      writing ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", marginBottom: 14 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 8 } }, fmtD(new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate())),
-        h("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "写点什么给 TA 看…", rows: 6, style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 12, fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-        h("input", { value: moodW, onChange: e => setMoodW(e.target.value), placeholder: "此刻心情（可空，如：有点想你）", style: { width: "100%", outline: "none", marginTop: 8, padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-        h("div", { className: "flex gap-2", style: { marginTop: 10 } },
-          h("button", { onClick: () => { if (body.trim()) { onAdd(partner, body, moodW); setBody(""); setMoodW(""); setWriting(false); } }, disabled: !body.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "9px 20px", borderRadius: 10 } }, "合上本子"),
-          h("button", { onClick: () => setWriting(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消")))
-      : h("button", { onClick: () => setWriting(true), className: "w-full active:opacity-70", style: { marginBottom: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14.5, padding: "12px 0", borderRadius: 14 } }, pending ? "再写一页（TA 还没回上一页）" : "✎ 写一页"),
+      writing ? h("div", { style: Object.assign({ position: "relative", borderRadius: 3, marginBottom: 15, padding: "12px 15px 14px 28px",
+        border: "1px solid #e6dac0", boxShadow: "0 8px 20px rgba(70,52,40,.11)" }, paperOf(true)) },
+        seam(true),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#6b5a45", height: 22 } }, fmtD(new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate())),
+        // 输入框自己不上底、不描边：字要落在这一页的格子上，不是浮在纸上的另一个盒子
+        h("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "写点什么给 TA 看…", rows: 6,
+          style: { width: "100%", outline: "none", resize: "none", background: "transparent", border: "none", padding: 0,
+            fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: RULE_H + "px", color: "#4b3f33" } }),
+        h("input", { value: moodW, onChange: e => setMoodW(e.target.value), placeholder: "此刻心情（可空，如：有点想你）",
+          style: { width: "100%", outline: "none", marginTop: 6, padding: "7px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5,
+            background: "rgba(255,255,255,.5)", color: "#4b3f33", border: "1px dashed rgba(120,105,70,.35)" } }),
+        h("div", { className: "flex items-center gap-3", style: { marginTop: 10 } },
+          h("button", { onClick: () => { if (body.trim()) { onAdd(partner, body, moodW); setBody(""); setMoodW(""); setWriting(false); } }, disabled: !body.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: "#8d7440", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13.5, padding: "9px 20px", borderRadius: 8 } }, "合上，递过去"),
+          h("button", { onClick: () => setWriting(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a1907a", minHeight: 40 } }, "撕掉")))
+      // 「写一页」不是一颗实心药丸，是【本子上还空着的下一页】
+      : h("button", { onClick: () => setWriting(true), className: "w-full text-left active:opacity-75",
+          style: Object.assign({ position: "relative", display: "block", marginBottom: 15, borderRadius: 3, padding: "16px 15px 17px 28px",
+            border: "1px dashed " + (pending ? "#e0cfc9" : "#ddd0b2"), boxShadow: "none" }, paperOf(!pending)) },
+          seam(!pending),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#6b5a45" } }, pending ? "本子在 TA 那边 · 还想写就再翻一页" : "翻开空着的下一页"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1907a", marginTop: 4 } }, pending ? "TA 这几天会写一页回给你" : "写完合上，本子就递过去了")),
       mine.length ? mine.map(page) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", marginTop: 24 } }, "本子还是空的——写下第一页吧。")));
 }
 
@@ -3269,10 +3308,12 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
   const [addMode, setAddMode] = useState(null);
   const [date, setDate] = useState(""); const [title, setTitle] = useState(""); const [content, setContent] = useState("");
   const [an, setAn] = useState(""); const [mo, setMo] = useState(""); const [dy, setDy] = useState(""); const [yearly, setYearly] = useState(true); const [link, setLink] = useState(true);
+  // 年份（v62.41）：每年重复的那一档不需要它；只发生一次的那一档没有它就只能靠猜。
+  const [yr, setYr] = useState("");
   const md = s => { const p = (s || "").split("-"); return p.length === 3 ? p[0] + "年" + (+p[1]) + "月" + (+p[2]) + "日" : s; };
   const startDate = since ? (function () { const d = new Date(since); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })() : null;
   const submitMile = () => { if (date && title.trim()) { onAdd(partner, date, title, content); setDate(""); setTitle(""); setContent(""); setAddMode(null); } };
-  const submitAnn = () => { if (an.trim() && mo && dy) { onAddAnniv(partner, an, mo, dy, yearly, link); setAn(""); setMo(""); setDy(""); setAddMode(null); } };
+  const submitAnn = () => { if (an.trim() && mo && dy) { onAddAnniv(partner, an, mo, dy, yearly, link, yearly ? null : yr); setAn(""); setMo(""); setDy(""); setYr(""); setAddMode(null); } };
   const toggle = (on, set, label) => h("button", { onClick: () => set(v => !v), className: "active:opacity-70 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.ink : t.fog } }, h("span", { style: { width: 15, height: 15, borderRadius: 4, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), color: t.bg2, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : ""), label);
   // 纸上写字就是写在【线】上，不是写进一个圆角灰框里（她 2026-09-04：「很普通的框」）
   const line1 = { width: "100%", outline: "none", padding: "6px 2px 7px", fontFamily: F_BODY, fontSize: 13.5,
@@ -3364,6 +3405,12 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
               h("div", { "aria-hidden": "true", style: { position: "absolute", top: 3, right: "26%", width: 5, height: 5, borderRadius: 999, background: "rgba(255,255,255,.5)" } }),
               h("input", { value: an, onChange: e => setAn(e.target.value), placeholder: "这一天叫什么", className: "w-full outline-none text-center",
                 style: { background: "transparent", color: "#fff", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "2px 0" } })),
+            // 年份就写在红头底下这一条，跟挂历上年份的位置一样。
+            // 每年重复的那一档不发这一行——它压根没有「哪一年」这个问题，摆着只会让人以为要填。
+            yearly ? null : h("div", { className: "flex items-center justify-center", style: { background: "#b85252", gap: 5, padding: "5px 0 6px" } },
+              h("input", { type: "number", value: yr, onChange: e => setYr(e.target.value), placeholder: String(new Date().getFullYear()), className: "outline-none text-right",
+                style: { width: 62, background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 14, letterSpacing: ".1em" } }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.7)" } }, "年")),
             h("div", { className: "flex items-baseline justify-center", style: { background: t.bg2, gap: 4, padding: "12px 0 13px" } },
               h("input", { type: "number", value: mo, onChange: e => setMo(e.target.value), placeholder: "—", className: "outline-none text-right",
                 style: { width: 52, background: "transparent", color: t.ink, fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1 } }),
@@ -3381,7 +3428,7 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
           h(CalPage, { month: a.month, day: a.day, dim: info.passed }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, a.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, info.y + "年" + a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : ""))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, info.y + "年" + a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : " · 只这一次"))),
           h("div", { style: { textAlign: "right" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: info.passed ? 15 : 20, fontStyle: "italic", color: info.days === 0 ? t.accent : info.passed ? t.fog : t.ink, lineHeight: 1 } }, info.days === 0 ? "今天" : info.passed ? "已过去" : info.days),
             info.days === 0 ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, info.passed ? (-info.days) + " 天" : "天后")),
@@ -4200,7 +4247,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4371,6 +4418,15 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h(CoupleGarden, { partner, data: (coupleGarden || {})[partner.id] || {}, gen: gardenGen === partner.id,
       onPlant: () => onGardenPlant && onGardenPlant(partner), onKeep: () => onGardenKeep && onGardenKeep(partner.id),
       onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：时光胶囊（v62.41）
+  // ⚠️它原来不是子页，是 setScreen("capsule") 跳去【另一个屏】。于是从里面退出来，
+  //   Us 整个重挂：view 和 sub 全归零，人直接被扔回情侣名册
+  //  （她 2026-09-04：「时光胶囊点进去退出会整个页面退出」）。
+  //   跟这一页别的十几扇门做成同一个形状就好了——退一层就是退一层，滚动位置也跟着回来。
+  if (partner && cp[view] && cp[view].status === "together" && sub === "capsule" && typeof window !== "undefined" && window.CapsuleApp) {
+    return h(window.CapsuleApp, Object.assign({}, capsuleProps || {}, {
+      characters: characters, characterId: partner.id, profile: profile, onBack: () => setSub(null) }));
   }
   // 情侣空间子模块：旅行（v62.26，从愿望板进，返回也回愿望板——一层层退）
   if (partner && cp[view] && cp[view].status === "together" && sub === "trip") {
@@ -4844,18 +4900,36 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                       bPhotos.length ? h(AlbumPhoto, { photo: bPhotos[0], cover: true }) : null)),
                   h("div", { style: { position: "absolute", left: 9, right: 9, bottom: 7, fontFamily: F_BODY, fontSize: 10.5, color: "#8b8177", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                     bPhotos.length ? "合照 · " + bPhotos.length + " 张" : "还没有合照")),
-                // 拍立得旁边：照相馆，一张空相纸
-                wall("studio", { w: "48%", grow: 1, tilt: 1.8, pad: "14px 14px 16px", bg: "#fbf7fb", border: "1px solid #e6dcee",
-                  kids: h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#a692bd" } }, "照相馆"),
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.55, color: "#6d5390", marginTop: 8 } },
-                      bShotLast ? one(bShotLast.scene, 16) : "挑身衣服拍一张"),
-                    bShotsN > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a692bd", marginTop: 5 } }, "拍过 " + bShotsN + " 张") : null) }),
+                // 拍立得旁边：照相馆＝【冲出来的那一条胶片】（v62.41 她：「墙上这一堆还是很无聊」）。
+                // 上一版是一个淡紫圆角框——搬去任何 app 都成立，所以它没长出来。
+                // 旁边已经是拍立得了，照相馆就换它自己那样东西：三格片窗 + 上下两排齿孔。
+                (function () {
+                  const holes = k => h("div", { "aria-hidden": "true", key: k, className: "flex", style: { gap: 4, justifyContent: "space-between" } },
+                    [0, 1, 2, 3, 4, 5, 6].map(i => h("span", { key: i, style: { width: 5, height: 3.5, borderRadius: 1, background: "rgba(226,216,238,.38)" } })));
+                  return wall("studio", { w: "48%", grow: 1, tilt: 1.8, pad: 0, radius: 3, bg: "#efe9f4", border: "1px solid #ded2ea",
+                    kids: h("div", null,
+                      h("div", { style: { background: "#2b2437", padding: "5px 7px 6px" } },
+                        holes("t"),
+                        h("div", { className: "flex", style: { gap: 4, margin: "4px 0" } },
+                          [0, 1, 2].map(i => h("div", { key: i, style: { flex: 1, height: 26, borderRadius: 1,
+                            background: i === 0 && bShotsN ? "#6d5390" : "rgba(226,216,238,.13)",
+                            border: "1px solid rgba(226,216,238,.16)" } }))),
+                        holes("b")),
+                      h("div", { style: { padding: "9px 11px 11px" } },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#a692bd" } },
+                          bShotsN > 1 ? "照相馆 · 拍过 " + bShotsN + " 张" : "照相馆"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.5, color: "#6d5390", marginTop: 6 } },
+                          bShotLast ? one(bShotLast.scene, 16) : "挑身衣服拍一张"))) });
+                })(),
                 // 票根：整宽一条，虚线横贯
                 wall("firsts", { w: "100%", radius: 8, tilt: -0.5, pad: "14px 15px", bg: "#faf7f0", border: "1px solid #e6ddca",
                   // ⚠️虚线不能横穿：它会正好压在字上。真票根的撕线是【竖的】，
                   // 在存根那一头，两端各咬一个半圆缺口。
                   deco: h(Fragment, null,
+                    // 真票根的撕线是【一排齿孔】，不是一条虚线（她 2026-09-04：「存根有点样子了但还不够」）
+                    h("div", { "aria-hidden": "true", style: { position: "absolute", right: 71, top: 6, bottom: 6, width: 6,
+                      display: "flex", flexDirection: "column", justifyContent: "space-around", alignItems: "center" } },
+                      [0, 1, 2, 3, 4, 5].map(i => h("span", { key: i, style: { width: 3, height: 3, borderRadius: 999, background: "rgba(150,125,80,.45)" } }))),
                     h("div", { "aria-hidden": "true", style: { position: "absolute", right: 74, top: 6, bottom: 6, borderLeft: "1px dashed rgba(150,125,80,.4)" } }),
                     h("div", { "aria-hidden": "true", style: { position: "absolute", right: 69, top: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } }),
                     h("div", { "aria-hidden": "true", style: { position: "absolute", right: 69, bottom: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } })),
@@ -4867,27 +4941,55 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                     h("div", { style: { width: 58, flexShrink: 0, textAlign: "center" } },
                       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 24, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || 0),
                       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".14em", color: "#a89877", marginTop: 3 } }, "存根"))) }),
-                // 如果馆：墙上唯一一块深的
+                // 如果馆：墙上唯一一块深的。
+                // ⚠️那个空心圆是【装饰】，换成任何图案都一样成立（v62.41 换掉）。
+                //   这一格说的是「同样的我们，换掉当初的一样东西」——现实里那就是【一个岔路口】：
+                //   走过的那条实线，没走的那条虚着散进暗处。这一整页本来就有路这套语言
+                //  （我们的日子那条时光轴），所以它不是新发明的图案，是接着说的。
                 wall("ifroom", { w: "100%", radius: 16, pad: "16px 16px 15px", bg: "linear-gradient(140deg,#241f36,#141222)", border: "1px solid #332c4a",
-                  deco: h("div", { "aria-hidden": "true", style: { position: "absolute", right: 14, top: -26, width: 92, height: 92, borderRadius: 999, border: "1px solid rgba(169,156,203,.24)" } }),
+                  deco: h("svg", { "aria-hidden": "true", viewBox: "0 0 120 90", preserveAspectRatio: "none",
+                    style: { position: "absolute", right: 0, top: 0, width: 128, height: "100%", opacity: .85 } },
+                    h("path", { d: "M0 78 C34 78 44 62 60 46", fill: "none", stroke: "rgba(169,156,203,.5)", strokeWidth: 1.6, strokeLinecap: "round" }),
+                    h("path", { d: "M60 46 C74 32 86 26 118 22", fill: "none", stroke: "rgba(169,156,203,.5)", strokeWidth: 1.6, strokeLinecap: "round" }),
+                    h("path", { d: "M60 46 C76 48 92 56 118 70", fill: "none", stroke: "rgba(169,156,203,.42)", strokeWidth: 1.4, strokeDasharray: "3 5", strokeLinecap: "round" }),
+                    h("circle", { cx: 60, cy: 46, r: 3.2, fill: "#a99ccb" })),
                   kids: h("div", { style: { position: "relative" } },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "如果"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#e0d6f5", lineHeight: 1.4, marginTop: 7 } },
                       bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样的我们，换掉当初的一样东西"),
                     bIfLast ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(200,188,230,.6)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, one(bIfLast.premise, 24)) : null) }),
-                // 抽卡：真做成一张卡（原来是这一页唯一一个圆，读起来就是随机）
-                wall("gacha", { w: "46%", radius: 10, tilt: 1.2, pad: "13px 13px 14px", bg: "linear-gradient(150deg,#fbf1f7,#f3e3ee)", border: "1px solid #e8d4e4",
-                  dot: bGachaOpen > 0,
-                  kids: h("div", null,
+                // 抽卡：一【叠】卡（v62.41）。原来是一张，跟旁边几块一样是个圆角方框；
+                // 真正在墙上的是压着的那两张——底下露出来的边才让人一眼看出这是可以抽的。
+                // ⚠️压在底下那两张不能用 z-index 往按钮背后塞：按钮自己的底色画在所有子元素
+                //   下面，负 z-index 的子元素只会被它盖住，什么都看不见。所以这一格是
+                //   【外面一个壳装三张】——底下两张先画、各转一点角度，最上面那张才是按钮。
+                h("div", { key: "gacha", style: { position: "relative", width: "46%", minWidth: 0 } },
+                  h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 10, background: "#eed9e8",
+                    border: "1px solid #e2c7dc", transform: "rotate(3.4deg)" } }),
+                  h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 10, background: "#f5e3f0",
+                    border: "1px solid #e8d4e4", transform: "rotate(1.7deg)" } }),
+                  h("button", { onClick: () => openSub("gacha"), className: "w-full text-left active:opacity-75",
+                    style: { position: "relative", display: "block", borderRadius: 10, padding: "13px 13px 14px",
+                      background: "linear-gradient(150deg,#fbf1f7,#f3e3ee)", border: "1px solid #e8d4e4",
+                      boxShadow: "0 8px 20px rgba(68,45,58,.10)" } },
+                    bGachaOpen > 0 ? h("span", { style: { position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b78bad" } }, "抽卡"),
                     h("div", { className: "flex items-baseline", style: { gap: 4, marginTop: 7 } },
-                      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 27, lineHeight: 1, color: "#96678c" } }, bGachaPts || 0),
+                      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1, color: "#96678c" } }, bGachaPts || 0),
                       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b78bad" } }, "点")),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b78bad", marginTop: 5 } },
-                      bGachaOpen ? bGachaOpen + " 张还没兑" : "陪着他就有点数")) }),
-                // 抽屉：半开的一格
-                wall("drawer", { w: "46%", grow: 1, radius: "4px 4px 15px 15px", pad: "13px 13px 17px", bg: "#faf3e4", border: "1px solid #e9dcc0",
-                  deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 9, width: 42, height: 4, marginLeft: -21, borderRadius: 99, background: "rgba(120,95,45,.3)" } }),
+                      bGachaOpen ? bGachaOpen + " 张还没兑" : "陪着他就有点数"))),
+                // 抽屉：真拉开一条缝的那一格（v62.41）。
+                // 上一版只有底下一条把手，别的还是个圆角方框。抽屉之所以是抽屉，
+                // 靠的是【顶上那道暗缝】（里面是黑的）和【两侧的木边】——把手只是最后一笔。
+                wall("drawer", { w: "46%", grow: 1, radius: "3px 3px 15px 15px", pad: "16px 15px 19px", bg: "linear-gradient(180deg,#f6eddb,#faf3e4 34%)", border: "1px solid #e2d2b0",
+                  deco: h(Fragment, null,
+                    h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 5,
+                      background: "linear-gradient(180deg,rgba(74,56,22,.42),rgba(74,56,22,0))" } }),
+                    h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 5, bottom: 0, width: 3, background: "rgba(150,122,66,.20)" } }),
+                    h("span", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 5, bottom: 0, width: 3, background: "rgba(150,122,66,.20)" } }),
+                    h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 8, width: 44, height: 5, marginLeft: -22, borderRadius: 99,
+                      background: "linear-gradient(180deg,#b79c66,#8d7440)", boxShadow: "0 1px 0 rgba(255,255,255,.55)" } })),
                   kids: h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "抽屉"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
@@ -4951,7 +5053,6 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   dot: (function () { const p2 = couplePactsOf ? couplePactsOf(bCid) : null; return !!(p2 && (p2.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
                   say: bPactLast ? one(bPactLast.text || bPactLast.title, 22) : "还没说好什么" }),
                 spine("capsule", { zh: "时光胶囊", band: "#7d7396", dot: bCapsuleDue > 0,
-                  onClick: () => onOpenCapsule && onOpenCapsule(bCid),
                   say: bCapsuleDue ? bCapsuleDue + " 封等你拆" : "写给以后的我们" }))
             );
 })(),

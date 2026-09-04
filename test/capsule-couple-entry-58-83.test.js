@@ -11,13 +11,22 @@ test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回",
   const app = read("js/app.js");
   const capsule = read("js/capsule.js");
 
-  assert.match(screens, /function Us\(\{[^\n]*\bonOpenCapsule\b[^\n]*\}\) \{/);
+  // ⚠️v62.41：胶囊不再是【另一个屏】。原来点进去是 setScreen("capsule")，退出来
+  //   Us 整个重挂、view 和 sub 全归零，人被扔回情侣名册——她 2026-09-04 报
+  //   「时光胶囊点进去退出会整个页面退出」。「原路返回」这半句一直是假的。
+  //   现在它跟这一页别的十几扇门同一个形状：openSub 进、setSub(null) 退一层。
+  assert.match(screens, /function Us\(\{[^\n]*\bcapsuleProps\b[^\n]*\}\) \{/);
   assert.match(screens, /capsuleDueCount\(bCid, partner\.name\)/);
-  assert.match(screens, /spine\("capsule",[\s\S]*?onClick: \(\) => onOpenCapsule && onOpenCapsule\(bCid\)/);
-  assert.match(app, /const \[capsuleCharId, setCapsuleCharId\] = useState\(null\)/);
-  assert.match(app, /onOpenCapsule: charId => \{ setCapsuleCharId\(charId\); setScreen\("capsule"\); \}/);
-  assert.match(app, /screen === "capsule"[\s\S]*?characterId: capsuleCharId/);
-  assert.match(app, /screen === "capsule"[\s\S]*?onBack: \(\) => setScreen\("us"\)/);
+  // 书脊不许再自己 onClick 跳走：走 spine 默认的 openSub 才会记住滚动位置
+  assert.match(screens, /spine\("capsule", \{ zh: "时光胶囊"/);
+  assert.doesNotMatch(screens, /onOpenCapsule/, "旧那条跳屏的线还留着");
+  assert.match(screens, /sub === "capsule" && typeof window !== "undefined" && window\.CapsuleApp\)/);
+  assert.match(screens, /characters: characters, characterId: partner\.id, profile: profile, onBack: \(\) => setSub\(null\)/,
+    "退出来没有只退一层");
+  assert.match(app, /capsuleProps: \{ active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast \}/);
+  // 旧那一屏整块删掉，不是留在原地打个叉（她 2026-08-30）
+  assert.doesNotMatch(app, /screen === "capsule"/, "那一屏还留着——两条路进同一个页面");
+  assert.doesNotMatch(app, /capsuleCharId/, "只给那一屏用的 state 还留着");
   assert.match(capsule, /x_capsules/);
   assert.match(capsule, /const list = allList\.filter\(c => belongsTo\(c, props\.characterId/);
   assert.match(capsule, /charId: c\.id, charName: c\.name/);

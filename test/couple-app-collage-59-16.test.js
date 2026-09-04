@@ -52,7 +52,16 @@ test("形状跟着内容走，不是一堆方框", () => {
   assert.equal((collage.match(/borderRadius: 999, background: t\.bg/g) || []).length, 2, "撕线两端没有半圆缺口");
   assert.match(collage, /width: 58, flexShrink: 0, textAlign: "center"/, "票根右边那截存根没了");
   // 抽屉＝一条把手
-  assert.match(collage, /wall\("drawer",[\s\S]{0,600}?marginLeft: -21/, "抽屉没有那条把手");
+  // v62.41：抽屉之所以是抽屉，靠的是【顶上那道暗缝】和两侧木边，把手只是最后一笔。
+  //（上一版只有把手，别的还是个圆角方框——她 2026-09-04：「墙上这一堆还是很无聊」）
+  assert.match(collage, /wall\("drawer",[\s\S]{0,900}?marginLeft: -22/, "抽屉没有那条把手");
+  assert.match(collage, /wall\("drawer",[\s\S]{0,700}?rgba\(74,56,22,\.42\)/, "抽屉顶上那道拉开的暗缝没了");
+  // 抽卡是一【叠】卡：底下压着的那两张缺一张都不成叠
+  assert.equal((collage.match(/transform: "rotate\((?:3\.4|1\.7)deg\)"/g) || []).length, 2, "抽卡底下压着的那两张不见了");
+  // 照相馆是一条胶片：三格片窗 + 上下两排齿孔
+  assert.match(collage, /const holes = k =>/, "照相馆不是胶片了");
+  // 如果馆是一个岔路口：走过的实线、没走的虚线
+  assert.match(collage, /strokeDasharray: "3 5"/, "如果馆那条没走的路不是虚的");
 });
 
 test("原有的门一扇都没丢", () => {

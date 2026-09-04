@@ -556,7 +556,7 @@
     yanqiu: ["秋声", "yanqiu"], loungeapp: ["三席会客", "lounge"],
     rescue: ["互救台", "rescue"], vpscodex: ["值班室", "vpscodex"],
     forum: ["论坛", "forum"], momprofile: ["朋友圈", "moments"],
-    us: ["情侣空间", "couple"], capsule: ["时光胶囊", "couple"],
+    us: ["情侣空间", "couple"],
     favorites: ["收藏", "favorites"], emotes: ["表情包", "emotes"],
     lifestyle: ["生活方式", ""], stylelab: ["文风台", "stylelab"],
     config: ["设置", "config"], assistant: ["你自己这一页", "assistant"],

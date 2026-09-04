@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.40";
+const APP_VERSION = "v62.41";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -219,7 +219,6 @@ function App() {
   const [now, setNow] = useState(new Date());
   const [screen, setScreen] = useState("home");
   // 时光胶囊从某一段情侣空间进入：只把那位对象带进胶囊页，绝不展示全库。
-  const [capsuleCharId, setCapsuleCharId] = useState(null);
   useEffect(() => {
     document.documentElement.setAttribute("data-lisa-screen", screen || "home");
   }, [screen]);
@@ -14761,16 +14760,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
   };
   // 情侣空间·纪念日倒计时：加/删；可选联动日历
-  const addAnniv = (char, name, month, day, yearlyRepeat, linkCalendar) => {
+  const addAnniv = (char, name, month, day, yearlyRepeat, linkCalendar, year) => {
     if (!(name || "").trim() || !month || !day) return;
     const mo = Math.max(1, Math.min(12, +month)), dy = Math.max(1, Math.min(31, +day));
+    // 年份可以不填（每年重复的那一档本来就不需要）；填了就存下来，annivNext 照它算。
+    const _y = Number(year);
+    const yr = Number.isFinite(_y) && _y > 1900 && _y < 3000 ? _y : null;
     const anId = "an_" + Date.now();
+    const rec = { id: anId, characterId: char.id, name: name.trim(), month: mo, day: dy, yearlyRepeat: !!yearlyRepeat, createdAt: Date.now() };
+    if (yr) rec.year = yr;
     setCoupleAnniv(p => {
-      const n = [{ id: anId, characterId: char.id, name: name.trim(), month: mo, day: dy, yearlyRepeat: !!yearlyRepeat, createdAt: Date.now() }, ...p];
+      const n = [rec, ...p];
       saveJSON("x_coupleAnniv", n);
       return n;
     });
-    if (linkCalendar) { saveCalEvent(char.id, new Date().getFullYear() + "-" + mo + "-" + dy, name.trim(), "情侣纪念日", anId); toast("已加进日历"); }
+    // ⚠️日历那一份原来硬写今年：填了 2027 也会被记到今年的格子里。
+    //   跟倒数用的必须是同一个算法，否则「情侣空间里写着明年、日历上却在今年」。
+    if (linkCalendar) {
+      const nx = annivNext(rec);
+      saveCalEvent(char.id, new Date(nx.ts).getFullYear() + "-" + mo + "-" + dy, name.trim(), "情侣纪念日", anId);
+      toast("已加进日历");
+    }
   };
   // 日历里那份是纪念日的影子：这边删了，那边就不该还留着
   //（她 2026-09-01：「我在情侣空间删掉了，查手机日历这边还显示有」）。
@@ -17034,7 +17044,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 线上单聊 + 线下都捞（v57.79）——线下当场拍的那些才是真在一块拍的，
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
-    onOpenCapsule: charId => { setCapsuleCharId(charId); setScreen("capsule"); },
+    // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
+    // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
+    capsuleProps: { active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast },
     coupleDisc: coupleDisc,
     onDiscAdd: discAdd,
     onDiscRemove: discRemove,
@@ -17304,15 +17316,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     affinities: affinities,
     toast: toast,
     onBack: () => setScreen("home")
-  });else if (screen === "capsule") body = h(window.CapsuleApp, {
-    active: active,
-    apiFor: apiFor, // 胶囊回信/反向埋=TA 亲笔，跟随专线（v48.37）
-    characters: liveChars,
-    characterId: capsuleCharId,
-    profile: profile,
-    ctxFor: ctxFor,
-    toast: toast,
-    onBack: () => setScreen("us")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
     characters: liveChars,
