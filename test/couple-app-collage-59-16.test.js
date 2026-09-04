@@ -54,7 +54,9 @@ test("形状跟着内容走，不是一堆方框", () => {
 test("原有的门一扇都没丢", () => {
   const keys = ["timeline", "album", "letters", "recall", "pacts", "makeup", "ifroom",
     "studio", "firsts", "drawer", "gacha", "qa", "capsule", "exdiary"];
-  keys.forEach(k => assert.match(collage, new RegExp('(?:wall|spine)\\("' + k + '"|setSub\\("' + k + '"\\)'), k + " 这一处入口没了"));
+  // ⚠️v62.22 起开子页一律走 openSub（进去前先记滚动位置），不再直接 setSub——
+  //   门本身没变，变的是那扇门后面接的那个出口（见 couple-space-62-22）。
+  keys.forEach(k => assert.match(collage, new RegExp('(?:wall|spine)\\("' + k + '"|openSub\\("' + k + '"\\)'), k + " 这一处入口没了"));
   // 便签墙 v59.23 明着删的，别长回来
   assert.ok(collage.indexOf('"notes"') < 0, "便签墙又长回来了");
 });

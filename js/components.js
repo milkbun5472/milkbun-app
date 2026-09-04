@@ -108,10 +108,15 @@ function applyChatLook(next) {
   // 把它们去掉就够了。⚠️别顺手连 ; ( ) 一起删——data:image/png;base64,… 里就带着分号，
   // 删了她上传的那张图会整个坏掉（这一条是变异测试里试出来的）。
   const bg = String(raw || "").replace(/["\\\r\n]/g, "");
+  // ⚠️只把图铺在 [data-wk="chat"] 上是不够的：皮肤那一套同时给了 [data-wk="body"]
+  //   （消息列表那一层）一个【不透明】的底，它就盖在这张图上面——她 2026-09-04 报的
+  //   「我设置了背景图……全被全局皮肤盖着了」就是这一层盖的，图其实一直在下面。
+  //   所以铺图的同时必须把上面那一层敲成透明，否则等于没铺。
   put("wk-chat-bg-css", (scope && bg) ? scope + ' [data-wk="chat"]{'
     + 'background-image:url("' + bg + '") !important;'
     + "background-size:cover !important;background-position:center !important;"
-    + "background-repeat:no-repeat !important;background-color:transparent !important;}" : "");
+    + "background-repeat:no-repeat !important;background-color:transparent !important;}"
+    + scope + ' [data-wk="body"]{background:transparent !important;background-image:none !important;}' : "");
 }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }

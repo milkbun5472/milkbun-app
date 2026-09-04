@@ -89,9 +89,22 @@ test("背景图当 url() 用之前要洗干净：逃不出那对引号", () => {
   assert.ok(v, "url() 那对引号被打断了");
   assert.ok(v[1].indexOf('"') < 0 && v[1].indexOf("\\") < 0, "值里还留着能逃出引号的字符");
   // 把整段 url("…") 挖掉再数括号：留在引号里的花括号是死的，跑到外面才算逃出去
+  // 这张 style 里就两条规则（chat 那条 + 把 body 敲透明那条），所以正好两对花括号
   const bare = css.replace(/url\("[^"]*"\)/, "url()");
-  assert.equal((bare.match(/\{/g) || []).length, 1, "花括号被撑开了＝真跑出去了");
-  assert.equal((bare.match(/\}/g) || []).length, 1, "同上");
+  assert.equal((bare.match(/\{/g) || []).length, 2, "花括号被撑开了＝真跑出去了");
+  assert.equal((bare.match(/\}/g) || []).length, 2, "同上");
+});
+
+test("⚠️铺背景图的同时要把消息那一层敲透明，不然等于没铺", () => {
+  // 她 2026-09-04 报：「我设置了背景图……全被全局皮肤盖着了」。
+  // 图其实一直在 [data-wk="chat"] 上，只是皮肤同时给了 [data-wk="body"]（消息列表那一层）
+  // 一个不透明的底，正好盖在图上面。只压住父层是不够的。
+  const { byId } = runLook({ scope: SCOPE, chatBg: "data:image/png;base64,AAA" });
+  const css = byId["wk-chat-bg-css"].textContent;
+  assert.match(css, /\[data-wk="chat"\]\{background-image:url\("data:image\/png;base64,AAA"\)/);
+  assert.match(css, /\[data-wk="body"\]\{background:transparent !important;background-image:none !important;\}/,
+    "消息那一层没敲透明——皮肤的底会盖在她的背景图上面");
+  assert.ok(css.indexOf(SCOPE + ' [data-wk="body"]') > 0, "那一条也得限死在这个人的窗口里");
 });
 
 test("⚠️别把 data: 图洗坏了——它自己就带分号", () => {

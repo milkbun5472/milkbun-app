@@ -3683,6 +3683,12 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
   // 贴着页边、一页一个位置错开），照账本 TallyView 那套索引标签语言。
   // 配色整套写死：夹和纸都是写死的浅色，字色跟主题走会在深色主题下失明。
   const KRAFT = "#cdb488", PAGE = "#fbf6ea", AINK = "#4a3d28", AFOG = "#9a8a6a";
+  // 索引标签错开摆的位置。⚠️位置 + 标签自己的宽度不许越过纸的右边缘：
+  // 原来是 4 档 × 23%，第四档落在 69%，加上「安慰说明书」那么长的标签就整个挤到纸外面去
+  //（她 2026-09-04 截图：04 那一枚顶到右边框外了）。
+  // 现在 3 档 × 24%（最远 48%），而且每一枚的可用宽度由 calc 钉死在剩下那一段里——
+  // 标签再长也只会省略号，**溢出这件事从形状上就不可能发生**，不是靠挑一个够小的数。
+  const TAB_L = i => (i % 3) * 24;
   const TABC = ["#b0885a", "#a06a54", "#8a7a5c", "#7a8a6a", "#6a7a8a", "#8a6a7a", "#9a8a5a"];
   return h("div", { className: "h-full flex flex-col", style: {
     background: KRAFT,
@@ -3700,13 +3706,13 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: "#7a6238", marginTop: 5 } }, "这里不会从普通聊天或记忆库自动填字。你写下什么，才留下什么。")),
       COUPLE_ARCHIVE_FIELDS.map(([key, title, hint], fi) => h("label", { key, style: { display: "block", position: "relative", marginTop: fi ? 14 : 0 } },
         // 索引标签：长在页顶、一页一个位置错开——一叠翻得到的档案页
-        h("div", { style: { position: "relative", zIndex: 1, marginLeft: (fi % 4) * 23 + "%", display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "72%",
+        h("div", { style: { position: "relative", zIndex: 1, marginLeft: TAB_L(fi) + "%", display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "calc(100% - " + TAB_L(fi) + "%)",
           borderRadius: "8px 8px 0 0", padding: "6px 13px 5px", background: TABC[fi % TABC.length], color: "#fff",
           fontFamily: F_BODY, fontSize: 11.5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 10, opacity: 0.75 } }, "0" + (fi + 1)),
           h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
           String(draft[key] || "").trim() ? h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: "rgba(255,255,255,.85)", flexShrink: 0 } }) : null),
-        h("div", { style: { position: "relative", background: PAGE, borderRadius: fi % 4 === 0 ? "0 4px 4px 4px" : 4, border: "1px solid rgba(150,120,70,.3)", borderTopColor: TABC[fi % TABC.length], borderTopWidth: 2, padding: "11px 13px 13px", boxShadow: "0 5px 14px rgba(110,80,35,.16)" } },
+        h("div", { style: { position: "relative", background: PAGE, borderRadius: TAB_L(fi) === 0 ? "0 4px 4px 4px" : 4, border: "1px solid rgba(150,120,70,.3)", borderTopColor: TABC[fi % TABC.length], borderTopWidth: 2, padding: "11px 13px 13px", boxShadow: "0 5px 14px rgba(110,80,35,.16)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: AFOG } }, hint),
           h("textarea", { value: draft[key] || "", onChange: e => setDraft(d => ({ ...d, [key]: e.target.value })), rows: 3, placeholder: "写在这里……", className: "w-full outline-none resize-none", style: { marginTop: 7, background: "transparent", borderBottom: "1px dashed rgba(150,120,70,.35)", color: AINK, padding: "4px 2px 8px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7 } })))),
       h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 22, borderRadius: 10, background: "#42311a", color: "#f5ecd8", padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15, boxShadow: "0 6px 16px rgba(66,49,26,.3)" } }, "封存这份档案")));
@@ -3965,6 +3971,17 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
+  // ── 进子页记位置、回来放回去（mobile-ui-layout.md §3；她 2026-09-04：
+  //    「情侣空间从任何页面出来都会跳回最上面」）──────────────────────────────
+  // 病：每个子页都是 `return h(XxxPage…)` 的早退，详情页整个卸载，滚动位置跟着没了。
+  // 所以【所有开子页的地方一律走 openSub】，别再直接 openSub("…")——
+  // 漏一处就是那一扇门回来会跳顶，而且看不出来（一层写在两处那个老形状）。
+  const bodyRef = useRef(null);
+  const subScrollRef = useRef(0);
+  const openSub = k => { subScrollRef.current = bodyRef.current ? bodyRef.current.scrollTop : 0; setSub(k); };
+  React.useLayoutEffect(() => {
+    if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
+  }, [sub]);
   const [pick, setPick] = useState(false);
   const [annOpen, setAnnOpen] = useState(false);
   const [annName, setAnnName] = useState("");
@@ -4214,7 +4231,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bTodayRows = bToday.length ? h("div", { style: { borderTop: "1px solid #eadde3", padding: "9px 13px" } },
       bToday.map(x => h("button", {
         key: x.id,
-        onClick: () => setSub(x.sub),
+        onClick: () => openSub(x.sub),
         className: "w-full flex items-center gap-2 active:opacity-60",
         style: { textAlign: "left", padding: "5px 0" }
       },
@@ -4246,11 +4263,17 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       if (m) { const q = m[1].split(",").map(x => x.trim()); if (q.length >= 3) return "rgba(" + q[0] + "," + q[1] + "," + q[2] + "," + a2 + ")"; }
       return c;
     };
-    // 她 2026-09-02 第二遍：「背景还是不是一整页。是固定住了。」
-    // 固定住是对的，错的是上一版到 safe+215px 就收成【不透明】的 t.bg —— 那等于
-    // 照片只活在顶上那一截，往下还是一片素底。现在收成【半透明的一层薄纱】(.86)，
-    // 而渐变的最后一个色会一直铺到页底，所以整页都还看得见那张图，字也照样读得清。
-    const veil = "linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.08) calc(" + ST + " + 76px),transparent calc(" + ST + " + 130px)," + bgA(0.86) + " calc(" + ST + " + 250px))";
+    // 她 2026-09-02 第二遍：「背景还是不是一整页。是固定住了。」——整页封面这件事保留。
+    // v62.26 她 2026-09-04：「背景现在有点空……原来是有封面的，后来我又想让封面覆盖整页
+    // 结果就没有这个边界了」。两件事其实不冲突，冲突的是【把两件事交给同一层去做】：
+    // 上一版让这层纱既当遮光罩、又当内容的底（收成 .86 一直铺到页底），
+    // 于是整页糊成一片，照片露不出来、纸也没有边。
+    //   现在拆开：**纱只管顶上那一截**（把封面压暗，好让白色顶栏字读得清），
+    //   到封面带结束就彻底透明；**内容自己是一张纸**（底下那张 sheet），
+    //   纸有圆角上沿、有一道向上的投影——那就是她要的那条边界，而且它跟着滚。
+    // 结果：封面带里照片是满强度的，纸底下照片仍旧透着（纸是半透明的 .88，跟原来那层等价），
+    // 整页封面没丢，边界回来了。
+    const veil = "linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.08) calc(" + ST + " + 76px),transparent calc(" + ST + " + 150px))";
     // ── 两枚扣在一起的环（v60.61 修细节）───────────────────────────────────
     // 上一版那道交叠弧是照着 74px 画的，可环实际是 72px——差这 2px，弧就飘到环外面，
     // 变成一道没来由的橙线。这一版尺寸全由 A/RING/GAP/OVER 算出来，不再手填：
@@ -4273,15 +4296,20 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         onSetCoupleImg
           ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
           : h("div", { style: { width: 40 } })),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-8", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
+      h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
         // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
         h("div", { style: { position: "relative", height: 150 } },
-          h("div", { style: { position: "absolute", left: 22, bottom: -30, display: "flex", alignItems: "flex-end" } },
+          h("div", { style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
             ringed(paChar, ringA),
             ringed(myChar, ringB, -OVER),
             // 交叠那一段：把左边那枚环的右半弧再画一次，压在右边这枚上面 → 两枚扣住了
             h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: D, height: D, borderRadius: 999, border: RING + "px solid " + ringA, clipPath: "polygon(" + weaveFrom + "% 0," + weaveFrom + "% 50%,100% 50%,100% 0)", pointerEvents: "none" } }))),
-        h("div", { className: "px-6", style: { marginTop: 40 } },
+        // ⭐这就是那条边界：一张有上沿的纸，从封面带底下探出来、盖着往上滚。
+        //   paddingTop 让正文避开压在沿上的那两枚头像；纸是半透明的，封面照样透着。
+        h("div", { className: "px-6", style: { position: "relative", background: bgA(0.88),
+          borderRadius: "26px 26px 0 0", borderTop: "1px solid rgba(255,255,255,.45)",
+          boxShadow: "0 -9px 26px rgba(60,40,50,.15)", paddingTop: 46, paddingBottom: 32,
+          minHeight: "calc(100% - 150px)" } },
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
               h("div", { className: "flex items-baseline gap-2" },
@@ -4316,7 +4344,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#765865", lineHeight: 1.2 } }, bMood.label),
                       bMood.ago ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a08795", marginTop: 2 } }, bMood.ago) : null))
                     : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#765865", marginTop: 12 } }, "还没聊过天")),
-                h("button", { onClick: () => setSub("timeline"), className: "active:opacity-70", style: { minHeight: 98, padding: "15px 14px", textAlign: "left" } },
+                h("button", { onClick: () => openSub("timeline"), className: "active:opacity-70", style: { minHeight: 98, padding: "15px 14px", textAlign: "left" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, bAnn ? "下一件值得等的事" : "日历上等你们写"),
                   bAnn ? h(Fragment, null,
                     h("div", { className: "flex items-baseline gap-1", style: { marginTop: 7 } },
@@ -4344,7 +4372,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h("div", { style: { height: NOTIFY_H, overflowY: "auto", overscrollBehavior: "contain",
                   display: "flex", flexDirection: "column", gap: NOTIFY_GAP, paddingRight: 2,
                   WebkitOverflowScrolling: "touch" } },
-                  bRecent.map(x => h("button", { key: x.id, onClick: () => setSub(x.sub),
+                  bRecent.map(x => h("button", { key: x.id, onClick: () => openSub(x.sub),
                     className: "w-full active:opacity-70 shrink-0", style: { display: "flex", alignItems: "center", gap: 9,
                       height: NOTIFY_ROW, padding: "0 11px", textAlign: "left", borderRadius: 14,
                       background: "rgba(255,255,255,.8)", border: "1px solid rgba(146,114,128,.16)",
@@ -4366,12 +4394,12 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   background: "linear-gradient(transparent," + bgA(0.9) + ")" } }) : null)
                 : h("div", { style: { borderRadius: 16, border: "1px dashed rgba(146,114,128,.28)", padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", lineHeight: 1.8 } }, "还没有推送。", h("br"), "便签、情书、日记、合照和实现了的愿望都会推到这儿。"))),
           h("section", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 } },
-            h("button", { onClick: () => setSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
+            h("button", { onClick: () => openSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
               h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(115,91,67,.08)" } }, "档"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a745e", letterSpacing: ".14em" } }, "只由你亲手写"),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#68513d", marginTop: 8 } }, "我们的档案"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a745e", marginTop: 22 } }, bArchiveN ? "已封存 " + bArchiveN + "/" + COUPLE_ARCHIVE_FIELDS.length + " 页" : "称呼、梗与小仪式")),
-            h("button", { onClick: () => setSub("wishes"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f8edef", border: "1px solid #ebd4da", position: "relative", overflow: "hidden" } },
+            h("button", { onClick: () => openSub("wishes"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f8edef", border: "1px solid #ebd4da", position: "relative", overflow: "hidden" } },
               // 和左边那张的「档」配成一对：两张卡的水印得是同一种东西（一个汉字），
               // 原来这儿是个 ✦ ——一张汉字一张符号，并排摆着就是两套
               h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(174,75,105,.10)" } }, "愿"),
@@ -4398,7 +4426,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             // 形状不再是「一堆方框混一个圆」，而是【跟内容对应的形状】：照片是照片、
             // 票根是票根、册子是书脊。那个孤零零的圆去掉了——它是唯一一个，
             // 读起来就是随机。
-            const wall = (k, o) => h("button", { key: k, onClick: o.onClick || (() => setSub(k)), className: "active:opacity-75",
+            const wall = (k, o) => h("button", { key: k, onClick: o.onClick || (() => openSub(k)), className: "active:opacity-75",
               style: { position: "relative", textAlign: "left", width: o.w, flexGrow: o.grow || 0, minWidth: 0, overflow: "hidden",
                 borderRadius: o.radius == null ? 5 : o.radius, padding: o.pad || "12px 13px",
                 background: o.bg || PAPER, border: o.border || ("1px solid " + PLINE),
@@ -4408,7 +4436,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               o.dot ? h("span", { style: { position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
               o.kids);
             // 书脊：左边一条色带 + 一行字 + 右边一句近况。加一本就是多一行，不撑版面。
-            const spine = (k, o) => h("button", { key: k, onClick: o.onClick || (() => setSub(k)), className: "w-full text-left active:opacity-70",
+            const spine = (k, o) => h("button", { key: k, onClick: o.onClick || (() => openSub(k)), className: "w-full text-left active:opacity-70",
               style: { display: "flex", alignItems: "center", gap: 11, padding: "13px 4px 13px 0", borderBottom: "1px solid " + PLINE, position: "relative" } },
               h("span", { "aria-hidden": "true", style: { width: 3, height: 26, borderRadius: 3, background: o.band, flexShrink: 0 } }),
               h("div", { style: { width: 58, flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: o.band } }, o.zh),
@@ -4423,7 +4451,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               right ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, right) : null);
             return h(Fragment, null,
               // ── ① 今天 ────────────────────────────────────────
-              h("button", { onClick: () => setSub("timeline"), className: "w-full text-left active:opacity-80",
+              h("button", { onClick: () => openSub("timeline"), className: "w-full text-left active:opacity-80",
                 style: { position: "relative", display: "block", overflow: "hidden", borderRadius: 22, padding: "20px 20px 18px",
                   background: "linear-gradient(155deg,#7d3f57 0%,#5b2f46 62%,#4a2739 100%)", boxShadow: "0 16px 34px rgba(68,32,52,.22)" } },
                 h("div", { "aria-hidden": "true", style: { position: "absolute", right: -30, top: -46, width: 168, height: 168, borderRadius: 999, background: "radial-gradient(circle,rgba(255,255,255,.10),rgba(255,255,255,0) 68%)" } }),
@@ -4446,7 +4474,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#8a6a3a", lineHeight: 1.5 } },
                   tlGen ? partner.name + " 写着…" : "今天是「" + bAnn.name + "」——让 " + partner.name + " 写写走到今天")) : null,
               // 和好间：没事时是一条淡纸；真有事了才压上来
-              h("button", { onClick: () => setSub("makeup"), className: "w-full text-left active:opacity-75",
+              h("button", { onClick: () => openSub("makeup"), className: "w-full text-left active:opacity-75",
                 style: { display: "block", marginTop: (mkSig.on || mkCur) ? 12 : 9, borderRadius: 13, padding: (mkSig.on || mkCur) ? "14px 15px" : "9px 14px",
                   background: (mkSig.on || mkCur) ? "#f7ebe7" : "transparent",
                   border: "1px solid " + ((mkSig.on || mkCur) ? "#ecd3cb" : PLINE),
@@ -4458,7 +4486,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               eyebrow("墙上", "贴着的"),
               h("div", { className: "flex flex-wrap", style: { gap: 12, alignItems: "flex-start" } },
                 // 合照：一张真照片，白边、歪着
-                h("button", { key: "album", onClick: () => setSub("album"), className: "active:opacity-80",
+                h("button", { key: "album", onClick: () => openSub("album"), className: "active:opacity-80",
                   style: { position: "relative", width: "44%", padding: 7, paddingBottom: 26, background: "#fff", border: "none", borderRadius: 3,
                     transform: "rotate(-2.2deg)", boxShadow: "0 12px 26px rgba(68,45,58,.20)" } },
                   h("div", { style: { position: "relative", width: "100%", paddingTop: "96%", overflow: "hidden", background: bPhotos.length ? "#20141f" : "#efece6" } },
@@ -4495,7 +4523,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   kids: h("div", { style: { position: "relative" } },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "如果"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#e0d6f5", lineHeight: 1.4, marginTop: 7 } },
-                      bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样这两个人，换掉当初的一样东西"),
+                      bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样的我们，换掉当初的一样东西"),
                     bIfLast ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(200,188,230,.6)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, one(bIfLast.premise, 24)) : null) }),
                 // 抽卡：真做成一张卡（原来是这一页唯一一个圆，读起来就是随机）
                 wall("gacha", { w: "46%", radius: 10, tilt: 1.2, pad: "13px 13px 14px", bg: "linear-gradient(150deg,#fbf1f7,#f3e3ee)", border: "1px solid #e8d4e4",
