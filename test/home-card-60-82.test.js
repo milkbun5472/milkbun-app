@@ -41,8 +41,8 @@ test("那仨数跟恋爱无关，也不是 Following/Follower/Like", () => {
   assert.doesNotMatch(card, /borderLeft: i \?/);
   // v61.60：空档改留在【签名和标签之间】，所以那排数不再靠 marginTop:auto 顶到最底，
   // 改成跟着标签走的小间距——两层连成一组，卡片中间不再空一块
-  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: 5, paddingTop: 0/);
-  assert.match(card, /marginTop: "auto", paddingTop: 6[\s\S]{0,220}tags\.map/, "空档没留在签名和标签之间");
+  assert.match(card, /className: "flex items-baseline", style: \{ marginTop: 9, paddingTop: 0/);
+  assert.match(card, /marginTop: "auto", paddingTop: 9[\s\S]{0,220}tags\.map/, "空档没留在签名和标签之间");
   assert.match(card, /className: "flex-1 min-w-0 self-stretch flex flex-col"/, "左栏没撑满这一行，标签沉不下去");
 });
 
@@ -69,6 +69,10 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
   // 第一眼名字、第二眼签名与标签、第三眼那排数
   assert.match(card, /color: onCover \? ink : inkA\(\.92\)/, "名字还是纯墨");
   assert.match(card, /color: onCover \? dim : inkA\(\.7\)/, "签名还压在 t.fog 上，玻璃底上读不清");
+  // v61.64：签名是一小段话，给整块到头像为止的宽度、自然折行、最多两行
+  assert.match(card, /className: "line-clamp-2"[\s\S]{0,200}sign \? sign\.replace/, "签名不是两行文本区");
+  assert.match(card, /whiteSpace: "normal"/, "签名还是 nowrap");
+  assert.doesNotMatch(card, /textOverflow: "ellipsis" \} \},\n\s*sign \?/, "签名还在用单行省略号");
   assert.match(card, /fontSize: 14\.5, lineHeight: 1, color: onCover \? ink : inkA\(\.76\)/, "那排数还是又大又黑");
   assert.match(card, /fontSize: 8\.5, letterSpacing: "0\.1em", color: onCover \? dim : inkA\(\.48\)/);
   // v61.59：三项收紧成一行连续的 metadata，中间用一颗小圆点断开（不是分隔线、不是格子）
