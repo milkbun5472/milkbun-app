@@ -512,9 +512,19 @@ function Sheet({
   onClose,
   tall,
   lift,
-  scrollKey
+  scrollKey,
+  // skin（v62.50，审计还债②）：这块面板原来写死 t.bg2——全库九十来处半窗因此全是
+  // 同一块白板，装什么都一样（审计里「白页」和「半窗」几乎是同一件事）。
+  // 半窗是从父页底下掀起来的，掀起来那块该是【父页自己的材质】，不是退回米白。
+  // 传一个 style 对象合进面板外壳（background / backgroundImage / boxShadow 都行；
+  // 传字符串当 background 简写）；深底上把手看不见就在 skin 里给 handle 单独指色。
+  // ⚠️不传时行为一个字都不变——存量调用一处不动，什么时候传什么见 no-half-sheet.md。
+  skin
 }) {
   const t = useTheme();
+  const sk = typeof skin === "string" ? { background: skin } : (skin && typeof skin === "object" ? skin : null);
+  const skinHandle = sk ? sk.handle : null;
+  const skinStyle = sk ? Object.keys(sk).reduce((a, k) => { if (k !== "handle") a[k] = sk[k]; return a; }, {}) : null;
   const scrollRef = useRef(null);
   useEffect(() => {
     if (scrollKey == null || !scrollRef.current) return;
@@ -535,7 +545,7 @@ function Sheet({
     ref: scrollRef,
     onClick: e => e.stopPropagation(),
     className: "w-full p-6 pb-9",
-    style: {
+    style: Object.assign({
       background: t.bg2,
       borderRadius: "26px 26px 0 0",
       animation: "fadeUp .3s ease both",
@@ -544,11 +554,11 @@ function Sheet({
       overflowAnchor: "none",
       marginBottom: lift ? lift : 0,
       transition: "margin-bottom .18s ease"
-    }
+    }, skinStyle || {})
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-1 rounded-full mx-auto mb-5",
     style: {
-      background: t.line
+      background: skinHandle || t.line
     }
   }), children));
 }
