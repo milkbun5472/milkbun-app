@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.59";
+const APP_VERSION = "v61.61";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3018,6 +3018,45 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 论坛/朋友圈/悄悄话共用的近期生活素材：不再只看私聊，角色亲历的群聊与线上/线下相处全部按时间混排。
   // 朋友圈/论坛/悄悄话的取材。⚠️封闭群（没开记忆互通）的内容一律不进——
   // 那是密封空间，拿它当素材发到朋友圈上就等于把里面的事捅出去了（她 2026-08-24）。
+  // ── 你俩真一起做过的事（v61.60，架构四条的最后一条）────────────────────
+  // 那份参考文档第三块叫「欲望共生」：记用户的兴趣 → 找共同点 → 说一句
+  // 「我最近也想试试这个，要不我们一起？」。本质是个轻用户画像。
+  // ⚠️我们不照做，理由是这个 app 里【已经有真发生过的共同活动】：唱片架、一起读、
+  //   一起学、你俩的时间线。从真做过的事里长，比从一张兴趣表里长既更准、
+  //   也彻底不是那份文档。
+  // ⚠️不新增来源枚举：共同活动【就是旧事】，走已有的 echo（从旧事里长的）。
+  //   加一个 source 值就要动存档（老数据读不回来），而它并没有换来任何新语义。
+  // ⚠️只列「你俩一起做过什么」，不列她的私事——那份文档自己也画了这条线
+  //   （「小a 没主动展示的东西，星星不会翻出来提」），我们天然就在线内：
+  //   这几样本来就是两个人一起干的。
+  const togetherLines = char => {
+    if (!char) return "";
+    const L = [], A = v => Array.isArray(v) ? v : [];
+    const day = ts => { const d = Math.floor((Date.now() - Number(ts || 0)) / 86400000);
+      return !ts ? "" : d <= 0 ? "今天" : d === 1 ? "昨天" : d < 30 ? d + "天前" : d < 365 ? Math.floor(d / 30) + "个月前" : "很久以前"; };
+    // ⚠️一样一样各自兜底，不是整段一个 try：一起读的存档坏了，不该把唱片架
+    //   那几条也一起丢掉（变异测试抓出来的——原来是整段包住，读坏一样全没）。
+    const grab = fn => { try { fn(); } catch (e) {/* 这一样读不出来就跳过，别连累别的 */} };
+    // ⚠️每一样各留各的位子，不能让一样占满：唱片架动辄三十首，
+    //   先取 3 再统一截 6 的话，时间线和一起学永远轮不上（第一版就是这样）。
+    grab(() => A((loadJSON("x_coupleDisc", {})[char.id] || {}).songs).slice(0, 2)
+      .forEach(s2 => L.push("· 你往你俩的唱片上刻过《" + s2.title + "》" + (s2.note ? "，你写的是「" + s2.note + "」" : ""))));
+    grab(() => A(loadJSON("x_read_books", [])).filter(b => b && String(b.partnerId || "") === String(char.id))
+      .sort((a, b) => (b.lastReadTs || 0) - (a.lastReadTs || 0)).slice(0, 2)
+      .forEach(b => L.push("· 你和她在一起读《" + b.title + "》，" + (day(b.lastReadTs) || "最近") + "读过")));
+    grab(() => { const seen = {};
+      A(loadJSON("x_study_sessions", [])).filter(x => x && String(x.charId || "") === String(char.id))
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+        .forEach(x => { const k = String(x.subject || "").trim();
+          if (k && !seen[k] && Object.keys(seen).length < 1) { seen[k] = 1; L.push("· 你和她一起学过『" + k + "』（" + (day(x.ts) || "最近") + "）"); } }); });
+    grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && (!x.charId || String(x.charId) === String(char.id)))
+      .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.text || x.title || "").slice(0, 40))));
+    if (!L.length) return "";
+    return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
+      + L.slice(0, 6).join("\n")
+      + "\n⚠️这些是【土壤】不是【任务】：多数日子想不起来就算了。真被想起时，"
+      + "长出来的念想该是【想跟她一起再做点什么】那一类，而不是把这件事复述一遍。";
+  };
   const ambientMaterialFor = (char, opts) => {
     if (!window.AmbientMaterial || !char) return "";
     const openGroups = (groups || []).filter(g => !groupClosed(g.id));
@@ -9555,7 +9594,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!active || !window.HeartKit) return false;
     try {
       const box = HeartKit.housekeep(HeartKit.boxOf(desiresRef.current, char.id));
-      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, HeartKit.museSpec(char, box))); // 发呆=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, HeartKit.museSpec(char, box, { together: togetherLines(char) }))); // 发呆=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
       HeartKit.applyMuse(box, d, schedDayKey(new Date()));
       saveDesires(n => { n[char.id] = box; });
       return true;

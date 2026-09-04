@@ -68,7 +68,10 @@ test("凡是【他亲口说的话】都换了站位，凡是推演数据的照�
    ['你们有一张【我们的唱片】', "唱片刻歌"],
    ['你自己私下真会单曲循环', "私下的歌单"],
    ['把决定交给了手机主屏上的「命运转盘」', "命运转盘"],
-   ['HeartKit.museSpec(char, box)', "发呆（本体亲笔）"]].forEach(x => has(x[0], x[1]));
+   // ⚠️只钉「发呆走的是 museSpec 那把椅子」，不钉参数长什么样——
+   //   v61.60 给它加了第三个参数（你俩真做过的事），锚点写死整个调用就抠不到了。
+   //   那冻的是长相不是站位。
+   ['HeartKit.museSpec(char, box', "发呆（本体亲笔）"]].forEach(x => has(x[0], x[1]));
   assert.match(app, /Object\.assign\(\{ voice: true \}, spec\)\); \/\/ 盘一盘盘点/, "盘一盘盘点/回头看自述（本体亲笔）");
   assert.match(app, /\{ voice: true, instruction: instruction, schemaHint: "\{\\"say\\"/, "转发给他之后那一句反应");
   // 推演数据那些不许跟着改：坐错椅子会让行程/账本开始「说话」
