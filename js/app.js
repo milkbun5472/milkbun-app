@@ -2876,7 +2876,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const idx = schedCurrentSeqIdx(disp, true, char);
     const cur = idx >= 0 ? disp[idx] : null;
     const next = disp[idx + 1];
-    let out = "今日安排（负荷 " + (s.load || "") + "）：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
+    // 负荷那一档也说中文：HIGH LOAD / NORMAL 这类英文标签不该出现在喂给他的话里
+    // （她 2026-09-04 让把这种字眼删掉；界面上是整条不显示，这里换成中文保住信息量）
+    const loadZh = { "HIGH LOAD": "满", "NORMAL": "一般", "LIGHT": "清闲", "LOW LOAD": "清闲" };
+    const loadWord = loadZh[String(s.load || "").toUpperCase()] || "";
+    let out = "今日安排" + (loadWord ? "（这天" + loadWord + "）" : "") + "：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
     if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else {
       const cy = schedCarryNowFor(char);

@@ -1637,8 +1637,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       className: "absolute active:opacity-70 text-left",
       style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
-      h("div", { className: "flex items-center", style: { gap: 4, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
-        b.glyph ? h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(b.glyph, { size: 12, color: t.ink })) : null,
+      h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
+        b.glyph ? h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(b.glyph, { size: 14, color: t.ink })) : null,
         h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (b.icon ? b.icon + " " : "") + b.title)),
       hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
         (b.charFrom ? b.charFrom + "–" + (b.charTo || "") : calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to))) + (b.location ? " · " + b.location : "")));
@@ -1785,8 +1785,14 @@ function calPlanLoadLine(schedules, view, dk, isCharView, t) {
   if (!isCharView) return null;
   const plan = ((schedules || {})[view] || {})[dk];
   if (!plan) return null;
+  // ⚠️不显示 HIGH LOAD / NORMAL 这类英文标签（她 2026-09-04：「把 high load low load
+  // 这种字眼删了吧」）——它是喂给模型的字段，不是给她看的词。只留她真正在意的时长。
+  const bits = [];
+  if (plan.estTime) bits.push("排了约 " + plan.estTime + " 小时");
+  if (plan.kind === "plan") bits.push("还没到的计划");
+  if (!bits.length) return null;
   return h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11, color: t.fog } },
-    "这天：" + (plan.load || "NORMAL") + (plan.estTime ? " · 约 " + plan.estTime + " 小时" : "") + (plan.kind === "plan" ? " · 还没到的计划" : ""));
+    "这天：" + bits.join(" · "));
 }
 // 新增/编辑日程（v56.31，照她 2026-08-26 给的那张表单做）：
 // 开始/结束日期 + 开始/结束时间 + 事项 + 地点 + 图标（点选，再点一次取消）+ 颜色（自动或指定）。

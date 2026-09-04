@@ -74,6 +74,22 @@ test("日历：AI 那几类走 SVG，手填日程仍用她挑的图标", () => {
   // 手填日程：她挑过就用她挑的（icon），没挑才给一枚图钉
   assert.match(comp, /icon: e\.icon \|\| "", glyph: e\.icon \? null : IPin/);
   // 画的时候两条路都要认
-  assert.match(comp, /b\.glyph \? h\("span", \{ className: "flex items-center", style: \{ flexShrink: 0 \} \}, h\(b\.glyph, \{ size: 12, color: t\.ink \}\)\) : null/);
+  assert.match(comp, /b\.glyph \? h\("span", \{ className: "flex items-center", style: \{ flexShrink: 0 \} \}, h\(b\.glyph, \{ size: 14, color: t\.ink \}\)\) : null/);
   assert.match(comp, /\(b\.icon \? b\.icon \+ " " : ""\) \+ b\.title/);
+});
+
+// v62.12 她：「可以调大点，然后把 high load low load 这种字眼删了吧」
+test("日程块上的图标调大到 14", () => {
+  assert.match(comp, /h\(b\.glyph, \{ size: 14, color: t\.ink \}\)/);
+});
+
+test("界面上不许再出现 HIGH LOAD / NORMAL 这类英文标签", () => {
+  const seg = cut("function calPlanLoadLine(", "// 新增/编辑日程");
+  assert.ok(!/HIGH LOAD|NORMAL|LOW LOAD/.test(seg), "那一行还在把负荷字段直接印出来");
+  assert.match(seg, /bits\.push\("排了约 " \+ plan\.estTime \+ " 小时"\)/);
+  assert.match(seg, /if \(!bits\.length\) return null;/, "什么都没有时应该整条不显示");
+  // 喂给模型那句换成中文，信息量不丢
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const loadZh = \{ "HIGH LOAD": "满", "NORMAL": "一般", "LIGHT": "清闲", "LOW LOAD": "清闲" \};/);
+  assert.ok(!/"今日安排（负荷 "/.test(app), "喂给他的话里还印着英文负荷标签");
 });
