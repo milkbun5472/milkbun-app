@@ -52,6 +52,7 @@ test("七下这件事本身没走样：要连着点、会 toggle、只存本机"
 });
 
 test("解锁之后那一格才出现", () => {
-  assert.match(scr, /toyUnlocked && typeof ToyConfig === "function" \? h\(ConfigTile, \{ icon: "◇", title: "本地配件"/);
+  // v61.99 首页换成一列窄行，那一格也跟着从 ConfigTile 换成 homeRows 里的一行
+  assert.match(scr, /if \(toyUnlocked && typeof ToyConfig === "function"\)\s*\n\s*homeRows\.push\(\{ key: "toy"/);
   assert.match(scr, /page === "toy" && toyUnlocked && typeof ToyConfig === "function"/, "没解锁却还能直接跳进那一页");
 });

@@ -4,11 +4,19 @@ const fs = require("node:fs");
 
 const screens = fs.readFileSync(require("node:path").join(__dirname, "../js/screens.js"), "utf8");
 
+// v61.99 重排：首页十张平级大卡换成一列窄行（她「设置页也还是好乱找不到东西」），
+// 标题也从「东西的名字」换成「她来找什么」。这条钉的是【每一样都还进得去】——
+// 名字随她改，别把哪一页弄丢了。
 test("总设置页使用入口卡片和独立子页面", () => {
   assert.match(screens, /function ConfigTile\(/);
   assert.match(screens, /const \[page, setPage\] = useState\("home"\)/);
-  for (const title of ["API 与模型", "感知", "创作小稿", "情侣问答", "外观与壁纸", "聊天气泡", "数据管理", "上下文诊断"])
+  for (const title of ["创作小稿", "情侣问答", "外观与壁纸", "聊天气泡", "主题工作台"])
     assert.match(screens, new RegExp(title));
+  // 首页每一行都得有一页接着，别指向空处
+  const CFG = screens.slice(screens.indexOf("function Config(props) {"), screens.indexOf("function McpConfig("));
+  const keys = [...CFG.matchAll(/\{ key: "(\w+)", char: "."/g)].map(m => m[1]);
+  assert.ok(keys.length >= 6, "首页只剩 " + keys.length + " 行");
+  for (const k of keys) assert.match(CFG, new RegExp('page === "' + k + '"'), k + " 那一行点进去是空的");
 });
 
 test("API 入口按用途拆成独立卡片页", () => {

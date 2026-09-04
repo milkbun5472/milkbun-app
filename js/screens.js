@@ -6357,6 +6357,7 @@ function LegacyConfig({
 }
 
 function Config(props) {
+  const t = useTheme();
   const [page, setPage] = useState("home");
   const scrollRef = React.useRef(null);
   React.useEffect(() => {
@@ -6382,14 +6383,60 @@ function Config(props) {
     props.toast && props.toast(next ? "已解锁配件" : "已隐藏配件");
   };
   const meta = {
-    home: ["设置", "Config"], api: ["API 设置", "API Settings"], apiText: ["文字模型", "Text Models"],
+    home: ["设置", "Config"], api: ["接哪些模型", "API Settings"], apiText: ["文字模型", "Text Models"],
     apiImage: ["图像 API", "Image API"], apiTts: ["语音 API", "Voice API"], apiEmbed: ["向量记忆", "Embedding"],
-    apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["感知", "Sense"],
-    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], theme: ["外观与壁纸", "Appearance"], themeStudio: ["主题工作台", "Theme Studio"],
-    bubble: ["聊天气泡", "Bubble Skin"], auto: ["自动更新", "Automation"], data: ["数据管理", "Data"], debug: ["上下文诊断", "Context"], toy: ["本地配件", "Accessories"]
+    apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["他们知道现在几点、我在哪", "Sense"],
+    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], look: ["这个 app 长什么样", "Appearance"],
+    theme: ["外观与壁纸", "Appearance"], themeStudio: ["主题工作台", "Theme Studio"],
+    bubble: ["聊天气泡", "Bubble Skin"], write: ["他们写出来的东西", "Writing"],
+    auto: ["谁会自己动、多久动一次", "Automation"], data: ["我的东西存在哪", "Data"],
+    debug: ["上一轮到底发了什么", "Context"], toy: ["本地配件", "Accessories"]
   };
   const m = meta[page] || meta.home;
-  const back = page === "home" ? props.onBack : () => (/^api[A-Z]/.test(page) ? setPage("api") : setPage("home"));
+  // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
+  const back = page === "home" ? props.onBack : () => {
+    if (/^api[A-Z]/.test(page)) return setPage("api");
+    if (page === "theme" || page === "themeStudio" || page === "bubble") return setPage("look");
+    if (page === "cot" || page === "qa") return setPage("write");
+    setPage("home");
+  };
+  // ── 分类（v61.99 重排，她 2026-09-04：「设置页也还是好乱找不到东西」）──────
+  // 原来十格是按【东西的名字】切的，于是：
+  //   · 外观与壁纸／主题工作台／聊天气泡——【三张卡都在管长相】，想改个颜色得先猜是哪张；
+  //   · 「感知」这个词说的是什么完全看不出（其实是时间、位置、锁屏通知）；
+  //   · 图标又是一堆几何符号（⌘ ◉ ✎ ? ◐ ✦ ◒ ↻ ▤ ⌁），? 和 ◐/◒ 几乎分不出；
+  //   · 十张 320px 高的大卡要滚一屏多，一眼扫不完——怎么分类都难找。
+  // 照聊天设置那次同一套来（她已经用顺了那个形状）：按【她来找什么】切、
+  // 一列窄行一屏放得下、汉字索引牌一类一个字、每行写着现在是什么状态。
+  const onOff = v => v ? "开" : "关";
+  const homeRows = [
+    { key: "api", char: "模", title: "接哪些模型", tint: "#6693c7",
+      state: () => { const n = (props.apiProfiles || []).length;
+        const cur = (props.apiProfiles || []).find(x => x.id === props.activeId) || (props.apiProfiles || [])[0];
+        return n ? (n + " 条线路 · 在用 " + ((cur && (cur.name || cur.model)) || "未命名")) : "还没接线路"; } },
+    { key: "look", char: "样", title: "这个 app 长什么样", tint: "#9b7bc4",
+      state: () => "配色、壁纸、主题工作台、聊天气泡" },
+    { key: "sense", char: "知", title: "他们知道现在几点、我在哪", tint: "#687f73",
+      state: () => { const p = props.prefs || {};
+        return "时间 " + onOff(p.timeAware !== false) + " · 位置 " + onOff(p.geoAware)
+          + " · 通知 " + onOff(window.Notify && window.Notify.isOn && window.Notify.isOn()); } },
+    { key: "auto", char: "动", title: "谁会自己动、多久动一次", tint: "#c0904f",
+      state: () => { const f = ((props.autoRefreshPolicy || {}).features) || {};
+        const on = Object.keys(f).filter(k => f[k] && f[k].global !== false).length;
+        const all = Object.keys(f).length;
+        return all ? (on + " / " + all + " 项开着") : "自动内容与主动社交"; } },
+    { key: "data", char: "存", title: "我的东西存在哪", tint: "#477f88",
+      state: () => { const at = (function () { try { return localStorage.getItem("cloud_synced_at"); } catch (e) { return null; } })();
+        return at ? "云同步开着 · 上次 " + String(at).slice(0, 10) : "备份、导出、迁移与清理"; } },
+    { key: "write", char: "写", title: "他们写出来的东西", tint: "#d97c86",
+      state: () => { const q = props.coupleQACustom || {};
+        const n = Object.keys(q).reduce((a, k) => a + ((q[k] || []).length || 0), 0);
+        return "线下小稿的写法 · 情侣问答" + (n ? " " + n + " 题" : ""); } },
+    { key: "debug", char: "查", title: "上一轮到底发了什么", tint: "#8a8378",
+      state: () => "只读：模型这一轮实际收到的全文" }
+  ];
+  if (toyUnlocked && typeof ToyConfig === "function")
+    homeRows.push({ key: "toy", char: "件", title: "本地配件", tint: "#a8564a", state: () => "只在这台机器上" });
   const section = child => h("div", { style: { paddingTop: 4, paddingBottom: 30 } }, h(ConfigPanel, null, child));
   // 配件那个藏起来的开关：在设置首页【连点标题七下】。
   // ⚠️原来挂在顶栏那行英文（"Config"）上——v61.40「标题不留英文」之后
@@ -6399,18 +6446,28 @@ function Config(props) {
   return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: m[0], en: m[1], onBack: back, onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
-      page === "home" && h(ConfigTileGrid, null,
-        h(ConfigTile, { icon: "⌘", title: "API 与模型", sub: "文字、图像、语音、向量与真声接口", onClick: () => setPage("api") }),
-        h(ConfigTile, { icon: "◉", title: "感知", sub: "时间、位置与锁屏通知", onClick: () => setPage("sense") }),
-        h(ConfigTile, { icon: "✎", title: "创作小稿", sub: "检查方式、预设与模型保险", onClick: () => setPage("cot") }),
-        h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa") }),
+      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 16 } },
+        homeRows.map(row => h("button", {
+          key: row.key,
+          onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage(row.key); },
+          className: "w-full flex items-center active:opacity-70",
+          style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
+        },
+          h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: row.tint + "1f", color: row.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, row.char),
+          h("span", { className: "flex-1 min-w-0" },
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "›"))),
+        h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+          "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在他自己的聊天里点右上角 ⋯。")),
+      // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
+      page === "look" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
-        h(ConfigTile, { icon: "✦", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio") }),
         h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
-        h(ConfigTile, { icon: "↻", title: "自动更新", sub: "总开关、逐角色范围与主动社交", onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage("auto"); } }),
-        h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => setPage("data") }),
-        h(ConfigTile, { icon: "⌁", title: "上下文诊断", sub: "只读查看模型实际收到的内容", onClick: () => setPage("debug") }),
-        toyUnlocked && typeof ToyConfig === "function" ? h(ConfigTile, { icon: "◇", title: "本地配件", sub: "仅本机的隐藏配件设置", onClick: () => setPage("toy"), wide: true }) : null),
+        h(ConfigTile, { icon: "✦", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio"), wide: true })),
+      page === "write" && h(ConfigTileGrid, null,
+        h(ConfigTile, { icon: "✎", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
+        h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa"), wide: true })),
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "⌨", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "▧", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
