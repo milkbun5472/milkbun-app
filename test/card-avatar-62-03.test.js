@@ -59,13 +59,15 @@ test("名片上的名字也跟着名片走", () => {
   assert.match(CARD, /name: c\.name \|\| profile\.name/);
 });
 
-test("名片头像那圈白框收成 1px 的发丝边", () => {
-  // 她 2026-09-04 先说「白框去掉吧」，看过之后改主意：「或者改成 1？」
-  // 所以留的是 1px 发丝边（不是原来 2.5 那种镶框），深色封面上还能把头像的边勾出来。
-  const btn = CARD.slice(CARD.indexOf('h("button", { onClick: onEditProfile'), CARD.indexOf("size: 53, radius: 13"));
-  assert.ok(btn.length > 100 && btn.length < 1100, "抠不出头像那颗按钮");
-  assert.match(btn, /padding: 1,/, "不是 1px");
+test("名片头像：圆的、放大一档，那圈边是细的暖奶油不是白框", () => {
+  // 她 2026-09-04 先说「白框去掉吧」，又改主意「或者改成 1？」，
+  // 最后这一版（v62.06）定成：圆头像 58、边 2px 暖奶油、影很轻。
+  const btn = CARD.slice(CARD.indexOf('h("button", { onClick: onEditProfile'), CARD.indexOf("size: 58, radius: 999"));
+  assert.ok(btn.length > 100 && btn.length < 1400, "抠不出头像那颗按钮");
+  assert.match(btn, /borderRadius: 999, padding: 2, marginRight: 3/, "不是圆的／没给右边框让位");
   assert.doesNotMatch(btn, /padding: 2\.5/, "又胖回 2.5 了");
-  // 投影得跟着有没有封面走：1px 白边压在深色照片上不够，得靠投影补
-  assert.match(btn, /boxShadow: onCover \? "0 3px 12px rgba\(0,0,0,\.42\)" : "0 3px 10px rgba\(30,28,24,\.2\)"/);
+  // 那圈边从主题算：浅底是提亮一档的 bg2（暖奶油），深底是一圈淡墨，不写死白
+  assert.match(btn, /skinIsDark\(t\.bg\) \? inkA\(\.34\) : skinShade\(t\.bg2, \.3\)/);
+  // 投影仍跟着有没有封面走：压在深色照片上要重一点
+  assert.match(btn, /boxShadow: onCover \? "0 2px 8px rgba\(0,0,0,\.36\)" : "0 2px 6px rgba\(30,28,24,\.13\)"/);
 });

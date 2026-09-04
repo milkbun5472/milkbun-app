@@ -3553,7 +3553,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     // eslint-disable-next-line
   }, [(characters || []).length]);
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
-    style: { width: 21, height: 21, borderRadius: 999, flexShrink: 0,
+    style: { width: 19, height: 19, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
@@ -3564,9 +3564,9 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
       // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
       // 于是头像能贴着右边、键也不用谁给它让位。
-      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 17.5, gap: 9, zIndex: 2 } },
-        round(h(IPencil, { size: 11, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
-        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
+      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 24.5, gap: 9, zIndex: 2 } },
+        round(h(IPencil, { size: 10.5, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
       h("div", { className: "flex items-end", style: { gap: 12 } },
         // ⚠️空档要留在【签名和标签之间】，不是留在标签和底下那排数之间。
@@ -3596,18 +3596,22 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
         // 头像外面那圈白框：2.5 → 1（她 2026-09-04 先说「去掉吧」，看过之后「或者改成 1？」）。
         // 留 1px 是一道发丝边，不是原来那种镶框；压在深色封面上还能把头像的边勾出来。
         // 投影同时分两档：压在照片上重一档、没封面轻一档——只靠 1px 白边在深色图上不够。
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 14, padding: 1,
-            background: onCover ? "rgba(255,255,255,.85)" : t.bg,
-            boxShadow: onCover ? "0 3px 12px rgba(0,0,0,.42)" : "0 3px 10px rgba(30,28,24,.2)" } },
+        // 头像改成圆的、放大一档（53 → 58，约 +9%）：她 2026-09-04 那份意见——
+        // 描边用【暖奶油色】不要纯白、影要很轻、再往左让 3px 免得贴着右边框。
+        // ⚠️奶油色也从主题算：浅底＝把 bg2 提亮一档（保住色相），深底＝一圈淡墨，
+        // 铺了封面图那一路仍走半透明白（那时候要的是能压住图的边）。
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 999, padding: 2, marginRight: 3,
+            background: onCover ? "rgba(255,255,255,.72)" : (typeof skinIsDark === "function" && skinIsDark(t.bg) ? inkA(.34) : skinShade(t.bg2, .3)),
+            boxShadow: onCover ? "0 2px 8px rgba(0,0,0,.36)" : "0 2px 6px rgba(30,28,24,.13)" } },
           // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
           // 没单独设就还是跟着「我的面具」那张——原来只有这一张，改名片就等于改聊天。
-          h(Avatar, { character: { name: c.name || profile.name, avatarImage: c.avatar || profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
+          h(Avatar, { character: { name: c.name || profile.name, avatarImage: c.avatar || profile.avatarImage, color: accent }, size: 58, radius: 999 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
       // 收紧成【一行连续的 metadata】：三项之间不再靠一大段空隙分开，
       // 改成一颗小圆点断开（比空隙更明确、又比分隔线轻）。仍然不是三个格子、三个胶囊。
-      h("div", { className: "flex items-baseline", style: { marginTop: 5, paddingTop: 0, gap: 7, paddingRight: 66 } },
+      h("div", { className: "flex items-baseline", style: { marginTop: 5, paddingTop: 0, gap: 7, paddingRight: 78 } },
         stats.map((st, i) => h(React.Fragment, { key: i },
           i ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, lineHeight: 1, color: onCover ? "rgba(255,255,255,.45)" : inkA(.26), textShadow: shadow } }, "•") : null,
           h("span", { className: "flex items-baseline", style: { gap: 3.5 } },

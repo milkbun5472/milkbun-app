@@ -13,8 +13,8 @@ const card = comp.slice(comp.indexOf("function HomeCard("), comp.indexOf("functi
 test("骨架换掉了：方头像在右、名字当主角、标签不是药丸", () => {
   // 头像：方的，而且排在名字后面＝在右边。v61.31 放大一档（48→53）当右侧主角。
   // v62.03 起名片头像跟聊天那张分开了（她要单独改名片的），所以这儿是 c.avatar 优先。
-  assert.match(card, /h\(Avatar, \{ character: \{ name: c\.name \|\| profile\.name, avatarImage: c\.avatar \|\| profile\.avatarImage[\s\S]{0,60}size: 53, radius: 13 \}\)/);
-  assert.ok(card.indexOf("fontSize: 23") < card.indexOf("radius: 13 }"), "名字要排在头像前面（名字左、头像右）");
+  assert.match(card, /h\(Avatar, \{ character: \{ name: c\.name \|\| profile\.name, avatarImage: c\.avatar \|\| profile\.avatarImage[\s\S]{0,60}size: 58, radius: 999 \}\)/);
+  assert.ok(card.indexOf("fontSize: 23") < card.indexOf("radius: 999 }"), "名字要排在头像前面（名字左、头像右）");
   // 标签不再是药丸：仍是一行用「/」隔开的小字。v61.31 起拆成节点（斜杠要更淡），
   // 所以认的是「有这个隔法」，不是那一句 join
   assert.match(card, /"　\/　"/);
@@ -25,7 +25,7 @@ test("骨架换掉了：方头像在右、名字当主角、标签不是药丸",
   // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
   assert.doesNotMatch(card, /"ARCHIVE"/);
   // v60.88 两颗键改到【右下角】：放右上角要给它让位，头像就被挤到中间去了
-  assert.match(card, /position: "absolute", bottom: 7, right: 17\.5/);
+  assert.match(card, /position: "absolute", bottom: 7, right: 24\.5/);
   assert.doesNotMatch(card, /paddingRight: 62/, "头像那一行不许再为按键留位");
 });
 
@@ -80,7 +80,7 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
   assert.match(card, /fontSize: 14\.5, lineHeight: 1, color: onCover \? ink : inkA\(\.76\)/, "那排数还是又大又黑");
   assert.match(card, /fontSize: 8\.5, letterSpacing: "0\.1em", color: onCover \? dim : inkA\(\.48\)/);
   // v61.59：三项收紧成一行连续的 metadata，中间用一颗小圆点断开（不是分隔线、不是格子）
-  assert.match(card, /gap: 7, paddingRight: 66/, "三项之间还是一大段空隙");
+  assert.match(card, /gap: 7, paddingRight: 78/, "三项之间还是一大段空隙");
   assert.match(card, /inkA\(\.26\), textShadow: shadow \} \}, "•"\)/, "没有那颗断开用的小圆点");
   assert.doesNotMatch(card, /borderLeft|borderRight/, "断开用的不许是分隔线");
   // 斜杠比标签本身更淡
@@ -89,8 +89,8 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
 
 test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不许写死高度）", () => {
   assert.match(card, /padding: "10px 14px 9px"/);
-  assert.match(card, /width: 21, height: 21, borderRadius: 999/, "两颗小键没缩");
-  assert.match(card, /bottom: 7, right: 17\.5, gap: 9/, "两颗键没对齐到头像正下方");
+  assert.match(card, /width: 19, height: 19, borderRadius: 999/, "两颗小键没缩");
+  assert.match(card, /bottom: 7, right: 24\.5, gap: 9/, "两颗键没对齐到头像正下方");
   // ⚠️主屏铁律：里面这层不许写 height:100%（.claude/rules/home-screen-layout.md）
   assert.doesNotMatch(card, /height: "100%"/);
 });
