@@ -90,5 +90,24 @@ test("拼贴长板：图是被裁开的一张，不是并排的五张", () => {
   // 每条里装的是整张图再往左推，不是每条各自 cover 一遍
   assert.match(render, /left: \(-i \* 100\) \+ "%", width: \(of \* 100\) \+ "%"/);
   assert.match(render, /slatOff/, "条与条之间要错开，缝没了就又变回一张普通照片");
-  assert.match(comp, /decorDraftFrame === "slats5" \|\| decorDraftFrame === "weave3"\) \? "wide"/, "长板默认就该是 4×1");
+  assert.match(comp, /decorDraftFrame === "slats5" \|\| decorDraftFrame === "weave3"/, "长板默认就该是 4×1");
+});
+
+test("第二批拼贴：报纸是版面、斑马是横着裁的一张、票据是一串小票夹着图", () => {
+  // 她 2026-09-04：「都弄了吧宝宝」
+  const render = comp.slice(comp.indexOf("function HomeDecorItem"), comp.indexOf("function HomePresetGrid"));
+  const frames = comp.slice(comp.indexOf("const HOME_PHOTO_FRAMES"), comp.indexOf("function homePhotoSlotCount"));
+  for (const [id, need] of [["news4", 3], ["zebra1", 1], ["receipt2", 2]]) {
+    assert.match(frames, new RegExp(`id: "${id}"[\\s\\S]*need: ${need}`));
+    assert.match(render, new RegExp(`frame === "${id}"`), `${id} 必须有自己的骨架，不能只换名字`);
+  }
+  // 斑马和长板是同一招的两个方向：装整张图再推一格，不是每条各自 cover 一遍
+  assert.match(render, /top: \(-i \* 100\) \+ "%", height: \(zN \* 100\) \+ "%"/);
+  assert.match(render, /zOff/, "横条不左右错开就只是一张普通照片");
+  // 报纸得先是一张版面：中缝 + 栏线 + 排出来的铅字，剪块压在字上面
+  assert.match(render, /typeLines/);
+  assert.match(render, /clipPath: "polygon\(3% 6%/, "剪块的边是剪刀剪的，不是圆角框");
+  // 票据的锯齿下沿是这一款的全部记号
+  assert.match(render, /var zig = "polygon\(0 0,100% 0,100% 96%/);
+  assert.match(comp, /decorDraftFrame === "receipt2"\) \? "wide"/, "长卷默认 4×1");
 });

@@ -2109,7 +2109,12 @@ const HOME_PHOTO_FRAMES = [
   // 这两款的骨架是【一块长板】，不是一个框：图被裁成竖条钉在板上，条与条之间留缝、
   // 高低错开半格——拼贴的味道全在那几条缝上，缝没了就又变回一张普通照片。
   { id: "slats5", name: "长板切条", note: "一张照片裁成五条钉在长板上", need: 1 },
-  { id: "weave3", name: "错拼长板", note: "三张照片交替裁条拼成一块板", need: 3 }
+  { id: "weave3", name: "错拼长板", note: "三张照片交替裁条拼成一块板", need: 3 },
+  // 第二批拼贴（她 2026-09-04：「都弄了吧宝宝」）。骨架各不一样：
+  // 报纸是【版面】，斑马是【横着裁的一张】，票据是【一串小票夹着一条图】。
+  { id: "news4", name: "报纸剪贴", note: "三张剪成不规则块，压着几行铅字", need: 3 },
+  { id: "zebra1", name: "斑马切片", note: "一张照片横着裁成六条、左右错开", need: 1 },
+  { id: "receipt2", name: "票据长卷", note: "两条图夹在一串小票中间", need: 2 }
 ];
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
@@ -2417,6 +2422,53 @@ function HomeDecorItem({ item, preset, now }) {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", padding: "12px 8px 10px", background: board, backgroundImage: "repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px)", boxShadow: "inset 0 0 0 2px " + (dark ? "rgba(255,255,255,.10)" : "rgba(92,71,45,.28)") } },
         h("div", { style: { display: "flex", gap: 4, width: "100%", height: "100%" } }, slats),
         h("div", { style: { position: "absolute", left: 9, top: 2, fontFamily: F_BODY, fontSize: 7, letterSpacing: ".14em", color: dark ? "rgba(233,214,178,.55)" : "rgba(74,56,34,.55)" } }, dmark(item, frame === "slats5" ? "裁开的一张" : "拼起来的三张")));
+    } else if (frame === "zebra1") {
+      // 斑马切片：和长板同一招，只是【横着裁】——每条里装的还是整张图，往上推 i 格。
+      // 左右错开的那点位移就是「百叶窗半开」的全部，错位没了它就是一张普通照片。
+      var zN = 6, zOff = [-6, 5, -3, 7, -5, 4];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 96, position: "relative", overflow: "hidden", padding: "7px 6px", background: dark ? "#17171a" : "#e6e1d6", display: "flex", flexDirection: "column", gap: 3 } },
+        Array.from({ length: zN }, function (_, i) {
+          return h("div", { key: i, style: { position: "relative", flex: 1, minHeight: 0, overflow: "hidden", background: dark ? "#0f0f11" : "#d5cec1", transform: "translateX(" + zOff[i] + "px)", boxShadow: "0 1px 4px rgba(20,18,14,.22)" } },
+            srcs[0] ? h("div", { style: { position: "absolute", left: 0, right: 0, top: (-i * 100) + "%", height: (zN * 100) + "%" } },
+              h("img", { src: srcs[0], alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null);
+        }));
+    } else if (frame === "news4") {
+      // 报纸剪贴：先是一张【版面】——中缝、栏线、几行排出来的铅字——
+      // 剪下来的那几块压在字上面，边是剪刀剪的（不规则多边形），不是圆角框。
+      var newsInk = dark ? "rgba(226,216,196,.30)" : "rgba(52,44,33,.34)";
+      var typeLines = function (top, left, width, rows) {
+        return h("div", { style: { position: "absolute", top: top, left: left, width: width, height: rows * 5 + "px", backgroundImage: "repeating-linear-gradient(180deg," + newsInk + " 0 1.5px,transparent 1.5px 5px)" } });
+      };
+      var cuts = [
+        { left: "3%", top: "12%", width: "47%", height: "44%", transform: "rotate(-2deg)", clipPath: "polygon(3% 6%,54% 0,100% 9%,96% 88%,44% 100%,0 92%)" },
+        { right: "3%", top: "8%", width: "42%", height: "38%", transform: "rotate(3deg)", clipPath: "polygon(0 8%,92% 0,100% 82%,38% 100%,4% 88%)" },
+        { left: "24%", bottom: "5%", width: "50%", height: "40%", transform: "rotate(-1.5deg)", clipPath: "polygon(6% 0,96% 7%,100% 92%,40% 100%,0 86%)" }
+      ];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 132, position: "relative", overflow: "hidden", background: dark ? "#1b1a17" : "#eae3d3" } },
+        h("div", { style: { position: "absolute", left: 8, right: 8, top: 13, height: 1, background: newsInk } }),
+        h("div", { style: { position: "absolute", left: "49.5%", top: 17, bottom: 6, width: 1, background: newsInk, opacity: .7 } }),
+        typeLines("19px", "5%", "40%", 5), typeLines("19px", "55%", "40%", 4),
+        typeLines("62%", "5%", "38%", 6), typeLines("58%", "55%", "40%", 7),
+        h("div", { style: { position: "absolute", left: 8, top: 2, fontFamily: F_DISPLAY, fontSize: 9.5, letterSpacing: ".08em", color: dark ? "rgba(233,222,200,.72)" : "rgba(48,40,30,.7)" } }, dmark(item, "剪报")),
+        cuts.map(function (pos, i) { return photo(srcs[i], i, Object.assign({ position: "absolute", zIndex: 3 + i, boxShadow: "0 4px 11px rgba(30,24,16,.28)" }, pos)); }));
+    } else if (frame === "receipt2") {
+      // 票据长卷：一串小票（锯齿下沿 + 排出来的字行）中间夹着两条照片。
+      // 照片也裁成小票那个宽窄比，混在里面才像是同一卷上撕下来的。
+      var slipBg = dark ? "#e6dfd2" : "#fdfaf2";
+      var zig = "polygon(0 0,100% 0,100% 96%,92% 100%,84% 96%,76% 100%,68% 96%,60% 100%,52% 96%,44% 100%,36% 96%,28% 100%,20% 96%,12% 100%,4% 96%,0 100%)";
+      var slip = function (i, tilt) {
+        return h("div", { key: "s" + i, style: { flex: 1, minWidth: 0, height: "100%", background: slipBg, clipPath: zig, transform: "rotate(" + tilt + "deg)", padding: "8px 5px", boxShadow: "0 3px 9px rgba(35,28,18,.22)" } },
+          h("div", { style: { height: 1.5, background: "rgba(60,50,36,.45)", marginBottom: 5 } }),
+          h("div", { style: { height: "58%", backgroundImage: "repeating-linear-gradient(180deg,rgba(60,50,36,.34) 0 1.5px,transparent 1.5px 6px)" } }),
+          h("div", { style: { marginTop: 4, height: 9, background: "repeating-linear-gradient(90deg,rgba(40,33,24,.75) 0 1px,transparent 1px 3px)" } }));
+      };
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", padding: "8px 7px", background: dark ? "#211d19" : "#d9cfba", display: "flex", alignItems: "stretch", gap: 5 } },
+        slip(0, -1.5),
+        photo(srcs[0], 0, { flex: 1, minWidth: 0, height: "92%", alignSelf: "center", transform: "rotate(1deg)", boxShadow: "0 3px 9px rgba(35,28,18,.28)" }),
+        slip(1, 2),
+        photo(srcs[1], 1, { flex: 1, minWidth: 0, height: "92%", alignSelf: "center", transform: "rotate(-1.5deg)", boxShadow: "0 3px 9px rgba(35,28,18,.28)" }),
+        slip(2, -1),
+        h("div", { style: { position: "absolute", left: 9, top: 1, fontFamily: F_BODY, fontSize: 6.5, letterSpacing: ".14em", color: dark ? "rgba(230,216,190,.6)" : "rgba(70,55,36,.6)" } }, dmark(item, "同一卷上撕下来的")));
     } else if (frame === "timeline5") {
       var timelinePos = [
         { left: "5%", top: "8%", width: "34%", height: "34%", transform: "rotate(-5deg)" },
@@ -3012,7 +3064,7 @@ function Home({
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
-    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
+    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
     if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : "square"; saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
