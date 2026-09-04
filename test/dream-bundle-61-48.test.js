@@ -63,3 +63,39 @@ test("④ 看过他的梦＝轻轻进上下文：不发消息、不进记忆、�
   // buildBundle 真的发出去了（声明了没人引用＝白写，v55.95 那个形状）
   assert.match(eng, /ctx\.dreamEcho && ctx\.dreamEcho\.trim\(\)\) parts\.push\(ctx\.dreamEcho\.trim\(\)\)/);
 });
+
+// v61.49 她 2026-09-04：「那宝宝再把界面装修一下吧」
+test("整页是夜色纸，梦是压在夜色上的一张张浅纸条", () => {
+  const c = nc(dj);
+  assert.match(c, /const nightBg = \{/);
+  assert.match(c, /const paperCard = \(extra\) =>/);
+  // 底纹铺在最外面那个外壳上、顶栏透明（mobile-ui-layout.md §3.5）
+  assert.match(c, /h\("div", \{ className: "h-full flex flex-col", style: nightBg \}/);
+  assert.match(c, /bg: "transparent", ink: NINK/);
+  // 星尘位置写死：随机的话每次重画都在动
+  assert.ok(c.indexOf("Math.random()") < 0 || c.indexOf("Math.random().toString(36)") >= 0);
+});
+
+test("分栏是书口上垂下来的布书签，不是一排药丸", () => {
+  const c = nc(dj);
+  assert.match(c, /const ribbon = \(k, label\) =>/);
+  // 燕尾剪口＋选中那条更长——形状和高度都在变，不是只换个填色
+  assert.match(c, /clipPath: "polygon\(0 0,100% 0,100% 100%,50% calc\(100% - 7px\),0 100%\)"/);
+  assert.match(c, /height: on \? 46 : 36/);
+  assert.ok(c.indexOf("borderRadius: 999, border: \"1px solid \" + (view === k") < 0, "又变回药丸了");
+});
+
+test("Head 多了一个 ink 口子：页面自带底色时顶栏的字跟着走", () => {
+  const comp = fs.readFileSync("js/components.js", "utf8");
+  const i = comp.indexOf("function Head({");
+  const head = comp.slice(i, i + 2200);
+  assert.match(head, /const INK = ink \|\| t\.ink;/);
+  assert.match(head, /const LINE = ink \? "rgba\(255,255,255,\.14\)" : t\.line;/);
+  assert.match(head, /React\.createElement\(IArrow, \{ size: 18, color: INK \}\)/);
+});
+
+test("标签里不留 emoji（跟情侣空间那次同一条）", () => {
+  const c = nc(dj);
+  assert.deepEqual(c.match(/[\u{1F000}-\u{1FAFF}]/gu) || [], []);
+  assert.match(c, /const KIND = \{ dream: \["完整的梦"/);
+});

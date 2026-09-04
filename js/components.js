@@ -300,8 +300,15 @@ function Head({
   onBack
   , right
   , bg
+  // ⚠️页面自己带底色时（夜色、木桌、深卡纸…），顶栏的字得跟着走。
+  //   没有这个口子的话，那种页面只能自己手写一条顶栏——月度印象当初就是这么走的，
+  //   于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout.md §1）。
+  , ink
 }) {
   const t = useTheme();
+  const INK = ink || t.ink;
+  const SUB = ink ? "rgba(255,255,255,.55)" : t.fog;
+  const LINE = ink ? "rgba(255,255,255,.14)" : t.line;
   // 副标题：sub 优先。
   // ⚠️她 2026-09-03 立：**标题里所有英文都去掉，只留中文——除非这一处压根没写中文。**
   //   所以有 zh 的时候，纯拉丁的 en 一律不发（那一行「FOCUS DESK」「MOMENTS」谁都看得懂，
@@ -321,7 +328,7 @@ function Head({
       background: bg || t.bg,
       paddingTop: safeTop(8),
       paddingBottom: 8,
-      borderBottom: "1px solid " + t.line
+      borderBottom: "1px solid " + LINE
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 flex items-center",
@@ -330,7 +337,7 @@ function Head({
     onClick: onBack,
     className: "active:opacity-50 flex items-center justify-center",
     style: { width: SIDE, height: 34 }
-  }, /*#__PURE__*/React.createElement(IArrow, { size: 18, color: t.ink })) : null), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(IArrow, { size: 18, color: INK })) : null), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0",
     style: { textAlign: "center" }
   }, /*#__PURE__*/React.createElement("div", {
@@ -339,7 +346,7 @@ function Head({
       fontWeight: 400,
       fontSize: 15.5,
       lineHeight: 1.2,
-      color: t.ink,
+      color: INK,
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
@@ -350,7 +357,7 @@ function Head({
       fontSize: 9.5,
       lineHeight: 1.3,
       marginTop: 1,
-      color: t.fog,
+      color: SUB,
       letterSpacing: cjk ? 0 : "0.14em",
       textTransform: cjk ? "none" : "uppercase",
       overflow: "hidden",

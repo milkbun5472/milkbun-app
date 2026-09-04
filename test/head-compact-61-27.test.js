@@ -64,7 +64,10 @@ test("公共的那条改好了，就不许再各自另写一条", () => {
 
 test("外壳自己有底纹时，顶栏让得出去", () => {
   // 不给这个口子，顶栏会在底纹上压出一条平色带——顶上那截没被盖住。
-  assert.match(HEAD, /, bg\n\}\)|  , bg\n\}\)/, "Head 收不了 bg");
+  // v61.49 后面又跟了一个 ink（页面自带底色时顶栏的字要跟着走），
+  // 所以别再钉「bg 是参数表最后一个」——钉它在不在参数表里。
+  assert.match(HEAD, /\n\s*, bg\n/, "Head 收不了 bg");
+  assert.match(HEAD, /\n\s*, ink\n\}\)/, "Head 收不了 ink");
   assert.match(HEAD, /background: bg \|\| t\.bg,/, "顶栏底色写死了 t.bg，页面没法让它透上来");
 });
 
