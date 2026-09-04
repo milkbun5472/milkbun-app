@@ -7533,7 +7533,7 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
     setDoneMap(d => ({ ...d, [e.id]: { busy: true } }));
     const r = await Promise.resolve(onRescue({ id: e.id, name: (name || "").slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" }))
       .catch(err => ({ error: String((err && err.message) || err) }));
-    setDoneMap(d => ({ ...d, [e.id]: { name: name, added: (r && r.added) || 0, arch: (r && r.arch) || 0, error: r && r.error } }));
+    setDoneMap(d => ({ ...d, [e.id]: { name: name, added: (r && r.added) || 0, arch: (r && r.arch) || 0, back: (r && r.back) || 0, error: r && r.error } }));
   };
   const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, v);
   const card = e => {
@@ -7543,7 +7543,8 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
           done.error
             ? "「" + done.name + "」建回来了，但记忆没捞下来——检查一下网络，再点一次「扫一遍云端」重试。"
             : "✓ 「" + done.name + "」接回 " + done.added + " 条记忆" +
-              (done.arch ? "、" + done.arch + " 条旧聊天（在聊天页点「加载更早」看）" : "") +
+              (done.back ? "、最近 " + done.back + " 条聊天铺回本地（TA 现在收得到）" : "") +
+              (done.arch - done.back > 0 ? "，还有 " + (done.arch - done.back) + " 条在云上（点「加载更早」看）" : "") +
               (e.here ? "。" : "。去人格档案馆补人设和头像。"))
       : h("div", { style: { marginTop: 11, display: "flex", gap: 8 } },
           e.here ? null : h("input", {

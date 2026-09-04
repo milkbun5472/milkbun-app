@@ -121,3 +121,20 @@ test("建完不许静默消失：得当场说接回了多少", () => {
   assert.match(fn, /把 " \+ e\.missing \+ " 条记忆接回来/, "人已经在的那一类，按钮要说清它这次干什么");
   assert.match(fn, /done\.error/, "捞失败要说出来，不能假装成功");
 });
+
+// v61.76 她报：「接回去他聊天没喂之前归档的聊天怎么回事」。
+// 这是同一个形状的第三处，而且比前两处更隐蔽：归档聊天**能看，但不进上下文**。
+// chatArchiveGet 那条路的注释自己写着「不写回本地」——喂给模型的一直是本机
+// x_chat: 那一份。正常角色本地留着最近 CHAT_KEEP_LOCAL 条，所以从来不成问题；
+// 刚建回来的这位本地是【空的】，于是 TA 说过的一千八百句一句都收不到。
+test("建回来要把归档的尾巴铺回本地，不然模型什么都收不到", () => {
+  const i = app.indexOf("onRescueChar: async c =>");
+  const fn = nocomment(app.slice(i, app.indexOf("\n    },", i)));
+  // 铺回来的窗口必须跟归档时留的那个是同一个常量，不许另拍一个数
+  assert.match(fn, /CHAT_KEEP_LOCAL/);
+  assert.match(fn, /pChat\(c\.id, \(\) => merged\)/, "只改计数簿不写本地＝还是喂不进去");
+  // 本机已经有一批的时候别硬灌
+  assert.match(fn, /if \(here\.length < CHAT_KEEP_LOCAL\)/);
+  // 计数簿只能记还留在云上的那些，否则「加载更早」会把刚铺回来的再数一遍
+  assert.match(fn, /marks\[c\.id\] = Math\.max\(0, arch - back\)/);
+});

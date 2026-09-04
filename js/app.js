@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.76";
+const APP_VERSION = "v61.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16998,20 +16998,42 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         toast("「" + c.name + "」建回来了，但记忆没捞下来：" + ((e && e.message) || e));
         return { added: 0, error: true };
       }
-      // 归档聊天是同一个形状的第二处：云端 chat_archive 里躺着完整旧消息，
-      // 但聊天页要不要显示「加载更早」，看的是本机那本 x_chatArch 计数簿——
-      // 它跟角色档案一起住在被覆盖的 saves 里，所以现在是 0，等于那些聊天永远打不开。
-      let arch = 0;
+      // 归档聊天是同一个形状的第二处，而且它有【两层】要修：
+      //   ① 聊天页要不要显示「加载更早」，看的是本机那本 x_chatArch 计数簿——
+      //      它跟角色档案一起住在被覆盖的 saves 里，所以现在是 0，那些聊天永远打不开。
+      //   ② ⚠️就算打得开也没用：归档【只供翻看，不进上下文】（chatArchiveGet 那条路
+      //      注释里就写着「不写回本地」）。喂给模型的是本机 x_chat: 那一份。
+      //      正常角色本地留着最近 CHAT_KEEP_LOCAL 条，所以从来不成问题；
+      //      刚建回来的这位本地是【空的】——TA 说过的一千八百句他一句都收不到。
+      //      （她 2026-09-04 报：「接回去他聊天没喂之前归档的聊天怎么回事」）
+      //   所以要把归档的【尾巴】按归档时同一个窗口铺回本地，剩下的仍归「加载更早」。
+      let arch = 0, back = 0;
       try {
-        arch = (await window.Cloud.chatArchiveGet(c.id) || []).length;
+        const all = (await window.Cloud.chatArchiveGet(c.id)) || [];
+        arch = all.length;
         if (arch > 0) {
+          const here = chatsRef.current[c.id] || [];
+          if (here.length < CHAT_KEEP_LOCAL) {
+            const tail = all.slice(Math.max(0, all.length - (CHAT_KEEP_LOCAL - here.length)));
+            const seen = new Set(), merged = [];
+            [...tail, ...here].forEach(m => {
+              const k = m && m.id ? "id:" + m.id : "v:" + [m && m.ts, m && m.role, m && m.content].join("|");
+              if (!m || seen.has(k)) return; seen.add(k); merged.push(m);
+            });
+            merged.sort((x, y) => Number(x.ts || 0) - Number(y.ts || 0));
+            back = merged.length - here.length;
+            if (back > 0) pChat(c.id, () => merged);
+          }
+          // 计数簿只记【还留在云上、本机没有的那些】，否则「加载更早」会把刚铺回来的再数一遍
           const marks = loadJSON("x_chatArch", {});
-          if (!(Number(marks[c.id] || 0) >= arch)) { marks[c.id] = arch; saveJSON("x_chatArch", marks); setChatArch(marks); }
+          marks[c.id] = Math.max(0, arch - back);
+          saveJSON("x_chatArch", marks); setChatArch(marks);
         }
       } catch (e) {}
       toast("已把「" + c.name + "」建回来" + (added ? "，接回 " + added + " 条记忆" : "（本机已经有 TA 的记忆了）") +
-        (arch ? "、" + arch + " 条旧聊天（聊天页点「加载更早」）" : "") + "——去人格档案馆补人设和头像");
-      return { added, arch };
+        (back ? "、最近 " + back + " 条聊天铺回本地（TA 现在收得到）" : "") +
+        (arch - back > 0 ? "，还有 " + (arch - back) + " 条在云上（点「加载更早」看）" : "") + "——去人格档案馆补人设和头像");
+      return { added, arch, back };
     },
     onClearAll: () => {
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
