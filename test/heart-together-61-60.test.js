@@ -28,7 +28,11 @@ const FULL = {
   x_study_sessions: [{ charId: "c1", subject: "法语动词变位", ts: now - 3 * D },
                      { charId: "c1", subject: "法语动词变位", ts: now - 5 * D },
                      { charId: "c9", subject: "不该出现的", ts: now }],
-  x_coupleTimeline: [{ text: "她把钥匙给了我" }]
+  // ⚠️别人的那条故意排最前：旧代码查的是不存在的 x.charId，谁都放行、正好取走第一条——
+  //   这条断言就是要踩中它。第二条是没有归属字段的旧形状（当旧全局放行）；
+  //   真实写入路径（addTimelineEvent / leaveInCoupleSpace）产出的一律带 characterId。
+  x_coupleTimeline: [{ characterId: "c9", title: "别人的时间线" },
+                     { text: "她把钥匙给了我" }]
 };
 const out = mk(FULL)({ id: "c1", name: "沈屿白" });
 
@@ -39,6 +43,7 @@ test("只列真一起做过的，别人的一条都不许串进来", () => {
   assert.match(out, /她把钥匙给了我/);
   assert.ok(!out.includes("别人的书"), "串进了别的角色的书（partnerId 没筛）");
   assert.ok(!out.includes("不该出现的"), "串进了别的角色的一起学（charId 没筛）");
+  assert.ok(!out.includes("别人的时间线"), "串进了别的角色的时间线（characterId 没筛——它存的是 characterId 不是 charId）");
 });
 
 test("⚠️每一样各留各的位子，不许一样把名额占满", () => {

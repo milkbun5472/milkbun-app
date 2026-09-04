@@ -3205,7 +3205,10 @@ function MoodGlyph({ mood, size }) {
 // 情侣空间·我们的日子：纪念日倒计时(倒数中) + 恋爱时间轴(时光轴，起点/里程碑/感慨)，二合一，都带年份
 function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
   const t = useTheme();
-  const mine = (events || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt);
+  // 排序前把日期补零归一：老存档里「他留下的」那几条是 "2026-9-4" 这种没补零的写法，
+  // 直接按字符串比会被排到十月后面一整年的位置。
+  const padD = s => String(s || "").split("-").map((x, i) => i ? String(x).padStart(2, "0") : x).join("-");
+  const mine = (events || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => { const da = padD(a.date), db = padD(b.date); return da < db ? 1 : da > db ? -1 : b.createdAt - a.createdAt; });
   const annivInfo = (mo, dy) => { const now = new Date(); now.setHours(0, 0, 0, 0); let y = now.getFullYear(); let target = new Date(y, mo - 1, dy); target.setHours(0, 0, 0, 0); if (target < now) { y++; target = new Date(y, mo - 1, dy); } return { days: Math.round((target - now) / 86400000), y: y }; };
   const anns = (annivs || []).filter(a => a.characterId === partner.id).slice().sort((a, b) => annivInfo(a.month, a.day).days - annivInfo(b.month, b.day).days);
   const [addMode, setAddMode] = useState(null);
@@ -4353,12 +4356,14 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               // ── ③ 收着的：一列书脊 ─────────────────────────────
               eyebrow("KEPT", "收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
+                // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「他记得的」那行同一个病：
+                //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
                 spine("letters", { zh: "情书", band: "#b08d52", dot: bUnread > 0,
-                  say: bLetterLast ? one(bLetterLast.title || bLetterLast.content || bLetterLast.text, 22) : "写给彼此" }),
+                  say: bLetterLast ? one(bLetterLast.title || bLetterLast.body, 22) : "写给彼此" }),
                 (function () {
                   const ex = (coupleExDiary || []).filter(e => e.characterId === bCid);
                   const last = ex[0];
-                  const waiting = last && last.author === "user" && !last.reply;
+                  const waiting = last && last.author === "user" && !last.replied;   // 字段叫 replied，不是 reply
                   return spine("exdiary", { zh: "交换日记", band: "#b08a66", dot: !!(last && last.author !== "user" && last.unread),
                     say: !ex.length ? "写下第一页" : waiting ? "本子在 TA 那边" : one((last && (last.title || last.content)) || "", 22) });
                 })(),

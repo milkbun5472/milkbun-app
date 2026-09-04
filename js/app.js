@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.06";
+const APP_VERSION = "v62.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3066,8 +3066,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .sort((a, b) => (b.ts || 0) - (a.ts || 0))
         .forEach(x => { const k = String(x.subject || "").trim();
           if (k && !seen[k] && Object.keys(seen).length < 1) { seen[k] = 1; L.push("· 你和她一起学过『" + k + "』（" + (day(x.ts) || "最近") + "）"); } }); });
-    grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && (!x.charId || String(x.charId) === String(char.id)))
-      .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.text || x.title || "").slice(0, 40))));
+    // ⚠️时间轴条目存的是 characterId（addTimelineEvent / leaveInCoupleSpace 都是）。
+    //   原来这儿查的是 x.charId——一个不存在的字段，于是「!x.charId」对谁都成立，
+    //   A 的时间轴整条喂进 B 的发呆。正文字段同理：真实形状是 title + content。
+    //   没有归属字段的按记忆库那条老规矩当旧全局放行（真实写入路径从没产出过这种，纯兜底）。
+    grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && (!(x.characterId || x.charId) || String(x.characterId || x.charId) === String(char.id)))
+      .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.title || x.content || x.text || "").slice(0, 40))));
     if (!L.length) return "";
     return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
       + L.slice(0, 6).join("\n")
@@ -13360,8 +13364,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         });
       } else if (d.where === "timeline") {
         setCoupleTimeline(p => {
-          const now = new Date();
-          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(),
+          // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
+          //   "2026-9-4" 混在 "2026-09-04" 里会被排到十月往后去。
+          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()),
             type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
         });
