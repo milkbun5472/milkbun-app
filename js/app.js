@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.07";
+const APP_VERSION = "v62.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3755,7 +3755,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
       }
       // —— 自定义纪念日（属于这个角色的）——
-      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && a.month === today.getMonth() + 1 && a.day === today.getDate()) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
+      // 「今天是不是」走 annivNext（core.js）：不重复的过了那一年，明年同一天不再算
+      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && annivNext(a).days === 0) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
       // —— 公历节日（大家都知道）——
       if (FIXED_FESTIVALS[mdK]) lines.push("今天是" + FIXED_FESTIVALS[mdK] + "（大家都知道的日子，若情境合适可自然应个景，别硬凹节日气氛）。");
       // —— 农历节日（春节/中秋/端午…含除夕）——
@@ -4213,7 +4214,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             }
           }
           (coupleAnnivRef.current || []).forEach(an => {
-            if (an && an.characterId === c.id && an.month === nowD.getMonth() + 1 && an.day === nowD.getDate())
+            // annivNext（core.js）：不重复的纪念日过了那一年，明年同一天不再主动发
+            if (an && an.characterId === c.id && annivNext(an).days === 0)
               aToday.push({ cid: c.id, name: String(an.name || "纪念日"), yrs: 0 });
           });
         }
@@ -14171,6 +14173,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleTimeline", n);
     return n;
   });
+  // 他留在时光轴的感慨带着 unread（leaveInCoupleSpace 写的）。v62.08 之前这个标
+  // 没有任何地方读、也没有任何地方清——死标记。现在名册红点读它，打开这一页就算看过。
+  const markTimelineRead = cid => setCoupleTimeline(p => {
+    if (!p.some(x => x.characterId === cid && x.byCharacter && x.unread)) return p;
+    const n = p.map(x => x.characterId === cid && x.byCharacter && x.unread ? { ...x, unread: false } : x);
+    saveJSON("x_coupleTimeline", n);
+    return n;
+  });
   const genTimelineMusing = async char => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleTL: true }));
@@ -14257,7 +14267,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         voice: true,
         instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。一个标题 + 一段完整的信（150-300 字，贴人设，可回顾你们的点滴、说心里话，结尾落款），别喊口号、别写成流水账。信要写完整，别中途断。",
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
-        maxTokens: 8000
+        maxTokens: 12000   // 一整封信＝「一段正文」那档（maxTokens 手册），8000 只是地板
+
       });
       const st = letterStyleFor(char);
       setCoupleLetters(p => {
@@ -16508,6 +16519,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     coupleTimeline: coupleTimeline,
     onAddTimeline: addTimelineEvent,
     onRemoveTimeline: removeTimelineEvent,
+    onReadTimeline: markTimelineRead,
     onGenTimeline: genTimelineMusing,
     tlGen: gen.coupleTL,
     coupleAnniv: coupleAnniv,

@@ -29,7 +29,8 @@ test("纪念日走的是生日那条现成的路，防重复的闸一个不少",
 test("在一起满周年 和 她自己加的纪念日，两种都算", () => {
   assert.match(anniv, /if \(yrs >= 1\) aToday\.push/, "在一起那一天没接（当天开始那天不算周年,对）");
   assert.match(anniv, /\(coupleAnnivRef\.current \|\| \[\]\)\.forEach\(an => \{/, "她自己加的纪念日没接");
-  assert.match(anniv, /an\.month === nowD\.getMonth\(\) \+ 1 && an\.day === nowD\.getDate\(\)/, "日期比错了");
+  // v62.08 起当天判断走 annivNext（core.js）：不重复的纪念日过了那一年，明年同一天不再发
+  assert.match(anniv, /annivNext\(an\)\.days === 0/, "当天判断没走 annivNext（光比 month/day 会让不重复的年年复发）");
 });
 
 // ⚠️声明了没人引用比不写更坏（v55.95 那一课）

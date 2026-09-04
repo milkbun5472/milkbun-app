@@ -3005,6 +3005,9 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   const answered = new Set(mine.map(e => e.qid));
   const fullBank = bank.concat((customQ || []).map(q => ({ id: "cx_" + qhash(q), cat: "自定义", q: q })));
   const pool = fullBank.filter(b => !answered.has(b.id));
+  // 「已答 X / Y」的分母：自定义题在设置里删掉后，已答的那条还在（该在），
+  // 光用 fullBank.length 会出现 X > Y。答过但已不在题库里的也算进总数。
+  const bankTotal = fullBank.length + mine.filter(e => !fullBank.some(b => b.id === e.qid)).length;
   const bookTitle = title || "关于我们";
   const [mode, setMode] = useState("cover"); // cover / pages / draw
   const [pageIdx, setPageIdx] = useState(0);
@@ -3029,7 +3032,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "翻一张题", en: partner.name, onBack: () => { setCur(null); setAns(""); setMode("cover"); } }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 14 } }, "已答 " + mine.length + " / " + fullBank.length + " 题。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 14 } }, "已答 " + mine.length + " / " + bankTotal + " 题。"),
         cur ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px", animation: "fadeUp .3s ease both" } },
           h(Eyebrow, { style: { marginBottom: 8 } }, cur.cat),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: t.ink, marginBottom: 12 } }, cur.q),
@@ -3095,7 +3098,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#fff", lineHeight: 1.2 } }, bookTitle),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,0.55)", flexShrink: 0 } }, "✎"))),
         h("div", { style: { paddingLeft: 14, display: "flex", alignItems: "flex-end", justifyContent: "space-between" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,0.85)" } }, "已答 " + mine.length + " / " + fullBank.length + " 题"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,0.85)" } }, "已答 " + mine.length + " / " + bankTotal + " 题"),
           h("button", { onClick: () => { draw(); setMode("draw"); }, className: "active:opacity-80", style: { width: 46, height: 46, borderRadius: 999, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.22)" } }, h(IPlus, { size: 23, color: "#9f5c72" })))),
       mine.length ? h("button", { onClick: () => { setPageIdx(0); setMode("pages"); }, className: "w-full active:opacity-70", style: { marginTop: 16, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14 } }, "翻开看过往（" + mine.length + "）") : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 16 } }, "还没答过题——点封面右下角 ＋ 翻第一张"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
@@ -3203,14 +3206,22 @@ function MoodGlyph({ mood, size }) {
   return h("svg", { width: s, height: s, viewBox: "0 0 24 24", style: { display: "block", overflow: "visible" } }, kids);
 }
 // 情侣空间·我们的日子：纪念日倒计时(倒数中) + 恋爱时间轴(时光轴，起点/里程碑/感慨)，二合一，都带年份
-function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
+function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
   const t = useTheme();
+  // 他留下的感慨带 unread（名册红点看它）；进来看一眼就算看过——跟交换日记同一个形状
+  useEffect(() => { onRead && onRead(partner.id); }, []);
   // 排序前把日期补零归一：老存档里「他留下的」那几条是 "2026-9-4" 这种没补零的写法，
   // 直接按字符串比会被排到十月后面一整年的位置。
   const padD = s => String(s || "").split("-").map((x, i) => i ? String(x).padStart(2, "0") : x).join("-");
   const mine = (events || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => { const da = padD(a.date), db = padD(b.date); return da < db ? 1 : da > db ? -1 : b.createdAt - a.createdAt; });
-  const annivInfo = (mo, dy) => { const now = new Date(); now.setHours(0, 0, 0, 0); let y = now.getFullYear(); let target = new Date(y, mo - 1, dy); target.setHours(0, 0, 0, 0); if (target < now) { y++; target = new Date(y, mo - 1, dy); } return { days: Math.round((target - now) / 86400000), y: y }; };
-  const anns = (annivs || []).filter(a => a.characterId === partner.id).slice().sort((a, b) => annivInfo(a.month, a.day).days - annivInfo(b.month, b.day).days);
+  // 下一次在哪天全走 annivNext（core.js）：不重复的过了就是过了，不再滚到明年倒数。
+  const annivInfo = a => { const nx = annivNext(a); return { days: nx.days, y: new Date(nx.ts).getFullYear(), passed: nx.passed }; };
+  // 过期的（不重复且已过）沉到最底下，像翻过去的日历页；没过的照旧按远近排
+  const anns = (annivs || []).filter(a => a.characterId === partner.id).slice().sort((a, b) => {
+    const ia = annivInfo(a), ib = annivInfo(b);
+    if (ia.passed !== ib.passed) return ia.passed ? 1 : -1;
+    return ia.passed ? ib.days - ia.days : ia.days - ib.days;
+  });
   const [addMode, setAddMode] = useState(null);
   const [date, setDate] = useState(""); const [title, setTitle] = useState(""); const [content, setContent] = useState("");
   const [an, setAn] = useState(""); const [mo, setMo] = useState(""); const [dy, setDy] = useState(""); const [yearly, setYearly] = useState(true); const [link, setLink] = useState(true);
@@ -3256,13 +3267,13 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onGen, on
         h("button", { onClick: submitAnn, disabled: !an.trim() || !mo || !dy, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "加")) : null,
       anns.length ? h(Eyebrow, { style: { marginTop: 16, marginBottom: 8 } }, "倒数中") : null,
       h("div", { className: "space-y-2.5", style: { marginBottom: anns.length ? 6 : 0 } },
-        anns.map(a => { const info = annivInfo(a.month, a.day); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px" } },
+        anns.map(a => { const info = annivInfo(a); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", opacity: info.passed ? 0.55 : 1 } },
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, a.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, info.y + "年" + a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : ""))),
           h("div", { style: { textAlign: "right" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, fontStyle: "italic", color: info.days === 0 ? t.accent : t.ink, lineHeight: 1 } }, info.days === 0 ? "今天" : info.days),
-            info.days === 0 ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, "天后")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: info.passed ? 15 : 20, fontStyle: "italic", color: info.days === 0 ? t.accent : info.passed ? t.fog : t.ink, lineHeight: 1 } }, info.days === 0 ? "今天" : info.passed ? "已过去" : info.days),
+            info.days === 0 ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, info.passed ? (-info.days) + " 天" : "天后")),
           h("button", { onClick: () => onRemoveAnniv(a.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, paddingLeft: 4 } }, "×")); })),
       h(Eyebrow, { style: { marginTop: anns.length ? 16 : 10, marginBottom: 10 } }, "时光轴"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } }, "右上角让 " + partner.name + " 写一条此刻的感慨。"),
@@ -3811,7 +3822,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3833,11 +3844,22 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return () => { if (cid && onDiscLeave) onDiscLeave(); };
   }, [view]);
   const cp = couples || {};
-  // 每段情侣「有没有你没看的东西」——用来在名册和功能格上点红点、指明是谁+哪个功能在提醒
-  const noteSeen = (function () { try { return JSON.parse(localStorage.getItem("x_coupleNoteSeen") || "{}"); } catch (e) { return {}; } })();
+  // 每段情侣「有没有你没看的东西」——名册那行的红点和「新的XX」就看这张单子。
+  // ⚠️抽屉刻意不在这里：它那页自己写着「这儿不会提醒你——想起来了就来看看」，是设计。
+  //（原来这儿还有个 noteSeen——便签墙 v59.23 撤掉后没人再读它，v62.08 清掉。）
   const unreadLettersFor = cid => (coupleLetters || []).some(l => l.characterId === cid && !l.isRead);
   const unreadExDiaryFor = cid => (coupleExDiary || []).some(e => e.characterId === cid && e.author !== "user" && e.unread);
-  const unreadTagsFor = cid => { const a = []; if (unreadLettersFor(cid)) a.push("情书"); if (unreadExDiaryFor(cid)) a.push("交换日记"); return a; };
+  const pactDueSoonFor = cid => { const p2 = couplePactsOf ? couplePactsOf(cid) : null; return !!(p2 && (p2.due || []).some(x => x.dueTs && Date.now() >= x.dueTs - 86400000)); };
+  const unreadTagsFor = cid => {
+    const a = [];
+    if (unreadLettersFor(cid)) a.push("情书");
+    if (unreadExDiaryFor(cid)) a.push("交换日记");
+    if ((coupleRecall || []).some(x => x.characterId === cid && x.unread)) a.push("他记得的");
+    if ((coupleTimeline || []).some(x => x.characterId === cid && x.byCharacter && x.unread)) a.push("时光轴");
+    if (pactDueSoonFor(cid)) a.push("说好的");
+    try { if (typeof window !== "undefined" && window.capsuleDueCount && window.capsuleDueCount(cid, (characters.find(c => c.id === cid) || {}).name) > 0) a.push("时光胶囊"); } catch (e) {}
+    return a;
+  };
   const entries = Object.keys(cp)
     .map(id => ({ char: characters.find(c => c.id === id), st: cp[id] }))
     .filter(e => e.char)
@@ -3863,7 +3885,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
-    return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
+    return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onRead: onReadTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：和好间
   if (partner && cp[view] && cp[view].status === "together" && sub === "makeup") {
@@ -3964,12 +3986,10 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bQaN = (coupleQA || []).filter(e => e.characterId === bCid).length;
 
     const bTlN = (coupleTimeline || []).filter(e => e.characterId === bCid).length;
-    const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid).map(a => {
-      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
-      let d = new Date(t0.getFullYear(), a.month - 1, a.day);
-      if (d < t0) d = new Date(t0.getFullYear() + 1, a.month - 1, a.day);
-      return { name: a.name, days: Math.round((d - t0) / 86400000) };
-    }).sort((x, y) => x.days - y.days)[0];
+    // 「下一件值得等的事」走 annivNext（core.js）：不重复且已经过了的，不再是「值得等的事」
+    const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid)
+      .map(a => { const nx = annivNext(a); return nx.passed ? null : { name: a.name, days: nx.days }; })
+      .filter(Boolean).sort((x, y) => x.days - y.days)[0];
     const bHome = (coupleHome || {})[bCid] || {};
     const bArchive = bHome.archive || {};
     const bWishes = Array.isArray(bHome.wishes) ? bHome.wishes : [];
@@ -4452,7 +4472,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
                   h("div", { className: "flex items-baseline", style: { gap: 8 } },
                     h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, e.char.name),
-                    tags.length ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: "#c02a52" } }, "新的" + tags.join("、")) : null),
+                    // 项目多了别把名字挤没：最多点两样，剩下的归成「等」
+                    tags.length ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: "#c02a52" } }, "新的" + tags.slice(0, 2).join("、") + (tags.length > 2 ? "等" : "")) : null),
                   tog
                     ? h(Fragment, null,
                         h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
