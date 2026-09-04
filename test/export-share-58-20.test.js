@@ -83,16 +83,20 @@ test("导出全部数据不再无条件报「已导出」", () => {
 
 // 拿不到她那份布局，主屏的毛病就只能靠猜。这条路不许依赖导出文件。
 test("主屏布局排查：读盘、说清楚 app 现在在哪儿", () => {
-  const src = grab(read("screens.js"), "  const build = () => {\n    let L = {}, F = {};", "  const go = async () => {", "HomeLayoutProbe.build");
+  const src = grab(read("screens.js"), "  const build = () => {\n    let L = {}, F = {}, S = {};", "  const go = async () => {", "HomeLayoutProbe.build");
   const store = {
     x_homeLayout: JSON.stringify({ 0: ["f_1", "cast", "sp_0_1"], 1: ["phone"] }),
-    x_homeFolders: JSON.stringify({ f_1: { name: "杂物", keys: ["shop", "dwell"] }, f_2: { name: "飘着的", keys: ["memo"] } })
+    x_homeFolders: JSON.stringify({ f_1: { name: "杂物", keys: ["shop", "dwell"] }, f_2: { name: "飘着的", keys: ["memo"] } }),
+    // v61.99：自己挑过的尺寸也要一起导——「原大小 4×1」和「自己挑的长条 4×1」走的是两条路
+    x_homeWidgetSizes: JSON.stringify({ w_us: "wide" })
   };
-  const build = new Function("localStorage", "JSON", src + "\nreturn build;")({ getItem: k => store[k] || null }, JSON);
+  const build = new Function("localStorage", "JSON", "window", src + "\nreturn build;")({ getItem: k => store[k] || null }, JSON, {});
   const out = build();
   assert.match(out, /第1页\(2\)：f_1 cast/, "补位不该算进去，也该按页说清楚");
   assert.match(out, /文件夹「杂物」：shop dwell/, "得看得出东西还在文件夹里");
   assert.match(out, /文件夹「飘着的」（没摆在任何页上）/, "文件夹自己掉了页也得点出来");
   const raw = JSON.parse(out.slice(out.indexOf("{")));
   assert.deepEqual(raw.x_homeFolders.f_1.keys, ["shop", "dwell"], "原始 JSON 得原样带上，不然我这边还是得猜");
+  assert.deepEqual(raw.x_homeWidgetSizes, { w_us: "wide" }, "自定义尺寸没带上，这类「有空位却放不下」就查不出来");
+  assert.match(out, /自己挑过尺寸的：w_us=wide/);
 });

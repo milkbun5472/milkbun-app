@@ -7756,9 +7756,12 @@ function HomeLayoutProbe({ toast }) {
   const t = useTheme();
   const [text, setText] = useState("");
   const build = () => {
-    let L = {}, F = {};
+    let L = {}, F = {}, S = {};
     try { L = JSON.parse(localStorage.getItem("x_homeLayout") || "{}"); } catch (e) {}
     try { F = JSON.parse(localStorage.getItem("x_homeFolders") || "{}"); } catch (e) {}
+    // ⚠️自定义尺寸也要一起导（v61.99）：同样是 4×1，「原大小」和「自己挑的长条」
+    // 走的是两条路——排查这类「明明有空位却放不下」时，少了这一份就查不出来。
+    try { S = JSON.parse(localStorage.getItem("x_homeWidgetSizes") || "{}"); } catch (e) {}
     const lines = [];
     const pages = Object.keys(L).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
     pages.forEach(n => {
@@ -7769,7 +7772,18 @@ function HomeLayoutProbe({ toast }) {
       const placed = pages.some(n => (L[n] || []).indexOf(fid) >= 0);
       lines.push("文件夹「" + (F[fid].name || "") + "」" + (placed ? "" : "（没摆在任何页上）") + "：" + (F[fid].keys || []).join(" "));
     });
-    return lines.join("\n") + "\n\n" + JSON.stringify({ x_homeLayout: L, x_homeFolders: F });
+    const sk = Object.keys(S);
+    if (sk.length) lines.push("自己挑过尺寸的：" + sk.map(k => k + "=" + S[k]).join(" "));
+    // 每一页真占几行（按当前尺寸算），一眼看出是不是顶到额度了
+    try {
+      if (typeof window.homePlaceDenseXY === "function" && typeof window.homeItemSpan === "function") {
+        pages.forEach(n => {
+          const rows = window.homePlaceDenseXY(L[n] || [], k => window.homeSpanForProbe ? window.homeSpanForProbe(k) : null).rows;
+          if (rows) lines.push("第" + (n + 1) + "页占 " + rows + " 行");
+        });
+      }
+    } catch (e) {}
+    return lines.join("\n") + "\n\n" + JSON.stringify({ x_homeLayout: L, x_homeFolders: F, x_homeWidgetSizes: S });
   };
   const go = async () => {
     const s = build();
