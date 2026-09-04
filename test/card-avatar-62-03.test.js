@@ -59,15 +59,13 @@ test("名片上的名字也跟着名片走", () => {
   assert.match(CARD, /name: c\.name \|\| profile\.name/);
 });
 
-test("名片头像外面不再镶一圈白框", () => {
-  // 她 2026-09-04：「名片头像那个白框也去掉吧」。那圈白是 padding:2.5 + 一层白底
-  // 垫出来的——当初为了让头像在封面照上跳出来，代价是它永远镶在一个跟主题无关的白框里。
-  // 分离改交给投影：压在照片上重一档、没封面轻一档。
+test("名片头像那圈白框收成 1px 的发丝边", () => {
+  // 她 2026-09-04 先说「白框去掉吧」，看过之后改主意：「或者改成 1？」
+  // 所以留的是 1px 发丝边（不是原来 2.5 那种镶框），深色封面上还能把头像的边勾出来。
   const btn = CARD.slice(CARD.indexOf('h("button", { onClick: onEditProfile'), CARD.indexOf("size: 53, radius: 13"));
-  assert.ok(btn.length > 100 && btn.length < 900, "抠不出头像那颗按钮");
-  assert.doesNotMatch(btn, /padding: 2\.5/, "那圈白框的 padding 又回来了");
-  assert.doesNotMatch(btn, /rgba\(255,255,255,\.85\)/, "白底又回来了");
-  assert.doesNotMatch(btn, /background:/, "头像按钮又垫了一层底");
-  // 投影得跟着有没有封面走，不然压在深色照片上就糊了
+  assert.ok(btn.length > 100 && btn.length < 1100, "抠不出头像那颗按钮");
+  assert.match(btn, /padding: 1,/, "不是 1px");
+  assert.doesNotMatch(btn, /padding: 2\.5/, "又胖回 2.5 了");
+  // 投影得跟着有没有封面走：1px 白边压在深色照片上不够，得靠投影补
   assert.match(btn, /boxShadow: onCover \? "0 3px 12px rgba\(0,0,0,\.42\)" : "0 3px 10px rgba\(30,28,24,\.2\)"/);
 });

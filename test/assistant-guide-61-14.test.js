@@ -230,7 +230,11 @@ test("设置页：名字、头像、主人格提示词、小球开关", () => {
   assert.match(src, /put\(\{ ballOn: !cfg\.ballOn \}\)/, "小球没有开关");
   assert.match(src, /if \(!cfg\.ballOn\) return null;/, "开关关了小球还在");
   // 清空之后不许把默认那份又发回去
-  assert.match(src, /\("prompt" in d\) \? String\(d\.prompt\) : DEFAULT_PROMPT/, "按了清空，下次读还是默认那份，等于清空是假的");
+  // v62.05 这一句多了一层：她那份原样等于某一版旧默认（＝从没自己动过）时自动跟上新的。
+  // 但「用 in 判、不用 ||」这个要害没变——她按清空存的是空串，走 || 会被当成没设过。
+  assert.match(src, /prompt: \("prompt" in d\)/, "按了清空，下次读还是默认那份，等于清空是假的");
+  assert.match(src, /LEGACY_PROMPTS\.indexOf\(String\(d\.prompt\)\) >= 0 \? DEFAULT_PROMPT : String\(d\.prompt\)/,
+    "她那份还是旧默认时没自动跟上——改了默认她那边就永远不变");
   // 头像走图库存引用，不把 base64 塞进配置
   assert.match(src, /imgToVault/, "头像直接存 base64 会把本地存储撑爆");
 });
@@ -240,7 +244,8 @@ test("预设里只放【它是谁】，安全面和契约不许混进去（她�
   assert.ok(m, "找不到默认预设");
   const p0 = m[1];
   assert.match(p0, /秋秋/);
-  assert.match(p0, /你必须诚实/);
+  // v62.05 换成她亲手给的那一份；「诚实」那条还在，只是换了说法
+  assert.match(p0, /不知道的事情不要猜，没有的功能不要编/);
   assert.doesNotMatch(p0, /style |persona |appearance |theme |memory /, "能改哪几样混进预设里了——她删一行就等于把白名单删了");
   assert.doesNotMatch(p0, /JSON|patches|框架|代码/, "输出契约或代码那道门混进预设里了");
   // 清空了也得知道自己是谁，不然退回一张通用助手的脸
