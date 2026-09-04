@@ -3109,6 +3109,13 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   const onCover = !!cover;
   const ink = onCover ? "#fff" : t.ink;
   const dim = onCover ? "rgba(255,255,255,.78)" : t.fog;
+  // 名片上的字都从 t.ink 兑出来（不是写死的暖棕，换主题/换深色都跟着走）。
+  // 她 2026-09-03 那份意见：名字别用纯黑、签名太浅读不清、底下那排数权重太重——
+  // 这三样其实是同一件事：这张卡只有【一个】墨色，靠浓淡分层次。
+  const inkA = function (a) {
+    return onCover ? "rgba(255,255,255," + a + ")"
+      : "rgba(" + (typeof skinRGB === "function" ? skinRGB(t.ink).join(",") : "40,34,28") + "," + a + ")";
+  };
   const shadow = onCover ? "0 1px 6px rgba(0,0,0,.5)" : "none";
   // 这本档案里真实攒下的东西（跟恋爱无关）：认识几个人 / 多少条记忆 / 来了第几天
   // ⚠️必须走 loadJSON，不许直接 localStorage.getItem：x_memLib 早就搬进 IDB 文字仓了
@@ -3132,36 +3139,44 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     // eslint-disable-next-line
   }, [(characters || []).length]);
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
-    style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0,
+    style: { width: 23, height: 23, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
     //   整屏高，主屏直接毁（.claude/rules/home-screen-layout.md）。用 flex:1。
-    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "12px 14px 11px" } },
+    h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "10px 14px 9px" } },
       // 眉批去掉之后这两颗键没了自己那一行。放右上角会把头像往中间挤（她 2026-09-03
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
       // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
       // 于是头像能贴着右边、键也不用谁给它让位。
-      h("div", { className: "flex", style: { position: "absolute", bottom: 10, right: 12, gap: 6, zIndex: 2 } },
-        round(h(IPencil, { size: 13, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
-        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
+      h("div", { className: "flex", style: { position: "absolute", bottom: 9, right: 12, gap: 9, zIndex: 2 } },
+        round(h(IPencil, { size: 12, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
       h("div", { className: "flex items-end", style: { gap: 12 } },
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: ink, textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: dim, textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: onCover ? ink : inkA(.92), textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
-          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: dim, textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, tags.join("　/　")) : null),
+          // ⚠️两个标签同一级，只有中间那道斜杠更淡——所以不能再 join 成一串，
+          // 一串只能有一个颜色。仍然是一行小字，不是药丸也不是标签胶囊。
+          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.55), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+            tags.map(function (tg, i) {
+              return h(React.Fragment, { key: i },
+                i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.45)" : inkA(.3) } }, "　/　") : null, tg);
+            })) : null),
         h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 14, padding: 2.5,
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
-          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 48, radius: 12 }))),
+          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
-      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 9, gap: 16, paddingRight: 66 } },
+      // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
+      // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
+      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 7, gap: 17, paddingRight: 66 } },
         stats.map((st, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 4 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: ink, textShadow: shadow } }, st[0]),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: dim, textShadow: shadow } }, st[1]))))));
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1, color: onCover ? ink : inkA(.76), textShadow: shadow } }, st[0]),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: "0.1em", color: onCover ? dim : inkA(.44), textShadow: shadow } }, st[1]))))));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
 function HomeCardSheet({ card, profile, onSave, onClose }) {
