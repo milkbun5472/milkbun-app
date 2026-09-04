@@ -1384,6 +1384,24 @@ function computeLedger(w) {
 
 // app 图标（线性，黑白）
 // wk：主题工作室的挂点，原样转给 Svg（图标的 stroke 是属性，皮肤压得住）
+// 查手机里所有「点开一条看详情」的整页外壳（v62.59）。
+// 审美审计 2026-09-04 数出 8 处子页是半窗，其中 7 处按 no-half-sheet 就该是整页：
+// 它们的内容都不需要同时看见底下那一层，而半窗那一层压根没地方放题材元素——
+// 「凡是掀半窗的子页，没有一处是合格的」。
+// ⚠️给一个【共用的】壳，不是一处一份地各写各的：五处各写一份，迟早长成五个样子
+//   （这个仓库里「一层写在两处」已经犯过很多次）。
+// bg 收的是那个 app 自己的皮（style 对象），ink 是它顶栏该用的墨色。
+function PhoneSubPage({ bg, ink, title, onClose, right, children }) {
+  return h("div", { className: "absolute inset-0 h-full min-h-0 flex flex-col", style: Object.assign({ zIndex: 30 }, bg || {}) },
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", {
+        onClick: onClose, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center",
+        style: { width: 40, height: 40, marginLeft: -8 }
+      }, h(IArrow, { size: 19, color: ink })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title || ""),
+      right || h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } }, children));
+}
 function PGlyph({
   k,
   size = 26,
@@ -2087,21 +2105,25 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       // ⚠️这一下清的是【两格一起】的新增标记，不是当前这一格。所以不能写「这 N 条」
       // ——「走过的」里写着「只看新增 3」、按钮却说「这 10 条」，看上去像个 bug。
       }, "全部 " + newCount + " 条新的都看过了")),
-    sheet && h(Sheet, { onClose: () => setSheet(null), tall: true },
-      h(Eyebrow, { style: { marginBottom: 8 } }, sheet.appZh + (sheet.tag ? " · " + sheet.tag : "")),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, sheet.title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } },
+    // 详情整页（no-half-sheet）：这一层是一条时间线上的东西被摊开——正文、他当时的想法、
+    // 三颗按钮，从来不是三行能说完的；也不需要同时看见底下那条轴。
+    sheet && h(PhoneSubPage, {
+      bg: { background: t.bg }, ink: t.ink,
+      title: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), onClose: () => setSheet(null)
+    },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, sheet.title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } },
         sheet.ts == null ? "时间不详（原文写的是「" + sheet.when + "」）" : phoneDayLabel(sheet.ts, now) + " " + phoneClock(sheet.ts)),
-      sheet.text && h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, marginTop: 14, wordBreak: "break-word" } }, sheet.text),
+      sheet.text && h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: t.ink, marginTop: 16, wordBreak: "break-word" } }, sheet.text),
       sheet.thought && h("div", {
-        style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12, paddingLeft: 10, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
+        style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.sub, marginTop: 14, paddingLeft: 11, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
       }, sheet.thought),
       // 归档里那些已经被后来的内容顶掉了，app 里点过去是空的——不给按钮，明说
       sheet.gone
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 18, lineHeight: 1.75 } },
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 20, lineHeight: 1.75 } },
             "这条已经被后来刷新的内容顶掉了，" + sheet.appZh + "里翻不到了，只剩时间线上这一份。")
         : h("button", {
-            onClick: () => { const a = sheet.app; setSheet(null); onOpenApp && onOpenApp(a); },
+            onClick: () => { const a2 = sheet.app; setSheet(null); onOpenApp && onOpenApp(a2); },
             className: "w-full mt-6 py-3 active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
           }, "去" + sheet.appZh + "里看"),
@@ -4040,24 +4062,20 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       key: j, style: { fontFamily: F_BODY, fontSize: 10, color: DIM, border: "1px solid rgba(232,227,230,.16)", borderRadius: 999, padding: "2px 8px" }
     }, tg))),
     v.views ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: DIM, marginTop: 7 } }, v.views) : null));
-  const detail = open ? h("div", {
-    className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(0,0,0,.6)", zIndex: 30 }, onClick: () => setOpen(null)
-  }, h("div", {
-    onClick: e => e.stopPropagation(),
-    style: { background: CARD, borderRadius: "20px 20px 0 0", maxHeight: "82%", overflowY: "auto", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
-  }, h("div", { className: "flex items-start justify-between gap-3" },
+  const detail = open ? h(PhoneSubPage, {
+    bg: { background: BG }, ink: INK, title: "深夜台", onClose: () => setOpen(null)
+  },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM } }, open.duration || ""),
-    h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: DIM, padding: "0 4px" } }, "✕")),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: INK, marginTop: 10 } }, open.title || ""),
-  h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 12 } }, A(open.tags).map((tg, j) => h("span", {
-    key: j, style: { fontFamily: F_BODY, fontSize: 11, color: HOT, border: "1px solid rgba(192,86,109,.4)", borderRadius: 999, padding: "3px 10px" }
-  }, tg))),
-  open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, open.thought) : null,
-  onPeek ? h("button", {
-    onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
-    className: "w-full active:opacity-60",
-    style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
-  }, T("摆到 TA 面前 · 这是他藏起来的")) : null)) : null;
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.45, color: INK, marginTop: 8 } }, open.title || ""),
+    h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 12 } }, A(open.tags).map((tg, j) => h("span", {
+      key: j, style: { fontFamily: F_BODY, fontSize: 11, color: HOT, border: "1px solid rgba(192,86,109,.4)", borderRadius: 999, padding: "3px 10px" }
+    }, tg))),
+    open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, open.thought) : null,
+    onPeek ? h("button", {
+      onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
+      className: "w-full active:opacity-60",
+      style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
+    }, T("摆到 TA 面前 · 这是他藏起来的")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: INK })),
@@ -4306,24 +4324,21 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.45, color: x.done ? CAL_DIM : CAL_INK, textDecoration: x.done ? "line-through" : "none" } }, x.title || ""),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: late(x) ? CAL_RED : CAL_DIM, marginTop: 5 } },
       [calDay(x.date), x.time, x.kind, x.who, Number(x.postponed) > 0 ? "推迟 " + x.postponed + " 次" : (x.overdue ? "早该做了" : "")].filter(Boolean).join(" · "))));
-  const detail = open ? h("div", {
-    className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,22,.4)", zIndex: 30 }, onClick: () => setOpen(null)
-  }, h("div", {
-    onClick: e => e.stopPropagation(),
-    style: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
-  }, h("div", { className: "flex items-start justify-between gap-3" },
+  const detail = open ? h(PhoneSubPage, {
+    bg: { background: CAL_BG }, ink: CAL_INK,
+    title: open.kind === "提醒" ? "提醒事项" : "这一天", onClose: () => setOpen(null)
+  },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: CAL_DIM } }, [open.kind, open.date, open.time].filter(Boolean).join(" · ")),
-    h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: CAL_DIM, padding: "0 4px" } }, "✕")),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: CAL_INK, marginTop: 10 } }, open.title || ""),
-  open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
-  Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
-    : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
-  open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53", marginTop: 13 } }, open.note) : null,
-  onPeek ? h("button", {
-    onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
-    className: "w-full active:opacity-60",
-    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
-  }, T("转发给 TA · 他会知道你翻了手机")) : null)) : null;
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.4, color: CAL_INK, marginTop: 8 } }, open.title || ""),
+    open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
+    Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
+      : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
+    open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#4b4b53", marginTop: 14 } }, open.note) : null,
+    onPeek ? h("button", {
+      onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
+      className: "w-full active:opacity-60",
+      style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
+    }, T("转发给 TA · 他会知道你翻了手机")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CAL_BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CAL_INK })),
@@ -4672,21 +4687,25 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   })() : null;
   const detail = open && !open._search ? (function () {
     const isPriv = !!open._priv;
-    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,24,.42)", zIndex: 30 }, onClick: () => setOpen(null) },
-      h("div", { onClick: e => e.stopPropagation(),
-        style: { background: isPriv ? "#26262b" : "#fff", borderRadius: "20px 20px 0 0", maxHeight: "82%", overflowY: "auto", padding: "18px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" } },
-        h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
-          h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 8, height: 34, borderRadius: 10, background: isPriv ? "#33333a" : "#f0f0f4", padding: "0 12px" } },
-            h("span", { "aria-hidden": "true", style: { fontSize: 11, color: isPriv ? "rgba(230,230,234,.55)" : BR_DIM } }, open._search ? "⌕" : "🔒"),
-            h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: isPriv ? "rgba(230,230,234,.7)" : "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, open.site || (open._search ? "搜索" : ""))),
-          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: isPriv ? "rgba(230,230,234,.6)" : BR_DIM, padding: "0 4px" } }, "✕")),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, marginTop: 16, wordBreak: "break-word" } }, open.title || ""),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 8 } },
-          [open.time, open.age, open._mark ? "书签 · " + open._mark : "", open.pinned ? "钉住的" : ""].filter(Boolean).join(" · ")),
-        open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 14 } }, open.gist) : null,
-        peekBtn(isPriv ? "hidden" : "quiet",
-          isPriv ? T("他的无痕标签页") : open._search ? T("他搜过的") : open._mark ? T("他的书签") : T("他没关的标签页"),
-          open.title, [open.site, open.gist, open.age].filter(Boolean).join("｜"))));
+    const ink = isPriv ? "#e6e6ea" : BR_INK, dim = isPriv ? "rgba(230,230,234,.5)" : BR_DIM;
+    return h(PhoneSubPage, {
+      bg: { background: isPriv ? "#1c1c20" : BR_BG }, ink: ink,
+      title: isPriv ? "无痕" : (open._mark ? "书签" : "标签页"), onClose: () => setOpen(null)
+    },
+      // 地址栏照旧摆在最上面——那是浏览器最认得出的一件东西
+      h("div", { className: "flex items-center", style: { gap: 8, height: 34, borderRadius: 10, background: isPriv ? "#33333a" : "#f0f0f4", padding: "0 12px" } },
+        // 🔒 是 emoji，在她机器上会渲成豆腐块；换成程序画的锁
+        h("svg", { width: 11, height: 13, viewBox: "0 0 11 13", "aria-hidden": "true", style: { flexShrink: 0 } },
+          h("rect", { x: 0.9, y: 5.2, width: 9.2, height: 7.1, rx: 1.4, fill: dim }),
+          h("path", { d: "M3.1 5.2V3.6a2.4 2.4 0 0 1 4.8 0v1.6", fill: "none", stroke: dim, strokeWidth: 1.3 })),
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: isPriv ? "rgba(230,230,234,.7)" : "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, open.site || "")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.5, color: ink, marginTop: 18, wordBreak: "break-word" } }, open.title || ""),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dim, marginTop: 8 } },
+        [open.time, open.age, open._mark ? "书签 · " + open._mark : "", open.pinned ? "钉住的" : ""].filter(Boolean).join(" · ")),
+      open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 15 } }, open.gist) : null,
+      peekBtn(isPriv ? "hidden" : "quiet",
+        isPriv ? T("他的无痕标签页") : open._mark ? T("他的书签") : T("他没关的标签页"),
+        open.title, [open.site, open.gist, open.age].filter(Boolean).join("｜")));
   })() : null;
   const PAGES = [
     { key: "tabs", zh: "标签页", glyph: "browser", body: tabsPage, badge: tabs.length },
@@ -4831,30 +4850,28 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const x = open.x || {};
     const isCall = open.kind === "call", isSms = open.kind === "sms", isVm = open.kind === "vm";
     const missed = isCall && x.answered === false;
-    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,24,.42)", zIndex: 30 }, onClick: () => setOpen(null) },
-      h("div", { onClick: e => e.stopPropagation(),
-        style: { background: "#fff", borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "18px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" } },
-        h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
-          h("div", { className: "min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 5 } },
-              [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · "))),
-          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: CALL_DIM, padding: "0 4px" } }, "✕")),
-        // 短信：气泡串。收到的靠左灰、他发的靠右蓝
-        isSms ? h("div", { style: { marginTop: 16 } }, A(x.msgs).map((m2, j) => {
-          const mine = m2.from === "me";
-          return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
-            h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m2.text || ""));
-        })) : null,
-        isVm && x.transcript ? h("div", { style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
-        isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
-        x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
-        peekBtn("quiet",
-          isCall ? (missed ? T("他没接的一通电话") : T("他的通话记录")) : isSms ? T("他收到的短信") : T("有人给他留的言"),
-          x.name || x.from || x.number,
-          [isCall ? (missed ? "没接通" : x.duration) : "", x.gist, x.transcript, A(x.msgs).map(m2 => m2.text).join(" / "), x.thought].filter(Boolean).join("｜"))));
+    return h(PhoneSubPage, {
+      bg: { background: CALL_BG }, ink: CALL_INK,
+      title: isCall ? "通话" : isSms ? "短信" : "留言", onClose: () => setOpen(null)
+    },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 5 } },
+        [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · ")),
+      // 短信：气泡串。收到的靠左灰、他发的靠右蓝
+      isSms ? h("div", { style: { marginTop: 16 } }, A(x.msgs).map((m2, j) => {
+        const mine = m2.from === "me";
+        return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
+          h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m2.text || ""));
+      })) : null,
+      isVm && x.transcript ? h("div", { style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
+      isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
+      x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
+      peekBtn("quiet",
+        isCall ? (missed ? T("他没接的一通电话") : T("他的通话记录")) : isSms ? T("他收到的短信") : T("有人给他留的言"),
+        x.name || x.from || x.number,
+        [isCall ? (missed ? "没接通" : x.duration) : "", x.gist, x.transcript, A(x.msgs).map(m2 => m2.text).join(" / "), x.thought].filter(Boolean).join("｜")));
   })() : null;
   const PAGES = [
     { key: "calls", zh: "通话", body: callsPage, badge: missedN },
