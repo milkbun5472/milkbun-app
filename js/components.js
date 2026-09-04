@@ -3593,8 +3593,12 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
               return h(React.Fragment, { key: i },
                 i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.5)" : inkA(.34) } }, "　/　") : null, tg);
             })) : null),
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 14, padding: 2.5,
-            background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
+        // ⚠️头像外面那圈白框去掉了（她 2026-09-04：「名片头像那个白框也去掉吧」）。
+        //   那是 padding:2.5 + 一层白底垫出来的——它当初是为了让头像在封面照上跳出来，
+        //   代价是这张头像永远被镶在一个跟主题无关的白框里。分离改交给投影：
+        //   压在照片上时投影重一档，没封面时轻一档，边缘照样看得清，但没有那圈白。
+        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 13,
+            boxShadow: onCover ? "0 3px 12px rgba(0,0,0,.42)" : "0 3px 10px rgba(30,28,24,.2)" } },
           // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
           // 没单独设就还是跟着「我的面具」那张——原来只有这一张，改名片就等于改聊天。
           h(Avatar, { character: { name: c.name || profile.name, avatarImage: c.avatar || profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
