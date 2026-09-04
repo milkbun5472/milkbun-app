@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.08";
+const APP_VERSION = "v62.09";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3072,6 +3072,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   没有归属字段的按记忆库那条老规矩当旧全局放行（真实写入路径从没产出过这种，纯兜底）。
     grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && (!(x.characterId || x.charId) || String(x.characterId || x.charId) === String(char.id)))
       .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.title || x.content || x.text || "").slice(0, 40))));
+    // 愿望板（v62.09）：整屋子里唯一「朝前」的素材，跟发呆的气质正对——
+    // 从「还钉着没做成」里长出来的念想，自然就是「要不要去做那件事」。只给一条，别变成待办清单。
+    grab(() => A(((loadJSON("x_coupleHome", {})[char.id] || {}).wishes))
+      .filter(w => w && w.title && w.status !== "done" && w.status !== "shelved").slice(0, 1)
+      .forEach(w => L.push("· 你俩的愿望板上还钉着「" + String(w.title).slice(0, 30) + "」——说好想做、还没做成的事")));
     if (!L.length) return "";
     return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
       + L.slice(0, 6).join("\n")
@@ -3211,10 +3216,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const gachaDay = () => ymd(new Date());
   // 点数按【一段相处】结算，不按消息条数（按条数＝拿抽卡催她水消息）。两道闸都在 GachaKit 里。
   const gachaEarn = (charId, kind) => {
-    if (!window.GachaKit || !charId) return;
+    if (!window.GachaKit || !charId) return 0;
     const r = window.GachaKit.earn(gachaPtsRef.current || {}, charId, kind, Date.now(), gachaDay());
-    if (!r.got) { gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box); return; }
     gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box);
+    return r.got;   // v62.09：打卡那头要知道真给了没有，别在 toast 里谎报
   };
   const gachaPull = (char, n) => {
     const K = window.GachaKit;
@@ -13958,6 +13963,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
   });
+  // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
+  // 问答揭晓、交换日记回页、情书——全 app 最浓的关系素材，原来一个字不进上下文：
+  // 聊天里她提「你上次答的那道题」他一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
+  // 落一条记忆库条目就够——聊到相关才被检索出来，平时零成本。
+  // source 用 "couple"（非 manual）：走 isDupMem 自动去重 + OpenLoopGate 资格闸，重复调用不攒重。
+  const cSnip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n || 80);
+  const coupleKeep = (charId, text, tag) => {
+    try { addMemEntry({ text: text, tags: [tag, "情侣空间"], charIds: [charId], knownBy: [charId], source: "couple" }); } catch (e) {/* 记不上不连累主流程 */}
+  };
   const sealCoupleQA = (char, item) => {
     const t0 = String(item && item.myAnswer || "").trim();
     if (!t0) { toast("先写你自己的那一份"); return false; }
@@ -13996,6 +14010,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
               saveJSON("x_coupleQA", n);
               return n;
             });
+            coupleKeep(char.id, "情侣问答小本里答过「" + cSnip(item.question, 60) + "」——"
+              + (item.myAnswer ? (profile.name || "她") + "写的是「" + cSnip(item.myAnswer) + "」，" : "")
+              + char.name + "写的是「" + cSnip(ans) + "」", "情侣问答");
             return true;
           }
         } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); if (e && e.remoteId) item.__ccJobId = e.remoteId; }
@@ -14022,6 +14039,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         saveJSON("x_coupleQA", n);
         return n;
       });
+      coupleKeep(char.id, "情侣问答小本里答过「" + cSnip(item.question, 60) + "」——"
+        + (item.myAnswer ? (profile.name || "她") + "写的是「" + cSnip(item.myAnswer) + "」，" : "")
+        + char.name + "写的是「" + cSnip(d.answer) + "」", "情侣问答");
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -14143,6 +14163,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       });
       if (d && d.content) {
         saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date()), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
+        coupleKeep(cid, "交换日记里（" + page.date + "）" + uN + "写道「" + cSnip(page.content) + "」，"
+          + char.name + "回页写道「" + cSnip(d.content) + "」", "交换日记");
         toast(char.name + " 回了你一页交换日记");
       }
     } catch (e) {
@@ -14276,6 +14298,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         saveJSON("x_coupleLetters", n);
         return n;
       });
+      coupleKeep(char.id, char.name + "给" + (profile.name || "她") + "写过一封情书《" + (cSnip(d.title, 20) || "无题") + "》，写道「" + cSnip(d.body, 100) + "」", "情书");
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -14360,6 +14383,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_coupleLetters", n);
       return n;
     });
+    coupleKeep(char.id, (profile.name || "她") + "给" + char.name + "写过一封情书《" + (cSnip(tt, 20) || "无题") + "》，写道「" + cSnip(bd, 100) + "」", "情书");
     genLetterReply(char, id, "【" + (tt || "无题") + "】\n" + bd, true);
   };
   // 情书下我留言 → TA 回
@@ -14388,18 +14412,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleLetters", n);
     return n;
   });
-  // 情侣空间·甜蜜值每日打卡：每天一次，随机 +0.1~1
+  // 情侣空间·甜蜜值每日打卡：每天一次，随机 +0.1~1。
+  // v62.09：打卡原来纯装饰、哪儿都不接——现在那一下顺手攒抽卡点数（GachaKit 的 sweet 档）。
+  // 判断挪到 updater 外面：toast/攒点是副作用，不该塞在 setState updater 里（严格模式会跑两遍）。
   const checkinSweet = char => {
     const today = ymd(new Date());
-    setCoupleSweet(p => {
-      const cur = p[char.id] || { value: 0, last: null };
-      if (cur.last === today) { toast("今天已经打过甜蜜卡啦 💗"); return p; }
-      const add = Math.round((0.1 + Math.random() * 0.9) * 10) / 10;
-      const n = { ...p, [char.id]: { value: Math.round((cur.value + add) * 10) / 10, last: today } };
-      saveJSON("x_coupleSweet", n);
-      toast("甜蜜值 +" + add + " 💗");
-      return n;
-    });
+    const box = loadJSON("x_coupleSweet", {});
+    const cur = box[char.id] || { value: 0, last: null };
+    if (cur.last === today) { toast("今天已经打过甜蜜卡啦 💗"); return; }
+    const add = Math.round((0.1 + Math.random() * 0.9) * 10) / 10;
+    const n = { ...box, [char.id]: { value: Math.round((cur.value + add) * 10) / 10, last: today } };
+    saveJSON("x_coupleSweet", n);
+    setCoupleSweet(n);
+    const got = gachaEarn(char.id, "sweet");
+    toast("甜蜜值 +" + add + " 💗" + (got ? "　抽卡点数 +" + got : ""));
   };
   // 一起听（展示型）：改数据统一走 saveListen；图片经 resizeImageFile 缩小再存
   const saveListen = updater => {
