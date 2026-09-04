@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#ece8e1" />
 <script>document.documentElement.classList.add("fonts-pending");</script>
 <link rel="apple-touch-icon" href="icon-192.png?v=61.52" />
-<link rel="manifest" href="manifest.json?v=62.19" />
+<link rel="manifest" href="manifest.json?v=62.20" />
 <title>ARCHIVE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,7 +17,7 @@
 <!-- 核心库自托管在仓库 vendor/（不再依赖 CDN，防国内访问 unpkg 抽风时整站白屏） -->
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
-<script src="vendor/tailwind.js?v=62.19"></script>
+<script src="vendor/tailwind.js?v=62.20"></script>
 <link rel="stylesheet" href="vendor/leaflet.css" />
 <style>
   html, body, #root { height: 100vh; margin: 0; padding: 0; overscroll-behavior: none; background: #ece8e1; }
@@ -53,6 +53,142 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="qiu-splash"></div>
+<script>
+// ── 开屏：写一个「秋」（v62.20，她 2026-09-04 拍板，参考稿她转的那份 editorial 方向）──
+// 秋日纸页扉页：奶油纸面+暖光晕上，「秋」按真实笔顺写出来（笔画数据内嵌，零请求），
+// 落笔是湿墨、160ms 吸进纸里；最后一捺收笔处长出一片小银杏，脱落、打着旋飘下去，
+// 落到中途风再带过两片糊叶影。字和叶各按自己的色带随入秋天数一天天变深。
+// 纪律：React 挂载前就开播（把启动那一两秒变成有意的一幕）；点一下立即跳过；
+// 全长 3.2s 自动淡出；prefers-reduced-motion 直接不播；深色主题走暗色板（读 x_theme 判亮暗）；
+// 任何一步出错整层自拆——开屏坏了绝不能挡住 App。
+(function () {
+  var host = document.getElementById("qiu-splash");
+  try {
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { host.remove(); return; }
+    var DATA = {"strokes": ["M 313 674 Q 409 720 451 730 Q 467 731 471 740 Q 475 750 462 761 Q 402 800 368 796 Q 361 792 360 781 Q 361 741 156 636 Q 152 627 158 624 Q 177 624 264 657 Q 273 660 283 663 L 313 674 Z", "M 344 496 Q 387 508 441 517 Q 459 521 459 528 Q 459 541 440 550 Q 409 562 345 542 L 302 530 Q 152 494 91 485 Q 78 482 75 474 Q 74 464 89 452 Q 131 425 173 441 Q 240 468 289 481 L 344 496 Z", "M 343 419 Q 343 458 344 496 L 345 542 Q 346 600 352 631 Q 355 644 347 650 Q 328 666 313 674 C 288 690 273 691 283 663 Q 295 645 301 546 Q 301 539 302 530 L 301 402 Q 301 204 280 119 Q 259 80 314 7 Q 318 1 324 -2 Q 336 -3 341 10 Q 353 43 349 73 Q 345 242 343 386 L 343 419 Z", "M 289 481 Q 228 360 67 182 Q 61 172 72 170 Q 93 167 206 278 Q 255 327 301 402 C 362 500 303 508 289 481 Z", "M 343 386 Q 421 308 423 307 Q 426 307 430 306 Q 440 306 445 317 Q 451 329 445 355 Q 438 388 355 416 Q 349 419 343 419 C 313 422 322 407 343 386 Z", "M 474 486 Q 499 399 524 388 Q 537 382 550 397 Q 557 410 556 433 Q 552 452 533 471 Q 505 502 490 511 Q 481 515 476 505 Q 472 498 474 486 Z", "M 781 580 Q 760 544 711 487 Q 701 469 718 473 Q 745 486 824 532 Q 845 548 870 558 Q 892 568 882 587 Q 869 606 841 621 Q 816 637 803 634 Q 790 633 794 618 Q 797 599 781 580 Z", "M 658 394 Q 670 472 678 638 Q 679 690 697 750 Q 703 762 693 769 Q 674 785 638 800 Q 616 810 599 804 Q 580 795 595 778 Q 625 748 625 718 Q 628 510 602 374 Q 578 208 423 100 Q 393 85 390 78 Q 386 72 401 71 Q 443 68 540 137 Q 619 194 650 352 L 658 394 Z", "M 650 352 Q 794 73 843 69 Q 906 70 960 71 Q 984 72 984 77 Q 985 84 961 99 Q 829 177 797 212 Q 722 291 658 394 C 642 419 636 379 650 352 Z"], "medians": [[[459, 745], [393, 753], [313, 698], [208, 648], [170, 640], [161, 631]], [[85, 471], [119, 464], [158, 467], [379, 529], [409, 534], [449, 531]], [[291, 664], [311, 649], [322, 630], [322, 259], [311, 93], [326, 11]], [[297, 478], [276, 407], [240, 354], [134, 230], [74, 178]], [[348, 414], [365, 390], [418, 350], [429, 327], [428, 314]], [[487, 498], [523, 437], [532, 407]], [[803, 624], [821, 603], [828, 582], [718, 482]], [[602, 790], [636, 772], [657, 747], [658, 736], [638, 435], [615, 312], [580, 226], [545, 176], [518, 149], [444, 96], [397, 77]], [[661, 386], [667, 345], [676, 339], [736, 241], [804, 156], [851, 114], [978, 80]]]};
+    // 判亮暗：主题工坊存的 bg 可能是 #rgb/#rrggbb/rgb()；认不出来一律当亮色（默认米白）
+    var dark = false;
+    try {
+      var th = JSON.parse(localStorage.getItem("x_theme") || "{}");
+      var bgc = String(th.bg || "#ece8e1").trim(), m, r, g2, b2;
+      if (m = /^#([0-9a-f]{6})$/i.exec(bgc)) { var n = parseInt(m[1], 16); r = n >> 16 & 255; g2 = n >> 8 & 255; b2 = n & 255; }
+      else if (m = /^#([0-9a-f]{3})$/i.exec(bgc)) { r = parseInt(m[1][0] + m[1][0], 16); g2 = parseInt(m[1][1] + m[1][1], 16); b2 = parseInt(m[1][2] + m[1][2], 16); }
+      else if (m = /^rgba?\(([^)]+)\)/i.exec(bgc)) { var q = m[1].split(","); r = +q[0]; g2 = +q[1]; b2 = +q[2]; }
+      if (r != null && !isNaN(r)) dark = (0.299 * r + 0.587 * g2 + 0.114 * b2) < 128;
+    } catch (e) {}
+    // 秋走到第几天：立秋起算；字是墨色带（深两档压住整页），叶是亮色带
+    var YEAR = new Date().getFullYear();
+    var dayN = Math.floor((Date.now() - new Date(YEAR, 7, 7).getTime()) / 86400000) + 1;
+    if (dayN < 1) dayN = Math.floor((Date.now() - new Date(YEAR - 1, 7, 7).getTime()) / 86400000) + 1;
+    var p = Math.max(0, Math.min(1, dayN / 90));
+    var mx = function (a, b) { return Math.round(a + (b - a) * p); };
+    var rgb = function (a, b) { return "rgb(" + mx(a[0], b[0]) + "," + mx(a[1], b[1]) + "," + mx(a[2], b[2]) + ")"; };
+    var LEAF = rgb([184, 165, 69], [181, 80, 46]);
+    var INK_DRY = dark ? rgb([201, 178, 106], [208, 122, 74]) : rgb([93, 84, 38], [110, 51, 32]);
+    var INK_WET = dark ? rgb([225, 202, 130], [232, 146, 98]) : rgb([58, 54, 26], [67, 31, 18]);
+    var C = dark
+      ? { bg: "#231c13", glow: "rgba(58,47,30,.6)", grain: "rgba(214,186,138,.018)", vig: "rgba(0,0,0,.3)",
+          word: "rgba(232,209,164,.05)", plate: "rgba(210,186,148,.42)", cap: "#9a8c74", capB: "#d9cab0", vein: "rgba(35,28,19,.7)" }
+      : { bg: "#eee7db", glow: "rgba(255,249,236,.85)", grain: "rgba(150,125,85,.028)", vig: "rgba(88,62,32,.075)",
+          word: "rgba(90,66,34,.045)", plate: "rgba(120,95,56,.5)", cap: "#9b8f7c", capB: "#5d5140", vein: "rgba(238,231,219,.75)" };
+    var FB = "'Archivo','Noto Serif SC',system-ui,sans-serif";
+    host.setAttribute("style",
+      "position:fixed;inset:0;z-index:9999;overflow:hidden;font-family:" + FB + ";" +
+      "background-color:" + C.bg + ";background-image:" +
+      "radial-gradient(120% 90% at 50% 38%," + C.glow + ",transparent 62%)," +
+      "repeating-linear-gradient(96deg," + C.grain + " 0 2px,transparent 2px 13px)," +
+      "repeating-linear-gradient(-84deg," + C.grain + " 0 2px,transparent 2px 17px);" +
+      "transition:opacity .55s ease;");
+    var css = document.createElement("style");
+    css.textContent =
+      "@keyframes qsp-fall{0%{transform:translate(0,0) rotate(0)}18%{transform:translate(36px,90px) rotate(40deg)}40%{transform:translate(-24px,220px) rotate(-22deg)}62%{transform:translate(34px,360px) rotate(32deg)}84%{transform:translate(-14px,510px) rotate(-12deg);opacity:.9}100%{transform:translate(22px,650px) rotate(12deg);opacity:0}}" +
+      "@keyframes qsp-d1{0%{transform:translate(-12vw,0) rotate(-30deg);opacity:0}12%{opacity:.16}100%{transform:translate(115vw,26vh) rotate(150deg);opacity:0}}" +
+      "@keyframes qsp-d2{0%{transform:translate(-10vw,0) rotate(20deg);opacity:0}16%{opacity:.09}100%{transform:translate(112vw,18vh) rotate(-120deg);opacity:0}}";
+    host.appendChild(css);
+    var el = function (tag, style, htmlStr) { var e = document.createElement(tag); if (style) e.setAttribute("style", style); if (htmlStr) e.innerHTML = htmlStr; host.appendChild(e); return e; };
+    el("div", "position:absolute;inset:0;pointer-events:none;background:radial-gradient(140% 110% at 50% 46%,transparent 58%," + C.vig + ")");
+    el("div", "position:absolute;left:50%;top:39%;transform:translate(-50%,-50%);font-size:clamp(40px,11.5vw,88px);letter-spacing:.48em;text-indent:.48em;color:" + C.word + ";font-weight:600;white-space:nowrap;user-select:none", "AUTUMN");
+    var plateCss = "position:absolute;font-size:9px;letter-spacing:.3em;line-height:2.1;color:" + C.plate + ";opacity:0;transition:opacity 1s ease;";
+    var MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    var d0 = new Date();
+    var pTL = el("div", plateCss + "left:22px;top:calc(env(safe-area-inset-top,0px) + 20px)", "SEASON 03<br>" + YEAR + " / AUTUMN");
+    var pBR = el("div", plateCss + "right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);text-align:right", "PRIVATE ARCHIVE<br>" + MON[d0.getMonth()] + "." + String(d0.getDate()).padStart(2, "0"));
+    var mid = el("div", "position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center");
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 1024 1024");
+    svg.setAttribute("style", "width:min(48vw,250px);height:auto;overflow:visible;filter:blur(.35px)");
+    mid.appendChild(svg);
+    var cap = document.createElement("div");
+    cap.setAttribute("style", "margin-top:36px;font-size:12px;letter-spacing:.3em;color:" + C.cap + ";opacity:0;transition:opacity .9s ease");
+    cap.innerHTML = "入秋 · 第 <b style=\"font-weight:400;color:" + C.capB + "\">" + dayN + "</b> 天";
+    mid.appendChild(cap);
+    var g = document.createElementNS(NS, "g");
+    g.setAttribute("transform", "translate(0,900) scale(1,-1)");
+    svg.appendChild(g);
+    var lenOf = function (pts) { var L = 0; for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; };
+    var delay = 220, lastEnd = null, totalEnd = 0, timers = [];
+    DATA.strokes.forEach(function (d, i) {
+      var cp = document.createElementNS(NS, "clipPath"); cp.setAttribute("id", "qsp-cp" + i);
+      var cpp = document.createElementNS(NS, "path"); cpp.setAttribute("d", d);
+      cp.appendChild(cpp); g.appendChild(cp);
+      var med = DATA.medians[i], L = lenOf(med) + 120;
+      var pl = document.createElementNS(NS, "polyline");
+      pl.setAttribute("points", med.map(function (pt) { return pt.join(","); }).join(" "));
+      pl.setAttribute("clip-path", "url(#qsp-cp" + i + ")");
+      pl.setAttribute("fill", "none"); pl.setAttribute("stroke-linecap", "round"); pl.setAttribute("stroke-linejoin", "round");
+      pl.setAttribute("stroke-width", "128");
+      pl.setAttribute("stroke", INK_WET);
+      var dur = Math.max(70, Math.min(240, L * 0.62));
+      pl.style.strokeDasharray = L + " " + L;
+      pl.style.strokeDashoffset = L;
+      pl.style.transition = "stroke-dashoffset " + dur + "ms cubic-bezier(.5,.05,.6,1) " + delay + "ms, stroke .34s ease";
+      g.appendChild(pl);
+      requestAnimationFrame(function () { requestAnimationFrame(function () { pl.style.strokeDashoffset = 0; }); });
+      timers.push(setTimeout(function () { pl.setAttribute("stroke", INK_DRY); }, delay + dur + 160));
+      if (i === DATA.strokes.length - 1) { lastEnd = med[med.length - 1]; totalEnd = delay + dur; }
+      delay += dur + 42;
+    });
+    var GINKGO = function (fill, veins) {
+      return '<g transform="scale(2.6) rotate(18)">' +
+        '<path d="M0 0 L2 26" stroke="' + fill + '" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+        '<path d="M2 26 C -30 34 -34 62 -24 78 C -12 70 -2 72 3 84 C 8 72 18 70 30 78 C 40 62 34 34 2 26 Z" fill="' + fill + '"/>' +
+        (veins ? '<path d="M3 84 L2 40" stroke="' + veins + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>' : "") + "</g>";
+    };
+    var leafWrap = document.createElementNS(NS, "g");
+    var leafGrow = document.createElementNS(NS, "g");
+    leafWrap.setAttribute("transform", "translate(" + lastEnd[0] + "," + (900 - lastEnd[1]) + ")");
+    leafGrow.innerHTML = GINKGO(LEAF, C.vein);
+    leafGrow.style.transformOrigin = "0px 0px";
+    leafGrow.style.transform = "scale(0)";
+    leafWrap.appendChild(leafGrow); svg.appendChild(leafWrap);
+    var ghost = function (top, size, blur, anim, durMs, delayMs) {
+      el("div", "position:absolute;top:" + top + ";left:0;pointer-events:none;opacity:0;filter:blur(" + blur + "px);animation:" + anim + " " + durMs + "ms cubic-bezier(.3,.2,.5,1) " + delayMs + "ms forwards",
+        '<svg width="' + size + '" height="' + size + '" viewBox="-45 -5 90 100" style="overflow:visible">' + GINKGO(LEAF, "") + "</svg>");
+    };
+    var gone = false;
+    var out = function () {
+      if (gone) return; gone = true;
+      timers.forEach(clearTimeout);
+      host.style.opacity = "0";
+      setTimeout(function () { try { host.remove(); } catch (e) {} }, 600);
+    };
+    host.addEventListener("click", out, { once: true });   // 点一下：不看了，直接进
+    timers.push(setTimeout(function () {
+      pTL.style.opacity = 1; pBR.style.opacity = 1;
+      timers.push(setTimeout(function () {
+        leafGrow.style.transition = "transform .38s cubic-bezier(.3,1.5,.6,1)";
+        leafGrow.style.transform = "scale(1)";
+      }, 140));
+      timers.push(setTimeout(function () { cap.style.opacity = 1; }, 480));
+      timers.push(setTimeout(function () { leafGrow.style.animation = "qsp-fall 2.1s cubic-bezier(.35,.1,.65,.9) forwards"; }, 620));
+      timers.push(setTimeout(function () { ghost("58%", 26, 1.6, "qsp-d1", 1500, 0); ghost("44%", 18, 2.2, "qsp-d2", 2000, 160); }, 1350));
+    }, totalEnd + 130));
+    setTimeout(out, 3200);
+  } catch (e) { try { host.remove(); } catch (e2) {} }
+})();
+</script>
 <script>
   (function () {
     var done = false;
@@ -71,9 +207,9 @@
   })();
 </script>
 <script src="vendor/supabase.js"></script>
-<script src="js/core.js?v=62.19"></script>
+<script src="js/core.js?v=62.20"></script>
 <script src="js/auto-refresh-policy.js?v=58.34"></script>
-<script src="js/style-presets.js?v=62.19"></script>
+<script src="js/style-presets.js?v=62.20"></script>
 <script src="js/content-boundaries.js?v=50.02"></script>
 <script src="js/reply-pacing.js?v=54.57"></script>
 <script src="js/chat-context-window.js?v=57.62"></script>
@@ -86,17 +222,17 @@
 <script src="js/offline-continuation.js?v=49.77"></script>
 <script src="js/yanqiu-continuity.js?v=50.20"></script>
 <script src="js/recall-cooling.js?v=2"></script>
-<script src="js/engine.js?v=62.19"></script>
+<script src="js/engine.js?v=62.20"></script>
 <script src="js/credential-vault.js?v=52.41"></script>
 <script src="js/background-generation.js?v=53.78"></script>
-<script src="js/cloud.js?v=62.19"></script>
+<script src="js/cloud.js?v=62.20"></script>
 <script src="js/rescue-console.js?v=53.60"></script>
-<script src="js/vps-codex.js?v=62.19"></script>
+<script src="js/vps-codex.js?v=62.20"></script>
 <script src="js/lounge-entry.js?v=54.42"></script>
 <script src="js/chat-ledger-shadow.js?v=55.26"></script>
 <script src="js/cc-memory-auto.js?v=51.57"></script>
 <script src="js/reroll-branch.js?v=49.75"></script>
-<script src="js/inner-life-e-tidal-core.js?v=62.19"></script>
+<script src="js/inner-life-e-tidal-core.js?v=62.20"></script>
 <script src="js/inner-life-e-afterglow-shadow.js?v=61.51"></script>
 <script src="js/inner-life-e-tidal-shadow.js?v=51.56"></script>
 <script src="js/recall-shadow.js?v=51.04"></script>
@@ -109,37 +245,37 @@
 <script src="js/context-budget-shadow.js?v=51.52"></script>
 <script src="js/message-branch-shadow.js?v=51.00"></script>
 <script src="js/insight-candidate-shadow.js?v=50.98"></script>
-<script src="js/memory-v2-shadow.js?v=62.19"></script>
-<script src="js/somatic-review-core.js?v=62.19"></script>
+<script src="js/memory-v2-shadow.js?v=62.20"></script>
+<script src="js/somatic-review-core.js?v=62.20"></script>
 <script src="js/shadow-review.js?v=61.51"></script>
 <script src="js/inner-life-promotion-gate.js?v=55.83"></script>
 <script src="js/ears.js?v=50.00"></script>
-<script src="js/somatic-core.js?v=62.19"></script>
+<script src="js/somatic-core.js?v=62.20"></script>
 <script src="js/somatic-shadow.js?v=51.15"></script>
 <script src="js/mood-label.js?v=61.51"></script>
 <script src="js/interaction-clock.js?v=58.80"></script>
 <script src="js/ambient-material.js?v=55.26"></script>
 <script src="js/schedule-clock.js?v=49.72"></script>
-<script src="js/theater.js?v=62.19"></script>
+<script src="js/theater.js?v=62.20"></script>
 <script src="js/impression.js?v=61.52"></script>
-<script src="js/style-lab.js?v=62.19"></script>
+<script src="js/style-lab.js?v=62.20"></script>
 <script src="js/assistant-manual.js?v=61.00"></script>
-<script src="js/assistant.js?v=62.19"></script>
+<script src="js/assistant.js?v=62.20"></script>
 <script src="js/grown-sync.js?v=61.81"></script>
 <script src="js/gaze.js?v=61.81"></script>
 <script src="js/chat-rooms.js?v=60.17"></script>
-<script src="js/theme-studio.js?v=62.19"></script>
-<script src="js/components.js?v=62.19"></script>
-    <script src="js/phone.js?v=62.19"></script>
+<script src="js/theme-studio.js?v=62.20"></script>
+<script src="js/components.js?v=62.20"></script>
+    <script src="js/phone.js?v=62.20"></script>
 <script src="js/mcp.js?v=58.75"></script>
-<script src="js/screens.js?v=62.19"></script>
-<script src="js/theme-studio-ui.js?v=62.19"></script>
+<script src="js/screens.js?v=62.20"></script>
+<script src="js/theme-studio-ui.js?v=62.20"></script>
 <script src="js/study.js?v=60.35"></script>
 <script src="js/dreamjournal.js?v=61.52"></script>
 <script src="js/yanqiu.js?v=61.53"></script>
 <script src="js/yanqiu-cc-tools.js?v=54.42"></script>
 <script src="js/cc-seat.js?v=60.64"></script>
-<script src="js/fanfic.js?v=62.19"></script>
+<script src="js/fanfic.js?v=62.20"></script>
 <script src="js/weekly.js?v=60.04"></script>
 <script src="js/read.js?v=60.35"></script>
 <script src="js/debate.js?v=60.43"></script>
@@ -150,18 +286,18 @@
 <script src="js/dwell.js?v=59.96"></script>
 <script src="js/capsule.js?v=59.96"></script>
 <script src="js/pomodoro.js?v=61.52"></script>
-<script src="js/uno-core.js?v=62.19"></script>
+<script src="js/uno-core.js?v=62.20"></script>
 <script src="js/games.js?v=61.29"></script>
 <script src="js/trpg.js?v=60.76"></script>
 <script src="js/notify.js?v=49.70"></script>
-<script src="js/codex.js?v=62.19"></script>
+<script src="js/codex.js?v=62.20"></script>
 <script src="js/heart.js?v=61.60"></script>
 <script src="js/dongnian.js?v=61.51"></script>
 <script src="js/inner-life-a-shadow.js?v=55.82"></script>
 <script src="js/inner-life-b-shadow.js?v=61.51"></script>
-<script src="js/inner-life-c-sleep-core.js?v=62.19"></script>
+<script src="js/inner-life-c-sleep-core.js?v=62.20"></script>
 <script src="js/inner-life-c-sleep-shadow.js?v=49.70"></script>
-<script src="js/dream-loop-core.js?v=62.19"></script>
+<script src="js/dream-loop-core.js?v=62.20"></script>
 <script src="js/dream-loop-shadow.js?v=49.70"></script>
 <script src="js/toy.js?v=53.74"></script>
 <script src="vendor/leaflet.js"></script>
@@ -181,7 +317,7 @@
 <script src="js/couple-firsts.js?v=59.07"></script>
 <script src="js/ifroom.js?v=59.11"></script>
 <script src="js/makeup.js?v=59.19"></script>
-<script src="js/app.js?v=62.19"></script>
+<script src="js/app.js?v=62.20"></script>
 <script>
   // 注册 Service Worker（锁屏通知用）；点通知回来时通知 app 打开对应聊天
   if ("serviceWorker" in navigator) {
