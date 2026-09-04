@@ -25,6 +25,8 @@
   let pushAgain = false;   // 在途期间又有变化：收尾后只补最后一份
   const protectedSaveCache = new Map(); // 冻结回滚字段每账号/每页面只读一次，杜绝每次小改下载整行 saves
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
+  const STALE_GAP_MS = 24 * 3600 * 1000; // 云端比本机新出这么多 = 这台是过期设备，不许静默覆盖
+  let staleVerdict = null, staleAnnounced = false;
   const tableMemoryMode = () => { try { return localStorage.getItem("memory_table_authority_v1") === "1"; } catch (e) { return false; } };
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
   // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
@@ -1139,6 +1141,34 @@
       try { return JSON.parse(localStorage.getItem("x_characters") || "[]").length > 0; } catch (e) { return false; }
     },
 
+    // 本机是不是【一份过期很久的存档】：云端那行比本机最后一次同步【新出一天以上】，
+    // 说明这台设备根本没见过别处写的东西，它这一推就是把别人的活儿抹掉。
+    // ⚠️这一条是 2026-09-04 事故补的：她 iPhone 上的 app 删了重装，随后打开一台
+    //   几个月没用过的网页版——那份存档【有角色】，于是 localMeaningful() 原样放行，
+    //   开机自动 push 把手机刚备份的那份盖掉，少了三个角色。
+    //   **「空的不许盖」挡不住「旧的盖新的」**：同一道闸当初只想到了一半。
+    // 为什么是「一天」而不是「只要云端更新就拦」：两台设备换着用，云端比本机新是常态，
+    //   每次都拦就成了天天弹窗。真正的事故形状是【隔了很久的旧设备】，所以按跨度判。
+    // 拉回云端之后调用：本机跟云端同龄了，闸门解除。
+    // ⚠️手动「从云端恢复」走的是 pull+apply 这条路，不经过 autoPull，
+    //   不在这儿盖一次 MARK 的话，恢复完的第一次自动备份会被自己的闸拦住。
+    markSynced(updatedAt) {
+      localStorage.setItem(MARK, updatedAt || new Date().toISOString());
+      staleVerdict = null; staleAnnounced = false; this.pushBlocked = null;
+    },
+
+    async staleness(userId) {
+      const { data, error } = await client.from("saves").select("updated_at").eq("user_id", userId).maybeSingle();
+      if (error) throw error;
+      const cloudAt = data && data.updated_at ? Date.parse(data.updated_at) : 0;
+      if (!cloudAt) return { stale: false, cloudAt: 0, localAt: 0 };   // 云端还没有存档：随便推
+      const localRaw = localStorage.getItem(MARK);
+      const localAt = localRaw ? Date.parse(localRaw) : 0;
+      // MARK 为空＝这台设备从没跟云端同步过，却已经有一份本地存档 —— 正是事故那台的样子
+      const stale = !localAt || (cloudAt - localAt > STALE_GAP_MS);
+      return { stale, cloudAt, localAt };
+    },
+
     // 静默把本地存档推到云端（未登录=访客则不做；离线报错则忽略，下次变动再试）
     async autoPush() {
       if (!client) return;
@@ -1148,10 +1178,21 @@
         try {
           const user = await this.getUser();
           if (!user) return; // 访客模式：纯本地
+          // 过期设备闸：一个会话只查一次（推成功之后 MARK 就是最新的，再查也是白查）
+          if (!staleVerdict) staleVerdict = await this.staleness(user.id).catch(() => ({ stale: false }));
+          if (staleVerdict.stale) {
+            this.pushBlocked = staleVerdict;
+            if (!staleAnnounced) {
+              staleAnnounced = true;
+              try { console.warn("[Cloud] 过期设备闸：云端那份比本机新得多，已拦下自动备份", staleVerdict); } catch (e) {}
+              try { window.toast && window.toast("⚠️ 云端存档比这台设备新得多，已拦下自动备份——先去 设置·云同步 看一眼再决定"); } catch (e) {}
+            }
+            return;
+          }
           const ts = new Date().toISOString();
           const saveData = await this.collectForSave(user.id);
           const { error } = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts });
-          if (!error) localStorage.setItem(MARK, ts);
+          if (!error) { localStorage.setItem(MARK, ts); staleVerdict = { stale: false, cloudAt: Date.parse(ts), localAt: Date.parse(ts) }; this.pushBlocked = null; }
         } catch (e) {
           // 离线或网络错误：静默，等下一次变动重试
         }
@@ -1188,6 +1229,7 @@
         }
         await this.apply(row.data);
         localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
+        staleVerdict = null; this.pushBlocked = null;   // 已经跟云端同龄了，闸门解除
         return { applied: true };
       } catch (e) {
         return { applied: false };

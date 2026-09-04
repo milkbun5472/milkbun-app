@@ -6244,6 +6244,7 @@ function LegacyConfig({
   onOffloadChats,
   onPruneOld,
   onClearAll,
+  onRescueChar,
   debugBundleFor,
   toast
 }) {
@@ -6345,6 +6346,7 @@ function LegacyConfig({
     onOffloadChats: onOffloadChats,
     onPruneOld: onPruneOld,
     onClearAll: onClearAll,
+    onRescueChar: onRescueChar,
     toast: toast
   }), fold("data-debug", "上下文诊断", "只读查看模型实际收到的内容", /*#__PURE__*/React.createElement(CtxDebug, {
     characters: characters,
@@ -6425,7 +6427,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
@@ -7265,6 +7267,18 @@ function CloudSync({ toast }) {
     if (window.Cloud && typeof window.Cloud.localMeaningful === "function" && !window.Cloud.localMeaningful()) {
       if (!window.confirm("⚠️ 本机现在没有任何角色（看起来是空存档）。\n确定要用这份空数据覆盖云端备份吗？\n（若你是想把云端数据拿回来，请点下面的「从云端恢复」）")) return;
     }
+    // 过期设备防呆（v61.63）：本机有角色、但已经很久没跟云端同步过——2026-09-04 就是这样
+    // 把手机刚备份的那份盖掉、少了三个角色的。空壳那道闸拦不住「旧的盖新的」。
+    try {
+      const u = await window.Cloud.getUser();
+      const g = u && await window.Cloud.staleness(u.id);
+      if (g && g.stale) {
+        const when = x => x ? new Date(x).toLocaleString() : "从来没有过";
+        if (!window.confirm("⚠️ 云端那份存档比这台设备新得多。\n\n云端最后一次备份：" + when(g.cloudAt) +
+          "\n这台设备最后一次同步：" + when(g.localAt) +
+          "\n\n现在备份会用本机这份覆盖掉云端那份，中间的改动全部拿不回来。\n（想把云端拿回来请点「从云端恢复」）\n\n确定要覆盖吗？")) return;
+      }
+    } catch (e) {}
     setBusy("push");
     try {
       await window.Cloud.push();
@@ -7278,7 +7292,8 @@ function CloudSync({ toast }) {
     try {
       const row = await window.Cloud.pull();
       if (!row || !row.data) { toast("云端还没有备份"); setBusy(""); setConfirmPull(false); return; }
-      window.Cloud.apply(row.data);
+      await window.Cloud.apply(row.data);
+      window.Cloud.markSynced(row.updated_at);   // 不盖这一下，恢复完的第一次自动备份会被过期设备闸拦住
       toast("已从云端恢复，正在重载…");
       setTimeout(() => location.reload(), 800);
     } catch (e) {
@@ -7447,6 +7462,90 @@ function storageBreakdown() {
   } catch (e) {}
   return Object.keys(rows).map(name => ({ name, bytes: rows[name] })).sort((a, b) => b.bytes - a.bytes);
 }
+// 找回失联的角色（v61.63，2026-09-04 事故之后加的）
+// ────────────────────────────────────────────────
+// 那天丢了三个角色。丢的其实只是【角色档案】——它住在 saves 那一份 blob 里，
+// 被一台过期设备的旧存档整份盖掉了。但记忆和聊天归档【不在那份 blob 里】：
+//   · memories 是行表，每一行自己带 char_ids
+//   · chat_archive 按 char_id 一行，只追加、按 id 去重
+// 所以那三个人的记忆和旧聊天其实都还在云上，只是【没有人认领它们了】。
+//
+// 这一页干的就是认领：把云端记忆里出现过、本机却找不到的 char_id 找出来，
+// 连着它剩下多少条记忆、多少条归档聊天、最近说的几句一起摆出来，
+// 让她用【同一个 id】把角色重建回去——id 一对上，记忆和聊天自己就接回来了。
+//
+// ⚠️人设本身是真的没了（全 app 只有 saves 里存过一份）。这里只能把周围的东西还给她，
+//   记忆那几条正是重写人设时最好的材料。别假装能还原人设。
+function LostCharacterRescue({ characters, onRescue, toast }) {
+  const t = useTheme();
+  const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [names, setNames] = useState({});
+  const scan = async () => {
+    if (busy) return;
+    setBusy(true); setErr("");
+    try {
+      const mem = await window.Cloud.memoryRowsFetchAll();
+      const here = new Set((characters || []).map(c => String(c.id)));
+      const bag = new Map();
+      (mem || []).forEach(m => {
+        if (m && m.deleted) return;
+        ((m && m.char_ids) || []).forEach(raw => {
+          const id = String(raw || "");
+          if (!id || here.has(id)) return;
+          const e = bag.get(id) || { id: id, memCount: 0, lastTs: 0, samples: [], archived: null };
+          e.memCount++;
+          const ts = Number(m.ts) || 0;
+          if (ts > e.lastTs) e.lastTs = ts;
+          if (e.samples.length < 5 && m.text) e.samples.push(String(m.text));
+          bag.set(id, e);
+        });
+      });
+      const list = [...bag.values()].sort((a, b) => b.memCount - a.memCount);
+      // 归档聊天一个一个问（人数很少，不值得为它另开一条批量接口）
+      for (const e of list) {
+        try { e.archived = (await window.Cloud.chatArchiveGet(e.id)).length; } catch (x) { e.archived = null; }
+      }
+      setRows(list);
+      if (!list.length) toast && toast("云端记忆里没有本机找不到的角色——没有失联的");
+    } catch (e) {
+      setErr(String((e && e.message) || e));
+    } finally { setBusy(false); }
+  };
+  const rebuild = e => {
+    const name = String(names[e.id] || "").trim();
+    if (!name) { toast && toast("先给 TA 填个名字"); return; }
+    onRescue({ id: e.id, name: name.slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" });
+    setRows(r => (r || []).filter(x => x.id !== e.id));
+  };
+  const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, v);
+  return h("div", { style: { paddingTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog } },
+      "角色档案被覆盖掉之后，TA 的记忆和归档聊天其实还留在云上，只是没人认领了。这里把它们找出来，用同一个 id 把角色建回去——id 对上，记忆和旧聊天自己就接回来。",
+      h("br"), h("br"),
+      "⚠️ 人设本身只存在被覆盖的那一份里，找不回来了。下面列出的记忆是重写人设最好的材料。"),
+    h("button", { onClick: scan, disabled: busy, className: "w-full py-3 active:opacity-70 disabled:opacity-50",
+      style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, borderRadius: 7, color: t.bg2, background: t.ink } },
+      busy ? "正在翻云端…" : "扫一遍云端，找失联的角色"),
+    err ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", lineHeight: 1.6 } }, "扫描失败：" + err + "（先确认已登录云同步）") : null,
+    rows && !rows.length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "没有失联的角色。") : null,
+    rows && rows.length ? h("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } },
+      rows.map(e => h("div", { key: e.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "13px 14px", background: t.bg2 } },
+        h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.sub, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text" } }, e.id),
+        h("div", { className: "flex gap-3 flex-wrap", style: { marginTop: 6 } },
+          line("m", e.memCount + " 条记忆"),
+          line("a", e.archived == null ? "归档聊天读不到" : e.archived + " 条归档聊天"),
+          line("t", e.lastTs ? "最近一条 " + new Date(e.lastTs).toLocaleDateString() : "没有时间")),
+        e.samples.length ? h("div", { style: { marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + t.line, display: "flex", flexDirection: "column", gap: 5 } },
+          e.samples.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
+        h("div", { className: "flex gap-2", style: { marginTop: 11 } },
+          h("input", { value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
+            style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+          h("button", { onClick: () => rebuild(e), className: "active:opacity-70 shrink-0",
+            style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint } }, "建回来"))))) : null);
+}
+
 function StorageMeter({ onOffloadChats, onPruneOld }) {
   const t = useTheme();
   const [info, setInfo] = useState(null);
@@ -7598,6 +7697,7 @@ function DataConfig({
   onOffloadChats,
   onPruneOld,
   onClearAll,
+  onRescueChar,
   toast
 }) {
   const t = useTheme();
@@ -7611,6 +7711,7 @@ function DataConfig({
     { id: "photos", title: "本机照片库", sub: "聊天照片与照片桥", icon: "▧" },
     { id: "cloud", title: "云同步", sub: "账号、存档与同步状态", icon: "↻" },
     { id: "backup", title: "导入与导出", sub: "备份与换设备恢复", icon: "⇅" },
+    { id: "rescue", title: "找回失联的角色", sub: "档案没了，但记忆和聊天还在云上", icon: "⌕" },
     { id: "danger", title: "危险操作", sub: "不可撤销的数据清理", icon: "!", danger: true }
   ];
   const button = (label, onClick, primary) => h("button", {
@@ -7627,6 +7728,7 @@ function DataConfig({
   if (part === "storage") content = h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld });
   if (part === "photos") content = h(LocalPhotoLibrary, { toast: toast });
   if (part === "cloud") content = h(CloudSync, { toast: toast });
+  if (part === "rescue") content = h(LostCharacterRescue, { characters: characters || [], onRescue: onRescueChar, toast: toast });
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),

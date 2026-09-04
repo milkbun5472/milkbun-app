@@ -16961,6 +16961,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onImport: doImport,
     onOffloadChats: offloadAllChats,
     onPruneOld: pruneRegenerables,
+    // 用【原来那个 id】把失联的角色建回来：id 一对上，云端的记忆和归档聊天自己就接回来了
+    onRescueChar: c => {
+      if (!c || !c.id) return;
+      pC(p => p.some(x => x.id === c.id) ? p : [...p, c]);
+      toast("已把「" + c.name + "」建回来了——去人格档案馆补人设和头像");
+    },
     onClearAll: () => {
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
       location.reload();
