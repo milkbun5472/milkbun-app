@@ -712,7 +712,7 @@ function glassLabelInk(onWallpaper, t) {
 // 一片玻璃：radius 圆角，tone 是这个 app 自己的光（可空），children 放在玻璃上面
 // 自带图的 app 图标（不是线稿那一套，是一张真的画）。
 // 主屏那一格是 62×62 的玻璃，图按 cover 铺满、圆角 16——跟她自己换的图标同一个落法。
-const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.webp" };
+const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.png" };
 // ⚠️「这个 app 该显示哪张图」只许有这一个答案（她 2026-09-03 报：
 //   「他在文件夹里文件夹小图显示不出来换上的，还是原来的丑鸟」）。
 //   同一个形状今天犯了两次：先是文件夹预览不认【她自己换的图标】，

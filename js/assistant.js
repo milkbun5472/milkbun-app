@@ -697,7 +697,7 @@
     const z = props.size || 34, r = props.radius != null ? props.radius : z / 2;
     return h("div", { style: { width: z, height: z, borderRadius: r, flexShrink: 0, overflow: "hidden",
       background: "#f7ecd6", display: "block" } },
-      h("img", { src: "img/qiu-avatar.webp", alt: "", draggable: false,
+      h("img", { src: "img/qiu-avatar.png", alt: "", draggable: false,
         style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }));
   }
   window.QiuBird = QiuBird;

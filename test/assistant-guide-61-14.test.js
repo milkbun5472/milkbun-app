@@ -256,7 +256,7 @@ test("两边都有头像框；它默认是她给的那只小鸡", () => {
   // 换过照片就用照片，没换就是那只鸡
   assert.match(src, /cfg\.avatarImage\s*\?\s*h\(Avatar,/);
   const bird = src.slice(src.indexOf("function QiuBird("), src.indexOf("window.QiuBird"));
-  assert.match(bird, /src: "img\/qiu-avatar\.webp"/);
+  assert.match(bird, /src: "img\/qiu-avatar\.png"/);
   // 仍旧不许外链、不许把图 base64 塞进 js（那是要跟着 PWA 一起装的东西）
   assert.doesNotMatch(bird, /https?:|base64/, "头像不许外链或内嵌 base64");
   // 原图带透明底，得自己垫一层，否则深色主题下浅黄糊进背景只剩两只眼睛
@@ -632,7 +632,7 @@ test("退不了的那两种要明说，不许假装能退", () => {
 test("秋秋的 app 图标用她给的那张画；线稿那只留着当兜底", () => {
   // v61.43：走的是【和她自己换图标同一条路】——填进 customSrc，不另开一支渲染。
   const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
-  assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.webp" \};/);
+  assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.png" \};/);
   // v61.44：收成一个 appIconSrc——主屏磁贴、文件夹小图、拖动虚影都问它
   assert.match(comp, /const customSrc = appIconSrc\(appKey\);/, "自带图没接进那条现成的路");
   // 她在主题工作台换过的话仍旧她说了算（iconRef 在自带图前面）
