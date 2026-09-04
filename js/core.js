@@ -296,6 +296,39 @@ const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circl
 // 时光胶囊：沙漏
 const GCapsule = p => h(Svg, p, h("path", { d: "M7 3.5h10M7 20.5h10" }), h("path", { d: "M8.2 3.5v2.2c0 2.6 2.3 3.9 3.8 5.3 1.5-1.4 3.8-2.7 3.8-5.3V3.5M8.2 20.5v-2.2c0-2.6 2.3-3.9 3.8-5.3 1.5 1.4 3.8 2.7 3.8 5.3v2.2" }), h("path", { d: "M10.4 18.6h3.2" }));
 
+// 天气：一套线条画的天象（她 2026-09-04：「一起换了吧」——主屏上最后几个 emoji）。
+// kind 由 wmoKind(code) 给：sun / partly / cloud / fog / storm / snow / rain。
+// ⚠️和别的图标同一套画法（24 格、只描边、颜色从外面传），换主题跟着走。
+const GWx = p => {
+  const k = p && p.kind;
+  const cloud = h("path", { d: "M7.6 19h9.1a3.4 3.4 0 000-6.8 4.8 4.8 0 00-9.2 1.1 2.9 2.9 0 00.1 5.7z" });
+  const sun = h(React.Fragment, null,
+    h("circle", { cx: "12", cy: "9.5", r: "3.6" }),
+    h("path", { d: "M12 2.4v1.8M12 14.8v1.8M4.6 9.5h1.8M17.6 9.5h1.8M6.8 4.3l1.3 1.3M15.9 13.4l1.3 1.3M17.2 4.3l-1.3 1.3M8.1 13.4l-1.3 1.3" }));
+  if (k === "sun") return h(Svg, p, sun);
+  if (k === "cloud") return h(Svg, p, cloud);
+  if (k === "fog") return h(Svg, p, cloud, h("path", { d: "M5 21.4h6M13.5 21.4h5.5" }));
+  if (k === "storm") return h(Svg, p, cloud, h("path", { d: "M12.6 20.4l-2 2.9h3l-2 3" }));
+  if (k === "snow") return h(Svg, p, cloud, h("path", { d: "M8.5 21.4v2.2M7.5 22.5h2M14.5 21.4v2.2M13.5 22.5h2" }));
+  if (k === "rain") return h(Svg, p, cloud, h("path", { d: "M9 21v2.4M12.5 21v2.4M16 21v2.4" }));
+  // partly：云后面露半个太阳
+  return h(Svg, p,
+    h("circle", { cx: "9.4", cy: "8.2", r: "3" }),
+    h("path", { d: "M9.4 2.6v1.5M4.9 8.2H3.4M5.9 4.7L4.8 3.6M12.9 4.7L14 3.6M14.9 8.2h1" }),
+    h("path", { d: "M10.6 19.6h6.6a3.1 3.1 0 000-6.2 4.4 4.4 0 00-8.4 1 2.7 2.7 0 001.8 5.2z" }));
+};
+// wmo 天气码 → 上面那七种画法（和 engine.js 的 wmoEmoji 一一对应）
+function wmoKind(c) {
+  if (c === 0 || c === 1) return "sun";
+  if (c === 2) return "partly";
+  if (c === 3) return "cloud";
+  if (c === 45 || c === 48) return "fog";
+  if (c >= 95) return "storm";
+  if (c >= 71 && c <= 86 && c !== 80 && c !== 81 && c !== 82) return "snow";
+  if (c >= 51) return "rain";
+  return "partly";
+}
+
 // ============================================================
 // 页面皮肤 pageSkin —— 让每一页长成一件东西，不是一块米白
 // ============================================================
