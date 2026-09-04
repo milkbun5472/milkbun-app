@@ -3100,8 +3100,11 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   }
 
   // —— 书封面（默认）——
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "问答小本", en: partner.name, onBack }),
+  // 这一本躺在【点阵纸】上（v62.44）：本子是本子，桌上那张纸是纸——
+  // 底纹铺外壳、顶栏透上来（mobile-ui-layout §3.5），也不跟着滚。
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+    backgroundImage: "radial-gradient(circle,rgba(120,110,80,.14) 1px,rgba(0,0,0,0) 1.2px)", backgroundSize: "17px 17px" } },
+    h(Head, { zh: "问答小本", en: partner.name, onBack, bg: "transparent" }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       // ── 封面重做（v62.13）：原来是粉紫渐变卡 + 「OUR Q&A」+ 白圆加号——换个 app 照样成立。
       // 它是一本【本子】，就长成一本布面精装本：织纹布面、左侧真书脊（凹槽压线）、
@@ -3129,7 +3132,14 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
         h("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginRight: 18 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(232,201,143,.7)" } }, "已答 " + mine.length + " / " + bankTotal + " 题"),
           h("button", { onClick: () => { draw(); setMode("draw"); }, "aria-label": "翻一张新题", className: "active:opacity-80", style: { width: 46, height: 46, borderRadius: 999, background: "rgba(0,0,0,.22)", border: "1px solid rgba(232,201,143,.5)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPlus, { size: 22, color: "#e8c98f" })))),
-      mine.length ? h("button", { onClick: () => { setPageIdx(0); setMode("pages"); }, className: "w-full active:opacity-70", style: { marginTop: 16, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14 } }, "翻开看过往（" + mine.length + "）") : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 16 } }, "还没答过题——点封面右下角 ＋ 翻第一张"),
+      // 「翻开看过往」原来是一块纯黑药丸压在那本布面书下面（v62.44 换掉）：
+      // 它是这本本子的一部分，就该长成本子上那条【书签带】——布面同色、烫金字、
+      // 底下一个燕尾缺口。
+      mine.length ? h("button", { onClick: () => { setPageIdx(0); setMode("pages"); }, className: "active:opacity-80",
+        style: { position: "relative", display: "block", width: "58%", margin: "0 auto", minHeight: 44,
+          background: "linear-gradient(180deg,#7a3548,#5e2635)", color: "#e8c98a", fontFamily: F_DISPLAY, fontSize: 14.5,
+          padding: "12px 0 20px", borderRadius: "0 0 2px 2px", boxShadow: "0 8px 18px rgba(60,20,32,.26)",
+          clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 11px), 0 100%)" } }, "翻开看过往（" + mine.length + "）") : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 16 } }, "还没答过题——点封面右下角 ＋ 翻第一张"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
 }
 
@@ -3704,7 +3714,11 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
   // 顶栏也换成紧凑标题栏（mobile-ui-layout §1）：原来那块 30px 的「我们的情书」
   // 大标题 + 「Letters」眉标，跟读信页那块被拆掉的框是同一种东西——一整屏最上面
   // 先扣掉六七十像素去说这一页叫什么，而这一页叫什么，进来的人本来就知道。
-  return h("div", { className: "h-full flex flex-col" },
+  // 底纹铺在【外壳】上（v62.44，她 2026-09-04：「收着的这些除了交换日记背景也都没做」）。
+  // 情书这一叠底下垫的是【航空信封那圈斜条边】：一道道细斜纹，跟横格的日记本、
+  // 竖格的字据一眼分得开。顶栏透明让它透上来（.claude/rules/mobile-ui-layout.md §3.5）。
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+    backgroundImage: "repeating-linear-gradient(45deg,rgba(176,141,82,.055) 0 5px,rgba(0,0,0,0) 5px 13px,rgba(150,90,90,.04) 13px 18px,rgba(0,0,0,0) 18px 26px)" } },
     h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { width: 32 } }),   // 右边有两颗键，这儿垫一格，标题才真在正中
@@ -3824,13 +3838,18 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
 function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
   const t = useTheme();
   const list = (items || []).filter(x => x.characterId === partner.id);
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "他记得的那一版", en: partner.name, onBack: onBack }),
+  // 底纹（v62.44）：这一页摊的是【同一件事的两份笔迹】，所以底是一张对折过的大纸——
+  // 正中一道竖折痕（暗-亮-暗三层夹出来的），两边各一半。铺在外壳、顶栏透上来。
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+    backgroundImage: "linear-gradient(90deg,rgba(0,0,0,0) calc(50% - 6px),rgba(120,95,55,.07) calc(50% - 2px),rgba(255,255,255,.30) 50%,rgba(120,95,55,.07) calc(50% + 2px),rgba(0,0,0,0) calc(50% + 6px))" } },
+    h(Head, { zh: "他记得的那一版", en: partner.name, onBack: onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
         "挑一件你俩都在场的事，让 " + partner.name + " 写他记得的那一版。他留意到的，多半跟你记下来的不是同一处。"),
-      h("button", { onClick: onGen, disabled: busy, className: "w-full active:opacity-80",
-        style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", marginBottom: 18, opacity: busy ? 0.5 : 1 } },
+      // 这一页整片是纸，那颗按钮就别是一块纯黑药丸（v62.44）：一条纸带，虚线边。
+      h("button", { onClick: onGen, disabled: busy, className: "w-full active:opacity-75 disabled:opacity-50",
+        style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#6b5a45", background: "#fbf6ea", border: "1px dashed rgba(140,115,70,.45)",
+          borderRadius: 3, padding: "13px 0", marginBottom: 18, minHeight: 44, boxShadow: "0 4px 11px rgba(90,70,40,.08)" } },
         busy ? "他在想…" : "挑一件事，问问他记得的"),
       // ── 一张对折又摊开的纸（v62.17）：这一页的内容本来就是【同一件事的两份笔迹】——
       // 上半是她那面（她记下的那版），中间一道真的折缝（凹痕：暗-亮-暗三层夹出来的），
@@ -3871,43 +3890,77 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const [dueVal, setDueVal] = useState("");
   const open = (pacts && pacts.open) || [], due = (pacts && pacts.due) || [];
   const dueOf = memId => due.find(x => x.memId === memId);
-  const dayStr = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const leftOf = ts => { const n = Math.ceil((ts - Date.now()) / 86400000); return n > 0 ? "还有 " + n + " 天" : n === 0 ? "就是今天" : "已经过了 " + (-n) + " 天"; };
   const toTs = v => { const d = new Date(v + "T09:00:00"); return isNaN(d.getTime()) ? 0 : d.getTime(); };
-  const inp = { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", width: "100%", outline: "none" };
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们说好的", en: partner.name, onBack: onBack }),
+  // ── v62.44（她 2026-09-04：「我们说好的里面还是一条条很无聊」）────────────
+  // 上一版是一条条圆角框 + 一排文字链（挑个日子／不催了／做到了／算了）——
+  // 换个 app 照样成立，而且这一页真正的动作【挑哪一天】被藏成了一个小灰字。
+  // 「说好的」在现实里是一张【字据】：话写在纸上，日子挂在旁边，办到了盖个印。
+  // 所以：每条＝一张宣纸字据（骑缝竖线、方角、微歪）；
+  //       日子＝挂在右边的那张挂历页（跟情侣空间倒数、我们的日子是同一张 CalPage，
+  //             一处画、处处用）——没挑日子时它是空白的一页，**点它本身就是挑日子**；
+  //       做到了＝盖一枚朱红的方印「践」，不是一个文字链。
+  const PAPER = "#faf4e6", PLINE2 = "rgba(140,115,70,.28)", PINK2 = "#4c4130", PFOG = "#9b8a6c";
+  const inp = { fontFamily: F_BODY, fontSize: 13.5, color: PINK2, background: "rgba(255,255,255,.55)", border: "1px solid " + PLINE2, borderRadius: 4, padding: "10px 12px", width: "100%", outline: "none" };
+  // 骑缝：字据右边那条竖线，跟纸一样高
+  const creaseAt = (right, bottom) => h("span", { "aria-hidden": "true", style: { position: "absolute", top: 8, bottom: bottom, right: right, width: 1, background: "repeating-linear-gradient(180deg," + PLINE2 + " 0 4px,rgba(0,0,0,0) 4px 8px)" } });
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+    // 契纸的竖格：一条条淡淡的竖线，跟横格的日记本一眼分得开
+    backgroundImage: "repeating-linear-gradient(90deg,rgba(140,115,70,.05) 0 1px,rgba(0,0,0,0) 1px 24px)" } },
+    h(Head, { zh: "我们说好的", en: partner.name, onBack: onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
-        "这里的每一条都是你们【真说过】的——线下和通话结束时自己攒进来的，不是你手打的愿望（那是心愿单）。给一条挑个日子，到那天他会自己提起。"),
-      h("div", { style: { borderRadius: 18, border: "1px dashed " + t.line, padding: "13px 14px", marginBottom: 16 } },
+        "这里的每一条都是你们【真说过】的——线下和通话结束时自己攒进来的，不是你手打的愿望（那是愿望板）。给一条挂上日子，到那天他会自己提起。"),
+      // 新记一条：一张还空着的字据
+      h("div", { style: { position: "relative", borderRadius: 3, border: "1px dashed " + PLINE2, background: "rgba(250,244,230,.5)", padding: "13px 14px", marginBottom: 16 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: PFOG, marginBottom: 8 } }, "自己先记一条"),
         h("input", { value: txt, onChange: e => setTxt(e.target.value), placeholder: "你们说好了什么", style: inp }),
-        h("div", { className: "flex items-center gap-8", style: { marginTop: 9 } },
-          h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: { ...inp, flex: 1 } }),
-          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day) : 0); setTxt(""); setDay(""); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 12, padding: "10px 18px", opacity: txt.trim() ? 1 : 0.45 } }, "记下")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "日子可以不填。填了到那天他会主动来找你说这件事。")),
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 9 } },
+          h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
+          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day) : 0); setTxt(""); setDay(""); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 18px", minHeight: 44 } }, "记下")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, "日子可以不填。填了到那天他会主动来找你说这件事。")),
       open.length ? open.map(m => {
         const d = dueOf(m.id);
-        return h("div", { key: m.id, style: { borderRadius: 18, border: "1px solid " + t.line, background: t.bg2, padding: "14px 15px", marginBottom: 11 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.ink } }, m.text),
-          h("div", { className: "flex items-center flex-wrap", style: { gap: 10, marginTop: 10 } },
-            d ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } },
-              dayStr(d.dueTs) + " · " + leftOf(d.dueTs)) : null,
-            h("button", { onClick: () => { setDueFor(dueFor === m.id ? null : m.id); setDueVal(""); }, className: "active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, d ? "改日子" : "挑个日子"),
-            d ? h("button", { onClick: () => onSetDue(m.id, m.text, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "不催了") : null,
-            h("button", { onClick: () => onClose(m.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginLeft: "auto" } }, "做到了"),
-            h("button", { onClick: () => onClose(m.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "算了")),
-          dueFor === m.id ? h("div", { className: "flex items-center gap-8", style: { marginTop: 10 } },
-            h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: { ...inp, flex: 1 } }),
+        const dd = d ? new Date(d.dueTs) : null;
+        const passed = !!(d && d.dueTs < Date.now() - 86400000);
+        const picking = dueFor === m.id;
+        return h("div", { key: m.id, style: { position: "relative", borderRadius: 3, border: "1px solid " + PLINE2, background: PAPER,
+          padding: "14px 15px 12px", marginBottom: 13, transform: "rotate(-0.3deg)", boxShadow: "0 7px 18px rgba(90,70,40,.11)" } },
+          creaseAt(76, 58),
+          h("div", { className: "flex items-start", style: { gap: 12 } },
+            h("div", { className: "flex-1 min-w-0", style: { paddingRight: 8 } },
+              h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.85, color: PINK2 } }, m.text),
+              d ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: passed ? "#b06a5a" : "#8a7a5c", marginTop: 7 } }, leftOf(d.dueTs)) : null),
+            // 挂历页本身就是「挑个日子」那颗按钮：没挑过是空白的一页
+            h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); }, className: "shrink-0 active:opacity-75",
+              style: { width: 64, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 2px" } },
+              h(CalPage, { w: 44, dim: !d || passed,
+                month: dd ? dd.getMonth() + 1 : undefined, day: dd ? dd.getDate() : undefined,
+                head: dd ? undefined : "　", body: dd ? undefined : "？" }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: PFOG, marginTop: 4 } }, d ? (picking ? "换一天" : "改日子") : "挑个日子"))),
+          picking ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+            h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
             h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal)); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 12, padding: "9px 16px" } }, "就这天")) : null);
+              style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 16px", minHeight: 44 } }, "就这天"),
+            d ? h("button", { onClick: () => { onSetDue(m.id, m.text, 0); setDueFor(null); }, className: "shrink-0 active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 4px" } }, "不催了") : null) : null,
+          // 办到了＝盖一枚朱印；作罢是一句小字，不跟它抢分量
+          h("div", { className: "flex items-center justify-between", style: { marginTop: 10, borderTop: "1px solid rgba(140,115,70,.16)", paddingTop: 8 } },
+            h("button", { onClick: () => onClose(m.id), className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 40, padding: "0 2px" } }, "作罢"),
+            h("button", { onClick: () => onClose(m.id), className: "active:opacity-75", style: { minHeight: 40, padding: "2px 0" } },
+              h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 3,
+                background: "#a83c30", border: "1.5px solid #8c2f25", color: "#fff5f0", transform: "rotate(-7deg)",
+                boxShadow: "0 2px 5px rgba(120,40,30,.26)", fontFamily: F_DISPLAY, fontSize: 17 } }, "践"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: PFOG, marginLeft: 8 } }, "做到了"))));
       }) : h(Empty, { text: "还没有说好的事", sub: "跟 " + partner.name + " 线下相处或打完电话，说定的事会自己攒到这儿来。也可以自己先记一条。" }),
       due.filter(x => !x.memId).length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, null, "他说好要来找你的"),
-        due.filter(x => !x.memId).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8, padding: "9px 0", borderBottom: "1px solid " + t.line } },
-          x.about + "　", h("span", { style: { fontSize: 11, color: t.tint } }, leftOf(x.dueTs))))) : null));
+        due.filter(x => !x.memId).map(x => h("div", { key: x.id, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderBottom: "1px solid rgba(140,115,70,.18)" } },
+          h("span", { "aria-hidden": "true", style: { width: 4, height: 4, borderRadius: 999, background: "#a83c30", flexShrink: 0 } }),
+          h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8 } }, x.about),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, flexShrink: 0 } }, leftOf(x.dueTs))))) : null));
 }
 function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onGenWish, wishGen, onBack }) {
   const t = useTheme();
