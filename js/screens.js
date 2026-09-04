@@ -3678,18 +3678,38 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
   const t = useTheme();
   const [draft, setDraft] = useState(() => Object.assign({}, data || {}));
   const filled = COUPLE_ARCHIVE_FIELDS.filter(f => String(draft[f[0]] || "").trim()).length;
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的档案", en: partner.name, onBack }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-      h("div", { style: { border: "1px solid " + t.line, borderRadius: 20, background: t.bg2, padding: "18px 17px", marginBottom: 16 } },
-        h(Eyebrow, null, "只由你亲手写入"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 8 } }, filled ? "收好了 " + filled + " 页" : "从一张空白档案开始"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, marginTop: 5 } }, "这里不会从普通聊天或记忆库自动填字。你写下什么，才留下什么。")),
-      COUPLE_ARCHIVE_FIELDS.map(([key, title, hint]) => h("label", { key, style: { display: "block", borderBottom: "1px solid " + t.line, padding: "15px 0" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, hint),
-        h("textarea", { value: draft[key] || "", onChange: e => setDraft(d => ({ ...d, [key]: e.target.value })), rows: 3, placeholder: "写在这里……", className: "w-full outline-none resize-none", style: { marginTop: 10, borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "11px 12px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65 } }))),
-      h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 20, borderRadius: 15, background: t.ink, color: t.bg2, padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15 } }, "封存这份档案")));
+  // ── 档案夹（v62.16）：它叫「档案」，原来长得是设置页表单。现在是一只牛皮纸夹：
+  // 夹面系着绕线扣，里面七张档案页——每张页顶伸出一枚索引标签（上圆下方，
+  // 贴着页边、一页一个位置错开），照账本 TallyView 那套索引标签语言。
+  // 配色整套写死：夹和纸都是写死的浅色，字色跟主题走会在深色主题下失明。
+  const KRAFT = "#cdb488", PAGE = "#fbf6ea", AINK = "#4a3d28", AFOG = "#9a8a6a";
+  const TABC = ["#b0885a", "#a06a54", "#8a7a5c", "#7a8a6a", "#6a7a8a", "#8a6a7a", "#9a8a5a"];
+  return h("div", { className: "h-full flex flex-col", style: {
+    background: KRAFT,
+    backgroundImage: "repeating-linear-gradient(97deg, rgba(120,90,45,.05) 0 2px, transparent 2px 14px), radial-gradient(120% 70% at 50% -8%, rgba(255,248,230,.5), transparent 60%)",
+    boxShadow: "inset 0 0 42px rgba(110,80,35,.22)" } },
+    h(Head, { zh: "我们的档案", en: partner.name, onBack, bg: "transparent", ink: "#42311a" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      // 夹面：绕线扣（两个纸扣、一圈线绕过去）——只有档案袋才有这个
+      h("div", { style: { position: "relative", marginTop: 12, borderRadius: 4, background: "rgba(255,250,238,.34)", border: "1px solid rgba(110,80,35,.28)", padding: "16px 15px 14px", marginBottom: 18 } },
+        h("div", { "aria-hidden": "true", style: { position: "absolute", right: 16, top: -8, width: 17, height: 17, borderRadius: 999, background: "#b09468", border: "1.5px solid rgba(90,65,25,.5)", boxShadow: "0 1px 2px rgba(90,65,25,.3)" } }),
+        h("div", { "aria-hidden": "true", style: { position: "absolute", right: 44, top: 6, width: 13, height: 13, borderRadius: 999, background: "#b09468", border: "1.5px solid rgba(90,65,25,.5)" } }),
+        h("div", { "aria-hidden": "true", style: { position: "absolute", right: 22, top: -2, width: 30, height: 16, borderBottom: "1.5px solid rgba(90,65,25,.55)", borderRadius: "0 0 60% 40%", transform: "rotate(14deg)" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".22em", color: "#7a6238" } }, "只由你亲手写入"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#42311a", marginTop: 7 } }, filled ? "收好了 " + filled + " 页" : "从一张空白档案开始"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: "#7a6238", marginTop: 5 } }, "这里不会从普通聊天或记忆库自动填字。你写下什么，才留下什么。")),
+      COUPLE_ARCHIVE_FIELDS.map(([key, title, hint], fi) => h("label", { key, style: { display: "block", position: "relative", marginTop: fi ? 14 : 0 } },
+        // 索引标签：长在页顶、一页一个位置错开——一叠翻得到的档案页
+        h("div", { style: { position: "relative", zIndex: 1, marginLeft: (fi % 4) * 23 + "%", display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "72%",
+          borderRadius: "8px 8px 0 0", padding: "6px 13px 5px", background: TABC[fi % TABC.length], color: "#fff",
+          fontFamily: F_BODY, fontSize: 11.5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 10, opacity: 0.75 } }, "0" + (fi + 1)),
+          h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+          String(draft[key] || "").trim() ? h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: "rgba(255,255,255,.85)", flexShrink: 0 } }) : null),
+        h("div", { style: { position: "relative", background: PAGE, borderRadius: fi % 4 === 0 ? "0 4px 4px 4px" : 4, border: "1px solid rgba(150,120,70,.3)", borderTopColor: TABC[fi % TABC.length], borderTopWidth: 2, padding: "11px 13px 13px", boxShadow: "0 5px 14px rgba(110,80,35,.16)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: AFOG } }, hint),
+          h("textarea", { value: draft[key] || "", onChange: e => setDraft(d => ({ ...d, [key]: e.target.value })), rows: 3, placeholder: "写在这里……", className: "w-full outline-none resize-none", style: { marginTop: 7, background: "transparent", borderBottom: "1px dashed rgba(150,120,70,.35)", color: AINK, padding: "4px 2px 8px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7 } })))),
+      h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 22, borderRadius: 10, background: "#42311a", color: "#f5ecd8", padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15, boxShadow: "0 6px 16px rgba(66,49,26,.3)" } }, "封存这份档案")));
 }
 
 // 情侣空间·他记得的那一版（v58.85，她 2026-08-31 的 c）。
