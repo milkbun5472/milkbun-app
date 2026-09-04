@@ -3862,7 +3862,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
         due.filter(x => !x.memId).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8, padding: "9px 0", borderBottom: "1px solid " + t.line } },
           x.about + "　", h("span", { style: { fontSize: 11, color: t.tint } }, leftOf(x.dueTs))))) : null));
 }
-function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
+function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onBack }) {
   const t = useTheme();
   const wishes = Array.isArray(data) ? data : [];
   const [title, setTitle] = useState("");
@@ -3913,6 +3913,17 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
         h("div", { className: "flex flex-wrap", style: { marginTop: 6 } }, ["一起做", "一起去", "一起吃", "一起学", "想送 TA"].map(x => stamp(type === x, x, "#8a6a3a", () => setType(x)))),
         h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "可选：为什么想做、已经约到哪一步", className: "w-full outline-none resize-none", style: { marginTop: 4, background: "transparent", borderBottom: "1px dashed #d5c7a4", padding: "6px 2px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: paperInk } }),
         h("button", { onClick: add, disabled: !title.trim(), className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 11, borderRadius: 8, background: "#4a3d2b", color: "#fbf5e6", padding: "10px 12px", fontFamily: F_DISPLAY, fontSize: 14 } }, "钉到板上")),
+      // 走过/正走着的旅行：板上钉一张小机票当入口（v62.26 旅行不开新门，全从这儿进）
+      (trips && trips.length && onOpenTrips) ? h("button", { onClick: onOpenTrips, className: "w-full text-left active:opacity-80",
+        style: { position: "relative", marginTop: 14, padding: "11px 13px", background: "#f2ead6", borderRadius: 2,
+          transform: "rotate(0.5deg)", boxShadow: "0 5px 12px rgba(70,45,15,.24)", minHeight: 44 } },
+        pin("b"),
+        h("div", { className: "flex items-center", style: { gap: 9 } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: paperInk } },
+              trips.some(t => t.status !== "done") ? "有一趟正走着 · 看登机牌" : "你们的登机牌"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: paperFog, marginTop: 2 } }, "走过 " + trips.filter(t => t.status === "done").length + " 趟")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: paperFog } }, "→"))) : null,
       wishes.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 17, marginTop: 20 } }, wishes.map((w, wi) => {
         const done = w.status === "done", shelved = w.status === "shelved";
         return h("article", { key: w.id, style: { position: "relative", padding: "15px 14px 8px", borderRadius: 2,
@@ -3930,6 +3941,15 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
           w.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#7a6b50", marginTop: 8 } }, w.note) : null,
           h("div", { className: "flex flex-wrap items-center", style: { marginTop: 5, borderTop: "1px dashed #e0d4b4", paddingTop: 2 } },
             Object.keys(statusMeta).map(k => stamp(w.status === k, statusMeta[k][0], statusMeta[k][1], () => patchWish(w.id, { status: k })))),
+          // 「一起去」的能出发（v62.26）：从这条愿望长出一趟真的旅行
+          (function () {
+            if (w.type !== "一起去" || w.status === "done" || w.status === "shelved" || !onDepart) return null;
+            const going = trips && trips.some(t => t.status !== "done");
+            return h("div", { style: { margin: "2px 0 8px" } },
+              h("button", { onClick: () => going ? (onOpenTrips && onOpenTrips()) : onDepart(w), className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } },
+                going ? "旅途中 · 看登机牌" : "出发 · 把它变成一趟真的旅行"));
+          })(),
           // 已计划的可以挑个日子：到那天他会主动来约这件事（约回链，不是提醒闹钟）
           (function () {
             if (w.status !== "planned" || !onPlan) return null;
@@ -3945,6 +3965,73 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
               : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } }, "挑个日子 · 到那天他来约"));
           })());
       })) : h("div", { style: { margin: "26px 4px 0", padding: "30px 16px", textAlign: "center", border: "1.5px dashed rgba(70,45,15,.35)", borderRadius: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#5c4726", lineHeight: 1.9 } }, "板上还空着。", h("br"), "先钉一件不急着完成、但不想忘记的事。")));
+}
+
+// ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）──────────────────────────────
+// 整页（no-half-sheet）。它长成【一张登机牌 + 他手写批注的行程册】：现实里一趟旅行
+// 留在手里的就是这两样。从愿望板「一起去」进来，返回也回愿望板（一层层退）。
+// 配色整套写死（票纸写死浅色，字色跟主题走会在深色主题下失明——信纸那套的老课）。
+function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
+  const t = useTheme();
+  const cur = (trips || []).find(x => x && x.status !== "done") || null;
+  const done = (trips || []).filter(x => x && x.status === "done");
+  const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
+  const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h(Head, { zh: "旅行", sub: partner.remark || partner.name, onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { overscrollBehavior: "contain" } },
+      cur ? h(Fragment, null,
+        // ── 登机牌：上一条深带（你们俩），主体目的地大字，右侧竖撕线 + 存根 ──
+        h("div", { style: { position: "relative", marginTop: 14, borderRadius: 6, overflow: "hidden",
+          background: TP, boxShadow: "0 10px 24px rgba(70,50,15,.18)", transform: "rotate(-0.6deg)" } },
+          h("div", { className: "flex items-center", style: { background: "#43371f", padding: "8px 14px", gap: 8 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, "你"),
+            h("span", { style: { flex: 1, borderTop: "1px dashed rgba(246,240,223,.4)", position: "relative" } },
+              h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -4, width: 7, height: 7, borderRadius: 999, background: "#f6f0df", marginLeft: -3 } })),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, partner.remark || partner.name)),
+          h("div", { className: "flex items-stretch" },
+            h("div", { style: { flex: 1, minWidth: 0, padding: "14px 14px 13px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "这一趟去"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: TIN, lineHeight: 1.25, marginTop: 4, wordBreak: "break-word" } }, cur.dest || "还没定"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TFOG, marginTop: 7 } },
+                "起意于 " + fmtD(cur.ts) + (cur.plan && cur.plan.title ? " · 「" + cur.plan.title + "」" : ""))),
+            // 撕线 + 存根：真票根的撕线是竖的，两端各咬一个半圆
+            h("div", { style: { position: "relative", width: 0, borderLeft: "1px dashed " + TLINE } },
+              h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, top: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } }),
+              h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, bottom: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } })),
+            h("div", { style: { width: 56, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".2em", color: TFOG } }, "存根"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: TIN } }, String(cur.id || "").slice(-4))))),
+        // ── 行程册：他排的，每一段带着说给你听的那句 ──
+        cur.plan ? h("div", { style: { marginTop: 16 } },
+          h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 8 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, partner.name + " 排的行程"),
+            h("button", { onClick: onPlan, disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 32 } }, gen ? "重排着…" : "让他重排")),
+          cur.plan.legs.map((l, i) => h("div", { key: i, style: { background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "11px 13px", marginBottom: 9,
+            backgroundImage: "repeating-linear-gradient(transparent 0 25px, rgba(190,170,120,.14) 25px 26px)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3987e" } }, l.when || "到时候再说"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#3a3226", marginTop: 3 } }, l.where),
+            l.note ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginTop: 5 } }, "「" + l.note + "」") : null)))
+          : h("button", { onClick: onPlan, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
+            style: { marginTop: 16, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "13px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.tint } },
+            gen ? partner.name + " 排着行程…" : "让 " + partner.name + " 来排这趟的行程"),
+        // ── 两个动作：出发（带着行程开一场线下）· 收行李（零调用归档）──
+        h("button", { onClick: onDepart, className: "w-full active:opacity-70",
+          style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, "出发 · 去线下走这一趟"),
+        h("button", { onClick: onDone, className: "w-full active:opacity-60",
+          style: { marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "9px 0", minHeight: 40 } }, "回来了 · 收行李"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, textAlign: "center", marginTop: 4 } },
+          "出发会把这份行程带进一场线下；收行李会把这一趟落进你们的时间轴、愿望自己翻成实现。"))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, textAlign: "center", padding: "30px 14px 6px" } },
+          "现在没有走着的旅行。", h("br"), "去愿望板，在一条「一起去」上按出发。"),
+      // ── 走过的：一叠存根 ──
+      done.length ? h("div", { style: { marginTop: 22 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 9 } }, "走过的"),
+        done.map(x => h("div", { key: x.id, className: "flex items-center", style: { gap: 11, padding: "11px 12px", background: TP, borderRadius: 4, marginBottom: 8, boxShadow: "0 3px 8px rgba(70,50,15,.12)", transform: "rotate(" + ((String(x.id).charCodeAt(4) % 3) - 1) * 0.7 + "deg)" } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: TIN, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.dest + (x.plan && x.plan.title ? " · 「" + x.plan.title + "」" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: TFOG, marginTop: 2 } }, fmtD(x.doneTs) + " 回来")),
+          h("span", { "aria-hidden": "true", style: { fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "2px 6px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "走完")))) : null));
 }
 
 // 情侣空间·我们的唱片（她 2026-09-01）。数据形状 { songs:[{id,neteaseId,title,artist,
@@ -4019,7 +4106,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4030,7 +4117,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   // 漏一处就是那一扇门回来会跳顶，而且看不出来（一层写在两处那个老形状）。
   const bodyRef = useRef(null);
   const subScrollRef = useRef(0);
-  const openSub = k => { subScrollRef.current = bodyRef.current ? bodyRef.current.scrollTop : 0; setSub(k); };
+  // ⚠️子页切子页（愿望板→旅行）时主页没挂着、bodyRef 是 null——这时要【保留】记着的
+  // 位置，不能清成 0，不然从旅行一路退回主页就跳顶。所以只有真拿得到滚动位置才记。
+  const openSub = k => { if (bodyRef.current) subScrollRef.current = bodyRef.current.scrollTop; setSub(k); };
   React.useLayoutEffect(() => {
     if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
   }, [sub]);
@@ -4175,7 +4264,18 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   if (partner && cp[view] && cp[view].status === "together" && sub === "wishes") {
     const home = (coupleHome || {})[partner.id] || {};
     return h(CoupleWishes, { partner, data: home.wishes || [], onSave: wishes => onSaveCoupleHome(partner.id, cur => ({ ...cur, wishes })),
-      onPlan: (wish, ts) => onPlanWish && onPlanWish(partner.id, wish, ts), planOf: wishPlanOf, onBack: () => setSub(null) });
+      onPlan: (wish, ts) => onPlanWish && onPlanWish(partner.id, wish, ts), planOf: wishPlanOf,
+      trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
+      onDepart: wish => { onTripStart && onTripStart(partner.id, wish); openSub("trip"); },
+      onOpenTrips: () => openSub("trip"),
+      onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：旅行（v62.26，从愿望板进，返回也回愿望板——一层层退）
+  if (partner && cp[view] && cp[view].status === "together" && sub === "trip") {
+    return h(CoupleTrip, { partner, trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
+      gen: tripGen === partner.id, onPlan: () => onTripPlan && onTripPlan(partner),
+      onDepart: () => onTripDepart && onTripDepart(partner), onDone: () => onTripDone && onTripDone(partner),
+      onBack: () => openSub("wishes") });
   }
   if (partner && cp[view] && cp[view].status === "together") {
     const days = daysWith(cp[view].since);

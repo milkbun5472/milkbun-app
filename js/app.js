@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.31";
+const APP_VERSION = "v62.32";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -408,6 +408,9 @@ function App() {
   const [makeups, setMakeups] = useState({});
   const makeupsRef = useRef({}); makeupsRef.current = makeups;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
+  const [coupleTrips, setCoupleTrips] = useState([]);
+  const coupleTripsRef = useRef([]); coupleTripsRef.current = coupleTrips;
+  const [tripGen, setTripGen] = useState(null);   // 正在给哪个角色排攻略
   // 情侣唱片(她 2026-09-01,进出规则 09-02 改):每对情侣一张「我们的唱片」。
   // 播放器永远只有一个:进空间【一律换成这张唱片并直接放】(她 2026-09-02 亲口改
   // 的,原来是「空着才落针」,结果她自己有歌在放时唱片一次都没响过);离开时
@@ -940,6 +943,7 @@ function App() {
     setMakeups(loadJSON("x_makeup", {}));
     setOpeners(loadJSON("x_openers", {}));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
+    setCoupleTrips(loadJSON("x_coupleTrips", []));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
     setGachaLuck(loadJSON("x_gachaLuck", {}));
@@ -13612,6 +13616,78 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
   // 而且在这之前发生过的事永远补不回来）。零调用。
+  // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）─────────────────────────────
+  // 不开新门：入口在愿望板「一起去」那一类上。它不是新模块，是把旧件接成一条线：
+  // 愿望（想去哪）→ 他排攻略（全程唯一花调用的一步）→ 带着行程走一场线下（机制现成，
+  // 出发照抽卡兑线下那条先例：startOffline + setOfflineChar，绝不走 openOffline）→
+  // 收行李零调用归档：时间轴落一条、愿望自己翻成「实现了」、凝一条记忆、
+  // 第一次们那册自己看得见「第一次一起旅行」。约出发日不重做——愿望板那条
+  // 「挑个日子他来约」的约回链本来就管这件事。
+  // 存档形状（写入方在这，测试桩照这儿写）：
+  // x_coupleTrips: [{ id, charId, wishId, dest, plan: {title, legs:[{when,where,note}]} | null,
+  //                   planTs, ts, status: "planning"|"done", doneTs }]
+  const saveTrips = updater => setCoupleTrips(p => {
+    const n = typeof updater === "function" ? updater(p) : updater;
+    coupleTripsRef.current = n; saveJSON("x_coupleTrips", n); return n;
+  });
+  const tripStart = (charId, wish) => {
+    const cur = (coupleTripsRef.current || []).find(t => t && t.charId === charId && t.status !== "done");
+    if (cur) { toast("上一趟还没收行李"); return; }
+    saveTrips(p => [{ id: "tp_" + Date.now(), charId: charId, wishId: (wish && wish.id) || "",
+      dest: String((wish && wish.title) || "").replace(/\s+/g, " ").trim().slice(0, 40),
+      plan: null, planTs: 0, ts: Date.now(), status: "planning", doneTs: 0 }, ...p]);
+  };
+  const tripPlanGen = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip) return;
+    setTripGen(char.id);
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你们是恋人。你们俩定下来要一起去「" + trip.dest + "」——现在由你来排这趟旅行。"
+          + "以「" + char.name + "」的身份出 3-6 段行程：每段一个 when（哪一天的什么时段）、"
+          + "一个 where（具体到店、街、馆那一级，不是城市名）、一句 note——【为什么带 Ta 去这儿】，"
+          + "是说给 Ta 听的那一句。\n"
+          + "· note 的判据：**换一对情侣照样成立的那一句，就是排坏了**——它得连着你俩之间"
+          + "真实发生过的某件事、某个只有你们才有的偏好。\n"
+          + "· 行程要看得出是你排的：你会想去哪、会绕开什么、会在哪儿肯多待一会儿，都按你的人设来；"
+          + "别排成攻略网站那种从早满到晚——你们是去相处的，不是去打卡的。\n"
+          + "· title 给这趟起个只有你们懂的名字，不是「某地几日游」那种。",
+        schemaHint: "{\"title\":\"这趟旅行你起的名字\",\"legs\":[{\"when\":\"哪一天的什么时段\",\"where\":\"具体去哪儿\",\"note\":\"为什么带 Ta 去这儿——说给 Ta 听的一句\"}]}",
+        maxTokens: 12000
+      });
+      const legs = (Array.isArray(d && d.legs) ? d.legs : []).map(l => ({
+        when: String((l && l.when) || "").slice(0, 24), where: String((l && l.where) || "").slice(0, 40),
+        note: String((l && l.note) || "").replace(/\s+/g, " ").trim().slice(0, 80)
+      })).filter(l => l.where).slice(0, 6);
+      if (!legs.length) throw new Error("他没排出来，重试下");
+      saveTrips(p => p.map(t => t.id === trip.id ? { ...t, plan: { title: String((d && d.title) || "").slice(0, 24), legs: legs }, planTs: Date.now() } : t));
+    } catch (e) { toast("失败：" + (e.message || "重试")); }
+    finally { setTripGen(null); }
+  };
+  const tripDepart = async char => {
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip) return;
+    const legs = ((trip.plan && trip.plan.legs) || []).map(l => "· " + [l.when, l.where].filter(Boolean).join("，") + (l.note ? "——" + l.note : "")).join("\n");
+    const opening = "你和 " + char.name + " 的「" + trip.dest + "」之行开始了"
+      + (trip.plan && trip.plan.title ? "（" + char.name + " 给这趟起的名字：" + trip.plan.title + "）" : "")
+      + "。此刻你们刚到。" + (legs ? "\n" + char.name + " 排的行程：\n" + legs : "");
+    // ⚠️照抽卡兑线下那条的先例走：开场之后只把线下那层掀起来——那条会从存储重读一遍的路不许走，它会把刚开的这场盖掉
+    await startOffline(char.id, { opening: opening });
+    setOfflineChar(char);
+  };
+  const tripDone = char => {
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip) return;
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, status: "done", doneTs: Date.now() } : t));
+    // 零调用归档：时间轴一条 + 愿望自己翻成实现 + 凝一条记忆。第一次们那册按推导自己看得见。
+    addTimelineEvent(char, ymd(new Date()), ("去了" + trip.dest).slice(0, 20), trip.plan && trip.plan.title ? "「" + trip.plan.title + "」" : "");
+    if (trip.wishId) saveCoupleHome(char.id, cur => ({ ...cur, wishes: (Array.isArray(cur.wishes) ? cur.wishes : []).map(w => w.id === trip.wishId ? { ...w, status: "done", updatedAt: Date.now() } : w) }));
+    coupleKeep(char.id, (profile.name || "她") + "和" + char.name + "一起去了一趟「" + trip.dest + "」"
+      + (trip.plan && trip.plan.title ? "，他给这趟起的名字是「" + cSnip(trip.plan.title, 20) + "」" : ""), "旅行");
+    toast("收好了——这一趟进了你们的时间轴");
+  };
   const coupleFirstsFor = cid => {
     if (!window.CoupleFirsts) return [];
     const cp = (couplesRef.current || {})[cid] || {};
@@ -13630,7 +13706,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 里程碑册要的是「第一张纸条是什么时候」，那件事发生过就该算数。
       notes: (coupleNotesRef.current || []).filter(x => x.characterId === cid),
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
-      cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
+      cards: (gachaCardsRef.current || []).filter(x => x.charId === cid),
+      trips: (coupleTripsRef.current || []).filter(x => x && x.charId === cid)
     }, Date.now());
   };
   // 把照相馆拍的这张发到和他的聊天里（她 2026-08-31：「照片馆生成的照片应该也自动有
@@ -16736,6 +16813,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSealQA: sealCoupleQA,
     onRevealQA: revealCoupleQA,
     onPlanWish: planWish,
+    coupleTrips: coupleTrips,
+    onTripStart: tripStart,
+    onTripPlan: tripPlanGen,
+    onTripDepart: tripDepart,
+    onTripDone: tripDone,
+    tripGen: tripGen,
     wishPlanOf: wishPlanOf,
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,

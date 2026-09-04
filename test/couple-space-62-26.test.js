@@ -49,8 +49,10 @@ test("如果馆没东西时那句改成「同样的我们」", () => {
 });
 
 test("从子页回来不许跳回最上面——而且每一扇门都得走同一个出口", () => {
-  assert.match(scr, /const openSub = k => \{ subScrollRef\.current = bodyRef\.current \? bodyRef\.current\.scrollTop : 0; setSub\(k\); \};/,
-    "没有「进子页先记位置」这一步");
+  // v62.26 起子页也能切子页（愿望板→旅行）：主页没挂着时 bodyRef 是 null，
+  // 这时要【保留】记着的位置而不是清成 0——所以只有真拿得到才记。
+  assert.match(scr, /const openSub = k => \{ if \(bodyRef\.current\) subScrollRef\.current = bodyRef\.current\.scrollTop; setSub\(k\); \};/,
+    "没有「进子页先记位置」这一步（或 null 时又清成 0 了）");
   assert.match(scr, /if \(sub === null && bodyRef\.current && subScrollRef\.current > 0\) bodyRef\.current\.scrollTop = subScrollRef\.current;/,
     "回来时没放回去");
   assert.match(scr, /h\("div", \{ ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto"/, "滚动容器没挂 ref，记了也放不回去");

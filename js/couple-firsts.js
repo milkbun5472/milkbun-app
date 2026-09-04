@@ -65,6 +65,10 @@
     const pact = firstOf(D.pacts, function (p) { return p.ts; });
     add("pact", "第一件说好的事", pact && pact.t, pact ? trim(pact.x.text, 26) : "");
 
+    // 旅行（v62.26）：收了行李（status done）才算走完了一趟
+    const tp = firstOf(D.trips, function (t) { return t.doneTs; }, function (t) { return t.status === "done"; });
+    add("trip", "第一次一起旅行", tp && tp.t, tp ? trim(tp.x.dest, 20) : "");
+
     const card = firstOf(D.cards, function (c) { return c.ts; });
     add("card", "第一次抽卡", card && card.t, card ? card.x.r + "·" + trim(card.x.name, 16) : "");
     const ssr = firstOf(D.cards, function (c) { return c.ts; }, function (c) { return c.r === "SSR"; });

@@ -77,12 +77,15 @@ test("能复用现成 SVG 的地方就复用（打卡、起始日）", () => {
 test("并排那两张卡各自是一样真东西，不是压了个水印的圆角框", () => {
   assert.ok(seg.indexOf("fontSize: 82, lineHeight: 1") < 0, "那两个大水印字又回来了");
   // 档案＝档案夹：伸出来的索引标签 + 露出来的纸边 + 绕线扣（跟点进去那一页同一套语言）
-  const a = seg.slice(seg.indexOf('openSub("archive")'), seg.indexOf('openSub("wishes")'));
+  // ⚠️v62.32 起旅行页的返回键也引用 openSub("wishes")，而且出现在主页卡片【之前】——
+  // 终点锚要从档案卡之后数起，不然这一刀切出来是空的
+  const a = seg.slice(seg.indexOf('openSub("archive")'), seg.indexOf('openSub("wishes")', seg.indexOf('openSub("archive")')));
   assert.match(a, /borderRadius: "0 0 7px 7px"/, "档案夹上那枚索引标签没了");
   assert.match(a, /background: "linear-gradient\(90deg,#fbf6ea,#efe6d2\)"/, "右边露出来的纸边没了");
   assert.match(a, /background: "#b09468"/, "绕线扣没了");
   // 愿望板＝软木板 + 歪着的便签 + 一枚真图钉
-  const w = seg.slice(seg.indexOf('openSub("wishes")'), seg.indexOf('openSub("wishes")') + 1800);
+  const wAt = seg.indexOf('openSub("wishes")', seg.indexOf('openSub("archive")'));
+  const w = seg.slice(wAt, wAt + 1800);
   assert.match(w, /backgroundSize: "7px 7px, 11px 11px"/, "软木那层颗粒没了");
   assert.match(w, /transform: "rotate\(-1\.4deg\)"/, "便签摆正了就不像钉上去的");
   assert.match(w, /radial-gradient\(circle at 34% 30%,#f0899f,#b83b5c\)/, "图钉没了");
