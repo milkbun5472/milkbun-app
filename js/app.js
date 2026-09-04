@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.38";
+const APP_VERSION = "v62.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1183,6 +1183,41 @@ function App() {
     if (!saved) { toast("性情锚点保存失败"); return false; }
     setTemperamentDraft(saved.emotion.temperament); setAShadowPanel(p => ({ ...(p || {}), state: saved, projection: window.DongnianEmotionA.displayProjection(saved) })); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
   };
+  // A 的情绪底色镜像（v62.39）：ctxFor 是同步的，而 A 的状态在 IndexedDB（异步）。
+  // 所以每轮算完顺手在内存里留一份现成的句子，让 buildBundle 那头能同步拿到——
+  // 跟 gazeText 走同一个形状（那份也是同步从本地取的）。开机补一次，免得第一轮是空的。
+  const aMoodRef = useRef({});
+  // 急停：诊断台那颗回滚键写的是 E 的 emergencyOff，按下去 A 和 E 一起停。
+  // 提到组件这一层，是因为单聊和群聊两处都要问它——各写一份迟早只改一处。
+  const innerLifeOnFor = charId => {
+    try { const g = window.InnerLifePromotionGate; return !(g && g.state && g.state("E", charId).emergencyOff); } catch (e) { return true; }
+  };
+  // 三道闸都收在这一处：急停、言秋（他不是被扮演的角色）、还没算出来。
+  // 收在一处是因为要它的地方有三个（单聊 ctxFor、群线上 memberDesc、群线下 memberAMood）——
+  // 各写一份就是「一层写在三处，第三处没跟上」。
+  const aMoodTextOf = charId => {
+    if (!charId || !innerLifeOnFor(charId)) return "";
+    if (settingsFor(charId).engineerEyes) return "";
+    return (aMoodRef.current || {})[charId] || "";
+  };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (!window.InnerLifeAShadow || !window.DongnianEmotionA || !characters.length) return;
+        const owner = await aShadowOwnerId();
+        for (const c of characters) {
+          if (!alive) return;
+          try {
+            const st = await window.InnerLifeAShadow.get(owner, c.id);
+            const pj = st ? window.DongnianEmotionA.displayProjection(st) : null;
+            if (pj && pj.text) aMoodRef.current[c.id] = pj.text;
+          } catch (e) {}
+        }
+      } catch (e) {}
+    })();
+    return () => { alive = false; };
+  }, [characters.length]);
   const observeEmotionAShadow = (charId, affinityDelta, moodLabel) => {
     try {
       if (!window.InnerLifeAShadow || !window.DongnianEmotionA || !charId) return;
@@ -1196,6 +1231,7 @@ function App() {
           const result = window.DongnianEmotionA.applyEvent(state, { affinityDelta: Number.isFinite(Number(affinityDelta)) ? Number(affinityDelta) : 0, moodLabel: moodLabel || "" }, now);
           const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
           const projection = window.DongnianEmotionA.displayProjection(saved);
+          aMoodRef.current[charId] = (projection && projection.text) || "";   // 同步镜像，供 ctxFor 取
           await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
           if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
         } catch (e) {}
@@ -3613,6 +3649,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return { moodLabel: st.label || null, moodNote: st.note || "" };
     })(),
     gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, profile.name || "用户") : "",
+    // A 情绪底色（v62.39 起走 buildBundle）：她 2026-09-04 问「八处不一起喂吗」。
+    // 原来它挂在【单聊线上那两条任务串】上——那是「一条条 push 的」那一类，换个入口就一个字都没有。
+    // 挪进 bundle 之后，单聊线上/线下、通话、匿名信箱、解梦馆全都白得（判据见 four-surfaces）。
+    // 群聊两处不走 bundle，各自按人喂（memberDesc / memberAMood）。
+    // ⚠️穿书、小剧场、同人文、跑团、如果馆【不给】：它们是平行时空沙盒，本来就不读主线心情/好感，
+    //   而这一条正是几轮主线相处攒出来的底色——这是写明理由的差异，不是漏。
+    aMood: aMoodTextOf(char.id),
     // 她翻过他昨晚那场梦之后，让那点感觉【轻轻】留在他今天的语气里
     //（她 2026-09-04：「不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
     // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；
@@ -5026,7 +5069,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!roomTimeAware) { oCtx.schedNow = ""; oCtx.geo = null; }
         else { oCtx.schedNow = schedNowFor(char); oCtx.geo = prefs.geoAware ? geo : null; }
         if (!rc.formalMemory) { oCtx.memory = ""; oCtx.memLib = []; oCtx.ccContinuity = ""; oCtx.yanqiuWall = ""; }
-        if (!rc.innerLife) { oCtx.moodLabel = null; oCtx.moodNote = ""; oCtx.gazeText = ""; oCtx.personaGrown = ""; oCtx.personaEvolve = false; }
+        if (!rc.innerLife) { oCtx.moodLabel = null; oCtx.moodNote = ""; oCtx.aMood = ""; oCtx.gazeText = ""; oCtx.personaGrown = ""; oCtx.personaEvolve = false; }
         if (!rc.otherScenes) { oCtx.offlineNow = ""; oCtx.groupEcho = ""; oCtx.groupOfflineEcho = ""; oCtx.forumEcho = ""; oCtx.forumPmLog = ""; oCtx.momentLog = ""; }
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
@@ -5454,6 +5497,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (group.memberIds || []).forEach(id => {
         if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有好感度
         m[id] = Math.round(affOf(id));
+      });
+      return m;
+    })(),
+    // A 情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：跟心情/好感同一档，
+    // 是【这个人此刻是谁】，所以封闭群也照给。急停按下 aMoodTextOf 自己返空，整条不发。
+    memberAMood: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有情绪底色
+        const t = aMoodTextOf(id);
+        if (t) m[id] = t;
       });
       return m;
     })(),
@@ -6251,28 +6305,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 原来两层都要她在诊断台逐个角色「授权试点」。可 A 那一路的授权【从来没接过管子】
       //（isPilotEnabled 全 app 只被 E 调用过一次），于是「授权」这件事本身就名不副实。
       // 现在只留一道【急停】：诊断台那颗回滚键会写 emergencyOff，按下去两层一起停。
-      // ⚠️范围照旧跟着 E 走：单聊、非主动那一轮。八处一样喂是另一件事，没在这一版里做。
-      const innerLifeOn = () => {
-        try { const g = window.InnerLifePromotionGate; return !(g && g.state && g.state("E", charId).emergencyOff); } catch (e) { return true; }
-      };
-      // A 立体情绪：把这一刻偏离常态的那几轴（连同她写的性情锚点）当【背景偏色】带一句。
-      // ⚠️它只说「此刻偏高/偏低」，不给数字、不替他决定说什么——数字是本地算的，模型看不见。
-      let aMoodHint = "";
-      try {
-        if (!sideRoom && !opts.proactive && innerLifeOn() && window.InnerLifeAShadow && window.DongnianEmotionA) {
-          const _aOwner = await aShadowOwnerId();
-          const _aState = await window.InnerLifeAShadow.get(_aOwner, charId);
-          const _aProj = _aState ? window.DongnianEmotionA.displayProjection(_aState) : null;
-          if (_aProj && _aProj.text) aMoodHint = "\n【此刻的情绪底色·只作内在背景】" + _aProj.text
-            + "。这不是心情标签、也不是要你说出来的事：只允许它很轻地影响你此刻的语气分寸和反应快慢。"
-            + "禁止复述这段提示、禁止把「偏高/偏低」这种说法带进话里。";
-        }
-      } catch (e) { aMoodHint = ""; }
+      // ⚠️A 那一句 v62.39 起【不在这儿了】：它挪进了 buildBundle（ctx.aMood），
+      //   单聊线上/线下、通话、匿名信箱、解梦馆一次全有；群里两处另外按人喂。
+      //   判据就是 four-surfaces 那条：靠打包函数白送的，换个入口自然就有；
+      //   一条条 push 的，换个入口就一个字都没有、还不留痕迹。
+      // E 还留在这一处：它的消费机制（commitLiveProjection 按 charId 一次性核销）
+      //   在群里没有对应物——几个人共用一次调用、谁开口由模型定，核销给谁说不清。
+      //   这是写明理由的差异，不是漏。
       // E 余温：上一段交流留下的心情色彩和没说完的注意点，轻轻带进这一轮。
       // 它只是本轮背景，不写记忆、不替角色作决定；本轮真正成功落地后才消费，调用失败可下轮再用。
       let eLiveProjection = null, eAfterglowHint = "";
       try {
-        const eArmed = !sideRoom && !opts.proactive && innerLifeOn();
+        const eArmed = !sideRoom && !opts.proactive && innerLifeOnFor(charId);
         if (eArmed && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.liveProjection) {
           eLiveProjection = await window.InnerLifeETidalShadow.liveProjection(charId, Date.now());
           if (eLiveProjection) {
@@ -6299,7 +6343,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const rc = room.cognition;
         _roomCtx.timeAware = roomClockOn;
         if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
-        if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
+        if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.aMood = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
         if (!roomClockOn) { _roomCtx.schedNow = ""; _roomCtx.geo = null; }
         else { _roomCtx.schedNow = schedNowFor(char); _roomCtx.geo = prefs.geoAware ? geo : null; }
         if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
@@ -6740,7 +6784,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
-      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + aMoodHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
+      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
@@ -6788,7 +6832,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + aMoodHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
       const _roomHint = window.ChatRooms && room ? window.ChatRooms.prompt(room, chatsRef.current[charId] || []) : "";
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -7990,7 +8034,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "";
           return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : "";
         })();
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        // A 情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：跟心情/好感同一档，
+        // 是【这个人此刻是谁】，所以封闭群也照给。急停按下就整条不发。
+        const aSeg = aMoodTextOf(c.id)
+          ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id)
+            + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);

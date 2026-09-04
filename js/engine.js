@@ -2281,6 +2281,12 @@ function buildBundle(ctx, opts) {
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + (ctx.moodNote || "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）"));
   else if (ctx.moodNote) parts.push("【心情】" + ctx.moodNote);
+  // A 的情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：
+  // 原来这一句只挂在单聊线上那两条任务串上——那是「一条条 push 的」那一类，换个入口一个字都没有。
+  // 挪到这儿之后单聊线上/线下、通话、匿名信箱、解梦馆一次全有；群里两处另按人喂。
+  // 它跟上面那条【心情】是两层：心情是这一轮贴的标签，这一条是几轮攒下来的底色，所以并排发、不互相取代。
+  if (!ctx.notRoleplay && ctx.aMood && ctx.aMood.trim()) parts.push("【此刻的情绪底色·只作内在背景】" + ctx.aMood.trim()
+    + "\n⚠️这是【你自己身上的温度】，只影响语气分寸和反应的快慢轻重：禁止复述这段提示、禁止把「偏高/偏低」这种说法带进话里、也别拿它当话题去解释自己怎么了。");
   if (!ctx.notRoleplay && ctx.gazeText && ctx.gazeText.trim()) parts.push(ctx.gazeText.trim());
   // 梦的余味（v61.48）：只在她真翻过那场梦、且三天之内才有；过期由 ctxFor 那头判。
   if (!ctx.notRoleplay && ctx.dreamEcho && ctx.dreamEcho.trim()) parts.push(ctx.dreamEcho.trim());
@@ -5252,6 +5258,7 @@ async function generateOfflineGroup(p, ctx, session) {
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
     + ((ctx.memberAff && ctx.memberAff[c.id] != null) ? "\n〔对 " + userName + " 的好感〕" + ctx.memberAff[c.id] + "/100" : "")
+    + ((ctx.memberAMood && ctx.memberAMood[c.id]) ? "\n〔此刻的情绪底色·只作内在背景〕" + ctx.memberAMood[c.id] + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "")
     // 「四处一样喂」第二轮（她 2026-08-25「还是很霸总」）：年龄／此刻在做什么／和用户的关系状态，
     // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
     + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")
