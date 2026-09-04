@@ -105,8 +105,8 @@ test("配角（npc）能选进 CP，但转发不列他们", () => {
 test("生成几篇就有几个框，没填的明说自由发挥", () => {
   assert.match(fic, /const \[briefs, setBriefs\] = useState\(\[\]\)/);
   assert.match(fic, /Array\.from\(\{ length: n \}, function \(_, i\) \{\n\s*return h\("div", \{ key: i/, "框数没跟着篇数走");
-  assert.match(fic, /props\.onConfirm\(n, chosenCP\(\), styleIds, twoRealChars\(\) && includeMe, briefs\.slice\(0, n\)\)/);
-  assert.match(fic, /async function doGen\(n, cp, styleIds, includeMe, briefs\)/);
+  assert.match(fic, /props\.onConfirm\(n, chosenCP\(\), styleIds, twoRealChars\(\) && includeMe, briefs\.slice\(0, n\), authors\.filter/);
+  assert.match(fic, /async function doGen\(n, cp, styleIds, includeMe, briefs, byAuthor\)/);
   assert.match(fic, /briefs: briefList,/);
   // 没填的那几篇必须明说，否则模型拿填了的去套没填的
   const i = fic.indexOf("    const briefs = Array.isArray(opts.briefs)");

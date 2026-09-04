@@ -22,10 +22,14 @@ const ROWS = [...CFG.matchAll(/\{ key: "(\w+)", char: "(.)", title: "([^"]+)"/g)
 
 test("首页是一列窄行，一屏放得下——不是两列大卡", () => {
   assert.ok(ROWS.length >= 6 && ROWS.length <= 8, "首页现在 " + ROWS.length + " 行");
-  assert.match(CFG, /page === "home" && h\("div", \{ style: \{ display: "flex", flexDirection: "column", gap: 8/);
+  // v62.48：表格的行是连着的，gap 一留它们就又读成一张张卡片了，所以 gap 归 0
+  assert.match(CFG, /page === "home" && h\("div", \{ style: \{ display: "flex", flexDirection: "column", gap: 0/);
   // 原来那一串平级大卡要全撤掉（撤东西是删掉，不是留着）
   assert.doesNotMatch(CFG, /title: "API 与模型"/, "旧那张大卡还在");
-  assert.doesNotMatch(CFG, /icon: "◐", title: "外观与壁纸"[^\n]*setPage\("theme"\) \}\),\s*\n\s*h\(ConfigTile, \{ icon: "✦"/, "长相那三张还平级摆在首页");
+  // v62.48：几何符号（◐ ◒ ✦ ⌨ ▧ ◖ ∞ ◉ ≋）全换成汉字栏号——它们是靠字体撑的字符，
+  // 跟 emoji 同一个毛病，而且「◖」说明不了那是语音。所以这一条改判【汉字】。
+  assert.doesNotMatch(CFG, /icon: "[^\u4e00-\u9fff\u00b7]"/, "还有靠字体撑的符号当图标");
+  assert.match(CFG, /h\(ConfigTile, \{ icon: "色", tint: "#8a6d9c", title: "外观与壁纸"/);
 });
 
 test("索引牌一类一个字，撞不了车", () => {
@@ -59,7 +63,10 @@ test("返回一层一层退，不会一步跳回首页", () => {
   assert.match(CFG, /if \(page === "theme" \|\| page === "themeStudio" \|\| page === "bubble"\) return setPage\("look"\);/);
   assert.match(CFG, /if \(page === "cot" \|\| page === "qa"\) return setPage\("write"\);/);
   // 每一层都得有标题，不然顶栏是空的
-  for (const k of ["look", "write"]) assert.ok(CFG.includes(k + ": ["), k + " 没有标题");
+  // v62.48：那二十个纯英文副标题从 v61.29 起就一个都没显示过（Head 有 zh 时不发纯拉丁 en），
+  // 整块删掉了，meta 从 [中文, 英文] 变成一个中文字符串。
+  for (const k of ["look", "write"]) assert.ok(new RegExp(k + ': "[^"]+"').test(CFG), k + " 没有标题");
+  assert.doesNotMatch(CFG, /home: \["设置", "Config"\]/, "旧那份带英文的 meta 还留着");
 });
 
 test("每一行都点得开（key 有对应的那一页）", () => {

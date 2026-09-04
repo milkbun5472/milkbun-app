@@ -131,14 +131,14 @@ test("作者不是一个类型，是一个人——开场顺手给她一张小�
   // 还是同一次调用，别多花她一次钱
   assert.equal((st.match(/await callAI\(/g) || []).length, 1);
   // 落进存档，而且页边批注真的用上了
-  assert.match(fic, /ss\.authorCard = r\.authorCard \|\| null;/, "小卡没落库");
+  assert.match(fic, /ss\.authorCard = ss\.authorCard \|\| r\.authorCard \|\| null;/, "小卡没落库；且不许覆盖选落点时给过的那张（那张带 temper）");
   assert.match(fic, /function rpAuthorCard\(session\)/);
   assert.match(fic, /rpAuthorCard\(session\)/);
   const blk = fic.slice(fic.indexOf("function rpAuthorBlock("), fic.indexOf("  // 一拍的输出契约"));
   assert.match(blk, /rpAuthorCard\(session\)/, "批注那一段没吃到小卡，等于白生成");
   // 老存档没有这一栏：一个字都不多发
   const card = fic.slice(fic.indexOf("function rpAuthorCard("), fic.indexOf("function rpAuthorBlock("));
-  assert.match(card, /if \(!c \|\| !\(c\.who \|\| c\.why \|\| c\.sore\)\) return "";/);
+  assert.match(card, /if \(!c \|\| !\(c\.who \|\| c\.why \|\| c\.sore \|\| c\.temper\)\) return "";/);
   // 不许给内容示范（prompt-no-content-samples.md）
   assert.doesNotMatch(st.slice(st.indexOf("【同时给这篇文的作者")), /如「|比如「|例如「/);
 });
@@ -159,12 +159,12 @@ test("「生成降落节点」换成人话了", () => {
   assert.match(fic, /"换几个地方看看"/);
 });
 
-test("穿书中那一页不再顶着一块 30px 大标题", () => {
+test("加笔中那一页不再顶着一块 30px 大标题", () => {
   const th = fic.slice(fic.indexOf("  // 穿书会话（互动叙事）"), fic.indexOf("  // ---------- 底 nav ----------"));
   assert.ok(th.length > 2000, "抠不出 RPThread");
   // v61.27：Head 本身已经改成紧凑标题栏了（components.js），所以这一页改回用 Head——
   // 同一层东西不许有两个实现，不然下次只会改到其中一处。
-  assert.match(th, /h\(Head, \{\n\s+zh: s\.ficTitle \|\| "穿书中",/);
+  assert.match(th, /h\(Head, \{\n\s+zh: s\.ficTitle \|\| "加笔中",/);
   assert.match(th, /sub: window\.Fanfic\.rpModeShort/, "副标题没接上");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
   // 书名只写一遍——底下那份重复的抬头撤掉了

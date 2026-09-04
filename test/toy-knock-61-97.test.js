@@ -34,7 +34,9 @@ test("不传就一点变化都没有（六十多页共用这一个顶栏）", ()
 });
 
 test("设置首页把七下挂上去了，别的页不挂", () => {
-  assert.match(scr, /h\(Head, \{ zh: m\[0\], en: m\[1\], onBack: back, onTitleTap: page === "home" \? toyKnock : undefined \}\)/);
+  // v62.48：meta 里那二十个纯英文副标题删掉了（v61.29 起就没显示过），
+  // 顶栏也跟着传 bg:"transparent" 让底下那张格纸透上来。挂钩这件事一个字没动。
+  assert.match(scr, /h\(Head, \{ zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" \? toyKnock : undefined \}\)/);
   // 旧那条挂在英文上的路要删掉，不是留着（撤东西是删掉）
   assert.doesNotMatch(scr, /const eyebrow = page === "home"/, "挂在英文上那条老路还留着");
 });

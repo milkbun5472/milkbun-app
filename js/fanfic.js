@@ -278,6 +278,67 @@
     }, stored || {});
   }
 
+  // ============================================================
+  // 作者库（她 2026-09-04 要的）—— 这个圈子里固定的那几位太太
+  // ============================================================
+  // ⚠️它【不跟着「清空本版」走】：文是会被清的，人不是。清掉一版的文之后
+  //   那几位太太还在，她们写过的旧篇没了而已——这正是「固定 NPC」的意思。
+  // ⚠️名册按【笔名】认人（.claude/rules/phone-data-layers.md 里那条）：
+  //   同一个笔名再出现一次，还是同一个人，不许攒出两条。
+  // ⚠️产出统计【不另存计数器】：从 fics 现算。存一份的话，文被清掉、被删、
+  //   被改笔名，那个数就永远对不回来了（只进不出的老毛病）。
+  const K_AUTHORS = "x_fanfic_authors";
+  function loadAuthors() { const v = loadJSON(K_AUTHORS, []); return Array.isArray(v) ? v : []; }
+  function saveAuthors(list) { return saveJSON(K_AUTHORS, (Array.isArray(list) ? list : []).slice(0, 60)); }
+  function authorName(a) { return String((a && a.name) || "").trim(); }
+  // 落一位作者进库：已经有这个笔名就把空着的那几栏补上，不覆盖她原来的简介
+  function upsertAuthor(a) {
+    const nm = authorName(a);
+    if (!nm) return null;
+    const list = loadAuthors();
+    const i = list.findIndex(function (x) { return authorName(x) === nm; });
+    if (i >= 0) {
+      const cur = list[i];
+      list[i] = Object.assign({}, cur, {
+        bio: cur.bio || String(a.bio || "").trim().slice(0, 120),
+        style: cur.style || String(a.style || "").trim().slice(0, 120),
+        sore: cur.sore || String(a.sore || "").trim().slice(0, 80)
+      });
+    } else {
+      list.unshift({
+        id: uid("au"), name: nm.slice(0, 20),
+        bio: String(a.bio || "").trim().slice(0, 120),
+        style: String(a.style || "").trim().slice(0, 120),
+        sore: String(a.sore || "").trim().slice(0, 80),
+        createdAt: Date.now()
+      });
+    }
+    saveAuthors(list);
+    return list[i >= 0 ? i : 0];
+  }
+  function findAuthor(name) {
+    const nm = String(name || "").trim();
+    if (!nm) return null;
+    return loadAuthors().filter(function (x) { return authorName(x) === nm; })[0] || null;
+  }
+  // 她写过哪些（从 fics 现算）
+  function authorFics(name, fics) {
+    const nm = String(name || "").trim();
+    return (Array.isArray(fics) ? fics : loadFics()).filter(function (f) { return f && String(f.author || "").trim() === nm; });
+  }
+  // 她这些文分别嗑的哪对 CP：[{key,label,n}]，多的在前
+  function authorCPStats(name, fics, characters, userName) {
+    const by = {};
+    authorFics(name, fics).forEach(function (f) {
+      const key = (f.cp || []).slice().sort().join("|") || "_none";
+      if (!by[key]) by[key] = { key: key, cp: f.cp || [], n: 0 };
+      by[key].n++;
+    });
+    return Object.keys(by).map(function (k) {
+      const x = by[k];
+      return { key: k, n: x.n, label: x.cp.length ? cpLabel(x.cp, characters, userName) : "没标 CP" };
+    }).sort(function (a, b) { return b.n - a.n; });
+  }
   function retiredId(id) { return RETIRED_TABS.some(function (t) { return t.id === id; }); }
   // 撤掉的那几版：只有底下还留着文章时才继续露出来（排在最后）
   function livingRetired() {
@@ -464,6 +525,35 @@
     return parts.join("\n\n");
   }
 
+  // ---- 请一批新作者进来（一枪，落库）--------------------------------
+  // ⚠️只写【判据】不给例子：给了例子，四位太太会长成同一个句式
+  //   （.claude/rules/prompt-no-content-samples.md）。
+  async function genAuthors(active, n, tabs, cpChars, userName, have) {
+    const cnt = Math.max(1, Math.min(8, n || 4));
+    const has = (have || []).map(function (a) { return authorName(a); }).filter(Boolean);
+    const sys = FANFIC_ANTI_CLICHE + "\n\n你在给一个同人圈【添几位常驻太太】。她们往后会一直在这个圈子里写文。\n"
+      + "【这个圈子在写什么】" + (tabs || []).map(function (x) { return x.name; }).filter(Boolean).slice(0, 12).join("、") + "\n"
+      + (cpChars && cpChars.length ? "【圈子里的人】" + cpChars.map(function (c) { return c && c.name; }).filter(Boolean).join("、") + "\n" : "")
+      + (has.length ? "【已经在的（笔名别撞、路数也别撞）】" + has.join("、") + "\n" : "")
+      + "【怎么写】每位都要是【一个具体的人】，不是一个类型：\n"
+      + "· name：同人圈的笔名／马甲，别用真名别带 @；\n"
+      + "· bio：她是谁——写了多久、什么处境、在这个圈子里是什么位置，一句，要认得出是这一个人；\n"
+      + "· style：她写东西的路数——她的文一眼能认出来的是什么，一句。别写「文笔细腻」这种谁都成立的话，"
+      + "要说清她偏爱什么结构、什么长度、把力气花在哪儿、又故意不写什么；\n"
+      + "· sore：她最护着的那一点——被人动到这儿她反应最大。\n"
+      + "几位之间要真的不一样：脾气、路数、写文的动机、对 CP 的看法，至少三样彼此拉开。\n"
+      + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
+      + "[{\"name\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\"}]";
+    const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { maxTokens: 12000, timeout: 180000 });
+    let d = extractJSON(raw);
+    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
+    const out = [];
+    arr.forEach(function (x) { if (x && x.name) { const a = upsertAuthor(x); if (a) out.push(a); } });
+    if (!out.length) throw new Error("没请到人——再试一次或换个模型");
+    return out;
+  }
+
   // ---- 批量生成 N 篇（容错 + 重试）------------------------------------
   // opts: { style, perFic, worldPool, chatMaterial }
   async function genBatch(active, tab, cpChars, n, userName, worldbook, opts) {
@@ -485,11 +575,23 @@
         + "\n点了梗的那几篇：把它当成【这一篇的地基】写足，不是在结尾提一句就算数；\n"
         + "但也别把她那句话原样抄进正文当台词或标题。"
       : "";
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + "\n\n" +
+    // 谁来写这一批（她 2026-09-04：「生成同人文的时候也可以选择让某一位来写」）。
+    // 指定了就把她整个人递进去、笔名钉死；没指定就顺带让它交一份作者简介回来，
+    // 落进作者库——⚠️不额外调一次模型，她按次计费。
+    const by = opts.author && authorName(opts.author) ? opts.author : null;
+    const byBlock = by
+      ? "\n\n【这一批由谁写】笔名「" + authorName(by) + "」。\n"
+        + (by.bio ? "· 她是谁：" + by.bio + "\n" : "")
+        + (by.style ? "· 她的路数：" + by.style + "（这几篇要看得出是她写的——结构、长度、力气花在哪儿、故意不写什么，都照她来）\n" : "")
+        + (by.sore ? "· 她最护着的那一点：" + by.sore + "\n" : "")
+        + "每一篇的 author 都填「" + authorName(by) + "」，不许换别的笔名，也不要再交 authorBio／authorStyle。"
+      : "";
+    const authorFields = by ? "" : ",\"authorBio\":\"这个笔名背后是个什么人，一句，要认得出是这一个人\",\"authorStyle\":\"她写东西的路数，一句：偏爱什么结构、力气花在哪儿、故意不写什么\"";
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
-      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
-      "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。author 每篇各不同；tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
+      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"" + authorFields + "}]\n" +
+      "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
       (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
@@ -515,13 +617,19 @@
       return m && m[1].trim() ? m[1].trim() : (kept.length === 1 ? batchCot : null);
     }
     return kept.map(function (x, i) {
+      // 每一篇的作者都落进作者库：指定了谁就还是谁，没指定就把它顺带交的那份简介收下。
+      // 「没写简介」也照样落一条：先有这个人，简介以后再补（空值不许抹掉旧值）。
+      const nm = by ? authorName(by) : String(x.author || "佚名").slice(0, 20);
+      upsertAuthor({ name: nm, bio: by ? by.bio : x.authorBio, style: by ? by.style : x.authorStyle, sore: by ? by.sore : "" });
       return {
         title: String(x.title || "无题").slice(0, 60),
-        author: String(x.author || "佚名").slice(0, 20),
+        author: nm,
         tags: Array.isArray(x.tags) ? x.tags.filter(Boolean).slice(0, 6).map(String) : [],
         premise: String(x.premise || "").trim().slice(0, 200),  // 核心设定锚（续写防改设）
         body: String(x.body || "").trim(),
         endHook: String(x.endHook || "").trim(),
+        authorBio: String(x.authorBio || "").trim().slice(0, 120),
+        authorStyle: String(x.authorStyle || "").trim().slice(0, 120),
         cot: draftFor(i),
         cotRequested: !!cotT
       };
@@ -840,10 +948,30 @@
       (rpKnowLine(know, mode, cpChars, userName) ? "\n" + rpKnowLine(know, mode, cpChars, userName) : "") +
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
       "\n\n从原著里挑 3-4 个适合玩家插进去、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
-      "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
-    const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 9600 });
+      // 作者的小性格挪到这一枪来（她 2026-09-04：「每次开始前选择改稿节点的时候顺便生成作者小性格」）。
+      // ⚠️挪过来是有理由的：她的脾气【决定整场怎么玩】——有人一路把剧情往回拽，
+      //   有人跟着一起往离谱里跑。这件事得在她还没下笔之前就定下来，并且先给她看一眼。
+      // ⚠️只写维度和判据，不给例子：给了例子，每篇文的作者都会长成同一个人
+      //   （.claude/rules/prompt-no-content-samples.md）。
+      "\n\n【同时给这篇文的作者「" + rpAuthorName(fic) + "」一张小卡】她往后要一直在页边说话、还要伸手管这个故事，得先是个具体的人。四行，各一句：\n" +
+      "· who：她是谁——年纪、在做什么、什么处境，说到能认出是这一个人，不是「一位太太」。\n" +
+      "· why：她为什么写这篇——写的时候她自己在想什么、在借这两个人说什么，从这篇文的内容里推出来。\n" +
+      "· sore：她最护着的哪一点——这篇文里她最不肯让人碰的那样东西。\n" +
+      "· temper：【有人改她的文时她是哪一路】——一句话说清她的反应路数：是死死往回拽、是嘴上骂着手上还给你圆、"
+      + "是觉得有意思跟着你把故事推得更离谱、还是先冷着看你能走多远。这一栏要从上面三行长出来，不是随便挑一种。\n" +
+      "四行都要贴着【这一篇】长，不是随便一个网文作者都成立的话。\n" +
+      "只输出合法 JSON 对象：{\"landings\":[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}],\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\",\"temper\":\"\"}}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 12000 });
     const d = rpJSON(raw);
-    const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
+    // 老写法直接吐一个数组，新写法包在 landings 里——两种都认，不然换个模型就空了
+    const arr = Array.isArray(d) ? d : (d && Array.isArray(d.landings) ? d.landings : (d && Array.isArray(d.items) ? d.items : []));
+    const ac = (d && d.author && typeof d.author === "object") ? d.author : {};
+    const card = {
+      who: String(ac.who || "").trim().slice(0, 120),
+      why: String(ac.why || "").trim().slice(0, 120),
+      sore: String(ac.sore || "").trim().slice(0, 80),
+      temper: String(ac.temper || "").trim().slice(0, 120)
+    };
     // 不硬截断成半句：只在超长时于句读处截，末尾补省略号
     const trimScene = function (s) {
       s = String(s || "").trim();
@@ -854,7 +982,9 @@
     };
     const out = arr.filter(function (x) { return x && x.label; }).slice(0, 4).map(function (x) { return { id: uid("ld"), label: String(x.label).slice(0, 16), scene: trimScene(x.scene) }; });
     if (!out.length) out.push({ id: uid("ld"), label: "从头开始", scene: "从故事最初的场景切入" });
-    return out;
+    // 顺手把她收进作者库：这篇文的作者从此是个有简介的人，不只是一个笔名
+    if (card.who || card.temper) upsertAuthor({ name: rpAuthorName(fic), bio: card.who, style: card.why, sore: card.sore });
+    return { landings: out, authorCard: (card.who || card.why || card.sore || card.temper) ? card : null };
   }
   // 组 RP 对话 messages（transcript 尾巴 + 本次行动）
   // ⚠️原来是死板的 slice(-10)。一条叙事两三百字，十条≈五个回合——
@@ -894,7 +1024,7 @@
         + "\n（这些已经发生过了，别当成新指令重演一遍；接着往下就好。）" });
     }
     all.slice(cut).forEach(function (e) {
-      if (e.who === "note") return;
+      if (e.who === "note" || e.who === "pull") return;  // 批注是页边的、伸手已经写进正文了，都不再回灌
       if (e.who === "nar") { const last = msgs[msgs.length - 1]; if (last && last.role === "assistant") last.content += "\n\n" + e.text; else msgs.push({ role: "assistant", content: e.text }); }
       else if (e.who === "page") msgs.push({ role: "user", content: pageLine(e) });
       else msgs.push({ role: "user", content: "【我的行动】" + e.text });
@@ -942,11 +1072,12 @@
   //   往后每一句批注都从这张卡长出来——换一篇文，那个人就换了。
   function rpAuthorCard(session) {
     const c = session && session.authorCard;
-    if (!c || !(c.who || c.why || c.sore)) return "";
+    if (!c || !(c.who || c.why || c.sore || c.temper)) return "";
     return "\n【这位作者是个什么人（她这一句要从这儿长出来）】\n"
       + (c.who ? "· 她是谁：" + c.who + "\n" : "")
       + (c.why ? "· 她为什么写这篇：" + c.why + "\n" : "")
-      + (c.sore ? "· 她最护着的那一点：" + c.sore + "（被动到这儿，她的反应最大）\n" : "");
+      + (c.sore ? "· 她最护着的那一点：" + c.sore + "（被动到这儿，她的反应最大）\n" : "")
+      + (c.temper ? "· 有人改她的文时她是哪一路：" + c.temper + "\n" : "");
   }
   function rpAuthorBlock(fic, session) {
     const an = rpAuthorName(fic);
@@ -963,14 +1094,38 @@
       + "你对自己的文有脾气：护短、嘴硬、可也真的会被写服。别写成编辑评语，别写成鼓励。\n"
       + "（目前偏离度 " + dev + "/100，被拦下的页数 " + broken + "。）不超过 30 字，一句，不加引号。";
   }
-  // 一拍的输出契约：正文 + 走到了哪一页 + 偏离度 + 页边（不要批注时明说填空）
+  // 作者【伸手】那一段（她 2026-09-04：「我每改一段就会有作者过来试图把剧情接回来然后再批注」）。
+  // ⚠️和页边批注是两件事，别合成一件：
+  //   · pull ＝ 她在【故事里】动的那一手（真的发生了，有人来了、有件事偏偏这时候发生）；
+  //   · note ＝ 她在【稿子边上】写的那一句（不发生在故事里，是她自己嘀咕）。
+  // ⚠️「接回来」不是唯一一路：她的 temper 说了算——护稿的往回拽，玩起来的会顺着你
+  //   把故事推得更离谱。**两种都要真的改变这一拍的走向**，不许只在批注里表个态。
+  function rpPullBlock(fic, session) {
+    const an = rpAuthorName(fic);
+    const c = (session && session.authorCard) || {};
+    return "【作者伸手 · 这一拍她要动一手】\n"
+      + "玩家刚在你写的故事里动了笔。「" + an + "」是这篇文的作者，她看着自己的东西被改，"
+      + "于是【在故事里】动了一手——不是评论，是真的发生的事：某个人偏偏这时候出现、某件东西刚好不在原位、"
+      + "某句话被谁接了过去、天气变了、某个约定提前到了眼前。\n"
+      + (c.temper ? "她是这一路的人：" + c.temper + "。所以她这一手往哪个方向使，照这句来——\n" : "")
+      + "· 想把故事拽回她原来那条道的：这一手要真的构成阻力，让玩家刚才那一步没那么容易成；\n"
+      + "· 觉得玩家改得有意思、想跟着玩的：这一手要把故事推得【比玩家还远一点】，给他加码，别只是顺着；\n"
+      + "· 先冷着看的：这一手轻，但不许是没有——留一个她在场的痕迹。\n"
+      + "⚠️这一手必须【写进正文里】，作为剧情自然发生，正文里绝不许提到作者、稿子、写作或任何元信息。\n"
+      + "⚠️它不许替玩家做决定，也不许把这一拍写成死局：玩家下一步永远还有得走。\n"
+      + "然后在 pull 里用一句话说清她这一手【干了什么、往哪个方向使】，不超过 24 字。";
+  }
+  // 一拍的输出契约：正文 + 作者伸手 + 走到了哪一页 + 偏离度 + 页边批注
   function rpTurnShape(fic, session, wantNote) {
+    const wantPull = !!(session && session.transcript && session.transcript.length);
     return "【输出格式】只输出一个合法 JSON 对象，前后不要任何别的字：\n"
       + "{\"scene\":\"叙事正文，正常分段（段与段之间空一行），不许出现任何标题、标签或元信息\","
+      + "\"pull\":" + (wantPull ? "\"作者这一拍伸的那一手，一句（见【作者伸手】）\"" : "\"开场这一拍她还没伸手，填空字符串\"") + ","
       + "\"hit\":\"这一拍把玩家推到了骨架里哪一页的当口？填那一页的 id；没推到就填空字符串\","
       + "\"dev\":这场故事此刻偏离原著多远的整数0-100（原样走着＝低，人物被写出原著里没有的样子、原著的页被拦下＝高），"
       + "\"note\":" + (wantNote ? "\"作者写在页边的那一句（见【页边批注】）\"" : "\"这一拍不要批注，填空字符串\"")
       + "}\n"
+      + (wantPull ? rpPullBlock(fic, session) + "\n" : "")
       + (wantNote ? rpAuthorBlock(fic, session) + "\n" : "");
   }
   // ⚠️她 2026-09-03 报「格式会掉」，截图里正文直接从 `{"scene":"药片落在…` 开始。
@@ -1012,11 +1167,12 @@
     const d = rpJSON(txt);
     if (!d || !d.scene) {
       const sv = rpSalvage(txt);
-      if (sv) return { text: sv, hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
-      return { text: txt, hit: "", dev: null, note: "" };
+      if (sv) return { text: sv, pull: rpGrab(txt, "pull").slice(0, 40), hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
+      return { text: txt, pull: "", hit: "", dev: null, note: "" };
     }
     return {
       text: String(d.scene || "").trim() || txt,
+      pull: String(d.pull || "").trim().slice(0, 40),
       hit: String(d.hit || "").trim(),
       dev: Number.isFinite(+d.dev) ? Math.max(0, Math.min(100, Math.round(+d.dev))) : null,
       note: String(d.note || "").trim().slice(0, 60)
@@ -1139,7 +1295,7 @@
     return {
       id: uid("fic"), tabId: session.tabId, cp: session.cp || [],
       title: (session.ficTitle || "无题") + " · 你走过的那版",
-      author: rpAuthorName(fic), tags: ["穿书", broken ? "改写" : "照原样"],
+      author: rpAuthorName(fic), tags: ["加笔", broken ? "改写" : "照原样"],
       chapters: [{ content: body + tail, endHook: verdict || "" }],
       source: "rp", fromRP: session.id, onShelf: true, sharedTo: [],
       stats: ficHeat(session.id), reviews: [], createdAt: now, updatedAt: now
@@ -1160,6 +1316,8 @@
     loadCPs: loadCPs, saveCPs: saveCPs, loadCfg: loadCfg, saveCfg: saveCfg, activeStyleText: activeStyleText,
     allStylePresets: allStylePresets, styleTextForIds: styleTextForIds,
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
+    loadAuthors: loadAuthors, saveAuthors: saveAuthors, upsertAuthor: upsertAuthor, findAuthor: findAuthor,
+    authorFics: authorFics, authorCPStats: authorCPStats, genAuthors: genAuthors,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
     loadRP: loadRP, saveRP: saveRP, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
@@ -1516,6 +1674,8 @@
     const styles = allStylePresets(cfg0);
     const [n, setN] = useState(3);
     const [briefs, setBriefs] = useState([]);   // 每篇点的梗，没填＝自由发挥
+    const authors = loadAuthors();
+    const [byId, setById] = useState("");      // 点名让谁写；空＝随缘
     function setBrief(i, v) { setBriefs(function (prev) { const a = prev.slice(); a[i] = v; return a; }); }
     const [sel, setSel] = useState([]); // 选中的 CP preset id 或角色 id（这里存最终 cp 数组）
     const [pickA, setPickA] = useState(""), [pickB, setPickB] = useState("");
@@ -1593,9 +1753,23 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
           h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (includeMe ? t.ink : t.line), background: includeMe ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, includeMe ? "✓" : "")) : null,
 
+        // 谁来写这一批（她 2026-09-04）。不选＝随缘：模型自己起笔名，事后也会收进作者库。
+        // ⚠️不是一排药丸：署名表上的一行行名字，选中那行左边落一个墨点、名字加重。
+        authors.length ? h("div", { style: { marginBottom: 14 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, marginBottom: 6 } }, "让谁来写"),
+          [{ id: "", name: "随缘（谁写都行）", style: "模型自己起个笔名，写完收进作者库" }].concat(authors).map(function (a) {
+            const on = (byId || "") === a.id;
+            return h("button", { key: a.id || "_any", onClick: function () { setById(a.id); }, className: "w-full text-left active:opacity-70",
+              style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 2px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+              h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 6, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+              h("span", { style: { minWidth: 0 } },
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
+                a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, lineHeight: 1.5 } }, a.style) : null));
+          })) : null,
+
         h("div", { className: "flex items-center gap-3" },
-          h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
-          h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, twoRealChars() && includeMe, briefs.slice(0, n)); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成"))));
+          h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
+          h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成"))));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -1949,6 +2123,8 @@
             h("div", { className: "flex items-center gap-6 mt-3 pt-3", style: { borderTop: "1px solid " + t.line } },
               stat(heat, "热度"), stat(me.fans || 0, "粉丝"), stat(me.following || 0, "关注")))),
 
+        // ＋ 从底栏中间挪进来了（她 2026-09-04：中间那一枚让给加笔）
+        row("自己写一篇", "写完就发在这个圈子里", function () { props.onWrite && props.onWrite(); }),
         row("我发布的", mine.length + " 篇 · 随时回看/追更", function () { setSub("published"); }),
         row("磕 CP 管理", (props.cps || []).length + " 对预设 · 增删改", function () { setSub("cp"); }),
         row("生成设置", "预设文风 · 篇幅", function () { setSub("settings"); })),
@@ -2242,8 +2418,17 @@
     const [mode, setMode] = useState("left");
     const [know, setKnow] = useState("blank");
     const [landings, setLandings] = useState(null);
+    const [authorCard, setAuthorCard] = useState(null); // 选落点那一枪顺带出的作者小性格
     const [busy, setBusy] = useState("");
     const shelf = (props.fics || []).filter(function (f) { return window.Fanfic.protectedFic(f); });
+    // 从作者主页点「加笔」带着一篇进来：直接跳到设定那一屏，别让她再翻一遍列表
+    useEffect(function () {
+      if (!props.startFicId) return;
+      const f = (props.fics || []).filter(function (x) { return x.id === props.startFicId; })[0];
+      props.onStartUsed && props.onStartUsed();
+      if (!f) return;
+      setNewFic(f); setMode("left"); setKnow("blank"); setLandings(null); setView("setup");
+    }, [props.startFicId]);
     function persist(list) { setSessions(list); window.Fanfic.saveRP(list); }
     function tabOf(fic) { return (props.tabs || []).find(function (x) { return x.id === (fic && fic.tabId); }) || { name: "", desc: "" }; }
     function charsOf(fic) { return cpChars((fic && fic.cp) || [], props.characters, props.profile); }
@@ -2264,7 +2449,7 @@
     // 选文
     if (view === "pick") {
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "选一篇穿进去", en: "Choose", onBack: function () { setView("list"); } }),
+        h(Head, { zh: "挑一篇下笔", sub: "只有收藏进书架的才能加笔", onBack: function () { setView("list"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿进【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
           shelf.length ? shelf.map(function (f) {
@@ -2282,18 +2467,20 @@
       async function makeLandings() {
         if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
         setBusy("land");
-        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, know); setLandings(lds); }
+        // 这一枪顺带把作者的小性格也带回来了（她的脾气决定整场怎么玩，得在下笔前定下来）
+        try { const r = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, know);
+              setLandings(r.landings); setAuthorCard(r.authorCard || null); }
         catch (e) { props.toast && props.toast(String(e.message || e)); }
         setBusy("");
       }
       function startSession(landing) {
         const cfg = window.Fanfic.loadCfg();
-        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
+        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, authorCard: authorCard, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
         persist([sess].concat(window.Fanfic.loadRP()));
-        setOpenId(sess.id); setNewFic(null); setLandings(null); setView("thread");
+        setOpenId(sess.id); setNewFic(null); setLandings(null); setAuthorCard(null); setView("thread");
       }
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "穿书设定", en: "Step In", onBack: function () { setView("pick"); } }),
+        h(Head, { zh: "加笔设定", sub: "你是谁 · 带着什么进去", onBack: function () { setView("pick"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 2 } }, newFic.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 16 } }, cpLabel(newFic.cp, props.characters, props.userName)),
@@ -2301,33 +2488,39 @@
           h("div", { className: "grid grid-cols-2 gap-2 mb-5" }, RP_MODES.filter(function (m) { return modeAvail(m.key); }).map(function (m) {
             const on = mode === m.key;
             // 按钮上写真名（「穿成 沈屿白」「穿成我自己」），不再是抽象的「CP 左位 / 右位」
-            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, window.Fanfic.rpModeText(m.key, cpc));
+            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); setAuthorCard(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, window.Fanfic.rpModeText(m.key, cpc));
           })),
           // 第二排：你带着什么进去。四个「你是谁」之外的另一维——穿书真正的乐趣在这儿
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "你带着什么进去"),
           h("div", { className: "mb-6" }, window.Fanfic.RP_KNOWS.map(function (k) {
             const on = know === k.key;
-            return h("button", { key: k.key, onClick: function () { setKnow(k.key); setLandings(null); }, className: "w-full text-left active:opacity-70 mb-2", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+            return h("button", { key: k.key, onClick: function () { setKnow(k.key); setLandings(null); setAuthorCard(null); }, className: "w-full text-left active:opacity-70 mb-2", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, k.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.55, marginTop: 3, opacity: on ? 0.75 : 0.62 } }, k.desc));
           })),
           !landings ? h("button", { onClick: makeLandings, disabled: busy === "land", className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.accent, padding: "12px", borderRadius: 12, opacity: busy === "land" ? 0.6 : 1 } }, busy === "land" ? "正在翻这本书…" : "翻翻这本书，看能从哪儿进去")
             : h("div", null,
+              // 这本书的作者是谁——她的脾气决定了你改了之后会碰上什么
+              authorCard ? h("div", { style: { marginBottom: 16, padding: "11px 13px", background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + t.accent, borderRadius: "2px 10px 10px 2px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginBottom: 4 } }, "这篇文是谁写的"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, window.Fanfic.rpAuthorName(newFic)),
+                authorCard.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub, marginTop: 3 } }, authorCard.who) : null,
+                authorCard.temper ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.accent, marginTop: 5 } }, "你动她的文，她会：" + authorCard.temper) : null) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "从哪儿进去"),
               landings.map(function (ld) {
                 return h("button", { key: ld.id, onClick: function () { startSession(ld); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, ld.label),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, ld.scene));
               }),
-              h("button", { onClick: function () { setLandings(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "换几个地方看看"))));
+              h("button", { onClick: function () { setLandings(null); setAuthorCard(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "换几个地方看看"))));
     }
 
     // 存档列表
     const sorted = sessions.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "穿书", en: "Step Into Fic", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新穿书") }),
+      h(Head, { zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文穿进去。开局会从原著里抽出后面本来会发生的几页压在书脊上：走到哪一页，你可以让它照原样发生，也可以把它拦下来——拦下的那一页从此作废。作者本人就在旁边看着，隔几拍会在页边写一句。收尾时这一版会当成一篇文放回书架。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文，钻进去在她写好的东西上动笔。开局会从原著里抽出后面本来会发生的几页压在书脊上：走到哪一页，你可以让它照原样发生，也可以把它拦下来——拦下的那一页从此作废。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，有人觉得你改得有意思、跟着推得更离谱），然后在页边写一句。她是哪一路，开局挑落点时就定下来了。收尾时这一版会当成一篇文放回书架。"),
         sorted.length ? sorted.map(function (s) {
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
@@ -2341,7 +2534,7 @@
                     : (br ? "拦下 " + br + " 页" : "还没拦下任何一页") + " · 照原样 " + kp + " 页 · 还剩 " + (bs.length - br - kp) + " 页没走到");
               })()),
             h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
-        }) : h(Empty, { text: "还没有穿书存档", sub: "点右上「＋ 新穿书」开始" })));
+        }) : h(Empty, { text: "还没在谁的文上动过笔", sub: "点右上「＋ 新一篇」开始" })));
   }
 
   // 书脊：这一版书被你改成什么样，一眼看得见
@@ -2410,6 +2603,7 @@
     function applyTurn(r) {
       props.onUpdate(function (ss) {
         const add = [{ who: "nar", text: r.text, cot: r.cot || null, cotRequested: !!r.cotRequested }];
+        if (r.pull) add.push({ who: "pull", text: r.pull });
         if (r.note) add.push({ who: "note", text: r.note });
         ss.transcript = (ss.transcript || []).concat(add);
         if (Number.isFinite(r.dev)) ss.dev = r.dev;
@@ -2420,7 +2614,10 @@
       });
     }
     // 每隔几拍才让作者在页边说一句：每一拍都说就成了旁白，说了等于没说
-    function wantNote() { return (trans.filter(function (e) { return e.who === "nar"; }).length + 1) % 3 === 0; }
+    // 她 2026-09-04：「我每改一段就会有作者过来试图把剧情接回来然后再批注」——
+    // 所以每一拍都有。原来是每三拍一次（怕成旁白），现在批注跟在【她伸的那一手】后面，
+    // 是那一手的落款，不再是凭空冒出来的一句点评。
+    function wantNote() { return true; }
 
     async function start() {
       if (!props.active || !props.fic) return;
@@ -2434,7 +2631,9 @@
           sess = Object.assign({}, s, { playerIdentity: id });
         }
         const r = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
-        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; ss.authorCard = r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
+        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; // ⚠️选落点那一枪已经给过一张（还带 temper）——这儿只在【没有】的时候补，
+        //   不许覆盖：覆盖了就把她的脾气冲掉了，而设定页上刚给她看过那一句。
+        ss.authorCard = ss.authorCard || r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
     }
@@ -2511,7 +2710,7 @@
       //   同一层东西不许有两个实现，不然下次只会改到其中一处。
       //   「收尾」放右侧那个等宽操作位；这一步不可逆，所以照旧要点两下。
       h(Head, {
-        zh: s.ficTitle || "穿书中",
+        zh: s.ficTitle || "加笔中",
         sub: window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""),
         onBack: props.onBack,
         right: (props.fic && !s.done && trans.length >= 4)
@@ -2540,6 +2739,14 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: e.keep ? t.fog : t.accent, whiteSpace: "nowrap" } },
               e.keep ? "原著这一页「" + e.label + "」照原样发生" : "原著这一页「" + e.label + "」被你拦下"),
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }));
+          // 作者伸的那一手：它已经发生在正文里了，这一条只是把它【指出来】——
+          // 所以不是气泡也不是段落，是压在正文和批注之间的一行细字，带一道从右边伸过来的横线
+          if (e.who === "pull") {
+            if (i > lastNarIdx && moreToReveal) return null;
+            return h("div", { key: i, className: "flex items-center gap-2 my-3" },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, whiteSpace: "nowrap" } }, "✍ " + authorName + " 伸手：" + e.text),
+              h("div", { style: { flex: 1, height: 1, background: t.accent, opacity: .35 } }));
+          }
           if (e.who === "note") {
             // 作者趴在稿子边上写的一句：不是正文，所以歪着、挤在页边、字比正文小
             if (i > lastNarIdx && moreToReveal) return null;   // 那一拍还没读完，别提前剧透她的反应
@@ -2589,12 +2796,95 @@
         : null);
   }
 
+  // ---------- 作者榜 ----------
+  // 这个圈子里固定的那几位太太。⚠️不是「一排卡片」：作者榜在现实里是
+  // 【一份署名表】——名字靠左立着，右边跟着她的产出。所以这一页长成一张表，
+  // 不是网格（tabs-not-plain-pills.md 的同一条判据：换个 app 还成立就是没设计）。
+  function AuthorsPage(props) {
+    const t = useTheme();
+    const [list, setList] = useState(function () { return window.Fanfic.loadAuthors(); });
+    const [open, setOpen] = useState(null);   // 打开的那位
+    const [busy, setBusy] = useState(false);
+    const fics = props.fics || [];
+    function refresh() { setList(window.Fanfic.loadAuthors()); }
+    async function invite() {
+      if (busy) return;
+      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setBusy(true);
+      try {
+        const got = await window.Fanfic.genAuthors(props.active, 4, props.tabs, props.characters, props.userName, window.Fanfic.loadAuthors());
+        refresh();
+        props.toast && props.toast("来了 " + got.length + " 位：" + got.map(function (a) { return a.name; }).join("、"));
+      } catch (e) { props.toast && props.toast(String(e.message || e)); }
+      setBusy(false);
+    }
+    const cur = open ? list.filter(function (a) { return a.id === open; })[0] : null;
+    if (cur) return h(AuthorHome, { author: cur, fics: fics, characters: props.characters, userName: props.userName,
+      onBack: function () { setOpen(null); refresh(); }, onOpenFic: props.onOpenFic, onAddOn: props.onAddOn });
+    // 一行一位：左边名字立着，右边是她的产出
+    return h("div", { className: "h-full flex flex-col" },
+      h(Head, { zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
+        right: h("button", { onClick: invite, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } }, busy ? "请人中…" : "＋ 请人") }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 12px" } },
+          "她们是这个圈子的常驻——清空版块只清文，人留着。生成同人文时可以点名让某一位来写。"),
+        list.length ? list.map(function (a, i) {
+          const mine = window.Fanfic.authorFics(a.name, fics);
+          const cps = window.Fanfic.authorCPStats(a.name, fics, props.characters, props.userName);
+          return h("button", { key: a.id, onClick: function () { setOpen(a.id); }, className: "w-full text-left active:opacity-70",
+            style: { display: "flex", gap: 12, alignItems: "flex-start", padding: "13px 2px", borderTop: i ? "1px solid " + t.line : "none", background: "transparent", border: "none" } },
+            // 名次：署名表上的序号，用等宽的老式数字
+            h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.fog, width: 20, flexShrink: 0, paddingTop: 3 } }, String(i + 1).padStart(2, "0")),
+            h("span", { style: { flex: 1, minWidth: 0 } },
+              h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, a.name),
+              a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2, lineHeight: 1.55 } }, a.style) : null,
+              h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
+                mine.length + " 篇" + (cps.length ? " · 最常写 " + cps[0].label + "（" + cps[0].n + "）" : " · 还没写"))),
+            h(IChevR, { size: 15, color: t.fog, style: { marginTop: 4, flexShrink: 0 } }));
+        }) : h(Empty, { text: "这个圈子还没有常驻作者", sub: "点右上「＋ 请人」请几位进来；生成同人文时也会自动把新笔名收进来" })));
+  }
+  // 一位作者的主页：她是谁 + 产出统计 + 她写过的篇目（每篇能直接加笔）
+  function AuthorHome(props) {
+    const t = useTheme();
+    const a = props.author;
+    const mine = window.Fanfic.authorFics(a.name, props.fics).slice().sort(function (x, y) { return (y.updatedAt || y.createdAt || 0) - (x.updatedAt || x.createdAt || 0); });
+    const cps = window.Fanfic.authorCPStats(a.name, props.fics, props.characters, props.userName);
+    const top = cps.length ? cps[0].n : 1;
+    return h("div", { className: "h-full flex flex-col" },
+      h(Head, { zh: a.name, sub: mine.length + " 篇", onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.85, color: t.ink, paddingTop: 12 } }, a.bio) : null,
+        a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, a.style) : null,
+        a.sore ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } }, "碰不得：" + a.sore) : null,
+        // 产出：一根横条一对 CP，长度按篇数——这是「她嗑什么」，不是一堆数字
+        cps.length ? h("div", { style: { marginTop: 18 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, marginBottom: 7 } }, "她都写了谁"),
+          cps.map(function (c) {
+            return h("div", { key: c.key, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 5 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, width: 96, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.label),
+              h("span", { style: { flex: 1, height: 9, background: t.line, position: "relative" } },
+                h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.max(6, Math.round(c.n / top * 100)) + "%", background: t.accent, opacity: .75 } })),
+              h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, width: 18, textAlign: "right" } }, c.n));
+          })) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, margin: "20px 0 6px" } }, "她写过的"),
+        mine.length ? mine.map(function (f) {
+          return h("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+            h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, (f.chapters || []).length + " 章 · " + cpLabel(f.cp, props.characters, props.userName))),
+            h("button", { onClick: function () { props.onAddOn && props.onAddOn(f.id); }, className: "shrink-0 active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "5px 11px" } }, "加笔"));
+        }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, "她还没在这儿写过——生成同人文时点名让她写一批。")));
+  }
+
   // ---------- 底 nav ----------
   function BottomNav(props) {
     const t = useTheme();
     const items = [
+      // 她 2026-09-04：「中间那个加号（自己写文）移到我的里面，把加笔移到中间，
+      // 原来的地方放作者榜」。中间那一枚是这个 app 的主动作——现在主动作是加笔。
       { key: "feed", label: "首页", G: IHome }, { key: "shelf", label: "书架", G: IShelf },
-      { key: "publish", label: "发布", center: true }, { key: "rp", label: "穿书", G: IPortal }, { key: "mine", label: "我的", G: GUser }
+      { key: "rp", label: "加笔", center: true }, { key: "authors", label: "作者", G: IAuthors }, { key: "mine", label: "我的", G: GUser }
     ];
     // ⚠️底栏只吃 0.4 条底部安全区（COMPOSER_PAD_BOTTOM，engine.js）——
     // 和主聊天输入栏、购物底栏同一把尺子。这里原来吃的是【整条】
@@ -2605,7 +2895,7 @@
       items.map(function (it) {
         const on = props.view === it.key;
         if (it.center) return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex items-center justify-center" },
-          h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 999, background: t.ink } }, h(IPlus, { size: 19, color: t.bg2 })));
+          h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 999, background: on ? t.accent : t.ink } }, h(IQuill, { size: 19, color: t.bg2 })));
         return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60", style: { color: on ? t.ink : t.fog } },
           h(it.G, { size: 21, color: on ? t.ink : t.fog }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: on ? 600 : 400 } }, it.label));
@@ -2626,7 +2916,8 @@
     const [cps, setCps] = useState(loadCPs);
     const [me, setMe] = useState(function () { return meProfile(loadMe(), props.profile); });
     const [activeTab, setActiveTab] = useState(tabs[0] && tabs[0].id);
-    const [view, setView] = useState("feed"); // feed / shelf / publish / rp / mine
+    const [view, setView] = useState("feed"); // feed / shelf / publish / rp / authors / mine
+    const [rpStart, setRpStart] = useState(null); // 从作者主页点「加笔」带过来的那一篇
     const [openId, setOpenId] = useState(null);
     const [gearOpen, setGearOpen] = useState(false);
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
@@ -2676,7 +2967,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor) {
       setGearOpen(false);
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
       const run = async function (updateProgress) {
@@ -2699,7 +2990,7 @@
         const worldPool = curTab.mixed ? tabs.filter(function (x) { return !x.mixed; }) : null;
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
-          briefs: briefList,
+          briefs: briefList, author: byAuthor || null,
           includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "" };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
@@ -2819,10 +3110,16 @@
     } else if (view === "mine") {
       inner = h(Mine, { characters: cast, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
         onPaper: setPaperId,
-        onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP,
+        onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onWrite: function () { setView("publish"); },
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
-      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); } });
+      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); } });
+    } else if (view === "authors") {
+      inner = h(AuthorsPage, { fics: fics, tabs: tabs, characters: cast, userName: userName, active: props.active, toast: props.toast,
+        onBack: function () { setView("feed"); },
+        onOpenFic: function (id) { setOpenId(id); },
+        // 从作者主页直接加笔：把这一篇递给加笔那一屏，省得再去列表里找
+        onAddOn: function (id) { setRpStart(id); setView("rp"); } });
     } else {
       // feed / shelf。item 5：收藏(onShelf)的从 feed 移除、只在书架出现
       // 搜的时候连 CP 里那几个人的名字一起搜——「按 CP 找」用的就是这条：
@@ -2899,7 +3196,7 @@
               readAt: rd ? (chN > 1 && rd.chap > 0 ? "读到 " + (rd.chap + 1) + "/" + chN : "读过") : "",
               onTag: function (tag) { setTagFilter(tag === tagFilter ? "" : tag); },
               onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
-          }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或用底部加号自己写" }))));
+          }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或在「我的 → 自己写一篇」里自己写" }))));
     }
 
     // 发布/我的/rp 是全屏子页（自带返回箭头回 feed），不叠底 nav；feed/shelf 才显示底 nav
