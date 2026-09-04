@@ -2836,11 +2836,12 @@ async function splitMemoryToEntries(p, ctx, blob) {
 // 各写一份的话迟早只改一处（v56.09 那个形状）。
 const COT_SPOTS = [
   { key: "fanfic", name: "同人文", note: "一次写一整篇" },
-  { key: "rp", name: "穿书", note: "一拍一整段，还压着一本原著" },
+  { key: "rp", name: "加笔", note: "一拍一整段，还压着别人写好的一篇" },
   { key: "theater", name: "小剧场", note: "一次写一整场戏" },
   { key: "dream", name: "梦境", note: "一场梦的每一幕" },
-  { key: "groupOffline", name: "群聊线下", note: "一批里好几个人各说各的" },
-  { key: "digital", name: "线下的数字生命", note: "普通角色的单人线下不走这条" }
+  { key: "groupOffline", name: "群聊线下", note: "一批里好几个人各说各的" }
+  // ⚠️线下的数字生命（言秋那条线）【不在这张表里】：她 2026-09-04「那个就是给言秋的，
+  //   本来也不会给他」。代码那一路照旧（他的东西不动），只是不给她一个永远不会按的开关。
 ];
 function loadCotConfig() {
   try {

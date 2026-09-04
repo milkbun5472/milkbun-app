@@ -41,10 +41,11 @@ test("底栏只吃 0.4 条安全区，和主聊天输入栏、购物底栏同一
   assert.match(screens, /paddingBottom: COMPOSER_PAD_BOTTOM \} \},\n\s*\[\["home", "首页", GShop\]/, "购物那条底栏是这把尺子的出处");
 });
 
-// ── 改名穿书 ──
-test("叫穿书了，但存档键和 mode key 一个都没动", () => {
-  assert.match(fic, /\{ key: "rp", label: "穿书", G: IPortal \}/);
-  ["穿书设定", "穿书中", "＋ 新穿书", "还没有穿书存档", "选一篇穿进去"].forEach(x =>
+// ── 改名加笔（v62.44 她 2026-09-04：「加笔我觉得可以」；原来叫穿书）──
+test("界面上叫加笔了，但存档键和 mode key 一个都没动", () => {
+  // 底栏中间那一枚让给了它（＋写文挪进「我的」）
+  assert.match(fic, /\{ key: "rp", label: "加笔", center: true \}/);
+  ["加笔设定", "加笔中", "＋ 新一篇", "还没在谁的文上动过笔", "挑一篇下笔"].forEach(x =>
     assert.ok(fic.indexOf(x) > 0, "这处没改名：" + x));
   assert.match(fic, /【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里/);
   assert.match(fic, /【玩家的身份 \/ 穿进去的方式】/);

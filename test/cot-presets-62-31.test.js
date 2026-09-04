@@ -17,7 +17,7 @@ test("小稿真正在用的还是那四处，界面上的说明得跟这份名�
   // 说明里必须点名这四处，并且说清哪两处不走——她按了开关没动静时，
   // 「没轮到」和「坏了」长得一模一样（四处一样喂那条学到的）
   const desc = cot.slice(cot.indexOf("启用创作小稿"), cot.indexOf("当前模型"));
-  for (const where of ["同人文", "穿书", "小剧场", "梦境", "群聊线下", "数字生命"]) assert.ok(desc.includes(where), where + " 没写进说明");
+  for (const where of ["同人文", "加笔", "小剧场", "梦境", "群聊线下"]) assert.ok(desc.includes(where), where + " 没写进说明");
   assert.match(desc, /普通角色的单人线下和所有线上聊天都不走这条/);
 });
 
@@ -53,9 +53,11 @@ const theater = R("theater.js");
 test("哪几处能用小稿只登记一份，设置页照它排", () => {
   // 各写一份的话迟早只改一处（v56.09 那个形状）
   assert.match(engine, /const COT_SPOTS = \[/);
-  for (const k of ["fanfic", "rp", "theater", "dream", "groupOffline", "digital"]) {
+  for (const k of ["fanfic", "rp", "theater", "dream", "groupOffline"]) {
     assert.match(engine, new RegExp(`key: "${k}"`), k + " 没登记");
   }
+  // 言秋那条线不给开关（她 2026-09-04：那个就是给他的，本来也不会给他）
+  assert.doesNotMatch(engine.slice(engine.indexOf("const COT_SPOTS"), engine.indexOf("function loadCotConfig")), /key: "digital"/);
   assert.match(cot, /COT_SPOTS\.map\(function \(sp\)/, "设置页不许另抄一份名单");
   // 总开关关着时整段不出现——不然「全关」和「这块关」长得一样
   assert.match(cot, /cfg\.enabled && typeof COT_SPOTS !== "undefined"/);

@@ -277,6 +277,18 @@ const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
 // 同人文底 nav 用：书架（三本书）、穿越（拱门/传送门）
 const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("path", { d: "M15.5 6.2l4.4 1.2-3.8 13.6-4.4-1.2" }), h("path", { d: "M4 20h16" }));
 const IPortal = p => h(Svg, p, h("path", { d: "M5 21V8a7 4 0 0114 0v13" }), h("path", { d: "M9 21v-9a3 2.2 0 016 0v9" }));
+// 加笔：一支笔尖压在纸上（同人文底栏中间那一枚）
+const IQuill = p => h(Svg, p,
+  h("path", { d: "M4 20.5c1.2-4.6 3.4-8.2 6.6-11.4" }),
+  h("path", { d: "M9.6 10.1l4.3 4.3" }),
+  h("path", { d: "M14.2 5.5l4.3 4.3-4.6 4.6-4.3-4.3z" }),
+  h("path", { d: "M4 20.5l3.9-1.1" }));
+// 作者榜：一叠稿纸，最上面那张有一道签名
+const IAuthors = p => h(Svg, p,
+  h("path", { d: "M7 3.5h10.5v14H7z" }),
+  h("path", { d: "M4.5 6.5v14H15" }),
+  h("path", { d: "M9.5 7h5.5M9.5 10h5.5" }),
+  h("path", { d: "M9.8 14c1-1.1 1.9-1.1 2.6 0s1.6 1.1 2.6 0" }));
 // 擂台：一个搭起来的台子——台面＋台腿＋台上两个人，上方吊着记分牌。
 // （原来是天平，那是「辩论」的图；改名之后天平只说得了「判胜负」这一半，说不了「上台吵」那一半。）
 const GDebate = p => h(Svg, p, h("path", { d: "M9.5 2.6v1.8M14.5 2.6v1.8" }), h("rect", { x: 8, y: 4.4, width: 8, height: 4.6, rx: 1 }), h("circle", { cx: 9, cy: 13.4, r: 1.7 }), h("circle", { cx: 15, cy: 13.4, r: 1.7 }), h("path", { d: "M3 16.4h18" }), h("path", { d: "M5.5 16.4V21M18.5 16.4V21" }));

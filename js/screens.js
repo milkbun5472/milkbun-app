@@ -6164,7 +6164,7 @@ function CotConfig({ toast, activeProfile }) {
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这六处：同人文、穿书、小剧场、梦境、群聊线下、以及线下的数字生命——普通角色的单人线下和所有线上聊天都不走这条。开了之后可以再单独关掉其中某一处。它不是模型的隐秘推理，不进正文，每段正文旁能展开看。留空 = 不启用。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这五处：同人文、加笔、小剧场、梦境、群聊线下——普通角色的单人线下和所有线上聊天都不走这条。开了之后可以再单独关掉其中某一处。它不是模型的隐秘推理，不进正文，每段正文旁能展开看。留空 = 不启用。")),
       h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
     activeProfile ? h("div", { className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
