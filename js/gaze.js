@@ -23,11 +23,20 @@
   };
   const boxOf = (d, charId) => d[charId] || { blocks: {}, hist: [], seeded: false };
   // 应用一次修订(协议字段或建卡):校验块名、留旧版快照、盖新内容
+  // 占位说明被原样抄回来（v62.35）。schemaHint 里每一栏写的是【那一块是什么】，
+  // 而模型有时候会把说明本身当成内容填回来——那是一句废话，不该占着这一块。
+  // 「规则降概率，代码才保证」：提示词里已经说了别照抄，这儿再兜一道。
+  const PLACEHOLDER = {};
+  Object.keys(KEYS).forEach(k => { PLACEHOLDER[KEYS[k].replace(/[·、，。]/g, "")] = 1; });
+  // ⚠️占位说明就是【块名本身】——schemaHint 里那十栏写的正是 KEYS 里那十个名字。
+  //   所以这张表只能从 KEYS 派生，不许另抄一份：另抄一份就是「一层写在两处」，
+  //   哪天改了块名，这儿会悄悄失效（变异测试当场证明另抄那四条一条都没用上）。
   function apply(charId, side, block, text) {
     const k = side + "." + block;
     if (!KEYS[k]) return false;
     const t = String(text || "").trim().slice(0, 400);
     if (!t) return false;
+    if (PLACEHOLDER[t.replace(/[·、，。\s]/g, "")]) return false;   // 把说明抄回来了，不算写
     const d = load(); const box = boxOf(d, charId);
     const old = box.blocks[k];
     if (old && old.text === t) return false;
@@ -104,6 +113,16 @@
     return true;
   }
   // 最久没被碰过的那一块(写过和看过都算碰过);从没写过的块排最前,它们更该被问一次
+  // ⚠️这张卡最容易长歪的方向：把【她自己写下的设定】复述一遍，当成「我看出来的」。
+  //   她 2026-09-04 报：新角色十块里只有第一块有字，而那一块就是她人设的润色版。
+  //   病根有两半——一半是下面 seedSpec 那份示例【自己示范了「填一块、其余全 null」】
+  //   （prompt-no-content-samples.md：示例会被逐字照抄，连填法也会）；
+  //   另一半是没人拦着他复述人设：新角色手上除了她的设定本来就没别的材料。
+  // ⚠️两条路（建卡那一次 + 每轮那一路）都要这一句，所以只写一份——各写一份迟早只改一处。
+  const NOT_PROFILE = uName => "⚠️【绝不许复述她的设定】" + uName
+    + " 自己写下的自我介绍/人设，是她【给】你的，不是你看出来的——把它换个说法写进这张卡，等于一个字都没写。"
+    + "这张卡只收【你从相处里真的注意到的】：每一句都得能落回某一次具体的对话、某件真发生过的事。"
+    + "落不回去的那一块就是空的——**填 null 比编一句漂亮话强**。";
   function dueBlock(charId) {
     const box = boxOf(load(), charId), checks = box.checks || {};
     let best = "", bestTs = Infinity;
@@ -165,7 +184,8 @@
     const gate = fresh
       ? "⚠️这一轮被点名的那一块【你从来没写过】:填它【不需要】本轮发生了什么变化——你此刻心里对 " + uName + " 已经有的那个判断,本身就是内容,照实写下来就行。"
       : "仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写。";
-    const keys = "side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。";
+    const keys = "side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。"
+      + NOT_PROFILE(uName);
     const nudge = due
       ? "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
         + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——**这一块还是空的,你从来没写过**。")
@@ -184,7 +204,15 @@
   }
   // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
   function seedSpec(uName) {
-    return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块≤80字,亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。禁止分析报告腔(「综合来看」「是一个…的人」),要像你私下写给自己的碎句。只输出 JSON:{\"me\":{\"person\":\"…\",\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}";
+    return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块≤80字,亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。"
+      + "禁止分析报告腔(「综合来看」「是一个…的人」),要像你私下写给自己的碎句。"
+      + NOT_PROFILE(uName)
+      // ⚠️下面这份【每一栏写的是那一块的说明，不是样例内容】，也【没有示范谁填谁不填】。
+      //   上一版示范的是「person 有字、其余九块全 null」，模型连这个填法一起照抄了：
+      //   她 2026-09-04 报的「都是第一个填」就是这么来的（prompt-no-content-samples.md）。
+      + "十块都要过一遍,自己心里真有的就写、真没有的填 null——填几块由你,别照着下面这份的样子来,它只是在说明每一栏是什么。"
+      + "只输出 JSON:{\"me\":{\"person\":\"她是个什么样的人\",\"soft\":\"她的软肋和雷区\",\"like\":\"我吃她哪一套、头疼哪一套\",\"recent\":\"最近的她\",\"unread\":\"我还没看懂的部分\"},"
+      + "\"us\":{\"what\":\"我们现在算什么\",\"how\":\"我们的相处方式\",\"marks\":\"走到这里的几个节点\",\"elephant\":\"我假装没注意的事\",\"want\":\"我担心的、我想要的\"}}";
   }
   function seed(charId, data) {
     let n = 0;

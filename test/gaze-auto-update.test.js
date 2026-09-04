@@ -117,7 +117,14 @@ test("「看过了不用改」不许买走整整 25 轮的安静", () => {
 
 test("不传 charId 也不炸（群聊那份还在共用）", () => {
   assert.equal(typeof G.spec("阿棠"), "string");
-  assert.ok(G.spec("阿棠").indexOf("⚠️") < 0);
+  // ⚠️原来判的是「一个 ⚠️ 都不许有」——那只是个便宜的代理。v62.35 加了那条
+  // 「不许复述她的设定」的围栏（两路共用、无条件发），这条就假红了。
+  // 真要判的是【点名那一段不许出现】：没有 charId 就没有「这一轮请复看这一块」。
+  const noId = G.spec("阿棠");
+  assert.ok(noId.indexOf("【这一轮请复看这一块】") < 0, "没有 charId 却点了名——它根本不知道该点哪一块");
+  assert.ok(noId.indexOf("impressionChecked:") < 0, "没有 charId 却给了那个二选一的出口");
+  // 围栏那一句反过来【必须】在：群聊那一份也不许拿她的人设充数
+  assert.match(noId, /绝不许复述她的设定/, "群聊那一路没挂围栏");
 });
 
 test("接线：写了就清零，没写就计一轮", () => {
@@ -197,7 +204,9 @@ test("聊够了还一块都没有，代码自己替他建一次卡；一个角�
 test("接线：先记标记再打调用；线上线下两路都接上，且都有条数门槛", () => {
   assert.match(app, /if \(auto && window\.Gaze\.markAutoSeed\) window\.Gaze\.markAutoSeed\(char\.id\)/);
   assert.match(app, /先记标记再打调用/, "为什么要先记标记，写在代码里");
-  assert.match(app, /const GAZE_AUTOSEED_MSGS = 10/);
+  // v62.35 从 10 抬到 30：十条≈五个来回，那时候他除了她自己写的设定没有别的材料，
+  // 「你看出了什么」只能靠复述人设来答（她 2026-09-04 报的就是这个）。
+  assert.match(app, /const GAZE_AUTOSEED_MSGS = 30/);
   assert.match(app, /if \(msgs\.length \+ \(Number\(extra\) \|\| 0\) < GAZE_AUTOSEED_MSGS\) return/);
   // 线上
   assert.match(app, /window\.Gaze\.tick\(char\.id\); \} catch \(e\) \{\} \}\n\s*try \{ maybeAutoSeedGaze\(char\); \}/);

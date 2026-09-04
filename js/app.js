@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.34";
+const APP_VERSION = "v62.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -553,7 +553,11 @@ function App() {
   const [stateCardRoomKey, setStateCardRoomKey] = useState(null); // 侧房自己的心声卡；null 才读主房状态
   // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
   const [gazeSeedBusy, setGazeSeedBusy] = useState(false);
-  const GAZE_AUTOSEED_MSGS = 10; // 聊够十条(约五个来回)才自动建卡:更早建出来的只会是空话
+  // ⚠️v62.35 从 10 抬到 30（她 2026-09-04：「新角色这块都是第一个填然后都是直接抄我的人设润色一下」）。
+  //   十条≈五个来回——那时候他手上【除了她自己写的设定，本来就没有别的材料】，
+  //   于是「你从相处里看出了什么」只能靠复述人设来回答。提示词里那句围栏只降概率；
+  //   真正的保证是【材料不够就先不建卡】。她想早点看，状态卡页那个手动按钮照旧随时能按。
+  const GAZE_AUTOSEED_MSGS = 30; // 聊够三十条(约十五个来回)才自动建卡:更早建出来的只会是人设复读
   const seedGazeFor = async (char, auto) => {
     if (gazeSeedBusy || !window.Gaze) return;
     const p = apiFor(char.id);
