@@ -29,10 +29,19 @@ const BUBBLE_SKIN = {
 //   后面】（同权重时后来的赢）。所以：换皮肤 = 重新 append 一次，它就又到最后了。
 // 分工因此清楚了：颜色/圆角/投影/聊天页底色 → 皮肤说话；
 //   气泡的尖角、顶栏、输入栏、时间戳这些皮肤管不到的 → 主题 CSS 说话，互不打架。
-function applyBubbleSkinCSS() {
-  if (typeof document === "undefined") return;
+// ── 长相的四层（她 2026-09-04 定）───────────────────────────────────────────
+// 从下往上：全局皮肤（主题 CSS）→ 这个人的皮肤 → 全局气泡 → 这个人的气泡 → 这个人的聊天背景。
+// 越靠上越具体，每一层只盖它下面那层管到的东西。她的原话：
+//   · 「全局是 line 我给 a 选微信应该覆盖它」
+//   · 「皮肤应该在气泡下面——改了气泡，应该显示在 override 微信皮肤的气泡」
+//   · 「自定义背景也要 override 微信背景的默认色」
+// ⚠️全靠 <style> 在 head 里的先后决胜（同权重、都带 !important，后来的赢），
+//   所以【必须一次按顺序全部重排】：只 append 其中一张，别的就落到它前面去了。
+//   这也是为什么这几层只能有这一个出口——各写各的 append，顺序必然乱。
+let CHAT_LOOK = {};          // 当前这个聊天窗自己那几层（换人/改设置时由 App 传进来）
+const bubbleDecls = S => {
   const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
-  const S = BUBBLE_SKIN, out = [];
+  const out = [];
   const one = (sel, decls) => { const d = decls.filter(Boolean); if (d.length) out.push(sel + "{" + d.join("") + "}"); };
   one('[data-wk="bubble"][data-me="1"]', [
     S.myBg ? "background:" + q(S.myBg) + " !important;" : "",
@@ -50,11 +59,62 @@ function applyBubbleSkinCSS() {
   ]);
   // 聊天页底色：只在皮肤真设过时才发（留空＝跟主题走，不该抢主题 CSS 的话）
   if (S.chatBg) one('[data-wk="chat"],[data-wk="body"]', ["background:" + q(S.chatBg) + " !important;", "background-image:none !important;"]);
-  let el = document.getElementById("wk-skin-css");
-  if (!el) { el = document.createElement("style"); el.id = "wk-skin-css"; }
-  el.textContent = out.join("\n");
-  document.head.appendChild(el);   // 重新 append＝挪到最后，永远压在主题那张上面
+  return out.join("\n");
+};
+// 传对象＝换了人或改了设置，记下来；不传＝只是全局那层变了，照旧用记着的这一份重排。
+// ⚠️「这个人的」那三层都要限死在【单聊那一页】：不限的话，给某个人挑的气泡会跟着
+//   跑进群聊和别人的窗口——那就不是「给 a 选」了。全局那一份照旧不限，它本来就管所有地方。
+// ⚠️限的是【这一个聊天窗】，不是【单聊这一页】：别人的窗口也是 thread，
+//   只按页面限的话，给沈屿白挑的气泡会照样出现在陆闻那儿（浏览器里当场看出来的）。
+//   所以 App 那头在 <html> 上挂一个 data-lisa-char，这几层连人一起限死。
+//   ⚠️别指望「换人时那个 effect 会重写这几张 style」——那是时序，不是保证；
+//     写进选择器里才是保证（规则降概率，代码才保证）。
+const scopeSel = (css, scope) => String(css || "").replace(/(^|\})\s*([^{}@]+)\{/g,
+  (all, pre, sel) => pre + sel.split(",").map(x => scope + " " + x.trim()).join(",") + "{");
+// 从一整套皮肤 CSS 里只抠出【聊天页那块底】的那条规则（皮肤自己写的第一条就是它）。
+// 抠不出来就返回空——宁可不压，也别瞎猜一个底色出来。
+const chatBgRule = css => {
+  const m = /(^|\})\s*([^{}@]*\[data-wk="chat"\][^{}@]*)\{([^{}]*)\}/.exec(String(css || ""));
+  return m ? m[2].trim() + "{" + m[3] + "}" : "";
+};
+function applyChatLook(next) {
+  if (typeof document === "undefined") return;
+  if (next) CHAT_LOOK = next || {};
+  const L = CHAT_LOOK || {};
+  // 没有当前这个人就没有「这个人那几层」：全部发空的，别把上一个人的留在页面上
+  const scope = L.scope || "";
+  const put = (id, css) => {
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement("style"); el.id = id; }
+    el.textContent = css || "";
+    document.head.appendChild(el);      // 重新 append＝挪到最后，按调用顺序层层压上去
+  };
+  // ① 这个人的皮肤：压在主题那张（全局皮肤）上面。CSS 由 App 那头限好页面再传进来。
+  put("wk-char-skin-css", scope ? (L.skinCSS || "") : "");
+  // ② 全局气泡：压在皮肤上面（她 2026-09-03 定的老规矩，这一层不限页面）
+  put("wk-skin-css", bubbleDecls(BUBBLE_SKIN));
+  // ③ 这个人皮肤那层【底】再压一次：气泡预设里也带着一个 chatBg，不压回来的话，
+  //   「全局气泡还是 LINE、给 A 单挑了微信皮肤」会变成【微信的顶栏配 LINE 的底】——
+  //   看着就像没生效。判据：**更具体的那层赢**；给某个人挑的皮肤，比全局气泡具体。
+  //   （她自己给这个人挑的气泡比这更具体，所以排在下一层、仍旧压得过它。）
+  put("wk-char-skin-bg-css", (scope && L.skinCSS) ? chatBgRule(L.skinCSS) : "");
+  // ④ 这个人自己的气泡：全局那份打底、她给这个人挑的盖上去，只在这个聊天窗里生效
+  put("wk-char-bubble-css", (scope && L.bubble) ? scopeSel(bubbleDecls(Object.assign({}, BUBBLE_SKIN, L.bubble)), scope) : "");
+  // ⑤ 这个人自己选的聊天背景图：压在最上面，盖掉皮肤那层底色。
+  //   ⚠️以前它是【行内样式】，而皮肤 CSS 带 !important——行内样式输给 !important，
+  //     所以她给某个聊天设了背景图，一挂皮肤就看不见了。必须也走 CSS 这一层。
+  const raw = L.chatBg ? (typeof resolveImg === "function" ? resolveImg(L.chatBg) : L.chatBg) : "";
+  // 只当 url("…") 里的值用：能从引号里逃出去的只有【引号、反斜杠、换行】这三样，
+  // 把它们去掉就够了。⚠️别顺手连 ; ( ) 一起删——data:image/png;base64,… 里就带着分号，
+  // 删了她上传的那张图会整个坏掉（这一条是变异测试里试出来的）。
+  const bg = String(raw || "").replace(/["\\\r\n]/g, "");
+  put("wk-chat-bg-css", (scope && bg) ? scope + ' [data-wk="chat"]{'
+    + 'background-image:url("' + bg + '") !important;'
+    + "background-size:cover !important;background-position:center !important;"
+    + "background-repeat:no-repeat !important;background-color:transparent !important;}" : "");
 }
+// 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
+function applyBubbleSkinCSS() { applyChatLook(); }
 // 预设皮肤那一排按钮：两处共用（设置→气泡皮肤、单聊 ••• 里的聊天设置），
 // 一处画、两处用——各写一份迟早有一处漏掉新加的皮肤。
 function BubbleSkinPresets({ onPick, note }) {
@@ -11636,6 +11696,9 @@ function ChatSettings({
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
+  // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
+  const [skin, setSkin] = useState(settings.skin || "");
+  const [bubble, setBubble] = useState((settings.bubble && typeof settings.bubble === "object") ? settings.bubble : null);
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
@@ -11800,6 +11863,8 @@ function ChatSettings({
       userP,
       describeMe,
       chatBg,
+      skin,
+      bubble,
       apiId,
       engineerEyes,
       webSearch,
@@ -11938,12 +12003,37 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，点气泡旁边的「译」直接展开——"
       + "不再走免费翻译接口。说这句话的人自己译，语气和上下文都对得上。中文消息不受影响。")),
-    // 一键换皮肤（她 2026-09-03：「放到单聊那边做预设皮肤选择键，这样方便我换」）。
-    // ••• 打开的就是这一页，所以这一格摆在这儿＝在单聊里两下就换完。
+    // ── 只管这个人的两层（她 2026-09-04：「全局是 line 我给 a 选微信应该覆盖它」）──
+    // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。
+    // ⚠️两格都必须留【跟随全局】那一档：没有它就退不回去，改一次就永远脱离全局了。
     h("div", { className: "pt-5" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 7 } }, "气泡皮肤 · 一键换"),
-      // 不弹 toast：按钮自己就变了状态，气泡也当场换了，再弹一句是噪音
-      h(BubbleSkinPresets, null)),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换皮肤"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+        "顶栏、底色、输入栏这一整套。挑了就盖掉设置里那套全局的，只在这个聊天窗里生效。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        [["", "跟随全局"]].concat(((window.ThemeStudio && window.ThemeStudio.CSS_BUILTINS || {}).thread || []).map(x => [x[0], x[0]]))
+          .map(([v, label]) => h("button", {
+            key: v || "_", onClick: () => setSkin(v), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
+              background: skin === v ? t.ink : "transparent", color: skin === v ? t.bg2 : t.fog,
+              border: "1px solid " + (skin === v ? t.ink : t.line) } }, label)))),
+    h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换气泡"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+        "气泡压在皮肤上面：挑了这个，显示的就是【上面那套皮肤 + 这里挑的气泡】。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        [{ key: "", name: "跟随全局", tint: t.line }].concat(BUBBLE_PRESETS).map(o => {
+          const on = o.key ? !!(bubble && bubble._preset === o.key) : !bubble;
+          return h("button", {
+            key: o.key || "_",
+            onClick: () => setBubble(o.key ? Object.assign({ _preset: o.key }, bubblePresetSkin(o.key)) : null),
+            className: "active:opacity-70 flex items-center",
+            style: { gap: 6, fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
+              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+              border: "1px solid " + (on ? t.ink : t.line) } },
+            o.key ? h("span", { style: { width: 10, height: 10, borderRadius: 999, background: o.tint, flexShrink: 0 } }) : null,
+            o.name);
+        }))),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),

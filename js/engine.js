@@ -2265,7 +2265,17 @@ function buildBundle(ctx, opts) {
     if (taken) parts.push(taken);
   }
   // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
-  if (!ctx.notRoleplay && geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
+  // ⚠️只喂【她在哪】、不说【你在哪】，等于告诉模型「你不在那儿」（她 2026-09-04 抓到：
+  //   位置写着温尼伯，沈屿白就在电话里说异国不能来陪她，而人设和记忆里都没有异地这回事）。
+  //   真异地的角色靠 tz 那一段说话（上面那整块专讲时差）；没设 tz 的一律默认同城，
+  //   这句必须显式给出——留白就会被训练先验补成「异国恋只能隔着屏幕」。
+  if (!ctx.notRoleplay && geo && geo.label) {
+    const _tzSet = char && char.tz != null && String(char.tz).trim() !== "" && !isNaN(parseFloat(char.tz));
+    parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）"
+      + (_tzSet ? "" : "\n⚠️这只是 " + uName + " 此刻在哪，**不是在说你离得远**：你没有设过任何异地/异国的设定，"
+        + "默认你和 " + uName + " 就在同一座城市，能约、能上门、能过去陪。**绝不许据此推断成异地恋或异国恋**"
+        + "——你住哪、离多远，只由你的人设说了算；人设里没写，就按同城来。"));
+  }
   if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。

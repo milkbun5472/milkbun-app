@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.20";
+const APP_VERSION = "v62.21";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1214,6 +1214,33 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
+  // ── 这个聊天窗自己那几层长相（她 2026-09-04 定）────────────────────────────
+  // 全局皮肤（主题工作台 · 单聊页 CSS）在最底下；她给某个人单独挑的皮肤压上去；
+  // 气泡再压在皮肤上；她给这个聊天设的背景图压在最顶上。
+  // 顺序全靠 <style> 在 head 里的先后，所以只能有一个出口：components 那边的 applyChatLook。
+  // ⚠️限死到【这一个人的这一页】：别人的聊天窗也是 thread，只按页面限的话，
+  //   给沈屿白挑的皮肤会照样出现在陆闻那儿（浏览器里当场看出来的）。
+  const lookScope = id => 'html[data-lisa-screen="thread"][data-lisa-char="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
+  const charSkinCSS = (name, scope) => {
+    if (!name || !window.ThemeStudio) return "";
+    const hit = ((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === name);
+    if (!hit) return "";
+    // 跟主题那头用同一支 scopeCSS 加前缀——各写一套迟早两边限法不一样
+    try { return window.ThemeStudio.scopeCSS(hit[1], scope); } catch (e) { return ""; }
+  };
+  useEffect(() => {
+    if (typeof applyChatLook !== "function") return;
+    const inChat = !!(activeChar && screen === "thread");
+    document.documentElement.setAttribute("data-lisa-char", inChat ? String(activeChar.id) : "");
+    const s = inChat ? settingsFor(activeChar.id) : {};
+    const scope = inChat ? lookScope(activeChar.id) : "";
+    applyChatLook({
+      scope: scope,
+      skinCSS: charSkinCSS(s.skin, scope),
+      bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
+      chatBg: s.chatBg || ""
+    });
+  }, [activeChar && activeChar.id, chatSettings, screen]);
   // 全局只给默认值；角色可单独覆盖。侧房还会在生成入口处再覆盖这一层。
   const timeAwareFor = id => {
     const mode = (chatSettings[id] || {}).timeAwareMode;
@@ -17480,6 +17507,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             userP: s.userP,
             describeMe: s.describeMe,
             chatBg: s.chatBg,
+            skin: s.skin || "",
+            bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
             apiId: s.apiId || null,
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,

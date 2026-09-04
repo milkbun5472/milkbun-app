@@ -47,10 +47,14 @@ test("气泡皮肤压在主题 CSS 上面，且有一排一键预设（含仿微
   const m = comp.match(/const BUBBLE_PRESETS = \[[\s\S]*?\n\];/);
   assert.ok(m, "找不到 BUBBLE_PRESETS");
   assert.match(m[0], /key: "wechat", name: "仿微信"/);
-  // 一处画两处用：设置里那一处 + 单聊 ••• 那一处
-  assert.equal((comp.match(/h\(BubbleSkinPresets/g) || []).length, 1, "单聊那一处没接或接了两遍");
   assert.match(scr, /h\(BubbleSkinPresets, \{ onPick:/, "气泡皮肤设置里那一处没接");
   assert.equal((comp.match(/function BubbleSkinPresets/g) || []).length, 1, "这排按钮不许抄成两份");
+  // ⚠️v62.20 起单聊 ••• 那一处【不再】用这排按钮：那排写的是全局（applyBubblePreset
+  //   会把所有人的气泡一起改掉）。她 2026-09-04 要的是「给全部角色也来一份，角色 over 全局」，
+  //   所以那一格换成了只写这个人自己那一份的选择器（见 chat-look-layers-62-20）。
+  assert.equal((comp.match(/h\(BubbleSkinPresets/g) || []).length, 0,
+    "单聊那一处又挂回那排写全局的按钮了——点一下会把所有人的气泡都改掉");
+  assert.match(comp, /"只给 TA 换气泡"/, "单聊那一处的按人换气泡没了");
 });
 
 // ⑦「设置每一个界面可以存 5 种预设」
