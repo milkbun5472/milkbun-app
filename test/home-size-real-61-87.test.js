@@ -40,7 +40,7 @@ test("2 和 4 之间补了两档 3 格宽的", () => {
 });
 
 test("情侣空间和一起听默认就是一条（4×1），不占两行", () => {
-  assert.deepEqual(F.HOME_SIZE_DEFAULT, { w_us: "wide", w_music: "wide" });
+  assert.deepEqual(F.HOME_SIZE_DEFAULT, { w_us: "wide", w_music: "wide", w_memo: "wide" });
   assert.deepEqual(F.homeItemSpan("w_us", { kind: "widget", which: "us" }, {}), [4, 1]);
   assert.deepEqual(F.homeItemSpan("w_music", { kind: "widget", which: "music" }, {}), [4, 1]);
   // 她自己挑过的一律听她的
@@ -74,4 +74,14 @@ test("装饰图上印死的那几行英文，全都能换成她要的词", () =>
   // 留空＝用自带的那句（清空之后图上不许留一块空白）
   const fn = comp.slice(comp.indexOf("function dmark(item, fallback)"), comp.indexOf("function HomeDecorItem("));
   assert.match(fn, /return v \|\| fallback;/);
+});
+
+// 她 2026-09-03：「备忘录改成 4×1 吧，我自己调会截边」
+test("备忘录默认一条；一行高时换成一行说得完的排法，不是把三条硬塞", () => {
+  assert.equal(F.HOME_SIZE_DEFAULT.w_memo, "wide");
+  const seg = comp.slice(comp.indexOf("function MemoWidget("), comp.indexOf("// 命运转盘"));
+  assert.match(seg, /const oneRow = !!\(pr && pr\.rows === 1\);/, "没有按行数分档，4×1 还是会被裁掉");
+  assert.match(seg, /"还有 " \+ \(items\.length - 1\) \+ " 条"/, "剩下几条没有交代");
+  assert.match(seg, /height: "100%", display: "flex", alignItems: "center"/, "一行那档没有撑满并居中");
+  assert.match(comp, /h\(MemoWidget, \{ homeSize: homeSize/, "没把尺寸传给备忘录，它不知道自己只有一行");
 });

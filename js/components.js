@@ -1032,11 +1032,29 @@ function LedgerWidget({ onOpen }) {
     : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "📒 记账\n本月还没记账"));
 }
 // 备忘录小组件：最近 3 条未完成提醒（逾期红字优先），点开进备忘录
-function MemoWidget({ onOpen }) {
+function MemoWidget({ onOpen, homeSize }) {
   const t = useTheme();
   const items = (typeof window !== "undefined" && window.memoUpcoming) ? window.memoUpcoming(3) : [];
   const lbl = d => d === 0 ? "今天" : (d > 0 ? d + " 天后" : "逾期 " + (-d) + " 天");
-  return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer" } },
+  // 只有一行高的时候（4×1），三条清单塞不下——高度钉死之后多出来的会被裁掉，
+  // 就是她说的「我自己调会截边」。所以这一档换个排法：标题在左，最近那一条排在右边，
+  // 后面还有几条就用一个小数字带过。不是把三条硬缩小，是只说这一行说得完的事。
+  const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
+  const oneRow = !!(pr && pr.rows === 1);
+  const dayColor = it => it.days < 0 ? "#c25a4a" : (it.days === 0 ? t.accent : t.fog);
+  if (oneRow) {
+    const first = items[0];
+    return h(GlassCard, { onClick: onOpen, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
+      h("span", { style: { fontSize: 14, flexShrink: 0 } }, "📌"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, "备忘录"),
+      first
+        ? h("span", { className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: dayColor(first), fontWeight: first.days <= 0 ? 700 : 400, flexShrink: 0 } }, lbl(first.days)),
+            h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.title || first.text || ""))
+        : h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "没有待办提醒，记一条？"),
+      items.length > 1 ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (items.length - 1) + " 条") : null);
+  }
+  return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer", height: homeSize && homeSize !== "auto" ? "100%" : "auto", overflow: "hidden" } },
     h("div", { className: "flex items-center gap-2", style: { marginBottom: items.length ? 8 : 0 } },
       h("span", { style: { fontSize: 14 } }, "📌"),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "备忘录"),
@@ -2039,7 +2057,7 @@ const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8;
 function homeSpanHeight(rows) { return rows * HOME_ROW_UNIT + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
-const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide" };
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
 function homeSizeOf(key, sizes) {
@@ -3125,7 +3143,7 @@ function Home({
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
-    else if (it.which === "memo") inner = h(MemoWidget, { onOpen: function () { return onOpenApp("memo"); } });
+    else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
     else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } });
     else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
