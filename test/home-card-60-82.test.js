@@ -11,8 +11,9 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 const card = comp.slice(comp.indexOf("function HomeCard("), comp.indexOf("function HomeCardSheet("));
 
 test("骨架换掉了：方头像在右、名字当主角、标签不是药丸", () => {
-  // 头像：方的，而且排在名字后面＝在右边。v61.31 放大一档（48→53）当右侧主角
-  assert.match(card, /h\(Avatar, \{ character: \{ name: profile\.name[\s\S]{0,90}size: 53, radius: 13 \}\)/);
+  // 头像：方的，而且排在名字后面＝在右边。v61.31 放大一档（48→53）当右侧主角。
+  // v62.03 起名片头像跟聊天那张分开了（她要单独改名片的），所以这儿是 c.avatar 优先。
+  assert.match(card, /h\(Avatar, \{ character: \{ name: c\.name \|\| profile\.name, avatarImage: c\.avatar \|\| profile\.avatarImage[\s\S]{0,60}size: 53, radius: 13 \}\)/);
   assert.ok(card.indexOf("fontSize: 23") < card.indexOf("radius: 13 }"), "名字要排在头像前面（名字左、头像右）");
   // 标签不再是药丸：仍是一行用「/」隔开的小字。v61.31 起拆成节点（斜杠要更淡），
   // 所以认的是「有这个隔法」，不是那一句 join

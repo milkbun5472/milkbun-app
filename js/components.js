@@ -3595,7 +3595,9 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
             })) : null),
         h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 14, padding: 2.5,
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
-          h(Avatar, { character: { name: profile.name, avatarImage: profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
+          // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
+          // 没单独设就还是跟着「我的面具」那张——原来只有这一张，改名片就等于改聊天。
+          h(Avatar, { character: { name: c.name || profile.name, avatarImage: c.avatar || profile.avatarImage, color: accent }, size: 53, radius: 13 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
@@ -3616,25 +3618,45 @@ function HomeCardSheet({ card, profile, onSave, onClose }) {
   const [sign, setSign] = useState(c.sign || "");
   const [tagStr, setTagStr] = useState((c.tags || []).join(", "));
   const [cover, setCover] = useState(c.cover || "");
-  const coverRef = useRef(null);
+  const [avatar, setAvatar] = useState(c.avatar || "");
+  const coverRef = useRef(null), avatarRef = useRef(null);
   const inp = { width: "100%", outline: "none", padding: "10px 2px", fontFamily: F_BODY, fontSize: 16, color: t.ink, background: "transparent", border: "none", borderBottom: "1px solid " + t.line };
-  const save = () => onSave({ name: name.trim(), sign: sign.trim(), cover: cover || "", tags: tagStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
+  const save = () => onSave({ name: name.trim(), sign: sign.trim(), cover: cover || "", avatar: avatar || "", tags: tagStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
   const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") resizeImageFile(f, 900, 0.82).then(d => setCover(d)); e.target.value = ""; };
+  const pickAvatar = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") resizeImageFile(f, 400, 0.85).then(d => setAvatar(d)); e.target.value = ""; };
+  // ⚠️「去掉」原来是最右边一行 12px 的灰字，没边框没底，还被右下角那只浮标压住半边——
+  //   她 2026-09-04：「名片的背景放了照片没办法移除」。功能一直在，是那颗按钮看不见。
+  //   现在两处都用这一个：真按钮、有框、跟在说明底下自己占一行，浮标压不到。
+  const removeBtn = (label, onClick) => h("button", {
+    onClick, className: "active:opacity-60",
+    style: { marginTop: 9, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 12.5, color: t.accent,
+      border: "1px solid " + t.line, borderRadius: 999, padding: "7px 15px", background: t.bg }
+  }, label);
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginBottom: 18 } }, "编辑名片"),
     h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "昵称", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: sign, onChange: e => setSign(e.target.value), placeholder: "签名", style: Object.assign({}, inp, { marginBottom: 22 }) }),
     h("input", { value: tagStr, onChange: e => setTagStr(e.target.value), placeholder: "标签，逗号隔开", style: Object.assign({}, inp, { marginBottom: 6 }) }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "名片和聊天里的「我」是分开的，改这里不影响角色对你的认知。"),
+    // 名片头像：跟聊天里的「我」分开（她 2026-09-04 要的）。没设就跟着面具那张。
+    h("div", { className: "flex items-start", style: { gap: 12, marginBottom: 20 } },
+      h("button", { onClick: () => avatarRef.current && avatarRef.current.click(), className: "active:opacity-80", style: { flexShrink: 0, borderRadius: 14, padding: 0 } },
+        h(Avatar, { character: { name: name || (profile && profile.name), avatarImage: avatar || (profile && profile.avatarImage), color: (profile && profile.color) || t.accent }, size: 56, radius: 14 })),
+      h("div", { className: "flex-1 min-w-0 flex flex-col" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "名片头像"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+          avatar ? "这张只用在名片上，聊天里的「我」不受影响。" : "现在跟聊天里的「我」是同一张。点左边换一张只给名片用。"),
+        avatar ? removeBtn("换回跟聊天同一张", () => setAvatar("")) : null),
+      h("input", { ref: avatarRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickAvatar })),
     // 名片封面：垫在整张卡底下的那张图。没设的话用你头像的颜色调一层光，不是白板。
-    h("div", { className: "flex items-center", style: { gap: 12, marginBottom: 22 } },
+    h("div", { className: "flex items-start", style: { gap: 12, marginBottom: 22 } },
       h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-80", style: { width: 92, height: 56, borderRadius: 12, flexShrink: 0, overflow: "hidden", border: "1px solid " + t.line,
         background: cover ? "center/cover no-repeat url(\"" + cover + "\")" : "linear-gradient(135deg," + ((profile && profile.color) || t.accent) + "2e," + t.bg2 + ")" } },
         cover ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "选一张")),
-      h("div", { className: "flex-1 min-w-0" },
+      h("div", { className: "flex-1 min-w-0 flex flex-col" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "名片封面"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "垫在整张名片底下。放了图之后名字和签名会自动换成白字加暗角。")),
-      cover ? h("button", { onClick: () => setCover(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "去掉") : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "垫在整张名片底下。放了图之后名字和签名会自动换成白字加暗角。"),
+        cover ? removeBtn("移除封面", () => setCover("")) : null),
       h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover })),
     h("div", { className: "flex gap-3" },
       h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 0" } }, "取消"),
