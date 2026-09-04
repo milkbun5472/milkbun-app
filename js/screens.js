@@ -3096,7 +3096,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
 
   // —— 书封面（默认）——
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "问答小本", en: "Q&A · " + partner.name, onBack }),
+    h(Head, { zh: "问答小本", en: partner.name, onBack }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       h("div", { style: { position: "relative", marginTop: 18, borderRadius: 16, padding: "34px 24px 26px", background: "linear-gradient(135deg,#c98a9e,#9f5c72)", boxShadow: "0 12px 34px rgba(120,70,90,0.3)", minHeight: 300, display: "flex", flexDirection: "column", justifyContent: "space-between" } },
         h("div", { style: { position: "absolute", left: 12, top: 14, bottom: 14, width: 4, borderRadius: 999, background: "rgba(255,255,255,0.25)" } }),
@@ -3139,7 +3139,7 @@ function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
       isMe && !e.replied ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, fontStyle: "italic" } }, "本子在 TA 那边 · 这几天会回你一页") : null);
   };
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "交换日记", en: "Diary · " + partner.name, onBack }),
+    h(Head, { zh: "交换日记", en: partner.name, onBack }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginTop: 4, marginBottom: 12 } }, "一本只有你俩看的本子：想写就写一页，TA 会在三天内找个时候回一页——写 TA 那天的事、和没说出口的话。"),
       writing ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", marginBottom: 14 } },
@@ -3257,7 +3257,7 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
         ev.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, ev.content) : null,
         h("button", { onClick: () => onRemove(ev.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "删除"))));
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的日子", en: "Our Days · " + partner.name, onBack,
+    h(Head, { zh: "我们的日子", en: partner.name, onBack,
       right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       h("div", { className: "flex gap-2", style: { margin: "8px 0 4px" } },
@@ -3600,7 +3600,7 @@ function CoupleAlbum({ partner, photos, onBack }) {
   });
   const isTwelfth = new Date().getDate() === 12;
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的合照", en: "Us · Album", onBack: onBack }),
+    h(Head, { zh: "我们的合照", en: partner.name, onBack: onBack }),
     h("div", { className: "flex-1 overflow-y-auto px-5 pb-12" },
       list.length === 0
         ? h(Empty, { text: "还没有你俩的合照", sub: "在和 " + partner.name + " 的聊天里，让 TA 拍张『我俩的合照』——就会挂到这面墙上。（需先在设置配好图像 API、你和 TA 都传了参考照）" })
@@ -3632,7 +3632,7 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
   const [draft, setDraft] = useState(() => Object.assign({}, data || {}));
   const filled = COUPLE_ARCHIVE_FIELDS.filter(f => String(draft[f[0]] || "").trim()).length;
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的档案", en: partner.name + " · MANUAL ARCHIVE", onBack }),
+    h(Head, { zh: "我们的档案", en: partner.name, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       h("div", { style: { border: "1px solid " + t.line, borderRadius: 20, background: t.bg2, padding: "18px 17px", marginBottom: 16 } },
         h(Eyebrow, null, "只由你亲手写入"),
@@ -3746,7 +3746,7 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
   const removeWish = id => onSave(wishes.filter(w => w.id !== id));
   const statusMeta = { wish: ["想做", "#a86882"], planned: ["已计划", "#547fa1"], done: ["已实现", "#54866a"], shelved: ["先搁着", "#8b817c"] };
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "愿望板", en: partner.name + " · SOMEDAY", onBack }),
+    h(Head, { zh: "愿望板", en: partner.name, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       h("div", { style: { borderRadius: 22, padding: "18px 16px", background: "linear-gradient(145deg,#fff2f2,#f3edf8)", border: "1px solid #eadbe5", marginBottom: 16 } },
         h(Eyebrow, null, "放进一件以后想一起做的事"),
@@ -3824,7 +3824,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
             gen ? partner.name + " 在挑…" : songs.length ? "让 " + partner.name + " 再刻几首" : "让 " + partner.name + " 刻几首"))),
       // ── A 面:歌 + B 面:刻字 ──
       songs.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, null, "B-SIDE"),
+        h(Eyebrow, null, "B 面"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 10px" } }, "每一首背面都刻着一句「为什么是这首」。"),
         songs.map(x => h("div", { key: x.id, style: { display: "flex", gap: 11, padding: "11px 0", borderBottom: "1px solid " + t.line, alignItems: "flex-start" } },
           h("div", { style: { width: 40, height: 40, borderRadius: 8, overflow: "hidden", background: "#eee6f0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, x.cover ? coverOf(x) : h("span", null, "♪")),
@@ -4195,7 +4195,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
           h("section", { style: { marginTop: 22 } },
             h("div", { className: "flex items-end justify-between", style: { marginBottom: 10 } },
               h("div", null,
-                h(Eyebrow, null, "TODAY · " + todayK.slice(5).replace("-", ".")),
+                h(Eyebrow, null, "今天 · " + todayK.slice(5).replace("-", ".")),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 3 } }, "今天的我们")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, bToday.length ? "今天留下 " + bToday.length + " 件事" : "安静的一天也算一天")),
             h("div", { style: { borderRadius: 22, overflow: "hidden", border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)" } },
@@ -4260,21 +4260,20 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
           h("section", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 } },
             h("button", { onClick: () => setSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
               h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(115,91,67,.08)" } }, "档"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a745e", letterSpacing: ".14em" } }, "MANUAL ARCHIVE"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a745e", letterSpacing: ".14em" } }, "只由你亲手写"),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#68513d", marginTop: 8 } }, "我们的档案"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a745e", marginTop: 22 } }, bArchiveN ? "已封存 " + bArchiveN + "/" + COUPLE_ARCHIVE_FIELDS.length + " 页" : "称呼、梗与小仪式")),
             h("button", { onClick: () => setSub("wishes"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f8edef", border: "1px solid #ebd4da", position: "relative", overflow: "hidden" } },
               // 和左边那张的「档」配成一对：两张卡的水印得是同一种东西（一个汉字），
               // 原来这儿是个 ✦ ——一张汉字一张符号，并排摆着就是两套
               h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(174,75,105,.10)" } }, "愿"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a46d7e", letterSpacing: ".14em" } }, "SOMEDAY"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a46d7e", letterSpacing: ".14em" } }, "以后想一起做的"),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#8e4960", marginTop: 8 } }, "愿望板"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a46d7e", marginTop: 22 } }, bWishes.length ? bWishOpen + " 件还在等 · " + bWishes.filter(w => w.status === "done").length + " 件实现" : "把以后钉在这里"))),
           // —— 情侣空间 app 拼贴：六列做出宽窄、高低与转角层级；顺序固定，刷新不乱跳。——
           h("div", { className: "flex items-end justify-between", style: { marginTop: 24, marginBottom: 10 } },
             h("div", null,
-              h(Eyebrow, null, "OUR LITTLE ROOMS"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginTop: 3 } }, "我们的小房间")),
+                            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginTop: 3 } }, "我们的小房间")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "挑一扇门进去")),
           (() => {
             const PAPER = "#fffdfa", PLINE = "rgba(92,72,62,.13)";
@@ -4309,9 +4308,10 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               o.dot ? h("span", { style: { width: 7, height: 7, borderRadius: 999, background: "#e0524a", flexShrink: 0 } }) : null);
             const mkSig = makeupSignalFor ? makeupSignalFor(bCid) : { on: false, why: "" };
             const mkCur = makeupOf ? makeupOf(bCid) : null;
-            const eyebrow = (en, zh, right) => h("div", { className: "flex items-end justify-between", style: { marginTop: 26, marginBottom: 11 } },
-              h("div", null, h(Eyebrow, null, en),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginTop: 2 } }, zh)),
+            // 英文眉标 v62.12 清掉（no-english-titles）：ON THE WALL / KEPT 换任何 app 都成立，
+            // 「墙上」「收着的」本来就在——那行英文纯属装饰。
+            const eyebrow = (zh, right) => h("div", { className: "flex items-end justify-between", style: { marginTop: 26, marginBottom: 11 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, zh),
               right ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, right) : null);
             return h(Fragment, null,
               // ── ① 今天 ────────────────────────────────────────
@@ -4319,7 +4319,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 style: { position: "relative", display: "block", overflow: "hidden", borderRadius: 22, padding: "20px 20px 18px",
                   background: "linear-gradient(155deg,#7d3f57 0%,#5b2f46 62%,#4a2739 100%)", boxShadow: "0 16px 34px rgba(68,32,52,.22)" } },
                 h("div", { "aria-hidden": "true", style: { position: "absolute", right: -30, top: -46, width: 168, height: 168, borderRadius: 999, background: "radial-gradient(circle,rgba(255,255,255,.10),rgba(255,255,255,0) 68%)" } }),
-                h("div", { style: { position: "relative", fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".22em", color: "rgba(255,255,255,.5)" } }, "TODAY"),
+                h("div", { style: { position: "relative", fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".22em", color: "rgba(255,255,255,.5)" } }, "今天"),
                 bAnn
                   ? h("div", { style: { position: "relative", marginTop: 12 } },
                       h("div", { className: "flex items-baseline", style: { gap: 6 } },
@@ -4347,7 +4347,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: (mkSig.on || mkCur) ? 15.5 : 12.5, lineHeight: 1.5, color: (mkSig.on || mkCur) ? "#8d5a4f" : t.fog } },
                   mkCur ? "和好间 · 还没了结的那一段" : mkSig.on ? mkSig.why : "和好间 · 这会儿没什么事")),
               // ── ② 墙上：贴着的东西，不对齐 ──────────────────────
-              eyebrow("ON THE WALL", "墙上", "贴着的"),
+              eyebrow("墙上", "贴着的"),
               h("div", { className: "flex flex-wrap", style: { gap: 12, alignItems: "flex-start" } },
                 // 合照：一张真照片，白边、歪着
                 h("button", { key: "album", onClick: () => setSub("album"), className: "active:opacity-80",
@@ -4361,7 +4361,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 // 拍立得旁边：照相馆，一张空相纸
                 wall("studio", { w: "48%", grow: 1, tilt: 1.8, pad: "14px 14px 16px", bg: "#fbf7fb", border: "1px solid #e6dcee",
                   kids: h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#a692bd" } }, "STUDIO"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#a692bd" } }, "照相馆"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.55, color: "#6d5390", marginTop: 8 } },
                       bShotLast ? one(bShotLast.scene, 16) : "挑身衣服拍一张"),
                     bShotsN > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a692bd", marginTop: 5 } }, "拍过 " + bShotsN + " 张") : null) }),
@@ -4375,17 +4375,17 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                     h("div", { "aria-hidden": "true", style: { position: "absolute", right: 69, bottom: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } })),
                   kids: h("div", { className: "flex items-center", style: { gap: 12, position: "relative" } },
                     h("div", { className: "flex-1 min-w-0" },
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: "#a89877" } }, "FIRSTS"),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: "#a89877" } }, "第一次"),
                       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7d6f5a", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                         bFirstLast ? one(bFirstLast.zh || bFirstLast.title || bFirstLast.note, 18) : "还没走过第一次")),
                     h("div", { style: { width: 58, flexShrink: 0, textAlign: "center" } },
                       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 24, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || 0),
-                      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".14em", color: "#a89877", marginTop: 3 } }, "FIRSTS"))) }),
+                      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".14em", color: "#a89877", marginTop: 3 } }, "存根"))) }),
                 // 如果馆：墙上唯一一块深的
                 wall("ifroom", { w: "100%", radius: 16, pad: "16px 16px 15px", bg: "linear-gradient(140deg,#241f36,#141222)", border: "1px solid #332c4a",
                   deco: h("div", { "aria-hidden": "true", style: { position: "absolute", right: 14, top: -26, width: 92, height: 92, borderRadius: 999, border: "1px solid rgba(169,156,203,.24)" } }),
                   kids: h("div", { style: { position: "relative" } },
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "WHAT IF"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "如果"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#e0d6f5", lineHeight: 1.4, marginTop: 7 } },
                       bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样这两个人，换掉当初的一样东西"),
                     bIfLast ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(200,188,230,.6)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, one(bIfLast.premise, 24)) : null) }),
@@ -4393,7 +4393,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 wall("gacha", { w: "46%", radius: 10, tilt: 1.2, pad: "13px 13px 14px", bg: "linear-gradient(150deg,#fbf1f7,#f3e3ee)", border: "1px solid #e8d4e4",
                   dot: bGachaOpen > 0,
                   kids: h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b78bad" } }, "DRAW"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b78bad" } }, "抽卡"),
                     h("div", { className: "flex items-baseline", style: { gap: 4, marginTop: 7 } },
                       h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 27, lineHeight: 1, color: "#96678c" } }, bGachaPts || 0),
                       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b78bad" } }, "点")),
@@ -4403,7 +4403,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 wall("drawer", { w: "46%", grow: 1, radius: "4px 4px 15px 15px", pad: "13px 13px 17px", bg: "#faf3e4", border: "1px solid #e9dcc0",
                   deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 9, width: 42, height: 4, marginLeft: -21, borderRadius: 99, background: "rgba(120,95,45,.3)" } }),
                   kids: h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "DRAWER"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "抽屉"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
                 // 唱机:整宽一条——小唱片在转,是这面墙上唯一会动的东西
                 (function () {
@@ -4418,13 +4418,13 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                       h("div", { style: { position: "relative", width: 46, height: 46, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #101014 0 30%, #2b2b30 31% 61%, #17171b 62%)", boxShadow: "0 6px 16px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", animation: dOn ? "wk-spin 6s linear infinite" : "none" } },
                         dFace && dFace.cover ? h("img", { src: dFace.cover, style: { width: 22, height: 22, borderRadius: 999, objectFit: "cover" } }) : h("span", { "aria-hidden": "true", style: { width: 9, height: 9, borderRadius: 999, background: "#0d0d10", boxShadow: "0 0 0 3px rgba(230,223,242,.16)" } })),
                       h("div", { className: "flex-1 min-w-0" },
-                        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".18em", color: "rgba(200,190,215,.55)" } }, "OUR RECORD"),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".18em", color: "rgba(200,190,215,.55)" } }, "我们的唱片"),
                         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#e6dff2", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                           dOn ? (dNow ? "《" + dNow.title + "》正在转" : "唱片正在转") : dSongs.length ? "刻了 " + dSongs.length + " 首" : "还没刻歌"),
                         dFace && dFace.note ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 10.5, color: "rgba(200,190,215,.62)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + one(dFace.note, 24) + "」") : null)) });
                 })()),
               // ── ③ 收着的：一列书脊 ─────────────────────────────
-              eyebrow("KEPT", "收着的", "一本一本翻"),
+              eyebrow("收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
                 // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「他记得的」那行同一个病：
                 //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
@@ -11725,7 +11725,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
       // 柜子
       groups.length
         ? h("div", { style: { marginTop: 18 } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginBottom: 10 } }, "IN THE CLOSET · " + n),
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginBottom: 10 } }, "柜子里 · " + n + " 身"),
             groups.map((g, gi) => h("div", { key: gi, style: { marginTop: gi ? 18 : 0 } },
               h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
                 h("span", { style: { width: 3, height: 14, borderRadius: 3, background: t.accent || t.ink } }),

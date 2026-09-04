@@ -24,9 +24,12 @@ test("不再是网格——加一样东西不该让版面更挤", () => {
 });
 
 test("三个面各有各的规矩，不是同一套壳换大小", () => {
-  assert.match(collage, /"TODAY"/, "没有「今天」那一块");
-  assert.match(collage, /"ON THE WALL"/, "没有「墙上」那一片");
-  assert.match(collage, /"KEPT"/, "没有「收着的」那一列");
+  // v62.12 英文眉标清掉（no-english-titles）：三个面的名字只剩中文
+  assert.match(collage, /\} \}, "今天"\),/, "没有「今天」那一块");
+  assert.match(collage, /eyebrow\("墙上", "贴着的"\)/, "没有「墙上」那一片");
+  assert.match(collage, /eyebrow\("收着的", "一本一本翻"\)/, "没有「收着的」那一列");
+  assert.ok(!/"(ON THE WALL|KEPT|TODAY|STUDIO|FIRSTS|WHAT IF|DRAW|DRAWER|OUR RECORD|MANUAL ARCHIVE|SOMEDAY)"/.test(collage),
+    "英文眉标又长回来了（no-english-titles）");
   // 今天那一块是整页唯一的深色主角
   assert.match(collage, /linear-gradient\(155deg,#7d3f57/, "「今天」那一块没做成深的");
   // ⚠️那个孤零零的圆去掉了：整页十六个方框里混一个正圆，读起来就是随机

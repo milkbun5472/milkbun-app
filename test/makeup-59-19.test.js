@@ -57,7 +57,7 @@ test("他回那一句要接住她说的，且只往前挪半步", () => {
 test("四条线都接上了：格子、路由、主线上下文、回流", () => {
   // ① 格子在——而且【不别扭的时候也在】，藏起来她永远找不着
   // v59.24：网格换成三个面之后，和好间是「今天」那一块底下的一条纸，不再是格子
-  const tile = cut(scr, 'const mkSig = makeupSignalFor ? makeupSignalFor(bCid)', 'ON THE WALL');
+  const tile = cut(scr, 'const mkSig = makeupSignalFor ? makeupSignalFor(bCid)', 'eyebrow("墙上"');   // v62.12 英文眉标清掉后锚中文
   assert.match(tile, /setSub\("makeup"\)/, "情侣空间里进不去和好间");
   assert.match(tile, /mkCur \? "和好间 · 还没了结的那一段" : mkSig\.on \? mkSig\.why : "和好间 · 这会儿没什么事"/, "上面不写为什么亮，跟没亮一样");
   // 没事时不该跟别的一样重：不上底、不抬起
