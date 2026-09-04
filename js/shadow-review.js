@@ -23,6 +23,35 @@
       }))
     };
   };
+  // ── 心上进转正评审（v61.56）───────────────────────────────────────────
+  // ⚠️它一直在【外面】：评审包收了 E潮汐/人格/A线/躯体/动念，唯独没有心上。
+  //   于是这套东西跑了几个月没人看得见它到底有没有在跑——盘一盘触发过没有？
+  //   旁人递的纸条他采了还是全丢了？念想是在长还是在积灰？
+  // ⚠️只报【数】和【时刻】，一个字的内容都不出来：念想和长出来的自我是他自己的话，
+  //   评审包是拿去给人看的（containsChatText:false 那条约定）。
+  const readStoredHeart = () => {
+    try {
+      const raw = window.localStorage && window.localStorage.getItem("x_desires");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (e) { return {}; }
+  };
+  const cleanHeart = (char, label, stored) => {
+    const b = stored && stored[char.id];
+    if (!b || typeof b !== "object") return null;
+    const list = Array.isArray(b.list) ? b.list : [];
+    const by = st => list.filter(e => e && e.status === st).length;
+    return {
+      charId: char.id, name: label,
+      念想: { 总数: list.length, active: by("active"), 落灰: by("ash"), 毕业: by("graduated"), 没接住: by("withered") },
+      长出来的自我: Array.isArray(b.persona) ? b.persona.length : 0,
+      做过的: list.reduce((n, e) => n + ((e && Array.isArray(e.tracks) ? e.tracks.length : 0)), 0),
+      旁人纸条: Array.isArray(b.briefs) ? b.briefs.length : 0,
+      不想碰的: Array.isArray(b.avoid) ? b.avoid.length : 0,
+      一季自述: Array.isArray(b.milestones) ? b.milestones.length : 0,
+      上次: { 发呆: b.lastMuse || null, 盘一盘: b.lastMellow || null, 回头看: b.lastSolstice || null, 旁人: b.lastObserve || null }
+    };
+  };
   const finiteRound = value => Number.isFinite(Number(value)) ? Math.round(Number(value) * 1000) / 1000 : null;
   const readStoredDongnian = () => {
     try {
@@ -68,11 +97,13 @@
     const eGates = chars.map(char => ({ charId: char.id, name: char.remark || char.name || char.id, gate: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.state("E", char.id) : null }));
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
-    const a = [], b = [], drives = [], somatic = [], dongnian = [], storedDongnian = readStoredDongnian();
+    const a = [], b = [], drives = [], somatic = [], dongnian = [], heart = [], storedDongnian = readStoredDongnian(), storedHeart = readStoredHeart();
     for (const char of chars) {
       const label = char.remark || char.name || char.id;
       const dongnianRow = cleanDongnian(char, label, storedDongnian);
       if (dongnianRow) dongnian.push(dongnianRow);
+      const heartRow = cleanHeart(char, label, storedHeart);
+      if (heartRow) heart.push(heartRow);
       if (window.InnerLifeAShadow) {
         const state = await safe("A state", () => window.InnerLifeAShadow.get(owner, char.id));
         const report = await safe("A report", () => window.InnerLifeAShadow.report(owner, char.id));
@@ -174,6 +205,14 @@
           livePaths: ["private_proactive", "group_proactive", "group_offline_proactive"],
           containsChatText: false,
           characters: dongnian
+        },
+        心上: {
+          mode: "live",
+          affectsLiveBehavior: true,
+          livePaths: ["private_chat_epiphany", "daily_muse", "persona_grown"],
+          containsChatText: false,
+          note: "只报数和时刻；念想与长出来的自我是角色自己的话，不进评审包。",
+          characters: heart
         },
         dongnianVsA: {
           mode: "review_only",
