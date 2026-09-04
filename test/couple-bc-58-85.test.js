@@ -13,7 +13,7 @@ const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n")
 const rec = grab(app, "  const genCoupleRecall = async char => {", "  const readCoupleRecall = id =>");
 // ⚠️右边界用它自己的收尾。拿隔壁那个函数当锚，隔壁一插新代码（v58.98 的抽屉/看照片
 // 那几件就插在中间）就会把别人的 setTimeout 算到它头上。
-const _lvi = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint) => {");
+const _lvi = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint, manual) => {");
 const leave = app.slice(_lvi, app.indexOf("\n  };", _lvi) + 4);
 
 // ── c 同一件事的两个版本 ──────────────────────────────────────────────────
@@ -41,13 +41,21 @@ test("要的是【落差】，不是让他复述一遍她写的", () => {
 // ── b 他趁你不在动过这里 ──────────────────────────────────────────────────
 // ⚠️这一条的全部意义在于【不多花钱】：App 里本来就有「思念出口」，这里只是多一个出口。
 test("不新开定时器、不多花一次调用——只是把思念的出口换了一个", () => {
-  const fire = grab(app, "          if (activeOffScene) offlineReply(cid);", "          return; // 一次一个，错峰");
+  // v62.34：泄压挪到出口落地之后，所以这一行多了个 _drain()；签名也多了 manual 那一档
+  const fire = grab(app, "          if (activeOffScene) { offlineReply(cid); _drain(); }", "          return; // 一次一个，错峰");
   // v61.35：那个 0.3 收成了模块级常量 COUPLE_LEAVE_P（现在是 0.45，她 2026-09-03 定的）
-  assert.match(fire, /else if \(\(\(couplesRef\.current \|\| \{\}\)\[cid\] \|\| \{\}\)\.status === "together" && Math\.random\(\) < COUPLE_LEAVE_P\)\n *leaveInCoupleSpace\(c, jwStyle\);/,
+  assert.match(fire, /else if \(_cpNow && Math\.random\(\) < COUPLE_LEAVE_P\)\n *leaveInCoupleSpace\(c, jwStyle\)\.then\(_settle\);/,
     "没接在思念那条现成的链上,或者不是 else 分支（那就是多花一次）");
-  assert.ok(fire.indexOf("else replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
+  // v62.34：最后那一档包了个大括号（要在里面 _drain）；判据不变——发消息必须是【else】，
+  // 排在留东西后面，不能跟它并列执行，否则一次动念烧两次调用。
+  assert.ok(fire.indexOf("else { replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
+  // 愿望那一档也得是同一条 if/else 上的一环（v62.34），不是另起一条链
+  assert.ok(fire.indexOf("pinWishAsChar") > 0 && fire.indexOf("pinWishAsChar") < fire.indexOf("leaveInCoupleSpace"),
+    "钉愿望那一档没排进这条 else 链里——那就是多花一次");
   // 只对正式在一起的那位；三成，天天留就成了另一种刷屏
-  assert.match(fire, /status === "together"/, "没在一起的也往情侣空间里塞");
+  // _cpNow 算在这一段【上面】（愿望和留东西两档共用它），所以对着整份 app 判
+  assert.match(app, /const _cpNow = \(\(couplesRef\.current \|\| \{\}\)\[cid\] \|\| \{\}\)\.status === "together";/, "没在一起的也往情侣空间里塞");
+  assert.match(fire, /_cpNow && Math\.random\(\) < COUPLE_LEAVE_P/, "留东西那一档没卡「在一起」");
   assert.match(fire, /Math\.random\(\) < COUPLE_LEAVE_P/, "概率没有卡住");
   assert.match(app, /^const COUPLE_LEAVE_P = 0\.\d+;$/m, "概率没有一个能改的常量");
   assert.ok(!/setInterval|setTimeout/.test(nocomment(leave)), "自己又开了一条定时器");

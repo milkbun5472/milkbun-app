@@ -180,7 +180,7 @@ test("约会券没有另起一套，是抽卡里多一个 act", () => {
 // 出口本来就在（dongnian 越过阈值时那一次调用），这一层只是给它加第三个落点。
 test("抽屉挂在已有的思念出口上，不是新开一条调用链", () => {
   // ⚠️右边界用它自己的收尾，别拿隔壁常量当锚（隔壁一插新代码就误伤）
-  const _li = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint) => {");
+  const _li = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint, manual) => {");
   const leave = app.slice(_li, app.indexOf("\n  };", _li) + 4);
   assert.equal((leave.match(/runProbe\(/g) || []).length, 1, "抽屉多开了一次调用——它该跟便签/时光轴共用那一次");
   // v61.35 收成两档（note 那一档的便签墙 v59.23 就撤了，见 couple-leave-outlets-61-35）

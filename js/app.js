@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.33";
+const APP_VERSION = "v62.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4579,22 +4579,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
           }
-          dongnianFiredRef.current[cid] = Date.now();
+          dongnianFiredRef.current[cid] = Date.now();      // 闸先占住：防同一秒被别的路重复认领
           let jwStyle = "";
-          try { const eng = getDongnian(c); if (eng && jw) { jwStyle = (eng.getStyleGuidance() + "\n" + eng.getPromptContext()).trim(); eng.applyDelta({ connection: -0.28 }); } } catch (e) {} // 注入当前五轴语气 + 发完泄一点思念(别下一tick又触发)
+          try { const eng = getDongnian(c); if (eng && jw) jwStyle = (eng.getStyleGuidance() + "\n" + eng.getPromptContext()).trim(); } catch (e) {}
+          // ⚠️泄压【必须排在出口真的落地之后】（v62.34 修，她 2026-09-04 问「模型真的会
+          //   follow through 吗」时查出来的）。原来是先泄 0.28 再选出口，而「留东西」那一路
+          //   模型返回空就 `return false`——于是一次空返回＝**花掉一次调用 + 思念被清掉 +
+          //   25 分钟闸也占了 + 什么都没留下**，下一次想再来得再攒六七个小时。
+          //   现在：落地了才泄；没落地把闸也还回去，下一轮 tick 重来。
+          const _drain = () => { try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} };
+          const _giveBack = () => { dongnianFiredRef.current[cid] = 0; };
+          const _settle = ok => { if (ok) _drain(); else _giveBack(); };
           // 这条消息真正「想发」的时刻：越过阈值那一刻。夹在【上次互动之后】和【一分钟前】之间，
           // 免得排到历史里去、或者干脆写成未来。
           const _cross = dongnianCrossedRef.current[cid] || 0;
           const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
           dongnianCrossedRef.current[cid] = 0;
-          if (activeOffScene) offlineReply(cid);                                 // 思念攒够 → 线下自己动一拍
+          const _cpNow = ((couplesRef.current || {})[cid] || {}).status === "together";
+          if (activeOffScene) { offlineReply(cid); _drain(); }                    // 思念攒够 → 线下自己动一拍
+          // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
+          //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
+          //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
+          //   闸是天然的：板上已经有他钉着、还没了结的那条，就不再钉第二条。
+          else if (_cpNow && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
+            pinWishAsChar(c, jwStyle).then(_settle);
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
-          else if (((couplesRef.current || {})[cid] || {}).status === "together" && Math.random() < COUPLE_LEAVE_P)
-            leaveInCoupleSpace(c, jwStyle);
-          else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
+          else if (_cpNow && Math.random() < COUPLE_LEAVE_P)
+            leaveInCoupleSpace(c, jwStyle).then(_settle);
+          else { replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 }); _drain(); }
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}
@@ -13558,8 +13573,82 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //（同一份思念只能被一个出口认领）——这里只是给它多一个出口：本来要发的那条主动
   // 消息，有时候改成【在情侣空间里留下一件东西】。花的还是那一次调用，但她是
   // 回来才发现的，而不是当场收到的——聊天做不出「发现」这个动作。
-  const leaveInCoupleSpace = async (char, styleHint) => {
+  // ── 出口账（v62.34，她 2026-09-04：「模型真的会 follow through 吗，还是也设个硬保底」）──
+  // 结论不是硬配额——那会造出「为了填格子而生的内容」，正是打卡式问候 v54.77 下线的原因。
+  // 是三样：① 出口这一层由代码选（本来就是）；② 出口【里】那几档用【饥饿加权】软保底；
+  //        ③ 最要紧的是【看得见】——「从来没出现过」和「本来就少」在界面上长得一模一样，
+  //          一起学那条从上线起一次都没出现过、几个月没人发现，就是这个形状。
+  //
+  // ⚠️她点名的一条：**手动叫出来的那次单独算，不进保底**（「我调用的就是单独自己算的」）。
+  //   所以一档记两套数：a/an＝自发的，m/mn＝她按按钮叫的。饥饿加权只看 a。
+  //   混在一起的话，她按几下就能把某一档「喂饱」，那一档从此再也不会自己出现。
+  const OUTLET_KEY = "x_coupleOutlet";
+  const OUTLET_KINDS = [["thing", "一样小物件"], ["word", "半句嘟囔"], ["draw", "随手画的"],
+    ["timeline", "补一条时光轴"], ["qa", "出一道题"], ["wish", "钉一条愿望"]];
+  const outletLog = () => { try { return loadJSON(OUTLET_KEY, {}) || {}; } catch (e) { return {}; } };
+  const outletNote = (charId, kind, manual) => {
     try {
+      const all = outletLog(), mine = { ...(all[charId] || {}) }, cur = { ...(mine[kind] || {}) };
+      if (manual) { cur.m = Date.now(); cur.mn = (Number(cur.mn) || 0) + 1; }
+      else { cur.a = Date.now(); cur.an = (Number(cur.an) || 0) + 1; }
+      mine[kind] = cur; all[charId] = mine; saveJSON(OUTLET_KEY, all);
+    } catch (e) {}
+  };
+  // 最久没【自己】出现过的那两档。返回的是【建议】不是指定：提示词里说「如果此刻同样说得通
+  // 就优先走它们，不合适就照常选」——模型仍然可以拒绝，所以不会硬凑。
+  const outletHungry = charId => {
+    const mine = outletLog()[charId] || {};
+    return OUTLET_KINDS.filter(([k]) => k !== "wish")
+      .map(([k, zh]) => ({ k, zh, a: Number((mine[k] || {}).a) || 0 }))
+      .sort((x, y) => x.a - y.a).slice(0, 2);
+  };
+  const CHAR_WISH_P = 0.5;   // 板上没有他钉着的那条时，这一次动念有一半机会去钉——闸是「有没有」，不是概率
+  const charHasOpenWish = charId => {
+    const ws = ((coupleHomeRef.current || {})[charId] || {}).wishes || [];
+    return ws.some(w => w && w.byCharacter && w.status !== "done" && w.status !== "shelved");
+  };
+  // 他自己往愿望板上钉一条（v62.34）。manual＝她按按钮叫的：单独计数、不喂饱饥饿加权。
+  const pinWishAsChar = async (char, styleHint, manual) => {
+    try {
+      const uNm = (profile && profile.name) || "她";
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你们是恋人。此刻你想着 " + uNm + "，但你没有发消息——你走到你俩的愿望板前，"
+          + "钉上一条【你自己想跟 " + uNm + " 一起做的事】。\n"
+          + (styleHint ? styleHint + "\n" : "")
+          + "这条是【你想的】，不是替她想的，也不是替她安排的：写你自己心里那件真想跟她一块儿去做、"
+          + "但一直没做成的事。判据只有一条——**换一对情侣照样会写的，就不是你想的那件**；"
+          + "它得跟你这个人的处境、你俩之间真发生过的事对得上。\n"
+          + "note 那一栏写【为什么是这件事】，一句话，落在具体的由头上，不要写成邀约、也不要问她答不答应"
+          + "——她不在场，你只是把它钉上去。",
+        schemaHint: "{\"title\":\"这件事本身，一句话说完\",\"type\":\"从 一起做/一起去/一起吃/一起学/想送 TA 里挑最贴的那个\",\"note\":\"为什么是这件事，一句\"}"
+      });
+      const title = String((d && d.title) || "").trim();
+      if (!title) return false;
+      const TYPES = ["一起做", "一起去", "一起吃", "一起学", "想送 TA"];
+      const now = Date.now();
+      saveCoupleHome(char.id, cur => ({ ...cur, wishes: [{
+        id: "wish_" + now + "_" + Math.random().toString(36).slice(2, 6),
+        title: title.slice(0, 60),
+        type: TYPES.indexOf(String(d.type || "")) >= 0 ? String(d.type) : "一起做",
+        note: String(d.note || "").trim().slice(0, 80),
+        status: "wish", byCharacter: true, unread: true, createdAt: now, updatedAt: now
+      }, ...((cur && cur.wishes) || [])] }));
+      outletNote(char.id, "wish", !!manual);
+      try { notifyApp("us"); } catch (e) {}
+      return true;
+    } catch (e) { console.warn("[char wish]", e && e.message); return false; }
+  };
+  const leaveInCoupleSpace = async (char, styleHint, manual) => {
+    try {
+      // 饥饿加权（v62.34）：最久没【自己】出现过的那两档，写进这一轮当【建议】。
+      // ⚠️不是配额、不是轮转：说的是「如果此刻同样说得通就优先走它」，模型仍可以拒绝。
+      //   硬指定会造出「为了填格子而生的画」——比没有更糟。
+      const _hungry = outletHungry(char.id).filter(x => !x.a || Date.now() - x.a > 7 * 86400000);
+      const _hint = _hungry.length
+        ? "\n【这几档你已经很久没走过了】" + _hungry.map(x => x.zh).join("、")
+          + "。如果此刻同样说得通，优先走它们；不合适就照常按你此刻真的想做的那样选，别为了凑而凑。\n"
+        : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
@@ -13574,19 +13663,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "· qa＝往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、"
           + "封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的**；"
           + "只有真有一个问题在你心里转了几天，才走这一档，多数时候该走 drawer。\n"
-          + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
+          + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。" + _hint,
         schemaHint: "{\"where\":\"drawer 或 timeline 或 qa\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"question\":\"where 为 qa 时你出的那道题，否则留空\",\"text\":\"留下的内容（qa 那一档＝你自己那半答案）\",\"title\":\"timeline 给一个短标题；drawer 和 qa 那两档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
       });
       const txt = String((d && d.text) || "").trim();
       if (!txt) return false;
       if (d.where === "drawer") {
         const kind = ["thing", "word", "draw"].indexOf(String(d.kind || "")) >= 0 ? String(d.kind) : "thing";
+        outletNote(char.id, kind, !!manual);
         setCoupleDrawer(p => {
           const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
             title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
           coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
         });
       } else if (d.where === "timeline") {
+        outletNote(char.id, "timeline", !!manual);
         setCoupleTimeline(p => {
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
           //   "2026-9-4" 混在 "2026-09-04" 里会被排到十月往后去。
@@ -13597,6 +13688,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       } else if (d.where === "qa" && String(d.question || "").trim()) {
         // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开——
         // 跟她翻题的 sealed 机制同一套，只是方向反过来。question 空的落不进这档（走下面兜底）。
+        outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
             question: String(d.question).trim().slice(0, 120), myAnswer: "", charAnswer: txt,
@@ -13609,6 +13701,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         //   通向同一样东西，而模型还以为自己在往一个不存在的墙上贴。这是她 2026-09-03
         //   问「另外仨咋触发啊」时查出来的：拾/半/画 几乎永远轮不上。
         //   现在 where 只有两档；认不出来的一律当 drawer 落，别再变成第四个悄悄话。
+        outletNote(char.id, "word", !!manual);
         setCoupleDrawer(p => {
           const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: "word",
             title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
@@ -16905,6 +16998,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onTripDone: tripDone,
     tripGen: tripGen,
     wishPlanOf: wishPlanOf,
+    // 她亲手叫他钉一条（v62.34）。manual=true：单独计数、不喂饱饥饿加权，
+    // 也不动思念（不是他自己想起来的，凭什么替他泄）。
+    onGenWish: async ch => {
+      if (!active) { toast("请先到设置配置 API"); return false; }
+      setGen(g => ({ ...g, charWish: true }));
+      try {
+        const ok = await pinWishAsChar(ch, "", true);
+        toast(ok ? ch.name + " 钉上去了" : "他这会儿没写出来，等会儿再试");
+        return ok;
+      } finally { setGen(g => ({ ...g, charWish: false })); }
+    },
+    charWishGen: !!gen.charWish,
+    outletLedger: (typeof outletLog === "function" ? outletLog() : {}),
+    outletKinds: (typeof OUTLET_KINDS !== "undefined" ? OUTLET_KINDS : []),
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,

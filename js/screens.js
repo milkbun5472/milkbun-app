@@ -3862,7 +3862,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
         due.filter(x => !x.memId).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8, padding: "9px 0", borderBottom: "1px solid " + t.line } },
           x.about + "　", h("span", { style: { fontSize: 11, color: t.tint } }, leftOf(x.dueTs))))) : null));
 }
-function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onBack }) {
+function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onGenWish, wishGen, onBack }) {
   const t = useTheme();
   const wishes = Array.isArray(data) ? data : [];
   const [title, setTitle] = useState("");
@@ -3924,6 +3924,20 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
               trips.some(t => t.status !== "done") ? "有一趟正走着 · 看登机牌" : "你们的登机牌"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: paperFog, marginTop: 2 } }, "走过 " + trips.filter(t => t.status === "done").length + " 趟")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: paperFog } }, "→"))) : null,
+      // ── 让 TA 也钉一条（v62.34，她 2026-09-04：「有时候还是希望能我主动让他来写」）──
+      // 一张空白的、只钉了半边的纸——它自己就是「这儿还空着，等他写」的样子。
+      // ⚠️她按这一下【单独计数】：不进「哪几档很久没出现」那本账（她点名的），
+      //   也不动他的思念——不是他自己想起来的，凭什么替他泄。
+      onGenWish ? h("button", { onClick: () => !wishGen && onGenWish(partner), disabled: wishGen,
+        className: "w-full active:opacity-80 disabled:opacity-70",
+        style: { position: "relative", marginTop: 17, padding: "15px 14px 14px", borderRadius: 2, textAlign: "left",
+          background: "repeating-linear-gradient(135deg,rgba(255,253,244,.92) 0 9px,rgba(246,240,224,.92) 9px 18px)",
+          border: "1px dashed rgba(120,90,45,.5)", transform: "rotate(0.9deg)", boxShadow: "0 5px 13px rgba(70,45,15,.22)" } },
+        pin("r"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: paperInk } },
+          wishGen ? partner.name + " 正在想…" : "让 " + partner.name + " 也钉一条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: paperFog, marginTop: 4, lineHeight: 1.6 } },
+          wishGen ? "他在翻自己心里那件一直没做成的事" : "他自己想跟你一起做、但一直没做成的那件事")) : null,
       wishes.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 17, marginTop: 20 } }, wishes.map((w, wi) => {
         const done = w.status === "done", shelved = w.status === "shelved";
         return h("article", { key: w.id, style: { position: "relative", padding: "15px 14px 8px", borderRadius: 2,
@@ -4186,7 +4200,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4294,7 +4308,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onBack: () => setSub(null) });
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer,
+      ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
   if (partner && cp[view] && cp[view].status === "together" && sub === "disc") {
@@ -4348,6 +4363,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
       onDepart: wish => { onTripStart && onTripStart(partner.id, wish); openSub("trip"); },
       onOpenTrips: () => openSub("trip"),
+      onGenWish: onGenWish, wishGen: charWishGen,
       onBack: () => setSub(null) });
   }
   // 情侣空间子模块：花房（v62.33）
@@ -11976,7 +11992,7 @@ const DRAWER_KIND = {
   // 悄悄话从 v59.23 起也落这儿（便签墙撤掉，并进来的）
   whisper: { zh: "一句悄悄话", ch: "悄", band: "#a4736f" }
 };
-function CoupleDrawer({ partner, items, onOpen, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
   const t = useTheme();
   const mine = (items || []).filter(x => x.characterId === partner.id);
   const unopened = mine.filter(x => !x.openedTs).length;
@@ -12009,7 +12025,26 @@ function CoupleDrawer({ partner, items, onOpen, onBack }) {
             style: { gap: 5, background: "rgba(201,168,106,.14)", borderRadius: 999, padding: "3px 10px 3px 4px" } },
             h("span", { "aria-hidden": "true", style: { width: 17, height: 17, borderRadius: 5, background: DRAWER_KIND[k].band,
               color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 10 } }, DRAWER_KIND[k].ch),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, DRAWER_KIND[k].zh))))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, DRAWER_KIND[k].zh)))),
+        // ── 各档上次是什么时候（v62.34）────────────────────────────────────────
+        // 她 2026-09-04 问「模型真的会 follow through 吗」。真正防复发的不是硬配额，
+        // 是【看得见】：**「从来没出现过」和「本来就少」在界面上长得一模一样**——
+        // 一起学那条从上线起一次都没出现过、几个月没人发现，就是这个形状。
+        // ⚠️报的是【他自己走的那次】。她按按钮叫出来的单独记（她点名的：「我调用的
+        //   就是单独自己算的」），另算一列，免得按几下就把某一档「喂饱」看不出问题。
+        (kinds || []).length ? h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(201,168,106,.5)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".08em", color: "#a89066" } }, "他自己走过的那几档 · 上次"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginTop: 6 } },
+            kinds.map(([k, zh]) => {
+              const row = (ledger || {})[k] || {};
+              const a = Number(row.a) || 0, mn = Number(row.mn) || 0;
+              const d = a ? Math.floor((Date.now() - a) / 86400000) : -1;
+              return h("div", { key: k, className: "flex items-baseline justify-between", style: { gap: 6 } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, zh),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: a ? "#9b8659" : "#c07a52", flexShrink: 0 } },
+                  (a ? (d <= 0 ? "今天" : d === 1 ? "昨天" : d + " 天前") : "还没有过")
+                  + (mn ? "（你叫过 " + mn + " 次）" : "")));
+            }))) : null),
       mine.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 13, marginTop: 16 } },
             mine.map((x, i) => {

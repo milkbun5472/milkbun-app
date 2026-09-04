@@ -25,7 +25,7 @@ test("定时早晚安整块下线：判定、窗口、去重、投递四样都�
 test("真正挂念的那条路一根都不许动：动念主动照旧", () => {
   assert.match(app, /dongnianFiredRef\.current\[cid\] = Date\.now\(\);/);
   assert.match(app, /replyNow\(cid, "", null, \{ proactive: true, dongnian: jwStyle,/, "线上主动");
-  assert.match(app, /if \(activeOffScene\) offlineReply\(cid\);/, "线下自己动一拍");
+  assert.match(app, /if \(activeOffScene\) \{ offlineReply\(cid\); _drain\(\); \}/, "线下自己动一拍");
   assert.match(app, /opts\.dongnian \? "dongnian"/, "出口分类还得认得动念");
   // 45 秒一轮的 tick 与 14 秒首踢都还在，动念靠它推进
   assert.match(app, /const kick = setTimeout\(tick, 14000\);/);
