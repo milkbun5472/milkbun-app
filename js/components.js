@@ -2667,7 +2667,7 @@ function Home({
       return !!REG[key];
     };
     var out;
-    if (!Object.keys(saved).length) out = DEFAULT_LAYOUT.map(function (p) { return p.filter(function (k) { return !seen[k]; }); });
+    if (!Object.keys(saved).length) out = DEFAULT_LAYOUT.map(function (p) { return p.filter(function (k) { return !seen[k] && valid(k); }); });
     else {
       var maxPage = DEFAULT_LAYOUT.length - 1;
       Object.keys(saved).forEach(function (k) { var n = parseInt(k, 10); if (!isNaN(n)) maxPage = Math.max(maxPage, n); });
@@ -2675,8 +2675,11 @@ function Home({
       for (var i = 0; i <= maxPage; i++) {
         out[i] = (saved[i] || []).filter(function (key) { if (valid(key) && !seen[key]) { seen[key] = true; return true; } return false; });
       }
+      // ⚠️补默认项时也要过一遍 valid()：默认文件夹（f_def_*）在她自己建过文件夹的档里
+      // 【压根不存在】——不过滤的话它们照样被塞进页面，占着格子却渲染成 null，
+      // 于是那几格「看着是空的、放不进东西、也没有虚线落点」（她 2026-09-03 抓到的那处）。
       DEFAULT_LAYOUT.forEach(function (p, dp) {
-        p.forEach(function (key) { if (!seen[key]) { if (!out[dp]) out[dp] = []; out[dp].push(key); seen[key] = true; } });
+        p.forEach(function (key) { if (!seen[key] && valid(key)) { if (!out[dp]) out[dp] = []; out[dp].push(key); seen[key] = true; } });
       });
     }
     // ⭐安全网（防「排序时把 app 拖进文件夹、文件夹又从页面掉了」这类导致 app 凭空消失）：

@@ -60,3 +60,13 @@ test("DEFAULT_FOLDERS 定义在组件外面：里面用 const 会撞上暂时性
   assert.ok(comp.indexOf("const DEFAULT_FOLDERS = {") < comp.indexOf("function Home({"),
     "定义排在 Home 里面／后面，useState 初始化那一刻会 ReferenceError，主屏直接白屏");
 });
+
+// 她 2026-09-03 的存档抓到的：她自己建过文件夹，所以 x_homeFolders 里【没有】f_def_*，
+// 可 buildLayout 补默认项时不过滤，照样把这九个默认文件夹塞回页面——
+// 它们占着格子、渲染却是 null，于是那几格「看着空、放不进、连虚线落点都没有」。
+test("补默认项时也要过 valid()：不存在的默认文件夹不许占格子", () => {
+  const i = comp.indexOf("DEFAULT_LAYOUT.forEach(function (p, dp) {");
+  const seg = comp.slice(i, i + 260);
+  assert.match(seg, /if \(!seen\[key\] && valid\(key\)\)/, "补回默认项时没过 valid()");
+  assert.match(comp, /return p\.filter\(function \(k\) \{ return !seen\[k\] && valid\(k\); \}\)/, "空档那一路也要过");
+});
