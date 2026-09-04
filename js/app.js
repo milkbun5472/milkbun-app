@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.10";
+const APP_VERSION = "v62.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2462,6 +2462,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (dueTs) setPactDue(e && e.id, charId, t0, dueTs);
     else toast("记下了");
   };
+  // 愿望板 → 约回链（v62.11，她 2026-09-04 同意）：愿望标成「已计划」后挑个日子，
+  // 到那天他主动来约这件事——走的还是 x_promises 那条现成的链（消费端只认 charId/dueTs/about），
+  // 不是新机制。wishId 用来认「这条约挂的是哪个愿望」，改日子/取消都按它换。
+  const planWish = (charId, wish, dueTs) => {
+    if (!wish || !wish.id) return;
+    setPromises(p => {
+      const kept = p.filter(x => x && x.wishId !== wish.id);
+      const n = dueTs ? [...kept, { id: "pw_" + Date.now(), charId, about: "你们想一起做的：" + String(wish.title || "").slice(0, 40), dueTs, memId: null, wishId: wish.id }] : kept;
+      promisesRef.current = n; saveJSON("x_promises", n); return n;
+    });
+    toast(dueTs ? "到那天他会主动来约这件事" : "不定日子了");
+  };
+  const wishPlanOf = wishId => (promisesRef.current || []).find(x => x && x.wishId === wishId) || null;
   // 到期他会自己提起——走的是已有那条约回链，不是新机制
   const setPactDue = (memId, charId, about, dueTs) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
@@ -14229,13 +14242,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleTimeline", n);
     return n;
   });
-  const genTimelineMusing = async char => {
+  // occasion（v62.11）：纪念日当天从 TODAY 卡点进来时带上是哪个日子——
+  // 那一条写的就不是随口的感慨，是「这一年走到今天」。平时不传，行为不变。
+  const genTimelineMusing = async (char, occasion) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleTL: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
+        instruction: "你们是恋人。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
+          + "以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——"
+          + (occasion ? "写走到今天这个日子的真实感受，要落在你们之间某件具体的事上，不许写贺词；" : "")
+          + "一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
       setCoupleTimeline(p => {
@@ -16550,6 +16568,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAnswerQA: answerCoupleQA,
     onSealQA: sealCoupleQA,
     onRevealQA: revealCoupleQA,
+    onPlanWish: planWish,
+    wishPlanOf: wishPlanOf,
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
