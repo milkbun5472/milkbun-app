@@ -63,3 +63,17 @@ test("那套天象图标和别的图标同一套画法，映射也和 wmoEmoji �
     assert.ok(eng.includes(cond), "engine 的 wmoEmoji 没有这一档了，两边对不上：" + cond);
   });
 });
+
+// v62.11 她点头：AI 排的那几类行程换 SVG，她自己挑的 emoji 留着
+test("日历：AI 那几类走 SVG，手填日程仍用她挑的图标", () => {
+  assert.match(comp, /const CAL_SEQ_GLYPH = \{ coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk \};/);
+  assert.ok(!/CAL_SEQ_ICON/.test(comp), "旧的 emoji 表还在（会有人接着用它）");
+  // AI 行程：带 glyph、不带 icon
+  assert.match(comp, /glyph: CAL_SEQ_GLYPH\[s\.type\] \|\| IPin, color: CAL_SEQ_TINT\[s\.type\]/);
+  assert.match(comp, /glyph: CAL_SEQ_GLYPH\.sleep, color: CAL_SEQ_TINT\.sleep/, "跨夜那一段也要换");
+  // 手填日程：她挑过就用她挑的（icon），没挑才给一枚图钉
+  assert.match(comp, /icon: e\.icon \|\| "", glyph: e\.icon \? null : IPin/);
+  // 画的时候两条路都要认
+  assert.match(comp, /b\.glyph \? h\("span", \{ className: "flex items-center", style: \{ flexShrink: 0 \} \}, h\(b\.glyph, \{ size: 12, color: t\.ink \}\)\) : null/);
+  assert.match(comp, /\(b\.icon \? b\.icon \+ " " : ""\) \+ b\.title/);
+});

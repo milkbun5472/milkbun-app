@@ -1445,7 +1445,10 @@ function calPadKey(y, m0, d) { return y + "-" + String(m0 + 1).padStart(2, "0") 
 function calMinOf(t) { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; }
 function calHM(min) { return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0"); }
 const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", meal: "#f6cdd6", rest: "#c2e6df", sleep: "#d8d5e8", social: "#c5e6c2", out: "#ffe0b8" };
-const CAL_SEQ_ICON = { coffee: "☕", work: "💼", create: "🎨", meal: "🍽️", rest: "🛋️", sleep: "😴", social: "💬", out: "🚶" };
+// AI 排的那几类行程用 SVG 图标（她 2026-09-04 点头）。
+// ⚠️她【手填】的日程仍旧用她自己挑的 emoji：那是她的内容，不是界面的装饰，
+// 一刀换掉等于替她改图标。所以这里只有 AI 那几类走 glyph，手填的走 icon。
+const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
 function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek }) {
@@ -1523,7 +1526,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         if (carry) {
           const st = toMyMin(carry.from), en = st + (carry.to - carry.from);
           if (st < 1440) out.push({ key: "carry", from: st, to: Math.min(1440, en), title: carry.title, location: carry.location,
-            icon: CAL_SEQ_ICON.sleep, color: CAL_SEQ_TINT.sleep, ai: true, dev: null, carry: true,
+            glyph: CAL_SEQ_GLYPH.sleep, color: CAL_SEQ_TINT.sleep, ai: true, dev: null, carry: true,
             charFrom: tzShift ? "00:00" : "", charTo: tzShift ? calHM(carry.to) : "" });
         }
       }
@@ -1535,7 +1538,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         if (en > 1440) en = 1440;
         if (st >= 1440) return;
         out.push({ key: "s" + i, from: st, to: en, title: s.title || "", location: s.location || "",
-          icon: CAL_SEQ_ICON[s.type] || "📌", color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s,
+          glyph: CAL_SEQ_GLYPH[s.type] || IPin, color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s,
           // 块上仍写 TA 当地时刻——他嘴里说的是这个
           charFrom: tzShift ? s.time : "", charTo: tzShift ? (s.end || "") : "" });
       });
@@ -1544,7 +1547,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       const st = calMinOf(e._from), en0 = calMinOf(e._to);
       if (st == null) return;
       out.push({ key: e.id, from: st, to: (en0 == null || en0 <= st) ? Math.min(1440, st + 60) : en0,
-        title: e.title, location: e.location || "", icon: e.icon || "📌", color: e._color, ai: false, ev: e });
+        // 手填日程：她挑过图标就用她挑的，没挑就给一枚图钉（SVG）
+        title: e.title, location: e.location || "", icon: e.icon || "", glyph: e.icon ? null : IPin, color: e._color, ai: false, ev: e });
     });
     // 备忘录里填了时刻的提醒，也落在时间轴上（她 2026-08-26）。点开跳回备忘录看同一份详情。
     if (view === "mine" && window.memoRemindersOnDay) {
@@ -1633,7 +1637,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       className: "absolute active:opacity-70 text-left",
       style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } }, (b.icon ? b.icon + " " : "") + b.title),
+      h("div", { className: "flex items-center", style: { gap: 4, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
+        b.glyph ? h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(b.glyph, { size: 12, color: t.ink })) : null,
+        h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (b.icon ? b.icon + " " : "") + b.title)),
       hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
         (b.charFrom ? b.charFrom + "–" + (b.charTo || "") : calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to))) + (b.location ? " · " + b.location : "")));
   };
