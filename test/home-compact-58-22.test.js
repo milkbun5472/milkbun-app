@@ -110,6 +110,7 @@ test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸�
   // 行高钉死成 82 之后这个数才算得准，写死 6 在高屏上会白空一大截
   assert.match(comp, /var rowCapAt = function \(pi\) \{ return capRows; \};/, "容量闸没了——一页会无限长下去");
   // ⚠️行数只能往上放宽，不许比 6 行少：小屏上往下卡会把日历挤到第二页（v61.97）
-  assert.match(comp, /setRowCap\(Math\.max\(6, Math\.min\(9, n\)\)\);/, "行数被往下卡了");
+  // v61.98 底线从 6 抬到 7（她：「行数是不是要 7 才行，下面的 dock 也算一行」）
+  assert.match(comp, /setRowCap\(Math\.max\(7, Math\.min\(9, n\)\)\);/, "行数被往下卡了");
   assert.match(comp, /var ROWCAP = rowCapAt\(ci\), CAP = ROWCAP \* 4;/, "格子数没跟着行数走");
 });

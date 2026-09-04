@@ -2473,7 +2473,9 @@ function Home({
       // 六行是老规矩；按屏幕高度往下卡的话，小屏上日历（3×3）会被挤到第二页去
       // （她 2026-09-03：「现在日历也放不下第一页了」）。
       var n = Math.floor((h0 + HOME_ROW_GAP) / (u + HOME_ROW_GAP));
-      setRowCap(Math.max(6, Math.min(9, n)));
+      // 她 2026-09-03：「行数是不是要 7 才行，下面的 dock 也算一行」——底线抬到 7。
+      // 页面本来就能上下滑，多留一行只多不少；量出来更多就用量出来的。
+      setRowCap(Math.max(7, Math.min(9, n)));
     }
     measure();
     if (typeof window === "undefined") return;
@@ -2920,6 +2922,12 @@ function Home({
         // 同上：行数按量出来的来（第一页少一行）
         var capTo = Math.max(3, rowCapRef.current || 6);
         var capFr = capTo;
+        // ⚠️「这一页满了」不许拦【没把页面变高】的挪动：原来只跟额度比，
+        // 于是一页本来就有 6 行时，同一行里换个位置也会被判成满（她 2026-09-03
+        // 「下面那行放不了，右边那个空也不行，都说满了」）。
+        var wasTo = homePlaceDenseXY(L[t2.p], spanOf).rows;
+        var wasFr = homePlaceDenseXY(L[f.p], spanOf).rows;
+        capTo = Math.max(capTo, wasTo); capFr = Math.max(capFr, wasFr);
         var over = homePlaceDenseXY(moved.to, spanOf).rows > capTo || (f.p !== t2.p && homePlaceDenseXY(moved.from, spanOf).rows > capFr);
         if (over) {
           if (typeof window !== "undefined" && window.__toast) window.__toast("这一页满了，装不下它——先挪走点东西");

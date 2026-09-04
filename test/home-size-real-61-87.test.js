@@ -106,3 +106,10 @@ test("一页放几行是先定行数再整除，保证正好铺满", () => {
   assert.match(seg, /var u = Math\.floor\(\(usable - \(n0 - 1\) \* HOME_ROW_GAP\) \/ n0\);/, "不是把剩下的高度整除给这几行");
   assert.ok(!/Math\.min\(120, u\)/.test(comp), "又把一行的高度卡死在 120，高屏上会白空一截");
 });
+
+// 她 2026-09-03：「下面那行放不了，右边那个空也不行，都说满了」
+test("没把页面变高的挪动，不许被判成「这一页满了」", () => {
+  const seg = comp.slice(comp.indexOf("var capTo = Math.max(3, rowCapRef.current"), comp.indexOf("__toast(\"这一页满了"));
+  assert.match(seg, /var wasTo = homePlaceDenseXY\(L\[t2\.p\], spanOf\)\.rows;/, "没有拿【挪之前的行数】当底线");
+  assert.match(seg, /capTo = Math\.max\(capTo, wasTo\); capFr = Math\.max\(capFr, wasFr\);/);
+});
