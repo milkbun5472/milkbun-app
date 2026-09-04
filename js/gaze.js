@@ -12,7 +12,15 @@
   const US = [["what", "我们现在算什么"], ["how", "我们的相处方式"], ["marks", "走到这里的几个节点"], ["elephant", "我假装没注意的事"], ["want", "我担心的·我想要的"]];
   const KEYS = {}; ME.forEach(([k, n]) => KEYS["me." + k] = n); US.forEach(([k, n]) => KEYS["us." + k] = n);
   const load = () => { try { return JSON.parse(localStorage.getItem("x_gaze") || "{}"); } catch (e) { return {}; } };
-  const persist = d => { try { localStorage.setItem("x_gaze", JSON.stringify(d)); } catch (e) {} };
+  // 落本机之后顺手把【改动的那个人】那一行推上 grown 表（见 js/grown-sync.js）。
+  // ⚠️推失败绝不影响本机这一份——它只是多一道保险，不是主路。
+  const persist = (d, touched) => {
+    try { localStorage.setItem("x_gaze", JSON.stringify(d)); } catch (e) {}
+    try {
+      if (touched && d[touched] && window.Cloud && window.Cloud.grownUpsert)
+        window.Cloud.grownUpsert("gaze", { [touched]: d[touched] }).catch(() => {});
+    } catch (e) {}
+  };
   const boxOf = (d, charId) => d[charId] || { blocks: {}, hist: [], seeded: false };
   // 应用一次修订(协议字段或建卡):校验块名、留旧版快照、盖新内容
   function apply(charId, side, block, text) {
@@ -27,7 +35,7 @@
     box.blocks[k] = { text: t, ts: Date.now() };
     box.turns = 0;                       // 写过了就重新数
     box.refuse = 0;                      // 他真写了 → 「写不出来」的连击断了
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     // 他改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
     // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
     try {
@@ -64,7 +72,7 @@
   function tick(charId) {
     const d = load(); const box = boxOf(d, charId);
     box.turns = Math.min((Number(box.turns) || 0) + 1, 999);
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     return box.turns;
   }
   // ---- 轮询复看(她 2026-08-27:「其他块岂不是永远没有改的机会了」)----
@@ -92,7 +100,7 @@
     //   于是同样两个新角色,一个每轮写一块,另一个一辈子全空(她 2026-09-02 报的就是这个)。
     //   这里把连击数记下来:达到一定次数后 spec 会收掉这个出口,GazePage 也会照实说出来。
     if (Object.keys(box.blocks || {}).length === 0) box.refuse = Math.min((Number(box.refuse) || 0) + 1, 999);
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     return true;
   }
   // 最久没被碰过的那一块(写过和看过都算碰过);从没写过的块排最前,它们更该被问一次
@@ -185,7 +193,7 @@
     // ⚠️只有【真写出来了】才算建过卡。原来不管 n 是多少都盖 seeded=true,
     //   模型返回一份全是 null 的卡时,卡还是空的、路却永久封死了——又一条静悄悄的死锁。
     if (n) { box.seeded = true; box.refuse = 0; }
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     return n;
   }
   const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
@@ -218,14 +226,14 @@
     box.autoSeedN = autoSeedTries(box) + 1;
     box.autoSeed = Date.now();
     box.autoSeedErr = "";
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     return true;
   }
   // 败因留下来:不留的话「试过三次都没成」和「还没到十条」在界面上长得一模一样。
   function markAutoSeedFail(charId, why) {
     const d = load(); const box = boxOf(d, charId);
     box.autoSeedErr = String(why || "没写出来").slice(0, 60);
-    d[charId] = box; persist(d);
+    d[charId] = box; persist(d, charId);
     return true;
   }
   const autoSeedState = charId => {

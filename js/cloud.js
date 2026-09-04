@@ -579,6 +579,38 @@
 
     // ---- 记忆独立表·影子期（v48.98）：只做逐行 upsert / 软删 / 只读核对 ----
     // ⚠️旧 x_memLib 仍是当前读取权威；这里绝不整份覆盖，也没有物理 delete。
+    // ── 长出来的那几样（心上 / Ta 眼里）：各自成行，旧客户端碰不到 ──────────
+    // 见 js/grown-sync.js 顶上那段：saves 是一份【没有历史的整行 blob】，
+    // 旧版页面一次全量 upsert 就能把它盖掉；而它不认识这张表。
+    // ⚠️表还没建好时【整条静默 no-op】：宁可这层暂时不生效，也绝不让它报错挡住别的同步。
+    grownReady: null,
+    async grownUpsert(kind, map) {
+      if (!client || this.grownReady === false) return 0;
+      const user = await this.getUser();
+      if (!user) return 0;
+      const rows = Object.keys(map || {}).filter(id => id && map[id]).map(id => ({
+        user_id: user.id, char_id: String(id), kind: String(kind),
+        data: map[id], updated_at: new Date().toISOString()
+      }));
+      if (!rows.length) return 0;
+      const { error } = await client.from("grown").upsert(rows, { onConflict: "user_id,char_id,kind" });
+      if (error) { this.grownReady = false; return 0; }
+      this.grownReady = true;
+      return rows.length;
+    },
+    async grownFetch(kind) {
+      if (!client || this.grownReady === false) return null;
+      const user = await this.getUser();
+      if (!user) return null;
+      const { data, error } = await client.from("grown")
+        .select("char_id,data").eq("user_id", user.id).eq("kind", String(kind));
+      if (error) { this.grownReady = false; return null; }   // 表没建/没权限：当这层不存在
+      this.grownReady = true;
+      const out = {};
+      (data || []).forEach(r => { if (r && r.char_id && r.data) out[String(r.char_id)] = r.data; });
+      return out;
+    },
+
     async memoryRowsUpsert(entries) {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();

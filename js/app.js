@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.80";
+const APP_VERSION = "v61.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2017,11 +2017,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 若把 ref 更新塞进 setState 的 updater（渲染时才跑、不同步），同一条 tick 链里连续两次保存（发呆→盘一盘）
   // 第二次会读到旧 ref、整盒覆盖丢掉第一次的写入（v48.23 实测踩过）。
   const saveDesires = mut => {
+    const before = desiresRef.current;
     const n = { ...desiresRef.current };
     mut(n);
     desiresRef.current = n;
     saveJSON("x_desires", n);
     setDesires(n);
+    // 顺手把改动的那几个人推上 grown 表（见 js/grown-sync.js 顶上那段）。
+    // ⚠️推失败绝不影响本机这一份——多一道保险，不是主路。
+    try {
+      if (window.GrownSync && window.Cloud && window.Cloud.grownUpsert) {
+        const ids = window.GrownSync.changedIds("heart", before, n);
+        if (ids.length) {
+          const patch = {}; ids.forEach(id => { patch[id] = n[id]; });
+          window.Cloud.grownUpsert("heart", patch).catch(() => {});
+        }
+      }
+    } catch (e) {}
   };
   // 用户经 OOC 立下的长期行为准则
   const addDirective = (id, text) => {
@@ -17449,3 +17461,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
 if (window.Cloud && window.Cloud.ready()) {
   window.Cloud.autoPull().then(r => { if (r && r.applied) location.reload(); });
 }
+
+// 心上 / Ta 眼里：跟 grown 表对一次账（见 js/grown-sync.js 顶上那段）
+// ⚠️只进不出：两边取并集、同一条按它自己的时刻取新的。
+//   读不到（表还没建、离线、没登录）就【什么都不做】——绝不让这一层碰本机数据。
+//   合并出新东西才写本机、才回推；没变化的一个字节都不动，也就不会惊动 saves 那条链。
+(function grownReconcile() {
+  if (!window.Cloud || !window.Cloud.ready || !window.Cloud.ready() || !window.GrownSync) return;
+  const KEY = { heart: "x_desires", gaze: "x_gaze" };
+  window.GrownSync.KINDS.forEach(async kind => {
+    try {
+      const remote = await window.Cloud.grownFetch(kind);
+      if (!remote) return;                       // 表不在/读失败：当这一层不存在
+      let local = {};
+      try { local = JSON.parse(localStorage.getItem(KEY[kind]) || "{}") || {}; } catch (e) { return; }
+      const merged = window.GrownSync.mergeMap(kind, local, remote);
+      const back = window.GrownSync.changedIds(kind, local, merged);
+      if (back.length) {
+        try { localStorage.setItem(KEY[kind], JSON.stringify(merged)); } catch (e) { return; }
+        try { window.toast && window.toast("从云端补回了 " + back.length + " 个人的" + (kind === "heart" ? "心上" : "Ta 眼里")); } catch (e) {}
+      }
+      // 本机比云端多出来的，推上去补齐那几行
+      const up = window.GrownSync.changedIds(kind, remote, merged);
+      if (up.length) {
+        const patch = {}; up.forEach(id => { patch[id] = merged[id]; });
+        window.Cloud.grownUpsert(kind, patch).catch(() => {});
+      }
+    } catch (e) {/* 这一层永远不许挡住别的 */}
+  });
+})();
