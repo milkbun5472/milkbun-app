@@ -2745,6 +2745,21 @@ function Home({
     return null;
   }
   // 放下：from 和 to 交换位置（to 是空格＝挪过去原位留洞；to 是别的项＝互换；跨页同理）
+  // v61.73 收紧：把当前页所有真项按现在的视觉顺序（行优先）贴紧到顶，洞全部清掉。
+  // 钉格制摆整页像华容道（她 9/3 夜），这颗按钮把「排队制的贴紧」还给她：摆完一按，齐了。
+  function tightenPage() {
+    setLayout(function (prev) {
+      var L = buildLayout(prev).map(function (a) { return a.slice(); });
+      var arr = L[page] || [];
+      var pd = homePlaceDenseXY(arr, spanOf);
+      var reals = [];
+      arr.forEach(function (k, i) { if (!SP_RE.test(k) && pd.pos[i]) reals.push({ k: k, r: pd.pos[i].r, c: pd.pos[i].c }); });
+      reals.sort(function (a, b) { return a.r - b.r || a.c - b.c; });
+      L[page] = reals.map(function (x) { return x.k; });
+      return persistLayout(L);
+    });
+    if (typeof window !== "undefined" && window.__toast) window.__toast("这一页收紧了：按原来的上下顺序贴到顶");
+  }
   function placeDrop(fromKey, toKey) {
     // v61.72 先验地（在 setState 外面做，updater 里不许有副作用/异常）：
     // 脚印全落空格=放；只压到一个人=互换；压到两个以上或整页装不下=拒收并明说。
@@ -3176,7 +3191,15 @@ function Home({
       border: "1px solid rgba(255,255,255,.9)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
       fontFamily: F_BODY, fontSize: 14, fontWeight: 600, boxShadow: "0 6px 20px rgba(30,28,24,0.16)"
     }
-  }, "＋ 装饰"), editMode && h("div", {
+  }, "＋ 装饰"), editMode && h("button", {
+    onClick: tightenPage,
+    style: {
+      position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 116, zIndex: 40,
+      padding: "7px 17px", borderRadius: 999, background: "rgba(255,255,255,.78)", color: t.ink,
+      border: "1px solid rgba(255,255,255,.9)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+      fontFamily: F_BODY, fontSize: 14, fontWeight: 600, boxShadow: "0 6px 20px rgba(30,28,24,0.16)"
+    }
+  }, "⇱ 收紧"), editMode && h("div", {
     style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 150px)", textAlign: "center", zIndex: 40, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, pointerEvents: "none" }
   }, "拖到虚线空格＝放到那里 · 拖到别的图标＝互换位置 · 叠在图标上停一下＝合成文件夹 · 拖到屏幕边缘换页"), dragKey && h("div", {
     ref: ghostRef,
