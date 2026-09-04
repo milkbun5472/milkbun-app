@@ -2902,9 +2902,23 @@ function Home({
       // 挪到放得下为止；一路挪到顶还是压着人，才是真的放不下。
       var r02 = Math.min(tpos.r, Math.max(0, capR - h2));
       var hit = hitsAt(r02);
-      for (var rr = r02 - 1; hit > 1 && rr >= 0; rr--) {
-        var hh2 = hitsAt(rr);
-        if (hh2 <= 1) { r02 = rr; hit = hh2; }
+      // 落点这一行放不下时，就近找一行：先往上、再往下，谁近用谁。
+      // ⚠️v61.95 只往上找过——她 2026-09-03 的情形正好相反：空着的是【底下】那一行，
+      // 往上一路都是东西，于是照样被拒（「会压到 3 个」）。
+      if (hit > 1) {
+        var best = -1, bestHit = 99;
+        for (var d = 1; d <= capR; d++) {
+          var cand = [r02 - d, r02 + d];
+          for (var ci2 = 0; ci2 < 2; ci2++) {
+            var rr = cand[ci2];
+            if (rr < 0 || rr + h2 > capR) continue;
+            var hh2 = hitsAt(rr);
+            if (hh2 < bestHit) { best = rr; bestHit = hh2; }
+            if (bestHit <= 1) break;
+          }
+          if (bestHit <= 1) break;
+        }
+        if (best >= 0 && bestHit <= 1) { r02 = best; hit = bestHit; }
       }
       if (hit > 1) {
         if (typeof window !== "undefined" && window.__toast) window.__toast("这里放不下：会压到 " + hit + " 个东西。先腾出 " + w2 + "×" + h2 + " 的空位再放");

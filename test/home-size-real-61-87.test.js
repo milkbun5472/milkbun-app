@@ -93,7 +93,9 @@ test("备忘录默认一条；一行高时换成一行说得完的排法，不�
 test("放不下时先往上挪，挪到顶还压着人才算真的放不下", () => {
   const seg = comp.slice(comp.indexOf("function placeDrop(fromKey, toKey)"), comp.indexOf("这里放不下"));
   assert.match(seg, /var hitsAt = function \(r0\)/, "还是只算落点那一处");
-  assert.match(seg, /for \(var rr = r02 - 1; hit > 1 && rr >= 0; rr--\)/, "没有往上挪的那一步");
+  // v62.01：上下都要找——她那次空着的是【底下】那一行，只往上找照样被拒
+  assert.match(seg, /var cand = \[r02 - d, r02 \+ d\];/, "只往一个方向找落点");
+  assert.match(seg, /if \(rr < 0 \|\| rr \+ h2 > capR\) continue;/, "没有把找到的行钳在这一页里");
   // 行数一律用量出来的，不许再写死 6
   assert.match(seg, /var capR = Math\.max\(3, rowCapRef\.current \|\| 6\);/);
   assert.ok(!/Math\.min\(tpos\.r, 6 - h2\)/.test(comp), "还留着写死的 6 行");
