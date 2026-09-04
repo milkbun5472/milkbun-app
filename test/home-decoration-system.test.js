@@ -21,9 +21,15 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
   assert.match(home, /imgToVault\(data\)/, "照片必须进现有图片金库，不能把大图硬塞进桌面 JSON");
 });
 
-test("组件库提供八种可编辑装饰", () => {
+test("组件库只给还在用的那几种装饰，退役的三种不再出现在挑选里", () => {
   const library = between('showDecorLibrary && h(Sheet', "// 主页名片");
-  assert.match(library, /HOME_DECOR_TYPES\.map/);
+  // v62.28 她 2026-09-04：「删吧宝宝」——信封／录音磁带／小物陈列盒退役。
+  // 退役＝挑不到，不是抠掉：已经摆在桌面上的那几件还得画得出来，否则当场变白框。
+  assert.match(library, /homeDecorPickable\(\)\.map/);
+  assert.match(comp, /const HOME_DECOR_RETIRED = \{ letter: 1, cassette: 1, trinket: 1 \}/);
+  for (const id of ["letter", "cassette", "trinket"]) {
+    assert.match(comp, new RegExp(`if \\(item\\.type === "${id}"\\)`), `${id} 退役了也得留着渲染，老桌面不能变白框`);
+  }
   for (const [id, name] of [["photo", "照片框"], ["quote", "字句卡"], ["date", "日期签"], ["ticket", "票根夹"], ["letter", "信封"], ["note", "便利贴"], ["cassette", "录音磁带"], ["trinket", "小物陈列盒"]]) {
     assert.match(comp, new RegExp(`id: "${id}"[\\s\\S]*?name: "${name}"`));
   }

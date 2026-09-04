@@ -1016,24 +1016,80 @@ function CalWidget({ now, calendar, onOpen, period }) {
 }
 // 一起听·主屏音乐组件（展示型，不真放声音）：左唱片 + 正在听的歌 + 装饰进度条
 // 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开=天气详情页（逐小时+7天），不再借地图的门（她 8/20 抓的）
-function WeatherWidget({ userGeo, onOpen }) {
+// v62.28 她 2026-09-04 问的两件事一起做了：
+//   ①「能查别的地方的天气吗」→ 能。谁设了家乡（map.js 的 onSetHome 写的 {city,lat,lng}），
+//     他那边就能看；选中的那处会一直留着（x_weatherPlace），下次开 app 还是他那边。
+//   ②「架空的地图怎么安排天气」→ 按世界 id + 地方名 + 那一天算出来（world-weather.js），
+//     一枪都不花、同一天永远同一个结果。形状和真实天气完全一样，所以这一页不用分叉。
+// ⚠️选地方那一排不是药丸（tabs-not-plain-pills.md）：气象站的观测牌挂在一根横杆上，
+//   选中那块牌吊得更低、是整张纸；没选的缩在杆子底下、发白。形状/高度/位置三样都不同。
+function weatherPlaceList(userGeo, characters, worlds) {
+  var out = [{ key: "me", kind: "geo", label: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 6) : "我这儿"), sub: "我这儿", lat: userGeo && userGeo.lat, lng: userGeo && userGeo.lng, real: true }];
+  // char.home 的字段名照【写它那段代码】抄：map.js 的 onSetHome(sel,{city,lat,lng})
+  (Array.isArray(characters) ? characters : []).forEach(function (c) {
+    if (!c || !c.home || typeof c.home.lat !== "number") return;
+    out.push({ key: "c:" + c.id, kind: "char", label: String(c.name || "").slice(0, 5), sub: String(c.home.city || "他那边"), lat: c.home.lat, lng: c.home.lng, real: true });
+  });
+  if (typeof WorldWeather !== "undefined" && WorldWeather && WorldWeather.placesOf) {
+    WorldWeather.placesOf(worlds).forEach(function (p) {
+      out.push({ key: p.key, kind: "world", label: p.label.slice(0, 5), sub: p.sub, seed: p.seed, terrain: p.terrain, real: false });
+    });
+  }
+  return out;
+}
+// 观测牌：一根横杆 + 几块吊牌。选中那块吊得低、满纸、带天象；没选的短一截、发白。
+function WeatherTagRail({ places, value, onPick }) {
   const t = useTheme();
-  const [w, setW] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
+  if (!places || places.length < 2) return null;
+  return h("div", { style: { position: "relative", padding: "10px 2px 6px" } },
+    h("div", { style: { position: "absolute", left: 0, right: 0, top: 12, height: 1, background: hexA(t.ink, .22) } }),
+    h("div", { style: { display: "flex", gap: 8, overflowX: "auto", alignItems: "flex-start", paddingTop: 2 } },
+      places.map(function (p) {
+        var on = p.key === value;
+        return h("button", { key: p.key, onClick: function () { onPick(p.key); }, className: "shrink-0 active:opacity-70",
+          style: { display: "block", textAlign: "center", background: "transparent", border: "none", padding: 0, cursor: "pointer" } },
+          // 挂绳：选中那块吊得更长
+          h("div", { style: { width: 1, height: on ? 14 : 7, margin: "0 auto", background: hexA(t.ink, on ? .5 : .22) } }),
+          h("div", { style: { minWidth: 52, padding: on ? "7px 9px 9px" : "5px 8px 6px", position: "relative",
+            background: on ? t.bg2 : "transparent", border: "1px solid " + hexA(t.ink, on ? .38 : .16),
+            borderRadius: "2px 2px 8px 8px", boxShadow: on ? "0 4px 10px " + hexA(t.ink, .12) : "none" } },
+            // 牌子顶上的穿绳孔
+            h("span", { style: { position: "absolute", left: "50%", top: 3, transform: "translateX(-50%)", width: 4, height: 4, borderRadius: 999, background: hexA(t.ink, on ? .45 : .2) } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: on ? 12 : 11, color: on ? t.ink : t.fog, marginTop: 5, whiteSpace: "nowrap" } }, p.label),
+            on ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 2, whiteSpace: "nowrap" } }, p.kind === "world" ? p.sub + " · " + p.terrain : p.sub) : null));
+      })));
+}
+function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
+  const t = useTheme();
+  const places = weatherPlaceList(userGeo, characters, worlds);
+  const [pick, setPick] = useState(function () { try { return localStorage.getItem("x_weatherPlace") || "me"; } catch (e) { return "me"; } });
+  const place = places.find(function (p) { return p.key === pick; }) || places[0];
+  const choose = function (k) { setPick(k); setFx(null); try { localStorage.setItem("x_weatherPlace", k); } catch (e) {} };
+  const [real, setReal] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
   const [open, setOpen] = useState(false);
   const [fx, setFx] = useState(null); // {hourly:[{h,t,p,code}], daily:[{d,code,hi,lo}]}
+  // 架空的那几处不用等网络：当场算
+  const madeUp = place && !place.real && typeof WorldWeather !== "undefined";
+  const w = madeUp ? WorldWeather.dayOf(place.seed, place.terrain, new Date()) : real;
   useEffect(() => {
     let alive = true;
-    if (userGeo && typeof weatherFor === "function") weatherFor(userGeo.lat, userGeo.lng).then(x => { if (alive && x) setW(x); }).catch(() => {});
+    if (!place || !place.real || typeof place.lat !== "number" || typeof weatherFor !== "function") return;
+    var c = typeof weatherCached === "function" ? weatherCached(place.lat, place.lng) : null;
+    if (c) setReal(c);
+    weatherFor(place.lat, place.lng).then(x => { if (alive && x) setReal(x); }).catch(() => {});
     return () => { alive = false; };
-  }, [userGeo && userGeo.lat, userGeo && userGeo.lng]);
-  const openDetail = function () {
-    if (!userGeo) { onOpen && onOpen(); return; } // 没定位就还走老门（地图里能开定位）
-    setOpen(true);
-    if (fx) return;
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=" + userGeo.lat + "&longitude=" + userGeo.lng + "&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto")
+  }, [place && place.key, place && place.lat, place && place.lng]);
+  const loadFx = function (p) {
+    if (!p) return;
+    if (!p.real) {
+      const now = new Date();
+      setFx({ hourly: WorldWeather.hours(p.seed, p.terrain, now, 24), daily: WorldWeather.forecast(p.seed, p.terrain, now, 7) });
+      return;
+    }
+    if (typeof p.lat !== "number") return;
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=" + p.lat + "&longitude=" + p.lng + "&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto")
       .then(r => r.json())
       .then(d => {
-        const nowH = new Date().getHours();
         const hs = []; const H = d.hourly || {};
         for (let i = 0; i < (H.time || []).length && hs.length < 24; i++) {
           const dt = new Date(H.time[i]); if (dt < new Date(Date.now() - 3600000)) continue;
@@ -1043,6 +1099,14 @@ function WeatherWidget({ userGeo, onOpen }) {
         for (let i = 0; i < (D.time || []).length; i++) ds.push({ d: new Date(D.time[i]), code: D.weather_code[i], hi: Math.round(D.temperature_2m_max[i]), lo: Math.round(D.temperature_2m_min[i]) });
         setFx({ hourly: hs, daily: ds });
       }).catch(() => {});
+  };
+  useEffect(() => { if (open) loadFx(place); }, [open, place && place.key]);
+  const openDetail = function () {
+    // 没定位【而且】没有别处可看，才还走老门（地图里能开定位）。
+    // 有角色家乡或架空世界时照样进详情页——那一排挂牌就是给她换地方用的。
+    if (place && place.real && typeof place.lat !== "number" && places.length < 2) { onOpen && onOpen(); return; }
+    if (place && place.real && typeof place.lat !== "number") { choose(places[1].key); }
+    setOpen(true);
   };
   const wk = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   // ⚠️原来这是个 Sheet（半窗），而且长在【组件自己】里面。
@@ -1054,14 +1118,16 @@ function WeatherWidget({ userGeo, onOpen }) {
   //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
   const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
     h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
-    h(Head, { zh: "天气", sub: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 14) : "你所在地"), onBack: function () { setOpen(false); } }),
+    h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 14 } },
+    h(WeatherTagRail, { places: places, value: place && place.key, onPick: choose }),
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 8 } },
       h("div", null,
         // 地名和「天气」两个字都已经在顶栏里了，正文别再写一遍
         w ? h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 2 } },
           h(GWx, { kind: wmoKind(w.code), size: 15, color: t.sub }),
-          h("span", null, wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°")) : null),
+          h("span", null, wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°"
+            + (madeUp ? " · " + WorldWeather.windOf(place.terrain) : ""))) : null),
       h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "好友地图 ›")),
     fx ? h("div", null,
       // 逐小时横滑条
@@ -1089,7 +1155,8 @@ function WeatherWidget({ userGeo, onOpen }) {
         h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(GWx, { kind: wmoKind(w.code), size: 22, color: t.ink })),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1 } }, w.t + "°")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4 } }, wmoZh(w.code) + " · " + w.lo + "~" + w.hi + "°"),
-      userGeo && userGeo.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(userGeo.label).slice(0, 12)) : null)
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        place && place.key !== "me" ? (place.kind === "world" ? place.label + " · " + place.sub : place.label + " · " + place.sub) : (userGeo && userGeo.label ? String(userGeo.label).slice(0, 12) : "")))
     : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h(GWx, { kind: "partly", size: 15, color: t.fog }), h("span", null, "天气")),
@@ -1964,6 +2031,13 @@ const HOME_DECOR_TYPES = [
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
   { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" }
 ];
+// 退役的那几种（她 2026-09-04：「删吧宝宝」——录音磁带／小物陈列盒／信封三样鸡肋）。
+// ⚠️不是从 HOME_DECOR_TYPES 里抠掉：抠掉了，已经摆在她桌面上的那几件当场变白框。
+//   照同人文那批退役板块的做法（fanfic.js 的 RETIRED_TABS）：新的不给选，老的照旧画出来。
+const HOME_DECOR_RETIRED = { letter: 1, cassette: 1, trinket: 1 };
+function homeDecorPickable() {
+  return HOME_DECOR_TYPES.filter(function (x) { return !HOME_DECOR_RETIRED[x.id]; });
+}
 function homeDecorMeta(type) {
   return HOME_DECOR_TYPES.find(function (x) { return x.id === type; }) || HOME_DECOR_TYPES[1];
 }
@@ -2030,7 +2104,12 @@ const HOME_PHOTO_FRAMES = [
   { id: "magazine3", name: "杂志剪版", note: "一张头图配两格边栏", need: 3 },
   { id: "route3", name: "旅行轨迹", note: "三张照片沿路线散开", need: 3 },
   { id: "drawer4", name: "标本抽屉", note: "四格编号收藏柜", need: 4 },
-  { id: "timeline5", name: "记忆时间轴", note: "五张照片串成一段故事", need: 5 }
+  { id: "timeline5", name: "记忆时间轴", note: "五张照片串成一段故事", need: 5 },
+  // 拼贴（她 2026-09-04：「一块长板然后里面的图切成几条那样风格的」）。
+  // 这两款的骨架是【一块长板】，不是一个框：图被裁成竖条钉在板上，条与条之间留缝、
+  // 高低错开半格——拼贴的味道全在那几条缝上，缝没了就又变回一张普通照片。
+  { id: "slats5", name: "长板切条", note: "一张照片裁成五条钉在长板上", need: 1 },
+  { id: "weave3", name: "错拼长板", note: "三张照片交替裁条拼成一块板", need: 3 }
 ];
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
@@ -2311,6 +2390,33 @@ function HomeDecorItem({ item, preset, now }) {
             photo(src, i, { width: "100%", height: "100%", border: "1px solid rgba(67,48,31,.22)" }),
             h("span", { style: { position: "absolute", right: 3, bottom: 2, minWidth: 13, padding: "1px 2px", background: "rgba(247,238,217,.83)", color: "#604b38", fontFamily: "monospace", fontSize: 6, textAlign: "center" } }, String(i + 1).padStart(2, "0")));
           })));
+    } else if (frame === "slats5" || frame === "weave3") {
+      // 拼贴长板：一块木/纸板，图裁成竖条钉上去。
+      // ⚠️条不是各自 cover 一遍——那样每条都是同一张图的中间，就成了五连拍立得。
+      //   每条里面装的是【整张图】(width: n*100%)，再往左推 i 格，合起来才还原成一张，
+      //   缝和错位是钉上去之后留的，所以看得出「原来是一张，被裁开了」。
+      var slatN = frame === "slats5" ? 5 : 6;
+      var slatOff = [-3, 4, -2, 5, -4, 3];
+      var board = dark ? "#241f1a" : "#c8b28c";
+      var slat = function (src, i, of, kk) {
+        return h("div", { key: kk, style: { position: "relative", flex: 1, minWidth: 0, height: "100%", overflow: "hidden", background: dark ? "#111" : "#e7dcc8", transform: "translateY(" + slatOff[kk % slatOff.length] + "px)", boxShadow: "0 2px 6px rgba(30,22,14,.28)" } },
+          src ? h("div", { style: { position: "absolute", top: 0, bottom: 0, left: (-i * 100) + "%", width: (of * 100) + "%" } },
+            h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
+          // 每条上下各一枚钉子
+          h("span", { style: { position: "absolute", left: "50%", top: 3, width: 3, height: 3, borderRadius: 999, transform: "translateX(-50%)", background: "rgba(255,255,255,.55)" } }),
+          h("span", { style: { position: "absolute", left: "50%", bottom: 3, width: 3, height: 3, borderRadius: 999, transform: "translateX(-50%)", background: "rgba(0,0,0,.25)" } }));
+      };
+      var slats = [];
+      for (var si = 0; si < slatN; si++) {
+        // 错拼：三张图轮着来，同一张图的两条之间隔着别人的一条，所以它读起来是「拼」的
+        var src = frame === "slats5" ? srcs[0] : srcs[si % 3];
+        var of = frame === "slats5" ? slatN : 2;
+        var within = frame === "slats5" ? si : Math.floor(si / 3);
+        slats.push(slat(src, frame === "slats5" ? si : within, of, si));
+      }
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", padding: "12px 8px 10px", background: board, backgroundImage: "repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px)", boxShadow: "inset 0 0 0 2px " + (dark ? "rgba(255,255,255,.10)" : "rgba(92,71,45,.28)") } },
+        h("div", { style: { display: "flex", gap: 4, width: "100%", height: "100%" } }, slats),
+        h("div", { style: { position: "absolute", left: 9, top: 2, fontFamily: F_BODY, fontSize: 7, letterSpacing: ".14em", color: dark ? "rgba(233,214,178,.55)" : "rgba(74,56,34,.55)" } }, dmark(item, frame === "slats5" ? "裁开的一张" : "拼起来的三张")));
     } else if (frame === "timeline5") {
       var timelinePos = [
         { left: "5%", top: "8%", width: "34%", height: "34%", transform: "rotate(-5deg)" },
@@ -2516,6 +2622,7 @@ function Home({
   memoDue,
   mapStatus,
   userGeo,
+  worlds,
   couples,
   coupleSweet,
   onOpenApp,
@@ -2905,7 +3012,7 @@ function Home({
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
-    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftFrame === "film3" ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
+    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
     if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : "square"; saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
@@ -3354,7 +3461,7 @@ function Home({
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
-    else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } });
+    else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, characters: characters, worlds: worlds, onOpen: function () { return onOpenApp("map"); } });
     else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
     else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
     else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
@@ -3550,7 +3657,7 @@ function Home({
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "桌面装饰"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 16 } }, "内容、材质、边线和强调色都能分别编辑；透明底与无边框也可以独立选择。"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 } },
-      HOME_DECOR_TYPES.map(function (x) {
+      homeDecorPickable().map(function (x) {
         var active = decorDraftType === x.id;
         return h("button", { key: x.id, onClick: function () { setDecorDraftType(x.id); setDecorDraftText(x.text || ""); setDecorDraftDetail(x.detail || ""); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, x.glyph), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, x.name));
