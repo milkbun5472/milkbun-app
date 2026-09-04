@@ -450,7 +450,14 @@
     return ev.sort((a, x) => x.ts - a.ts);
   }
 
-  window.DesireBoxSheet = function ({ char, box, busy, onMuse, onRemove, onRemovePersona, onRemoveAvoid, onClose }) {
+  // ⚠️v61.63 从【半窗】改成【整页】（.claude/rules/no-half-sheet.md）：
+  //   这一页装着念想列表 + 长出来的自我 + 蜕变轴 + 旁人纸条 + 不想碰的 + 一季自述 +
+  //   历年独白——没有一样是三行能说完的，正是那条规矩点名不许用半窗的情形。
+  //   半窗的代价是固定的：不管里面装多少，先扣掉一半屏幕。
+  // ⚠️用 fixed 整屏浮层而不是新开一个 screen：它有两个入口（人格档案馆、聊天资料卡），
+  //   做成 screen 要改路由和返回栈两处；浮层两边都能直接开
+  //   （dwell.js / gaze.js 里的整页浮层是同一个做法）。
+  window.HeartPage = function ({ char, box, busy, onMuse, onRemove, onRemovePersona, onRemoveAvoid, onClose }) {
     const t = useTheme();
     const [showLog, setShowLog] = useState(false);
     const [showMile, setShowMile] = useState(false);
@@ -478,10 +485,11 @@
     // 权重火苗：0.05 一粒火星 → 0.9+ 三簇
     const flame = w => w >= 0.75 ? "🔥🔥🔥" : w >= 0.45 ? "🔥🔥" : w >= 0.2 ? "🔥" : "·";
     const statusTag = e => e.status === "ash" ? "（落灰了）" : e.status === "graduated" ? "" : e.status === "withered" ? "（枯萎了）" : "";
-    return h(Sheet, { onClose, tall: true },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, (char.remark || char.name) + " 的心上"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } },
-        "TA 自己攒下的念想——只有 TA 能往里写；你只是碰巧看见了。"),
+    return ReactDOM.createPortal(
+      h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+      // 顶栏用公共的 Head（mobile-ui-layout.md §1：别再自己写一条紧凑栏）
+      h(Head, { zh: (char.remark || char.name) + " 的心上", sub: "只有 TA 能往里写；你只是碰巧看见了", onBack: onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 18px 40px" } },
       driveShadow && driveShadow.top ? h("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
         h("button", { onClick: () => setShowDriveShadow(v => !v), className: "w-full text-left active:opacity-60", style: { color: t.fog } },
           "历史档案 · 退休九维（不影响 TA） " + (showDriveShadow ? "▾" : "▸")),
@@ -515,7 +523,7 @@
               "TA 还没发过呆。每天 TA 会自己找个安静时刻走一会儿神；也可以现在就点右上角让 TA 来一次。")),
       // 长出来的自我：毕业念想凝成的「我是一个…的人」——TA 亲笔，常驻进 TA 的人设
       b.persona.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 长出来的自我 · 长出来的自我"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 长出来的自我"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: personaHealth.pressure ? "#b89150" : t.fog, lineHeight: 1.55, marginBottom: 8 } },
           "只读体检：本体 " + personaHealth.totalCount + " 条 / " + personaHealth.totalChars + " 字 · 本轮会注入 " + personaHealth.injectedCount + " 条 / " + personaHealth.injectedChars + " 字" +
           (personaHealth.hiddenByBudget ? " · 预算外留档 " + personaHealth.hiddenByBudget + " 条" : "") +
@@ -625,6 +633,6 @@
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, l.text),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, fmtDay(l.ts))))) : null) : null,
       h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
-        "火苗=这条念想在 TA 心里的分量，被想起会旺、太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘盒子：做到了的念想会🎓毕业成 TA 人格的一部分（配一首告别小诗），想通了不要的会🥀枯萎。「拿走」只是你悄悄拿走这张纸条，TA 不会知道。"));
+        "火苗=这条念想在 TA 心里的分量，被想起会旺、太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘盒子：做到了的念想会🎓毕业成 TA 人格的一部分（配一首告别小诗），想通了不要的会🥀枯萎。「拿走」只是你悄悄拿走这张纸条，TA 不会知道。"))), document.body);
   };
 })();

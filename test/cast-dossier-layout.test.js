@@ -11,7 +11,9 @@ const form = screens.slice(screens.indexOf("function CastForm("), screens.indexO
 // 那个 FILE 编号是拿 id 哈希出来的假卷宗号，TIMEZONE/BIRTHDAY 两栏没填时恒定写着
 // 「跟随系统」「未录入」——她 2026-08-30 说这版「差点意思」，病就在这。改成盯行为。
 test("人格档案馆自己是一套奶油纸视觉，不套用参考图", () => {
-  assert.match(cast, /PERSONA ARCHIVE/);
+  // v61.63 起顶栏那行 PERSONA ARCHIVE 撤了（.claude/rules/no-english-titles.md：
+  // 中文标题旁边的纯英文一律删，那行删掉这一页照样说得明白）
+  assert.doesNotMatch(cast, /PERSONA ARCHIVE/);
   assert.match(cast, /人格档案馆/);
   assert.match(cast, /castSummary\(c\)/);
   assert.match(cast, /background: t\.bg2/);

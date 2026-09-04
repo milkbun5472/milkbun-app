@@ -282,7 +282,9 @@ function App() {
   const [desires, setDesires] = useState({}); // {charId:{list,log,lastMuse}} 心上（内容只有角色落笔，js 只干体力活，见 js/heart.js）
   const desiresRef = useRef(desires);
   desiresRef.current = desires;
-  const [desireBoxOpen, setDesireBoxOpen] = useState(false); // 心上弹层（从资料卡进）
+  const [desireBoxOpen, setDesireBoxOpen] = useState(false);
+  // 从人格档案馆点进心上时，指定是谁——聊天资料卡那条路不指定，退回 activeChar
+  const [heartChar, setHeartChar] = useState(null); // 心上弹层（从资料卡进）
   const [desireBusy, setDesireBusy] = useState(false); // 手动「让 TA 发会儿呆」进行中
   const [memories, setMemories] = useState({});
   const memoriesRef = useRef(memories);
@@ -15917,6 +15919,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setScreen("castForm");
     },
     onImportCard: () => setCardImportOpen(true),
+    // 档案的另一半：他自己长出来的那份。人格档案馆是它的正主入口——
+    // 「你写的卷宗」和「他长出来的」本来就是同一份档案的两半（v61.63 挪过来的）。
+    heartCountOf: c => ((desires[c.id] || {}).list || []).filter(e => e && e.status !== "withered").length,
+    onOpenHeart: c => { setHeartChar(c); setDesireBoxOpen(true); },
     onOpenChar: c => {
       setEditingChar(c);
       setScreen("castForm");
@@ -17084,16 +17090,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       gazeSeedBusy: gazeSeedBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });
-  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, desireBoxOpen && activeChar && window.DesireBoxSheet ? h(window.DesireBoxSheet, {
-    char: activeChar,
-    box: desires[activeChar.id],
+  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
+  //   heartChar 是档案馆那条路指定的；聊天资料卡那条路不指定，退回 activeChar。
+  (() => { const hc = heartChar || activeChar; return desireBoxOpen && hc && window.HeartPage ? h(window.HeartPage, {
+    char: hc,
+    box: desires[hc.id],
     busy: desireBusy,
-    onMuse: async () => { if (desireBusy) return; setDesireBusy(true); try { await desireMuseFor(activeChar, { manual: true }); } finally { setDesireBusy(false); } },
-    onRemove: id => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.list = b.list.filter(e => e.id !== id); n[activeChar.id] = b; }),
-    onRemovePersona: id => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.persona = b.persona.filter(e => e.id !== id); n[activeChar.id] = b; }),
-    onRemoveAvoid: topic => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.avoid = b.avoid.filter(a => a.topic !== topic); n[activeChar.id] = b; }),
-    onClose: () => setDesireBoxOpen(false)
-  }) : null, editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
+    onMuse: async () => { if (desireBusy) return; setDesireBusy(true); try { await desireMuseFor(hc, { manual: true }); } finally { setDesireBusy(false); } },
+    onRemove: id => saveDesires(n => { const b = HeartKit.boxOf(n, hc.id); b.list = b.list.filter(e => e.id !== id); n[hc.id] = b; }),
+    onRemovePersona: id => saveDesires(n => { const b = HeartKit.boxOf(n, hc.id); b.persona = b.persona.filter(e => e.id !== id); n[hc.id] = b; }),
+    onRemoveAvoid: topic => saveDesires(n => { const b = HeartKit.boxOf(n, hc.id); b.avoid = b.avoid.filter(a => a.topic !== topic); n[hc.id] = b; }),
+    onClose: () => { setDesireBoxOpen(false); setHeartChar(null); }
+  }) : null; })(), editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
     init: editMsg.content,
     onCancel: () => setEditMsg(null),
     onSave: nv => { editMsg.onSave(nv); setEditMsg(null); }

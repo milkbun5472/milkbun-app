@@ -264,7 +264,9 @@ function Cast({
   onBack,
   onAdd,
   onImportCard,
-  onOpenChar
+  onOpenChar,
+  // 档案的另一半：他自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
+  heartCountOf, onOpenHeart
 }) {
   const t = useTheme();
   // 一张卡＝一份卷宗。底下那条信息栏照 Codex 那版的形状（她 2026-08-30 点名要），
@@ -283,8 +285,12 @@ function Cast({
       : "—";
     const plen = String(c.persona || "").replace(/\s/g, "").length;
     const sum = castSummary(c);
-    return h("button", {
+    // ⚠️外层原来是 <button>。底部信息栏里要放一颗【单独能点】的「心上」，
+    //   button 套 button 是非法 HTML（浏览器会把内层拆出去），所以外层换成 div。
+    const hn = typeof heartCountOf === "function" ? (heartCountOf(c) || 0) : 0;
+    return h("div", {
       key: c.id,
+      role: "button", tabIndex: 0,
       onClick: () => onOpenChar(c),
       className: "w-full block active:opacity-90",
       style: {
@@ -308,7 +314,7 @@ function Cast({
         h("div", { className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 6px rgba(46,38,29,.22)", transform: "rotate(-1.6deg)" } },
           h(Avatar, { character: c, size: 58, radius: 3 })),
         h("div", { className: "flex-1 min-w-0", style: { paddingTop: 1 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".2em", color: t.fog } }, "DOSSIER"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".2em", color: t.fog } }, "卷宗"),
           h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
             c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
@@ -316,11 +322,24 @@ function Cast({
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
       // 底部信息栏
       h("div", { className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
-        cell("TIMEZONE", tz, !c.tz),
+        cell("时区", tz, !c.tz),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
-        cell("BIRTHDAY", bd, !c.birthday),
+        cell("生日", bd, !c.birthday),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
-        cell("PERSONA", plen ? plen.toLocaleString() + " 字" : "空白", !plen)));
+        cell("人设", plen ? plen.toLocaleString() + " 字" : "空白", !plen)),
+      // 「你写的卷宗」和「他自己长出来的」是同一份档案的两半——摆在同一张卡上。
+      // ⚠️不塞进上面那排当第四格：三格挤成四格之后「03-15 · 29岁」会被省略号切掉。
+      //   它单独一条，横过来正好放得下，点得着的高度也够（40px 那条线）。
+      // ⚠️stopPropagation：不然点它会连带触发外层那次 onOpenChar，跳去人设表单。
+      onOpenHeart ? h("button", {
+        onClick: e => { e.stopPropagation(); onOpenHeart(c); },
+        className: "w-full flex items-center gap-2 active:opacity-60",
+        style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.2)", padding: "10px 12px 10px 10px", textAlign: "left" }
+      },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: t.fog, flexShrink: 0 } }, "心上"),
+        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: hn ? t.ink : t.fog, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          hn ? "TA 自己攒下 " + hn + " 条念想" : "还空着——聊得多了会自己长出来"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, flexShrink: 0 } }, "›")) : null);
   });
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
@@ -329,8 +348,7 @@ function Cast({
       h("div", { className: "grid items-center", style: { gridTemplateColumns: "76px 1fr 76px", minHeight: 44 } },
         h("button", { onClick: onBack, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "text-center min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "人格档案馆"),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog, marginTop: 1 } }, "PERSONA ARCHIVE")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "人格档案馆")),
         h("div", { className: "flex items-center justify-end gap-1" },
           onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
           h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))))),
@@ -341,8 +359,7 @@ function Cast({
             // 大标题换成一条细的：一屏 844 高，28px 标题＋留白吃掉快 200px，
             // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
             h("div", { key: "cnt", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
-              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".2em", color: t.fog } }, "CATALOGUE"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, characters.length + " 份卷宗")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "共 " + characters.length + " 份卷宗")),
             h("div", { key: "list" }, cards)
           ]));
 }

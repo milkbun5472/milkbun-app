@@ -31,10 +31,12 @@ test("卡片上不再有编出来的卷宗号", () => {
 // v58.48 改：她 2026-08-30「不要做 tag，做底部有信息那样：时区、生日……
 // 不要情侣天数和刚聊过和好感度」。所以卡上写的换成【放着不动也成立】的东西——
 // 好感/情侣/上次说话是关系的近况，不是档案。
+// v61.63 又改：三格【还是三格】，心上另起一条横过来放在下面（挤成四格的话
+// 「03-15 · 29岁」会被省略号切掉）。眉标同时按「标题不留英文」换成中文。
 test("底部信息栏三格：时区 / 生日 / 人设厚度", () => {
-  assert.match(cast, /cell\("TIMEZONE", tz/);
-  assert.match(cast, /cell\("BIRTHDAY", bd/);
-  assert.match(cast, /cell\("PERSONA", plen/);
+  assert.match(cast, /cell\("时区", tz/);
+  assert.match(cast, /cell\("生日", bd/);
+  assert.match(cast, /cell\("人设", plen/);
   assert.doesNotMatch(cast, /chips/, "又改回小胶囊了");
 });
 
