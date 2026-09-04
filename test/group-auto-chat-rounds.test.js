@@ -3,6 +3,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+// 动念的键（角色@群）从真代码里抠出来：桩里再写一份的话，
+// 哪天键格式改了，这个测试会拿旧格式自己跟自己对上，永远绿。
+const dongnianKey = (() => {
+  const m = /const dongnianKey = (\(charId, gid\) => [^;]+);/.exec(app);
+  assert.ok(m, "app.js 里没有 dongnianKey——动念不分场了？回去看 v62.12");
+  return new Function("return " + m[1])();
+})();
 const scan = (() => {
   const i = app.indexOf("const scanAutoGroups = () => {");
   assert.ok(i > 0, "群自发巡检没了");
@@ -50,7 +57,10 @@ function drive(opts) {
     AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
     Math: Object.assign(Object.create(Math), { random: () => rand }),
     Date: { now: () => NOW },
-    window: { __dongnian: dongnian ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {},
+    // v62.12：动念按【场】分，巡检读的是【这个群】那一份（键 = 角色@群）。
+    // 键的算法不在这儿抄一份——从真代码里抠出来用，否则改了格式这个桩照样绿。
+    dongnianKey: dongnianKey,
+    window: { __dongnian: dongnian ? { [dongnianKey("c1", G)]: { triggers: urge ? [{ action: "contact" }] : [] }, [dongnianKey("c2", G)]: { triggers: [] } } : {},
       InteractionClock: require("../js/interaction-clock.js") }
   };
   const scan = new Function(...Object.keys(env), src + "\nreturn scanAutoGroups;")(...Object.values(env));

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.11";
+const APP_VERSION = "v62.12";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -229,6 +229,8 @@ function App() {
   const [pinnedChats, setPinnedChats] = useState(() => loadJSON("x_pinnedChats", []));
   const [characters, setCharacters] = useState([]);
   const [groups, setGroups] = useState([]);
+  const groupsRef = useRef([]);
+  groupsRef.current = groups; // 动念那条链在 setInterval 里读它，闭包拿不到最新的 groups
   const [chats, setChats] = useState({});
   const chatsRef = useRef(chats);
   chatsRef.current = chats; // 始终指向最新聊天记录，避免闭包读到旧值
@@ -4080,17 +4082,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         let urgeChars = [];
         if (rounds === 0 && !cycle.kicked) {
           let anyDongnian = false;
+          // ⭐读的是【这个群那一份】动念，不是他跟 Lisa 那一份（v62.12，她 2026-09-04：
+          //   「给 cp 而不是我涨进度」）。以前读 __dongnian[c.id]，那份的含义是
+          //   「他好久没跟 Lisa 说话了」——在两个角色自己聊的群里，语义正好是反的。
           gm.forEach(c => {
-            const jw = typeof window !== "undefined" && window.__dongnian && window.__dongnian[c.id];
+            const jw = typeof window !== "undefined" && window.__dongnian && window.__dongnian[dongnianKey(c.id, gid)];
             if (!jw) return;
             anyDongnian = true;
-            // 同一份思念只能被一个出口认领；群聊认领后 25 分钟内，单聊巡检不会再拿旧快照重复发。
+            // 同一个人的思念，25 分钟内只许被一个出口认领一次——这道闸仍旧按【人】算，
+            // 不按场算：他这会儿在群里开了口，就别同一分钟又来私聊找她。她按次计费。
             if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (dongnianFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
           });
           if (anyDongnian && !urgeChars.length) continue;
           urgeChars.forEach(c => {
             dongnianFiredRef.current[c.id] = now;
-            try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
+            try { const eng = getDongnian(c, gid); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
           });
         }
         // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
@@ -4440,14 +4446,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
   const dongnianCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
   const dongnianFiredRef = useRef({});     // charId -> 上次 dongnian 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
-  const getDongnian = char => {
+  // ── 动念分对象（她 2026-09-04：「给 cp 而不是我涨进度那里」）──────────────
+  // 一个角色不是只有一份思念：他想 Lisa 是一份，想群里那位是另一份。
+  // v62.12 之前全 app 每人只有一份，而且 getLastMessage 读的永远是【他和 Lisa 的聊天】。
+  // 于是在两个角色自己聊的那种群里，「他动念满了」的真实含义是
+  // 「他好久没跟 Lisa 说话了」——拿这个去驱动她俩自己聊起来，语义正好是反的：
+  // 她越是不理他，他越会跑去找他对象。
+  //
+  // 现在按【场】分：场 = 跟 Lisa 的私聊，或某一个群。各场各存各的、各涨各的。
+  // ⚠️私聊那一场的键仍旧是纯 charId：x_jiwen 里已经在涨的那份不许改名（改名＝集体失忆，
+  //   跟这个文件顶上「存档键不许跟着改名」是同一条）。群那一场才加 @gid 后缀。
+  const dongnianKey = (charId, gid) => gid ? charId + "@" + gid : charId;
+  const getDongnian = (char, gid) => {
     if (!char || typeof createDongnian !== "function") return null;
-    if (dongnianRef.current[char.id]) return dongnianRef.current[char.id];
+    const dnKey = dongnianKey(char.id, gid);
+    if (dongnianRef.current[dnKey]) return dongnianRef.current[dnKey];
     const uName = (profile && profile.name) || "她";
     const eng = createDongnian({
-      persona: { subjectName: uName, selfName: char.name, subjectPronoun: "ta" },
+      // 群里那一份，思念冲的是【这个群里的人】，不是 Lisa
+      persona: { subjectName: gid ? "群里那边" : uName, selfName: char.name, subjectPronoun: "ta" },
       getLastMessage: () => {
-        const arr = chatsRef.current[char.id] || [];
+        const arr = (gid ? groupChatsRef.current[gid] : chatsRef.current[char.id]) || [];
         for (let i = arr.length - 1; i >= 0; i--) { const m = arr[i]; if (m && m.content && !m.recalled) return { id: m.ts || i, role: m.role, content: String(m.content), timestamp: new Date(m.ts || Date.now()).toISOString() }; }
         return null;
       },
@@ -4459,55 +4478,77 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (c.length < 8) return 0.0010;                          // 敷衍短句 → 涨得快
         return 0.0007;
       },
-      onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[char.id] || null; } catch (e) { return null; } },
-      onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[char.id] = st; saveJSON("x_jiwen", m); } catch (e) {} }
+      onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[dnKey] || null; } catch (e) { return null; } },
+      onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[dnKey] = st; saveJSON("x_jiwen", m); } catch (e) {} }
     });
-    dongnianRef.current[char.id] = eng;
+    dongnianRef.current[dnKey] = eng;
     return eng;
+  };
+  // 一个场推一步。私聊和群走的是同一份漂移/补记/阈值逻辑——
+  // 这一层只许有一份实现（这个仓库最常犯的错就是「一层写在两处，第二处没跟上」）。
+  const dongnianTickOne = async (char, gid, now) => {
+    const arr = (gid ? groupChatsRef.current[gid] : chatsRef.current[char.id]) || [];
+    if (!arr.length) return;                                  // 这个场里一句话都没有，不跑
+    const eng = getDongnian(char, gid); if (!eng) return;
+    const dnKey = dongnianKey(char.id, gid);
+    // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除他之外的任何人（含 Lisa）。
+    // 他自己说话不算——那不解他的想念，泄压走的是认领时那 -0.28。
+    let otherTs = gid ? 0 : latestUserSharedInteractionTs(char.id);
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const m = arr[i]; if (!m || m.recalled || m.kind === "ooc" || m.kind === "system") continue;
+      // 群里「别人」＝ Lisa，或另一位角色。旁白/场景不算人开口，别拿它当作有人理了他。
+      const isOther = gid
+        ? (m.role === "user" || (m.role === "assistant" && String(m.senderId || "") !== String(char.id)))
+        : m.role === "user";
+      if (isOther) { otherTs = Math.max(otherTs, m.ts || 0); break; }
+    }
+    const seenTs = dongnianSeen()[dnKey] || 0;
+    if (otherTs && otherTs > seenTs) {
+      dongnianSeenSet(dnKey, otherTs);
+      // 首次见到这个场（还没有记录）时不清零：那不是「刚有人说话」，
+      // 只是我们第一次认识这段历史。清了就等于每装一次 app 都从零开始。
+      if (seenTs) { try { await eng.resetConnection(); } catch (e) {} }
+    }
+    // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，dongnian 内部封顶 60 分钟）
+    let baseTs = dongnianTickRef.current[dnKey];
+    if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
+    const mins = (now - baseTs) / 60000;
+    dongnianTickRef.current[dnKey] = now;
+    try {
+      let triggers;
+      if (mins >= 0.2) {
+        // 后台补记（v48.81，她点名）：eng.tick 单次内部封顶 60min，长时间关 app 会算不足→重开该想你也不想。
+        //   按 60min 分块喂满真实离开时间，总量封顶 12h（防离开一周回来直接「崩溃级」思念，那样太粘）。
+        let credit = Math.min(mins, 720);
+        // 记下【思念是在哪一刻越过阈值的】：她 2026-08-26 说另一台小手机能看到
+        // 「我没开 app 那段时间里发的消息」，时间戳落在那个空档里而不是全堆在打开这一刻。
+        // 补记是按 60 分钟一块喂的，所以哪一块开始出现 contact，那一刻就是真正想联系的时间。
+        let done = 0, crossed = null;
+        do {
+          const chunk = Math.min(credit, 60);
+          triggers = await eng.tick(chunk); credit -= chunk; done += chunk;
+          if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done * 60000;
+        } while (credit > 0.2);
+        if (crossed != null) dongnianCrossedRef.current[dnKey] = crossed;
+      } else triggers = eng.checkThresholds();
+      window.__dongnian[dnKey] = { name: char.name, gid: gid || "", summary: eng.getStateSummary(), triggers, state: await eng.getState() };
+    } catch (e) {}
   };
   useEffect(() => {
     if (typeof createDongnian !== "function") return;
     window.__dongnian = window.__dongnian || {};
     const step = async () => {
       const now = Date.now();
-      for (const char of characters) {
-        const arr = chatsRef.current[char.id] || [];
-        if (!arr.length) continue;                                // 没聊过的不跑
-        const eng = getDongnian(char); if (!eng) continue;
-        // 对方（用户）最新消息比上次记录的新 → 思念清零（闭环，不碰任何发送路径）
-        let lastUserTs = latestUserSharedInteractionTs(char.id);
-        for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].role === "user") { lastUserTs = Math.max(lastUserTs, arr[i].ts || 0); break; } }
-        const seenTs = dongnianSeen()[char.id] || 0;
-        if (lastUserTs && lastUserTs > seenTs) {
-          dongnianSeenSet(char.id, lastUserTs);
-          // 首次见到这个角色（还没有记录）时不清零：那不是「她刚回话」，
-          // 只是我们第一次认识这段历史。清了就等于每装一次 app 都从零开始。
-          if (seenTs) { try { await eng.resetConnection(); } catch (e) {} }
+      for (const char of characters) await dongnianTickOne(char, null, now);
+      // 群里那几份：一人一群各一份。互通群才算——封闭群本来就不自发聊（见巡检那道闸），
+      // 算了也没人用，白占存档。
+      for (const group of groupsRef.current || []) {
+        const gs = gsFor(group.id);
+        if (!gs.memoryInterop || gs.autoChat === false) continue;
+        for (const id of group.memberIds || []) {
+          const c = characters.find(x => x.id === id);
+          if (c && !c.npc) await dongnianTickOne(c, group.id, now);
         }
-        // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，dongnian 内部封顶 60 分钟）
-        let baseTs = dongnianTickRef.current[char.id];
-        if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
-        const mins = (now - baseTs) / 60000;
-        dongnianTickRef.current[char.id] = now;
-        try {
-          let triggers;
-          if (mins >= 0.2) {
-            // 后台补记（v48.81，她点名）：eng.tick 单次内部封顶 60min，长时间关 app 会算不足→重开该想你也不想。
-            //   按 60min 分块喂满真实离开时间，总量封顶 12h（防离开一周回来直接「崩溃级」思念，那样太粘）。
-            let credit = Math.min(mins, 720);
-            // 记下【思念是在哪一刻越过阈值的】：她 2026-08-26 说另一台小手机能看到
-            // 「我没开 app 那段时间里发的消息」，时间戳落在那个空档里而不是全堆在打开这一刻。
-            // 补记是按 60 分钟一块喂的，所以哪一块开始出现 contact，那一刻就是真正想联系的时间。
-            let done = 0, crossed = null;
-            do {
-              const chunk = Math.min(credit, 60);
-              triggers = await eng.tick(chunk); credit -= chunk; done += chunk;
-              if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done * 60000;
-            } while (credit > 0.2);
-            if (crossed != null) dongnianCrossedRef.current[char.id] = crossed;
-          } else triggers = eng.checkThresholds();
-          window.__dongnian[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
-        } catch (e) {}
       }
     };
     const kick = setTimeout(step, 8000);
@@ -17235,6 +17276,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSaveTemperament: saveTemperamentAnchors,
     aShadowPanel: aShadowPanel,
     dongnianState: (typeof window !== "undefined" && window.__dongnian && window.__dongnian[activeChar.id] && window.__dongnian[activeChar.id].state) || null,
+    // 他在别的场里的那几份思念（v62.12）：这一页那根进度条说的一直是「他想不想找【你】」，
+    // 而他在群里想那位的那一份，界面上一个字都没有——功能在不在，和她找不找得到，是两件事。
+    dongnianElsewhere: (() => {
+      if (typeof window === "undefined" || !window.__dongnian) return [];
+      return (groups || []).map(g => {
+        const jw = window.__dongnian[activeChar.id + "@" + g.id];
+        if (!jw || !jw.state) return null;
+        return { gid: g.id, name: g.name || "一个群", connection: Number(jw.state.connection) || 0 };
+      }).filter(Boolean).sort((a, b) => b.connection - a.connection);
+    })(),
     activeRoomId: activeRoomId,
     onSelectRoom: (roomId, close) => {
       setActiveRoomId(roomId || "main");

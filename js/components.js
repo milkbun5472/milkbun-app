@@ -11594,6 +11594,7 @@ function ChatSettings({
   onSaveTemperament,
   aShadowPanel,
   dongnianState,
+  dongnianElsewhere,
   activeRoomId,
   onSelectRoom,
   onSummarizeRoom,
@@ -11667,11 +11668,32 @@ function ChatSettings({
     shadow.push("C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言");
     return { live, shadow };
   })();
+  // 别的场里的思念（v62.12）：一场一行，越想的排越前；没有别的场就整段不出现。
+  // 上面那根条从头到尾说的是「TA 想不想找【你】」，TA 在群里想那边的那几份，
+  // 以前界面上一个字都没有——看着就像动念只对着她一个人涨。
+  const renderDongnianElsewhere = () => {
+    const rows = (dongnianElsewhere || []).filter(r => r && Number(r.connection) > 0.02);
+    if (!rows.length) return null;
+    return h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+        "TA 想的不只是你。下面这几份满了，TA 会去那边开口，不是来找你。"),
+      rows.slice(0, 5).map(r => {
+        const c = Math.max(0, Math.min(1, Number(r.connection) || 0));
+        return h("div", { key: r.gid, className: "flex items-center gap-2", style: { marginTop: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, flex: "0 0 34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name),
+          h("div", { style: { position: "relative", flex: 1, height: 6, borderRadius: 999, background: t.bg } },
+            h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, Math.round(c / 0.5 * 100)) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog } })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: "0 0 auto" } }, c.toFixed(2)));
+      }));
+  };
   const renderDongnianGauge = () => h("div", { style: { marginTop: 12, padding: "12px", borderRadius: 12, border: "1px dashed " + t.line } }, (() => {
+    // ⚠️跟你没聊过、但在群里已经攒着思念的，这里也得看得见——
+    //   早退的话那几根条会跟着一起消失（她跟这个人没私聊正是最需要看的时候）。
     if (!dongnianState) return h("div", null,
       h(Eyebrow, null, "动念实时进度"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.7 } },
-        "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"));
+        "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"),
+      renderDongnianElsewhere());
     const c = Math.max(0, Math.min(1, Number(dongnianState.connection) || 0));
     const pct = Math.round((c / 0.5) * 100);
     const stage = c >= 0.5 ? "忍不住了 · 随时会开口" : c >= 0.35 ? "已经想找你了 · 在等一个合适的时机" : c >= 0.2 ? "偶尔想起你" : "刚聊过，还不想你";
@@ -11686,7 +11708,8 @@ function ChatSettings({
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.toFixed(3) + " / 0.35")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
         "两道竖线是「开始想找你」(0.35) 和「忍不住」(0.50)。你回一句话它就清零重来；关着 app 的时间也算数（一次最多补 12 小时）。"
-        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着（傲娇 " + Number(dongnianState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")));
+        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着（傲娇 " + Number(dongnianState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")),
+      renderDongnianElsewhere());
   })());
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),

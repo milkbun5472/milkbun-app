@@ -15,7 +15,9 @@ test("上次见过的用户消息时间要持久化，不然每次开 app 都清
   assert.match(app, /const dongnianLastUserRef = useRef\(null\)/);
   assert.match(app, /loadJSON\("x_jiwenSeen", \{\}\)/);
   assert.match(app, /saveJSON\("x_jiwenSeen", m\)/);
-  const i = app.indexOf("const seenTs = dongnianSeen()[char.id] || 0;");
+  // v62.12 起动念按【场】分（私聊一份、每个群各一份），所以这里认的是 dnKey；
+  // 私聊那一场的 dnKey 就是纯 charId——x_jiwenSeen 里已有的那些格子一个都没搬家。
+  const i = app.indexOf("const seenTs = dongnianSeen()[dnKey] || 0;");
   assert.ok(i > 0);
   const seg = app.slice(i, i + 500);
   assert.match(seg, /if \(seenTs\) \{ try \{ await eng\.resetConnection\(\); \}/,
@@ -70,7 +72,7 @@ test("按 TA 今天的作息判醒没醒，没行程才退回 8-23", () => {
 // 显示是我没打开的时间，而不只是10点」
 test("补记时算出「思念是哪一刻越过阈值的」，消息时间戳落在那个空档里", () => {
   assert.match(app, /if \(crossed == null && triggers && triggers\.some\(t => t\.action === "contact"\)\) crossed = baseTs \+ done \* 60000/);
-  assert.match(app, /dongnianCrossedRef\.current\[char\.id\] = crossed/);
+  assert.match(app, /dongnianCrossedRef\.current\[dnKey\] = crossed/);
   // 夹在「上次互动之后」和「一分钟前」之间：别排进历史里，也别写成未来
   assert.match(app, /Math\.max\(lastInteract \+ 60000, Math\.min\(_cross, Date\.now\(\) - 60000\)\)/);
   assert.match(app, /backdateTs: _back > 0 && _back < Date\.now\(\) \? _back : 0/);
@@ -91,13 +93,18 @@ test("补时间戳的算式不会把消息排到历史里或未来", () => {
 
 // 她 2026-08-26：「有没有显示能看到 dongnian 攒了多少了可以量化的一个进度条」
 test("动念进度条与人格影响说明合并，不在主动消息里重复", () => {
-  const secStart = comp.indexOf('h(SettingSection, { title: "正在影响 TA');
+  // ⚠️v61.79 设置页重排之后每一节都包在 show(tab, ...) 里了，不再是裸的 h(SettingSection…。
+  //   这条断言的锚点当时没跟上，于是 indexOf 拿到 -1、整条静默失效——
+  //   「一层写在两处，第二处没跟上」在测试里长的样子就是这个。
+  const secStart = comp.indexOf('show("temper", { title: "正在影响 TA');
+  assert.ok(secStart > 0, "【正在影响 TA】这一节没了或改了名");
   const gaugeCall = comp.indexOf("renderDongnianGauge()", secStart);
-  const nextSec = comp.indexOf("h(SettingSection", secStart + 10);
+  const nextSec = comp.indexOf("\n  show(", secStart + 10);
   assert.ok(gaugeCall > secStart && gaugeCall < nextSec, "详细进度必须紧跟人格影响总览");
-  const proactiveStart = comp.indexOf('h(SettingSection, { title: "主动消息');
-  const proactiveEnd = comp.indexOf("h(SettingSection", proactiveStart + 10);
-  assert.ok(!comp.slice(proactiveStart, proactiveEnd).includes("renderDongnianGauge()"), "主动消息区不再重复第二套进度条");
+  const proactiveStart = comp.indexOf('show("act", { title: "主动消息');
+  assert.ok(proactiveStart > 0, "【主动消息】这一节没了或改了名");
+  const proactiveEnd = comp.indexOf("\n  show(", proactiveStart + 10);
+  assert.ok(!comp.slice(proactiveStart, proactiveEnd > 0 ? proactiveEnd : comp.length).includes("renderDongnianGauge()"), "主动消息区不再重复第二套进度条");
   // 状态还没算出来时也要说一句，别只留一片空白让她以为没做
   assert.match(comp, /if \(!dongnianState\) return h\("div", null,/);
   assert.match(comp, /还没算出来。开机后十几秒才跑第一轮/);
