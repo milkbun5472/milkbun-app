@@ -11,9 +11,13 @@ test("角色设置把 live 影响和 shadow 观察明确分开", () => {
   assert.match(source, /这里只列真正接上行为的模块/);
 });
 
-test("E 只有角色 gate 真开且未紧急关闭才显示为已开启", () => {
-  assert.match(source, /eGate\.mode === "pilot" && !eGate\.emergencyOff/);
+// v62.37：A/E 全开、不留授权，所以这里不再看 mode，只看急停。
+test("A 和 E 常开；按过急停才退回只观察", () => {
+  assert.match(source, /const _innerOff = aGate\.emergencyOff \|\| eGate\.emergencyOff;/);
   assert.match(source, /余温 · 已开启/);
+  assert.match(source, /立体情绪 · 已开启/, "A 接上了却没在这一栏里说");
+  assert.match(source, /A 情绪 \/ E 余温：你按过急停，两层都退回只观察/, "急停之后不说话，等于看不出停没停");
+  assert.ok(source.indexOf('aGate.mode === "pilot"') < 0, "还在按授权报状态——授权已经没了");
   assert.match(source, /不会冒充经历、不会写进记忆/);
 });
 
@@ -25,8 +29,7 @@ test("动念说明不冒充普通回复的人格控制器", () => {
   assert.match(source, /renderDongnianGauge\(\)/);
 });
 
-test("未开闸的 A B C 均写清只观察", () => {
-  assert.match(source, /A 情绪立体化：只观察，不影响语气/);
+test("仍在观察那几层写清了只观察", () => {
   assert.match(source, /B 关系轴：只观察，不制造伤口或关系转折/);
   assert.match(source, /C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言/);
 });
