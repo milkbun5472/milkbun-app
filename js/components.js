@@ -3167,7 +3167,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     // eslint-disable-next-line
   }, [(characters || []).length]);
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
-    style: { width: 23, height: 23, borderRadius: 999, flexShrink: 0,
+    style: { width: 21, height: 21, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
@@ -3178,22 +3178,22 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
       // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
       // 于是头像能贴着右边、键也不用谁给它让位。
-      h("div", { className: "flex", style: { position: "absolute", bottom: 9, right: 12, gap: 9, zIndex: 2 } },
-        round(h(IPencil, { size: 12, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 12, gap: 9, zIndex: 2 } },
+        round(h(IPencil, { size: 11, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
         onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
       h("div", { className: "flex items-end", style: { gap: 12 } },
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: onCover ? ink : inkA(.92), textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: onCover ? dim : inkA(.7), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
           // ⚠️两个标签同一级，只有中间那道斜杠更淡——所以不能再 join 成一串，
           // 一串只能有一个颜色。仍然是一行小字，不是药丸也不是标签胶囊。
-          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.55), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             tags.map(function (tg, i) {
               return h(React.Fragment, { key: i },
-                i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.45)" : inkA(.3) } }, "　/　") : null, tg);
+                i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.5)" : inkA(.34) } }, "　/　") : null, tg);
             })) : null),
         h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, borderRadius: 14, padding: 2.5,
             background: onCover ? "rgba(255,255,255,.85)" : t.bg, boxShadow: "0 3px 10px rgba(30,28,24,.2)" } },
@@ -3201,10 +3201,14 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
-      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 7, gap: 17, paddingRight: 66 } },
-        stats.map((st, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 4 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1, color: onCover ? ink : inkA(.76), textShadow: shadow } }, st[0]),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: "0.1em", color: onCover ? dim : inkA(.44), textShadow: shadow } }, st[1]))))));
+      // 收紧成【一行连续的 metadata】：三项之间不再靠一大段空隙分开，
+      // 改成一颗小圆点断开（比空隙更明确、又比分隔线轻）。仍然不是三个格子、三个胶囊。
+      h("div", { className: "flex items-baseline", style: { marginTop: "auto", paddingTop: 7, gap: 7, paddingRight: 66 } },
+        stats.map((st, i) => h(React.Fragment, { key: i },
+          i ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, lineHeight: 1, color: onCover ? "rgba(255,255,255,.45)" : inkA(.26), textShadow: shadow } }, "•") : null,
+          h("span", { className: "flex items-baseline", style: { gap: 3.5 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1, color: onCover ? ink : inkA(.76), textShadow: shadow } }, st[0]),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: "0.1em", color: onCover ? dim : inkA(.48), textShadow: shadow } }, st[1])))))));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
 function HomeCardSheet({ card, profile, onSave, onClose }) {

@@ -24,7 +24,7 @@ test("骨架换掉了：方头像在右、名字当主角、标签不是药丸",
   // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
   assert.doesNotMatch(card, /"ARCHIVE"/);
   // v60.88 两颗键改到【右下角】：放右上角要给它让位，头像就被挤到中间去了
-  assert.match(card, /position: "absolute", bottom: 9, right: 12/);
+  assert.match(card, /position: "absolute", bottom: 7, right: 12/);
   assert.doesNotMatch(card, /paddingRight: 62/, "头像那一行不许再为按键留位");
 });
 
@@ -64,17 +64,21 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
   assert.ok(!/#(?:3|4|5|6)[0-9a-f]{5}/i.test(card), "写死了某个棕色，换主题就废");
   // 第一眼名字、第二眼签名与标签、第三眼那排数
   assert.match(card, /color: onCover \? ink : inkA\(\.92\)/, "名字还是纯墨");
-  assert.match(card, /color: onCover \? dim : inkA\(\.62\)/, "签名还压在 t.fog 上，玻璃底上读不清");
+  assert.match(card, /color: onCover \? dim : inkA\(\.7\)/, "签名还压在 t.fog 上，玻璃底上读不清");
   assert.match(card, /fontSize: 14\.5, lineHeight: 1, color: onCover \? ink : inkA\(\.76\)/, "那排数还是又大又黑");
-  assert.match(card, /fontSize: 8\.5, letterSpacing: "0\.1em", color: onCover \? dim : inkA\(\.44\)/);
+  assert.match(card, /fontSize: 8\.5, letterSpacing: "0\.1em", color: onCover \? dim : inkA\(\.48\)/);
+  // v61.59：三项收紧成一行连续的 metadata，中间用一颗小圆点断开（不是分隔线、不是格子）
+  assert.match(card, /gap: 7, paddingRight: 66/, "三项之间还是一大段空隙");
+  assert.match(card, /inkA\(\.26\), textShadow: shadow \} \}, "•"\)/, "没有那颗断开用的小圆点");
+  assert.doesNotMatch(card, /borderLeft|borderRight/, "断开用的不许是分隔线");
   // 斜杠比标签本身更淡
-  assert.match(card, /inkA\(\.3\) \} \}, "　\/　"\)/);
+  assert.match(card, /inkA\(\.34\) \} \}, "　\/　"\)/);
 });
 
 test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不许写死高度）", () => {
   assert.match(card, /padding: "10px 14px 9px"/);
-  assert.match(card, /width: 23, height: 23, borderRadius: 999/, "两颗小键没缩");
-  assert.match(card, /bottom: 9, right: 12, gap: 9/, "两颗键之间没拉开");
+  assert.match(card, /width: 21, height: 21, borderRadius: 999/, "两颗小键没缩");
+  assert.match(card, /bottom: 7, right: 12, gap: 9/, "两颗键之间没拉开");
   // ⚠️主屏铁律：里面这层不许写 height:100%（.claude/rules/home-screen-layout.md）
   assert.doesNotMatch(card, /height: "100%"/);
 });
