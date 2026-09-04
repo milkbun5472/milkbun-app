@@ -62,8 +62,13 @@ test("找回失联的角色：认领的是【云端还在、本机没有】的�
   // 记忆行表和归档聊天都不在被覆盖的那份 blob 里，这两样才是找回的依据
   assert.match(fn, /memoryRowsFetchAll\(\)/);
   assert.match(fn, /chatArchiveGet\(e\.id\)/);
-  // 本机已经有的不算失联
-  assert.match(fn, /if \(!id \|\| here\.has\(id\)\) return;/);
+  // ⚠️v61.75：判据不是「这个人在不在本机」，是「TA 的记忆到齐了没有」。
+  //   按前者写的话，上一版刚建回来的三个人这一页再也扫不到，而记忆压根没接上——
+  //   等于建完就永远没救了（她 2026-09-04 报的第二个「不行」）。
+  assert.match(fn, /filter\(e => !e\.here \|\| e\.missing > 0\)/);
+  assert.match(fn, /if \(!haveMem\.has\(String\(m\.id\)\)\) \{/, "得逐条比本机缺不缺，不能只看人在不在");
+  // 本机那份必须走 loadJSON —— x_memLib 住在 IDB 文字仓，localStorage 里那份是空的
+  assert.match(fn, /loadJSON\("x_memLib", \[\]\)/);
   // 删掉的记忆不该把一个人从坟里拉出来
   assert.match(fn, /if \(m && m\.deleted\) return;/);
   // 重建必须沿用原 id，否则记忆和聊天接不回来
@@ -113,5 +118,6 @@ test("建完不许静默消失：得当场说接回了多少", () => {
   // 原来是 setRows 把这一行滤掉——看上去就是「建了就没了」
   assert.doesNotMatch(fn, /setRows\(r => \(r \|\| \[\]\)\.filter/);
   assert.match(fn, /条记忆/);
-  assert.match(fn, /doneMap\[e\.id\]\.error/, "捞失败要说出来，不能假装成功");
+  assert.match(fn, /把 " \+ e\.missing \+ " 条记忆接回来/, "人已经在的那一类，按钮要说清它这次干什么");
+  assert.match(fn, /done\.error/, "捞失败要说出来，不能假装成功");
 });

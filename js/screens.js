@@ -7487,28 +7487,37 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
     setBusy(true); setErr("");
     try {
       const mem = await window.Cloud.memoryRowsFetchAll();
-      const here = new Set((characters || []).map(c => String(c.id)));
+      const byId = new Map((characters || []).map(c => [String(c.id), c]));
+      // ⚠️必须走 loadJSON：x_memLib 早就搬进 IDB 文字仓了，localStorage 里那份是空的/过期的
+      let lib = []; try { lib = loadJSON("x_memLib", []); } catch (e) {}
+      const haveMem = new Set((lib || []).filter(x => x && x.id).map(x => String(x.id)));
       const bag = new Map();
       (mem || []).forEach(m => {
         if (m && m.deleted) return;
         ((m && m.char_ids) || []).forEach(raw => {
           const id = String(raw || "");
-          if (!id || here.has(id)) return;
-          const e = bag.get(id) || { id: id, memCount: 0, lastTs: 0, samples: [], archived: null };
+          if (!id) return;
+          const e = bag.get(id) || { id: id, here: byId.get(id) || null, memCount: 0, missing: 0, lastTs: 0, samples: [], archived: null };
           e.memCount++;
+          if (!haveMem.has(String(m.id))) {
+            e.missing++;
+            if (e.samples.length < 5 && m.text) e.samples.push(String(m.text));
+          }
           const ts = Number(m.ts) || 0;
           if (ts > e.lastTs) e.lastTs = ts;
-          if (e.samples.length < 5 && m.text) e.samples.push(String(m.text));
           bag.set(id, e);
         });
       });
-      const list = [...bag.values()].sort((a, b) => b.memCount - a.memCount);
-      // 归档聊天一个一个问（人数很少，不值得为它另开一条批量接口）
+      // ⚠️v61.75：本机已经有的角色【不能直接跳过】。她上一版把三个人建回来了，
+      //   于是这一页再也扫不到他们——而记忆压根没接上，等于永远没救。
+      //   判据要从「这个人在不在」换成「TA 的记忆到齐了没有」。
+      const list = [...bag.values()].filter(e => !e.here || e.missing > 0)
+        .sort((a, b) => b.missing - a.missing || b.memCount - a.memCount);
       for (const e of list) {
         try { e.archived = (await window.Cloud.chatArchiveGet(e.id)).length; } catch (x) { e.archived = null; }
       }
       setRows(list);
-      if (!list.length) toast && toast("云端记忆里没有本机找不到的角色——没有失联的");
+      if (!list.length) toast && toast("都齐了：云端每个人的记忆本机都有");
     } catch (e) {
       setErr(String((e && e.message) || e));
     } finally { setBusy(false); }
@@ -7518,46 +7527,56 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
   // 因为那两百条是直接问云端要的，而聊天真正读的是本机那份 x_memLib（v61.74 她报的就是这个）。
   const [doneMap, setDoneMap] = useState({});
   const rebuild = async e => {
-    const name = String(names[e.id] || "").trim();
-    if (!name) { toast && toast("先给 TA 填个名字"); return; }
+    // 人已经在本机了：不用再填名字，这一次只是去把记忆和归档接回来
+    const name = e.here ? String(e.here.name || "") : String(names[e.id] || "").trim();
+    if (!e.here && !name) { toast && toast("先给 TA 填个名字"); return; }
     setDoneMap(d => ({ ...d, [e.id]: { busy: true } }));
-    const r = await Promise.resolve(onRescue({ id: e.id, name: name.slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" }))
+    const r = await Promise.resolve(onRescue({ id: e.id, name: (name || "").slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" }))
       .catch(err => ({ error: String((err && err.message) || err) }));
     setDoneMap(d => ({ ...d, [e.id]: { name: name, added: (r && r.added) || 0, arch: (r && r.arch) || 0, error: r && r.error } }));
   };
   const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, v);
+  const card = e => {
+    const done = doneMap[e.id];
+    const action = done && !done.busy
+      ? h("div", { style: { marginTop: 11, padding: "9px 11px", borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6 } },
+          done.error
+            ? "「" + done.name + "」建回来了，但记忆没捞下来——检查一下网络，再点一次「扫一遍云端」重试。"
+            : "✓ 「" + done.name + "」接回 " + done.added + " 条记忆" +
+              (done.arch ? "、" + done.arch + " 条旧聊天（在聊天页点「加载更早」看）" : "") +
+              (e.here ? "。" : "。去人格档案馆补人设和头像。"))
+      : h("div", { style: { marginTop: 11, display: "flex", gap: 8 } },
+          e.here ? null : h("input", {
+            value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
+            style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line }
+          }),
+          h("button", {
+            onClick: () => rebuild(e), disabled: !!(done && done.busy), className: "active:opacity-70 shrink-0 disabled:opacity-50",
+            style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, flex: e.here ? 1 : "0 0 auto" }
+          }, done && done.busy ? "接回中…" : (e.here ? "把 " + e.missing + " 条记忆接回来" : "建回来")));
+    return h("div", { key: e.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "13px 14px", background: t.bg2 } },
+      e.here ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, e.here.name,
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 8 } }, "人在，记忆没接上")) : null,
+      h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.sub, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: e.here ? 4 : 0 } }, e.id),
+      h("div", { style: { marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
+        line("m", "云端 " + e.memCount + " 条记忆，本机缺 " + e.missing + " 条"),
+        line("a", e.archived == null ? "归档聊天读不到" : e.archived + " 条归档聊天"),
+        line("t", e.lastTs ? "最近一条 " + new Date(e.lastTs).toLocaleDateString() : "没有时间")),
+      e.samples.length ? h("div", { style: { marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + t.line, display: "flex", flexDirection: "column", gap: 5 } },
+        e.samples.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
+      action);
+  };
   return h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog } },
-      "角色档案被覆盖掉之后，TA 的记忆和归档聊天其实还留在云上，只是没人认领了。这里把它们找出来，用同一个 id 把角色建回去——id 对上，记忆和旧聊天自己就接回来。",
+      "角色档案被覆盖掉之后，TA 的记忆和归档聊天其实还留在云上，只是没人认领了。这里列两种人：本机压根没有的（用同一个 id 建回去），和人已经在、记忆却没接上的（直接把缺的那几条捞回来）。",
       h("br"), h("br"),
       "⚠️ 人设本身只存在被覆盖的那一份里，找不回来了。下面列出的记忆是重写人设最好的材料。"),
     h("button", { onClick: scan, disabled: busy, className: "w-full py-3 active:opacity-70 disabled:opacity-50",
       style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, borderRadius: 7, color: t.bg2, background: t.ink } },
-      busy ? "正在翻云端…" : "扫一遍云端，找失联的角色"),
+      busy ? "正在翻云端…" : "扫一遍云端"),
     err ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", lineHeight: 1.6 } }, "扫描失败：" + err + "（先确认已登录云同步）") : null,
-    rows && !rows.length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "没有失联的角色。") : null,
-    rows && rows.length ? h("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } },
-      rows.map(e => h("div", { key: e.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "13px 14px", background: t.bg2 } },
-        h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.sub, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text" } }, e.id),
-        h("div", { className: "flex gap-3 flex-wrap", style: { marginTop: 6 } },
-          line("m", e.memCount + " 条记忆"),
-          line("a", e.archived == null ? "归档聊天读不到" : e.archived + " 条归档聊天"),
-          line("t", e.lastTs ? "最近一条 " + new Date(e.lastTs).toLocaleDateString() : "没有时间")),
-        e.samples.length ? h("div", { style: { marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + t.line, display: "flex", flexDirection: "column", gap: 5 } },
-          e.samples.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
-        doneMap[e.id] && !doneMap[e.id].busy
-          ? h("div", { style: { marginTop: 11, padding: "9px 11px", borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6 } },
-              doneMap[e.id].error
-                ? "「" + doneMap[e.id].name + "」建回来了，但记忆没捞下来——检查一下网络，再点一次「扫一遍云端」重试。"
-                : "✓ 「" + doneMap[e.id].name + "」已建回，接回 " + doneMap[e.id].added + " 条记忆" +
-                    (doneMap[e.id].arch ? "、" + doneMap[e.id].arch + " 条旧聊天（在聊天页点「加载更早」看）" : "") +
-                    "。去人格档案馆补人设和头像。")
-          : h("div", { className: "flex gap-2", style: { marginTop: 11 } },
-              h("input", { value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
-                style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-              h("button", { onClick: () => rebuild(e), disabled: !!(doneMap[e.id] && doneMap[e.id].busy), className: "active:opacity-70 shrink-0 disabled:opacity-50",
-                style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint } },
-                doneMap[e.id] && doneMap[e.id].busy ? "接回中…" : "建回来"))))) : null);
+    rows && !rows.length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "都齐了：云端每个人的记忆本机都有。") : null,
+    rows && rows.length ? h("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } }, rows.map(card)) : null);
 }
 
 function StorageMeter({ onOffloadChats, onPruneOld }) {
