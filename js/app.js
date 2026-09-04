@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.15";
+const APP_VERSION = "v62.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2464,6 +2464,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (dueTs) setPactDue(e && e.id, charId, t0, dueTs);
     else toast("记下了");
   };
+  // 愿望板 → 约回链（v62.11，她 2026-09-04 同意）：愿望标成「已计划」后挑个日子，
+  // 到那天他主动来约这件事——走的还是 x_promises 那条现成的链（消费端只认 charId/dueTs/about），
+  // 不是新机制。wishId 用来认「这条约挂的是哪个愿望」，改日子/取消都按它换。
+  const planWish = (charId, wish, dueTs) => {
+    if (!wish || !wish.id) return;
+    setPromises(p => {
+      const kept = p.filter(x => x && x.wishId !== wish.id);
+      const n = dueTs ? [...kept, { id: "pw_" + Date.now(), charId, about: "你们想一起做的：" + String(wish.title || "").slice(0, 40), dueTs, memId: null, wishId: wish.id }] : kept;
+      promisesRef.current = n; saveJSON("x_promises", n); return n;
+    });
+    toast(dueTs ? "到那天他会主动来约这件事" : "不定日子了");
+  };
+  const wishPlanOf = wishId => (promisesRef.current || []).find(x => x && x.wishId === wishId) || null;
   // 到期他会自己提起——走的是已有那条约回链，不是新机制
   const setPactDue = (memId, charId, about, dueTs) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
@@ -3081,8 +3094,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //     → !x.charId 对每一条都成立，于是【谁发呆都能读到所有人的恋爱时间轴】。
     //       而且只取第 1 条、数组又是新的在前，等于永远端上全库最新那一条——
     //       她昨天跟陆闻记的里程碑，今天会从沈屿白嘴里说出来。这是隐私围栏，不是文案问题。
+    //   ⚠️合并两条线时（v62.19）取【严】的那一版：没有归属字段的一律不放行。
+    //     另一条线留了「没归属就当旧全局」的兜底，可那正是这道围栏要挡的形状。
     grab(() => A(loadJSON("x_coupleTimeline", [])).filter(x => x && String(x.characterId || "") === String(char.id))
       .slice(0, 1).forEach(x => L.push("· 你俩的时间线上记着：" + String(x.title || x.content || "").slice(0, 40))));
+    // 愿望板（v62.09）：整屋子里唯一「朝前」的素材，跟发呆的气质正对——
+    // 从「还钉着没做成」里长出来的念想，自然就是「要不要去做那件事」。只给一条，别变成待办清单。
+    grab(() => A(((loadJSON("x_coupleHome", {})[char.id] || {}).wishes))
+      .filter(w => w && w.title && w.status !== "done" && w.status !== "shelved").slice(0, 1)
+      .forEach(w => L.push("· 你俩的愿望板上还钉着「" + String(w.title).slice(0, 30) + "」——说好想做、还没做成的事")));
     if (!L.length) return "";
     return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
       + L.slice(0, 6).join("\n")
@@ -3222,10 +3242,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const gachaDay = () => ymd(new Date());
   // 点数按【一段相处】结算，不按消息条数（按条数＝拿抽卡催她水消息）。两道闸都在 GachaKit 里。
   const gachaEarn = (charId, kind) => {
-    if (!window.GachaKit || !charId) return;
+    if (!window.GachaKit || !charId) return 0;
     const r = window.GachaKit.earn(gachaPtsRef.current || {}, charId, kind, Date.now(), gachaDay());
-    if (!r.got) { gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box); return; }
     gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box);
+    return r.got;   // v62.09：打卡那头要知道真给了没有，别在 toast 里谎报
   };
   const gachaPull = (char, n) => {
     const K = window.GachaKit;
@@ -3766,7 +3786,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
       }
       // —— 自定义纪念日（属于这个角色的）——
-      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && a.month === today.getMonth() + 1 && a.day === today.getDate()) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
+      // 「今天是不是」走 annivNext（core.js）：不重复的过了那一年，明年同一天不再算
+      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && annivNext(a).days === 0) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
       // —— 公历节日（大家都知道）——
       if (FIXED_FESTIVALS[mdK]) lines.push("今天是" + FIXED_FESTIVALS[mdK] + "（大家都知道的日子，若情境合适可自然应个景，别硬凹节日气氛）。");
       // —— 农历节日（春节/中秋/端午…含除夕）——
@@ -4281,7 +4302,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             }
           }
           (coupleAnnivRef.current || []).forEach(an => {
-            if (an && an.characterId === c.id && an.month === nowD.getMonth() + 1 && an.day === nowD.getDate())
+            // annivNext（core.js）：不重复的纪念日过了那一年，明年同一天不再主动发
+            if (an && an.characterId === c.id && annivNext(an).days === 0)
               aToday.push({ cid: c.id, name: String(an.name || "纪念日"), yrs: 0 });
           });
         }
@@ -13446,14 +13468,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
-          + "【留在哪儿】二选一——\n"
+          + "【留在哪儿】三选一——\n"
           + "· drawer＝往你俩的抽屉里放一样东西，她要哪天想起来才会打开。**没话要说的时候就放这儿**：\n"
           + "  再配一个 kind：thing＝你今天真的经手过的一样小物件，要说清它是在哪儿、怎么到你手上的；"
           + "word＝半句没头没尾的话，不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上；"
           + "draw＝你随手画的，那就描述这张画上有什么，别描述你为什么画。\n"
           + "· timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
+          + "· qa＝往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、"
+          + "封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的**；"
+          + "只有真有一个问题在你心里转了几天，才走这一档，多数时候该走 drawer。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"where\":\"drawer 或 timeline\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"text\":\"留下的内容\",\"title\":\"timeline 给一个短标题；drawer 那一档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
+        schemaHint: "{\"where\":\"drawer 或 timeline 或 qa\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"question\":\"where 为 qa 时你出的那道题，否则留空\",\"text\":\"留下的内容（qa 那一档＝你自己那半答案）\",\"title\":\"timeline 给一个短标题；drawer 和 qa 那两档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
       });
       const txt = String((d && d.text) || "").trim();
       if (!txt) return false;
@@ -13466,10 +13491,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         });
       } else if (d.where === "timeline") {
         setCoupleTimeline(p => {
-          const now = new Date();
-          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(),
+          // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
+          //   "2026-9-4" 混在 "2026-09-04" 里会被排到十月往后去。
+          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()),
             type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
+        });
+      } else if (d.where === "qa" && String(d.question || "").trim()) {
+        // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开——
+        // 跟她翻题的 sealed 机制同一套，只是方向反过来。question 空的落不进这档（走下面兜底）。
+        setCoupleQA(p => {
+          const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
+            question: String(d.question).trim().slice(0, 120), myAnswer: "", charAnswer: txt,
+            source: "他出的", sealed: true, byCharacter: true, answeredAt: Date.now() }, ...p];
+          saveJSON("x_coupleQA", n); return n;
         });
       } else {
         // ⚠️兜底不再走 drawerWhisper（v61.35）。原来的第三档 note＝「往便签墙上贴一张」，
@@ -14057,6 +14092,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
   });
+  // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
+  // 问答揭晓、交换日记回页、情书——全 app 最浓的关系素材，原来一个字不进上下文：
+  // 聊天里她提「你上次答的那道题」他一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
+  // 落一条记忆库条目就够——聊到相关才被检索出来，平时零成本。
+  // source 用 "couple"（非 manual）：走 isDupMem 自动去重 + OpenLoopGate 资格闸，重复调用不攒重。
+  const cSnip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n || 80);
+  const coupleKeep = (charId, text, tag) => {
+    try { addMemEntry({ text: text, tags: [tag, "情侣空间"], charIds: [charId], knownBy: [charId], source: "couple" }); } catch (e) {/* 记不上不连累主流程 */}
+  };
   const sealCoupleQA = (char, item) => {
     const t0 = String(item && item.myAnswer || "").trim();
     if (!t0) { toast("先写你自己的那一份"); return false; }
@@ -14066,6 +14110,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_coupleQA", n); return n;
     });
     toast("封好了——等 TA 也写一份");
+    return true;
+  };
+  // 他出的题她来揭（v62.10）：她写完她那半，两份一起打开——零调用（他那半早封在里面了）。
+  const revealCoupleQA = (charId, id, myAnswer) => {
+    const t0 = String(myAnswer || "").trim();
+    if (!t0) { toast("先写你自己的那一份"); return false; }
+    const list = loadJSON("x_coupleQA", []);
+    const entry = list.find(e => e && e.id === id);
+    if (!entry) return false;
+    const n = list.map(e => e.id === id ? { ...e, myAnswer: t0, sealed: false, openedAt: Date.now() } : e);
+    saveJSON("x_coupleQA", n); setCoupleQA(n);
+    const char = characters.find(c => c.id === charId);
+    coupleKeep(charId, "情侣问答小本里" + (char ? char.name : "他") + "出过一道题「" + cSnip(entry.question, 60)
+      + "」——他自己写的是「" + cSnip(entry.charAnswer) + "」，" + (profile.name || "她") + "写的是「" + cSnip(t0) + "」", "情侣问答");
     return true;
   };
   const answerCoupleQA = async (char, item) => {
@@ -14095,6 +14153,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
               saveJSON("x_coupleQA", n);
               return n;
             });
+            coupleKeep(char.id, "情侣问答小本里答过「" + cSnip(item.question, 60) + "」——"
+              + (item.myAnswer ? (profile.name || "她") + "写的是「" + cSnip(item.myAnswer) + "」，" : "")
+              + char.name + "写的是「" + cSnip(ans) + "」", "情侣问答");
             return true;
           }
         } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); if (e && e.remoteId) item.__ccJobId = e.remoteId; }
@@ -14121,6 +14182,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         saveJSON("x_coupleQA", n);
         return n;
       });
+      coupleKeep(char.id, "情侣问答小本里答过「" + cSnip(item.question, 60) + "」——"
+        + (item.myAnswer ? (profile.name || "她") + "写的是「" + cSnip(item.myAnswer) + "」，" : "")
+        + char.name + "写的是「" + cSnip(d.answer) + "」", "情侣问答");
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -14242,6 +14306,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       });
       if (d && d.content) {
         saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date()), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
+        coupleKeep(cid, "交换日记里（" + page.date + "）" + uN + "写道「" + cSnip(page.content) + "」，"
+          + char.name + "回页写道「" + cSnip(d.content) + "」", "交换日记");
         toast(char.name + " 回了你一页交换日记");
       }
     } catch (e) {
@@ -14272,13 +14338,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleTimeline", n);
     return n;
   });
-  const genTimelineMusing = async char => {
+  // 他留在时光轴的感慨带着 unread（leaveInCoupleSpace 写的）。v62.08 之前这个标
+  // 没有任何地方读、也没有任何地方清——死标记。现在名册红点读它，打开这一页就算看过。
+  const markTimelineRead = cid => setCoupleTimeline(p => {
+    if (!p.some(x => x.characterId === cid && x.byCharacter && x.unread)) return p;
+    const n = p.map(x => x.characterId === cid && x.byCharacter && x.unread ? { ...x, unread: false } : x);
+    saveJSON("x_coupleTimeline", n);
+    return n;
+  });
+  // occasion（v62.11）：纪念日当天从 TODAY 卡点进来时带上是哪个日子——
+  // 那一条写的就不是随口的感慨，是「这一年走到今天」。平时不传，行为不变。
+  const genTimelineMusing = async (char, occasion) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleTL: true }));
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
+        instruction: "你们是恋人。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
+          + "以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——"
+          + (occasion ? "写走到今天这个日子的真实感受，要落在你们之间某件具体的事上，不许写贺词；" : "")
+          + "一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
       setCoupleTimeline(p => {
@@ -14358,7 +14437,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         voice: true,
         instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。一个标题 + 一段完整的信（150-300 字，贴人设，可回顾你们的点滴、说心里话，结尾落款），别喊口号、别写成流水账。信要写完整，别中途断。",
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
-        maxTokens: 8000
+        maxTokens: 12000   // 一整封信＝「一段正文」那档（maxTokens 手册），8000 只是地板
+
       });
       const st = letterStyleFor(char);
       setCoupleLetters(p => {
@@ -14366,6 +14446,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         saveJSON("x_coupleLetters", n);
         return n;
       });
+      coupleKeep(char.id, char.name + "给" + (profile.name || "她") + "写过一封情书《" + (cSnip(d.title, 20) || "无题") + "》，写道「" + cSnip(d.body, 100) + "」", "情书");
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -14450,6 +14531,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_coupleLetters", n);
       return n;
     });
+    coupleKeep(char.id, (profile.name || "她") + "给" + char.name + "写过一封情书《" + (cSnip(tt, 20) || "无题") + "》，写道「" + cSnip(bd, 100) + "」", "情书");
     genLetterReply(char, id, "【" + (tt || "无题") + "】\n" + bd, true);
   };
   // 情书下我留言 → TA 回
@@ -14478,18 +14560,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleLetters", n);
     return n;
   });
-  // 情侣空间·甜蜜值每日打卡：每天一次，随机 +0.1~1
+  // 情侣空间·甜蜜值每日打卡：每天一次，随机 +0.1~1。
+  // v62.09：打卡原来纯装饰、哪儿都不接——现在那一下顺手攒抽卡点数（GachaKit 的 sweet 档）。
+  // 判断挪到 updater 外面：toast/攒点是副作用，不该塞在 setState updater 里（严格模式会跑两遍）。
   const checkinSweet = char => {
     const today = ymd(new Date());
-    setCoupleSweet(p => {
-      const cur = p[char.id] || { value: 0, last: null };
-      if (cur.last === today) { toast("今天已经打过甜蜜卡啦 💗"); return p; }
-      const add = Math.round((0.1 + Math.random() * 0.9) * 10) / 10;
-      const n = { ...p, [char.id]: { value: Math.round((cur.value + add) * 10) / 10, last: today } };
-      saveJSON("x_coupleSweet", n);
-      toast("甜蜜值 +" + add + " 💗");
-      return n;
-    });
+    const box = loadJSON("x_coupleSweet", {});
+    const cur = box[char.id] || { value: 0, last: null };
+    if (cur.last === today) { toast("今天已经打过甜蜜卡啦 💗"); return; }
+    const add = Math.round((0.1 + Math.random() * 0.9) * 10) / 10;
+    const n = { ...box, [char.id]: { value: Math.round((cur.value + add) * 10) / 10, last: today } };
+    saveJSON("x_coupleSweet", n);
+    setCoupleSweet(n);
+    const got = gachaEarn(char.id, "sweet");
+    toast("甜蜜值 +" + add + " 💗" + (got ? "　抽卡点数 +" + got : ""));
   };
   // 一起听（展示型）：改数据统一走 saveListen；图片经 resizeImageFile 缩小再存
   const saveListen = updater => {
@@ -16587,6 +16671,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     coupleQA: coupleQA,
     onAnswerQA: answerCoupleQA,
     onSealQA: sealCoupleQA,
+    onRevealQA: revealCoupleQA,
+    onPlanWish: planWish,
+    wishPlanOf: wishPlanOf,
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
@@ -16609,6 +16696,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     coupleTimeline: coupleTimeline,
     onAddTimeline: addTimelineEvent,
     onRemoveTimeline: removeTimelineEvent,
+    onReadTimeline: markTimelineRead,
     onGenTimeline: genTimelineMusing,
     tlGen: gen.coupleTL,
     coupleAnniv: coupleAnniv,

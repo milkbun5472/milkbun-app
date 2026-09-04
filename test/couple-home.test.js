@@ -27,9 +27,11 @@ test("共同档案与愿望板沿用紧凑顶栏和单一滚动容器", () => {
   const archive = screens.slice(screens.indexOf("function CoupleArchive"), screens.indexOf("function CoupleWishes"));
   const wishes = screens.slice(screens.indexOf("function CoupleWishes"), screens.indexOf("function Us"));
   for (const source of [archive, wishes]) {
-    assert.match(source, /h\("div", \{ className: "h-full flex flex-col" \}/);
+    // v62.14 起愿望板外壳带软木底纹（style 挂在外壳上、Head 透明）——结构照旧核，
+    // 但不锁 style 有没有、也不锁左右 padding 的具体值
+    assert.match(source, /h\("div", \{ className: "h-full flex flex-col"[,\s}]/);
     assert.match(source, /h\(Head, \{/);
-    assert.match(source, /className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10"/);
+    assert.match(source, /className: "flex-1 min-h-0 overflow-y-auto px-\d+ pb-10"/);
   }
 });
 

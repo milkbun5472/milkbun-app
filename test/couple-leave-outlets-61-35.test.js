@@ -20,11 +20,20 @@ const leave = (() => {
 // 连注释一起匹配的话，越把原因写清楚测试越红。这个坑今天已经踩过第二次了。
 const code = leave.split("\n").map(l => l.split("//")[0]).join("\n");
 
-test("留在哪儿只剩两档，便签墙那一档整个拿掉", () => {
-  assert.match(leave, /【留在哪儿】二选一/);
+test("出口都通向真实存在的东西，便签墙那一档整个拿掉", () => {
+  // v62.10 加回第三档 qa（他出题）——跟 v61.35 砍掉的 note 不同：问答小本真实存在，
+  // 这条测试守的从来是「不许让模型往不存在的东西上写」，不是「档数不许超过二」。
+  assert.match(leave, /【留在哪儿】三选一/);
   assert.ok(code.indexOf("便签墙") < 0, "提示词里还写着一面不存在的墙");
   assert.ok(code.indexOf("note＝") < 0, "note 那一档还在");
-  assert.match(leave, /\\"where\\":\\"drawer 或 timeline\\"/);
+  assert.match(leave, /\\"where\\":\\"drawer 或 timeline 或 qa\\"/);
+});
+
+test("qa 那一档：他那半封进 charAnswer，question 空的落不进来", () => {
+  assert.match(code, /d\.where === "qa" && String\(d\.question \|\| ""\)\.trim\(\)/, "question 空也进了 qa 档");
+  const box = code.slice(code.indexOf('d.where === "qa"'), code.lastIndexOf("} else {"));
+  assert.match(box, /myAnswer: "", charAnswer: txt/, "他那半没封进 charAnswer");
+  assert.match(box, /sealed: true, byCharacter: true/, "没按封存+他出的标");
 });
 
 test("认不出 where 的时候落进抽屉，不再变成第四个悄悄话", () => {
@@ -38,7 +47,7 @@ test("抽屉那一档不再存标题（封面本来就不显示）", () => {
   assert.ok(box.indexOf("d.title") < 0, "还在存标题");
   assert.match(box, /title: "",/);
   // 提示词也别再问它要标题
-  assert.match(leave, /drawer 那一档【不要标题】/);
+  assert.match(leave, /drawer 和 qa 那两档【不要标题】/);   // v62.10 加了 qa 档，一样不要标题
 });
 
 test("概率抬到 0.45，而且是模块级常量（组件里写会踩 TDZ）", () => {

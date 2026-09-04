@@ -541,3 +541,27 @@ function skinWordLayer(word, rgb, a, lift) {
   return ["url('data:image/svg+xml," + encodeURIComponent(svg).replace(/'/g, "%27") + "')",
     "104% auto", "-2% " + (lift ? "calc(100% - " + lift + ")" : "100%"), "no-repeat"];
 }
+
+// ── 纪念日的「下一次」在哪天（v62.08）─────────────────────────────────────
+// 纪念日只存 月/日。每年重复的：下一次＝今年这一天，过了就是明年——永远有下一次。
+// 【不重复】的：它指的就是立下它之后遇到的第一个这一天——那天过了就是过了，
+// 不该再滚到明年去倒数（她 2026-09-04 拍板：过期显示「已过去 N 天」，不再倒数）。
+// 四处共用这一个（我们的日子倒数列表 / 情侣空间 TODAY 卡 / 上下文当天一行 / 纪念日主动消息），
+// 各写各的判断迟早对不上——「一层写在四处」那个老形状。
+// 老数据没有 createdAt 的按每年重复算：宁可多提醒一次，不能让老纪念日凭空消失。
+function annivNext(a, nowTs) {
+  const now = new Date(nowTs || Date.now()); now.setHours(0, 0, 0, 0);
+  const mk = y => { const d = new Date(y, (a.month || 1) - 1, a.day || 1); d.setHours(0, 0, 0, 0); return d; };
+  const yearly = a.yearlyRepeat !== false || !a.createdAt;
+  let t;
+  if (yearly) {
+    t = mk(now.getFullYear());
+    if (t < now) t = mk(now.getFullYear() + 1);
+  } else {
+    const c = new Date(a.createdAt); c.setHours(0, 0, 0, 0);
+    t = mk(c.getFullYear());
+    if (t < c) t = mk(c.getFullYear() + 1);
+  }
+  const days = Math.round((t - now) / 86400000);
+  return { ts: t.getTime(), days: days, passed: !yearly && days < 0 };
+}

@@ -5832,6 +5832,12 @@ async function generateDiary(p, ctx, opts = {}) {
   if (char.diaryStyle && char.diaryStyle.trim()) {
     parts.push("【这个角色专属的日记文风偏好（最高优先，凌驾于上面的通用调性之上）】\n" + char.diaryStyle.trim());
   }
+  // 日记档案里那句签名（v62.18 接进来——原来只画在日记封面上，写日记的人自己反而不知道）：
+  // 它只是调性参照，落不落款仍按上面 signature 那条「本人会落款才落」的规矩走。
+  if (char.motto && String(char.motto).trim()) {
+    parts.push("【他写给自己的那句签名】「" + String(char.motto).trim().slice(0, 60)
+      + "」——这是这个人自己的话，只用来体会他是什么调性；**不要每篇日记都把它抄进正文或当落款**，落款仍按他本人的习惯来。");
+  }
   const voiceSamples = Array.isArray(opts.voiceSamples) ? opts.voiceSamples.map(x => String(x || "").trim()).filter(Boolean).slice(-12) : [];
   if (voiceSamples.length) parts.push("【本人当天真实说话的声纹样本·最高优先】\n" + voiceSamples.map((x,i) => (i+1)+". "+x.slice(0,180)).join("\n") +
     "\n这些原话只用来校准【词汇、句长、断句、标点、口头禅、攻击性/礼貌度和情绪防御】；不要逐句抄进日记，也不要把聊天格式带进正文。日记可以比聊天更私密，但必须让人遮住名字仍认得出是同一个人写的。");

@@ -64,7 +64,7 @@ test("每个角色一种纸，而且是稳定的", () => {
 });
 
 test("封面、目录、全文三处都铺同一张纸", () => {
-  const cover = grab("  const paper = diaryPaperOf(char);", "\n// 文风编辑", "封面");
+  const cover = grab("  const paper = diaryPaperOf(char);", "\nfunction DiaryStylePage", "封面");   // v62.18 文风编辑改名整页化，锚组件名
   assert.match(cover, /pageSkin\(paper, t, \{ corner: false \}\)/, "封面没铺纸");
   // 封面得是一本【本子】：有书脊、有贴上去的名签、有「收了 N 篇」
   assert.match(cover, /收了 " \+ list\.length \+ " 篇/, "封面上看不出这本收了几篇");
