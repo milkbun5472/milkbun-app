@@ -948,10 +948,30 @@
       (rpKnowLine(know, mode, cpChars, userName) ? "\n" + rpKnowLine(know, mode, cpChars, userName) : "") +
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
       "\n\n从原著里挑 3-4 个适合玩家插进去、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
-      "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
-    const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 9600 });
+      // 作者的小性格挪到这一枪来（她 2026-09-04：「每次开始前选择改稿节点的时候顺便生成作者小性格」）。
+      // ⚠️挪过来是有理由的：她的脾气【决定整场怎么玩】——有人一路把剧情往回拽，
+      //   有人跟着一起往离谱里跑。这件事得在她还没下笔之前就定下来，并且先给她看一眼。
+      // ⚠️只写维度和判据，不给例子：给了例子，每篇文的作者都会长成同一个人
+      //   （.claude/rules/prompt-no-content-samples.md）。
+      "\n\n【同时给这篇文的作者「" + rpAuthorName(fic) + "」一张小卡】她往后要一直在页边说话、还要伸手管这个故事，得先是个具体的人。四行，各一句：\n" +
+      "· who：她是谁——年纪、在做什么、什么处境，说到能认出是这一个人，不是「一位太太」。\n" +
+      "· why：她为什么写这篇——写的时候她自己在想什么、在借这两个人说什么，从这篇文的内容里推出来。\n" +
+      "· sore：她最护着的哪一点——这篇文里她最不肯让人碰的那样东西。\n" +
+      "· temper：【有人改她的文时她是哪一路】——一句话说清她的反应路数：是死死往回拽、是嘴上骂着手上还给你圆、"
+      + "是觉得有意思跟着你把故事推得更离谱、还是先冷着看你能走多远。这一栏要从上面三行长出来，不是随便挑一种。\n" +
+      "四行都要贴着【这一篇】长，不是随便一个网文作者都成立的话。\n" +
+      "只输出合法 JSON 对象：{\"landings\":[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}],\"author\":{\"who\":\"\",\"why\":\"\",\"sore\":\"\",\"temper\":\"\"}}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "挑几个能进去的地方。" }], { maxTokens: 12000 });
     const d = rpJSON(raw);
-    const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
+    // 老写法直接吐一个数组，新写法包在 landings 里——两种都认，不然换个模型就空了
+    const arr = Array.isArray(d) ? d : (d && Array.isArray(d.landings) ? d.landings : (d && Array.isArray(d.items) ? d.items : []));
+    const ac = (d && d.author && typeof d.author === "object") ? d.author : {};
+    const card = {
+      who: String(ac.who || "").trim().slice(0, 120),
+      why: String(ac.why || "").trim().slice(0, 120),
+      sore: String(ac.sore || "").trim().slice(0, 80),
+      temper: String(ac.temper || "").trim().slice(0, 120)
+    };
     // 不硬截断成半句：只在超长时于句读处截，末尾补省略号
     const trimScene = function (s) {
       s = String(s || "").trim();
@@ -962,7 +982,9 @@
     };
     const out = arr.filter(function (x) { return x && x.label; }).slice(0, 4).map(function (x) { return { id: uid("ld"), label: String(x.label).slice(0, 16), scene: trimScene(x.scene) }; });
     if (!out.length) out.push({ id: uid("ld"), label: "从头开始", scene: "从故事最初的场景切入" });
-    return out;
+    // 顺手把她收进作者库：这篇文的作者从此是个有简介的人，不只是一个笔名
+    if (card.who || card.temper) upsertAuthor({ name: rpAuthorName(fic), bio: card.who, style: card.why, sore: card.sore });
+    return { landings: out, authorCard: (card.who || card.why || card.sore || card.temper) ? card : null };
   }
   // 组 RP 对话 messages（transcript 尾巴 + 本次行动）
   // ⚠️原来是死板的 slice(-10)。一条叙事两三百字，十条≈五个回合——
@@ -1002,7 +1024,7 @@
         + "\n（这些已经发生过了，别当成新指令重演一遍；接着往下就好。）" });
     }
     all.slice(cut).forEach(function (e) {
-      if (e.who === "note") return;
+      if (e.who === "note" || e.who === "pull") return;  // 批注是页边的、伸手已经写进正文了，都不再回灌
       if (e.who === "nar") { const last = msgs[msgs.length - 1]; if (last && last.role === "assistant") last.content += "\n\n" + e.text; else msgs.push({ role: "assistant", content: e.text }); }
       else if (e.who === "page") msgs.push({ role: "user", content: pageLine(e) });
       else msgs.push({ role: "user", content: "【我的行动】" + e.text });
@@ -1050,11 +1072,12 @@
   //   往后每一句批注都从这张卡长出来——换一篇文，那个人就换了。
   function rpAuthorCard(session) {
     const c = session && session.authorCard;
-    if (!c || !(c.who || c.why || c.sore)) return "";
+    if (!c || !(c.who || c.why || c.sore || c.temper)) return "";
     return "\n【这位作者是个什么人（她这一句要从这儿长出来）】\n"
       + (c.who ? "· 她是谁：" + c.who + "\n" : "")
       + (c.why ? "· 她为什么写这篇：" + c.why + "\n" : "")
-      + (c.sore ? "· 她最护着的那一点：" + c.sore + "（被动到这儿，她的反应最大）\n" : "");
+      + (c.sore ? "· 她最护着的那一点：" + c.sore + "（被动到这儿，她的反应最大）\n" : "")
+      + (c.temper ? "· 有人改她的文时她是哪一路：" + c.temper + "\n" : "");
   }
   function rpAuthorBlock(fic, session) {
     const an = rpAuthorName(fic);
@@ -1071,14 +1094,38 @@
       + "你对自己的文有脾气：护短、嘴硬、可也真的会被写服。别写成编辑评语，别写成鼓励。\n"
       + "（目前偏离度 " + dev + "/100，被拦下的页数 " + broken + "。）不超过 30 字，一句，不加引号。";
   }
-  // 一拍的输出契约：正文 + 走到了哪一页 + 偏离度 + 页边（不要批注时明说填空）
+  // 作者【伸手】那一段（她 2026-09-04：「我每改一段就会有作者过来试图把剧情接回来然后再批注」）。
+  // ⚠️和页边批注是两件事，别合成一件：
+  //   · pull ＝ 她在【故事里】动的那一手（真的发生了，有人来了、有件事偏偏这时候发生）；
+  //   · note ＝ 她在【稿子边上】写的那一句（不发生在故事里，是她自己嘀咕）。
+  // ⚠️「接回来」不是唯一一路：她的 temper 说了算——护稿的往回拽，玩起来的会顺着你
+  //   把故事推得更离谱。**两种都要真的改变这一拍的走向**，不许只在批注里表个态。
+  function rpPullBlock(fic, session) {
+    const an = rpAuthorName(fic);
+    const c = (session && session.authorCard) || {};
+    return "【作者伸手 · 这一拍她要动一手】\n"
+      + "玩家刚在你写的故事里动了笔。「" + an + "」是这篇文的作者，她看着自己的东西被改，"
+      + "于是【在故事里】动了一手——不是评论，是真的发生的事：某个人偏偏这时候出现、某件东西刚好不在原位、"
+      + "某句话被谁接了过去、天气变了、某个约定提前到了眼前。\n"
+      + (c.temper ? "她是这一路的人：" + c.temper + "。所以她这一手往哪个方向使，照这句来——\n" : "")
+      + "· 想把故事拽回她原来那条道的：这一手要真的构成阻力，让玩家刚才那一步没那么容易成；\n"
+      + "· 觉得玩家改得有意思、想跟着玩的：这一手要把故事推得【比玩家还远一点】，给他加码，别只是顺着；\n"
+      + "· 先冷着看的：这一手轻，但不许是没有——留一个她在场的痕迹。\n"
+      + "⚠️这一手必须【写进正文里】，作为剧情自然发生，正文里绝不许提到作者、稿子、写作或任何元信息。\n"
+      + "⚠️它不许替玩家做决定，也不许把这一拍写成死局：玩家下一步永远还有得走。\n"
+      + "然后在 pull 里用一句话说清她这一手【干了什么、往哪个方向使】，不超过 24 字。";
+  }
+  // 一拍的输出契约：正文 + 作者伸手 + 走到了哪一页 + 偏离度 + 页边批注
   function rpTurnShape(fic, session, wantNote) {
+    const wantPull = !!(session && session.transcript && session.transcript.length);
     return "【输出格式】只输出一个合法 JSON 对象，前后不要任何别的字：\n"
       + "{\"scene\":\"叙事正文，正常分段（段与段之间空一行），不许出现任何标题、标签或元信息\","
+      + "\"pull\":" + (wantPull ? "\"作者这一拍伸的那一手，一句（见【作者伸手】）\"" : "\"开场这一拍她还没伸手，填空字符串\"") + ","
       + "\"hit\":\"这一拍把玩家推到了骨架里哪一页的当口？填那一页的 id；没推到就填空字符串\","
       + "\"dev\":这场故事此刻偏离原著多远的整数0-100（原样走着＝低，人物被写出原著里没有的样子、原著的页被拦下＝高），"
       + "\"note\":" + (wantNote ? "\"作者写在页边的那一句（见【页边批注】）\"" : "\"这一拍不要批注，填空字符串\"")
       + "}\n"
+      + (wantPull ? rpPullBlock(fic, session) + "\n" : "")
       + (wantNote ? rpAuthorBlock(fic, session) + "\n" : "");
   }
   // ⚠️她 2026-09-03 报「格式会掉」，截图里正文直接从 `{"scene":"药片落在…` 开始。
@@ -1120,11 +1167,12 @@
     const d = rpJSON(txt);
     if (!d || !d.scene) {
       const sv = rpSalvage(txt);
-      if (sv) return { text: sv, hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
-      return { text: txt, hit: "", dev: null, note: "" };
+      if (sv) return { text: sv, pull: rpGrab(txt, "pull").slice(0, 40), hit: rpGrab(txt, "hit"), dev: null, note: rpGrab(txt, "note").slice(0, 60) };
+      return { text: txt, pull: "", hit: "", dev: null, note: "" };
     }
     return {
       text: String(d.scene || "").trim() || txt,
+      pull: String(d.pull || "").trim().slice(0, 40),
       hit: String(d.hit || "").trim(),
       dev: Number.isFinite(+d.dev) ? Math.max(0, Math.min(100, Math.round(+d.dev))) : null,
       note: String(d.note || "").trim().slice(0, 60)
@@ -2370,6 +2418,7 @@
     const [mode, setMode] = useState("left");
     const [know, setKnow] = useState("blank");
     const [landings, setLandings] = useState(null);
+    const [authorCard, setAuthorCard] = useState(null); // 选落点那一枪顺带出的作者小性格
     const [busy, setBusy] = useState("");
     const shelf = (props.fics || []).filter(function (f) { return window.Fanfic.protectedFic(f); });
     // 从作者主页点「加笔」带着一篇进来：直接跳到设定那一屏，别让她再翻一遍列表
@@ -2418,15 +2467,17 @@
       async function makeLandings() {
         if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
         setBusy("land");
-        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, know); setLandings(lds); }
+        // 这一枪顺带把作者的小性格也带回来了（她的脾气决定整场怎么玩，得在下笔前定下来）
+        try { const r = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, know);
+              setLandings(r.landings); setAuthorCard(r.authorCard || null); }
         catch (e) { props.toast && props.toast(String(e.message || e)); }
         setBusy("");
       }
       function startSession(landing) {
         const cfg = window.Fanfic.loadCfg();
-        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
+        const sess = { id: uid("rp"), ficId: newFic.id, ficTitle: newFic.title, tabId: newFic.tabId, cp: newFic.cp, mode: mode, know: know, landing: landing, authorCard: authorCard, style: window.Fanfic.activeStyleText(cfg), transcript: [], createdAt: Date.now(), updatedAt: Date.now() };
         persist([sess].concat(window.Fanfic.loadRP()));
-        setOpenId(sess.id); setNewFic(null); setLandings(null); setView("thread");
+        setOpenId(sess.id); setNewFic(null); setLandings(null); setAuthorCard(null); setView("thread");
       }
       return h("div", { className: "h-full flex flex-col" },
         h(Head, { zh: "加笔设定", sub: "你是谁 · 带着什么进去", onBack: function () { setView("pick"); } }),
@@ -2437,25 +2488,31 @@
           h("div", { className: "grid grid-cols-2 gap-2 mb-5" }, RP_MODES.filter(function (m) { return modeAvail(m.key); }).map(function (m) {
             const on = mode === m.key;
             // 按钮上写真名（「穿成 沈屿白」「穿成我自己」），不再是抽象的「CP 左位 / 右位」
-            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, window.Fanfic.rpModeText(m.key, cpc));
+            return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); setAuthorCard(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, window.Fanfic.rpModeText(m.key, cpc));
           })),
           // 第二排：你带着什么进去。四个「你是谁」之外的另一维——穿书真正的乐趣在这儿
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "你带着什么进去"),
           h("div", { className: "mb-6" }, window.Fanfic.RP_KNOWS.map(function (k) {
             const on = know === k.key;
-            return h("button", { key: k.key, onClick: function () { setKnow(k.key); setLandings(null); }, className: "w-full text-left active:opacity-70 mb-2", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+            return h("button", { key: k.key, onClick: function () { setKnow(k.key); setLandings(null); setAuthorCard(null); }, className: "w-full text-left active:opacity-70 mb-2", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, k.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.55, marginTop: 3, opacity: on ? 0.75 : 0.62 } }, k.desc));
           })),
           !landings ? h("button", { onClick: makeLandings, disabled: busy === "land", className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.accent, padding: "12px", borderRadius: 12, opacity: busy === "land" ? 0.6 : 1 } }, busy === "land" ? "正在翻这本书…" : "翻翻这本书，看能从哪儿进去")
             : h("div", null,
+              // 这本书的作者是谁——她的脾气决定了你改了之后会碰上什么
+              authorCard ? h("div", { style: { marginBottom: 16, padding: "11px 13px", background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + t.accent, borderRadius: "2px 10px 10px 2px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginBottom: 4 } }, "这篇文是谁写的"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, window.Fanfic.rpAuthorName(newFic)),
+                authorCard.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub, marginTop: 3 } }, authorCard.who) : null,
+                authorCard.temper ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.accent, marginTop: 5 } }, "你动她的文，她会：" + authorCard.temper) : null) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "从哪儿进去"),
               landings.map(function (ld) {
                 return h("button", { key: ld.id, onClick: function () { startSession(ld); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, ld.label),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, ld.scene));
               }),
-              h("button", { onClick: function () { setLandings(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "换几个地方看看"))));
+              h("button", { onClick: function () { setLandings(null); setAuthorCard(null); }, className: "w-full active:opacity-60 mt-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px" } }, "换几个地方看看"))));
     }
 
     // 存档列表
@@ -2463,7 +2520,7 @@
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文穿进去。开局会从原著里抽出后面本来会发生的几页压在书脊上：走到哪一页，你可以让它照原样发生，也可以把它拦下来——拦下的那一页从此作废。作者本人就在旁边看着，隔几拍会在页边写一句。收尾时这一版会当成一篇文放回书架。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文，钻进去在她写好的东西上动笔。开局会从原著里抽出后面本来会发生的几页压在书脊上：走到哪一页，你可以让它照原样发生，也可以把它拦下来——拦下的那一页从此作废。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，有人觉得你改得有意思、跟着推得更离谱），然后在页边写一句。她是哪一路，开局挑落点时就定下来了。收尾时这一版会当成一篇文放回书架。"),
         sorted.length ? sorted.map(function (s) {
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
@@ -2546,6 +2603,7 @@
     function applyTurn(r) {
       props.onUpdate(function (ss) {
         const add = [{ who: "nar", text: r.text, cot: r.cot || null, cotRequested: !!r.cotRequested }];
+        if (r.pull) add.push({ who: "pull", text: r.pull });
         if (r.note) add.push({ who: "note", text: r.note });
         ss.transcript = (ss.transcript || []).concat(add);
         if (Number.isFinite(r.dev)) ss.dev = r.dev;
@@ -2556,7 +2614,10 @@
       });
     }
     // 每隔几拍才让作者在页边说一句：每一拍都说就成了旁白，说了等于没说
-    function wantNote() { return (trans.filter(function (e) { return e.who === "nar"; }).length + 1) % 3 === 0; }
+    // 她 2026-09-04：「我每改一段就会有作者过来试图把剧情接回来然后再批注」——
+    // 所以每一拍都有。原来是每三拍一次（怕成旁白），现在批注跟在【她伸的那一手】后面，
+    // 是那一手的落款，不再是凭空冒出来的一句点评。
+    function wantNote() { return true; }
 
     async function start() {
       if (!props.active || !props.fic) return;
@@ -2570,7 +2631,9 @@
           sess = Object.assign({}, s, { playerIdentity: id });
         }
         const r = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
-        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; ss.authorCard = r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
+        props.onUpdate(function (ss) { ss.transcript = [{ who: "nar", text: r.text }]; ss.beats = r.beats || []; // ⚠️选落点那一枪已经给过一张（还带 temper）——这儿只在【没有】的时候补，
+        //   不许覆盖：覆盖了就把她的脾气冲掉了，而设定页上刚给她看过那一句。
+        ss.authorCard = ss.authorCard || r.authorCard || null; ss.dev = 0; ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
     }
@@ -2676,6 +2739,14 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: e.keep ? t.fog : t.accent, whiteSpace: "nowrap" } },
               e.keep ? "原著这一页「" + e.label + "」照原样发生" : "原著这一页「" + e.label + "」被你拦下"),
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }));
+          // 作者伸的那一手：它已经发生在正文里了，这一条只是把它【指出来】——
+          // 所以不是气泡也不是段落，是压在正文和批注之间的一行细字，带一道从右边伸过来的横线
+          if (e.who === "pull") {
+            if (i > lastNarIdx && moreToReveal) return null;
+            return h("div", { key: i, className: "flex items-center gap-2 my-3" },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, whiteSpace: "nowrap" } }, "✍ " + authorName + " 伸手：" + e.text),
+              h("div", { style: { flex: 1, height: 1, background: t.accent, opacity: .35 } }));
+          }
           if (e.who === "note") {
             // 作者趴在稿子边上写的一句：不是正文，所以歪着、挤在页边、字比正文小
             if (i > lastNarIdx && moreToReveal) return null;   // 那一拍还没读完，别提前剧透她的反应

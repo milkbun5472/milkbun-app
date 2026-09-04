@@ -131,14 +131,14 @@ test("作者不是一个类型，是一个人——开场顺手给她一张小�
   // 还是同一次调用，别多花她一次钱
   assert.equal((st.match(/await callAI\(/g) || []).length, 1);
   // 落进存档，而且页边批注真的用上了
-  assert.match(fic, /ss\.authorCard = r\.authorCard \|\| null;/, "小卡没落库");
+  assert.match(fic, /ss\.authorCard = ss\.authorCard \|\| r\.authorCard \|\| null;/, "小卡没落库；且不许覆盖选落点时给过的那张（那张带 temper）");
   assert.match(fic, /function rpAuthorCard\(session\)/);
   assert.match(fic, /rpAuthorCard\(session\)/);
   const blk = fic.slice(fic.indexOf("function rpAuthorBlock("), fic.indexOf("  // 一拍的输出契约"));
   assert.match(blk, /rpAuthorCard\(session\)/, "批注那一段没吃到小卡，等于白生成");
   // 老存档没有这一栏：一个字都不多发
   const card = fic.slice(fic.indexOf("function rpAuthorCard("), fic.indexOf("function rpAuthorBlock("));
-  assert.match(card, /if \(!c \|\| !\(c\.who \|\| c\.why \|\| c\.sore\)\) return "";/);
+  assert.match(card, /if \(!c \|\| !\(c\.who \|\| c\.why \|\| c\.sore \|\| c\.temper\)\) return "";/);
   // 不许给内容示范（prompt-no-content-samples.md）
   assert.doesNotMatch(st.slice(st.indexOf("【同时给这篇文的作者")), /如「|比如「|例如「/);
 });
