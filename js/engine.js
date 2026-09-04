@@ -45,10 +45,15 @@ function normalizedOpenAIBase(value) {
   }
   // 设置页允许粘贴官网给出的完整 endpoint；内部统一收回 API 根目录，
   // 避免 .../models/v1/models、.../chat/completions/v1/models 这类重复拼接。
+  // v61.66：生图那次升级会把整段 endpoint（含 /v1/images/... 这类）回写进 baseUrl，
+  // 老清洗只削「结尾恰好是 endpoint 词」的尾巴，削不掉 /v1/images 这种半截——
+  // 拉模型就拼成 .../v1/images/v1/models 吃 404（她 2026-09-03 撞上）。
+  // 先按「最后一个 /v1|/v1beta 后面跟着已知 endpoint 词」整段砍回 API 根，再走老循环兜零散尾巴。
+  base = base.replace(/\/(v1(?:beta)?)\/(?:models|chat(?:\/completions)?|completions|responses|images(?:\/[a-z]+)?|audio(?:\/[a-z]+)?|embeddings|files|moderations)(?:\/.*)?$/i, "/$1");
   let previous;
   do {
     previous = base;
-    base = base.replace(/\/(?:models|chat\/completions|responses|images\/(?:generations|edits))$/i, "").replace(/\/+$/, "");
+    base = base.replace(/\/(?:models|chat\/completions|responses|images(?:\/(?:generations|edits))?|embeddings)$/i, "").replace(/\/+$/, "");
   } while (base !== previous);
   return base.replace(/\/+$/, "");
 }
