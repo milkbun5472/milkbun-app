@@ -1666,8 +1666,10 @@ function App() {
     saveJSON("x_characters", n);
     return n;
   });
+  const MOMENTS_CAP = 240; // v62.42（审计 P1）：朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的好感度和心情
   const pMom = u => setMoments(p => {
-    const n = typeof u === "function" ? u(p) : u;
+    let n = typeof u === "function" ? u(p) : u;
+    if (Array.isArray(n) && n.length > MOMENTS_CAP) n = [...n].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, MOMENTS_CAP);
     saveJSON("x_moments", n);
     return n;
   });
@@ -10038,11 +10040,54 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //     而且什么提示都没有。「挂在别人身上搭便车，别人没了它也跟着没」。
   //  ② 【只写一处】。这一串本来在三个地方各抄了一遍，加一步就得记得改三处——
   //     v55.x 起反复栽的就是这个形状（这一层写在三处，第四处没跟上）。
+  // 月度印象自动出卡（v62.45，她 2026-09-04：「月度印象和周刊这俩可以开关」）：
+  // 进入新的一月后第一次唤起，给开了开关的角色补写【上个月】的印象卡。
+  // 不是闹钟（PWA 后台不跑代码），和周刊/查手机同一个形状；一人失手不拖累后面。
+  const impressionAutoRunRef = useRef(false);
+  const autoImpressionSweep = async () => {
+    if (impressionAutoRunRef.current || !offlineActive || !autoRefreshOn("impression") || !window.Impression) return;
+    impressionAutoRunRef.current = true;
+    try {
+      const M = window.Impression;
+      const monthKey = M.latestWritable();
+      const uName = profile.name || "她";
+      const book0 = M.load();
+      const todo = liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("impression", c.id)
+        && !((book0[c.id] || []).some(x => x.monthKey === monthKey)));
+      for (const char of todo) {
+        try {
+          // 素材面照 ImpressionApp 的 make：云端归档 + 本地窗口 + 互通群（封闭群不算）
+          const arch = {};
+          try { arch["c:" + char.id] = (window.Cloud && await window.Cloud.chatArchiveGet(char.id)) || []; } catch (e) { arch["c:" + char.id] = []; }
+          for (const g of (groups || [])) {
+            const gs0 = gsFor(g.id);
+            if (gs0 && gs0.memoryInterop === false) continue;
+            if (!(g.memberIds || []).includes(char.id)) continue;
+            try { arch["g:" + g.id] = (window.Cloud && await window.Cloud.chatArchiveGet("g_" + g.id)) || []; } catch (e) { arch["g:" + g.id] = []; }
+          }
+          const rows = M.monthMaterial(char.id, char.name, monthKey, uName, groups, arch);
+          if (rows.length < 6) continue; // 这个月没什么来往，写不出印象，安静跳过
+          const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(char.id, uName) || "").slice(0, 900) : "";
+          const cur = M.load();
+          const past = (cur[char.id] || []).filter(x => x.monthKey !== monthKey).map(x => x.quote);
+          const others = Object.keys(cur).filter(k => k !== char.id).flatMap(k => cur[k] || [])
+            .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8).map(x => ({ title: x.title, tags: x.tags, quote: x.quote }));
+          const d = await M.genText(offlineActive, char, profile, monthKey, rows, gazeText, { turn: 0, past, others });
+          let img = null;
+          try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, profile, { tags: d.tags, title: d.title }); } catch (e) {}
+          const next = M.load();
+          next[char.id] = [{ id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, turn: 0, ts: Date.now() }]
+            .concat((next[char.id] || []).filter(x => x.monthKey !== monthKey));
+          M.save(next);
+        } catch (e) {/* 单人失手不拖累后面几个 */}
+      }
+    } finally { impressionAutoRunRef.current = false; }
+  };
   const wakeSweeps = async () => {
     if (!active || !characters.length) return;
     deliverDeskLog();
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
-      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep];
+      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
   };
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
@@ -11267,8 +11312,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 群通话补记忆：群 OOC 规矩 + 记忆库检索（不互通的群守封闭分区，不读全局记忆库）——之前群通话两样都没接
         const cgs = cur.groupId ? gsFor(cur.groupId) : null;
         const cDirs = cur.groupId ? (directives[cur.groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(x => x.trim()) : [];
-        if ((!cur.groupId || (cgs && cgs.memoryInterop)) && typeof primeQueryVec === "function") await primeQueryVec(hist.slice(-8).map(m => m.content).join("\n")); // 向量记忆预热
-        const cMem = (!cur.groupId || (cgs && cgs.memoryInterop)) ? formatMemLib(retrieveMemories(memLibRef.current, people[0] && people[0].id, hist.slice(-8).map(m => m.content).join("\n"), { limit: 5 })) : "";
+        // 记忆按可见交集分流（v62.42，审计 P1）：原来只按 people[0] 召回、还落进没有围栏的公共块——
+        // 排第二的成员的私事永远召不回，第一人的私事却全群共享。照群线上 splitGroupMemories 的工艺来：
+        // 全员都知道的进公共段，只有某人知道的落进他自己的隐私段（读一律给，封闭群也给——四处一样喂）。
+        const gcHistText = hist.slice(-8).map(m => m.content).join("\n");
+        if (typeof primeQueryVec === "function") await primeQueryVec(gcHistText);
+        const gcMembers = people.filter(c => !c.npc);
+        const gcSplit = splitGroupMemories(memLibRef.current, gcMembers.map(c => c.id), gcHistText, { limit: 5 });
+        const cMem = formatMemLib(gcSplit.shared);
         // 每人那一段【此刻】跟群聊同一份（v60.31）：原来电话里只有一份人设——
         // 他不知道现在几点，也不知道她刚在私聊里说过什么，只能瞎猜
         //（她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」）。
@@ -11276,17 +11327,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const memberDesc = people.map(c => {
           if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
           const n = groupNowSegs(c, { interop: gcInterop });
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.mdSeg + n.afSeg + n.ageSeg + n.sbSeg + n.cpSeg;
+          // 缺的五层补齐（v62.42，审计 P2）：长出来的自我 / A 情绪底色 / 随身物 / 我们的档案——
+          // 群线上 8041 早都有，群通话是「第三处不走 bundle 的」，之前没喂（v55.87「换个入口换个人」）。
+          const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
+          const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
+          const aSeg = aMoodTextOf(c.id) ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id) + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
+          const cySeg = (() => { const txt = (typeof carryContextText === "function") ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : ""; return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : ""; })();
+          const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：
         //   她把某个群的私聊窗口关掉是【有意的】，电话里替她打开等于把私聊漏进群。
         //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
         const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
-        const gcPriv = gcInterop ? people.filter(c => !c.npc).map(c => {
-          const lines = memberPrivLines(c, gcPrivN);
-          return lines ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕最近和用户的私聊：\n" + lines : "";
-        }).filter(Boolean).join("\n\n") : "";
+        const gcPriv = gcMembers.map(c => {
+          // 每人的隐私段（照群线上 memLines 的工艺）：长期记忆 + 印象卡 + 只有他知道的记忆条目 + 最近私聊
+          const mem = memories[c.id];
+          const gz = window.Gaze && !settingsFor(c.id).engineerEyes ? window.Gaze.text(c.id, profile.name || "用户") : "";
+          const onlyMine = formatMemLib(gcSplit.perChar[String(c.id)] || []);
+          const lines = gcInterop ? memberPrivLines(c, gcPrivN) : "";
+          const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(), lines && "最近和用户的私聊：\n" + lines].filter(Boolean).join("\n");
+          return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
+        }).filter(Boolean).join("\n\n");
         const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
         // 电话里也得知道现在几点：「在家等他」是几分钟前说的，没有钟就接不上
         // 【这通电话之前群里刚聊过什么】(v60.37)
@@ -11302,7 +11365,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
         const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
         const sys = groupBans({ echo: true })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -11788,7 +11851,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const it = outs[i] || {};
         return { id: "ar_" + base + "_" + i, from: "netizen", q: q, a: it.skip ? "" : String(it.answer || ""), skip: !!it.skip, note: it.skip ? String(it.note || "") : "", ts: base - i, ansTs: base - i };
       });
-      pAnon(char.id, cur => ({ ...cur, records: [...recs, ...(cur.records || [])] }));
+      pAnon(char.id, cur => ({ ...cur, records: [...recs, ...(cur.records || [])].slice(0, 200) })); // v62.42 封顶（审计 P1）
       // 划账放在【答完之后】：抽完就划,这一枪一失败,那几条题就白白没了
       const taken = {}; qs.forEach(q => { taken[q] = 1; });
       saveAnonPool(pool.filter(q => !taken[q]));
@@ -11803,7 +11866,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 我问的:先【放进箱子】,不调用。攒够了再让他一次性打开(她 2026-08-30 要的)
   const dropAnon = (char, q, re) => {
     const t0 = Date.now();
-    pAnon(char.id, cur => ({ ...cur, records: [{ id: "ar_" + t0, from: "me", q, a: "", pending: true, re: re || null, ts: t0 }, ...(cur.records || [])] }));
+    pAnon(char.id, cur => ({ ...cur, records: [{ id: "ar_" + t0, from: "me", q, a: "", pending: true, re: re || null, ts: t0 }, ...(cur.records || [])].slice(0, 200) })); // v62.42 封顶
     toast("放进箱子了——攒够了再让 Ta 一次看完");
   };
   // 让他一次性打开箱子:所有还没答的一起递过去,一次调用全答
@@ -11889,7 +11952,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           q,
           a: d.answer,
           ts: Date.now()
-        }, ...(cur.records || [])]
+        }, ...(cur.records || [])].slice(0, 200) // v62.42 封顶
       }));
     } catch (e) {
       toast("失败：" + e.message);
@@ -12411,12 +12474,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
   const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { return await runProbe(p, ctx, probe); } };
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
+  // 全库 NPC 帖总封顶（v62.42，审计 P1）：按版块的 30 条封不住「搜索吧」——
+  // 每次搜索 board 都是新名字，永远轮不到那道闸，十次搜索就是十个永不清理的版块。
+  const FORUM_NPC_TOTAL_CAP = 240;
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     let n = [...recs, ...prev];
+    const kill = new Set();
     const npcInBoard = n.filter(x => x.board === board && x.authorType === "npc").sort((a, b) => b.ts - a.ts);
-    if (npcInBoard.length > FORUM_NPC_CAP) {
-      const kill = new Set(npcInBoard.slice(FORUM_NPC_CAP).map(x => x.id));
+    npcInBoard.slice(FORUM_NPC_CAP).forEach(x => kill.add(x.id));
+    const npcAll = n.filter(x => x.authorType === "npc" && !kill.has(x.id)).sort((a, b) => b.ts - a.ts);
+    npcAll.slice(FORUM_NPC_TOTAL_CAP).forEach(x => kill.add(x.id));
+    if (kill.size) {
       n = n.filter(x => !kill.has(x.id));
+      // 孤儿评论一起走（审计 P1：原来只删帖不删楼，每淘汰一帖留 1-3KB 评论永远躺在 5MB 池子里）
+      setForumComments(fc => {
+        const keep = {};
+        Object.keys(fc || {}).forEach(pid => { if (!kill.has(pid)) keep[pid] = fc[pid]; });
+        saveJSON("x_forumComments", keep);
+        return keep;
+      });
     }
     saveJSON("x_forumPosts", n);
     return n;
@@ -13413,7 +13489,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!items.length) throw new Error("没搜到内容");
       const base = Date.now();
       const recs = items.map((x, i) => { const npc = forumPublicNpcOf(x, "搜索", i); return { id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc", authorName: npc.name, authorHandle: npc.handle, board, title: x.title, body: x.body || "", anon: false, triggerSource: "搜索:" + (query || "随机"), ts: base - i, ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount)) }; });
-      setForumPosts(prev => { const n = [...recs, ...prev]; saveJSON("x_forumPosts", n); return n; });
+      appendForumPosts(recs, board); // v62.42：搜索帖也走同一道闸（含全库 NPC 总封顶+孤儿评论清理）
     } catch (e) { toast(e.message); }
     finally { setGen(g => ({ ...g, forumSearch: false })); }
   };

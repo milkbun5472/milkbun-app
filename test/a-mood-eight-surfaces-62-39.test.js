@@ -34,9 +34,14 @@ test("ctxFor 把它填进去了，三道闸收在同一处", () => {
   assert.ok(m, "aMoodTextOf 不见了");
   assert.match(m[0], /innerLifeOnFor\(charId\)/, "急停那道闸没接");
   assert.match(m[0], /settingsFor\(charId\)\.engineerEyes/, "言秋那道闸没接");
-  // 收在一处才不会「一层写在三处、第三处没跟上」：要它的地方有三个。
-  assert.equal((app.match(/aMoodTextOf\(/g) || []).length, 4,
-    "aMoodTextOf 的调用点数量变了：应是定义外的三处（ctxFor / 群线上 / 群线下）");
+  // 收在一处才不会「一层写在三处、第三处没跟上」。
+  // ⚠️这里【不数出现次数】：v62.42 群通话也接上了这一层（那是对的，八处一样喂），
+  //   次数一变，一条正确的扩展就会把测试判红。所以逐个点名要它的地方——
+  //   少一处才红，多接一处不该红。
+  assert.match(app, /^\s*aMood: aMoodTextOf\(char\.id\),$/m, "单聊那一处没了");
+  assert.match(app, /const t = aMoodTextOf\(id\);/, "群线下那一处没了");
+  assert.match(app, /const aSeg = aMoodTextOf\(c\.id\)\n/, "群线上那一处没了");
+  assert.match(app, /const aSeg = aMoodTextOf\(c\.id\) \? "\\n〔此刻的情绪底色/, "群通话那一处没了");
 });
 
 test("群线上：每位成员自己那一段里带上，且真的拼进了 memberDesc", () => {

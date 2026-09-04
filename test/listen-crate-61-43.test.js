@@ -18,6 +18,7 @@ const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));
 // ⚠️「不许出现 X」这类断言必须对着【剥掉注释的代码】问：注释里正写着
 //   「不挂 backgroundAttachment」「默认那个 #c25a4a」，直接 grep 会把说明当违规抓出来。
 const CODE = CRATE.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
 
 test("底纹铺在外壳上、顶栏透上来（mobile-ui-layout.md §3.5）", () => {
   // 铺在滚动区上的话顶栏那一条还是平色，顶上横一道没盖住的带子
@@ -32,15 +33,34 @@ test("底纹铺在外壳上、顶栏透上来（mobile-ui-layout.md §3.5）", (
 test("主题色拼不出六位色号时退回纯色，不许整层静默消失", () => {
   // 深色/自定义主题下 t.ink 可能不是 #rrggbb，拼 t.ink+"1c" 会拼出废值，
   // 那一整条 background-image 被浏览器丢掉——界面上看着像「这一页没做」。
-  assert.match(CRATE, /const hex6 = v => \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(v \|\| ""\)\)/);
-  assert.match(CRATE, /!\(hex6\(t\.ink\) && hex6\(t\.accent\)\) \? \{ background: t\.bg \}/,
-    "验不过没退回纯色；两个都要验，木头两样颜色都在拼");
+  // ⚠️v62.46 起 hex6 提到了组件最上头（曲目单那一行也要用它，而那几个 tab 是
+  //   `const x = h(...)`、声明处就求值，引用后面的 const 会 TDZ 白屏）。所以这一条
+  //   对着【整个组件】问，不再对着底那一段问。
+  assert.match(LT, /const hex6 = v => \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(v \|\| ""\)\)/);
+  assert.match(LT, /const disc = !\(hex6\(t\.ink\) && hex6\(t\.accent\)\) \? \{ background: t\.bg \}/,
+    "碟那一层验不过没退回纯色；两个都要验，它两样颜色都在拼");
+  assert.match(LT, /const sleeve = !hex6\(t\.ink\) \? \{ background: t\.bg \}/,
+    "碟套那一层验不过没退回纯色");
 });
 
 test("底纹是唱片的同心沟纹，不是又一块木头", () => {
   // 木纹换个 app 照样成立＝没设计；同心沟纹只有音乐这一处成立。
-  assert.doesNotMatch(CODE, /repeating-linear-gradient\(90deg/, "又回到竖木纹了");
-  assert.match(CODE, /repeating-radial-gradient\(circle at 50% 240px/, "没有沟纹");
+  //
+  // ⚠️v62.46 这一条改了口径，不是放宽：审美审计指出「圆心放在碟真正待的位置」
+  //   这句只在【播放页】成立——切到发现/我的/设置，240px 那儿是一条搜索框、一张大卡、
+  //   一张开关卡，沟还在从那儿荡出去，而那儿没有碟。四分之三的时间里那套纹只是纹理。
+  //   所以现在是两层底：有碟的那一格铺沟，另外三格铺【碟套的内袋纸】。
+  //   于是「不许出现 repeating-linear-gradient(90deg)」这个代理判据失效了——
+  //   内袋纸的纸纹本来就是平行线。改成对着【两层各自该是什么】问：
+  const groove = LT.slice(LT.indexOf("  const disc ="), LT.indexOf("  const crate = nav"));
+  const sleeveBlk = LT.slice(LT.indexOf("  const sleeve ="), LT.indexOf("  const disc ="));
+  assert.match(LT, /const crate = nav === "play" \? disc : sleeve;/, "两层底没按有没有碟分开");
+  // 木头那一版的痕迹一处都不许回来
+  assert.doesNotMatch(CODE, /#c25a4a|木纹|wood/, "木台面那一版又长回来了");
+  // 碟套之所以是碟套，不是「一张纸」：中间有碟压出来的那一圈印
+  assert.match(sleeveBlk, /radial-gradient\(circle at 50% 44%/, "内袋中间没有碟压出来的那圈印，那就只是一张纸了");
+  assert.doesNotMatch(sleeveBlk, /repeating-radial-gradient/, "没有碟的那三格不该再铺沟纹");
+  assert.match(groove, /repeating-radial-gradient\(circle at 50% 240px/, "没有沟纹");
   // 圆心得跟播放页那张碟对齐，不然纹是纹、碟是碟，两回事
   const centers = [...new Set((CODE.match(/circle at 50% (\d+)px/g) || []))];
   assert.equal(centers.length, 1, "圆心不止一个：" + centers.join(" / ") + "——所有圈得同心");
