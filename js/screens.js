@@ -7794,7 +7794,7 @@ function HomeLayoutProbe({ toast }) {
   return h("div", null,
     h("button", { onClick: go, className: "w-full py-3 active:opacity-70",
       style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, borderRadius: 7, color: t.ink, background: "transparent", border: "1px solid " + t.line } },
-      "复制主屏布局（排查图标不见了）"),
+      "复制主屏布局（排查图标不见了 / 有空位却放不下）"),
     text ? h("textarea", { readOnly: true, value: text, rows: 8, onFocus: e => e.target.select(),
       style: { width: "100%", marginTop: 8, padding: 8, borderRadius: 7, border: "1px solid " + t.line,
         background: t.bg2, color: t.ink, fontFamily: "ui-monospace,monospace", fontSize: 11, lineHeight: 1.5 } }) : null);
