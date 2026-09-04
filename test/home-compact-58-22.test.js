@@ -104,6 +104,9 @@ test("地方改叫去处", () => {
 test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸不许跟着放宽", () => {
   assert.match(comp, /className: "grid grid-cols-4 gap-y-2 gap-x-2"/, "缝又放回去了");
   assert.match(comp, /h\("div", \{ key: pi, className: "px-5"/, "页面两侧留白又放回去了");
-  // ⚠️CAP/ROWCAP 是防止一页无限长下去的闸：放宽它们会把最后一排顶到屏幕外
-  assert.match(comp, /var CAP = 24, ROWCAP = 6;/, "容量闸被动了——最后一排会掉出屏幕");
+  // ⚠️容量闸还在，只是从写死的 6 行改成【量出来的】那几行（v61.93）：
+  // 行高钉死成 82 之后这个数才算得准，写死 6 在高屏上会白空一大截
+  assert.match(comp, /var rowCapAt = function \(pi\) \{ return pi === 0 \? Math\.max\(3, capRows - 1\) : capRows; \};/,
+    "容量闸没了——一页会无限长下去");
+  assert.match(comp, /var ROWCAP = rowCapAt\(ci\), CAP = ROWCAP \* 4;/, "格子数没跟着行数走");
 });

@@ -2053,8 +2053,11 @@ if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize;
 // 一格的高度（和空格的 minHeight 78 同源，多出的 4 是给组件内容留的余量）与格与格之间的缝。
 // 有了这两个数，「N 行」才真的等于一个固定高度——不然行高是内容撑的，
 // 挑了 4×1 的组件照样长成两行那么高（她 2026-09-03：「我改成 4x1 还是放不进去一整排空的」）。
-const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8;
-function homeSpanHeight(rows) { return rows * HOME_ROW_UNIT + (rows - 1) * HOME_ROW_GAP; }
+// 一行有多高，是【把剩下的地方分出来】的，不是拍死的像素（她 2026-09-03：
+// 「比起 fixed px，我们不能做 relative px 吗，就固定把剩下的位置去掉 dock 以后除以 5」）。
+// HOME_ROW_UNIT 只是量出来之前的兜底值；真正在用的是量完算出的那个 unit。
+const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5;
+function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
 const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide" };
@@ -2434,6 +2437,34 @@ function Home({
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
   const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
+  // 一页能放几行，是【量出来的】不是拍的。行高钉死成 82 之后这个数就算得准了：
+  // 原来写死 6 行，在高屏上底下白白空掉一大截、还放不进东西（她 2026-09-03 截图）。
+  // 第一页顶上有时钟，所以比别的页少一行。
+  const gridBoxRef = useRef(null);
+  const [rowCap, setRowCap] = useState(6);
+  const [rowUnit, setRowUnit] = useState(HOME_ROW_UNIT);
+  useEffect(function () {
+    function measure() {
+      var el = gridBoxRef.current; if (!el) return;
+      var h0 = el.clientHeight; if (!h0) return;
+      // 第一页顶上那块时钟也占位置：先扣掉它，剩下的除以 5 就是一行的高度。
+      var clock = el.querySelector("[data-homeclock]");
+      var ch = clock ? clock.getBoundingClientRect().height + 12 : 0;
+      var usable = Math.max(120, h0 - ch);
+      var u = Math.floor((usable - (HOME_ROWS_PER_PAGE - 1) * HOME_ROW_GAP) / HOME_ROWS_PER_PAGE);
+      u = Math.max(56, Math.min(120, u));
+      setRowUnit(u);
+      // 没有时钟的那几页，同样的行高能多放一行——这就是原来底下白空的那一截
+      var n = Math.floor((h0 + HOME_ROW_GAP) / (u + HOME_ROW_GAP));
+      setRowCap(Math.max(4, Math.min(9, n)));
+    }
+    measure();
+    if (typeof window === "undefined") return;
+    window.addEventListener("resize", measure);
+    return function () { window.removeEventListener("resize", measure); };
+  }, []);
+  const rowCapRef = useRef(6); rowCapRef.current = rowCap;
+  const rowUnitRef = useRef(HOME_ROW_UNIT); rowUnitRef.current = rowUnit;
   // 自由添加的装饰内容与外观分开保存：换皮不碰照片/文字，移动也不碰样式。
   const [decorations, setDecorations] = useState(function () { var v = loadJSON("x_homeDecorations", []); return Array.isArray(v) ? v : []; });
   const decorationsRef = useRef(decorations); decorationsRef.current = decorations;
@@ -2656,9 +2687,15 @@ function Home({
     // 日历这个月是五周还是六周，都会让同样的「6 行」时高时矮。真正兜住看不见的是
     // 每一页自己能上下滑（见下面渲染那段）；这里只负责别让一页堆到离谱。
     // 超出容量的项按原顺序整体溢到下一页开头（连锁下去，最后一页放不下就自动开新页）；空格不搬、下一页会重新补
-    var CAP = 24, ROWCAP = 6;
+    // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按 6 行算，
+    // 跟量出来之前的默认值一致。
+    // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按 7 行算，
+    // 于是第一页仍是老的 6 行，跟量出来之前的行为一致。
+    var capRows = Math.max(4, (typeof rowCapRef !== "undefined" && rowCapRef && rowCapRef.current) || 7);
+    var rowCapAt = function (pi) { return pi === 0 ? Math.max(3, capRows - 1) : capRows; };
     for (var ci = 0; ci < out.length; ci++) {
       var cw = 0, ckeep = [], cspill = [];
+      var ROWCAP = rowCapAt(ci), CAP = ROWCAP * 4;
       (out[ci] || []).forEach(function (k) {
         var wk = wOf(k);
         if (!cspill.length && cw + wk <= CAP && rowsOf(ckeep.concat([k])) <= ROWCAP) { ckeep.push(k); cw += wk; }
@@ -2674,7 +2711,7 @@ function Home({
       arr.forEach(function (k) { wsum += wOf(k); });
       // v47.73 空格铺满整页（24 格）：平时隐形、编辑态整页虚线——右下角任何位置都能当落点，
       // 不再是「旁边有东西才有洞」（之前保底 2 格导致想放页面远端放不了）
-      var target = CAP;
+      var target = rowCapAt(pi) * 4;
       var n = 0;
       var have = {};
       arr.forEach(function (k) { have[k] = 1; });
@@ -3107,7 +3144,7 @@ function Home({
       return h("div", {
         key: key, "data-appkey": key,
         style: {
-          gridColumn: "span 1", minHeight: 78, borderRadius: 17,
+          gridColumn: "span 1", minHeight: rowUnit, borderRadius: 17,
           border: editMode ? "1.5px dashed " + (isDrop ? t.accent : "rgba(30,28,24,0.16)") : "none",
           background: isDrop ? "rgba(194,90,74,0.10)" : "transparent",
           transform: isDrop ? "scale(1.06)" : "none",
@@ -3132,7 +3169,7 @@ function Home({
     // ⚠️高度一律钉死（她 2026-09-03：「能不能把长度固定了，不给他撑大」）：
     // 行高只要还由内容撑，同样的「一行」就会时高时矮，摆位永远算不准。
     // 唯一的例外是名片：它的高度是她一版一版调出来的，钉成 82 会被裁掉半张。
-    const fixedH = (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1]) : null;
+    const fixedH = (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1], rowUnit) : null;
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -3199,6 +3236,7 @@ function Home({
     onTouchCancel: onTE
   }, h("div", {
     className: "flex-1 min-h-0",
+    ref: gridBoxRef,
     style: {
       display: "flex",
       transform: "translateX(calc(" + (-page * 100) + "% + " + drag + "px))",
@@ -3207,7 +3245,7 @@ function Home({
   }, curLayout.map(function (keys, pi) {
     return h("div", { key: pi, className: "px-5", style: { width: "100%", flexShrink: 0 } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
-      pi === 0 && h("div", { className: "text-center mb-3" },
+      pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1" },
         h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
           wallpaper ? { color: "#fff", textShadow: "0 2px 10px rgba(20,18,15,0.45), 0 0 24px rgba(20,18,15,0.25)" } : { color: t.ink }) }, fmtClock(now)),
         h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, marginTop: 2 }, glassLabelInk(!!wallpaper, t), wallpaper ? {} : { color: t.sub }) }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
@@ -3216,7 +3254,7 @@ function Home({
       // 12px 的缝一共吃掉横 36 / 竖 60，正好是「看着还有一块地方，其实排不下」的来源。
       // ⚠️只收缝，不动 CAP(24 格) 和 ROWCAP(6 行)：那两条是防止一页无限长下去的闸，
       // 放宽它们会把最后一排顶到屏幕外（v47 那次的病）。
-      h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoFlow: "dense" } },
+      h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoFlow: "dense", gridAutoRows: rowUnit + "px" } },
         (editMode ? (keys || []) : trimTailRows(keys)).map(function (key) { return renderItem(key); })));
   })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 px-4 pt-1",

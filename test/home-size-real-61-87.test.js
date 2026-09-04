@@ -16,19 +16,22 @@ const F = (() => {
   const presets = comp.slice(comp.indexOf("const HOME_SIZE_PRESETS = ["), comp.indexOf("// 装饰不是换图标的文字卡"));
   const dflt = comp.slice(comp.indexOf("function defaultHomeItemSpan(it) {"), comp.indexOf("// 一格的高度"));
   return new Function(presets + dflt + comp.slice(i, j)
-    + "\nreturn { homeSpanHeight, homeSizeOf, homeItemSpan, HOME_ROW_UNIT, HOME_ROW_GAP, HOME_SIZE_DEFAULT };")();
+    + "\nreturn { homeSpanHeight, homeSizeOf, homeItemSpan, HOME_ROW_UNIT, HOME_ROW_GAP, HOME_ROWS_PER_PAGE, HOME_SIZE_DEFAULT };")();
 })();
 
 test("N 行＝一个算得出的高度，不再由内容决定", () => {
   assert.equal(F.homeSpanHeight(1), F.HOME_ROW_UNIT);
   assert.equal(F.homeSpanHeight(2), F.HOME_ROW_UNIT * 2 + F.HOME_ROW_GAP);
+  // v61.93：行高改成量出来的（把剩下的地方除以 5），常量只是兜底
+  assert.equal(F.homeSpanHeight(2, 100), 208);
+  assert.equal(F.HOME_ROWS_PER_PAGE, 5);
   assert.equal(F.HOME_ROW_GAP, 8, "这个缝要和主屏网格那一行的 gap 一致，不然算出来的高度对不上");
 });
 
 // v61.90 她：「能不能把长度固定了，不给他撑大」——改成一律钉死，只留名片一个例外
 test("组件高度一律钉死；只有名片按内容高（它的高度是一版版调出来的）", () => {
   const seg = comp.slice(comp.indexOf("const fixedH ="), comp.indexOf("let inner;", comp.indexOf("const fixedH =")) + 40);
-  assert.match(seg, /!HOME_FREE_HEIGHT\[key\] \? homeSpanHeight\(span\[1\]\)/);
+  assert.match(seg, /!HOME_FREE_HEIGHT\[key\] \? homeSpanHeight\(span\[1\], rowUnit\)/);
   assert.match(comp, /const HOME_FREE_HEIGHT = \{ w_card: true \};/);
   assert.match(comp, /height: fixedH \|\| undefined, overflow: fixedH \? "hidden" : undefined/, "钉了高度却没裁溢出，撑破的还是会顶下去");
 });
