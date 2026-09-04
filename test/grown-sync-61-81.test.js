@@ -132,10 +132,23 @@ test("脚本挂进去了，而且排在用它的人前面", () => {
 });
 
 test("建表 SQL 跟代码对得上（她要拿这份去 VPS 上跑）", () => {
-  const sql = fs.readFileSync(path.join(root, "长出来的那几样-建表.sql"), "utf8");
+  // ⚠️不另开一份 SQL：新表写进 schema-core.sql 这一份【唯一的库结构】里。
+  //   另开一份的话，重建库的时候那张表就不见了——又是「一层写在两处，第二处没跟上」。
+  const sql = fs.readFileSync(path.join(root, "tools/vps/lisa-cloud/schema-core.sql"), "utf8");
   assert.match(sql, /create table if not exists public\.grown/);
-  assert.match(sql, /primary key \(user_id, char_id, kind\)/, "主键跟 onConflict 对不上就会写重");
-  assert.match(sql, /enable row level security/, "没开 RLS，谁都读得到她的数据");
-  assert.match(sql, /auth\.uid\(\) = user_id/);
-  for (const k of GS.KINDS) assert.ok(sql.includes("'" + k + "'"), "SQL 注释里没提 kind=" + k);
+  // 只看 grown 那一段：别的表也有这几行，整份 match 等于没查
+  const blk = sql.slice(sql.indexOf("create table if not exists public.grown"));
+  const body = blk.slice(0, blk.indexOf(");"));
+  assert.match(body, /primary key \(user_id, char_id, kind\)/, "主键跟 onConflict 对不上就会写重");
+  assert.match(body, /user_id uuid not null references auth\.users\(id\) on delete cascade/,
+    "没接 auth.users：账号删了这些行会变成孤儿");
+  // ⚠️光有 RLS policy 不够：这个库的惯例是还要显式 grant 给 authenticated，
+  //   不 grant 的话 policy 再对也是 permission denied。所以必须进那个循环的名单。
+  const loop = sql.match(/foreach t in array array\[([^\]]*)\]/);
+  assert.ok(loop, "找不到那个统一开 RLS + grant 的循环");
+  assert.match(loop[1], /'grown'/, "grown 没进 RLS/grant 那个名单——建了也用不了");
+  assert.match(sql, /grant select, insert, update, delete on public\.%I to authenticated/);
+  // 别再留一份会跟它走散的独立 SQL
+  assert.ok(!fs.existsSync(path.join(root, "长出来的那几样-建表.sql")),
+    "又多出一份独立的建表 SQL——重建库时它不会被跑到");
 });
