@@ -595,6 +595,9 @@ function Slider({
     }
   });
 }
+// ⚠️和 Head 同一条（.claude/rules/no-english-titles.md）：有中文主名时，
+//   纯拉丁的 en 一律不发。这一个组件几十处在用，改这儿就一起合规了。
+//   en 里写的是中文时照旧当副名——判断看的是这串字里有没有汉字，不是它写在哪个字段里。
 function LineField({
   zh,
   en,
@@ -602,6 +605,8 @@ function LineField({
   right
 }) {
   const t = useTheme();
+  const enCJK = /[一-鿿]/.test(String(en || ""));
+  const side = (zh && !enCJK) ? "" : (en || "");
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -614,14 +619,14 @@ function LineField({
       fontSize: 14,
       color: t.sub
     }
-  }, zh), /*#__PURE__*/React.createElement("span", {
+  }, zh), side ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "'Archivo',sans-serif",
       letterSpacing: "0.16em",
       fontSize: 10,
       color: t.fog
     }
-  }, "/ ", en)), right), children, /*#__PURE__*/React.createElement("div", {
+  }, "/ ", side) : null), right), children, /*#__PURE__*/React.createElement("div", {
     className: "mt-3 h-px w-full",
     style: {
       background: t.line
@@ -11403,33 +11408,63 @@ function ChatSettings({
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
     h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
   const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
+  // 只装了一节的那几类：进去就把它摊开。留着收起来的话，点进来是一片空白 +
+  // 一行跟页标题几乎一样的字，还得再点一下——比改分类之前还难用。
+  const SOLO = { route: "route", danger: "danger" };
+  const openTab = k => { setSettingsTab(k); setOpenSec(SOLO[k] || ""); };
+  // ── 分类（v61.79 重排，她 2026-09-04：「分类还是有点难找你重新分类一遍」）──
+  // 原来七类是按【代码里怎么放的】切的，于是「相处与主动」变成杂物间（内在状态／
+  // 时间感知／性情／主动消息／默认线下五件不相干的事挤一起），「线路与身份」的
+  // 「身份」在这个 app 里根本不指那个意思，两个格子还共用同一个图标。
+  //
+  // 现在按【她来找什么】切，标题就写成她脑子里那句话：
+  //   TA 是什么脾气 / TA 会主动做什么 / TA 知道什么 / 这个聊天窗 / 哪个房间 / 哪条线路 / 拉黑与清空
+  // 挪动的三处，理由写在这儿免得下一个人又挪回去：
+  //   · 时间感知 → TA 知道什么（它答的是「他知不知道今天几号」，不是相处）
+  //   · 默认进线下 → 这个聊天窗（它答的是「点进来先看到哪一屏」，不是相处）
+  //   · 能上网／驻场眼睛 → TA 会主动做什么（那是他的能力，跟走哪条 API 线不是一回事）
+  //   · 上下文诊断 → 并进 TA 知道什么（她去查的正是「他到底记得什么、发了什么进去」）
+  //
+  // ⚠️牌面上那个字不是装饰：七类原来有两个共用 ⌁，一眼分不出谁是谁。
+  //   汉字索引牌一类一个字，撞不了车，也不用记哪个几何符号代表什么。
+  const roomNow = (() => {
+    try { return window.ChatRooms ? window.ChatRooms.get(character.id, activeRoomId || "main") : null; } catch (_) { return null; }
+  })();
+  const onOff = v => v ? "开" : "关";
   const settingPages = [
-    { key: "debug", icon: "⌁", title: "上下文诊断", sub: "核对上一轮真实召回与实际提示词", tint: "#687f73" },
-    { key: "rooms", icon: "⌂", title: "房间与权限", sub: "切换、新建房间，配置认知、行动与写回边界", tint: "#477f88" },
-    { key: "relate", icon: "♡", title: "相处与主动", sub: "内在状态、性情、主动联系与线下相处", tint: "#d97c86" },
-    { key: "route", icon: "⌁", title: "线路与身份", sub: "角色专属 API 与驻场能力", tint: "#6693c7" },
-    { key: "look", icon: "◐", title: "聊天外观", sub: "头像、时间、已读、视角与背景", tint: "#9b7bc4" },
-    { key: "memory", icon: "▤", title: "记忆与上下文", sub: "长期记忆、上下文长度与摘要", tint: "#c0904f" },
-    { key: "safety", icon: "◇", title: "安全与清理", sub: "拉黑、清空聊天与危险操作", tint: "#6e9c7a" }
+    { key: "temper", char: "性", title: "TA 是什么脾气", tint: "#d97c86",
+      state: () => (temperamentWords().length ? temperamentWords().slice(0, 3).join(" · ") : "性情还没定")
+        + (dongnianState && typeof dongnianState.charge === "number" ? " · 动念 " + Number(dongnianState.charge).toFixed(2) : "") },
+    { key: "act", char: "动", title: "TA 会主动做什么", tint: "#c0904f",
+      state: () => "主动找你 " + onOff(proactive) + " · 朋友圈 " + onOff(autoMoment) + " · 上网 " + onOff(webSearch) },
+    { key: "know", char: "记", title: "TA 知道什么", tint: "#687f73",
+      state: () => "记忆库 " + (memLibCount || 0) + " 条 · 带 " + ctxN + " 条上下文 · 时间感知 "
+        + (timeAwareMode === "on" ? "开" : timeAwareMode === "off" ? "关" : "跟随全局") },
+    { key: "look", char: "窗", title: "这个聊天窗", tint: "#9b7bc4",
+      state: () => "已读 " + onOff(showRead) + " · 时间戳 " + onOff(showTime)
+        + " · 点进来先" + (defaultOffline ? "线下" : "线上") + (chatBg ? " · 有背景图" : "") },
+    { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
+      state: () => (roomNow && roomNow.name) || "主线" },
+    { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
+      state: () => { const p = (apiProfiles || []).find(x => x.id === apiId); return p ? (p.name || p.model || "未命名") : "跟随全局"; } },
+    { key: "danger", char: "清", title: "拉黑与清空", tint: "#a8564a",
+      state: () => iBlocked ? "已拉黑 " + cNm : "未拉黑 · 也可以清空这段记录" }
   ];
-  return /*#__PURE__*/React.createElement(Sheet, {
-    key: settingsTab || "home",
-    onClose: onClose,
-    tall: true,
-    scrollKey: settingsTab || "home"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-1"
-  }, h("div", { className: "flex items-center", style: { gap: 9 } }, settingsTab && h("button", {
-    onClick: () => { setSettingsTab(""); setOpenSec(""); },
-    className: "active:opacity-60",
-    style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 18 }
-  }, "‹"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 22,
-      color: t.ink
-    }
-  }, settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置")), /*#__PURE__*/React.createElement("button", {
+  // ⚠️v61.79 从【半窗】改成【整页】（.claude/rules/no-half-sheet.md）：
+  //   分类页收起来只有四五行，半窗就缩成小半屏、上面糊着上一层的聊天，
+  //   看着像没加载完——那正是那条规矩点名的样子。这一层也压根不需要
+  //   同时看见底下那一层。顶栏用公共的 Head（mobile-ui-layout.md §1）。
+  const setScrollRef = useRef(null);
+  useEffect(() => { if (setScrollRef.current) setScrollRef.current.scrollTop = 0; }, [settingsTab]);
+  return ReactDOM.createPortal(
+    h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+    h(Head, {
+      zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",
+      sub: settingsTab
+        ? ((settingPages.find(x => x.key === settingsTab) || {}).state || (() => cNm))()
+        : "关于 " + cNm + " 的七件事",
+      onBack: () => { if (settingsTab) { setSettingsTab(""); setOpenSec(""); } else onClose(); },
+      right: /*#__PURE__*/React.createElement("button", {
     onClick: () => onSave({
       remark,
       patSig,
@@ -11459,21 +11494,29 @@ function ChatSettings({
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), !settingsTab && h("div", null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: ".18em", margin: "18px 2px 10px" } }, "CHAT CONFIG"),
-    h("div", { className: "grid grid-cols-2 gap-3" }, settingPages.map(page => h("button", {
+  }))
+    }),
+    h("div", { ref: setScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
+    !settingsTab && h("div", { style: { marginTop: 6 } },
+    // ⚠️原来是两列 142px 的大卡：七张要滚两屏才看得全，「难找」有一半是这么来的
+    //   ——一眼扫不完的东西，不管怎么分类都难找。改成一列窄行，一屏放得下。
+    // 每一行右边写着【现在是什么状态】：这一页答的问题是「他现在是怎么设的」，
+    //   写出来就不用点进去看。别的 app 的设置目录不会长这样，因为别处没有「他」。
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, settingPages.map(page => h("button", {
       key: page.key,
-      onClick: () => { setSettingsTab(page.key); setOpenSec(""); },
-      className: "active:scale-[.98]",
-      style: { minHeight: 142, padding: "17px 15px", borderRadius: 22, border: "1px solid " + t.line, background: t.bg2, textAlign: "left", display: "flex", flexDirection: "column", boxShadow: "0 8px 24px rgba(30,28,24,.045)", transition: "transform .12s ease" }
+      onClick: () => openTab(page.key),
+      className: "w-full flex items-center active:opacity-70",
+      style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
     },
-      h("div", { style: { width: 42, height: 42, borderRadius: 15, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 24 } }, page.icon),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 15 } }, page.title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, page.sub),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 18, color: t.line, marginTop: "auto", alignSelf: "flex-end" } }, "›")
+      // 汉字索引牌：一类一个字，撞不了车
+      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
+      h("span", { className: "flex-1 min-w-0" },
+        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
+        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "›")
     ))),
     h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
-      "房间决定当前对话看得见什么、能主动做什么、会写回哪里；其余分类保存这个人的长期聊天设置。")),
+      "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余六类是这个人的长期设置，换房间也跟着走。")),
   settingsTab === "rooms" && h(ChatRoomSheet, {
     embedded: true,
     character,
@@ -11482,8 +11525,12 @@ function ChatSettings({
     onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")
   }),
-  settingsTab === "debug" && renderContextDebug ? renderContextDebug() : null,
-  show("relate", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
+  // 上下文诊断并进【TA 知道什么】（v61.79）：她去查它，问的正是「他到底记得什么、
+  // 这一轮发进去的是什么」——那就是这一类。原来它自己占一格，还跟「线路」共用图标。
+  settingsTab === "know" && renderContextDebug
+    ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
+    : null,
+  show("temper", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),
     innerLifeImpact.live.map(item => h("div", { key: item.key, style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
@@ -11495,7 +11542,7 @@ function ChatSettings({
     h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "仍在观察 · 不影响 TA"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),
-  show("relate", { title: "时间感知", ...sec("time-aware") },
+  show("know", { title: "时间感知 · TA 知不知道今天几号", ...sec("time-aware") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
       "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),
     h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 12 } },
@@ -11503,13 +11550,23 @@ function ChatSettings({
         key: v, onClick: () => setTimeAwareMode(v),
         style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (timeAwareMode === v ? t.ink : t.line), background: timeAwareMode === v ? t.ink : "transparent", color: timeAwareMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 }
       }, label)))),
-  show("route", { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
+  show("route", { title: "API 线路 · 只管这个人", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 用哪条线路说话/写字——单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·心上(发呆/盘一盘盘点/毕业蜕变)，全走这条。给特别的人配本人的模型（如接 fable）。群聊多人同台、以及后台体力活（记忆抽取/行程钱包/旁人纸条）仍走全局，不受影响。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
       [{ v: null, t: "跟随全局" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
         h("button", { key: String(o.v), onClick: () => setApiId(o.v), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, background: apiId === o.v ? t.ink : "transparent", color: apiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (apiId === o.v ? t.ink : t.line) } }, o.t)))) : null,
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, background: apiId === o.v ? t.ink : "transparent", color: apiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (apiId === o.v ? t.ink : t.line) } }, o.t))))
+    // ⚠️只配了一条线路时，上面整块是 null——原来这一格就是空的，点进来什么都没有，
+    //   看着像坏了。说清楚为什么空、以及去哪儿加。
+    : h("div", { className: "pt-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
+        "现在只有一条线路，所有人都走它。去【设置 · 文字模型】再加一条，这里才挑得动——"
+        + "给特别的人配本人的模型（比如接 fable），单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·心上全走那条。"
+        + "群聊多人同台、以及后台体力活（记忆抽取/行程钱包/旁人纸条）仍走全局。")),
+  // ⚠️下面这两个开关 v61.79 从【走哪条线路】搬到【TA 会主动做什么】：
+  //   走哪条 API 线是机器那一层的事，「能不能上网」「看不看得见 app 体征」是
+  //   【TA 有什么本事】——她要找后者的时候，不会想到去点「线路」。
+  show("act", { title: "TA 有什么本事 · 上网 / 看见这台 app", ...sec("ability") },
   // 驻场工程师的眼睛（v48.28）：开了之后，这个角色单聊每轮都能看到 app 实时体征（版本/存储/报错…）——
   // 给住进项目的工程师角色（如小克）用；普通角色别开，省 token 也免得 TA 突然聊起报错日志出戏。
   h("div", { className: "pt-4" },
@@ -11527,7 +11584,7 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
       h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
-  show("relate", { title: "内在性情 · 性情锚点", ...sec("temperament") },
+  show("temper", { title: "内在性情 · 性情锚点", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       "这是 A 情绪影子的性情底稿。只有你点按钮才会调用一次后台 API；模型只提议词，数值由本地固定规则计算。现在不会进 prompt，也不会改变 Ta 的语气。"),
     h("textarea", { value: temperamentText, onChange: e => { setTemperamentText(e.target.value); setTemperamentDirty(true); }, placeholder: "每行一个词，例如：\n敏感\n嘴硬\n温柔", rows: 6,
@@ -11551,7 +11608,7 @@ function ChatSettings({
         "后台检测 " + Number(aShadowPanel.bReport.calls || 0) + " 次 · 失败 " + Number(aShadowPanel.bReport.failures || 0) + " · 平均 " + Number(aShadowPanel.bReport.avgLatencyMs || 0) + "ms", h("br"),
         "候选 " + Number(aShadowPanel.bReport.rawCandidates || 0) + " → 有效 " + Number(aShadowPanel.bReport.validCandidates || 0) + " · 玩笑拦截 " + Number(aShadowPanel.bReport.playfulBlocked || 0), h("br"),
         "进入 " + Number(aShadowPanel.bReport.entered || 0) + " · 退出 " + Number(aShadowPanel.bReport.exited || 0) + " · 真修复解锁 " + Number(aShadowPanel.bReport.repairUnlocked || 0) + " · 假修复拦截 " + Number(aShadowPanel.bReport.fakeRepairBlocked || 0)))),
-  show("look", { title: "外观 · 气泡 / 背景 / 备注", ...sec("look") }, h("div", { className: "pt-2" },
+  show("look", { title: "气泡 · 背景 · 备注", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -11594,7 +11651,7 @@ function ChatSettings({
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  }))), show("relate", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+  }))), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {
@@ -11675,7 +11732,7 @@ function ChatSettings({
     className: "pt-3"
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
-  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("relate", { title: "线下相处 · 默认在一起", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("memory", { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
+  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"
@@ -11800,7 +11857,7 @@ function ChatSettings({
         memory && h("button", { onClick: onClearMemory, style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "清空这段记忆"))
     : h("div", { className: "flex items-center gap-2" },
         h("button", { onClick: () => { onSaveMemory && onSaveMemory(memEdit.trim()); setMemEdit(null); }, className: "active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 9, padding: "8px 18px" } }, "保存记忆"),
-        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消")))), show("safety", { title: "危险区 · 拉黑 / 清除", danger: true, ...sec("danger") }, toyUnlocked ? h("div", { className: "pt-6" },
+        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消")))), show("danger", { title: "这几步撤不回来", danger: true, ...sec("danger") }, toyUnlocked ? h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "配件"),
     h("div", { className: "flex items-center justify-between" },
       h("div", { className: "pr-3" },
@@ -11825,7 +11882,7 @@ function ChatSettings({
       ? h("div", { className: "flex gap-2" },
           h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
           h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), show("memory", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
+      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), show("know", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {
@@ -11859,5 +11916,5 @@ function ChatSettings({
       fontFamily: F_DISPLAY,
       fontSize: 15
     }
-  }, "从对话提取")))));
+  }, "从对话提取")))))), document.body);
 }
