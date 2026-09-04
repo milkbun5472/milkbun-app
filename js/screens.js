@@ -3036,13 +3036,13 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
       h(Head, { zh: "翻一张题", en: partner.name, onBack: () => { setCur(null); setAns(""); setMode("cover"); } }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 14 } }, "已答 " + mine.length + " / " + bankTotal + " 题。"),
-        cur ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px", animation: "fadeUp .3s ease both" } },
-          h(Eyebrow, { style: { marginBottom: 8 } }, cur.cat),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: t.ink, marginBottom: 12 } }, cur.q),
-          h("textarea", { value: ans, onChange: e => setAns(e.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+        cur ? h("div", { style: { background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "14px 16px", animation: "fadeUp .3s ease both", backgroundImage: "repeating-linear-gradient(transparent 0 27px, rgba(190,170,120,.16) 27px 28px)", boxShadow: "0 8px 20px rgba(90,70,40,.10)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".18em", color: "#a3987e", marginBottom: 8 } }, cur.cat),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: "#3a3226", marginBottom: 12 } }, cur.q),
+          h("textarea", { value: ans, onChange: e => setAns(e.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
           h("div", { className: "flex items-center gap-2 mt-3" },
             h("button", { onClick: draw, disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "换一题"),
-            h("button", { onClick: submit, disabled: !ans.trim() || gen, className: "ml-auto active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 18px", borderRadius: 10 } }, gen ? partner.name + " 作答中…" : "写好了 · 封起来"))) : h("button", { onClick: draw, disabled: !pool.length, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, pool.length ? "翻一张新题" : "题库都答完啦")));
+            h("button", { onClick: submit, disabled: !ans.trim() || gen, className: "ml-auto active:opacity-70 disabled:opacity-40", style: { background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 18px", borderRadius: 10 } }, gen ? partner.name + " 作答中…" : "写好了 · 封起来"))) : h("button", { onClick: draw, disabled: !pool.length, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, pool.length ? "翻一张新题" : "题库都答完啦")));
   }
 
   // —— 翻页看过往（编辑 / reroll / 删除）——
@@ -3051,42 +3051,47 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
     const idx = Math.max(0, Math.min(pageIdx, mine.length - 1));
     const e = has ? mine[idx] : null;
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: bookTitle, en: has ? (idx + 1) + " / " + mine.length : "", onBack: () => setMode("cover") }),
+      h(Head, { zh: bookTitle, en: has ? "第 " + (idx + 1) + " 页 · 共 " + mine.length + " 页" : "", onBack: () => setMode("cover") }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-8", style: { touchAction: "pan-y" }, onTouchStart: ev => { const tt = ev.touches[0]; swipeRef.current = { x: tt.clientX, y: tt.clientY }; }, onTouchEnd: ev => { const tt = ev.changedTouches[0]; const dx = tt.clientX - swipeRef.current.x, dy = tt.clientY - swipeRef.current.y; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) setPageIdx(Math.min(mine.length - 1, idx + 1)); else setPageIdx(Math.max(0, idx - 1)); } } },
-        !has ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 10 } }, "还没有答过的题。") : h("div", { key: e.id, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "16px 18px", animation: "fadeUp .3s ease both" } },
-          h(Eyebrow, { style: { marginBottom: 8 } }, (e.byCharacter ? partner.name + " 出的 · " : "") + "第 " + (idx + 1) + " 题"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: t.ink, marginBottom: 12 } }, e.question),
+        !has ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 10 } }, "还没有答过的题。") : h("div", { key: e.id, style: { position: "relative", background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "16px 18px 14px", animation: "fadeUp .3s ease both",
+          // 纸页（v62.13）：横格淡淡铺在底上当纸纹，右下一个折角。配色整套写死——
+          // 纸是写死的浅色，字色若还跟主题走，深色主题就是浅字浅纸（信纸那套的同一课）
+          backgroundImage: "repeating-linear-gradient(transparent 0 27px, rgba(190,170,120,.16) 27px 28px)",
+          boxShadow: "0 8px 20px rgba(90,70,40,.10)" } },
+          h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0, borderLeft: "14px solid transparent", borderBottom: "14px solid rgba(190,170,120,.30)" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".18em", color: "#a3987e", marginBottom: 8 } }, (e.byCharacter ? partner.name + " 出的 · " : "") + "第 " + (idx + 1) + " 题"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: "#3a3226", marginBottom: 12 } }, e.question),
           h("div", { style: { marginBottom: 10 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginBottom: 3 } }, "我"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5c", marginBottom: 3 } }, "我"),
             // 他出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
             (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
-              h("textarea", { value: revealVal, onChange: ev => setRevealVal(ev.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-              h("button", { onClick: () => { if (onReveal && onReveal(e.id, revealVal)) setRevealVal(""); }, disabled: !revealVal.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
+              h("textarea", { value: revealVal, onChange: ev => setRevealVal(ev.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
+              h("button", { onClick: () => { if (onReveal && onReveal(e.id, revealVal)) setRevealVal(""); }, disabled: !revealVal.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
             editId === e.id ? h("div", null,
-              h("textarea", { value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+              h("textarea", { value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
               h("div", { className: "flex gap-2 mt-2" },
-                h("button", { onClick: () => { onEdit(e.id, editText); setEditId(null); }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8 } }, "保存"),
-                h("button", { onClick: () => setEditId(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, whiteSpace: "pre-wrap" } }, e.myAnswer || "（没写）")),
+                h("button", { onClick: () => { onEdit(e.id, editText); setEditId(null); }, className: "active:opacity-70", style: { background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8 } }, "保存"),
+                h("button", { onClick: () => setEditId(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#6a5f4b", whiteSpace: "pre-wrap" } }, e.myAnswer || "（没写）")),
           h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 3 } }, partner.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a05a6a", marginBottom: 3 } }, partner.name),
             (e.sealed && e.byCharacter && !e.myAnswer)
-              ? h("div", { style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "13px 14px", textAlign: "center" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
+              ? h("div", { style: { borderRadius: 6, border: "1px dashed #d8cdaf", padding: "13px 14px", textAlign: "center" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a3987e", lineHeight: 1.7 } },
                     "这道题是 " + partner.name + " 出的，TA 那半已经写好、封着——你写完你的，两份才一起打开。"))
               : (e.sealed && !e.charAnswer)
-              ? h("div", { style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "13px 14px", textAlign: "center" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
+              ? h("div", { style: { borderRadius: 6, border: "1px dashed #d8cdaf", padding: "13px 14px", textAlign: "center" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a3987e", lineHeight: 1.7 } },
                     "你那份封着呢。" + partner.name + " 写的时候看不到你写了什么——两份都写完才一起打开。"),
                   h("button", { onClick: () => onAnswer(partner, e), disabled: gen, className: "active:opacity-70 disabled:opacity-40",
-                    style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 999, padding: "8px 20px" } },
+                    style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: "#fdfaf1", background: "#3a3226", borderRadius: 999, padding: "8px 20px" } },
                     gen ? "写着…" : "让 " + partner.name + " 也写一份"))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
-          h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid " + t.line, paddingTop: 10 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, timeAgo(e.answeredAt)),
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#3a3226", whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
+          h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid #e6dcc4", paddingTop: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a3987e" } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
               // 他出的、她还没写的那种：我的答案就在上面那个框里写，编辑/重答都还轮不到
-              (e.sealed && e.byCharacter && !e.myAnswer) ? null : h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
-              e.sealed ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "…" : "重答"),
+              (e.sealed && e.byCharacter && !e.myAnswer) ? null : h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5c" } }, "编辑"),
+              e.sealed ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5c" } }, gen ? "…" : "重答"),
               h("button", { onClick: () => { onRemove(e.id); setPageIdx(i => Math.max(0, i - (idx === mine.length - 1 ? 1 : 0))); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26" } }, "删除")))),
         has ? h("div", { className: "flex items-center justify-between", style: { marginTop: 16 } },
           h("button", { onClick: () => setPageIdx(Math.max(0, idx - 1)), disabled: idx === 0, className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "‹ 上一题"),
@@ -3098,20 +3103,32 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: "问答小本", en: partner.name, onBack }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      h("div", { style: { position: "relative", marginTop: 18, borderRadius: 16, padding: "34px 24px 26px", background: "linear-gradient(135deg,#c98a9e,#9f5c72)", boxShadow: "0 12px 34px rgba(120,70,90,0.3)", minHeight: 300, display: "flex", flexDirection: "column", justifyContent: "space-between" } },
-        h("div", { style: { position: "absolute", left: 12, top: 14, bottom: 14, width: 4, borderRadius: 999, background: "rgba(255,255,255,0.25)" } }),
-        h("div", { style: { paddingLeft: 14 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.22em", color: "rgba(255,255,255,0.7)", marginBottom: 12 } }, "OUR Q&A"),
-          titleEditing ? h("div", null,
-            h("input", { value: titleVal, onChange: e => setTitleVal(e.target.value), style: { width: "100%", outline: "none", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, padding: "6px 10px", fontFamily: F_DISPLAY, fontSize: 24, color: "#fff" } }),
-            h("div", { className: "flex gap-2 mt-2" },
-              h("button", { onClick: () => { onSaveTitle(partner.id, (titleVal || "").trim() || "关于我们"); setTitleEditing(false); }, className: "active:opacity-80", style: { background: "#fff", color: "#9f5c72", fontFamily: F_DISPLAY, fontSize: 12.5, padding: "5px 14px", borderRadius: 8 } }, "保存"),
-              h("button", { onClick: () => { setTitleVal(bookTitle); setTitleEditing(false); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,0.8)" } }, "取消"))) : h("button", { onClick: () => { setTitleVal(bookTitle); setTitleEditing(true); }, className: "text-left active:opacity-80 flex items-baseline gap-2" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#fff", lineHeight: 1.2 } }, bookTitle),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,0.55)", flexShrink: 0 } }, "✎"))),
-        h("div", { style: { paddingLeft: 14, display: "flex", alignItems: "flex-end", justifyContent: "space-between" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,0.85)" } }, "已答 " + mine.length + " / " + bankTotal + " 题"),
-          h("button", { onClick: () => { draw(); setMode("draw"); }, className: "active:opacity-80", style: { width: 46, height: 46, borderRadius: 999, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.22)" } }, h(IPlus, { size: 23, color: "#9f5c72" })))),
+      // ── 封面重做（v62.13）：原来是粉紫渐变卡 + 「OUR Q&A」+ 白圆加号——换个 app 照样成立。
+      // 它是一本【本子】，就长成一本布面精装本：织纹布面、左侧真书脊（凹槽压线）、
+      // 标题烫在压印框里、右侧一条松紧系带。功能一样没动：点标题改名、右下角翻新题。
+      h("div", { style: { position: "relative", marginTop: 18, borderRadius: "5px 14px 14px 5px", padding: "30px 24px 24px 44px", minHeight: 300, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden",
+        // 布面：两道极淡的斜纹叠出织物经纬，底色深酒红
+        backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px), linear-gradient(140deg,#8a4757,#63313f)",
+        boxShadow: "0 14px 34px rgba(90,45,60,0.35)" } },
+        // 书脊：左侧一条受光不同的带，加一道铰线——布包过书板的那道折
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 26, background: "linear-gradient(90deg, rgba(0,0,0,.30), rgba(0,0,0,.10) 55%, rgba(255,255,255,.07) 78%, rgba(0,0,0,.16))" } }),
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 30, top: 8, bottom: 8, borderLeft: "1px solid rgba(0,0,0,.20)", boxShadow: "1px 0 0 rgba(255,255,255,.06)" } }),
+        // 松紧系带：竖着勒在右侧，像合上的手账
+        h("div", { "aria-hidden": "true", style: { position: "absolute", right: 30, top: -2, bottom: -2, width: 7, background: "linear-gradient(90deg, rgba(0,0,0,.30), rgba(0,0,0,.16) 40%, rgba(255,255,255,.05))", boxShadow: "0 0 6px rgba(0,0,0,.18)" } }),
+        h("div", null,
+          // 压印框：一圈细金线，标题「烫」在里面（金字 + 一点内凹的影）
+          h("div", { style: { border: "1px solid rgba(232,201,143,.38)", borderRadius: 3, padding: "16px 14px 14px", marginRight: 18, boxShadow: "inset 0 0 0 3px rgba(0,0,0,.10)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".3em", color: "rgba(232,201,143,.66)", marginBottom: 10 } }, "一人一半 · 写完才打开"),
+            titleEditing ? h("div", null,
+              h("input", { value: titleVal, onChange: e => setTitleVal(e.target.value), style: { width: "100%", outline: "none", background: "rgba(0,0,0,0.18)", border: "1px solid rgba(232,201,143,0.45)", borderRadius: 6, padding: "6px 10px", fontFamily: F_DISPLAY, fontSize: 24, color: "#e8c98f" } }),
+              h("div", { className: "flex gap-2 mt-2" },
+                h("button", { onClick: () => { onSaveTitle(partner.id, (titleVal || "").trim() || "关于我们"); setTitleEditing(false); }, className: "active:opacity-80", style: { background: "#e8c98f", color: "#63313f", fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 6, minHeight: 32 } }, "保存"),
+                h("button", { onClick: () => { setTitleVal(bookTitle); setTitleEditing(false); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(232,201,143,0.8)", minHeight: 32 } }, "取消"))) : h("button", { onClick: () => { setTitleVal(bookTitle); setTitleEditing(true); }, className: "text-left active:opacity-80 flex items-baseline gap-2" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 29, color: "#e8c98f", lineHeight: 1.25, textShadow: "0 1px 1px rgba(0,0,0,.4)" } }, bookTitle),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(232,201,143,0.55)", flexShrink: 0 } }, "✎")))),
+        h("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginRight: 18 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(232,201,143,.7)" } }, "已答 " + mine.length + " / " + bankTotal + " 题"),
+          h("button", { onClick: () => { draw(); setMode("draw"); }, "aria-label": "翻一张新题", className: "active:opacity-80", style: { width: 46, height: 46, borderRadius: 999, background: "rgba(0,0,0,.22)", border: "1px solid rgba(232,201,143,.5)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPlus, { size: 22, color: "#e8c98f" })))),
       mine.length ? h("button", { onClick: () => { setPageIdx(0); setMode("pages"); }, className: "w-full active:opacity-70", style: { marginTop: 16, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14 } }, "翻开看过往（" + mine.length + "）") : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 16 } }, "还没答过题——点封面右下角 ＋ 翻第一张"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
 }
