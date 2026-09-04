@@ -24,11 +24,25 @@ test("别扭的门槛给得松，但不许被无关的坏心情点亮", () => {
   //    这份词表跟 app.js 里那份 MOOD_NEG【故意不一样】，不是漏抄。
   ["累", "疲惫", "焦虑", "害怕", "不安"].forEach(w =>
     assert.equal(K.signalOf({ mood: { label: w, ts: now }, lastTalkTs: now - 3600000, now }).on, false, w + "也把和好间点亮了，那是噪音"));
-  assert.ok(K.NEG.indexOf("累") < 0 && K.NEG.indexOf("疲惫") < 0, "词表里还留着他自己的状态");
-  // ⑤ 什么都没有就不亮
+  assert.ok(K.NEG_SUB.indexOf("累") < 0 && K.NEG_SUB.indexOf("疲惫") < 0, "词表里还留着他自己的状态");
+  // ⑤ 单字只认整词（她 2026-09-04：「为啥憋笑也会进和好馆」）。
+  //    「憋」做子串会咬中「憋笑」——他正憋着笑，这儿却摆出一张「还没了结的那一段」。
+  //    这条不是补一个词，是把形状钉死：单字表里一个词都不许长过一个字，
+  //    否则下次谁往里塞个「气」，「客气」「争气」全会中招。
+  K.NEG_WORD.forEach(w => assert.equal(w.length, 1, "单字表里混进了长词：" + w + "——那就该放去 NEG_SUB"));
+  ["憋笑", "闷笑", "偷着乐", "不烦"].forEach(w =>
+    assert.equal(K.signalOf({ mood: { label: w, ts: now }, lastTalkTs: now - 3600000, now }).on, false,
+      "「" + w + "」把和好间点亮了——单字又在做子串匹配"));
+  // 但整条就是那一个字的时候照旧要亮，别修过头
+  ["闷", "烦", "厌", "憋"].forEach(w =>
+    assert.equal(K.signalOf({ mood: { label: w, ts: now }, lastTalkTs: now - 3600000, now }).on, true, w + " 不亮了，修过头了"));
+  // 单字对应的那几个真词也得留着，不然「憋屈」跟着一起没了
+  ["憋屈", "郁闷", "烦躁", "讨厌"].forEach(w =>
+    assert.equal(K.signalOf({ mood: { label: w, ts: now }, lastTalkTs: now - 3600000, now }).on, true, w + " 掉了"));
+  // ⑥ 什么都没有就不亮
   assert.equal(K.signalOf({ mood: { label: "高兴", ts: now }, lastTalkTs: now - 3600000, now }).on, false);
   assert.equal(K.signalOf({}).on, false);
-  // ⑥ 零调用：signalOf 只吃已经存着的两样
+  // ⑦ 零调用：signalOf 只吃已经存着的两样
   const sig = cut(R("makeup.js"), "function signalOf(o) {", "\n  }\n");
   assert.ok(sig.indexOf("fetch") < 0 && sig.indexOf("callAI") < 0, "检测这一步不许花钱");
 });
@@ -59,9 +73,14 @@ test("四条线都接上了：格子、路由、主线上下文、回流", () =>
   // v59.24：网格换成三个面之后，和好间是「今天」那一块底下的一条纸，不再是格子
   const tile = cut(scr, 'const mkSig = makeupSignalFor ? makeupSignalFor(bCid)', 'eyebrow("墙上"');   // v62.12 英文眉标清掉后锚中文
   assert.match(tile, /openSub\("makeup"\)/, "情侣空间里进不去和好间");  // v62.22 起走 openSub
-  assert.match(tile, /mkCur \? "和好间 · 还没了结的那一段" : mkSig\.on \? mkSig\.why : "和好间 · 这会儿没什么事"/, "上面不写为什么亮，跟没亮一样");
-  // 没事时不该跟别的一样重：不上底、不抬起
-  assert.match(tile, /background: \(mkSig\.on \|\| mkCur\) \? "#f7ebe7" : "transparent"/, "没事时它也占着一整块");
+  // v62.40 起它长成一张折起来的字条（外观见 couple-space-62-26），
+  // 但这一条判的还是同一件事：**上面得写清为什么亮**，光亮不说话跟没亮一样。
+  assert.match(tile, /const line = mkCur \? "还没了结的那一段" : mkSig\.on \? mkSig\.why : "这会儿没什么事";/,
+    "上面不写为什么亮，跟没亮一样");
+  assert.match(tile, /"和好间"\)/, "连它叫什么都没写");
+  // 没事时不该跟别的一样重：不折、不上底、不抬起
+  assert.match(tile, /const lit = !!\(mkSig\.on \|\| mkCur\);/);
+  assert.match(tile, /background: lit \? "linear-gradient\(180deg,#fcefe9/, "没事时它也占着一整块");
   // ② 整页，不是半窗（.claude/rules/no-half-sheet.md）
   const room = cut(scr, "function MakeupRoom({", "\n}\n");
   assert.match(room, /className: "h-full flex flex-col"/, "没按整页做");

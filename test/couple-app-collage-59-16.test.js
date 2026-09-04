@@ -25,15 +25,19 @@ test("不再是网格——加一样东西不该让版面更挤", () => {
 
 test("三个面各有各的规矩，不是同一套壳换大小", () => {
   // v62.12 英文眉标清掉（no-english-titles）：三个面的名字只剩中文
-  assert.match(collage, /\} \}, "今天"\),/, "没有「今天」那一块");
   assert.match(collage, /eyebrow\("墙上", "贴着的"\)/, "没有「墙上」那一片");
   assert.match(collage, /eyebrow\("收着的", "一本一本翻"\)/, "没有「收着的」那一列");
   assert.ok(!/"(ON THE WALL|KEPT|TODAY|STUDIO|FIRSTS|WHAT IF|DRAW|DRAWER|OUR RECORD|MANUAL ARCHIVE|SOMEDAY)"/.test(collage),
     "英文眉标又长回来了（no-english-titles）");
-  // 今天那一块是整页唯一的深色主角
-  assert.match(collage, /linear-gradient\(155deg,#7d3f57/, "「今天」那一块没做成深的");
-  // ⚠️那个孤零零的圆去掉了：整页十六个方框里混一个正圆，读起来就是随机
-  assert.ok(collage.indexOf("radius: 999") < 0 && collage.indexOf("borderRadius: 999, padding") < 0, "又冒出一个圆");
+  // ⚠️v62.40 起第一个面【不再靠一行眉标自报家门】：它长成了一页挂历，
+  //   红头上写着月份，那就是它的名字（她 2026-09-04：「从这里开始…外观也好无聊」）。
+  //   所以这里判的从「有没有那两个字」换成「它是不是那本挂历」——判据要对着形状问。
+  assert.match(collage, /background: "linear-gradient\(180deg," \+ CAL_RED/, "「今天」那一面不是挂历了");
+  assert.match(collage, /CAL_M \+ " 月"/, "挂历红头上没有月份");
+  // ⚠️那个孤零零的圆去掉了：整页十六个方框里混一个正圆，读起来就是随机。
+  //   判的是【一整块是圆的】——挂历的挂孔、票根的缺口那种小零件是形状的一部分，不算。
+  assert.ok(!/wall\("[a-z]+", \{[^}]*radius: 999/.test(collage), "有一块整个做成了圆的");
+  assert.ok(collage.indexOf("borderRadius: 999, padding") < 0, "又冒出一颗药丸");
 });
 
 test("形状跟着内容走，不是一堆方框", () => {

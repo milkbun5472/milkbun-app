@@ -18,8 +18,19 @@
   // 涨跌的，凡是负面情绪都得算；这一份问的是「你俩之间是不是有事」。
   // 「累」「疲惫」「焦虑」「害怕」是他自己的状态，跟她没关系——他加了个班就把
   // 和好间点亮，那是噪音。留下来的都是【朝着人去的】那几种。
-  const NEG = ["生气", "愤怒", "委屈", "失望", "伤心", "难过", "冷漠", "无语", "厌",
-    "别扭", "闷", "郁闷", "低落", "受伤", "沮丧", "心烦", "烦", "赌气", "憋", "不快", "嫉妒", "孤独"];
+  //
+  // ⚠️分成两张表，是因为【单字做子串】会咬中意思相反的词（她 2026-09-04 报：
+  // 「为啥憋笑也会进和好馆」）。心情标签是模型自由写的一句话，不是从清单里选的，
+  // 所以「憋」会咬中「憋笑」、「闷」会咬中「闷笑」——他正憋着笑，这儿却摆出一张
+  // 「还没了结的那一段」。
+  // 把「憋」换成「憋屈」只挡得住这一个词，下次「忍笑」「闷乐」照样漏。所以规矩下在形状上：
+  //   **单字只认【整个标签就是这个字】，绝不做子串。** 词表以后怎么加都不会再犯。
+  // NEG_SUB＝两个字以上、拿去做子串匹配的；NEG_WORD＝只有一个字、必须整条相等的。
+  const NEG_SUB = ["生气", "愤怒", "委屈", "失望", "伤心", "难过", "冷漠", "无语",
+    "讨厌", "厌烦", "厌倦", "别扭", "郁闷", "沉闷", "低落", "受伤", "沮丧", "心烦", "烦躁",
+    "赌气", "憋屈", "憋闷", "憋气", "憋火", "不快", "嫉妒", "孤独"];
+  const NEG_WORD = ["厌", "闷", "烦", "憋"];
+  const negHit = label => NEG_SUB.some(w => label.indexOf(w) >= 0) || NEG_WORD.indexOf(label) >= 0;
   const MOOD_FRESH_MS = 72 * 3600000;   // 三天前那条心情不算「此刻」
   const COLD_MS = 72 * 3600000;         // 三天没说话也算别扭——冷战不出声
   function signalOf(o) {
@@ -27,7 +38,7 @@
     const now = Number(o.now) || Date.now();
     const label = String((o.mood && o.mood.label) || "").trim();
     const moodTs = Number(o.mood && o.mood.ts) || 0;
-    const hit = label && NEG.some(w => label.indexOf(w) >= 0);
+    const hit = !!label && negHit(label);
     const fresh = moodTs > 0 && now - moodTs <= MOOD_FRESH_MS;
     if (hit && fresh) return { on: true, kind: "mood", why: "他从 " + agoWord(now - moodTs) + "开始，心情一直是「" + label + "」" };
     const last = Number(o.lastTalkTs) || 0;
@@ -91,7 +102,7 @@
 
   const api = {
     HIS_CAP: HIS_CAP, MY_LINE_CAP: MY_LINE_CAP, GIST_TURNS: GIST_TURNS,
-    NEG: NEG, MOOD_FRESH_MS: MOOD_FRESH_MS, COLD_MS: COLD_MS,
+    NEG_SUB: NEG_SUB, NEG_WORD: NEG_WORD, MOOD_FRESH_MS: MOOD_FRESH_MS, COLD_MS: COLD_MS,
     signalOf: signalOf, agoWord: agoWord,
     HIS_RULE: HIS_RULE, REPLY_RULE: REPLY_RULE,
     hisPrompt: hisPrompt, replyPrompt: replyPrompt,

@@ -4739,22 +4739,57 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             const eyebrow = (zh, right) => h("div", { className: "flex items-end justify-between", style: { marginTop: 26, marginBottom: 11 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, zh),
               right ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, right) : null);
+            // ── ① 今天：一页挂历 ──────────────────────────────
+            // v62.40（她 2026-09-04：「这两个从这里开始和和好馆的外观也好无聊」）。
+            // 上一版是一块紫色渐变圆角卡——按 tabs-not-plain-pills 那条判据问一句
+            // 「原样搬去另一个 app 还成立吗」：成立，所以它没从这一格是什么东西里长出来。
+            // 这一整页本来就是【一面墙】：底下贴着拍立得、票根、软木板卡片。
+            // 那么「时间轴与纪念日」在墙上是什么？——**一本挂历**。
+            // 所以它就长成挂历页：顶上两个打穿的孔、跨过顶边的两个铁环、一条红头写月份，
+            // 纸上有淡淡的竖格线，日子是那一页上最大的字，底边一道撕线。
+            const _cal = new Date();
+            const CAL_M = bAnn && bAnn.month ? Number(bAnn.month) : _cal.getMonth() + 1;
+            const CAL_RED = "#8d3f56";
+            const calRing = left => h("span", { "aria-hidden": "true", key: "r" + left,
+              style: { position: "absolute", left: left, top: -8, width: 11, height: 23, borderRadius: 6,
+                border: "2px solid rgba(120,96,86,.55)", borderBottomColor: "rgba(160,140,130,.28)", zIndex: 2 } });
+            const calHole = left => h("span", { "aria-hidden": "true", key: "h" + left,
+              style: { position: "absolute", left: left, marginLeft: 1, top: 2, width: 9, height: 9, borderRadius: 999,
+                background: "rgba(70,44,54,.34)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.38)", zIndex: 1 } });
             return h(Fragment, null,
-              // ── ① 今天 ────────────────────────────────────────
-              h("button", { onClick: () => openSub("timeline"), className: "w-full text-left active:opacity-80",
-                style: { position: "relative", display: "block", overflow: "hidden", borderRadius: 22, padding: "20px 20px 18px",
-                  background: "linear-gradient(155deg,#7d3f57 0%,#5b2f46 62%,#4a2739 100%)", boxShadow: "0 16px 34px rgba(68,32,52,.22)" } },
-                h("div", { "aria-hidden": "true", style: { position: "absolute", right: -30, top: -46, width: 168, height: 168, borderRadius: 999, background: "radial-gradient(circle,rgba(255,255,255,.10),rgba(255,255,255,0) 68%)" } }),
-                h("div", { style: { position: "relative", fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".22em", color: "rgba(255,255,255,.5)" } }, "今天"),
-                bAnn
-                  ? h("div", { style: { position: "relative", marginTop: 12 } },
-                      h("div", { className: "flex items-baseline", style: { gap: 6 } },
-                        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 54, lineHeight: 1, color: "#fff" } }, bAnn.days === 0 ? "今天" : bAnn.days),
-                        bAnn.days > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.66)" } }, "天") : null),
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)", marginTop: 6 } }, "距「" + bAnn.name + "」"))
-                  : h("div", { style: { position: "relative", marginTop: 12, fontFamily: F_DISPLAY, fontSize: 23, color: "#fff", lineHeight: 1.35 } },
-                      bTlN ? "记了 " + bTlN + " 个瞬间" : "从这里开始"),
-                h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 14 } }, "时间轴与纪念日")),
+              h("div", { style: { position: "relative", paddingTop: 7 } },
+                calRing("33%"), calRing("67%"),
+                h("button", { onClick: () => openSub("timeline"), className: "w-full text-left active:opacity-85",
+                  style: { position: "relative", display: "block", overflow: "hidden", borderRadius: "4px 4px 2px 2px",
+                    background: "#fdf8ee", boxShadow: "0 14px 30px rgba(68,32,52,.20)" } },
+                  // 红头：月份在左，年份在右——挂历页上就是这么写的
+                  h("div", { style: { position: "relative", background: "linear-gradient(180deg," + CAL_RED + " 0%,#77324a 100%)",
+                    padding: "13px 16px 9px", display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
+                    calHole("33%"), calHole("67%"),
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", letterSpacing: 1 } }, CAL_M + " 月"),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.66)", letterSpacing: ".18em" } },
+                      String(bAnn && bAnn.month ? (new Date()).getFullYear() : _cal.getFullYear()))),
+                  // 纸面：淡淡的竖格线（挂历那七道格子），字压在上面
+                  h("div", { style: { position: "relative", padding: "16px 16px 15px" } },
+                    h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, opacity: .5,
+                      backgroundImage: "repeating-linear-gradient(90deg,rgba(140,110,120,.16) 0 1px,rgba(0,0,0,0) 1px 14.28%)" } }),
+                    bAnn ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 15, top: 8,
+                      fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1, color: "rgba(122,77,99,.13)" } },
+                      Number(bAnn.day)) : null,
+                    bAnn
+                      ? h("div", { style: { position: "relative" } },
+                          h("div", { className: "flex items-baseline", style: { gap: 7 } },
+                            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 52, lineHeight: 1, color: "#5b2f46" } }, bAnn.days === 0 ? "今天" : bAnn.days),
+                            bAnn.days > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9b7d8b" } }, "天后") : null),
+                          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#7a4d63", marginTop: 7 } }, "「" + bAnn.name + "」"))
+                      : h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: 24, color: "#5b2f46", lineHeight: 1.35, padding: "6px 0 4px" } },
+                          bTlN ? "记了 " + bTlN + " 个瞬间" : "从这里开始"),
+                    h("div", { className: "flex items-center justify-between", style: { position: "relative", marginTop: 14 } },
+                      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a68b98" } }, "时间轴与纪念日"),
+                      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#c0a3af" } }, "翻开"))),
+                  // 撕线：挂历页撕下来的那一道
+                  h("div", { "aria-hidden": "true", style: { height: 6, borderTop: "1px dashed rgba(140,110,120,.42)",
+                    background: "repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 3px,rgba(0,0,0,0) 3px 7px)" } }))),
               // 纪念日当天的仪式（v62.11）：就今天这一天露出来——让他写一条「走到今天」的感慨，
               // 落进时光轴（还是那条 genTimelineMusing 链，只是带上了是哪个日子）。一年就那么几次。
               bAnn && bAnn.days === 0 ? h("button", { onClick: () => !tlGen && onGenTimeline(partner, bAnn.name), disabled: tlGen,
@@ -4763,15 +4798,40 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   background: "#fdf3e3", border: "1px solid #ecd9b8" } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#8a6a3a", lineHeight: 1.5 } },
                   tlGen ? partner.name + " 写着…" : "今天是「" + bAnn.name + "」——让 " + partner.name + " 写写走到今天")) : null,
-              // 和好间：没事时是一条淡纸；真有事了才压上来
-              h("button", { onClick: () => openSub("makeup"), className: "w-full text-left active:opacity-75",
-                style: { display: "block", marginTop: (mkSig.on || mkCur) ? 12 : 9, borderRadius: 13, padding: (mkSig.on || mkCur) ? "14px 15px" : "9px 14px",
-                  background: (mkSig.on || mkCur) ? "#f7ebe7" : "transparent",
-                  border: "1px solid " + ((mkSig.on || mkCur) ? "#ecd3cb" : PLINE),
-                  transform: (mkSig.on || mkCur) ? "rotate(-0.5deg)" : null,
-                  boxShadow: (mkSig.on || mkCur) ? "0 10px 22px rgba(120,70,60,.13)" : "none" } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: (mkSig.on || mkCur) ? 15.5 : 12.5, lineHeight: 1.5, color: (mkSig.on || mkCur) ? "#8d5a4f" : t.fog } },
-                  mkCur ? "和好间 · 还没了结的那一段" : mkSig.on ? mkSig.why : "和好间 · 这会儿没什么事")),
+              // ── 和好间：一张折起来的字条 ───────────────────────
+              // v62.40（她 2026-09-04：「和好馆的外观也好无聊」）。上一版是一个圆角
+              // 药丸框换个底色——同样过不了那句「搬去别的 app 还成立吗」。
+              // 这一格凭什么存在，makeup.js 开头写死了：**他没说出口的那一半**。
+              // 那句话在现实里就是一张【折起来的字条】：外头看得见一行，剩下的折在里面。
+              // 所以有事的时候它是折过的——右上角一个真的折角、当中一道折痕、纸微微歪；
+              // 没事的时候它就是一张没折过的空白纸条，平平地压在那儿。
+              (() => {
+                const lit = !!(mkSig.on || mkCur);
+                const line = mkCur ? "还没了结的那一段" : mkSig.on ? mkSig.why : "这会儿没什么事";
+                const EAR = 22;   // 折角边长
+                return h("button", { onClick: () => openSub("makeup"), className: "w-full text-left active:opacity-80",
+                  style: { position: "relative", display: "block", marginTop: lit ? 14 : 10, minHeight: 44,
+                    borderRadius: 2, padding: lit ? "12px 15px 22px" : "12px 14px",
+                    background: lit ? "linear-gradient(180deg,#fcefe9 0%,#fae8e1 46%,#f6e2da 100%)" : "rgba(255,253,250,.42)",
+                    border: "1px solid " + (lit ? "#e9cdc3" : PLINE),
+                    transform: lit ? "rotate(-0.7deg)" : null,
+                    boxShadow: lit ? "0 11px 24px rgba(120,70,60,.15)" : "none",
+                    clipPath: lit ? "polygon(0 0, calc(100% - " + EAR + "px) 0, 100% " + EAR + "px, 100% 100%, 0 100%)" : null } },
+                  // 折角：翻起来那一小片纸的背面
+                  lit ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: 0, right: 0, width: EAR, height: EAR,
+                    background: "linear-gradient(225deg,#e2c2b6 0%,#f2ddd5 70%)", clipPath: "polygon(0 0, 100% 100%, 0 100%)",
+                    boxShadow: "-1px 1px 2px rgba(120,70,60,.18)" } }) : null,
+                  h("div", { className: "flex items-baseline", style: { gap: 8 } },
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: lit ? "#bd9082" : t.fog, flexShrink: 0 } }, "和好间"),
+                    !lit ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.fog, lineHeight: 1.5 } }, line) : null),
+                  lit ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: "#8d5a4f", marginTop: 7, paddingRight: 4 } }, line) : null,
+                  // 底边那一道是【折上来的那一小条】，不是分隔线。
+                  // ⚠️上一版把折痕横在正文上面，结果读起来是「一条标题栏压着一条内容栏」——
+                  //   两个方块摞着，正是要躲开的那种长相。折在【底边】才像一张折过的纸。
+                  lit ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 11,
+                    background: "linear-gradient(180deg,#eed3c9 0%,#e6c4b8 100%)",
+                    borderTop: "1px solid rgba(255,255,255,.55)", boxShadow: "0 -3px 7px -5px rgba(120,70,60,.45)" } }) : null);
+              })(),
               // ── ② 墙上：贴着的东西，不对齐 ──────────────────────
               eyebrow("墙上", "贴着的"),
               h("div", { className: "flex flex-wrap", style: { gap: 12, alignItems: "flex-start" } },
