@@ -3761,41 +3761,70 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, onBack }) {
   };
   const patchWish = (id, patch) => onSave(wishes.map(w => w.id === id ? { ...w, ...patch, updatedAt: Date.now() } : w));
   const removeWish = id => onSave(wishes.filter(w => w.id !== id));
-  const statusMeta = { wish: ["想做", "#a86882"], planned: ["已计划", "#547fa1"], done: ["已实现", "#54866a"], shelved: ["先搁着", "#8b817c"] };
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "愿望板", en: partner.name, onBack }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-      h("div", { style: { borderRadius: 22, padding: "18px 16px", background: "linear-gradient(145deg,#fff2f2,#f3edf8)", border: "1px solid #eadbe5", marginBottom: 16 } },
-        h(Eyebrow, null, "放进一件以后想一起做的事"),
-        h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "去哪里、吃什么，或想完成的一件小事", className: "w-full outline-none", style: { marginTop: 11, borderRadius: 13, border: "1px solid #eadbe5", background: "rgba(255,255,255,.72)", padding: "11px 12px", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }),
-        h("div", { className: "flex gap-2 overflow-x-auto", style: { marginTop: 10, paddingBottom: 2 } }, ["一起做", "一起去", "一起吃", "一起学", "想送 TA"].map(x => h("button", { key: x, onClick: () => setType(x), className: "active:opacity-60", style: { whiteSpace: "nowrap", borderRadius: 999, padding: "5px 10px", border: "1px solid #dfcfda", background: type === x ? "#4b3440" : "rgba(255,255,255,.7)", color: type === x ? "#fff" : "#765f6b", fontFamily: F_BODY, fontSize: 11.5 } }, x))),
-        h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "可选：为什么想做、已经约到哪一步", className: "w-full outline-none resize-none", style: { marginTop: 10, borderRadius: 13, border: "1px solid #eadbe5", background: "rgba(255,255,255,.72)", padding: "10px 12px", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
-        h("button", { onClick: add, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 13, background: "#4b3440", color: "#fff", padding: "10px 12px", fontFamily: F_DISPLAY, fontSize: 14 } }, "钉到愿望板上")),
-      wishes.length ? wishes.map(w => {
-        const sm = statusMeta[w.status] || statusMeta.wish;
-        return h("article", { key: w.id, style: { borderRadius: 18, border: "1px solid " + t.line, background: t.bg2, padding: "14px 14px 12px", marginBottom: 11 } },
+  const statusMeta = { wish: ["想做", "#a05a78"], planned: ["已计划", "#4a7396"], done: ["实现了", "#4c7a60"], shelved: ["先搁着", "#847a72"] };
+  // ── 软木板（v62.14）：它叫「板」，原来长得是表单+列表+状态药丸——换个 app 照样成立。
+  // 现在整页就是一块软木板（底纹铺外壳、顶栏透明、不跟着滚：mobile-ui-layout §3.5），
+  // 每个愿望是一张钉在板上的纸条：图钉、微歪、各有各的纸色；实现了的盖一个歪章。
+  // 状态切换不再是药丸，是【盖章】：选中那枚真的「盖下去」（实底、歪着、压出影）——
+  // 形状和角度都变了，不只靠色差（tabs-not-plain-pills 那两条底线）。
+  const CORK = "#b3905f";
+  const pin = tint2 => h("div", { "aria-hidden": "true", style: { position: "absolute", top: -7, left: "50%", marginLeft: -7, width: 14, height: 14, borderRadius: 999, background: "radial-gradient(circle at 35% 30%," + (tint2 === "b" ? "#7fa3c6,#33567a" : "#e88f7a,#a63b28") + ")", boxShadow: "0 3px 4px rgba(60,30,10,.4), inset 0 -2px 3px rgba(0,0,0,.28)", zIndex: 2 } });
+  const stamp = (on, label, color, onClick, big) => h("button", { key: label, onClick, className: "active:opacity-70",
+    style: { minHeight: 40, padding: "4px 3px", background: "transparent" } },
+    h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: big ? 56 : 46, padding: "4px 8px", borderRadius: 3,
+      border: "1.5px solid " + color, color: on ? "#fff" : color, background: on ? color : "transparent",
+      transform: on ? "rotate(-6deg)" : "none", boxShadow: on ? "0 2px 4px rgba(60,30,10,.3)" : "none", transition: "transform .12s",
+      fontFamily: F_DISPLAY, fontSize: big ? 12 : 11 } }, label));
+  const paperInk = "#4a3d2b", paperFog = "#94856a";
+  const tilt = i => [-1.2, 0.8, -0.6, 1.3, -0.9, 0.5][i % 6];
+  return h("div", { className: "h-full flex flex-col", style: {
+    background: CORK,
+    // 软木的颗粒：三层大小不一的点阵叠出来，不跟着滚（铺在外壳上）
+    backgroundImage: "radial-gradient(rgba(120,85,40,.16) 1px, transparent 1.6px), radial-gradient(rgba(255,240,210,.13) 1px, transparent 1.5px), radial-gradient(rgba(90,60,25,.12) 1.4px, transparent 2px)",
+    backgroundSize: "9px 9px, 13px 13px, 23px 23px", backgroundPosition: "0 0, 4px 7px, 11px 3px",
+    boxShadow: "inset 0 0 46px rgba(90,60,25,.30)" } },
+    h(Head, { zh: "愿望板", en: partner.name, onBack, bg: "transparent", ink: "#3a2c15" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      // 表单也是钉在板上的一张纸
+      h("div", { style: { position: "relative", marginTop: 14, padding: "16px 15px 13px", background: "#fbf5e6", borderRadius: 2, transform: "rotate(-0.5deg)", boxShadow: "0 7px 16px rgba(70,45,15,.28)" } },
+        pin("b"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: paperInk } }, "放进一件以后想一起做的事"),
+        h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "去哪里、吃什么，或想完成的一件小事", className: "w-full outline-none", style: { marginTop: 10, background: "transparent", borderBottom: "1px dashed #d5c7a4", padding: "7px 2px", fontFamily: F_BODY, fontSize: 13.5, color: paperInk } }),
+        h("div", { className: "flex flex-wrap", style: { marginTop: 6 } }, ["一起做", "一起去", "一起吃", "一起学", "想送 TA"].map(x => stamp(type === x, x, "#8a6a3a", () => setType(x)))),
+        h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "可选：为什么想做、已经约到哪一步", className: "w-full outline-none resize-none", style: { marginTop: 4, background: "transparent", borderBottom: "1px dashed #d5c7a4", padding: "6px 2px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: paperInk } }),
+        h("button", { onClick: add, disabled: !title.trim(), className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 11, borderRadius: 8, background: "#4a3d2b", color: "#fbf5e6", padding: "10px 12px", fontFamily: F_DISPLAY, fontSize: 14 } }, "钉到板上")),
+      wishes.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 17, marginTop: 20 } }, wishes.map((w, wi) => {
+        const done = w.status === "done", shelved = w.status === "shelved";
+        return h("article", { key: w.id, style: { position: "relative", padding: "15px 14px 8px", borderRadius: 2,
+          background: done ? "#f2ecd9" : shelved ? "#ece4d2" : "#fffdf4",
+          transform: "rotate(" + tilt(wi) + "deg)", opacity: shelved ? 0.78 : 1,
+          boxShadow: "0 " + (done || shelved ? 4 : 8) + "px " + (done || shelved ? 10 : 18) + "px rgba(70,45,15," + (done || shelved ? ".18" : ".3") + ")" } },
+          pin(done ? "b" : "r"),
+          // 实现了：一个歪盖的章压在角上——纸条自己说完了这件事的结局
+          done ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 8, top: 10, transform: "rotate(-13deg)", border: "2.5px solid rgba(76,122,96,.68)", color: "rgba(76,122,96,.8)", borderRadius: 5, padding: "1px 8px", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3, zIndex: 1 } }, "实现了") : null,
           h("div", { className: "flex items-start justify-between gap-3" },
             h("div", { className: "min-w-0" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, lineHeight: 1.35 } }, w.title),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, w.type || "一起做")),
-            h("button", { onClick: () => removeWish(w.id), className: "active:opacity-60", style: { flexShrink: 0, color: t.fog, fontSize: 12 } }, "移除")),
-          w.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.fog, marginTop: 9 } }, w.note) : null,
-          h("div", { className: "flex gap-1.5 overflow-x-auto", style: { marginTop: 11 } }, Object.keys(statusMeta).map(k => h("button", { key: k, onClick: () => patchWish(w.id, { status: k }), className: "active:opacity-60", style: { whiteSpace: "nowrap", borderRadius: 999, padding: "4px 9px", border: "1px solid " + (w.status === k ? statusMeta[k][1] : t.line), background: w.status === k ? statusMeta[k][1] : "transparent", color: w.status === k ? "#fff" : t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, statusMeta[k][0]))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: paperInk, lineHeight: 1.4, textDecoration: done ? "line-through" : "none", textDecorationColor: "rgba(76,122,96,.5)" } }, w.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: paperFog, marginTop: 3 } }, w.type || "一起做")),
+            h("button", { onClick: () => removeWish(w.id), "aria-label": "取下来", className: "active:opacity-60", style: { flexShrink: 0, color: paperFog, fontSize: 12, minHeight: 32, padding: "0 4px", fontFamily: F_BODY } }, "取下")),
+          w.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#7a6b50", marginTop: 8 } }, w.note) : null,
+          h("div", { className: "flex flex-wrap items-center", style: { marginTop: 5, borderTop: "1px dashed #e0d4b4", paddingTop: 2 } },
+            Object.keys(statusMeta).map(k => stamp(w.status === k, statusMeta[k][0], statusMeta[k][1], () => patchWish(w.id, { status: k })))),
           // 已计划的可以挑个日子：到那天他会主动来约这件事（约回链，不是提醒闹钟）
           (function () {
             if (w.status !== "planned" || !onPlan) return null;
             const pl = planOf ? planOf(w.id) : null;
-            return h("div", { style: { marginTop: 10, borderTop: "1px dashed " + t.line, paddingTop: 9 } },
+            return h("div", { style: { margin: "2px 0 8px" } },
               pl ? h("div", { className: "flex items-center flex-wrap", style: { gap: 9 } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4a7396", border: "1px solid #cdbfa0", borderRadius: 999, padding: "3px 10px" } },
                   (new Date(pl.dueTs).getMonth() + 1) + "月" + new Date(pl.dueTs).getDate() + "日 · " + planLeft(pl.dueTs) + " · 到时他来约"),
-                h("button", { onClick: () => onPlan(w, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, minHeight: 32 } }, "不定了"))
+                h("button", { onClick: () => onPlan(w, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: paperFog, minHeight: 32 } }, "不定了"))
               : planFor === w.id ? h("div", { className: "flex items-center", style: { gap: 8 } },
-                h("input", { type: "date", value: planVal, onChange: e => setPlanVal(e.target.value), style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", outline: "none" } }),
-                h("button", { onClick: () => { const ts = planTs(planVal); if (ts) { onPlan(w, ts); setPlanFor(null); } }, disabled: !planVal, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 10, padding: "8px 14px" } }, "就这天"))
-              : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, minHeight: 32 } }, "挑个日子 · 到那天他来约"));
+                h("input", { type: "date", value: planVal, onChange: e => setPlanVal(e.target.value), style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 10px", outline: "none" } }),
+                h("button", { onClick: () => { const ts = planTs(planVal); if (ts) { onPlan(w, ts); setPlanFor(null); } }, disabled: !planVal, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#4a7396", borderRadius: 8, padding: "8px 14px" } }, "就这天"))
+              : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } }, "挑个日子 · 到那天他来约"));
           })());
-      }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
+      })) : h("div", { style: { margin: "26px 4px 0", padding: "30px 16px", textAlign: "center", border: "1.5px dashed rgba(70,45,15,.35)", borderRadius: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#5c4726", lineHeight: 1.9 } }, "板上还空着。", h("br"), "先钉一件不急着完成、但不想忘记的事。")));
 }
 
 // 情侣空间·我们的唱片（她 2026-09-01）。数据形状 { songs:[{id,neteaseId,title,artist,
