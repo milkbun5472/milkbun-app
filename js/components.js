@@ -2942,7 +2942,10 @@ function Home({
         }
         clearHover();
         if (dropRef.current !== overKey) { dropRef.current = overKey; setDropKey(overKey); }
-      } else if (!overKey) { clearHover(); if (dropRef.current) { dropRef.current = null; setDropKey(null); } }
+      } else { // 手指悬在被拖的那个自己身上（overKey===dragged）或空白处：都不能留着旧落点——
+        // 旧落点残留会让「在自己上方松手」落到几秒前扫过的某个格子上（她 9/3：地图跑到顶端）。
+        clearHover(); if (dropRef.current) { dropRef.current = null; setDropKey(null); }
+      }
       return;
     }
     const r = dragRef.current;
