@@ -56,7 +56,14 @@ function drive(opts) {
     replyGroup: (gid, o) => calls.push({ at: NOW, ...o }),
     AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
     Math: Object.assign(Object.create(Math), { random: () => rand }),
-    Date: { now: () => NOW },
+    // ⚠️不能只桩一个 now：巡检里要 new Date(now).toDateString() 算「今天」
+    //   （每天最多借几次那道闸）。只给 now 的话是 "Date is not a constructor"。
+    Date: (() => {
+      const RealDate = Date;
+      const F = function (...a) { return a.length ? new RealDate(...a) : new RealDate(NOW); };
+      F.now = () => NOW;
+      return F;
+    })(),
     // v62.12：动念按【场】分，巡检读的是【这个群】那一份（键 = 角色@群）。
     // 键的算法不在这儿抄一份——从真代码里抠出来用，否则改了格式这个桩照样绿。
     dongnianKey: dongnianKey,
@@ -86,7 +93,9 @@ function drive(opts) {
       store[G] = { ...old, msgs: (old.msgs || 0) + perRound };
     }
   }
-  return calls.map(c => ({ minute: (c.at - T0) / 60000, budget: c.msgBudget }));
+  const out = calls.map(c => ({ minute: (c.at - T0) / 60000, budget: c.msgBudget }));
+  out.card = store[G] || {};   // 跑完之后那张额度卡长什么样（借了几次、冷却还在不在）
+  return out;
 }
 
 test("拿她的设置真跑一遍：5 轮一轮不少", () => {
@@ -96,7 +105,12 @@ test("拿她的设置真跑一遍：5 轮一轮不少", () => {
 });
 
 test("有 dongnian 的群也一样跑满——动念只管起聊那一下", () => {
-  assert.equal(drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true }).length, 5);
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true });
+  assert.deepEqual(got.slice(0, 5).map(x => x.budget), [50, 45, 40, 35, 30],
+    "正经那 5 轮要一轮不少、预算照旧递减");
+  // 第 6 轮起是 v62.13 的【冷却期借几轮】。默认跑 2 小时，两次借之间要隔 3 小时，
+  // 所以这一趟只借得到一次：5 + 4 = 9。（一天的上限 13 在下面那条单独量。）
+  assert.equal(got.length, 9, "借的节奏变了？实际 " + got.length + " 轮");
 });
 
 test("总条数上限先到就先停", () => {
@@ -117,10 +131,11 @@ test("设 3 分钟就该是 3 分钟上下，不是一律往后拖", () => {
 test("动念只管起聊那一下，后面几轮不再要新的思念", () => {
   const i = scan.indexOf("let urgeChars = [];");
   assert.ok(i > 0, "urgeChars 的声明变了");
-  const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {", i);
-  assert.ok(gate > i, "没有把动念这道门收进【第一轮】里");
-  const seg = scan.slice(gate, gate + 1100);
-  assert.match(seg, /if \(anyDongnian && !urgeChars\.length\) continue;/, "起聊仍要有人真想找她");
+  const gate = scan.indexOf('if ((rounds === 0 && !cycle.kicked) || borrowing === "maybe") {', i);
+  assert.ok(gate > i, "没有把动念这道门收进【第一轮 或 起借】里");
+  const seg = scan.slice(gate, gate + 1300);
+  assert.match(seg, /if \(!urgeChars\.length && \(borrowing === "maybe" \|\| anyDongnian\)\) continue;/,
+    "起聊仍要有人真想找她；起借更严——一个动念引擎都没有时也不许借");
   assert.match(seg, /dongnianFiredRef\.current\[c\.id\] = now;/, "认领冷却要留在门里面");
   assert.match(seg, /applyDelta\(\{ connection: -0\.28 \}\)/, "泄思念也要留在门里面");
 });
@@ -128,10 +143,10 @@ test("动念只管起聊那一下，后面几轮不再要新的思念", () => {
 test("刹车还在：轮数上限、总条数上限、闲置间隔一个都不许少", () => {
   assert.match(scan, /const roundCap = Math\.max\(1, gs\.autoChatRounds \|\| 5\)/, "轮数上限没了");
   assert.match(scan, /const totalCap = Math\.max\(1, gs\.autoChatMaxMsg \|\| 50\)/, "总条数上限没了");
-  assert.match(scan, /if \(rounds >= roundCap \|\| msgsSoFar >= totalCap\)/, "到顶不歇了");
+  assert.match(scan, /const capped = rounds >= roundCap \|\| msgsSoFar >= totalCap;/, "到顶不歇了");
   assert.match(scan, /if \(now - \(last\.ts \|\| 0\) < gap\) continue;/, "闲置间隔没了");
   // 上限判断必须排在动念那道门【之前】：先看额度够不够，再看有没有人想说话
-  assert.ok(scan.indexOf("if (rounds >= roundCap") < scan.indexOf("let urgeChars = [];"), "顺序反了");
+  assert.ok(scan.indexOf("const capped = rounds >= roundCap") < scan.indexOf("let urgeChars = [];"), "顺序反了");
 });
 
 test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
@@ -141,8 +156,9 @@ test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
 });
 
 test("没配 dongnian 的群照旧纯闲置触发，一个字没变", () => {
-  const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {");
-  const seg = scan.slice(gate, gate + 1100);
+  const gate = scan.indexOf('if ((rounds === 0 && !cycle.kicked) || borrowing === "maybe") {');
+  assert.ok(gate > 0, "动念那道门的写法变了");
+  const seg = scan.slice(gate, gate + 1300);
   assert.match(seg, /let anyDongnian = false;/, "没 dongnian 的群该直接放行");
 });
 
@@ -165,7 +181,7 @@ test("kicked 只管这一段的第一轮，发过就消掉", () => {
   const src = app.slice(app.indexOf("const scanAutoGroups = () => {"));
   assert.match(src, /rounds: rounds \+ 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false/,
     "起聊之后要把标记清掉，别跨过下一次额度刷新还赖着");
-  assert.match(src, /if \(rounds === 0 && !cycle\.kicked\)/, "动念那道门要认这个标记");
+  assert.match(src, /if \(\(rounds === 0 && !cycle\.kicked\) \|\| borrowing === "maybe"\)/, "动念那道门要认这个标记");
 });
 
 // 上面那条差点漏掉：黑键 reset 时不记 lastUserTs，下一拍巡检就会把她那句话
@@ -246,4 +262,63 @@ test("一场忘了结束的线下不许把自发聊永远关死", () => {
   const empty = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
     groupOffline: [{ id: "s1", startTs: T0 - 600000, msgs: [] }] });
   assert.ok(empty.length >= 5, "只是开了个空场就把线上锁住了");
+});
+
+// ── 冷却期借几轮（v62.13，她 2026-09-04：「做吧宝宝」）───────────────────
+// 她原来的想法是「动念满了就去把 50 轮重置掉」。那等于突破一次换一张新卡＝取消上限，
+// 所以改成【借一小段】：放行几轮、聊完还回冷却、resetAt 一秒不动，外加每天最多借几次。
+test("到顶之后没人动念，一轮都不许借", () => {
+  // kicked 让头一轮不等动念，正经 5 轮照跑；之后 urge:false＝谁都不想说话
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, urge: false, kicked: true, hours: 20 });
+  assert.equal(got.length, 5, "没人想说话也借到了，实际 " + got.length + " 轮");
+  assert.ok(got.card.resetAt > 0, "冷却该挂着");
+  assert.ok(!got.card.borrowUsed, "根本没借，不该记账");
+});
+
+test("有人动念就借得到——但借的是一小段，冷却一秒没动", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 1.2 });
+  assert.equal(got.length, 9, "5 轮正经 + 借 4 轮 = 9，实际 " + got.length);
+  assert.ok(got.card.resetAt > 0, "⚠️借完把冷却清了——那就是换了张新卡，等于取消上限");
+  assert.equal(got.card.rounds, 5, "借的账不许记进 rounds，那样下次就看不出已经到顶了");
+  assert.equal(got.card.borrowUsed, 1, "今天借了一次");
+  assert.equal(got.card.borrowLeft, 0, "四轮走完，借的那一段该还回去了");
+  // 借来那一轮能发几条：她设的 50 条 ÷ 5 轮 = 10，不是负数、也不是新拍的魔数
+  assert.deepEqual(got.slice(5).map(x => x.budget), [10, 10, 10, 10]);
+});
+
+test("一天最多借两次，第三次说什么都不放", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 20 });
+  assert.equal(got.card.borrowUsed, 2, "日闸没兜住，借了 " + got.card.borrowUsed + " 次");
+  assert.equal(got.length, 13, "5 + 4 + 4 = 13，实际 " + got.length);
+});
+
+test("换一张新额度卡：借来的那一段作废，但今天借过几次要留着", () => {
+  const src = app.slice(app.indexOf("const resetAutoChatCycle = (gid"), app.indexOf("const addAutoChatMessages"));
+  assert.match(src, /borrowLeft: 0/, "新卡还留着上一段没走完的借轮");
+  assert.match(src, /borrowDay: prev\.borrowDay \|\| "", borrowUsed: Number\(prev\.borrowUsed\) \|\| 0/,
+    "⚠️日闸没跨过换卡活下来——换卡最常见的原因就是【她说了一句话】，随口一句就把闸清零，那道闸等于不存在");
+});
+
+test("借的那一路绝不许清掉 cappedAt / resetAt", () => {
+  const i = scan.indexOf("if (borrowing) {");
+  assert.ok(i > 0, "借的那一路没了");
+  const seg = scan.slice(i, scan.indexOf("} else {", i));
+  assert.doesNotMatch(seg, /resetAt: 0/, "借完把冷却清了＝换新卡＝取消上限");
+  assert.doesNotMatch(seg, /cappedAt: 0/, "同上");
+  assert.doesNotMatch(seg, /rounds: rounds \+ 1/, "借的账混进了正经轮数");
+  assert.match(seg, /borrowLeft: \(start \? BORROW_ROUNDS : borrowLeft\) - 1/, "借的轮数不递减＝借了就永远还不回去");
+});
+
+test("换一天，闸自己归零（不是攒一辈子）", () => {
+  assert.match(scan, /const dayKey = new Date\(now\)\.toDateString\(\);/, "没有「今天」这个概念");
+  assert.match(scan, /cycle\.borrowDay === dayKey \? \(Number\(cycle\.borrowUsed\) \|\| 0\) : 0/,
+    "跨天不归零的话，借满两次之后这个群一辈子再也借不到");
+});
+
+test("两次借之间要隔一阵——日闸挡不住「两次挤在一小时里」", () => {
+  // 3 小时内只借得到一次，哪怕那份动念一直是满的
+  assert.equal(drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 2.9 }).card.borrowUsed, 1);
+  assert.equal(drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 4 }).card.borrowUsed, 2);
+  assert.match(scan, /const BORROW_GAP_MS = 3 \* 3600000;/, "最小间隔没了");
+  assert.match(scan, /now - \(Number\(cycle\.borrowAt\) \|\| 0\) < BORROW_GAP_MS\) continue;/, "间隔没生效");
 });

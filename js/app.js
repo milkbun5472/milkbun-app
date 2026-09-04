@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.12";
+const APP_VERSION = "v62.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4020,16 +4020,42 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // kicked＝这张额度卡是她【亲手按黑色回复键／让他们继续】开出来的（v56.73）。
   // 带着这个标记时，本段的第一轮自发不再等谁动念——她已经明说了要他们聊。
   // 她自己发言开出来的卡不带这个标记：那是正常说话，起聊仍旧由人格驱动。
-  const resetAutoChatCycle = (gid, lastUserTs, kicked) => writeAutoChatCycle(gid, {
-    rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!kicked,
-    lastUserTs: Number(lastUserTs) || Number((autoChatCycleRef.current[gid] || {}).lastUserTs) || 0
-  });
+  // ⚠️「今天借过几次」必须跨过换卡活下来（v62.13）：换卡最常见的原因就是【她说了一句话】，
+  //   不留着的话，随口一句就把日闸清零，那道闸等于不存在。借来的那一段（borrowLeft）反过来
+  //   要清掉——新卡有正经额度了，没什么好借的。
+  const resetAutoChatCycle = (gid, lastUserTs, kicked) => {
+    const prev = (autoChatCycleRef.current || {})[gid] || {};
+    return writeAutoChatCycle(gid, {
+      rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!kicked,
+      lastUserTs: Number(lastUserTs) || Number(prev.lastUserTs) || 0,
+      borrowDay: prev.borrowDay || "", borrowUsed: Number(prev.borrowUsed) || 0,
+      borrowAt: Number(prev.borrowAt) || 0, borrowLeft: 0
+    });
+  };
   const addAutoChatMessages = (gid, count) => {
     const old = (autoChatCycleRef.current && autoChatCycleRef.current[gid]) || {};
     writeAutoChatCycle(gid, { ...old, rounds: Number(old.rounds) || 0, msgs: (Number(old.msgs) || 0) + Math.max(0, Number(count) || 0) });
   };
   useEffect(() => {
     const scanAutoGroups = () => {
+      // ── 冷却期借几轮（v62.13，她 2026-09-04 点头的那两步里的第一步）──────────
+      // 额度卡到顶之后原来是【完全没有话语权】：那个 continue 排在动念检查之前，
+      // 思念涨到什么程度都没用。可她要的不是「机械配额」，是「心理动机」——
+      // 单聊那边 v48.81 就改过了（固定间隔滑块砍掉，理由写在代码里「真时机动念说了算」），
+      // 群这条一直停在配额。
+      //
+      // ⚠️但不是「重置额度卡」——那等于突破一次就换一张新卡，实际取消了上限。
+      //   借的是【一小段】：放行几轮，聊完还回冷却，**resetAt 一秒都不动**。
+      //   再加一道每天最多借几次的闸——思念是连续涨的，没这道闸一天能被突破好几次，
+      //   而每一轮自发都是一次调用，她按次计费。
+      const BORROW_ROUNDS = 4;      // 借一次给几轮（当初说的 3~5）
+      const BORROW_PER_DAY = 2;     // 每个群每天最多借几次
+      // ⚠️两次借之间的最小间隔。没有这一条的话，日闸挡不住【两次借挤在一小时里】：
+      //   认领动念只有 25 分钟的人均冷却，理论上一小时就能借第二次——
+      //   于是她设的 5 轮变成一小时之内的 13 轮，跟「取消上限」没什么区别。
+      //   真实里认领要泄 0.28 思念、得再攒六七个小时，所以这一条平时不生效；
+      //   但那是【概率】，这一条才是【保证】（规则降概率，代码才保证）。
+      const BORROW_GAP_MS = 3 * 3600000;
       // 一次巡检最多叫起一个群，避免多个群同秒并发烧调用；下一次巡检自然轮到其余满足条件的群。
       for (const group of groups) {
         const gid = group.id;
@@ -4061,13 +4087,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const msgsSoFar = Number(cycle.msgs) || 0;
         const roundCap = Math.max(1, gs.autoChatRounds || 5);
         const totalCap = Math.max(1, gs.autoChatMaxMsg || 50);
-        if (rounds >= roundCap || msgsSoFar >= totalCap) {
+        const capped = rounds >= roundCap || msgsSoFar >= totalCap;
+        // 借来的这一段还剩几轮 / 今天已经借过几次（换一天自动归零）
+        const dayKey = new Date(now).toDateString();
+        const borrowUsed = cycle.borrowDay === dayKey ? (Number(cycle.borrowUsed) || 0) : 0;
+        const borrowLeft = Number(cycle.borrowLeft) || 0;
+        let borrowing = "";
+        if (capped) {
           // 冷却从【真正达到上限】这一刻才起算；设置改变后第一次巡检会补记这一刻。
           if (!cycle.resetAt) {
             const resetHours = Math.max(1, Number(gs.autoChatResetHours) || 24);
             cycle = writeAutoChatCycle(gid, { ...cycle, cappedAt: now, resetAt: now + resetHours * 3600000 });
           }
-          continue;
+          if (borrowLeft > 0) borrowing = "on";              // 借来的那一段还没走完，接着走
+          else if (borrowUsed >= BORROW_PER_DAY) continue;    // 今天借够了，老老实实等冷却
+          else if (now - (Number(cycle.borrowAt) || 0) < BORROW_GAP_MS) continue;  // 刚借过，隔一阵再说
+          else borrowing = "maybe";                           // 得真有人此刻想说话，才借得到
         }
         const mins = Math.max(1, gs.autoChatMin || 8);
         // 抖动【绕着】她设的那个数走（0.8~1.2×），不是一律往后拖（v56.72）。
@@ -4084,7 +4119,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 后面几轮是【同一场对话在往下接】，本来就不该再要一份新的思念——刹车交给
         // 轮数上限、总条数上限和闲置间隔，那三样才是她在设置里调的东西。
         let urgeChars = [];
-        if (rounds === 0 && !cycle.kicked) {
+        // borrowing === "maybe"：这是【起借】那一下，跟起聊同一个性质——必须有人真想说话。
+        // 借的后几轮（"on"）不再要新的思念，跟正常的第二轮往后一样。
+        if ((rounds === 0 && !cycle.kicked) || borrowing === "maybe") {
           let anyDongnian = false;
           // ⭐读的是【这个群那一份】动念，不是他跟 Lisa 那一份（v62.12，她 2026-09-04：
           //   「给 cp 而不是我涨进度」）。以前读 __dongnian[c.id]，那份的含义是
@@ -4097,15 +4134,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             // 不按场算：他这会儿在群里开了口，就别同一分钟又来私聊找她。她按次计费。
             if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (dongnianFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
           });
-          if (anyDongnian && !urgeChars.length) continue;
+          // ⚠️起借比起聊严一档：起聊在【一个动念引擎都还没算出来】时会放行（冷启动别卡死），
+          //   借不行——没人想说话就不许动冷却期这块地方。
+          if (!urgeChars.length && (borrowing === "maybe" || anyDongnian)) continue;
           urgeChars.forEach(c => {
             dongnianFiredRef.current[c.id] = now;
             try { const eng = getDongnian(c, gid); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
           });
         }
-        // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
-        cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false });
-        replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
+        if (borrowing) {
+          // ⚠️这一路【不许】写 cappedAt:0 / resetAt:0——那就成了换一张新额度卡，
+          //   等于取消上限。冷却原样挂着，借的几轮走完自己就回去了。
+          //   rounds/msgs 也不动：它俩已经到顶，借的账单独记在 borrowLeft 上。
+          const start = borrowLeft <= 0;
+          cycle = writeAutoChatCycle(gid, { ...cycle, borrowDay: dayKey,
+            borrowUsed: borrowUsed + (start ? 1 : 0),
+            borrowAt: start ? now : (Number(cycle.borrowAt) || 0),
+            borrowLeft: (start ? BORROW_ROUNDS : borrowLeft) - 1 });
+          // 借来这一轮能发几条，按她自己设的那两个数算（总条数 ÷ 轮数 = 她心里一轮多少条），
+          // 别再拍一个新的魔数；也别把 totalCap - msgsSoFar 传进去——那是个负数。
+          replyGroup(gid, { auto: true, msgBudget: Math.max(2, Math.round(totalCap / roundCap)), urgeCharIds: urgeChars.map(c => c.id) });
+        } else {
+          // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
+          cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false, borrowLeft: 0 });
+          replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
+        }
         break;
       }
     };
