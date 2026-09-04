@@ -27,12 +27,15 @@ const useTheme = () => useContext(ThemeContext);
 const AV_COLORS = ["#c25a4a", "#5a6357", "#4f5a63", "#7a6a5a", "#6d5a78", "#33322e"];
 const F_DISPLAY = "'Fraunces',serif";
 const F_BODY = "'Archivo','Noto Serif SC',system-ui,sans-serif";
+// wk：主题工作室的挂点（不传就没有）。stroke 是【属性】不是行内样式，
+// 所以皮肤那边 `stroke: X !important` 盖得住 color 传进来的那个值。
 function Svg({
   size = 18,
   color = "currentColor",
   sw = 1.6,
   children,
-  style
+  style,
+  wk
 }) {
   return /*#__PURE__*/React.createElement("svg", {
     width: size,
@@ -43,6 +46,7 @@ function Svg({
     strokeWidth: sw,
     strokeLinecap: "round",
     strokeLinejoin: "round",
+    "data-wk": wk || undefined,
     style: style
   }, children);
 }

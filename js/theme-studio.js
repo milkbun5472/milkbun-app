@@ -36,11 +36,21 @@
 '  background-attachment: scroll !important;',
 '}',
 '',
+/* 顶栏这一整块（含底下那条此刻日程条）：底和字是配好的一对，不许拆开用。
+   ⚠️里面每一格的 color 都是【行内样式】，只给外层刷一个 color 继承不下去
+   （行内赢过普通规则）——所以每格各挂一个点，规则带 !important 才盖得住。
+   图标的 stroke 是属性不是行内样式，同一条规则就能压住。 */
 '[data-wk="chathead"] {',
 '  background: ' + o.head + ' !important;',
 '  border-bottom: 1px solid ' + o.line + ' !important;',
 '  color: ' + o.headInk + ' !important;',
 '}',
+/* 顶上这一片只有两档字：正的和淡的。名字、返回键、更多、此刻在做什么都是正的；
+   小箭头、副标题、NOW、时刻是淡的。挂点也就只有这两个——多一个名字就多一处会漏。 */
+'[data-wk="headink"] { color: ' + o.headInk + ' !important; }',
+'[data-wk="headdim"] { color: ' + o.headDim + ' !important; }',
+'svg[data-wk="headink"] { stroke: ' + o.headInk + ' !important; }',
+'svg[data-wk="headdim"] { stroke: ' + o.headDim + ' !important; }',
 '',
 '[data-wk="time"] span {',
 '  display: inline-block !important;',
@@ -149,6 +159,16 @@
 '[data-wk="msg"] { padding-top: ' + o.gap + 'px !important; padding-bottom: ' + o.gap + 'px !important; }',
 '[data-wk="row"] { gap: ' + o.rowGap + 'px !important; }',
 '',
+/* 此刻日程条：它自己没底色（她 v61.05 要的「跟随框的颜色」），
+   所以皮肤一换，那几个字还留着主题的浅灰，压在皮肤的底上就糊了
+   —— 她 2026-09-04：「这个 now 也是暗暗的」。
+   跟输入框那次同一个病：一块底的字色，必须由【铺这块底的人】给。
+   这一条摆在顶栏正下面，所以整条直接吃顶栏那一套（底和字是配好的一对）。
+   ⚠️里面几格的 color 是行内样式，不加 !important 压不过去。 */
+'[data-wk="now"][data-dev="0"] { background: ' + o.head + ' !important; }',
+'[data-wk="now"] { border-bottom: 1px solid ' + o.line + ' !important; }',
+'[data-wk="nowdot"] { background: ' + o.send + ' !important; }',
+'',
 '[data-wk="composer"] {',
 '  background: ' + o.footBg + ' !important;',
 '  border-top: 1px solid ' + o.line + ' !important;',
@@ -195,7 +215,7 @@
 
   // 微信：方气泡、带尖角、灰底。⚠️时刻是一行【没有底】的灰字——
   // 原来给了它一颗灰药丸配白字，那是别家的样子，一眼就出戏。
-  const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111",
+  const WECHAT_CSS = chatSkinCSS({ bg:"#ededed", head:"#ededed", line:"#d9d9d9", headInk:"#111111", headDim:"#8a8a8a",
     timeBg:"transparent", timeInk:"#b2b2b2", timeRadius:"0", timePad:"0", avatar:"4px", radius:"5px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#111111", myBg:"#95ec69", myInk:"#111111",
     tail:true, gap:6, rowGap:10, card:"4px", photo:"4px",
@@ -204,7 +224,7 @@
 
   // LINE：底是一块干净的蓝灰，没有底纹；气泡特别圆、留白也大；
   // 最认脸的是【已读和时间甩在气泡外面】，字比别家还小一号。
-  const LINE_CSS = chatSkinCSS({ bg:"#8ca0b3", head:"#5b6b7c", line:"rgba(0,0,0,.16)", headInk:"#ffffff",
+  const LINE_CSS = chatSkinCSS({ bg:"#8ca0b3", head:"#5b6b7c", line:"rgba(0,0,0,.16)", headInk:"#ffffff", headDim:"rgba(255,255,255,.62)",
     timeBg:"rgba(0,0,0,.30)", timeInk:"#ffffff", timeRadius:"999px", timePad:"4px 11px", avatar:"999px", radius:"20px", shadow:"none",
     theirBg:"#ffffff", theirInk:"#1f1f1f", myBg:"#06c755", myInk:"#ffffff",
     tail:true, gap:6, rowGap:9, card:"18px", photo:"18px",
@@ -215,7 +235,7 @@
   // 气泡不带尖角、几乎不留投影，密度最紧；已读和时间【在气泡里】。
   const TELEGRAM_CSS = chatSkinCSS({ bg:"#8f7bb8",
     bgArt:"linear-gradient(150deg,#b39ddb 0%,#9575cd 34%,#7e8fd0 68%,#64b5c6 100%)", bgSize:"cover",
-    head:"#ffffff", line:"#e4e7ea", headInk:"#0f1419",
+    head:"#ffffff", line:"#e4e7ea", headInk:"#0f1419", headDim:"#707579",
     timeBg:"rgba(0,0,0,.26)", timeInk:"#ffffff", timeRadius:"999px", timePad:"3px 9px", avatar:"999px", radius:"13px",
     shadow:"0 1px 1px rgba(16,35,47,.10)",
     theirBg:"#ffffff", theirInk:"#0f1419", myBg:"#effdde", myInk:"#0f1419",
@@ -226,7 +246,7 @@
   // WhatsApp：认得出的那个米底【上面有一层浅浅的涂鸦】——这才是它最认脸的地方，
   // 光靠米色跟别家分不开。气泡方得多，已读和时间也【在气泡里】。
   const WHATSAPP_CSS = chatSkinCSS({ bg:"#efeae2", bgArt:wave("d3c9b8"), bgSize:"120px 120px",
-    head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21",
+    head:"#f0f2f5", line:"#d9d4cc", headInk:"#111b21", headDim:"#667781",
     timeBg:"#ffffff", timeInk:"#54656f", timeRadius:"7px", timePad:"5px 11px", avatar:"999px", radius:"8px",
     shadow:"0 1px 1px rgba(11,20,26,.13)",
     theirBg:"#ffffff", theirInk:"#111b21", myBg:"#d9fdd3", myInk:"#111b21",
@@ -238,7 +258,7 @@
   // ⚠️发送键不许透明：图标颜色是写死的 #fff，透明底＝白图标落在白底上，
   //   她 2026-09-03 就报了「ins 的发送键看不到」。同 tabs-not-plain-pills.md
   //   那条「绝不许写死 #fff」的坑。
-  const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111",
+  const INSTA_CSS = chatSkinCSS({ bg:"#ffffff", head:"#ffffff", line:"#efefef", headInk:"#111111", headDim:"#8e8e8e",
     timeBg:"transparent", timeInk:"#8e8e8e", timeRadius:"0", timePad:"0", avatar:"999px", radius:"22px", shadow:"none",
     theirBg:"#efefef", theirInk:"#111111", myBg:"linear-gradient(135deg,#4f5bd5,#8134af)", myInk:"#ffffff",
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",

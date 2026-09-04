@@ -218,7 +218,9 @@ function Eyebrow({
   }, children);
 }
 // 跑马灯文字：内容宽于容器时来回滚动，否则静止（用于聊天顶栏日程等一行放不下的地方）
-function Marquee({ children, style, className }) {
+// wk：主题工作室的挂点（不传就没有）。放在外层那个 div 上——里面那个 span
+// 自己不定色，颜色从这儿继承下去，所以皮肤刷这一层就够。
+function Marquee({ children, style, className, wk }) {
   const box = React.useRef(null), inner = React.useRef(null);
   const [dist, setDist] = React.useState(0);
   React.useEffect(() => {
@@ -227,7 +229,7 @@ function Marquee({ children, style, className }) {
     const over = i.scrollWidth - b.clientWidth;
     setDist(over > 4 ? over + 6 : 0);
   });
-  return h("div", { ref: box, className, style: Object.assign({ overflow: "hidden", whiteSpace: "nowrap" }, style) },
+  return h("div", { ref: box, className, "data-wk": wk || undefined, style: Object.assign({ overflow: "hidden", whiteSpace: "nowrap" }, style) },
     h("span", { ref: inner, style: dist
       ? { display: "inline-block", "--mq": (-dist) + "px", animation: "wk-marquee " + Math.max(6, Math.round(dist / 14)) + "s ease-in-out infinite" }
       : { display: "inline-block" } }, children));
@@ -4938,7 +4940,8 @@ function ChatThread({
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IArrow, {
     size: 19,
-    color: t.ink
+    color: t.ink,
+    wk: "headink"
   })), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModeOpen(true),
     className: "flex items-center gap-2.5 flex-1 active:opacity-70"
@@ -4950,6 +4953,7 @@ function ChatThread({
     className: "text-left"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1",
+    "data-wk": "headink",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 16,
@@ -4957,8 +4961,12 @@ function ChatThread({
     }
   }, character.remark || character.name, h(IChevD, {
     size: 13,
-    color: t.fog
+    color: t.fog,
+    wk: "headdim"
   })), /*#__PURE__*/React.createElement("div", {
+    // ⚠️只有「说话」这一档才交给皮肤：旁白/出戏是【状态色】，那一抹强调色本来就该跳出来，
+    //   刷成顶栏那档灰等于把状态提示抹掉了。
+    "data-wk": chatMode === "chat" ? "headdim" : undefined,
     style: {
       fontFamily: "'Archivo',sans-serif",
       fontSize: 9.5,
@@ -4970,7 +4978,8 @@ function ChatThread({
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IDots, {
     size: 20,
-    color: t.ink
+    color: t.ink,
+    wk: "headink"
   }))),
   room && !room.main && h("button", {
     onClick: onOpenRooms,
@@ -4990,15 +4999,18 @@ function ChatThread({
     //   原来写死 t.bg，于是主题 CSS 把聊天页刷成别的颜色时，这一条还留着主题米白，
     //   横在最上面像块补丁。透明＝它自己没颜色，底下那一层什么色它就是什么色。
     //   自定义过聊天背景图时仍旧垫一层半透明白，不然字压在图上读不清。
-    "data-wk": "now",
+    // ⚠️里面每一格都得单独挂点：这几个 color 是【行内样式】，皮肤只给外层刷一个 color
+    //   是压不过去的（行内赢过普通规则）。挂点＋!important 才盖得住。
+    //   dev 那一版底色是「这条能改」的提示，不许被皮肤刷掉——所以底色只刷 data-dev="0"。
+    "data-wk": "now", "data-dev": schedNow.dev ? "1" : "0",
     style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : "transparent"), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
   },
-    h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
-    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
-    schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
-    h(Marquee, { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
+    h("span", { "data-wk": "nowdot", style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
+    h("span", { "data-wk": "headdim", style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
+    schedNow.time && h("span", { "data-wk": "headdim", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
+    h(Marquee, { wk: "headink", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, flexShrink: 0 } }, "改"),
-    h(IChevR, { size: 13, color: t.fog, style: { marginLeft: "auto", flexShrink: 0 } })),
+    h(IChevR, { size: 13, color: t.fog, wk: "headdim", style: { marginLeft: "auto", flexShrink: 0 } })),
   unblockDraft !== null && h("div", {
     style: { flexShrink: 0, background: t.bg2, borderBottom: "1px solid " + t.line, padding: "10px 14px" }
   },
@@ -9807,12 +9819,14 @@ function GroupThread({
     className: "active:opacity-50"
   }, h(IArrow, {
     size: 19,
-    color: t.ink
+    color: t.ink,
+    wk: "headink"
   })), h("button", {
     onClick: () => setModeOpen(true),
     className: "flex-1 min-w-0 text-left active:opacity-60"
   }, h("div", {
     className: "flex items-center gap-1",
+    "data-wk": "headink",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 16,
@@ -9823,7 +9837,9 @@ function GroupThread({
     }
   }, h("span", {
     style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : ""), h(IChevD, { size: 14, color: t.fog })), h("div", {
+  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : ""), h(IChevD, { size: 14, color: t.fog, wk: "headdim" })), h("div", {
+    // 出戏那一档是状态色，不交给皮肤（同单聊那处的理由）
+    "data-wk": chatMode === "ooc" ? undefined : "headdim",
     style: {
       fontFamily: F_BODY,
       fontSize: 10.5,
@@ -9841,7 +9857,7 @@ function GroupThread({
     // 跟旁边那颗齿轮同一个分量：细线图标、不带底盘。v56.82 那颗实心圆点太重也太大了（她说「略丑…有点大」）。
     // 关掉时图标褪成 t.fog 再压一道斜杠，就是通用的「静音」样子，一眼分得出。
     style: { position: "relative", display: "flex", alignItems: "center" }
-  }, h(GChat, { size: 19, color: gHold ? t.fog : t.ink }),
+  }, h(GChat, { size: 19, color: gHold ? t.fog : t.ink, wk: gHold ? "headdim" : "headink" }),
     gHold ? h("span", {
       style: { position: "absolute", left: 1, top: "50%", width: 17, height: 1.3, borderRadius: 1, background: t.fog, transform: "rotate(-45deg)", transformOrigin: "center" }
     }) : null) : null,
@@ -9850,7 +9866,8 @@ function GroupThread({
     className: "active:opacity-50"
   }, h(GConfig, {
     size: 20,
-    color: t.ink
+    color: t.ink,
+    wk: "headink"
   }))), h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },

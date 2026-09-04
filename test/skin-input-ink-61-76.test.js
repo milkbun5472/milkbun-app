@@ -123,15 +123,101 @@ test("字色必须配自己那块底，不许从别处借", () => {
   // 按色值查根本分不出「配对了」和「借错了」——只有看模板才知道。
   const src = require("node:fs").readFileSync("js/theme-studio.js", "utf8");
   const tpl = src.slice(src.indexOf("const chatSkinCSS = o =>"), src.indexOf("// 各家最认脸的"));
-  const code = tpl.split("\n").filter(l => !/^\s*(\/\/|'\/\*|\s*[⚠·])/.test(l.trim()) && !/^\s*\/\//.test(l)).join("\n");
-  const comp = code.slice(code.indexOf('[data-wk="composer"] input'));
+  const comp = tpl.slice(tpl.indexOf('[data-wk="composer"] input'));
   assert.ok(comp.length > 200, "抠不出输入框那一段");
   assert.doesNotMatch(comp, /o\.headInk/, "输入框的字色又去借顶栏的 headInk 了");
   assert.match(comp, /color: ' \+ o\.inputInk/, "输入框没有自己的字色");
   assert.match(comp, /color: ' \+ o\.inputHint/, "占位字没有自己的色");
-  // headInk 只许出现在顶栏那一块里
-  const heads = [...code.matchAll(/o\.headInk/g)].length;
-  assert.equal(heads, 1, "headInk 被用在了 " + heads + " 处——它只该给顶栏");
+
+  // headInk 只许出现在【底也是 o.head 的那几块】里。用白名单而不是数个数：
+  // 数个数拦不住「借错了但总数没变」，白名单逼着新增的那一处写清楚凭什么。
+  const WHERE_HEADINK_IS_OK = {
+    'chathead': "顶栏自己",
+    'headink': "顶上那一片里的正字（名字、返回键、更多、此刻在做什么）——它们铺的就是 o.head"
+  };
+  // 选择器和 color 那一行常常不在同一行，所以顺着往下走、记住最近一个挂点
+  const used = [];
+  let cur = "";
+  for (const l of tpl.split("\n")) {
+    const m = l.match(/data-wk="([a-z]+)"/);
+    if (m) cur = m[1];
+    if (l.includes("o.headInk")) used.push(cur || l.trim());
+  }
+  const stray = used.filter(k => !(k in WHERE_HEADINK_IS_OK));
+  assert.deepEqual(stray, [], "这几处借了顶栏的字色，却不是铺在顶栏那块底上：" + stray.join(" / "));
+  assert.deepEqual([...new Set(used)].sort(), Object.keys(WHERE_HEADINK_IS_OK).sort(),
+    "白名单和实际用到的地方对不上——少了的那一处是不是被删了？");
+  // 此刻日程条敢用 headink 那一档，前提是它那条底真的刷成了 o.head
+  assert.match(tpl, /\[data-wk="now"\]\[data-dev="0"\] \{ background: ' \+ o\.head/,
+    "此刻日程条没吃顶栏那块底，那它就不该用顶栏那档字色");
+});
+
+test("顶上那一片每一格都单独挂了点（行内色压不过去）", () => {
+  // 那些 color 写在行内样式上：皮肤只给外层刷一个 color 是继承不下去的
+  // （行内赢过普通规则）。所以每一格都得有自己的挂点，规则还得带 !important。
+  // 图标走 stroke（属性，不是行内样式），所以图标那条能一起压住。
+  const comp = require("node:fs").readFileSync("js/components.js", "utf8");
+  const core = require("node:fs").readFileSync("js/core.js", "utf8");
+  // 挂点得能透到 DOM 上：Svg 和 Marquee 原来都不收这个参数
+  assert.match(core, /function Svg\(\{[\s\S]{0,200}?\n  wk\n\}\)/, "Svg 收不了挂点，图标一个都挂不上");
+  assert.match(core, /"data-wk": wk \|\| undefined,/, "Svg 没把挂点放到 DOM 上");
+  assert.match(comp, /function Marquee\(\{ children, style, className, wk \}\)/, "Marquee 收不了挂点");
+  assert.match(comp, /"data-wk": wk \|\| undefined/, "Marquee 没把挂点放到 DOM 上");
+
+  const i = comp.indexOf('"data-wk": "now", "data-dev"');
+  assert.ok(i > 0, "此刻日程条没挂 now / data-dev");
+  const strip = comp.slice(i, i + 1400);
+  assert.ok(strip.includes('"data-wk": "nowdot"'), "此刻日程条里少了 nowdot");
+  // NOW 和时刻是同一档淡字，两格都得挂
+  assert.equal((strip.match(/"data-wk": "headdim"/g) || []).length, 2, "NOW 和时刻要各挂一个 headdim");
+  assert.ok(strip.includes('wk: "headink"'), "那条正文没把 headink 传给 Marquee");
+  assert.match(strip, /IChevR, \{ size: 13, color: t\.fog, wk: "headdim"/, "那个小箭头没挂点");
+
+  // 两个顶栏（单聊 / 群聊）都得挂上——一处挂了一处没挂，正是「一层写在两处」那个病
+  const heads = [...comp.matchAll(/"data-wk": "chathead"/g)].map(m => comp.slice(m.index, m.index + 2600));
+  assert.equal(heads.length, 2, "顶栏应该正好两处（单聊、群聊），现在是 " + heads.length + " 处");
+  heads.forEach((hd, n) => {
+    const who = n === 0 ? "单聊顶栏" : "群聊顶栏";
+    // ⚠️别只查「这一片里出现过 headink」——右上角那颗齿轮挂上了就永远查得到，
+    //   左上角返回键漏了也发现不了。逐个图标查。
+    assert.match(hd, /IArrow, \{\s*\n?\s*size: 19,\s*\n?\s*color: t\.ink,\s*\n?\s*wk: "headink"/, who + "的返回键没挂 headink");
+    assert.match(hd, /(IDots|GConfig), \{\s*\n?\s*size: 20,\s*\n?\s*color: t\.ink,\s*\n?\s*wk: "headink"/, who + "右上角那颗没挂 headink");
+    assert.ok(hd.includes('"data-wk": "headink"'), who + "的名字没挂 headink");
+    assert.match(hd, /IChevD, \{\s*\n?\s*size: 1[34],\s*\n?\s*color: t\.fog,\s*\n?\s*wk: "headdim"/, who + "那个小箭头没挂 headdim");
+    assert.ok(/"data-wk": chatMode === [^\n]*"headdim"/.test(hd), who + "的副标题没挂 headdim");
+  });
+
+  // 线下那一条【故意】不挂：线下整块压根不吃聊天皮肤（那儿一个 data-wk 都没有），
+  // 它的底还是主题色，t.fog 在那儿是对的。挂上反而会只有这一条变色。
+  const off = comp.slice(comp.indexOf('OFFLINE · 线下 · 轻触切换'));
+  const offStrip = off.slice(0, off.indexOf("IChevR"));
+  assert.ok(!/data-wk/.test(offStrip), "线下那一条也挂上了挂点——那儿不吃聊天皮肤，只会变得跟四周不搭");
+});
+
+test("顶上那两档字压在顶栏那块底上也看得清", () => {
+  // 这两档只定了 color，底在 chathead / now 那两条规则里——通用那条检查看不到它们。
+  const bad = [];
+  for (const [nm, css] of SKINS) {
+    const bs = blocks(css);
+    const hd = bs.find(b => b.sel === '[data-wk="chathead"]');
+    const bar = bs.find(b => /data-wk="now"\]\[data-dev="0"/.test(b.sel));
+    assert.ok(hd && bar, nm + " 少了顶栏或此刻日程条的底色");
+    // 这两块是同一片，底必须是同一个色——不然「顶栏那档字色」在下面那条上就不成立了
+    assert.equal(bar.decl.background, hd.decl.background, nm + " 此刻日程条的底跟顶栏不是同一块");
+    const bg = colors(hd.decl.background)[0];
+    assert.ok(bg, nm + " 顶栏底色解不出来");
+    for (const wk of ["headink", "headdim"]) {
+      // 文字那条刷 color，图标那条刷 stroke——两条都得在，少一条就有半边不跟着走
+      const txt = bs.find(x => x.sel === '[data-wk="' + wk + '"]');
+      const icon = bs.find(x => x.sel === 'svg[data-wk="' + wk + '"]');
+      assert.ok(txt, nm + " 少了 [data-wk=\"" + wk + "\"]（文字那条）");
+      assert.ok(icon && icon.decl.stroke, nm + " 少了 svg[data-wk=\"" + wk + "\"]（图标那条）——图标不会跟着换色");
+      assert.equal(icon.decl.stroke, txt.decl.color, nm + " 的 " + wk + " 图标和文字不是同一个色");
+      const r = ratio(colors(txt.decl.color)[0], bg);
+      if (r < INVISIBLE) bad.push(nm + " " + wk + " 对比度只有 " + r.toFixed(2));
+    }
+  }
+  assert.deepEqual(bad, [], "\n  " + bad.join("\n  "));
 });
 
 test("改了内置就得让她重新灌一次（预设是拷贝进编辑框的，不是引用）", () => {

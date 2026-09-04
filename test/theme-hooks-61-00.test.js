@@ -28,8 +28,37 @@ test("挂点只是一个写死的名字，夹带不了任何东西", () => {
   // 皮肤要改的恰恰就是它们。照旧那么查，等于禁止给任何有样式的东西挂点。
   // 改成查真正查得到的那一半：名字必须是写死的字符串字面量，
   // 拼不进变量、模板串或表达式，也就带不进任何值。
+  //
+  // v61.76 起多了两种合法写法，两种都仍然只落得下写死的名字：
+  //   ① 按状态在两个字面量之间挑一个（副标题：出戏时那抹状态色不交给皮肤，
+  //      所以那一档不挂点）——挑来挑去还是那两个字面量；
+  //   ② 转交（Svg / Marquee 的 wk）——图标和跑马灯自己不是 DOM 元素，
+  //      挂点得由外面递进去。这一支的保证落在【每个调用点都传字面量】上，
+  //      所以下面单独把 wk: 的调用点也查一遍；漏查的话这条口子就是真的开着。
+  const lit = /^"[a-z]+"$/;
   const all = [...comp.matchAll(/"data-wk":\s*([^,\n]+)/g)].map(m => m[1].trim());
   assert.ok(all.length >= 30, "挂点只剩 " + all.length + " 个，是不是被删了");
-  const bad = all.filter(v => !/^"[a-z]+"$/.test(v));
+  const PASS = ["wk || undefined"];               // ②：转交，值由调用点保证
+  const bad = all.filter(v => {
+    if (lit.test(v) || PASS.includes(v)) return false;
+    // ①：三元的两头必须都是字面量或 undefined
+    const parts = v.split(/\?|:/).map(x => x.trim()).slice(1);
+    return !(parts.length === 2 && parts.every(x => lit.test(x) || x === "undefined"));
+  });
   assert.deepEqual(bad, [], "这些挂点不是写死的名字，能把值夹带进 DOM：\n  " + bad.join("\n  "));
+
+  // ②的另一半：转交那一支，每个调用点传的也必须是写死的名字
+  for (const src of [comp, fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8")]) {
+    const calls = [...src.matchAll(/\bwk:\s*([^,\n}]+)/g)].map(m => m[1].trim());
+    const bad2 = calls.filter(v => {
+      if (lit.test(v)) return false;
+      const parts = v.split(/\?|:/).map(x => x.trim()).slice(1);
+      return !(parts.length === 2 && parts.every(x => lit.test(x) || x === "undefined"));
+    });
+    assert.deepEqual(bad2, [], "这几处把变量当挂点名递进去了：\n  " + bad2.join("\n  "));
+  }
+  // Svg / Marquee 收到什么就原样放上去，自己不许再拼
+  const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
+  assert.match(core, /"data-wk": wk \|\| undefined,/, "Svg 那一支不是原样放上去的");
+  assert.match(comp, /"data-wk": wk \|\| undefined,/, "Marquee 那一支不是原样放上去的");
 });
