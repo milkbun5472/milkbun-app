@@ -6008,12 +6008,27 @@ function CotConfig({ toast, activeProfile }) {
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这四处：同人文、梦境、群聊线下、以及线下的数字生命——普通角色的单人线下和所有线上聊天都不走这条。它不是模型的隐秘推理，不进正文，每条正文旁能展开看。留空 = 不启用。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这六处：同人文、穿书、小剧场、梦境、群聊线下、以及线下的数字生命——普通角色的单人线下和所有线上聊天都不走这条。开了之后可以再单独关掉其中某一处。它不是模型的隐秘推理，不进正文，每段正文旁能展开看。留空 = 不启用。")),
       h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
     activeProfile ? h("div", { className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "这个模型在线下写小稿时返回过空正文，已自动停掉线下这一路（同人文、梦境照常尝试）。" : "这个模型可以正常写小稿；万一不按格式返回，会保住正文并标明这一轮没写成。"),
       modelStatus.disabled ? h("button", { onClick: () => { if (typeof retryOfflineCotModel === "function") retryOfflineCotModel(activeProfile); setModelStatus(offlineCotModelStatus(activeProfile)); toast && toast("已解除保险，下一轮重新试一次"); }, className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "重新试一次") : null) : null,
+    // 单块开关（她 2026-09-04：「所有地方都单独接开关，全局开了再决定单块开不开」）
+    // ⚠️总开关关着时这一段整块变灰：不然「全关着」和「这一块关着」长得一样，
+    //   她按了没反应会以为坏了。名单来自 engine.js 的 COT_SPOTS，不在这儿另抄一份。
+    cfg.enabled && typeof COT_SPOTS !== "undefined" ? h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline gap-2 mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "哪几处要写"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "关掉的那处照旧生成，只是不写小稿")),
+      COT_SPOTS.map(function (sp) {
+        var on = (cfg.blocks || {})[sp.key] !== false;
+        return h("div", { key: sp.key, className: "flex items-center justify-between py-2.5", style: { borderBottom: "1px solid " + t.line } },
+          h("div", { style: { paddingRight: 12, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, sp.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, sp.note)),
+          h(Toggle, { on: on, onChange: function (v) { var nb = Object.assign({}, cfg.blocks || {}); nb[sp.key] = v; save({ ...cfg, blocks: nb }); } }));
+      })) : null,
     // 预设
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline gap-2 mb-2" },

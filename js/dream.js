@@ -121,7 +121,7 @@
   // ---- 模型：编织第一幕 ----
   async function weaveFirst(active, session, worldbook, uName) {
     const kw = (session.keywords || []).filter(Boolean);
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
     const sys = CORE() +
       "你在为「" + session.charName + "」编织一场梦。这场梦属于 Ta、为 Ta 而做——梦境顺着 Ta 内心最深的渴望、执念与恐惧铺展。" +
       uName + " 是闯进这场梦的客人，无法自由行动，只能在你给出的选项里选择怎么回应。\n\n" +
@@ -145,7 +145,7 @@
     const canFinal = done >= 3;
     const forceFinal = done >= 5;
     const stage = (canFinal || forceFinal) ? "deep" : "rise";
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
     const sys = CORE() +
       "你在继续为「" + session.charName + "」编织同一场梦。" + uName + " 是闯梦的客人，刚在上一幕做了选择，且这个选择是这场梦所接纳的——梦没有碎，顺着做梦人的心愿往更深处走。\n\n" +
       charBlock(session) +
@@ -163,7 +163,7 @@
 
   // ---- 模型：抵达梦核（一路选对、够深了、再顺一步 → 圆满收束，第三种结局） ----
   async function weaveEnding(active, session, worldbook, uName, chosenText) {
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
     const sys = CORE() +
       "你在收束「" + session.charName + "」的这场梦——这次不是梦碎。" + uName + " 一路都选对了，梦没有崩，反而顺着做梦人的心一直走到了它的核心。" + uName + " 刚选择了「" + chosenText + "」，这一步把梦带到了它真正围着转的那个东西面前。\n\n" +
       charBlock(session) +
@@ -181,7 +181,7 @@
 
   // ---- 模型：梦碎（选到抗拒项） ----
   async function weaveShatter(active, session, worldbook, uName, resistText) {
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
     const sys = CORE() +
       "你在收束「" + session.charName + "」的这场梦。" + uName + " 刚做了一个选择——「" + resistText + "」——它恰好触到了 " + session.charName + " 内心最抗拒、不愿被戳破的东西。梦承受不住，开始碎裂。\n\n" +
       charBlock(session) +

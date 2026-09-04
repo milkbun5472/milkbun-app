@@ -2831,21 +2831,41 @@ async function splitMemoryToEntries(p, ctx, blob) {
 // 启用且思考方式非空时：给 system 追加思考步骤 + 在输出 JSON 最前面塞一个 cot 字段
 // （思考不进正文，只随消息存一份，供「看TA怎么想的」展开查看）
 // ============================================================
+// 用得上小稿的地方，登记在这一张表里（她 2026-09-04：「所有地方都单独接开关，
+// 全局开了再决定单块开不开」）。设置页照它排，新接一处只改这儿——
+// 各写一份的话迟早只改一处（v56.09 那个形状）。
+const COT_SPOTS = [
+  { key: "fanfic", name: "同人文", note: "一次写一整篇" },
+  { key: "rp", name: "穿书", note: "一拍一整段，还压着一本原著" },
+  { key: "theater", name: "小剧场", note: "一次写一整场戏" },
+  { key: "dream", name: "梦境", note: "一场梦的每一幕" },
+  { key: "groupOffline", name: "群聊线下", note: "一批里好几个人各说各的" },
+  { key: "digital", name: "线下的数字生命", note: "普通角色的单人线下不走这条" }
+];
 function loadCotConfig() {
   try {
     const c = JSON.parse(localStorage.getItem("x_cot_config") || "null");
-    if (c && typeof c === "object") return { enabled: !!c.enabled, think: c.think || "", presets: Array.isArray(c.presets) ? c.presets : [] };
+    if (c && typeof c === "object") return { enabled: !!c.enabled, think: c.think || "", presets: Array.isArray(c.presets) ? c.presets : [], blocks: (c.blocks && typeof c.blocks === "object") ? c.blocks : {} };
   } catch (e) {}
-  return { enabled: false, think: "", presets: [] };
+  return { enabled: false, think: "", presets: [], blocks: {} };
 }
 function saveCotConfig(c) {
-  const clean = { enabled: !!(c && c.enabled), think: (c && c.think) || "", presets: (c && Array.isArray(c.presets)) ? c.presets : [] };
+  const clean = { enabled: !!(c && c.enabled), think: (c && c.think) || "", presets: (c && Array.isArray(c.presets)) ? c.presets : [], blocks: (c && c.blocks && typeof c.blocks === "object") ? c.blocks : {} };
   return saveJSON("x_cot_config", clean) ? clean : loadCotConfig();
 }
+// ⚠️没登记 = 开着。老存档里没有 blocks 这一栏，默认必须是「全都照旧走」——
+// 反过来的话，她升级完会发现小稿在每一处都突然不见了，而且不会有任何报错。
+function cotSpotOn(cfg, where) {
+  if (!where) return true;
+  const b = (cfg && cfg.blocks) || {};
+  return b[where] !== false;
+}
 // 解析出本次要用的思考方式文本（禁用/留空 → ""）；names: {char, user}
-function cotThink(names) {
+// where：这一处是哪儿（COT_SPOTS 里的 key）。不传 = 不按处筛，老调用点照旧。
+function cotThink(names, where) {
   const c = loadCotConfig();
   if (!c.enabled || !c.think || !c.think.trim()) return "";
+  if (!cotSpotOn(c, where)) return "";
   const charN = (names && names.char) || "角色";
   const userN = (names && names.user) || "用户";
   return c.think.replace(/\{\{char\}\}/g, charN).replace(/\{\{user\}\}/g, userN).trim();
@@ -4864,7 +4884,7 @@ async function generateOffline(p, ctx, session) {
     : "";
   // v52.66 A/B：普通单人线下不再注入「创作小稿 / COT」。数字模式仍沿用原路径；
   // 其余叙事、篇幅、文风、示例和导演提示全部保持不变，便于单独判断作者规划是否放大文体切换。
-  const requestedCotT = isDigital ? cotThink({ char: char.name, user: userName }) : "";
+  const requestedCotT = isDigital ? cotThink({ char: char.name, user: userName }, "digital") : "";
   const cotT = requestedCotT && !loadOfflineSingleNoCotV2Models().includes(cotModelKey) ? requestedCotT : "";
   const singleCotBlock = isDigital ? cotSystemBlock(cotT) : "";
   // 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
@@ -5245,7 +5265,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
-  const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
+  const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName }, "groupOffline");
   // 预算按【真角色】人数分：配角不参与平分，也别把主角色的额度吃掉
   const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
   // NPC 是只在群里出场的配角：没有心情、好感、印象卡、长出来的自我、年龄、行程、

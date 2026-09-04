@@ -510,7 +510,17 @@
         }
         // max_tokens 是天花板不是预付款:思考模型的推理也从这儿扣,3200 会被推理吃光、
         // 正文只剩个零头(她 2026-08-24 拿酒馆的 65535 对比出来的)。给大不多花钱。
-        if (raw == null) raw = await callAI(props.active, sys, hist, { maxTokens: window.StylePresets.outTokens(selfRevise ? 2400 : 1600), timeout: 300000 });
+        // 创作小稿（v62.39 接上）：一次写一整场戏，正是它该在的地方。
+        // ⚠️只挂在模型这一路。言秋座位那一路（CCSeat）是他本人亲笔，扮演类的东西一律不发给他。
+        let cotOut = null, cotAsked = false;
+        if (raw == null) {
+          const cotT = (typeof cotThink === "function") ? cotThink({ char: char.name, user: uName }, "theater") : "";
+          cotAsked = !!cotT;
+          const sysCot = cotT && typeof cotSystemBlock === "function" ? sys + cotSystemBlock(cotT) : sys;
+          raw = await callAI(props.active, sysCot, hist, { maxTokens: window.StylePresets.outTokens(selfRevise ? 2400 : 1600), timeout: 300000 });
+          // 小稿写在正文 JSON 之前，先剥掉再交给 parseTheaterPayload，否则整份解析不出来
+          if (cotT && typeof splitCot === "function") { const sp = splitCot(raw, true); cotOut = sp.cot || null; raw = sp.clean; }
+        }
         const p = parseTheaterPayload(raw);
         if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
         // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,
@@ -520,7 +530,7 @@
         // 回声式反问兜底:线下、群线下、小剧场同一把刀。提示词压不住就削掉开头那一声。
         if (text && typeof stripEchoQuestionScene === "function") p.scene = stripEchoQuestionScene(p.scene, text);
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -1011,7 +1021,9 @@
           : m.role === "user"
           ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
           : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
-              style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content))));
+              style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content,
+              // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
+              ((m.cot || m.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null))));
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],

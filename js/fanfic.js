@@ -471,7 +471,7 @@
     const perFic = clampPerFic(opts.perFic);
     const minWords = Math.max(600, Math.round(perFic * 0.55)); // 大致字数下限
     const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || "主角";
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }, "fanfic") : "";
     const batchDraftRule = cotT ? "\n【本批小稿分篇】这次要写 " + n + " 篇，请在同一个创作小稿标记块里依次写『【第1篇】』『【第2篇】』直到『【第" + n + "篇】』；每篇各自写在意/推进/避开/自定义检查，不能共用一份泛泛计划。\n" : "";
     // 她这次点名要写什么。没填的那几篇明确说【自由发挥】——
     // 不说的话模型会拿填了的那几条去套没填的，一批文全长成一个样。
@@ -541,7 +541,7 @@
       return "第" + (i + 1) + "章结束在：" + (c.endHook || "（无锚点）");
     }).join("\n");
     const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || (fic.title || "主角");
-    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }) : "";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }, "fanfic") : "";
     // 上一章结尾原文（最后一段现场）：只给锚点一句话时模型爱跳时间线（上一章还暧昧、下一章直接事后）
     const lastTail = String(last.content || fic.body || "").trim().slice(-600);
     // 基本设定锚（v47.78 她点名修「第一章前未婚夫妻、第二章变青梅竹马」）：
@@ -1077,13 +1077,21 @@
     } else {
       task = "\n承接玩家最新的行动，推进剧情、让相关角色真实反应，写两三百字，再自然收在下一个需要玩家抉择的处境上停下。";
     }
+    // 创作小稿（v62.39 接上）：一拍就是一整段，错了得整段重摇——正是它该在的地方。
+    // ⚠️小稿写在正文 JSON 之前，所以要先 splitCot 再解析，否则那一块会被当成正文的一部分。
+    const cotName = rpPlayerName(session.mode, cpChars, session.playerIdentity) || (cpChars && cpChars[0] && cpChars[0].name) || "这场里的人";
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotName, user: userName }, "rp") : "";
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity, session.know) +
       "\n\n【本场起点】「" + session.landing.label + "」——" + session.landing.scene +
       (skel ? "\n\n" + skel : "") +
       task + "\n" + rpAnchorLine(session.mode, cpChars, session.playerIdentity) + "（切记：别把玩家换人、别对调 CP 位置、别把玩家当成现实用户本人。）" +
-      "\n\n" + rpTurnShape(fic, session, !!o.wantNote);
+      "\n\n" + rpTurnShape(fic, session, !!o.wantNote) +
+      (cotT && typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "");
     const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
-    const out = rpParseTurn(raw);
+    const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
+    const out = rpParseTurn(sp.clean);
+    out.cot = sp.cot || null;
+    out.cotRequested = !!cotT;
     if (rv) out.hit = ""; // 刚结算完一页，这一拍不许马上又报一页
     return out;
   }
@@ -2401,7 +2409,7 @@
     // 一拍回来了：正文、（可能的）页边批注、走没走到骨架的某一页、偏离度
     function applyTurn(r) {
       props.onUpdate(function (ss) {
-        const add = [{ who: "nar", text: r.text }];
+        const add = [{ who: "nar", text: r.text, cot: r.cot || null, cotRequested: !!r.cotRequested }];
         if (r.note) add.push({ who: "note", text: r.note });
         ss.transcript = (ss.transcript || []).concat(add);
         if (Number.isFinite(r.dev)) ss.dev = r.dev;
@@ -2547,6 +2555,9 @@
           const say = typeof extractSpeech === "function" ? extractSpeech(e.text) : e.text;
           return h("div", { key: i },
             (showN ? paras.slice(0, showN) : [e.text]).map(function (p, j) { return para(p, j); }),
+            // 这一拍的创作小稿（读完这一拍才出现，否则等于提前剧透这一段要写什么）
+            (fullyShown && (e.cot || e.cotRequested) && typeof CotReveal === "function")
+              ? h(CotReveal, { cot: e.cot, requested: e.cotRequested }) : null,
             (fullyShown && say && rtp && narVoice && typeof TtsDot === "function") ? h("div", { style: { marginTop: -6, marginBottom: 12 } },
               h(TtsDot, { k: "rp" + i, text: say, spk: narVoice, tp: rtp })) : null);
         }),
