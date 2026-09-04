@@ -98,10 +98,32 @@ const idx = fs.readFileSync(path.join(root, "index.html"), "utf8");
 test("表不在的时候整条静默 no-op，绝不挡住别的同步", () => {
   // 她得能在跑 SQL 之前先装上这一版；而且 VPS 挂了也不该连累主路。
   assert.match(cloud, /grownReady: null,/);
-  assert.match(cloud, /if \(error\) \{ this\.grownReady = false; return null; \}/, "读失败没退化成 no-op");
-  assert.match(cloud, /if \(error\) \{ this\.grownReady = false; return 0; \}/, "写失败没退化成 no-op");
+  assert.match(cloud, /if \(error\) \{ if \(this\.grownFatal\(error\)\) this\.grownReady = false; return null; \}/, "读失败没退化成 no-op");
+  assert.match(cloud, /if \(error\) \{ if \(this\.grownFatal\(error\)\) this\.grownReady = false; return 0; \}/, "写失败没退化成 no-op");
   assert.match(cloud, /if \(!client \|\| this\.grownReady === false\) return null;/);
   assert.match(cloud, /onConflict: "user_id,char_id,kind"/, "不是按人+种类 upsert，会互相覆盖");
+});
+
+test("只有「表不在/没权限」才关掉这一层，网络抖一下不算", () => {
+  // 原来任何 error 都 latch 成 false——离线一次就整场会话不再同步心上，
+  // 而这一层存在的全部意义就是别再丢数据，不能自己先躺下。
+  // ⚠️抠出这个方法【真跑一遍】：钉的是它怎么判，不是它长什么样。
+  const start = cloud.indexOf("grownFatal(error) {");
+  assert.ok(start > 0, "没有 grownFatal");
+  const end = cloud.indexOf("\n    },", start);
+  assert.ok(end > start, "抠不出 grownFatal 的结尾");
+  const fn = new Function("return function " + cloud.slice(start + "grownFatal".length, end + 6))();
+  assert.equal(fn({ code: "PGRST205", message: "Could not find the table 'public.grown' in the schema cache" }), true);
+  assert.equal(fn({ code: "42501", message: "permission denied for table grown" }), true);
+  assert.equal(fn({ code: "42P01", message: 'relation "grown" does not exist' }), true);
+  assert.equal(fn({ message: "Failed to fetch" }), false, "网络失败被当成致命的了");
+  assert.equal(fn({ message: "NetworkError when attempting to fetch resource." }), false);
+  assert.equal(fn({ code: "57014", message: "canceling statement due to statement timeout" }), false, "超时被当成致命的了");
+  // 两条路各自单独成立：只有 code 认得出的，和只有文案认得出的
+  assert.equal(fn({ code: "42P01", message: "" }), true, "光看 code 那一路断了");
+  assert.equal(fn({ message: "Could not find the table 'public.grown' in the schema cache" }), true,
+    "光看文案那一路断了——有些错回来没有 code");
+  assert.equal(fn(null), false);
 });
 
 test("读不回来就什么都不做——绝不让这一层碰本机数据", () => {

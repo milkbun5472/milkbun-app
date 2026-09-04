@@ -584,6 +584,15 @@
     // 旧版页面一次全量 upsert 就能把它盖掉；而它不认识这张表。
     // ⚠️表还没建好时【整条静默 no-op】：宁可这层暂时不生效，也绝不让它报错挡住别的同步。
     grownReady: null,
+    // ⚠️只有「这张表在这儿不存在／没权限」才把这一层关掉；网络抖一下不算。
+    //   原来是任何 error 都 latch 成 false——离线一次就整场会话不再同步心上，
+    //   而这一层存在的全部意义就是别再丢数据，不能自己先躺下。
+    grownFatal(error) {
+      const code = String((error && error.code) || "");
+      const msg = String((error && error.message) || "");
+      return code === "PGRST205" || code === "PGRST202" || code === "42P01" || code === "42501"
+        || /schema cache|does not exist|permission denied/i.test(msg);
+    },
     async grownUpsert(kind, map) {
       if (!client || this.grownReady === false) return 0;
       const user = await this.getUser();
@@ -594,7 +603,7 @@
       }));
       if (!rows.length) return 0;
       const { error } = await client.from("grown").upsert(rows, { onConflict: "user_id,char_id,kind" });
-      if (error) { this.grownReady = false; return 0; }
+      if (error) { if (this.grownFatal(error)) this.grownReady = false; return 0; }
       this.grownReady = true;
       return rows.length;
     },
@@ -604,7 +613,7 @@
       if (!user) return null;
       const { data, error } = await client.from("grown")
         .select("char_id,data").eq("user_id", user.id).eq("kind", String(kind));
-      if (error) { this.grownReady = false; return null; }   // 表没建/没权限：当这层不存在
+      if (error) { if (this.grownFatal(error)) this.grownReady = false; return null; }   // 表没建/没权限：当这层不存在；网络抖动只跳过这一次
       this.grownReady = true;
       const out = {};
       (data || []).forEach(r => { if (r && r.char_id && r.data) out[String(r.char_id)] = r.data; });
