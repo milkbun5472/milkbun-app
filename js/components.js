@@ -1222,7 +1222,7 @@ function MuyuWidget({ editMode }) {
     combo > 1 ? h("span", { style: { position: "absolute", right: 4, top: 9, zIndex: 2, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.72)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px", boxShadow: "0 3px 10px rgba(70,48,28,.08)" } }, combo + " COMBO") : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
-function UsWidget({ characters, couples, sweet, onOpen, dot }) {
+function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
   const t = useTheme();
   const partners = (characters || []).filter(c => couples && couples[c.id] && couples[c.id].status === "together");
   const [ix, setIx] = useState(0);
