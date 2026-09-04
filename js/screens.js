@@ -3727,18 +3727,30 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
       h("button", { onClick: onGen, disabled: busy, className: "w-full active:opacity-80",
         style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", marginBottom: 18, opacity: busy ? 0.5 : 1 } },
         busy ? "他在想…" : "挑一件事，问问他记得的"),
+      // ── 一张对折又摊开的纸（v62.17）：这一页的内容本来就是【同一件事的两份笔迹】——
+      // 上半是她那面（她记下的那版），中间一道真的折缝（凹痕：暗-亮-暗三层夹出来的），
+      // 下半是他那面（他的那版用衬线手写感）。原来是通用卡+一条分隔线，换个 app 照样成立。
+      // 配色写死：纸写死浅色，字色不能再跟主题走（深色主题浅字浅纸那一课）。
       list.length ? list.map(x => h("div", { key: x.id, onClick: () => x.unread && onRead(x.id),
-        style: { borderRadius: 18, border: "1px solid " + (x.unread ? t.tint : t.line), background: t.bg2, padding: "15px 16px", marginBottom: 12 } },
-        x.unread ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.tint, marginBottom: 6 } }, "· 新的") : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, "你记下的"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, x.mine),
-        h("div", { style: { height: 1, background: t.line, margin: "12px 0" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 4 } }, partner.name + " 记得的"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, x.his),
-        x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, fontStyle: "italic", color: t.fog, lineHeight: 1.7, marginTop: 10, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, x.note) : null,
-        h("div", { className: "flex items-center justify-between", style: { marginTop: 12 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, timeAgo(x.ts)),
-          h("button", { onClick: e => { e.stopPropagation(); onDel(x.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "删掉"))))
+        style: { position: "relative", borderRadius: 5, overflow: "hidden", marginBottom: 14,
+          border: "1px solid " + (x.unread ? "#c9a86a" : "rgba(150,130,90,.28)"),
+          boxShadow: "0 7px 18px rgba(90,70,40,.13)" } },
+        // 上半：她的那面
+        h("div", { style: { background: "#fdfaf1", padding: "13px 15px 14px" } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9a8a6a" } }, "你记下的"),
+            x.unread ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#b0812e" } }, "· 新的") : null),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: "#6a5f4b", whiteSpace: "pre-wrap" } }, x.mine)),
+        // 折缝：上影、缝里一线亮、下影——纸对折过才有的那道凹痕
+        h("div", { "aria-hidden": "true", style: { height: 8, background: "linear-gradient(rgba(90,70,40,.18), rgba(90,70,40,.03) 42%, rgba(255,255,255,.8) 52%, rgba(90,70,40,.12))" } }),
+        // 下半：他的那面（另一种纸色 + 手写感衬线）
+        h("div", { style: { background: "#f6efdd", padding: "12px 15px 12px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a05a6a", marginBottom: 4 } }, partner.name + " 记得的"),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14, lineHeight: 1.9, color: "#3d3322", whiteSpace: "pre-wrap" } }, x.his),
+          x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, fontStyle: "italic", color: "#9a8a6a", lineHeight: 1.7, marginTop: 10, borderLeft: "2px solid rgba(150,130,90,.35)", paddingLeft: 10 } }, x.note) : null,
+          h("div", { className: "flex items-center justify-between", style: { marginTop: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#9a8a6a" } }, timeAgo(x.ts)),
+            h("button", { onClick: e => { e.stopPropagation(); onDel(x.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a8a6a", minHeight: 32, padding: "0 4px" } }, "删掉")))))
         : h(Empty, { text: "还没问过", sub: "问一次就挑一件你俩共同经历过的事。同一件事，两个人记得的常常不是同一处。" })));
 }
 // 情侣空间·我们说好的（v58.83，她 2026-08-31 选的第 ② 条）。
