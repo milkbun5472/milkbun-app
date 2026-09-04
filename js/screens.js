@@ -7023,30 +7023,48 @@ function ConfigFold({ title, sub, open, onToggle, children, danger }) {
     open ? h("div", { style: { paddingBottom: 18 } }, children) : null);
 }
 
-function ConfigTile({ icon, title, sub, onClick, wide }) {
+// ── 设置这一整块：一张登记表（v62.48，审美审计还债③）────────────────
+// 审计判词：设置首页和它底下二十二个子页共用一个【没有 style 的外壳】，
+// 上面摆的是「圆角行卡＋一个字＋右箭头」和「大圆角卡＋一个几何符号＋箭头」——
+// 这两样放进任何 app 的设置页都成立，所以它们没从「这一页是什么东西」里长出来。
+//
+// 设置现实里是什么？是**这台机器的那张登记表**：一格一格填、每格有栏号、
+// 填完的那一栏右边写着现在填的是什么。所以：
+//   · 外壳＝工程格纸（细格 + 每五格一道重线），铺在最外层、顶栏透上来；
+//   · 每一块＝表上的一栏：方角、发丝细边、不浮起来（表格是印在纸上的，不是贴上去的）；
+//   · 栏号＝那枚汉字牌（这一页本来就有，只是原来是圆角的）；
+//   · 几何符号图标（◐ ◒ ✦ ⌨ ▧ ◖ ∞ ◉ ≋）全换成汉字栏号——
+//     它们是靠字体撑的字符，跟 emoji 同一个毛病，而且「◖」说明不了那是语音。
+// 改这三个公共件 + 外壳一处，二十二个子页一起有底。
+const CFG_LINE = t2 => (/^#[0-9a-f]{6}$/i.test(String(t2.ink || "")) ? t2.ink + "24" : t2.line);
+// 栏号牌：方角、淡底、汉字。首页那一列和子页的格子共用同一枚，别各写一份。
+function ConfigMark({ char, tint, size }) {
+  const s2 = size || 34;
+  return h("span", { style: { flexShrink: 0, width: s2, height: s2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1c", color: tint, border: "1px solid " + tint + "3d", fontFamily: F_DISPLAY, fontSize: Math.round(s2 * 0.47) } }, char);
+}
+function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
   const t = useTheme();
+  const c = tint || t.tint || t.ink;
   return h("button", { onClick, className: "active:opacity-70", style: {
-    gridColumn: wide ? "1 / -1" : "auto", minHeight: wide ? 108 : 144, padding: "18px 17px",
-    borderRadius: 22, textAlign: "left", background: t.bg2, border: "1px solid " + t.line,
-    boxShadow: "0 9px 24px rgba(60,50,40,.055)", display: "flex", flexDirection: "column", justifyContent: "space-between"
+    gridColumn: wide ? "1 / -1" : "auto", minHeight: wide ? 84 : 112, padding: "13px 14px 14px",
+    borderRadius: 3, textAlign: "left", background: t.bg2, border: "1px solid " + CFG_LINE(t),
+    boxShadow: "none", display: "flex", flexDirection: "column", justifyContent: "space-between"
   } },
     h("div", null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 5 } }, sub)),
-    h("div", { className: "flex items-end justify-between", style: { marginTop: 14 } },
-      h("span", { style: { fontSize: 27, lineHeight: 1 } }, icon || "·"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 22, color: t.fog } }, "›")));
+      h(ConfigMark, { char: icon || "·", tint: c, size: 28 }),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginTop: 10 } }, title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, sub)));
 }
 function ConfigTileGrid({ children }) {
-  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12, paddingTop: 12 } }, children);
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
 }
 
 function ConfigPanel({ children, flush }) {
   const t = useTheme();
   return h("div", { style: {
-    marginTop: 12, marginBottom: 14, padding: flush ? 0 : "16px 15px", overflow: "hidden",
-    borderRadius: 22, background: t.bg2, border: "1px solid " + t.line,
-    boxShadow: "0 9px 24px rgba(60,50,40,.045)"
+    marginTop: 12, marginBottom: 14, padding: flush ? 0 : "15px 14px", overflow: "hidden",
+    borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t),
+    boxShadow: "none"
   } }, children);
 }
 
@@ -7056,8 +7074,8 @@ function AutoRefreshConfig(props) {
   const chars = props.characters || [];
   const [open, setOpen] = useState("");
   const groups = [
-    { id: "content", eyebrow: "AUTO CONTENT", title: "自动内容", note: "跨天、跨周或回到 App 时补齐内容。" },
-    { id: "social", eyebrow: "SOCIAL PULSE", title: "主动社交", note: "角色自己开口、发帖或留下东西。" }
+    { id: "content", eyebrow: "不用你点，它自己补上的", title: "自动内容", note: "跨天、跨周或回到 App 时补齐内容。" },
+    { id: "social", eyebrow: "他们自己会做的那些事", title: "主动社交", note: "角色自己开口、发帖或留下东西。" }
   ];
   const charOn = (f, c) => window.AutoRefreshPolicy.enabled({
     version: 1,
@@ -7068,14 +7086,14 @@ function AutoRefreshConfig(props) {
       "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
     groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
       h("div", { style: { padding: "0 2px 9px" } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".24em", color: t.fog } }, g.eyebrow),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 5 } }, g.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, g.eyebrow),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginTop: 4 } }, g.title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, g.note)),
       window.AutoRefreshPolicy.FEATURES.filter(f => f.group === g.id).map(f => {
         const cfg = policy.features[f.id];
         const isOpen = open === f.id;
         const enabledCount = chars.filter(c => charOn(f, c)).length;
-        return h("div", { key: f.id, style: { marginBottom: 11, borderRadius: 20, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 22px rgba(60,50,40,.045)", overflow: "hidden" } },
+        return h("div", { key: f.id, style: { marginBottom: 9, borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), boxShadow: "none", overflow: "hidden" } },
           h("div", { className: "flex items-center justify-between", style: { padding: "15px 15px 13px", gap: 12 } },
             h("button", { onClick: () => setOpen(isOpen ? "" : f.id), className: "flex-1 text-left active:opacity-60", style: { minWidth: 0 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, f.title),
@@ -7093,145 +7111,10 @@ function AutoRefreshConfig(props) {
   );
 }
 
-function LegacyConfig({
-  apiProfiles,
-  activeId,
-  offlineApiId,
-  onSetOfflineApi,
-  modelFloatOn,
-  onSetModelFloat,
-  bgApiId,
-  onSetBgApi,
-  onSaveApi,
-  characters,
-  onAssignVoice,
-  coupleQACustom,
-  onSaveCustomQA,
-  theme,
-  onSaveTheme,
-  wallpaper,
-  onSaveWallpaper,
-  prefs,
-  onSavePrefs,
-  geo,
-  onRequestGeo,
-  onBack,
-  onExport,
-  onImport,
-  onOffloadChats,
-  onPruneOld,
-  onClearAll,
-  onRescueChar,
-  debugBundleFor,
-  toast
-}) {
-  const t = useTheme();
-  const [tab, setTab] = useState("api");
-  const [openSection, setOpenSection] = useState("");
-  const fold = (id, title, sub, child, danger) => h(ConfigFold, {
-    key: id, title: title, sub: sub, danger: danger,
-    open: openSection === id,
-    onToggle: () => setOpenSection(v => v === id ? "" : id)
-  }, child);
-  // 配件 UI 隐身：在「数据」tab 上连点 7 下解锁/隐藏（x_toyUnlocked，只存本机；没人会去连点这个）
-  const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
-  const toyKnockRef = React.useRef({ n: 0, ts: 0 });
-  const toyKnock = k => {
-    if (k !== "data") return;
-    const now = Date.now(), kk = toyKnockRef.current;
-    kk.n = (now - kk.ts < 1500) ? kk.n + 1 : 1; kk.ts = now;
-    if (kk.n >= 7) { kk.n = 0; const nx = !toyUnlocked; setToyUnlocked(nx); try { localStorage.setItem("x_toyUnlocked", nx ? "1" : "0"); } catch (e) {} toast && toast(nx ? "已解锁配件" : "已隐藏配件"); }
-  };
-  const tabs = [["api", "API"], ["sense", "感知"], ["cot", "小稿"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "h-full flex flex-col"
-  }, /*#__PURE__*/React.createElement(Head, {
-    zh: "设置",
-    en: "Config",
-    onBack: onBack
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "px-6 flex gap-5 shrink-0",
-    style: {
-      marginTop: -6
-    }
-  }, tabs.map(([k, l]) => /*#__PURE__*/React.createElement("button", {
-    key: k,
-    onClick: () => { setTab(k); setOpenSection(""); toyKnock(k); },
-    className: "pb-2",
-    style: {
-      borderBottom: tab === k ? `2px solid ${t.ink}` : "2px solid transparent"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: tab === k ? t.ink : t.fog
-    }
-  }, l)))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 mx-6 h-px",
-    style: {
-      background: t.line
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto px-6 pb-10"
-  }, tab === "api" && h("div", null,
-  fold("api-main", "聊天与后台模型", "主模型、备用线路、Embedding 与后台省钱模型", /*#__PURE__*/React.createElement(ApiConfig, {
-    profiles: apiProfiles,
-    activeId: activeId,
-    offlineApiId: offlineApiId,
-    onSetOfflineApi: onSetOfflineApi,
-    modelFloatOn: modelFloatOn,
-    onSetModelFloat: onSetModelFloat,
-    bgApiId: bgApiId,
-    onSetBgApi: onSetBgApi,
-    onSave: onSaveApi,
-    toast: toast
-  })), fold("api-cache", "额度与缓存", "查看缓存命中和调用读数", /*#__PURE__*/React.createElement(CacheStatCard, null)), fold("api-image", "图像生成", "自拍、合照与图像模型配置", /*#__PURE__*/React.createElement(React.Fragment, null,
-    /*#__PURE__*/React.createElement(ImageApiConfig, { toast: toast }),
-    /*#__PURE__*/React.createElement(AvatarPoolConfig, { toast: toast })
-  )), fold("api-tts", "语音 TTS", "声音接口、音色和角色分配", /*#__PURE__*/React.createElement(TtsApiConfig, {
-    toast: toast,
-    characters: characters,
-    onAssignVoice: onAssignVoice
-  })), fold("api-ears", "真声通话耳朵", "书房识别服务地址与门锁", /*#__PURE__*/React.createElement(VoiceEarsConfig, {
-    toast: toast
-  }))), tab === "sense" && fold("sense-main", "时间、位置与通知", "角色感知与锁屏通知", /*#__PURE__*/React.createElement(SenseConfig, {
-    prefs: prefs,
-    onSave: onSavePrefs,
-    geo: geo,
-    onRequestGeo: onRequestGeo,
-    toast: toast
-  })), tab === "cot" && fold("cot-main", "创作小稿设置", "检查方式、预设、模型保险与开关", /*#__PURE__*/React.createElement(CotConfig, {
-    toast: toast,
-    activeProfile: (apiProfiles || []).find(p => p.id === activeId) || (apiProfiles || [])[0] || null
-  })), tab === "qa" && fold("qa-main", "情侣问答题库", "按角色管理自定义题目", /*#__PURE__*/React.createElement(CoupleQAConfig, {
-    characters: characters,
-    custom: coupleQACustom,
-    onSave: onSaveCustomQA,
-    toast: toast
-  })), tab === "theme" && h("div", null, fold("theme-main", "外观与壁纸", "颜色、字体和主屏背景", /*#__PURE__*/React.createElement(ThemeConfig, {
-    theme: theme,
-    onSave: onSaveTheme,
-    wallpaper: wallpaper,
-    onSaveWallpaper: onSaveWallpaper
-  })), fold("theme-bubble", "聊天气泡皮肤", "气泡尺寸、圆角、颜色与阴影", /*#__PURE__*/React.createElement(BubbleSkinConfig, {
-    toast: toast
-  }))), tab === "data" && h("div", null, /*#__PURE__*/React.createElement(DataConfig, {
-    characters: characters,
-    onExport: onExport,
-    onImport: onImport,
-    onOffloadChats: onOffloadChats,
-    onPruneOld: onPruneOld,
-    onClearAll: onClearAll,
-    onRescueChar: onRescueChar,
-    toast: toast
-  }), fold("data-debug", "上下文诊断", "只读查看模型实际收到的内容", /*#__PURE__*/React.createElement(CtxDebug, {
-    characters: characters,
-    getBundle: debugBundleFor
-  })), toyUnlocked && typeof ToyConfig === "function" && fold("data-toy", "本地配件", "仅本机的隐藏配件设置", /*#__PURE__*/React.createElement(ToyConfig, {
-    toast: toast
-  })))));
-}
+// ⚠️LegacyConfig（旧的六个 tab 那一版设置页，139 行）v62.48 删掉：
+//   全库零引用——test/no-dead-code.test.js 早就把它列出来了。它还是设置这一块里
+//   最后一处英文标题（en: "Config"）。撤掉东西要删干净，不是留在原地当第二份真相：
+//   下一个人打开 screens.js 会读到两个设置页，不知道哪个是活的。
 
 function Config(props) {
   const t = useTheme();
@@ -7259,15 +7142,18 @@ function Config(props) {
     try { localStorage.setItem("x_toyUnlocked", next ? "1" : "0"); } catch (e) {}
     props.toast && props.toast(next ? "已解锁配件" : "已隐藏配件");
   };
+  // ⚠️这二十个英文副标题从 v61.29「标题不留英文」起就【一个都没显示过】——
+  //   Head 有 zh 时纯拉丁的 en 一律不发。留着只会让人以为它们还在起作用，
+  //   而且下一个人照着这份表继续往里加英文。撤掉东西要删干净，不是留在原地。
   const meta = {
-    home: ["设置", "Config"], api: ["接哪些模型", "API Settings"], apiText: ["文字模型", "Text Models"],
-    apiImage: ["图像 API", "Image API"], apiTts: ["语音 API", "Voice API"], apiEmbed: ["向量记忆", "Embedding"],
-    apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["他们知道现在几点、我在哪", "Sense"],
-    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], look: ["这个 app 长什么样", "Appearance"],
-    theme: ["外观与壁纸", "Appearance"], themeStudio: ["主题工作台", "Theme Studio"],
-    bubble: ["聊天气泡", "Bubble Skin"], write: ["他们写出来的东西", "Writing"],
-    auto: ["谁会自己动、多久动一次", "Automation"], data: ["我的东西存在哪", "Data"],
-    debug: ["上一轮到底发了什么", "Context"], toy: ["本地配件", "Accessories"]
+    home: "设置", api: "接哪些模型", apiText: "文字模型",
+    apiImage: "图像 API", apiTts: "语音 API", apiEmbed: "向量记忆",
+    apiEars: "真声耳朵", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
+    cot: "创作小稿", qa: "情侣问答", look: "这个 app 长什么样",
+    theme: "外观与壁纸", themeStudio: "主题工作台",
+    bubble: "聊天气泡", write: "他们写出来的东西",
+    auto: "谁会自己动、多久动一次", data: "我的东西存在哪",
+    debug: "上一轮到底发了什么", toy: "本地配件"
   };
   const m = meta[page] || meta.home;
   // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
@@ -7320,38 +7206,48 @@ function Config(props) {
   //   Head 不再渲染纯拉丁的 en，那个 span 连同入口一起没了，她只能来问我
   //   「现在 toy 取消隐藏的条件是啥」。现在挂在标题本身上：这一页只要还有标题，
   //   入口就还在，不会再被别的规矩顺手删掉。
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: m[0], en: m[1], onBack: back, onTitleTap: page === "home" ? toyKnock : undefined }),
-    h("div", { key: page || "home", ref: scrollRef, className: "flex-1 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
-      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 16 } },
-        homeRows.map(row => h("button", {
+  // 外壳＝工程格纸：细格 8px，每五格一道重线。铺在【最外那层】、Head 传 transparent
+  // 让它透上来（.claude/rules/mobile-ui-layout.md §3.5）；也不跟着滚。
+  // ⚠️t.ink 在深色/自定义主题下未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
+  const _hex6 = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+  const sheet = !_hex6 ? { background: t.bg } : { background: t.bg, backgroundImage: [
+    "repeating-linear-gradient(0deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
+    "repeating-linear-gradient(90deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
+    "repeating-linear-gradient(0deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)",
+    "repeating-linear-gradient(90deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)"
+  ].join(",") };
+  return h("div", { className: "h-full flex flex-col", style: sheet },
+    h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
+    h("div", { key: page || "home", ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
+      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 } },
+        homeRows.map((row, ri) => h("button", {
           key: row.key,
           onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage(row.key); },
           className: "w-full flex items-center active:opacity-70",
-          style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
+          style: { gap: 12, minHeight: 44, padding: "11px 12px 11px 11px", borderRadius: 3, background: t.bg2, textAlign: "left",
+            border: "1px solid " + CFG_LINE(t), borderTop: ri === 0 ? "1px solid " + CFG_LINE(t) : "none" }
         },
-          h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: row.tint + "1f", color: row.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, row.char),
+          h(ConfigMark, { char: row.char, tint: row.tint }),
           h("span", { className: "flex-1 min-w-0" },
             h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
-            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())),
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "›"))),
-        h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
+        h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
           "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在他自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
       page === "look" && h(ConfigTileGrid, null,
-        h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
-        h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
-        h(ConfigTile, { icon: "✦", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio"), wide: true })),
+        h(ConfigTile, { icon: "色", tint: "#8a6d9c", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
+        h(ConfigTile, { icon: "泡", tint: "#4f8391", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
+        h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio"), wide: true })),
       page === "write" && h(ConfigTileGrid, null,
-        h(ConfigTile, { icon: "✎", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
-        h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa"), wide: true })),
+        h(ConfigTile, { icon: "稿", tint: "#8a7a4f", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
+        h(ConfigTile, { icon: "问", tint: "#a3617c", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa"), wide: true })),
       page === "api" && h(ConfigTileGrid, null,
-        h(ConfigTile, { icon: "⌨", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
-        h(ConfigTile, { icon: "▧", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
-        h(ConfigTile, { icon: "◖", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
-        h(ConfigTile, { icon: "∞", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
-        h(ConfigTile, { icon: "◉", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
-        h(ConfigTile, { icon: "≋", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
+        h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
+        h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
+        h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
+        h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
+        h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
+        h(ConfigTile, { icon: "量", tint: "#8a8378", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
@@ -7916,7 +7812,7 @@ function BubbleSkinConfig({ toast }) {
       text));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0" } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "气泡皮肤 · Bubble Skin"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "聊天气泡"),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
     folded ? null : h(React.Fragment, null,
     // 一键换整套（v61.05）：跟单聊 ••• 里那一格是同一个组件，一处画两处用。
