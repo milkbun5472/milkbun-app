@@ -1950,8 +1950,31 @@ function homePlaceDenseXY(keys, spanFn) {
   });
   return { rows: rows, pos: pos };
 }
-// 把 arr 里 key 的尺寸换成 newSpan，其余真项钉在原来的格子上；被新脚印压到的挤去末尾重新找位。
-// 返回新的页数组（含把几何还原出来所需的空格）；key 不在页里返回 null。
+// 共用的钉格重建：pinned=[{k,r,c,w,h}]；displaced 先在 6 行棋盘里首适配找洞，塞不下才溢出到尾巴。
+// 永远铺满整 6 行空格——底部的格子必须实时存在，不然「放到页面下面」没有落点（她 2026-09-03 抓的）。
+function homeGridRebuild(pinned, displaced) {
+  var ROWS = 6, occ = {}, anchors = {};
+  var stamp = function (k, r, c, w, h) { anchors[r + "," + c] = k; for (var i = r; i < r + h; i++) for (var j = c; j < c + w; j++) occ[i + "," + j] = k; };
+  var fits = function (r, c, w, h) { if (c < 0 || c + w > 4 || r < 0) return false; for (var i = r; i < r + h; i++) for (var j = c; j < c + w; j++) if (occ[i + "," + j]) return false; return true; };
+  var overflow = [];
+  pinned.forEach(function (it) { if (fits(it.r, it.c, it.w, it.h)) stamp(it.k, it.r, it.c, it.w, it.h); else overflow.push(it); });
+  displaced.concat(overflow).forEach(function (d) {
+    for (var r = 0; r <= ROWS - d.h; r++) for (var c = 0; c + d.w <= 4; c++) {
+      if (fits(r, c, d.w, d.h)) { stamp(d.k, r, c, d.w, d.h); d.done = 1; r = ROWS; break; }
+    }
+  });
+  var spill = displaced.concat(overflow).filter(function (d) { return !d.done; }).map(function (d) { return d.k; });
+  var maxR = ROWS;
+  Object.keys(occ).forEach(function (kk) { var r = parseInt(kk, 10); if (r + 1 > maxR) maxR = r + 1; });
+  var out = [], n = 0, uniq = Date.now().toString(36) + Math.floor(Math.random() * 90);
+  for (var r = 0; r < maxR; r++) for (var c = 0; c < 4; c++) {
+    var k2 = anchors[r + "," + c];
+    if (k2) out.push(k2);
+    else if (!occ[r + "," + c]) out.push("sp_g" + uniq + "_" + n++);
+  }
+  return out.concat(spill);
+}
+// 把 arr 里 key 的尺寸换成 newSpan，其余真项钉在原格；返回新页数组，key 不在页里返回 null。
 function homeRepackResize(arr, key, spanFn, newSpan) {
   arr = arr || [];
   var idx = arr.indexOf(key);
@@ -1959,32 +1982,17 @@ function homeRepackResize(arr, key, spanFn, newSpan) {
   var old = homePlaceDenseXY(arr, spanFn);
   var mine = old.pos[idx];
   if (!mine) return null;
-  var w = Math.min(4, newSpan[0]), h = newSpan[1];
-  var r0 = mine.r, c0 = Math.min(mine.c, 4 - w); // 靠右放不下就往左顶一顶，行不动
-  var occ = {}, anchors = {};
-  var stamp = function (k, r, c, ww, hh) { anchors[r + "," + c] = k; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) occ[i + "," + j] = k; };
-  var fits = function (r, c, ww, hh) { if (c + ww > 4) return false; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) if (occ[i + "," + j]) return false; return true; };
-  stamp(key, r0, c0, w, h);
-  var displaced = [];
+  var w = Math.min(4, newSpan[0]), h = Math.min(6, newSpan[1]);
+  var r0 = Math.min(mine.r, 6 - h), c0 = Math.min(mine.c, 4 - w);
+  var pinned = [{ k: key, r: r0, c: c0, w: w, h: h }], displaced = [];
   arr.forEach(function (k, i) {
     if (i === idx || /^sp_/.test(k)) return;
     var p = old.pos[i]; if (!p) return;
-    if (fits(p.r, p.c, p.w, p.h)) stamp(k, p.r, p.c, p.w, p.h);
-    else displaced.push(k);
+    pinned.push({ k: k, r: p.r, c: p.c, w: p.w, h: p.h });
   });
-  var maxR = 0;
-  Object.keys(occ).forEach(function (kk) { var r = parseInt(kk, 10); if (r + 1 > maxR) maxR = r + 1; });
-  var out = [], n = 0, uniq = Date.now().toString(36);
-  for (var r = 0; r < maxR; r++) for (var c = 0; c < 4; c++) {
-    var k2 = anchors[r + "," + c];
-    if (k2) out.push(k2);
-    else if (!occ[r + "," + c]) out.push("sp_rz" + uniq + "_" + n++);
-  }
-  return out.concat(displaced);
+  return homeGridRebuild(pinned, displaced);
 }
-if (typeof window !== "undefined") { window.homePlaceDenseXY = homePlaceDenseXY; window.homeRepackResize = homeRepackResize; }
-// 拖拽落子（同页/跨页通用）也走钉格：from 落到 to 的锚点格上，其余真项原地不动。
-// 被压到的先试 from 的旧锚点（自然形成互换），放不下再去页尾。返回 {from, to}（同页时两者是同一份）。
+// 拖拽落子（同页/跨页）：from 落到 to 的锚点格，越界往里clamp；其余真项原地不动。
 function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
   var same = fromArr === toArr;
   var fPos0 = homePlaceDenseXY(fromArr, spanFn);
@@ -1993,39 +2001,23 @@ function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
   if (fi < 0 || ti < 0) return null;
   var mineOld = fPos0.pos[fi], target = tPos0.pos[ti], s = spanFn(fromKey);
   if (!mineOld || !target || !s) return null;
-  var w = Math.min(4, s[0]), h = s[1];
-  var r0 = target.r, c0 = Math.min(target.c, 4 - w);
-  var build = function (arr, pos0, includeFrom) {
-    var occ = {}, anchors = {}, displaced = [];
-    var stamp = function (k, r, c, ww, hh) { anchors[r + "," + c] = k; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) occ[i + "," + j] = k; };
-    var fits = function (r, c, ww, hh) { if (c + ww > 4 || c < 0) return false; for (var i = r; i < r + hh; i++) for (var j = c; j < c + ww; j++) if (occ[i + "," + j]) return false; return true; };
-    if (includeFrom) stamp(fromKey, r0, c0, w, h);
+  var w = Math.min(4, s[0]), h = Math.min(6, s[1]);
+  var r0 = Math.min(target.r, 6 - h), c0 = Math.min(target.c, 4 - w);
+  var mk = function (arr, pos0, includeFrom) {
+    var pinned = [], first = [];
+    if (includeFrom) first.push({ k: fromKey, r: r0, c: c0, w: w, h: h });
     arr.forEach(function (k, i) {
       if (k === fromKey || /^sp_/.test(k)) return;
       var pp = pos0.pos[i]; if (!pp) return;
-      if (fits(pp.r, pp.c, pp.w, pp.h)) stamp(k, pp.r, pp.c, pp.w, pp.h);
-      else displaced.push({ k: k, w: pp.w, h: pp.h });
+      pinned.push({ k: k, r: pp.r, c: pp.c, w: pp.w, h: pp.h });
     });
-    // 被压到的先试 from 的旧锚点（同页才有意义）——放得下就是一次干净互换
-    var still = [];
-    displaced.forEach(function (d) {
-      if (same && includeFrom && fits(mineOld.r, Math.min(mineOld.c, 4 - d.w), d.w, d.h)) stamp(d.k, mineOld.r, Math.min(mineOld.c, 4 - d.w), d.w, d.h);
-      else still.push(d.k);
-    });
-    var maxR = 0;
-    Object.keys(occ).forEach(function (kk) { var r = parseInt(kk, 10); if (r + 1 > maxR) maxR = r + 1; });
-    var out = [], n = 0, uniq = Date.now().toString(36) + Math.floor(Math.random() * 90);
-    for (var r = 0; r < maxR; r++) for (var c = 0; c < 4; c++) {
-      var k2 = anchors[r + "," + c];
-      if (k2) out.push(k2);
-      else if (!occ[r + "," + c]) out.push("sp_mv" + uniq + "_" + n++);
-    }
-    return out.concat(still);
+    return homeGridRebuild(first.concat(pinned), []);
   };
-  if (same) { var one = build(fromArr, fPos0, true); return { from: one, to: one }; }
-  return { from: build(fromArr, fPos0, false), to: build(toArr, tPos0, true) };
+  if (same) { var one = mk(fromArr, fPos0, true); return { from: one, to: one }; }
+  return { from: mk(fromArr, fPos0, false), to: mk(toArr, tPos0, true) };
 }
-if (typeof window !== "undefined") window.homeRepackMove = homeRepackMove;
+if (typeof window !== "undefined") window.homePlaceDenseXY = homePlaceDenseXY;
+if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize; window.homeRepackMove = homeRepackMove; window.homeGridRebuild = homeGridRebuild; }
 
 function homeItemSpan(key, it, sizes) {
   var wanted = sizes && sizes[key];

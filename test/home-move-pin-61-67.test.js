@@ -5,10 +5,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 global.window = {};
-const m1 = src.match(/function homePlaceDenseXY[\s\S]*?\n}\n/);
-const m2 = src.match(/function homeRepackMove[\s\S]*?\nif \(typeof window/);
-assert.ok(m1 && m2);
-eval(m1[0]); eval(m2[0].replace(/\nif \(typeof window$/, ""));
+const m1 = src.match(/function homePlaceDenseXY[\s\S]*?\nif \(typeof window !== "undefined"\) \{ window\.homeRepackResize/);
+assert.ok(m1);
+eval(m1[0].replace(/\nif \(typeof window[\s\S]*$/, ""));
 
 const spanW = k => /^sp_/.test(k) ? [1,1] : (k === "wid" ? [2,2] : [1,1]);
 const place = (arr) => {
