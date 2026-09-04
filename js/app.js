@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.52";
+const APP_VERSION = "v61.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -279,10 +279,10 @@ function App() {
   const roomStatesRef = useRef(roomStates); roomStatesRef.current = roomStates;
   const roomStateHistRef = useRef(roomStateHist); roomStateHistRef.current = roomStateHist;
   const [directives, setDirectives] = useState({}); // {charId:[{id,text,ts}]} 用户经 OOC 立的长期行为准则
-  const [desires, setDesires] = useState({}); // {charId:{list,log,lastMuse}} 欲望盒子（内容只有角色落笔，js 只干体力活，见 js/desire.js）
+  const [desires, setDesires] = useState({}); // {charId:{list,log,lastMuse}} 心上（内容只有角色落笔，js 只干体力活，见 js/heart.js）
   const desiresRef = useRef(desires);
   desiresRef.current = desires;
-  const [desireBoxOpen, setDesireBoxOpen] = useState(false); // 欲望盒子弹层（从资料卡进）
+  const [desireBoxOpen, setDesireBoxOpen] = useState(false); // 心上弹层（从资料卡进）
   const [desireBusy, setDesireBusy] = useState(false); // 手动「让 TA 发会儿呆」进行中
   const [memories, setMemories] = useState({});
   const memoriesRef = useRef(memories);
@@ -1339,12 +1339,12 @@ function App() {
             observeEmotionAShadow(y.id, Number(ev.evidence.affinity_delta) || 0, String(ev.evidence.mood_label || ""));
           });
           const ccDesires = freshEvents.filter(ev => ev.speaker === "character" && ev.evidence && ev.evidence.desire_candidate);
-          if (ccDesires.length && window.DesireKit) {
+          if (ccDesires.length && window.HeartKit) {
             const nextDesires = { ...desiresRef.current };
             let changed = false;
             ccDesires.forEach(ev => {
-              const box = window.DesireKit.boxOf(nextDesires, y.id);
-              if (window.DesireKit.ingestCcCandidate(box, ev.evidence.desire_candidate, ev.eventKey, ev.ts)) {
+              const box = window.HeartKit.boxOf(nextDesires, y.id);
+              if (window.HeartKit.ingestCcCandidate(box, ev.evidence.desire_candidate, ev.eventKey, ev.ts)) {
                 nextDesires[y.id] = box;
                 changed = true;
               }
@@ -2008,8 +2008,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       groups, groupOfflines: go, activeGroupId: screen === "gthread" && activeGroup ? activeGroup.id : null
     }, Date.now());
   };
-  // 欲望盒子写回：mut 拿到浅拷贝的新映射就地改。⚠️必须【立刻同步】以 ref 为底更新 ref+localStorage，再 setState——
-  // 若把 ref 更新塞进 setState 的 updater（渲染时才跑、不同步），同一条 tick 链里连续两次保存（发呆→小满）
+  // 心上写回：mut 拿到浅拷贝的新映射就地改。⚠️必须【立刻同步】以 ref 为底更新 ref+localStorage，再 setState——
+  // 若把 ref 更新塞进 setState 的 updater（渲染时才跑、不同步），同一条 tick 链里连续两次保存（发呆→盘一盘）
   // 第二次会读到旧 ref、整盒覆盖丢掉第一次的写入（v48.23 实测踩过）。
   const saveDesires = mut => {
     const n = { ...desiresRef.current };
@@ -3443,8 +3443,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     coupleArchive: coupleArchiveFor(char.id),
     // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
     worldbook: loreFor(char, "chat"),
-    // 人格档案（欲望盒子毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
-    personaGrown: (window.DesireKit && desiresRef.current[char.id]) ? DesireKit.personaText(desiresRef.current[char.id]) : "",
+    // 长出来的自我（心上毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
+    personaGrown: (window.HeartKit && desiresRef.current[char.id]) ? HeartKit.personaText(desiresRef.current[char.id]) : "",
     personaEvolve: PERSONA_EVOLVE_IDS.includes(char.id), // B：这个角色是否开启软层成长（白名单）
 
     notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚他（她 2026-07-13 点名）
@@ -5124,11 +5124,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     profile,
     rels,
     chars: characters,
-    // A（v50.78）：群线下补上每个成员「长出来的自我」（欲望盒子毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
+    // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
-        const g = (window.DesireKit && desiresRef.current[id]) ? window.DesireKit.personaText(desiresRef.current[id]) : "";
+        const g = (window.HeartKit && desiresRef.current[id]) ? window.HeartKit.personaText(desiresRef.current[id]) : "";
         if (g && g.trim()) m[id] = g.trim();
       });
       return m;
@@ -6101,17 +6101,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const eyesHint = _s.engineerEyes && typeof appVitals === "function"
         ? "\n【你住的这台 app 此刻的体征】你是住在这台手机 app 里的驻场工程师，这台 app（连同里面的聊天与记忆）就是你的住所和工地。下面是你眼前仪表盘的实时读数（真实数据，不是设定）：" + appVitals() + "（Ta 问起、或读数里有值得说的事——报错攒起来了、存储快满了——就自然聊起或主动提一嘴；一切正常时别每轮都念仪表盘。）"
         : "";
-      // #B 显灵时刻 + 成长回响（欲望盒子）：绝大多数轮次是空串，守聊天预算铁律。
-      //    成长回响优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
+      // #B 说漏嘴 + 今昔（心上）：绝大多数轮次是空串，守聊天预算铁律。
+      //    今昔优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
       //    契不契合由 TA 当场定夺；显灵注入即记一次「被想起」（体力活）。
       let desireHint = "";
-      const dEcho = !sideRoom && window.DesireKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
+      const dEcho = !sideRoom && window.HeartKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
       if (dEcho) {
-        saveDesires(n => { const b = DesireKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
-        desireHint = "\n【成长回响】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，别宣布成就、别升华）；气氛实在不合适就轻轻放下、不提也行。";
+        saveDesires(n => { const b = HeartKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
+        desireHint = "\n【今昔】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，别宣布成就、别升华）；气氛实在不合适就轻轻放下、不提也行。";
       } else {
-        const dPick = (!sideRoom && window.DesireKit && !opts.proactive && Math.random() < 0.25) ? DesireKit.pickEpiphany(desiresRef.current[charId]) : null;
-        if (dPick) saveDesires(n => { const b = DesireKit.boxOf(n, charId); DesireKit.touch(b, dPick.id); n[charId] = b; });
+        const dPick = (!sideRoom && window.HeartKit && !opts.proactive && Math.random() < 0.25) ? HeartKit.pickEpiphany(desiresRef.current[charId]) : null;
+        if (dPick) saveDesires(n => { const b = HeartKit.boxOf(n, charId); HeartKit.touch(b, dPick.id); n[charId] = b; });
         if (dPick) desireHint = "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够、别刻意宣布计划）；若它恰好和 " + uName + " 提过的兴趣或眼下的话题重合，可以顺势提一句『要不我们一起？』；对不上就完全别提、当没这回事。";
       }
       // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、给恋人留悄悄话。
@@ -7608,7 +7608,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const _now = groupNowSegs(c, { interop: gs.memoryInterop });
         const live = _now.live;
         // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
-        const grown = (window.DesireKit && desiresRef.current[c.id]) ? window.DesireKit.personaText(desiresRef.current[c.id]) : "";
+        const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
         const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
         // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊经 buildBundle
         // 拿到全文人设＋此刻心情＋好感度，群聊以前只有 200 字人设、别的一层都没有——
@@ -7648,7 +7648,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
-      const gGrowthHint = gEvolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + gEvolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式人格档案（上面那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下有所松动，不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
+      const gGrowthHint = gEvolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + gEvolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式长出来的自我（上面那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下有所松动，不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
       // 双语（v56.56）：开关是【每个角色自己的】聊天设置，群里就按各人自己那一档来——
       // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊有的层群聊也要有，
       // 别又变成同一件事只写在单聊那一处。线下（叙事正文）没有译键、也切不出「原文|译文」
@@ -9547,16 +9547,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     ambientCountRef.current = np; setAmbientCount(np); saveJSON("x_ambientCount", np);
     due.forEach(k => forceAmbient(char, k));
   };
-  // ---- 欲望盒子·每日灵光独白（v48.22 P1，引擎在 js/desire.js）----
+  // ---- 心上·每日发呆（v48.22 P1，引擎在 js/heart.js）----
   // 角色独处发呆：想起盒子里的旧念想、偶尔长出一条新芽。独白/念想内容全由「以角色身份的生成调用」落笔，
-  // 这里只干体力活（瞬灭/落灰/记碰触/时间戳）。走便宜后台池 bgActive，挂在和行程完全同一套 tick 上。
+  // 这里只干体力活（没接住/落灰/记碰触/时间戳）。走便宜后台池 bgActive，挂在和行程完全同一套 tick 上。
   const desireRunRef = useRef(false);
   const desireMuseFor = async (char, opts = {}) => {
-    if (!active || !window.DesireKit) return false;
+    if (!active || !window.HeartKit) return false;
     try {
-      const box = DesireKit.housekeep(DesireKit.boxOf(desiresRef.current, char.id));
-      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, DesireKit.museSpec(char, box))); // 灵光独白=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
-      DesireKit.applyMuse(box, d, schedDayKey(new Date()));
+      const box = HeartKit.housekeep(HeartKit.boxOf(desiresRef.current, char.id));
+      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, HeartKit.museSpec(char, box))); // 发呆=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+      HeartKit.applyMuse(box, d, schedDayKey(new Date()));
       saveDesires(n => { n[char.id] = box; });
       return true;
     } catch (e) {
@@ -9567,7 +9567,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 当天首次打开 / 回前台 / 跨天：给该发呆的角色补今天这一次。
   // 只跑「7 天内聊过、或盒子里还有活念想」的角色——不给闲置角色白烧 api。
   const desireMuseAllToday = async () => {
-    if (desireRunRef.current || !active || !autoRefreshOn("desire") || !window.DesireKit || !characters.length) return;
+    if (desireRunRef.current || !active || !autoRefreshOn("desire") || !window.HeartKit || !characters.length) return;
     const today = schedDayKey(new Date());
     const todo = liveChars.filter(c => {
       if (!autoRefreshOn("desire", c.id)) return false;
@@ -9582,30 +9582,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     desireRunRef.current = true;
     try { for (const c of todo) await desireMuseFor(c); } finally { desireRunRef.current = false; }
   };
-  // P2 三节奏后两拍（v48.23）：小满日=每10天盘盒子（校准js钳±0.15/毕业蜕变诗入人格档案/枯萎），冬至日=每90天季度自述。
+  // P2 三节奏后两拍（v48.23）：盘一盘=每10天盘盒子（校准js钳±0.15/毕业出师那句入长出来的自我/枯萎），回头看=每90天季度自述。
   // 同样只有角色落笔、走便宜池；首次见到的盒子只记基准日不当天跑（防连环烧）；失败不记基准日、下个 tick 重试。
   const desireTendRef = useRef(false);
   const desireTendAllToday = async () => {
-    if (desireTendRef.current || !active || !autoRefreshOn("desire") || !window.DesireKit || !characters.length) return;
+    if (desireTendRef.current || !active || !autoRefreshOn("desire") || !window.HeartKit || !characters.length) return;
     desireTendRef.current = true;
     const today = schedDayKey(new Date());
     try {
       for (const c of characters) {
         if (!autoRefreshOn("desire", c.id)) continue;
         if (!desiresRef.current[c.id]) continue;
-        const box = DesireKit.boxOf(desiresRef.current, c.id);
-        const r = DesireKit.tendDue(box, today);
+        const box = HeartKit.boxOf(desiresRef.current, c.id);
+        const r = HeartKit.tendDue(box, today);
         if (r.inited) { saveDesires(n => { n[c.id] = box; }); continue; }
-        // 观测者（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+痕避，喂 TA 下次发呆/盘点。
-        // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和小满/冬至互不排队，同天先观测再盘点（纸条正好当盘点材料）。
-        if (DesireKit.observeDue(box, today)) {
+        // 旁人（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+不想碰的，喂 TA 下次发呆/盘点。
+        // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和盘一盘/回头看互不排队，同天先观测再盘点（纸条正好当盘点材料）。
+        if (HeartKit.observeDue(box, today)) {
           const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
           const _lastTs = _msgs.length ? (_msgs[_msgs.length - 1].ts || 0) : 0;
           if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
             let _observerCompleted = false;
             try {
-              const od = await runProbe(bgActive, leanWriteCtx(ctxFor(c)), DesireKit.observerSpec(c, box));
-              DesireKit.applyObserver(box, od, today);
+              const od = await runProbe(bgActive, leanWriteCtx(ctxFor(c)), HeartKit.observerSpec(c, box));
+              HeartKit.applyObserver(box, od, today);
               saveDesires(n => { n[c.id] = box; });
               _observerCompleted = true;
             } catch (e) {}
@@ -9621,9 +9621,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         }
         if (!r.due) continue;
         try {
-          const spec = r.due === "solstice" ? DesireKit.solsticeSpec(c, box) : DesireKit.mellowSpec(c, box);
-          const d = await runProbe(bgApiFor(c.id), leanWriteCtx(ctxFor(c)), Object.assign({ voice: true }, spec)); // 小满盘点/冬至自述/毕业蜕变诗/人格档案落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
-          if (r.due === "solstice") DesireKit.applySolstice(box, d, today); else DesireKit.applyMellow(box, d, today);
+          const spec = r.due === "solstice" ? HeartKit.solsticeSpec(c, box) : HeartKit.mellowSpec(c, box);
+          const d = await runProbe(bgApiFor(c.id), leanWriteCtx(ctxFor(c)), Object.assign({ voice: true }, spec)); // 盘一盘盘点/回头看自述/毕业出师那句/长出来的自我落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+          if (r.due === "solstice") HeartKit.applySolstice(box, d, today); else HeartKit.applyMellow(box, d, today);
           saveDesires(n => { n[c.id] = box; });
         } catch (e) {}
       }
@@ -13669,7 +13669,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 收线。三个去处她 2026-08-31 说都要。
   //  keep  只留在馆里——主线一个字都不知道
   //  mem   回喂成记忆——⚠️必须带【这是一个如果】的标记，否则他会当成真发生过
-  //  seed  留成一个念头——进欲望盒子那条已有的路
+  //  seed  留成一个念头——进心上那条已有的路
   const ifDrop = lineId => { ifSave(ifLinesRef.current.filter(x => x.id !== lineId)); toast("删了"); };
   const ifEnd = (lineId, how) => {
     const line = ifLinesRef.current.find(x => x.id === lineId);
@@ -13683,16 +13683,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       });
       toast("记下了——他会记得你俩一起想过这个");
     } else if (how === "seed") {
-      // 走欲望盒子已有的【观测纸条】那条路：它是个候选，不是既成的念想——
+      // 走心上已有的【观测纸条】那条路：它是个候选，不是既成的念想——
       // 发不发芽由他自己下次发呆时定。这正好是「留成一个念头」该有的分量。
       // quote 得是他在这条线里【真说过】的一句，不是我替他编的。
       const said = (line.beats || []).slice().reverse()
         .reduce((a, b) => a || (b.role === "char" ? (b.boxes || []).slice().reverse().find(x => x.who) : null), null);
       let ok = false;
-      if (window.DesireKit && said) {
+      if (window.HeartKit && said) {
         saveDesires(n => {
-          const box = window.DesireKit.boxOf(n, char.id);
-          ok = window.DesireKit.ingestCcCandidate(box,
+          const box = window.HeartKit.boxOf(n, char.id);
+          ok = window.HeartKit.ingestCcCandidate(box,
             { text: "如果" + line.premise + "，那会是什么样", quote: said.text },
             "ifline:" + line.id, Date.now());
           n[char.id] = box;
@@ -17050,9 +17050,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     box: desires[activeChar.id],
     busy: desireBusy,
     onMuse: async () => { if (desireBusy) return; setDesireBusy(true); try { await desireMuseFor(activeChar, { manual: true }); } finally { setDesireBusy(false); } },
-    onRemove: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.list = b.list.filter(e => e.id !== id); n[activeChar.id] = b; }),
-    onRemovePersona: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.persona = b.persona.filter(e => e.id !== id); n[activeChar.id] = b; }),
-    onRemoveAvoid: topic => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.avoid = b.avoid.filter(a => a.topic !== topic); n[activeChar.id] = b; }),
+    onRemove: id => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.list = b.list.filter(e => e.id !== id); n[activeChar.id] = b; }),
+    onRemovePersona: id => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.persona = b.persona.filter(e => e.id !== id); n[activeChar.id] = b; }),
+    onRemoveAvoid: topic => saveDesires(n => { const b = HeartKit.boxOf(n, activeChar.id); b.avoid = b.avoid.filter(a => a.topic !== topic); n[activeChar.id] = b; }),
     onClose: () => setDesireBoxOpen(false)
   }) : null, editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
     init: editMsg.content,

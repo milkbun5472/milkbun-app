@@ -5,7 +5,7 @@ const vm = require("node:vm");
 
 function loadCore() {
   const window = {};
-  vm.runInNewContext(fs.readFileSync("js/desire-drive-shadow.js", "utf8"), { window });
+  vm.runInNewContext(fs.readFileSync("js/heart-drive-shadow.js", "utf8"), { window });
   return window.DesireDriveShadow;
 }
 

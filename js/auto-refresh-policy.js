@@ -7,7 +7,7 @@
     { id: "diary", group: "content", title: "日记", sub: "每天补写前一天日记", globalDefault: true, charDefault: true },
     { id: "wallet", group: "content", title: "钱包", sub: "跨天补齐日常收支", globalDefault: true, charDefault: true },
     { id: "schedule", group: "content", title: "角色日程", sub: "每周补排与白天临时改计划", globalDefault: true, charDefault: true },
-    { id: "desire", group: "content", title: "欲望盒子", sub: "每日灵光与周期整理", globalDefault: true, charDefault: true },
+    { id: "desire", group: "content", title: "心上", sub: "每日灵光与周期整理", globalDefault: true, charDefault: true },
     { id: "moments", group: "social", title: "朋友圈", sub: "低频主动发动态", globalDefault: true, charDefault: true },
     { id: "forum", group: "social", title: "论坛", sub: "低频主动发帖", globalDefault: true, charDefault: true },
     { id: "whisper", group: "social", title: "悄悄话", sub: "关系内低频留言", globalDefault: true, charDefault: true },

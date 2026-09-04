@@ -43,12 +43,12 @@ test("锚点必须是双向的，不能变成「一律活泼」的新模板", ()
 });
 
 // 她 2026-08-21 追问：这样会不会把人格成长一起冻住？会——上一版确实写过头了。
-// 「黏人程度」是 GROWTH_RULE 里的【软层】，正是欲望盒毕业的成长该长的地方。
-test("锚点不许冻结成长：软层要让位给已沉淀的人格档案", () => {
+// 「黏人程度」是 GROWTH_RULE 里的【软层】，正是心上毕业的成长该长的地方。
+test("锚点不许冻结成长：软层要让位给已沉淀的长出来的自我", () => {
   const i = engine.indexOf("const PERSONA_REGISTER_ANCHOR");
   const rule = engine.slice(i, engine.indexOf("`;", i));
   assert.match(rule, /但这不冻结你的成长/);
-  assert.match(rule, /这个变化有没有沉淀进【你长出来的自我】那段正式人格档案/, "判据要可判定");
+  assert.match(rule, /这个变化有没有沉淀进【你长出来的自我】那段正式长出来的自我/, "判据要可判定");
   assert.match(rule, /沉淀进去了 → 算数，在软层上大方盖过原卡的旧倾向/);
   assert.match(rule, /只是最近几轮听起来那样 → 不算数，那是惯性，不是成长/);
   // 优先级必须和 GROWTH_RULE 一字不差地对齐，两条规则不能打架
@@ -65,7 +65,7 @@ test("日记那条同样收窄，不否认沉淀下来的成长", () => {
   const tail = engine.slice(i, engine.indexOf("const raw = await callAI(p, system", i));
   assert.match(tail, /但这不是要你原地不动/);
   assert.match(tail, /只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写/);
-  assert.match(tail, /记进人格档案的是成长，只是最近几篇听起来那样的是惯性/);
+  assert.match(tail, /记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性/);
 });
 
 test("日记：上一篇只借鉴「事」，措辞和称呼不许传下去", () => {

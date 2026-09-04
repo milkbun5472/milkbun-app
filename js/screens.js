@@ -7404,8 +7404,8 @@ const STORAGE_KEY_LABELS = [
   ["x_phone", "查手机"], ["x_charWallet", "角色钱包"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
   ["x_capsule", "时光胶囊"], ["x_schedules", "角色日程"], ["x_promises", "角色说好要回来找你的约"], ["x_calEvents", "日历里手填的日程"], ["x_couple", "情侣空间"],
-  ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "欲望盒子"],
-  ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "欲望盒子"],
+  ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "心上"],
+  ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "心上"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
 function storageBreakdown() {
@@ -11562,7 +11562,7 @@ function IfBox({ box, charName, uName, mine, tick }) {
 const IF_ENDINGS = [
   ["keep", "只留在馆里", "主线一个字都不知道"],
   ["mem", "记进记忆库", "他会记得你俩一起想过这条线——标着这是个如果，不会当成真发生过"],
-  ["seed", "留成一个念头", "进他的欲望盒子当一张观测纸条，发不发芽他自己定"]
+  ["seed", "留成一个念头", "进他的心上当一张观测纸条，发不发芽他自己定"]
 ];
 function IfEndPick({ onPick, onClose }) {
   return h("div", { onClick: onClose, style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },

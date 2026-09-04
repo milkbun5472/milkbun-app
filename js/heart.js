@@ -1,16 +1,34 @@
 // ============================================================
-// 欲望盒子（desire box）P1 —— 角色人格不写死，从互动里生长。
-//   · 盒子：角色自己攒下的「想做的事」（不是待办，是搁在心上的念想）。
+// 心上 —— 角色人格不写死，从互动里生长。
+//
+// ⚠️【名字的来历】这一套原来照着一份外面的《欲望盒子人格系统》文档做的，
+//   连词汇表一起借了（欲望盒子/人格档案/小满日/冬至日/观测者/痕避/心念藤蔓/
+//   蜕变诗/成长回响/旧日回响/灵光独白/显灵时刻/行动刻痕/瞬灭，十四个词一个不落）。
+//   她 2026-09-03：「欲望盒子我们名字也得改改，也是别人拿过来参考的」。
+//   ⚠️代码是我们自己写的（没有任何 vendored 声明），借的只是名字——所以这次是
+//   干净的换名，不像动念那边要留出处。
+//   ⚠️每一处换成的都是【这份代码自己已经在用的说法】，不是硬造新词：
+//     心上      ← 「搁在心上的念想」（本文件原话）
+//     长出来的自我 ← app.js 三处早就在这么叫，还写进了 .claude/rules
+//     盘一盘    ← 「会在心里把那只盒子盘一盘」（原话）
+//     发呆      ← 「每角色每天一次发呆」（原话）
+//     岔出来的  ← 「从旧念想岔出的藤」（原话）
+//   保留的两个：落灰、毕业——中文里本来就这么说，不是那份文档造的。
+//
+//   · 心上：角色自己攒下的「想做的事」（不是待办，是搁在心上的念想）。
 //     每条：内容/来源/权重/碰触次数/上次碰触/状态(active|ash落灰)。
-//   · 每日灵光独白：跟行程同一套 tick（首开/回前台/跨天），每角色每天一次
+//   · 每日发呆：跟行程同一套 tick（首开/回前台/跨天），每角色每天一次
 //     发呆——冒念头、想起旧念想、偶尔长出一条新芽。走便宜后台池 bgActive。
-//   · 显灵时刻：单聊按概率把一条高权重念想塞【一行】进 prompt，让 TA 自然流露
+//   · 说漏嘴：单聊按概率把一条高权重念想塞【一行】进 prompt，让 TA 自然流露
 //     （不契合当下就当没看见）——守聊天预算铁律，太平轮次零注入。
 //   【落笔权铁律】只有「以角色身份的生成调用」能写独白/念想内容；这里的 js
-//   只干体力活：记碰触/时间戳/瞬灭/落灰，绝不替角色总结。
-//   数据存 localStorage x_desires（x_ 前缀自动进导出/云同步）。
-//   来源两类：echo=旧日回响（扎根记忆/对话，出生权重 0.5）；
-//             spark=白日梦一闪念（出生权重 0.05，24h 没被再想起就瞬灭不留痕）。
+//   只干体力活：记碰触/时间戳/没接住/落灰，绝不替角色总结。
+//   ⚠️数据存 localStorage x_desires——【键名不许跟着改名】：里面是所有角色攒了几个月的
+//     念想、做过的、长出来的自我，改了就全丢。status/source 那几个英文值（active/ash/
+//     graduated/withered、echo/spark/vine）同理是【存进档的值】，也一个都不许动。
+//     （x_ 前缀自动进导出/云同步）
+//   来源两类：echo=从旧事里长的（扎根记忆/对话，出生权重 0.5）；
+//             spark=白日梦一闪念（出生权重 0.05，24h 没被再想起就没接住不留痕）。
 // ============================================================
 (function () {
   const ACCENT = "#a8763e"; // 盒子主色（旧木盒的暖棕）
@@ -27,23 +45,23 @@
       list: Array.isArray(b.list) ? b.list.map(e => ({ ...e, tracks: Array.isArray(e.tracks) ? e.tracks.slice() : [] })) : [],
       log: Array.isArray(b.log) ? b.log.slice() : [],
       lastMuse: b.lastMuse || "",
-      lastMellow: b.lastMellow || "",   // 小满日（每 10 天权重小校准+毕业判定）
-      lastSolstice: b.lastSolstice || "", // 冬至日（每 90 天季度自述）
-      lastObserve: b.lastObserve || "",   // 观测者（每 7 天递一次纸条）
-      persona: Array.isArray(b.persona) ? b.persona.map(e => ({ ...e })) : [], // 人格档案（只有角色落笔）
+      lastMellow: b.lastMellow || "",   // 盘一盘（每 10 天权重小校准+毕业判定）
+      lastSolstice: b.lastSolstice || "", // 回头看（每 90 天季度自述）
+      lastObserve: b.lastObserve || "",   // 旁人（每 7 天递一次纸条）
+      persona: Array.isArray(b.persona) ? b.persona.map(e => ({ ...e })) : [], // 长出来的自我（只有角色落笔）
       milestones: Array.isArray(b.milestones) ? b.milestones.slice() : [],     // 季度自述存档
-      briefs: Array.isArray(b.briefs) ? b.briefs.slice() : [],  // 观测者纸条（外部工具可写=体力活，角色可采可弃）
-      avoid: Array.isArray(b.avoid) ? b.avoid.slice() : [],     // 痕避：TA 回避的话题（反向铁网）
-      echoPending: b.echoPending || null // 成长回响：刚毕业待 TA 在聊天里今昔对比一次
+      briefs: Array.isArray(b.briefs) ? b.briefs.slice() : [],  // 旁人纸条（外部工具可写=体力活，角色可采可弃）
+      avoid: Array.isArray(b.avoid) ? b.avoid.slice() : [],     // 不想碰的：TA 回避的话题（反向铁网）
+      echoPending: b.echoPending || null // 今昔：刚毕业待 TA 在聊天里今昔对比一次
     };
   }
   // 还在心上的（发呆/显灵只看这些；毕业的已成为 TA、枯萎的已放下）
   function livingList(box) { return box.list.filter(e => e.status === "active" || e.status === "ash"); }
 
-  // ---- 体力活：瞬灭 + 落灰（不碰内容，只按时间戳整理）----
+  // ---- 体力活：没接住 + 落灰（不碰内容，只按时间戳整理）----
   function housekeep(box) {
     const now = Date.now();
-    // 瞬灭：一闪念（spark）出生 24h 内没被任何一次发呆/显灵再想起 → 消散不留痕
+    // 没接住：一闪念（spark）出生 24h 内没被任何一次发呆/显灵再想起 → 消散不留痕
     box.list = box.list.filter(e => !(e.source === "spark" && !(e.touches > 0) && now - (e.born || 0) > 86400000));
     // 落灰：30 天没被想起的念想蒙灰（不删——哪天被重新想起会拂去灰）
     box.list.forEach(e => {
@@ -84,16 +102,16 @@
     return true;
   }
 
-  // ---- 每日灵光独白的 probe 规格（内容全由角色落笔）----
+  // ---- 每日发呆的 probe 规格（内容全由角色落笔）----
   function dayN(e) { return Math.max(1, Math.round((Date.now() - (e.born || Date.now())) / 86400000)); }
-  // 观测者纸条 + 痕避——递给发呆/盘点 prompt 的两小段（空则零注入）
+  // 旁人纸条 + 不想碰的——递给发呆/盘点 prompt 的两小段（空则零注入）
   function briefsTxt(box) {
     const bs = (box.briefs || []).slice(0, 4);
-    return bs.length ? "\n【观测者递来的纸条】（一个只摘录事实、绝不下结论的旁观者写的。信不信、用不用全由 TA 自己定夺，觉得不对就当没看见；CC 欲望候选也只是你亲口冒过的念头，不等于已经进盒）\n" + bs.map(b => "- [" + (b.type || "印证") + "] " + (b.candidateText ? "候选「" + b.candidateText + "」；" : "") + b.note).join("\n") : "";
+    return bs.length ? "\n【旁人递来的纸条】（一个只摘录事实、绝不下结论的旁观者写的。信不信、用不用全由 TA 自己定夺，觉得不对就当没看见；CC 欲望候选也只是你亲口冒过的念头，不等于已经进盒）\n" + bs.map(b => "- [" + (b.type || "印证") + "] " + (b.candidateText ? "候选「" + b.candidateText + "」；" : "") + b.note).join("\n") : "";
   }
   function avoidTxt(box) {
     const av = (box.avoid || []).slice(0, 5);
-    return av.length ? "\n【TA 在回避的（痕避）】" + av.map(a => "「" + a.topic + "」").join("、") + "——这些是 TA 不想碰的领域：新念想绝不许长在这些雷区上，独白想到相关的也会绕开。" : "";
+    return av.length ? "\n【TA 在回避的（不想碰的）】" + av.map(a => "「" + a.topic + "」").join("、") + "——这些是 TA 不想碰的领域：新念想绝不许长在这些雷区上，独白想到相关的也会绕开。" : "";
   }
   function museSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
@@ -105,14 +123,14 @@
       ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次刻痕（" + _ago(e.tracks[0].ts) + "）：" + e.tracks[0].text : "")).join("\n")
       : "（盒子还是空的——TA 还没有攒下念想）";
     return {
-      instruction: AC + "今天是 " + new Date(_now).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「欲望盒子」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
+      instruction: AC + "今天是 " + new Date(_now).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「心上」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
         briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次发呆：" +
         "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。\n【时间别乱安·重要】回想过去的事时，别不管过了几天都一律说『昨天』——只有真发生在昨天的才说昨天。上面每条念想的『上次刻痕』都标了是几天前/几周前，严格照那个来；拿不准具体哪天的事，就用『前阵子／那天／上次／最近』这类模糊说法，绝不硬安一个『昨天』。" +
-        "\ntouch：这次发呆里【真正被想起】的既有念想（0~2 个，一个没想起就给空数组）。每个元素 {id, note}：note 是这条念想今天的「行动刻痕」——TA 为它做了什么/有什么进展/此刻怎么想它，一句话（如「水流还是不稳，换了更细的滤纸」）；只是路过想了一下没有实质进展，note 给 null。" +
-        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/观测者纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从盒子里某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
+        "\ntouch：这次发呆里【真正被想起】的既有念想（0~2 个，一个没想起就给空数组）。每个元素 {id, note}：note 是这条念想今天的「做过的」——TA 为它做了什么/有什么进展/此刻怎么想它，一句话（如「水流还是不稳，换了更细的滤纸」）；只是路过想了一下没有实质进展，note 给 null。" +
+        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/旁人纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从盒子里某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
         "\n【铁网】新念想必须长在 TA 的人设、记忆和最近生活的土壤上：记忆/对话里反复出现、或带强烈情绪的事，才配长出扎根的念想（root 必须写得出依据）；毫无来由的突发奇想偶尔可以有（root=null，它若之后没再被想起会自己消散）。绝不许冒出和 TA 的生活完全不搭界的怪念头，盒子里已有的也别换个说法重复冒。另外：【已经和对方说好/约好的事不算念想】（那是你们的约定，记忆里自会记着）——盒子里只放 TA 自己私藏的、还没成形的想头。",
-      schemaHint: "{\"monologue\":\"一段内心独白\",\"touch\":[{\"id\":\"念想id\",\"note\":\"行动刻痕一句或null\"}],\"sprout\":{\"text\":\"想做的事一句\",\"root\":\"依据一句或null\",\"parent\":\"母念想id或null\"}}（没有新念想时 sprout 填 null）",
+      schemaHint: "{\"monologue\":\"一段内心独白\",\"touch\":[{\"id\":\"念想id\",\"note\":\"做过的一句或null\"}],\"sprout\":{\"text\":\"想做的事一句\",\"root\":\"依据一句或null\",\"parent\":\"母念想id或null\"}}（没有新念想时 sprout 填 null）",
       maxTokens: 14000 // 本体文本由调用方传入角色专线/主池；预算不能因线路治理而缩水
     };
   }
@@ -122,7 +140,7 @@
     box.lastMuse = todayKey;
     const mono = d && d.monologue ? String(d.monologue).trim() : "";
     if (mono) box.log = [{ ts: Date.now(), text: mono }, ...box.log].slice(0, 30);
-    // touch 兼容两代形态：["id"]（v48.22）和 [{id, note}]（v48.24 起，note=行动刻痕）
+    // touch 兼容两代形态：["id"]（v48.22）和 [{id, note}]（v48.24 起，note=做过的）
     (Array.isArray(d && d.touch) ? d.touch : []).slice(0, 3).forEach(t => {
       const id = typeof t === "string" ? t : t && t.id;
       if (!id) return;
@@ -146,7 +164,7 @@
           id: "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36),
           text: txt,
           root: rooted ? rooted.slice(0, 120) : (parent ? "从「" + parent.text + "」的进展里岔出来" : null),
-          // 心念藤蔓：从母念想岔出的子念想（带母 id，天生有根 0.4）；否则按有无依据分 echo/spark
+          // 岔出来的：从母念想岔出的子念想（带母 id，天生有根 0.4）；否则按有无依据分 echo/spark
           source: parent ? "vine" : (rooted ? "echo" : "spark"),
           parentId: parent ? parent.id : undefined,
           weight: parent ? 0.4 : (rooted ? 0.5 : 0.05),
@@ -158,7 +176,7 @@
   }
 
   // ============================================================
-  // P2 · 三节奏的后两拍：小满日（每10天小校准）+ 冬至日（每90天季度自述）
+  // P2 · 三节奏的后两拍：盘一盘（每10天小校准）+ 回头看（每90天季度自述）
   // ============================================================
   const MELLOW_DAYS = 10, SOLSTICE_DAYS = 90;
   function daysBetweenKeys(a, b) { // "YYYY-MM-DD" 差多少天
@@ -176,21 +194,21 @@
     if (daysBetweenKeys(box.lastMellow, todayKey) >= MELLOW_DAYS && livingList(box).length) return { due: "mellow", inited: false };
     return { due: null, inited: false };
   }
-  // 观测者到期单独判（和小满/冬至互不排队，可同天各跑各的）
+  // 旁人到期单独判（和盘一盘/回头看互不排队，可同天各跑各的）
   const OBSERVE_DAYS = 7;
   function observeDue(box, todayKey) {
     return !!box.lastObserve && daysBetweenKeys(box.lastObserve, todayKey) >= OBSERVE_DAYS;
   }
 
-  // ---- 观测者 probe（P3）：一个便宜的旁观者，只摘录「我注意到…」，绝不下结论 ----
-  // 【落笔权】纸条和痕避属于「外部工具可写」阵营（PDF 权限表）：js 把产出直接入库；
+  // ---- 旁人 probe（P3）：一个便宜的旁观者，只摘录「我注意到…」，绝不下结论 ----
+  // 【落笔权】纸条和不想碰的属于「外部工具可写」阵营（PDF 权限表）：js 把产出直接入库；
   // 角色在下次发呆/盘点时看到纸条，可采可弃——采了才会变成 TA 自己的念想/权重判断。
   function observerSpec(char, box) {
     const living = livingList(box);
     const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜最近刻痕：" + e.tracks[0].text : "")).join("\n") || "（盒子是空的）";
     const persTxt = box.persona.map(p => "· " + p.text).join("\n") || "（还没有档案）";
     return {
-      instruction: "你现在【不是】这个角色，而是一位安静的旁观「观测者」：只看事实、只摘录，【绝不下结论、绝不评价人格】。对照上面背景里的最近对话，和下面这两份材料：\n【" + char.name + " 的欲望盒子】\n" + listTxt + "\n【" + char.name + " 的人格档案】\n" + persTxt +
+      instruction: "你现在【不是】这个角色，而是一位安静的旁观「旁人」：只看事实、只摘录，【绝不下结论、绝不评价人格】。对照上面背景里的最近对话，和下面这两份材料：\n【" + char.name + " 的心上】\n" + listTxt + "\n【" + char.name + " 的长出来的自我】\n" + persTxt +
         "\n\n写 0~3 张观测纸条 briefs，每张 {type, target, note}：" +
         "\n- type=印证：某条念想/档案和 TA 最近言行对得上（note 例：「我注意到 TA 这周三次提到练拉花」）；target 填那条念想 id 或 null。" +
         "\n- type=对立：写着的和实际做的相反（只摘事实，不评判）。" +
@@ -216,18 +234,18 @@
     return box;
   }
 
-  // ---- 小满日 probe：权重小校准 + 毕业（蜕变诗+人格行）+ 枯萎（内容全由角色落笔）----
+  // ---- 盘一盘 probe：权重小校准 + 毕业（出师那句+人格行）+ 枯萎（内容全由角色落笔）----
   function mellowSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
     const living = livingList(box);
-    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "\n    行动刻痕：" + e.tracks.map(tk => tk.text).join("→") : "")).join("\n");
+    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "\n    做过的：" + e.tracks.map(tk => tk.text).join("→") : "")).join("\n");
     const recentMono = box.log.slice(0, 3).map(l => "· " + l.text).join("\n");
     return {
-      instruction: AC + "每隔一阵子，「" + char.name + "」会在心里把那只欲望盒子盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【盒子现状】\n" + listTxt +
+      instruction: AC + "每隔一阵子，「" + char.name + "」会在心里把那只心上盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【盒子现状】\n" + listTxt +
         (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") + briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次盘点：" +
-        "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、行动刻痕、聊天里的热度、TA 现在的生活重心（观测者若递了「对立」纸条——写着的和做的相反——通常该降）。没变化的不用列，多数日子只微动一两条。" +
-        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有毕业，没有就 null）。**只有被想起多次、行动刻痕扎实的才够资格申请**；还没动手的绝不许毕业。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
+        "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、做过的、聊天里的热度、TA 现在的生活重心（旁人若递了「对立」纸条——写着的和做的相反——通常该降）。没变化的不用列，多数日子只微动一两条。" +
+        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有毕业，没有就 null）。**只有被想起多次、做过的扎实的才够资格申请**；还没动手的绝不许毕业。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
         "\nwither：TA 想明白了【彻底不想要了】的念想 id 数组（最多 1 条，罕见；不是没空做，是不要了；没有给 []）。" +
         "\n【铁律】毕业要有真凭实据（刻痕/对话/独白里真的做了），诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
       schemaHint: "{\"tune\":[{\"id\":\"念想id\",\"weight\":0.6}],\"graduate\":{\"id\":\"念想id\",\"poem\":\"小诗\",\"persona\":\"我是一个…的人\"},\"wither\":[\"念想id\"]}（graduate 没有时填 null，wither 没有时 []）",
@@ -244,7 +262,7 @@
       const cur = e.weight || 0.5;
       e.weight = Math.min(0.95, Math.max(0.05, Math.min(cur + 0.15, Math.max(cur - 0.15, w))));
     });
-    // 毕业：念想蜕变成人格档案的一行（+蜕变诗）
+    // 毕业：念想蜕变成长出来的自我的一行（+出师那句）
     const g = d && d.graduate;
     if (g && g.id && g.persona) {
       const e = box.list.find(x => x.id === String(g.id));
@@ -257,7 +275,7 @@
           text: String(g.persona).trim().slice(0, 40),
           poem: e.poem, from: e.text, ts: Date.now()
         }];
-        // 成长回响（P3）：毕业后下次单聊，TA 有一次「今昔对比」的自然流露机会（一次性，用掉即清）
+        // 今昔（P3）：毕业后下次单聊，TA 有一次「今昔对比」的自然流露机会（一次性，用掉即清）
         box.echoPending = { text: e.text, persona: String(g.persona).trim().slice(0, 40), ts: Date.now() };
       }
     }
@@ -269,7 +287,7 @@
     return box;
   }
 
-  // ---- 冬至日 probe：季度自述（这一季我变成了什么样的人）----
+  // ---- 回头看 probe：季度自述（这一季我变成了什么样的人）----
   function solsticeSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
     const persTxt = box.persona.map(p => "· " + p.text).join("\n");
@@ -282,7 +300,7 @@
         (grads ? "【这段日子毕业的念想】\n" + grads + "\n" : "") +
         (listTxt ? "【还搁在心上的】\n" + listTxt + "\n" : "") +
         "\n以 TA 的第一人称写一段 80~150 字的季度自述 reflection：这一季我变成了什么样的人、什么留下了、什么放下了。要有 TA 自己的口吻和性格，像写给自己看的，不许升华成鸡汤、不许总结陈词。" +
-        "\n另外 persona：回望这一季，若有一条【新的自我认知】值得正式写进人格档案（一句『我是一个…的人』，25字内，和已有档案不重复），就写；多数季度没有，没有填 null。",
+        "\n另外 persona：回望这一季，若有一条【新的自我认知】值得正式写进长出来的自我（一句『我是一个…的人』，25字内，和已有档案不重复），就写；多数季度没有，没有填 null。",
       schemaHint: "{\"reflection\":\"一段季度自述\",\"persona\":\"我是一个…的人 或 null\"}",
       maxTokens: 14000
     };
@@ -291,7 +309,7 @@
     box.lastSolstice = todayKey;
     const txt = d && d.reflection ? String(d.reflection).trim() : "";
     if (txt) box.milestones = [{ ts: Date.now(), text: txt }, ...box.milestones].slice(0, 8);
-    // 冬至也可落一笔档案（PDF 原文：季度自述输出的新人格特征由 AI 执笔写入档案）
+    // 回头看也可落一笔档案（PDF 原文：季度自述输出的新人格特征由 AI 执笔写入档案）
     const pl = d && d.persona && !/^null$/i.test(String(d.persona).trim()) ? String(d.persona).trim().slice(0, 40) : "";
     if (pl && !box.persona.some(p => p.text === pl)) {
       box.persona = [...box.persona, { id: "p" + Date.now().toString(36), text: pl, poem: "", from: "季度回望", ts: Date.now() }];
@@ -299,7 +317,7 @@
     return box;
   }
 
-  // ---- 人格档案 → 聊天注入文本（封顶 ~400 字：超了裁最旧的，档案本体不动）----
+  // ---- 长出来的自我 → 聊天注入文本（封顶 ~400 字：超了裁最旧的，档案本体不动）----
   function personaText(boxRaw) {
     const pers = (boxRaw && Array.isArray(boxRaw.persona)) ? boxRaw.persona : [];
     if (!pers.length) return "";
@@ -314,7 +332,7 @@
     return lines.join("\n");
   }
 
-  // 人格档案只读体检：只量本体大小、400 字注入覆盖和近重复，不改档案、不保存正文、不调用模型。
+  // 长出来的自我只读体检：只量本体大小、400 字注入覆盖和近重复，不改档案、不保存正文、不调用模型。
   function personaAudit(boxRaw) {
     const pers = (boxRaw && Array.isArray(boxRaw.persona)) ? boxRaw.persona.filter(p => p && p.text) : [];
     const norm = s => String(s || "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
@@ -339,7 +357,7 @@
       pressure: pers.length > 8 || injectedChars >= 360 || duplicatePairs > 0 };
   }
 
-  // ---- 显灵时刻：挑一条高权重的活念想（概率闸门在调用处）----
+  // ---- 说漏嘴：挑一条高权重的活念想（概率闸门在调用处）----
   function pickEpiphany(boxRaw) {
     const list = (boxRaw && Array.isArray(boxRaw.list)) ? boxRaw.list : [];
     const cands = list.filter(e => e.status === "active" && (e.weight || 0) >= 0.4);
@@ -350,12 +368,12 @@
     return cands[cands.length - 1];
   }
 
-  window.DesireKit = { boxOf, housekeep, touch, ingestCcCandidate, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
+  window.HeartKit = { boxOf, housekeep, touch, ingestCcCandidate, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
 
   // ============================================================
-  // UI：欲望盒子（tall Sheet，从资料卡进）
+  // UI：心上（tall Sheet，从资料卡进）
   // ============================================================
-  const SRC_LABEL = { echo: "旧日回响", spark: "一闪念", vine: "心念藤蔓" };
+  const SRC_LABEL = { echo: "从旧事里长的", spark: "一闪念", vine: "岔出来的" };
   function fmtDay(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; }
   // 蜕变轴：把盒子里所有带时间的事件铺成一条时间线（P3，纯现有数据零调用）
   function timelineOf(b) {
@@ -399,7 +417,7 @@
     const flame = w => w >= 0.75 ? "🔥🔥🔥" : w >= 0.45 ? "🔥🔥" : w >= 0.2 ? "🔥" : "·";
     const statusTag = e => e.status === "ash" ? "（落灰了）" : e.status === "graduated" ? "" : e.status === "withered" ? "（枯萎了）" : "";
     return h(Sheet, { onClose, tall: true },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, (char.remark || char.name) + " 的欲望盒子"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, (char.remark || char.name) + " 的心上"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } },
         "TA 自己攒下的念想——只有 TA 能往里写；你只是碰巧看见了。"),
       driveShadow && driveShadow.top ? h("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
@@ -421,7 +439,7 @@
       // 今日独白
       h("div", { style: { marginTop: 16, padding: "13px 14px", borderRadius: 14, background: ACCENT + "14", border: "1px solid " + ACCENT + "38" } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-          h(Eyebrow, null, latestIsToday ? "今日 · 发呆时飘过的" : "灵光独白"),
+          h(Eyebrow, null, latestIsToday ? "今日 · 发呆时飘过的" : "发呆"),
           h("button", {
             onClick: busy ? undefined : onMuse,
             className: "active:opacity-60",
@@ -433,9 +451,9 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, fmtDay(latest.ts) + (latestIsToday ? "" : " · 那天发呆时想的")))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.7 } },
               "TA 还没发过呆。每天 TA 会自己找个安静时刻走一会儿神；也可以现在就点右上角让 TA 来一次。")),
-      // 人格档案：毕业念想凝成的「我是一个…的人」——TA 亲笔，常驻进 TA 的人设
+      // 长出来的自我：毕业念想凝成的「我是一个…的人」——TA 亲笔，常驻进 TA 的人设
       b.persona.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 长出来的自我 · 人格档案"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 长出来的自我 · 长出来的自我"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: personaHealth.pressure ? "#b89150" : t.fog, lineHeight: 1.55, marginBottom: 8 } },
           "只读体检：本体 " + personaHealth.totalCount + " 条 / " + personaHealth.totalChars + " 字 · 本轮会注入 " + personaHealth.injectedCount + " 条 / " + personaHealth.injectedChars + " 字" +
           (personaHealth.hiddenByBudget ? " · 预算外留档 " + personaHealth.hiddenByBudget + " 条" : "") +
@@ -477,22 +495,22 @@
                   confirmId === e.id
                     ? h("button", { onClick: () => { onRemove(e.id); setConfirmId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#c25a4a", marginTop: 6 } }, "确定拿走")
                     : h("button", { onClick: () => setConfirmId(e.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "拿走"))))))),
-      // 痕避：TA 在回避的话题（观测者记的，反向铁网；可拿走）
+      // 不想碰的：TA 在回避的话题（旁人记的，反向铁网；可拿走）
       b.avoid.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 在回避的 · 痕避"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 在回避的 · 不想碰的"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, b.avoid.map(a => h("span", {
           key: a.topic,
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub }
         }, "🚫 " + a.topic,
           onRemoveAvoid && h("button", { onClick: () => onRemoveAvoid(a.topic), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "✕")))),
-        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } }, "TA 明显不想聊的领域——新念想不会长在这些雷区上。观测者记的，记错了就 ✕ 掉。")) : null,
-      // 观测者纸条（旁观的便宜小模型，只摘录不下结论；TA 发呆/盘点时会看到）
+        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } }, "TA 明显不想聊的领域——新念想不会长在这些雷区上。旁人记的，记错了就 ✕ 掉。")) : null,
+      // 旁人纸条（旁观的便宜小模型，只摘录不下结论；TA 发呆/盘点时会看到）
       b.briefs.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "观测者的纸条"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "旁人的纸条"),
         h("div", { className: "space-y-1.5" }, b.briefs.slice(0, 4).map((br, i) => h("div", {
           key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 }
         }, "· [" + br.type + "] " + (br.candidateText ? "候选「" + br.candidateText + "」；" : "") + br.note)))) : null,
-      // P3-1：本机人格四卡 shadow 的只读观察册。没有采纳/拒绝按钮，不会改人格档案。
+      // P3-1：本机人格四卡 shadow 的只读观察册。没有采纳/拒绝按钮，不会改长出来的自我。
       personalityNotes.length ? h("div", { style: { marginTop: 18 } },
         h("button", { onClick: () => setShowPersonalityNotes(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
           (showPersonalityNotes ? "收起" : "翻看") + "人格观察草稿（" + personalityNotes.length + "）"),
@@ -526,7 +544,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, ev.text),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, fmtDay(ev.ts))))) : null) : null;
       })(),
-      // 季度自述（冬至日，每 90 天一段）
+      // 季度自述（回头看，每 90 天一段）
       b.milestones.length ? h("div", { style: { marginTop: 18 } },
         h("button", { onClick: () => setShowMile(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
           (showMile ? "收起" : "翻看") + "季度自述（" + b.milestones.length + "）"),

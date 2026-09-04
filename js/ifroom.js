@@ -170,6 +170,6 @@
   // ⚠️叫 IfKit 不叫 IfRoom：screens.js 里那个页面组件就叫 IfRoom，两个都是全局，
   // 后加载的这一个会把组件函数原样盖成一个对象，React 当场报 #130（元素类型不是
   // 函数是对象）——而 node --check 和整套测试一个字都不会说。跟房里 GachaKit /
-  // DesireKit / TrpgMap 一个叫法。
+  // HeartKit / TrpgMap 一个叫法。
   if (root) root.IfKit = api;
 })(typeof window !== "undefined" ? window : globalThis);
