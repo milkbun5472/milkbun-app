@@ -19,8 +19,34 @@ push(readFileSync("rescue.html", "utf8").match(/TARGET="([\d.]+)"/)?.[1]);
 push(readFileSync("manifest.json", "utf8").match(/launch=([\d.]+)/)?.[1]);
 // 提交历史：别人刚发的版本可能已经被我本地覆盖掉了，只有历史记得
 try { push(execSync("git log --format=%s -60", { encoding: "utf8" })); } catch (_) {}
+// ⚠️还得问一次【远端】（她 2026-09-04：两个窗口同时发版，两边都发了 62.12）。
+// 本地历史只记得我 fetch 那一刻为止的事；另一个窗口在这之后推的版本，
+// 本地一无所知——于是两边算出同一个「下一个号」，谁后推谁把号写回去。
+// 所以发版前现拉一次 origin/main，再把它的提交标题和四个版本文件一起算进来。
+// 拉不动（离线/超时）就跳过：不能因为没网就发不了版。
+try { execSync("git fetch --quiet origin main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
+try { push(execSync("git log --format=%s origin/main -60", { encoding: "utf8" })); } catch (_) {}
+try { push(execSync("git show origin/main:js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]); } catch (_) {}
+try { push(execSync("git show origin/main:index.html", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/\?v=[\d.]+/g)?.join(" ")); } catch (_) {}
 
 const top = all.sort((x, y) => num(x) - num(y)).pop();
+// --check：推之前再问一次远端。bump 到 push 之间那几分钟，另一个窗口可能又发了一版；
+// 那种情况下号还是会撞（她 2026-09-04 两边都发 62.12 就是这么来的）。
+// 撞了就非零退出，提示重新 bump 再推——别让号退回去。
+if (process.argv.includes("--check")) {
+  const mine = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1];
+  let theirs = null;
+  try { execSync("git fetch --quiet origin main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
+  // ⚠️maxBuffer 要给足：app.js 一个多兆，默认 1MB 会直接抛错被 catch 吞掉，
+  // 于是「远端版本」永远读不到——闸看着在，其实从没关上过
+  try { theirs = execSync("git show origin/main:js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]; } catch (_) {}
+  if (mine && theirs && num(theirs) >= num(mine)) {
+    console.error("远端已经发到 " + theirs + "，本地这版是 " + mine + "：先 rebase，再跑一次 bump-version，然后推");
+    process.exit(1);
+  }
+  console.log("远端 " + (theirs || "未知") + " < 本地 " + mine + "，可以推");
+  process.exit(0);
+}
 if (!top) { console.error("找不到任何版本号"); process.exit(1); }
 const [maj, mi] = top.split(".");
 // 次版本号满 99 就进位（她 2026-08-25：「55.100 应该是 56.00 才对」）。
@@ -64,3 +90,5 @@ writeFileSync("js/app.js", readFileSync("js/app.js", "utf8").replace(/APP_VERSIO
 writeFileSync("rescue.html", readFileSync("rescue.html", "utf8").replace(/TARGET="[\d.]+"/, 'TARGET="' + next + '"'));
 writeFileSync("manifest.json", readFileSync("manifest.json", "utf8").replace(/launch=[\d.]+/, "launch=" + next));
 console.log("现有最大 " + top + " → 发版 " + next);
+// 发版号是【算出来的】，不是手写的：谁也别再往提交里硬写下一个号
+// （2026-08-22 那次把 55.19 盖回 55.13、2026-09-04 那次两边都发 62.12，都是手写来的）。
