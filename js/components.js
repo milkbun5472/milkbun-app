@@ -2914,9 +2914,19 @@ function Home({
       if (x > cw - 34 && page < curLayout.length - 1 && nowT - flipRef.current > 650) {
         clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; goPage(page + 1); return;
       }
-      const el = document.elementFromPoint(x, tch.clientY);
-      const overEl = el && el.closest && el.closest("[data-appkey]");
-      const overKey = overEl ? overEl.getAttribute("data-appkey") : null;
+      // v61.70 落点改用矩形包含扫描，不再用 elementFromPoint：
+      // 浮在页面上层的东西（悬浮播放条、跟手浮影、「+装饰/完成」按钮）会把指下真正的格子挡住，
+      // elementFromPoint 拿到的是遮罩层 → 落点为空/错格（她 9/3「放下面死活不行」「地图跑顶端」的另一半病根）。
+      const y = tch.clientY;
+      let overEl = null, overKey = null, bestArea = Infinity;
+      document.querySelectorAll("[data-appkey]").forEach(function (node) {
+        const k = node.getAttribute("data-appkey");
+        if (!k || k === dragKeyRef.current) return;
+        const rc = node.getBoundingClientRect();
+        if (!rc.width || x < rc.left || x > rc.right || y < rc.top || y > rc.bottom) return;
+        const area = rc.width * rc.height;
+        if (area < bestArea) { bestArea = area; overEl = node; overKey = k; }
+      });
       const dragged = dragKeyRef.current;
       if (overKey && overKey !== dragged) {
         // 拖 app 悬停在另一个 app/文件夹的中间区域 → 蓄力合并
