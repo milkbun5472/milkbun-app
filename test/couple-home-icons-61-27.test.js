@@ -68,8 +68,22 @@ test("能复用现成 SVG 的地方就复用（打卡、起始日）", () => {
   assert.match(seg, /h\(IPencil, \{ size: 11, color: t\.tint \}\), "起始日"/);
 });
 
-test("并排那两张卡的水印是同一种东西（都是汉字）", () => {
-  const idx = [...seg.matchAll(/fontSize: 82, lineHeight: 1, color: "[^"]+" \} \}, "(.)"\)/g)].map(m => m[1]);
-  assert.equal(idx.length, 2, "水印不是两处了，检查一下这条还成不成立");
-  idx.forEach(ch => assert.match(ch, /[一-鿿]/, "水印「" + ch + "」不是汉字"));
+// v62.31：这条的前提变了，所以整条重写（这个文件自己那句「检查一下这条还成不成立」
+// 就是留给今天的）。原来两张卡靠【同一种水印】（各压一个 82px 的汉字）凑成一对；
+// 她 2026-09-04 说「还是有点平淡」——病根正是那个：水印是装饰，两张卡本身还是圆角框，
+// 原样搬到别的 app 里照样成立（tabs-not-plain-pills.md 的判据）。
+// 现在两张各自【真的是那样东西】：档案是牛皮纸档案夹，愿望板是软木板上钉着的便签。
+// 配成一对靠的不再是同一种装饰，是两样都从「点进去那一页是什么」长出来的。
+test("并排那两张卡各自是一样真东西，不是压了个水印的圆角框", () => {
+  assert.ok(seg.indexOf("fontSize: 82, lineHeight: 1") < 0, "那两个大水印字又回来了");
+  // 档案＝档案夹：伸出来的索引标签 + 露出来的纸边 + 绕线扣（跟点进去那一页同一套语言）
+  const a = seg.slice(seg.indexOf('openSub("archive")'), seg.indexOf('openSub("wishes")'));
+  assert.match(a, /borderRadius: "0 0 7px 7px"/, "档案夹上那枚索引标签没了");
+  assert.match(a, /background: "linear-gradient\(90deg,#fbf6ea,#efe6d2\)"/, "右边露出来的纸边没了");
+  assert.match(a, /background: "#b09468"/, "绕线扣没了");
+  // 愿望板＝软木板 + 歪着的便签 + 一枚真图钉
+  const w = seg.slice(seg.indexOf('openSub("wishes")'), seg.indexOf('openSub("wishes")') + 1800);
+  assert.match(w, /backgroundSize: "7px 7px, 11px 11px"/, "软木那层颗粒没了");
+  assert.match(w, /transform: "rotate\(-1\.4deg\)"/, "便签摆正了就不像钉上去的");
+  assert.match(w, /radial-gradient\(circle at 34% 30%,#f0899f,#b83b5c\)/, "图钉没了");
 });

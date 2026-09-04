@@ -3235,6 +3235,21 @@ function MoodGlyph({ mood, size }) {
   return h("svg", { width: s, height: s, viewBox: "0 0 24 24", style: { display: "block", overflow: "visible" } }, kids);
 }
 // 情侣空间·我们的日子：纪念日倒计时(倒数中) + 恋爱时间轴(时光轴，起点/里程碑/感慨)，二合一，都带年份
+// 一张挂历页（v62.31 抽出来）：红头写月、大字写日、顶上两个挂孔。
+// ⚠️一处画、三处用——倒数列表、情侣空间首页那格倒数、加纪念日那张表单，
+// 全是同一张日历页。各画一份的话，改个红色就得记得改三遍（这个仓库最常犯的错）。
+// blank=还没填的那一张（加纪念日用）：红头留白、日子位放输入框。
+function CalPage({ month, day, dim, w, head, body }) {
+  const t = useTheme();
+  const W = w || 44;
+  return h("div", { style: { position: "relative", width: W, flexShrink: 0, borderRadius: 7, overflow: "hidden", border: "1px solid " + t.line, boxShadow: "0 2px 6px rgba(0,0,0,.10)" } },
+    h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, left: W * 0.2, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)", zIndex: 1 } }),
+    h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, right: W * 0.2, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)", zIndex: 1 } }),
+    h("div", { style: { background: dim ? "#a09890" : "#c25a5a", color: "#fff", fontSize: Math.max(8, Math.round(W * 0.2)), textAlign: "center", padding: "3px 0 2px", fontFamily: F_BODY, letterSpacing: 1 } },
+      head !== undefined ? head : month + " 月"),
+    h("div", { style: { background: t.bg2, textAlign: "center", fontFamily: F_DISPLAY, fontSize: Math.round(W * 0.43), color: t.ink, padding: "3px 0 4px", lineHeight: 1.1 } },
+      body !== undefined ? body : day));
+}
 function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
   const t = useTheme();
   // 他留下的感慨带 unread（名册红点看它）；进来看一眼就算看过——跟交换日记同一个形状
@@ -3259,8 +3274,9 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
   const submitMile = () => { if (date && title.trim()) { onAdd(partner, date, title, content); setDate(""); setTitle(""); setContent(""); setAddMode(null); } };
   const submitAnn = () => { if (an.trim() && mo && dy) { onAddAnniv(partner, an, mo, dy, yearly, link); setAn(""); setMo(""); setDy(""); setAddMode(null); } };
   const toggle = (on, set, label) => h("button", { onClick: () => set(v => !v), className: "active:opacity-70 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.ink : t.fog } }, h("span", { style: { width: 15, height: 15, borderRadius: 4, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), color: t.bg2, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : ""), label);
-  const dash = { flex: 1, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: 13, color: t.tint };
-  const inp = { width: "100%", outline: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  // 纸上写字就是写在【线】上，不是写进一个圆角灰框里（她 2026-09-04：「很普通的框」）
+  const line1 = { width: "100%", outline: "none", padding: "6px 2px 7px", fontFamily: F_BODY, fontSize: 13.5,
+    background: "transparent", color: t.ink, border: "none", borderBottom: "1px dashed " + t.line };
   // ── 时光轴说的和名册那条「走过来的路」是同一件事，v62.15 起用同一种语言：
   // 路色 #e08aa0、今天是末端实心点、她记的是路上的实心点、TA 留的是空心环
   //（形状不同，不只色差）。每条带「第 N 天」——第一次们那册已经在用这个语言。
@@ -3300,33 +3316,69 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
     h(Head, { zh: "我们的日子", en: partner.name, onBack,
       right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      h("div", { className: "flex gap-2", style: { margin: "8px 0 4px" } },
-        h("button", { onClick: () => setAddMode(m => m === "mile" ? null : "mile"), className: "active:opacity-70", style: dash }, addMode === "mile" ? "收起" : "＋ 里程碑"),
-        h("button", { onClick: () => setAddMode(m => m === "anniv" ? null : "anniv"), className: "active:opacity-70", style: dash }, addMode === "anniv" ? "收起" : "＋ 纪念日")),
-      addMode === "mile" ? h("div", { className: "space-y-2", style: { marginTop: 8, marginBottom: 6 } },
-        h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), style: inp }),
-        h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "标题，如 第一次一起看海", style: inp }),
-        h("textarea", { value: content, onChange: e => setContent(e.target.value), rows: 2, placeholder: "想记住的细节（选填）", style: Object.assign({}, inp, { resize: "none", lineHeight: 1.5 }) }),
-        h("button", { onClick: submitMile, disabled: !date || !title.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "记下来")) : null,
-      addMode === "anniv" ? h("div", { className: "space-y-2", style: { marginTop: 8, marginBottom: 6 } },
-        h("input", { value: an, onChange: e => setAn(e.target.value), placeholder: "纪念日名称，如 在一起一周年", style: inp }),
-        h("div", { className: "flex gap-2 items-center" },
-          h("input", { type: "number", value: mo, onChange: e => setMo(e.target.value), placeholder: "月", className: "text-center", style: Object.assign({}, inp, { width: 56 }) }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "月"),
-          h("input", { type: "number", value: dy, onChange: e => setDy(e.target.value), placeholder: "日", className: "text-center", style: Object.assign({}, inp, { width: 56 }) }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "日")),
-        h("div", { className: "flex items-center gap-5", style: { paddingTop: 2 } }, toggle(yearly, setYearly, "每年重复"), toggle(link, setLink, "加进日历")),
-        h("button", { onClick: submitAnn, disabled: !an.trim() || !mo || !dy, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "加")) : null,
+      // ── 两个入口不是按钮，是【那两样东西本身】（tabs-not-plain-pills.md，她 2026-09-04：
+      //    「还是两颗药丸和很普通的框」）。这一页现实里是什么？一条走过来的路 + 一本挂历。
+      //    所以：里程碑＝往路上钉一处（路段＋实心点，跟底下时光轴同一套颜色）；
+      //         纪念日＝撕一张日历页（跟倒数那一列同一张 CalPage）。
+      //    选中那一张【长进底下那张纸里】（下沿方角、纸接着往下铺），照账本索引标签那套语言。
+      h("div", { className: "flex", style: { gap: 10, margin: "10px 0 0", alignItems: "stretch" } },
+        [["mile", "钉一处", "路上真发生过的一天",
+          h("div", { "aria-hidden": "true", className: "flex items-center", style: { height: 26, gap: 0 } },
+            h("div", { style: { flex: 1, height: 2, borderRadius: 2, background: "linear-gradient(90deg,rgba(224,138,160,.25)," + ROAD + ")" } }),
+            h("div", { style: { width: 11, height: 11, borderRadius: 999, background: ROAD_DOT, boxShadow: "0 0 0 3px rgba(224,138,160,.22)" } }),
+            h("div", { style: { flex: 1, height: 2, borderRadius: 2, background: "linear-gradient(90deg," + ROAD + ",rgba(224,138,160,.25))" } }))],
+         ["anniv", "撕一张", "还没到、值得等的那天",
+          h("div", { "aria-hidden": "true", className: "flex justify-center", style: { height: 26 } },
+            h(CalPage, { w: 30, head: "", body: "" }))]
+        ].map(([k, zh, sub, art]) => {
+          const on = addMode === k;
+          return h("button", { key: k, onClick: () => setAddMode(m => m === k ? null : k), className: "flex-1 active:opacity-80",
+            style: { padding: "11px 10px 12px", textAlign: "center",
+              borderRadius: on ? "14px 14px 0 0" : 14,
+              background: on ? t.bg2 : "transparent",
+              border: "1px solid " + (on ? t.line : "rgba(0,0,0,0)"),
+              borderBottom: on ? "1px solid " + t.bg2 : "1px solid rgba(0,0,0,0)",
+              marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 1 : 0,
+              opacity: on || !addMode ? 1 : 0.45, transition: "opacity .15s" } },
+            art,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 7 } }, on ? "收起" : zh),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, sub));
+        })),
+      // 底下那张纸：跟选中的那一格接成一体
+      addMode ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: addMode === "mile" ? "0 14px 14px 14px" : "14px 0 14px 14px", padding: "14px 14px 13px", marginBottom: 8 } },
+        addMode === "mile" ? h("div", { className: "flex", style: { gap: 12 } },
+          // 表单左边就是那条路：输入的这一处正钉在上面
+          h("div", { "aria-hidden": "true", style: { width: 11, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 6 } },
+            h("div", { style: { width: 9, height: 9, borderRadius: 999, background: ROAD_DOT } }),
+            h("div", { style: { flex: 1, width: 2, borderRadius: 2, background: "linear-gradient(" + ROAD + ",rgba(224,138,160,.28))", marginTop: 3 } })),
+          h("div", { className: "flex-1 min-w-0 space-y-2" },
+            h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), style: line1 }),
+            h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "这一天发生了什么", style: Object.assign({}, line1, { fontFamily: F_DISPLAY, fontSize: 16 }) }),
+            h("textarea", { value: content, onChange: e => setContent(e.target.value), rows: 2, placeholder: "想记住的细节（选填）", style: Object.assign({}, line1, { resize: "none", lineHeight: 1.6 }) }),
+            h("button", { onClick: submitMile, disabled: !date || !title.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 4, background: ROAD_DOT, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, padding: "9px 22px", borderRadius: 999 } }, "钉在这一天")))
+        : h("div", null,
+          // 纪念日就在这张日历页上填：名字写在红头里，月日就是那页的大字
+          h("div", { style: { borderRadius: 9, overflow: "hidden", border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.10)" } },
+            h("div", { style: { position: "relative", background: "#c25a5a", padding: "7px 12px 8px" } },
+              h("div", { "aria-hidden": "true", style: { position: "absolute", top: 3, left: "26%", width: 5, height: 5, borderRadius: 999, background: "rgba(255,255,255,.5)" } }),
+              h("div", { "aria-hidden": "true", style: { position: "absolute", top: 3, right: "26%", width: 5, height: 5, borderRadius: 999, background: "rgba(255,255,255,.5)" } }),
+              h("input", { value: an, onChange: e => setAn(e.target.value), placeholder: "这一天叫什么", className: "w-full outline-none text-center",
+                style: { background: "transparent", color: "#fff", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "2px 0" } })),
+            h("div", { className: "flex items-baseline justify-center", style: { background: t.bg2, gap: 4, padding: "12px 0 13px" } },
+              h("input", { type: "number", value: mo, onChange: e => setMo(e.target.value), placeholder: "—", className: "outline-none text-right",
+                style: { width: 52, background: "transparent", color: t.ink, fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1 } }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "月"),
+              h("input", { type: "number", value: dy, onChange: e => setDy(e.target.value), placeholder: "—", className: "outline-none text-right",
+                style: { width: 52, background: "transparent", color: t.ink, fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1 } }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "日"))),
+          h("div", { className: "flex items-center", style: { gap: 18, marginTop: 12 } }, toggle(yearly, setYearly, "每年重复"), toggle(link, setLink, "加进日历")),
+          h("button", { onClick: submitAnn, disabled: !an.trim() || !mo || !dy, className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 12, background: "#c25a5a", color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, padding: "9px 22px", borderRadius: 999 } }, "挂上去"))) : null,
       anns.length ? h(Eyebrow, { style: { marginTop: 16, marginBottom: 8 } }, "倒数中") : null,
       h("div", { className: "space-y-2.5", style: { marginBottom: anns.length ? 6 : 0 } },
         // 倒数的那一天在现实里长在【日历页】上（v62.15）：左边一张小挂历——红头写月、
         // 大字写日、顶上两个挂孔；过期的整页压灰，红头也褪色。
         anns.map(a => { const info = annivInfo(a); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "11px 15px 11px 12px", opacity: info.passed ? 0.55 : 1 } },
-          h("div", { style: { position: "relative", width: 44, flexShrink: 0, borderRadius: 7, overflow: "hidden", border: "1px solid " + t.line, boxShadow: "0 2px 6px rgba(0,0,0,.10)" } },
-            h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, left: 9, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)" } }),
-            h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, right: 9, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)" } }),
-            h("div", { style: { background: info.passed ? "#a09890" : "#c25a5a", color: "#fff", fontSize: 9, textAlign: "center", padding: "3px 0 2px", fontFamily: F_BODY, letterSpacing: 1 } }, a.month + " 月"),
-            h("div", { style: { background: t.bg2, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, padding: "3px 0 4px", lineHeight: 1.1 } }, a.day)),
+          h(CalPage, { month: a.month, day: a.day, dim: info.passed }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, a.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, info.y + "年" + a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : ""))),
@@ -4146,7 +4198,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bTlN = (coupleTimeline || []).filter(e => e.characterId === bCid).length;
     // 「下一件值得等的事」走 annivNext（core.js）：不重复且已经过了的，不再是「值得等的事」
     const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid)
-      .map(a => { const nx = annivNext(a); return nx.passed ? null : { name: a.name, days: nx.days }; })
+      // month/day 也带上：首页那一格现在真的画一张日历页（v62.31），要它俩才写得出那一天
+      .map(a => { const nx = annivNext(a); return nx.passed ? null : { name: a.name, days: nx.days, month: a.month, day: a.day }; })
       .filter(Boolean).sort((x, y) => x.days - y.days)[0];
     const bHome = (coupleHome || {})[bCid] || {};
     const bArchive = bHome.archive || {};
@@ -4334,24 +4387,38 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 h(Eyebrow, null, "今天 · " + todayK.slice(5).replace("-", ".")),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 3 } }, "今天的我们")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, bToday.length ? "今天留下 " + bToday.length + " 件事" : "安静的一天也算一天")),
+            // ── 这两格原来是同一个圆角框劈成两半、只靠一条竖线分开（她 2026-09-04：
+            //    「很无聊的框」）。两边说的本来就不是一件事，所以给两样不同的东西：
+            //    左边【他此刻】＝一张贴上去的便签（顶上一段胶带，纸微微歪）；
+            //    右边【下一件值得等的事】＝那本挂历的一页——跟「我们的日子」里倒数那一列
+            //    是同一张 CalPage，一处画两处用。
             h("div", { style: { borderRadius: 22, overflow: "hidden", border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)" } },
-              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr" } },
-                h("div", { style: { minHeight: 98, padding: "15px 14px", borderRight: "1px solid #eadde3" } },
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 12 } },
+                h("div", { style: { position: "relative", minHeight: 96, background: "#fffdf5", borderRadius: 3, padding: "16px 12px 12px",
+                  transform: "rotate(-1deg)", boxShadow: "0 3px 9px rgba(92,60,74,.14)" } },
+                  h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -7, marginLeft: -21, width: 42, height: 14, background: "rgba(214,196,168,.5)", border: "1px solid rgba(180,158,124,.35)", transform: "rotate(-3deg)" } }),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, partner.name + " 此刻"),
-                  bMood && bMood.label ? h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
+                  bMood && bMood.label ? h("div", { className: "flex items-center gap-2", style: { marginTop: 9 } },
                     moodFaceOf(bMood.label) ? h(MoodGlyph, { mood: moodFaceOf(bMood.label), size: 30 }) : null,
                     h("div", { className: "min-w-0" },
                       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#765865", lineHeight: 1.2 } }, bMood.label),
                       bMood.ago ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a08795", marginTop: 2 } }, bMood.ago) : null))
-                    : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#765865", marginTop: 12 } }, "还没聊过天")),
-                h("button", { onClick: () => openSub("timeline"), className: "active:opacity-70", style: { minHeight: 98, padding: "15px 14px", textAlign: "left" } },
+                    : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#765865", marginTop: 11 } }, "还没聊过天")),
+                // ⚠️那行小标题放【整格的顶上】，不要跟日历页并排：并排的话它只剩七十来像素，
+                //   「下一件值得等的事」会折成「…值得等的 / 事」（浏览器里当场看出来的）。
+                h("button", { onClick: () => openSub("timeline"), className: "active:opacity-70",
+                  style: { minHeight: 96, padding: "12px 10px", textAlign: "left" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, bAnn ? "下一件值得等的事" : "日历上等你们写"),
-                  bAnn ? h(Fragment, null,
-                    h("div", { className: "flex items-baseline gap-1", style: { marginTop: 7 } },
-                      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 29, color: "#a74d70", lineHeight: 1 } }, bAnn.days === 0 ? "今天" : bAnn.days),
-                      bAnn.days ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, "天后") : null),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#765865", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, bAnn.name))
-                    : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#765865", marginTop: 12 } }, "添一个纪念日"))),
+                  h("div", { className: "flex items-center", style: { gap: 10, marginTop: 9 } },
+                    h(CalPage, { w: 40, month: bAnn && bAnn.month, day: bAnn && bAnn.day, dim: !bAnn,
+                      head: bAnn ? undefined : "　", body: bAnn ? undefined : "＋" }),
+                    h("div", { className: "min-w-0 flex-1" },
+                      bAnn ? h(Fragment, null,
+                        h("div", { className: "flex items-baseline gap-1" },
+                          h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 25, color: "#a74d70", lineHeight: 1 } }, bAnn.days === 0 ? "今天" : bAnn.days),
+                          bAnn.days ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, "天后") : null),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#765865", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, bAnn.name))
+                        : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#765865" } }, "添一个纪念日"))))),
               bTodayRows)),
           h("section", { style: { marginTop: 20 } },
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 9 } },
@@ -4394,18 +4461,39 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   background: "linear-gradient(transparent," + bgA(0.9) + ")" } }) : null)
                 : h("div", { style: { borderRadius: 16, border: "1px dashed rgba(146,114,128,.28)", padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", lineHeight: 1.8 } }, "还没有推送。", h("br"), "便签、情书、日记、合照和实现了的愿望都会推到这儿。"))),
           h("section", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 } },
-            h("button", { onClick: () => openSub("archive"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f2eee7", border: "1px solid #dfd7ca", position: "relative", overflow: "hidden" } },
-              h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(115,91,67,.08)" } }, "档"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a745e", letterSpacing: ".14em" } }, "只由你亲手写"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#68513d", marginTop: 8 } }, "我们的档案"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a745e", marginTop: 22 } }, bArchiveN ? "已封存 " + bArchiveN + "/" + COUPLE_ARCHIVE_FIELDS.length + " 页" : "称呼、梗与小仪式")),
-            h("button", { onClick: () => openSub("wishes"), className: "active:opacity-70", style: { minHeight: 128, borderRadius: 19, padding: "14px", textAlign: "left", background: "#f8edef", border: "1px solid #ebd4da", position: "relative", overflow: "hidden" } },
-              // 和左边那张的「档」配成一对：两张卡的水印得是同一种东西（一个汉字），
-              // 原来这儿是个 ✦ ——一张汉字一张符号，并排摆着就是两套
-              h("div", { style: { position: "absolute", right: -10, bottom: -24, fontFamily: F_DISPLAY, fontSize: 82, lineHeight: 1, color: "rgba(174,75,105,.10)" } }, "愿"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a46d7e", letterSpacing: ".14em" } }, "以后想一起做的"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#8e4960", marginTop: 8 } }, "愿望板"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a46d7e", marginTop: 22 } }, bWishes.length ? bWishOpen + " 件还在等 · " + bWishes.filter(w => w.status === "done").length + " 件实现" : "把以后钉在这里"))),
+            // ── 这两张不再是「圆角框 + 一个大水印字」（她 2026-09-04：「还是有点平淡」）。
+            //    判据照 tabs-not-plain-pills.md：原样搬到别的 app 里还成立吗？成立就是写坏了。
+            //    档案是一只【牛皮纸档案夹】：夹面、伸出来的索引标签、右边一叠纸的侧边、
+            //      右上角那枚绕线扣——跟点进去那一页是同一套语言（一处的东西，两处长得一样）。
+            //    愿望板是【软木板上钉着的一张便签】：软木底、便签微微歪着、顶上一枚真的图钉。
+            //    两张不再靠「一个汉字」凑成一对，靠的是各自真的是那样东西。
+            h("button", { onClick: () => openSub("archive"), className: "active:opacity-70",
+              style: { minHeight: 132, borderRadius: "4px 4px 10px 10px", padding: 0, textAlign: "left",
+                background: "#cdb488", backgroundImage: "repeating-linear-gradient(97deg,rgba(120,90,45,.06) 0 2px,transparent 2px 13px)",
+                border: "1px solid #b49a70", position: "relative", overflow: "hidden", boxShadow: "0 5px 14px rgba(110,80,35,.16)" } },
+              // 右边露出来的那一叠纸边
+              h("div", { "aria-hidden": "true", style: { position: "absolute", right: 5, top: 12, bottom: 12, width: 9, borderRadius: 2, background: "linear-gradient(90deg,#fbf6ea,#efe6d2)", boxShadow: "0 1px 4px rgba(110,80,35,.22)" } }),
+              h("div", { "aria-hidden": "true", style: { position: "absolute", right: 11, top: 16, bottom: 16, width: 7, borderRadius: 2, background: "#fbf6ea", opacity: 0.75 } }),
+              // 绕线扣
+              h("div", { "aria-hidden": "true", style: { position: "absolute", right: 26, top: 9, width: 12, height: 12, borderRadius: 999, background: "#b09468", border: "1.5px solid rgba(90,65,25,.5)" } }),
+              // 伸出来的索引标签
+              h("div", { style: { display: "inline-block", marginLeft: 12, borderRadius: "0 0 7px 7px", padding: "5px 11px 5px", background: "#b0885a", color: "#fff", fontFamily: F_BODY, fontSize: 10.5, boxShadow: "inset 0 -1px 0 rgba(255,255,255,.22)" } }, "只由你亲手写"),
+              h("div", { style: { padding: "10px 14px 14px" } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#42311a" } }, "我们的档案"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#6d5836", marginTop: 20, lineHeight: 1.5 } },
+                  bArchiveN ? "已封存 " + bArchiveN + "/" + COUPLE_ARCHIVE_FIELDS.length + " 页" : "称呼、梗与小仪式"))),
+            h("button", { onClick: () => openSub("wishes"), className: "active:opacity-70",
+              style: { minHeight: 132, borderRadius: 12, padding: 10, textAlign: "left",
+                background: "#c8a878", backgroundImage: "radial-gradient(rgba(120,88,48,.24) 0.9px,transparent 1px), radial-gradient(rgba(255,240,214,.34) 0.9px,transparent 1px)",
+                backgroundSize: "7px 7px, 11px 11px", backgroundPosition: "0 0, 4px 5px",
+                border: "1px solid #ab8c5e", position: "relative", overflow: "hidden", boxShadow: "inset 0 0 22px rgba(110,80,35,.2)" } },
+              h("div", { style: { position: "relative", height: "100%", background: "#fdf6ea", borderRadius: 3, padding: "16px 12px 12px", transform: "rotate(-1.4deg)", boxShadow: "0 4px 11px rgba(90,62,28,.28)" } },
+                // 图钉：帽子 + 高光 + 底下那一点影
+                h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -6, marginLeft: -7, width: 14, height: 14, borderRadius: 999, background: "radial-gradient(circle at 34% 30%,#f0899f,#b83b5c)", boxShadow: "0 3px 5px rgba(80,30,45,.4)" } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a46d7e", letterSpacing: ".14em" } }, "以后想一起做的"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#8e4960", marginTop: 6 } }, "愿望板"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a46d7e", marginTop: 14, lineHeight: 1.5 } },
+                  bWishes.length ? bWishOpen + " 件还在等 · " + bWishes.filter(w => w.status === "done").length + " 件实现" : "把以后钉在这里")))),
           // —— 情侣空间 app 拼贴：六列做出宽窄、高低与转角层级；顺序固定，刷新不乱跳。——
           h("div", { className: "flex items-end justify-between", style: { marginTop: 24, marginBottom: 10 } },
             h("div", null,
@@ -12126,7 +12214,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "16px 15px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8 } },
-            "同样这两个人、同样这段关系，只换掉当初的一样东西。留空就让他自己想一条。"),
+            "同样的我们、同样这段关系，只换掉当初的一样东西。留空就让他自己想一条。"),
           h("textarea", {
             value: hint, onChange: e => setHint(e.target.value), rows: 2,
             placeholder: "想走哪个方向？留空他自己想",

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.30";
+const APP_VERSION = "v62.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3221,8 +3221,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const rows = COUPLE_ARCHIVE_LINES
       .map(([k, zh]) => { const v = String(home[k] || "").replace(/\s+/g, " ").trim(); return v ? "· " + zh + "：" + v.slice(0, COUPLE_ARCHIVE_FIELD_CAP) : ""; })
       .filter(Boolean);
-    if (!rows.length) return "";                      // 一栏没写＝零 token
-    return rows.join("\n").slice(0, COUPLE_ARCHIVE_CAP);
+    // ── 愿望板也接进来（v62.31，她 2026-09-04 问「这个也进聊天吗」——不进，是漏的）──
+    // 它跟上面七栏不是一回事，所以【另起一句领句】，不混进「你俩之间已经成立的事」里：
+    // 七栏说的是【已经是这样了】，愿望板说的是【说好想做、还没做成】。
+    // ⚠️必须带围栏。不挡的话他会天天催「我们什么时候去」——跟记忆库那条
+    //   「记忆用来不忘、不是用来重演」是同一个病，也跟发呆那边那句
+    //   「这些是土壤不是任务」同一条道理。
+    const wishes = (((coupleHomeRef.current || {})[charId] || {}).wishes || [])
+      .filter(w => w && w.title && w.status !== "done" && w.status !== "shelved")
+      .slice(0, 5)
+      .map(w => "· " + String(w.title).replace(/\s+/g, " ").trim().slice(0, 40)
+        + (w.note ? "（" + String(w.note).replace(/\s+/g, " ").trim().slice(0, 40) + "）" : ""));
+    const wishBlock = wishes.length
+      ? "\n\n【你俩的愿望板 · " + (profileRef.current && profileRef.current.name || "对方") + "钉在那儿、说好想一起做、还没做成的事】\n"
+        + wishes.join("\n")
+        + "\n⚠️这是【心里记着的事】，不是待办清单：多数时候提都不必提。真被触到时，长出来的该是"
+        + "【此刻想跟 TA 一起去做那件事】那一类的话，而不是复述清单、更不是催问「我们什么时候去」。"
+      : "";
+    if (!rows.length && !wishBlock) return "";        // 一栏没写、也没钉过愿望＝零 token
+    return (rows.length ? rows.join("\n").slice(0, COUPLE_ARCHIVE_CAP) : "") + wishBlock;
   };
   // ═══ 抽卡（她 2026-08-31）═══
   //
@@ -3804,17 +3821,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       else if (cdu != null && cdu <= 5) lines.push("再过 " + cdu + " 天就是你自己的生日"
         + (_cage != null ? "，过完就 " + (_cage + 1) + " 岁了" : "") + "。");
       // —— 纪念日：和这个角色在一起满几周年 ——
+      // ⚠️v62.31 补上【提前几天】那一档（她 2026-09-04：「应该是进日历然后他提前几天就会知道对吧」
+      //   ——她的预期是对的，但原来只有当天那一句）。生日旁边早就有 cdu<=5 这一档，
+      //   纪念日一直没有：**同一件事一个提前知道、一个当天才知道**，就是「一层写在两处、
+      //   第二处没跟上」。这两句挨着写，以后改一处会看见另一处。
+      const ANNIV_HEADS_UP = 5;
       const cp = couples[char.id];
       if (cp && cp.status === "together" && cp.since) {
         const s = new Date(cp.since);
-        if (s.getMonth() === today.getMonth() && s.getDate() === today.getDate()) {
+        const anyYear = new Date(today.getFullYear(), s.getMonth(), s.getDate());
+        if (anyYear < new Date(today.getFullYear(), today.getMonth(), today.getDate())) anyYear.setFullYear(today.getFullYear() + 1);
+        const dTo = Math.round((anyYear - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+        if (dTo === 0) {
           const yrs = today.getFullYear() - s.getFullYear();
           lines.push("🎉 今天是你和 " + uName + (yrs >= 1 ? " 在一起满 " + yrs + " 周年" : " 在一起的纪念日") + "。这天对你俩有意义，若合你的性子可以自然提起、纪念一下，别当没这回事、也别硬煽情。");
+        } else if (dTo <= ANNIV_HEADS_UP) {
+          lines.push("再过 " + dTo + " 天就是你和 " + uName + " 在一起的纪念日"
+            + (anyYear.getFullYear() - s.getFullYear() >= 1 ? "（满 " + (anyYear.getFullYear() - s.getFullYear()) + " 周年）" : "")
+            + "。你心里记着这件事——想不想提前说、要不要偷偷准备点什么，看你自己的性子，别当成任务。");
         }
       }
       // —— 自定义纪念日（属于这个角色的）——
       // 「今天是不是」走 annivNext（core.js）：不重复的过了那一年，明年同一天不再算
-      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && annivNext(a).days === 0) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
+      (coupleAnniv || []).forEach(a => {
+        if (!a || a.characterId !== char.id) return;
+        const nx = annivNext(a);
+        if (nx.days === 0) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。");
+        else if (nx.days > 0 && nx.days <= ANNIV_HEADS_UP)
+          lines.push("再过 " + nx.days + " 天就是你和 " + uName + " 的「" + (a.name || "纪念日") + "」，你心里记着这件事（要不要提前说看你自己）。");
+      });
       // —— 公历节日（大家都知道）——
       if (FIXED_FESTIVALS[mdK]) lines.push("今天是" + FIXED_FESTIVALS[mdK] + "（大家都知道的日子，若情境合适可自然应个景，别硬凹节日气氛）。");
       // —— 农历节日（春节/中秋/端午…含除夕）——

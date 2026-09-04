@@ -45,9 +45,13 @@ test("群里两处都带隐私围栏，落在他自己那一段里", () => {
 });
 
 test("没在一起就没有「你俩」这回事，也不许发", () => {
-  const fn = app.slice(app.indexOf("const coupleArchiveFor = charId =>"), app.indexOf("const coupleArchiveFor = charId =>") + 700);
+  const fn = app.slice(app.indexOf("const coupleArchiveFor = charId =>"), app.indexOf("const coupleArchiveFor = charId =>") + 2400);
   assert.match(fn, /if \(!cp \|\| cp\.status !== "together"\) return "";/, "分手了/还没在一起也照发");
-  assert.match(fn, /if \(!rows\.length\) return "";/, "一栏没写也要发一段空壳");
+  // v62.31 起愿望板也走这一份（她 2026-09-04 问「这个也进聊天吗」——原来不进）。
+  // 所以「什么都没写就一个字都不发」这条要连愿望一起判，光看七栏会漏。
+  assert.match(fn, /if \(!rows\.length && !wishBlock\) return "";/, "一栏没写、也没钉过愿望，还要发一段空壳");
+  assert.match(fn, /w\.status !== "done" && w\.status !== "shelved"/, "已实现/已搁置的愿望也塞进去了");
+  assert.match(fn, /这是【心里记着的事】，不是待办清单/, "愿望那一段没围栏——他会天天催「我们什么时候去」");
   // 档案存在 coupleHome[cid].archive 这一层，顶层并排放的是 wishes。
   // 第一版读成了顶层，node --check 和整套测试都没话说，浏览器里一看是空的。
   assert.match(fn, /\)\[charId\] \|\| \{\}\)\.archive \|\| \{\}/, "读错了一层——档案在 .archive 底下");

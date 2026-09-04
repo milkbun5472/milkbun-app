@@ -57,9 +57,16 @@ test("老数据没有 createdAt 的按每年重复算——宁可多提醒，不
 
 test("四处都走 annivNext，不许再各比各的 month/day", () => {
   // 上下文当天一行 + 主动消息链（app.js）
-  assert.ok((app.match(/annivNext\(a\w*\)\.days === 0/g) || []).length >= 2,
-    "app.js 的当天判断没走 annivNext");
+  // v62.31 上下文那一路改成先取 nx 再判（因为多了「提前几天」那一档），
+  // 判据不变：两处都得经过 annivNext，谁都不许自己拿 month/day 去比。
+  assert.ok((app.match(/annivNext\(a\w*\)/g) || []).length >= 2, "app.js 有一路没走 annivNext");
+  assert.match(app, /const nx = annivNext\(a\);\s*\n\s*if \(nx\.days === 0\)/, "上下文那一路的当天判断没走 annivNext");
+  assert.match(app, /annivNext\(an\)\.days === 0/, "主动消息那一路的当天判断没走 annivNext");
+  // 提前几天那一档也只能从 nx.days 来（她 2026-09-04：「他提前几天就会知道对吧」）
+  assert.match(app, /else if \(nx\.days > 0 && nx\.days <= ANNIV_HEADS_UP\)/, "自定义纪念日没有提前几天那一档");
+  assert.match(app, /dTo <= ANNIV_HEADS_UP/, "在一起周年没有提前几天那一档");
   // 我们的日子倒数列表 + TODAY 卡（screens.js）
   assert.match(screens, /const annivInfo = a => \{ const nx = annivNext\(a\)/, "倒数列表没走 annivNext");
-  assert.match(screens, /nx\.passed \? null : \{ name: a\.name, days: nx\.days \}/, "TODAY 卡没滤掉已过期的");
+  // v62.31 起首页那一格真的画一张日历页，所以顺手把 month/day 也带出来了
+  assert.match(screens, /nx\.passed \? null : \{ name: a\.name, days: nx\.days, month: a\.month, day: a\.day \}/, "TODAY 卡没滤掉已过期的");
 });
