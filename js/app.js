@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.06";
+const APP_VERSION = "v62.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5997,7 +5997,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return false;
     }
-    try { if (!sideRoom) window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
     startLane("c:" + chatKey);
@@ -17461,6 +17460,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
 if (window.Cloud && window.Cloud.ready()) {
   window.Cloud.autoPull().then(r => { if (r && r.applied) location.reload(); });
 }
+
+// 退休九维（heart-drive-shadow）v62.07 整个删掉：模块、面板、审计口都没了，
+// 那个独立 IndexedDB 库要是不主动清，会在每台设备上一直躺着占地方。
+// 它从来不在导出和云备份里（独立 IDB，不是 x_ 键），所以清掉就是真没了——这是她定的。
+// 只清一次：这把钥匙不带 x_ 前缀，不进存档、不上云，清掉了大不了再空跑一次 delete。
+(function purgeRetiredDriveShadow() {
+  try {
+    if (localStorage.getItem("driveShadowPurged") === "1") return;
+    if (typeof indexedDB === "undefined" || !indexedDB.deleteDatabase) return;
+    const req = indexedDB.deleteDatabase("lisa_desire_drive_shadow_v1");
+    const done = () => { try { localStorage.setItem("driveShadowPurged", "1"); } catch (e) {} };
+    req.onsuccess = done; req.onerror = done; req.onblocked = () => {};
+  } catch (e) {/* 这一层永远不许挡住开机 */}
+})();
 
 // 心上 / Ta 眼里：跟 grown 表对一次账（见 js/grown-sync.js 顶上那段）
 // ⚠️只进不出：两边取并集、同一条按它自己的时刻取新的。

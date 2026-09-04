@@ -1199,11 +1199,7 @@
   function hexA(hex, a) { return "rgba(" + skinRGB(hex).join(",") + "," + a + ")"; }
   // ⚠️v61.12 起 feed 不再是「深浅交替的卡片」（她点名去掉框），
   // 那套 ficTone 随之删掉；标签仍留着 onDark 这一路，供压在深底上的地方用。
-  // 往黑里压 / 往白里提一档（k<0 变暗，k>0 变亮）
-  function skinShade(hex, k) {
-    const c = skinRGB(hex).map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
-    return "rgb(" + c.join(",") + ")";
-  }
+  // skinShade 已经搬去 core.js（跟 skinIsDark 同一个家）——这里不许再留一份
   // 作者笔名：原先一律「佚名」，一整页看下来像没人写过（AO3 上作者名是最抢眼的一行）。
   // 按 id 派生一个稳定的中文笔名——同一篇永远同一个人，同一个人写的几篇天然聚在一起。
   const PEN_A = ["三更", "不周", "南风", "旧岁", "长安", "青隅", "半盏", "拾叁", "无尽", "白露", "枕流", "临江", "十七", "淮南", "云间", "折戟", "寒山", "扶苏",

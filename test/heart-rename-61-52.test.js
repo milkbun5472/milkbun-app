@@ -82,10 +82,8 @@ test("⚠️存档键和存进档的值一个都没动", () => {
 test("文件名和挂点都换过来了", () => {
   assert.ok(fs.existsSync(path.join(jsDir, "heart.js")), "js/heart.js 不在");
   assert.ok(!fs.existsSync(path.join(jsDir, "desire.js")), "旧文件还留着");
-  assert.ok(fs.existsSync(path.join(jsDir, "heart-drive-shadow.js")));
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(html, /js\/heart\.js/);
-  assert.match(html, /js\/heart-drive-shadow\.js/);
   assert.doesNotMatch(html, /js\/desire/, "index.html 还指着旧文件");
   all.forEach(([f, s]) => assert.doesNotMatch(s, /DesireKit/, f + " 还在用 DesireKit"));
   assert.match(all.find(x => x[0] === "heart.js")[1], /window\.HeartKit = \{/);

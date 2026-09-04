@@ -97,7 +97,7 @@
     const eGates = chars.map(char => ({ charId: char.id, name: char.remark || char.name || char.id, gate: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.state("E", char.id) : null }));
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
-    const a = [], b = [], drives = [], somatic = [], dongnian = [], heart = [], storedDongnian = readStoredDongnian(), storedHeart = readStoredHeart();
+    const a = [], b = [], somatic = [], dongnian = [], heart = [], storedDongnian = readStoredDongnian(), storedHeart = readStoredHeart();
     for (const char of chars) {
       const label = char.remark || char.name || char.id;
       const dongnianRow = cleanDongnian(char, label, storedDongnian);
@@ -111,16 +111,6 @@
       }
       if (window.InnerLifeBShadow && window.InnerLifeBShadow.pilotFor && window.InnerLifeBShadow.pilotFor(char)) {
         b.push({ charId: char.id, name: label, report: await safe("B report", () => window.InnerLifeBShadow.report(owner, char)) });
-      }
-      if (window.DesireDriveShadow && window.DesireDriveShadow.status) {
-        const state = await safe("drive", () => window.DesireDriveShadow.status(char.id));
-        if (state) drives.push({
-          charId: char.id, name: label, drives: state.drives, baselines: state.baselines,
-          baselineFreezeVersion: state.baselineFreezeVersion || null,
-          legacyBaselineDriftDetected: !!state.legacyBaselineDrift,
-          top: state.top, ticks: state.ticks, warnings: state.warnings,
-          suppressed: state.suppressed, updatedAt: state.t
-        });
       }
       if (window.SomaticShadow && window.SomaticShadow.report) {
         const report = await safe("somatic", () => window.SomaticShadow.report(owner, char.id));
@@ -222,11 +212,10 @@
           characters: dongnianVsA
         },
         legacyNineDrivesStatus: {
-          mode: "retired_shadow",
+          mode: "deleted",
           affectsLiveBehavior: false,
-          note: "旧九维只作历史对照，不是 dongnian，也不能据此开阀或解释当前主动消息。"
-        },
-        legacyNineDrives: drives
+          note: "旧九维（heart-drive-shadow）已于 v62.07 连模块带 IndexedDB 一起删除；这一栏只是留个墓碑，别再指望能查旧读数。"
+        }
       }, personality
     };
   }

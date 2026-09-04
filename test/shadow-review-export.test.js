@@ -77,7 +77,7 @@ test("人格审计会导出现役 dongnian 五轴但不泄露聊天正文", asyn
   assert.deepEqual({ ...audit.innerLife.dongnianLive.characters[0].lastActivity }, {
     type: "reading", at: "2026-08-24T11:00:00.000Z"
   });
-  assert.equal(audit.innerLife.legacyNineDrivesStatus.mode, "retired_shadow");
+  assert.equal(audit.innerLife.legacyNineDrivesStatus.mode, "deleted");
   const comparison = audit.innerLife.dongnianVsA.characters[0];
   assert.equal(comparison.sharedAxes.connection.dongnian, 0.457);
   assert.equal(comparison.sharedAxes.connection.aShadow, 0.2);

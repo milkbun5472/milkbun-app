@@ -1,7 +1,7 @@
 // 心上的架构第二刀：把它接进转正评审包。
 //
 // ⚠️我上一轮那条建议「旁人并进 shadow 体系」有一半是错的，看清楚之后改了：
-//   shadow 的定义是【只在本机推演，不调模型、不进 prompt】（heart-drive-shadow.js
+//   shadow 的定义是【只在本机推演，不调模型、不进 prompt】（memory-v2-shadow.js
 //   开头原话）。而旁人必须调模型去读聊天记录写纸条——把它做成 shadow 会破坏
 //   shadow 那条零成本的性质。该做的只是让心上【被审得到】，不是让它变成影子。
 //
@@ -13,7 +13,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const src = fs.readFileSync(path.join(root, "js/shadow-review.js"), "utf8");
-const drive = fs.readFileSync(path.join(root, "js/heart-drive-shadow.js"), "utf8");
+const drive = fs.readFileSync(path.join(root, "js/memory-v2-shadow.js"), "utf8");
 
 const fns = (() => {
   const g = { localStorage: { getItem: () => null } };
@@ -73,9 +73,9 @@ test("接进报告，而且复用已有那个循环算好的显示名", () => {
 });
 
 test("旁人【不该】被做成 shadow——这条推理的前提要一直成立", () => {
-  // shadow 的定义就写在 heart-drive-shadow.js 开头。哪天这条变了，
+  // shadow 的定义就写在 memory-v2-shadow.js 开头。哪天这条变了，
   // 上面那个「不并进去」的判断要重新想一遍。
-  assert.match(drive, /不注入 prompt、不生成念头、不改变角色回复/, "shadow 的定义变了，回去重想");
+  assert.match(drive, /只观察，不写真实记忆、不改 prompt/, "shadow 的定义变了，回去重想");
   // 而旁人是要调模型的
   const heart = fs.readFileSync(path.join(root, "js/heart.js"), "utf8");
   assert.match(heart, /observerSpec/, "旁人那一路没了的话这条也要重写");

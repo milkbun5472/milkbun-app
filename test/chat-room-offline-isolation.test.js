@@ -39,7 +39,6 @@ test("room thought has its own durable store and side-room replies skip personal
   assert.match(app, /saveJSON\("x_roomStateHist", histNext\)/);
   assert.match(app, /if \(sideRoom\) \{\s*setRoomThought\(chatKey, parsed\.thought/);
   assert.match(app, /if \(!sideRoom && !opts\.proactive && !contMode\) observeRelationshipBShadow/);
-  assert.match(app, /if \(!sideRoom\) window\.DesireDriveShadow/);
   assert.match(app, /if \(offlineIsRoom\(scopeKey\)\) return; \/\/ 侧房线下只留本房记录/);
 });
 

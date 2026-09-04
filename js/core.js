@@ -325,6 +325,15 @@ function skinIsDark(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 < 128;
 }
 
+// 往黑里压 / 往白里提一档（k<0 变暗，k>0 变亮）。
+// ⚠️它本来只长在 fanfic.js 的闭包里，components.js v62.06 那一版直接喊了它的名字
+//   → ReferenceError，整个 App 开不了机（救援页）。所以搬到 skinIsDark 边上，
+//   跟它同一个家：谁都看得见，也只有这一份。
+function skinShade(hex, k) {
+  const c = skinRGB(hex).map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
+  return "rgb(" + c.join(",") + ")";
+}
+
 // 纹理表：kind → 生成 [backgroundImage, backgroundSize] 的函数。
 // ink 是「压下去的那一笔」，lit 是「提上来的那一笔」——深底浅底自动对调，
 // 所以同一份纹理在米白和在墨黑上都成立。
