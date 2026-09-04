@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.77";
+const APP_VERSION = "v61.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1652,7 +1652,10 @@ function App() {
     }
   };
   // ---- 聊天云归档：本地只留最近 N 条，更早的存云端（一条不丢 + 省本地空间）----
-  const CHAT_KEEP_LOCAL = 200; // 每个角色本地保留的最近条数
+  // 每个角色本地保留的最近条数。v61.78 从 200 抬到 1000：聊天早就住在 IndexedDB 了，
+  // 那 200 防的是 localStorage 那堵 5MB 的墙，而聊天根本不撞它。留得少的代价是真的——
+  // 上下文里能取的原文就少。真正决定喂多少的是「短期窗字符预算」，不是这个数。
+  const CHAT_KEEP_LOCAL = 1000;
   // 把某角色本地超出保留窗口的旧消息归档到云端、再从本地裁掉。⭐先确认云端写成功，才裁本地——任何失败都不裁、零丢失。
   const offloadChatOne = async (charId, keepLocal = CHAT_KEEP_LOCAL) => {
     if (!(window.Cloud && window.Cloud.ready())) return { ok: false, msg: "云同步未就绪" };

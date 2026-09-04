@@ -2,13 +2,20 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const S = require("../js/storage-policy.js");
+const fsRead = p => fs.readFileSync(path.join(__dirname, p), "utf8");
 
-assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.79), 200);
-assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.8), 120);
-assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.899), 120);
-assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.9), 80);
-assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 1.2), 80);
-assert.strictEqual(S.chatKeep(0), 200);
+// v61.78 整体抬了五倍：这几个数原来是照 localStorage 那 5MB 定的，
+// 但聊天早就搬进 IndexedDB（下面钉着 IDB_TEXT_PREFIXES 里有 x_chat:），
+// 它根本不撞那堵墙——留得少只有代价、没有好处。
+assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.79), 1000);
+assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.8), 600);
+assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.899), 600);
+assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 0.9), 400);
+assert.strictEqual(S.chatKeep(S.LOCAL_LIMIT * 1.2), 400);
+assert.strictEqual(S.chatKeep(0), 1000);
+// 两处必须相等：app 里那个默认值和这里的常态档是同一条线，分家了就会
+// 「归档时留 1000、建回来只铺 200」——一层写在两处的老形状。
+assert.match(fsRead("../js/app.js"), /const CHAT_KEEP_LOCAL = 1000;/);
 
 const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
 assert.match(app, /used < 0\.8 \* 5 \* 1024 \* 1024/);
