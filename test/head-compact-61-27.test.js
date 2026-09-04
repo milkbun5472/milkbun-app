@@ -66,8 +66,10 @@ test("外壳自己有底纹时，顶栏让得出去", () => {
   // 不给这个口子，顶栏会在底纹上压出一条平色带——顶上那截没被盖住。
   // v61.49 后面又跟了一个 ink（页面自带底色时顶栏的字要跟着走），
   // 所以别再钉「bg 是参数表最后一个」——钉它在不在参数表里。
+  // ⚠️钉「在不在参数表里」，别钉「是不是最后一个」——v61.97 后面又跟了 onTitleTap，
+  //   钉顺序的话每加一个口子就红一次，而那根本不是这条要护的东西。
   assert.match(HEAD, /\n\s*, bg\n/, "Head 收不了 bg");
-  assert.match(HEAD, /\n\s*, ink\n\}\)/, "Head 收不了 ink");
+  assert.match(HEAD, /\n\s*, ink\n/, "Head 收不了 ink");
   assert.match(HEAD, /background: bg \|\| t\.bg,/, "顶栏底色写死了 t.bg，页面没法让它透上来");
 });
 

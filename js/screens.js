@@ -6391,9 +6391,13 @@ function Config(props) {
   const m = meta[page] || meta.home;
   const back = page === "home" ? props.onBack : () => (/^api[A-Z]/.test(page) ? setPage("api") : setPage("home"));
   const section = child => h("div", { style: { paddingTop: 4, paddingBottom: 30 } }, h(ConfigPanel, null, child));
-  const eyebrow = page === "home" ? h("span", { onClick: e => { e.stopPropagation(); toyKnock(); }, style: { display: "inline-block", padding: "5px 16px 5px 0" } }, m[1]) : m[1];
+  // 配件那个藏起来的开关：在设置首页【连点标题七下】。
+  // ⚠️原来挂在顶栏那行英文（"Config"）上——v61.40「标题不留英文」之后
+  //   Head 不再渲染纯拉丁的 en，那个 span 连同入口一起没了，她只能来问我
+  //   「现在 toy 取消隐藏的条件是啥」。现在挂在标题本身上：这一页只要还有标题，
+  //   入口就还在，不会再被别的规矩顺手删掉。
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: m[0], en: eyebrow, onBack: back }),
+    h(Head, { zh: m[0], en: m[1], onBack: back, onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
       page === "home" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "⌘", title: "API 与模型", sub: "文字、图像、语音、向量与真声接口", onClick: () => setPage("api") }),

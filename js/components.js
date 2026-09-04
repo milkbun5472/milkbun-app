@@ -306,6 +306,8 @@ function Head({
   //   没有这个口子的话，那种页面只能自己手写一条顶栏——月度印象当初就是这么走的，
   //   于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout.md §1）。
   , ink
+  // 藏起来的开关：给标题本身挂一下（不改任何长相）。传了才挂。
+  , onTitleTap
 }) {
   const t = useTheme();
   const INK = ink || t.ink;
@@ -343,6 +345,11 @@ function Head({
     className: "flex-1 min-w-0",
     style: { textAlign: "center" }
   }, /*#__PURE__*/React.createElement("div", {
+    // ⚠️v61.40 起纯拉丁的 en 不再渲染——原来「连点七下」挂在设置首页那行英文上，
+    //   于是那个入口跟着一起没了（她 2026-09-04：「现在 header 没了。。。」）。
+    //   入口不能靠一个【会被别的规矩顺手删掉的东西】托着；挂在标题上就不会再丢：
+    //   这一页只要还有标题，入口就还在。传了才挂，长相一个像素都不变。
+    onClick: onTitleTap || undefined,
     style: {
       fontFamily: F_DISPLAY,
       fontWeight: 400,
@@ -1983,7 +1990,7 @@ function homePlaceDenseXY(keys, spanFn) {
 }
 // 共用的钉格重建：pinned=[{k,r,c,w,h}]；displaced 先在 6 行棋盘里首适配找洞，塞不下才溢出到尾巴。
 // 永远铺满整 6 行空格——底部的格子必须实时存在，不然「放到页面下面」没有落点（她 2026-09-03 抓的）。
-// rows 可传（v61.96）：一页几行现在是量出来的，写死 6 会让第 7 行既放不进也挪不过去。
+// rows 可传（v61.97）：一页几行现在是量出来的，写死 6 会让第 7 行既放不进也挪不过去。
 function homeGridRebuild(pinned, displaced, rows) {
   var ROWS = Math.max(3, rows || 6), occ = {}, anchors = {};
   var stamp = function (k, r, c, w, h) { anchors[r + "," + c] = k; for (var i = r; i < r + h; i++) for (var j = c; j < c + w; j++) occ[i + "," + j] = k; };

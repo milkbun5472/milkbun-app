@@ -45,8 +45,13 @@ test("语音页不再误挂图像站点编辑状态", () => {
   assert.match(image, /返回图像站点/);
 });
 
-test("隐藏配件暗门放在不会跳页的 CONFIG 标题", () => {
-  assert.match(screens, /page === "home" \? h\("span", \{ onClick: e => \{ e\.stopPropagation\(\); toyKnock\(\); \}/);
+// v61.97 改：原来这个暗门挂在顶栏那行英文（"Config"）上，而 v61.40
+// 「标题不留英文」之后 Head 不再渲染纯拉丁的 en——那个 span 连同暗门一起没了，
+// 她只能来问「现在 toy 取消隐藏的条件是啥」。现在挂在【标题本身】上：
+// 这一页只要还有标题，入口就还在，不会再被别的规矩顺手删掉。
+test("隐藏配件暗门放在不会跳页的设置首页标题上", () => {
+  assert.match(screens, /onTitleTap: page === "home" \? toyKnock : undefined/);
+  assert.doesNotMatch(screens, /const eyebrow = page === "home"/, "挂在英文上那条老路还留着");
   assert.doesNotMatch(screens, /title: "数据管理"[^\n]+toyKnock/);
 });
 
