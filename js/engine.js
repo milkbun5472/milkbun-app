@@ -2228,6 +2228,8 @@ function buildBundle(ctx, opts) {
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + (ctx.moodNote || "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）"));
   else if (ctx.moodNote) parts.push("【心情】" + ctx.moodNote);
   if (!ctx.notRoleplay && ctx.gazeText && ctx.gazeText.trim()) parts.push(ctx.gazeText.trim());
+  // 梦的余味（v61.48）：只在她真翻过那场梦、且三天之内才有；过期由 ctxFor 那头判。
+  if (!ctx.notRoleplay && ctx.dreamEcho && ctx.dreamEcho.trim()) parts.push(ctx.dreamEcho.trim());
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
   if (memory && memory.trim()) parts.push("【长期记忆摘要（过往对话浓缩）】\n" + memory.trim());
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");

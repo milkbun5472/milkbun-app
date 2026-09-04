@@ -13,6 +13,12 @@
   const ACCENT = "#6a5b86";      // 梦的主色（雾紫）
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
+  // 反八股那一整套（去人机味／角色卡准则／线下叙事准则／叙事反陈词滥调／语气年龄锚）。
+  // v61.48 之前这儿只有 AC+NAC 两条——梦是连续叙事正文，该吃的是 narrativeCore 那一份，
+  // 跟穿书、小剧场同一套（.claude/rules/four-surfaces-same-context.md）。
+  const CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : AC() + NAC())
+    + (typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN + "\n\n" : "")
+    + (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   function loadSaves() { return loadJSON("x_dream_saves", []); }
@@ -87,7 +93,16 @@
   }
 
   function charBlock(session) {
-    let s = "【做这场梦的人是「" + session.charName + "」】\n· 人设：" + (session.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 900) +
+    // ⚠️人设不许再截到 900 字（v61.48，她 2026-09-04：「保证解梦和做梦都喂 bundle 进去吧」）。
+    //   梦是从这个人心里长出来的东西——人设只剩一个标签时，空白由训练先验补上，
+    //   梦就长成「谁都会做的那种梦」（v55.87 王爷变霸总的同一个形状）。
+    // ⚠️心情和好感也要给：这场梦顺着 Ta【此刻】的状态铺，不是顺着一份静态设定。
+    //   梦仍旧是平行沙盒——【读】主线状态，【写】一律不回（醒来什么都不留），
+    //   这跟闭群那条规矩是同一条界线。
+    let s = "【做这场梦的人是「" + session.charName + "」】\n· 人设：" + (session.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 6000) +
+      (session.moodLine ? "\n· 此刻心情：" + session.moodLine : "") +
+      (session.affLine ? "\n· " + session.affLine : "") +
+      (session.gazeText ? "\n\n【Ta 眼里的你（只读，别在梦里复述这张卡）】\n" + session.gazeText : "") +
       (session.voiceRef ? "\n\n【Ta 近期的语气 / 近况，仅作参考】\n" + session.voiceRef : "");
     const guests = (session.guests || []).filter(g => g && g.name);
     if (guests.length) {
@@ -107,7 +122,7 @@
   async function weaveFirst(active, session, worldbook, uName) {
     const kw = (session.keywords || []).filter(Boolean);
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
-    const sys = AC() + NAC() +
+    const sys = CORE() +
       "你在为「" + session.charName + "」编织一场梦。这场梦属于 Ta、为 Ta 而做——梦境顺着 Ta 内心最深的渴望、执念与恐惧铺展。" +
       uName + " 是闯进这场梦的客人，无法自由行动，只能在你给出的选项里选择怎么回应。\n\n" +
       charBlock(session) +
@@ -131,7 +146,7 @@
     const forceFinal = done >= 5;
     const stage = (canFinal || forceFinal) ? "deep" : "rise";
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
-    const sys = AC() + NAC() +
+    const sys = CORE() +
       "你在继续为「" + session.charName + "」编织同一场梦。" + uName + " 是闯梦的客人，刚在上一幕做了选择，且这个选择是这场梦所接纳的——梦没有碎，顺着做梦人的心愿往更深处走。\n\n" +
       charBlock(session) +
       (worldbook && worldbook.trim() ? (typeof WORLDBOOK_RULE !== "undefined" ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n【世界书】\n" + worldbook.trim() : "") +
@@ -149,7 +164,7 @@
   // ---- 模型：抵达梦核（一路选对、够深了、再顺一步 → 圆满收束，第三种结局） ----
   async function weaveEnding(active, session, worldbook, uName, chosenText) {
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
-    const sys = AC() + NAC() +
+    const sys = CORE() +
       "你在收束「" + session.charName + "」的这场梦——这次不是梦碎。" + uName + " 一路都选对了，梦没有崩，反而顺着做梦人的心一直走到了它的核心。" + uName + " 刚选择了「" + chosenText + "」，这一步把梦带到了它真正围着转的那个东西面前。\n\n" +
       charBlock(session) +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
@@ -167,7 +182,7 @@
   // ---- 模型：梦碎（选到抗拒项） ----
   async function weaveShatter(active, session, worldbook, uName, resistText) {
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
-    const sys = AC() + NAC() +
+    const sys = CORE() +
       "你在收束「" + session.charName + "」的这场梦。" + uName + " 刚做了一个选择——「" + resistText + "」——它恰好触到了 " + session.charName + " 内心最抗拒、不愿被戳破的东西。梦承受不住，开始碎裂。\n\n" +
       charBlock(session) +
       "\n\n【梦到破碎前】\n" + transcript(session, uName) +
@@ -289,6 +304,10 @@
         const session = {
           id: "dm_" + Date.now(),
           charId: c.id, charName: c.name, charPersona: c.persona || "",
+          // 此刻的状态：从 App 传进来的那份上下文里取（拿不到就留空，别整个坏掉）
+          moodLine: (function () { const m = props.moodOf ? props.moodOf(c.id) : ""; return m ? String(m) : ""; })(),
+          affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
+          gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
           keywords: kw.map(x => x.trim()).filter(Boolean),
           guests: guests, injectChat: injectChat,
           voiceRef: injectChat ? recentChatSnippet(c.id, uName, c.name) : "",

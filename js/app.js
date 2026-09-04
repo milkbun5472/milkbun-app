@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.47";
+const APP_VERSION = "v61.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3454,6 +3454,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return { moodLabel: st.label || null, moodNote: st.note || "" };
     })(),
     gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, profile.name || "用户") : "",
+    // 她翻过他昨晚那场梦之后，让那点感觉【轻轻】留在他今天的语气里
+    //（她 2026-09-04：「不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
+    // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；
+    //   三天就自己过期——一场梦的余味本来就留不了那么久。
+    dreamEcho: (() => {
+      try {
+        const d = loadJSON("x_dreamSeen", {})[char.id];
+        if (!d || !d.line) return "";
+        if (Date.now() - (d.ts || 0) > 3 * 86400000) return "";
+        return "【你昨晚做的那个梦】" + String(d.line).slice(0, 120)
+          + (d.tone ? "（醒来之后心里是" + d.tone + "的）" : "")
+          + "\n她翻到过这场梦。**别主动提起、别复述梦的内容、更别问她看没看**——"
+          + "只是让那点余味留在你今天说话的温度和分寸里；她要是自己说起，你再接。";
+      } catch (e) { return ""; }
+    })(),
     directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: (() => {
@@ -16492,6 +16507,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     active: active,
     characters: liveChars,
     profile: profile,
+    // 梦顺着 Ta【此刻】的状态铺，不是顺着一份静态设定（她 2026-09-04 要的「喂 bundle」）。
+    // ⚠️只读不写：梦醒后什么都不写回（记忆、好感、心情一律不动）——跟闭群同一条界线。
+    moodOf: cid => { const m = (moods || {})[cid] || {}; return m.label ? String(m.label) : ""; },
+    affinityLineOf: cid => { const v = affinities[cid]; return typeof v === "number" ? "Ta 现在对你的好感：" + v : ""; },
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     rels: rels,
