@@ -128,8 +128,8 @@
           // 搭一句：一条铅笔线，写了字才出现「钉上」
           h("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, marginTop: 8 } },
             h("input", { value: draft[m.id] || "", onChange: e => setDraft(p => ({ ...p, [m.id]: e.target.value })), placeholder: "在纸边搭一句…",
-              className: "flex-1 outline-none", style: { fontFamily: SERIF, fontSize: 12.5, color: t.ink, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, padding: "6px 2px", borderRadius: 0 } }),
-            (draft[m.id] || "").trim() ? h("button", { onClick: () => comment(m), disabled: busyId === m.id, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 1, color: t.bg2, background: tint, border: "none", borderRadius: 3, padding: "7px 11px", minHeight: 32 } }, busyId === m.id ? "…" : "钉上") : null)));
+              className: "flex-1 min-w-0 outline-none", style: { width: 0, fontFamily: SERIF, fontSize: 12.5, color: t.ink, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, padding: "6px 2px", borderRadius: 0 } }),
+            (draft[m.id] || "").trim() ? h("button", { onClick: () => comment(m), disabled: busyId === m.id, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 1, color: t.bg2, background: tint, border: "none", borderRadius: 3, padding: "7px 11px", minHeight: 32, flexShrink: 0, whiteSpace: "nowrap" } }, busyId === m.id ? "…" : "钉上") : null)));
     };
 
     return h("div", { className: "h-full flex flex-col", style: wallStyle },
