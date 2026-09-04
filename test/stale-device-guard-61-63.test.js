@@ -71,7 +71,7 @@ test("找回失联的角色：认领的是【云端还在、本机没有】的�
 });
 
 test("重建走的是【原 id 原样落档】，而且已有的不许被顶掉", () => {
-  const i = app.indexOf("onRescueChar: c =>");
+  const i = app.indexOf("onRescueChar: async c =>");
   const fn = app.slice(i, app.indexOf("\n    },", i));
   assert.match(fn, /p\.some\(x => x\.id === c\.id\) \? p : \[\.\.\.p, c\]/,
     "同 id 已经在了就别动它——不然会把现役角色洗成空人设");
@@ -80,4 +80,38 @@ test("重建走的是【原 id 原样落档】，而且已有的不许被顶掉"
 test("这一页在数据管理里有入口", () => {
   assert.match(screens, /id: "rescue", title: "找回失联的角色"/);
   assert.match(screens, /if \(part === "rescue"\) content = h\(LostCharacterRescue/);
+});
+
+// v61.74 她报：「明明看到有记忆找回了但是建了就没了」。
+// 病因跟这一整轮是同一个形状：**看得见的那一份和用得上的那一份，不是同一份。**
+//   · 扫描页列的记忆是【直接问云端】要的（memoryRowsFetchAll）
+//   · 聊天真正读的是【本机】那份 x_memLib——除非 memoryTableAuthorityOn() 开着
+//     （默认是关的），云端多出来的行【永远不会】自己铺回本地
+// 归档聊天是同一处的第二例：正文在云端 chat_archive 里，但「加载更早」这个按钮
+// 出不出得来，看的是本机那本 x_chatArch 计数簿——它跟角色档案一起躺在被覆盖的
+// saves 里，所以是 0。两处都得在建回来的时候【真的捞一次】。
+test("建回来＝角色落档 + 记忆行捞回本地 + 归档计数补上", () => {
+  const i = app.indexOf("onRescueChar: async c =>");
+  assert.ok(i > 0, "onRescueChar 得是 async 的——它要等云端");
+  const fn = nocomment(app.slice(i, app.indexOf("\n    },", i)));
+  assert.match(fn, /memoryRowsFetchAll\(\)/, "没把记忆捞回来，建完就是个空人");
+  assert.match(fn, /char_ids \|\| \[\]\)\.map\(String\)\.includes\(String\(c\.id\)\)/);
+  assert.match(fn, /saveJSON\("x_memLib", next\)/);
+  // 已经有的不重复塞
+  assert.match(fn, /filter\(x => !have\.has\(x\.id\)\)/);
+  // ⚠️不许走 saveMemLib：那会 enqueueDiff 把云端本来就有的行当新写的再推一遍
+  assert.doesNotMatch(fn, /saveMemLib\(/,
+    "走 saveMemLib 会把这些行当成新写的推回云端，撞 revision");
+  // 归档聊天的计数簿
+  assert.match(fn, /chatArchiveGet\(c\.id\)/);
+  assert.match(fn, /saveJSON\("x_chatArch", marks\)/);
+});
+
+test("建完不许静默消失：得当场说接回了多少", () => {
+  const i = screens.indexOf("function LostCharacterRescue(");
+  const fn = screens.slice(i, screens.indexOf("\nfunction StorageMeter", i));
+  // 原来是 setRows 把这一行滤掉——看上去就是「建了就没了」
+  assert.doesNotMatch(fn, /setRows\(r => \(r \|\| \[\]\)\.filter/);
+  assert.match(fn, /条记忆/);
+  assert.match(fn, /doneMap\[e\.id\]\.error/, "捞失败要说出来，不能假装成功");
 });

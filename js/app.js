@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.73";
+const APP_VERSION = "v61.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16961,11 +16961,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onImport: doImport,
     onOffloadChats: offloadAllChats,
     onPruneOld: pruneRegenerables,
-    // 用【原来那个 id】把失联的角色建回来：id 一对上，云端的记忆和归档聊天自己就接回来了
-    onRescueChar: c => {
-      if (!c || !c.id) return;
+    // 用【原来那个 id】把失联的角色建回来。
+    // ⚠️光把角色建回来是【不够的】（v61.74 她报「明明看到有记忆找回了但是建了就没了」）：
+    //   记忆的权威默认还在本机的 x_memLib，云端那张 memories 行表平时只当影子镜像，
+    //   除非 memoryTableAuthorityOn() 开着，否则【永远不会】把云端多出来的行铺回本地。
+    //   所以扫描页看得见那些记忆（它是直接问云端要的），建完角色却一条都没有——
+    //   看得见的那一份和用得上的那一份，根本不是同一份。
+    //   这里必须把这个人的记忆行【真的捞回本地】，才算找回来。
+    onRescueChar: async c => {
+      if (!c || !c.id) return { added: 0 };
       pC(p => p.some(x => x.id === c.id) ? p : [...p, c]);
-      toast("已把「" + c.name + "」建回来了——去人格档案馆补人设和头像");
+      let added = 0;
+      try {
+        const rows = await window.Cloud.memoryRowsFetchAll();
+        const mine = (rows || []).filter(r => r && !r.deleted && (r.char_ids || []).map(String).includes(String(c.id)));
+        if (mine.length) {
+          const have = new Set((memLibRef.current || []).filter(x => x && x.id).map(x => String(x.id)));
+          const fresh = mine.map(memoryRowFromCloud).filter(x => !have.has(x.id));
+          if (fresh.length) {
+            const next = (memLibRef.current || []).concat(fresh);
+            // 照 memoryTableAuthorityOn 那一路的写法【直接落】，不走 saveMemLib：
+            // 这些行云端本来就有，走 enqueueDiff 会把它们当成新写的再推一遍，撞 revision。
+            memLibRef.current = next;
+            setMemLib(next);
+            saveJSON("x_memLib", next);
+            try {
+              if (window.MemorySync) {
+                await window.MemorySync.storePulledRows(mine);
+                await window.MemorySync.replaceLocalSnapshot(next);
+              }
+            } catch (e) {}
+            added = fresh.length;
+          }
+        }
+      } catch (e) {
+        toast("「" + c.name + "」建回来了，但记忆没捞下来：" + ((e && e.message) || e));
+        return { added: 0, error: true };
+      }
+      // 归档聊天是同一个形状的第二处：云端 chat_archive 里躺着完整旧消息，
+      // 但聊天页要不要显示「加载更早」，看的是本机那本 x_chatArch 计数簿——
+      // 它跟角色档案一起住在被覆盖的 saves 里，所以现在是 0，等于那些聊天永远打不开。
+      let arch = 0;
+      try {
+        arch = (await window.Cloud.chatArchiveGet(c.id) || []).length;
+        if (arch > 0) {
+          const marks = loadJSON("x_chatArch", {});
+          if (!(Number(marks[c.id] || 0) >= arch)) { marks[c.id] = arch; saveJSON("x_chatArch", marks); setChatArch(marks); }
+        }
+      } catch (e) {}
+      toast("已把「" + c.name + "」建回来" + (added ? "，接回 " + added + " 条记忆" : "（本机已经有 TA 的记忆了）") +
+        (arch ? "、" + arch + " 条旧聊天（聊天页点「加载更早」）" : "") + "——去人格档案馆补人设和头像");
+      return { added, arch };
     },
     onClearAll: () => {
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));

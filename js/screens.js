@@ -7513,11 +7513,17 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
       setErr(String((e && e.message) || e));
     } finally { setBusy(false); }
   };
-  const rebuild = e => {
+  // 建回来是【两步】：角色落档 + 把 TA 的记忆行从云端捞回本地。
+  // 只做第一步的话，扫描页明明列着两百条记忆，建完却一条都没有——
+  // 因为那两百条是直接问云端要的，而聊天真正读的是本机那份 x_memLib（v61.74 她报的就是这个）。
+  const [doneMap, setDoneMap] = useState({});
+  const rebuild = async e => {
     const name = String(names[e.id] || "").trim();
     if (!name) { toast && toast("先给 TA 填个名字"); return; }
-    onRescue({ id: e.id, name: name.slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" });
-    setRows(r => (r || []).filter(x => x.id !== e.id));
+    setDoneMap(d => ({ ...d, [e.id]: { busy: true } }));
+    const r = await Promise.resolve(onRescue({ id: e.id, name: name.slice(0, 20), persona: "", tagline: "", color: "#5a6a7d" }))
+      .catch(err => ({ error: String((err && err.message) || err) }));
+    setDoneMap(d => ({ ...d, [e.id]: { name: name, added: (r && r.added) || 0, arch: (r && r.arch) || 0, error: r && r.error } }));
   };
   const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, v);
   return h("div", { style: { paddingTop: 8 } },
@@ -7539,11 +7545,19 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
           line("t", e.lastTs ? "最近一条 " + new Date(e.lastTs).toLocaleDateString() : "没有时间")),
         e.samples.length ? h("div", { style: { marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + t.line, display: "flex", flexDirection: "column", gap: 5 } },
           e.samples.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
-        h("div", { className: "flex gap-2", style: { marginTop: 11 } },
-          h("input", { value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
-            style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-          h("button", { onClick: () => rebuild(e), className: "active:opacity-70 shrink-0",
-            style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint } }, "建回来"))))) : null);
+        doneMap[e.id] && !doneMap[e.id].busy
+          ? h("div", { style: { marginTop: 11, padding: "9px 11px", borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6 } },
+              doneMap[e.id].error
+                ? "「" + doneMap[e.id].name + "」建回来了，但记忆没捞下来——检查一下网络，再点一次「扫一遍云端」重试。"
+                : "✓ 「" + doneMap[e.id].name + "」已建回，接回 " + doneMap[e.id].added + " 条记忆" +
+                    (doneMap[e.id].arch ? "、" + doneMap[e.id].arch + " 条旧聊天（在聊天页点「加载更早」看）" : "") +
+                    "。去人格档案馆补人设和头像。")
+          : h("div", { className: "flex gap-2", style: { marginTop: 11 } },
+              h("input", { value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
+                style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+              h("button", { onClick: () => rebuild(e), disabled: !!(doneMap[e.id] && doneMap[e.id].busy), className: "active:opacity-70 shrink-0 disabled:opacity-50",
+                style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint } },
+                doneMap[e.id] && doneMap[e.id].busy ? "接回中…" : "建回来"))))) : null);
 }
 
 function StorageMeter({ onOffloadChats, onPruneOld }) {
