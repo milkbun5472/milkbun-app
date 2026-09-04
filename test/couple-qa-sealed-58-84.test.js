@@ -49,7 +49,8 @@ test("封着的时候：盖住他那栏、给一个揭晓的口子、不给「�
   assert.match(book, /\(e\.sealed && !e\.charAnswer\)\n *\? h\("div", \{ style: \{ borderRadius: 12, border: "1px dashed "/, "封着的时候没盖住");
   assert.match(book, /写的时候看不到你写了什么——两份都写完才一起打开/, "界面上没跟她说清这一层");
   assert.match(book, /onClick: \(\) => onAnswer\(partner, e\)/, "没有让 TA 也写一份的口子");
-  assert.match(book, /\(e\.sealed && !e\.charAnswer\) \? null : h\("button", \{ onClick: \(\) => onReroll/, "他还没写就给「重答」,点了会乱");
+  // v62.10 起封条有两种（她翻题等他写 / 他出题等她写），封着的一律不给「重答」
+  assert.match(book, /e\.sealed \? null : h\("button", \{ onClick: \(\) => onReroll/, "封着还给「重答」,点了会乱");
   assert.match(scr, /onAnswer: onAnswerQA, onSeal: onSealQA,/, "封存那条没接下来");
   assert.match(app, /onSealQA: sealCoupleQA,/, "props 没递出去");
 });

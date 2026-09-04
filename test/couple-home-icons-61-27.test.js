@@ -28,7 +28,7 @@ test("情侣空间主页的代码里没有 emoji，也没有靠字体撑的符�
 test("最近发生长成一叠通知，不跟底下的书脊撞版式（v61.29）", () => {
   assert.match(seg, /const BAND = \{ letters: "#b08d52", exdiary: "#b08a66", timeline:/);
   // app 小图标是汉字（一定渲得出来），不是 emoji
-  assert.match(seg, /const APPCH = \{ letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿" \};/);
+  assert.match(seg, /const APPCH = \{ letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿", qa: "问" \};/);   // v62.10 加了他出的题
   assert.match(seg, /APPCH\[x\.sub\] \|\| "·"/);
   // 通知的两件套：毛玻璃、右上角写「多久以前」而不是日期
   assert.match(seg, /backdropFilter: "blur\(10px\)"/);

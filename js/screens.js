@@ -2999,7 +2999,7 @@ const COUPLE_QA_BANK = [
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
 const qhash = s => { let x = 0; for (let i = 0; i < s.length; i++) { x = (x * 31 + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); };
 // 情侣空间·问答小本：翻页书 —— 封面(可改标题)/翻页看过往(编辑·reroll·删除)/翻新题作答
-function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
+function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
   const t = useTheme();
   const mine = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
   const answered = new Set(mine.map(e => e.qid));
@@ -3017,6 +3017,9 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   const [editText, setEditText] = useState("");
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleVal, setTitleVal] = useState(bookTitle);
+  // 他出的题（v62.10）她在这儿写她那半；翻到别页就清空，别把 A 题的草稿带进 B 题
+  const [revealVal, setRevealVal] = useState("");
+  useEffect(() => { setRevealVal(""); }, [pageIdx]);
   const swipeRef = useRef({ x: 0, y: 0 });
   const draw = () => { if (pool.length) { setCur(pool[Math.floor(Math.random() * pool.length)]); setAns(""); } else setCur(null); };
   // 交卷＝把自己那份【封起来】，一次调用都不花；他那份等你按「让 TA 也写一份」才生成，
@@ -3051,10 +3054,14 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
       h(Head, { zh: bookTitle, en: has ? (idx + 1) + " / " + mine.length : "", onBack: () => setMode("cover") }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-8", style: { touchAction: "pan-y" }, onTouchStart: ev => { const tt = ev.touches[0]; swipeRef.current = { x: tt.clientX, y: tt.clientY }; }, onTouchEnd: ev => { const tt = ev.changedTouches[0]; const dx = tt.clientX - swipeRef.current.x, dy = tt.clientY - swipeRef.current.y; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) setPageIdx(Math.min(mine.length - 1, idx + 1)); else setPageIdx(Math.max(0, idx - 1)); } } },
         !has ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 10 } }, "还没有答过的题。") : h("div", { key: e.id, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "16px 18px", animation: "fadeUp .3s ease both" } },
-          h(Eyebrow, { style: { marginBottom: 8 } }, "第 " + (idx + 1) + " 题"),
+          h(Eyebrow, { style: { marginBottom: 8 } }, (e.byCharacter ? partner.name + " 出的 · " : "") + "第 " + (idx + 1) + " 题"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: t.ink, marginBottom: 12 } }, e.question),
           h("div", { style: { marginBottom: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginBottom: 3 } }, "我"),
+            // 他出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
+            (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
+              h("textarea", { value: revealVal, onChange: ev => setRevealVal(ev.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+              h("button", { onClick: () => { if (onReveal && onReveal(e.id, revealVal)) setRevealVal(""); }, disabled: !revealVal.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
             editId === e.id ? h("div", null,
               h("textarea", { value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
               h("div", { className: "flex gap-2 mt-2" },
@@ -3062,7 +3069,11 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
                 h("button", { onClick: () => setEditId(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, whiteSpace: "pre-wrap" } }, e.myAnswer || "（没写）")),
           h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 3 } }, partner.name),
-            (e.sealed && !e.charAnswer)
+            (e.sealed && e.byCharacter && !e.myAnswer)
+              ? h("div", { style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "13px 14px", textAlign: "center" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
+                    "这道题是 " + partner.name + " 出的，TA 那半已经写好、封着——你写完你的，两份才一起打开。"))
+              : (e.sealed && !e.charAnswer)
               ? h("div", { style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "13px 14px", textAlign: "center" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
                     "你那份封着呢。" + partner.name + " 写的时候看不到你写了什么——两份都写完才一起打开。"),
@@ -3073,8 +3084,9 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
           h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid " + t.line, paddingTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
-              h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
-              (e.sealed && !e.charAnswer) ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "…" : "重答"),
+              // 他出的、她还没写的那种：我的答案就在上面那个框里写，编辑/重答都还轮不到
+              (e.sealed && e.byCharacter && !e.myAnswer) ? null : h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
+              e.sealed ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "…" : "重答"),
               h("button", { onClick: () => { onRemove(e.id); setPageIdx(i => Math.max(0, i - (idx === mine.length - 1 ? 1 : 0))); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26" } }, "删除")))),
         has ? h("div", { className: "flex items-center justify-between", style: { marginTop: 16 } },
           h("button", { onClick: () => setPageIdx(Math.max(0, idx - 1)), disabled: idx === 0, className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "‹ 上一题"),
@@ -3822,7 +3834,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3854,6 +3866,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const a = [];
     if (unreadLettersFor(cid)) a.push("情书");
     if (unreadExDiaryFor(cid)) a.push("交换日记");
+    if ((coupleQA || []).some(e => e.characterId === cid && e.sealed && e.byCharacter && !e.myAnswer)) a.push("问答小本");
     if ((coupleRecall || []).some(x => x.characterId === cid && x.unread)) a.push("他记得的");
     if ((coupleTimeline || []).some(x => x.characterId === cid && x.byCharacter && x.unread)) a.push("时光轴");
     if (pactDueSoonFor(cid)) a.push("说好的");
@@ -3880,7 +3893,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onSeal: onSealQA, onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
@@ -4015,7 +4028,11 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const _pacts = couplePactsOf ? couplePactsOf(bCid) : null;
     const bPactLast = _pacts ? (_pacts.open || [])[0] : null;
     const bFirstLast = coupleFirstsOf ? coupleFirstsOf(bCid)[0] : null;
-    const bQaLast = (coupleQA || []).filter(e => e.characterId === bCid && e.answer)[0];
+    // ⚠️QA 记录的字段是 myAnswer/charAnswer，从来没有 e.answer——原来这个 filter 永远空，
+    //   书脊上永远是「关于我们」（跟情书那行同一个病，v62.10 一起修）。
+    //   他出的、她还没答的那道排最前——那是这一格此刻真正的事。
+    const bQaAsk = (coupleQA || []).filter(e => e.characterId === bCid && e.sealed && e.byCharacter && !e.myAnswer)[0];
+    const bQaLast = bQaAsk || (coupleQA || []).filter(e => e.characterId === bCid && (e.myAnswer || e.charAnswer))[0];
     const bIfLast = (ifLines || []).filter(x => x.charId === bCid)[0];
     const bShotLast = (studioShots || []).filter(x => x.charId === bCid)[0];
     const itemTs = x => {
@@ -4037,11 +4054,11 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     //   混在一排里本来就不是一套；而 🖼️ 这类带变体选择符的字，在她机器上直接渲染成豆腐块。
     //   这一页底下「收着的」那一列书脊已经有一套现成的语言了：一条色带认一样东西。
     //   所以这里改用同一条色带，一个字符都不放——不放字符，就不会有字体渲不出来这回事。
-    const BAND = { letters: "#b08d52", exdiary: "#b08a66", timeline: "#7f8ea6", album: "#a8735e", wishes: "#b0728e" };
+    const BAND = { letters: "#b08d52", exdiary: "#b08a66", timeline: "#7f8ea6", album: "#a8735e", wishes: "#b0728e", qa: "#6a9a74" };
     // 通知卡左边那枚小图标上写的字（v61.29，她 2026-09-03：「最近发生也是一排线，
     // 跟收着的重复了，改成做个小 notification 样式吧」）。一个汉字，不是 emoji——
     // 汉字一定渲得出来，也跟「档」「愿」那两张水印是同一套写法。
-    const APPCH = { letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿" };
+    const APPCH = { letters: "信", exdiary: "记", timeline: "日", album: "照", wishes: "愿", qa: "问" };
     // 通知右上角那个时刻：通知栏从来不写「8月29日」，写的是「刚刚」「12分钟前」。
     // 隔了一天以上才退回日期——那时候「多久以前」已经不好数了。
     const notifyAgo = ts => {
@@ -4058,6 +4075,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
     bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
     bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
+    // 他出的题（v62.10）也是「刚发生的事」——她自己翻题答题不算，那是她自己干的
+    (coupleQA || []).filter(x => x.characterId === bCid && x.byCharacter).forEach(x => recentItems.push({ id: "q_" + x.id, ts: itemTs(x), sub: "qa", label: "他出的题", text: cleanSnippet(x.question) }));
     recentItems.sort((a, b) => b.ts - a.ts);
     // 15 条＝能往回翻一阵，又不至于把整页撑长（她 2026-09-03：「固定高度，
     // 可以 scroll 看历史 15 条」）。看得见的永远只有三条，剩下的靠滚。
@@ -4387,7 +4406,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   return spine("exdiary", { zh: "交换日记", band: "#b08a66", dot: !!(last && last.author !== "user" && last.unread),
                     say: !ex.length ? "写下第一页" : waiting ? "本子在 TA 那边" : one((last && (last.title || last.content)) || "", 22) });
                 })(),
-                spine("qa", { zh: "问答小本", band: "#6a9a74", say: bQaLast ? one(bQaLast.q || bQaLast.question, 22) : "关于我们" }),
+                spine("qa", { zh: "问答小本", band: "#6a9a74", dot: !!bQaAsk,
+                  say: bQaAsk ? "TA 出了道题等你答" : bQaLast ? one(bQaLast.question, 22) : "关于我们" }),
                 // ⚠️这一行读的必须是【这条记录真有的字段】。原来写的是
                 // title / topic / text——一个都不存在（这条记录是 {mine,his,note}），
                 // 所以书脊上永远是空的，可红点又亮着：看着就像「一直是空的」。

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.09";
+const APP_VERSION = "v62.10";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13351,14 +13351,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
-          + "【留在哪儿】二选一——\n"
+          + "【留在哪儿】三选一——\n"
           + "· drawer＝往你俩的抽屉里放一样东西，她要哪天想起来才会打开。**没话要说的时候就放这儿**：\n"
           + "  再配一个 kind：thing＝你今天真的经手过的一样小物件，要说清它是在哪儿、怎么到你手上的；"
           + "word＝半句没头没尾的话，不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上；"
           + "draw＝你随手画的，那就描述这张画上有什么，别描述你为什么画。\n"
           + "· timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
+          + "· qa＝往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、"
+          + "封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的**；"
+          + "只有真有一个问题在你心里转了几天，才走这一档，多数时候该走 drawer。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"where\":\"drawer 或 timeline\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"text\":\"留下的内容\",\"title\":\"timeline 给一个短标题；drawer 那一档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
+        schemaHint: "{\"where\":\"drawer 或 timeline 或 qa\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"question\":\"where 为 qa 时你出的那道题，否则留空\",\"text\":\"留下的内容（qa 那一档＝你自己那半答案）\",\"title\":\"timeline 给一个短标题；drawer 和 qa 那两档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
       });
       const txt = String((d && d.text) || "").trim();
       if (!txt) return false;
@@ -13376,6 +13379,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()),
             type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
+        });
+      } else if (d.where === "qa" && String(d.question || "").trim()) {
+        // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开——
+        // 跟她翻题的 sealed 机制同一套，只是方向反过来。question 空的落不进这档（走下面兜底）。
+        setCoupleQA(p => {
+          const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
+            question: String(d.question).trim().slice(0, 120), myAnswer: "", charAnswer: txt,
+            source: "他出的", sealed: true, byCharacter: true, answeredAt: Date.now() }, ...p];
+          saveJSON("x_coupleQA", n); return n;
         });
       } else {
         // ⚠️兜底不再走 drawerWhisper（v61.35）。原来的第三档 note＝「往便签墙上贴一张」，
@@ -13981,6 +13993,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_coupleQA", n); return n;
     });
     toast("封好了——等 TA 也写一份");
+    return true;
+  };
+  // 他出的题她来揭（v62.10）：她写完她那半，两份一起打开——零调用（他那半早封在里面了）。
+  const revealCoupleQA = (charId, id, myAnswer) => {
+    const t0 = String(myAnswer || "").trim();
+    if (!t0) { toast("先写你自己的那一份"); return false; }
+    const list = loadJSON("x_coupleQA", []);
+    const entry = list.find(e => e && e.id === id);
+    if (!entry) return false;
+    const n = list.map(e => e.id === id ? { ...e, myAnswer: t0, sealed: false, openedAt: Date.now() } : e);
+    saveJSON("x_coupleQA", n); setCoupleQA(n);
+    const char = characters.find(c => c.id === charId);
+    coupleKeep(charId, "情侣问答小本里" + (char ? char.name : "他") + "出过一道题「" + cSnip(entry.question, 60)
+      + "」——他自己写的是「" + cSnip(entry.charAnswer) + "」，" + (profile.name || "她") + "写的是「" + cSnip(t0) + "」", "情侣问答");
     return true;
   };
   const answerCoupleQA = async (char, item) => {
@@ -16523,6 +16549,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     coupleQA: coupleQA,
     onAnswerQA: answerCoupleQA,
     onSealQA: sealCoupleQA,
+    onRevealQA: revealCoupleQA,
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
