@@ -3261,18 +3261,41 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
   const toggle = (on, set, label) => h("button", { onClick: () => set(v => !v), className: "active:opacity-70 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.ink : t.fog } }, h("span", { style: { width: 15, height: 15, borderRadius: 4, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), color: t.bg2, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : ""), label);
   const dash = { flex: 1, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: 13, color: t.tint };
   const inp = { width: "100%", outline: "none", padding: "9px 11px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  // ── 时光轴说的和名册那条「走过来的路」是同一件事，v62.15 起用同一种语言：
+  // 路色 #e08aa0、今天是末端实心点、她记的是路上的实心点、TA 留的是空心环
+  //（形状不同，不只色差）。每条带「第 N 天」——第一次们那册已经在用这个语言。
+  const dayN = ds => {
+    if (!since) return "";
+    const t2 = Date.parse(padD(ds));
+    if (!Number.isFinite(t2)) return "";
+    const n = Math.floor((t2 - since) / 86400000) + 1;
+    return n > 0 ? "第 " + n + " 天" : "";
+  };
+  const ROAD = "#e08aa0", ROAD_DOT = "#d16a86";
   const node = (ev, isStart) => h("div", { key: ev ? ev.id : "start", className: "flex gap-3" },
-    h("div", { style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" } },
-      h("div", { style: { width: 11, height: 11, borderRadius: 999, background: isStart ? t.accent : (ev.byCharacter ? "#c58f8f" : t.ink), marginTop: 4 } }),
-      isStart ? null : h("div", { style: { flex: 1, width: 2, background: t.line, marginTop: 2 } })),
+    h("div", { style: { flexShrink: 0, width: 12, display: "flex", flexDirection: "column", alignItems: "center" } },
+      isStart
+        ? h("div", { style: { width: 12, height: 12, borderRadius: 999, background: ROAD_DOT, boxShadow: "0 0 0 3px rgba(224,138,160,.25)", marginTop: 4 } })
+        : ev.byCharacter
+        ? h("div", { style: { width: 11, height: 11, borderRadius: 999, background: "transparent", border: "2px solid " + ROAD_DOT, marginTop: 4 } })
+        : h("div", { style: { width: 9, height: 9, borderRadius: 999, background: ROAD_DOT, marginTop: 5 } }),
+      isStart ? null : h("div", { style: { flex: 1, width: 2, background: "linear-gradient(" + ROAD + ", rgba(224,138,160,.35))", marginTop: 2, borderRadius: 2 } })),
     h("div", { style: { flex: 1, paddingBottom: 18 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, isStart ? "起点 · " + md(startDate) : md(ev.date)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+        isStart ? "起点 · " + md(startDate) : md(ev.date) + (dayN(ev.date) ? " · " + dayN(ev.date) : "")),
       isStart ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 2 } }, "和 " + partner.name + " 在一起") : h(Fragment, null,
         h("div", { className: "flex items-center gap-2", style: { marginTop: 2 } },
           ev.byCharacter ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#b06e6e", border: "1px solid #e3c3c3", borderRadius: 999, padding: "1px 7px" } }, "TA 的感慨") : null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, ev.title)),
         ev.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, ev.content) : null,
         h("button", { onClick: () => onRemove(ev.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "删除"))));
+  // 轴顶那个「今天」端点：路走到的地方（跟名册末端那个实心点同一个东西）
+  const todayCap = since ? h("div", { className: "flex gap-3", style: { marginBottom: 2 } },
+    h("div", { style: { flexShrink: 0, width: 12, display: "flex", flexDirection: "column", alignItems: "center" } },
+      h("div", { style: { width: 7, height: 7, borderRadius: 999, background: ROAD_DOT, marginTop: 5 } }),
+      h("div", { style: { height: 14, width: 2, background: "linear-gradient(rgba(224,138,160,.35), " + ROAD + ")", marginTop: 2, borderRadius: 2 } })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: ROAD_DOT, paddingTop: 3 } },
+      "今天 · 第 " + Math.max(1, Math.floor((Date.now() - since) / 86400000) + 1) + " 天")) : null;
   return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: "我们的日子", en: partner.name, onBack,
       right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
@@ -3296,18 +3319,25 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
         h("button", { onClick: submitAnn, disabled: !an.trim() || !mo || !dy, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "加")) : null,
       anns.length ? h(Eyebrow, { style: { marginTop: 16, marginBottom: 8 } }, "倒数中") : null,
       h("div", { className: "space-y-2.5", style: { marginBottom: anns.length ? 6 : 0 } },
-        anns.map(a => { const info = annivInfo(a); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", opacity: info.passed ? 0.55 : 1 } },
+        // 倒数的那一天在现实里长在【日历页】上（v62.15）：左边一张小挂历——红头写月、
+        // 大字写日、顶上两个挂孔；过期的整页压灰，红头也褪色。
+        anns.map(a => { const info = annivInfo(a); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "11px 15px 11px 12px", opacity: info.passed ? 0.55 : 1 } },
+          h("div", { style: { position: "relative", width: 44, flexShrink: 0, borderRadius: 7, overflow: "hidden", border: "1px solid " + t.line, boxShadow: "0 2px 6px rgba(0,0,0,.10)" } },
+            h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, left: 9, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)" } }),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", top: 2.5, right: 9, width: 4, height: 4, borderRadius: 999, background: "rgba(255,255,255,.55)" } }),
+            h("div", { style: { background: info.passed ? "#a09890" : "#c25a5a", color: "#fff", fontSize: 9, textAlign: "center", padding: "3px 0 2px", fontFamily: F_BODY, letterSpacing: 1 } }, a.month + " 月"),
+            h("div", { style: { background: t.bg2, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, padding: "3px 0 4px", lineHeight: 1.1 } }, a.day)),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, a.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, info.y + "年" + a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : ""))),
           h("div", { style: { textAlign: "right" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: info.passed ? 15 : 20, fontStyle: "italic", color: info.days === 0 ? t.accent : info.passed ? t.fog : t.ink, lineHeight: 1 } }, info.days === 0 ? "今天" : info.passed ? "已过去" : info.days),
             info.days === 0 ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, info.passed ? (-info.days) + " 天" : "天后")),
-          h("button", { onClick: () => onRemoveAnniv(a.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, paddingLeft: 4 } }, "×")); })),
+          h("button", { onClick: () => onRemoveAnniv(a.id), "aria-label": "删掉这个纪念日", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, paddingLeft: 4, minHeight: 40 } }, "×")); })),
       h(Eyebrow, { style: { marginTop: anns.length ? 16 : 10, marginBottom: 10 } }, "时光轴"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } }, "右上角让 " + partner.name + " 写一条此刻的感慨。"),
       gen && h(Spinner, { label: partner.name + " 正在写…" }),
-      h("div", null, mine.map(ev => node(ev, false)), startDate ? node(null, true) : null)));
+      h("div", null, todayCap, mine.map(ev => node(ev, false)), startDate ? node(null, true) : null)));
 }
 
 // 情书信纸字体（iOS 系统中文字体，零成本；非 iOS 走 fallback）+ 纸张样式
