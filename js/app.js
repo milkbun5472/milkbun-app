@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.49";
+const APP_VERSION = "v61.50";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3310,15 +3310,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("兑换失败：" + e.message + "（卡还留着）");
     } finally { setGen(g => ({ ...g, gacha: null })); }
   };
+  // 「他有对象，但不是你」这半边：实现放在 engine.js 的 takenByOthersLine，
+  // 那儿是【打包函数白送】的位置——所有走 buildBundle 的入口（单聊线上/线下、通话、
+  // 穿书、匿名箱）一起有。群聊这两处不走 buildBundle，所以在这儿调同一份。
+  // ⚠️别在这儿再写一遍文案：一层写在两处，第二处迟早跟不上（这份文件已经犯过太多次）。
+  const takenLineFor = (charId, uName) =>
+    (typeof takenByOthersLine === "function" ? takenByOthersLine(charId, rels, characters || [], uName) : "");
   const coupleLineFor = (charId, uName) => {
     const cp = couplesRef.current[charId];
-    if (!cp) return "";
+    // ⚠️没有和用户的情侣关系时不能直接 return ""——那个空白正是病根。
+    //   先问一句「那他是不是和别人在一起了」。
+    if (!cp || !cp.status || cp.status === "none") return takenLineFor(charId, uName);
     if (cp.status === "together") {
       const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
       return "你和 " + uName + " 已经在一起了" + (days ? "（约 " + days + " 天）" : "") + "——这是你俩【当前真实的关系】，就算上面关系网里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】相处。";
     }
     if (cp.status === "pending") return "你和 " + uName + " 之间有一个还没敲定的情侣邀请，关系正处在暧昧、要不要更进一步的阶段。";
-    return "";
+    // 分过手/取消了：同样不能留空白，回到「他是不是和别人在一起了」这一问
+    return takenLineFor(charId, uName);
   };
   const ageLineFor = char => {
     const bd = String((char && char.birthday) || "").trim();

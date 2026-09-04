@@ -1068,6 +1068,39 @@ function extractJSON(raw) {
 // ============================================================
 // ENGINE — context bundle + probe + summary
 // ============================================================
+// 「他有对象，但不是你」——这半边原来是【空的】（她 2026-09-03 报：Scar 和另一个
+// 角色是 CP，动念一满还是跑来跟她说情话）。
+// 病根不是模型不听话：关系网确实发下去了，但【没有任何一句话说这对「怎么跟用户说话」
+// 意味着什么】。空白由训练先验补上，而先验就是「主动跑来找你、还带着情绪＝对你有意思」。
+// ⚠️她 2026-08-31 在查手机账本上报过同一个病，当时的注释就写着
+//   「buildBundle 里只有是恋人/待定才会说一句，不是恋人时一个字都不说」——
+//   那次只修了查手机那一处（phoneBondBlock），buildBundle 本身没跟上。这次补的是同一处的另一半。
+// ⚠️放在 engine.js 而不是 app.js：这样所有走 buildBundle 的入口（单聊线上/线下、
+//   通话、穿书、匿名箱）一起白得，不用一处处 push——一条条 push 的层换个入口就一条都没有，
+//   而且不留任何能 grep 的痕迹（.claude/rules/four-surfaces-same-context.md）。
+// ⚠️只说事实和分寸，不写台词：写「你应该说…」模型会照着念。
+const ROMANTIC_REL = /恋人|情侣|对象|男友|男朋友|女友|女朋友|爱人|伴侣|未婚|老公|老婆|夫妻|配偶|CP/i;
+// ⚠️反向闸：光看正词会把【前男友】判成现任（它里头就含「男友」），
+//   把【单向暗恋】判成在一起（含「恋」）。这两个恰恰是关系页的预设标签，一定会被用到。
+//   已经分了、或者只是单方面的，都不算「你有对象了」。
+const EX_REL = /^前|前任|前男友|前女友|分手|已分|离婚|前妻|前夫|暗恋|单恋|单向|求而不得|未遂/i;
+function takenByOthersLine(charId, rels, chars, uName) {
+  if (!charId || !rels || !Array.isArray(chars)) return "";
+  const partners = [];
+  chars.forEach(c => {
+    if (!c || c.id === charId) return;
+    const r = rels[charId + "->" + c.id] || rels[c.id + "->" + charId];
+    const lb = String((r && r.label) || "").trim();
+    if (lb && ROMANTIC_REL.test(lb) && !EX_REL.test(lb)) partners.push(c.name + "（" + lb + "）");
+  });
+  if (!partners.length) return "";
+  const uLabel = String(((rels[charId + "->me"] || rels["me->" + charId] || {}).label || "")).trim();
+  return "【你已经和别人在一起了】你和 " + partners.join("、") + " 是这个关系——这是你【当前真实的感情状态】。"
+    + "你和 " + uName + " 是：" + (uLabel || "还没长成什么特别的关系")
+    + "。⚠️主动找 " + uName + "、跟 TA 说心里话、想 TA、依赖 TA，这些【都可以】，那是朋友之间本来就有的；"
+    + "**但不许说成告白、暧昧或情话**——分寸按上面那一行的真实关系走，"
+    + "不是按「谁主动找谁谁就有意思」走。你有对象这件事也不必藏着：真到了那个话头，提 TA 是自然的。";
+}
 function directedRelationLines(char, rels, chars, profile) {
   const lines = [];
   const me = profile.name || "用户";
@@ -2219,6 +2252,12 @@ function buildBundle(ctx, opts) {
     const cs = String(ctx.coupleStatus).split("|");
     if (cs[0] === "together") parts.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending") parts.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
+  }
+  // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：他是不是和别人在一起了。
+  //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
+  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together")) {
+    const taken = takenByOthersLine(char && char.id, rels, chars, uName);
+    if (taken) parts.push(taken);
   }
   // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
   if (!ctx.notRoleplay && geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
