@@ -3126,13 +3126,18 @@ function Home({
       transition: dragRef.current ? "none" : "transform .34s cubic-bezier(.22,.61,.36,1)"
     }
   }, curLayout.map(function (keys, pi) {
-    return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0 } },
+    return h("div", { key: pi, className: "px-5", style: { width: "100%", flexShrink: 0 } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3" },
         h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
           wallpaper ? { color: "#fff", textShadow: "0 2px 10px rgba(20,18,15,0.45), 0 0 24px rgba(20,18,15,0.25)" } : { color: t.ink }) }, fmtClock(now)),
         h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, marginTop: 2 }, glassLabelInk(!!wallpaper, t), wallpaper ? {} : { color: t.sub }) }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
-      h("div", { className: "grid grid-cols-4 gap-y-3 gap-x-3", style: { gridAutoFlow: "dense" } },
+      // 格与格之间从 12 收到 8（她 2026-09-03：「明明肉眼看还有位置但是要么不给放、
+      // 要么放了就把别处弄坏」）。空隙是【看得见但用不上】的那部分：一页四列六行，
+      // 12px 的缝一共吃掉横 36 / 竖 60，正好是「看着还有一块地方，其实排不下」的来源。
+      // ⚠️只收缝，不动 CAP(24 格) 和 ROWCAP(6 行)：那两条是防止一页无限长下去的闸，
+      // 放宽它们会把最后一排顶到屏幕外（v47 那次的病）。
+      h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoFlow: "dense" } },
         (editMode ? (keys || []) : trimTailRows(keys)).map(function (key) { return renderItem(key); })));
   })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 px-4 pt-1",

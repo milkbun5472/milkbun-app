@@ -61,7 +61,8 @@ test("高组件后面那一排空格也要按真实占位算", () => {
 });
 
 test("编辑态要把空格全发出去，不然没地方放东西", () => {
-  const i = comp.indexOf('className: "grid grid-cols-4 gap-y-3 gap-x-3"');
+  // v61.86 缝从 12 收到 8（gap-y-2 gap-x-2）——认的是这一行渲染的写法，不是那个数
+  const i = comp.indexOf('className: "grid grid-cols-4 gap-y-2 gap-x-2"');
   const src = comp.slice(i, i + 260);
   assert.match(src, /editMode\s*\?\s*\(keys[^)]*\)\s*:\s*trimTailRows\(keys\)/,
     "渲染那一行没有按编辑态区分：编辑时必须发全部空格（落点），平时才裁尾巴");
@@ -98,3 +99,11 @@ test("地方改叫去处", () => {
 });
 
 // 情侣卡那一条搬去了 dwell-door-58-24：天数已经挪到右上角，不再跟名字挤一行
+
+// 她 2026-09-03：「有时候明明肉眼看还有位置但是要么不给放，要么放了就把其他的位置弄坏」
+test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸不许跟着放宽", () => {
+  assert.match(comp, /className: "grid grid-cols-4 gap-y-2 gap-x-2"/, "缝又放回去了");
+  assert.match(comp, /h\("div", \{ key: pi, className: "px-5"/, "页面两侧留白又放回去了");
+  // ⚠️CAP/ROWCAP 是防止一页无限长下去的闸：放宽它们会把最后一排顶到屏幕外
+  assert.match(comp, /var CAP = 24, ROWCAP = 6;/, "容量闸被动了——最后一排会掉出屏幕");
+});
