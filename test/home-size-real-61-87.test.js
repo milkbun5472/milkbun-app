@@ -88,3 +88,21 @@ test("备忘录默认一条；一行高时换成一行说得完的排法，不�
   assert.match(seg, /height: "100%", display: "flex", alignItems: "center"/, "一行那档没有撑满并居中");
   assert.match(comp, /h\(MemoWidget, \{ homeSize: homeSize/, "没把尺寸传给备忘录，它不知道自己只有一行");
 });
+
+// 她 2026-09-03：「上面就是 4×2 但是说我放不下去」
+test("放不下时先往上挪，挪到顶还压着人才算真的放不下", () => {
+  const seg = comp.slice(comp.indexOf("function placeDrop(fromKey, toKey)"), comp.indexOf("这里放不下"));
+  assert.match(seg, /var hitsAt = function \(r0\)/, "还是只算落点那一处");
+  assert.match(seg, /for \(var rr = r02 - 1; hit > 1 && rr >= 0; rr--\)/, "没有往上挪的那一步");
+  // 行数一律用量出来的，不许再写死 6
+  assert.match(seg, /var capR = Math\.max\(3, \(rowCapRef\.current \|\| 6\) - \(t0\.p === 0 \? 1 : 0\)\);/);
+  assert.ok(!/Math\.min\(tpos\.r, 6 - h2\)/.test(comp), "还留着写死的 6 行");
+  assert.ok(!/rows > 6 \|\|/.test(comp), "溢出防线还按写死的 6 行判");
+});
+
+test("一页放几行是先定行数再整除，保证正好铺满", () => {
+  const seg = comp.slice(comp.indexOf("function measure()"), comp.indexOf("setRowCap("));
+  assert.match(seg, /HOME_ROW_MIN/, "没有「一行不小于多少」这条前提");
+  assert.match(seg, /var u = Math\.floor\(\(usable - \(n0 - 1\) \* HOME_ROW_GAP\) \/ n0\);/, "不是把剩下的高度整除给这几行");
+  assert.ok(!/Math\.min\(120, u\)/.test(comp), "又把一行的高度卡死在 120，高屏上会白空一截");
+});

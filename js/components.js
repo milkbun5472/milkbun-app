@@ -2056,7 +2056,7 @@ if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize;
 // 一行有多高，是【把剩下的地方分出来】的，不是拍死的像素（她 2026-09-03：
 // 「比起 fixed px，我们不能做 relative px 吗，就固定把剩下的位置去掉 dock 以后除以 5」）。
 // HOME_ROW_UNIT 只是量出来之前的兜底值；真正在用的是量完算出的那个 unit。
-const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5;
+const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN = 88;
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
@@ -2451,10 +2451,16 @@ function Home({
       var clock = el.querySelector("[data-homeclock]");
       var ch = clock ? clock.getBoundingClientRect().height + 12 : 0;
       var usable = Math.max(120, h0 - ch);
-      var u = Math.floor((usable - (HOME_ROWS_PER_PAGE - 1) * HOME_ROW_GAP) / HOME_ROWS_PER_PAGE);
-      u = Math.max(56, Math.min(120, u));
+      // 先定【放几行】：在「一行不小于 HOME_ROW_MIN」的前提下能放几行就放几行；
+      // 再把剩下的高度整除给这几行——所以第一页永远【正好铺满】，底下不留白。
+      // ⚠️之前是反过来的（先定 5 行、再限一行最高 120），于是高屏上 5 行只占到
+      // 三分之二，底下那截还是空着（她 2026-09-03：「看起来没区别」）。
+      var n0 = Math.floor((usable + HOME_ROW_GAP) / (HOME_ROW_MIN + HOME_ROW_GAP));
+      n0 = Math.max(4, Math.min(7, n0 || HOME_ROWS_PER_PAGE));
+      var u = Math.floor((usable - (n0 - 1) * HOME_ROW_GAP) / n0);
+      u = Math.max(56, u);
       setRowUnit(u);
-      // 没有时钟的那几页，同样的行高能多放一行——这就是原来底下白空的那一截
+      // 没有时钟的那几页用同一个行高，自然多放一行
       var n = Math.floor((h0 + HOME_ROW_GAP) / (u + HOME_ROW_GAP));
       setRowCap(Math.max(4, Math.min(9, n)));
     }
@@ -2864,14 +2870,29 @@ function Home({
       var tp = homePlaceDenseXY(toArr, spanOf);
       var tpos = tp.pos[toArr.indexOf(toKey)], s2 = spanOf(fromKey);
       if (!tpos || !s2) return;
-      var w2 = Math.min(4, s2[0]), h2 = Math.min(6, s2[1]);
-      var r02 = Math.min(tpos.r, 6 - h2), c02 = Math.min(tpos.c, 4 - w2);
-      var hit = 0;
-      toArr.forEach(function (k, i) {
-        if (k === fromKey || SP_RE.test(k)) return;
-        var pp = tp.pos[i]; if (!pp) return;
-        if (Math.max(r02, pp.r) < Math.min(r02 + h2, pp.r + pp.h) && Math.max(c02, pp.c) < Math.min(c02 + w2, pp.c + pp.w)) hit++;
-      });
+      // ⚠️行数不再写死 6：它现在是量出来的（v61.93），第一页还要让出时钟那一块。
+      // 写死的话，在别的机型上要么白空一行、要么把脚印按到不存在的行上。
+      var capR = Math.max(3, (rowCapRef.current || 6) - (t0.p === 0 ? 1 : 0));
+      var w2 = Math.min(4, s2[0]), h2 = Math.min(capR, s2[1]);
+      var c02 = Math.min(tpos.c, 4 - w2);
+      var hitsAt = function (r0) {
+        var n = 0;
+        toArr.forEach(function (k, i) {
+          if (k === fromKey || SP_RE.test(k)) return;
+          var pp = tp.pos[i]; if (!pp) return;
+          if (Math.max(r0, pp.r) < Math.min(r0 + h2, pp.r + pp.h) && Math.max(c02, pp.c) < Math.min(c02 + w2, pp.c + pp.w)) n++;
+        });
+        return n;
+      };
+      // 脚印是【从落点往下长】的：落在最后一排空格上时，它的下半截会压到下面那一排——
+      // 她 2026-09-03 就是这么被拒的（明明上面正好空着 4×2）。所以放不下时先往上挪，
+      // 挪到放得下为止；一路挪到顶还是压着人，才是真的放不下。
+      var r02 = Math.min(tpos.r, Math.max(0, capR - h2));
+      var hit = hitsAt(r02);
+      for (var rr = r02 - 1; hit > 1 && rr >= 0; rr--) {
+        var hh2 = hitsAt(rr);
+        if (hh2 <= 1) { r02 = rr; hit = hh2; }
+      }
       if (hit > 1) {
         if (typeof window !== "undefined" && window.__toast) window.__toast("这里放不下：会压到 " + hit + " 个东西。先腾出 " + w2 + "×" + h2 + " 的空位再放");
         placeDrop.__refused = true;
@@ -2885,7 +2906,10 @@ function Home({
       var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf);
       if (moved) {
         // 溢出防线：重排后超过 6 行说明这一页真装不下，整个不动、明说，绝不静默挤人去别页
-        var over = homePlaceDenseXY(moved.to, spanOf).rows > 6 || (f.p !== t2.p && homePlaceDenseXY(moved.from, spanOf).rows > 6);
+        // 同上：行数按量出来的来（第一页少一行）
+        var capTo = Math.max(3, (rowCapRef.current || 6) - (t2.p === 0 ? 1 : 0));
+        var capFr = Math.max(3, (rowCapRef.current || 6) - (f.p === 0 ? 1 : 0));
+        var over = homePlaceDenseXY(moved.to, spanOf).rows > capTo || (f.p !== t2.p && homePlaceDenseXY(moved.from, spanOf).rows > capFr);
         if (over) {
           if (typeof window !== "undefined" && window.__toast) window.__toast("这一页满了，装不下它——先挪走点东西");
           return prev;
