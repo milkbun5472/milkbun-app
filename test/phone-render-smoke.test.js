@@ -378,8 +378,12 @@ test("健康卡按 group 分页，窄卡两两并排、宽卡整行", () => {
   assert.doesNotMatch(SRC, /\(c\.group \|\| "body"\) === g/);
   assert.equal(P.healthGroupOf({ group: "私密" }), "private");
   assert.equal(P.healthGroupOf({ group: "谁也不认识" }), "body");
-  assert.match(SRC, /if \(buf\.length === 2\)/);
   assert.doesNotMatch(SRC, /c\.name === "睡眠/);
+  // v62.53 读数不再是「一项一张卡、窄卡两两并排」，而是【一档一张化验单，一行一项】。
+  // 仪表盘卡（白圆角 + 顶上一条 4px 彩带 + 33px 大数）换个健康 app 照样成立，
+  // 化验单不会——它只在病历里成立。
+  assert.match(SRC, /const labSheet = \(title, list\) => \{/);
+  assert.match(SRC, /secs: \(g\.key === "body" \? \[headCard\] : \[\]\)\.concat\(\[labSheet\(g\.zh, byGroup\(g\.key\)\)\]\)/);
 });
 
 test("健康的推演任务把「按角色世界改名」和「三项要角色专属」钉死了", () => {
@@ -460,15 +464,17 @@ test("想买清单的封面色不再洗白到近白", () => {
   assert.doesNotMatch(SRC, /\+ ",#f2f2f6\)"/);
 });
 
-test("健康窄卡的指标名独占一行，不会被 flex 压成一条竖字", () => {
+test("指标名再长也不会被压成一条竖字", () => {
   // 她 2026-08-29：「这种竖着的标题不会自己换行，弄的好长一条」
-  // 病因：中文任何位置都能断，min-content 就是一个字宽；窄卡里名字和图标、分数
-  // 挤在同一 flex 行，就被压到一个字宽竖下去了。
-  assert.match(SRC, /narrow\n\s*\? h\("div", null,/);
-  // 宽卡那一支必须给标题 flex:1 + minWidth:0，不能只写 minWidth:0
-  assert.match(SRC, /h\("div", \{ style: \{ flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15\.5/);
-  // 两支都要允许长词换行
-  assert.ok((SRC.match(/wordBreak: "break-word"/g) || []).length >= 2);
+  // 病因：中文任何位置都能断，min-content 就是一个字宽；名字跟别的东西挤在
+  // 同一 flex 行就会被压到一个字宽竖下去。
+  // v62.53 换成化验单的一行之后，防线换了个形状但同样得在：名字那一列不设
+  // flexShrink:0（该断行的是它），数值那一列 flexShrink:0 + nowrap（读数不许拆开），
+  // 中间那串引导点吃掉所有剩余宽度。
+  const row = SRC.slice(SRC.indexOf("const labRow = "), SRC.indexOf("const labSheet = "));
+  assert.match(row, /wordBreak: "break-word"/, "名字那一列不许禁止换行");
+  assert.match(row, /flexShrink: 0, whiteSpace: "nowrap"/, "读数被拆成两行就没法读了");
+  assert.match(SRC, /const DOTS = \{ flex: 1, minWidth: 14/, "引导点要吃掉剩余宽度，否则名字和数值会顶在一起");
 });
 
 test("视频拆成两个独立 app，子版块那套特例整个删掉了", () => {

@@ -61,10 +61,11 @@ test("同一档里按格位顺序排，整宽也由格位定，模型给的 wide
 
 // 名字改了之后，得能看出它到底是哪一项
 test("角色给它改了名，就用小字标出标准含义；没改名就不标", () => {
-  const view = SRC.slice(SRC.indexOf("const stdSub = c =>"), SRC.indexOf("const metricCard = "));
+  const view = SRC.slice(SRC.indexOf("const stdSub = c =>"), SRC.indexOf("const labRow = "));
   assert.ok(view.length > 40, "找不到那个小字副标题");
   assert.match(view, /c\._zh && String\(c\.name \|\| ""\)\.trim\(\) !== c\._zh/, "改没改名都标，会出现「步数 / 步数」这种重复");
-  // 宽卡窄卡两种都得标，不然一半的卡认不出是哪一项
-  const card = SRC.slice(SRC.indexOf("const metricCard = "), SRC.indexOf("const layoutCards = "));
-  assert.equal((card.match(/stdSub\(c\)/g) || []).length, 2, "宽卡和窄卡里只标了一处");
+  // v62.53 读数从「一项一张卡」改成「一档一张化验单」之后，这一句判的是化验单那一行：
+  // 同一个条件必须还在，否则改没改名都标。
+  const row = SRC.slice(SRC.indexOf("const labRow = "), SRC.indexOf("const labSheet = "));
+  assert.match(row, /c\._zh && String\(c\.name \|\| ""\)\.trim\(\) !== c\._zh/, "化验单那一行没带上这个条件");
 });

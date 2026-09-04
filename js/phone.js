@@ -3608,12 +3608,6 @@ const HEALTH_DIM = "#8d9689";      // 灰绿
 const HEALTH_BODY = "#4a5548";     // 正文
 const HEALTH_LINE = "#e2e7dd";     // 分隔线
 const HEALTH_SOFT = "#f5f7f1";     // 卡里再嵌一块的底
-// 同一族里的三档轻微变化：让时间线那几条不至于完全一样，但仍是【一份文书】。
-const HEALTH_HUES = [
-  { bar: HEALTH_ACCENT, chip: "rgba(92,115,85,.13)", chipInk: HEALTH_ACCENT, bar2: "#a9bda2", ink: HEALTH_ACCENT },
-  { bar: "#8a9a7e", chip: "rgba(138,154,126,.15)", chipInk: "#5e6b53", bar2: "#bcc9b2", ink: "#5e6b53" },
-  { bar: HEALTH_ALERT, chip: "rgba(165,98,58,.12)", chipInk: HEALTH_ALERT, bar2: "#d0a385", ink: HEALTH_ALERT }
-];
 const HEALTH_GROUPS = [
   { key: "body", zh: "体征", glyph: "health" },
   { key: "mind", zh: "心神", glyph: "liked" },
@@ -3687,78 +3681,81 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const cards = A(data.cards).filter(x => x && typeof x === "object");
-  const hueOf = i => HEALTH_HUES[i % HEALTH_HUES.length];
   const peekBtn = (label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier: "quiet", label, title, text }); },
     className: "w-full active:opacity-60",
     style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + HEALTH_LINE, color: HEALTH_BODY }
   }, T("转发给 TA · 他会知道你翻了手机")) : null;
+  // 附注小表：一项读数底下那几个分解数。原来是「小标签 + 17px 大数」两栏——
+  // 那还是仪表盘那一套（大数是仪表盘的主角）。化验单里这种东西是【附注】，
+  // 一行一条、名字和数值靠一条细线分开，字号一律小于正文。
   const statGrid = stats => {
     const rows = A(stats).filter(x => x && (x.k || x.v)).slice(0, 3);
     if (!rows.length) return null;
-    return h("div", { className: "grid grid-cols-2", style: { gap: "12px 14px", marginTop: 15, paddingTop: 14, borderTop: "1px solid " + HEALTH_LINE } },
-      rows.map((x, i) => h("div", { key: i, style: i === 2 ? { gridColumn: "1 / -1" } : null },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: HEALTH_DIM } }, x.k || ""),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: HEALTH_INK, marginTop: 3 } }, x.v || ""))));
+    return h("div", { style: { marginTop: 9, marginLeft: 9, paddingLeft: 11, borderLeft: "1px solid " + HEALTH_LINE } },
+      rows.map((x, i) => h("div", { key: i, className: "flex items-baseline", style: { paddingTop: i ? 4 : 0 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: HEALTH_DIM } }, x.k || ""),
+        h("span", { "aria-hidden": "true", style: { flex: 1, minWidth: 10, margin: "0 6px", borderBottom: "1px dotted " + HEALTH_LINE, transform: "translateY(-3px)" } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: HEALTH_BODY, flexShrink: 0, whiteSpace: "nowrap" } }, x.v || ""))));
   };
   // 角色给这一项改了名之后，底下用小字标一句它到底是哪一项——
   // 不然「今日行脚」是步数还是活动消耗，只有模型自己知道（她要的「统一」就是为了这个）
   const stdSub = c => (c._zh && String(c.name || "").trim() !== c._zh)
     ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM, marginTop: 3 } }, c._zh) : null;
-  const metricCard = (c, i, narrow) => {
-    const hue = hueOf(i);
-    return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13, flex: narrow ? 1 : "none", minWidth: 0 } },
-      h("div", { "aria-hidden": "true", style: { height: 4, background: hue.bar } }),
-      h("div", { style: { padding: narrow ? "15px 14px 17px" : "17px 18px 19px" } },
-        // ⚠️指标名是模型起的，可能长到「静息与应激心率」七个字。窄卡里如果让它跟
-        // 图标和分数挤在同一行，flex 会把它压到 min-content——中文任何位置都能断，
-        // min-content 就是一个字宽，于是标题竖成一条（她 2026-08-29 报）。
-        // 所以窄卡改成两行：图标＋分数占一行，名字自己独占一整行。
-        narrow
-          ? h("div", null,
-              h("div", { className: "flex items-center justify-between" },
-                h("div", { style: { width: 30, height: 30, borderRadius: 10, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
-                  h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
-                // ⚠️不给读数打分。大夫不会说你的睡眠 68 分——他说「四小时，连着五天」。
-                null),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: HEALTH_INK, marginTop: 9, wordBreak: "break-word" } }, c.name || ""),
-              stdSub(c))
-          : h("div", { className: "flex items-start justify-between gap-3" },
-              h("div", { className: "flex items-start gap-2.5", style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
-                  h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
-                h("div", { style: { flex: 1, minWidth: 0 } },
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || ""),
-                  stdSub(c))),
-              null),
-        h("div", { className: "flex items-end gap-2 flex-wrap", style: { marginTop: 14 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 33, lineHeight: 1.05, color: HEALTH_INK } }, c.value != null ? String(c.value) : "--",
-            c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: HEALTH_DIM, marginLeft: 3 } }, c.unit) : null),
-          c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.4, color: hue.chipInk, background: hue.chip, borderRadius: 11, padding: "5px 11px", marginBottom: 3 } }, c.tag) : null),
-        c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4a4f57", marginTop: 13 } }, c.note) : null,
-        statGrid(c.stats),
-        // 一周条形图也撤了：那是仪表盘的部件。走势归走势那一段统一画。
-        c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#a9aeb6", marginTop: 15, fontStyle: "italic" } }, "「" + c.quote + "」") : null,
-        !narrow ? h("div", null, peekBtn("健康 · " + (c.name || ""), (c.name || "") + " " + (c.value != null ? c.value : "") + (c.unit || ""), [c.tag, c.note, c.quote].filter(Boolean).join("｜"))) : null));
+  // ── 读数：化验单的一行，不是仪表盘的一张卡（v62.53）────────────────
+  // 注释里从 v59.44 起就写着「病历不是仪表盘：一份病历只有一种墨」，
+  // 纸上却一直是白圆角卡 + 顶上一条 4px 彩带 + 33px 大数字 + 圆角 chip ——
+  // 那正是仪表盘卡本人，换成任何一个健康 app 都成立（审美审计 2026-09-04 点名）。
+  //
+  // 真的病历里，读数长在【化验单】上：左边项目名，右边数值，中间一串引导点把两头连起来；
+  // 异常的那几行在左边那道栏外画一笔，不是整张卡换个颜色。
+  // 所以这里不再一项一张卡，而是【一档一张化验单】：一张纸，纸上一行一项。
+  // 一种墨＝HEALTH_INK；只有异常那一档才许动用赭石，一屏顶多一两处。
+  //
+  // HEALTH_HUES 那三档色相整个删掉了——它当初存在的理由就是「让卡片不至于
+  // 完全一样」，而一份文书本来就该处处一样。留着它等于把病改回去的路口开着。
+  const DOTS = { flex: 1, minWidth: 14, margin: "0 7px", borderBottom: "1px dotted " + HEALTH_LINE, transform: "translateY(-4px)" };
+  // 一行读数：项目名 · 引导点 · 数值。tag 挂在名字下面当小字，不做成药丸。
+  const labRow = (c, i, last) => {
+    const alert = /异常|偏[高低]|不足|过[高低多少]|警|差|超/.test(String(c.tag || ""));
+    const ink = alert ? HEALTH_ALERT : HEALTH_INK;
+    return h("div", { key: i, style: { padding: "12px 0 13px", borderBottom: last ? "none" : "1px solid " + HEALTH_LINE } },
+      h("div", { className: "flex items-baseline" },
+        // 左边那道栏外的记号：异常才有，一笔就够
+        h("span", { "aria-hidden": "true", style: { width: 9, flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: HEALTH_ALERT, lineHeight: 1 } }, alert ? "·" : ""),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.4, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || ""),
+        h("span", { "aria-hidden": "true", style: DOTS }),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.3, color: ink, flexShrink: 0, whiteSpace: "nowrap" } },
+          c.value != null ? String(c.value) : "—",
+          c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, marginLeft: 2 } }, c.unit) : null)),
+      // 改了名的那一项：标准名跟着走小字，跟数值那一列对不齐也没关系，它是注解
+      (stdSub(c) || c.tag) ? h("div", { className: "flex items-baseline", style: { gap: 8, marginTop: 4, paddingLeft: 9 } },
+        c._zh && String(c.name || "").trim() !== c._zh
+          ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM } }, c._zh) : null,
+        c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: alert ? HEALTH_ALERT : HEALTH_DIM } }, c.tag) : null) : null,
+      c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_BODY, marginTop: 7, paddingLeft: 9 } }, c.note) : null,
+      statGrid(c.stats),
+      c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: HEALTH_DIM, marginTop: 9, paddingLeft: 9, fontStyle: "italic" } }, "「" + c.quote + "」") : null);
   };
-  // 窄卡两两并排（照参考稿），宽卡整行
-  const layoutCards = list => {
-    const out = [];
-    let buf = [];
-    let idx = 0;
-    list.forEach(c => {
-      const i = idx++;
-      if (c.wide) {
-        if (buf.length) { out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf)); buf = []; }
-        out.push(metricCard(c, i, false));
-      } else {
-        buf.push(metricCard(c, i, true));
-        if (buf.length === 2) { out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf)); buf = []; }
-      }
-    });
-    if (buf.length) out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf));
-    return out;
+  // 一整档＝一张化验单：白纸、上下两道横杠夹着一行表头、里面一行一项。
+  // 表头那两道杠是化验单最认得出来的那个记号（上粗下细），比什么图标都管用。
+  const labSheet = (title, list) => {
+    if (!list.length) return null;
+    return h("div", { key: "lab", style: { background: "#fdfdfa", borderRadius: 3, padding: "0 16px 6px", marginBottom: 16, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+      // 抬头照检验单的样子：姓名一头、日期一头，底下压一道粗线；
+      // 粗线下面再来一行【项目 / 结果】的列名，然后才是正文。
+      // ⚠️不要在这儿把 tab 名再写一遍——顶栏已经写着「体征」了，写两遍是通用卡片的习惯。
+      h("div", { style: { borderBottom: "2px solid " + HEALTH_INK, paddingTop: 15 } },
+        h("div", { className: "flex items-baseline justify-between", style: { paddingBottom: 7, gap: 10 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: HEALTH_INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (char && char.name) || "本人"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM, flexShrink: 0 } }, "今天 · " + list.length + " 项"))),
+      h("div", { className: "flex items-baseline justify-between", style: { borderTop: "1px solid " + HEALTH_INK, borderBottom: "1px solid " + HEALTH_LINE, marginTop: 2, padding: "6px 0 5px" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: HEALTH_DIM, paddingLeft: 9 } }, "项目"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: HEALTH_DIM } }, "结果")),
+      h("div", null, list.map((c, i) => labRow(c, i, i === list.length - 1))),
+      onPeek ? peekBtn("健康 · " + title, title, list.map(c => (c.name || "") + " " + (c.value != null ? c.value : "") + (c.unit || "")).join("｜")) : null);
   };
+
   // ── 病历夹（v59.44）──────────────────────────────────────────────────
   // 她 2026-09-01：「把 perspective 改成医生对病人的诊断」，并选了这个变体：
   // **大夫的话是低频、有日期、会累积的一叠；每天变的只是几条读数。**
@@ -3775,8 +3772,10 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   const chartRow = (label, txt, alert) => txt ? h("div", { style: { marginTop: 13 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: alert ? HEALTH_ALERT : HEALTH_DIM, marginBottom: 5 } }, label),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: alert ? HEALTH_INK : HEALTH_BODY, wordBreak: "break-word" } }, txt)) : null;
-  const visitCard = (v, i2, folded) => h("div", { key: i2, style: { background: "#fff", borderRadius: 16, padding: folded ? "14px 16px" : "18px 18px 20px", marginBottom: 11, border: "1px solid " + HEALTH_LINE } },
-    h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
+  // 一次就诊＝一张处方笺：方角、纸色、抬头下面压一道实线。圆角 16 的白卡是通用卡片，
+  // 不是病历里的任何一样东西（审美审计 2026-09-04）。
+  const visitCard = (v, i2, folded) => h("div", { key: i2, style: { background: "#fdfdfa", borderRadius: 3, padding: folded ? "13px 16px" : "16px 18px 20px", marginBottom: 10, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+    h("div", { className: "flex items-baseline justify-between", style: { gap: 10, paddingBottom: 7, borderBottom: folded ? "none" : "1px solid " + HEALTH_INK } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: folded ? 15 : 18, color: HEALTH_INK, minWidth: 0 } }, v.who || "大夫"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, flexShrink: 0 } }, dateZh(v.date))),
     folded
@@ -3796,13 +3795,12 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
           v.followup ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: HEALTH_ALERT, marginTop: 13, paddingTop: 12, borderTop: "1px dashed " + HEALTH_LINE } }, v.followup) : null,
           onPeek ? peekBtn("他的病历", v.who || "大夫", [v.chief, v.exam, v.impression, v.orders, v.followup].filter(Boolean).join("｜")) : null));
   const headCard = h("div", { key: "hd", style: { marginBottom: 20 } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "2px 4px 4px" } }, "CHART"),
-    h("div", { className: "flex items-baseline justify-between", style: { padding: "0 4px 12px", gap: 10 } },
+    h("div", { className: "flex items-baseline justify-between", style: { padding: "2px 4px 12px", gap: 10 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: HEALTH_INK } }, "病历"),
       visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
     visits.length
       ? h("div", null, (visitOpen ? visits : visits.slice(0, 1)).map((v, i2) => visitCard(v, i2, visitOpen && i2 > 0)))
-      : h("div", { style: { background: "#fff", borderRadius: 16, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, "他还没看过大夫。下面这些是身上的读数。"),
+      : h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, "他还没看过大夫。下面这些是身上的读数。"),
     data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
   // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
   // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
@@ -3810,38 +3808,50 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   // ⚠️这条线的存量还是按老的「综合分」存的（x_phoneVitals）。v59.44 起报告里不再有
   // 综合分，新的天数就不会再进这条线了——所以它会自己停在最后一个有分的那天。
   // 不删它：过去那三个月是真实记录过的，删掉等于抹掉病史。它会随 90 天窗口自然走完。
-  const trendSec = vt.length >= 2 ? h("section", { key: "vt", style: { marginTop: 16 } },
-    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: HEALTH_INK } }, "过去这些天"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, vt.length + " 天")),
-    h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, height: 56, padding: "0 2px" } },
-      vt.map((x, i) => {
-        const v = Math.max(0, Math.min(100, Number(x.score)));
-        const last = i === vt.length - 1;
-        return h("div", {
-          key: x.day || i, title: x.day + " · " + v,
-          style: {
-            flex: 1, minWidth: 0, height: Math.max(4, Math.round(v * 0.54)) + "px", borderRadius: 3,
-            background: last ? HEALTH_INK : "rgba(31,29,26,.16)"
-          }
-        });
-      })),
-    h("div", { className: "flex items-center justify-between", style: { marginTop: 6 } },
-      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: HEALTH_DIM } }, String(vt[0].day || "").slice(5)),
-      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: HEALTH_DIM } }, "今天"))) : null;
+  // 体温单：病历里那张画着格子、上面一条折线的纸。原来这儿是一排灰色柱子——
+  // 柱状图是仪表盘的部件，而这个 app 里现成就有一样【病历自己的图】可以长成。
+  // 格子是画上去的（横线四道、竖线按天），线和点是 SVG，不用任何库。
+  const trendSec = vt.length >= 2 ? (() => {
+    // ⚠️等比缩放，别用 preserveAspectRatio:"none"：拉伸会把点画成横躺的椭圆，
+    // 最后那个「今天」还会被右边缘切掉一半（第一版就是这样）。所以留出 PAD 的边距，
+    // 让 viewBox 自己按比例铺满宽度。
+    const W = 300, H = 84, PAD = 5, n = vt.length;
+    const xs = k => n === 1 ? W / 2 : PAD + (k / (n - 1)) * (W - PAD * 2);
+    const ys = v => (H - PAD) - (Math.max(0, Math.min(100, v)) / 100) * (H - PAD * 2);
+    const pts = vt.map((x, k) => [xs(k), ys(Number(x.score))]);
+    return h("section", { key: "vt", style: { marginTop: 16 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "6px 4px 4px" } }, "体温单"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, padding: "0 4px 12px" } }, "过去 " + n + " 天这条线的样子"),
+      h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "14px 16px 10px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+        h("svg", { viewBox: "0 0 " + W + " " + H, style: { display: "block", width: "100%", height: "auto" }, "aria-hidden": "true" },
+          // 横四道：体温单的格纸
+          [0, 1, 2, 3, 4].map(k => h("line", { key: "h" + k, x1: 0, x2: W, y1: PAD + ((H - PAD * 2) / 4) * k, y2: PAD + ((H - PAD * 2) / 4) * k, stroke: HEALTH_LINE, strokeWidth: 0.4, vectorEffect: "non-scaling-stroke" })),
+          // 竖线按天，天数多时隔几天画一道，免得糊成一片
+          vt.map((x, k) => (n <= 14 || k % Math.ceil(n / 14) === 0)
+            ? h("line", { key: "v" + k, x1: xs(k), x2: xs(k), y1: PAD, y2: H - PAD, stroke: HEALTH_LINE, strokeWidth: 0.4, vectorEffect: "non-scaling-stroke" }) : null),
+          h("polyline", { points: pts.map(p => p.join(",")).join(" "), fill: "none", stroke: HEALTH_INK, strokeWidth: 1.2, strokeLinejoin: "round", strokeLinecap: "round" }),
+          pts.map((p, k) => h("circle", { key: "c" + k, cx: p[0], cy: p[1], r: k === n - 1 ? 3 : 1.8, fill: k === n - 1 ? HEALTH_ALERT : HEALTH_INK }))),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 7 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM } }, String(vt[0].day || "").slice(5)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM } }, "今天"))));
+  })() : null;
   // ── 今日轨迹 ──
   const timeline = A(data.timeline);
+  // 病程记录：左边一列时刻、右边一段话，中间一条竖线把它们串成一天。
+  // 原来是「白圆角卡 + 左边 4px 彩条」，那是通知列表的形状，而且三档色相
+  // 又把「一份病历只有一种墨」这句话违了一遍。
   const timelineSec = timeline.length ? h("section", { key: "tl" },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "4px 4px 4px" } }, "TIMELINE"),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "0 4px 14px" } }, "今日轨迹"),
-    timeline.map((it, i) => {
-      const hue = hueOf(i);
-      return h("div", { key: i, style: { background: "#fff", borderRadius: 14, borderLeft: "4px solid " + hue.bar, padding: "14px 16px", marginBottom: 11 } },
-        h("div", { className: "flex items-center gap-2.5" },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12.5, color: HEALTH_DIM } }, it.time || ""),
-          it.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: hue.chipInk, background: hue.chip, borderRadius: 8, padding: "3px 9px" } }, it.tag) : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: HEALTH_BODY, marginTop: 8 } }, it.text || ""));
-    })) : null;
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "6px 4px 4px" } }, "病程记录"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, padding: "0 4px 14px" } }, "今天这一天是怎么过的"),
+    h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "4px 16px 14px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+      timeline.map((it, i) => h("div", { key: i, className: "flex", style: { gap: 13, paddingTop: 14 } },
+        h("div", { style: { width: 44, flexShrink: 0, textAlign: "right" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.6, color: HEALTH_INK } }, it.time || "")),
+        // 那条竖线就是病程记录纸上那道分栏线：贯穿整段，不是每条各画一截
+        h("div", { "aria-hidden": "true", style: { width: 1, flexShrink: 0, background: HEALTH_LINE, alignSelf: "stretch" } }),
+        h("div", { style: { flex: 1, minWidth: 0, paddingBottom: 2 } },
+          it.tag ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_ACCENT, marginBottom: 3 } }, it.tag) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: HEALTH_BODY } }, it.text || "")))))) : null;
   // ⚠️「健康洞察」整段撤了（v59.44）：那是健康 App 的固定小组件——三条短判断加解释，
   // 换个人照样成立。大夫要说的话已经在病历的【印象】和【医嘱】里，说两遍就是两处
   // 各说各的。他自己那句念叨留着，接在今日轨迹后面。
@@ -3857,7 +3867,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     .map(x => x.sl ? { ...x.c, wide: !!x.sl.wide, _zh: x.sl.zh } : x.c);
   const PAGES = HEALTH_GROUPS.map(g => ({
     key: g.key, zh: g.zh, glyph: g.glyph,
-    secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
+    secs: (g.key === "body" ? [headCard] : []).concat([labSheet(g.zh, byGroup(g.key))])
   })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [trendSec, timelineSec, tailSec].filter(Boolean) }]);
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
@@ -3871,9 +3881,9 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => setTab(pg.key),
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? "#5b4a8c" : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
-    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? "#5b4a8c" : HEALTH_DIM })),
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM })),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "linear-gradient(180deg,#f6f7f9 0%," + HEALTH_BG + " 40%," + HEALTH_BG + " 100%)" } },
     chrome,
