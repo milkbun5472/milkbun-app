@@ -9601,21 +9601,30 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
         h("button", { onClick: () => go(1), disabled: idx === characters.length - 1, "aria-label": "下一本", className: "active:opacity-50", style: { opacity: idx === characters.length - 1 ? .25 : .65, padding: 9, transform: "scaleX(-1)" } }, h(IArrow, { size: 22, color: t.ink }))) : null));
 }
 
-// 文风编辑
-function DiaryStyleSheet({ char, onSave, onClose }) {
+// 日记档案（v62.18 整页化，no-half-sheet 顺手换；她 2026-09-04 点名清英文、删原型、换灰字）。
+// 原型（mbti）那一栏整个删了：全 app 没有任何一处读它——一个纯装饰的死字段，
+// 填得再认真也一个字不生效。签名和文风都真生效：文风进日记提示词（最高优先段），
+// 签名 v62.18 起也进（原来只画在封面上，写日记的人自己反而不知道）。
+// 灰字按 prompt-no-content-samples 换成【说明】，不给能被照抄的样例内容。
+function DiaryStylePage({ char, onSave, onClose }) {
   const t = useTheme();
-  const [mbti, setMbti] = useState(char.mbti || "");
   const [motto, setMotto] = useState(char.motto || "");
   const [style, setStyle] = useState(char.diaryStyle || "");
-  const field = (label, node) => h("div", { className: "mb-4" }, h(Eyebrow, { style: { marginBottom: 7 } }, label), node);
-  const inputStyle = { width: "100%", background: t.bg, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14, color: t.ink };
-  return h(Sheet, { onClose, tall: true },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, char.name + " · 日记档案"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 18 } }, "只影响日记的档案卡与文风，留空则自动从人设推断。"),
-    field("ARCHETYPE / 原型（如 ISFJ）", h("input", { value: mbti, onChange: e => setMbti(e.target.value), placeholder: "选填，如 ISFJ / 疯批学者", style: inputStyle })),
-    field("一句话签名 / MOTTO", h("input", { value: motto, onChange: e => setMotto(e.target.value), placeholder: "选填，如 “反正你是我的”", style: inputStyle })),
-    field("日记文风", h("textarea", { value: style, onChange: e => setStyle(e.target.value), rows: 5, placeholder: "选填。写这个角色写日记的调性：克制/热烈/文艺/毒舌…爱用什么意象、英文标题偏冷还是偏诗意、口头禅等。", style: { ...inputStyle, resize: "none", lineHeight: 1.6 } })),
-    h("button", { onClick: () => { onSave(char.id, { mbti: mbti.trim(), motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full mt-2 active:opacity-70", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, "保存"));
+  const field = (label, hint, node) => h("div", { style: { marginBottom: 22 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: hint ? 3 : 8 } }, label),
+    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, hint) : null,
+    node);
+  const inputStyle = { width: "100%", outline: "none", background: t.bg2, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14, color: t.ink };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h(Head, { zh: "日记档案", sub: char.remark || char.name, onBack: onClose }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
+        "只影响 TA 的日记：签名会印在日记封面上、也会让写日记的 TA 知道；文风直接进写日记的笔。留空就从人设自己长。"),
+      field("一句话签名", "TA 会写给自己的那一句——不是网名简介，是 TA 自己的话",
+        h("input", { value: motto, onChange: e => setMotto(e.target.value), placeholder: "选填", style: inputStyle })),
+      field("日记文风", "写 TA 写日记时是什么样：句子长短、脾气收不收、爱写什么、绝不写什么、会不会取标题落款。判据一句话：换个人还成立的描述，等于没写。",
+        h("textarea", { value: style, onChange: e => setStyle(e.target.value), rows: 6, placeholder: "选填", style: { ...inputStyle, resize: "none", lineHeight: 1.7 } })),
+      h("button", { onClick: () => { onSave(char.id, { motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full active:opacity-70", style: { marginTop: 4, background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_DISPLAY, fontSize: 15 } }, "保存")));
 }
 
 // 我自己写日记（全屏），时间/天气/城市自动抓本地
@@ -9785,17 +9794,21 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       }));
   }
 
+  // ---- 日记档案：整页盖上来（v62.18，no-half-sheet），关掉回到原视图、位置不丢 ----
+  if (styleEdit) {
+    const sc = characters.find(c => c.id === styleEdit);
+    if (sc) return h(DiaryStylePage, { char: sc, onSave: onSaveFields, onClose: () => setStyleEdit(null) });
+  }
+
   // ---- 单人档案卡（默认进入的大图）----
-  if (view === "archive") return h(Fragment, null,
-    h(DiaryArchive, {
-      characters: authors, curId, setCurId, diaries,
-      onOpen: openEntries,
-      onBack: onBack,
-      onOpenList: () => setView("home"),
-      onEditStyle: id => setStyleEdit(id),
-      onCompose: () => setView("compose")
-    }),
-    styleEdit && h(DiaryStyleSheet, { char: characters.find(c => c.id === styleEdit), onSave: onSaveFields, onClose: () => setStyleEdit(null) }));
+  if (view === "archive") return h(DiaryArchive, {
+    characters: authors, curId, setCurId, diaries,
+    onOpen: openEntries,
+    onBack: onBack,
+    onOpenList: () => setView("home"),
+    onEditStyle: id => setStyleEdit(id),
+    onCompose: () => setView("compose")
+  });
 
   // ---- 某作者的日记列表 ----
   if (view === "entries") {
@@ -9897,7 +9910,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   // ---- 目录定位：角色列表（从大图右上角 INDEX 进入，点一个跳回该角色大图）----
   return h("div", { className: "h-full flex flex-col" },
     h(Head, {
-      zh: "目录", en: "Index · 记录对象",
+      zh: "目录", sub: "记录对象",
       onBack: () => setView("archive")
     }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10 pt-1" },
@@ -9916,8 +9929,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } },
               gb ? "正在记录今天…" : list.length ? "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
-      })),
-    styleEdit && h(DiaryStyleSheet, { char: characters.find(c => c.id === styleEdit), onSave: onSaveFields, onClose: () => setStyleEdit(null) }));
+      })));
 }
 // ---- 我的钱包（聊天软件「我」下面）----
 function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView }) {
