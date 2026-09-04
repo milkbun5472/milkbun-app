@@ -1983,8 +1983,9 @@ function homePlaceDenseXY(keys, spanFn) {
 }
 // 共用的钉格重建：pinned=[{k,r,c,w,h}]；displaced 先在 6 行棋盘里首适配找洞，塞不下才溢出到尾巴。
 // 永远铺满整 6 行空格——底部的格子必须实时存在，不然「放到页面下面」没有落点（她 2026-09-03 抓的）。
-function homeGridRebuild(pinned, displaced) {
-  var ROWS = 6, occ = {}, anchors = {};
+// rows 可传（v61.96）：一页几行现在是量出来的，写死 6 会让第 7 行既放不进也挪不过去。
+function homeGridRebuild(pinned, displaced, rows) {
+  var ROWS = Math.max(3, rows || 6), occ = {}, anchors = {};
   var stamp = function (k, r, c, w, h) { anchors[r + "," + c] = k; for (var i = r; i < r + h; i++) for (var j = c; j < c + w; j++) occ[i + "," + j] = k; };
   var fits = function (r, c, w, h) { if (c < 0 || c + w > 4 || r < 0) return false; for (var i = r; i < r + h; i++) for (var j = c; j < c + w; j++) if (occ[i + "," + j]) return false; return true; };
   var overflow = [];
@@ -2024,7 +2025,7 @@ function homeRepackResize(arr, key, spanFn, newSpan) {
   return homeGridRebuild(pinned, displaced);
 }
 // 拖拽落子（同页/跨页）：from 落到 to 的锚点格，越界往里clamp；其余真项原地不动。
-function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
+function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn, rows) {
   var same = fromArr === toArr;
   var fPos0 = homePlaceDenseXY(fromArr, spanFn);
   var tPos0 = same ? fPos0 : homePlaceDenseXY(toArr, spanFn);
@@ -2032,8 +2033,9 @@ function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
   if (fi < 0 || ti < 0) return null;
   var mineOld = fPos0.pos[fi], target = tPos0.pos[ti], s = spanFn(fromKey);
   if (!mineOld || !target || !s) return null;
-  var w = Math.min(4, s[0]), h = Math.min(6, s[1]);
-  var r0 = Math.min(target.r, 6 - h), c0 = Math.min(target.c, 4 - w);
+  var ROWS2 = Math.max(3, rows || 6);
+  var w = Math.min(4, s[0]), h = Math.min(ROWS2, s[1]);
+  var r0 = Math.min(target.r, Math.max(0, ROWS2 - h)), c0 = Math.min(target.c, 4 - w);
   var mk = function (arr, pos0, includeFrom) {
     var pinned = [], first = [];
     if (includeFrom) first.push({ k: fromKey, r: r0, c: c0, w: w, h: h });
@@ -2042,7 +2044,7 @@ function homeRepackMove(fromArr, toArr, fromKey, toKey, spanFn) {
       var pp = pos0.pos[i]; if (!pp) return;
       pinned.push({ k: k, r: pp.r, c: pp.c, w: pp.w, h: pp.h });
     });
-    return homeGridRebuild(first.concat(pinned), []);
+    return homeGridRebuild(first.concat(pinned), [], ROWS2);
   };
   if (same) { var one = mk(fromArr, fPos0, true); return { from: one, to: one }; }
   return { from: mk(fromArr, fPos0, false), to: mk(toArr, tPos0, true) };
@@ -2903,7 +2905,7 @@ function Home({
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf);
+      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf, Math.max(3, (rowCapRef.current || 6) - (t2.p === 0 ? 1 : 0)));
       if (moved) {
         // 溢出防线：重排后超过 6 行说明这一页真装不下，整个不动、明说，绝不静默挤人去别页
         // 同上：行数按量出来的来（第一页少一行）
@@ -3161,14 +3163,16 @@ function Home({
     setDrag(0);
   };
   // 渲染单个可摆放项（app / 用户文件夹 / 组件 / 空格），带 data-appkey + 抖动/拖起/合并目标样式；编辑态下禁点
-  function renderItem(key) {
+  function renderItem(key, at) {
     // 空格：平时隐形占位（就是「洞」），编辑态显示虚线框，拖拽落点高亮
     if (SP_RE.test(key)) {
       const isDrop = dropKey === key;
       return h("div", {
         key: key, "data-appkey": key,
         style: {
-          gridColumn: "span 1", minHeight: rowUnit, borderRadius: 17,
+          gridColumn: at ? (at.c + 1) + " / span 1" : "span 1",
+          gridRow: at ? (at.r + 1) + " / span 1" : "auto",
+          minHeight: rowUnit, borderRadius: 17,
           border: editMode ? "1.5px dashed " + (isDrop ? t.accent : "rgba(30,28,24,0.16)") : "none",
           background: isDrop ? "rgba(194,90,74,0.10)" : "transparent",
           transform: isDrop ? "scale(1.06)" : "none",
@@ -3184,7 +3188,9 @@ function Home({
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 所有组件/装饰都从同一份占格设置取尺寸；spanOf/placeDense 也走这条，视觉和落位不会各算各的。
     const span = (it.kind === "widget" || it.kind === "decor") ? homeItemSpan(key, it, widgetSizes) : [1, 1];
-    const gCol = "span " + span[0], gRow = "span " + span[1];
+    // 显式坐标（算不出来时退回原来的 span 流，至少不会消失）
+    const gCol = at ? (at.c + 1) + " / span " + span[0] : "span " + span[0];
+    const gRow = at ? (at.r + 1) + " / span " + span[1] : "span " + span[1];
     const homeSize = homeSizeOf(key, widgetSizes);
     // ⚠️「N 行」要真的是 N 行高：挑了尺寸的组件把高度钉死（rows×82 + 缝），
     // 内容超出就裁掉——不钉的话行高由内容撑，挑了 4×1 还是长成两行那么高，
@@ -3278,8 +3284,19 @@ function Home({
       // 12px 的缝一共吃掉横 36 / 竖 60，正好是「看着还有一块地方，其实排不下」的来源。
       // ⚠️只收缝，不动 CAP(24 格) 和 ROWCAP(6 行)：那两条是防止一页无限长下去的闸，
       // 放宽它们会把最后一排顶到屏幕外（v47 那次的病）。
-      h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoFlow: "dense", gridAutoRows: rowUnit + "px" } },
-        (editMode ? (keys || []) : trimTailRows(keys)).map(function (key) { return renderItem(key); })));
+      // ⚠️位置【显式写死到格子上】，不再交给 CSS 的 dense 自动流（她 2026-09-03：
+      // 「我想把记账往左移一格，天气也会掉下来」）。病因是两套摆法：
+      // 存的是一串顺序＋占位空格，画的是浏览器自己的 dense 回填——
+      // 只要中间少一个空格（比如被容量闸裁掉一个），浏览器就会把后面的东西
+      // 往前面的洞里吸，于是动一个、别人跟着跳。
+      // 现在同一份 homePlaceDenseXY 既算落位、又直接当 gridRow/gridColumn 用，
+      // 画出来的就是模型算出来的那一格，一个字都不会差。
+      (function () {
+        var ks = editMode ? (keys || []) : trimTailRows(keys);
+        var pp = homePlaceDenseXY(ks, spanOf);
+        return h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoRows: rowUnit + "px" } },
+          ks.map(function (key, i) { return renderItem(key, pp.pos[i]); }));
+      })());
   })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 px-4 pt-1",
     style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }

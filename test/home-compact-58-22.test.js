@@ -61,11 +61,13 @@ test("高组件后面那一排空格也要按真实占位算", () => {
 });
 
 test("编辑态要把空格全发出去，不然没地方放东西", () => {
-  // v61.86 缝从 12 收到 8（gap-y-2 gap-x-2）——认的是这一行渲染的写法，不是那个数
-  const i = comp.indexOf('className: "grid grid-cols-4 gap-y-2 gap-x-2"');
-  const src = comp.slice(i, i + 260);
-  assert.match(src, /editMode\s*\?\s*\(keys[^)]*\)\s*:\s*trimTailRows\(keys\)/,
+  // v61.86 缝收到 8；v61.96 位置改成显式坐标（不再靠 CSS dense 回填），
+  // 所以这一段认的是「编辑态发全部空格、平时裁尾巴」这件事本身
+  const i = comp.indexOf("var ks = editMode ?");
+  const src = comp.slice(i, i + 300);
+  assert.match(src, /var ks = editMode \? \(keys \|\| \[\]\) : trimTailRows\(keys\);/,
     "渲染那一行没有按编辑态区分：编辑时必须发全部空格（落点），平时才裁尾巴");
+  assert.match(src, /homePlaceDenseXY\(ks, spanOf\)/, "画的位置不是模型算出来的那一份");
 });
 
 // 她 2026-08-30：「6页的日记和备忘录入口是duplicate可以删了，
