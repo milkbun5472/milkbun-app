@@ -17,10 +17,16 @@ test("开屏坏了绝不能挡住 App：整段 try/catch，出错自拆", () => 
   assert.ok(i < idx.indexOf('js/core.js?v='), "要在 app 脚本之前开播");
 });
 
-test("答应她的几条纪律都在：跳过、限时、减动效、暗主题", () => {
+test("答应她的几条纪律都在：停住等「翻开」、点空白快进、减动效、暗主题", () => {
   assert.match(sp, /prefers-reduced-motion: reduce/, "减动效的人也被强看动画");
-  assert.match(sp, /host\.addEventListener\("click", out, \{ once: true \}\)/, "点一下跳不过去");
-  assert.match(sp, /setTimeout\(out, 3200\)/, "没有总时长上限——会一直挡着");
+  // v62.21 她 2026-09-04：「还没看完它就跳走了」——扉页播完【停住】，按「翻开」才进。
+  // 所以这里绝不许再有 setTimeout(out, ...) 那种自动跳走。
+  assert.ok(!/setTimeout\(out,/.test(sp), "又开始自动跳走了——她点名要停住等按钮");
+  assert.match(sp, /btn\.textContent = "翻 开"/, "门没了（跟日记封面同一个动词）");
+  assert.match(sp, /btn\.addEventListener\("click", out\)/, "按了门也不进");
+  assert.match(sp, /min-height:44px/, "按钮不够点（40px 手感那条）");
+  // 等不及的点空白＝快进到完成态，不是跳走
+  assert.match(sp, /if \(ev\.target !== btn\) finish\(\)/, "点空白直接跳走了，该是快进");
   assert.match(sp, /localStorage\.getItem\("x_theme"\)/, "不看主题，深色主题开屏闪一大块奶油白");
   assert.match(sp, /dark = \(0\.299 \* r \+ 0\.587 \* g2 \+ 0\.114 \* b2\) < 128/, "亮暗判断没了");
 });
