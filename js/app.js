@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v61.78";
+const APP_VERSION = "v61.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3872,7 +3872,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 时间线是从新往旧走的，地板内的消息必然排在最前，所以预算判据里加一个 inFloor 就够。
       const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));
       const floorTs = recentDays ? Date.now() - recentDays * 86400000 : 0;
-      const FLOOR_MAX = 300; // 地板也不是无底洞：真在几天里聊了三百条以上，取最近三百条
+      // 地板也不是无底洞。v61.79 跟本机保留线（CHAT_KEEP_LOCAL=1000）对齐：
+      // 原来卡在 300，等于「短期窗覆盖天数」这根拉条最多也只能捞回三百条——
+      // 本机明明留着一千条，那七百条谁也够不着。
+      const FLOOR_MAX = 1000;
       const onlineWindow = floorTs
         ? online.filter((m, k) => k >= online.length - ctxN || (m.ts || 0) >= floorTs).slice(-Math.max(ctxN, FLOOR_MAX))
         : online.slice(-ctxN);

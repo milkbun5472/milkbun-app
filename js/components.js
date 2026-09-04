@@ -10777,7 +10777,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     // 记忆库
     h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
       h(Eyebrow, null, "记忆库")),
-    sliderRow("记忆上下文条数", "每次群成员回复时带入最近多少条群聊。", ctxN, setCtxN, 10, 100, 5, " 条"),
+    sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
     sliderRow("总结触发阈值", "群聊累积多少条后，自动把较早的对话总结进记忆库。", sumThresh, setSumThresh, 40, 400, 10, " 条"),
     sliderRow("总结保留缓存", "总结时末尾保留多少条不总结（保持最近上下文连贯）。", sumBuffer, setSumBuffer, 0, 60, 5, " 条"),
 
@@ -11700,10 +11700,10 @@ function ChatSettings({
       color: t.fog,
       marginBottom: 10
     }
-  }, "AI 回复时能\"记住\"多少条最近的聊天。越多越完整，但可能变慢。"), /*#__PURE__*/React.createElement(Slider, {
+  }, "AI 回复时真正读到的就是这些条。⚠️它是【硬闸】：本机存着一千条也好、云端归档着一万条也好，超出这个数的一句都不会进上下文——归档只供你翻看。上限跟本机保留线（1000）对齐。"), /*#__PURE__*/React.createElement(Slider, {
     value: ctxN,
     min: 10,
-    max: 300,
+    max: 1000,
     step: 10,
     onChange: setCtxN
   })), /*#__PURE__*/React.createElement("div", {

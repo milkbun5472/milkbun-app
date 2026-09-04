@@ -177,11 +177,13 @@ test("地板只保聊天记录，不保线下描写——线下仍受自己那�
   assert.ok(r.usedOff <= Math.min(Math.round(8000 * 0.3), 3000), "线下跟着地板一起免检了：" + r.usedOff);
 });
 
-test("地板不是无底洞：几天里聊了五百条，取最近三百条", () => {
+// v61.79 地板从 300 抬到 1000，跟本机保留线 CHAT_KEEP_LOCAL 对齐：
+// 本机明明留着一千条，地板卡在 300 的话有七百条谁也够不着。
+test("地板不是无底洞：几天里聊了一千五百条，取最近一千条", () => {
   const now = Date.now();
-  const chatty = spread(500, "多", 2, now);
-  assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 300);
-  assert.match(app, /const FLOOR_MAX = 300;/);
+  const chatty = spread(1500, "多", 2, now);
+  assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 1000);
+  assert.match(app, /const FLOOR_MAX = 1000;/);
 });
 
 // 她 2026-08-28 问：「一次线下只跑了六轮没到摘要门槛，回到线上是怎么喂进去的？」
