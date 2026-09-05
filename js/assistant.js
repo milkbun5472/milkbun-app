@@ -1017,13 +1017,35 @@
     if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, ctx: props, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
     const QUICK = ["这个 App 都能玩什么", "穿书怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
-    return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, flexShrink: 0 } },
-        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 4px" } }, "←"),
-        h(QiuFace, { cfg: cfg, size: 28, radius: 9 }),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, cfg.name),
-        C.msgs.length ? h("button", { onClick: C.clear, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 6px" } }, "清空") : null,
-        h("button", { onClick: () => setPage("setup"), style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "4px 4px" } }, "设置")),
+    // ── 值班台（v62.70 审美审计点名）─────────────────────────────────
+    // 审计原话：整页 t.bg 平色，**自写顶栏、返回键是字符「←」、不走 Head**。
+    // 「一个助手在跟你说话」本来就长得像任何一个聊天框，所以这一页的分寸是：
+    // 别去改气泡（改了只会变难用），改她【坐在哪儿】——
+    // 秋秋是这个 app 的维修工，所以给她一张纸面的值班台和一块台签。
+    const deskPaper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .5 }) : { background: t.bg };
+    return h("div", { style: Object.assign({ position: "relative", height: "100%", display: "flex", flexDirection: "column" }, deskPaper) },
+      // 顶栏走公共 Head（mobile-ui-layout §1）。原来那条自写栏的返回键是个 19px 的
+      // 「←」字符、padding 只有 4px，可点区就那几个像素。
+      h(Head, {
+        zh: cfg.name, sub: "这个 app 哪儿不对劲，问她", onBack: props.onBack, bg: "transparent",
+        right: h("div", { className: "flex items-center", style: { gap: 2 } },
+          C.msgs.length ? h("button", { onClick: C.clear, className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 6px" } }, "清空") : null,
+          h("button", { onClick: () => setPage("setup"), className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "4px 4px" } }, "设置"))
+      }),
+      // 台签：值班台上立着的那块名牌。她的脸原来挤在顶栏里当小图标，
+      // 摆到台签上才是「这张桌子今天谁在」。
+      h("div", { className: "shrink-0 flex items-center", style: {
+        gap: 10, margin: "6px 14px 10px", padding: "9px 12px 10px",
+        background: "rgba(255,255,255,.5)", border: "1px solid " + t.line,
+        borderRadius: "2px 2px 7px 7px", boxShadow: "0 3px 7px -6px rgba(0,0,0,.7)"
+      } },
+        h(QiuFace, { cfg: cfg, size: 30, radius: 9 }),
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, cfg.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, C.busy ? "在想…" : "在，说吧")),
+        h("span", { style: { flex: 1 } }),
+        // 值班灯：亮着＝她醒着。一个点，不是一句话
+        h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 999, background: C.busy ? t.tint : "#7fa87f", boxShadow: "0 0 6px " + (C.busy ? t.tint : "#7fa87f") } })),
       h("div", { ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px" } },
         C.msgs.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
@@ -1034,7 +1056,9 @@
         h(StaleAsk, { C: C, big: true }),
         !C.busy && C.msgs.length === 0
           ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 } },
-              QUICK.map(q => h("button", { key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
+              // 递到台上的几张便签条：方角、纸色、各自歪一点点。
+              // 虚线圆角药丸是任何 app 的「快捷短语」，跟这张桌子没关系。
+              QUICK.map((q, qi) => h("button", { key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 2, transform: "rotate(" + ((qi % 3) - 1) * 0.6 + "deg)", boxShadow: "0 2px 5px -4px rgba(0,0,0,.7)", border: "1px solid " + t.line, background: "rgba(255,255,255,.62)", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
           : null),
       h("div", { style: { display: "flex", gap: 8, padding: "10px 14px", paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 10px)", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1,
