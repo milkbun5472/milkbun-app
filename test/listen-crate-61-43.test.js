@@ -23,16 +23,17 @@ const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// �
 test("封面就是这一页：挂在外壳上、顶栏透上来、往下淡进纯底（v62.92）", () => {
   // 她 2026-09-05：「封面整个代替掉页面」「纹理背景方向错了，放在听歌软件里不好看」。
   // 四版材质（木纹/沟纹/内袋纸/沟纹一片）的前提都是「这页是一件东西」；播放页现实里是【正在放的那首歌】。
-  assert.match(CRATE, /style: crate \},\s*coverField,/, "封面没挂在最外面那个外壳上");
-  assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏没让封面透上来");
-  assert.match(LT, /const crate = \{ background: t\.bg, isolation: "isolate" \};/, "外壳不是干净的底，或没建 stacking context（封面 zIndex:-1 会掉到外壳底色后面）");
+  // v62.96：封面从顶栏底下开始（她：「封面太靠上了移到一起听标题下面」）——挂进滚动区、跟着内容滚
+  assert.match(CRATE, /style: \{ position: "relative", isolation: "isolate" \} \}, coverField,/, "封面没垫在滚动区里（没有 isolate 它会盖在字上面）");
+  assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏得是透明的，底色由外壳给");
+  assert.match(LT, /const crate = \{ background: t\.bg \};/, "外壳不是干净的底");
   assert.match(LT, /const coverSrc = now \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
   // v62.95 白屏：coverSrc 必须声明在 playTab 之前——playTab 是声明处就求值的 const，引用后面的 const 就是 TDZ
   // ⚠️对着剥掉注释的代码问：coverSrc 上面那段注释正写着「const playTab = h(...)」，直接 indexOf 会先撞上注释
   const LTC = LT.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(LTC.indexOf("const coverSrc = ") < LTC.indexOf("const playTab = "), "coverSrc 又跑到 playTab 后面去了，一进页面就 TDZ 白屏");
   assert.match(LT, /WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric \? \.22 : 1/, "封面没往下淡出，或歌词页没压暗");
-  assert.match(LT, /rgba\(0,0,0,\.3\) 0px, rgba\(0,0,0,1\) 110px, rgba\(0,0,0,1\) 250px, rgba\(0,0,0,0\) 400px/, "淡出的位置变了：顶栏底下要能读字、标题要坐在纯底上");
+  assert.match(LT, /rgba\(0,0,0,1\) 0px, rgba\(0,0,0,1\) 180px, rgba\(0,0,0,0\) 330px/, "淡出的位置变了：标题要坐在近乎纯底上");
   // 内容在动，封面不该跟着动
   assert.doesNotMatch(CODE, /backgroundAttachment/, "又挂上 backgroundAttachment 了");
   assert.match(rule, /底纹铺在【外壳】上，顶栏透明/);

@@ -5339,7 +5339,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
       //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
       : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
-          style: { height: 300, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
+          style: { height: 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
 
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
@@ -5831,24 +5831,23 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 现实里不是一件东西，是【正在放的那首歌】——所以底就是它的封面，从顶栏底下铺下来、
   // 到标题那儿淡进纯底（她拿网易云那页对照：「它下面是会 fade 掉的」）。
   // 没有封面的歌只剩一团暖光；另外三格（发现/我的/设置）不铺任何材质，干净的底让封面们自己出来。
-  // ⚠️封面挂在【外壳】上、顶栏透明（mobile-ui-layout.md §3.5）：顶上 30% 淡入，顶栏的字压得住；
-  //   到 250px 满、400px 淡完——标题落在 368px 上下，那儿封面只剩两成，深色封面上墨字也读得清。
   //   歌词页封面压到两成，字才读得清。
   //   mask 不碰主题色，所以不用 hex6 验——这层永远不会静默消失。
-  const coverFade = "linear-gradient(to bottom, rgba(0,0,0,.3) 0px, rgba(0,0,0,1) 110px, rgba(0,0,0,1) 250px, rgba(0,0,0,0) 400px)";
-  const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 440, zIndex: -1, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
+  // v62.96 封面从顶栏【底下】开始铺，不再钻到顶栏后面（她 2026-09-05：「封面太靠上了移到一起听标题下面」）：
+  //   挂进滚动区、跟着内容滚；上沿满、180px 起淡、330px 淡完——标题落在 292px 上下，那儿封面只剩两成半。
+  const coverFade = "linear-gradient(to bottom, rgba(0,0,0,1) 0px, rgba(0,0,0,1) 180px, rgba(0,0,0,0) 330px)";
+  const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 330, zIndex: -1, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
     coverSrc ? h("img", { src: coverSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
       : h("div", { style: { width: "100%", height: "100%", background: hex6(t.accent) ? "radial-gradient(ellipse at 50% 30%," + t.accent + "3a 0%," + t.accent + "12 45%,transparent 75%)" : "transparent" } })) : null;
-  const crate = { background: t.bg, isolation: "isolate" };
+  const crate = { background: t.bg };
   return h("div", { className: "h-full flex flex-col relative", style: crate },
-    coverField,
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
     //   数字不是英文装饰，它是这一页唯一说得清「放到哪了」的东西。
     h(Head, { zh: "一起听", bg: "transparent",
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
-    h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", isolation: "isolate" } }, coverField, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
