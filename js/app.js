@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.92";
+const APP_VERSION = "v63.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1301,6 +1301,23 @@ function App() {
     ctxN: 50,
     sumThresh: 150,
     sumBuffer: 20
+  };
+  // OOC 里让它顺手改这个聊天窗的长相（她 2026-09-05：「帮我改一下我的气泡颜色」
+  // 「我想要梦幻风格的」）。落进的是【这个人自己的气泡】那一层，跟她手动细调同一个
+  // 出口——不是另开一条路，否则两边迟早各存各的。
+  // ⚠️线上 OOC 和线下 OOC 是两个调用点，所以这件事只写在这一处：各写一份的话，
+  //   哪天改了合并方式，另一处永远落单（「一层写在两处，第二处没跟上」）。
+  // ⚠️在她当前那一套上【打补丁】：她只说「我的气泡」，没提到的栏一栏都不许动。
+  const applyOocSkin = (charId, skin) => {
+    if (!skin || !charId) return;
+    setChatSettings(p => {
+      const cur = p[charId] || {};
+      const base = (cur.bubble && typeof cur.bubble === "object") ? cur.bubble
+        : (typeof BUBBLE_SKIN === "object" ? Object.assign({}, BUBBLE_SKIN) : {});
+      const n = { ...p, [charId]: { ...cur, bubble: Object.assign({}, base, skin, { _tuned: true }) } };
+      saveJSON("x_chatSettings", n);
+      return n;
+    });
   };
   // ── 这个聊天窗自己那几层长相（她 2026-09-04 定）────────────────────────────
   // 全局皮肤（主题工作台 · 单聊页 CSS）在最底下；她给某个人单独挑的皮肤压上去；
@@ -5359,7 +5376,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
       const res = await oocAsk(offlineApiFor(charId), ctxFor(char), q);
       if (!sideRoom && res.directive && !res.refused) addDirective(charId, res.directive);
-      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
+      applyOocSkin(charId, res.skin); // 长相是这个人的事，不分线上线下（侧房也一样，它改的还是同一个聊天窗）
+      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.skin ? "\n\n〔这个聊天窗的气泡已经换好了〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -7805,10 +7823,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const res = await oocAsk(apiFor(charId), oocCtx, text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
       if (res.directive && !res.refused) addDirective(charId, res.directive);
+      applyOocSkin(charId, res.skin);
       pChat(charId, p => [...p, {
         role: "assistant",
         kind: "system",
-        content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
+        content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.skin ? "\n\n〔这个聊天窗的气泡已经换好了 · 不满意去 ••• → 这个聊天窗 → 气泡里再调〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
         ts: Date.now(),
         turnId: "ooc_" + Date.now()
       }]);
