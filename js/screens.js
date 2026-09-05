@@ -433,6 +433,9 @@ function CastForm({
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
   // 年龄和生日分开（v63.65）：留空＝跟着生日走；填了＝钉死，不再自动加一
   const [ageInput, setAgeInput] = useState(initial && initial.age != null ? String(initial.age) : "");
+  // 手填的岁数是【那一天他多大】，所以要连写下它的日子一起存（v64.17）。
+  // 只有这个数真变了才重新起算：改个别的栏顺手保存一次，不该把他的起算日往后推。
+  const [ageFrozen, setAgeFrozen] = useState(!!(initial && initial.ageFrozen));
   // 性别（v58.86，她 2026-08-31 加了女生角色）：只决定别处怎么称呼 TA。
   // 默认不填＝一律用「TA」——中性，永远不会把人叫错。
   const [gender, setGender] = useState(initial && initial.gender || "");
@@ -456,6 +459,11 @@ function CastForm({
       photoStyle: photoStyle,
       birthday: birthday.trim(),
       age: ageInput.trim(),
+      // 岁数没变就沿用原来的起算日；变了（或者头一回填）就从今天起算
+      ageAt: !ageInput.trim() ? 0
+        : (initial && String(initial.age || "").trim() === ageInput.trim() && Number(initial.ageAt || 0))
+          || Date.now(),
+      ageFrozen: !!ageFrozen,
       gender: gender,
       voiceId: voiceId.trim(),
       remark: initial && initial.remark || ""
@@ -472,7 +480,11 @@ function CastForm({
   // 按生日算出来的那个数（只是【建议】，她填了岁数就以她的为准）
   const autoAge = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
   const agePinned = ageInput.trim() !== "";
-  const age = agePinned ? (typeof charAgeNow === "function" ? charAgeNow({ age: ageInput }, Date.now()) : null) : autoAge;
+  // 预览那个数按【真规则】算：她填的是今天的岁数，所以预览就是它本身；
+  // 但老角色改别的栏时预览要显示【长过之后】的数，不然存下来跟看见的不一样
+  const agePreview = { age: ageInput, ageFrozen: ageFrozen, birthday: birthday,
+    ageAt: (initial && String(initial.age || "").trim() === ageInput.trim() && Number(initial.ageAt || 0)) || Date.now() };
+  const age = agePinned ? (typeof charAgeNow === "function" ? charAgeNow(agePreview, Date.now()) : null) : autoAge;
   const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
   const born = typeof birthdayBornLabel === "function" ? birthdayBornLabel(birthday) : "";
   const accent = color || t.tint;
@@ -526,9 +538,20 @@ function CastForm({
       agePinned ? h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, fontWeight: 600, flexShrink: 0 } }, "岁") : null,
       (agePinned && autoAge != null) ? h("button", { onClick: () => setAgeInput(""), className: "shrink-0 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "改回跟着生日") : null),
+    // 手填的岁数会跟着长（v64.17，她 2026-09-05：「王爷不应该有个现实年份，
+    // 但是他也确实可以年龄增加的」）。所以这儿要说清【从哪天起算、什么时候加一】，
+    // 不然她看见一个数不知道它明年还是不是这个数。
+    agePinned ? h("div", { className: "flex items-center justify-between", style: { marginTop: 8, gap: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "就停在这个岁数",
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+          ageFrozen ? "他永远这么大——设定上不长的那种才勾。" : "不勾＝跟着时间长。")),
+      h(Toggle, { on: ageFrozen, onChange: () => setAgeFrozen(v => !v) })) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
       agePinned
-        ? "这个数【钉住了】：生日过了也不会自己加一，要改就在这儿改。"
+        ? (ageFrozen
+            ? "停住了：时间过去他也还是这个数。"
+            : "写的是【今天他多大】。往后他自己会长——"
+              + (birthday.trim() ? "每年生日一过加一岁。" : "生日没填的话，从今天起满一年加一岁；填上生日就改成生日那天加。"))
         : (autoAge != null
             ? "留空＝跟着生日走：生日一过自动加一，Ta 自己也知道。想写别的岁数就直接填。"
             : "生日没填年份、或者压根不知道生日，就在这儿写个数。填好之后，人设正文里那句「XX 岁」可以删掉了。")));

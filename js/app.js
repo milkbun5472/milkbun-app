@@ -845,7 +845,23 @@ function App() {
     document.body.style.background = theme.bg;
   }, [theme.bg]);
   useEffect(() => {
-    const c = loadJSON("x_characters", []);
+    // 手填岁数的老角色补一次起算日（v64.17）：以前存的是光秃秃一个数，
+    // 没有「这是哪天写的」就没法知道该长几岁。宁可从今天起算，也绝不凭空补几岁——
+    // 那等于替她改了角色。ageFrozen 的不补（她已经说了要停）。
+    // ⚠️必须在 setCharacters 之前补完：补完存盘、却把没补的那份塞进 state，
+    //   这一开机它们照旧不长（一层写在两处的老形状）。
+    const c = (() => {
+      const raw = loadJSON("x_characters", []);
+      const list = Array.isArray(raw) ? raw : [];
+      let touched = false;
+      const next = list.map(x => {
+        if (!x || x.ageFrozen || !String(x.age || "").trim() || Number(x.ageAt || 0)) return x;
+        touched = true;
+        return { ...x, ageAt: Date.now() };
+      });
+      if (touched) saveJSON("x_characters", next);
+      return touched ? next : list;
+    })();
     setCharacters(c);
     setGroups(loadJSON("x_groups", []));
     setGroupSettings(loadJSON("x_groupSettings", {}));

@@ -83,6 +83,18 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
+// 内层 app 的底衬。
+// ⚠️这一块【平色是有意的】，不是还没装修。查手机里那二十个 app 扮的是【真手机上的那些 app】
+//   ——微信就该是灰地白格、日历就该是白卡、便签就该是白底上一张黄条、相册就该是照片铺满。
+//   给它们铺纸、铺木头，反而会拆掉「这是他手机」这件事。判据（tabs-not-plain-pills）
+//   在这一处是反过来的：**搬到别的 app 里【不成立】才对，而它们模仿的正是别的 app**——
+//   所以这一处照着现实里那个东西来，就是对的。
+//   （2026-09-05 在浏览器里把二十个逐个开过：购物/论坛/音乐/健康/外卖自己画皮，
+//     微信/便签/相册/视频/日历落在这一块上，长相都跟它们模仿的那个东西对得上。）
+//
+// 起名字是为了让这份「有意」写在明面上：`style: { background: t.bg }` 那种裸写法
+// 跟「忘了装修」长得一模一样，而 last-flat-shells 那道闸拦的正是后者。
+function phoneAppBg(t) { return { background: t.bg }; }
 const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
@@ -5432,9 +5444,7 @@ function PhoneApp({
       : zh;
   return h("div", {
     className: "h-full flex flex-col relative",
-    style: {
-      background: t.bg
-    }
+    style: phoneAppBg(t)
   },
   respin,
   FULL_BLEED_KEYS.indexOf(appKey) < 0 && h("div", {
