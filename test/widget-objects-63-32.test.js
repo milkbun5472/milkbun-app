@@ -43,6 +43,10 @@ test("转盘是一个圆，不是一张饼图——而且大小跟着格子走",
   assert.doesNotMatch(comp, /const WHEEL_COLORS = \["#f2cfd2"/, "又退回那八个糖果色了");
   // 盘不许写死像素：写死的话格子调大它还是那么小
   const wid = cut("function WheelWidget(", "// 电子木鱼小组件");
+  // v63.32 她澄清「不要框」指的是外面那张方卡：GlassCard 整个撤掉，只剩一个圆
+  assert.doesNotMatch(wid, /h\(GlassCard/, "那张方卡又回来了");
+  // ⚠️撤了卡字就直接落在壁纸上，必须走 glassLabelInk，不然亮壁纸上墨字会糊掉
+  assert.match(wid, /glassLabelInk\(onWall, t\)/, "字没做壁纸适配，亮壁纸上会看不清");
   assert.match(wid, /h\(WheelDisc, \{ items: items, angle: 0, spinning: false, size: "100%"/, "盘又被钉死成固定像素了");
   assert.doesNotMatch(wid, /width: 86, height: 86/, "那个写死的 86px 还在");
 });
@@ -64,26 +68,57 @@ test("一起听是一张压在唱机上的黑胶，碟心贴着照片、唱臂�
   assert.match(vd, /const armDeg = 9 \* Math\.max/, "唱臂不跟着进度走，那它就只是个装饰");
   assert.match(vd, /transformOrigin: "84px 12px"/, "唱臂的支点跑了，会被卡片裁掉");
   assert.match(vd, /background: cover \? "center\/cover no-repeat url\(" \+ cover/, "碟心那张照片没贴上去");
-  const mw = cut("function MusicWidget(", "// 全局悬浮迷你播放器");
-  // v63.08 那版的纸套整个撤掉了（她看完参考图要的是整张碟）
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   assert.doesNotMatch(mw, /inset -6px 0 10px -6px/, "纸套还留在原地");
   assert.match(mw, /const tall = !!\(rows && rows\.rows >= 2\)/, "盘的大小没跟着格子走");
-  assert.match(mw, /tall \? 108 : 62/, "两行高的大卡该给大盘");
+  assert.match(mw, /tall \? 104 : 62/, "两行高的大卡该给大盘");
   assert.match(mw, /mmss\(cur\)/, "走了多久那一行没了");
 });
 
-test("碟心的照片能自己换，而且那一下不会顺手把一起听打开", () => {
-  const mw = cut("function MusicWidget(", "// 全局悬浮迷你播放器");
-  assert.match(mw, /onSetDisc && !editMode && !compact/, "换照片那颗钮不见了，或者整理态还露着");
-  assert.match(mw, /e\.stopPropagation\(\); e\.preventDefault\(\); if \(picker\.current\)/, "点它会连带触发整张卡的 onOpen");
-  assert.match(mw, /discImg \? "换照片" : "加照片"/);
-  // 一路要接到底：Home 得收得到，app.js 得把真正会落盘的那个函数递进来
-  assert.match(comp, /onSetDisc: onSetDisc, onOpen/, "派发那行没把它喂给组件");
-  assert.match(comp, /\n  onSetDisc,/, "Home 没接 onSetDisc");
-  // ⚠️一起听那一页早就收着同名的 prop，所以不能只 grep 名字——要判它真的递进了【主屏】那一份
+test("4×2 那一档：唱片旁边一摞拍立得，中间是进度，底下三颗真能按的键", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  // 拍立得只在两行高那一档出现——一行高的条子里它会被压扁
+  assert.match(mw, /tall \? h\(PolaroidStack, \{ w: 72/, "拍立得没挂上去");
+  const ps = cut("function PolaroidStack(", "function MusicWidget(");
+  // 「一摞」＝后面真的压着两张，不是一张方图加个影子
+  assert.equal((ps.match(/"aria-hidden": true, style: sheet\(/g) || []).length, 2, "后面那两张没了，就不是一摞了");
+  assert.match(ps, /fontFamily: F_SCRIPT/, "白边上那句不是花体");
+  assert.match(comp, /const F_SCRIPT = "'Dancing Script'/, "花体没定义");
+  assert.match(fs.readFileSync(P("index.html"), "utf8"), /Dancing\+Script:wght@400;600/, "花体没加载，写出来还是衬线体");
+  // 三颗键必须真的接到播放器上，不是画着好看的
+  assert.match(mw, /ctlBtn\("上一首", tri\(-1, ink\), onPrev\)/);
+  assert.match(mw, /ctlBtn\("下一首", tri\(1, ink\), onNext\)/);
+  assert.match(mw, /onToggle, true\)/);
+  assert.match(mw, /const stop = fn => function \(e\) \{ e\.stopPropagation\(\); e\.preventDefault\(\);/, "按键会顺手把一起听整个打开");
   const app = fs.readFileSync(P("js/app.js"), "utf8");
   const homeProps = app.slice(app.indexOf("React.createElement(Home, {"), app.indexOf("onEditProfile: () => setProfileOpen(true)"));
-  assert.match(homeProps, /onSetDisc: setListenDisc,/, "app.js 没把落盘的那个函数递给主屏那份");
+  assert.match(homeProps, /onTogglePlay: togglePlay/, "播停没接到真的播放器");
+  assert.match(homeProps, /onNextSong: \(\) => stepSong\(1\)/);
+  assert.match(homeProps, /onPrevSong: \(\) => stepSong\(-1\)/);
+});
+
+test("卡片的底能换，换深底之后字跟着换——不然直接看不见", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  assert.match(comp, /const MUSIC_GROUNDS = \[/);
+  assert.match(mw, /const gr = musicGround\(card\.bg\);/);
+  // ⚠️每一档深底都必须自带 ink/sub：只换 background 的话夜色和木桌上是墨字压深底
+  const gs = cut("const MUSIC_GROUNDS = [", "const musicGround =");
+  ["night", "wood", "moss", "kraft", "paper"].forEach(id => {
+    const row = gs.split("\n").find(l => l.indexOf('id: "' + id + '"') >= 0);
+    assert.ok(row && /ink:/.test(row) && /sub:/.test(row), id + " 这一档没给字色，换上去字会看不见");
+  });
+  assert.match(mw, /color: ink,/, "标题还在用主题的墨色，不认卡片的底");
+});
+
+test("那一页是整页，而且铺着自己的底", () => {
+  const ed = cut("function MusicCardEdit(", "// 全局悬浮迷你播放器");
+  assert.match(ed, /className: "h-full flex flex-col"/, "不是整页（no-half-sheet）");
+  assert.match(ed, /pageSkin\("paper", t\)/, "又拿米白当外壳了");
+  assert.match(ed, /bg: "transparent", onBack: onClose/, "顶栏没透上来，顶上会横一道平色带");
+  assert.match(ed, /className: "flex-1 min-h-0 overflow-y-auto"/, "正文不是唯一的滚动容器");
+  // 选中的底不能只靠一个色差（色弱/阳光下只剩形状可依）
+  assert.match(ed, /on \? "2px solid " \+ t\.ink : "1px solid " \+ t\.line/);
+  assert.match(ed, /\(on \? "· " : ""\) \+ g\.zh/, "选中态只靠边框，没给第二个记号");
 });
 
 test("木鱼放在蒲团上，不是浮在一块发白的玻璃碟上", () => {

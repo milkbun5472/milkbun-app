@@ -1237,7 +1237,8 @@ function WheelDisc({ items, angle, spinning, size, labels, dur }) {
 function WheelNeedle({ size }) {
   // size 可以是像素数，也可以是 "100%"（盘跟着格子撑大时用后者）
   const w = typeof size === "number" ? Math.max(16, size * 0.2) : size;
-  const hh = typeof size === "number" ? Math.max(16, size * 0.2) * 1.05 : "auto";
+  // ⚠️SVG 的 height 不认 "auto"（控制台会报 Expected length）——百分比那一路直接给 100%
+  const hh = typeof size === "number" ? Math.max(16, size * 0.2) * 1.05 : "100%";
   return h("svg", { width: w, height: hh, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
     h("defs", null, h("linearGradient", { id: "wkNeedle", x1: "0", y1: "0", x2: "1", y2: "1" },
       h("stop", { stopColor: "#f3e0b8" }), h("stop", { offset: ".5", stopColor: "#c79a55" }), h("stop", { offset: "1", stopColor: "#8a6329" }))),
@@ -1325,14 +1326,18 @@ function WheelWidget({ editMode, onReact }) {
   const [open, setOpen] = useState(false);
   const items = (data.items || []).map(s => String(s).trim()).filter(Boolean);
   const save = n => { const merged = Object.assign({}, data, n); setData(merged); saveJSON("x_wheel", merged); };
-  // 盘不再钉死 86px：它吃掉标题和那行小字之外的全部高度，宽高取小的那一边（永远是正圆）。
-  // 她 2026-09-05：「转盘直接改成圆的变大」——写死一个像素数的话，格子调大它还是那么小。
-  return h(GlassCard, { onClick: () => { if (!editMode) setOpen(true); }, style: { padding: "7px 8px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" } },
-    data.title ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3, maxWidth: "90%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, data.title) : null,
-    h("div", { className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center" } },
+  // 她 2026-09-05 第三轮：「我说的不要框是不要那个方框，就是圆本身可以占 2x2，
+  //   但是不要那个方盘」——所以外面那张 GlassCard 整个撤掉，只剩一个圆。
+  // ⚠️撤了卡就没有底了：字直接落在壁纸上，得走 glassLabelInk（铺了壁纸翻白字压深影）。
+  const onWall = useOnWallpaper();
+  const lbl = glassLabelInk(onWall, t);
+  return h("div", { onClick: () => { if (!editMode) setOpen(true); }, className: "w-full h-full flex flex-col items-center justify-center",
+    style: { cursor: "pointer", position: "relative", overflow: "visible", padding: "2px 0" } },
+    data.title ? h("div", { className: "shrink-0", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, marginBottom: 2, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) }, data.title) : null,
+    h("div", { className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", filter: "drop-shadow(0 6px 16px rgba(30,26,22,.28))" } },
       h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true }),
       h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%" }))),
-    h("div", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, marginTop: 4, maxWidth: "94%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+    h("div", { className: "shrink-0", style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
 }
@@ -1487,11 +1492,50 @@ function VinylDisc({ size, cover, playing, frac }) {
         h("path", { d: "M55 40 l-8 6 5 7 8-6Z", fill: "#e6dccb", stroke: "rgba(60,48,32,.6)", strokeWidth: .9, strokeLinejoin: "round" }),
         h("path", { d: "M50 52 l-2 3", stroke: "rgba(40,32,22,.8)", strokeWidth: 1.4, strokeLinecap: "round" }))));
 }
-function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode }) {
+// 花体：她 2026-09-05 指名要（参考图上拍立得那行手写字）。Dancing Script 只有拉丁字，
+// 中文自动落回衬线体——所以这一处的提示语写的是「写句英文更像手写」，不是硬塞一个中文花体。
+const F_SCRIPT = "'Dancing Script','Noto Serif SC',cursive";
+// 一起听那张卡的底：她要「旁边的背景也可以改」。
+// 每一档给一份 {bg, ink, sub}——不给 ink 的话换成深底之后字直接消失。
+const MUSIC_GROUNDS = [
+  { id: "glass", zh: "跟随主题", bg: null },
+  { id: "paper", zh: "米纸", bg: "linear-gradient(160deg,#f6efe1,#e9dfcb)", ink: "#3f372c", sub: "#8b8172" },
+  { id: "kraft", zh: "牛皮", bg: "linear-gradient(160deg,#ddc7a4,#c9ae87)", ink: "#40331f", sub: "#7e6a4c" },
+  { id: "wood", zh: "木桌", bg: "repeating-linear-gradient(93deg,#a97c50 0 7px,#a17346 7px 13px)", ink: "#fdf6e9", sub: "rgba(253,246,233,.72)" },
+  { id: "night", zh: "夜色", bg: "linear-gradient(160deg,#2b2733,#1b1922)", ink: "#efe7dc", sub: "rgba(239,231,220,.6)" },
+  { id: "moss", zh: "苔绿", bg: "linear-gradient(160deg,#9aa98c,#77866b)", ink: "#fbf7ee", sub: "rgba(251,247,238,.74)" }
+];
+const musicGround = id => MUSIC_GROUNDS.find(x => x.id === id) || MUSIC_GROUNDS[0];
+// 一摞拍立得：后面压着两张，前面那张放照片、底下那条白边写字。
+// 参考图里就是这个形状——不是一张方图，是【叠起来的几张】。
+function PolaroidStack({ w, photo, note, onTap, ink }) {
+  const hh = Math.round(w * 1.22);
+  const sheet = (deg, dx, dy, z, dim) => ({
+    position: "absolute", left: dx, top: dy, width: w, height: hh, zIndex: z,
+    transform: "rotate(" + deg + "deg)", background: dim ? "#efe7d8" : "#fffdf7",
+    borderRadius: 2, boxShadow: "0 3px 9px rgba(40,30,20,.26)"
+  });
+  return h("div", { onClick: onTap ? function (e) { e.stopPropagation(); e.preventDefault(); onTap(); } : undefined,
+    className: onTap ? "active:opacity-85" : "", style: { position: "relative", width: w + 10, height: hh + 8, flexShrink: 0, cursor: onTap ? "pointer" : "default" } },
+    h("div", { "aria-hidden": true, style: sheet(-7, 0, 5, 1, true) }),
+    h("div", { "aria-hidden": true, style: sheet(4, 8, 2, 2, true) }),
+    h("div", { style: Object.assign(sheet(-1.5, 4, 0, 3, false), { padding: 4, paddingBottom: 0, display: "flex", flexDirection: "column" }) },
+      h("div", { style: { flex: 1, minHeight: 0, background: photo ? "center/cover no-repeat url(" + photo + ")" : "linear-gradient(150deg,#e3dccd,#cfc5b2)",
+        display: "flex", alignItems: "center", justifyContent: "center" } },
+        photo ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8, color: "rgba(70,58,42,.5)" } }, "放张照片")),
+      h("div", { style: { height: Math.max(24, Math.round(hh * 0.24)), display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", overflow: "hidden" } },
+        h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#4a3d2c" : "rgba(74,61,44,.4)",
+          textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" } }, note || "写一句"))));
+}
+function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard }) {
   const t = useTheme();
   const picker = useRef(null);
   const data = listen || {};
   const songs = data.songs || [];
+  const card = loadJSON("x_musicCard", {});
+  const gr = musicGround(card.bg);
+  const ink = gr.bg ? (gr.ink || t.ink) : t.ink;
+  const sub = gr.bg ? (gr.sub || t.fog) : t.fog;
   // 实时反映全局播放器正在放的歌（可能在库/歌单/临时搜索结果里，都要找得到）
   const nowId = (player && player.songId) || null;
   const findSong = id => {
@@ -1515,15 +1559,26 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode }) 
   // 盘的直径跟着格子走：一行高的条子给小盘，两行的大卡给大盘（她：「大小也可以调节」）
   const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const tall = !!(rows && rows.rows >= 2);
-  const discSize = compact ? 44 : square ? 62 : tall ? 108 : 62;
+  const discSize = compact ? 44 : square ? 62 : tall ? 104 : 62;
+  const stop = fn => function (e) { e.stopPropagation(); e.preventDefault(); if (fn) fn(); };
+  const ctlBtn = (label, node, fn, big) => h("button", {
+    onClick: stop(fn), "aria-label": label, className: "active:opacity-60 flex items-center justify-center",
+    style: { width: big ? 30 : 26, height: big ? 30 : 26, borderRadius: 999, flexShrink: 0,
+      background: big ? ink : "transparent", color: big ? (gr.bg || t.bg2) : ink }
+  }, node);
+  const tri = (dir, c) => h("svg", { width: 13, height: 13, viewBox: "0 0 13 13", "aria-hidden": true },
+    h("path", { d: dir > 0 ? "M2.5 2 9 6.5 2.5 11Z" : "M10.5 2 4 6.5 10.5 11Z", fill: c }),
+    h("rect", { x: dir > 0 ? 9.6 : 1.7, y: 2, width: 1.7, height: 9, fill: c }));
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
-    style: { marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
-      background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
-      backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
-      padding: compact ? "8px 10px" : square ? "10px 9px" : "10px 14px",
-      boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)",
+    style: Object.assign({ marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
+      border: gr.bg ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
+      padding: compact ? "8px 10px" : square ? "10px 9px" : tall ? "11px 13px" : "10px 14px",
+      boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.72)",
       display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start",
-      alignItems: "center", gap: compact ? 9 : square ? 9 : 14, overflow: "hidden" } },
+      alignItems: "center", gap: compact ? 9 : square ? 9 : tall ? 12 : 14, overflow: "hidden" },
+      gr.bg ? { background: gr.bg }
+            : { background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
+                backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR }) },
     // 碟心那张照片可以自己换（她 2026-09-05：「唱片 cover 可以添加照片」）。
     // 在这之前只有【播放页】能换，而且得先有一首歌——没歌的时候那张碟是换不了的。
     // 这一小块只吃自己的点击（stopPropagation），不会顺手把一起听整个打开。
@@ -1531,24 +1586,77 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode }) 
       h(VinylDisc, { size: discSize, cover: discImg, playing: playing, frac: frac }),
       onSetDisc && !editMode && !compact ? h("span", {
         role: "button", tabIndex: 0,
-        onClick: function (e) { e.stopPropagation(); e.preventDefault(); if (picker.current) picker.current.click(); },
+        onClick: stop(function () { if (picker.current) picker.current.click(); }),
         className: "active:opacity-70",
-        style: { position: "absolute", left: -2, bottom: -2, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2,
+        style: { position: "absolute", left: tall ? "50%" : -2, transform: tall ? "translateX(-50%)" : "none", bottom: tall ? -9 : -2, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2,
           color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 6px", whiteSpace: "nowrap" }
       }, discImg ? "换照片" : "加照片") : null,
       onSetDisc ? h("input", { ref: picker, type: "file", accept: "image/*", style: { display: "none" },
         onClick: function (e) { e.stopPropagation(); },
         onChange: function (e) { const f = e.target.files && e.target.files[0]; if (f) onSetDisc(f); e.target.value = ""; } }) : null),
     h("div", { style: { flex: 1, minWidth: 0 } },
-      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : tall ? 18 : 16.5, textAlign: square ? "center" : "left", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
-      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
+      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : tall ? 17 : 16.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
+      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
       // 走了多久 / 一共多长，压在一根发丝细的轨上——参考图上就是这一行
-      !compact && !square && h("div", { style: { marginTop: tall ? 10 : 7 } },
-        h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(t.ink, "1c"), position: "relative" } },
+      !compact && !square && h("div", { style: { marginTop: tall ? 8 : 7 } },
+        h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(ink, "1c"), position: "relative" } },
           h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac * 100) + "%", borderRadius: 2, background: t.accent } })),
-        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: t.fog } },
-          h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--")))));
+        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub } },
+          h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--"))),
+      // 四颗真的能按的键（不是画着好看的）：上一首 / 播停 / 下一首 / 进一起听
+      tall && !editMode ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 7 } },
+        ctlBtn("上一首", tri(-1, ink), onPrev),
+        ctlBtn("播放或暂停", playing
+          ? h("span", { className: "flex", style: { gap: 2.5 } }, h("i", { style: { width: 3, height: 11, background: gr.bg || t.bg2, display: "block" } }), h("i", { style: { width: 3, height: 11, background: gr.bg || t.bg2, display: "block" } }))
+          : h("svg", { width: 12, height: 12, viewBox: "0 0 12 12" }, h("path", { d: "M3 1.5 10 6 3 10.5Z", fill: gr.bg || t.bg2 })), onToggle, true),
+        ctlBtn("下一首", tri(1, ink), onNext)) : null),
+    // 旁边那一摞拍立得：放照片、白边上写一句花体（她 2026-09-05 指着参考图要的）
+    tall ? h(PolaroidStack, { w: 72, photo: card.photo, note: card.note, ink: ink, onTap: editMode ? null : onEditCard }) : null);
+}
+// 一起听那张卡的【背面】：换拍立得上的照片、写那句花体、挑卡片的底。
+// ⚠️整页，不是半窗（no-half-sheet.md）：三样东西各占一块，半窗先扣掉半屏就摆不下。
+function MusicCardEdit({ onClose }) {
+  const t = useTheme();
+  const [card, setCard] = useState(function () { return loadJSON("x_musicCard", {}); });
+  const fileRef = useRef(null);
+  const put = function (n) { const m = Object.assign({}, card, n); setCard(m); saveJSON("x_musicCard", m); };
+  const pick = async function (e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    try { put({ photo: await resizeImageFile(f, 700, 0.84) }); }
+    catch (x) { if (typeof toast === "function") toast("图片处理失败"); }
+  };
+  const gr = musicGround(card.bg);
+  // 底纹铺在【外壳】上、顶栏透上来（mobile-ui-layout 3.5）；不铺的话顶上会横一道平色带，
+  // 而且会踩到「全库不许再有拿 t.bg 当页面外壳的」那条。
+  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
+    h(Head, { zh: "唱片旁边那一摞", sub: "照片 · 写的字 · 卡片的底", bg: "transparent", onBack: onClose }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 18px 30px" } },
+      h("div", { className: "flex items-start", style: { gap: 16, marginBottom: 20 } },
+        h(PolaroidStack, { w: 104, photo: card.photo, note: card.note }),
+        h("div", { className: "flex-1 min-w-0 flex flex-col", style: { gap: 8 } },
+          h("button", { onClick: function () { fileRef.current && fileRef.current.click(); }, className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, card.photo ? "换一张照片" : "放一张照片"),
+          card.photo ? h("button", { onClick: function () { put({ photo: null }); }, className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent", border: "1px solid " + t.line, borderRadius: 12, padding: "8px 0" } }, "拿掉照片") : null,
+          h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "白边上写一句"),
+      h("textarea", { value: card.note || "", onChange: function (e) { put({ note: e.target.value.slice(0, 40) }); }, rows: 2,
+        placeholder: "Good Music, Better Days.",
+        style: { width: "100%", boxSizing: "border-box", fontFamily: F_SCRIPT, fontSize: 20, lineHeight: 1.4, color: t.ink,
+          background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
+        "这一行走的是花体（Dancing Script），只有拉丁字母有——写中文会落回衬线体，想要那个手写味就写英文。至多 40 字。"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "22px 0 8px" } }, "卡片的底"),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 } },
+        MUSIC_GROUNDS.map(function (g) {
+          const on = gr.id === g.id;
+          return h("button", { key: g.id, onClick: function () { put({ bg: g.id }); }, className: "active:opacity-80",
+            style: { borderRadius: 12, overflow: "hidden", border: on ? "2px solid " + t.ink : "1px solid " + t.line, padding: 0, textAlign: "left" } },
+            h("div", { style: { height: 46, background: g.bg || "repeating-linear-gradient(135deg," + skinAlpha(t.ink, "0e") + " 0 6px,transparent 6px 12px)", backgroundColor: g.bg ? undefined : t.bg2, boxShadow: g.bg ? "none" : "inset 0 0 0 1px " + t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (on ? "· " : "") + g.zh));
+        }))));
 }
 // 全局悬浮迷你播放器：所有界面（含主屏）都浮着；可拖动换位置（存 x_miniPos）；点一下跳回播放器
 // ⚠️层级只能是 45：比正文高（浮在所有普通界面上），但【低于半窗(z-50)和全屏 app 壳(z-60)】。
@@ -2747,6 +2855,10 @@ function Home({
   now,
   characters,
   onSetDisc,
+  onTogglePlay,
+  onNextSong,
+  onPrevSong,
+  onEditMusicCard,
   groups,
   chats,
   groupChats,
@@ -3625,7 +3737,7 @@ function Home({
     }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
-    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, editMode: editMode, onSetDisc: onSetDisc, onOpen: function () { return onOpenApp("listen"); } });
+    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
