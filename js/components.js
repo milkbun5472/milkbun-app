@@ -2373,7 +2373,12 @@ const HOME_WIDGET_PRESETS = [
   { id: "paper", name: "纸页", note: "暖纸、细线和轻阴影", chip: "linear-gradient(135deg,#fffaf0,#e8dcc8)" },
   { id: "polaroid", name: "拍立得", note: "白边与宽下沿", chip: "linear-gradient(135deg,#fff,#e7e3dc)" },
   { id: "film", name: "胶片", note: "深色框与内侧描边", chip: "linear-gradient(135deg,#393733,#111)" },
-  { id: "editorial", name: "编辑部", note: "利落直角和黑色细框", chip: "linear-gradient(135deg,#f6f0e6,#d9cfbf)" }
+  { id: "editorial", name: "编辑部", note: "利落直角和黑色细框", chip: "linear-gradient(135deg,#f6f0e6,#d9cfbf)" },
+  // 她 2026-09-05：「全部装饰能不能加一个没有框的选项，有些有框有点丑」。
+  // ⚠️原来【也能】做到没框，但要连点三处：外观挑一个 → 表面改「透明底」→ 边框改「无边框」，
+  //   而且卡的内边距和圆角还留着，装饰仍旧缩在一个看不见的框里。
+  //   现在给一个按钮就够：卡整个不画，装饰自己那张画直接落在壁纸上。
+  { id: "bare", name: "无框", note: "不画卡片，装饰直接落在壁纸上", chip: "repeating-linear-gradient(45deg,rgba(120,110,96,.16) 0 5px,transparent 5px 10px)" }
 ];
 // 尺寸和外观是两条独立轴：换成拍立得不会偷偷改占格，改成方块也不会丢掉当前皮肤。
 // 4 列主屏里，短条=2×1、方块=2×2、长条=4×1、大卡=4×2；auto 沿用组件自己的尺寸。
@@ -2452,13 +2457,17 @@ function homeDecorRgba(hex, alpha) {
   if (!/^[0-9a-f]{6}$/i.test(raw)) return "rgba(182,95,87," + alpha + ")";
   return "rgba(" + parseInt(raw.slice(0, 2), 16) + "," + parseInt(raw.slice(2, 4), 16) + "," + parseInt(raw.slice(4, 6), 16) + "," + alpha + ")";
 }
-function homeDecorMaterialStyle(item, t) {
+function homeDecorMaterialStyle(item, t, preset) {
   item = item || {};
   var accent = item.accent || "#b65f57";
   var surface = item.surface || "paper";
   var borderMode = item.borderMode || "line";
   var tilt = normalizeHomeDecorTilt(item.tilt);
   var style = { textAlign: item.align || "left", transform: "rotate(" + tilt + "deg)", transformOrigin: "center center", transition: "transform .18s ease" };
+  // ⚠️挑了「无框」就到此为止。下面那几行是【无条件】给 style.border 赋值的
+  //   （borderMode 默认是「细边」），不在这儿收住的话，卡刚被 bare 撤掉，
+  //   边框转头又被这一层画了回来——「一层写在两处，第二处没跟上」的现成一例。
+  if (preset === "bare") return style;
   if (surface === "transparent") Object.assign(style, { background: "transparent", boxShadow: "none", backdropFilter: "none", WebkitBackdropFilter: "none" });
   if (surface === "tint") Object.assign(style, { background: "linear-gradient(145deg," + homeDecorRgba(accent, .19) + "," + homeDecorRgba(accent, .07) + ")", boxShadow: "0 8px 22px " + homeDecorRgba(accent, .12) });
   if (surface === "glass") Object.assign(style, { background: "rgba(255,255,255,.32)", boxShadow: "0 9px 26px rgba(40,34,28,.10)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" });
@@ -2671,6 +2680,10 @@ function homeItemSpan(key, it, sizes) {
 function homeWidgetPresetStyle(id, t, kind) {
   if (!id || id === "native") return null;
   var base = { width: "100%", height: "100%", boxSizing: "border-box", position: "relative" };
+  // 无框：卡的四样（底、边、影、内边距）一样都不画，圆角也不留。
+  // ⚠️overflow 照旧 hidden：格子是按格算落位的，让装饰画到格子外面会盖住邻居。
+  if (id === "bare") return Object.assign(base, { padding: 0, borderRadius: 0, overflow: "hidden",
+    background: "transparent", border: "none", boxShadow: "none", backdropFilter: "none", WebkitBackdropFilter: "none" });
   if (id === "soft") return Object.assign(base, { padding: kind === "photo" ? 7 : 9, borderRadius: 25, overflow: "hidden", background: "rgba(255,255,255,.52)", border: "1px solid rgba(255,255,255,.78)", boxShadow: "0 10px 28px rgba(40,34,28,.13)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" });
   if (id === "paper") return Object.assign(base, { padding: kind === "photo" ? 9 : 12, borderRadius: 11, overflow: "hidden", background: "#fbf4e8", border: "1px solid rgba(101,83,61,.22)", boxShadow: "0 7px 18px rgba(67,51,34,.12)" });
   if (id === "polaroid") return Object.assign(base, { padding: kind === "photo" ? "9px 9px 23px" : "12px 12px 20px", borderRadius: 6, overflow: "hidden", background: "#fffdf8", border: "1px solid rgba(35,31,27,.12)", boxShadow: "0 9px 21px rgba(35,31,27,.18)" });
@@ -3069,7 +3082,13 @@ function HomeDecorItem({ item, preset, now }) {
 function HomePresetGrid({ value, onChange, allowNative }) {
   const t = useTheme();
   return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } },
-    HOME_WIDGET_PRESETS.filter(function (p) { return allowNative || p.id !== "native"; }).map(function (p) {
+    // allowNative 实际上就是「这是组件不是装饰」：组件才有「原生」（保持它本来的样子），
+    // 装饰才有「无框」（组件去掉卡片多半只剩一堆浮着的字，那不是选项，是坏掉）。
+    HOME_WIDGET_PRESETS.filter(function (p) {
+      if (p.id === "native") return !!allowNative;
+      if (p.id === "bare") return !allowNative;
+      return true;
+    }).map(function (p) {
       var active = value === p.id;
       return h("button", { key: p.id, onClick: function () { onChange(p.id); }, className: "active:opacity-70", style: { textAlign: "left", borderRadius: 16, padding: 10, background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
         h("div", { style: { height: 34, borderRadius: p.id === "editorial" ? 2 : p.id === "polaroid" ? 5 : 11, background: p.chip, border: p.id === "editorial" ? "1px solid #24211d" : "1px solid rgba(50,45,39,.10)", marginBottom: 8, boxShadow: p.id === "polaroid" ? "0 4px 9px rgba(0,0,0,.12)" : "none" } }),
@@ -4083,7 +4102,7 @@ function Home({
       presetStyle = Object.assign({}, presetStyle || {
         width: "100%", height: "100%", minWidth: 0, minHeight: 0,
         position: "relative", boxSizing: "border-box"
-      }, homeDecorMaterialStyle(it.decor, t));
+      }, homeDecorMaterialStyle(it.decor, t, presetId));
       if (it.decor.badge) {
         inner = h("div", { style: { width: "100%", height: "100%", minWidth: 0, minHeight: 0, position: "relative" } },
           inner,

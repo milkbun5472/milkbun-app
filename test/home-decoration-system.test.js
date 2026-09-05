@@ -166,7 +166,10 @@ test("装饰不是固定皮肤：内容、透明底、无边框、强调色和�
   assert.match(home, /align: decorDraftAlign/);
   assert.match(home, /badge: decorDraftBadge\.trim\(\)/);
   assert.match(home, /surface: styleDecorSurface/);
-  assert.match(home, /homeDecorMaterialStyle\(it\.decor, t\)/,
+  // ⚠️口径改了（v63.72）：多传了一个【当前外观 id】。挑了「无框」之后，
+  //   这一层那几行是无条件给 style.border 赋值的（borderMode 默认「细边」），
+  //   不告诉它现在是无框的话，卡刚被撤掉、边框转头又被这一层画回来。
+  assert.match(home, /homeDecorMaterialStyle\(it\.decor, t, presetId\)/,
     "保存后的材质设置必须进入桌面渲染链");
   assert.match(home, /it\.decor\.badge/);
   assert.match(comp, /function homeDecorHasDetail\(type\) \{\s*return type !== "photo";/,
