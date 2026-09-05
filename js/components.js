@@ -2851,6 +2851,10 @@ function Home({
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
+  // 主屏最多几页：溢出会自己开新页，整理时末尾还会多挂一张空的——不封顶的话
+  // 底下那排圆点能排到看不清（一页一颗）。12 页 × 24 格＝288 格，够放了。
+  // ⚠️定义放在这儿是为了跟 buildLayout 一起被测试抠出去跑（跟 SP_RE 同一段）。
+  const HOME_MAX_PAGES = 12;
   // 每项占几列几行（4 列制）——必须和 renderItem 里写的 gridColumn/gridRow 一模一样
   const spanOf = function (key) {
     if (SP_RE.test(key)) return [1, 1];
@@ -2912,11 +2916,18 @@ function Home({
     var out;
     if (!Object.keys(saved).length) out = DEFAULT_LAYOUT.map(function (p) { return p.filter(function (k) { return !seen[k] && valid(k); }); });
     else {
-      var maxPage = DEFAULT_LAYOUT.length - 1;
-      Object.keys(saved).forEach(function (k) { var n = parseInt(k, 10); if (!isNaN(n)) maxPage = Math.max(maxPage, n); });
+      var maxPage = DEFAULT_LAYOUT.length - 1, savedMax = maxPage;
+      Object.keys(saved).forEach(function (k) { var n = parseInt(k, 10); if (!isNaN(n)) savedMax = Math.max(savedMax, n); });
+      // 存档里的页码不封顶的话，一份写着 40 页的存档就真排出 40 页（底下那排圆点排到看不清）。
+      // ⚠️封顶之外那几页【不能直接扔】：上面的东西会凭空消失。一律并到最后一页，
+      //   后面的溢出/封顶那一段再决定怎么摆。
+      maxPage = Math.min(savedMax, HOME_MAX_PAGES - 1);
       out = [];
-      for (var i = 0; i <= maxPage; i++) {
-        out[i] = (saved[i] || []).filter(function (key) { if (valid(key) && !seen[key]) { seen[key] = true; return true; } return false; });
+      var keepP = function (key) { if (valid(key) && !seen[key]) { seen[key] = true; return true; } return false; };
+      for (var i = 0; i <= maxPage; i++) out[i] = (saved[i] || []).filter(keepP);
+      for (var j = maxPage + 1; j <= savedMax; j++) {
+        var extra = (saved[j] || []).filter(function (k) { return !SP_RE.test(k); }).filter(keepP);
+        if (extra.length) out[maxPage] = (out[maxPage] || []).concat(extra);
       }
       // ⚠️补默认项时也要过一遍 valid()：默认文件夹（f_def_*）在她自己建过文件夹的档里
       // 【压根不存在】——不过滤的话它们照样被塞进页面，占着格子却渲染成 null，
@@ -2966,8 +2977,20 @@ function Home({
         if (!cspill.length && cw + wk <= CAP && rowsOf(ckeep.concat([k])) <= ROWCAP) { ckeep.push(k); cw += wk; }
         else if (!SP_RE.test(k)) cspill.push(k);
       });
+      // ⚠️封顶那一页不再往下溢：再溢就没有下一页接着了，东西会凭空消失。
+      //   宁可这一页挤一点（页面本来就能上下滑），也不能让它看不见。
+      if (cspill.length && ci + 1 >= HOME_MAX_PAGES) { out[ci] = ckeep.concat(cspill); continue; }
       out[ci] = ckeep;
       if (cspill.length) out[ci + 1] = cspill.concat(out[ci + 1] || []);
+    }
+    // ⭐编辑态末尾永远留一张空页（她 2026-09-05：「多开几页主页这样以后东西多了也够放」）。
+    // 在这之前，新的一页【只能靠溢出自己长出来】：页面全排满时，她想把一个东西挪到新的一页
+    // 是做不到的——没有那一页，就没有落点。所以整理的时候在末尾挂一张空的，
+    // 拖到边上就翻得过去；没往上放东西，退出整理它自己就没了（不落进存档）。
+    // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有 editMode：当成不在整理。
+    if ((typeof editMode !== "undefined" && editMode) && out.length < HOME_MAX_PAGES) {
+      var lastReal = (out[out.length - 1] || []).some(function (k) { return !SP_RE.test(k); });
+      if (lastReal) out.push([]);
     }
     return out.map(function (arr, pi) {
       arr = (arr || []).slice();
@@ -3272,6 +3295,8 @@ function Home({
   const curLayout = buildLayout(layout);
   // 页数变化后夹住越界的历史页码
   useEffect(function () { if (page > curLayout.length - 1) goPage(curLayout.length - 1); }, []);
+  // 退出整理时那张空页会收回去；人正站在它上面的话得先退一页，不然停在一片空白上
+  useEffect(function () { if (!editMode && page > curLayout.length - 1) goPage(Math.max(0, curLayout.length - 1)); }, [editMode]);
   // v47.73 一次性迁移老存档：memo/diary 图标清走（含文件夹里的，清空的文件夹解散）、w_weather 挪到第四页
   useEffect(function () {
     try {
