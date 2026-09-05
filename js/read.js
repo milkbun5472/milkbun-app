@@ -73,15 +73,59 @@
     return pal[s];
   };
 
+  // ---- 主线那一整份上下文（四处一样喂 · 第九处）------------------
+  // 她 2026-09-05：「这些批注是喂了全部人设和那一堆吗宝宝」。
+  // 答案原来是【没有】。一起读自己拼 sys 走 callAI，不走 buildBundle 也不走 runProbe，
+  // 于是只白得了它自己 push 的反陈词滥调和内容边界；心情、好感、印象卡、长期记忆、
+  // 情侣状态、用户人设，还有那几条【靠调用点一条条 push】的禁令，一条都没有。
+  //
+  // ⚠️病因跟解梦馆（v61.47）、匿名信箱（v61.37）、穿书（v61.16）、通话（v60.27）
+  //   一字不差：**它当初就没在那张名单上**。于是「几处都接上了」每次都是真的，
+  //   这一处每次都漏。名单从今天起是【九处】。
+  //
+  // ⚠️这一处尤其吃亏，因为批注是「就着一句话说一句话」：
+  //   · 最顺手的开口就是把原句反问回来（「他真的不在乎吗？」）→ 正是回声禁令要挡的；
+  //   · 批注天然容易滑成「这里作者其实是想说……」的讲解腔 → 正是居高临下要挡的；
+  //   · 他今天心情差、或者你俩刚吵完，批注本该不一样——读不到心情，
+  //     每次读都是同一个温度，那也是她说的「单调」的一部分。
+  //
+  // ⚠️不改成 runProbe：那一条强制 JSON，而批注/讲解是【逐行】输出的
+  //   （弱模型逐行写「正好 N 条」比塞 JSON 数组可靠得多，这是原作者写下的理由）。
+  //   所以走 buildBundle 直接取那一整份料，输出格式一个字不动。
+  // ⚠️buildBundle 自带的和这里要补的，别搞重：
+  //   它已经带了 ANTI_CLICHE / CONDESCENDING_TONE_BAN / STOCK_REPLY_BAN / ContentBoundaries；
+  //   缺的正是那三条【靠调用点一条条 push】的（回声禁令 / 语域跟场面走 / 读懂这句话在做什么）。
+  //   所以 readHead 只此一份：接得上上下文就发整份 bundle，接不上才退回老那两条，
+  //   两条路都在末尾补那三条——各写各的必然只改一处。
+  //
+  // ⚠️【写明理由的差异】不发【最近聊天】：ctxFor 本来就不带它（各聊天入口自己另加），
+  //   而这一处要写的是就着书页说的话，不是把聊天接着往下说。心情、好感、印象卡都在，
+  //   「他今天什么状态」这件事已经够了。
+  function readHead(ctxFor, char) {
+    let head = "";
+    if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
+      try { head = buildBundle(ctxFor(char)) + "\n\n"; } catch (e) { head = ""; }
+    }
+    // 接不上的时候退回老那两条，并且【人设由这儿补】——所以底下五处提示词
+    // 一律不再自己写一遍「【你的人设】」：bundle 里本来就有，写两遍等于把人设发两份。
+    if (!head) head = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB()
+      + "【你的人设】\n" + ((char && char.persona) || "（暂无设定）") + "\n\n";
+    const more = [];
+    if (typeof ECHO_QUESTION_BAN !== "undefined") more.push(ECHO_QUESTION_BAN);
+    if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") more.push(REGISTER_FOLLOWS_SCENE);
+    if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) { try { more.push(ReplyPacing.reading()); } catch (e) {} }
+    return head + (more.length ? more.join("\n\n") + "\n\n" : "");
+  }
+
   // ---- 模型：让角色对给定段落（可跨多页）批注若干条 ----
   //   paras 是一段扁平的段落文本数组（可能跨好几页）；返回 [{i, note}]，i 是 paras 里的 0 基下标。
   //   输出走「逐行」而非 JSON 数组——弱模型逐行写「正好 N 条」比塞 JSON 数组可靠得多。
-  async function genAnnotations(active, char, profile, worldbook, paras, n, prior) {
+  async function genAnnotations(active, char, profile, worldbook, paras, n, prior, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
       "\n\n【正文（按段落编号，可能跨好几页）】\n" + numbered +
@@ -114,13 +158,13 @@
   }
 
   // ---- 模型：半屏讨论 ----
-  async function discussReply(active, char, profile, worldbook, book, paras, anns, history, userMsg) {
+  async function discussReply(active, char, profile, worldbook, book, paras, anns, history, userMsg, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const passage = paras.join("\n").slice(0, 2200);
     const annText = anns.length ? anns.map(function (a) { return "· " + a.note; }).join("\n") : "";
     const hist = history.slice(-16).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读《" + (book.title || "这本书") + "》，此刻你俩正就读到的这一段聊剧情。完全代入你的人设，像和朋友边读边讨论那样自然说话——有观点、会追问、会八卦人物、会和 " + uName + " 的看法碰撞，别客套别总结陈词。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读《" + (book.title || "这本书") + "》，此刻你俩正就读到的这一段聊剧情。完全代入你的人设，像和朋友边读边讨论那样自然说话——有观点、会追问、会八卦人物、会和 " + uName + " 的看法碰撞，别客套别总结陈词。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【你俩正读到的这一页】\n" + passage +
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
@@ -133,23 +177,27 @@
   }
 
   // ---- 模型：结束时把这次共读总结成记忆 ----
-  async function summarizeSession(active, char, profile, book, anns, history) {
+  // ⚠️人设原来在这一枪里被 .slice(0, 300) 截掉了。这是 v55.87「群里的王爷变霸总」
+  //   那次同一个数量级的病（那次 200 字）：只剩一个标签，空白由训练先验补上。
+  //   而这一枪写的是【会长期记住的事实、用他的第一人称】——要进记忆库、以后一直被读到的东西。
+  //   人设截成一句话，写出来的就是一份通用读后感，然后它变成他的长期记忆。
+  async function summarizeSession(active, char, profile, book, anns, history, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const annText = anns.slice(-12).map(function (a) { return "· " + a.note; }).join("\n");
     const hist = history.slice(-24).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
     if (!annText && !hist) return "";
-    const sys = "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。\n\n【你的人设】\n" + (char.persona || "").slice(0, 300);
+    const sys = readHead(ctxFor, char) + "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。";
     const u = (annText ? "【你的批注】\n" + annText + "\n\n" : "") + (hist ? "【讨论】\n" + hist : "");
     return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 65535 })).trim();
   }
 
   // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
-  async function genExplains(active, char, profile, worldbook, paras, synopsis) {
+  async function genExplains(active, char, profile, worldbook, paras, synopsis, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络（你俩之前已经读到这儿，接着往下讲、别自相矛盾）】\n" + synopsis.trim() : "") +
       "\n\n【本页正文（按段落编号）】\n" + numbered +
@@ -172,10 +220,10 @@
   }
 
   // ---- 模型：就划线/单段的一小截，讲清是什么意思（中译中）----
-  async function genExplainSnippet(active, char, profile, worldbook, snippet, context, synopsis) {
+  async function genExplainSnippet(active, char, profile, worldbook, snippet, context, synopsis, ctxFor) {
     const uName = (profile && profile.name) || "对方";
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "「" + uName + "」在和你一起读书时划出了下面这句/这段，说没太看懂，要你讲讲。把它【什么意思、为什么这么说、藏着什么言外之意】用大白话讲清楚（该点破的典故/文言/背景都点破），再加一句你按自己人设的看法。别复述原文、别掉书袋，2~4 句说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "「" + uName + "」在和你一起读书时划出了下面这句/这段，说没太看懂，要你讲讲。把它【什么意思、为什么这么说、藏着什么言外之意】用大白话讲清楚（该点破的典故/文言/背景都点破），再加一句你按自己人设的看法。别复述原文、别掉书袋，2~4 句说人话。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络】\n" + synopsis.trim() : "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
@@ -278,6 +326,10 @@
       return h(Reader, {
         book: bk, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, bgActive: props.bgActive || props.active, toast: props.toast,
         digitalIds: props.digitalIds,
+        // ⚠️这一层是【一条条列名字】往下传的：漏一个不会报错，只会让里头那一处
+        //   静默退回兜底路（我第一版就漏了 ctxFor，浏览器里量出来 sys 只有 2544 字、
+        //   心情好感一样没有，而 try/catch 把它咽下去了，什么都看不出来）。
+        ctxFor: props.ctxFor,
         onBack: function () { setOpenId(null); },
         onPatch: function (patch) { patchBook(bk.id, patch); },
         onAddMemory: props.onAddMemory
@@ -420,7 +472,7 @@
       if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
       setBusy(true);
       try {
-        const res = await genExplains(bg, partner, props.profile, scopedWorldbook(curParas.join("\n")), curParas, book.synopsis || "");
+        const res = await genExplains(bg, partner, props.profile, scopedWorldbook(curParas.join("\n")), curParas, book.synopsis || "", props.ctxFor);
         if (!res.explains.length) { props.toast && props.toast("Ta 没讲出来，换一页再试"); return; }
         const now = Date.now();
         props.onPatch(function (b) {
@@ -443,7 +495,7 @@
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
-        const txt = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(curParas[i]), curParas[i], curParas[i], book.synopsis || "");
+        const txt = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(curParas[i]), curParas[i], curParas[i], book.synopsis || "", props.ctxFor);
         if (txt) props.onPatch(function (b) { const ex = Object.assign({}, b.explains || {}); ex[pageIdx + "_" + i] = { text: txt, charId: partner.id, charName: partner.name, ts: Date.now() }; return { explains: ex, showExplains: true, lastReadTs: Date.now() }; });
         else props.toast && props.toast("Ta 没讲出来，再试试");
       } catch (e) { props.toast && props.toast("讲解失败：" + (e.message || "重试")); }
@@ -469,7 +521,7 @@
       try { window.getSelection && window.getSelection().removeAllRanges(); } catch (e) {}
       setSelResult({ q: q, a: "", busy: true });
       try {
-        const a = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "");
+        const a = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "", props.ctxFor);
         setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
       } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
     };
@@ -565,7 +617,7 @@
         let notes = [];
         for (let round = 0; round < 3 && notes.length < want; round++) {
           const need = want - notes.length;
-          const got = await genAnnotations(bg, partner, props.profile, scopedWorldbook(texts.join("\n")), texts, need, priorNotes.concat(notes));
+          const got = await genAnnotations(bg, partner, props.profile, scopedWorldbook(texts.join("\n")), texts, need, priorNotes.concat(notes), props.ctxFor);
           if (!got.length) break; // 这轮一条都没补出来，别再空转
           notes = notes.concat(got);
         }
@@ -590,7 +642,7 @@
       const next = chat.concat([{ role: "user", content: v }]);
       setChat(next); setBusy(true);
       try {
-        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, v);
+        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, v, props.ctxFor);
         setChat(function (p) { return p.concat(say.map(function (s) { return { role: "char", content: s }; })); });
       } catch (e) { props.toast && props.toast("回复失败：" + (e.message || "重试")); }
       finally { setBusy(false); }
@@ -602,7 +654,7 @@
       if (!props.active || !partner) { setChatOpen(false); setChat([]); return; }
       setEnding(true);
       try {
-        const summary = await summarizeSession(bg, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat);
+        const summary = await summarizeSession(bg, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat, props.ctxFor);
         if (summary) {
           props.onAddMemory && props.onAddMemory(summary, partner.id);
           props.toast && props.toast("已记入记忆库");
@@ -612,9 +664,35 @@
       finally { setEnding(false); }
     };
 
+    const annoCount = (book.annotations || []).length + Object.keys(book.explains || {}).length;
+    // ── 把这本书记进他的记忆（她 2026-09-05：「还有要不要喂回去呢」）──
+    // 原来【只有走过讨论才喂得回去】：结束那一步藏在讨论抽屉里。
+    // 于是读了二十页、他批了六十条、你一次讨论都没开——这本书在他记忆里等于没发生过。
+    // 现在批注册底下也有这一下：批注本身就够浓缩成一条记忆了（summarizeSession
+    // 光有 annText 也能写，只是原来没人这么叫过它）。
+    // ⚠️只写【记忆库】，不动好感、不动心情、不动状态卡。
+    //   照那条「加任何一条写主线的动作，先问一句该不该」——一起读是相处，不是相处的全部；
+    //   一本书读得投入就涨好感，很容易失控（一页点三次批注就是三次）。要动等她点头。
+    const rememberBook = async function () {
+      if (ending) return;
+      if (!partner) { setPickOpen(true); return; }
+      if (!annoCount) { props.toast && props.toast("这本还没写过什么"); return; }
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setEnding(true);
+      try {
+        const summary = await summarizeSession(bg, partner, props.profile, book,
+          (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), [], props.ctxFor);
+        if (summary) {
+          props.onAddMemory && props.onAddMemory(summary, partner.id);
+          props.onPatch({ rememberedAt: Date.now(), rememberedCount: annoCount });
+          props.toast && props.toast(partner.name + " 把这本记住了");
+        } else props.toast && props.toast("没浓缩出什么，多读几页再来");
+      } catch (e) { props.toast && props.toast("记不进去：" + (e.message || "重试")); }
+      finally { setEnding(false); }
+    };
+
     // ---- 顶栏 ----
     const span = book.annSpan || 1;
-    const annoCount = (book.annotations || []).length + Object.keys(book.explains || {}).length;
     const topbar = h("div", { className: "shrink-0", style: { padding: "6px 16px 10px", borderBottom: "1px solid " + t.line } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
         partner
@@ -738,6 +816,7 @@
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
         onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null,
       bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
+        partner: partner, busy: ending, onRemember: rememberBook,
         onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
         onClose: function () { setBookOpen(false); } }) : null
     );
@@ -814,7 +893,17 @@
                     })));
               }))
           : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, paddingTop: 60 } },
-              "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")));
+              "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")),
+      // 记进他的记忆：这一册就是「你俩一起读过这本书」的全部证据，
+      // 要喂回主线的话，从这儿喂才对得上。
+      rows.length ? h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line } },
+        h("button", { onClick: props.onRemember, disabled: props.busy, className: "w-full active:opacity-70",
+          style: { borderRadius: 14, padding: "12px 0", background: t.ink, color: t.bg2, opacity: props.busy ? .5 : 1, fontFamily: F_DISPLAY, fontSize: 14 } },
+          props.busy ? "正在收拢…" : ("让 " + ((props.partner && props.partner.name) || "Ta") + " 把这本记住")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 7, lineHeight: 1.6 } },
+          book.rememberedAt
+            ? ("上次记住是在写了 " + (book.rememberedCount || 0) + " 条的时候 · 现在是 " + rows.length + " 条")
+            : "把这些浓缩成一两句，进他的记忆库。只写记忆，不动好感和心情。")) : null);
   }
 
   // ---- 划线讲解弹层 ----

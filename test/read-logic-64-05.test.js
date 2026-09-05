@@ -59,8 +59,9 @@ test("提示词里一个内容示范都不许有（prompt-no-content-samples）"
 
 test("闸问的是【真正会被拿去调的那条线路】", () => {
   // 批注/讲解走 bg（bgActive || active），讨论走主 active——闸各按各的问
-  assert.equal((code.match(/if \(!bg\) \{ props\.toast && props\.toast\("请先到设置配置 API"\); return; \}/g) || []).length, 4,
-    "讲这页 / 讲这段 / 讲这句 / 批注，四处都该问 bg");
+  // v64.07 多了一处：批注册底下那个「把这本记住」也走 bg
+  assert.equal((code.match(/if \(!bg\) \{ props\.toast && props\.toast\("请先到设置配置 API"\); return; \}/g) || []).length, 5,
+    "讲这页 / 讲这段 / 讲这句 / 批注 / 把这本记住，五处都该问 bg");
   const dis = code.slice(code.indexOf("const sendDiscuss = async function"), code.indexOf("const sendDiscuss = async function") + 600);
   assert.match(dis, /if \(!props\.active\)/, "讨论用的是主线路，闸不该改成问 bg");
   assert.match(dis, /discussReply\(props\.active/);

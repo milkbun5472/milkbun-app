@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.06";
+const APP_VERSION = "v64.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17652,6 +17652,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     profile: profile,
     worldbook: loreForContext("study", [], ""),
     worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
+    // ⚠️把上下文这条线接进去（四处一样喂 / 第九处）。她 2026-09-05 问：
+    //   「这些批注是喂了全部人设和那一堆吗」——答案原来是【没有】：
+    //   一起读自己拼 sys 走 callAI，只白得了反陈词滥调和内容边界，
+    //   心情、好感、印象卡、长期记忆、回声禁令那一堆一条都没有。
+    //   病因跟解梦馆那次一字不差：**这一处压根没接上下文这条线**。
+    ctxFor: ctxFor,
     toast: toast,
     onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], knownBy: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
     onBack: () => setScreen("home")
