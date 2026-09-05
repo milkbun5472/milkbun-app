@@ -10715,6 +10715,42 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
 // ============================================================
 // 表情包字典 Emote Matrix —— 分类字典/全局或专属绑定/批量导入(关键词:url)/图库
 // ============================================================
+// ── 表情包这一页：一版还没撕下来的贴纸（v62.86，审美审计还债⑥）─────────
+// 审计点名这一页「同一页同时踩英文眉标、基础款药丸两条铁律」，而且外壳还是米白：
+// 三条 Archivo 眉标（CATEGORIES / SPECIFIC CAST / MATRIX GALLERY / BATCH IMPORT）、
+// 一排包名药丸，底下还有 Delete Matrix / Import Matrix / CLOSE MATRIX 三颗英文钮。
+//
+// 这一页现实里是什么？**一版一版还没撕下来的贴纸**。所以：
+//   底     = 离型纸：蜡光纸的斜反光 + 极淡网格 + 四角裁切标记
+//   换字典 = 一排【那一版贴纸的角】：选中那版翘起来、四周一圈 die-cut 白边、带投影；
+//            没选的往下缩一截、淡下去，像压在后面几版（tabs-not-plain-pills：
+//            换个 app 就不成立的形状才算数）
+//   每张表情 = 一张贴纸：白描边 + 轻投影 + 按 id 定死的一点点歪
+// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失
+//   （mobile-ui-layout §3.5），所以走同一道闸；验不过就退回纯色。
+const RELEASE_PAPER = t => {
+  if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
+  const k = t.ink, L = [];
+  // 四角裁切标记：同一个落点画一横一竖，凑成印刷厂那个角标
+  ["left 15px top 13px", "right 15px top 13px", "left 15px bottom 13px", "right 15px bottom 13px"].forEach(p => {
+    L.push("linear-gradient(" + k + "38," + k + "38) no-repeat " + p + "/13px 1px");
+    L.push("linear-gradient(" + k + "38," + k + "38) no-repeat " + p + "/1px 13px");
+  });
+  L.push("repeating-linear-gradient(90deg," + k + "00 0 23px," + k + "06 23px 24px)");
+  L.push("repeating-linear-gradient(180deg," + k + "00 0 23px," + k + "06 23px 24px)");
+  L.push("linear-gradient(158deg,rgba(255,255,255,.46),rgba(255,255,255,0) 44%)");
+  L.push(t.bg);
+  return { background: L.join(",") };
+};
+// 贴纸是白的，所以贴纸【上面】的字色必须一起写死——跟着 t.ink 走的话，
+// 深色主题里就是白纸浅字（v59.62 抓到过的那一课）。
+const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
+// 每张歪多少：按 id 定死。每次渲染现摇一个角度的话，滚一下整页贴纸都在抖。
+// ⚠️取的是哈希串的【末位】，不是首位：真实 id 长得都差不多（em_def_0、em_def_1、
+//   em_<时间戳>_<随机>），哈希值只在低位上分得开，首位对同一批 id 几乎恒定
+//   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
+const stickerTilt = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
+
 function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onDeleteEmotes }) {
   const t = useTheme();
   const list = packs || [];
@@ -10725,95 +10761,97 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   const fileRef = useRef(null);
   const pack = list.find(p => p.id === selId) || list[0] || null;
   useEffect(() => { if (list.length && !list.find(p => p.id === selId)) setSelId(list[0].id); }, [packs]);
-  const idx = pack ? list.findIndex(p => p.id === pack.id) : -1;
   const chars = characters || [];
+  const total = list.reduce((n, p) => n + ((p.emotes || []).length), 0);
   const readFile = e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     const r = new FileReader();
     r.onload = () => setImportText(prev => (prev ? prev + "\n" : "") + String(r.result || ""));
     r.readAsText(f); e.target.value = "";
   };
-  const eyebrow = (en, zh) => h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 12 } },
-    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.28em", color: t.fog } }, en),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "/ " + zh));
+  // 印在离型纸上的那行说明：一句中文 + 一道横线拉到头，右边挂这一栏自己的操作
+  const note = (zh, right, top) => h("div", { className: "flex items-center gap-3", style: { marginTop: top === undefined ? 22 : top, marginBottom: 10 } },
+    h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: ".04em", color: t.fog } }, zh),
+    h("span", { className: "flex-1", style: { height: 1, background: t.line } }),
+    right || null);
 
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    // ⚠️这里原来是一块 34px 斜体大标题 + 一行大字距英文 + safeTop(24) 的留白，
-    //   占掉近三分之一屏（.claude/rules/mobile-ui-layout.md §1 点名不许）。
-    //   换成公共的 Head——全 app 那条紧凑栏，别再自己写一份。
-    h(Head, { zh: "表情包", en: "Emote Matrix", onBack: onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
-      // CATEGORIES
-      h("div", { className: "flex items-center justify-between", style: { marginTop: 4 } },
-        h("div", { className: "flex items-baseline gap-2" },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.28em", color: t.fog } }, "CATEGORIES"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "/ 分类字典")),
-        h("button", { onClick: () => onAddPack(), className: "flex items-center gap-1 active:opacity-60", style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, letterSpacing: "0.12em", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "6px 12px" } }, h("span", null, "+"), h("span", null, "NEW"))),
-      h("div", { style: { height: 1, background: t.line, margin: "14px 0 18px" } }),
-      // category chips
-      list.length > 1 && h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 20 } }, list.map((p, i) => h("button", {
-        key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); },
-        className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999, border: "1px solid " + (p.id === (pack && pack.id) ? t.ink : t.line), background: p.id === (pack && pack.id) ? t.ink : "transparent", color: p.id === (pack && pack.id) ? t.bg2 : t.sub }
-      }, String(i + 1).padStart(2, "0") + " " + p.name))),
-      !pack ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有表情字典，点右上 NEW 新建")
+  return h("div", { className: "h-full flex flex-col", style: RELEASE_PAPER(t) },
+    h(Head, { zh: "表情包", sub: list.length ? list.length + " 版 · 共 " + total + " 张" : null, bg: "transparent", onBack: onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
+      note("手里这几版", h("button", { onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
+      // ── 一排「那一版贴纸的角」：选中那版翘起来、带 die-cut 白边；没选的缩下去、淡着 ──
+      list.length > 0 && h("div", { className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6, marginBottom: 4 } },
+        list.map(p => {
+          const on = pack && p.id === pack.id;
+          const first = (p.emotes || [])[0];
+          return h("button", { key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); },
+            className: "shrink-0 active:opacity-80", style: { width: 76, paddingTop: on ? 0 : 10, paddingBottom: on ? 10 : 0 } },
+            h("div", { style: { width: 76, height: on ? 76 : 62, borderRadius: 10, overflow: "hidden", position: "relative",
+              background: STICKER_PAPER, border: (on ? 3 : 1) + "px solid " + (on ? "#fff" : t.line),
+              boxShadow: on ? "0 7px 15px rgba(0,0,0,.20)" : "none", opacity: on ? 1 : 0.5 } },
+              first ? h("img", { src: first.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })
+                : h("div", { className: "w-full h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a79c86" } }, "空版")),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.fog, marginTop: 5, textAlign: "center" } }, p.name));
+        })),
+      !pack ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情字典。\n点上面「新开一版」开一版空白的。")
         : h("div", null,
-          // pack name + GLOBAL pill
-          h("div", { className: "flex items-center gap-3", style: { marginBottom: 14 } },
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 13, color: t.fog } }, String(idx + 1).padStart(2, "0")),
-            h("input", { value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "flex-1 outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }),
-            pack.global && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.1em", color: t.bg2, background: t.ink, borderRadius: 999, padding: "5px 12px" } }, "GLOBAL")),
-          // Global toggle
-          h("div", { className: "flex items-center justify-between", style: { background: t.bg2, borderRadius: 16, border: "1px solid " + t.line, padding: "16px 18px", marginBottom: 20 } },
-            h("div", null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, "Global Access"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "全局通用（开启后不受下方专属限制）")),
-            h("button", { onClick: () => onUpdatePack(pack.id, { global: !pack.global }), className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.global ? t.ink : t.line, position: "relative", transition: "background .2s" } },
-              h("span", { style: { position: "absolute", top: 3, left: pack.global ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: "#fff", transition: "left .2s" } }))),
-          // 加入我的表情库开关
-          h("div", { className: "flex items-center justify-between", style: { background: t.bg2, borderRadius: 16, border: "1px solid " + t.line, padding: "14px 18px", marginBottom: 20 } },
-            h("div", null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "加入我的表情库"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "关掉后角色仍能用，但我发消息的选择器里不显示")),
-            h("button", { onClick: () => onUpdatePack(pack.id, { mine: pack.mine === false }), className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.mine !== false ? t.ink : t.line, position: "relative", transition: "background .2s" } },
-              h("span", { style: { position: "absolute", top: 3, left: pack.mine !== false ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: "#fff", transition: "left .2s" } }))),
-          // Specific cast
-          eyebrow("SPECIFIC CAST", "专属绑定"),
+          // 这一版叫什么：写在版纸边上，虚线表示可以改
+          h("input", { value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
+          // 两条开关：印在纸上的说明行，不是两张圆角卡
+          h("div", { className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
+            h("div", { className: "min-w-0" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "谁都能用"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了就不看下面的专属绑定")),
+            h("button", { onClick: () => onUpdatePack(pack.id, { global: !pack.global }), "aria-label": "谁都能用", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.global ? t.ink : t.line, position: "relative", transition: "background .2s" } },
+              h("span", { style: { position: "absolute", top: 3, left: pack.global ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
+          h("div", { className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
+            h("div", { className: "min-w-0" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我自己也能发"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "关掉后角色照旧能用，只是我的选择器里不出现")),
+            h("button", { onClick: () => onUpdatePack(pack.id, { mine: pack.mine === false }), "aria-label": "我自己也能发", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.mine !== false ? t.ink : t.line, position: "relative", transition: "background .2s" } },
+              h("span", { style: { position: "absolute", top: 3, left: pack.mine !== false ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
+          // ── 这版只给谁用：一张张姓名贴，贴上去的才作数 ──
+          note("这版只给谁用"),
           h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } }, chars.length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") : chars.map(c => {
             const bound = (pack.charIds || []).includes(c.id);
-            return h("button", { key: c.id, onClick: () => onToggleChar(pack.id, c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, padding: "8px 16px", borderRadius: 999, border: "1px solid " + (bound ? t.ink : t.line), background: bound ? t.ink : "transparent", color: bound ? t.bg2 : t.sub } }, c.name);
+            return h("button", { key: c.id, onClick: () => onToggleChar(pack.id, c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 15px", borderRadius: 4,
+              background: bound ? STICKER_PAPER : "transparent", color: bound ? STICKER_INK : t.fog,
+              border: bound ? "1px solid rgba(0,0,0,.10)" : "1px dashed " + t.line,
+              boxShadow: bound ? "0 3px 7px rgba(0,0,0,.13)" : "none",
+              transform: bound ? "rotate(-.8deg)" : "none" } }, c.name);
           })),
-          pack.global && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, marginBottom: 4 } }, "已开全局，绑定暂不生效（关掉全局才按专属限制）"),
-          h("div", { style: { height: 20 } }),
-          // Matrix gallery
-          h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
-            h("div", { className: "flex items-baseline gap-2" },
-              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.28em", color: t.fog } }, "MATRIX GALLERY"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "/ 矩阵图库 " + ((pack.emotes || []).length ? "· " + pack.emotes.length : ""))),
-            (pack.emotes || []).length > 0 && h("button", { onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: selMode ? t.accent : t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "5px 12px" } }, selMode ? "取消" : "Select")),
+          pack.global && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "这一版开着「谁都能用」，上面贴的名字暂时不作数。"),
+          // ── 这一版上贴着的 ──
+          note("这一版上贴着的" + ((pack.emotes || []).length ? " · " + pack.emotes.length + " 张" : ""),
+            (pack.emotes || []).length > 0 && h("button", { onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张")),
           (pack.emotes || []).length === 0
-            ? h("div", { className: "text-center", style: { background: t.bg2, borderRadius: 16, border: "1px solid " + t.line, padding: "40px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "图库空空如也\n请在下方批量导入")
-            : h("div", { className: "grid grid-cols-3 gap-2" }, pack.emotes.map(em => {
+            ? h("div", { className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
+            : h("div", { className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
               const on = selEmotes.includes(em.id);
-              return h("button", { key: em.id, onClick: () => { if (!selMode) return; setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { border: "1px solid " + (on ? t.accent : t.line), borderRadius: 12, overflow: "hidden", background: t.bg2 } },
-                h("div", { style: { width: "100%", aspectRatio: "1", background: t.line, position: "relative" } },
-                  h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
-                  selMode && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: on ? t.accent : "rgba(0,0,0,0.4)", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : "")),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, padding: "5px 7px" } }, em.keyword));
+              return h("button", { key: em.id, onClick: () => { if (!selMode) return; setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
+                h("div", { style: { position: "relative", borderRadius: 11, overflow: "hidden", background: STICKER_PAPER,
+                  // 贴纸的 die-cut 白边：挑中那张按平（不歪、不悬空），换成一圈醒目描边
+                  border: "3px solid " + (on ? t.accent : "#fff"),
+                  boxShadow: on ? "none" : "0 4px 9px rgba(0,0,0,.16)",
+                  transform: on ? "none" : "rotate(" + stickerTilt(em.id) + "deg)", transition: "transform .16s" } },
+                  h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
+                    h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
+                    on && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
+                  h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),
-          selMode && selEmotes.length > 0 && h("button", { onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "删除选中（" + selEmotes.length + "）"),
-          // Delete matrix
-          h("button", { onClick: () => requestAppConfirm("删除字典「" + pack.name + "」？", "其中的表情也会一并删除。", () => onDeletePack(pack.id), "删除"), className: "w-full active:opacity-70", style: { marginTop: 24, fontFamily: F_DISPLAY, fontSize: 16, color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "Delete Matrix (删除字典)"),
-          h("div", { style: { height: 1, background: t.line, margin: "28px 0 20px" } }),
-          // Batch import
-          eyebrow("BATCH IMPORT", "批量指令"),
-          h("div", { style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
+          selMode && selEmotes.length > 0 && h("button", { onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
+          // ── 往这版上贴新的 ──
+          note("往这版上贴新的"),
+          h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
-            h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "flex items-center gap-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "⬆ 导入文件"),
+            h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "flex items-center gap-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读"),
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt"),
             h("input", { ref: fileRef, type: "file", accept: ".txt,.text,.md", onChange: readFile, style: { display: "none" } })),
-          h("textarea", { value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上方选中了要操作的字典，在此粘贴内容…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
-          h("button", { onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 14 } }, "Import Matrix (批量导入)"),
-          h("button", { onClick: onBack, className: "w-full active:opacity-80", style: { fontFamily: "'Archivo',sans-serif", fontSize: 15, letterSpacing: "0.16em", color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0" } }, "CLOSE MATRIX"))));
+          // ⚠️这里原来写死 background:"#fff" 配 color:t.ink——深色主题下就是白底浅字，
+          //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
+          h("textarea", { value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
+          h("button", { onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 22 } }, "贴上去"),
+          h("button", { onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
 function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }
 
