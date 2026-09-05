@@ -9,13 +9,24 @@ const end = src.indexOf("function MemCfgSheet(", start);
 const memory = src.slice(start, end);
 
 test("记忆库使用紧凑安全区顶栏，日常只露整理图标与新增", () => {
-  assert.match(memory, /paddingTop: safeTop\(10\)/);
-  assert.match(memory, /"MEMORY INDEX"/);
+  // ⚠️v62.71 改的是【判据的口径】，不是放宽：
+  //   这一条写于 v59.75，那时 Head 自己还是「30px 大标题」，所以这一页只能手写一条紧凑栏，
+  //   断言也就冻住了 `paddingTop: safeTop(10)` 和「不许用 Head」。
+  //   v61.27 之后 Head 本身就是那条紧凑栏、自己吃安全区，
+  //   .claude/rules/mobile-ui-layout.md §1 明写「别再自己写一条」——
+  //   于是这条断言从「守着紧凑栏」变成了「拦着不许合规」。
+  //   要守的东西一个字没变：**顶栏是紧凑的、日常只露整理和新增两颗键**。
+  assert.match(memory, /h\(Head, \{\n?\s*zh: "记忆库", bg: "transparent", onBack: onBack,/, "顶栏没用公共 Head");
+  assert.doesNotMatch(memory, /paddingTop: safeTop\(10\)/, "又自己写了一条顶栏");
+  // 英文眉标撤掉（no-english-titles）；换的时候没有硬翻——副标题改说这一盒里此刻真有几张
+  assert.doesNotMatch(memory, /"MEMORY INDEX"|"INDEX \/ "/, "英文眉标还在");
+  assert.match(memory, /sub: activeTotal \? "在册 " \+ activeTotal \+ " 张" : null/);
+  assert.match(memory, /"这一摞 " \+ list\.length \+ " 张"/);
+  // 日常只露这两颗：整理与维护、新增
   assert.match(memory, /setManageOpen\(true\)/);
   assert.match(memory, /aria-label": "整理与维护"/);
   assert.match(memory, /h\(GConfig/);
   assert.match(memory, /aria-label": "新增记忆"/);
-  assert.doesNotMatch(memory, /h\(Head, \{/);
 });
 
 test("导入、手动抽取、旧库补评与月度精炼都收进整理区，能力没有删除", () => {

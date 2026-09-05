@@ -9525,22 +9525,35 @@ function MemoryLib({
     } catch (err) { window.__toast && window.__toast("候选没建成：" + (err.message || err)); }
     return true;
   };
+  // ── 底：一只卡片盒（v62.71，审美审计还债⑤）─────────────────────────
+  // 装修工单把这一页记成「已经有底子」，其实外壳、顶栏、滚动区三层【一层底都没有】——
+  // 有底的只是那三张索引卡 tab，那是装饰不是底。
+  // 主题早就定好了（这一页的注释自己写着「记忆库是一盒卡片」），底顺着同一样东西铺：
+  // 卡纸的细纹 + 两侧盒壁压下来的暗影 + 顶上盒口那一道亮边。
+  // ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
+  const _hex6m = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+  const boxSkin = !_hex6m ? { background: t.bg } : { background: t.bg, backgroundImage: [
+    // 盒壁：左右两侧压深，页面就不是一张平纸，是往里看的一只盒子
+    "linear-gradient(90deg," + t.ink + "14 0," + t.ink + "00 26px," + t.ink + "00 calc(100% - 26px)," + t.ink + "14 100%)",
+    // 卡纸的细纹：斜着的极淡织理，跟设置那张工程格纸、日记那块布纹都分得开
+    "repeating-linear-gradient(115deg," + t.ink + "00 0 2px," + t.ink + "06 2px 3px)",
+    "repeating-linear-gradient(25deg," + t.ink + "00 0 3px," + t.ink + "05 3px 4px)"
+  ].join(",") };
   return h("div", {
-    className: "h-full flex flex-col"
-  }, h("div", {
-    className: "shrink-0 px-4 pb-2",
-    style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg }
-  }, h("div", { style: { display: "grid", gridTemplateColumns: "76px minmax(0,1fr) 76px", alignItems: "center", minHeight: 42 } },
-    h("div", { className: "flex justify-start" },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink }))),
-    h("div", { className: "min-w-0 text-center" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, lineHeight: 1.15 } }, "记忆库"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, letterSpacing: ".16em", marginTop: 3 } }, "MEMORY INDEX")),
-    h("div", { className: "flex items-center justify-end", style: { gap: 2 } },
+    className: "h-full flex flex-col", style: boxSkin
+  // 顶栏改用公共 Head（.claude/rules/mobile-ui-layout.md §1「别再自己写一条」），
+  // 并传 bg:"transparent" 让盒底透上来——原来这一条自己刷 t.bg，顶上横着一道没盖住的带子。
+  // ⚠️「MEMORY INDEX」那行英文眉标一并撤掉（no-english-titles）：换的时候没有硬翻，
+  //   副标题改说这一盒里此刻真有几张——那才是这一栏在干嘛。
+  }, h(Head, {
+    zh: "记忆库", bg: "transparent", onBack: onBack,
+    sub: activeTotal ? "在册 " + activeTotal + " 张" : null,
+    right: h("div", { className: "flex items-center", style: { gap: 2, marginRight: -6 } },
       h("button", { onClick: () => { setManageOpen(true); setDiagOpen(false); }, "aria-label": "整理与维护", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40, position: "relative" } },
         h(GConfig, { size: 18, color: t.sub }),
         corrections.length ? h("span", { style: { position: "absolute", top: 6, right: 5, width: 6, height: 6, borderRadius: 999, background: t.accent, boxShadow: "0 0 0 2px " + t.bg } }) : null),
-      h("button", { onClick: () => setEditing("new"), "aria-label": "新增记忆", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 20, color: t.ink })))))
+      h("button", { onClick: () => setEditing("new"), "aria-label": "新增记忆", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 20, color: t.ink })))
+  })
   , importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
   innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters, onClose: () => setInnerLifeOpen(false) }) : null,
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
@@ -9705,7 +9718,7 @@ function MemoryLib({
             id === "all" ? "所有人" : (c.remark || c.name)) : null);
       })) : null,
     h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, letterSpacing: ".13em" } }, "INDEX / " + list.length),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "这一摞 " + list.length + " 张"),
       correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
     list.length === 0 && h(Empty, {
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
@@ -9744,7 +9757,12 @@ function MemoryLib({
                 boxShadow: "0 0 0 4px " + t.bg, marginTop: 9 + (13 - dia) / 2 } });
           })(),
           index < list.length - 1 ? h("span", { "aria-hidden": "true", style: { position: "absolute", width: 1, background: t.line, left: 18.5, top: 34, bottom: -20 } }) : null),
-        h("div", { className: "flex-1 min-w-0", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 15, padding: "11px 13px 10px", boxShadow: "inset 3px 0 0 " + accent } },
+        // 每一条就是盒里的一张索引卡（v62.71）：方角、顶边一条色标带（未了＝赭、常驻＝主色）、
+        // 卡面印一条横线——跟上面那三张 tab 是同一样东西，不是另一种圆角卡。
+        // 原来色标是【左边一道内阴影】：那是通用卡片的强调条，跟「索引卡」没关系。
+        h("div", { className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: accent } }),
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: 12, right: 12, top: 30, height: 1, background: t.line, opacity: .55 } }),
           h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 7 } },
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, audienceOf(e) + " · " + sourceLabelOf(e)),
             states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: e.open ? "#a66550" : e.pinned ? t.tint : t.fog } }, states.join(" · ")) : null),
