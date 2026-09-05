@@ -83,7 +83,7 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
+const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
@@ -4976,14 +4976,36 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // 这一页真正独有的是 note：**他为什么循环这一首**。所以照【碟的曲目单】来做：
 // 顶上一张真的碟（纹路是程序画的，不烧生图额度），底下曲目一行行，
 // note 是写在曲目边上的那一行小字。
-function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
+// 歌单是查手机里【唯一一个没穿自己皮】的内层 app（审美审计 2026-09-04）：
+// 碟画得很好，可它一直躺在【她的】t.bg 上——别的十八个 app 都有自己的底，就它没有。
+// 这一版给它一间【夜里的听歌房】：暖近黑的底、一盏灯的余晖、黄铜色的那一笔。
+// ⚠️不重写这个组件的结构，只把它取色的那个 t 换掉——碟、曲目单、心境那一行
+//   本来就是合格的，动它们纯属把好东西改坏。
+const MUSIC_SKIN = {
+  bg: "#1d1a17", bg2: "#241f1b", ink: "#efe9dd",
+  fog: "rgba(239,233,221,.45)", sub: "rgba(239,233,221,.66)",
+  line: "rgba(239,233,221,.13)", tint: "#c8a06a", accent: "#c8a06a"
+};
+function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack }) {
+  // 这一页从这儿往下都用听歌房那套色，不用她的主题色
+  const t = MUSIC_SKIN;
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
   // String({}) 会变成 [object Object] 印在曲目单上——模型偶尔把一栏写成对象
   const S = v => (v == null || typeof v === "object") ? "" : String(v).trim();
   // 模型/存档里偶尔混进 null 或字符串；不滤掉的话下一行 x.cover 当场抛
   const songs = A(pl && pl.songs).filter(x => x && typeof x === "object");
-  if (!songs.length) return h("div", { className: "py-6" }, h(Empty, {
+  const shell = (kids, pad) => h("div", { className: "h-full min-h-0 flex flex-col", style: {
+    // 一盏灯从左上打下来：底纹铺在【最外那层外壳】上，不跟着内容滚
+    background: MUSIC_SKIN.bg,
+    backgroundImage: "radial-gradient(120% 70% at 18% -6%, rgba(200,160,106,.13), transparent 62%)"
+  } },
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "歌单"),
+      onGen ? h("button", { onClick: () => onGen(), disabled: !!busy, "aria-label": "重出一张", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: t.ink })) : h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: pad || "6px 20px 28px" } }, kids));
+  if (!songs.length) return shell(h("div", { className: "py-6" }, h(Empty, {
     text: T("他还没有歌单"),
     sub: T("「一起听」里给他生成一张，这里就能看到")
   }), h("button", {
@@ -4991,7 +5013,7 @@ function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
     disabled: !!busy,
     className: "w-full mt-4 py-3 active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: busy ? .5 : 1 }
-  }, busy ? T("正在想他会听什么…") : T("给他生成一张")));
+  }, busy ? T("正在想他会听什么…") : T("给他生成一张"))));
   const name = S(pl.name) || "歌单";
   const seed = phoneStableHash(name);
   const hue = seed % 360;
@@ -5015,7 +5037,7 @@ function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
       position: "absolute", left: "50%", top: "50%", marginLeft: -3, marginTop: -3,
       width: 6, height: 6, borderRadius: 999, background: t.bg
     } }));
-  const eyebrow = s => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog } }, s);
+  const eyebrow = s => h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".28em", color: t.fog } }, s);
   const act = (label, on, danger) => h("button", {
     onClick: e => { e.stopPropagation(); on(); },
     className: "active:opacity-60",
@@ -5024,11 +5046,11 @@ function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
       border: "1px solid " + (danger ? t.accent : t.line), color: danger ? t.accent : t.ink
     }
   }, label);
-  return h("div", { style: { animation: "fadeUp .3s ease both" } },
+  return shell(h("div", { style: { animation: "fadeUp .3s ease both" } },
     // 碟 + 这张叫什么
     h("div", { className: "flex items-center", style: { gap: 15, padding: "2px 0 18px" } }, disc,
       h("div", { className: "min-w-0", style: { flex: 1 } },
-        eyebrow("SIDE A"),
+        eyebrow("A 面"),
         // 歌单名顶栏已经写着了，这儿不再抄一遍——碟边上该说的是顶栏说不了的：
         // 这张有多少首、跟哪儿是同一张、以及点一首会发生什么
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.15, color: t.ink, marginTop: 7 } },
@@ -5072,7 +5094,7 @@ function MusicView({ pl, char, t, onGen, busy, onPlay, onPeek }) {
                 tier: "open", label: "歌单",
                 title: S(s2.title) + (S(s2.artist) ? " · " + S(s2.artist) : ""), text: note
               }), true) : null) : null)));
-    }));
+    })));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -5241,7 +5263,7 @@ function renderPhoneModule(key, d, ctx) {
   // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
   if (key === "music") return h(MusicView, {
     pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
-    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek
+    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack
   });
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });

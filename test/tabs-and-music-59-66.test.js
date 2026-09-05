@@ -47,7 +47,9 @@ test("歌单是一张碟的曲目单，不是一排小方图", () => {
   assert.ok(mv.indexOf("width: 34, height: 34") < 0, "每行还挂着一张小方图");
   assert.match(mv, /repeating-radial-gradient\(circle at 50% 50%/, "碟没有纹路——那就只是个圆");
   assert.match(mv, /width: 6, height: 6, borderRadius: 999, background: t\.bg/, "碟中间没有那个孔");
-  assert.match(mv, /eyebrow\("SIDE A"\)/, "没有面");
+  // v62.61 眉标去英文（no-english-titles）：唱片上「A 面」本来就是中文的说法，
+  // 不是硬翻出来的。面这件事本身要还在。
+  assert.match(mv, /eyebrow\("A 面"\)/, "没有面");
   // 号要挂在左边、看得见：原来是 11px 的灰数字，等于没有
   assert.match(mv, /fontSize: 16, lineHeight: 1\.25, color: on \? t\.ink : t\.fog/, "曲目号还是一串看不见的小灰字");
 });
