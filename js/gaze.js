@@ -304,7 +304,9 @@
   }
 
   // ---- 信纸页面(嵌在状态卡里,参考 2026-08-17 Lisa 给的拍立得信纸样张) ----
-  const EN = { "me.person": "WHO SHE IS", "me.soft": "SOFT SPOTS", "me.like": "WEAKNESS FOR", "me.recent": "THESE DAYS", "me.unread": "STILL UNREAD", "us.what": "WHAT WE ARE", "us.how": "OUR WAYS", "us.marks": "MILESTONES", "us.elephant": "UNSPOKEN", "us.want": "HOPES & FEARS" };
+  // ⚠️原来这儿有一张 EN 表（WHO SHE IS / SOFT SPOTS / MILESTONES …），
+  //   专门用来在中文标题上面再压一行英文小字。按 no-english-titles，
+  //   那行删掉之后这一页照样说得明白——它就是装饰，所以整张表一起删。
   const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
   const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
   function GazePage({ charId, charName, uName, ta, onSeed, seedBusy }) {
@@ -326,7 +328,6 @@
       h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px), linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
           tape(),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 4, color: GOLD, marginBottom: 4 } }, EN[openK] || ""),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
           box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
@@ -356,12 +357,37 @@
       document.body);
     return h("div", { style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },
       h("div", { style: { textAlign: "right", padding: "2px 6px 14px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 5, color: "rgba(172,138,91,.55)", marginTop: 3 } }, side === "me" ? "SHE, THROUGH " + (who === "她" ? "HER" : who === "TA" ? "THEIR" : "HIS") + " EYES" : "LOVE IS ALL YOU NEED")),
-      h("div", { style: { display: "flex", gap: 10, marginBottom: 16 } },
-        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => h("button", { key: k, onClick: () => setSide(k), style: { position: "relative", flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3, borderRadius: 999, border: "1px solid " + (side === k ? GOLD : "rgba(172,138,91,.35)"), color: side === k ? "#fff" : GOLD, background: side === k ? GOLD : "rgba(255,255,255,.45)" } },
-          label,
-          [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null))),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们")),
+        // 原来这儿挂着一行 "SHE, THROUGH HER EYES" 的英文眉标——
+        // 上面那行「关于我」已经把话说完了，它只是装饰（no-english-titles）。
+      // ── 两栏＝挂在页头的两条布书签（v62.66）──────────────────────
+      // 审美审计 2026-09-04：这两个 tab 是填色药丸，只靠色差区分——
+      // 换个 app 照样成立（tabs-not-plain-pills）。
+      // 这一页现实里是【他手写的一册手记】，手记分栏靠的是夹在里面的书签：
+      // 选中那条垂得长、上了色、底下收一个尖口；没选中的短一截、淡着。
+      // 形状照的是解梦馆那份（规则文件把布书签列为合规范例）。
+      // ⚠️选中态同时变【长度、颜色、尖口】三样，不只靠色差（无障碍那一条）。
+      h("div", { style: { display: "flex", gap: 10, marginBottom: 18, alignItems: "flex-start" } },
+        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => {
+          const on = side === k;
+          return h("button", { key: k, onClick: () => setSide(k), "aria-pressed": on ? "true" : "false",
+            className: "active:opacity-80",
+            style: {
+              position: "relative", flex: 1, minHeight: 40,
+              padding: on ? "9px 0 17px" : "7px 0 13px",
+              fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3,
+              color: on ? "#fff" : GOLD,
+              background: on ? GOLD : "rgba(172,138,91,.16)",
+              border: "none", borderRadius: "0 0 2px 2px",
+              // 书签底下那个尖口：布带剪成燕尾
+              clipPath: "polygon(0 0,100% 0,100% 100%,50% " + (on ? "72%" : "78%") + ",0 100%)",
+              WebkitClipPath: "polygon(0 0,100% 0,100% 100%,50% " + (on ? "72%" : "78%") + ",0 100%)",
+              boxShadow: on ? "0 3px 8px -4px rgba(172,138,91,.7)" : "none"
+            }
+          },
+            label,
+            [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null);
+        })),
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
         // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替他自动写过但失败了」
@@ -379,7 +405,6 @@
         return h("div", { key: fk, onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
           unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 3.5, color: GOLD, marginBottom: 3 } }, EN[fk] || ""),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
           (function () {

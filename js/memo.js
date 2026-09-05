@@ -435,7 +435,26 @@
     });
     const notes = (data.notes || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.updatedTs || 0) - (a.updatedTs || 0));
 
-    const tabBtn = (k, lbl) => h("button", { onClick: () => setTab(k), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 0", color: tab === k ? "#fff" : t.sub, background: tab === k ? ACCENT : "transparent", borderRadius: 12 } }, lbl);
+    // ── 两栏＝本子边上伸出来的索引页签（v62.66）────────────────────────
+    // 审美审计 2026-09-04：这两个 tab 是「ACCENT 填色的药丸，只靠色差区分」——
+    // 药丸是哪儿都能用的那一种，换个待办 app 照样成立（tabs-not-plain-pills）。
+    // 备忘录现实里是【一个本子】，本子分栏靠的是索引页签：上圆下方、贴着页边，
+    // 选中那张满高、纸色，直接长进底下那一页里；没选中的往下缩一截、暗着。
+    // 形状照的是账本 TallyView 那份（规则文件把它列为合规范例），不是另发明一套。
+    // ⚠️选中态不能只靠色差：这里同时变了【高度、位置、底色】三样（无障碍那一条）。
+    const tabBtn = (k, lbl) => h("button", {
+      onClick: () => setTab(k), className: "active:opacity-70",
+      "aria-pressed": tab === k ? "true" : "false",
+      style: {
+        flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 14,
+        padding: tab === k ? "11px 18px 10px" : "9px 16px 8px",
+        marginTop: tab === k ? 0 : 6,
+        borderRadius: "9px 9px 0 0",
+        background: tab === k ? t.bg2 : "rgba(127,127,127,.10)",
+        color: tab === k ? t.ink : t.sub,
+        boxShadow: tab === k ? "none" : "inset 0 -1px 0 rgba(0,0,0,.06)"
+      }
+    }, lbl);
 
     // 日历里【我的】日程也在这儿露一面（她 2026-08-26：「在日历建的日程，备忘录那边也要体现出来」）。
     // 只读：数据仍然只有日历那一份，点了跳回日历改。不做双写——改了一边没改另一边、
@@ -450,7 +469,11 @@
         className: "w-full active:opacity-70 flex items-center gap-2.5",
         style: { textAlign: "left", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 12px" }
       },
-        h("span", { className: "shrink-0", style: { fontSize: 15 } }, e.icon || "🗓️"),
+        // e.icon 是她/模型自己填的，照原样；没有的时候画一张小日历，别退回 emoji
+        e.icon ? h("span", { className: "shrink-0", style: { fontSize: 15 } }, e.icon)
+          : h("svg", { className: "shrink-0", width: 14, height: 14, viewBox: "0 0 14 14", "aria-hidden": "true" },
+              h("rect", { x: 1, y: 2.5, width: 12, height: 10.5, rx: 1.6, fill: "none", stroke: t.fog, strokeWidth: 1.1 }),
+              h("path", { d: "M1 5.6h12M4.2 1v2.6M9.8 1v2.6", stroke: t.fog, strokeWidth: 1.1, strokeLinecap: "round" })),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } },
@@ -464,26 +487,33 @@
         h("button", { onClick: e => { e.stopPropagation(); autoReactDone(r); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, done ? "✓" : ""),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + (r.startTime ? " " + r.startTime + (r.endTime ? "–" + r.endTime : "") : "") + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 💬" + r.comments.length : "") + ((r.visibleTo || []).length ? " · 👁" + r.visibleTo.length : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + (r.startTime ? " " + r.startTime + (r.endTime ? "–" + r.endTime : "") : "") + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 批注 " + r.comments.length : "") + ((r.visibleTo || []).length ? " · 给 " + r.visibleTo.length + " 人看" : ""))),
         !done && days != null && h("span", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: cdColor(days, t), background: cdColor(days, t) + "18", borderRadius: 999, padding: "3px 10px" } }, cdLabel(days)));
     };
     // 备忘行
     const noteRow = n => h("button", { key: n.id, onClick: () => setDetail({ kind: "note", id: n.id }), className: "w-full active:opacity-70", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px" } },
       h("div", { className: "flex items-center gap-2" },
-        n.pinned && h("span", { style: { fontSize: 12 } }, "📌"),
+        // 📌 在她机器上会渲成豆腐块（Unicode 当图标一律换成 SVG）
+        n.pinned && h("svg", { width: 11, height: 12, viewBox: "0 0 11 12", "aria-hidden": "true", style: { flexShrink: 0 } },
+          h("path", { d: "M4 1h3l-.5 3.4 2.2 1.9v1H5.9V11l-.4 .6-.4-.6V7.3H1.3v-1L3.5 4.4z", fill: t.fog })),
         h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.title || "（无标题）")),
       n.body && h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 3, lineHeight: 1.5, maxHeight: 34, overflow: "hidden" } }, n.body),
-      ((n.comments || []).length || (n.visibleTo || []).length) && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, ((n.comments || []).length ? "💬" + n.comments.length + "  " : "") + ((n.visibleTo || []).length ? "👁" + n.visibleTo.length : "")));
+      ((n.comments || []).length || (n.visibleTo || []).length) && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, ((n.comments || []).length ? "批注 " + n.comments.length + "  " : "") + ((n.visibleTo || []).length ? "给谁看 " + n.visibleTo.length : "")));
 
     // 详情
     const curReminder = detail && detail.kind === "reminder" ? (data.reminders || []).find(r => r.id === detail.id) : null;
     const curNote = detail && detail.kind === "note" ? (data.notes || []).find(n => n.id === detail.id) : null;
     const visTarget = visFor && (visFor.kind === "reminder" ? (data.reminders || []).find(r => r.id === visFor.id) : (data.notes || []).find(n => n.id === visFor.id));
 
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "备忘录", en: "Memo", onBack: backOut,
+    // 本子的纸：底铺在最外那层外壳上，顶栏透上来（mobile-ui-layout §3.5）
+    const notebook = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .65 }) : { background: t.bg };
+    return h("div", { className: "h-full flex flex-col", style: notebook },
+      h(Head, { zh: "备忘录", onBack: backOut, bg: "transparent",
         right: h("button", { onClick: () => setForm({ kind: tab === "notes" ? "note" : "reminder" }), className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 24, color: ACCENT, lineHeight: 1 } }, "＋") }),
-      h("div", { className: "shrink-0 flex gap-2 px-5 pb-2" }, tabBtn("reminders", "⏰ 提醒"), tabBtn("notes", "📝 备忘")),
+      // 页签那一行底下压一道线：它是「本子的页边」，选中那张用纸色盖住自己那一段——
+      // 线断在哪儿，就说明翻开的是哪一页。
+      h("div", { className: "shrink-0 flex px-5", style: { gap: 3, alignItems: "stretch", background: "linear-gradient(to top," + t.line + " 0 2px,transparent 2px)" } },
+        tabBtn("reminders", "提醒"), tabBtn("notes", "备忘")),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-6" },
         tab === "reminders"
           ? h("div", null, calSection(),
@@ -519,7 +549,7 @@
           h("button", { onClick: () => { setForm({ kind: "note", item: curNote }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "编辑")),
         curNote.body && h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", marginTop: 4 } }, curNote.body),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "📌 置顶"),
+          h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "置顶"),
           h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
         h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: uName, toast: props.toast, itemId: curNote.id,
           itemDesc: "备忘 · " + (curNote.title || "") + (curNote.body ? "：" + curNote.body.slice(0, 120) : ""),

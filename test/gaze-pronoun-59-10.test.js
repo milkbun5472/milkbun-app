@@ -24,10 +24,13 @@ test("Ta 眼里复用查手机已经验证过的性别称谓判断", () => {
     "Ta 眼里没有接收角色称谓");
 });
 
-test("Ta 眼里的空态、按钮、历史标题和英文副题都跟着性别走", () => {
+test("Ta 眼里的空态、按钮、历史标题都跟着性别走", () => {
   assert.match(gaze, /const say = s => who === "他" \? s : String\(s \|\| ""\)\.replace\(\/他\/g, who\)/);
   ["他还没往这想过。", "他从前是这么想的", "他从前都怎么写的", "他还没写过什么。", "他在想…", "让他写写看"]
     .forEach(s => assert.match(gaze, new RegExp("say\\(\\\"" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\\"\\)"), s + " 仍然是写死的称谓"));
-  assert.match(gaze, /who === "她" \? "HER" : who === "TA" \? "THEIR" : "HIS"/,
-    "英文副题仍然把女生写成 HIS");
+  // v62.66 那行英文副题（"SHE, THROUGH HIS EYES"）按 no-english-titles 删掉了：
+  // 它上面那行「关于我」已经把话说完了。所以这里不再有 HIS/HER/THEIR 要跟着变——
+  // 判词跟着搬到【还在的那几处】：中文称谓一处都不许写死。
+  assert.doesNotMatch(gaze, /"SHE, THROUGH "/, "英文副题又回来了");
+  assert.doesNotMatch(gaze, /const EN = \{ "me\.person"/, "那张只用来压英文小字的表又回来了");
 });
