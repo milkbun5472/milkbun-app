@@ -54,18 +54,24 @@ test("底纹是唱片的同心沟纹，不是又一块木头", () => {
   //   内袋纸的纸纹本来就是平行线。改成对着【两层各自该是什么】问：
   const groove = LT.slice(LT.indexOf("  const disc ="), LT.indexOf("  const crate = nav"));
   const sleeveBlk = LT.slice(LT.indexOf("  const sleeve ="), LT.indexOf("  const disc ="));
-  assert.match(LT, /const crate = nav === "play" \? disc : sleeve;/, "两层底没按有没有碟分开");
+  // v62.89：播放页外壳退回纯底，沟纹改成贴在滚动区顶上的【一片】（discField），往下 mask 淡出——
+  // 她拿网易云那页对照：「它下面是会 fade 掉的」。整页压深那版把标题和封套也压进了暗处。
+  assert.match(LT, /const crate = nav === "play" \? \{ background: t\.bg \} : sleeve;/, "播放页外壳没退回纯底");
+  assert.match(LT, /const discField = nav === "play" \? h\("div", \{ "aria-hidden": "true"/, "沟纹那一片没了");
+  assert.match(LT, /WebkitMaskImage: discFade, maskImage: discFade \}, disc\)/, "沟纹没往下淡出");
+  assert.match(LT, /rgba\(0,0,0,1\) 260px, rgba\(0,0,0,0\) 460px/, "淡出的位置变了——标题该坐在余纹上、封套坐在纯底上");
+  assert.match(LT, /style: \{ position: "relative", isolation: "isolate" \} \}, discField,/, "沟纹那片没垫在内容底下（没有 isolate 它会盖在字上面）");
   // 木头那一版的痕迹一处都不许回来
   assert.doesNotMatch(CODE, /#c25a4a|木纹|wood/, "木台面那一版又长回来了");
   // 碟套之所以是碟套，不是「一张纸」：中间有碟压出来的那一圈印
   assert.match(sleeveBlk, /radial-gradient\(circle at 50% 44%/, "内袋中间没有碟压出来的那圈印，那就只是一张纸了");
   assert.doesNotMatch(sleeveBlk, /repeating-radial-gradient/, "没有碟的那三格不该再铺沟纹");
-  assert.match(groove, /repeating-radial-gradient\(circle at 50% 240px/, "没有沟纹");
+  assert.match(groove, /repeating-radial-gradient\(circle at 50% 130px/, "没有沟纹");
   // 圆心得跟播放页那张碟对齐，不然纹是纹、碟是碟，两回事
   const centers = [...new Set((CODE.match(/circle at 50% (\d+)px/g) || []))];
   assert.equal(centers.length, 1, "圆心不止一个：" + centers.join(" / ") + "——所有圈得同心");
   // 暖来自主题的 accent，不是硬写一个颜色
-  assert.match(CRATE, /radial-gradient\(circle at 50% 240px," \+ t\.accent/, "没有那层暖底");
+  assert.match(CRATE, /radial-gradient\(circle at 50% 130px," \+ t\.accent/, "没有那层暖底");
   const hard = CODE.match(/#[0-9a-f]{6}/gi) || [];
   assert.deepEqual(hard, [], "木头里写死了颜色：" + hard.join(" "));
   // 每套沟纹的【周期】＝那一行里最大的那个 px。

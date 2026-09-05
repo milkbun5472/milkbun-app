@@ -44,7 +44,7 @@ test("2 和 4 之间补了两档 3 格宽的", () => {
 
 test("情侣空间和一起听默认就是一条（4×1），不占两行", () => {
   assert.deepEqual(F.HOME_SIZE_DEFAULT, { w_us: "wide", w_music: "wide", w_memo: "wide", w_recent: "large" });
-  // 字条夹要能翻，一条的高度只够露一张：它默认就是 4×2（v62.87）
+  // 字条夹要能翻，一条的高度只够露一张：它默认就是 4×2（v62.92）
   assert.deepEqual(F.homeItemSpan("w_recent", { kind: "widget", which: "recent" }, {}), [4, 2]);
   assert.deepEqual(F.homeItemSpan("w_us", { kind: "widget", which: "us" }, {}), [4, 1]);
   assert.deepEqual(F.homeItemSpan("w_music", { kind: "widget", which: "music" }, {}), [4, 1]);

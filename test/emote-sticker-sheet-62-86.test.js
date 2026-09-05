@@ -56,12 +56,12 @@ test("换字典是翻那一版贴纸的角，不是一排药丸", () => {
 
 test("每张表情是一张贴纸：白描边 + 投影 + 按 id 定死的一点点歪", () => {
   assert.match(seg, /border: "3px solid " \+ \(on \? t\.accent : "#fff"\)/, "贴纸没有 die-cut 白边");
-  assert.match(seg, /transform: on \? "none" : "rotate\(" \+ stickerTilt\(em\.id\) \+ "deg\)"/, "挑中那张没被按平");
-  const tiltSrc = src.slice(src.indexOf("const stickerTilt ="), src.indexOf("\nfunction EmoteMatrix"));
-  const stickerTilt = new Function("qhash", "return (" + tiltSrc.slice(tiltSrc.indexOf("id =>")).replace(/;\s*$/, "") + ")")(
+  assert.match(seg, /transform: on \? "none" : "rotate\(" \+ tiltById\(em\.id\) \+ "deg\)"/, "挑中那张没被按平");
+  const tiltSrc = src.slice(src.indexOf("const tiltById ="), src.indexOf("\nfunction EmoteMatrix"));
+  const tiltById = new Function("qhash", "return (" + tiltSrc.slice(tiltSrc.indexOf("id =>")).replace(/;\s*$/, "") + ")")(
     s => { let x = 0; for (let i = 0; i < s.length; i++) { x = (x * 31 + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); });
   // 同一个 id 每次都得是同一个角度，否则滚一下整页贴纸都在抖
-  assert.equal(stickerTilt("a3"), stickerTilt("a3"));
+  assert.equal(tiltById("a3"), tiltById("a3"));
   // ⚠️拿【真实形状】的 id 来问，而且要拿【同一版里挨着的那一批】——
   //   自带的那版是 "em_def_" + i（app.js:215），批量导入的是 "em_" + Date.now() + "_" + 随机。
   //   随手编几个短 id 是分得开的，真 id 分不开——那条断言就是白写的（stub-from-the-writer.md）。
@@ -69,10 +69,10 @@ test("每张表情是一张贴纸：白描边 + 投影 + 按 id 定死的一点�
   //   而且不报任何错。所以这里专挑挨着的那六个问。
   assert.match(fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), /id: "em_def_" \+ i/, "自带表情的 id 不长这样了，这条断言要跟着改");
   const near = ["em_def_0", "em_def_1", "em_def_2", "em_def_3", "em_def_4", "em_def_5"];
-  const angles = new Set(near.map(stickerTilt));
+  const angles = new Set(near.map(tiltById));
   assert.ok(angles.size >= 3, "同一版里挨着的六张歪成同一个角度，等于没歪：" + [...angles].join(","));
   const far = ["em_1756000000000_12345", "em_1756000000001_54321", "em_1756000000002_98765"];
-  assert.ok(new Set(far.map(stickerTilt)).size >= 2);
+  assert.ok(new Set(far.map(tiltById)).size >= 2);
   [...angles].forEach(a => assert.ok(Math.abs(a) <= 3, "歪过头了：" + a));
 });
 
