@@ -30,35 +30,60 @@ test("标题和未读挪到压条上——字要待在自己有底的东西上",
   assert.doesNotMatch(bar, /color: "rgba\(255,255,255/, "压条上的字写死了白色，深色主题会看不见");
 });
 
-test("转盘是一只木转盘，不是一张饼图", () => {
+test("转盘是一个圆，不是一张饼图——而且大小跟着格子走", () => {
   const disc = cut("function WheelDisc(", "// 转盘顶上那根【簧片指针】");
-  assert.match(disc, /url\(#wkWheelRim\)/, "外面那圈木框没了");
-  assert.match(disc, /nails\.push/, "框上那圈铜钉没了");
-  assert.match(disc, /url\(#wkWheelHub\)/, "正中那颗铜轴没了");
-  // 扇区之间是墨线，不是白线；白线是饼图的画法
+  // v63.18 她要「直接改成圆的变大，不要外面的框了」：木框和铜钉是【撤掉】的，
+  // 不是留在原地调透明度——所以这两条判的是它们真的不在了。
+  assert.doesNotMatch(disc, /wkWheelRim/, "外面那圈木框又回来了");
+  assert.doesNotMatch(disc, /nails\.push/, "框上那圈铜钉又回来了");
+  assert.match(comp, /const R = 48;/, "扇区没铺满，盘中间会空一圈");
+  // 撤掉框之后，让它仍然不是饼图的是这几样
   assert.match(disc, /stroke: "rgba\(58,44,30,\.5\)"/, "扇区之间又变回白线了");
-  // 扇区半径必须给木框让出地方
-  assert.match(comp, /const R = 39;/, "扇区又铺到边上了，木框和铜钉会被压没");
+  assert.match(disc, /url\(#wkWheelHub\)/, "正中那颗铜轴没了");
   assert.doesNotMatch(comp, /const WHEEL_COLORS = \["#f2cfd2"/, "又退回那八个糖果色了");
+  // 盘不许写死像素：写死的话格子调大它还是那么小
+  const wid = cut("function WheelWidget(", "// 电子木鱼小组件");
+  assert.match(wid, /h\(WheelDisc, \{ items: items, angle: 0, spinning: false, size: "100%"/, "盘又被钉死成固定像素了");
+  assert.doesNotMatch(wid, /width: 86, height: 86/, "那个写死的 86px 还在");
 });
 
 test("指针是一根簧片，不是一个填色三角", () => {
   const nd = cut("function WheelNeedle(", "// 全屏大转盘");
   assert.match(nd, /url\(#wkNeedle\)/);
   // 小组件和全屏共用同一根：只写一处，别哪天只改了其中一个
-  const uses = comp.match(/h\(WheelNeedle, \{ size: \d+ \}\)/g) || [];
+  const uses = comp.match(/h\(WheelNeedle, \{ size: [^}]+\}\)/g) || [];
   assert.equal(uses.length, 2, "簧片指针该有两处在用（小组件 + 全屏），实际 " + uses.length);
+  assert.match(nd, /typeof size === "number" \? Math\.max\(16, size \* 0\.2\) : size/, "簧片不认 \"100%\"，跟着盘一起放大就做不到");
   assert.doesNotMatch(comp, /borderTop: "18px solid #e8b04d"/, "全屏那个填色三角还在");
   assert.doesNotMatch(comp, /borderTop: "8px solid " \+ t\.accent/, "小组件那个填色三角还在");
 });
 
-test("一起听是一张唱片从纸套里抽出来，不是圆头像加进度条", () => {
+test("一起听是一张压在唱机上的黑胶，碟心贴着照片、唱臂搭在盘面上", () => {
+  const vd = cut("function VinylDisc(", "function MusicWidget(");
+  assert.match(vd, /repeating-radial-gradient\(circle at 50% 50%, #24242a/, "碟上的纹路没了");
+  assert.match(vd, /const armDeg = 9 \* Math\.max/, "唱臂不跟着进度走，那它就只是个装饰");
+  assert.match(vd, /transformOrigin: "84px 12px"/, "唱臂的支点跑了，会被卡片裁掉");
+  assert.match(vd, /background: cover \? "center\/cover no-repeat url\(" \+ cover/, "碟心那张照片没贴上去");
   const mw = cut("function MusicWidget(", "// 全局悬浮迷你播放器");
-  assert.match(mw, /repeating-radial-gradient\(circle at 50% 50%, #26262b/, "碟上的纹路没了");
-  assert.match(mw, /inset -6px 0 10px -6px rgba\(0,0,0,\.5\)/, "纸套的套口没了");
-  // 进度＝唱针走到哪儿，不是通用那条圆角条
-  assert.match(mw, /left: "calc\(4px \+ " \+ \(frac \? frac \* 100 : 0\) \+ "% \* 0\.96\)"/, "唱针没了");
-  assert.doesNotMatch(mw, /height: 3, borderRadius: 999, background: "rgba\(0,0,0,0\.08\)"/, "又退回那条通用进度条了");
+  // v63.08 那版的纸套整个撤掉了（她看完参考图要的是整张碟）
+  assert.doesNotMatch(mw, /inset -6px 0 10px -6px/, "纸套还留在原地");
+  assert.match(mw, /const tall = !!\(rows && rows\.rows >= 2\)/, "盘的大小没跟着格子走");
+  assert.match(mw, /tall \? 108 : 62/, "两行高的大卡该给大盘");
+  assert.match(mw, /mmss\(cur\)/, "走了多久那一行没了");
+});
+
+test("碟心的照片能自己换，而且那一下不会顺手把一起听打开", () => {
+  const mw = cut("function MusicWidget(", "// 全局悬浮迷你播放器");
+  assert.match(mw, /onSetDisc && !editMode && !compact/, "换照片那颗钮不见了，或者整理态还露着");
+  assert.match(mw, /e\.stopPropagation\(\); e\.preventDefault\(\); if \(picker\.current\)/, "点它会连带触发整张卡的 onOpen");
+  assert.match(mw, /discImg \? "换照片" : "加照片"/);
+  // 一路要接到底：Home 得收得到，app.js 得把真正会落盘的那个函数递进来
+  assert.match(comp, /onSetDisc: onSetDisc, onOpen/, "派发那行没把它喂给组件");
+  assert.match(comp, /\n  onSetDisc,/, "Home 没接 onSetDisc");
+  // ⚠️一起听那一页早就收着同名的 prop，所以不能只 grep 名字——要判它真的递进了【主屏】那一份
+  const app = fs.readFileSync(P("js/app.js"), "utf8");
+  const homeProps = app.slice(app.indexOf("React.createElement(Home, {"), app.indexOf("onEditProfile: () => setProfileOpen(true)"));
+  assert.match(homeProps, /onSetDisc: setListenDisc,/, "app.js 没把落盘的那个函数递给主屏那份");
 });
 
 test("木鱼放在蒲团上，不是浮在一块发白的玻璃碟上", () => {

@@ -698,7 +698,9 @@
       ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
     return h("div", { className: "h-full flex flex-col", style: arenaFloor2 },
       // 头
-      h("div", { className: "shrink-0", style: { background: t.bg } },
+      // ⚠️底铺在外壳上了，顶栏就不能再自己刷一档平色——那样顶上会横着一条
+      //   没盖住的带子（mobile-ui-layout.md §3.5）。
+      h("div", { className: "shrink-0", style: { background: "transparent" } },
         // ⚠️顶栏自己吃刘海（mobile-ui-layout.md §1：顶栏自己吃 safe-area-inset-top，用公共 safeTop(px)）。
         //   这一条原来只写了 pt-4＝16px，在刘海屏上根本让不开——返回键和右边那两颗牌
         //   直接压在时钟和电量上（她 2026-09-01 截图：「这个返回键又太上了」）。

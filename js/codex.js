@@ -5,6 +5,23 @@
 // 1. b 用「一句话点题 + \n· 分点」，别糊成一大段；渲染处 whiteSpace:pre-wrap 让换行生效。
 // 2. 说【在哪儿点】和【它到底会怎样】，不要写产品宣传语——她来查这一页，
 //    多半是「这东西在哪」或者「点了会发生什么」，不是想被介绍一遍。
+// 这一页现实里是什么？就是它自己写着的那句——【随机器附赠的那本说明书】。
+// 所以底是那种薄纸：极淡的横纹、纸边压暗，左上角两枚订书钉。
+// 跟库里已有的分得开：世界书是活页夹（左边一列装订孔），剪贴簿是牛皮，这本是订起来的。
+// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
+function manualSkin(t) {
+  if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
+  const k = t.ink, L = [];
+  // 左上角两枚订书钉：一枚一段短斜线，斜着钉进去的那种
+  [["left 15px top 30px", "-24deg"], ["left 15px top 52px", "-24deg"]].forEach(([pos]) => {
+    L.push("linear-gradient(-24deg," + k + "00 0 3px," + k + "5a 3px 12px," + k + "00 12px)"
+      + " no-repeat " + pos + "/16px 7px");
+  });
+  L.push("repeating-linear-gradient(180deg," + k + "00 0 25px," + k + "06 25px 26px)");
+  L.push("radial-gradient(130% 92% at 50% 46%," + k + "00 58%," + k + "12 100%)");
+  L.push(t.bg);
+  return { background: L.join(",") };
+}
 (function () {
   const DB = [
     // —— 聊天 ——
@@ -108,8 +125,8 @@
         h("div", { style: { height: 1, background: t.line, opacity: .7 } }));
     };
 
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "攻略", sub: "这台手机的说明书", onBack: props.onBack }),
+    return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+      h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { WebkitOverflowScrolling: "touch" } },
         // 最上面这一条：不会就问秋秋（她 2026-09-04 点名）。点得进去，不是一句摆设。
         h("button", {

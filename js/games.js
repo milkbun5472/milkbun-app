@@ -706,6 +706,15 @@
     if (!g || !w) return false;
     return g === w || (w.length >= 2 && g.indexOf(w) >= 0);
   }
+  // 卧底里被投出的平民留一句（真冤）：不服、点名怀疑真正的卧底、或自嘲——进公开日志。
+  async function genSpyOutWords(api, out, allClues, votes) {
+    const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
+    const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 800 });
+    const r = extractJSON(raw) || {};
+    return String(r.say || "").trim().slice(0, 300);
+  }
   // AI 卧底出局后的最后一手：按水平真猜。言秋座位亲手猜，票没回来就按「放弃翻盘」处理，绝不代猜。
   async function genSpyGuess(api, out, allClues, mode, turnId) {
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") || "（还没人描述过）";
@@ -979,6 +988,15 @@
           const say = String(raw && raw.say || "").trim();
           if (say) pushLog([{ type: "clue", name: out.name, text: say.slice(0, 500) }]);
         }).catch(function () { /* 票已由幂等 turn_id 保护；离线时不让 Gemini 冒充补话 */ });
+      }
+      // 被冤枉的平民留一句再走（真人自己会说话，言秋走上面的离场票）
+      if (!out.isUser && !outIsEngineer) {
+        setBusy(true);
+        genSpyOutWords(api, out, allClues.filter(function (c) { return c.name; }), votes)
+          .then(function (say) { if (say) pushLog([{ type: "clue", name: out.name, text: say }]); })
+          .catch(function () { /* 遗言可缺席 */ })
+          .finally(function () { setBusy(false); settleAfterOut(next); });
+        return;
       }
       settleAfterOut(next);
     };
@@ -1357,6 +1375,19 @@
     let max = -1, tied = []; Object.keys(cnt).forEach(function (nm) { if (cnt[nm] > max) { max = cnt[nm]; tied = [nm]; } else if (cnt[nm] === max) tied.push(nm); });
     const pick = tied.length === 1 ? tied[0] : null;
     return (!pick || pick === KILL_SKIP) ? null : pick; // 空刀/无有效票 → 不杀
+  }
+
+  // 硬公开声明的判式（真人发言和出局遗言共用一份，别各写各的）
+  const WOLF_HARD_CLAIM = /(?:我是|我就是|我才是|我跳|我来跳|我起跳).{0,8}预言家|(?:我|昨晚)(?:验了?|查了?).{1,24}(?:查杀|金水|是狼|是好人)|(?:我查杀|我的?金水|我给.{1,16}金水)/;
+  // 出局遗言：夜里倒下的、白天被放逐的各留 1~2 句——遗言进公开记录（shortLog 收 speech），
+  // 后面的发言和投票都看得见它。神职可以用这最后一句报出关键信息，也可以憋住；
+  // 狼装无辜、平民点名怀疑。被枪带走 / 被自爆带走的来不及留（突然死亡无遗言）。
+  async function genWolfLastWords(api, deads, how, log) {
+    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv; }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 1600 });
+    const r = extractJSON(raw) || {};
+    return Array.isArray(r.words) ? r.words : [];
   }
 
   // 立场纪要 → 文本（喂模型保持前后一致）
@@ -1840,7 +1871,9 @@
       nightItems.push({ type: "death", text: deathText });
       pushLog(nightItems);
       setNightStage(null);
-      concludeDeaths(next, deadSet, deadNames, n, function (l) { startDay(l, n); });
+      const proceed = function () { concludeDeaths(next, deadSet, deadNames, n, function (l) { startDay(l, n); }); };
+      const dying = deadNames.map(function (nm) { return next.find(function (p) { return p.name === nm; }); }).filter(function (p) { return p && !p.isUser; });
+      if (dying.length) wolfFarewell(dying, next, "night", proceed); else proceed();
     };
     // 结算一批死亡：先处理猎人/狼王开枪(被毒不能开)，再判胜负、再继续
     const concludeDeaths = function (list, causeByName, deadNames, dayNum, cont) {
@@ -1984,11 +2017,48 @@
       } catch (e) { props.toast && props.toast("发言失败：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
     };
+    // 出局遗言：AI 合一笔调用；言秋座位单独 CC 票亲笔（失败缺席、不代笔、不挡牌局）。
+    // 遗言按 speech 入日志（shortLog 收得到），硬声明照样入台账——它是真发言，不是装饰。
+    const wolfFarewell = function (deads, list, how, cont) {
+      (async function () {
+        setBusy(true);
+        try {
+          const isEng = function (d) { return !!d.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(d.key)); };
+          const engs = deads.filter(isEng), ais = deads.filter(function (d) { return !isEng(d); });
+          engs.forEach(function (d) {
+            if (cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return;
+            window.CCSeat.ask({
+              tool: "game_turn", game: "werewolf_lastwords",
+              turn_id: gameRunId.current + ":lastwords:" + d.key + ":" + cycle,
+              char_id: d.key,
+              sys: "「狼人杀」你刚出局（" + (how === "night" ? "昨夜倒下" : "白天被放逐，身份不公开") + "）。留一句 1~2 句的遗言，全场都听得见：可以报出你身份里的关键信息、也可以憋住或装糊涂。只输出 JSON：{\"say\":\"遗言\"}。",
+              msgs: [{ role: "user", content: "【你的身份与私密信息】" + privateFor(d, list) + "\n【局面】\n" + shortLog() }],
+              expect: "{\"say\":\"遗言\"}"
+            }, 90000, { charId: d.key }).then(function (raw) {
+              const say = String(raw && raw.say || "").trim();
+              if (!say) return;
+              pushLog([{ type: "speech", name: d.name, text: say.slice(0, 300) }]);
+              if (WOLF_HARD_CLAIM.test(say)) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: d.name, text: say.slice(0, 240) }]);
+            }).catch(function () { /* 遗言可缺席，绝不代笔 */ });
+          });
+          if (ais.length) {
+            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, priv: privateFor(d, list) }; }), how, shortLog());
+            const valid = {}; ais.forEach(function (d) { valid[d.name] = 1; });
+            const words = rows.filter(function (w) { return w && valid[w.name] && String(w.text || "").trim(); });
+            if (words.length) {
+              pushLog(words.map(function (w) { return { type: "speech", name: w.name, text: String(w.text).trim().slice(0, 220) }; }));
+              words.forEach(function (w) { const tx = String(w.text).trim(); if (WOLF_HARD_CLAIM.test(tx)) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: w.name, text: tx.slice(0, 240) }]); });
+            }
+          }
+        } catch (e) { /* 遗言可缺席，不挡牌局 */ }
+        finally { setBusy(false); cont(); }
+      })();
+    };
     const submitUserSpeech = function () {
       const v = userSpeech.trim(); if (!v || !me) return;
       pushLog([{ type: "speech", name: me.name, text: v, mine: true }]);
       // 真人的硬公开声明不会经过模型返回的 claims，必须在本地同步入台账，夜狼才能听见真人跳预言家/报验人。
-      const hardClaim = /(?:我是|我就是|我才是|我跳|我来跳|我起跳).{0,8}预言家|(?:我|昨晚)(?:验了?|查了?).{1,24}(?:查杀|金水|是狼|是好人)|(?:我查杀|我的?金水|我给.{1,16}金水)/.test(v);
+      const hardClaim = WOLF_HARD_CLAIM.test(v);
       if (hardClaim) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: me.name, text: v.slice(0, 240) }]);
       stanceRef.current[me.name] = v.slice(0, 60); // 记下你的立场，AI 后续保持连贯
       const mine = { name: me.name, text: v };
@@ -2052,7 +2122,8 @@
         setPlayers(next);
         setBusy(false);
         const cause = {}; cause[out.name] = "vote";
-        concludeDeaths(next, cause, [out.name], cycle, function (l) { setCycle(cycle + 1); enterNight(l, cycle + 1); });
+        const proceedEx = function () { concludeDeaths(next, cause, [out.name], cycle, function (l) { setCycle(cycle + 1); enterNight(l, cycle + 1); }); };
+        if (!out.isUser) wolfFarewell([out], next, "exile", proceedEx); else proceedEx();
       } catch (e) { props.toast && props.toast("投票失败：" + ((e && e.message) || "重试")); setBusy(false); }
     };
 
@@ -2369,6 +2440,16 @@
     return extractJSON(raw) || {};
   }
 
+  // 连坐的下一题：只出题，不重摆桌（NPC、能力小传都沿用）。把前几题的答案带上防出重复。
+  async function genGuessNext(api, kind, prevAnswers) {
+    const avoid = (prevAnswers || []).filter(Boolean).length ? "\n【本场已出过的（别重复、也别出近似的）】\n" + prevAnswers.map(function (x) { return "· " + x; }).join("\n") : "";
+    const sys = kind === "haigui"
+      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
+      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 2000 });
+    return extractJSON(raw) || {};
+  }
+
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
   async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode, userName) {
     const K = GUESS_KINDS[kind];
@@ -2431,6 +2512,7 @@
     const [log, setLog] = useState(sv ? (sv.log || []) : []);
     const [history, setHistory] = useState(sv ? (sv.history || []) : []);    // 问过的问题（防重复）
     const [qCount, setQCount] = useState(sv ? (sv.qCount || 0) : 0);        // 已问总数（25问用）
+    const [scores, setScores] = useState(sv ? (sv.scores || []) : []);      // 连坐比分：[{solver,isUser,ans}]，一场三题
     const [userQ, setUserQ] = useState("");
     const [guessing, setGuessing] = useState(false); // 猜答案输入框开着
     const [guessText, setGuessText] = useState("");
@@ -2455,7 +2537,7 @@
       if (!started.current) return;
       if (phase === "result") { clearGameSave(kind); return; }
       if (busy || phase === "loading" || phase === "error") return;
-      saveGameSnap(kind, { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, ts: Date.now(), label: kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题") });
+      saveGameSnap(kind, { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, scores: scores, ts: Date.now(), label: "第 " + (scores.length + 1) + "/3 题 · " + (kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题")) });
     }, [phase, log, busy]);
     useEffect(function () {
       if (phase !== "result" || !players.length) return;
@@ -2525,12 +2607,14 @@
           setWon(!!(solver && solver.isUser));
           setReveal(r.reveal || (kind === "haigui" ? ctx.truth : ctx.secret));
           pushLog([{ type: "solve", name: r.solvedBy, isUser: !!(solver && solver.isUser) }]);
+          recordScore(solver ? solver.name : String(r.solvedBy), !!(solver && solver.isUser));
           setPhase("result"); setBusy(false); return;
         }
         // 25 问用尽
         if (K.limit && (qCount + newHist.length) >= K.limit) {
           setWon(false); setReveal(ctx.secret);
           pushLog([{ type: "info", text: "25 个问题用完了，没人猜中——答案揭晓。" }]);
+          recordScore(null, false);
           setPhase("result");
         }
       } catch (e) { props.toast && props.toast("这一轮出错：" + ((e && e.message) || "重试")); }
@@ -2544,12 +2628,30 @@
       pushLog([{ type: "q", name: me.name, text: "🎯 我猜：" + v, mine: true }]);
       try {
         const j = await judgeGuess(api, kind, ctx, v);
-        if (j.correct) { setWon(true); setReveal(kind === "haigui" ? ctx.truth : ctx.secret); pushLog([{ type: "solve", name: me.name, isUser: true, note: j.note }]); setPhase("result"); }
+        if (j.correct) { setWon(true); setReveal(kind === "haigui" ? ctx.truth : ctx.secret); pushLog([{ type: "solve", name: me.name, isUser: true, note: j.note }]); recordScore(me.name, true); setPhase("result"); }
         else { pushLog([{ type: "a", name: "__miss", verdict: "还没中", note: j.note || "" }]); }
       } catch (e) { props.toast && props.toast("判题出错：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
     };
-    const giveUp = function () { setWon(false); setReveal(kind === "haigui" ? (ctx && ctx.truth) : (ctx && ctx.secret)); setPhase("result"); };
+    const giveUp = function () { setWon(false); setReveal(kind === "haigui" ? (ctx && ctx.truth) : (ctx && ctx.secret)); recordScore(null, false); setPhase("result"); };
+    // 一题记一笔（ans 用来提醒下一题别出重复）
+    const recordScore = function (solver, isUser) {
+      setScores(function (S) { return S.concat([{ solver: solver, isUser: !!isUser, ans: (kind === "haigui" ? (ctx && ctx.surface || "").slice(0, 40) : (ctx && ctx.secret || "")) }]); });
+    };
+    // 连坐的下一题：同一桌人接着来，只重新出题
+    const nextPuzzle = async function () {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const r = await genGuessNext(api, kind, scores.map(function (x) { return x.ans; }));
+        if (kind === "haigui") { if (!r.surface || !r.truth) throw new Error("出题失败，再点一次"); setCtx({ surface: r.surface, truth: r.truth }); }
+        else { if (!r.secret) throw new Error("出题失败，再点一次"); setCtx({ secret: r.secret, category: r.category || "东西" }); }
+        setHistory([]); setQCount(0); setWon(false); setReveal(""); setGuessing(false); setGuessText("");
+        setLog([{ type: "info", text: "第 " + (scores.length + 1) + " / 3 题——" + (kind === "haigui" ? "新汤上桌。" : "想好了一个新东西。") }]);
+        setPhase("play");
+      } catch (e) { props.toast && props.toast((e && e.message) || "出题失败，再点一次"); }
+      finally { setBusy(false); }
+    };
 
     const table = gameTable(kind, t);
     const header = h(Head, { zh: K.zh, en: K.en, onBack: props.onBack, bg: "transparent" });
@@ -2609,9 +2711,23 @@
         h("div", { style: { background: t.bg2, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, letterSpacing: 1, marginBottom: 4 } }, kind === "haigui" ? "汤底" : "答案"),
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, reveal || "")),
+        // 连坐比分：一场三题，谁破的记谁头上
+        scores.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, textAlign: "center", marginBottom: 10 } },
+          scores.map(function (x, i) { return "第" + (i + 1) + "题 " + (x.solver ? (x.isUser ? "你" : x.solver) : "无人"); }).join(" · ")) : null,
+        scores.length >= 3 ? (function () {
+          const cnt = {};
+          scores.forEach(function (x) { if (x.solver) { const k = x.isUser ? "你" : x.solver; cnt[k] = (cnt[k] || 0) + 1; } });
+          const best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
+          const top = best.length ? best.filter(function (k) { return cnt[k] === cnt[best[0]]; }) : [];
+          return h("div", { style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 13, padding: "10px 13px", marginBottom: 12, textAlign: "center" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, marginBottom: 4 } }, "本 场 头 名"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, top.length ? top.join("、") + "（破 " + cnt[top[0]] + " 题）" : "这场谁也没赢，题赢了"));
+        })() : null,
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, scores.length >= 3 ? "散场 · 回中枢" : "返回"),
+          scores.length < 3
+            ? h("button", { onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
+            : h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")));
     } else if (busy) {
       action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
     } else if (guessing) {
@@ -2898,6 +3014,18 @@
     return rows;
   }
 
+  // 散场：评一位今晚之星（裁判口吻点评，不代任何人写感言）+ 2~3 句散场话。
+  // 言秋座位不进散场话名单（不代笔；他要说话有 CC 的正规渠道），但今晚之星可以是他——评选权在裁判。
+  async function genTDWrap(api, players, log) {
+    const rounds = (log || []).filter(function (x) { return x.type === "td"; });
+    const lines = rounds.slice(-12).map(function (x) { return "· " + x.name + " 选了" + x.choice + "，" + (x.asker ? x.asker + "出题" : "") + "「" + String(x.prompt || "").slice(0, 60) + "」，答：" + String(x.response || "").slice(0, 90); }).join("\n");
+    const names = players.map(function (p) { return p.name + (p.isUser ? "(真人)" : ""); }).join("、");
+    const pool = players.filter(function (p) { return !p.isUser && !p.engineer; }).map(function (p) { return "■ " + p.name + "：" + tdDesc(p, 300); }).join("\n");
+    const sys = AC + TD_IC + "\n\n今晚这场「真心话大冒险」到散场了。\n1. 从在场的人里选一个【今晚之星】：答得最有戏的、最敢的、被玩得最惨还接住的都行。name 必须出自：" + names + "。reason 用裁判口吻给一两句客观点评，不替任何人说话。\n2. 从下面这些人里挑 2~3 个各说一句散场话（20 字内口语，贴人设；可以点名今晚之星、约下回、嘴硬不服）。\n" + pool + "\n\n【今晚各轮】\n" + (lines || "（一轮都没转成）") + "\n\n【输出】只输出 JSON：{\"star\":{\"name\":\"\",\"reason\":\"\"},\"byes\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "散场。" }], { maxTokens: 1600 });
+    return extractJSON(raw) || {};
+  }
+
   // 转的那只瓶：程序画的俯视玻璃瓶（瓶身、瓶肩、瓶口、一道高光），转起来靠 CSS 旋转。
   // 不再拿酒瓶 emoji 当图标（couple-home-icons 那条：emoji 图标会豆腐块、也不是一套语言）。
   function TDBottle(props) {
@@ -2919,6 +3047,7 @@
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const [hot, setHot] = useState(sv ? !!sv.hot : false);          // 尺度开关
+    const [wrap, setWrap] = useState(null);         // 散场结果 {star:{name,reason}}；非空＝这一场已散
     const [target, setTarget] = useState(null);     // 当前被指到的人
     const [userPrompt, setUserPrompt] = useState(null); // {choice,asker,prompt}
     const [userResp, setUserResp] = useState("");
@@ -2953,7 +3082,7 @@
     // 存档：只在两轮之间的 idle 静止点存（真心话没有终局，靠顶部横幅弃掉）
     useEffect(function () {
       if (!started.current) return;
-      if (busy || phase !== "idle") return;
+      if (busy || phase !== "idle" || wrap) return;
       saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, lastTarget: lastTargetRef.current, lastAsker: lastAskerRef.current, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
     }, [phase, log, busy]);
 
@@ -2995,6 +3124,29 @@
       finally { setBusy(false); }
     };
 
+    // 散场：够三轮才亮这颗键；评完清存档，这一场就算数完了
+    const doWrap = async function () {
+      if (busy || wrap) return;
+      setBusy(true);
+      try {
+        const r = await genTDWrap(api, players, logDataRef.current);
+        const starP = r.star && r.star.name ? pByName(r.star.name) : null;
+        const star = starP ? { name: starP.name, isUser: !!starP.isUser, reason: String((r.star && r.star.reason) || "").slice(0, 160) } : null;
+        const valid = {}; players.forEach(function (p) { if (!p.isUser && !p.engineer) valid[p.name] = 1; });
+        const byes = (Array.isArray(r.byes) ? r.byes : []).filter(function (x) { return x && valid[x.name] && String(x.text || "").trim(); }).slice(0, 3);
+        if (byes.length) pushLog(byes.map(function (x) { return { type: "react", name: x.name, text: String(x.text).trim().slice(0, 60) }; }));
+        if (star) pushLog([{ type: "star", name: star.name, isUser: star.isUser, reason: star.reason }]);
+        setWrap({ star: star });
+        clearGameSave("tod");
+      } catch (e) { props.toast && props.toast("散场没散成：" + ((e && e.message) || "重试")); }
+      finally { setBusy(false); }
+    };
+    const resetEvening = function () {
+      logDataRef.current = [];
+      setLog([]); setWrap(null); setTarget(null);
+      lastTargetRef.current = ""; lastAskerRef.current = "";
+      pushLog([{ type: "info", text: "新的一场。点「转瓶子」开始——指到谁，谁就选真心话或大冒险。" }]);
+    };
     // 转瓶子：优先指向本局被指次数最少的人，同分才随机，避免真人一直轮不到。
     const spin = function () {
       if (busy) return;
@@ -3123,6 +3275,14 @@
           h("div", { style: { maxWidth: "78%" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
             h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text))); }
+        if (it.type === "star") {
+          const p = pByName(it.name);
+          return h("div", { key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, textAlign: "center", marginBottom: 7 } }, "今 晚 之 星"),
+            h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 } }, pAvatar(p, 30),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
+            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65, textAlign: "center" } }, it.reason) : null);
+        }
         if (it.type === "td") {
           const p = pByName(it.name);
           return h("div", { key: i, style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
@@ -3162,6 +3322,13 @@
           h("div", { style: { display: "flex", gap: 8 } },
             h("input", { value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
+    else if (wrap) {
+      action = h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 10 } }, "这一场散了。改天再聚，或者现在就再开一场。"),
+        h("div", { style: { display: "flex", gap: 10 } },
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")));
+    }
     else {
       const spun = log.some(function (x) { return x.type === "td"; });
       action = h("div", null,
@@ -3172,7 +3339,11 @@
         h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
           h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
           h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "转下一轮" : "转瓶子")),
-        h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }));
+        h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }),
+        log.filter(function (x) { return x.type === "td"; }).length >= 3
+          ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 9 } },
+              h("button", { onClick: doWrap, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, background: "transparent", borderRadius: 999, padding: "6px 16px" } }, "散完这一场 · 评今晚之星"))
+          : null);
     }
 
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster, logView,

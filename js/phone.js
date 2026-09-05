@@ -4097,8 +4097,16 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           [me.uid ? "UID " + me.uid : "", me.fans != null ? me.fans + " 粉丝" : "", me.coins != null ? me.coins + " 硬币" : ""].filter(Boolean).join(" · ")))) : null,
     h("div", { className: "flex gap-1 px-3 pb-2 overflow-x-auto", style: { scrollbarWidth: "none" } }, tabs.map((tb, i) => h("button", {
       key: i, onClick: () => setTab(i), className: "shrink-0 active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999, color: i === tab ? BILI_PINK : "#61666d", background: i === tab ? "rgba(251,114,153,.10)" : "transparent", fontWeight: i === tab ? 600 : 400 }
-    }, tb))));
+      // ── 分区不是一排药丸（tabs-not-plain-pills）──────────────────────
+      //   填个浅粉底的药丸搬到任何 app 里都成立。这一页是【视频站的分区行】：
+      //   选中那个是加粗的粉字 + 底下一道短粗的圆头横杠，没选的只是灰字。
+      //   字重、颜色、底下那道杠三样一起变，不是只换个填色。
+      style: { fontFamily: F_BODY, fontSize: 13.5, padding: "6px 10px 4px", minHeight: 40,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+        color: i === tab ? BILI_PINK : "#61666d", fontWeight: i === tab ? 700 : 400 }
+    }, h("span", { key: "t" }, tb),
+       h("span", { key: "u", "aria-hidden": "true", style: { width: 16, height: 3, borderRadius: 999,
+         background: i === tab ? BILI_PINK : "transparent" } })))));
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BILI_BG } }, head,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 9px 20px" } },
       shown.length ? h("div", { className: "grid grid-cols-2", style: { gap: 9 } }, shown.map(card))
@@ -4652,6 +4660,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // ============================================================
 const BR_BG = "#f2f2f5";
 const BR_INK = "#1c1c1e";
+const BR_LINE = "#d9d9de";   // 标签条底下那道分隔线
 const BR_DIM = "#8e8e93";
 const BR_BLUE = "#2f6fdb";
 const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "#e8f1ea"],
@@ -4797,13 +4806,22 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
         h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
-      h("div", { className: "flex px-3 pb-2", style: { gap: 4 } }, PAGES.map(pg => h("button", {
-        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
-          background: tab === pg.key ? "#fff" : "transparent",
-          color: tab === pg.key ? (pg.key === "priv" ? "#b6473c" : BR_INK) : BR_DIM,
-          boxShadow: tab === pg.key ? "0 1px 4px rgba(30,30,40,.10)" : "none" }
-      }, pg.zh + (pg.badge ? " " + pg.badge : "")))) ),
+      // ── 四页＝浏览器的标签条（tabs-not-plain-pills）──────────────────
+      //   原来是四颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
+      //   标签条不一样：上圆下方、贴着页边，选中那张【跟底下的页面连成一片】
+      //   （压住那条分隔线），没选的缩一截、暗着，压在线后头。
+      h("div", { className: "flex px-3", style: { gap: 3, borderBottom: "1px solid " + BR_LINE } }, PAGES.map(pg => {
+        const on = tab === pg.key;
+        return h("button", {
+          key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: on ? "9px 4px 8px" : "11px 4px 6px",
+            borderRadius: "10px 10px 0 0", marginBottom: -1,
+            background: on ? BR_BG : "transparent",
+            border: on ? "1px solid " + BR_LINE : "1px solid transparent",
+            borderBottomColor: on ? BR_BG : "transparent",
+            color: on ? (pg.key === "priv" ? "#b6473c" : BR_INK) : BR_DIM }
+        }, pg.zh + (pg.badge ? " " + pg.badge : ""));
+      })) ),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
     searchPage2, detail);
 }
@@ -4818,6 +4836,22 @@ const CALL_BG = "#f2f2f7";
 const CALL_INK = "#1c1c1e";
 const CALL_DIM = "#8e8e93";
 const CALL_BLUE = "#0a84ff";
+const CALL_LINE = "#d9d9de";
+// 底下那条栏的四个图标：一页一个，程序画的——不用 Unicode 方块当图标
+// （mobile-ui-layout.md §2 最后一条）。
+function callGlyph(kind, color) {
+  const P = { fill: "none", stroke: color, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" };
+  const wrap = kids => h("svg", { width: 21, height: 21, viewBox: "0 0 24 24", "aria-hidden": "true" }, kids);
+  if (kind === "calls") return wrap(h("path", Object.assign({ key: "a",
+    d: "M6.5 3.5h3l1.3 3.4-2 1.5a12 12 0 0 0 6.8 6.8l1.5-2 3.4 1.3v3a1.8 1.8 0 0 1-2 1.8C11.4 18.7 5.3 12.6 4.7 5.5a1.8 1.8 0 0 1 1.8-2z" }, P)));
+  if (kind === "sms") return wrap(h("path", Object.assign({ key: "a",
+    d: "M4.5 6.4A2 2 0 0 1 6.5 4.4h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H10l-4 3.2v-3.2h.5a2 2 0 0 1-2-2z" }, P)));
+  if (kind === "vm") return wrap([h("circle", Object.assign({ key: "a", cx: 6.6, cy: 14, r: 3.4 }, P)),
+    h("circle", Object.assign({ key: "b", cx: 17.4, cy: 14, r: 3.4 }, P)),
+    h("path", Object.assign({ key: "c", d: "M6.6 17.4h10.8" }, P))]);
+  return wrap([h("circle", Object.assign({ key: "a", cx: 12, cy: 8.4, r: 3.4 }, P)),
+    h("path", Object.assign({ key: "b", d: "M5.4 19.2c0-3.4 3-5.6 6.6-5.6s6.6 2.2 6.6 5.6" }, P))]);
+}
 const CALL_RED = "#ff3b30";
 function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const [tab, setTab] = useState("calls");
@@ -4959,13 +4993,26 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CALL_INK })),
         h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: CALL_INK } }, page.zh),
         h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK }))),
-      h("div", { className: "flex px-3 pb-2", style: { gap: 4 } }, PAGES.map(pg => h("button", {
-        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
-          background: tab === pg.key ? "#fff" : "transparent", color: tab === pg.key ? CALL_INK : CALL_DIM,
-          boxShadow: tab === pg.key ? "0 1px 4px rgba(30,30,40,.10)" : "none" }
-      }, pg.zh + (pg.badge ? " " + pg.badge : ""))))),
+      null),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, page.body),
+    // ── 四页＝电话 app 底下那条图标栏（tabs-not-plain-pills）──────────
+    //   原来是顶上四颗白药丸：那是 iOS 的通用分段控件，搬到任何 app 里都成立。
+    //   真的电话 app 把这四页放在【底下】，一页一个图标，选中那个整个上色。
+    //   位置、形状、颜色三样一起变——不是只换个填色（第 2 条：说得清）。
+    h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + CALL_LINE, background: "rgba(255,255,255,.72)" } },
+      PAGES.map(pg => {
+        const on = tab === pg.key;
+        return h("button", {
+          key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
+          className: "flex-1 flex flex-col items-center justify-center active:opacity-60",
+          style: { padding: "7px 0 6px", minHeight: 48, position: "relative" }
+        },
+          callGlyph(pg.key, on ? CALL_BLUE : CALL_DIM),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, marginTop: 3, color: on ? CALL_BLUE : CALL_DIM } }, pg.zh),
+          pg.badge ? h("span", { style: { position: "absolute", top: 4, left: "50%", marginLeft: 6, minWidth: 15, height: 15,
+            borderRadius: 999, background: "#ff3b30", color: "#fff", fontFamily: F_BODY, fontSize: 9.5,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge) : null);
+      })),
     detail);
 }
 // ─────────────────────────────────────────────────────────────
@@ -5517,9 +5564,11 @@ function PhoneCarry({
   if (inList) {
     const p = profile || {};
     const meAv = { name: p.name || "我", avatarImage: p.avatarImage, color: p.color || t.accent };
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 这一页正中摆的是一块「手机屏」——手机是摆在【桌上】的，所以外壳该是张桌子，
+    // 不是一片米白（顶栏跟着透上来，不然顶上横一条没盖住的带子）
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
       // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1），不再顶一块 30px 大标题
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { background: t.bg, paddingTop: safeTop(10) } },
+      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "查手机"),
         h("div", { style: { width: 40, height: 40 } })),
