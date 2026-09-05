@@ -10749,7 +10749,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 // ⚠️取的是哈希串的【末位】，不是首位：真实 id 长得都差不多（em_def_0、em_def_1、
 //   em_<时间戳>_<随机>），哈希值只在低位上分得开，首位对同一批 id 几乎恒定
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
-const stickerTilt = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
+const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
 function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onDeleteEmotes }) {
   const t = useTheme();
@@ -10833,7 +10833,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                   // 贴纸的 die-cut 白边：挑中那张按平（不歪、不悬空），换成一圈醒目描边
                   border: "3px solid " + (on ? t.accent : "#fff"),
                   boxShadow: on ? "none" : "0 4px 9px rgba(0,0,0,.16)",
-                  transform: on ? "none" : "rotate(" + stickerTilt(em.id) + "deg)", transition: "transform .16s" } },
+                  transform: on ? "none" : "rotate(" + tiltById(em.id) + "deg)", transition: "transform .16s" } },
                   h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
                     h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
                     on && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
@@ -10858,6 +10858,33 @@ function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || ""
 // ============================================================
 // 收藏 Favorites —— 按角色查看收藏的聊天消息
 // ============================================================
+// ── 收藏这一页：一本剪贴簿（v62.87，审美审计还债⑥）──────────────────────
+// 审计：两层外壳都是 t.bg 平色，卡片是圆角描边卡＋头像行——「所有列表页」的样子，
+// 原样搬到别的 app 里照样成立，按判据就是写坏了。
+// 这一页现实里是什么？**一本剪贴簿**：值得留的东西剪下来，用角贴按在卡纸上。所以：
+//   底   = 牛皮卡纸：两个方向的粗纤维 + 四边压暗的暗角（跟相册那张黑卡纸分得开，
+//          那张是单向细纹＋整体压暗，这张是交叉纤维＋只暗在边上）
+//   每条 = 一张剪下来贴上去的纸：四角各一枚照片角贴、按 id 定死的一点点歪
+//   名册 = 一叠一叠的书口：每人那一摞下面还压着几张，厚度看得见
+// ⚠️纸色是写死的，所以纸上的字色也一起写死——跟着 t.ink 走的话深色主题就是浅纸浅字。
+const SCRAP_PAPER = "#fdfaf1", SCRAP_INK = "#3a3226", SCRAP_FOG = "#a3987e",
+  SCRAP_TAPE = "rgba(74,58,38,.42)", SCRAP_EDGE = "rgba(120,96,60,.30)";
+const KRAFT = t => {
+  if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
+  const k = t.ink;
+  return { background: [
+    "repeating-linear-gradient(74deg," + k + "00 0 3px," + k + "09 3px 4px)",
+    "repeating-linear-gradient(-66deg," + k + "00 0 5px," + k + "07 5px 6px)",
+    "radial-gradient(130% 90% at 50% 50%," + k + "00 52%," + k + "14 100%)",
+    t.bg].join(",") };
+};
+// 四角那四枚照片角贴：三角形靠 border 画，一角一个方向
+const scrapCorner = (v, hz) => h("span", { "aria-hidden": "true", key: v + hz, style: Object.assign(
+  { position: "absolute", width: 0, height: 0, [v]: 0, [hz]: 0 },
+  v === "top" ? { borderTop: "13px solid " + SCRAP_TAPE } : { borderBottom: "13px solid " + SCRAP_TAPE },
+  hz === "left" ? { borderRight: "13px solid transparent" } : { borderLeft: "13px solid transparent" }) });
+const SCRAP_CORNERS = [["top", "left"], ["top", "right"], ["bottom", "left"], ["bottom", "right"]];
+
 function Favorites({ favorites, characters, onBack, onDelete }) {
   const t = useTheme();
   const [sel, setSel] = useState(null);
@@ -10869,39 +10896,49 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
   if (sel) {
     const c = charById(sel) || { name: "未知角色" };
     const list = byChar[sel] || [];
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "收藏", en: c.name, onBack: () => setSel(null) }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 py-3" },
-        list.length === 0 ? h(Empty, { text: "还没有收藏 TA 的消息" })
-          : list.map(f => h("div", { key: f.id, className: "mb-3", style: { background: t.bg2, borderRadius: 14, border: "1px solid " + t.line, padding: "12px 14px" } },
-            h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (f.role === "user" ? "我" : c.name) + " · " + fmtStamp(f.ts)),
-              h("button", { onClick: () => onDelete(f.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "移除")),
+    return h("div", { className: "h-full flex flex-col", style: KRAFT(t) },
+      h(Head, { zh: "收藏", sub: (c.remark || c.name) + " · " + list.length + " 张", bg: "transparent", onBack: () => setSel(null) }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 py-4" },
+        list.length === 0 ? h(Empty, { text: "还没有剪下 TA 的话" })
+          : list.map(f => h("div", { key: f.id, style: { position: "relative", background: SCRAP_PAPER, borderRadius: 3, padding: "16px 18px 14px", marginBottom: 18,
+            transform: "rotate(" + tiltById(f.id) + "deg)", boxShadow: "0 6px 16px rgba(60,44,22,.16)" } },
+            SCRAP_CORNERS.map(([v, hz]) => scrapCorner(v, hz)),
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 7 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SCRAP_FOG } }, (f.role === "user" ? "我" : (c.remark || c.name)) + " · " + fmtStamp(f.ts)),
+              h("button", { onClick: () => onDelete(f.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a8503f" } }, "揭下来")),
             f.kind === "emote" && f.url
-              ? h("img", { src: f.url, referrerPolicy: "no-referrer", loading: "lazy", style: { maxWidth: 110, maxHeight: 110, borderRadius: 10, display: "block" }, onError: e => { e.target.style.display = "none"; } })
+              ? h("img", { src: f.url, referrerPolicy: "no-referrer", loading: "lazy", style: { maxWidth: 110, maxHeight: 110, borderRadius: 4, display: "block" }, onError: e => { e.target.style.display = "none"; } })
               : f.kind === "selfie"
               ? h(SelfieBubble, { m: f }) // 复用聊天里的自拍气泡：从 IndexedDB 读 imgKey，点开可放大
               : f.kind === "voice"
               ? h("div", null,
                   h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "🎤 语音消息" + (f.dur ? " · " + f.dur + "″" : "")),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SCRAP_FOG } }, "语音" + (f.dur ? " · " + f.dur + "″" : "")),
                     (ftp && typeof TtsDot === "function" && f.role !== "user") ? h(TtsDot, { k: f.id, text: f.content, spk: c, tp: ftp }) : null),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || ""))
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || ""))
               : f.kind === "photo"
-              ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, "📷 " + (f.content || "（照片）"))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || "（无文本内容）")))));
+              ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, "照片 · " + (f.content || "（没写说明）"))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || "（无文本内容）")))));
   }
   const chars = (characters || []).filter(c => byChar[c.id] && byChar[c.id].length);
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "收藏", en: "Saved · 选择角色", onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 pb-10 pt-1" },
-      chars.length === 0 ? h(Empty, { text: "还没有收藏", sub: "长按聊天里的消息 →「收藏」" })
-        : chars.map(c => h("button", { key: c.id, onClick: () => setSel(c.id), className: "w-full text-left flex items-center gap-4 py-4 active:opacity-70", style: { borderBottom: "1px solid " + t.line } },
-          h(Avatar, { character: c, size: 48, radius: 13 }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, (byChar[c.id] || []).length + " 条收藏")),
-          h(IChevR, { size: 16, color: t.fog })))));
+  return h("div", { className: "h-full flex flex-col", style: KRAFT(t) },
+    h(Head, { zh: "收藏", sub: chars.length ? chars.length + " 摞 · 共 " + favs.length + " 张" : null, bg: "transparent", onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10 pt-2" },
+      chars.length === 0 ? h(Empty, { text: "还没有剪下的东西", sub: "长按聊天里的消息 →「收藏」" })
+        // 一人一摞：底下压着几张的厚度做出来，不是一条 borderBottom
+        : chars.map(c => {
+          const n = (byChar[c.id] || []).length;
+          return h("div", { key: c.id, style: { position: "relative", marginBottom: 20 } },
+            n > 1 && h("div", { "aria-hidden": "true", style: { position: "absolute", left: 5, right: 5, bottom: -5, height: 10, borderRadius: 3, background: SCRAP_PAPER, opacity: .55, boxShadow: "0 3px 8px rgba(60,44,22,.14)" } }),
+            n > 2 && h("div", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 10, bottom: -9, height: 10, borderRadius: 3, background: SCRAP_PAPER, opacity: .34, boxShadow: "0 3px 8px rgba(60,44,22,.12)" } }),
+            h("button", { onClick: () => setSel(c.id), className: "w-full text-left flex items-center gap-4 active:opacity-80",
+              style: { position: "relative", background: SCRAP_PAPER, borderRadius: 3, padding: "14px 16px", boxShadow: "0 5px 14px rgba(60,44,22,.16)", borderTop: "1px solid rgba(255,255,255,.7)", borderBottom: "1px solid " + SCRAP_EDGE } },
+              h(Avatar, { character: c, size: 46, radius: 3 }),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: SCRAP_INK } }, c.remark || c.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SCRAP_FOG, marginTop: 2 } }, "剪下来 " + n + " 张")),
+              h(IChevR, { size: 16, color: SCRAP_FOG })));
+        })));
 }
 
 // ============================================================
