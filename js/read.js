@@ -275,40 +275,69 @@
       });
     }
 
-    // ---- 书架 ----
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "一起读", en: "Read", onBack: props.onBack }),
-      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf", style: { display: "none" }, onChange: onFile }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
+    // ---- 书架（v62.64 重做）----------------------------------------
+    // 审美审计 2026-09-04：「一块米白上摆三列圆角卡，**没有搁板、没有架子**」。
+    // 封面本来就是书的样子（书脊色、3/4.3 竖版），缺的是它站的那个地方——
+    // 一排书站着，底下必须有一块板托着，不然它们是在飘。
+    // 底走 core.js 现成的 wood 纹（那正是给木头准备的一张皮）。
+    const shelfPage = (typeof pageSkin === "function")
+      ? pageSkin("wood", t, { strength: .8 }) : { background: t.bg };
+    const sorted = books.slice().sort(function (a2, b2) { return (b2.lastReadTs || 0) - (a2.lastReadTs || 0); });
+    const bookCell = function (b) {
+      const partner = props.characters.find(function (c) { return c.id === b.partnerId; });
+      const pages = b.size ? Math.max(1, Math.ceil(b.size / PAGE_CHARS)) : 1;
+      // ⚠️夹住 0~100：page 比总页数大时这儿会算出「107%」印在封面上
+      const pct = Math.max(0, Math.min(100, Math.round(((b.page || 0) / Math.max(1, pages - 1 || 1)) * 100)));
+      return h("div", { key: b.id },
         h("button", {
-          onClick: function () { fileRef.current && fileRef.current.click(); },
-          className: "w-full py-3 mb-5 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
-        }, "＋ 上传一本书（.txt / 已 OCR 的 .pdf）"),
+          onClick: function () { setOpenId(b.id); },
+          onContextMenu: function (e) { e.preventDefault(); requestAppConfirm("从书架移除《" + b.title + "》？", "正文和批注会一并删除。", function () { delBook(b.id); }, "删除"); },
+          style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }
+        },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
+          h("div", null,
+            (b.annotations && b.annotations.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.75)" } }, "批注 " + b.annotations.length) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.6)" } }, (b.page || 0) > 0 ? pct + "%" : "未读"))
+        ),
+        h("div", { style: { marginTop: 5, display: "flex", alignItems: "center", gap: 4 } },
+          partner ? h(Avatar, { character: partner, size: 15, radius: 5 }) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, partner ? partner.name : "还没邀人")));
+    };
+    // 空位：书架上那一格还没放书。原来是一条铺满整行的虚线圆角按钮——
+    // 那是「新建」按钮，不是书架上的东西。
+    const emptySlot = h("div", { key: "add" },
+      h("button", {
+        onClick: function () { fileRef.current && fileRef.current.click(); },
+        className: "w-full active:opacity-70",
+        // ⚠️颜色得从主题里来，别按「木头一定是深的」写死浅色字：
+        //   pageSkin("wood") 跟着她的主题走，浅主题下那面墙是浅的，
+        //   写死的浅字在上面等于隐形（第一版就是这样）。
+        style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", border: "1px dashed " + t.line, background: "rgba(127,127,127,.06)", color: t.sub, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, padding: "10px 8px" }
+      }, "空着一格", h("br"), "放本书进来"),
+      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "txt / pdf"));
+    // 一块搁板：书站在它上面。上缘一道亮边是光打在板沿上，下面一道暗影是板的厚度。
+    const shelfBoard = function (k) {
+      return h("div", { key: "sb" + k, "aria-hidden": "true", style: {
+        height: 9, margin: "0 -4px 20px", borderRadius: "1px 1px 3px 3px",
+        background: "linear-gradient(180deg,rgba(255,255,255,.34) 0 1.5px,#8a6f52 1.5px 46%,#6b543d 46% 78%,#57432f 78% 100%)",
+        boxShadow: "0 7px 12px -7px rgba(0,0,0,.45)"
+      } });
+    };
+    // 三本一排，每排底下压一块板
+    const cells = [emptySlot].concat(sorted.map(bookCell));
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 3) {
+      rows.push(h("div", { key: "r" + i, style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, alignItems: "end" } }, cells.slice(i, i + 3)));
+      rows.push(shelfBoard(i));
+    }
+    return h("div", { className: "h-full flex flex-col", style: shelfPage },
+      h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
+      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf", style: { display: "none" }, onChange: onFile }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
+        rows,
         books.length === 0
-          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "书架还是空的。\n上传 txt 或已 OCR 的 pdf，点开就能邀角色一起读、逐段讲给你听、写批注、聊剧情。")
-          : h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 } },
-              books.slice().sort(function (a, b) { return (b.lastReadTs || 0) - (a.lastReadTs || 0); }).map(function (b) {
-                const partner = props.characters.find(function (c) { return c.id === b.partnerId; });
-                const pages = b.size ? Math.max(1, Math.ceil(b.size / PAGE_CHARS)) : 1;
-                const pct = Math.round(((b.page || 0) / Math.max(1, pages - 1 || 1)) * 100);
-                return h("div", { key: b.id },
-                  h("button", {
-                    onClick: function () { setOpenId(b.id); },
-                    onContextMenu: function (e) { e.preventDefault(); requestAppConfirm("从书架移除《" + b.title + "》？", "正文和批注会一并删除。", function () { delBook(b.id); }, "删除"); },
-                    style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }
-                  },
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
-                    h("div", null,
-                      (b.annotations && b.annotations.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.75)" } }, "批注 " + b.annotations.length) : null,
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.6)" } }, (b.page || 0) > 0 ? pct + "%" : "未读"))
-                  ),
-                  h("div", { style: { marginTop: 5, display: "flex", alignItems: "center", gap: 4 } },
-                    partner ? h(Avatar, { character: partner, size: 15, radius: 5 }) : null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, partner ? partner.name : "还没邀人"))
-                );
-              })),
-        books.length > 0 ? h("div", { style: { marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按封面可移除") : null
+          ? h("div", { style: { textAlign: "center", color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 12, whiteSpace: "pre-line" } }, "书架还是空的。\n上传 txt 或已 OCR 的 pdf，点开就能邀角色一起读、逐段讲给你听、写批注、聊剧情。")
+          : h("div", { style: { marginTop: 2, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "长按封面可移除")
       ));
   }
 
@@ -719,14 +748,19 @@
     const endRef = useRef(null);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
     useEffect(function () { if (endRef.current) endRef.current.scrollIntoView({ block: "end" }); }, [props.chat.length, props.busy]);
-    return h("div", { style: { position: "absolute", inset: 0, zIndex: 45, display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
-      h("div", { onClick: props.onClose, style: { flex: 1, background: "rgba(0,0,0,.25)" } }),
-      h("div", { style: { height: "56%", background: t.bg, borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
-        h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "12px 16px 8px", borderBottom: "1px solid " + t.line } },
+    // ── 整页，不是半窗（no-half-sheet；审美审计 2026-09-04 直接点名这一处）──
+    // 原来是 56% 高的半窗：正文是一段【聊天】，从来不是三行能说完的，
+    // 而且掀起来那一层还把可用高度砍掉一半——一屏只剩三四条气泡。
+    // 也不需要同时看见底下那一页书：讨论的时候人在讨论里。
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 45, display: "flex", flexDirection: "column" } },
+      h("div", { style: { flex: 1, minHeight: 0, background: t.bg, display: "flex", flexDirection: "column" } },
+        h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px", borderBottom: "1px solid " + t.line } },
           props.partner ? h(Avatar, { character: props.partner, size: 22, radius: 7 }) : null,
           h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "和 " + (props.partner ? props.partner.name : "") + " 讨论"),
           h("button", { onClick: props.onEnd, disabled: props.ending, style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, props.ending ? "总结中…" : "结束并记入记忆"),
-          h("button", { onClick: props.onClose, style: { fontFamily: F_BODY, fontSize: 18, color: t.fog, marginLeft: 4 } }, "×")),
+          h("button", { onClick: props.onClose, "aria-label": "返回", className: "flex items-center justify-center active:opacity-60", style: { width: 40, height: 40, marginRight: -8, flexShrink: 0 } },
+            h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
+              h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.fog, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" })))),
         h("div", { className: "flex-1 overflow-y-auto", style: { padding: "12px 14px" } },
           props.chat.length === 0 ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 12.5, paddingTop: 20, lineHeight: 1.7 } }, "就读到的这一段，随便聊——\n人物为什么这么做、你俩怎么看、接下来会怎样。")
             : props.chat.map(function (m, i) {
