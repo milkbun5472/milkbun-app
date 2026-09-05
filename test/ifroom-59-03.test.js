@@ -93,7 +93,7 @@ test("平行时空：不走 buildBundle，主线一个字都不读", () => {
 test("收线三个去处，记忆那条必须标着「这是个如果」", () => {
   const end = cut(app, "  const ifEnd = (lineId, how) => {", "  // ── 照相馆 ──");
   assert.match(end, /if \(how === "mem"\)/);
-  assert.match(end, /text: "【一个如果】"/, "回喂记忆没标记——他会当成真发生过");
+  assert.match(end, /text: "【另一种我们】"/, "回喂记忆没标记——他会当成真发生过");   // v64.05 改名，标记照旧要有
   assert.match(end, /tags: \["如果", "平行"\]/, "记忆条目没打标签");
   // 念头走心上已有那条【观测纸条】：是候选，不是既成的念想
   assert.match(end, /window\.HeartKit\.ingestCcCandidate\(box,/, "念头没走心上已有那条路");
@@ -214,7 +214,7 @@ test("列表上直接收得了、删得掉，删之前问一句", () => {
   const ui = scr.slice(scr.indexOf("function IfRoom({ partner, lines"));
   assert.match(ui, /onClick: \(\) => setEndId\(x\.id\)[\s\S]{0,180}"就到这儿"/, "列表上收不了");
   assert.match(ui, /onClick: \(\) => setDropId\(x\.id\)[\s\S]{0,200}"删掉"/, "列表上删不掉");
-  assert.match(ui, /"删掉这条如果？"/, "删之前不问一句");
+  assert.match(ui, /"删掉这一种？"/, "删之前不问一句");
   assert.match(ui, /找不回来/, "没说清删了就没了");
   assert.match(ui, /已经记进记忆库或留成念头的那一份不受影响/, "没说清已经留出去的那份会怎样");
   assert.match(app, /const ifDrop = lineId => \{ ifSave\(ifLinesRef\.current\.filter\(x => x\.id !== lineId\)\); toast\("删了"\); \};/, "没有删这条路");
@@ -421,5 +421,5 @@ test("情侣空间生的图统统落一处，合照墙只认那一处", () => {
   // 如果馆这一路：生完就上墙，并且带得出是哪条线的背景
   const bg = cut(app, "  const ifBg = async lineId => {", "  // 收线。三个去处");
   assert.match(bg, /addCoupleShot\(\{ charId: char\.id, imgKey: bgKey, imgUrl: bgUrl/, "背景图没上墙");
-  assert.match(bg, /from: "如果馆"/, "墙上看不出这张是哪儿来的");
+  assert.match(bg, /from: "另一种我们"/, "墙上看不出这张是哪儿来的");   // ⚠️旧记录里还是「如果馆」，那是历史
 });

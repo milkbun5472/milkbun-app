@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.04";
+const APP_VERSION = "v64.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14537,7 +14537,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
       ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, bgKey: bgKey, bgUrl: bgUrl } : x));
       // 生出来的也留在情侣空间的墙上（她 2026-08-31 定）
-      addCoupleShot({ charId: char.id, imgKey: bgKey, imgUrl: bgUrl, desc: "《" + line.title + "》" + (line.premise ? "·" + line.premise : ""), from: "如果馆" });
+      addCoupleShot({ charId: char.id, imgKey: bgKey, imgUrl: bgUrl, desc: "《" + line.title + "》" + (line.premise ? "·" + line.premise : ""), from: "另一种我们" });   // ⚠️旧记录里写的还是「如果馆」，那是历史，不回头改她的存档
       toast("背景画好了");
       return true;
     } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
@@ -14555,7 +14555,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const gist = (line.beats || []).slice(-6).map(b => (b.boxes || []).map(x => x.text).join(" ")).join(" ").slice(0, 300);
     if (how === "mem") {
       addMemEntry({
-        text: "【一个如果】" + line.title + "——" + line.premise + "。你俩一起想过这条线：" + gist,
+        text: "【另一种我们】" + line.title + "——" + line.premise + "。你俩一起想过这条线：" + gist,
         tags: ["如果", "平行"], charIds: [char.id], knownBy: [char.id], source: "manual"
       });
       toast("记下了——他会记得你俩一起想过这个");

@@ -4948,7 +4948,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                     h("div", { style: { width: 58, flexShrink: 0, textAlign: "center" } },
                       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 24, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || 0),
                       h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".05em", color: "#a89877", marginTop: 3 } }, "存根"))) }),
-                // 如果馆：墙上唯一一块深的。
+                // 另一种我们（旧名如果馆）：墙上唯一一块深的。
                 // ⚠️那个空心圆是【装饰】，换成任何图案都一样成立（v62.41 换掉）。
                 //   这一格说的是「同样的我们，换掉当初的一样东西」——现实里那就是【一个岔路口】：
                 //   走过的那条实线，没走的那条虚着散进暗处。这一整页本来就有路这套语言
@@ -4961,7 +4961,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                     h("path", { d: "M60 46 C76 48 92 56 118 70", fill: "none", stroke: "rgba(169,156,203,.42)", strokeWidth: 1.4, strokeDasharray: "3 5", strokeLinecap: "round" }),
                     h("circle", { cx: 60, cy: 46, r: 3.2, fill: "#a99ccb" })),
                   kids: h("div", { style: { position: "relative" } },
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "如果"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".16em", color: "rgba(169,156,203,.66)" } }, "另一种我们"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#e0d6f5", lineHeight: 1.4, marginTop: 7 } },
                       bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样的我们，换掉当初的一样东西"),
                     bIfLast ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(200,188,230,.6)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, one(bIfLast.premise, 24)) : null) }),
@@ -12730,7 +12730,13 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 "还没在这儿拍过。", h("div", { style: { marginTop: 4 } }, "拍出来的会同时挂上合照墙。"))));
 }
 
-// ═══ 情侣空间·如果馆（她 2026-08-31）═══
+// ═══ 情侣空间·另一种我们（她 2026-08-31 提；v64.05 改的名）═══
+// ⚠️改名只改【看得见的字】：存档键、组件名 IfRoom、IF_* 那几个常量、sub === "ifroom"
+//   一律不动——改了她的旧存档就读不出来了。
+// 为什么不叫「如果馆」了（她 2026-09-05 定）：「如果」是谁都能用的词，
+// 换个 app、换个角色照样成立，等于没说这是什么（tabs-not-plain-pills.md 那条判据）。
+// 「另一种我们」搬不走：它得先真有你俩这段关系（在一起第几天、关系网上写着什么）
+// 才立得住，而这正是这一处比别家多的那样东西。
 // 「可以做这种游戏对话框样式（不要照抄，我们自己设计一下样式）」——所以这一页
 // 走【暗色】：情侣空间其余都是米白纸感，一进来就知道这不是主线，是平行时空。
 // 一个框一口气读完，点一下出下一个；右边一条侧栏翻已经过去的（照跑团那个），
@@ -12913,7 +12919,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
     return h("div", { className: "h-full flex flex-col", style: { background: "#141220" } },
       h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK } }, "如果馆"),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK } }, "另一种我们"),
         h("div", { style: { width: 40, height: 40 } })),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "16px 15px" } },
@@ -12928,10 +12934,28 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
           h("button", { onClick: () => onOpen(hint).then(l => { if (l) { setHint(""); setOpenId(l.id); setAt({ beat: 0, box: 0 }); } }), disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 11, borderRadius: 12, padding: "11px 0", background: busy ? "rgba(255,255,255,.12)" : "#6d5a9c", color: busy ? IF_DIM : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
             busy ? "他在想……" : "开一条")),
         mine.length
-          ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 16 } },
+          // ── 变化图（她 2026-09-05 定的形状）──────────────────────────
+          // 这个东西在现实里就是【复盘时的变化图】：同一盘棋，某一手换掉，往下摆一遍。
+          // 所以不是一列卡片（那换个 app 照样成立），是【一条主干 + 岔出去的几条虚线】：
+          //   主干实线＝你俩真走的这条，一直往下走，不会停在最后一条如果那儿；
+          //   每一条如果从主干上一个岔点虚着拐出去。
+          // ⚠️状态不只靠颜色分（tabs-not-plain-pills.md 第 2 条）：没收的那条岔点是空心、
+          //   线是虚的；已收的岔点填实、末端多一道横杠——形状本身就不一样。
+          ? h("div", { style: { position: "relative", marginTop: 16, paddingLeft: 30, paddingBottom: 22 } },
+              // 主干：你俩真走的这条。从上面那张卡底下一路穿到最后，两头都不收口。
+              h("div", { "aria-hidden": "true", style: { position: "absolute", left: 9, top: 0, bottom: 0, width: 0, borderLeft: "1.5px solid rgba(232,228,238,.34)" } }),
+              h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 12, marginLeft: -30 } },
+                h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 999, background: IF_INK, marginLeft: 6, flexShrink: 0 } }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: IF_DIM } }, "我们真走的这条")),
+              h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
               // ⚠️操作行必须是卡片按钮的【兄弟】，不能塞进按钮里——按钮里不许再嵌按钮。
               // 所以每一条外面套一个 div，里头一个卡片按钮 + 一行操作。
-              mine.map(x => h("div", { key: x.id, style: { borderRadius: 15, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", overflow: "hidden" } },
+              mine.map(x => h("div", { key: x.id, style: { position: "relative", borderRadius: 15, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)" } },
+                // 从主干上岔出去的那一笔：拐个弯接到这张卡的左边
+                h("svg", { "aria-hidden": "true", viewBox: "0 0 30 34", width: 30, height: 34, style: { position: "absolute", left: -30, top: 6 } },
+                  h("path", { d: "M9 0 V10 C9 22 17 22 30 22", fill: "none", stroke: x.endedAt ? "rgba(169,156,203,.85)" : "rgba(169,156,203,.5)",
+                    strokeWidth: 1.4, strokeLinecap: "round", strokeDasharray: x.endedAt ? "" : "3 4" }),
+                  h("circle", { cx: 9, cy: 10, r: 3.1, fill: x.endedAt ? "#a99ccb" : "#181524", stroke: "#a99ccb", strokeWidth: 1.3 })),
                 h("button", { onClick: () => { setOpenId(x.id); setAt({ beat: Math.max(0, (x.beats || []).length - 1), box: 0 }); }, className: "w-full text-left active:opacity-70", style: { padding: "13px 14px 9px" } },
                   h("div", { className: "flex items-center gap-2" },
                     h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title),
@@ -12945,16 +12969,16 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
                 // 才收得了，删更是压根没有。列表这一行上直接给。
                 h("div", { className: "flex items-center", style: { padding: "0 14px 11px" } },
                   x.endedAt ? null : h("button", { onClick: () => setEndId(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "就到这儿"),
-                  h("button", { onClick: () => setDropId(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(214,140,150,.78)", marginLeft: "auto" } }, "删掉")))))
+                  h("button", { onClick: () => setDropId(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(214,140,150,.78)", marginLeft: "auto" } }, "删掉"))))))
           : h("div", { style: { border: "1px dashed " + IF_LINE, borderRadius: 16, padding: "30px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: IF_DIM, lineHeight: 1.9 } },
-              "还没有哪条如果被想出来。")),
+              "还没有想过另一种。")),
       // 在列表上收一条：跟线里那个「就到这儿」是同一套三选一，一层只写一处不好写成组件，
       // 就把去处那三项抽出来共用
       endId ? h(IfEndPick, { onPick: k => { onEnd(endId, k); setEndId(null); }, onClose: () => setEndId(null) }) : null,
       // 删是不可逆的，问一句
       dropId ? h("div", { onClick: () => setDropId(null), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: IF_INK } }, "删掉这条如果？"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: IF_INK } }, "删掉这一种？"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8, marginTop: 5 } }, "整条连同里头说过的话一起没了，找不回来。已经记进记忆库或留成念头的那一份不受影响。"),
           h("div", { className: "flex gap-2", style: { marginTop: 14 } },
             h("button", { onClick: () => setDropId(null), className: "flex-1 active:opacity-70", style: { borderRadius: 12, padding: "10px 0", border: "1px solid " + IF_LINE, color: IF_INK, fontFamily: F_BODY, fontSize: 13.5 } }, "算了"),
