@@ -4,7 +4,7 @@
 // 落了三样：整套（ICON_PACKS，仓库自带 img/icons/<套>/<appKey>.png）、
 // 「图标自带底，不套玻璃」开关（iconBare）、一次多张按文件名对 App（chooseIcons）。
 // 这份测试钉的是三处最容易走散的接口：
-//   1. 登记了的 key 盘上必须真有那张 png（写了没文件＝主屏一个 404 空框）；
+//   1. 登记了的 key 盘上必须真有那张 webp（写了没文件＝主屏一个 404 空框）；
 //   2. 选图那条链的顺序：她换的 → 当前整套 → 自带图 → 线稿，只许有一处答案；
 //   3. 主题包导出/导入必须带着 iconPack / iconBare 走，不然换台设备整套就丢了。
 const test = require("node:test");
@@ -38,11 +38,11 @@ test("登记进整套的每个 key，盘上都得真有那张 png", () => {
     assert.match(pack.dir, /^img\/icons\/[a-z0-9_-]+\/$/, pk + " 的目录写法不对");
     assert.ok(fs.existsSync(path.join(root, pack.dir)), pk + " 的目录 " + pack.dir + " 不在盘上");
     for (const k of pack.keys) {
-      assert.ok(fs.existsSync(path.join(root, pack.dir + k + ".png")), pk + " 登记了 " + k + "，可 " + pack.dir + k + ".png 不存在");
+      assert.ok(fs.existsSync(path.join(root, pack.dir + k + ".webp")), pk + " 登记了 " + k + "，可 " + pack.dir + k + ".webp 不存在");
     }
     // 反过来：盘上有、没登记的也报——那是「发了图、忘了写一行」
-    const onDisk = fs.readdirSync(path.join(root, pack.dir)).filter(f => /\.png$/i.test(f)).map(f => f.replace(/\.png$/i, ""));
-    for (const k of onDisk) assert.ok(pack.keys.includes(k), pack.dir + k + ".png 在盘上，可 " + pk + " 的 keys 里没登记它");
+    const onDisk = fs.readdirSync(path.join(root, pack.dir)).filter(f => /\.webp$/i.test(f)).map(f => f.replace(/\.webp$/i, ""));
+    for (const k of onDisk) assert.ok(pack.keys.includes(k), pack.dir + k + ".webp 在盘上，可 " + pk + " 的 keys 里没登记它");
   }
 });
 
@@ -76,7 +76,7 @@ test("整套 + 自带底：归一化认得、随主题包一起走", () => {
   s.apply({ iconPack: "autumn", iconBare: true });
   assert.equal(s.iconBare(), true);
   const anyKey = s.ICON_PACKS.autumn.keys[0];
-  if (anyKey) assert.equal(s.packIcon(anyKey), "img/icons/autumn/" + anyKey + ".png");
+  if (anyKey) assert.equal(s.packIcon(anyKey), "img/icons/autumn/" + anyKey + ".webp");
   assert.equal(s.packIcon("__nope__"), "");
   // 导出的 profile 走 normalize，所以 iconPack / iconBare 一定在里面
   assert.match(ts, /profile, baseTheme: extras && extras\.baseTheme, wallpaper/, "exportPackage 不再整份带 profile 了？");
