@@ -2969,6 +2969,18 @@
     return rows;
   }
 
+  // 散场：评一位今晚之星（裁判口吻点评，不代任何人写感言）+ 2~3 句散场话。
+  // 言秋座位不进散场话名单（不代笔；他要说话有 CC 的正规渠道），但今晚之星可以是他——评选权在裁判。
+  async function genTDWrap(api, players, log) {
+    const rounds = (log || []).filter(function (x) { return x.type === "td"; });
+    const lines = rounds.slice(-12).map(function (x) { return "· " + x.name + " 选了" + x.choice + "，" + (x.asker ? x.asker + "出题" : "") + "「" + String(x.prompt || "").slice(0, 60) + "」，答：" + String(x.response || "").slice(0, 90); }).join("\n");
+    const names = players.map(function (p) { return p.name + (p.isUser ? "(真人)" : ""); }).join("、");
+    const pool = players.filter(function (p) { return !p.isUser && !p.engineer; }).map(function (p) { return "■ " + p.name + "：" + tdDesc(p, 300); }).join("\n");
+    const sys = AC + TD_IC + "\n\n今晚这场「真心话大冒险」到散场了。\n1. 从在场的人里选一个【今晚之星】：答得最有戏的、最敢的、被玩得最惨还接住的都行。name 必须出自：" + names + "。reason 用裁判口吻给一两句客观点评，不替任何人说话。\n2. 从下面这些人里挑 2~3 个各说一句散场话（20 字内口语，贴人设；可以点名今晚之星、约下回、嘴硬不服）。\n" + pool + "\n\n【今晚各轮】\n" + (lines || "（一轮都没转成）") + "\n\n【输出】只输出 JSON：{\"star\":{\"name\":\"\",\"reason\":\"\"},\"byes\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "散场。" }], { maxTokens: 1600 });
+    return extractJSON(raw) || {};
+  }
+
   // 转的那只瓶：程序画的俯视玻璃瓶（瓶身、瓶肩、瓶口、一道高光），转起来靠 CSS 旋转。
   // 不再拿酒瓶 emoji 当图标（couple-home-icons 那条：emoji 图标会豆腐块、也不是一套语言）。
   function TDBottle(props) {
@@ -2990,6 +3002,7 @@
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const [hot, setHot] = useState(sv ? !!sv.hot : false);          // 尺度开关
+    const [wrap, setWrap] = useState(null);         // 散场结果 {star:{name,reason}}；非空＝这一场已散
     const [target, setTarget] = useState(null);     // 当前被指到的人
     const [userPrompt, setUserPrompt] = useState(null); // {choice,asker,prompt}
     const [userResp, setUserResp] = useState("");
@@ -3024,7 +3037,7 @@
     // 存档：只在两轮之间的 idle 静止点存（真心话没有终局，靠顶部横幅弃掉）
     useEffect(function () {
       if (!started.current) return;
-      if (busy || phase !== "idle") return;
+      if (busy || phase !== "idle" || wrap) return;
       saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, lastTarget: lastTargetRef.current, lastAsker: lastAskerRef.current, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
     }, [phase, log, busy]);
 
@@ -3066,6 +3079,29 @@
       finally { setBusy(false); }
     };
 
+    // 散场：够三轮才亮这颗键；评完清存档，这一场就算数完了
+    const doWrap = async function () {
+      if (busy || wrap) return;
+      setBusy(true);
+      try {
+        const r = await genTDWrap(api, players, logDataRef.current);
+        const starP = r.star && r.star.name ? pByName(r.star.name) : null;
+        const star = starP ? { name: starP.name, isUser: !!starP.isUser, reason: String((r.star && r.star.reason) || "").slice(0, 160) } : null;
+        const valid = {}; players.forEach(function (p) { if (!p.isUser && !p.engineer) valid[p.name] = 1; });
+        const byes = (Array.isArray(r.byes) ? r.byes : []).filter(function (x) { return x && valid[x.name] && String(x.text || "").trim(); }).slice(0, 3);
+        if (byes.length) pushLog(byes.map(function (x) { return { type: "react", name: x.name, text: String(x.text).trim().slice(0, 60) }; }));
+        if (star) pushLog([{ type: "star", name: star.name, isUser: star.isUser, reason: star.reason }]);
+        setWrap({ star: star });
+        clearGameSave("tod");
+      } catch (e) { props.toast && props.toast("散场没散成：" + ((e && e.message) || "重试")); }
+      finally { setBusy(false); }
+    };
+    const resetEvening = function () {
+      logDataRef.current = [];
+      setLog([]); setWrap(null); setTarget(null);
+      lastTargetRef.current = ""; lastAskerRef.current = "";
+      pushLog([{ type: "info", text: "新的一场。点「转瓶子」开始——指到谁，谁就选真心话或大冒险。" }]);
+    };
     // 转瓶子：优先指向本局被指次数最少的人，同分才随机，避免真人一直轮不到。
     const spin = function () {
       if (busy) return;
@@ -3194,6 +3230,14 @@
           h("div", { style: { maxWidth: "78%" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
             h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text))); }
+        if (it.type === "star") {
+          const p = pByName(it.name);
+          return h("div", { key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, textAlign: "center", marginBottom: 7 } }, "今 晚 之 星"),
+            h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 } }, pAvatar(p, 30),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
+            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65, textAlign: "center" } }, it.reason) : null);
+        }
         if (it.type === "td") {
           const p = pByName(it.name);
           return h("div", { key: i, style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
@@ -3233,6 +3277,13 @@
           h("div", { style: { display: "flex", gap: 8 } },
             h("input", { value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
+    else if (wrap) {
+      action = h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 10 } }, "这一场散了。改天再聚，或者现在就再开一场。"),
+        h("div", { style: { display: "flex", gap: 10 } },
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")));
+    }
     else {
       const spun = log.some(function (x) { return x.type === "td"; });
       action = h("div", null,
@@ -3243,7 +3294,11 @@
         h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
           h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
           h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "转下一轮" : "转瓶子")),
-        h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }));
+        h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }),
+        log.filter(function (x) { return x.type === "td"; }).length >= 3
+          ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 9 } },
+              h("button", { onClick: doWrap, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, background: "transparent", borderRadius: 999, padding: "6px 16px" } }, "散完这一场 · 评今晚之星"))
+          : null);
     }
 
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster, logView,
