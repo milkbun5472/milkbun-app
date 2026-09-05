@@ -7,25 +7,22 @@ const assert = require("node:assert");
 const fs = require("fs");
 const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
 
-test("作者小性格在【选落点】那一枪就定下来，不是等开场", () => {
-  const g = fic.slice(fic.indexOf("async function genLandings("), fic.indexOf("  // 组 RP 对话 messages"));
-  assert.match(g, /【同时给这篇文的作者/);
-  ["who", "why", "sore", "temper"].forEach(k => assert.ok(g.indexOf('\\"' + k + '\\"') > 0, "输出形状里缺 " + k));
-  // 还是同一次调用，别多花她一次钱
-  assert.equal((g.match(/await callAI\(/g) || []).length, 1);
-  // 老写法直接吐数组、新写法包在 landings 里——两种都得认，否则换个模型就空了
-  assert.match(g, /Array\.isArray\(d\) \? d : \(d && Array\.isArray\(d\.landings\)/);
-  assert.match(g, /return \{ landings: out, authorCard:/);
-  // 落进这一局，并在设定页上先给她看一眼
-  assert.match(fic, /setLandings\(r\.landings\); setAuthorCard\(r\.authorCard \|\| null\);/);
-  assert.match(fic, /landing: landing, authorCard: authorCard,/);
-  assert.match(fic, /"你动她的文，她会："/);
-  // 开场那一枪不许把它覆盖掉——覆盖了 temper 就没了
-  assert.match(fic, /ss\.authorCard = ss\.authorCard \|\| r\.authorCard \|\| null;/);
+// ⚠️v63.92 挪了地方：她的脾气改在【请她进名册】那一枪就定下来
+//（她 2026-09-05：「在生成作者的时候已经有了」）——一个人的脾气不该每开一局重长一次。
+test("作者小性格在【请人进名册】那一枪就定下来，不是等开局", () => {
+  const g = fic.slice(fic.indexOf("async function genAuthors("), fic.indexOf("  // ---- 批量生成 N 篇"));
+  ["bio", "style", "sore", "temper"].forEach(k => assert.ok(g.indexOf('\\"' + k + '\\"') > 0, "输出形状里缺 " + k));
+  // 存得下：名册那一层要真的收这一栏，不然生成了也留不住
+  const up = fic.slice(fic.indexOf("function upsertAuthor("), fic.indexOf("  // 请一位太太离开名册"));
+  assert.match(up, /temper: cur\.temper \|\| String\(a\.temper \|\| ""\)\.trim\(\)\.slice\(0, 120\)/, "老作者补这一栏的路没有");
+  assert.match(up, /temper: String\(a\.temper \|\| ""\)\.trim\(\)\.slice\(0, 120\),/, "新作者压根没存这一栏");
+  // 开一局时从名册里读进来，不再当场问模型要
+  assert.match(fic, /authorCard: window\.Fanfic\.rpAuthorCardOf\(fic\),/);
+  assert.doesNotMatch(fic, /genLandings\(/, "挑落点那一枪该删干净了");
 });
 
 test("temper 只给维度和判据，不给可以照抄的例句", () => {
-  const g = fic.slice(fic.indexOf("async function genLandings("), fic.indexOf("  // 组 RP 对话 messages"));
+  const g = fic.slice(fic.indexOf("async function genAuthors("), fic.indexOf("  // ---- 批量生成 N 篇"));
   const t = g.slice(g.indexOf("· temper"));
   assert.doesNotMatch(t, /如「|比如「|例如「/, "给了例句，每篇文的作者都会长成同一个人");
   assert.match(t, /这一栏要从上面三行长出来/);

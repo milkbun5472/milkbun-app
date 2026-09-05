@@ -26,12 +26,11 @@ test("原文按段切、按句断——点的是一句话，不是半句", () =>
   assert.deepStrictEqual(rpSentences("一句没有标点的话"), ["一句没有标点的话"]);
 });
 
-test("落点认的是【原样抄回来的原句】，认不出就从第一段起", () => {
-  const rpFindPara = grab("rpFindPara");
-  assert.equal(rpFindPara(["他推门进来", "她没抬头"], "她没抬头"), 1);
-  assert.equal(rpFindPara(["他推门进来", "她没抬头"], "编出来的一句"), 0);
-  assert.equal(rpFindPara(["他推门进来"], ""), 0);
-  assert.match(fic, /【从原文里原样抄】那个地方开头的 8-14 个字/);
+// v63.92：不再挑落点，一律从第一段起（她 2026-09-05「直接进去改文」），
+// 于是「拿原句认出第几段」这件事整个没有了——连函数一起删掉，别留个没人叫的。
+test("认落点那一套删干净了", () => {
+  assert.doesNotMatch(fic, /rpFindPara/, "还留着半条线");
+  assert.doesNotMatch(fic, /原样抄】那个地方开头的 8-14 个字/);
 });
 
 test("原稿剩余＝还剩几成是她写的，不是模型拍的一个数", () => {
@@ -42,7 +41,7 @@ test("原稿剩余＝还剩几成是她写的，不是模型拍的一个数", ()
 });
 
 test("存档只留下标，不复制整篇原文", () => {
-  assert.match(fic, /paraIdx: window\.Fanfic\.rpFindPara\(window\.Fanfic\.rpParas\(newFic\), landing\.quote\), voided: \[\]/);
+  assert.match(fic, /paraIdx: 0, voided: \[\]/);
   assert.match(fic, /还没读到的部分一个字都不存/);
   // 引擎不写开场了——原文本身就是开场
   assert.match(fic, /⚠️这一次【不要写任何正文】：玩家会直接读原著的字/);

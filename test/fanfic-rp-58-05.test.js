@@ -45,7 +45,7 @@ test("底栏只吃 0.4 条安全区，和主聊天输入栏、购物底栏同一
 test("界面上叫加笔了，但存档键和 mode key 一个都没动", () => {
   // 底栏中间那一枚让给了它（＋写文挪进「我的」）
   assert.match(fic, /\{ key: "rp", label: "加笔", center: true \}/);
-  ["加笔设定", "加笔中", "＋ 新一篇", "还没在谁的文上动过笔", "挑一篇下笔"].forEach(x =>
+  ["加笔中", "＋ 新一篇", "还没在谁的文上动过笔", "挑一篇下笔"].forEach(x =>
     assert.ok(fic.indexOf(x) > 0, "这处没改名：" + x));
   assert.match(fic, /【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里/);
   assert.match(fic, /【玩家的身份 \/ 穿进去的方式】/);
@@ -79,18 +79,15 @@ test("天降模式不许再发「读者不出场」——那和身份锚点正�
 
 test("世界书真的进了穿书的 system——原来一路传到底、从没被引用过", () => {
   const i = fic.indexOf("  function buildRPSystem(");
-  const seg = fic.slice(i, fic.indexOf("  // 生成可选降落节点", i));
+  const seg = fic.slice(i, fic.indexOf("  // ⚠️v63.92 删掉了 genLandings", i));
   assert.match(seg, /if \(worldbook && worldbook\.trim\(\)\) \{\n\s*if \(typeof WORLDBOOK_RULE !== "undefined"\) parts\.push\(WORLDBOOK_RULE\);\n\s*parts\.push\("【全局世界书（严格遵循/,
     "穿书还是收不到世界书");
   // 身份也要合得上世界书
   const j = fic.indexOf("  async function genRPIdentity(");
   assert.match(fic.slice(j, j + 1400), /这个身份要合得上里面的设定与禁忌/);
-  // 降落点用不上就把参数删掉，别留个没人引用的（worldbook 就是那个反面教材）。
-  // v60.91 多了个 know（你带着什么进去）——它是【真被引用的】，见下面那一句。
-  assert.match(fic, /async function genLandings\(active, fic, tab, cpChars, mode, userName, know\) \{/);
-  const gi = fic.indexOf("async function genLandings(");
-  assert.match(fic.slice(gi, gi + 900), /rpKnowLine\(know, mode, cpChars, userName\)/, "know 收了却没用，就是又一个 worldbook");
-  assert.doesNotMatch(fic, /genLandings\(props\.active, newFic, tabOf\(newFic\), cpc, mode, props\.userName, props\.worldbook\)/);
+  // v63.92：挑落点那一枪整个撤掉了（她 2026-09-05「直接进去改文」），撤就撤干净——
+  // 留半条线比没有更坏（「我的」页那个入口那次学到的同一条）。
+  assert.doesNotMatch(fic, /genLandings\(/, "撤东西要删干净，别留半条线");
 });
 
 test("玩到第六回合，前面做过的事得留下痕迹", () => {

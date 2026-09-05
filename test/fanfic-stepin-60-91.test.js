@@ -8,13 +8,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
 
-test("按钮上写真名，「穿成我自己」认得出是她", () => {
-  const m = fic.match(/function rpModeText\([\s\S]*?\n  \}/);
-  assert.ok(m, "找不到 rpModeText");
-  assert.match(m[0], /c\.isMe \? "穿成我自己（" \+ c\.name \+ "）" : "穿成 " \+ c\.name/);
-  // UI 真的用了它，不是留着没接
-  assert.match(fic, /window\.Fanfic\.rpModeText\(m\.key, cpc\)/);
-  assert.match(fic, /"你穿成谁"/);
+// ⚠️v63.92：选身份那一屏整个撤掉了（她 2026-09-05：「去掉那个选身份和记忆，
+//   就直接进去改文」），所以按钮那几条断言跟着走。存档里那份 key 和短名照旧要认。
+test("存档里的 mode 照旧认得出，短名写真名", () => {
   // 存档里那份 key 不许改名（改了旧档读不出来）
   assert.match(fic, /\{ key: "left", label: "魂穿 · CP 左位"/);
   // v60.93：正在玩的那一屏、存档行的短名也要写真名（她：「这里没改呢」）
@@ -29,8 +25,6 @@ test("天降只剩「随机身份」，但 passerby 这个字留着给老存档�
   assert.ok(m, "找不到 RP_MODES");
   assert.match(m[0], /\{ key: "passerby",[^}]*legacy: true \}/, "老存档还得读得出这一档");
   assert.doesNotMatch(m[0], /\{ key: "random",[^}]*legacy/, "随机这一档不能被一起藏掉");
-  // 选单按 legacy 过滤，不是把整条删掉
-  assert.match(fic, /return !!m && !m\.legacy;/);
   // 提示词里仍旧认得 passerby，老局接着玩不会变味
   assert.match(fic, /if \(mode === "passerby"\) return identity && identity\.name/);
 });
@@ -48,18 +42,17 @@ test("CP 是两个角色时，那几句话照样成立", () => {
   assert.doesNotMatch(k, /你和 TA 真正的关系/);
   assert.match(k, /你记得现实里的他们/);
   // 另一边没有角色卡（A × 原创）时也别让人猜
-  assert.match(fic, /return "穿成 原创的那位"/);
+  assert.match(fic, /return c \? \(c\.isMe \? "我自己" : c\.name\) : "原创的那位";/);
 });
 
-test("多了一维：你带着什么进去", () => {
+// v63.92 起选单里不再问这一维，但【已经开着的那几局】存档里写着 know——
+// 撤掉一道选择不该反过来改掉正在玩的局，所以读那一栏的那几条链一条都不许断。
+test("老局的 know 照旧一路发到底", () => {
   const m = fic.match(/const RP_KNOWS = \[[\s\S]*?\n  \];/);
   assert.ok(m, "找不到 RP_KNOWS");
   ["blank", "spoiler", "real"].forEach(k => assert.ok(m[0].indexOf('"' + k + '"') > 0, k + " 这一档没了"));
-  assert.match(fic, /"你带着什么进去"/);
-  // 三处都要吃到：开场、每一回合、挑降落点
   assert.match(fic, /session\.style, id, session\.know\)/, "开场没吃到");
   assert.match(fic, /session\.style, session\.playerIdentity, session\.know\)/, "回合没吃到");
-  assert.match(fic, /async function genLandings\(active, fic, tab, cpChars, mode, userName, know\)/, "降落点没吃到");
 });
 
 test("老存档不受影响：没有 know 的那些一个字都不多发", () => {

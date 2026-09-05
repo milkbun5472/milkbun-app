@@ -108,9 +108,9 @@ test("压根不是 JSON 的那次照旧原样当正文——这条不许坏", ()
   assert.equal(F.rpParseTurn('{"scene":"一段\n\n两段","dev":250}').dev, 100, "偏离度没夹在 0-100 里");
 });
 
-test("穿书这条链上四处解析全换过来了，不许只治一半", () => {
+test("穿书这条链上几处解析全换过来了，不许只治一半", () => {
   // ⚠️genRPStart v62.50 起不写正文了（原文就是开场），所以它没有正文可救
-  ["genRPTurn", "genRPEnding", "genRPIdentity", "genLandings"].forEach(fn => {
+  ["genRPTurn", "genRPEnding", "genRPIdentity"].forEach(fn => {
     const i = fic.indexOf("async function " + fn + "(");
     assert.ok(i > 0, "找不到 " + fn);
     const seg = fic.slice(i, i + 3200);
@@ -124,15 +124,24 @@ test("穿书这条链上四处解析全换过来了，不许只治一半", () =>
 });
 
 // ── ③ 作者的迷你人设 ─────────────────────────────────────────
-test("作者不是一个类型，是一个人——开场顺手给她一张小卡", () => {
+test("作者不是一个类型，是一个人——这张小卡从【名册】里读，不再当场生成", () => {
+  // v63.92（她 2026-09-05：「生成作者的时候已经有了」）：开场那一枪不再问作者简介，
+  // 请她进名册那一枪就把四行都定下来了。同一个人不该每开一局重新长一次。
   const st = fic.slice(fic.indexOf("async function genRPStart("), fic.indexOf("  // 玩家行动 →"));
-  assert.match(st, /【同时给这篇文的作者/);
-  ["who", "why", "sore"].forEach(k => assert.ok(st.indexOf('\\"' + k + '\\"') > 0, "输出形状里缺 " + k));
-  assert.match(st, /不是随便一个网文作者都成立的话/, "没写清判据，三行会写成通用的");
+  assert.doesNotMatch(st, /【同时给这篇文的作者/, "开场还在自己生成一份作者简介");
+  assert.doesNotMatch(st, /"author"/, "输出形状里还留着 author 那一栏");
   // 还是同一次调用，别多花她一次钱
   assert.equal((st.match(/await callAI\(/g) || []).length, 1);
-  // 落进存档，而且页边批注真的用上了
-  assert.match(fic, /ss\.authorCard = ss\.authorCard \|\| r\.authorCard \|\| null;/, "小卡没落库；且不许覆盖选落点时给过的那张（那张带 temper）");
+  // 名册那一枪要给足四行（temper 就是加笔要用的那一行）
+  const ga = fic.slice(fic.indexOf("async function genAuthors("), fic.indexOf("  // ---- 批量生成 N 篇"));
+  ["name", "bio", "style", "sore", "temper"].forEach(k => assert.ok(ga.indexOf('\\"' + k + '\\"') > 0, "请人那一枪缺 " + k));
+  assert.match(ga, /不是随便挑一种/, "temper 没写清判据");
+  // 名册 → 这一局：开局就落进 session，老存档缺这一栏时开场再补一次
+  const libCard = fic.slice(fic.indexOf("function rpAuthorCardOf("), fic.indexOf("  // 组 RP 对话 messages"));
+  assert.match(libCard, /const a = findAuthor\(rpAuthorName\(fic\)\);/);
+  assert.match(libCard, /temper: a\.temper \|\| ""/);
+  assert.match(fic, /authorCard: window\.Fanfic\.rpAuthorCardOf\(fic\),/, "开局没把名册里那张卡落进这一局");
+  assert.match(fic, /ss\.authorCard = ss\.authorCard \|\| window\.Fanfic\.rpAuthorCardOf\(props\.fic\) \|\| null;/, "小卡没落库；且不许覆盖已有的那张");
   assert.match(fic, /function rpAuthorCard\(session\)/);
   assert.match(fic, /rpAuthorCard\(session\)/);
   const blk = fic.slice(fic.indexOf("function rpAuthorBlock("), fic.indexOf("  // 一拍的输出契约"));
@@ -141,11 +150,11 @@ test("作者不是一个类型，是一个人——开场顺手给她一张小�
   const card = fic.slice(fic.indexOf("function rpAuthorCard("), fic.indexOf("function rpAuthorBlock("));
   assert.match(card, /if \(!c \|\| !\(c\.who \|\| c\.why \|\| c\.sore \|\| c\.temper\)\) return "";/);
   // 不许给内容示范（prompt-no-content-samples.md）
-  assert.doesNotMatch(st.slice(st.indexOf("【同时给这篇文的作者")), /如「|比如「|例如「/);
+  assert.doesNotMatch(ga.slice(ga.indexOf("· temper")), /如「|比如「|例如「/);
 });
 
 // ── ④ 那几句话 + 那一大块标题 ─────────────────────────────────
-test("「生成降落节点」换成人话了", () => {
+test("「降落节点」那套工程话一个字都不许留", () => {
   // 整条链一起换掉，不止那个按钮：提示词里也不许再说「降落节点」
   //（那是从工程那边搬来的词，读起来像在填表；这是一本书，进去的是某一页某一处）
   assert.doesNotMatch(fic, /生成降落节点/);
@@ -154,10 +163,9 @@ test("「生成降落节点」换成人话了", () => {
   assert.doesNotMatch(fic, /重新生成降落点/);
   assert.doesNotMatch(fic, /挑【降落节点】/);
   assert.doesNotMatch(fic, /给降落节点。/);
-  assert.match(fic, /翻翻这本书，看能从哪儿进去/);
-  assert.match(fic, /"正在翻这本书…"/);
-  assert.match(fic, /"从哪儿进去"/);
-  assert.match(fic, /"换几个地方看看"/);
+  // v63.92：那一屏整个撤掉了（直接进去改文），所以它上面那几句话也一起没了
+  assert.doesNotMatch(fic, /翻翻这本书，看能从哪儿进去/);
+  assert.doesNotMatch(fic, /"换几个地方看看"/);
 });
 
 test("加笔中那一页不再顶着一块 30px 大标题", () => {
@@ -166,7 +174,7 @@ test("加笔中那一页不再顶着一块 30px 大标题", () => {
   // v61.27：Head 本身已经改成紧凑标题栏了（components.js），所以这一页改回用 Head——
   // 同一层东西不许有两个实现，不然下次只会改到其中一处。
   assert.match(th, /h\(Head, \{ bg: "transparent",\n\s+zh: s\.ficTitle \|\| "加笔中",/);
-  assert.match(th, /sub: window\.Fanfic\.rpModeShort/, "副标题没接上");
+  assert.match(th, /sub: \[window\.Fanfic\.rpModeShort/, "副标题没接上");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
   // 书名只写一遍——底下那份重复的抬头撤掉了
   assert.equal((th.match(/s\.ficTitle/g) || []).length, 1, "书名还是连着写了两遍");

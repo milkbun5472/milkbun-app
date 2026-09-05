@@ -15,7 +15,8 @@ test("每一个 Head 都让底透上来，一个都不许漏", () => {
   const all = (NOC.match(/h\(Head, \{/g) || []).length;
   const clear = (NOC.match(/h\(Head, \{ bg: "transparent",/g) || []).length;
   assert.equal(clear, all, "有 " + (all - clear) + " 处 Head 还顶着平色带");
-  assert.ok(all >= 11, "Head 的处数比预期少，说明有人又自己写了一条顶栏");
+  // v63.92 少了一处：加笔那一屏（选身份/记忆/落点）整个撤掉了
+  assert.ok(all >= 10, "Head 的处数比预期少，说明有人又自己写了一条顶栏");
 });
 
 test("中间那几层不许自己铺底把皮盖掉", () => {

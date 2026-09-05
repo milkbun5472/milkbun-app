@@ -111,7 +111,7 @@ test("正字是按笔顺一笔笔划的，五笔一个字", () => {
 });
 
 test("闲章刻的是笔名末一个字——头一个已经在圆头像上了", () => {
-  const seal = cut("  function authorSeal(name, size)", "  // 太太的默认头像");
+  const seal = cut("  function authorSeal(name, size)", "  // ⚠️这一页不是");
   assert.match(seal, /const ch = nm\.slice\(-1\) \|\| "\?";/, "两处刻同一个字，那枚印就白盖了");
   const face = cut("  function authorFace(name, size)", "  // 同人站上作者页那一行数");
   assert.match(face, /String\(name \|\| "\?"\)\.trim\(\)\.slice\(0, 1\)/);
@@ -135,12 +135,16 @@ test("头像和数字都是【定死的】，不是每次进来重摇一次", ()
   const face = cut("  function authorFace(name, size)", "  // 同人站上作者页那一行数");
   assert.match(face, /ficHash\("face:" \+ name\)/, "头像颜色是随机的，同一个人每次不一样");
   assert.doesNotMatch(face, /Math\.random/);
-  const st = cut("  function authorStats(name, fics)", "  function AuthorHome(props)");
+  const st = cut("  function authorStats(name, fics)", "  // 正字计数");
   assert.match(st, /const seed = ficHash\("au:" \+ name\);/);
   assert.doesNotMatch(st, /Math\.random/);
   // ⚠️篇数和字数必须是真的（从她的文现算），不许也拿 hash 编
   assert.match(st, /works: mine\.length/);
-  assert.match(st, /words \+= String\(\(c && c\.body\) \|\| ""\)\.length/);
+  // ⚠️v63.92 修：这条原来跟代码一起错——章节存的那一栏叫 content，不叫 body，
+  //   于是「字」这一栏一直是 0，还没有任何报错（.claude/rules/stub-from-the-writer.md）。
+  //   现在钉在【写存档的那一处】上：写的人哪天改了字段名，这条当场红。
+  assert.match(st, /words \+= ficWords\(f\);/);
+  assert.match(fan, /chapters: \[\{ content: x\.body, endHook: x\.endHook/, "写入方改了字段名");
   // ⚠️不另存计数器：存了之后文被清掉／改笔名就永远对不回来
   assert.doesNotMatch(st, /saveJSON/);
 });
