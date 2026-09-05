@@ -20,7 +20,7 @@ test("它得知道她开着谁的窗口，不然只能反问", () => {
   assert.match(asi, /whoId: pg\.charId \|\| ""/, "页面上下文没带 id");
   assert.match(asi, /p\.whoId \? "（id＝" \+ p\.whoId/, "带了 id 却没告诉它这个 id 是干嘛的");
   // 悬浮屏和整页是同一个秋秋
-  assert.equal((app.match(/onPatchBubble: \(charId, skin\) => applyOocSkin\(charId, skin\)/g) || []).length, 2,
+  assert.equal((app.match(/onPatchBubble: \(charId, skin\) => applyBubblePatch\(charId, skin\)/g) || []).length, 2,
     "两处没都接上——从另一处问同一句会被告知没接写入口");
   assert.match(app, /charId: \(offlineChar \|\| activeChar \|\| \{\}\)\.id \|\| ""/, "悬浮屏没把当前这个人的 id 递进去");
 });
