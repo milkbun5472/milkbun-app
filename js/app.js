@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.61";
+const APP_VERSION = "v63.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8104,7 +8104,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
-      const gGrowthHint = gEvolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + gEvolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式长出来的自我（上面那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下有所松动，不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
+      // 三处群路共用 engine.js 的 groupGrowthLine：原来群线上和群线下各抄了一份，
+      // 字句几乎一样又不完全一样，改一处另一处必然落单（v63.63 并成一份）。
+      const gGrowthHint = groupGrowthLine(gEvolveNames);
       // 双语（v56.56）：开关是【每个角色自己的】聊天设置，群里就按各人自己那一档来——
       // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊有的层群聊也要有，
       // 别又变成同一件事只写在单聊那一处。线下（叙事正文）没有译键、也切不出「原文|译文」
@@ -9208,6 +9210,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
   const calBucket = (n, view) => view === "world" ? n.world : view === "mine" ? n.mine : (n.chars[view] = { ...(n.chars[view] || {}) });
+  // ⚠️日历是【无过期无 cap】的第四个自动日志（审计 P2；v62.42 那批给朋友圈/论坛/匿名箱
+  //   都加了盖，日历漏了）。genCalMonth 一次加 8-15 条／月／视角，而且是往同一天上
+  //   【追加】——同一个月再生成一次就叠一份。5 个角色 + 世界 × 12 个月 ≈ 860 条／年，
+  //   永不退出。它和好感度、心情共用那 5MB 池子：**写满那天坏的不是日历，是旁边的
+  //   x_affinities 和 x_moods**，saveJSON 返回 false、React 状态照旧更新，界面看着一切
+  //   正常，刷新即回滚——她看见的是「好感度怎么又掉回去了」。
+  // 判据按【日期】不按条数：日历答的是「哪天有什么」，一年前的那些格子留着没有意义。
+  //   过期之外再兜一个总量上限，防「一年之内狂生成」把池子吃穿。
+  const CAL_KEEP_DAYS = 400;   // 留一整年多一点：去年今天的纪念日还看得见
+  const CAL_MAX_EVENTS = 600;  // 每个视角的总量兜底，超了从最老的日子开始扔
+  const calDateMs = dk => { const m = String(dk || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); return m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : NaN; };
+  // 一个视角的桶（{ "2026-9-5": [ev, ...] }）就地裁一遍。认不出日期的格子一律留着——
+  // 让遗漏往安全那边掉，宁可多留几条也不许误删她手写的事。
+  const calPrune = bucket => {
+    if (!bucket || typeof bucket !== "object") return bucket;
+    const floor = Date.now() - CAL_KEEP_DAYS * 86400000;
+    const keys = Object.keys(bucket);
+    const dated = [];
+    for (const k of keys) {
+      const ms = calDateMs(k);
+      if (!isNaN(ms) && ms < floor) { delete bucket[k]; continue; }   // 太老了，整格退出
+      if (!isNaN(ms)) dated.push([k, ms]);
+    }
+    let total = Object.keys(bucket).reduce((a, k) => a + ((bucket[k] || []).length || 0), 0);
+    if (total <= CAL_MAX_EVENTS) return bucket;
+    dated.sort((a, b) => a[1] - b[1]);                                 // 最老的先扔
+    for (const [k] of dated) {
+      if (total <= CAL_MAX_EVENTS) break;
+      total -= (bucket[k] || []).length || 0;
+      delete bucket[k];
+    }
+    return bucket;
+  };
+  const calPruneAll = n => {
+    if (!n) return n;
+    calPrune(n.world); calPrune(n.mine);
+    Object.keys(n.chars || {}).forEach(id => { n.chars[id] = calPrune({ ...(n.chars[id] || {}) }); });
+    return n;
+  };
   // srcId：这条事件是【谁的影子】。纪念日会同时写进 x_coupleAnniv 和日历两处，
   // 不记出处的话，那边删掉了这边根本认不出该删哪一条（她 2026-09-01 撞上的就是这个）。
   const saveCalEvent = (view, dateKey, title, note, srcId) => {
@@ -9265,6 +9306,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const n = cloneCal(prev);
         const put = (dk, ev) => { const b = calBucket(n, view); b[dk] = [...(b[dk] || []), ev]; };
         items.forEach((x, i) => { const day = Math.min(new Date(year, month + 1, 0).getDate(), Math.max(1, Math.round(Number(x.day)))); put(year + "-" + (month + 1) + "-" + day, { id: "ev_" + Date.now() + "_" + i, title: String(x.title).slice(0, 40), note: (x.note || "").slice(0, 80) }); });
+        calPruneAll(n);   // 生成是这个 app 里唯一会成批加条目的入口，就在这儿裁
         saveJSON("x_calendar", n);
         return n;
       });
@@ -11424,7 +11466,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const gcHistBlock = gcRecent ? "\n\n【这通电话之前，群里刚聊过这些】\n" + gcRecent + "\n⚠️这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。" : "";
         const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
         const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
+        // 群通话是【第三处群路】，成长准则原来一个字都没有——群线上和群线下各有一份、
+        // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
+        const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
         const sys = groupBans({ echo: true })
+          + gcGrowth
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
         const arr = extractJSON(raw);
@@ -16509,7 +16555,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // ---- export / import ----（整包：localStorage 的 x_ 数据 + IndexedDB 图片仓库 x_imgvault）
   const doExport = async () => {
     const dump = {};
-    Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => {
+    // ⚠️x_neteaseCookie 是账号凭据，界面上写着「只存这台设备」。
+    //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
+    //   又是「一层写在两处，第二处没跟上」。备份文件会被发给别人、放进云盘，
+    //   网易云账号 cookie 一起出去。两处口径必须一样。
+    Object.keys(localStorage).filter(k => k.startsWith("x_") && k !== "x_neteaseCookie").forEach(k => {
       dump[k] = localStorage.getItem(k);
     });
     // 已迁进 IDB 文字库的键(同人文)不在 localStorage，从内存镜像补进备份，否则导出会漏、换设备就丢。
@@ -16532,17 +16582,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
     } catch (e) {}
+    // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
+    //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
+    //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
+    //   **头像、壁纸、照片连同 album 目录一起清空**。这一路她不会收到任何警告。
+    //   所以在这儿做一次交叉核对：存档里明明引用着 iv_ 门牌，图库却一张都没读出来，
+    //   那就不是「没有图」，是「没读出来」——**拒绝导出**，绝不产出一份会清空图库的文件。
+    //   「先导出一份」是所有数据规矩的地基（never-say-delete-first.md），
+    //   地基本身能悄悄少图的话，那条规矩就是空的。
+    const ivRefs = new Set();
+    try { (JSON.stringify(dump).match(/iv_[A-Za-z0-9_-]+/g) || []).forEach(x => ivRefs.add(x)); } catch (e) {}
+    if (ivRefs.size > 0 && vaultCount === 0) {
+      toast("没有导出：存档里引用着 " + ivRefs.size + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
+      return;
+    }
+    // album 目录（照片的说明、来源、照片桥索引）原来【从不进备份】，
+    // 而导入那一路 idbVaultClear() 会把它连同图一起清掉——只清不备，导一次少一次。
+    let album = [];
+    try { if (typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
     const blob = new Blob([JSON.stringify({
       __archive: 1,
-      version: 3,
+      version: 4,
       exportedAt: Date.now(),
       data: dump,
       vault: vault,
-      selfies: selfies
+      selfies: selfies,
+      album: album
     }, null, 2)], {
       type: "application/json"
     });
-    const what = "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "") + "）";
+    const missing = (() => { let n = 0; ivRefs.forEach(k => { if (!(k in vault)) n++; }); return n; })();
+    const what = "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
+      + (album.length ? "、" + album.length + " 条照片说明" : "")
+      + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     try {
       const via = await saveTextFile(name, await blob.text(), "application/json");
@@ -16600,10 +16672,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // ⭐阶段4：恢复图片仓库（v2+ 备份含 vault）——把 base64 写回 IndexedDB，头像/壁纸的 iv_ 键才能 resolve。
       // v48.29：先整仓清空再写入（backlog：旧机器攒的孤儿 blob 不再一代代带着走，防止图库越导越肥）。
       // 只在备份自带 vault 时才清——v1 老备份图是 base64 直存 data 里，本地图库与它无关，不动。
-      if (parsed.vault && typeof idbVaultPut === "function" && typeof dataUrlToBlob === "function") {
+      // ⚠️原来的条件是 `parsed.vault` —— **`{}` 是真值**。一份「图库读失败」的备份
+      //   （见 doExport 那段）里 vault 就是 `{}`，于是这一路照样先 idbVaultClear()，
+      //   把本机的头像、壁纸、照片连同 album 目录**全部清空**，再写回零张图。
+      //   现在要求它真的装着东西才清仓：空的就当这份备份没带图，本机那份原样留着。
+      const vaultRows = parsed.vault ? Object.entries(parsed.vault) : [];
+      if (vaultRows.length && typeof idbVaultPut === "function" && typeof dataUrlToBlob === "function") {
         try { if (typeof idbVaultClear === "function") await idbVaultClear(); } catch (e2) {}
-        for (const [k, durl] of Object.entries(parsed.vault)) {
+        for (const [k, durl] of vaultRows) {
           try { const b = dataUrlToBlob(durl); if (b) await idbVaultPut(k, b); } catch (e2) {}
+        }
+        // album 跟着图一起回来（v4 起备份里才有）。清仓把它一起清了，不写回就永远没了。
+        if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
+          for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
         }
       }
       // ⭐备份 v3：恢复自拍（打包过才有）——不清旧自拍，只增量写回（自拍键是内容相关的，覆盖无害）
@@ -18287,8 +18368,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
   if (typeof hydrateNativeSelfies === "function") hyd.push(hydrateNativeSelfies());
   if (typeof hydrateTxtVault === "function") hyd.push(hydrateTxtVault());
-  if (window.CredentialVault) hyd.push(window.CredentialVault.hydrateApiCredentials());
+  // ⚠️凭证金库打不开要说出来（审计 P1）。API key 全都住在本机 IDB 的
+  //   x_credential_vault 里，用一把【不可导出的设备密钥】加密；金库解不开时
+  //   storeProfile 会抛「无法解密」，而这一路的 .catch(() => 0) 把它整个吞掉——
+  //   开机静默、每条线路都在、每条线路都没 key，症状是【所有模型调用都失败】，
+  //   而那个症状会把她引到完全错的方向（以为是模型坏了、以为是网络）。
+  if (window.CredentialVault) hyd.push(window.CredentialVault.hydrateApiCredentials().catch(e => {
+    try { window.__credentialVaultError = String((e && e.message) || e || "凭证金库打不开"); } catch (_) {}
+    throw e;
+  }));
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
+  // 挂载之后再说——太早说的话 toast 还没挂起来
+  setTimeout(() => {
+    if (!window.__credentialVaultError) return;
+    try { window.toast && window.toast("⚠️ 本机 API 凭证金库打不开：" + window.__credentialVaultError + "——各条线路的密钥要去「设置 · API」重新填一次"); } catch (e) {}
+  }, 2500);
 })();
 
 // 启动时：若已登录且云端存档更新，静默拉回并重载（换设备场景）

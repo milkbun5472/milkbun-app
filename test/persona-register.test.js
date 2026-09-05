@@ -24,8 +24,12 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 单人通话走 buildBundle、从叙事底座那一路吃到锚；群通话原来什么都没有，现在直接注入。
   // 见 .claude/rules/four-surfaces-same-context.md。
-  assert.equal((engine.match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
-               (app.match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 5,
+  // ⚠️数的是【代码里的引用】，不是注释里提到的名字：v63.63 在旁边写了一段注释
+  //   解释这一条为什么是那些层的落点，一提它名字这条断言就红——它测的是接线，
+  //   不是「谁提过它」。剥掉整行注释再数。
+  const live = x => x.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  assert.equal((live(engine).match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
+               (live(app).match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 5,
     "1 处定义 + groupBans（三处群共用）+ 单聊线上 + 单人线下 + 叙事底座");
 });
 
@@ -53,7 +57,16 @@ test("锚点不许冻结成长：软层要让位给已沉淀的长出来的自�
   assert.match(rule, /只是最近几轮听起来那样 → 不算数，那是惯性，不是成长/);
   // 优先级必须和 GROWTH_RULE 一字不差地对齐，两条规则不能打架
   assert.match(rule, /明确的硬设定与边界 ＞ 已沉淀的成长 ＞ 原卡的软倾向 ＞ 通用默认/);
-  assert.match(engine, /明确的硬设定与边界 ＞ 你经历沉淀、反复确认下来的成长/, "GROWTH_RULE 那条还在");
+  // ⚠️口径改了（v63.63，审计意见 #8）：原来这里钉的是「GROWTH_RULE 那条还在」，
+  //   要求两条规则的优先级一字不差地对齐。可 GROWTH_RULE 从 Runtime v2 起就【零引用】了
+  //   ——两条规则里有一条从来没被发出去过，那不叫「对齐」，叫看代码以为在发。
+  //   现在它删掉了、独有的那一段并进了这一条，所以改成钉【只剩一条】：
+  //   优先级表在全库只许有一份，再冒出第二份就是又抄了一遍。
+  const live2 = x => x.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  assert.equal((live2(engine).match(/＞ 原卡的软倾向 ＞ 通用默认/g) || []).length, 1,
+    "优先级表又被抄成了两份");
+  assert.equal(live2(engine).indexOf("你经历沉淀、反复确认下来的成长"), -1,
+    "GROWTH_RULE 那份优先级表又回来了");
   // 锚住的只能是【硬核】里的说话底色，不许再把软层项目写进"只认人设卡"
   assert.match(rule, /说话的底色和年龄感属于【硬核】/);
   assert.doesNotMatch(rule, /语气、用词、黏人程度.*全部按【人设卡上写的那个人】来/,

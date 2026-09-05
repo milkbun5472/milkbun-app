@@ -12,7 +12,7 @@
     const rows=messageRows(messages),active=state&&state.relationAxes&&state.relationAxes.axes?Object.entries(state.relationAxes.axes).filter(([,v])=>v&&v.active).map(([axis,v])=>({axis,enteredAt:v.enteredAt,lastHarmAt:v.lastHarmAt,repairLocked:v.repairLocked})):[],anchors=state&&state.emotion&&state.emotion.temperament&&state.emotion.temperament.anchors||[];
     const system="你是关系含义检测器，不扮演角色、不续写对话。判断这一轮是否明确伤到指定关系轴，或是否出现同轴真实行为改变。亲昵脏话、双方玩笑、惯常互损、撒娇绝不能判伤；只道歉、暂时安静、时间过去、情绪缓和绝不能判修复。六轴：identity身份被混同或可替换；continuity亲近后被突然切断；seriousness真诚被当玩笑取消；boundary边界表达后仍被推或否认；neglect重要信息被绕开或长期悬置；repairFailure同一处不适再次发生且未真正处理。只输出 JSON，不要解释。";
     const payload={role:{name:pilot.name,temperament:anchors.slice(0,6)},enabledAxes:pilot.enabledAxes,activeEpisodes:active,messages:rows,output:{events:[{axis:"enabled axis",kind:"harm|repair_progress|neutral",confidence:0.0,explicitRelationMeaning:false,playfulContext:false,repairKind:"behavior_changed|apology_only|silence|elapsed|mood_softened|null",evidenceMessageIds:["message id"],evidenceQuotes:["verbatim quote"]}]}};
-    return {system,messages:[{role:"user",content:JSON.stringify(payload)}],maxTokens:6000,rows};
+    return {system,messages:[{role:"user",content:JSON.stringify(payload)}],maxTokens: 8000,rows};
   }
   function validateEvents(raw,enabledAxes,messages){
     const rows=messageRows(messages),byId=new Map(rows.map(x=>[x.id,x])),list=raw&&Array.isArray(raw.events)?raw.events:[];

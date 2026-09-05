@@ -41,7 +41,10 @@ test("合法差异是显式传进来的，不是各拼各的", () => {
 
 test("三处都真的用了这一份，没有谁还在自己拼", () => {
   assert.match(app, /const system = groupBans\(\{ echo: false \}\) \+ "\\n\\n" \+ groupOnlineRuntime/, "群线上");
-  assert.match(app, /const sys = groupBans\(\{ echo: true \}\)\n\s*\+ "\\n\\n这是一个多人"/, "群通话");
+  // ⚠️口径改了（v63.63）：群通话现在在 groupBans 之后多接一层成长准则
+  //   （群线上和群线下早就有，群通话是第三处群路、原来一个字都没有）。
+  //   钉的仍是「开头就是 groupBans、没有谁在自己拼规矩层」，中间允许接别的层。
+  assert.match(app, /const sys = groupBans\(\{ echo: true \}\)\n\s*\+ gcGrowth\n\s*\+ "\\n\\n这是一个多人"/, "群通话");
   assert.match(eng, /groupBans\(\{ narrative: true, mood: true, echo: true, worldbook: !!\(ctx\.worldbook && ctx\.worldbook\.trim\(\)\) \}\)/, "群线下");
   // 只在群里用的那两条，除了定义就只该出现在 groupBans 里
   const live = s => s.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");

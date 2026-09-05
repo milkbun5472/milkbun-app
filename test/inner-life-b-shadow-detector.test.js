@@ -22,7 +22,7 @@ test("检测请求只带最近真实消息、试点轴和已批准性情",()=>{
   state.emotion.temperament=Core.temperamentFromAnchors(["黏人","敏感"],true);
   const spec=B.detectorSpec(char,pilot,state,msgs.concat({role:"system",content:"内部提示"}));
   const payload=JSON.parse(spec.messages[0].content);
-  assert.equal(spec.maxTokens,6000);
+  assert.equal(spec.maxTokens,8000);
   assert.deepEqual(payload.enabledAxes,pilot.enabledAxes);
   assert.deepEqual(payload.role.temperament,["黏人","敏感"]);
   assert.equal(payload.messages.some(x=>x.text.includes("内部提示")),false);

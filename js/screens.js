@@ -7348,6 +7348,14 @@ function ApiConfig({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
       h("button", { onClick: addNew, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
+    // ⚠️密钥【不随任何备份走】，这件事以前一个字都没写（审计 P1）。
+    //   key 全部剥进本机 IndexedDB 的凭证金库，用一把不可导出的设备密钥加密；
+    //   导出文件和云存档里 x_api 只剩一个 credentialRef 门牌。
+    //   于是重装/换设备之后：线路一条不少、每条都没 key → 所有调用失败 →
+    //   她看到的症状是「模型坏了」，方向完全是错的。所以摆在这一页最显眼的地方。
+    h("div", { style: { margin: "0 0 12px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub } },
+        "⚠️ 密钥只存这台设备，不随备份走。导出文件和云同步里都只有线路名和地址，没有 key——重装 app、换设备、清了浏览器数据之后，这几条线路会原样回来但都是空的，要在这儿重新填一次。")),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, list.map(p =>
       h("div", { key: p.id, onClick: () => { setCurId(p.id); setModels([]); setDd(false); setEditing(true); }, className: "active:opacity-75", style: {
         minHeight: 124, padding: "13px 13px 10px", borderRadius: 18, cursor: "pointer",
@@ -8584,6 +8592,14 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    // ⚠️「导出全部数据」这个名字是句半真话：有五个 IndexedDB 库根本不在里面（审计 P1）。
+    //   以前唯一提到这件事的地方，是【导入失败之后】那个 alert——那时候已经晚了。
+    //   固定摆在按钮旁边，按之前就看得见。
+    h("div", { style: { margin: "8px 0 4px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub } },
+        "这份文件带走的是：角色、聊天、记忆、手机、情侣空间这些正文，加上图库、自拍和照片说明。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
+        "⚠️ 不含：API 密钥 · 一起读的书正文 · 语音音频 · 一起听的本地歌 · 网易云 Cookie。换设备之后这几样要重来一次。")),
     button("导入备份恢复", () => ref.current && ref.current.click(), false),
     h(HomeLayoutProbe, { toast: toast }),
     h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {

@@ -18,13 +18,27 @@ test("全 app 没有一处 maxTokens 低于 " + FLOOR + "（games / trpg 除外�
     const lines = src.split("\n");
     lines.forEach((line, i) => {
       if (/^\s*\/\//.test(line)) return;              // 注释里写着历史值，不算
-      let m; const re = /maxTokens: (\d+)/g;
+      // ⚠️原来这个正则写死了【冒号后面一个空格】，于是 `maxTokens:6000` 这种压缩写法
+      //   一处都扫不到（js/inner-life-b-shadow.js 就那么写着 6000，闸绿着放它过去）。
+      //   闸自己有盲区的时候，「全绿」什么都不证明。
+      let m; const re = /maxTokens\s*:\s*(\d+)/g;
       while ((m = re.exec(line))) {
         if (Number(m[1]) < FLOOR) bad.push(f + ":" + (i + 1) + "  " + m[1]);
       }
     });
   });
   assert.deepEqual(bad, [], "这几处会让思考型模型想完就没配额写正文：\n" + bad.join("\n"));
+});
+
+// ⚠️还有一种写法完全在上面那道闸之外：**调用方压根不传 maxTokens**，
+//   由传输层的 `opts.maxTokens || N` 兜底。那个 N 才是这类调用真正拿到的配额，
+//   而它原来是 2400——比地板低一大截，而且不会在任何一处出现「maxTokens: 数字」。
+//   查缺别顺着「这条规则写没写」找，先问【这一处是靠什么把配额拿到手的】。
+test("没传 maxTokens 时的兜底默认值也不许低于地板", () => {
+  const engine = fs.readFileSync(path.join(root, "js", "engine.js"), "utf8");
+  const m = /const maxTokens = opts\.maxTokens \|\| (\d+);/.exec(engine);
+  assert.ok(m, "传输层那个兜底默认值找不到了——它改了名字，这条断言就落单了");
+  assert.ok(Number(m[1]) >= FLOOR, "忘了传 maxTokens 的调用点会拿到 " + m[1] + "，低于地板 " + FLOOR);
 });
 
 // 算出来的那几处：只抬上限和底数，公式形状不动
