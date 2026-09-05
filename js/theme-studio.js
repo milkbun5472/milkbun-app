@@ -318,10 +318,28 @@
     a[i] = null; all[page] = a; try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
     return a;
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, globalCSS: "", pageCSS: {}, updatedAt: 0 });
+  // ── 内置整套图标（v62.42，她 2026-09-04：「能不能直接把我发给你的单个图标套进去做一套预设皮肤，
+  //    随时可以用或者切换成别的」）──
+  // 一套＝仓库里 img/icons/<套名>/<appKey>.png 一叠文件 + 这里一行登记。
+  // 「她自己换的那一张」永远压在整套之上（appIconSrc 的顺序：她换的 → 当前整套 → 自带图 → 线稿），
+  // 所以换整套不会把她单独调过的那几张盖掉。
+  // ⚠️keys 必须跟目录里真有的文件一致——写了没文件就是一个 404 空框。
+  //   test/icon-packs-62-42.test.js 钉着这一条：每个登记的 key 在盘上都得有那张 png。
+  // bare：这一套的图自带底（玻璃方块、圆角都画在图里）。选了它就默认不再套主屏那块玻璃，
+  //   不然是两层玻璃叠着；她照样可以在工作台里把那个开关拨回去。
+  const ICON_PACKS = {
+    autumn: { name: "秋叶", dir: "img/icons/autumn/", bare: true, keys: [] }
+  };
+  const packList = () => Object.keys(ICON_PACKS).map(k => [k, ICON_PACKS[k].name, ICON_PACKS[k].keys.length]);
+  const packIconSrc = (packKey, appKey) => {
+    const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
+    return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".png" : "";
+  };
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, globalCSS: "", pageCSS: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, pageCSS: { ...(x.pageCSS || {}) } };
+    const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, pageCSS: { ...(x.pageCSS || {}) } };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
@@ -386,6 +404,10 @@
   };
   const commit = p => { clearTimeout(timer); timer = 0; const n = save(p || active); previewBase = null; return apply(n); };
   const iconRef = key => (active.icons || {})[key] || "";
+  // 当前整套里这个 app 那张图的路径；没选整套、或这套没画这个 app，就是空串
+  const packIcon = key => packIconSrc(active.iconPack, key);
+  // 图标自带底、不套主屏那块玻璃（只对「有图」的 app 生效，线稿照旧在玻璃上）
+  const iconBare = () => !!active.iconBare;
   const exportPackage = async extras => {
     const profile = normalize(extras && extras.profile || load()), assets = {};
     const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper].filter(x => /^iv_/.test(x)))];
@@ -404,7 +426,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

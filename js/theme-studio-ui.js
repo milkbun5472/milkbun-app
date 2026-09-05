@@ -5,7 +5,7 @@
     const [draft, setDraft] = useState(() => studio.load());
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     const [section, setSection] = useState("icons"), [page, setPage] = useState("home"), [previewing, setPreviewing] = useState(false);
-    const iconFile = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
+    const iconFile = useRef(null), iconFiles = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -22,6 +22,22 @@
       catch (err) { toast("图标读取失败：" + (err.message || err)); }
     };
     const clearIcon = key => { const icons = { ...draft.icons }; delete icons[key]; patchDraft({ icons }); };
+    // 一次多张（v62.42）：按文件名对 App。去掉扩展名之后，等于 appKey（cast）或等于中文名（人格档案馆）都认；
+    // 认不出的整批报出来，一个都不悄悄丢。
+    const chooseIcons = async e => {
+      const files = Array.from(e.target.files || []); e.target.value = ""; if (!files.length) return;
+      const byName = {}; studio.appIconList().forEach(([k, zh]) => { byName[k.toLowerCase()] = k; byName[zh] = k; });
+      const icons = { ...draft.icons }, hit = [], miss = [];
+      for (const f of files) {
+        const stem = String(f.name || "").replace(/\.[a-z0-9]+$/i, "").trim();
+        const key = byName[stem] || byName[stem.toLowerCase()];
+        if (!key) { miss.push(stem); continue; }
+        try { icons[key] = await imgToVault(await resizeImageFile(f, 512, .9)); hit.push(key); }
+        catch (err) { miss.push(stem + "（读不出）"); }
+      }
+      if (hit.length) patchDraft({ icons });
+      toast((hit.length ? "对上了 " + hit.length + " 张，已放入草稿，点预览看看" : "一张都没对上") + (miss.length ? "；认不出：" + miss.join("、") : ""));
+    };
     const exportTheme = async () => {
       // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
       try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper });
@@ -51,9 +67,40 @@
     return h("div", null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginBottom: 10 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
-        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], src = ref ? resolveImg(ref) : ""; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, "恢复原图标") : null); })),
-        h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } })),
+        // ── 整套换（v62.42）：仓库自带的几套，点一下整套换掉；她单独换过的那几张不动 ──
+        // 每一套画成【一张贴纸纸】：三张缩略贴在纸上、纸角翘一点；选中的那张纸压在最上面（墨色边、不翘角）。
+        // 不是一排药丸——药丸搬到哪个 app 都成立，一张贴纸纸只有换图标这一处成立。
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "整套换：点一张贴纸纸整套换掉。你自己单独换过的 App 不受影响。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 10, marginBottom: 14 } },
+          [["", "出厂线稿", 0]].concat(studio.packList()).map(([pk, name, n]) => {
+            const on = (draft.iconPack || "") === pk;
+            const peek = pk ? (studio.ICON_PACKS[pk].keys || []).slice(0, 3).map(k => studio.packIconSrc(pk, k)) : [];
+            return h("button", { key: pk || "__none", onClick: () => patchDraft({ iconPack: pk, iconBare: pk ? !!studio.ICON_PACKS[pk].bare : false }), className: "active:opacity-80",
+              style: { position: "relative", minHeight: 40, padding: "9px 12px 8px", borderRadius: 6, background: t.bg2, color: t.ink, textAlign: "left",
+                border: "1px solid " + (on ? t.ink : t.line), boxShadow: on ? "0 3px 10px rgba(30,28,24,.16)" : "0 1px 3px rgba(30,28,24,.08)",
+                transform: on ? "none" : "rotate(-1.2deg)" } },
+              h("div", { className: "flex items-center", style: { gap: 5, marginBottom: 5, minHeight: 22 } },
+                peek.length ? peek.map((src, i) => h("img", { key: i, src, alt: "", style: { width: 22, height: 22, borderRadius: 6, objectFit: "contain" } }))
+                  : h("div", { style: { width: 22, height: 22, borderRadius: 6, border: "1px dashed " + t.line, display: "grid", placeItems: "center", color: t.fog, fontSize: 12 } }, pk ? "…" : "◌")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, name),
+              pk ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, n + " / " + studio.appIconList().length + " 张") : null,
+              on ? h("span", { style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: 999, background: t.ink, color: t.bg2, fontSize: 10, display: "grid", placeItems: "center" } }, "✓") : null);
+          })),
+        // ── 图标自带底（她 2026-09-04 要的那个开关）：图里已经画了玻璃方块的，别再套一层 ──
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "图标自带底，不套玻璃"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "图里已经画了方块和圆角的，开了它主屏就不再垫那块玻璃；线稿图标不受影响")),
+          h("button", { onClick: () => patchDraft({ iconBare: !draft.iconBare }), className: "shrink-0 active:opacity-70", "aria-pressed": draft.iconBare ? "true" : "false",
+            style: { width: 44, height: 26, borderRadius: 999, background: draft.iconBare ? t.ink : t.line, position: "relative", transition: "background .15s" } },
+            h("div", { style: { position: "absolute", top: 3, left: draft.iconBare ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } }))),
+        // ── 一次多张：按文件名对上 App（文件叫 cast.png 或 人格档案馆.png 都认）──
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, flex: 1 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
+          h("button", { onClick: () => iconFiles.current && iconFiles.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "一次选多张")),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
+        h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } }),
+        h("input", { ref: iconFiles, type: "file", accept: "image/*", multiple: true, onChange: chooseIcons, style: { display: "none" } })),
       section === "css" && h("div", null,
         h("select", { value: page, onChange: e => setPage(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, marginBottom: 10 } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),

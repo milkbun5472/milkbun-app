@@ -810,11 +810,20 @@ const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.png" };
 //   两次都是「一层写在两处」。现在收成一个函数，主屏磁贴 / 文件夹预览 / 拖动时那个虚影
 //   全走它；以后再多一处，也是加一行调用，不是再抄一遍这个优先级。
 //   顺序：她自己换的 → 自带图 → 都没有就返回空串（调用方去画线稿 G）。
+//   v62.42 中间插了一档【当前整套】（主题工作台里一键换的那一套）：
+//   她换的 → 当前整套 → 自带图 → 线稿。整套换了，她单独调过的那几张不动。
 function appIconSrc(appKey) {
   if (!appKey) return "";
   const ref = window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
   if (ref) return typeof resolveImg === "function" ? resolveImg(ref) : ref;
+  const pack = (window.ThemeStudio && window.ThemeStudio.packIcon) ? window.ThemeStudio.packIcon(appKey) : "";
+  if (pack) return pack;
   return APP_BUILTIN_ICON[appKey] || "";
+}
+// 这张图要不要套玻璃：她在工作台拨了「图标自带底」、而且这个 app 确实有一张图，才不套。
+// 线稿永远在玻璃上——线条离了底就是飘在壁纸上的几根线。
+function appIconBare() {
+  return !!(window.ThemeStudio && window.ThemeStudio.iconBare && window.ThemeStudio.iconBare());
 }
 function GlassPane({ radius = 17, tone, style, className, children }) {
   const onWall = useOnWallpaper();
@@ -875,60 +884,25 @@ function GlassIcon({
     window.addEventListener("lisa-theme-change", fn);
     return () => window.removeEventListener("lisa-theme-change", fn);
   }, []);
-  // 她自己换过图标的那几个不上色（那是她的图，别去染它）
   // 她自己换过图标、或者这个 app 自带一张画的，都不上色（那是一张图，别去染它）
   const customSrc = appIconSrc(appKey);
   const tone = (!customSrc && appKey && typeof appTone === "function") ? appTone(appKey) : null;
-  return /*#__PURE__*/React.createElement("button", {
-    onClick: onClick,
-    className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",
-    style: soon ? { opacity: 0.5 } : null
-  }, h(GlassPane, {
-    className: "flex items-center justify-center",
-    radius: 17,
-    tone: tone,
-    style: { width: 62, height: 62 }
-  }, customSrc ? /*#__PURE__*/React.createElement("img", {
-    src: customSrc,
-    alt: "",
-    style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }
-  }) : /*#__PURE__*/React.createElement(G, {
-    size: 27,
-    color: tone ? tone.glyph : t.ink,
-    sw: 1.7
-  }), soon && /*#__PURE__*/React.createElement("span", {
-    style: {
-      position: "absolute",
-      bottom: -4,
-      right: -4,
-      fontSize: 8,
-      fontFamily: "'Archivo',sans-serif",
-      letterSpacing: "0.08em",
-      color: "#fff",
-      background: t.ink,
-      borderRadius: 999,
-      padding: "1px 5px"
-    }
-  }, "SOON"), badge > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      position: "absolute",
-      top: -3,
-      right: -3,
-      minWidth: 18,
-      height: 18,
-      borderRadius: 999,
-      background: t.accent,
-      color: "#fff",
-      fontSize: 10,
-      fontFamily: F_BODY,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "0 5px"
-    }
-  }, badge)), /*#__PURE__*/React.createElement("span", {
-    style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t))
-  }, label));
+  // 图自带底（v62.42 那个开关）：不套玻璃，那张图本身就是整块图标——
+  // 只留一圈跟玻璃同款的投影，好让它坐在壁纸上而不是贴在壁纸上。
+  const bare = !!customSrc && appIconBare();
+  const body = customSrc
+    ? h("img", { src: customSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: bare ? "contain" : "cover", borderRadius: 16, display: "block" } })
+    : h(G, { size: 27, color: tone ? tone.glyph : t.ink, sw: 1.7 });
+  // 角标和 SOON 两支共用：玻璃版和自带底版都要挂
+  const marks = [
+    soon ? h("span", { key: "soon", style: { position: "absolute", bottom: -4, right: -4, fontSize: 8, fontFamily: "'Archivo',sans-serif", letterSpacing: "0.08em", color: "#fff", background: t.ink, borderRadius: 999, padding: "1px 5px" } }, "SOON") : null,
+    badge > 0 ? h("span", { key: "badge", style: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, badge) : null
+  ];
+  return /*#__PURE__*/React.createElement("button", { onClick: onClick, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform", style: soon ? { opacity: 0.5 } : null },
+    bare
+      ? h("div", { className: "flex items-center justify-center", style: { position: "relative", width: 62, height: 62, borderRadius: 16, filter: "drop-shadow(0 6px 10px rgba(30,28,24,0.18))" } }, body, marks)
+      : h(GlassPane, { className: "flex items-center justify-center", radius: 17, tone: tone, style: { width: 62, height: 62 } }, body, marks),
+    h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹磁贴：格子里放前 4 个 app 的 2x2 迷你预览，点开弹出内部 app 网格
 function FolderIcon({ apps, label, onOpen, onWallpaper }) {
