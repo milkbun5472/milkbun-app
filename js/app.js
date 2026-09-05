@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.45";
+const APP_VERSION = "v63.46";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11666,7 +11666,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setAnonBusy(true);
     try {
       const d = await runProbe(apiFor((characters[0] || {}).id), { ...ctxFor(characters[0] || { name: profile.name, persona: "" }), profile },
-        { instruction: "给用户「" + (profile.name || "她") + "」设计一个【她自己】在匿名树洞里用的马甲:网名 name、第一人称签名 bio(一句)。这是她匿名向别人提问时挂着的身份,别人只看得见这两样。要像一个真的会半夜逛树洞的人,不要用她的真名,也不要一眼就认得出是她。",
+        { instruction: "给用户「" + (profile.name || "她") + "」设计一个【她自己】在匿名树洞里用的马甲：网名 name、第一人称签名 bio（一句）。这是她匿名向别人提问时挂着的身份，别人只看得见这两样。要像一个真的会半夜逛树洞的人。"
+          + "\n\n" + ANON_MASK_RULE,
           schemaHint: "{\"name\":\"网名\",\"bio\":\"一句签名\"}" });
       if (!d || !d.name) throw new Error("没生成出来");
       saveAnonMe({ name: String(d.name).slice(0, 16), bio: String(d.bio || "").slice(0, 40), ts: Date.now() });
@@ -11694,8 +11695,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if ((!anon[char.id] || !anon[char.id].netname) && active) {
       setAnonBusy(true);
       try {
-        const d = await runProbe(apiFor(char.id), ctxFor(char), {
-          instruction: "为「" + char.name + "」设计 Ta 在匿名社交/树洞 App 上的马甲：符合性格的网名 netname、第一人称个人简介 bio（1-2 句，可与现实人设有反差），以及 Ta 会挑什么样的图作为主页背景的描述 bgDesc（一句画面感描述，如「深夜城市天台的霓虹倒影」「一只蜷着睡的橘猫」「褪色的旧船票特写」，贴合此刻心境）。",
+        // ⚠️规则降概率，代码才保证：马甲这一枪【不发最近对话】。
+        //   人设和心情照给（那是拿来定语气的），但刚聊过的那几句不给——
+        //   模型手上没有那份材料，就没法把它写进网名（她 2026-09-05 报的
+        //   「本地无条件备份节点」正是从上面那段话里长出来的）。
+        const d = await runProbe(apiFor(char.id), { ...ctxFor(char), recentChat: "" }, {
+          // ⚠️原来这儿举了三个例子（「深夜城市天台的霓虹倒影」那一串）：
+          //   prompt-no-content-samples.md 明令不许——模型会照抄那个句式，
+          //   一排马甲全长成一个样。判据和维度写在 ANON_MASK_RULE / ANON_MASK_BG 里。
+          instruction: "为「" + char.name + "」设计 Ta 在匿名社交/树洞 App 上的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 会挑什么样的图当主页背景 bgDesc。"
+            + "\n\n" + ANON_MASK_RULE + "\n\n" + ANON_MASK_BG,
           schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
         });
         pAnon(char.id, cur => ({
@@ -11714,8 +11723,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!active) { toast("请先到设置配置 API"); return; }
     setAnonBusy(true);
     try {
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "重新为「" + char.name + "」设计 Ta【此刻】在匿名树洞的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 此刻会挑什么样的图当主页背景的描述 bgDesc（一句画面感描述）。要贴合 Ta 此刻的心情与最近的经历/心境变化（char development）——心情或状态变了，网名、签名、背景图都随之改（可与现实人设反差、可中二/emo/洒脱，看当下）。给一套和以前不一样的新马甲。",
+      // ⚠️同上：不发最近对话，人设和心情照给
+      const d = await runProbe(apiFor(char.id), { ...ctxFor(char), recentChat: "" }, {
+        // ⚠️「贴合此刻的心情与最近的经历」这句留着，但它管的是【语气】不是【材料】——
+        //   不写清楚的话模型会把最近发生的事直接写进网名（她 2026-09-05 报的就是这个）。
+        instruction: "重新为「" + char.name + "」设计 Ta【此刻】在匿名树洞的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 此刻会挑什么样的图当主页背景 bgDesc。"
+          + "心情变了就换一套——丧的、狂的、洒脱的、中二的，看当下；跟以前那套不许重样。"
+          + "\n\n" + ANON_MASK_RULE + "\n\n" + ANON_MASK_BG,
         schemaHint: "{\"netname\":\"网名\",\"bio\":\"签名\",\"bgDesc\":\"主页背景图描述\"}"
       });
       pAnon(char.id, cur => ({ ...cur, netname: d.netname || cur.netname || char.name, bio: d.bio || cur.bio || "", bgDesc: d.bgDesc || cur.bgDesc || "" }));
