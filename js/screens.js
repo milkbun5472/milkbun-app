@@ -229,6 +229,13 @@ function hexA(hex, a) {
   const n = parseInt(m[1], 16);
   return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
 }
+// ── 档案馆那一族共用的那张桌子（v62.83，审美审计还债④）────────────────
+// 审计的「乙组」：卡片/部件都已经从这一页是什么东西里长出来了（卷宗书脊、印章、
+// 亲属卡、关系板），**唯独外壳还是 t.bg 平色**——元素合格、外壳裸着。
+// 而这张桌子本来就有：编辑档案那一页（dossierDeskBg）早就铺着它。
+// 「同一个 app 两张桌子」——列表页米白、编辑页桌面——是审计原话点名的一处。
+// 所以这一批不新发明材质，只把现成那一张铺到同族的其余几页上，Head/顶栏一律透上来。
+const DESK = accent => ({ background: dossierDeskBg(accent) });
 // 分区＝一张有索引页签的活页。页签是竖着的一条（编号在上、色带贯穿整个抬头），
 // 抬头右边拉一条虚线引到边（表格上的那种 leader line），正文区换一档纸色压在抬头下面。
 function CastSection({ no, title, en, tint, children }) {
@@ -341,10 +348,12 @@ function Cast({
           hn ? "TA 自己攒下 " + hn + " 条念想" : "还空着——聊得多了会自己长出来"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, flexShrink: 0 } }, "›")) : null);
   });
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: DESK(t.accent || t.tint) },
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
     // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), background: t.bg, borderBottom: "1px solid " + t.line } },
+    // ⚠️顶栏别再自己刷一档 t.bg：桌面铺在外壳上，这一条刷了平色就在顶上压出一条没盖住的带子
+    //（.claude/rules/mobile-ui-layout.md §3.5）。
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line } },
       h("div", { className: "grid items-center", style: { gridTemplateColumns: "76px 1fr 76px", minHeight: 44 } },
         h("button", { onClick: onBack, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "text-center min-w-0" },
@@ -983,9 +992,9 @@ function Ties({
   // ---- 详情视图 ----
   if (view !== null) {
     const mine = partnersOf(view);
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
       h(Head, {
-        zh: view === "me" ? me : nameOf(view), en: "Ties · " + mine.length, onBack: () => setView(null),
+        zh: view === "me" ? me : nameOf(view), sub: mine.length + " 条", bg: "transparent", onBack: () => setView(null),
         right: h("button", { onClick: openNew, className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink }))
       }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
@@ -1025,7 +1034,8 @@ function Ties({
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, id === "me" ? me : nameOf(id)) : null);
     }));
   const nBoard = partnersOf(boardId).length;
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  // 那块板子摊在同一张桌子上（v62.83）：原来板子合格、桌子是米白
+  return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：这一页的正文就是那块板子，高度全给它
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
@@ -2686,12 +2696,14 @@ function KinshipBill({ card, character, onBack, onRaise }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
   const [amt, setAmt] = useState("");
-  if (!card) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "亲属卡", en: "Kinship", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
+  if (!card) return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) }, h(Head, { zh: "亲属卡", bg: "transparent", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
   const c = character || {};
   const ledger = card.ledger || [];
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
+  // 卡摊在同一张桌子上（v62.83）：卡面早就合格了，桌子还是米白，
+  // 而顶栏自己刷的是【另一档平色 t.bg2】——顶上压出一条带子，比没铺还显眼
+  return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
+    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), borderBottom: "1px solid " + t.line } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, (c.name || "") + " 的亲属卡")),
     h("div", { className: "flex-1 overflow-y-auto" },
       // 卡面
