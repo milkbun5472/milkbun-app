@@ -80,7 +80,10 @@ test("重画：站在没了的地点上的人掉下来，还在的照旧", () =>
 test("地点页是整页，不是半窗", () => {
   const np = grab(map, "    const nodePage = sel ?", "    return h(\"div\", { className: \"flex-1 flex flex-col\"");
   assert.ok(!/h\(Sheet/.test(np), "地点页用了半窗——见 .claude/rules/no-half-sheet.md");
-  assert.match(np, /position: "fixed", inset: 0/, "整页没铺满");
+  // ⚠️口径改了（v64.03）：整页那几项搬进了共用的 mapSubSkin（三层子页共用一份底，
+  //   本来是三行一模一样的平色）。钉的意图没变，只是问它有没有用那一份。
+  assert.match(np, /style: mapSubSkin\(t\)/, "没走那份共用的整页底");
+  assert.match(map, /position: "fixed", inset: 0, zIndex: 140/, "mapSubSkin 里的整页定位丢了");
   assert.match(np, /flex-1 min-h-0 overflow-y-auto/, "正文不是那一个主滚动容器");
 });
 

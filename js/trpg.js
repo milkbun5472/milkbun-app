@@ -2852,7 +2852,11 @@
         };
         const onPU = e => { const P = mapPtr.current; delete P.pts[e.pointerId]; P.dist = 0; };
         const zoomBtn = (label, fn) => h("button", { onClick: fn, style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }, label);
-        return h("div", { style: { position: "fixed", inset: 0, zIndex: 130, background: t.bg, display: "flex", flexDirection: "column" } },
+        // 舆图跟这一桌是同一张桌子：底也该是同一张（v64.03）。
+        // ⚠️原来这一层写死 t.bg——桌面那层纹理在别处铺得好好的，一开舆图就掉回平色。
+        //   而顶栏 S.top 是【为了压在桌面上】才做成半透白的，落到平色上就更不对了。
+        //   deskBg 是同一个 TrpgApp 闭包里那一份，跟着时辰走，不另算一遍。
+        return h("div", { style: { position: "fixed", inset: 0, zIndex: 130, background: deskBg, display: "flex", flexDirection: "column" } },
           h("div", { style: S.top },
             h("button", { onClick: () => { setMapOpen(false); setSelNode(null); }, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
             h("div", { style: S.h1 }, "舆图 · " + camp.title),

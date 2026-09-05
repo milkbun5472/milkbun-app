@@ -1,6 +1,16 @@
 // js/map.js — 好友地图：真·在线地图(Leaflet+OSM)，角色按「家乡城市 + 此刻日程活动」定位。
 // 主屏 2×2 实时小组件 MapWidget + 全屏 CharMap。Leaflet 没加载时优雅降级不崩。
 (function () {
+
+// 好友地图那几层子页（一处地点 / 加个地点 / 开一个世界）共用这一份底。
+// ⚠️三处本来是一模一样的三行平色，各改各的迟早只改一处。
+//   挑 grid（坐标纸）不是随手挑的：这几页说的都是「在图上标一个地方」，
+//   而它们自己【没有网格结构】——不像日历那种本来就是一张网、再铺一层会撞。
+//   底纹是给没有结构的页面补结构的，这几页正是那一类。
+function mapSubSkin(t) {
+  return Object.assign({ position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column" },
+    typeof pageSkin === "function" ? pageSkin("grid", t, { strength: .9 }) : { background: t.bg });
+}
   const inApp = typeof window !== "undefined" && typeof React !== "undefined";
   const h = inApp ? React.createElement : null;
   const useState = inApp ? React.useState : null, useEffect = inApp ? React.useEffect : null, useRef = inApp ? React.useRef : null;
@@ -438,8 +448,8 @@
     const zoomBtn = function (label, fn) { return h("button", { onClick: fn, className: "active:opacity-70", style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: 15, border: "1px solid " + t.line, background: "rgba(255,255,255,0.9)", color: t.ink } }, label); };
     const sel = selNode ? built.nodes.find(function (n) { return n.name === selNode; }) : null;
     // 节点页：整页（no-half-sheet）——这一层的正文（钩子、谁在这儿、通往哪儿）不需要同时看见地图
-    const nodePage = sel ? h("div", { style: { position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column", background: t.bg } },
-      h(Head, { zh: sel.name, en: sel.region + " · " + sel.kind, onBack: function () { setSelNode(null); } }),
+    const nodePage = sel ? h("div", { style: mapSubSkin(t) },
+      h(Head, { zh: sel.name, en: sel.region + " · " + sel.kind, bg: "transparent", onBack: function () { setSelNode(null); } }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: Object.assign({ borderRadius: 16, padding: "16px 16px 18px", border: "1px solid " + t.line }, worldPaper(t)) },
           h("div", { className: "flex items-center", style: { gap: 7, fontFamily: F_DISPLAY, fontSize: 22, color: "#3b3227" } },
@@ -532,8 +542,8 @@
     const inp = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", width: "100%", outline: "none" };
     const lbl = { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" };
     const chip = function (on) { return { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" }; };
-    return h("div", { style: { position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column", background: t.bg } },
-      h(Head, { zh: "加个地点", en: world.name, onBack: onBack }),
+    return h("div", { style: mapSubSkin(t) },
+      h(Head, { zh: "加个地点", en: world.name, bg: "transparent", onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: Object.assign({}, lbl, { marginTop: 6 }) }, "加到哪块地方"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
@@ -579,8 +589,8 @@
     const [picked, setPicked] = useState(() => ((init && init.cast) || []).slice());
     const toggle = id => setPicked(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : (p.length >= 8 ? p : [...p, id]));
     const inp = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", width: "100%", outline: "none" };
-    return h("div", { style: { position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column", background: t.bg } },
-      h(Head, { zh: init ? "这个世界" : "开一个世界", en: init ? "" : "New world", onBack: onBack }),
+    return h("div", { style: mapSubSkin(t) },
+      h(Head, { zh: init ? "这个世界" : "开一个世界", en: init ? "" : "New world", bg: "transparent", onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 7px" } }, "世界叫什么"),
         h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "一个名字", style: inp }),

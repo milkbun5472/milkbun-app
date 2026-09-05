@@ -758,8 +758,11 @@
     // 原来是 56% 高的半窗：正文是一段【聊天】，从来不是三行能说完的，
     // 而且掀起来那一层还把可用高度砍掉一半——一屏只剩三四条气泡。
     // 也不需要同时看见底下那一页书：讨论的时候人在讨论里。
+    // v64.03 底也换掉：外头那一架书架是木头的，可这一层不是站在书架前，
+    // 是【就着摊开的那一页在说话】——所以铺的是纸，不是木头。
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 45, display: "flex", flexDirection: "column" } },
-      h("div", { style: { flex: 1, minHeight: 0, background: t.bg, display: "flex", flexDirection: "column" } },
+      h("div", { style: Object.assign({ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { corner: false, strength: .9 }) : { background: t.bg }) },
         h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px", borderBottom: "1px solid " + t.line } },
           props.partner ? h(Avatar, { character: props.partner, size: 22, radius: 7 }) : null,
           h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "和 " + (props.partner ? props.partner.name : "") + " 讨论"),
