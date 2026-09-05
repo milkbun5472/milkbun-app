@@ -558,7 +558,7 @@
     forum: ["论坛", "forum"], momprofile: ["朋友圈", "moments"],
     us: ["情侣空间", "couple"],
     favorites: ["收藏", "favorites"], emotes: ["表情包", "emotes"],
-    lifestyle: ["生活方式", ""], stylelab: ["文风台", "stylelab"],
+    stylelab: ["文风台", "stylelab"],
     config: ["设置", "config"], assistant: ["你自己这一页", "assistant"],
     codex: ["", ""]
   };

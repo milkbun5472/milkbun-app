@@ -1216,16 +1216,6 @@ function schedDateParts(k) {
   const d = schedParseKey(k), dow = d.getDay();
   return { date: d, md: (d.getMonth() + 1) + "月" + d.getDate() + "日", dowZh: SCHED_DOW_ZH[dow], dateNum: String(d.getDate()).padStart(2, "0") };
 }
-function schedWeek(today, localTodayKey) {
-  const d = new Date(today), dow = (d.getDay() + 6) % 7; // 周一=0
-  const mon = new Date(d); mon.setDate(d.getDate() - dow); mon.setHours(0, 0, 0, 0);
-  const tk = localTodayKey || schedDayKey(new Date()); // 相对所选角色的当地今天判定过去/今天/未来
-  return Array.from({ length: 7 }, (_, i) => {
-    const dd = new Date(mon); dd.setDate(mon.getDate() + i);
-    const key = schedDayKey(dd);
-    return { key, date: dd, dowL: SCHED_DOW_ZH[dd.getDay()].slice(1), dateNum: String(dd.getDate()).padStart(2, "0"), isToday: key === tk, isPast: key < tk, isFuture: key > tk };
-  });
-}
 // 结束时刻（v56.30）。seqs 原来只有开始时刻，苹果日历式的块要 start+end 才画得出高度。
 // AI 现在会一起生成 end；旧数据和漏填的按「顶到下一段开始、最多 3 小时」补，最后一段给 60 分钟
 //（不封顶的话，一个下午只排了一件事就会画成四五个小时的大块——那中间其实是没排事）。
@@ -1268,7 +1258,6 @@ function schedSleepCarry(prevPlan, todayPlan) {
   if (wake <= 0) return null;
   return { from: 0, to: wake, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
 }
-function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GMoon, sleep: GMoon, social: GChat, out: GWalk }[type] || GBrief; }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。
 function schedTzShiftMin(char) {
   const raw = char && char.tz != null ? String(char.tz) : "";
@@ -1313,235 +1302,15 @@ function schedCurrentSeqIdx(seqs, isToday, char) {
 }
 
 // —— 单日时间线（打开即生成，失败退回）——
-// ── 手账的纸（v62.79，审美审计还债⑦：生活方式四页）──────────────────
-// 审计判词：这四页【不是米白】，是「时尚画册 / 科技仪表盘」皮——满版头像、巨大斜体英文、
-// 白圆角卡、十九处英文眉标，跟「行程」这件事一点关系都没有。这是「基础款不符主题」
-// 最典型的一处。
-// 行程现实里是【一本周计划手账】：横线纸、左边一道装订红线、边上一排线圈孔。
-// 一处画，周页 / 日页 / 名册三页共用；封面另算（封面本来就该是封面）。
-// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
-const PLANNER_RULE = 26;   // 横线间距；正文行高跟它对齐，字才是写在线上的
-function plannerSkin(t) {
-  if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
-  const red = /^#[0-9a-f]{6}$/i.test(String(t.accent || "")) ? t.accent : t.ink;
-  return { background: t.bg, backgroundImage: [
-    "repeating-linear-gradient(180deg," + t.ink + "00 0 " + (PLANNER_RULE - 1) + "px," + t.ink + "0e " + (PLANNER_RULE - 1) + "px " + PLANNER_RULE + "px)",
-    "linear-gradient(90deg," + t.ink + "00 0 30px," + red + "33 30px 31px," + t.ink + "00 31px)"
-  ].join(",") };
-}
-// 线圈：贴着左边一排孔，穿过去那一圈金属丝画一半（另一半在纸背面，本来就看不见）
-function PlannerRings({ t }) {
-  const n = 16;
-  return h("div", { "aria-hidden": "true", style: { position: "absolute", left: 6, top: 0, bottom: 0, width: 18, pointerEvents: "none",
-    display: "flex", flexDirection: "column", justifyContent: "space-around", alignItems: "center", zIndex: 1 } },
-    Array.from({ length: n }, (_, i) => h("span", { key: i, style: { width: 9, height: 9, borderRadius: 999,
-      background: t.bg, boxShadow: "inset 0 1px 2px rgba(0,0,0,.30), 0 0 0 1px " + t.line } })));
-}
-function LifeDay({ char, dayKey, plan, busy, onGen, onBack }) {
-  const t = useTheme();
-  const dp = schedDateParts(dayKey);
-  const isToday = dayKey === schedLocalDayKey(char);
-  const [openMurmur, setOpenMurmur] = useState(false);
-  useEffect(() => {
-    if (plan) return;
-    let alive = true;
-    Promise.resolve(onGen(char, dayKey)).then(ok => { if (alive && ok === false) onBack(); });
-    return () => { alive = false; };
-    // eslint-disable-next-line
-  }, [dayKey]);
-  // 日页的页眉：手账上那一栏日期写在右上角，不是一行英文「BACK」
-  const head = h("div", { className: "shrink-0 flex items-center justify-between px-6 pb-3", style: { paddingTop: safeTop(20), position: "relative", zIndex: 4 } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "flex items-center justify-center active:opacity-50", style: { width: 40, height: 40, marginLeft: -8 } },
-      h(IArrow, { size: 19, color: t.ink })),
-    h("div", { className: "text-right" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, dp.md),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, dp.dowZh + (isToday ? " · 今天" : "")),
-      // 兜底刷新：模型偶尔给乱序时间导致灰不掉/进度错乱——一键按「此刻」重推这天
-      plan && !busy ? h("button", { onClick: () => onGen(char, dayKey), className: "active:opacity-60", style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 3, padding: "3px 10px", minHeight: 28 } }, "重新推演") : null));
-  if (busy || !plan) return h("div", { className: "h-full flex flex-col relative", style: plannerSkin(t) }, h(PlannerRings, { t }), head, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在推演 " + char.name + " 的这天…" })));
-  // 异地：把角色本地日程换算到我这边的时间轴并重排（框架=我的时间）
-  const seqs = schedDisplaySeqs(char, plan.seqs || []);
-  const tzShifted = seqs.length && seqs[0]._shifted;
-  const curIdx = schedCurrentSeqIdx(seqs, isToday, char);
-  const murmurs = plan.murmurs || [];
-  const seqState = i => !isToday ? "done" : i < curIdx ? "done" : i === curIdx ? "current" : "future";
-  return h("div", { className: "h-full flex flex-col relative", style: plannerSkin(t) }, h(PlannerRings, { t }), head,
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { position: "relative", zIndex: 2 } },
-      // 碎碎念回看入口
-      murmurs.length > 0 && h("button", { onClick: () => setOpenMurmur(true), className: "w-full flex items-center gap-2 mb-4 mt-1 px-4 py-2.5 active:opacity-70", style: { border: "1px solid " + t.line, borderRadius: 999 } },
-        h(GChat, { size: 15, color: t.accent }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "实时碎碎念 · " + murmurs.length + " 条"),
-        h(IChevR, { size: 14, color: t.fog, style: { marginLeft: "auto" } })),
-      tzShifted && h("div", { className: "mb-3", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 11px" } }, "TA 在别的时区，日程按 TA 当地作息推演，时间已换算到你这边（框架＝你的时间）。左侧是你这边时刻，「当地」是 TA 那边时刻。"),
-      seqs.length === 0 ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "这天没有记录")
-        : h("div", { style: { position: "relative", paddingLeft: 22, animation: "fadeUp .3s ease both" } },
-            h("div", { style: { position: "absolute", left: 5, top: 8, bottom: 8, width: 0, borderLeft: "1.5px dashed " + t.line } }),
-            seqs.map((s, i) => {
-              const st = seqState(i), dev = st === "future" ? null : s.deviation;
-              const done = st === "done", cur = st === "current";
-              const Ico = schedActIcon(s.type);
-              return h("div", { key: i, style: { position: "relative", marginBottom: 14, opacity: 1 } },
-                h("span", { style: { position: "absolute", left: -22, top: 20, width: 11, height: 11, borderRadius: 999, background: cur || dev ? t.accent : done ? t.fog : t.line, border: "2px solid " + t.bg, boxShadow: cur ? "0 0 0 3px rgba(194,90,74,0.2)" : "none" } }),
-                h("div", { style: { position: "relative", background: cur ? "#fff" : t.bg2, borderRadius: 3, padding: "16px 16px 15px", border: "1px solid " + (dev ? t.accent : t.line), boxShadow: cur ? "0 4px 18px rgba(194,90,74,0.13)" : "none" } },
-                  // 活动图标（右上角圆）
-                  h("div", { style: { position: "absolute", top: -14, right: 14, width: 46, height: 46, borderRadius: 999, background: dev ? t.accent : t.bg, border: "1px solid " + (dev ? t.accent : t.line), display: "flex", alignItems: "center", justifyContent: "center", boxShadow: dev ? "0 3px 12px rgba(194,90,74,0.35)" : "none" } }, h(Ico, { size: 21, color: dev ? "#fff" : done ? t.fog : t.ink })),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8 } }, "第 " + s.seq + " 件"),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.25, color: done ? t.fog : t.ink, fontWeight: cur ? 700 : 400, textDecoration: dev ? "line-through" : "none", paddingRight: 40 } }, s.title),
-                  dev && h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.accent, fontWeight: 500 } }, "临时改了：" + (dev.reason || "")),
-                  (dev && dev.plan) && h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "原计划：" + dev.plan),
-                  (dev && dev.actual ? h("div", { className: "flex items-center gap-1.5", style: { marginTop: 10 } }, h(GWalk, { size: 13, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, dev.actual))
-                    : s.location && h("div", { className: "flex items-center gap-1.5", style: { marginTop: 10 } }, h(GWalk, { size: 13, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, s.location))),
-                  s.time && h("div", { style: { position: "absolute", top: 16, right: 66, textAlign: "right" } },
-                    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, color: t.fog } }, s._myLabel || s.time),
-                    s._shifted && h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: t.fog, opacity: 0.7, marginTop: 1 } }, "当地 " + s._charTime))));
-            }))),
-    openMurmur && h(Sheet, { onClose: () => setOpenMurmur(false), tall: true },
-      h(Eyebrow, { style: { marginBottom: 4 } }, "实时碎碎念"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14 } }, char.name + " 这天的即时念头，可回看"),
-      murmurs.map((m, i) => h("div", { key: i, className: "flex gap-3 py-3", style: { borderTop: i ? "1px solid " + t.line : "none" } },
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, color: t.accent, width: 44, flexShrink: 0, paddingTop: 2 } }, m.time || ""),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink } }, m.text)))));
-}
-
-function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGenDay }) {
-  const t = useTheme();
-  const [view, setView] = useState("browser"); // browser | brief | day | index
-  const [dayKey, setDayKey] = useState(null);
-  const [weekOff, setWeekOff] = useState(0); // 0=本周, -1=上周…
-  const tp = useRef(null);
-  const idx = Math.max(0, characters.findIndex(c => c.id === selId));
-  const char = characters[idx] || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "行程", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
-  const todayKey = schedLocalDayKey(char);
-  const plans = schedules[char.id] || {};
-  const todayPlan = plans[todayKey] || plans[schedDayKey(new Date())]; // 旧设备日键只作显示兜底，新当地日程生成后自动接管
-  const go = dir => { const ni = idx + dir; if (ni >= 0 && ni < characters.length) onSel(characters[ni].id); };
-  const openDay = key => { setDayKey(key); setView("day"); };
-  const onTS = e => { const p = e.touches[0]; tp.current = { x: p.clientX, y: p.clientY }; };
-  const onTE = e => { if (!tp.current) return; const p = e.changedTouches[0]; const dx = p.clientX - tp.current.x, dy = p.clientY - tp.current.y; tp.current = null; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1); };
-
-  if (view === "day" && dayKey) return h(LifeDay, { char, dayKey, plan: plans[dayKey] || (dayKey === todayKey ? todayPlan : null), busy: busyKey === char.id + "|" + dayKey, onGen: onGenDay, onBack: () => setView("brief") });
-
-  // 名册＝手账最前面那几页通讯录：同一张纸、同一排线圈
-  if (view === "index") return h("div", { className: "h-full flex flex-col relative", style: plannerSkin(t) },
-    h(PlannerRings, { t }),
-    h(Head, { zh: "名册", sub: "翻到某个人", bg: "transparent", onBack: () => setView("browser") }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10 pt-1", style: { position: "relative", zIndex: 2 } }, characters.map(c => {
-      const p = schedules[c.id] || {}; const tp2 = p[todayKey]; const cur = c.id === char.id;
-      return h("div", { key: c.id, onClick: () => { onSel(c.id); setView("browser"); }, className: "flex items-center gap-4 py-4 active:opacity-70", style: { borderBottom: "1px solid " + t.line } },
-        h(Avatar, { character: c, size: 52, radius: 15 }),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "flex items-center gap-2" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, c.name),
-            cur && h("span", { style: { fontFamily: F_BODY, fontSize: 10, padding: "2px 7px", borderRadius: 3, border: "1px solid " + t.line, color: t.fog } }, "当前")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, tp2 ? (tp2.seqs || []).length + " 项 · " + (tp2.load || "") : "今日待生成")),
-        h(IChevR, { size: 16, color: t.fog }));
-    })));
-
-  // —— brief：选中角色的日程（周条 + 今日简报 + 上一周历史）——
-  if (view === "brief") {
-    const base = new Date(schedParseKey(todayKey).getTime() + weekOff * 7 * 86400000);
-    const week = schedWeek(base, todayKey);
-    const dev0 = todayPlan && (todayPlan.seqs || []).map(s => s.deviation).find(Boolean);
-    const weekLabel = weekOff === 0 ? "本周" : weekOff === -1 ? "上一周" : Math.abs(weekOff) + " 周前";
-    // ── 周页（v62.79）：手账翻开的那一面，不是仪表盘 ──────────────────
-    // 原来这一页是【190px 满版头像色带 + 白圆角大卡 + 92px 的斜体「LOG.」水印
-    // + TODAY'S BRIEF / EVENTS / EST. TIME / DEVIATION DETECTED / OPEN TIMELINE】——
-    // 那是科技仪表盘的语汇，跟「他这一周怎么过」没有关系。
-    // 手账的周页长什么样：一排七天写在纸上，今天那一栏夹一枚书签；
-    // 底下写今天有几件事、大概几个钟头、有没有临时改。
-    return h("div", { className: "h-full flex flex-col relative", style: plannerSkin(t) },
-      h(PlannerRings, { t }),
-      h(Head, { zh: char.name + " 这一周", sub: weekLabel, bg: "transparent", onBack: () => setView("browser"),
-        right: h("button", { onClick: () => setView("index"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 40, padding: "0 4px" } }, "名册") }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 2 } },
-        // 一周七格：这一排就写在纸上，不再摞一张浮起来的白卡
-        h("div", { className: "px-5 pt-1" },
-          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-            h("button", { onClick: () => setWeekOff(weekOff - 1), "aria-label": "上一周", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 16, color: t.fog })),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, weekLabel),
-            h("button", { onClick: () => weekOff < 0 && setWeekOff(weekOff + 1), disabled: weekOff >= 0, "aria-label": "下一周", className: "active:opacity-50 disabled:opacity-25 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8, transform: "scaleX(-1)" } }, h(IArrow, { size: 16, color: t.fog }))),
-          h("div", { className: "flex", style: { position: "relative", gap: 2 } },
-            week.map(d => h("button", { key: d.key, disabled: d.isFuture, onClick: () => !d.isFuture && openDay(d.key),
-              className: "flex flex-col items-center active:opacity-60 disabled:opacity-100",
-              style: { flex: 1, minWidth: 0, minHeight: 62, paddingTop: 6, paddingBottom: 6, position: "relative",
-                borderLeft: "1px solid " + t.line, borderRight: d.key === week[week.length - 1].key ? "1px solid " + t.line : "none",
-                background: d.isToday ? (t.bg2 + "") : "transparent" } },
-              // 今天那一栏夹一枚书签：形状和位置都变，不只是换个色
-              d.isToday ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", marginLeft: -5, top: -7, width: 10, height: 20,
-                background: t.accent, clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%)" } }) : null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: d.isToday ? t.ink : t.fog, marginTop: d.isToday ? 8 : 0 } }, d.dowL),
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: d.isToday ? 21 : 18, color: d.isToday ? t.ink : d.isFuture ? t.line : t.sub, lineHeight: 1.2, marginTop: 2 } }, d.dateNum),
-              // 那天写了东西没有：手账上就是一个小点
-              h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, marginTop: 4,
-                background: d.isFuture ? "transparent" : plans[d.key] ? t.accent : t.line } })))),
-          h("div", { style: { height: 1, background: t.line, marginTop: 0 } })),
-        // 今天这一页
-        weekOff < 0
-          ? h("div", { className: "px-6 pt-8 pb-10 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8 } }, "「" + weekLabel + "」翻过去了。\n点某一天，看 " + char.name + " 那天实际过成了什么样。")
-          : h("div", { className: "px-6 pt-6 pb-10" },
-            h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 4 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "今天这一页"),
-              todayPlan ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "3px 9px" } }, todayPlan.load || "平常") : null),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(todayKey).md + " " + schedDateParts(todayKey).dowZh),
-            !todayPlan
-              ? h("button", { onClick: () => openDay(todayKey), className: "w-full active:opacity-70", style: { marginTop: 18, minHeight: 44, padding: "13px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, border: "1px dashed " + t.line, borderRadius: 3 } }, busyKey ? "正在推演今天…" : "这一页还空着，点开写上")
-              : h("div", null,
-                h("div", { className: "flex", style: { gap: 34, marginTop: 18 } },
-                  h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "几件事"),
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, lineHeight: 1.1 } }, (todayPlan.seqs || []).length, h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, " 件"))),
-                  h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "大概几个钟头"),
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, lineHeight: 1.1 } }, todayPlan.estTime != null ? todayPlan.estTime : "—", h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, " 小时")))),
-                dev0 && h("div", { className: "pl-4", style: { marginTop: 22, borderLeft: "3px solid " + t.accent } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginBottom: 6 } }, "跟原来说好的不一样了"),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.7, color: t.ink } }, (dev0.plan ? "原计划：" + dev0.plan + "。" : "") + (dev0.reason ? "变更原因：" + dev0.reason : ""))),
-                h("button", { onClick: () => openDay(todayKey), className: "w-full flex items-center justify-between active:opacity-70",
-                  style: { marginTop: 26, minHeight: 44, padding: "14px 16px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "翻到今天这一页"),
-                  h(IChevR, { size: 18, color: t.fog }))))));
-  }
-
-  // —— browser（默认）：仿日记大图 · swipe + 箭头 + 圆点换角色，点进去看日程 ——
-  const bg = char.avatarImage
-    ? `linear-gradient(180deg, rgba(10,9,8,0.1) 0%, rgba(10,9,8,0.45) 55%, #0c0b0a 94%), center 22%/cover no-repeat url(${typeof resolveImg==="function"?resolveImg(char.avatarImage):char.avatarImage})`
-    : `linear-gradient(180deg, ${char.color || "#3a3730"} 0%, #0c0b0a 84%)`;
-  return h("div", { className: "h-full flex flex-col", style: { background: "#0c0b0a", color: "#efe9df", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
-    h("div", { className: "flex-1 min-h-0 flex flex-col relative", style: { background: bg } },
-      h("div", { className: "shrink-0 flex items-start justify-between px-6", style: { paddingTop: safeTop(24) } },
-        h("button", { onClick: onBack, "aria-label": "返回桌面", className: "flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } },
-          h("span", { className: "flex items-center justify-center", style: { width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(239,233,223,0.4)" } }, h(IArrow, { size: 18, color: "#efe9df" }))),
-        h("button", { onClick: () => setView("index"), className: "text-right active:opacity-60", style: { minHeight: 40 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15 } }, "名册"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: 0.6 } }, "翻到某个人"))),
-      h("div", { className: "flex-1" }),
-      h("div", { className: "shrink-0 px-6 pb-7" },
-        h("div", { className: "flex items-baseline gap-3 mb-1" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, opacity: 0.5 } }, "第 " + (idx + 1) + " 本"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: 0.6 } }, "共 " + characters.length + " 本")),
-        h("div", { className: "flex items-end gap-3" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontWeight: 500, fontSize: 68, lineHeight: 0.95 } }, char.name),
-          char.remark && h("span", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 24, opacity: 0.7, paddingBottom: 8 } }, char.remark)),
-        h("div", { style: { height: 1, background: "rgba(239,233,223,0.35)", margin: "20px 0" } }),
-        h("div", { className: "flex items-end justify-between" },
-          h("div", { className: "flex gap-10" },
-            h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: 0.55 } }, "今天"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 28 } }, todayPlan ? (todayPlan.seqs || []).length + " 件" : "—")),
-            h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: 0.55 } }, "今天满不满"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, marginTop: 6 } }, todayPlan ? (todayPlan.load || "平常") : "还没写"))),
-          h("button", { onClick: () => { setWeekOff(0); setView("brief"); }, className: "flex items-center gap-3 active:opacity-70", style: { background: "rgba(239,233,223,0.12)", border: "1px solid rgba(239,233,223,0.3)", borderRadius: 999, padding: "10px 12px 10px 18px" } },
-            h("div", { className: "text-left" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15 } }, "翻开这一本"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: 0.7 } }, "看他这一周")),
-            h("span", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 999, background: "#efe9df" } }, h(IChevR, { size: 18, color: "#0c0b0a" })))),
-        characters.length > 1 && h("div", { className: "flex items-center justify-center gap-6", style: { marginTop: 18 } },
-          h("button", { onClick: () => go(-1), disabled: idx === 0, className: "active:opacity-50", style: { opacity: idx === 0 ? 0.2 : 0.7, padding: 6 } }, h(IArrow, { size: 20, color: "#efe9df" })),
-          h("div", { className: "flex gap-1.5" }, characters.map((c, i) => h("span", { key: c.id, style: { width: i === idx ? 16 : 5, height: 5, borderRadius: 999, background: "#efe9df", opacity: i === idx ? 0.9 : 0.35, transition: "width .2s" } }))),
-          h("button", { onClick: () => go(1), disabled: idx === characters.length - 1, className: "active:opacity-50", style: { opacity: idx === characters.length - 1 ? 0.2 : 0.7, padding: 6, transform: "scaleX(-1)" } }, h(IArrow, { size: 20, color: "#efe9df" }))))));
-}
+// ⚠️行程那一屏（Lifestyle / LifeDay，四页）v62.82 整块删掉——她 2026-09-05：
+//   「不用行程了宝宝删了吧，有日历够了」。
+//   它本来就已经【进不去】了：screen === "lifestyle" 全库没有任何地方 set，
+//   入口早在行程被日历的当天视图接手时就退场了（components.js 那句注释记着这件事），
+//   组件和路由被留在原地当了很久的第二份真相。
+//   ⚠️只删【浏览这一层】：行程的数据（x_schedules）、生成（genScheduleDay）、
+//   以及 schedDateParts / schedDisplaySeqs / schedCurrentSeqIdx / schedFillEnds 这些
+//   日历和聊天上下文还在用的算法，一个都没动。
+//   跟着一起零引用的 schedWeek（周条）和 schedActIcon（事项图标）也删掉。
 // 世界书 · 设定索引：卡面直接回答「写了什么 / 谁能看 / 何时触发 / 会去哪儿」。
 // 去向键与 engine.js 的 loreScopeOn 一一对应，所有消费者必须从同一筛选器取书。
 const LORE_SCOPE_UI = [

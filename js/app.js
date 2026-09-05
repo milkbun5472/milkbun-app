@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.81";
+const APP_VERSION = "v62.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16947,14 +16947,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
       toast("已删除");
     }
-  });else if (screen === "lifestyle") body = h(Lifestyle, {
-    characters: liveChars,
-    schedules: schedules,
-    selId: selSched,
-    busyKey: gen.sched,
-    onBack: goHome,
-    onSel: setSelSched,
-    onGenDay: genScheduleDay
   });else if (screen === "anon") body = h(AnonHub, {
     characters: liveChars,
     data: anon,
