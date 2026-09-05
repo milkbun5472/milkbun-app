@@ -1203,21 +1203,55 @@ function MemoWidget({ onOpen, homeSize }) {
 }
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
-const WHEEL_COLORS = ["#f2cfd2", "#bcd3f0", "#c3e0b0", "#f2c88f", "#d9c7ee", "#f0dc8f", "#bfe3c6", "#eea3a3"];
+// 扇区的色：从马卡龙八色换成这个 app 自己的秋色（v63.08）。
+// 原来那八个是任何抽奖小程序都在用的糖果色——换个 app 照样成立，就是写坏了。
+const WHEEL_COLORS = ["#d9a86c", "#a8b898", "#c98d7e", "#9fb0c4", "#d6c07a", "#b09ab5", "#c2a17e", "#8fae9e"];
 function wheelSlicePath(i, n) {
   const a0 = (i * 360 / n - 90) * Math.PI / 180, a1 = ((i + 1) * 360 / n - 90) * Math.PI / 180;
-  const R = 46;
+  // R 从 46 收到 39：外面那一圈木框才有地方（46 的时候扇区一直铺到边上，
+  // 木框和铜钉全被压没了，看着还是一张饼图）。
+  const R = 39;
   return "M50,50 L" + (50 + R * Math.cos(a0)).toFixed(2) + "," + (50 + R * Math.sin(a0)).toFixed(2) + " A" + R + "," + R + " 0 " + (360 / n > 180 ? 1 : 0) + " 1 " + (50 + R * Math.cos(a1)).toFixed(2) + "," + (50 + R * Math.sin(a1)).toFixed(2) + " Z";
 }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
 function WheelDisc({ items, angle, spinning, size, labels, dur }) {
+  const n = items.length;
+  // 一只木转盘，不是一张饼图（她 2026-09-05：「太普通了」）：
+  //   外面一圈木框、框上钉着一圈铜钉、扇区之间是墨线不是白线、正中一颗铜轴。
+  //   木框和铜钉跟着盘一起转——真的转盘就是这样，而且转起来一眼看得出在转。
+  const nails = [];
+  for (let k = 0; k < 12; k++) {
+    const a = (k * 30 - 90) * Math.PI / 180;
+    nails.push(h("circle", { key: "n" + k, cx: 50 + 44 * Math.cos(a), cy: 50 + 44 * Math.sin(a), r: 2.3, fill: "#8a6a3c", stroke: "rgba(58,42,22,.45)", strokeWidth: .4 }));
+  }
   return h("svg", { viewBox: "0 0 100 100", width: size, height: size, style: { transform: "rotate(" + angle + "deg)", transition: spinning ? "transform " + (dur || 3.2) + "s cubic-bezier(0.12,0.6,0.08,1)" : "none", display: "block" } },
-    items.length >= 2 ? items.map((it, i) => h("g", { key: i },
-      h("path", { d: wheelSlicePath(i, items.length), fill: WHEEL_COLORS[i % WHEEL_COLORS.length], stroke: "rgba(255,255,255,0.85)", strokeWidth: 1 }),
-      labels ? h("text", { x: wheelLabelPos(i, items.length, 29).x, y: wheelLabelPos(i, items.length, 29).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: items.length > 5 ? 6.5 : 8, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(60,50,40,0.88)" } }, it.slice(0, 5)) : null))
-      : h("circle", { cx: 50, cy: 50, r: 46, fill: "#eee" }),
-    h("circle", { cx: 50, cy: 50, r: 6.5, fill: "#fff", stroke: "rgba(0,0,0,0.12)" }));
+    h("defs", null,
+      h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
+        h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" })),
+      h("linearGradient", { id: "wkWheelRim", x1: "0", y1: "0", x2: "1", y2: "1" },
+        h("stop", { stopColor: "#c39a68" }), h("stop", { offset: ".5", stopColor: "#9a7042" }), h("stop", { offset: "1", stopColor: "#7a5530" }))),
+    h("circle", { cx: 50, cy: 50, r: 48, fill: "url(#wkWheelRim)" }),
+    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(52,36,20,.5)", strokeWidth: 1 }),
+    nails,
+    n >= 2 ? items.map((it, i) => h("g", { key: i },
+      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[i % WHEEL_COLORS.length], stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
+      labels ? h("text", { x: wheelLabelPos(i, n, 26).x, y: wheelLabelPos(i, n, 26).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 6.5 : 8, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5)) : null))
+      : h("circle", { cx: 50, cy: 50, r: 39, fill: "#e5ddd0" }),
+    // 盘面压进木框里那一道内影
+    h("circle", { cx: 50, cy: 50, r: 39, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
+    h("circle", { cx: 50, cy: 50, r: 6.4, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
+    h("circle", { cx: 48.3, cy: 48.2, r: 1.5, fill: "rgba(255,248,232,.7)" }));
+}
+// 转盘顶上那根【簧片指针】：一片带弯的铜簧，尖头压在盘边上。
+// 不跟着盘转，所以画在 WheelDisc 外面。size 是盘的直径。
+function WheelNeedle({ size }) {
+  const w = Math.max(16, size * 0.2);
+  return h("svg", { width: w, height: w * 1.05, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
+    h("defs", null, h("linearGradient", { id: "wkNeedle", x1: "0", y1: "0", x2: "1", y2: "1" },
+      h("stop", { stopColor: "#f3e0b8" }), h("stop", { offset: ".5", stopColor: "#c79a55" }), h("stop", { offset: "1", stopColor: "#8a6329" }))),
+    h("path", { d: "M4 1.5h12c1.1 0 1.6 1.3.9 2.1L11.4 10c-.5.6-.6 1.4-.2 2l1.2 2.2c.6 1-.1 2.3-1.3 2.3H10L10 20 8.6 16.5H8.7c-1.2 0-1.9-1.3-1.3-2.3L8.6 12c.4-.6.3-1.4-.2-2L3.1 3.6C2.4 2.8 2.9 1.5 4 1.5Z",
+      fill: "url(#wkNeedle)", stroke: "rgba(58,40,22,.6)", strokeWidth: .8, strokeLinejoin: "round" }));
 }
 // 全屏大转盘（portal 挂 body）：氛围感主场——大盘+大结果+角色起哄完整气泡
 function WheelFull({ data, items, onSave, onReact, onClose }) {
@@ -1264,11 +1298,11 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       h("button", { onClick: openEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: "rgba(255,255,255,0.8)", padding: "12px 16px", whiteSpace: "nowrap" } }, "✎ 编辑")),
     h("div", { className: "flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center", style: { padding: "0 24px 30px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff", marginTop: 6 } }, data.title || "命运转盘"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 3, letterSpacing: "0.15em" } }, "FATE DECIDES"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 3, letterSpacing: "0.15em" } }, "转一下 · 让它替你定"),
       // 大转盘
       h("div", { onClick: spin, style: { position: "relative", width: 300, height: 300, marginTop: 26, cursor: "pointer", filter: "drop-shadow(0 14px 34px rgba(0,0,0,0.45))" } },
         h(WheelDisc, { items: items, angle: angle, spinning: spinning, size: 300, labels: true, dur: 4.1 }),
-        h("div", { style: { position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "11px solid transparent", borderRight: "11px solid transparent", borderTop: "18px solid #e8b04d", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.4))" } }),
+        h("div", { style: { position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 300 })),
         !spinning && !result ? h("div", { style: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", background: "rgba(0,0,0,0.55)", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 999, pointerEvents: "none", whiteSpace: "nowrap" } }, "点一下 开转") : null),
       // 结果
       h("div", { style: { minHeight: 46, marginTop: 22, textAlign: "center" } },
@@ -1304,7 +1338,7 @@ function WheelWidget({ editMode, onReact }) {
     data.title ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 3, maxWidth: "90%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, data.title) : null,
     h("div", { style: { position: "relative", width: 86, height: 86, flexShrink: 0 } },
       h(WheelDisc, { items: items, angle: 0, spinning: false, size: 86, labels: true }),
-      h("div", { style: { position: "absolute", top: -3, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "8px solid " + t.accent } })),
+      h("div", { style: { position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 86 }))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, marginTop: 4, maxWidth: "94%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
@@ -1347,7 +1381,21 @@ function MuyuWidget({ editMode }) {
   const shownTotal = total > 99999 ? Math.floor(total / 1000) + "k" : total;
   return h("div", { onClick: knock, className: "relative flex flex-col items-center justify-center h-full", style: { userSelect: "none", WebkitUserSelect: "none", cursor: "pointer", isolation: "isolate" } },
     h("div", { style: { position: "relative", width: 116, height: 104, display: "flex", alignItems: "center", justifyContent: "center" } },
-      h("div", { style: { position: "absolute", inset: "13px 3px 1px", borderRadius: "50%", background: "radial-gradient(ellipse at 50% 36%, rgba(255,255,255,.7) 0%, rgba(232,224,208,.52) 58%, rgba(151,126,93,.16) 100%)", border: "1px solid " + t.line, boxShadow: "inset 0 1px 0 rgba(255,255,255,.72), 0 9px 22px rgba(55,43,30,.12)" } }),
+      // 木鱼底下垫的是【蒲团】，不是一块发白的玻璃碟（她 2026-09-05：「太普通了」）。
+      // 原来那一层是 radial-gradient 的白晕——木鱼看着像贴在玻璃上的一枚贴纸，
+      // 没有「它放在哪儿」这件事。换成绛色布垫：有绲边、有八道褶子往中间收。
+      h("svg", { width: 116, height: 60, viewBox: "0 0 116 60", "aria-hidden": true, style: { position: "absolute", left: 0, bottom: 2 } },
+        h("defs", null, h("radialGradient", { id: "wkPuTuan", cx: ".5", cy: ".34", r: ".75" },
+          h("stop", { stopColor: "#9d4f47" }), h("stop", { offset: ".62", stopColor: "#7e3b36" }), h("stop", { offset: "1", stopColor: "#5c2a27" }))),
+        h("ellipse", { cx: 58, cy: 34, rx: 55, ry: 23, fill: "url(#wkPuTuan)" }),
+        h("ellipse", { cx: 58, cy: 31, rx: 55, ry: 23, fill: "none", stroke: "#c99a5e", strokeWidth: 1.6 }),
+        h("ellipse", { cx: 58, cy: 31, rx: 55, ry: 23, fill: "url(#wkPuTuan)" }),
+        [0, 1, 2, 3, 4, 5, 6, 7].map(function (k) {
+          var a = (k * 45 + 22) * Math.PI / 180;
+          return h("path", { key: k, d: "M58 31 L" + (58 + 55 * Math.cos(a)).toFixed(1) + " " + (31 + 23 * Math.sin(a)).toFixed(1),
+            stroke: "rgba(30,14,12,.28)", strokeWidth: 1 });
+        }),
+        h("ellipse", { cx: 58, cy: 31, rx: 12, ry: 5, fill: "rgba(40,18,16,.35)" })),
       pressed ? h("div", { style: { position: "absolute", width: 86, height: 68, borderRadius: "50%", border: "1px solid rgba(151,105,63,.35)", animation: "wk-muyu-ring .42s ease-out forwards" } }) : null,
       h("div", { style: { position: "relative", transform: pressed ? "translateY(3px) scale(.95)" : "translateY(0) scale(1)", transition: "transform .1s ease", filter: "drop-shadow(0 7px 7px rgba(62,40,22,.22))" } },
         h("svg", { width: 94, height: 76, viewBox: "0 0 94 76", fill: "none", "aria-hidden": true },
@@ -1441,14 +1489,32 @@ function MusicWidget({ listen, player, onOpen, homeSize }) {
   const discSize = compact ? 38 : square ? 54 : 56;
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
     style: { marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto", background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22, padding: compact ? "8px 10px" : square ? "12px 9px" : "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)", display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start", alignItems: "center", gap: compact ? 8 : square ? 9 : 13, overflow: "hidden" } },
-    h("div", { style: { flexShrink: 0, width: discSize, height: discSize, borderRadius: 999, background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "radial-gradient(circle at 50% 50%, #4a4a52 0 34%, #2b2b30 35%)", boxShadow: "0 3px 12px rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
-      h("div", { style: { width: 14, height: 14, borderRadius: 999, background: "rgba(255,255,255,0.85)", border: "3px solid rgba(0,0,0,0.25)" } })),
+    // 一张唱片从纸套里抽出来一半（她 2026-09-05：「太普通了」）。
+    // 原来是一个圆头像＋一条通用进度条——换到任何一个播放器 app 里都成立，就是写坏了。
+    // 现在这一块是【方的纸套 + 从套口探出来的那一弯碟】：封面印在套上，碟只露右边一弯，
+    // 放着的时候那一弯在转。没封面时纸套是素的、碟是黑胶纹。
+    h("div", { style: { flexShrink: 0, position: "relative", width: discSize * 1.34, height: discSize } },
+      h("div", { style: { position: "absolute", right: 0, top: discSize * 0.06, width: discSize * 0.88, height: discSize * 0.88, borderRadius: 999,
+        background: "repeating-radial-gradient(circle at 50% 50%, #26262b 0 1.5px, #1b1b1f 1.5px 3px)",
+        boxShadow: "0 3px 10px rgba(0,0,0,.3)", display: "flex", alignItems: "center", justifyContent: "center",
+        animation: playing ? "wk-spin 9s linear infinite" : "none" } },
+        h("div", { style: { width: discSize * 0.3, height: discSize * 0.3, borderRadius: 999, background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "#8a6a4a", display: "flex", alignItems: "center", justifyContent: "center" } },
+          h("div", { style: { width: 4, height: 4, borderRadius: 999, background: "rgba(250,246,238,.9)" } }))),
+      h("div", { style: { position: "absolute", left: 0, top: 0, width: discSize, height: discSize, borderRadius: 3,
+        background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(150deg,#e6dccb,#cbbda6)",
+        boxShadow: "0 3px 12px rgba(0,0,0,0.22), inset -6px 0 10px -6px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.35)" } },
+        // 套口：右边那条缝，碟就是从这儿抽出去的
+        h("div", { style: { position: "absolute", right: 0, top: "8%", bottom: "8%", width: 2, borderRadius: 2, background: "linear-gradient(180deg,rgba(255,255,255,.5),rgba(0,0,0,.28))" } }))),
     h("div", { style: { flex: 1, minWidth: 0 } },
       !compact && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : 16.5, textAlign: square ? "center" : "left", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
       !compact && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
-      !compact && !square && h("div", { style: { height: 3, borderRadius: 999, background: "rgba(0,0,0,0.08)", marginTop: 8, position: "relative" } },
-        h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac ? frac * 100 : 0) + "%", borderRadius: 999, background: t.accent } }))),
+      // 进度＝【唱针走到哪儿了】：一根发丝细的轨，左端一个支点，针尖压在轨上。
+      // 通用那条圆角进度条哪个 app 都在用，这一根只有唱片机上有。
+      !compact && !square && h("div", { style: { height: 9, marginTop: 7, position: "relative" } },
+        h("div", { style: { position: "absolute", left: 4, right: 0, top: 4, height: 1, background: skinAlpha(t.ink, "26") } }),
+        h("div", { style: { position: "absolute", left: 0, top: 1.5, width: 6, height: 6, borderRadius: 999, background: skinAlpha(t.ink, "44") } }),
+        h("div", { style: { position: "absolute", left: "calc(4px + " + (frac ? frac * 100 : 0) + "% * 0.96)", top: 0, width: 2, height: 9, borderRadius: 2, background: t.accent, boxShadow: "0 0 0 2px " + skinAlpha(t.accent, "22") } }))),
     !square && h("div", { style: { flexShrink: 0, width: compact ? 27 : 34, height: compact ? 27 : 34, borderRadius: 999, background: "rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "center" } },
       playing
         ? h("div", { style: { display: "flex", gap: 2 } }, h("div", { style: { width: 3, height: 12, borderRadius: 2, background: t.ink } }), h("div", { style: { width: 3, height: 12, borderRadius: 2, background: t.ink } }))

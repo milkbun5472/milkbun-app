@@ -210,11 +210,37 @@
       return { pos: charPos(c, st, anchor), html: avatarHtml(c, 26), size: 26 };
     }).filter(function (p) { return p.pos; });
     if (myPos) pins.push({ pos: myPos, size: 16, html: meDotHtml(14) });
-    return h("button", { onClick: onOpen, className: "active:opacity-90 text-left",
-      style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", isolation: "isolate", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
-      h(MapCanvas, { pins: pins, opts: { static: true, zoom: 12, onReady: function (m) { mapRef.current = m; if (myPos) { try { m.setView(myPos, 12); } catch (e) {} } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
-      pins.length === 0 ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" } },
-        h("div", { style: { fontSize: 26, opacity: 0.5 } }, "🗺️")) : null);
+    // 一张【摊开过的旧海图】，不是一块生瓦片（她 2026-09-05：「太普通了」）。
+    // 原来就是把 Esri 的街道图直接嵌进一个圆角方框——那个东西在任何一个 app 里都成立，
+    // 而且底下那行 "Leaflet | Tiles © Esri" 还横着漏出来。现在：
+    //   · 瓦片压成旧纸的色（去饱和 + 微微发黄），四角压暗
+    //   · 中间两道折痕：这张图是从口袋里掏出来摊开的
+    //   · 右下角一枚程序画的罗盘（不是 emoji）
+    //   · 版权那行缩到最小、压在左下角，不再横穿整张图
+    return h("button", { onClick: onOpen, className: "active:opacity-90 text-left wk-mapwidget",
+      style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 6, overflow: "hidden", isolation: "isolate",
+        border: "1px solid rgba(92,72,48,.45)", boxShadow: "0 8px 26px rgba(30,28,24,.18), inset 0 0 0 3px rgba(247,241,229,.85)", background: "#e6dcc6" } },
+      h("div", { style: { position: "absolute", inset: 0, filter: "sepia(.42) saturate(.72) contrast(1.04) brightness(1.02)" } },
+        h(MapCanvas, { pins: pins, opts: { static: true, zoom: 12, onReady: function (m) { mapRef.current = m; if (myPos) { try { m.setView(myPos, 12); } catch (e) {} } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } })),
+      // 折痕：竖一道、横一道，各带一侧的亮边
+      h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: "linear-gradient(90deg,transparent calc(50% - 1.2px),rgba(84,66,44,.16) 50%,rgba(255,252,244,.5) calc(50% + 1.2px),transparent calc(50% + 3px)),"
+          + "linear-gradient(180deg,transparent calc(50% - 1.2px),rgba(84,66,44,.13) 50%,rgba(255,252,244,.42) calc(50% + 1.2px),transparent calc(50% + 3px)),"
+          + "radial-gradient(120% 110% at 50% 45%, transparent 46%, rgba(70,54,34,.3))" } }),
+      // 罗盘：北针一半上墨一半留白，外面一圈刻度
+      h("svg", { width: 34, height: 34, viewBox: "0 0 34 34", "aria-hidden": true, style: { position: "absolute", right: 7, bottom: 7, opacity: .82 } },
+        h("circle", { cx: 17, cy: 17, r: 15, fill: "rgba(247,241,229,.72)", stroke: "rgba(74,56,36,.6)", strokeWidth: 1 }),
+        h("circle", { cx: 17, cy: 17, r: 11.5, fill: "none", stroke: "rgba(74,56,36,.35)", strokeWidth: .6 }),
+        h("path", { d: "M17 3.5 20.4 17 17 30.5 13.6 17Z", fill: "#f7f1e5", stroke: "rgba(74,56,36,.7)", strokeWidth: .7 }),
+        h("path", { d: "M17 3.5 20.4 17 17 17Z", fill: "#8d3f33" }),
+        h("path", { d: "M17 3.5 13.6 17 17 17Z", fill: "#5d4a30" }),
+        h("circle", { cx: 17, cy: 17, r: 1.6, fill: "#5d4a30" })),
+      pins.length === 0 ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, pointerEvents: "none" } },
+        // ⚠️原来这儿摆的是一个地图 emoji：她机器上会渲成豆腐块，规矩里写着一律换程序画的
+        h("svg", { width: 30, height: 30, viewBox: "0 0 30 30", "aria-hidden": true },
+          h("path", { d: "M2 7.5 10.5 4l9 3.5L28 4v18.5L19.5 26l-9-3.5L2 26Z", fill: "none", stroke: "rgba(74,56,36,.5)", strokeWidth: 1.4, strokeLinejoin: "round" }),
+          h("path", { d: "M10.5 4v18.5M19.5 7.5V26", stroke: "rgba(74,56,36,.5)", strokeWidth: 1.2 })),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(74,56,36,.66)" } }, "还没有人在图上")) : null);
   }
 
   // 真·地点搜索（OSM Nominatim，免费无 key）：搜全世界任何地方，中文优先

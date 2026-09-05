@@ -18,8 +18,12 @@ test("木鱼只换皮肤，2x2 占位和原有敲击行为都保留", () => {
   assert.match(muyu, /className: "relative flex flex-col items-center justify-center h-full"/, "木鱼不再填满原组件格");
 });
 
-test("木鱼使用主屏纸感托盘和暖木雕刻，不退回旧的扁平色块", () => {
-  assert.match(muyu, /radial-gradient\(ellipse at 50% 36%/, "纸感托盘没了");
+test("木鱼放在蒲团上、暖木雕刻，不退回旧的扁平色块", () => {
+  // v63.08：那层发白的 radial-gradient 托盘换成了【蒲团】——原来木鱼像贴在玻璃上的贴纸，
+  // 没有「它放在哪儿」这件事。判词跟着换成新形状，不是把断言放宽。
+  assert.match(muyu, /id: "wkPuTuan"/, "蒲团没了");
+  assert.match(muyu, /stroke: "#c99a5e", strokeWidth: 1\.6/, "蒲团的绲边没了");
+  assert.doesNotMatch(muyu, /radial-gradient\(ellipse at 50% 36%/, "又退回那层发白的玻璃托盘了");
   assert.match(muyu, /id: "muyuWood"/, "暖木渐变没了");
   assert.match(muyu, /id: "muyuMallet"/, "独立木槌没了");
   assert.match(muyu, /wk-muyu-ring/, "敲击扩散反馈没了");

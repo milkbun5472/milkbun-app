@@ -70,19 +70,28 @@
     return rows;
   }
 
-  // 压条上的那两颗铆钉＋一根木条：整只夹子都是程序画的，不用任何 emoji/符号
-  function clampBar(t, ink) {
+  // 压条：整只夹子的脸面。标题和「还剩几条没看」都写在这一条上——
+  // ⚠️v63.08 之前它们写在夹板上，而夹板是半透明的：铺了照片壁纸就整个消失
+  //（她 2026-09-05 截图：只剩三张白纸飘在树林上）。字要待在自己有底的东西上。
+  function clampBar(t, ink, onWall, title, unread) {
+    // ⚠️压条是【墨色】的，所以上面的字一律用 t.bg，绝不写死 #fff——
+    //   深色主题里 ink 是浅的，白字压上去就是白底白字（tabs-not-plain-pills 那条踩过）。
+    var fg = t.bg || "#fff";
     return h("div", {
-      className: "shrink-0 relative",
+      className: "shrink-0 flex items-center",
       style: {
-        height: 20, borderRadius: "6px 6px 3px 3px",
-        background: "linear-gradient(180deg," + skinAlpha(ink, "26") + "," + skinAlpha(ink, "14") + ")",
-        borderBottom: "1px solid " + skinAlpha(ink, "22"),
-        display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 9px"
+        height: 30, borderRadius: "13px 13px 4px 4px", padding: "0 10px", gap: 6,
+        background: "linear-gradient(180deg," + skinAlpha(ink, "ff") + " 0%," + skinAlpha(ink, "e0") + " 62%," + skinAlpha(ink, "f2") + " 100%)",
+        boxShadow: "inset 0 1px 0 " + skinAlpha(fg, "30") + ", 0 2px 6px rgba(30,26,22,.28)"
       }
     },
-      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(ink, "44") } }),
-      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(ink, "44") } }));
+      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(fg, "88"), flexShrink: 0 } }),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: fg, letterSpacing: ".06em", whiteSpace: "nowrap" } }, title),
+      h("span", { style: { flex: 1 } }),
+      unread ? h("span", {
+        style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "#b8483c", borderRadius: 999, padding: "1.5px 7px", whiteSpace: "nowrap" }
+      }, unread + " 条没看") : null,
+      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(fg, "88"), flexShrink: 0, marginLeft: 6 } }));
   }
 
   function RecentWidget(props) {
@@ -92,6 +101,7 @@
     const ink = /^#[0-9a-fA-F]{6}$/.test(String(t.ink || "")) ? t.ink : "#3a3430";
     const paper = t.bg2 || t.bg;
     const totalUn = rows.reduce(function (a, r) { return a + (r.unread || 0); }, 0);
+    const onWall = typeof useOnWallpaper === "function" ? useOnWallpaper() : false;
 
     const slip = function (r, i) {
       const s = seedOf(r.id);
@@ -143,20 +153,21 @@
     return h("div", {
       className: "w-full h-full flex flex-col",
       style: {
-        minHeight: 0, borderRadius: 16, overflow: "hidden",
-        background: skinAlpha(ink, "0a"), boxSizing: "border-box"
+        minHeight: 0, borderRadius: 16, overflow: "hidden", boxSizing: "border-box",
+        // ⚠️夹板必须【自己有底】：原来是 ink 4% 的一层薄色，铺了照片壁纸就整个不见了。
+        //   底色走主题的纸色（不是写死的白），铺壁纸时再压一层磨砂顶住花底子。
+        background: paper,
+        backgroundImage: "linear-gradient(180deg," + skinAlpha(ink, "10") + "," + skinAlpha(ink, "06") + ")",
+        border: "1px solid " + skinAlpha(ink, onWall ? "2a" : "1c"),
+        boxShadow: onWall ? "0 10px 26px rgba(30,26,22,.28)" : "0 6px 16px rgba(30,26,22,.12)"
       }
     },
-      clampBar(t, ink),
+      clampBar(t, ink, onWall, "捎来的字条", totalUn),
       // 压条底下压着一道影：纸是【插进夹子里】的，不是摆在下面的
-      h("div", { className: "shrink-0", style: { height: 4, marginBottom: -4, background: "linear-gradient(180deg," + skinAlpha(ink, "1c") + ",transparent)", position: "relative", zIndex: 50 } }),
-      h("div", { className: "shrink-0 flex items-center gap-1.5", style: { padding: "5px 10px 2px" } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.sub, letterSpacing: ".08em" } }, "捎来的字条"),
-        h("span", { style: { flex: 1 } }),
-        totalUn ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#b04a3f" } }, totalUn + " 条没看") : null),
+      h("div", { className: "shrink-0", style: { height: 5, marginBottom: -5, background: "linear-gradient(180deg," + skinAlpha(ink, "24") + ",transparent)", position: "relative", zIndex: 50 } }),
       h("div", {
         className: "flex-1 min-h-0",
-        style: { overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "2px 8px 8px", touchAction: editMode ? "none" : "pan-y" }
+        style: { overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "7px 8px 8px", touchAction: editMode ? "none" : "pan-y" }
       },
         rows.length
           ? rows.map(slip)
