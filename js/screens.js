@@ -5853,25 +5853,27 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   };
   const disc = !(hex6(t.ink) && hex6(t.accent)) ? { background: t.bg } : {
     backgroundColor: t.bg,
-    // v62.85 整体压深一档（她 2026-09-05：「波纹背景颜色不好看有点浅了」）：
-    // 原来沟纹是 3%–5% 的墨，隔着屏幕几乎看不见，整页还是一张米白纸。
-    // 四档并排渲染过（A 原样 / B / C / D），取的是 C：沟纹看得清、暖色还在、标题和封套上的字不闷。
-    // 最深那档 D 整页发灰，字跟着闷——过了。
+    // v62.89 沟纹只铺在碟周围那一片、往下淡出（她 2026-09-05 拿网易云那页对照：
+    // 「现在有点太暗了下面的字看不到」「它下面是会 fade 掉的」）。
+    // v62.88 那版是整页压深——碟在的地方深得对，可标题、封套、队列也一起坐进了暗处。
+    // 所以沟纹现在是【一片】不是【一页】：只在碟那一带，到标题就淡成了纯底（见下面 discField 的 mask）。
+    // 圆心 130px＝碟的圆心（marginTop 14 + 半径 116）——这片是贴在滚动区里的，跟着碟走。
     backgroundImage: [
-      // 先给整页罩一层薄墨：圆心处 4%、四角 10%，碟是放在深一点的台面上的，不是放在纸上
-      "radial-gradient(circle at 50% 240px," + t.ink + "0a 0%," + t.ink + "1a 100%)",
       // 中心那圈亮：碟面反的光，从圆心往外淡出去
-      "radial-gradient(circle at 50% 240px," + t.accent + "38 0%," + t.accent + "1c 38%,transparent 72%)",
+      "radial-gradient(circle at 50% 130px," + t.accent + "38 0%," + t.accent + "1c 38%,transparent 72%)",
       // 沟纹：一圈一圈的细线。⚠️间距不能等宽——真唱片外圈疏、里圈密，
       //   一套等距同心圆看着像靶子。所以叠三套疏密不同的。
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "26 5px," + t.ink + "26 6px)",
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "18 22px," + t.ink + "18 24px)",
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "20 57px," + t.ink + "20 59px)",
-      // 四角压暗：碟离得越远越暗，页面才不是一张平纸
-      "radial-gradient(circle at 50% 240px,transparent 40%," + t.ink + "3c 100%)"
+      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "26 5px," + t.ink + "26 6px)",
+      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "18 22px," + t.ink + "18 24px)",
+      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "20 57px," + t.ink + "20 59px)"
     ].join(",")
   };
-  const crate = nav === "play" ? disc : sleeve;
+  // 沟纹那一片：贴在滚动区顶上、跟着内容滚，上沿 40px 淡入（别在顶栏底下切出一条硬边）、
+  // 260px 之后淡出、460px 到底——标题坐在余纹上，封套和队列坐在纯底上。
+  // zIndex:-1 + 滚动区 isolation:isolate：它在内容底下、又在外壳的底色之上。
+  const discFade = "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,1) 40px, rgba(0,0,0,1) 260px, rgba(0,0,0,0) 460px)";
+  const discField = nav === "play" ? h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, top: 0, height: 460, zIndex: -1, pointerEvents: "none", WebkitMaskImage: discFade, maskImage: discFade }, disc) }) : null;
+  const crate = nav === "play" ? { background: t.bg } : sleeve;
   return h("div", { className: "h-full flex flex-col relative", style: crate },
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
@@ -5879,7 +5881,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     h(Head, { zh: "一起听", bg: "transparent",
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
-    h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", isolation: "isolate" } }, discField, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
