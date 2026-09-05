@@ -97,3 +97,23 @@ test("聊天搜索七个筛选＝七个小气泡，emoji 图标撤掉", () => {
   ["语音", "图片", "转账", "通话", "位置", "红包"].forEach(z =>
     assert.ok(code.includes('"' + z + '"'), "少了这一档：" + z));
 });
+
+// ── 第四批（v63.43）：设置里那一行档位 ─────────────────────────────────
+test("那一行档位＝一把刻度尺，而且只写一份", () => {
+  // ⚠️原来一模一样地写了三份（线下设置 + 两处角色设置）：改一处漏两处
+  //   是这个仓库最常见的病。收成一个 PersRow，三处都只剩一行 delegate。
+  assert.equal((comp.match(/function PersRow\(\{ label, val, set, opts \}\)/g) || []).length, 1);
+  assert.equal((comp.match(/const persRow = \(label, val, set, opts\) => h\(PersRow, \{/g) || []).length, 3,
+    "三处都得走同一个 PersRow");
+  assert.ok(!/const persRow = \(label, val, set, opts\) => h\("div", \{ className: "flex items-center justify-between pt-3" \},/.test(comp),
+    "还有一处自己抄了一份");
+  const seg = comp.slice(comp.indexOf("function PersRow("), comp.indexOf("function LineField("));
+  // 尺：一条轨横过去
+  assert.match(seg, /borderTop: "1px solid " \+ t\.line/, "轨没了，剩一排字");
+  // 选中那档是坐在轨上的菱形游标；没选的只是一道细刻度
+  assert.match(seg, /width: 7, height: 7, marginTop: -4[\s\S]{0,60}transform: "rotate\(45deg\)"/, "游标不是骑在轨上的菱形");
+  assert.match(seg, /width: 1, height: 5/, "没选的那几档没有刻度");
+  assert.match(seg, /const on = val === o\.v;/);
+  assert.ok(!/borderRadius: 999/.test(seg), "药丸还在");
+  assert.match(seg, /minHeight: 40/, "可点区不够");
+});

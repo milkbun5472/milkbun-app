@@ -681,6 +681,29 @@ function Slider({
 // ⚠️和 Head 同一条（.claude/rules/no-english-titles.md）：有中文主名时，
 //   纯拉丁的 en 一律不发。这一个组件几十处在用，改这儿就一起合规了。
 //   en 里写的是中文时照旧当副名——判断看的是这串字里有没有汉字，不是它写在哪个字段里。
+// ── 设置里那一行档位：一把刻度尺，不是一排药丸（tabs-not-plain-pills）──────
+// 这几行调的都是【给他多少】——记忆几条、主动多勤、话多长。调一个量的东西
+// 现实里是【尺上的一个档】，所以：一条轨横过去，每档一个刻度，选中那档换成
+// 一个坐在轨上的菱形游标。形状、大小、在不在轨上三样一起变，不是只换个填色。
+// ⚠️原来这一段一模一样地写了三份（线下设置 / 两处角色设置）——改一处漏两处
+// 是这个仓库最常见的病，所以收成这一个组件。
+function PersRow({ label, val, set, opts }) {
+  const t = useTheme();
+  return h("div", { className: "flex items-center justify-between pt-3" },
+    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
+    h("div", { className: "flex", style: { gap: 2, borderTop: "1px solid " + t.line, marginTop: 6 } },
+      opts.map(o => {
+        const on = val === o.v;
+        return h("button", { key: o.v, onClick: () => set(o.v),
+          className: "flex flex-col items-center active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "0 9px 6px", minHeight: 40,
+            color: on ? t.ink : t.fog, background: "transparent" } },
+          h("span", { "aria-hidden": "true", style: on
+            ? { width: 7, height: 7, marginTop: -4, marginBottom: 3, background: t.ink, transform: "rotate(45deg)" }
+            : { width: 1, height: 5, marginTop: 0, marginBottom: 5, background: t.line } }),
+          h("span", { key: "l" }, o.t));
+      })));
+}
 function LineField({
   zh,
   en,
@@ -9348,9 +9371,8 @@ function OfflineMode({
   const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [sBg, setSBg] = useState(os.bg || "");
   const bgFileRef = useRef(null);
-  const persRow = (label, val, set, opts) => h("div", { className: "flex items-center justify-between pt-3" },
-    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
-    h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
+  // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
+  const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   const offlineSetSheet = () => setOpen && onSaveSettings && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
@@ -11508,9 +11530,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
-  const persRow = (label, val, set, opts) => h("div", { className: "flex items-center justify-between pt-3" },
-    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
-    h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
+  // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
+  const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   const memberIds = (group && group.memberIds) || [];
   const members = memberIds.map(id => ((allChars || characters) || []).find(c => c.id === id)).filter(Boolean);
   const outsiders = (characters || []).filter(c => !memberIds.includes(c.id));
@@ -12252,9 +12273,8 @@ function ChatSettings({
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
-  const persRow = (label, val, set, opts) => h("div", { className: "flex items-center justify-between pt-3" },
-    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
-    h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
+  // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
+  const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
   // 只装了一节的那几类：进去就把它摊开。留着收起来的话，点进来是一片空白 +
   // 一行跟页标题几乎一样的字，还得再点一下——比改分类之前还难用。
