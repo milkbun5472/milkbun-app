@@ -48,16 +48,20 @@ test("进度是唱针的行程，不是一根系统滑条", () => {
   assert.match(play, /position: "relative", height: 40, cursor: "pointer", touchAction: "none"/);
 });
 
-test("一首歌只有一张皮：两套歌行并成一张曲目单", () => {
-  // 本地那套是描边圆角卡、云村那套是分隔线平铺行——同一样东西两张皮，
-  // 她说的「一段一段加的所以看起来很乱」在纸上就是这两行。
+test("本地是曲目单、云村是碟——两样东西两张皮，但各自只有一张", () => {
+  // v62.46：本地那套是描边圆角卡、云村那套是分隔线平铺行——那时它们是【同一样东西两张皮】，
+  //   所以并成了一张曲目单。
+  // v63.56 她要「发现」做成唱片店的新到架，这两处就不再是同一样东西了：
+  //   · 本地曲库＝我已经有的歌，**手里没有封面** → 曲目单（trackShell）
+  //   · 云村＝还不属于我的碟，**封面一直在手里**（toRes 从来就带 cover，只是没画出来）→ 碟（sleeve）
+  //   判据没变，变的是答案：它俩现在真的不是一样东西。各自仍然只有一张皮。
   assert.match(CODE, /const trackShell = \(children, key, on\) =>/);
   assert.match(CODE, /const trackNo = \(n, on, source\) =>/);
-  // 两个调用点都得走同一张壳，否则又是两套
   const songRow = LT.slice(LT.indexOf("  const songRow ="), LT.indexOf("  // \"加到歌单\"选择层"));
   const cloudRow = LT.slice(LT.indexOf("  const cloudRow ="), LT.indexOf("  const cvChip ="));
   assert.match(songRow, /return trackShell\(\[/, "本地那套没并进来");
-  assert.match(cloudRow, /return trackShell\(\[/, "云村那套没并进来");
+  assert.match(cloudRow, /style: sleeve\(\{ gap: 8/, "云村那套没走碟套——它和「我的」那边的碟是同一个形状");
+  assert.match(cloudRow, /\?param=100y100/, "碟上没画封面，那就还是一行字");
   // 来源不靠两种长相区分，靠号位上那一枚小标记
   assert.match(CODE, /ic\(source === "netease" \? "cloud" : "note", t\.fog, 14\)/);
   // 正在放的那一首是跳动的竖杠，不是一个 ▶ 字符

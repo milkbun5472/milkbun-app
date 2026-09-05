@@ -53,3 +53,25 @@ test("设置页是唱机背后那块板：直角、刻线、螺丝、槽", () =>
   assert.match(scr, /输入框＝【刻在板子上的槽】/);
   assert.match(scr, /boxShadow: hex6\(t\.ink\) \? "inset 0 2px 4px -2px "/);
 });
+
+// ── v63.56 发现＝唱片店的新到架（她 2026-09-05：「发现这个主意不错，弄吧宝宝」）──
+test("发现那一页是新到架：碟朝前立着，封面真的画出来了", () => {
+  const row = scr.slice(scr.indexOf("const cloudRow = (s, opts)"), scr.indexOf("const cvChip ="));
+  // 封面一直在手里（toRes 带 cover），原来从来没画出来过
+  assert.match(scr, /const toRes = s => \(\{ id: s\.id, name: s\.name[\s\S]{0,120}?cover: \(\(s\.al \|\| s\.album \|\| \{\}\)\.picUrl \|\| null\)/);
+  assert.match(row, /width: 44, height: 44, borderRadius: 3/, "碟没有封面那一格");
+  assert.match(row, /s\.cover \? null : ic\("note", t\.fog, 16\)/, "没封面的碟得有个退路，不能是白框");
+  // 和「我的」那边的碟套同一个形状——全 app 一个形状
+  assert.match(row, /style: sleeve\(\{ gap: 8/);
+  // ⚠️?param= 只能贴 http 图：data:/blob: 贴上去整张图失效
+  assert.match(row, /\/\^https\?:\/\.test\(s\.cover\) \? "\?param=100y100" : ""/);
+});
+
+test("架板：两侧挡板 + 底下一道厚轨，碟下沿停在同一条线上", () => {
+  const rack = scr.slice(scr.indexOf("// 架板：碟插在里头"), scr.indexOf("cv.sub === \"rec\" ? h(\"div\", null,"));
+  assert.match(rack, /borderLeft: "1px solid " \+ t\.line, borderRight: "1px solid " \+ t\.line/);
+  assert.match(rack, /borderBottom: "3px solid "/);
+  assert.match(rack, /inset 0 -12px 14px -14px/);
+  // 主题墨色不是六位 hex 时退回纯色，不拼废值
+  assert.match(rack, /hex6\(t\.ink\) \? t\.ink \+ "2e" : t\.line/);
+});

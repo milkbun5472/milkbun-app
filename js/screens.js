@@ -5526,10 +5526,24 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   //   这就是最直接的一处。
   // 统一的歌行：播放(带scrobble) / 红心 / 收进家 / ☁＋入她的网易云歌单；
   // opts.removable=从她自己的歌单里真删这首；opts.trash=FM 垃圾桶
-  const cloudRow = (s, opts) => { const o = opts || {}; return trackShell([
-    trackNo(o.no, false, "netease", "c"),
+  // ── 新到架（v63.56，她 2026-09-05：「发现这个主意不错，弄吧宝宝」）────────────
+  // 「发现」现实里是唱片店门口那块【新到架】：碟一张张朝前立着，你用手指往后翻。
+  // 原来这一栏是一串纯文字行——**而封面明明已经在手里**（toRes 一直在带 cover，
+  // 只是从来没画出来过）。现在每一条就是一张碟：左边封面，插在架子里（左脊右开口，
+  // 跟「我的」那边的碟套同一套 sleeve，全 app 一个形状）。
+  // ⚠️不铺纹理（她 2026-09-05 否过一次），架子感全靠形状：碟与碟挨着、共用一条底轨。
+  const cloudRow = (s, opts) => { const o = opts || {}; return h("div", { key: "cv_" + s.id, className: "flex items-center",
+    style: sleeve({ gap: 8, padding: "6px 8px 6px 6px", marginBottom: 5 }) }, [
+    h("button", { key: "cover", onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-70",
+      style: { width: 44, height: 44, borderRadius: 3, overflow: "hidden", position: "relative",
+        // ⚠️?param= 是网易云自己的缩图参数，只能贴在 http(s) 图上。
+        //   data:/blob: 的封面（本地图、测试桩）贴上去整张图直接失效——白框一片。
+        background: s.cover ? "center/cover no-repeat url(" + s.cover + (/^https?:/.test(s.cover) ? "?param=100y100" : "") + ")" : (hex6(t.ink) ? t.ink + "12" : t.bg),
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: hex6(t.ink) ? "inset 0 0 0 1px " + t.ink + "1a" : "none" } },
+      s.cover ? null : ic("note", t.fog, 16)),
     h("button", { key: "b", onClick: () => playCloud(s, o.srcId), className: "flex-1 min-w-0 active:opacity-70", style: { textAlign: "left", minHeight: 40 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云")),
     rowBtn("heart", (cv.likeIds && cv.likeIds.has(String(s.id))) ? "solid" : t.fog, () => likeSong(s), "红心"),
     rowBtn("plus", t.fog, () => onAddNeteaseResult(s), "收进咱家歌库"),
@@ -5537,7 +5551,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     o.removable ? rowBtn("minus", "#a4442e", () => removeFromRealPl(o.removable, s), "从这个网易云歌单移除") : null,
     o.trash ? rowBtn("trash", t.fog, () => trashFm(s), "不喜欢，少推这类") : null,
     h("button", { key: "p", onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: t.ink, marginLeft: 2 } }, ic("play", t.bg2, 14))
-  ].filter(Boolean), "cv_" + s.id, false); };
+  ].filter(Boolean)); };
   const cvChip = (k, label) => {
     const on = cv.sub === k;
     const paper = t.bg2, sunk = typeof mix === "function" ? t.bg : t.bg;
@@ -5881,7 +5895,13 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             : !cookie ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
             : h("div", null,
                 h("div", { className: "flex gap-1.5 items-end", style: { marginTop: 4 } }, cvChip("rec", "今天给你的"), cvChip("top", "大家在听")),
-                h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2, borderRadius: (cv.sub === "rec" ? "0 10px 10px 10px" : "10px 10px 10px 10px"), padding: "2px 12px 12px" } },
+                // 架板：碟插在里头。两侧是架子的挡板（细竖线），底下一道厚轨——
+                // 碟是立着的，所以它们下沿都停在同一条线上。
+                h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2,
+                    borderRadius: (cv.sub === "rec" ? "0 8px 4px 4px" : "8px 8px 4px 4px"),
+                    padding: "8px 10px 4px", borderLeft: "1px solid " + t.line, borderRight: "1px solid " + t.line,
+                    borderBottom: "3px solid " + (hex6(t.ink) ? t.ink + "2e" : t.line),
+                    boxShadow: hex6(t.ink) ? "inset 0 -12px 14px -14px " + t.ink + "59" : "none" } },
                 cv.sub === "rec" ? h("div", null,
                   // ⚠️这儿原来还摆着一张「我喜欢的音乐」入口卡。撤掉了：
                   //   这一栏是【发现】——装还不属于她的东西；「我喜欢的音乐」是她已经有的，
