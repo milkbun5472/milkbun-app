@@ -93,8 +93,10 @@ test("tab 改了名，界面上指路的字也得跟着改", () => {
   const seg = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
   const stale = (seg.match(/"[^"]*去「首页」[^"]*"|"[^"]*去「曲库」[^"]*"/g) || []);
   assert.deepEqual(stale, [], "这几句还在指旧名字：\n  " + stale.join("\n  "));
-  assert.equal((seg.match(/\(apiBase && cookie\) \? "设置" : "首页"/g) || []).length, 3,
-    "底 tab 的名字 + 两处指路，三处都得跟着连没连账号走");
+  // v62.81 起那一格永远叫「设置」（搜歌搬去「发现」之后，它里面只剩接口/Cookie/登录/贴链接/传本地，
+  // 连没连账号都是这些东西），指路的字也只指「发现」和「设置」两个真名。
+  assert.equal((seg.match(/\(apiBase && cookie\) \? "设置" : "首页"/g) || []).length, 0, "还有地方在按账号切「设置/首页」");
+  assert.match(seg, /navBtn\("home", "设置"/, "那一格不叫设置了");
 });
 
 // ── 她 2026-09-03 追报的两条 ────────────────────────────────────

@@ -5037,15 +5037,12 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
   // v54.51 网易云化：连了账号就以「发现」(cloud)为落地页，正在放歌仍优先回播放页；
   // 没连账号退回本地曲库(home)。四 tab：推荐 / 播放 / 我的 / 曲库
-  const [nav, setNav] = useState(now ? "play" : ((apiBase && cookie) ? "cloud" : "home"));
-  const [addTab, setAddTab] = useState(apiBase ? "search" : "netease"); // search | netease | local
+  const [nav, setNav] = useState(now ? "play" : (apiBase ? "cloud" : "home"));
+  const [addTab, setAddTab] = useState("netease"); // netease | local（搜歌在「发现」，不在这儿）
   const [link, setLink] = useState("");
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [localFile, setLocalFile] = useState(null);
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState(null);
-  const [searching, setSearching] = useState(false);
   const [apiEdit, setApiEdit] = useState(false);
   const [apiInput, setApiInput] = useState(apiBase || "");
   const [ckEdit, setCkEdit] = useState(false);
@@ -5092,6 +5089,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const [renameId, setRenameId] = useState(null); // 正在改名的歌 id
   const [renameText, setRenameText] = useState("");
   const [showQueue, setShowQueue] = useState(false); // 播放页展开当前队列
+  const [pickWho, setPickWho] = useState(false);  // 封套翻开＝挑和谁听
   const audioFileRef = useRef(null);
   const coverRef = useRef(null);
   // ---- 播放页歌词（v54.50 她要的）：点「词」在唱片位置换成滚动歌词，带当前句高亮 ----
@@ -5127,17 +5125,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     if (el && el.scrollIntoView) try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
   }, [lyricActive, showLyric]);
 
-  const doSearch = async () => {
-    if (!apiBase || !q.trim()) return;
-    setSearching(true); setResults(null);
-    try {
-      const r = await fetch(apiBase + "/search?keywords=" + encodeURIComponent(q.trim()) + "&limit=18");
-      const d = await r.json();
-      const list = (d && d.result && d.result.songs) || [];
-      setResults(list.map(s => ({ id: s.id, name: s.name, artist: ((s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / ")), cover: (s.album || s.al || {}).picUrl || null })));
-    } catch (e) { setResults([]); }
-    finally { setSearching(false); }
-  };
   const addNet = () => { if (link.trim()) { onAddNetease(link, title, artist); setLink(""); setTitle(""); setArtist(""); } };
   const addLoc = () => { if (localFile) { onAddLocal(localFile, title, artist); setLocalFile(null); setTitle(""); setArtist(""); } };
   const field = { fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
@@ -5241,6 +5228,50 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 6px" } }, "还没有歌单，点上面新建一个"))) : null;
 
   // ============ 播放 tab ============
+  // 这首歌要是 TA 歌单里的，把 TA 当时写的那句「为什么循环它」端上来——
+  // 查手机那张碟就是这么做的（曲名下面一行），这页原来一个字都没露。
+  const nowNote = (() => {
+    if (!partner || !now) return "";
+    const pl = playlists.find(x => x.charId === partner.id);
+    const hit = pl && (pl.songs || []).find(x => x.id === now.id || (x.neteaseId && now.neteaseId && x.neteaseId === now.neteaseId));
+    return String((hit && hit.note) || now.note || "").trim();
+  })();
+  // ── 唱片封套＝「一起」这一块（v62.81）───────────────────────────────
+  // 审美审计那句：这页里「网易云」是最大的，「一起」是最小的——页脚一排 30px、半透明 0.5 的头像。
+  // v62.46 把 TA 做成后面那张碟露一牙，她还是觉得小。所以这回给「和谁听」一整张封套：
+  // 唱机边上摊开的那张纸袋，上面印着跟谁听、TA 为什么循环这一首、要不要让 TA 在聊天里聊它。
+  // 点封套翻开，里面是可以挑的人——封套本来就是打开来看的东西。
+  const whoRow = h("div", { className: "flex items-end", style: { gap: 14, overflowX: "auto", padding: "12px 4px 4px" } },
+    [null].concat(characters || []).map(c => {
+      const on = c ? data.partnerId === c.id : !partner;
+      return h("button", { key: c ? c.id : "__me", onClick: () => { onSetPartner(c && !on ? c.id : null); setPickWho(false); },
+        className: "flex flex-col items-center active:opacity-70 shrink-0", style: { gap: 5, transform: on ? "translateY(-3px)" : "none", transition: "transform .15s" } },
+        h("div", { style: { width: 44, height: 44, borderRadius: 999, padding: 2, border: "2px solid " + (on ? (t.accent || t.ink) : "transparent"), boxShadow: on ? "0 4px 10px rgba(30,28,24,.18)" : "none" } },
+          c ? h(Avatar, { character: c, size: 36, radius: 999 })
+            : h("div", { style: { width: 36, height: 36, borderRadius: 999, border: "1.5px dashed " + (on ? t.ink : t.fog), display: "flex", alignItems: "center", justifyContent: "center" } }, ic("note", on ? t.ink : t.fog, 16))),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.ink : t.fog, whiteSpace: "nowrap" } }, c ? c.name : "自己听"));
+    }));
+  const sleeveCard = h("div", { className: "w-full", style: { marginTop: 22, position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6,
+      boxShadow: "0 6px 16px rgba(30,28,24,.10), inset 0 0 0 1px rgba(255,255,255,.5)",
+      // 封套右侧那道口：碟从这儿抽出来的
+      borderRight: "4px solid " + (hex6(t.ink) ? t.ink + "33" : t.line) } },
+    // 纸袋上压出的那圈碟印
+    h("span", { "aria-hidden": "true", style: { position: "absolute", right: 14, top: "50%", width: 84, height: 84, marginTop: -42, borderRadius: 999, border: "1px solid " + (hex6(t.ink) ? t.ink + "14" : "transparent"), pointerEvents: "none" } }),
+    h("button", { onClick: () => setPickWho(v => !v), className: "w-full flex items-center active:opacity-80", style: { gap: 12, padding: "12px 14px", textAlign: "left" } },
+      partner ? h(Avatar, { character: partner, size: 48, radius: 999 })
+        : h("div", { style: { width: 48, height: 48, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, ic("note", t.fog, 20)),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, partner ? "和 " + partner.name + " 一起听" : "自己听"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: nowNote ? t.sub : t.fog, marginTop: 3, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+          partner ? (nowNote ? "TA 说：" + nowNote : "TA 就在旁边听着这首") : "点一下，挑个人一起听")),
+      h("span", { "aria-hidden": "true", style: { flexShrink: 0, color: t.fog, transform: pickWho ? "rotate(90deg)" : "none", transition: "transform .15s" } }, ic("next", t.fog, 14))),
+    pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null,
+    partner ? h("div", { className: "flex items-center justify-between", style: { borderTop: "1px solid " + t.line, padding: "10px 14px", gap: 10 } },
+      h("div", { style: { flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "让 " + partner.name + " 在聊天里聊这首歌"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "开：TA 会在私聊里自然聊你俩在听的歌、也能帮你切歌（消耗一次回复）")),
+      h("button", { onClick: () => onSetAutoComment(!data.autoComment), className: "shrink-0 active:opacity-70", "aria-pressed": data.autoComment ? "true" : "false", style: { width: 44, height: 26, borderRadius: 999, background: data.autoComment ? (t.accent || "#8a6d3b") : t.line, position: "relative", transition: "background .15s" } },
+        h("div", { style: { position: "absolute", top: 3, left: data.autoComment ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } }))) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric
@@ -5248,34 +5279,21 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
             : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
             : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.fog, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s" } }, l.text)))
-      // ── 碟（v62.46 重画）──────────────────────────────────────────
-      // ⚠️「一起听」这三个字，原来在整页里只剩页脚一排 30px、半透明 0.5 的头像——
-      //   「网易云」是最大的，「一起」是最小的（审美审计原话）。
-      //   两个人一起听，在唱机上本来就有说法：**碟不止一张**。
-      //   选了 TA，就有第二张碟压在后面露出一牙，标签上是 TA 的脸；自己听就只有一张。
-      //   这样「和谁听」升到了碟这一层，不用再靠页脚一行小字说。
-      // 另外把沟纹补上：原来是两档纯色圆，同一个 app 里查手机那张碟反而更像碟。
-      : h("div", { className: "relative", style: { width: 232, height: 232, marginTop: 14, marginLeft: partner ? 22 : 0 } },
-          // 后面那张是 TA 的碟：只露出一牙黑胶，牙上贴一枚 TA 的小圆照——
-          // ⚠️不能把头像放在【后面那张的圆心】：前面那张 232 的碟会把它整个盖住，
-          //   看上去就只是一道黑边（第一版就是这样）。露出来的那一牙才是能贴东西的地方。
-          partner ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: -46, top: 14, width: 204, height: 204, borderRadius: 999,
-            background: "radial-gradient(circle at 50% 50%, #241f26 0 60%, #14121a 61%)", boxShadow: "0 10px 26px rgba(0,0,0,.30)" } }) : null,
-          partner ? h("div", { style: { position: "absolute", left: -40, top: 98, width: 36, height: 36, borderRadius: 999, overflow: "hidden",
-            boxShadow: "0 0 0 2.5px rgba(240,236,228,.92), 0 4px 10px rgba(0,0,0,.35)", transform: "rotate(-7deg)" } },
-            h(Avatar, { character: partner, size: 36, radius: 999 })) : null,
-          h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90", style: { position: "relative", width: 232, height: 232, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #2b2b30 0 61%, #17171b 62%)", boxShadow: "0 16px 44px rgba(0,0,0,0.34)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
-            // 沟：外圈疏、里圈密，跟外壳那三套同一个道理
-            h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, backgroundImage: [
-              "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 2px,rgba(255,255,255,.045) 2px 3px)",
-              "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 9px,rgba(255,255,255,.05) 9px 10px)"
-            ].join(",") } }),
-            // 斜着一道高光：碟是有光泽的，没有这一道它就是一个灰圆
-            h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, background: "linear-gradient(118deg,rgba(255,255,255,0) 34%,rgba(255,255,255,.10) 47%,rgba(255,255,255,0) 58%)" } }),
-            h("div", { style: { position: "relative", width: 148, height: 148, borderRadius: 999, background: nowCover ? "center/cover no-repeat url(" + nowCover + ")" : discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(135deg,#e8b6c8,#f0d9a8)", boxShadow: "inset 0 0 0 5px rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
-              h("div", { style: { width: 18, height: 18, borderRadius: 999, background: t.bg, border: "3px solid rgba(0,0,0,0.35)" } })))),
-    showLyric ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } },
-      partner ? "点唱片换封面 · 后面那张是 " + partner.name : "点唱片换封面"),
+      // ── 碟（v62.81 再摆）──────────────────────────────────────────
+      // v62.46 为了让「一起」露脸，把 TA 做成后面那张碟露一牙，碟因此整体往右偏了 22px、
+      // 牙上再贴一枚歪着的小头像——她看着还是「有点丑」。碟归碟：一张、居中、转着。
+      // 「和谁听」另给一整张封套（见上面 sleeveCard），不再挤在碟上。
+      : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90", style: { position: "relative", width: 232, height: 232, marginTop: 14, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #2b2b30 0 61%, #17171b 62%)", boxShadow: "0 16px 44px rgba(0,0,0,0.34)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
+          // 沟：外圈疏、里圈密，跟外壳那三套同一个道理
+          h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, backgroundImage: [
+            "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 2px,rgba(255,255,255,.045) 2px 3px)",
+            "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 9px,rgba(255,255,255,.05) 9px 10px)"
+          ].join(",") } }),
+          // 斜着一道高光：碟是有光泽的，没有这一道它就是一个灰圆
+          h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, background: "linear-gradient(118deg,rgba(255,255,255,0) 34%,rgba(255,255,255,.10) 47%,rgba(255,255,255,0) 58%)" } }),
+          h("div", { style: { position: "relative", width: 148, height: 148, borderRadius: 999, background: nowCover ? "center/cover no-repeat url(" + nowCover + ")" : discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(135deg,#e8b6c8,#f0d9a8)", boxShadow: "inset 0 0 0 5px rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("div", { style: { width: 18, height: 18, borderRadius: 999, background: t.bg, border: "3px solid rgba(0,0,0,0.35)" } }))),
+    showLyric ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "点唱片换封面"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
     h("div", { className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
@@ -5317,6 +5335,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       // 前进键右边：当前队列/歌单顺序
       cbtn(ic("list", showQueue ? (t.accent || "#8a6d3b") : t.ink, 20), () => setShowQueue(v => !v), { size: 44, style: { background: showQueue ? (t.accent || "#8a6d3b") + "22" : "transparent" } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, ({ order: "列表循环", one: "单曲循环", shuffle: "随机播放" })[playMode || "order"]),
+    // 和谁听：那张封套（sleeveCard 在上面）
+    sleeveCard,
     // 当前队列（展开）
     showQueue ? h("div", { className: "w-full", style: { marginTop: 14 } },
       h(Eyebrow, { style: { marginBottom: 8 } }, "当前队列 · " + nowQueue.length),
@@ -5324,28 +5344,14 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: s.id === nowId ? (t.accent || "#8a6d3b") : t.fog, width: 18, flexShrink: 0, textAlign: "center" } }, String(i + 1)),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: s.id === nowId ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "")))))) : null,
-    // 和谁听（可不选 = 自己听）
-    h("div", { className: "flex items-center gap-2", style: { marginTop: 22, width: "100%", overflowX: "auto" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, "和谁听："),
-      h("button", { onClick: () => onSetPartner(null), className: "active:opacity-70", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: !partner ? t.ink : t.fog, border: "1px solid " + (!partner ? t.ink : t.line), borderRadius: 999, padding: "5px 12px" } }, "自己听"),
-      (characters || []).map(c => { const on = data.partnerId === c.id; return h("button", { key: c.id, onClick: () => onSetPartner(on ? null : c.id), className: "active:opacity-70", style: { flexShrink: 0, opacity: on ? 1 : 0.5, border: on ? "2px solid " + (t.accent || "#8a6d3b") : "2px solid transparent", borderRadius: 999, padding: 1 } }, h(Avatar, { character: c, size: 30, radius: 999 })); })),
-    partner ? h("div", { className: "flex items-center justify-between w-full", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
-      h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "让 " + partner.name + " 在聊天里聊这首歌"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "开：TA 会在私聊里自然聊你俩在听的歌、也能帮你切歌（消耗一次回复）")),
-      h("button", { onClick: () => onSetAutoComment(!data.autoComment), className: "shrink-0 active:opacity-70", style: { width: 44, height: 26, borderRadius: 999, background: data.autoComment ? (t.accent || "#8a6d3b") : t.line, position: "relative", transition: "background .15s" } },
-        h("div", { style: { position: "absolute", top: 3, left: data.autoComment ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } }))) : null)
-    : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "80px 24px", lineHeight: 1.9 } }, "还没有歌\n去「" + ((apiBase && cookie) ? "设置" : "首页") + "」搜歌名 / 贴链接 / 传本地");
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "")))))) : null)
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "80px 24px", lineHeight: 1.9 } }, "还没有歌\n" + (apiBase ? "去「发现」搜一首，或去「设置」贴链接 / 传本地" : "去「设置」贴链接 / 传本地，配了搜索接口就能搜歌"));
 
   // ============ 首页 tab（浏览 + 添加 + 设置）============
   const homeTab = h("div", { className: "px-6 pb-6" },
-    // 搜索栏（仿音乐 app）
-    h("div", { className: "flex gap-2 items-center", style: { marginTop: 6 } },
-      h("div", { className: "flex-1 flex items-center gap-2", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } },
-        ic("search", t.fog, 15),
-        h("input", { value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") doSearch(); }, placeholder: apiBase ? "全网 搜索歌曲 / 歌手" : "先配搜索接口↓", style: { flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } })),
-      h("button", { onClick: () => audioFileRef.current && audioFileRef.current.click(), className: "shrink-0 active:opacity-70 flex items-center justify-center", style: { width: 40, height: 40, borderRadius: 999, background: t.bg2, border: "1px solid " + t.line } }, ic("upload", t.ink, 17))),
+    // ⚠️v62.81 撤掉了这儿的搜索条和旁边那颗上传钮（她 2026-09-05：「发现那里显示我的账号和搜索，
+    //   但是明明设置这边也可以搜索了而且还是有两次；设置这边搜索框还有个意义不明的上传件，
+    //   但是添加歌曲那边也有上传本地」）。搜索只住「发现」一处；传本地只住下面「添加歌曲 · 本地」一处。
     // 静音保活：像一首歌，点播放=放段无声音频占住后台，让 TA 能后台发消息来；暂停就关、想听真歌直接换
     (() => {
       const kaOn = !!(player && player.songId === KEEPALIVE_ID && player.playing);
@@ -5358,31 +5364,14 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           kaOn ? h("div", { style: { display: "flex", gap: 2.5 } }, h("div", { style: { width: 3, height: 11, borderRadius: 2, background: t.bg2 } }), h("div", { style: { width: 3, height: 11, borderRadius: 2, background: t.bg2 } }))
           : h("div", { style: { width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "9px solid " + t.bg2, marginLeft: 2 } })));
     })(),
-    // 搜索结果
-    apiBase && (searching || results != null) ? h("div", { style: { marginTop: 10 } },
-      searching ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "6px 2px" } }, "搜索中…")
-      : results && results.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "6px 2px" } }, "没搜到（或接口没响应）")
-      : h("div", { className: "space-y-1.5" }, (results || []).map(s => h("div", { key: s.id, className: "w-full flex items-center gap-2.5", style: { padding: "4px 2px" } },
-          h("button", { onClick: () => onPlayResult(s), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
-            h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: s.cover ? "center/cover no-repeat url(" + s.cover + ")" : "linear-gradient(135deg,#cfc9bd,#a8a294)" } }),
-            h("div", { className: "flex-1 min-w-0" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "未知歌手"))),
-          h("button", { onClick: () => onPlayResult(s), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: t.ink }, title: "现在播放" }, ic("play", t.bg2, 15)),
-          rowBtn("plus", t.tint, () => setPickFor({ song: s, isResult: true }), "加到歌单"),
-          cookie ? rowBtn("cloudplus", t.tint, () => openCvAdd(s), "加进网易云歌单") : null))) ) : null,
     // ⚠️「全部歌曲」搬去「我的」了（v61.42）：这一栏现在是【设置】——
     //   接口、Cookie、登录、把歌弄进来。歌本身是她的东西，归「我的」。
     //   原来叫「曲库」却装着一整页设置，名字和内容对不上，这是她说「很乱」的一处。
     // 添加：链接ID / 本地 + 接口设置（折叠在下方）
     h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", marginTop: 18 } },
       h(Eyebrow, { style: { marginBottom: 10 } }, "添加歌曲"),
-      h("div", { className: "flex gap-2", style: { marginBottom: 10 } }, apiBase ? tabBtn("search", "搜歌名") : null, tabBtn("netease", "链接/ID"), tabBtn("local", "本地")),
-      addTab === "search" && apiBase
-        ? h("div", { className: "flex gap-2" },
-            h("input", { value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") doSearch(); }, placeholder: "搜歌名 / 歌手（结果在上方）", style: field }),
-            h("button", { onClick: doSearch, disabled: searching || !q.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, searching ? "…" : "搜"))
-        : addTab === "netease"
+      h("div", { className: "flex gap-2", style: { marginBottom: 10 } }, tabBtn("netease", "链接/ID"), tabBtn("local", "本地")),
+      addTab === "netease"
           ? h("div", null,
               h("input", { value: link, onChange: e => setLink(e.target.value), placeholder: "贴网易云分享链接或歌曲ID", style: Object.assign({ marginBottom: 8 }, field) }),
               h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "歌名（选填，填了角色聊得更准）", style: Object.assign({ marginBottom: 8 }, field) }),
@@ -5495,7 +5484,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             !isFavView ? h("button", { onClick: () => { onDeletePlaylist(openPlObj.id); setOpenPl(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删除") : h("div", { style: { width: 28 } })),
           (openPlObj.songs || []).length
             ? h("div", null, (openPlObj.songs || []).map((s, i2) => songRow(s, { no: i2 + 1, queue: (openPlObj.songs || []).map(x => x.id), inPlaylist: isFavView ? null : openPlObj.id })))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", lineHeight: 1.8 } }, isFavView ? "还没有收藏的歌。听到喜欢的点一下红心就会收进这里。" : "这个歌单还没歌。去「" + ((apiBase && cookie) ? "设置" : "首页") + "」搜歌，在歌里点加号收进来——下面也能从「全部」挑。"),
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", lineHeight: 1.8 } }, isFavView ? "还没有收藏的歌。听到喜欢的点一下红心就会收进这里。" : "这个歌单还没歌。去「发现」搜歌，在歌里点加号收进来——下面也能从「全部」挑。"),
           // 从全部歌里挑加入（复制一份进歌单，和「全部」互不影响）——收藏歌单不需要
           (!isFavView && songs.length) ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "从全部歌加入"),
@@ -5770,6 +5759,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             ? h("div", null,
                 h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
                 cv.results.length ? cv.results.map((s, i2) => cloudRow(s, { no: i2 + 1 })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
+            : !cookie ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
             : h("div", null,
                 h("div", { className: "flex gap-1.5 items-end", style: { marginTop: 4 } }, cvChip("rec", "今天给你的"), cvChip("top", "大家在听")),
                 h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2, borderRadius: (cv.sub === "rec" ? "0 10px 10px 10px" : "10px 10px 10px 10px"), padding: "2px 12px 12px" } },
@@ -5851,14 +5841,14 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       borderTop: "1px solid " + (hex6(t.ink) ? t.ink + "26" : t.line),
       boxShadow: hex6(t.ink) ? "inset 0 1px 0 rgba(255,255,255,.35)" : "none",
       background: hex6(t.ink) ? t.ink + "14" : t.bg } },
-      (apiBase && cookie) ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
+      // 发现：有搜索接口就开（搜歌不要账号；账号只管日推/FM/榜单）。v62.81 前要连了账号才有这一格，
+      // 于是没连账号的人只能在设置里搜——搜索因此长了第二份。
+      apiBase ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
-      navBtn("home", (apiBase && cookie) ? "设置" : "首页", (apiBase && cookie)
-        ? h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },
-            h("circle", { cx: 12, cy: 12, r: 3.2 }),
-            h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" }))
-        : h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" })))),
+      navBtn("home", "设置", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },
+        h("circle", { cx: 12, cy: 12, r: 3.2 }),
+        h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" })))),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
 }

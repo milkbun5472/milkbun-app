@@ -11,17 +11,27 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
 const CODE = LT.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
-test("「一起」升到碟这一层，不再只是页脚一排小头像", () => {
-  // 两个人一起听，在唱机上本来就有说法：碟不止一张。
-  assert.match(CODE, /partner \? h\("div", \{ "aria-hidden": "true", style: \{ position: "absolute", left: -46/,
-    "后面那张 TA 的碟没了");
-  // ⚠️头像不能放在【后面那张的圆心】：前面那张 232 的碟会把它整个盖住，
-  //   看上去只剩一道黑边（第一版就是这样）。露出来的那一牙才是能贴东西的地方。
-  assert.match(CODE, /left: -40, top: 98, width: 36, height: 36, borderRadius: 999/, "TA 那枚小圆照没贴在露出来的那一牙上");
-  assert.match(CODE, /h\(Avatar, \{ character: partner, size: 36, radius: 999 \}\)/);
-  // 自己听就只有一张碟：这一层得是条件的，不能永远画两张
-  assert.equal((CODE.match(/partner \? h\("div"/g) || []).length >= 2, true, "没选人的时候也画了第二张碟");
-  assert.match(CODE, /partner \? "点唱片换封面 · 后面那张是 " \+ partner\.name : "点唱片换封面"/);
+test("「一起」是一整张封套，不是碟后面露的一牙（v62.81）", () => {
+  // v62.46 把 TA 做成后面那张碟露一牙、碟整体右偏 22px、牙上贴一枚歪着的小头像——
+  // 她 2026-09-05：「那个碟的页面还是有点丑，一起听这块也太小了」。
+  // 所以：碟归碟——一张、居中、转着；「和谁听」另给一整张唱片封套。
+  assert.doesNotMatch(CODE, /left: -46, top: 14, width: 204/, "后面那张碟又回来了");
+  assert.doesNotMatch(CODE, /marginLeft: partner \? 22 : 0/, "碟又为了给 TA 让位往右偏了");
+  assert.match(CODE, /const sleeveCard = h\("div"/, "封套没了");
+  assert.match(CODE, /partner \? "和 " \+ partner\.name \+ " 一起听" : "自己听"/, "封套上没写跟谁听");
+  // TA 为什么循环这一首：从 TA 的歌单里按这首歌找那句 note——查手机那张碟就是这么做的
+  assert.match(CODE, /const nowNote = /);
+  assert.match(CODE, /playlists\.find\(x => x\.charId === partner\.id\)/, "没去 TA 的歌单里找那句话");
+  assert.match(CODE, /"TA 说：" \+ nowNote/);
+  // 挑人在封套里翻开，不再是页脚一排半透明小头像
+  assert.match(CODE, /const whoRow = /);
+  assert.match(CODE, /pickWho \? h\("div", \{ style: \{ borderTop: "1px dashed "/, "封套翻不开");
+  assert.doesNotMatch(CODE, /opacity: on \? 1 : 0\.5, border: on \? "2px solid "/, "页脚那排 0.5 透明度的小头像还在");
+  // 封套排在队列前面：它是「一起」，比「接下来放什么」重要
+  const play = LT.slice(LT.indexOf("  const playTab ="), LT.indexOf("  const homeTab ="));
+  assert.ok(play.indexOf("sleeveCard,") > 0 && play.indexOf("sleeveCard,") < play.indexOf("// 当前队列（展开）"), "封套排到队列后面去了");
+  // 开关的圆钮别写死 #fff（深色主题白底白钮）
+  assert.doesNotMatch(CODE.slice(CODE.indexOf("const sleeveCard"), CODE.indexOf("const playTab")), /background: "#fff"/);
 });
 
 test("进度是唱针的行程，不是一根系统滑条", () => {
