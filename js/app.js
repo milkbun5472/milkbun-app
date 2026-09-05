@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.18";
+const APP_VERSION = "v64.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -845,7 +845,23 @@ function App() {
     document.body.style.background = theme.bg;
   }, [theme.bg]);
   useEffect(() => {
-    const c = loadJSON("x_characters", []);
+    // 手填岁数的老角色补一次起算日（v64.17）：以前存的是光秃秃一个数，
+    // 没有「这是哪天写的」就没法知道该长几岁。宁可从今天起算，也绝不凭空补几岁——
+    // 那等于替她改了角色。ageFrozen 的不补（她已经说了要停）。
+    // ⚠️必须在 setCharacters 之前补完：补完存盘、却把没补的那份塞进 state，
+    //   这一开机它们照旧不长（一层写在两处的老形状）。
+    const c = (() => {
+      const raw = loadJSON("x_characters", []);
+      const list = Array.isArray(raw) ? raw : [];
+      let touched = false;
+      const next = list.map(x => {
+        if (!x || x.ageFrozen || !String(x.age || "").trim() || Number(x.ageAt || 0)) return x;
+        touched = true;
+        return { ...x, ageAt: Date.now() };
+      });
+      if (touched) saveJSON("x_characters", next);
+      return touched ? next : list;
+    })();
     setCharacters(c);
     setGroups(loadJSON("x_groups", []));
     setGroupSettings(loadJSON("x_groupSettings", {}));

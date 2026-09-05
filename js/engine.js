@@ -5795,13 +5795,50 @@ function charAge(birthday, now) {
 //   把算出来的数写进去，是把这一栏留空——写进去了，明年生日过完它就是个旧数字。
 // ⚠️算法只在这一处。六处调用点原来各自 charAge(char.birthday)，谁也不知道有手填这回事
 //   （「一层写在六处」那个老形状）。
+// 手填的岁数不是【一个数】，是【那一天他多大】（她 2026-09-05：「王爷不应该有个
+// 现实年份，但是他也确实可以年龄增加的」）。
+// 所以存的是 age + ageAt（写下它的那一刻），现在几岁 = 那时几岁 + 之后过去了几年。
+// 长一岁的日子按【他的生日】算——生日只填了月日也够用（腊月廿三、八月十五都行）；
+// 连月日都没有，才退回「从写下那天起算整年」。
+// ⚠️没有 ageAt 的老数据一律【按写死处理】：宁可不动，也不能凭空给她的角色加几岁。
+//   开机时补一次起算日（见 app.js 那处），补完下一年才开始长。
+function ageDrift(ageAt, birthday, now) {
+  const from = Number(ageAt || 0);
+  const to = Number(now || Date.now());
+  if (!from || to <= from) return 0;
+  const md = typeof parseMonthDay === "function" ? parseMonthDay(birthday) : null;
+  const lu = typeof parseLunarBirthday === "function" ? parseLunarBirthday(birthday) : null;
+  // 农历生日：一年一次，按那一年的公历日子数
+  if (lu && typeof lunarToSolar === "function") {
+    let n = 0;
+    for (let y = new Date(from).getFullYear(); y <= new Date(to).getFullYear(); y++) {
+      const d = lunarToSolar(y, lu.m, lu.d, lu.isLeap);
+      if (d && d.getTime() > from && d.getTime() <= to) n++;
+    }
+    return n;
+  }
+  if (md) {
+    let n = 0;
+    for (let y = new Date(from).getFullYear(); y <= new Date(to).getFullYear(); y++) {
+      const d = new Date(y, md.mo - 1, md.d).getTime();
+      if (d > from && d <= to) n++;
+    }
+    return n;
+  }
+  // 连月日都没有：从写下那天起，满一整年长一岁
+  return Math.floor((to - from) / 365.2425 / 86400000);
+}
 function charAgeNow(char, now) {
   const fixed = char && char.age;
   if (fixed != null && String(fixed).trim() !== "") {
     const n = parseInt(String(fixed).trim(), 10);
     // ⚠️手填的不按 200 封顶：算出来的岁数超过 200 多半是把年份写错了，
     //   可她【亲手写】五百岁的时候，那就是她要的（妖、神、活了很久的那些）。
-    if (Number.isFinite(n) && n >= 0 && n <= 9999) return n;
+    if (Number.isFinite(n) && n >= 0 && n <= 9999) {
+      // 真要停在这儿的（设定上就是十七岁那种）勾了才停；默认跟着走
+      if (char.ageFrozen) return n;
+      return n + ageDrift(char.ageAt, char.birthday, now);
+    }
   }
   return charAge(char && char.birthday, now);
 }

@@ -16,6 +16,10 @@ global.charAge = (bd, now) => {
   if (mo < +m[2] || (mo === +m[2] && d < +m[3])) a--;
   return a;
 };
+// v64.17 起 charAgeNow 会调 ageDrift（手填的岁数跟着时间长），一起抠出来
+global.parseMonthDay = () => null;
+global.parseLunarBirthday = () => null;
+global.ageDrift = eval("(" + eng.match(/function ageDrift\(ageAt, birthday, now\) \{[\s\S]*?\n\}/)[0].replace("function ageDrift", "function") + ")");
 const charAgeNow = eval("(" + eng.match(/function charAgeNow\(char, now\) \{[\s\S]*?\n\}/)[0].replace("function charAgeNow", "function") + ")");
 const NOW = new Date(2026, 8, 5).getTime();
 
