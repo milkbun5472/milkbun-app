@@ -370,6 +370,26 @@
   }
   // HP 先【按人聚合】再夹 ±40(Codex 抓的:以前单条夹 ±40,同一轮写三条 -40
   // 照样一拍掉 120;现在同一人的多条先合计,每人每拍净变化封顶 ±40)。
+  // ---- 章里的坎(她 9/4 报:守密人节奏很赶,一两拍就翻章) ----
+  // 病根有两条:章目标本身是一个动作(「找到名册」一拍就找得到),和闸太松(两拍+一次骰)。
+  // 所以每章开团时先写两道坎——要达成这章目标必须先过的两件具体、能失败的事;
+  // 坎在戏里真过了守密人才报 stepDone;两道坎都过、开章后至少四拍、且掷过骰,
+  // stageDone 才放行。提示词只降概率,这里才保证。老存档没写坎的,只看拍数和骰。
+  const STAGE_MIN_BEATS = 4;
+  const STAGE_STEPS_MAX = 3;
+  const normSteps = raw => (Array.isArray(raw) ? raw : []).map(x => x && typeof x === "object" ? { text: String(x.text || x.name || "").trim().slice(0, 40), done: !!x.done } : { text: String(x || "").trim().slice(0, 40), done: false }).filter(x => x.text).slice(0, STAGE_STEPS_MAX);
+  const stageOf = s => ({ goal: String((s && s.goal) || "").trim(), hint: String((s && s.hint) || "").trim(), place: String((s && s.place) || "").trim(), steps: normSteps(s && s.steps), done: false, note: null });
+  // 守密人报的坎对上哪一道:序号、原文、或一方包含另一方(它常会改几个字复述)
+  const matchStep = (steps, raw) => {
+    const q = String(raw || "").trim();
+    if (!q) return -1;
+    if (/^\d+$/.test(q) && steps[parseInt(q, 10) - 1]) return parseInt(q, 10) - 1;
+    let i = steps.findIndex(x => x.text === q);
+    if (i < 0) i = steps.findIndex(x => x.text.indexOf(q) >= 0 || q.indexOf(x.text) >= 0);
+    return i;
+  };
+  // 开章后真正往章目标走的拍数:幕间、探索那些闲拍不算——它们本来就不推进主线
+  const stageBeats = since => since.filter(m => m.role === "gm" && !m.lull && m.sceneType !== "interlude" && m.sceneType !== "explore").length;
   function applyTurnPayload(camp, p, opts) {
     const next = Object.assign({}, camp);
     const notes = [];
@@ -683,15 +703,29 @@
     next.choices = normChoices(p.choices, next.party);
     // 章节推进和落幕都只挂【待确认】,由玩家点头才算数——防守密人自导自演一步通关
     // (小剧场 goalReached 同款闸)。章节只有 stageIdx 一个计数器,不会两处各记各的。
-    // 章要有呼吸——提示词只降概率,这里才保证(她 9/1 抓的:公路喜剧第二拍就翻了第二章):
-    // 开章后至少两拍、且本章掷过一次骰,守密人报的 stageDone 才放行;不够就丢掉并留一条幕后事实
+    // 坎:守密人报 stepDone(坎的原文或序号),对上了就在当前章上划掉——一拍最多一道
+    const curStage = camp.stageIdx < camp.stages.length ? camp.stages[camp.stageIdx] : null;
+    const curSteps = curStage ? normSteps(curStage.steps) : [];
+    if (curStage && p.stepDone != null && p.stepDone !== false) {
+      const si = matchStep(curSteps, Array.isArray(p.stepDone) ? p.stepDone[0] : p.stepDone);
+      if (si >= 0 && !curSteps[si].done) {
+        curSteps[si].done = true;
+        next.stages = camp.stages.map((x, i) => i !== camp.stageIdx ? x : Object.assign({}, x, { steps: curSteps }));
+        notes.push("过了一道坎:" + curSteps[si].text);
+        chips.push({ k: "clue", txt: "⛰ " + curSteps[si].text });
+      }
+    }
+    // 章要有呼吸——提示词只降概率,这里才保证(她 9/1 抓的:公路喜剧第二拍就翻了第二章;
+    // 9/4 又报两拍+一次骰还是太赶):两道坎都过、开章后至少四拍、且本章掷过一次骰,
+    // 守密人报的 stageDone 才放行;不够就丢掉并留一条幕后事实,把还没过的坎点名给它看
     let gate = null;
-    if (p.stageDone && camp.stageIdx < camp.stages.length) {
+    if (p.stageDone && curStage) {
       const since = (camp.msgs || []).slice(camp.stageAt || 0);
-      const beats = since.filter(m => m.role === "gm").length;
+      const beats = stageBeats(since);
       const rolled = since.some(m => m.role === "roll") || !!(opts && opts.roll);
-      if (beats >= 2 && rolled) next.pendingStage = String(p.stageNote || "").trim() || "这一章看起来到落点了";
-      else gate = "守密人判定:这一章还没长够(" + (beats < 2 ? "才开章" : "还没掷过一次骰") + "),目标不算达成——继续演,让它节外生枝,别急着盖章";
+      const left = curSteps.filter(x => !x.done).map(x => x.text);
+      if (beats >= STAGE_MIN_BEATS && rolled && !left.length) next.pendingStage = String(p.stageNote || "").trim() || "这一章看起来到落点了";
+      else gate = "守密人判定:这一章还没长够(" + (left.length ? "还有坎没过:" + left.join("、") : beats < STAGE_MIN_BEATS ? "才开章,不到四拍" : "还没掷过一次骰") + "),目标不算达成——继续演,让它节外生枝,别急着盖章";
     }
     // 失败不许白摔——提示词说了「hp 扣 5~10」,守密人照样和平主义(首团三跤 HP 纹丝不动)。
     // 体魄/身手检定失败而这一拍没见血:失败 -5、大失败 -10;协力者共担一半
@@ -1255,7 +1289,7 @@
     // 台前(A):世界/地图/章节/开场——必须一气呵成的那部分,单独一枪写透。
     // 幕后(B):拿着台前成品专心写底牌——秘典/私念/行头/专长/状态条/每区支线种子/
     //   玩家暗线候选。它看得见完整的台前所以写得深;而且失败不废局,预览里可「补幕后」。
-    const SHAPE_A = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"regions\":[{\"name\":\"区域名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"接壤的区域名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这里藏着什么(一句,写给守密人)\"}]}],\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\",\"place\":\"这一章的目标在哪个地点(必须用 regions 里的节点名)\"}],\"place\":\"开局地点(必须用 regions 里的节点名)\",\"opening\":\"开场正文\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"玩家眼下要办成什么\",\"stakes\":\"拖延或失败会失去什么\"},\"siteActions\":[\"只有这个开局地点才做得了的事×2-3\"],\"choices\":[{\"text\":\"行动\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险\",\"payoff\":\"这条路擅长换来什么\"}],\"bgm\":[\"配乐搜索词×3-5条\"]}";
+    const SHAPE_A = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"regions\":[{\"name\":\"区域名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"接壤的区域名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这里藏着什么(一句,写给守密人)\"}]}],\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\",\"place\":\"这一章的目标在哪个地点(必须用 regions 里的节点名)\",\"steps\":[\"要达成这章目标必须先过的第一道坎(一件具体、能失败的事)\",\"第二道坎(与第一道不是同一种)\"]}],\"place\":\"开局地点(必须用 regions 里的节点名)\",\"opening\":\"开场正文\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"玩家眼下要办成什么\",\"stakes\":\"拖延或失败会失去什么\"},\"siteActions\":[\"只有这个开局地点才做得了的事×2-3\"],\"choices\":[{\"text\":\"行动\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险\",\"payoff\":\"这条路擅长换来什么\"}],\"bgm\":[\"配乐搜索词×3-5条\"]}";
     const SHAPE_B = "{\"truth\":\"藏在整件事背后的真相\",\"twist\":\"中段翻转:什么时刻、以什么方式掀出来\",\"secrets\":\"关键 NPC 各自瞒着什么(每人一句)\",\"endgame\":\"故事可能的几种结局方向\",\"gauge\":{\"name\":\"专属状态条(≤4字:理智/警戒/补给/声望/追兵…)\",\"start\":50,\"max\":100,\"bad\":\"high或low(哪头是坏事)\",\"rule\":\"什么事让它涨、什么事让它跌\"},\"mates\":[{\"name\":\"队友名(严格用队友的名字)\",\"want\":\"此行真正想得到什么\",\"fear\":\"最怕发生什么\",\"line\":\"不会跨的底线\",\"clash\":\"什么情况下会和队伍唱反调\"}],\"outfits\":[{\"name\":\"成员名(每位队友和玩家都要)\",\"outfit\":\"TA 在这个世界的行头:材质/形制/颜色/关键配件,一句能照着画\"}],\"feats\":[{\"name\":\"成员名(每人都要)\",\"list\":[{\"name\":\"专长名(2-4字,如 急救/开锁/追踪/辩才)\",\"stat\":\"phy|agi|wit|cha|luck\"}]}],\"seeds\":[{\"name\":\"支线名(≤10字)\",\"region\":\"所在区域名(严格用地图里的区域名)\",\"trigger\":\"触发条件:到达某节点/结识某人/拿到某物/时间到第几日…(一句,各不相同)\",\"hook\":\"这条支线的底,写给守密人\"}],\"myline\":[\"给玩家本人的暗线候选:2-3条,每条一句话的秘密目标(第一人称,和主线有张力但不冲突)\"]}";
     // 幕后(B):写底牌。base 里已有的核心字段(真相/种子等)一律【只补空,不覆盖】——
     // 模组导入的团保台本,新团全空自然全生成
@@ -1339,7 +1373,7 @@
             ? ",队友是下面这些角色——保留他们的性格、说话方式与真实能力,把身份处境放进这个新世界(可以贴近原设定,也可以是平行身份,以和世界咬合为准)。"
             : "。这是一场【单人团】:没有队友同行,NPC 与世界要把陪伴、对手戏和信息来源都补足,别让 " + uName + " 对着空气说话。") + "\n"
           + "世界要落在一张地图上:regions 给 3-5 个区域,每区 1-3 个节点(地点)。adj 写谁和谁接壤——这决定地图上它们真的相邻;节点的 hook 是守密人自用的一句底(这里埋着什么),玩家看不到。主线各章要分布在【不同区域】的节点上,逼着队伍真的赶路。\n"
-          + "主线拆成 4-5 章(stages),每章 goal 是一步【具体、可判定】的事(找到/救出/潜入/揭穿/带到),不是抽象状态;各章连起来是一条完整的弧;place 必须严格用 regions 里已有的节点名。\n"
+          + "主线拆成 4-5 章(stages),每章 goal 是一步【具体、可判定】的事(找到/救出/潜入/揭穿/带到),不是抽象状态;各章连起来是一条完整的弧;place 必须严格用 regions 里已有的节点名。每章再写两道坎(steps):要达成这章目标必须【先过】的两件事,各自具体、能失败、失败要有代价;两道不许是同一种(一道落在人身上,另一道落在地或物上),也不许只是把 goal 拆两半复述——判据:这两道坎能不能各撑起一整拍戏。\n"
           + "opening 是写给玩家的开场正文(第二人称『你』,6-10句):把队伍放进一个正在发生、必须行动的时刻,交代此地与在场的人,悬着收尾;绝不替 " + uName + " 做决定。开场即可让一两个队友有一句进场的话或动作,声口要各是各的" + (squad.members.some(m => m.key !== "user" && typeof props.isEngineer === "function" && props.isEngineer(m.key)) ? "——但【亲笔成员例外】:" + squad.members.filter(m => m.key !== "user" && typeof props.isEngineer === "function" && props.isEngineer(m.key)).map(m => m.name).join("、") + " 的台词与主动动作一个字都不许写(他的话由他本人亲笔),开场只可描写他在场的样子(站在哪、什么状态),给他留一个待开口的位置" : "") + "。\n"
           + "开场同时搭一张【场景桌】:sceneMeta 亮出眼下目标与可见代价;choices 至少分成稳妥 safe、冒险 bold、队友主导 ally(单人团则用 clever)三种不同办法,各写 risk/payoff;siteActions 写 2-3 件只有开局地点才能做的事,不要用四下看看这种万能句。\n"
           + "bgm 是这场团的临时配乐:3-5条写给音乐平台的搜索词,每条「歌手名 歌名」的格式;选真实存在、搜得到的曲子,气质要贴这个世界的年代、地域与张力——判据:换一个世界观还照样合适的,就是选坏了。纯器乐/影视游戏配乐也行。\n"
@@ -1364,7 +1398,7 @@
         stages.forEach(s => { if (mapRegions) { const nd = findNode(allNodes, s.place); s.place = nd ? nd.name : ""; } });
         // 卡从小分队里取:数值建队时已定,成长归这支队
         const party = buildParty(squad);
-        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, sceneMeta: normSceneMeta(p, { stages, stageIdx: 0 }), siteActions: normSiteActions(p.siteActions), choices: normChoices(p.choices, party), bgm: (Array.isArray(p.bgm) ? p.bgm : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6), party };
+        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, sceneMeta: normSceneMeta(p, { stages, stageIdx: 0 }), siteActions: normSiteActions(p.siteActions), choices: normChoices(p.choices, party), bgm: (Array.isArray(p.bgm) ? p.bgm : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6), party };
         setBusyWhat("守密人在写幕后底牌…");
         const bs = await backstage(d);
         if (bs) d = Object.assign({}, d, bs);
@@ -1382,9 +1416,9 @@
       const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
       setBusy(true); setBusyWhat("在这个世界里另起一个故事…");
       try {
-        const SHAPE_W = "{\"hook\":\"开局处境(2-3句,全新的)\",\"stages\":[{\"goal\":\"每章一步具体可判定的事\",\"hint\":\"守密人自用思路\",\"place\":\"必须用地图里已有的节点名\"}],\"place\":\"开局地点(已有节点名)\",\"opening\":\"开场正文(第二人称『你』,6-10句,悬着收尾)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"玩家眼下要办成什么\",\"stakes\":\"拖延或失败会失去什么\"},\"siteActions\":[\"只有这个开局地点才做得了的事×2-3\"],\"choices\":[{\"text\":\"行动\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险\",\"payoff\":\"这条路擅长换来什么\"}]}";
+        const SHAPE_W = "{\"hook\":\"开局处境(2-3句,全新的)\",\"stages\":[{\"goal\":\"每章一步具体可判定的事\",\"hint\":\"守密人自用思路\",\"place\":\"必须用地图里已有的节点名\",\"steps\":[\"要达成这章目标必须先过的第一道坎(具体、能失败)\",\"第二道坎(与第一道不是同一种)\"]}],\"place\":\"开局地点(已有节点名)\",\"opening\":\"开场正文(第二人称『你』,6-10句,悬着收尾)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"玩家眼下要办成什么\",\"stakes\":\"拖延或失败会失去什么\"},\"siteActions\":[\"只有这个开局地点才做得了的事×2-3\"],\"choices\":[{\"text\":\"行动\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险\",\"payoff\":\"这条路擅长换来什么\"}]}";
         const past = camps.filter(c => c.world === w.world).slice(0, 6).map(c => String(c.hook || "").slice(0, 40)).join(";");
-        const sys = "基于下面这套【固定的世界与地图】开一局全新的跑团:世界观与区域节点一个字不许改,但主线、开局处境、开场全部另起——换时间点、换事件、换队伍被卷入的理由都行,幅度要大到一眼是另一个故事。主线 4-5 章分布在【不同区域】的节点上。绝不复述以往开过的局。开场 choices 要给稳妥 safe、冒险 bold、队友主导 ally(单人团则 clever)三种真正不同的办法,写清 risk/payoff;siteActions 是开局地点独有的 2-3 件事。\n" + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_W;
+        const sys = "基于下面这套【固定的世界与地图】开一局全新的跑团:世界观与区域节点一个字不许改,但主线、开局处境、开场全部另起——换时间点、换事件、换队伍被卷入的理由都行,幅度要大到一眼是另一个故事。主线 4-5 章分布在【不同区域】的节点上,每章两道坎(steps):要达成这章目标必须先过的两件具体、能失败的事,两道不是同一种。绝不复述以往开过的局。开场 choices 要给稳妥 safe、冒险 bold、队友主导 ally(单人团则 clever)三种真正不同的办法,写清 risk/payoff;siteActions 是开局地点独有的 2-3 件事。\n" + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_W;
         const user = "【固定世界】" + w.world + "\n【固定地图】\n" + (w.regions || []).map(r => r.name + "(" + r.terrain + ")·节点:" + r.nodes.map(n => n.name).join("/")).join("\n") + "\n【玩家】" + uName + (members.length ? "\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n") : "") + (past ? "\n【这个世界已开过的局(务必避开)】" + past : "");
         const p2 = parseObj(await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 }));
         if (!p2 || !String(p2.opening || "").trim()) throw new Error("这个世界的新故事没生成出来");
@@ -1395,7 +1429,7 @@
         const startNode = mapRegions ? (findNode(allNodes, p2.place) || allNodes[0]) : null;
         stages.forEach(x => { if (mapRegions) { const nd = findNode(allNodes, x.place); x.place = nd ? nd.name : ""; } });
         const party = buildParty(squad);
-        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: w.style || style, title: w.title, world: w.world, hook: p2.hook || "", stages: stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: p2.opening, sceneMeta: normSceneMeta(p2, { stages, stageIdx: 0 }), siteActions: normSiteActions(p2.siteActions), choices: normChoices(p2.choices, party), party };
+        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: w.style || style, title: w.title, world: w.world, hook: p2.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: p2.opening, sceneMeta: normSceneMeta(p2, { stages, stageIdx: 0 }), siteActions: normSiteActions(p2.siteActions), choices: normChoices(p2.choices, party), party };
         if (w.limits) setLimitsTxt(String(w.limits));
         setBusyWhat("守密人在写幕后底牌…");
         const bs = await backstage(d);
@@ -1589,7 +1623,7 @@
 
     // ---- 一回合 ----
     const gmSys = c => {
-      const stageLines = c.stages.map((s, i) => (i < c.stageIdx ? "✓ " : i === c.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= c.stageIdx ? s.goal + (s.place ? "〔在:" + s.place + "〕" : "") : "(未揭晓,推进到才亮出)") + (i === c.stageIdx && s.hint ? "〔推进思路:" + s.hint + "〕" : "")).join("\n");
+      const stageLines = c.stages.map((s, i) => (i < c.stageIdx ? "✓ " : i === c.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= c.stageIdx ? s.goal + (s.place ? "〔在:" + s.place + "〕" : "") : "(未揭晓,推进到才亮出)") + (i === c.stageIdx && s.hint ? "〔推进思路:" + s.hint + "〕" : "") + (i === c.stageIdx && normSteps(s.steps).length ? "〔这章的坎:" + normSteps(s.steps).map((st, j) => (st.done ? "✓" : "·") + (j + 1) + "." + st.text).join(" ") + "〕" : "")).join("\n");
       const dd = DIFF[c.difficulty] || DIFF.normal;
       return [narrativeCore(),
         c.limits ? "【安全线(最高优先级,压过一切风格与剧情需要)】以下内容绝不出现、也不擦边:" + c.limits + "。剧情逼近时淡出换景处理,不描写过程,也不拿它当威胁渲染。" : null,
@@ -1617,7 +1651,7 @@
         c.mapRegions ? "【地图(区域·接壤·节点)】\n" + c.mapRegions.map(r => r.name + "(" + r.terrain + ")" + (r.adj.length ? "·接壤:" + r.adj.join("、") : "") + "\n  " + r.nodes.map(n => n.name + "〔" + n.kind + (n.hook ? ":" + n.hook : "") + "〕").join(" / ")).join("\n") + "\n队伍现在位于「" + (c.pos || c.place) + "」。place 只许写地图上已有的节点名;跨节点移动由玩家在地图上发起(会带〔赶路〕指令),你不要自行把队伍挪去别的节点。节点〔〕里的底是你埋的料,按剧情一点点抖,不要一次说穿。" : null,
         "【主线各章】\n" + stageLines + "\n" + (c.stageIdx >= c.stages.length
           ? "各章均已完成:剧情朝落幕收束,把还悬着的线一一收拢,时机成熟就报 ending。"
-          : "只有当前章(→)的目标在剧情里【真实发生】后才报 stageDone;一次只推进一章,不许跳章,更不许自导自演替玩家完成。【章要有呼吸】:一章是一幕戏不是一个动作——开章后的前两拍不报 stageDone,且本章至少经历过一次检定或一次有代价的波折才算走完;目标眼看要一拍达成时,让它节外生枝(新阻碍/新揭示/代价上门),别急着盖章。全部章节完成、或剧情自然走到终点时,才报 ending,且 endNote 必填一段谢幕词(点出结局成色与代价)。"),
+          : "只有当前章(→)的目标在剧情里【真实发生】后才报 stageDone;一次只推进一章,不许跳章,更不许自导自演替玩家完成。【章要有呼吸】:一章是一幕戏不是一个动作——当前章列着几道坎(·还没过,✓过了),坎在剧情里【真实过了】才报 stepDone(写那道坎的原文,一拍最多过一道,过坎的那一拍本身要有检定或代价);两道坎都过了、开章后至少四拍、且本章掷过骰,才报 stageDone(可与最后一道坎同拍);目标眼看要一拍达成时,让它节外生枝(新阻碍/新揭示/代价上门),别急着盖章。全部章节完成、或剧情自然走到终点时,才报 ending,且 endNote 必填一段谢幕词(点出结局成色与代价)。"),
         "【当前状态(以此为准,不凭记忆)】\n时间:第" + ((c.time || {}).day || 1) + "日·" + ((c.time || {}).part || "晨") + "\n地点:" + c.place + "\n最近场景:" + ((c.sceneTrail || []).map(x => SCENE_TYPE_ZH[x] || x).join("→") || "尚未分型") + "\n" + partyBlock(c) + "\n物品(名称×数量(持有人),不写持有人=队伍公用):" + (itemsFix(c.items).map(fmtItem).join("、") || "无") + "\n线索:" + (c.clues.map((x, i) => (i + 1) + "." + x).join(" ") || "尚无"),
         "【团内时间】每拍在 time 里报当前 {\"day\":N,\"part\":\"晨|午|暮|夜\"}——时间只向前;赶路、休整、搜查都要花时间,别让一天塞下十件大事;有期限的事用威胁钟表达,别只口头说「快来不及了」。",
         "【NPC 名册(出过场的都要记账,前后一致,不许换名换设)】" + ((c.npcs || []).length ? "\n" + c.npcs.map(n => n.name + (n.alive ? "" : "(已死)") + "·" + (n.role || "?") + "·" + n.stance + (n.note ? "·玩家已知:" + n.note : "") + (n.debt ? "·人情:" + (n.debt.side === "owe" ? uName + "欠他" : "他欠" + uName) + (n.debt.note ? "(" + n.debt.note + ")" : "") : "")).join("\n") : "尚无") + "\n新 NPC 出场、身份揭示、立场变化、死亡,都写进 npc 字段(name/role/stance 友|敌|未明/alive/note);note 只写【玩家已经知道的】,他们的秘密仍在秘典里。",
@@ -1634,7 +1668,7 @@
         "【赶路】叙事跨地图节点时不许瞬移:要么停在动身那一刻(让玩家自己点地图赶路),要么如实更新 place 并把途中写出至少一笔(路况/遭遇/一句对话)。上一拍在甲地下一拍人已站在乙地而中间没有路,是穿帮。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stepDone\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1711,8 +1745,8 @@
         const exploring = !!(mode && mode.explore);
         const siteAction = mode && mode.siteAction;
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
-        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
-          + (mode === "lull" ? "\n〔幕间〕sceneMeta.type 固定 interlude。这一章刚翻过去、下一章还没开始:这一拍不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone,威胁钟不走。\n只写队伍在这个间隙里【彼此之间】的一小段:谁去照料谁的伤、谁在跟谁拌嘴、谁把那句话说了一半又咽回去。按各人的私念与羁绊挑人开口——羁绊高的可以往前一步(交底、道谢、说一句只对 " + uName + " 说的话),羁绊低的可以别扭、话说一半、或者索性不接茬。" + uName + " 只是在场,绝不替 Ta 说话或做决定。\n这一拍正是该报 bond 的时候(真的发生了什么才报)。结尾 choices 给【空数组】,让队伍落回自由活动。" : "")
+        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
+          + (mode === "lull" ? "\n〔幕间〕sceneMeta.type 固定 interlude。这一章刚翻过去、下一章还没开始:这一拍不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,威胁钟不走。\n只写队伍在这个间隙里【彼此之间】的一小段:谁去照料谁的伤、谁在跟谁拌嘴、谁把那句话说了一半又咽回去。按各人的私念与羁绊挑人开口——羁绊高的可以往前一步(交底、道谢、说一句只对 " + uName + " 说的话),羁绊低的可以别扭、话说一半、或者索性不接茬。" + uName + " 只是在场,绝不替 Ta 说话或做决定。\n这一拍正是该报 bond 的时候(真的发生了什么才报)。结尾 choices 给【空数组】,让队伍落回自由活动。" : "")
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕sceneMeta.type 固定 social。这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
           + (mode && mode.travel ? "\n〔赶路〕sceneMeta.type 固定 travel。队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (seed ? "" : Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
           + (exploring ? "\n〔探索拍〕sceneMeta.type 固定 explore。队伍正在「" + (camp.pos || camp.place) + "」" + (siteAction ? "亲手做此地专属动作:「" + siteAction + "」" : "四下看看") + ":写一小段真正由这个动作得到的发现——环境细节、一件小东西、一句传闻、名册上某人此刻在干什么;不开危机、不报 needCheck、不报 stageDone、威胁钟不走。" + (seed ? "" : "这一拍没有偶遇:choices 给【空数组】,队伍还留在探索态自己逛。") : "")
@@ -1955,7 +1989,7 @@
         sceneTrail: Array.isArray(snap.sceneTrail) ? snap.sceneTrail.slice() : (camp.sceneTrail || []).slice(),
         siteActions: snap.siteActions ? Object.assign({}, snap.siteActions) : Object.assign({}, camp.siteActions || {}),
         siteDone: snap.siteDone ? Object.assign({}, snap.siteDone) : Object.assign({}, camp.siteDone || {}),
-        stages: camp.stages.map((s, i) => i < snap.stageIdx ? s : Object.assign({}, s, { done: false, note: null })),
+        stages: camp.stages.map((s, i) => i < snap.stageIdx ? s : Object.assign({}, s, { done: false, note: null, steps: normSteps(s.steps).map(st => Object.assign({}, st, { done: false })) })),
         summary: keepLedger ? camp.summary : "", ledger: keepLedger ? camp.ledger : null,
         sumCount: keepLedger ? camp.sumCount : 0, sumSig: keepLedger ? camp.sumSig : "",
         branchRoot: camp.branchRoot || camp.id,
@@ -2276,7 +2310,7 @@
                   const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
                   // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
                   // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
-                  const modStages = mod.stages.map(x => ({ goal: String(x.goal || ""), hint: String(x.hint || ""), place: String(x.place || ""), done: false, note: null })).filter(x => x.goal);
+                  const modStages = mod.stages.map(stageOf).filter(x => x.goal);
                   setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: modStages, dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), sceneMeta: normSceneMeta(mod.sceneMeta || {}, { stages: modStages, stageIdx: 0 }), siteActions: normSiteActions(mod.siteActions), choices: normChoices(mod.choices, party), bgm: (Array.isArray(mod.bgm) ? mod.bgm : []).slice(0, 6), party });
                   if (mod.limits) setLimitsTxt(String(mod.limits));
                   setModOpen(false);
@@ -2391,8 +2425,11 @@
         ) : null,
         sect("◎", "目标", null,
           "第" + Math.min(camp.stageIdx + 1, camp.stages.length) + "/" + camp.stages.length + "章" + ((camp.quests || []).filter(q => q.status === "open").length ? " · 支线 " + (camp.quests || []).filter(q => q.status === "open").length + " 条在办" : ""),
-        h("div", { style: S.lbl }, "主线"),
-        camp.stages.map((s, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???"))),
+        h("div", { style: S.lbl }, "主线" + (fixMode ? "(点一道坎划掉/撤回)" : "")),
+        camp.stages.map((s, i) => h("div", { key: i },
+          h("div", { style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???")),
+          // 当前章的坎:过了的划掉。修正模式点一下划掉/撤回——守密人真忘了报的时候她自己能救
+          i === camp.stageIdx ? normSteps(s.steps).map((st, j) => h("div", { key: j, onClick: () => { if (!fixMode) return; applyFix((st.done ? "撤回" : "划掉") + "第" + (i + 1) + "章的坎「" + st.text + "」", c => Object.assign({}, c, { stages: c.stages.map((x, k) => k !== i ? x : Object.assign({}, x, { steps: normSteps(x.steps).map((y, m) => m !== j ? y : Object.assign({}, y, { done: !y.done })) })) })); }, style: Object.assign({}, S.txt, { fontSize: 11, marginLeft: 14, marginBottom: 1, color: st.done ? t.fog : t.sub, textDecoration: st.done ? "line-through" : "none", cursor: fixMode ? "pointer" : "default" }) }, (st.done ? "✓ " : "· ") + "坎" + (j + 1) + ":" + st.text)) : null)),
         // 支线任务日志:○进行 ✓完成 ✗失败 ⏸暂缓;修正模式点一下轮换状态
         (camp.quests || []).length ? h("div", null,
           h("div", { style: Object.assign({}, S.lbl, { marginTop: 8 }) }, "支线" + (fixMode ? "(点一条轮换状态)" : "")),
@@ -2484,7 +2521,7 @@
           h("button", { onClick: () => {
             // 打包模组:台前+底牌+种子,不带存档与队伍——换队友重开时「补幕后」会重配 crew
             const openingPlace = camp.stages.length && camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.place : camp.place;
-            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "" })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
+            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", steps: normSteps(x.steps).map(st => st.text) })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
             const txt = JSON.stringify(mod);
             try { navigator.clipboard.writeText(txt).then(() => props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000), () => props.toast("复制失败,再试一次")); } catch (e) { props.toast("复制失败:" + (e.message || "")); }
           }, style: S.btn(false) }, "📦 打包模组"),
@@ -3004,5 +3041,5 @@
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
   if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
+  if (typeof module === "object" && module.exports) module.exports = { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
 })();

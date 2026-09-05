@@ -180,14 +180,17 @@ test("休整拍:不推进主线,恢复封顶 +15,队友各提看法", () => {
   assert.match(src, /不报 stageDone/);
 });
 
-// 章要有呼吸(v60.16 代码闸):开章后不到两拍、或本章没掷过骰,守密人报的 stageDone 一律丢掉
-const ripe = () => Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "roll", tier: "ok" }, { role: "gm" }] });
+// 章要有呼吸(v60.16 代码闸,v63.17 收紧):开章后不到四拍、本章没掷过骰、或还有坎没过,
+// 守密人报的 stageDone 一律丢掉。闲拍(幕间/探索)不算拍数——它们本来就不往章目标走
+const ripe = () => Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "roll", tier: "ok" }, { role: "gm" }, { role: "gm", sceneType: "interlude" }, { role: "gm", lull: true }, { role: "gm" }, { role: "gm" }] });
 test("章节闸:才开章或没掷过骰就报完成,丢掉并留幕后事实", () => {
   const bare = applyTurnPayload(camp0(), { stageDone: true, stageNote: "拿到了名册" });
   assert.equal(bare.camp.pendingStage, false, "第一拍就翻章,不放行");
   assert.match(bare.gate, /才开章/);
-  const noRoll = Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "gm" }] });
+  const noRoll = Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "user" }, { role: "gm" }, { role: "gm" }, { role: "gm" }] });
   assert.match(applyTurnPayload(noRoll, { stageDone: true }).gate, /没掷过/);
+  const young = Object.assign(camp0(), { stageAt: 0, msgs: [{ role: "gm" }, { role: "roll", tier: "ok" }, { role: "gm" }, { role: "gm", sceneType: "interlude" }, { role: "gm", sceneType: "explore" }, { role: "gm", lull: true }] });
+  assert.match(applyTurnPayload(young, { stageDone: true }).gate, /才开章/, "幕间和探索拍不算章的拍数");
   assert.equal(applyTurnPayload(ripe(), { stageDone: true, stageNote: "拿到了名册" }).gate, null);
   assert.match(src, /stageIdx: Math\.min\(c\.stages\.length, c\.stageIdx \+ 1\), stageAt: c\.msgs\.length/, "翻章时要记下起点");
 });
