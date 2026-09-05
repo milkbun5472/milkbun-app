@@ -10383,6 +10383,81 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
       })));
 }
+// ── 钱包这两页：翻开一个皮夹（v62.90，审美审计还债⑥）──────────────────
+// 审计：外壳 t.bg 平色，两页各自手写顶栏，正文是「深色渐变银行卡 + 一堆圆角卡 + 流水
+// 列表」——所有记账 app 的首页，原样搬走照样成立，按判据就是写坏了；
+// 还留着 Wallet / RUNNING / 流水 · LEDGER 这几处英文和 'Archivo' 日期。
+//
+// 这一页现实里是什么？不是一个记账 app，是**翻开一个皮夹**。
+//（记账那一页是账簿纸，那是另一样东西，别撞车——审计原话点名过「纸上摆错物件」。）
+//   底   = 皮革内衬：细颗粒 + 一道明线缝线 + 四边压暗
+//   卡   = 真的【插在卡位里】：下缘被一道皮革压边盖住，压边内侧一道阴影
+//   每块 = 从卷筒上撕下来的一张单据：顶边一排撕口锯齿，抬头下面一条线
+//   流水 = 一叠小票，不是一行行列表
+// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
+const LEATHER = t => {
+  if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
+  const k = t.ink;
+  return { background: [
+    // 皮革的细颗粒：两个方向的极短纹，比纸密
+    "repeating-linear-gradient(27deg," + k + "00 0 2px," + k + "0e 2px 3px)",
+    "repeating-linear-gradient(-51deg," + k + "00 0 2px," + k + "0b 2px 3px)",
+    // 皮夹边上那两道明线缝线：一排针脚顺着两条长边走。
+    // ⚠️别横着钉在顶上——外壳把顶栏也包在里面，横线要么被顶栏盖住、要么掉到页尾
+    //   变成一条莫名其妙的虚线（第一版两种都试过了）。竖着走就没有这个位置问题。
+    "repeating-linear-gradient(180deg," + k + "3a 0 5px," + k + "00 5px 11px) no-repeat left 11px top 0/1px 100%",
+    "repeating-linear-gradient(180deg," + k + "3a 0 5px," + k + "00 5px 11px) no-repeat right 11px top 0/1px 100%",
+    "radial-gradient(120% 80% at 50% 46%," + k + "00 52%," + k + "20 100%)",
+    t.bg].join(",") };
+};
+// 卡插在卡位里：压边盖住卡的下缘，内侧一道阴影说明它是插进去的。
+// ⚠️压边必须画在卡【后面】——但绝不能用负 z-index（那会被外壳自己的底盖掉，
+//   抽卡那一叠踩过这个坑）。绝对定位的兄弟节点画在静态卡之后，天然就在上层。
+const cardSlot = (t, card, mx) => h("div", { style: { position: "relative", margin: (mx === undefined ? "20px 20px 26px" : mx) } },
+  card,
+  h("span", { "aria-hidden": "true", style: { position: "absolute", left: -7, right: -7, bottom: -7, height: 34, borderRadius: 9,
+    background: t.bg, boxShadow: "inset 0 4px 8px rgba(0,0,0,.24), 0 2px 6px rgba(0,0,0,.10)" } }));
+// 余额那一叠不是「一张银行卡」——v60.45 才把那张通用渐变卡从这个 app 里拆掉，
+// 别再搬回来（test/kinship-card-face-60-45 钉着这条）。皮夹里装的是钱，所以画钞票：
+// 浅纸 + 交叉的防伪细纹 + 一圈内框，一叠三张错开一点。
+// 纸色写死，所以钞票上的字色也一起写死（v59.62 那一课）。
+const NOTE_PAPER = "#ece4d0", NOTE_INK = "#3c3524", NOTE_FOG = "#8c7f62", NOTE_LINE = "rgba(90,74,44,.34)";
+const noteFace = kids => h("div", { style: { position: "relative", borderRadius: 3, padding: "20px 22px", background: NOTE_PAPER,
+  backgroundImage: "repeating-linear-gradient(48deg,rgba(90,74,44,0) 0 3px,rgba(90,74,44,.06) 3px 4px)"
+    + ",repeating-linear-gradient(-48deg,rgba(90,74,44,0) 0 3px,rgba(90,74,44,.05) 3px 4px)",
+  border: "1px solid " + NOTE_LINE, boxShadow: "0 6px 16px rgba(0,0,0,.18)" } },
+  h("span", { "aria-hidden": "true", style: { position: "absolute", left: 6, right: 6, top: 6, bottom: 6, border: "1px solid " + NOTE_LINE, borderRadius: 2, pointerEvents: "none" } }),
+  kids);
+// 一叠：后面两张错开一点露出边。⚠️绝对定位的兄弟必须写在前面，
+// 而最上面那张自己是 position:relative（noteFace 就是），才会盖在它们上面——
+// 靠负 z-index 的话会被外壳自己的底盖掉（抽卡那一叠踩过这个坑）。
+const noteStack = (kids, mx) => h("div", { style: { position: "relative", margin: mx || "18px 20px 26px" } },
+  h("span", { "aria-hidden": "true", style: { position: "absolute", left: 7, right: -7, top: 7, bottom: -7, borderRadius: 3, background: NOTE_PAPER, opacity: .45, boxShadow: "0 4px 10px rgba(0,0,0,.12)" } }),
+  h("span", { "aria-hidden": "true", style: { position: "absolute", left: 3.5, right: -3.5, top: 3.5, bottom: -3.5, borderRadius: 3, background: NOTE_PAPER, opacity: .72, boxShadow: "0 4px 10px rgba(0,0,0,.12)" } }),
+  noteFace(kids));
+// 皮夹里的一格隔层：上缘一道缝线；有钱的那格底下露出一条钞票的边
+const pocketRow = (t, hasMoney, kids) => h("div", { style: { position: "relative", padding: "15px 4px 18px", borderTop: "1px dashed " + t.line } },
+  // 露出来的是【一张钞票的上缘】，所以它只有半格宽、带着钞票自己的边框，
+  // 不是一条横贯整行的色带（第一版那样看着像进度条）
+  hasMoney ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 16, width: "44%", bottom: 3, height: 10,
+    borderRadius: "2px 2px 0 0", background: NOTE_PAPER, border: "1px solid " + NOTE_LINE, borderBottom: "none",
+    boxShadow: "0 -2px 6px rgba(0,0,0,.14)" } }) : null,
+  kids);
+// 一张小票：上下两边都是撕口（从卷筒上撕下来的一小条），跟整张单据分得开
+const receiptSkin = t => ({
+  background: "transparent",
+  backgroundImage: "radial-gradient(circle at 4px 0, transparent 3.4px, " + t.bg2 + " 3.8px)"
+    + ",radial-gradient(circle at 4px 100%, transparent 3.4px, " + t.bg2 + " 3.8px)",
+  backgroundSize: "8px 51%,8px 51%", backgroundPosition: "left top,left bottom", backgroundRepeat: "repeat-x",
+  boxShadow: "0 3px 9px rgba(0,0,0,.11)"
+});
+// 从卷筒上撕下来的一张单据：顶边一排撕口（缺口处透出底下的皮革）
+const slipSkin = t => ({
+  background: "transparent",
+  backgroundImage: "radial-gradient(circle at 5px 0, transparent 4.2px, " + t.bg2 + " 4.6px)",
+  backgroundSize: "10px 100%", backgroundRepeat: "repeat-x",
+  boxShadow: "0 3px 10px rgba(0,0,0,.10)"
+});
 // ---- 我的钱包（聊天软件「我」下面）----
 function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView }) {
   const t = useTheme();
@@ -10403,43 +10478,40 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
     setAmt("");
   };
   if (view === "cards") {
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
-        h("button", { onClick: () => setView("main"), className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "亲属卡"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: "auto" } }, "角色给你的卡 · 刷他们的钱")),
-      h("div", { className: "flex-1 overflow-y-auto p-5 space-y-3" },
+    return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+      h(Head, { zh: "亲属卡", sub: cardList.length ? cardList.length + " 张 · 刷他们的钱" : "角色给你的卡", bg: "transparent", onBack: () => setView("main") }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" },
         cardList.length === 0 ? h("div", { className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n在聊天设置里开启「允许角色给我亲属卡」，\n合适的时候 TA 会主动给你一张，刷 TA 的钱。")
+          // 一张张插在内衬上，不是一列按钮
           : cardList.map(cd => {
             const c = charById(cd.charId) || {};
             return h("button", { key: cd.charId, onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80" },
-              h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }));
+              cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
           })));
   }
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "我的钱包"),
-      h("button", { onClick: () => setView("cards"), className: "ml-auto active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null)),
-    h("div", { className: "flex-1 overflow-y-auto" },
-      // 余额卡
-      h("div", { className: "m-5 p-5", style: { borderRadius: 18, background: "linear-gradient(135deg,#2f3a42,#171d21)", color: "#fff" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", opacity: 0.7 } }, "CNY · 余额"),
-        h("div", { className: "flex items-end gap-3 mt-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, lineHeight: 1 } }, "¥" + balance),
-          h("button", { onClick: () => { setAmt(String(balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,0.75)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 999, padding: "2px 10px" } }, "改余额"))),
+  // 余额不是一张卡，是夹层里的那叠钱
+  const faceCard = noteStack([
+    h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, "我的余额"),
+    h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, lineHeight: 1, color: NOTE_INK } }, "¥" + balance),
+      h("button", { onClick: () => { setAmt(String(balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额"))]);
+  return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+    h(Head, { zh: "我的钱包", bg: "transparent", onBack,
+      right: h("button", { onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+      faceCard,
       // 手动改余额
-      editing && h("div", { className: "mx-5 mb-3 p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "把余额改成"),
+      editing && h("div", { className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, "把余额改成"),
         h("div", { className: "flex items-center gap-2" },
-          h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+          h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
-      // 流水
+      // 收在夹层里的那叠小票
       h("div", { className: "px-5 pb-8" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 10 } }, "流水 · LEDGER"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"),
         (!log || log.length === 0) ? h("div", { className: "text-center mt-8", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有流水。转账、红包、购物都会记在这里。")
-          : log.map(e => h("div", { key: e.id, className: "flex items-center justify-between py-3", style: { borderBottom: "1px solid " + t.line } },
+          : log.map(e => h("div", { key: e.id, className: "flex items-center justify-between px-4", style: Object.assign({ marginBottom: 10, paddingTop: 12, paddingBottom: 12, transform: "rotate(" + tiltById(e.id) + "deg)" }, receiptSkin(t)) },
             h("div", { className: "min-w-0 flex-1" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, e.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(e.ts))),
@@ -10475,21 +10547,23 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     // eslint-disable-next-line
   }, [selId]);
 
-  if (!chars.length) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "钱包", en: "Wallet", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
+  if (!chars.length) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, h(Head, { zh: "钱包", bg: "transparent", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
 
   // —— 花名册（未选角色）——
-  if (!char) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "钱包", en: "Wallet · 选择角色", onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 pb-10 pt-1" }, chars.map(c => {
+  if (!char) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+    h(Head, { zh: "钱包", sub: chars.length + " 位", bg: "transparent", onBack }),
+    // 一人一张卡，一张张插在内衬上；还没开通的是个空卡位（虚线轮廓）
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" }, chars.map(c => {
       const rec = cw[c.id];
-      return h("button", { key: c.id, onClick: () => onSel(c.id), className: "w-full text-left flex items-center gap-4 py-4 active:opacity-70", style: { borderBottom: "1px solid " + t.line } },
-        h(Avatar, { character: c, size: 50, radius: 14 }),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, c.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, rec && rec.init ? "钱包余额" : "未开通 · 点开生成资产")),
-        rec && rec.init
-          ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, fmtMoney(rec.balance))
-          : h(IChevR, { size: 16, color: t.fog }));
+      const open = !!(rec && rec.init);
+      return h("button", { key: c.id, onClick: () => onSel(c.id), className: "w-full text-left active:opacity-70" },
+        pocketRow(t, open, h("div", { className: "flex items-center gap-4" },
+          h(Avatar, { character: c, size: 46, radius: 8 }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, c.remark || c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, open ? "这一格里有" : "这一格还空着 · 点开生成他的资产")),
+          open ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, fmtMoney(rec.balance))
+            : h(IChevR, { size: 16, color: t.fog }))));
     })));
 
   // —— 单角色钱包详情 ——
@@ -10519,9 +10593,10 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const incomes = (rec && rec.incomes) || [];
   const saveEdit = () => { const v = Number(amt); if (!isNaN(v)) onSetBalance(char.id, v); setEditing(false); setAmt(""); };
   const AV = ["#f2b134", "#3f6d8c", "#8a8f7a", "#c25a4a"];
-  const secTitle = s => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 10 } }, s);
+  const secTitle = s => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 10, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, s);
   const note = s => s ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, fontStyle: "italic", lineHeight: 1.7, marginTop: 10 } }, s) : null;
-  const cardBox = kids => h("div", { className: "mx-5 mb-4 p-4", style: { background: t.bg2, borderRadius: 16, border: "1px solid " + t.line } }, kids);
+  // 每一块是从卷筒上撕下来的一张单据（顶边一排撕口），不是一张圆角卡
+  const cardBox = kids => h("div", { className: "mx-5 mb-4", style: Object.assign({ borderRadius: 2, padding: "14px 16px 16px" }, slipSkin(t)) }, kids);
   // 本月收支（从流水分类算）
   const _now = new Date();
   const inMonth = ts => { const d = new Date(ts); return d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear(); };
@@ -10538,35 +10613,33 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: color || t.ink } }, value));
 
   const header = h(Head, {
-    zh: char.name, en: "Wallet",
+    zh: char.remark || char.name, sub: "钱包", bg: "transparent",
     onBack: () => onSel(null),
     right: h("button", { onClick: () => onRefresh(char), disabled: loading, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink }))
   });
 
-  if (loading && (!rec || !rec.init)) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } }, header, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在生成 " + char.name + " 的资产…" })));
+  if (loading && (!rec || !rec.init)) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在生成 " + char.name + " 的资产…" })));
 
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } }, header,
-    h("div", { className: "flex-1 overflow-y-auto pb-10" },
-      // 余额卡（跑动余额）
-      h("div", { className: "m-5 p-5", style: { borderRadius: 18, background: "linear-gradient(135deg," + (char.color || "#2f3a42") + ",#171d21)", color: "#fff" } },
-        h("div", { className: "flex items-center justify-between" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", opacity: 0.72 } }, char.name + " · 钱包余额"),
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", opacity: 0.6 } }, "RUNNING")),
-        h("div", { className: "flex items-end gap-3 mt-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 38, lineHeight: 1 } }, fmtMoney(rec ? rec.balance : 0)),
-          h("button", { onClick: () => { setAmt(String(rec ? rec.balance : 0)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,0.75)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 999, padding: "2px 10px" } }, "改余额")),
-        rec && rec.monthlyIncome ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: 0.7, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly) : "")) : null),
+  return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header,
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-10" },
+      // 他手上那叠钱
+      noteStack([
+        h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, (char.remark || char.name) + " · 余额"),
+        h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 38, lineHeight: 1, color: NOTE_INK } }, fmtMoney(rec ? rec.balance : 0)),
+          h("button", { onClick: () => { setAmt(String(rec ? rec.balance : 0)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额")),
+        rec && rec.monthlyIncome ? h("div", { key: "m", style: { fontFamily: F_BODY, fontSize: 11, color: NOTE_FOG, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly) : "")) : null]),
       // 手动改余额
-      editing ? h("div", { className: "mx-5 mb-4 p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
+      editing ? h("div", { className: "mx-5 mb-4", style: Object.assign({ borderRadius: 2, padding: "14px 16px 16px" }, slipSkin(t)) },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "把余额改成"),
         h("div", { className: "flex items-center gap-2" },
-          h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+          h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))) : null,
       // 收入来源
       incomes.length ? cardBox([
         h("div", { key: "h", className: "flex items-center justify-between mb-1" }, secTitle("收入来源"),
-          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: t.bg, borderRadius: 999, padding: "3px 10px" } }, "月合计 " + fmtMoney(monthlyIncome)) : null),
+          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "3px 10px" } }, "月合计 " + fmtMoney(monthlyIncome)) : null),
         incomes.map((s, i) => h("div", { key: i, className: "flex items-center justify-between py-2", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
           h("div", { className: "flex items-center min-w-0" },
             h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 7, background: AV[i % AV.length], marginRight: 8 } }),
@@ -10615,7 +10688,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 一笔钱不会凭空多出来（她 2026-08-30 问的那两件事）。
       debts.length ? cardBox([
         h("div", { key: "dh", className: "flex items-center justify-between mb-1" }, secTitle("欠账"),
-          debtOpen.net !== 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: debtOpen.net > 0 ? "#3f8a54" : "#b6473c", background: t.bg, borderRadius: 999, padding: "3px 10px" } },
+          debtOpen.net !== 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: debtOpen.net > 0 ? "#3f8a54" : "#b6473c", border: "1px solid currentColor", borderRadius: 2, padding: "3px 10px" } },
             (debtOpen.net > 0 ? "净收 +" : "净欠 −") + fmtMoney(Math.abs(debtOpen.net))) : null),
         h("div", { key: "db", className: "space-y-2" }, debts.map((d, i) => {
           const mine = d.dir === "owe";
@@ -10627,7 +10700,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("div", { style: { display: "flex", gap: 10, alignItems: "flex-start" } },
             h("span", {
               style: {
-                fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 99, flexShrink: 0, marginTop: 2,
+                fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 2, flexShrink: 0, marginTop: 2,
                 background: done ? "rgba(0,0,0,.05)" : mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)",
                 color: done ? t.fog : mine ? "#b6473c" : "#3f8a54"
               }
@@ -10636,7 +10709,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
                 // 对上她人格档案馆里另一个角色：结清时两边一起动
-                peer ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 99, padding: "1px 6px", whiteSpace: "nowrap" } },
+                peer ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 2, padding: "1px 6px", whiteSpace: "nowrap" } },
                   peer.ready ? "和 " + peer.name + " 两边对账" : peer.name + " 还没开通钱包") : null),
               d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
@@ -10651,7 +10724,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               onSettleDebt(char.id, d.id);
             },
             className: "active:opacity-60",
-            style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 13px", background: t.bg }
+            style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 2, padding: "5px 13px", background: "transparent" }
           }, mine ? "还清这笔" : "收回这笔") : null)
         }))
       ]) : null,
@@ -10673,7 +10746,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           key: e.id || i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
         h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, wordBreak: "break-word" } }, e.label),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta)))))) : null,
         forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
       ]) : null,
