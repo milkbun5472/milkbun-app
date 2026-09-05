@@ -148,14 +148,8 @@
         const run = async () => {
           const p = props.bgApi || (props.apiFor ? props.apiFor(char.id) : null);
           if (!p) throw new Error("没有可用的 API 线路");
-          const msgs = loadJSON("x_chat:" + row.charId, []) || [];
-          const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
-          const excerpts = [];
-          msgs.forEach((m, i) => {
-            const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
-            const ref = refs.get(String(mid));
-            if (ref && m.content && window.DreamLoopCore && window.DreamLoopCore.refMatches(ref, m.content) && excerpts.length < 12) excerpts.push(String(m.content).slice(0, 80));
-          });
+          // 取材只写一处（v62.99）：梦境 app 闯进这场梦时用的是同一把勺子
+          const excerpts = window.DreamLoop.excerptsFor(row, 12);
           const cp = props.couples && props.couples[char.id];
           const relationship = cp && cp.status === "together" ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
           const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
@@ -320,6 +314,14 @@
               h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#2c2822" } }, nameOf(d.charId)),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8b8276" } }, d.status === "queued" ? "未醒的梦" : d.status === "no_dream" ? "无梦之夜" : (d.tone || "有梦"))),
+              // 合龙（v62.99）：这场梦是 TA 昨晚真做的，可以从梦境 app 闯进去——
+              // 进去过的写一行结果；没进过的给一扇门。无梦之夜没有门。
+              (d.status === "queued" || d.status === "generated") ? (d.entered && d.entered.outcome
+                ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#6f6796", marginBottom: 6 } },
+                    "你进去过这场梦：" + ({ fulfilled: "走到了梦核", broken: "半路碎了", left: "自己醒了" })[d.entered.outcome] || "去过")
+                : (props.onEnterDream ? h("button", { onClick: () => props.onEnterDream(d), className: "active:opacity-70",
+                    style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6f6796", border: "1px solid rgba(111,103,150,.45)", borderRadius: "14px 14px 3px 3px", padding: "5px 12px 4px", marginBottom: 8, background: "rgba(111,103,150,.07)" } },
+                    "推门进这场梦") : null)) : null,
               d.status === "queued" ? h("button", { onClick: () => generate(d), disabled: !!genBusy, className: "w-full py-2 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, genBusy === d.key ? "梦正在成形…" : "轻轻推醒这场梦") : null,
               d.status === "no_dream" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, ({ calm_night: "那晚心里太平静，一夜无梦。", no_material: "那天没说上什么话，梦没有材料。" })[d.reason] || "一夜无梦。") : null,
               d.status === "generated" ? h(React.Fragment, null,

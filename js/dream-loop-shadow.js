@@ -140,5 +140,36 @@
     } catch (e) { return null; }
   }
 
-  window.DreamLoop = { observe, report, clearAll, listDreams, saveGenerated };
+  // ---- 步骤 2.5：入梦材料的文字版（v62.99 合龙）----
+  // 材料包只存引用+hash（铁律），真要喂模型时再从 x_chat 里按引用把那几句捞出来。
+  // 原来这段捞法写在解梦馆的 generate 里；梦境 app 也要用同一份，所以挪到这儿【只写一处】。
+  function excerptsFor(row, limit) {
+    try {
+      const msgs = loadJSON("x_chat:" + row.charId, []) || [];
+      const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
+      const out = [], cap = limit || 12, C = core();
+      msgs.forEach((m, i) => {
+        const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
+        const ref = refs.get(String(mid));
+        if (ref && m.content && C && C.refMatches(ref, m.content) && out.length < cap) out.push(String(m.content).slice(0, 80));
+      });
+      return out;
+    } catch (e) { return []; }
+  }
+  // ---- 合龙（v62.99）：她从梦境 app 闯进过这场梦，把结果记回来 ----
+  // outcome: fulfilled（抵达梦核）| broken（梦碎）| left（主动醒来）。
+  // 只记一行，不改 status（懒生成那条路照旧）；解梦馆据此显示「你进去过」。
+  async function markEntered(key, info) {
+    try {
+      const db = await openDB();
+      const row = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
+      if (!row) return null;
+      const next = { ...row, entered: { sessionId: String(info && info.sessionId || ""), outcome: String(info && info.outcome || ""), ts: Date.now() } };
+      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(next); await done(tx);
+      addDiag({ charId: row.charId, kind: "entered", night: row.nightKey, outcome: next.entered.outcome });
+      return next;
+    } catch (e) { return null; }
+  }
+
+  window.DreamLoop = { observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered };
 })();

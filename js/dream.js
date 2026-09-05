@@ -115,6 +115,68 @@
       "\n【输出】只输出 JSON：{\"scene\":\"梦境叙事\"," + ((opts.canFinal || opts.forceFinal) ? "\"final\":true或false," : "") + "\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
   }
 
+  // 合龙（v62.99）：这场梦是 Ta 昨晚在梦回路里真做的，材料不是她递的三个关键词，
+  // 是 Ta 昨天真过过的一天。梦回路已经把材料攒好了（引用+情绪残渣+关系张力），
+  // 这儿只是把它端给织梦的模型。要是解梦馆里已经把那场梦的叙事生成过了，
+  // 那段就是底稿——这场梦得从它长出来，意象、地点、人都沿用，可以变形，不能另起炉灶。
+  function loopMaterialBlock(session) {
+    const m = session.material; if (!m) return "";
+    let s = "\n\n【这场梦不是编的：是「" + session.charName + "」昨晚（" + (session.nightKey || "") + " 夜）真做的梦】\n" +
+      "· 昨天真实发生过的对话片段：\n" + ((m.excerpts || []).length ? m.excerpts.map(x => "  - " + x).join("\n") : "  （昨天没说上什么话，梦从情绪里长出来）") + "\n" +
+      "· 睡前的情绪残渣：" + ((m.peaks || []).map(p => p.axis + "=" + p.value).join("、") || "（平）") +
+      ((m.axes || []).length ? "｜关系张力：" + m.axes.join("、") : "") + "\n" +
+      ((m.motifs || []).length ? "· 这场梦的母题：" + m.motifs.join("、") + (m.tone ? "（底色：" + m.tone + "）" : "") + "\n" : "") +
+      (m.narrative ? "· Ta 醒来还记得的那段（第一人称，是这场梦的底稿——这场梦要从它长出来，意象、地点、人都沿用，可以变形、可以更深，不能另起炉灶）：\n" + String(m.narrative).slice(0, 1200) + "\n" : "") +
+      "· 【现实关系边界】" + (m.relationship || "现实中没有已确认的恋人关系") + "\n" +
+      "· 【人名铁律】梦里允许具名的人只有：" + (m.allowedNames || "无") + "。其他人物一律写成『一个人』『看不清的人』，不得创造名字。";
+    return s;
+  }
+  // 把梦回路里的一行做成梦境 app 的一场戏
+  function sessionFromLoop(row, props) {
+    const c = (props.characters || []).find(x => x.id === row.charId); if (!c) return null;
+    const uName = (props.profile && props.profile.name) || "我";
+    const cp = props.couples && props.couples[c.id];
+    const relationship = cp && cp.status === "together" ? "Ta 和你现实中已正式在一起，可以使用现实已有的恋人称谓"
+      : cp && cp.status === "pending" ? "Ta 向你表达过关系意愿，但现实中尚未确认成为恋人"
+      : "Ta 和你现实中没有已确认的恋人关系：梦里可以渴望、暧昧、欲言又止，但不得出现现实中未发生的关系事实";
+    const allowedNames = [c.name, c.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
+    return {
+      id: "dm_" + Date.now(),
+      loopKey: row.key, nightKey: row.nightKey, fromLoop: true,
+      charId: c.id, charName: c.name, charPersona: c.persona || "",
+      moodLine: (function () { const m = props.moodOf ? props.moodOf(c.id) : ""; return m ? String(m) : ""; })(),
+      affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
+      gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
+      keywords: [], guests: [], injectChat: true,
+      voiceRef: recentChatSnippet(c.id, uName, c.name),
+      material: {
+        excerpts: (window.DreamLoop && window.DreamLoop.excerptsFor) ? window.DreamLoop.excerptsFor(row, 12) : [],
+        peaks: row.peaks || [], axes: row.relationActiveAxes || [],
+        motifs: row.motifs || [], tone: row.tone || "", narrative: row.narrative || "", wakeLine: row.wakeLine || "",
+        relationship, allowedNames
+      },
+      scenes: [], status: "dreaming", ending: "",
+      createdTs: Date.now(), lastTs: Date.now()
+    };
+  }
+  // 梦结束了，把结果记回梦回路，并决定 Ta 早上讲不讲（x_dreamSeen 的 mode，由 ctxFor 读）：
+  //   抵达 → tell：Ta 会主动跟她提一句这个梦；梦碎 → vague：只说「做了个乱七八糟的梦」；
+  //   自己醒 → seen：跟她在解梦馆翻过一遍一样，不主动提。
+  // ⚠️梦≠记忆：这儿不写记忆库、不动好感心情，只留一行三天过期的余味。
+  function settleLoopDream(session, outcome) {
+    if (!session || !session.loopKey) return;
+    try { if (window.DreamLoop && window.DreamLoop.markEntered) window.DreamLoop.markEntered(session.loopKey, { sessionId: session.id, outcome }); } catch (e) {}
+    try {
+      const all = loadJSON("x_dreamSeen", {}) || {};
+      const m = session.material || {};
+      const line = outcome === "fulfilled" ? (session.dreamCore || m.wakeLine || m.narrative || "").replace(/\s+/g, " ").slice(0, 120)
+        : (m.wakeLine || m.narrative || "").replace(/\s+/g, " ").slice(0, 120);
+      all[session.charId] = { line, tone: String(m.tone || "").slice(0, 8), ts: Date.now(),
+        mode: outcome === "fulfilled" ? "tell" : outcome === "broken" ? "vague" : "seen" };
+      saveJSON("x_dreamSeen", all);
+    } catch (e) {}
+  }
+
   function charBlock(session) {
     // ⚠️人设不许再截到 900 字（v61.48，她 2026-09-04：「保证解梦和做梦都喂 bundle 进去吧」）。
     //   梦是从这个人心里长出来的东西——人设只剩一个标签时，空白由训练先验补上，
@@ -138,6 +200,7 @@
         if (g.voiceRef) s += "\n· Ta 近期的语气 / 近况（仅参考）：\n" + g.voiceRef;
       });
     }
+    s += loopMaterialBlock(session);
     return s;
   }
 
@@ -152,6 +215,7 @@
       (worldbook && worldbook.trim() ? (typeof WORLDBOOK_RULE !== "undefined" ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n【世界书】\n" + worldbook.trim() : "") +
       (kw.length ? "\n\n【" + uName + "递来的关键词，把它们自然编进这场梦】" + kw.join("、") : "") +
       "\n\n这是开场第一幕：把梦的门推开，让 " + uName + " 落进 " + session.charName + " 的梦里。" +
+      (session.material ? "这场梦 Ta 昨晚真的做过（材料在上面）——门推开之后落进去的，得是【那场梦】：同一个地方、同一些人、同一股情绪，只是这回她也在里面。" : "") +
       sceneRules(cotT, { stage: "open", charName: session.charName });
     const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
@@ -232,7 +296,39 @@
     const patchSession = (id, patch) => {
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, patch, { lastTs: Date.now() }) : s);
       persist(list);
+      // 合龙：从梦回路进来的梦，结局一落就记回去（只在 status 真变成结局那一下）
+      if (patch && (patch.status === "fulfilled" || patch.status === "broken" || patch.status === "left")) {
+        const sess = list.find(s => s.id === id); if (sess && sess.loopKey) settleLoopDream(sess, patch.status);
+      }
     };
+    // ── 他昨晚做的梦（v62.99 合龙）──────────────────────────────
+    // 梦回路每晚给角色真做一场梦（材料是他昨天真过过的一天），一直只能在解梦馆里读。
+    // 这儿把还没进过的那几场列出来，点一下就是一场戏——不用递关键词，料是现成的。
+    const [loopRows, setLoopRows] = useState([]);
+    const loadLoop = () => { try { if (window.DreamLoop && window.DreamLoop.listDreams) window.DreamLoop.listDreams(40).then(rows => setLoopRows(Array.isArray(rows) ? rows : [])); } catch (e) {} };
+    useEffect(() => { if (view === "home") loadLoop(); }, [view]);
+    const enteredKeys = new Set(saves.map(s => s.loopKey).filter(Boolean));
+    const loopOpen = loopRows.filter(r => r && (r.status === "queued" || r.status === "generated") && !enteredKeys.has(r.key) && !(r.entered && r.entered.outcome)
+      && (props.characters || []).some(c => c.id === r.charId)).slice(0, 8);
+    const enterLoop = row => {
+      const has = loadSaves().find(s => s.loopKey === row.key);
+      if (has) { setView(has.id); return; }
+      const session = sessionFromLoop(row, props);
+      if (!session) { props.toast && props.toast("角色不在了，这场梦无主"); return; }
+      persist([session].concat(loadSaves())); setView(session.id);
+    };
+    // 从解梦馆那颗「推门进这场梦」跳过来：App 把那场梦的 key 递进来，用完就还
+    useEffect(() => {
+      if (!props.enterLoopKey || !window.DreamLoop || !window.DreamLoop.listDreams) return;
+      let alive = true;
+      window.DreamLoop.listDreams(80).then(rows => {
+        if (!alive) return;
+        const row = (rows || []).find(r => r && r.key === props.enterLoopKey);
+        if (row) enterLoop(row); else props.toast && props.toast("那场梦找不到了");
+        props.onEnterConsumed && props.onEnterConsumed();
+      });
+      return () => { alive = false; };
+    }, [props.enterLoopKey]);
     const delSession = id => requestAppConfirm("忘掉这场梦？", "删除后不能恢复。", () => { if (persist(loadSaves().filter(s => s.id !== id)) && view === id) setView("home"); }, "删除");
 
     const startLP = id => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 550); };
@@ -274,6 +370,18 @@
             background: "radial-gradient(110% 62% at 50% 108%, rgba(169,154,201,.20), transparent 72%)"
           }
         }, "推开一扇门"),
+        // 他昨晚做的梦：一列还没推开的门
+        loopOpen.length ? h("div", { style: { marginBottom: 26 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: ACC_LIT, marginBottom: 10 } }, "他昨晚真做的梦 · 还没进过"),
+          loopOpen.map(r => { const c = (props.characters || []).find(x => x.id === r.charId) || {};
+            return h("button", { key: r.key, onClick: () => enterLoop(r), className: "w-full active:opacity-70 flex items-center",
+              style: { gap: 12, padding: "10px 4px", textAlign: "left", borderBottom: "1px solid " + t.line } },
+              typeof Avatar === "function" ? h(Avatar, { character: c, size: 34, radius: 999 }) : null,
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (c.name || "？") + " · " + String(r.nightKey || "").slice(5).replace("-", "/") + " 夜"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  r.status === "generated" ? ((r.motifs || []).join(" · ") || r.tone || "有梦") : "未醒的梦 · 材料已经攒好")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: ACC_LIT, flexShrink: 0 } }, "推门 ›")); })) : null,
         saves.length === 0
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
           : h("div", null,
@@ -298,9 +406,9 @@
                   h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: mark.c, boxShadow: "0 0 7px " + mark.c } }),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: mark.c } }, mark.txt),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                  (s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）")
+                  s.fromLoop ? (((s.material || {}).motifs || []).join(" · ") || "从他昨天真过的一天里长出来的") : ((s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）"))
               );
             })),
         saves.length > 0 ? h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按可忘掉这场梦") : null
@@ -591,4 +699,6 @@
   }
 
   window.Dream = Dream;
+  // 给测试用的口子（v62.99 合龙那两把纯函数）：不走界面也能验材料块和结算
+  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock;
 })();

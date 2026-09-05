@@ -218,6 +218,7 @@ function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
   const [now, setNow] = useState(new Date());
   const [screen, setScreen] = useState("home");
+  const [dreamEnterKey, setDreamEnterKey] = useState(null); // 解梦馆 → 梦境：要推开的是哪一场（v62.99 合龙）
   // 时光胶囊从某一段情侣空间进入：只把那位对象带进胶囊页，绝不展示全库。
   useEffect(() => {
     document.documentElement.setAttribute("data-lisa-screen", screen || "home");
@@ -3666,8 +3667,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = loadJSON("x_dreamSeen", {})[char.id];
         if (!d || !d.line) return "";
         if (Date.now() - (d.ts || 0) > 3 * 86400000) return "";
-        return "【你昨晚做的那个梦】" + String(d.line).slice(0, 120)
-          + (d.tone ? "（醒来之后心里是" + d.tone + "的）" : "")
+        const head = "【你昨晚做的那个梦】" + String(d.line).slice(0, 120)
+          + (d.tone ? "（醒来之后心里是" + d.tone + "的）" : "");
+        // 合龙（v62.99）：她要是从梦境 app 闯进过这场梦，你讲不讲、讲多少，由她在梦里走到哪儿决定——
+        //   走到梦核 → 你会主动提一句；半路碎了 → 你只说得出「做了个乱七八糟的梦」。
+        if (d.mode === "tell") return head
+          + "\n这场梦你醒来还记得很清。今天找个自然的空当**主动**跟她提一句（用你自己的话说，别背上面那行），"
+          + "像是醒来还惦记着似的，一句就够；她接了再往下讲，不接就放下。";
+        if (d.mode === "vague") return head
+          + "\n这场梦半路断了，你醒来只剩零碎的画面。今天最多说一句「做了个乱七八糟的梦」，**说不清内容**，"
+          + "她追问也只有一两个说不连贯的片段——别编、别补全。";
+        return head
           + "\n她翻到过这场梦。**别主动提起、别复述梦的内容、更别问她看没看**——"
           + "只是让那点余味留在你今天说话的温度和分寸里；她要是自己说起，你再接。";
       } catch (e) { return ""; }
@@ -17332,6 +17342,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     rels: rels,
+    couples: couples,
+    // 合龙（v62.99）：解梦馆那颗「推门进这场梦」跳过来时带着梦回路里那场梦的 key，用完就清
+    enterLoopKey: dreamEnterKey,
+    onEnterConsumed: () => setDreamEnterKey(null),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {
@@ -17367,6 +17381,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onForwardToChat: forwardTarotToChat,
     onBack: () => setScreen("home")
   });else if (screen === "dreamjournal") body = h(window.DreamJournalApp, {
+    onEnterDream: row => { setDreamEnterKey(row && row.key || null); setScreen("dream"); },
     characters: liveChars,
     profile: profile,
     couples: couples,
