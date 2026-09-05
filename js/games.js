@@ -2715,6 +2715,17 @@
     return rows;
   }
 
+  // 转的那只瓶：程序画的俯视玻璃瓶（瓶身、瓶肩、瓶口、一道高光），转起来靠 CSS 旋转。
+  // 不再拿酒瓶 emoji 当图标（couple-home-icons 那条：emoji 图标会豆腐块、也不是一套语言）。
+  function TDBottle(props) {
+    const size = props.size || 56;
+    return h("svg", { width: size, height: size, viewBox: "0 0 64 64", style: props.spin ? { animation: "tdspin .8s linear infinite" } : null },
+      h("g", { transform: "rotate(-42 32 32)" },
+        h("rect", { x: 10, y: 24, width: 27, height: 16, rx: 7.5, fill: "#7fa88f" }),
+        h("path", { d: "M37 25.5 L47 29 L47 35 L37 38.5 Z", fill: "#7fa88f", opacity: 0.72 }),
+        h("rect", { x: 47, y: 28.6, width: 6, height: 6.8, rx: 2, fill: "#5c8570" }),
+        h("rect", { x: 14, y: 27.2, width: 15, height: 3, rx: 1.5, fill: "rgba(255,255,255,.5)" })));
+  }
   function TruthDareGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
     const sv = props.savedState;
@@ -2773,7 +2784,7 @@
           const data = await setupTD(api, rp, cfg.npcCount || 0);
           const list = buildRoster(cfg, props, t, data.npcs, []);
           setPlayers(list);
-          pushLog([{ type: "info", text: "🍾 " + list.length + " 个人围一圈坐下。点「转瓶子」开始——指到谁，谁就选真心话或大冒险。" }]);
+          pushLog([{ type: "info", text: "" + list.length + " 个人围一圈坐下。点「转瓶子」开始——指到谁，谁就选真心话或大冒险。" }]);
           setPhase("idle");
         } catch (e) { setErrMsg((e && e.message) || "开局失败，重试"); setPhase("error"); }
       })();
@@ -2905,13 +2916,13 @@
 
     if (phase === "error") return h("div", { className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
-        h("div", { style: { fontSize: 40 } }, "🎲"),
+        h(TDBottle, { size: 52 }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
         h("button", { onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
 
     if (phase === "loading") return h("div", { className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
-        h("div", { style: { fontSize: 40 } }, "🍾"),
+        h(TDBottle, { size: 52 }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "大家围一圈坐好…")));
 
     const roster = seatRow(players.map(function (p) {
@@ -2923,7 +2934,7 @@
     const logView = h("div", { ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "12px 16px 16px" } },
       log.map(function (it, i) {
         if (it.type === "info") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "6px 0", textAlign: "center" } }, it.text);
-        if (it.type === "spin") return h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.tint, margin: "12px 0 4px" } }, "🍾 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
+        if (it.type === "spin") return h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.tint, margin: "12px 0 4px" } }, "— 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
         if (it.type === "react") { const p = pByName(it.name); return h("div", { key: i, style: { display: "flex", gap: 7, margin: "4px 0 4px 14px", alignItems: "flex-start" } }, pAvatar(p, 22), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.5 } }, h("b", { style: { color: t.fog, fontWeight: 400 } }, it.name + "："), it.text)); }
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
@@ -2943,7 +2954,8 @@
 
     let action;
     if (phase === "spinning") action = h("div", { style: { textAlign: "center", padding: "12px 0" } },
-      h("div", { style: { fontSize: 30 } }, "🍾"),
+      h("style", null, "@keyframes tdspin{to{transform:rotate(360deg)}}"),
+      h("div", { style: { display: "flex", justifyContent: "center" } }, h(TDBottle, { size: 44, spin: true })),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.tint, marginTop: 6, minHeight: 26 } }, spinName || "…"));
     else if (busy && phase !== "userAnswer" && phase !== "userAsk") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在起哄");
     else if (phase === "userChoose") action = h("div", null,
@@ -2976,7 +2988,7 @@
           h("button", { onClick: sendChat, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "说")),
         h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
           h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
-          h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "🍾 转下一轮" : "🍾 转瓶子")),
+          h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "转下一轮" : "转瓶子")),
         h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }));
     }
 
