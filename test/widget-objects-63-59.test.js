@@ -70,7 +70,7 @@ test("一起听是一张压在唱机上的黑胶，碟心贴着照片、唱臂�
   assert.match(vd, /background: cover \? "center\/cover no-repeat url\(" \+ cover/, "碟心那张照片没贴上去");
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   assert.doesNotMatch(mw, /inset -6px 0 10px -6px/, "纸套还留在原地");
-  assert.match(mw, /const discSize = avail/, "盘的大小没跟着量出来的高度走");
+  assert.match(mw, /const discSize = \(avail && room\)/, "盘的大小没跟着格子的高宽走");
   assert.match(mw, /mmss\(cur\)/, "走了多久那一行没了");
 });
 
@@ -78,8 +78,8 @@ test("4×2 那一档：唱片旁边一摞拍立得，中间是进度，底下三
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   // 拍立得只在两行高那一档出现——一行高的条子里它会被压扁
   // 宽度也跟着量出来的高度走（写死 94 的话矮格子里会顶出去）
-  assert.match(mw, /h\(PolaroidStack, \{ w: Math\.max\(62, Math\.min\(94, Math\.round\(\(avail \|\| 130\) \/ 1\.22\)\)\), photo: card\.photo, note: card\.note, lean: 9/,
-    "拍立得没挂上去，或者没放大 / 没往右歪 / 没跟着高度走");
+  assert.match(mw, /h\(PolaroidStack, \{ w: Math\.max\(58, Math\.min\(94, Math\.round\(Math\.min\(\(avail \|\| 130\) \/ 1\.22, room \* 0\.27\)\)\)\), photo: card\.photo, note: card\.note, lean: 9/,
+    "拍立得没挂上去 / 没往右歪 / 没跟着高度走 / 窄屏上没收窄（会压住下一首那颗键）");
   // 「大到有点超出边界的迹象」＝被卡边切掉一条，不是真画到卡外面（那会盖住旁边的格子）
   assert.match(mw, /marginRight: -22/, "它不再探出卡外了");
   assert.match(mw, /alignItems: "center", gap: square \? 9 : tall \? 9 : 11, overflow: "hidden"/, "卡不再切它，或者缝又变大了");
@@ -169,7 +169,8 @@ test("窄格子里碟也不许顶破：宽度一样参与，竖排不上播放�
   assert.match(mw, /square \? Math\.min\(Math\.round\(avail \* 0\.45\), room, 110\)/, "竖排时碟没受宽度管");
   assert.match(mw, /const tall = !square &&/, "竖排也上了播放键——那点高度装不下，会被切掉");
   // 拍立得只在四格宽那一档露：三格宽时它一挂上去中间那列只剩三十来 px
-  assert.match(mw, /const showStack = tall && \(boxW \? boxW >= 320 : twoRow\)/);
+  // v63.59：这一条不许再看【量出来的宽】，见下面那条测试
+  assert.match(mw, /const showStack = tall && cols >= 4;/);
   assert.match(mw, /showStack \? h\("div", \{ style: \{ marginRight: -22/);
 });
 
@@ -242,4 +243,25 @@ test("能滑之后一页可以多放两行，但补位空格照旧按看得见�
   assert.match(comp, /var ROWCAP = packRows, CAP = ROWCAP \* 4;/, "容量闸没放宽，一页照旧卡在看得见的那几行");
   // ⚠️补位空格必须还按看得见的行数：两个一起放宽的话，空页会凭空长出两排看不见的空格
   assert.match(comp, /var target = rowCapAt\(pi\) \* 4;/, "补位也跟着放宽了，空页会白白变高");
+});
+
+// v63.59（她 2026-09-05 发了实机图：那一摞拍立得在她机器上从来没出现过，我这儿次次都在）
+//
+// 病根：露不露拍立得判的是【量出来的宽】(boxW >= 320)。
+// 375pt 宽的手机 + 一层有内边距的外观样式，量出来只有 309 —— 卡到线下面，整摞消失。
+// 我沙盒默认 402pt 又没换皮，量出来 360，次次都过线，所以我永远看不到。
+//
+// 判据：**能用确定的数就别用量的。** 「它占几格」是主屏自己算好的，
+// 每台机器都一样；量出来的宽会因为首帧、翻页动画、皮的内边距而变。
+test("露不露拍立得看的是【它占几格】，不是量出来的宽", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  assert.match(mw, /const cols = cellCols \|\| \(rows && rows\.cols\) \|\| 4;/);
+  assert.match(mw, /const showStack = tall && cols >= 4;/);
+  assert.doesNotMatch(mw, /boxW >= 320/, "又回去看量出来的宽了");
+  // 占几格是主屏递下来的，不是组件自己猜的
+  assert.match(comp, /cellH: fixedH, cellCols: span\[0\],/, "主屏没把「占几格」递下来");
+  // 碟的宽度上限也要有一份不依赖测量的兜底，否则首帧那一下会算出个 0
+  assert.match(mw, /const room = boxW \? Math\.max\(0, boxW - pad \* 2\)/);
+  assert.match(mw, /: Math\.max\(120, Math\.round\(\(\(typeof window !== "undefined" \? window\.innerWidth : 390\)/,
+    "量不到宽时没有兜底");
 });

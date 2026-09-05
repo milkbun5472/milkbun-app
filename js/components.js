@@ -1596,7 +1596,7 @@ function PolaroidStack({ w, photo, note, onTap, lean }) {
         h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#4a3d2c" : "rgba(74,61,44,.4)",
           textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" } }, note || "写一句"))));
 }
-function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard, cellH }) {
+function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard, cellH, cellCols }) {
   const t = useTheme();
   const picker = useRef(null);
   const data = listen || {};
@@ -1660,12 +1660,18 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   // ⚠️碟不能只受【高度】管：2×2 那一档是竖排、3×2 那一档只有三格宽，
   //   光按高度算出来的 130 会顶破格子、或者把中间那一列挤成一个字一行（她那两张截图）。
   //   所以宽度也要参与——横排时碟至多占卡宽的 36%，竖排时至多占满宽。
-  const room = boxW ? Math.max(0, boxW - pad * 2) : 0;
-  const discSize = avail
+  // ⚠️「它占几格」是主屏自己算好的、确定的数——量出来的宽会因为首帧、翻页动画、
+  //   外观样式那层壳的内边距而不一样。**能用确定的数就别用量的。**
+  //   （v63.59：拍立得原来靠 boxW>=320 判，她机器上那一摞从来没出现过，我这儿次次都在。）
+  const cols = cellCols || (rows && rows.cols) || 4;
+  // 碟的宽度上限同理：量得到就用量的，量不到按【占几格】推一个（一格约 (屏宽-40-缝)/4）
+  const room = boxW ? Math.max(0, boxW - pad * 2)
+    : Math.max(120, Math.round(((typeof window !== "undefined" ? window.innerWidth : 390) - 40 - 8 * 3) / 4 * cols + 8 * (cols - 1)) - pad * 2);
+  const discSize = (avail && room)
     ? (square ? Math.min(Math.round(avail * 0.45), room, 110) : Math.min(130, avail, Math.round(room * 0.36)))
     : (compact ? 44 : square ? 62 : twoRow ? 110 : 58);
-  // 拍立得只在【四格宽】那一档露：三格宽时它一挂上去，中间那一列就只剩三十来px
-  const showStack = tall && (boxW ? boxW >= 320 : twoRow);
+  // 拍立得只在【四格宽】那一档露：三格宽时它一挂上去，中间那一列就只剩三十来 px
+  const showStack = tall && cols >= 4;
   const stop = fn => function (e) { e.stopPropagation(); e.preventDefault(); if (fn) fn(); };
   const ctlBtn = (label, node, fn, big) => h("button", {
     onClick: stop(fn), "aria-label": label, className: "active:opacity-60 flex items-center justify-center",
@@ -1722,7 +1728,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     // 右边负 marginRight 把它推出卡外，卡自己的 overflow:hidden 会切掉一条——
     // 那一条切口就是「超出边界的迹象」，不是真的画到卡外面去（画出去会盖住旁边的格子）。
     showStack ? h("div", { style: { marginRight: -22, flexShrink: 0 } },
-      h(PolaroidStack, { w: Math.max(62, Math.min(94, Math.round((avail || 130) / 1.22))), photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
+      h(PolaroidStack, { w: Math.max(58, Math.min(94, Math.round(Math.min((avail || 130) / 1.22, room * 0.27)))), photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
 }
 // 一起听那张卡的【背面】：换拍立得上的照片、写那句花体、挑卡片的底。
 // ⚠️整页，不是半窗（no-half-sheet.md）：三样东西各占一块，半窗先扣掉半屏就摆不下。
@@ -3909,7 +3915,7 @@ function Home({
     }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
-    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
+    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
