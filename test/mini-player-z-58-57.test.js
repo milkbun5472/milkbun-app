@@ -20,7 +20,9 @@ const Z = (() => {
 test("悬浮播放器必须低于半窗和全屏 app 壳", () => {
   assert.ok(Z < 50, "半窗是 z-50，播放器压在半窗上会挡住它的按钮（同一个病）：现在是 " + Z);
   ["trpg.js", "theater.js"].forEach(f => {
-    const m = R(f).match(/wrap: \{ position: "fixed", inset: 0, zIndex: (\d+)/);
+    // v62.63 小剧场的壳外面套了一层 Object.assign（要把纸的底纹并进来），
+    // 所以这里认「wrap: 后面不管有没有 Object.assign(」——判的是 z 序，不是写法。
+    const m = R(f).match(/wrap: (?:Object\.assign\()?\{ position: "fixed", inset: 0, zIndex: (\d+)/);
     assert.ok(m, f + " 的全屏壳找不到 zIndex");
     assert.ok(Z < Number(m[1]), f + " 的壳是 " + m[1] + "，播放器 " + Z + " 压在它上面，页面上的按钮会被吃掉");
   });

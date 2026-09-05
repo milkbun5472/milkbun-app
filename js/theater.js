@@ -836,13 +836,25 @@
     // 小剧场是 zIndex:60 的整屏覆盖层,会盖住 zIndex:50 的全局 DevBadges;
     // 在层内再渲染一次同一个组件,版本号/电量就还在左上右上,和别的页面一样
     const badges = () => (typeof DevBadges === "function" ? h(DevBadges) : null);
-    const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: t.bg, display: "flex", flexDirection: "column" },
-      top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line },
-      h1: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, flex: 1 },
+    // ── 底：一叠打字机纸（v62.63 审美审计点名）────────────────────────────
+    // 审计原话：七页共用一个 t.bg 外壳，「纸条以外整页米白 + 通用顶条」。
+    // 这个 app 现实里是【一份剧本 / 一间排练场】，而它手上唯一属于剧本的东西
+    // 是入口那张横格纸条——纸条对了，纸没有。
+    // 底改成 pageSkin("paper")：跟着她的主题走，但它是纸，不是一块平色。
+    const paper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .7 }) : { background: t.bg };
+    const S = { wrap: Object.assign({ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column" }, paper),
       btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
-      card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
+      // 一条 if 线＝一份钉起来的稿子：方角、纸色、左边一道装订线，线上两枚订书钉。
+      // 圆角 16 的卡是通用列表项，剧本里没有这种东西。
+      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: "rgba(255,255,255,.5)", border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
+    // 装订：稿子左边那道线和线上两枚订书钉。程序画的，不用任何字符或 emoji。
+    // ⚠️它是绝对定位的装饰片，所以 S.card 上带了 position:relative——
+    //   少了那一句，钉子会跑到页面左上角去。
+    const staples = () => h("div", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 10, bottom: 10, width: 4 } },
+      h("div", { style: { position: "absolute", left: 1.5, top: 0, bottom: 0, width: 1, background: t.line } }),
+      [0.22, 0.68].map(k => h("div", { key: k, style: { position: "absolute", left: 0, top: (k * 100) + "%", width: 4, height: 9, borderRadius: 1, background: "rgba(120,112,98,.42)", boxShadow: "0 1px 0 rgba(255,255,255,.5)" } })));
     // 头像:没设头像就用带首字的色块,别让入口页出现一排空洞
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
@@ -855,13 +867,33 @@
       if ((view === "create" || view === "presets") && listChar) { setDraft(null); setView("lines"); return; }
       setPlayId(null); setDraft(null); setView("list");
     };
-    const header = title => h("div", { style: S.top },
-      h("button", { onClick: back, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
-      h("div", { style: S.h1 }, title),
-      view === "list" ? h("button", { key: "gal", onClick: () => { setGalChar(null); setView("gallery"); }, style: S.btn(false) }, "图库") : null,
-      view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
-      view === "play" && line ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标") : null);
+    // 顶栏一律走公共 Head（mobile-ui-layout §1：「别再自己写一条」）。
+    // 自写那条的返回键是个 18px 的「←」字符、padding 只有 4px——可点区就那几个像素。
+    // 改这一处，七个页面一起合规。
+    const header = title => h(Head, {
+      zh: title, onBack: back, bg: "transparent",
+      right: view === "list" ? h("button", { key: "gal", onClick: () => { setGalChar(null); setView("gallery"); }, style: S.btn(false) }, "图库")
+        : view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线")
+        : (view === "play" && line) ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标")
+        : null
+    });
 
+    // 场记板：一整块斜条纹的拍板。这是电影/戏剧里最认得出的一件东西，
+    // 而且完全画得出来（repeating-linear-gradient 的斜条 + 上面那根活动臂）。
+    // 入口页原来只有一列居中头像——那一列换到任何一个「选个人」的页面都成立。
+    const clapper = h("div", { "aria-hidden": null, style: { margin: "10px 14px 22px" } },
+      // 活动臂：一条斜着的条纹板，右端翘起来一点
+      h("div", { style: {
+        height: 26, borderRadius: "3px 3px 0 0", transform: "rotate(-1.6deg)", transformOrigin: "0 100%",
+        background: "repeating-linear-gradient(72deg, #2b2721 0 15px, #f2ece1 15px 30px)",
+        boxShadow: "0 2px 6px -3px rgba(0,0,0,.5)"
+      } }),
+      // 板身：写着这一场是什么
+      h("div", { style: { background: "#2b2721", borderRadius: "0 0 3px 3px", padding: "13px 15px 15px" } },
+        h("div", { className: "flex items-baseline", style: { gap: 10 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".06em", color: "#f2ece1" } }, "今天排谁的戏"),
+          h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: "rgba(242,236,225,.55)" } }, props.characters.length + " 位")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "rgba(242,236,225,.55)", marginTop: 5 } }, "点一个人，纸条会从边上拉出来")));
     // 入口的一行:头像居中站着,点开时纸条从右边拉出来,居中布局把头像自然挤向左边
     // (不用手写 translate:让 flex 的 justifyContent:center 去分配,头像走多远永远等于纸条宽度的一半)
     const EASE = "cubic-bezier(.22,1,.36,1)";
@@ -901,7 +933,7 @@
             gg.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
               const cover = g.items[0];
               return h("div", { key: g.charId || "unknown", onClick: () => setGalChar(g.charId), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
-                h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+                h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 2, overflow: "hidden", background: "#e6e1d7", border: "4px solid #fbf8f2", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)" } },
                   cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
                   h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, avatarOf(c, 52))),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
@@ -914,13 +946,18 @@
       return h("div", { style: S.wrap }, badges(), header((cg.name || "已删除的角色") + " · 剧照"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
-            mine.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
-              h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
-              x.kind === "cover" ? h("div", { style: { position: "absolute", left: 4, top: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null)))));
+            // 剧照＝【留白边的相片】。三列圆角 8 的方格是任何一个图库，
+            // 而剧照本尊永远是白边 + 底下一条写着场次的窄边（相纸留出来的那一条）。
+            mine.map((x, xi) => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", background: "#fbf8f2", borderRadius: 2, padding: "4px 4px 0", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)", cursor: "pointer" } },
+              h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", overflow: "hidden", background: "#e6e1d7" } },
+                h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+                x.kind === "cover" ? h("div", { style: { position: "absolute", left: 3, top: 3, padding: "1px 5px", borderRadius: 2, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null),
+              // 相纸底下留出来的那条白边，上面写编号——剧照就是这么编档的
+              h("div", { style: { padding: "4px 2px 5px", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".06em", color: "#8d8578", textAlign: "center" } }, String(xi + 1).padStart(2, "0")))))))
     }
 
     if (view === "create") {
-      const preview = draft && h("div", { style: S.card },
+      const preview = draft && h("div", { style: S.card }, staples(),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
         [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["Ta 的行头", draft.charOutfit], [uName + " 的行头", draft.userOutfit], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
@@ -933,7 +970,7 @@
           h("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 10 }) }, avatarOf(pc, 34),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, pc.name || "?"),
             h("button", { onClick: () => { setDraft(null); setView("list"); }, style: S.btn(false) }, "换个角色")),
-          h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
+          h("div", { style: S.card }, staples(), h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
             h("textarea", { value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k =>
@@ -948,7 +985,7 @@
       const mine = presets.filter(p => p.charId === listChar);
       return h("div", { style: S.wrap }, badges(), header((c.name || "?") + " · 收藏的设定"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card },
+          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card }, staples(),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
             [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与长期张力", ps.world || ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
@@ -1088,7 +1125,7 @@
     // 入口:头像一个一列站在屏幕中间,往下滑看全部;点一下纸条从右边拉开
     return h("div", { style: S.wrap }, badges(), header("小剧场"),
       h("div", { onClick: () => setSheetChar(null), style: { flex: 1, overflowY: "auto", padding: "10px 0 40px" } },
-        props.characters.length ? props.characters.map(charRow)
+        props.characters.length ? [clapper].concat(props.characters.map(charRow))
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
   }
   window.TheaterApp = TheaterApp;
