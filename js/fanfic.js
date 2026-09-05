@@ -525,12 +525,74 @@
     return parts.join("\n\n");
   }
 
+  // ============================================================
+  // 别替她拉郎配（她 2026-09-05：「介绍里面不要生成奇奇怪怪的 cp」）
+  // ============================================================
+  // 病根：给模型一串【圈子里的人】的名字，它就会自己挑两个配成一对写进作者简介。
+  // 那对她从来没配过——等于替她拉郎配。
+  // 判据一句话：**配对只能来自她自己配好的那几对；一对都没有，就一个字都别提配对。**
+  // 她配好的那几对：K_CPS 里存的是 [charId|"me", charId|"me"]
+  function allowedCPLabels(characters, userName) {
+    const list = loadCPs();
+    if (!Array.isArray(list) || !list.length) return [];
+    const out = [];
+    list.forEach(function (cp) {
+      const pair = Array.isArray(cp) ? cp : (cp && cp.cp);
+      if (!Array.isArray(pair) || !pair.length) return;
+      const lb = cpLabel(pair, characters || [], userName);
+      if (lb && out.indexOf(lb) < 0) out.push(lb);
+    });
+    return out;
+  }
+  function cpRuleBlock(okCPs) {
+    return okCPs.length
+      ? "【配对】只许提这几对里的：" + okCPs.join("、") + "。**不许自己把圈子里的人凑成新的一对**——"
+        + "她没配过的组合一个字都不许出现。也可以完全不提配对，只说她写东西的路数。\n"
+      : "【配对】这个圈子还没定过任何 CP。**一个配对都不许写**——不许把名单里的两个人凑成一对，"
+        + "不许出现「A×B」这种写法。只说她写东西的路数、她护着什么。\n";
+  }
+  // 代码这一道：把不该出现的配对【整句】删掉（规则只降概率）
+  // ⚠️删的是【那一整句】，不是把名字抠掉——抠掉名字会留下「是圈子里 这一对的固定供粮大户」这种断句。
+  const CP_SEP = "[×✕xX✖＊*·・/／&＆➕+]";
+  function stripStrayCP(a, characters, userName) {
+    const ok = allowedCPLabels(characters, userName).map(function (s2) { return s2.replace(/\s/g, ""); });
+    const names = (characters || []).map(function (c) { return c && c.name; }).filter(Boolean)
+      .concat([userName || "我"]).filter(function (n) { return n && n.length >= 1; });
+    if (!names.length) return a;
+    const esc = function (x) { return String(x).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); };
+    const re = new RegExp("(" + names.map(esc).join("|") + ")\\s*" + CP_SEP + "\\s*(" + names.map(esc).join("|") + ")", "g");
+    const clean = function (txt) {
+      const src = String(txt || "");
+      if (!src) return src;
+      // 按中文句读切开，逐句看：句里有不许出现的配对就整句丢掉
+      const parts = src.split(/(?<=[。！？；，、])/);
+      const kept = parts.filter(function (seg) {
+        re.lastIndex = 0;
+        let m, bad = false;
+        while ((m = re.exec(seg))) {
+          const pair = m[1] + "×" + m[2], flip = m[2] + "×" + m[1];
+          if (ok.indexOf(pair) < 0 && ok.indexOf(flip) < 0) { bad = true; break; }
+        }
+        return !bad;
+      });
+      // ⚠️删完要收尾：不然会留下「……白天赶早八晚上产粮，」这种吊着一个逗号的断句
+      let out = kept.join("").replace(/^[，、。；\s]+/, "").replace(/[，、；\s]+$/, "").trim();
+      if (out && !/[。！？…」』）)]$/.test(out)) out += "。";
+      return out;
+    };
+    return Object.assign({}, a, { bio: clean(a.bio), style: clean(a.style), sore: clean(a.sore) });
+  }
+
   // ---- 请一批新作者进来（一枪，落库）--------------------------------
   // ⚠️只写【判据】不给例子：给了例子，四位太太会长成同一个句式
   //   （.claude/rules/prompt-no-content-samples.md）。
   async function genAuthors(active, n, tabs, cpChars, userName, have) {
     const cnt = Math.max(1, Math.min(8, n || 4));
     const has = (have || []).map(function (a) { return authorName(a); }).filter(Boolean);
+    // ⚠️她 2026-09-05：「介绍里面不要生成奇奇怪怪的 cp」。原来只给了【圈子里的人】这一串名字，
+    //   模型就自己把里头两个人配成一对写进简介（「圈子里 A×B 这一对的固定供粮大户」）——
+    //   那是她没配过的 CP，等于替她拉郎配。现在只许提【她自己配好的那几对】，一对都没有就一个字都别提。
+    const okCPs = allowedCPLabels(cpChars, userName);
     const sys = FANFIC_ANTI_CLICHE + "\n\n你在给一个同人圈【添几位常驻太太】。她们往后会一直在这个圈子里写文。\n"
       + "【这个圈子在写什么】" + (tabs || []).map(function (x) { return x.name; }).filter(Boolean).slice(0, 12).join("、") + "\n"
       + (cpChars && cpChars.length ? "【圈子里的人】" + cpChars.map(function (c) { return c && c.name; }).filter(Boolean).join("、") + "\n" : "")
@@ -542,6 +604,7 @@
       + "要说清她偏爱什么结构、什么长度、把力气花在哪儿、又故意不写什么；\n"
       + "· sore：她最护着的那一点——被人动到这儿她反应最大。\n"
       + "几位之间要真的不一样：脾气、路数、写文的动机、对 CP 的看法，至少三样彼此拉开。\n"
+      + cpRuleBlock(okCPs)
       + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
       + "[{\"name\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\"}]";
     const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { maxTokens: 12000, timeout: 180000 });
@@ -549,7 +612,8 @@
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     const out = [];
-    arr.forEach(function (x) { if (x && x.name) { const a = upsertAuthor(x); if (a) out.push(a); } });
+    // 规则只降概率，代码这一道才保证：落库前把不该出现的配对整句删掉
+    arr.forEach(function (x) { if (x && x.name) { const a = upsertAuthor(stripStrayCP(x, cpChars, userName)); if (a) out.push(a); } });
     if (!out.length) throw new Error("没请到人——再试一次或换个模型");
     return out;
   }
@@ -586,8 +650,11 @@
         + (by.sore ? "· 她最护着的那一点：" + by.sore + "\n" : "")
         + "每一篇的 author 都填「" + authorName(by) + "」，不许换别的笔名，也不要再交 authorBio／authorStyle。"
       : "";
+    // ⚠️这一份简介和 genAuthors 那一份是同一层东西，所以那条「不许拉郎配」也得给它
+    //   （她 2026-09-05 报的那句「是圈子里 A×B 这一对的固定供粮大户」就是从这儿出来的）。
     const authorFields = by ? "" : ",\"authorBio\":\"这个笔名背后是个什么人，一句，要认得出是这一个人\",\"authorStyle\":\"她写东西的路数，一句：偏爱什么结构、力气花在哪儿、故意不写什么\"";
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + "\n\n" +
+    const authorCPRule = by ? "" : "\n\n" + cpRuleBlock(allowedCPLabels(cpChars, userName)) + "（这条管的是 authorBio／authorStyle 那两栏。）";
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"" + authorFields + "}]\n" +
@@ -620,7 +687,8 @@
       // 每一篇的作者都落进作者库：指定了谁就还是谁，没指定就把它顺带交的那份简介收下。
       // 「没写简介」也照样落一条：先有这个人，简介以后再补（空值不许抹掉旧值）。
       const nm = by ? authorName(by) : String(x.author || "佚名").slice(0, 20);
-      upsertAuthor({ name: nm, bio: by ? by.bio : x.authorBio, style: by ? by.style : x.authorStyle, sore: by ? by.sore : "" });
+      // 落库前过一道同样的兜底：模型还是会自己配对，规则只降概率
+      upsertAuthor(stripStrayCP({ name: nm, bio: by ? by.bio : x.authorBio, style: by ? by.style : x.authorStyle, sore: by ? by.sore : "" }, cpChars, userName));
       return {
         title: String(x.title || "无题").slice(0, 60),
         author: nm,
@@ -1376,6 +1444,8 @@
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
     loadAuthors: loadAuthors, saveAuthors: saveAuthors, upsertAuthor: upsertAuthor, findAuthor: findAuthor,
     authorFics: authorFics, authorCPStats: authorCPStats, genAuthors: genAuthors,
+    authorFace: authorFace, authorStats: authorStats, ficPenId: ficPenId,
+    allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
     loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpFindPara: rpFindPara, rpLeftPct: rpLeftPct, genLandings: genLandings, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeText: rpModeText, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel, RP_KNOWS: RP_KNOWS
@@ -2989,21 +3059,78 @@
         }) : h(Empty, { text: "这个圈子还没有常驻作者", sub: "点右上「＋ 请人」请几位进来；生成同人文时也会自动把新笔名收进来" })));
   }
   // 一位作者的主页：她是谁 + 产出统计 + 她写过的篇目（每篇能直接加笔）
+  // 太太的默认头像：同人站上没设头像的人就是这么一枚——一个圆、一个笔名首字。
+  // 颜色按笔名 hash 定死，同一个人每次进来都是同一枚（不是随机的）。
+  // @后面那串 id：同人站上每个人都有一个，按笔名定死（不是随机的，也不另存）
+  function ficPenId(name) {
+    const h2 = ficHash("penid:" + name);
+    return String(h2 % 90000000 + 10000000);
+  }
+  function authorFace(name, size) {
+    const hue = ficHash("face:" + name) % 360;
+    const ch = String(name || "?").trim().slice(0, 1) || "?";
+    return h("div", {
+      style: {
+        width: size, height: size, borderRadius: 999, flexShrink: 0,
+        background: "linear-gradient(150deg,hsl(" + hue + ",34%,72%),hsl(" + ((hue + 38) % 360) + ",30%,55%))",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "rgba(255,253,247,.95)", fontFamily: "'Noto Serif SC',serif", fontSize: Math.round(size * 0.44),
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,.4)"
+      }
+    }, ch);
+  }
+  // 同人站上作者页那一行数：篇数和字数是【真的】（从她的文现算），
+  // 粉丝和被收藏是这个圈子里的设定值——按笔名 hash 定死，不随机、不存计数器。
+  // ⚠️不另存一份：存了之后文被清掉／改笔名，那个数就永远对不回来（只进不出的老毛病）。
+  function authorStats(name, fics) {
+    const mine = authorFics(name, fics);
+    let words = 0, kudos = 0;
+    mine.forEach(function (f) {
+      (f.chapters || []).forEach(function (c) { words += String((c && c.body) || "").length; });
+      words += String(f.body || "").length;
+      kudos += (f.stats || ficHeat(f.id)).kudos;
+    });
+    const seed = ficHash("au:" + name);
+    return {
+      works: mine.length,
+      words: words,
+      kudos: kudos,
+      fans: 120 + seed % 48000 + mine.length * 260,
+      following: 8 + (seed >> 7) % 190
+    };
+  }
   function AuthorHome(props) {
     const t = useTheme();
     const a = props.author;
     const mine = window.Fanfic.authorFics(a.name, props.fics).slice().sort(function (x, y) { return (y.updatedAt || y.createdAt || 0) - (x.updatedAt || x.createdAt || 0); });
     const cps = window.Fanfic.authorCPStats(a.name, props.fics, props.characters, props.userName);
     const top = cps.length ? cps[0].n : 1;
+    const st = window.Fanfic.authorStats(a.name, props.fics);
+    const num = function (v, zh) {
+      return h("div", { key: zh, style: { textAlign: "center", minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.1 } }, fmtNum(v)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, zh));
+    };
+    const sec = function (zh) {
+      return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, margin: "18px 0 7px" } }, zh);
+    };
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { bg: "transparent", zh: a.name, sub: mine.length + " 篇", onBack: props.onBack }),
+      h(Head, { bg: "transparent", zh: a.name, sub: st.works + " 篇", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-        a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.85, color: t.ink, paddingTop: 12 } }, a.bio) : null,
+        // ── 名片：头像 + 笔名 + @ + 那一行数字（同人站作者页就长这样）──
+        h("div", { style: { display: "flex", alignItems: "flex-start", gap: 13, paddingTop: 14 } },
+          window.Fanfic.authorFace(a.name, 58),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a.name),
+            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, marginTop: 2 } }, "@" + ficPenId(a.name)),
+            h("div", { className: "flex", style: { gap: 16, marginTop: 9 } },
+              num(st.works, "作品"), num(st.words, "字"), num(st.kudos, "被喜欢"), num(st.fans, "粉丝"), num(st.following, "关注")))),
+        a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.85, color: t.ink, marginTop: 14 } }, a.bio) : null,
         a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, a.style) : null,
         a.sore ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } }, "碰不得：" + a.sore) : null,
         // 产出：一根横条一对 CP，长度按篇数——这是「她嗑什么」，不是一堆数字
         cps.length ? h("div", { style: { marginTop: 18 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, marginBottom: 7 } }, "她都写了谁"),
+          sec("她都写了谁"),
           cps.map(function (c) {
             return h("div", { key: c.key, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 5 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, width: 96, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.label),
@@ -3011,14 +3138,22 @@
                 h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.max(6, Math.round(c.n / top * 100)) + "%", background: t.accent, opacity: .75 } })),
               h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, width: 18, textAlign: "right" } }, c.n));
           })) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, margin: "20px 0 6px" } }, "她写过的"),
+        sec("她写过的"),
         mine.length ? mine.map(function (f) {
-          return h("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+          const hh = f.stats || ficHeat(f.id);
+          const w = (f.chapters || []).reduce(function (n2, c) { return n2 + String((c && c.body) || "").length; }, 0) + String(f.body || "").length;
+          return h("div", { key: f.id, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 0", borderBottom: "1px solid " + t.line } },
             h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, (f.chapters || []).length + " 章 · " + cpLabel(f.cp, props.characters, props.userName))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
+                cpLabel(f.cp, props.characters, props.userName) + " · " + (f.chapters || []).length + " 章 · " + fmtNum(w) + " 字 · ♡ " + fmtNum(hh.kudos)),
+              // 标签：同人站上认一篇文靠的就是这一排
+              (f.tags || []).length ? h("div", { className: "flex", style: { gap: 5, marginTop: 6, flexWrap: "wrap" } },
+                (f.tags || []).slice(0, 4).map(function (tg, k) {
+                  return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "1.5px 6px", whiteSpace: "nowrap" } }, tg);
+                })) : null),
             h("button", { onClick: function () { props.onAddOn && props.onAddOn(f.id); }, className: "shrink-0 active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "5px 11px" } }, "加笔"));
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "5px 11px", marginTop: 2 } }, "加笔"));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, "她还没在这儿写过——生成同人文时点名让她写一批。")));
   }
 
