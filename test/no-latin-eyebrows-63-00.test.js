@@ -81,6 +81,27 @@ test("「英文 · 中文」夹着写的也算——中文那半已经把话说�
   assert.deepEqual([...new Set(bad)], [], "还有中英夹着的眉标：\n" + [...new Set(bad)].join("\n"));
 });
 
+test("拼出来的大写英文也算——上面那两条正则都查不到它", () => {
+  // ⚠️第三个洞：(sec.en || "").toUpperCase() 和 textTransform:"uppercase" 拼出来的
+  //   眉标，源码里根本没有一个大写字符串——「整串都是大写」和「中英夹着」两条
+  //   都匹配不到。随身物那两处 BAG / POCKET / WARDROBE 就是这么活到 v63.36 的。
+  ["screens.js", "components.js", "phone.js", "weekly.js", "study.js", "dwell.js"].forEach(f => {
+    const txt = fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
+    assert.ok(!/\.en \|\| ""\)\.toUpperCase\(\)/.test(txt), f + " 里还在把 en 拼成大写眉标");
+  });
+  // 周刊那十种媒体腔的眉标：说的是这一期什么腔调，不是把英文译回来
+  const weekly = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const brows = (weekly.match(/eyebrow: "[^"]*"/g) || []).map(x => x.slice(10, -1));
+  assert.equal(brows.length, 10, "十种媒体腔少了几个");
+  brows.forEach(x => assert.match(x, /[一-鿿]/, "这条眉标还是英文：" + x));
+  // 换成中文之后，那身「Archivo + 大字距 + 全大写」的皮也得脱掉
+  assert.equal((weekly.match(/textTransform: "uppercase"/g) || []).length, 0,
+    "周刊里还有中文穿着英文眉标那身皮");
+  // 头条那一处是 textTransform: cyber ? "lowercase" : "uppercase"——那是【大标题】
+  // 的排版处理（中文上是空操作，只管标题里夹的洋文），不是眉标，留着
+  assert.match(weekly, /textTransform: cyber \? "lowercase" : "uppercase"/);
+});
+
 test("pageSkin 的 word 放行的只是水印，不是顺带把那个词整篇放行", () => {
   const dwell = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
   // 去处那三页的顶栏副标题原来写着 PLACES——它是显示出来的字，跟水印不是一回事
