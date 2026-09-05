@@ -345,11 +345,40 @@
 
     return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
-        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "文风预设台"),
-        h("button", { onClick: () => setTab("build"), style: S.chip(tab === "build") }, "搭预设"),
-        h("button", { onClick: () => setTab("test"), style: S.chip(tab === "test") }, "测试台")),
-      h("div", { style: { flex: 1, overflowY: "auto" } }, tab === "build" ? buildTab : testTab));
+        // 返回键：原来是一个 19px 的「←」字符，可点区只有那几个像素（mobile-ui-layout §1）
+        h("button", { onClick: props.onBack, "aria-label": "返回", className: "flex items-center justify-center active:opacity-60",
+          style: { background: "none", border: "none", width: 40, height: 40, marginLeft: -8, flexShrink: 0 } },
+          h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
+            h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))),
+        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "文风预设台")),
+      // ── 两栏＝叠在台上的两张样张（v62.68）──────────────────────────
+      // 审美审计 2026-09-04：这两个 tab 是填色药丸，只靠色差区分——
+      // 换个 app 照样成立（tabs-not-plain-pills）。
+      // 文风台现实里是【打样台】：你搭一张样，再拿它试印一段看看。
+      // 所以两栏就是台上叠着的两张样张：翻到哪一张，哪一张压在上面、纸色、往下探出一截；
+      // 底下那张只露出一个角，暗着、缩着。
+      // ⚠️选中态同时变【高度、位置、底色、阴影】，不只靠色差。
+      h("div", { style: { display: "flex", gap: 0, padding: "0 14px", background: t.bg } },
+        [["build", "搭预设"], ["test", "测试台"]].map(([k, label], i) => {
+          const on = tab === k;
+          return h("button", { key: k, onClick: () => setTab(k), "aria-pressed": on ? "true" : "false",
+            className: "active:opacity-80",
+            style: {
+              flex: 1, minHeight: 40,
+              padding: on ? "11px 0 13px" : "9px 0 9px",
+              marginTop: on ? 0 : 4,
+              marginLeft: i ? -6 : 0,
+              zIndex: on ? 2 : 1, position: "relative",
+              fontFamily: F_DISPLAY, fontSize: 13.5,
+              color: on ? t.ink : t.fog,
+              background: on ? t.bg2 : "rgba(127,127,127,.08)",
+              border: "1px solid " + t.line, borderBottom: on ? "1px solid " + t.bg2 : "1px solid " + t.line,
+              borderRadius: "3px 3px 0 0",
+              boxShadow: on ? "0 -3px 8px -6px rgba(0,0,0,.5)" : "none"
+            }
+          }, label);
+        })),
+      h("div", { style: { flex: 1, overflowY: "auto", background: t.bg2, borderTop: "1px solid " + t.line, marginTop: -1 } }, tab === "build" ? buildTab : testTab));
   }
   window.StyleLabApp = StyleLabApp;
 })();

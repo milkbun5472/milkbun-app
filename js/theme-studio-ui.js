@@ -50,7 +50,32 @@
       try { const pack = await studio.importPackage(await f.text()); setDraft(pack.profile); setPendingBase(pack.baseTheme || null); setPendingWallpaper(pack.wallpaper); studio.preview(pack.profile); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已导入并临时预览；基础颜色与壁纸只会在确认后落盘"); }
       catch (err) { toast("导入失败：" + (err.message || err)); }
     };
-    const tab = (id, title, sub) => h("button", { onClick: () => setSection(id), className: "active:opacity-70", style: { padding: "14px 10px", borderRadius: 16, textAlign: "left", background: section === id ? t.ink : t.bg2, color: section === id ? t.bg2 : t.ink, border: "1px solid " + t.line } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title), h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
+    // ── 三栏＝工坊里三个抽屉的抽屉面（v62.68）─────────────────────────
+    // 审美审计 2026-09-04：这三格是圆角 16 的填色卡，只靠底色区分选中——
+    // 换个 app 照样成立（tabs-not-plain-pills）。
+    // 主题工坊现实里是【一间工坊】，工坊分门别类靠的是一排抽屉：
+    // 拉开的那一个往外探出来、亮着、投影更重；没拉开的缩在里面、暗一档。
+    // 每个抽屉面上都有一根横的拉手（程序画的一道细杠），那是抽屉最认得出的记号。
+    // ⚠️选中态同时变【位置、底色、阴影、拉手颜色】，不只靠色差。
+    const tab = (id, title, sub) => {
+      const on = section === id;
+      return h("button", { onClick: () => setSection(id), className: "active:opacity-70",
+        "aria-pressed": on ? "true" : "false",
+        style: {
+          position: "relative", minHeight: 40, padding: "16px 10px 13px", textAlign: "left",
+          transform: on ? "translateY(-3px)" : "none",
+          background: on ? t.bg2 : "rgba(127,127,127,.07)",
+          color: on ? t.ink : t.sub,
+          border: "1px solid " + t.line,
+          borderRadius: "3px 3px 5px 5px",
+          boxShadow: on ? "0 6px 12px -8px rgba(0,0,0,.55)" : "inset 0 2px 5px -4px rgba(0,0,0,.5)"
+        }
+      },
+        // 拉手：抽屉面正中那一道横杠
+        h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: 6, marginLeft: -13, width: 26, height: 3, borderRadius: 3, background: on ? t.tint : t.line } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
+    };
     const [slots, setSlots] = useState(() => studio.pageSlots(page));
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");

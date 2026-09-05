@@ -231,7 +231,23 @@
   // 坐标全由力导向现算——同一个世界每次画出来一模一样,不存图片、不占云同步。
   const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 8;   // 一块地方最多画几个地点 / 一个世界最多几块地方
   const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
-  const KIND_GLYPH = { 城镇: "⌂", 遗迹: "▲", 野外: "•", 地标: "★" };
+  // ── 地点记号（v62.68）─────────────────────────────────────────────
+  // 原来是四个 Unicode 符号 ⌂ ▲ • ★ 当图标。规矩里写着：Unicode 当图标一律换成
+  // 程序画的 SVG——汉字一定渲得出来，emoji 和符号不行（⌂ 在不少字体里就是豆腐块）。
+  // 而且这一层本来就该是【图例】：地图上认地方靠的是记号，不是一个字。
+  // 每条路径都画在 12×12 的方框里，三处（图例、详情标题、图上的标注）共用同一份。
+  const KIND_PATH = {
+    城镇: "M2 6.5 6 2.6l4 3.9V10a.6.6 0 0 1-.6.6H2.6A.6.6 0 0 1 2 10z",
+    遗迹: "M6 2.2 10.4 10H1.6z",
+    野外: "M6 3.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z",
+    地标: "M6 1.8 7.4 4.7l3.2.4-2.3 2.2.6 3.1L6 8.9l-2.9 1.5.6-3.1L1.4 5.1l3.2-.4z"
+  };
+  // size 是那个方框的边长；stroke 传了就画线框，不传就实心
+  const kindMark = function (kind, size, color, stroke) {
+    const d = KIND_PATH[kind] || KIND_PATH.地标;
+    return h("svg", { width: size, height: size, viewBox: "0 0 12 12", "aria-hidden": "true", style: { display: "block", flexShrink: 0 } },
+      h("path", { d: d, fill: stroke ? "none" : color, stroke: stroke ? color : "none", strokeWidth: stroke || 0, strokeLinejoin: "round" }));
+  };
   const worldPaper = t => ({
     backgroundColor: "#efe9dd",
     backgroundImage: [
@@ -392,7 +408,8 @@
       h(Head, { zh: sel.name, en: sel.region + " · " + sel.kind, onBack: function () { setSelNode(null); } }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: Object.assign({ borderRadius: 16, padding: "16px 16px 18px", border: "1px solid " + t.line }, worldPaper(t)) },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#3b3227" } }, KIND_GLYPH[sel.kind] + " " + sel.name),
+          h("div", { className: "flex items-center", style: { gap: 7, fontFamily: F_DISPLAY, fontSize: 22, color: "#3b3227" } },
+            kindMark(sel.kind, 15, "#3b3227"), sel.name),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#7a6a54", marginTop: 3 } }, world.name + " · " + sel.region + "（" + (built.regions.find(function (r) { return r.name === sel.region; }) || {}).terrain + "）"),
           sel.hook ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "#4a3f31", lineHeight: 1.85, marginTop: 12, borderTop: "1px dashed rgba(120,104,80,0.35)", paddingTop: 12 } }, sel.hook) : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "从这里可以去"),
@@ -451,7 +468,11 @@
             const who = atNode[nd.name] || [];
             return h("g", { key: nd.name, onClick: function () { if (!ptr.current.moved) setSelNode(nd.name); }, style: { cursor: "pointer" } },
               h("circle", { cx: nd.x, cy: nd.y, r: 5, fill: "#4a3c2b", stroke: "#f3ece0", strokeWidth: 1.4 }),
-              h("text", { x: nd.x, y: nd.y + 16, textAnchor: "middle", fontSize: 9.5, fill: "#3f3527", fontFamily: F_BODY, stroke: "#f0e9dd", strokeWidth: 3, paintOrder: "stroke" }, KIND_GLYPH[nd.kind] + " " + nd.name),
+              // 记号画在文字左边（不再往文字里塞一个符号字）；文字自己居中，
+              // 记号按文字的估宽往左让开，长短名字都对得住。
+              h("g", { transform: "translate(" + (nd.x - (String(nd.name || "").length * 4.75 + 4) - 5.5) + "," + (nd.y + 8.6) + ")" },
+                h("path", { d: KIND_PATH[nd.kind] || KIND_PATH.地标, fill: "#3f3527", stroke: "#f0e9dd", strokeWidth: 2.4, paintOrder: "stroke", transform: "scale(.78)" })),
+              h("text", { x: nd.x + 5.5, y: nd.y + 16, textAnchor: "middle", fontSize: 9.5, fill: "#3f3527", fontFamily: F_BODY, stroke: "#f0e9dd", strokeWidth: 3, paintOrder: "stroke" }, nd.name),
               who.map(function (c, i) {
                 const cx = nd.x + 10 + i * 12;
                 return h("g", { key: c.id },
@@ -490,7 +511,16 @@
         h("input", { value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: inp }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
           ["城镇", "遗迹", "野外", "地标"].map(function (k) {
-            return h("button", { key: k, onClick: function () { setKind(k); }, className: "active:opacity-70", style: chip(kind === k) }, KIND_GLYPH[k] + " " + k);
+            // 图例条目：一个记号 + 一个名字，方角、只有一道边；选中那条上墨、加粗那道边。
+            // 圆角药丸是任何 app 的筛选器，图例只在地图上成立（tabs-not-plain-pills）。
+            const on2 = kind === k;
+            return h("button", { key: k, onClick: function () { setKind(k); }, className: "active:opacity-70 flex items-center",
+              "aria-pressed": on2 ? "true" : "false",
+              style: { gap: 6, minHeight: 40, padding: "7px 12px", borderRadius: 2,
+                fontFamily: F_BODY, fontSize: 12.5, color: on2 ? "#fff" : t.ink,
+                background: on2 ? t.ink : "transparent",
+                border: (on2 ? "2px" : "1px") + " solid " + (on2 ? t.ink : t.line) } },
+              kindMark(k, 13, on2 ? "#fff" : t.ink), k);
           })),
         h("textarea", { value: hook, onChange: function (e) { setHook(e.target.value); }, rows: 3, placeholder: "这儿眼下正有什么事（一句，可空）",
           style: Object.assign({}, inp, { marginTop: 9, lineHeight: 1.8, resize: "vertical" }) }),
