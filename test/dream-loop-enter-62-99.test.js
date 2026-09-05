@@ -85,7 +85,7 @@ test("结算：抵达→tell、碎→vague、自己醒→seen；记回梦回路�
   // 梦≠记忆：结算只碰 x_dreamSeen
   assert.deepEqual(Object.keys(g.__store), ["x_dreamSeen"]);
   // 结算挂在 patchSession 上，三种结局都走它
-  assert.match(dream, /patch\.status === "fulfilled" \|\| patch\.status === "broken" \|\| patch\.status === "left"/);
+  assert.match(dream, /patch\.status === "fulfilled" \|\| patch\.status === "faced" \|\| patch\.status === "broken" \|\| patch\.status === "left"/);
 });
 
 test("ctxFor 认 mode：tell 主动提一句、vague 只说做了个乱七八糟的梦、其余照旧不主动提", () => {

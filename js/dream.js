@@ -169,10 +169,10 @@
     try {
       const all = loadJSON("x_dreamSeen", {}) || {};
       const m = session.material || {};
-      const line = outcome === "fulfilled" ? (session.dreamCore || m.wakeLine || m.narrative || "").replace(/\s+/g, " ").slice(0, 120)
+      const line = (outcome === "fulfilled" || outcome === "faced") ? (session.dreamCore || m.wakeLine || m.narrative || "").replace(/\s+/g, " ").slice(0, 120)
         : (m.wakeLine || m.narrative || "").replace(/\s+/g, " ").slice(0, 120);
       all[session.charId] = { line, tone: String(m.tone || "").slice(0, 8), ts: Date.now(),
-        mode: outcome === "fulfilled" ? "tell" : outcome === "broken" ? "vague" : "seen" };
+        mode: (outcome === "fulfilled" || outcome === "faced") ? "tell" : outcome === "broken" ? "vague" : "seen" };
       saveJSON("x_dreamSeen", all);
     } catch (e) {}
   }
@@ -266,6 +266,61 @@
     return { arrive: String(p.arrive || sp.clean || "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
   }
 
+  // ---- 模型：挣扎（v63.04，玩法③）——踩到逆鳞不立刻碎，梦先变质一幕，给一次安抚的机会 ----
+  // 原来逆鳞在字面上分不出来，踩到即碎，等于掷骰子，玩家什么都学不到。
+  // 现在：踩到 → 梦变质、Ta 的潜意识在挣扎 → 你再选一次怎么回应。三条里【一条】合 Ta 心意（face），
+  // 选中它梦不碎，Ta 直面了那个东西（第四种结局）；另外两条（shatter）才碎。一场梦只给一次。
+  function normStruggleOptions(raw) {
+    let opts = (Array.isArray(raw) ? raw : [])
+      .map(o => ({ text: String((o && o.text) || "").trim(), kind: (o && o.kind) === "face" ? "face" : "shatter" }))
+      .filter(o => o.text);
+    if (opts.length < 3) return null;
+    opts = opts.slice(0, 3);
+    const faces = opts.filter(o => o.kind === "face");
+    if (faces.length === 0) opts[0].kind = "face";
+    else if (faces.length > 1) { let kept = false; opts = opts.map(o => o.kind === "face" ? (kept ? { text: o.text, kind: "shatter" } : (kept = true, o)) : o); }
+    return shuffle(opts);
+  }
+  async function weaveStruggle(active, session, worldbook, uName, resistText) {
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
+    const sys = CORE() +
+      "你在继续为「" + session.charName + "」编织同一场梦。" + uName + " 刚做了一个选择——「" + resistText + "」——它恰好触到了 " + session.charName + " 内心最抗拒、不愿被戳破的东西。" +
+      "但梦没有立刻碎：它在挣扎。\n\n" +
+      charBlock(session) +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
+      "\n\n【梦到目前为止】\n" + transcript(session, uName) +
+      "\n\n【怎么写这一幕】\n" +
+      "· 写梦变质的这一幕（120~220 字，第二人称『你』）：从那个选择的瞬间起，场景怎么扭曲、光怎么变、" + session.charName + " 在梦里怎么反应——退缩、僵住、翻脸、把门关上、把你推开，或者反过来死死抓住什么。这是 Ta 的潜意识在护着那个东西。别写崩塌，写【挣扎】：梦还在，只是绷到了极限。\n" +
+      "· 然后给『你』三个可做的回应：其中【一个】是 " + session.charName + " 此刻真正需要的——不是顺着 Ta、也不是硬戳，而是让 Ta 能站在那个东西面前不逃开的那种回应（kind:\"face\"）；" +
+      "【另外两个】看着体贴或合理，实际上会让 Ta 彻底关上门（kind:\"shatter\"）。三个字面上都像好选择，别露馅。哪一个是 face，得从 Ta 的人设、Ta 和你的关系、Ta 此刻的心结里长出来——换个人就不成立。\n" +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      "\n【输出】只输出 JSON：{\"scene\":\"梦挣扎的叙事\",\"options\":[{\"text\":\"…\",\"kind\":\"face\"},{\"text\":\"…\",\"kind\":\"shatter\"},{\"text\":\"…\",\"kind\":\"shatter\"}]}。别加别的。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "梦在挣扎。" }], { maxTokens: 12000 });
+    const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
+    const p = extractJSON(sp.clean) || {};
+    const opts = normStruggleOptions(p.options);
+    if (!p.scene || !opts) throw new Error("梦没撑住，重试");
+    return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, struggle: true, resistText };
+  }
+  // ---- 模型：直面（第四种结局）——挣扎那一幕选对了，Ta 站在了那个东西面前 ----
+  async function weaveFace(active, session, worldbook, uName, chosenText, resistText) {
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
+    const sys = CORE() +
+      "你在收束「" + session.charName + "」的这场梦——这次既不是梦碎，也不是顺着梦走到底。" + uName + " 先前触到了 " + session.charName + " 最抗拒的东西（「" + resistText + "」），梦挣扎了一幕，" +
+      uName + " 随后选择了「" + chosenText + "」——这一步让 " + session.charName + " 没有逃开，站在了那个东西面前。\n\n" +
+      charBlock(session) +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
+      "\n\n【梦到目前为止】\n" + transcript(session, uName) +
+      "\n\n① 写直面的这一幕（face，160~320字，第二人称『你』）：梦不再扭曲，但也没有变得轻松——" + session.charName + " 在梦里第一次正眼看那个 Ta 一直绕开的东西，你在旁边。写 Ta 怎么看它、怎么呼吸、说了什么或什么都没说；梦怎么安静下来、怎么合上。别写成和解或治愈，写【看见】。\n" +
+      "② 再抽离出来，点破被直面的到底是什么（core，40~90字，旁白口吻）：Ta 一直绕开的是 Ta 心里的什么，这一步为什么算数。具体、贴人设，别空泛。\n" +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      "【输出】只输出 JSON：{\"face\":\"直面的叙事\",\"core\":\"被直面的是什么\"}。别加别的。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "直面。" }], { maxTokens: 11500 });
+    const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
+    const p = extractJSON(sp.clean) || {};
+    return { face: String(p.face || sp.clean || "梦安静下来了。Ta 没有逃开，你也没有。你慢慢醒来，手心还是热的。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
+  }
+
   // ---- 模型：梦碎（选到抗拒项） ----
   async function weaveShatter(active, session, worldbook, uName, resistText) {
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
@@ -297,7 +352,7 @@
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, patch, { lastTs: Date.now() }) : s);
       persist(list);
       // 合龙：从梦回路进来的梦，结局一落就记回去（只在 status 真变成结局那一下）
-      if (patch && (patch.status === "fulfilled" || patch.status === "broken" || patch.status === "left")) {
+      if (patch && (patch.status === "fulfilled" || patch.status === "faced" || patch.status === "broken" || patch.status === "left")) {
         const sess = list.find(s => s.id === id); if (sess && sess.loopKey) settleLoopDream(sess, patch.status);
       }
     };
@@ -386,8 +441,8 @@
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
           : h("div", null,
             saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map((s, si) => {
-              const broken = s.status === "broken", left = s.status === "left", done = s.status === "fulfilled";
-              const mark = broken ? { txt: "已碎", c: BAD_LIT } : done ? { txt: "抵达", c: GOOD_LIT } : left ? { txt: "已醒", c: t.fog } : { txt: "梦中", c: ACC_LIT };
+              const broken = s.status === "broken", left = s.status === "left", done = s.status === "fulfilled", faced = s.status === "faced";
+              const mark = broken ? { txt: "已碎", c: BAD_LIT } : done ? { txt: "抵达", c: GOOD_LIT } : faced ? { txt: "直面", c: GOOD_LIT } : left ? { txt: "已醒", c: t.fog } : { txt: "梦中", c: ACC_LIT };
               return h("div", {
                 key: s.id,
                 onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView(s.id); },
@@ -499,7 +554,7 @@
             style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none" }
           }))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 4 } },
-          "梦是 Ta 的，你只是闯进来的客人。每一幕都有三条路，别选错——错的那条会让梦碎，把你惊醒赶出去。")
+          "梦是 Ta 的，你只是闯进来的客人。每一幕都有三条路，其中一条踩在 Ta 的逆鳞上。踩到了梦会先挣扎一幕，只给你一次机会安抚它；安抚对了 Ta 会直面那个东西，错了梦就碎，把你惊醒赶出去。")
       ),
       h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         h("button", { onClick: start, disabled: starting, className: "w-full active:opacity-80",
@@ -558,7 +613,38 @@
       marked[marked.length - 1] = Object.assign({}, cur, { chosen: idx });
       const sess2 = Object.assign({}, s, { scenes: marked });
 
+      // 挣扎那一幕的回应（v63.04）：选对了 → 直面（第四种结局）；选错 → 碎
+      if (cur.struggle) {
+        const resistText = cur.resistText || s.struggleFor || "";
+        if (chosen.kind === "face") {
+          setBusy(true); setPhaseMsg("Ta 没有逃开…");
+          try {
+            const r = await weaveFace(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text, resistText);
+            props.onPatch({ scenes: marked, status: "faced", ending: r.face, dreamCore: r.core, endCot: r.cot || null, wrongText: resistText });
+          } catch (e) {
+            props.onPatch({ scenes: marked, status: "faced", ending: "梦安静下来了。Ta 没有逃开，你也没有。你慢慢醒来，手心还是热的。", dreamCore: "", wrongText: resistText });
+          }
+          setBusy(false); setPhaseMsg(""); return;
+        }
+        setBusy(true); setPhaseMsg("门关上了…");
+        try {
+          const r = await weaveShatter(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text);
+          props.onPatch({ scenes: marked, status: "broken", ending: r.collapse, whyWrong: r.why, wrongText: chosen.text, endCot: r.cot || null });
+        } catch (e) {
+          props.onPatch({ scenes: marked, status: "broken", ending: "梦在你眼前碎成光斑，你猛地醒来，心还在跳。", whyWrong: "", wrongText: chosen.text });
+        }
+        setBusy(false); setPhaseMsg(""); return;
+      }
       if (chosen.kind === "resist") {
+        // 第一次踩到逆鳞：不碎，梦先挣扎一幕，给一次安抚的机会（一场梦只给一次）
+        if (!s.struggled) {
+          setBusy(true); setPhaseMsg("有什么绷紧了…");
+          try {
+            const st = await weaveStruggle(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text);
+            props.onPatch({ scenes: marked.concat([st]), struggled: true, struggleFor: chosen.text });
+            setBusy(false); setPhaseMsg(""); return;
+          } catch (e) { /* 挣扎没织出来：退回原来的路，直接碎 */ }
+        }
         // 梦碎
         setBusy(true); setPhaseMsg("有什么裂开了…");
         try {
@@ -613,7 +699,9 @@
       const tail = later > 0 ? "，这之后的 " + later + " 幕会被抹去" : "";
       if (!window.confirm("回到第 " + (k + 1) + " 幕重新选" + tail + "？")) return;
       const kept = scenes.slice(0, k + 1).map((sc, i) => i === k ? Object.assign({}, sc, { chosen: null }) : sc);
-      props.onPatch({ scenes: kept, status: "dreaming", ending: "", whyWrong: "", wrongText: "" });
+      // 挣扎那一幕要是被抹掉了，那一次机会就还回来；还留着就仍然算用过
+      const stillStruggling = kept.some(sc => sc && sc.struggle);
+      props.onPatch({ scenes: kept, status: "dreaming", ending: "", whyWrong: "", wrongText: "", dreamCore: "", struggled: stillStruggling, struggleFor: stillStruggling ? s.struggleFor : "" });
     };
 
     // 上一幕已选好、但还没有下一幕（续写失败留下的中间态）
@@ -645,7 +733,7 @@
           const decided = sc.chosen != null && sc.options && sc.options[sc.chosen];
           return h("div", { key: i, style: { marginBottom: 22 } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: t.fog } }, "第 " + (i + 1) + " 幕"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
               (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: props.characters.find(c => c.id === s.charId), tp: dtp }) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
@@ -670,6 +758,21 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
             h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
+            scenes.length ? h("button", { onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
+              style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
+          // 直面（第四种结局，v63.04）：挣扎那一幕选对了
+          : s.status === "faced"
+          ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "直　面"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
+            s.dreamCore
+              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "Ta 一直绕开的是"),
+                s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "踩到它的那一步：「" + s.wrongText + "」") : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
+              : null,
+            h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你没有退开，也没有把它戳破。它被看见了。"),
             scenes.length ? h("button", { onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
               style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
           // 梦碎 / 醒来 结局
@@ -700,5 +803,5 @@
 
   window.Dream = Dream;
   // 给测试用的口子（v62.99 合龙那两把纯函数）：不走界面也能验材料块和结算
-  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock;
+  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock; Dream.normStruggleOptions = normStruggleOptions;
 })();
