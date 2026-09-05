@@ -701,6 +701,22 @@
       next.siteDone[hereAfter] = oldDone.slice(-12);
     }
     next.choices = normChoices(p.choices, next.party);
+    // 夜谈(她 9/4 说跑团单调):休整拍每位队友各开一个话头(night 字段),留着让她挑一个接;
+    // 接了哪个就划掉哪个;队伍一动身(既不是休整也不是夜谈的拍)话头就散了——那是那一夜的话
+    if (opts && opts.rest) {
+      const seen = {};
+      const threads = (Array.isArray(p.night) ? p.night : []).map(row => {
+        if (!row || typeof row !== "object") return null;
+        const m = findMember(next.party, row.who);
+        const open = String(row.open || row.text || "").trim().slice(0, 60);
+        if (!m || m.key === "user" || m.hp <= 0 || !open || seen[m.name]) return null;
+        seen[m.name] = true;
+        return { who: m.name, open, taken: false };
+      }).filter(Boolean).slice(0, 4);
+      next.night = threads.length ? { threads, at: (camp.msgs || []).length } : null;
+    } else if (opts && opts.night) {
+      next.night = camp.night ? Object.assign({}, camp.night, { threads: camp.night.threads.map(th => th.who === opts.night ? Object.assign({}, th, { taken: true }) : th) }) : null;
+    } else if (camp.night) next.night = null;
     // 章节推进和落幕都只挂【待确认】,由玩家点头才算数——防守密人自导自演一步通关
     // (小剧场 goalReached 同款闸)。章节只有 stageIdx 一个计数器,不会两处各记各的。
     // 坎:守密人报 stepDone(坎的原文或序号),对上了就在当前章上划掉——一拍最多一道
@@ -1199,6 +1215,7 @@
     const [guessTxt, setGuessTxt] = useState("");  // 线索板:推测输入缓冲
     const [chatMode, setChatMode] = useState(false); // 闲聊模式:输入的话走加戏不推进
     const [talkNpc, setTalkNpc] = useState(null);    // 攀谈模式:锁定一位 NPC 纯对话(她 2026-08-30:「每一轮都必须行动,节奏太快」)
+    const [nightWith, setNightWith] = useState(null); // 夜谈模式:接了哪位队友的话头 {who, open},之后每句都只和他说
     const [fixMode, setFixMode] = useState(false);   // GM 手动修正:改 HP/物品/状态/支线/名册
     const [fixItem, setFixItem] = useState("");      // 修正模式:补记物品的输入缓冲
     const [resumeSeen, setResumeSeen] = useState(null); // 休团回来横幅:本次会话已收起的团 id
@@ -1263,6 +1280,8 @@
     const msgCount = camp ? camp.msgs.length : 0;
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgCount, playId]);
     useEffect(() => { setHandOpen(false); setPlayed({ item: null, clue: null, ally: null }); }, [playId]);
+    // 这一夜过去了(队伍动身,话头被清掉)——夜谈模式跟着退出,别把下一句白天的话还当成夜里说的
+    useEffect(() => { if (nightWith && !(camp && camp.night)) setNightWith(null); }, [camp && camp.night]);
     const charOf = id => props.characters.find(c => c.id === id) || null;
 
     // 人设给全文、封顶 6000(四处一样喂·落地要求4:截断出来的空白由训练先验补上,
@@ -1668,7 +1687,7 @@
         "【赶路】叙事跨地图节点时不许瞬移:要么停在动身那一刻(让玩家自己点地图赶路),要么如实更新 place 并把途中写出至少一笔(路况/遭遇/一句对话)。上一拍在甲地下一拍人已站在乙地而中间没有路,是穿帮。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stepDone\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"night\":[],\"stepDone\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1713,7 +1732,7 @@
         const lastGm = liveMsgs.map(m => m.role).lastIndexOf("gm");
         const tailHasCC = liveMsgs.slice(lastGm + 1).some(m => m.role === "sys" && String(m.content || "").indexOf("亲笔·") === 0);
         // 结算拍(mode==="resolve")不再开票:被结算的正是他上一票的动作,再问就是问第二遍
-        const cc = (mode && mode.talk) || tailHasCC || mode === "resolve" ? null : await ccDeclare(camp, liveMsgs);
+        const cc = (mode && (mode.talk || mode.night)) || tailHasCC || mode === "resolve" ? null : await ccDeclare(camp, liveMsgs);
         const ccTry = !!(cc && cc.indexOf("想赌:") >= 0);
         if (cc) {
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + cc, ts: Date.now() };
@@ -1739,13 +1758,14 @@
           return n;
         })();
         // 「打出一张牌」只是给这一拍带了个附注,它仍旧是普通拍——别让它顺手吃掉喘气拍
-        const specialMode = mode && (typeof mode === "string" || mode.talk || mode.travel || mode.explore || mode.seed);
+        const specialMode = mode && (typeof mode === "string" || mode.talk || mode.night || mode.travel || mode.explore || mode.seed);
         const wantLull = !specialMode && !dice && tenseStreak >= 3 && !camp.ended;
         const seed = mode && mode.seed;
         const exploring = !!(mode && mode.explore);
         const siteAction = mode && mode.siteAction;
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
-        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
+        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15)。\n【夜谈】歇下来的时候人才会说话:在场、还站得住的每位队友各开【一个话头】,写进 night 字段(who 用队友名,open 是他开口的那句原话,≤50字)。话头不是对下一步的看法,是这个人在这种时候真会说出口的一句——从他的私念、他跟 " + uName + " 的羁绊、今天发生的某件事里长出来:可以是问 " + uName + " 一句,可以是说漏一句,可以是没头没尾的一句;羁绊高的往前一步,羁绊低的别扭或者只是搭一句。判据:这句话换个人说就不对了,才算他的。正文里只写到他开口为止、不替 " + uName + " 接——那些话头留给玩家挑一个接着聊。结尾的选项给 2-3 个休整后动身的方向。" : "")
+          + (mode && mode.night ? "\n〔夜谈·对象:" + mode.night.who + "〕sceneMeta.type 固定 interlude。队伍歇着,玩家接了「" + mode.night.who + "」开的那个话头(「" + mode.night.open + "」):只演这两个人的一来一回,别的队友至多插一句嘴或在旁边干自己的事。不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,威胁钟不走,不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。" + mode.night.who + " 照他的私念与羁绊说话:羁绊高可以往前一步(交底、道谢、问一句只问 " + uName + " 的话),羁绊低就别扭、话说一半、或者把话岔开;他瞒着的事不许为了讨好而全盘托出,他不知道的就是不知道。" + (camp.myline ? "他隐约察觉 " + uName + " 心里揣着事(他不知道那是什么):这一拍可以问一句擦着边的话,问完就住,玩家躲开也不追,绝不点破。" : "") + "真的发生了什么才报 bond。" : "")
           + (mode === "lull" ? "\n〔幕间〕sceneMeta.type 固定 interlude。这一章刚翻过去、下一章还没开始:这一拍不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,威胁钟不走。\n只写队伍在这个间隙里【彼此之间】的一小段:谁去照料谁的伤、谁在跟谁拌嘴、谁把那句话说了一半又咽回去。按各人的私念与羁绊挑人开口——羁绊高的可以往前一步(交底、道谢、说一句只对 " + uName + " 说的话),羁绊低的可以别扭、话说一半、或者索性不接茬。" + uName + " 只是在场,绝不替 Ta 说话或做决定。\n这一拍正是该报 bond 的时候(真的发生了什么才报)。结尾 choices 给【空数组】,让队伍落回自由活动。" : "")
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕sceneMeta.type 固定 social。这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
           + (mode && mode.travel ? "\n〔赶路〕sceneMeta.type 固定 travel。队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (seed ? "" : Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
@@ -1761,8 +1781,8 @@
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
           if (c.id !== camp.id) return c;
-          const forcedScene = (mode === "rest" || mode === "lull") ? "interlude" : mode && mode.talk ? "social" : mode && mode.travel ? "travel" : exploring ? "explore" : null;
-          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || mode === "lull" || !!(mode && mode.talk) || (exploring && !seed), explore: mode && mode.explore, siteAction: siteAction || null, sceneType: forcedScene, useItem: (mode && mode.use) || null });
+          const forcedScene = (mode === "rest" || mode === "lull" || (mode && mode.night)) ? "interlude" : mode && mode.talk ? "social" : mode && mode.travel ? "travel" : exploring ? "explore" : null;
+          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || mode === "lull" || !!(mode && (mode.talk || mode.night)) || (exploring && !seed), explore: mode && mode.explore, rest: mode === "rest", night: (mode && mode.night) || null, siteAction: siteAction || null, sceneType: forcedScene, useItem: (mode && mode.use) || null });
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
@@ -1828,7 +1848,7 @@
       // 这条选项写明了谁掏什么:宣言里说出来,东西也真的从那个人身上扣(落账在 applyTurnPayload)
       const useMode = c.use && hasItem(camp.items, c.use.name) ? { use: c.use } : null;
       const useTail = useMode ? "(" + (c.use.who ? c.use.who + "掏出" : "用掉") + "「" + c.use.name + "」)" : "";
-      if (!c.check) { const txt = withPlayed(c.text) + useTail; clearPlayed(); return turn(txt, null, useMode); }
+      if (!c.check) { const txt = withPlayed(c.text) + useTail; clearPlayed(); return turn(txt, null, useMode || (nightWith ? { night: nightWith } : null)); }
       // 选项是她点的,骰子默认她自己掷(她 9/1 抓的:面板写她的身手、掷的却是队友的数值);
       // 只有守密人明确点了在队的队友才换人
       let m = c.check.who ? findMember(camp.party, c.check.who) : null;
@@ -1841,7 +1861,7 @@
       const txt = withPlayed(c.text) + useTail; clearPlayed();
       turn(txt, [Object.assign({ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }, rollRec(m, c.check, res))], useMode);
     };
-    const send = () => { const text = input.trim(); if (!text) return; setInput(""); if (chatMode) { clearPlayed(); return addBeat(text); } const ready = withPlayed(text); clearPlayed(); if (talkNpc) return turn(ready, null, { talk: talkNpc }); turn(ready); };
+    const send = () => { const text = input.trim(); if (!text) return; setInput(""); if (chatMode) { clearPlayed(); return addBeat(text); } const ready = withPlayed(text); clearPlayed(); if (talkNpc) return turn(ready, null, { talk: talkNpc }); if (nightWith) return turn(ready, null, { night: nightWith }); turn(ready); };
     // 追加一笔(米娅「加戏不推进」的分法):就当前场景补一小段戏——队友拌嘴、环境
     // 细节、NPC 一句闲话。不推进剧情、不动任何状态、不换选项,时钟原地不动。
     // 带 text = 闲聊模式:她说一句,队友们接话——纯相处,同样不推进。
@@ -2776,6 +2796,14 @@
           openPending === camp.id && !busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "✒ 许言秋在写进场词…（等他这一句落下再行动，先动他就进不了场）") : null),
         camp.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已落幕 · 长按任意一拍可分支重走 ——")
         : h("div", { style: { borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.36)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } }, [
+          // 夜谈的话头:休整拍里每位队友开的那一句,像几张压在火边的纸条——点谁的接谁的话。
+          // 接过的划掉;队伍一动身这一夜就过去了(applyTurnPayload 里清掉)
+          camp.night && camp.night.threads.some(th => !th.taken) && !pendingRetry ? h("div", { key: "nt", style: { padding: "8px 14px 0" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "—— 夜谈 · 有人开了口 ——"),
+            h("div", { style: { display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollSnapType: "x proximity" } },
+              camp.night.threads.map(th => h("button", { key: th.who, disabled: busy || th.taken, onClick: () => { const nw = { who: th.who, open: th.open }; setNightWith(nw); setTalkNpc(null); turn("(转过去,接" + th.who + "的话)", null, { night: nw }); }, style: { flex: "0 0 min(70vw, 260px)", scrollSnapAlign: "start", textAlign: "left", padding: "8px 11px", borderRadius: 12, border: "1px dashed " + t.line, background: th.taken ? "transparent" : "rgba(255,255,255,.5)", opacity: th.taken ? .5 : 1 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.5, color: t.fog, marginBottom: 3 } }, (th.taken ? "已接 · " : "") + th.who),
+                h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.ink, textDecoration: th.taken ? "line-through" : "none" }) }, "「" + th.open + "」"))))) : null,
           pendingRetry ? h("div", { key: "rt", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0" } },
             h("button", { onClick: () => turn(""), style: S.btn(true) }, "▶ 继续这一拍" + (tailHasRoll ? "(沿用已掷的骰子)" : "")),
             // 掷过骰子就不给撤回:撤了等于洗骰子
@@ -2846,9 +2874,10 @@
             h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
             h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
             !chatMode ? h("button", { onClick: () => { setHandOpen(v => !v); setPlusOpen(false); }, style: Object.assign({}, S.btn(handOpen || played.item || played.clue || played.ally), { padding: "7px 9px", minWidth: 44 }) }, "手牌" + ([played.item, played.clue, played.ally].filter(Boolean).length ? "·" + [played.item, played.clue, played.ally].filter(Boolean).length : "")) : null,
-            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : talkNpc ? "和「" + talkNpc + "」说话(纯对话,不推剧情)…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : talkNpc ? "和「" + talkNpc + "」说话(纯对话,不推剧情)…" : nightWith ? "夜里,和「" + nightWith.who + "」接着说…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
             talkNpc ? h("button", { onClick: () => setTalkNpc(null), style: S.btn(false) }, "谈毕") : null,
-            h("button", { onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : talkNpc ? "开口" : "行动"))
+            nightWith ? h("button", { onClick: () => setNightWith(null), style: S.btn(false) }, "睡了") : null,
+            h("button", { onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : talkNpc || nightWith ? "开口" : "行动"))
         ])));
     }
 
