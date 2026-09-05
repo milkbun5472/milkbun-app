@@ -12790,11 +12790,23 @@ function ContactDetail({
 }) {
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
+  // 这一页原来【一点底都没有】（连 background 都不写，全靠父层透过来）。
+  // 它在现实里是什么？——一张【他的】卡。所以底是纸，而且掺进他自己那个色，
+  // 换个人就是另一张卡。判据（tabs-not-plain-pills）：搬到别的 app 里还成立吗？
+  // 一张匿名米白成立，一张带着他颜色的卡不成立——那才是对的。
+  // ⚠️色号可能是空的（没设过色的角色），skinMix / skinRGB 里都有兜底，拼不出就退回主题色。
+  const cardTint = character.color || t.accent;
+  const cardSkin = typeof pageSkin === "function"
+    ? pageSkin("paper", t, { base: (typeof skinMix === "function" ? skinMix(t.bg2, cardTint, .05) : t.bg2),
+        tint: (typeof skinRGB === "function" ? skinRGB(cardTint).join(",") : ""), strength: 1.05 })
+    : { background: t.bg2 };
   return /*#__PURE__*/React.createElement("div", {
-    className: "h-full flex flex-col"
+    className: "h-full flex flex-col",
+    style: cardSkin
   }, /*#__PURE__*/React.createElement(Head, {
     zh: "资料卡",
-    en: "Contact",
+    sub: character.name || "",
+    bg: "transparent",
     onBack: onBack
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-6 pb-8"
