@@ -42,7 +42,8 @@ test("查手机论坛是全屏三身份主题页，并且能真渲染", () => {
   P.resetStateIdx();
   const tree = P.PhoneForumView({ accounts: LIVE.forumAccounts, char: { id: "c1", name: "沈屿白" }, onBack() {}, onPeek() {}, tab: "main", onTab() {} });
   const text = JSON.stringify(tree);
-  assert.match(text, /THREE IDENTITIES/);
+  // v62.73 no-english-titles：THREE IDENTITIES → 「同一个人的三副面孔」
+  assert.match(text, /"同一个人的三副面孔"/);
   assert.match(text, /公开身份/);
   assert.match(text, /沈屿白/);
   assert.match(text, /今天/);

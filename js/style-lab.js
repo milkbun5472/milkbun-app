@@ -343,8 +343,10 @@
                       h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })), style: Object.assign({}, S.tapGhost(t.tint), { border: "none", marginTop: 3, paddingLeft: 0 }) }, openRun[r.id] ? "收起" : "全文"))))))
         : null);
 
-    return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
+    // 打样台也铺一张纸（v62.73 审美审计：这一页整个是 t.bg 平色）
+    const benchPaper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .5 }) : { background: t.bg };
+    return h("div", { style: Object.assign({ position: "relative", height: "100%", display: "flex", flexDirection: "column" }, benchPaper) },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: "transparent" } },
         // 返回键：原来是一个 19px 的「←」字符，可点区只有那几个像素（mobile-ui-layout §1）
         h("button", { onClick: props.onBack, "aria-label": "返回", className: "flex items-center justify-center active:opacity-60",
           style: { background: "none", border: "none", width: 40, height: 40, marginLeft: -8, flexShrink: 0 } },
@@ -358,7 +360,7 @@
       // 所以两栏就是台上叠着的两张样张：翻到哪一张，哪一张压在上面、纸色、往下探出一截；
       // 底下那张只露出一个角，暗着、缩着。
       // ⚠️选中态同时变【高度、位置、底色、阴影】，不只靠色差。
-      h("div", { style: { display: "flex", gap: 0, padding: "0 14px", background: t.bg } },
+      h("div", { style: { display: "flex", gap: 0, padding: "0 14px" } },
         [["build", "搭预设"], ["test", "测试台"]].map(([k, label], i) => {
           const on = tab === k;
           return h("button", { key: k, onClick: () => setTab(k), "aria-pressed": on ? "true" : "false",

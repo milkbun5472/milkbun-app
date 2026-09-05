@@ -14,7 +14,9 @@ test("一起学整套界面是一册活页学习夹，不再是通用白卡", ()
   assert.match(ui, /LAST NOTES/);
   assert.match(ui, /LESSON SLIPS/);
   assert.match(ui, /NEW RESEARCH SHEET/);
-  assert.match(ui, /QUIZ CARD/);
+  // v62.73 no-english-titles：QUIZ CARD → 「小测」。眉标说的是这一栏在干嘛，
+  // 不是把英文原样译回来。
+  assert.match(ui, /"小测 · "/);
   assert.match(ui, /课后批注页/);
 });
 

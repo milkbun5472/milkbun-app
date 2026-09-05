@@ -1600,11 +1600,13 @@ const TALLY_BG = "#f4f2ee", TALLY_INK = "#1f1d1a", TALLY_DIM = "#8b8578", TALLY_
 const TALLY_PAPER = "#fffdf7", TALLY_RED = "#9c3f34", TALLY_RULE = "rgba(31,29,26,.055)";
 const TALLY_DIR = { mine: { zh: T("他欠"), c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
 const TALLY_TABS = [
-  { k: "debts", zh: "没结清", en: "OPEN" },
-  { k: "policies", zh: "兜底", en: "COVER" },
-  { k: "statements", zh: "定论", en: "STAMP" },
-  { k: "treasures", zh: "估价", en: "WORTH" },
-  { k: "appraisals", zh: "自问", en: "ASK" }
+  // ⚠️原来每一栏还挂着一个 en（OPEN / COVER / STAMP / WORTH / ASK）——
+  //   全库没有一处引用它，纯粹是死字段，删干净（no-english-titles 顺手）。
+  { k: "debts", zh: "没结清" },
+  { k: "policies", zh: "兜底" },
+  { k: "statements", zh: "定论" },
+  { k: "treasures", zh: "估价" },
+  { k: "appraisals", zh: "自问" }
 ];
 // 系统里把动效关掉的人，不该被一个字一个字地喂。取不到就当没关。
 function phoneCalmMotion() {
@@ -1858,7 +1860,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { className: "shrink-0", style: { background: TALLY_INK, paddingTop: safeTop(10) } },
       h("div", { className: "px-4 pb-1 flex items-center gap-2" },
         h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: TALLY_BG })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".24em", color: TALLY_BG } }, "TALLY"),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".18em", color: TALLY_BG } }, "账簿"),
         h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
           onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null)),
       // ── 五栏＝账簿边上伸出来的索引标签（v59.65）─────────────────
@@ -2203,9 +2205,9 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, (char && char.name || "TA") + " 的这一部")),
       h("div", { style: { width: 40, height: 40 } })),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "WALLPAPER"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "壁纸"),
       h("div", { className: "grid grid-cols-2", style: { gap: 10 } }, uploadCard("lockWallpaper", "锁屏", "拿起手机第一眼"), uploadCard("homeWallpaper", "主页", "解锁后的桌面")),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "ICON STYLE"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "图标长什么样"),
       h("div", { className: "grid grid-cols-2", style: { gap: 9 } }, PHONE_ICON_PRESETS.map(p => h("button", {
         key: p.key, onClick: () => onPatch({ iconPreset: p.key }), className: "text-left active:opacity-65",
         style: { padding: 13, minHeight: 86, borderRadius: 18, background: iconPreset === p.key ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.50)", border: "1.5px solid " + (iconPreset === p.key ? tone.glyph : "rgba(255,255,255,.70)") }
@@ -2213,7 +2215,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         h("div", { style: { width: 34, height: 34, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: p.key === "mono" ? "#ecebe7" : p.key === "glass" ? "rgba(255,255,255,.40)" : p.key === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash : tone.wash } }, h(PGlyph, { k: "settings", size: 17, color: p.key === "mono" ? "#4d4b47" : tone.glyph })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, p.name)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, p.sub)))),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "APP ICONS"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "逐个换图标"),
       h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
         const custom = look.icons && look.icons[a.key];
         const src = phoneImage(custom);
@@ -5149,7 +5151,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
       h("button", { onClick: open ? closeOne : onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-start", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: skin.ink })),
       h("div", { className: "min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: skin.ink } }, open ? (open.kind === "post" ? "帖子" : "回帖") : "论坛足迹"),
-        !open ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".19em", color: skin.dim, marginTop: 2 } }, "THREE IDENTITIES") : null),
+        !open ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".19em", color: skin.dim, marginTop: 2 } }, "同一个人的三副面孔") : null),
       h("div", { className: "flex items-center justify-end", style: { width: 40, height: 40, marginRight: -8 } }, h(PGlyph, { k: "forum", size: 17, color: skin.dim }))));
   if (!list.length) return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5" }, h("div", { style: { padding: "64px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: skin.dim } },

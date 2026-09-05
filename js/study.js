@@ -718,7 +718,12 @@
         h("button", { onClick: props.onBack, "aria-label": "返回", className: "flex items-center justify-start active:opacity-50", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: STUDY_SKIN.ink })),
         h("div", { className: "min-w-0 text-center" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: STUDY_SKIN.ink } }, props.zh),
-          h("div", { className: "truncate", style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".18em", color: skin.accent, marginTop: 1 } }, String(props.en || skin.label).toUpperCase())),
+          // ⚠️有中文标题时不发这一行英文副题（no-english-titles）。
+          //   这一处跟公共 Head 里那道闸是同一件事：判据看的是【这串字里有没有汉字】，
+          //   写中文的照旧当副标题用——好几处是拿 en 当 sub 使的。
+          (/[一-鿿]/.test(String(props.en || "")) || !props.zh)
+            ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: skin.accent, marginTop: 1 } }, String(props.en || skin.label))
+            : null),
         h("div", { className: "flex items-center justify-end", style: { minWidth: 40, minHeight: 40 } }, props.right || h(GStudy, { size: 18, color: skin.accent }))));
   }
   function StudyHoles() {
@@ -817,7 +822,7 @@
       h("div", { ref: props.scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("section", { style: { position: "relative", overflow: "hidden", marginTop: 11, padding: "18px 16px 16px 27px", borderRadius: "5px 20px 20px 5px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "5px solid " + accent, boxShadow: "0 10px 24px " + STUDY_SKIN.shadow } },
           h(StudyHoles),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".18em", color: accent } }, "COURSE FILE · " + skin.code),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".18em", color: accent } }, "这门课 · " + skin.code),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.25, color: STUDY_SKIN.ink, marginTop: 5 } }, cur.subject),
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 9 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
@@ -1533,7 +1538,7 @@
       }
       return h("div", { style: { position: "relative", width: "min(100%, 430px)", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.10) 28px)", border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: "13px 13px 14px", boxShadow: "0 7px 18px " + STUDY_SKIN.shadow } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".15em", color: accent } }, "QUIZ CARD · " + (q.type === "choice" ? "单选" : q.type === "true_false" ? "判断" : "填空")),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".15em", color: accent } }, "小测 · " + (q.type === "choice" ? "单选" : q.type === "true_false" ? "判断" : "填空")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: STUDY_SKIN.ink, marginBottom: 11, whiteSpace: "pre-wrap" } }, q.prompt),
         answerUI,
