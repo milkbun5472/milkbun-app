@@ -5517,9 +5517,11 @@ function PhoneCarry({
   if (inList) {
     const p = profile || {};
     const meAv = { name: p.name || "我", avatarImage: p.avatarImage, color: p.color || t.accent };
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 这一页正中摆的是一块「手机屏」——手机是摆在【桌上】的，所以外壳该是张桌子，
+    // 不是一片米白（顶栏跟着透上来，不然顶上横一条没盖住的带子）
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
       // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1），不再顶一块 30px 大标题
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { background: t.bg, paddingTop: safeTop(10) } },
+      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "查手机"),
         h("div", { style: { width: 40, height: 40 } })),
