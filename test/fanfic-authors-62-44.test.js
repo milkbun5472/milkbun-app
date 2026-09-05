@@ -46,8 +46,9 @@ test("作者榜是一张署名表，不是一排卡片", () => {
   assert.match(page, /genAuthors\(props\.active, 4/);
   // 主页：她是谁 + 都写了谁 + 写过哪几篇，每篇能直接加笔
   const home = fic.slice(fic.indexOf("function AuthorHome"), fic.indexOf("// ---------- 底 nav"));
-  assert.match(home, /"她都写了谁"/);
-  assert.match(home, /"她写过的"/);
+  // v63.80 起这两栏的名字跟着页面一起改了（扉页 + 目录），判词换成新形状
+  assert.match(home, /sec\("写了谁"\)/);
+  assert.match(home, /sec\("目 录"\)/);
   assert.match(home, /props\.onAddOn && props\.onAddOn\(f\.id\)/);
   assert.match(fic, /onAddOn: function \(id\) \{ setRpStart\(id\); setView\("rp"\); \}/);
   // 带着一篇进加笔：直接跳设定屏，别让她再翻一遍列表

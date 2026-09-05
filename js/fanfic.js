@@ -316,6 +316,18 @@
     saveAuthors(list);
     return list[i >= 0 ? i : 0];
   }
+  // 请一位太太离开名册（她 2026-09-05 要的）。
+  // ⚠️只从【名册】里删人，她写过的文一篇不动——文和人本来就是两份东西
+  //   （清空版块只清文、人留着，这条是它的另一半）。
+  function removeAuthor(name) {
+    const nm = String(name || "").trim();
+    if (!nm) return false;
+    const list = loadAuthors();
+    const left = list.filter(function (x) { return authorName(x) !== nm; });
+    if (left.length === list.length) return false;
+    saveAuthors(left);
+    return true;
+  }
   function findAuthor(name) {
     const nm = String(name || "").trim();
     if (!nm) return null;
@@ -1442,9 +1454,10 @@
     loadCPs: loadCPs, saveCPs: saveCPs, loadCfg: loadCfg, saveCfg: saveCfg, activeStyleText: activeStyleText,
     allStylePresets: allStylePresets, styleTextForIds: styleTextForIds,
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
-    loadAuthors: loadAuthors, saveAuthors: saveAuthors, upsertAuthor: upsertAuthor, findAuthor: findAuthor,
+    loadAuthors: loadAuthors, saveAuthors: saveAuthors, upsertAuthor: upsertAuthor, findAuthor: findAuthor, removeAuthor: removeAuthor,
     authorFics: authorFics, authorCPStats: authorCPStats, genAuthors: genAuthors,
     authorFace: authorFace, authorStats: authorStats, ficPenId: ficPenId,
+    authorSeal: authorSeal, zhengTally: zhengTally, cnIndex: cnIndex,
     allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
@@ -3035,7 +3048,12 @@
     }
     const cur = open ? list.filter(function (a) { return a.id === open; })[0] : null;
     if (cur) return h(AuthorHome, { author: cur, fics: fics, characters: props.characters, userName: props.userName,
-      onBack: function () { setOpen(null); refresh(); }, onOpenFic: props.onOpenFic, onAddOn: props.onAddOn });
+      onBack: function () { setOpen(null); refresh(); }, onOpenFic: props.onOpenFic, onAddOn: props.onAddOn,
+      onDelete: function (nm) {
+        window.Fanfic.removeAuthor(nm);
+        setOpen(null); refresh();
+        props.toast && props.toast("「" + nm + "」已请出名册（她的文留着）");
+      } });
     // 一行一位：左边名字立着，右边是她的产出
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { bg: "transparent", zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
@@ -3099,62 +3117,160 @@
       following: 8 + (seed >> 7) % 190
     };
   }
+  // 正字计数：写了几篇就划几笔。同人圈里数产出本来就是这么数的，
+  // 一根填色横条换到任何 app 里都成立，这个换不了。
+  // 正的笔顺：① 上横 ② 中竖 ③ 中短横 ④ 左竖 ⑤ 下横
+  const ZHENG_STROKES = ["M3 3 H17", "M10 3 V17", "M4 10 H10", "M4 10 V17", "M3 17 H17"];
+  function zhengTally(n, color, size) {
+    const full = Math.floor(n / 5), rest = n % 5, boxes = [];
+    for (let k = 0; k < full; k++) boxes.push(5);
+    if (rest) boxes.push(rest);
+    if (!boxes.length) boxes.push(0);
+    return h("span", { className: "flex items-center", style: { gap: 3, flexWrap: "wrap" } },
+      boxes.map(function (cnt, bi) {
+        return h("svg", { key: bi, width: size, height: size, viewBox: "0 0 20 20", "aria-hidden": true, style: { display: "block", flexShrink: 0 } },
+          ZHENG_STROKES.slice(0, cnt).map(function (d, si) {
+            return h("path", { key: si, d: d, stroke: color, strokeWidth: 1.9, strokeLinecap: "round", fill: "none" });
+          }));
+      }));
+  }
+  const CN_NUM = "〇一二三四五六七八九";
+  function cnIndex(n) {
+    if (n < 10) return CN_NUM[n];
+    if (n < 20) return "十" + (n % 10 ? CN_NUM[n % 10] : "");
+    return CN_NUM[Math.floor(n / 10)] + "十" + (n % 10 ? CN_NUM[n % 10] : "");
+  }
+  // 闲章：一枚朱红的方印，同人志扉页上作者落款就是这么一枚。
+  // ⚠️刻的是笔名【末】一个字，不是头一个——头一个已经在圆头像上了，
+  //   两处刻同一个字，那枚印就白盖了。
+  function authorSeal(name, size) {
+    const nm = String(name || "?").trim();
+    const ch = nm.slice(-1) || "?";
+    return h("div", {
+      style: {
+        width: size, height: size, flexShrink: 0, borderRadius: 3,
+        background: "#a8392f", border: "1.5px solid #8d2c24",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "rgba(255,246,238,.95)", fontFamily: "'Noto Serif SC',serif",
+        fontSize: Math.round(size * 0.56), lineHeight: 1,
+        boxShadow: "inset 0 0 0 1.5px rgba(255,246,238,.5)"
+      }
+    }, ch);
+  }
+  // 太太的默认头像：同人站上没设头像的人就是这么一枚——一个圆、一个笔名首字。
+  // 颜色按笔名 hash 定死，同一个人每次进来都是同一枚（不是随机的）。
+  function authorFace(name, size) {
+    const hue = ficHash("face:" + name) % 360;
+    const ch = String(name || "?").trim().slice(0, 1) || "?";
+    return h("div", {
+      style: {
+        width: size, height: size, borderRadius: 999, flexShrink: 0,
+        background: "linear-gradient(150deg,hsl(" + hue + ",34%,72%),hsl(" + ((hue + 38) % 360) + ",30%,55%))",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "rgba(255,253,247,.95)", fontFamily: "'Noto Serif SC',serif", fontSize: Math.round(size * 0.44),
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,.4)"
+      }
+    }, ch);
+  }
+  // 同人站上作者页那一行数：篇数和字数是【真的】（从她的文现算），
+  // 粉丝和被收藏是这个圈子里的设定值——按笔名 hash 定死，不随机、不存计数器。
+  // ⚠️不另存一份：存了之后文被清掉／改笔名，那个数就永远对不回来（只进不出的老毛病）。
+  function authorStats(name, fics) {
+    const mine = authorFics(name, fics);
+    let words = 0, kudos = 0;
+    mine.forEach(function (f) {
+      (f.chapters || []).forEach(function (c) { words += String((c && c.body) || "").length; });
+      words += String(f.body || "").length;
+      kudos += (f.stats || ficHeat(f.id)).kudos;
+    });
+    const seed = ficHash("au:" + name);
+    return {
+      works: mine.length,
+      words: words,
+      kudos: kudos,
+      fans: 120 + seed % 48000 + mine.length * 260,
+      following: 8 + (seed >> 7) % 190
+    };
+  }
+  // ⚠️这一页不是「一张个人资料卡」——那种东西换到任何 app 里都成立（她 2026-09-05：
+  //   「页面还是无聊」）。它是**她那本个人志的扉页 + 目录**：
+  //   上半页是扉页（双线框、落款闲章、手写的一句），下半页是目录（卷号 + 引点线 + 字数）。
   function AuthorHome(props) {
     const t = useTheme();
     const a = props.author;
     const mine = window.Fanfic.authorFics(a.name, props.fics).slice().sort(function (x, y) { return (y.updatedAt || y.createdAt || 0) - (x.updatedAt || x.createdAt || 0); });
     const cps = window.Fanfic.authorCPStats(a.name, props.fics, props.characters, props.userName);
-    const top = cps.length ? cps[0].n : 1;
     const st = window.Fanfic.authorStats(a.name, props.fics);
-    const num = function (v, zh) {
-      return h("div", { key: zh, style: { textAlign: "center", minWidth: 0 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.1 } }, fmtNum(v)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, zh));
+    const [ask, setAsk] = useState(false);
+    const stat = function (k, v) {
+      return h("span", { key: k, className: "flex items-baseline", style: { gap: 3, whiteSpace: "nowrap" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, k),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, fmtNum(v)));
     };
     const sec = function (zh) {
-      return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, margin: "18px 0 7px" } }, zh);
+      return h("div", { className: "flex items-center", style: { gap: 8, margin: "20px 0 9px" } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, letterSpacing: ".22em", whiteSpace: "nowrap" } }, zh),
+        h("span", { style: { flex: 1, height: 1, background: t.line } }));
     };
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { bg: "transparent", zh: a.name, sub: st.works + " 篇", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-        // ── 名片：头像 + 笔名 + @ + 那一行数字（同人站作者页就长这样）──
-        h("div", { style: { display: "flex", alignItems: "flex-start", gap: 13, paddingTop: 14 } },
-          window.Fanfic.authorFace(a.name, 58),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a.name),
-            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, marginTop: 2 } }, "@" + ficPenId(a.name)),
-            h("div", { className: "flex", style: { gap: 16, marginTop: 9 } },
-              num(st.works, "作品"), num(st.words, "字"), num(st.kudos, "被喜欢"), num(st.fans, "粉丝"), num(st.following, "关注")))),
-        a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.85, color: t.ink, marginTop: 14 } }, a.bio) : null,
-        a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, a.style) : null,
-        a.sore ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } }, "碰不得：" + a.sore) : null,
-        // 产出：一根横条一对 CP，长度按篇数——这是「她嗑什么」，不是一堆数字
-        cps.length ? h("div", { style: { marginTop: 18 } },
-          sec("她都写了谁"),
+        // ── 扉页：双线框 + 头像 + 笔名 + 落款闲章 ──
+        h("div", { style: { marginTop: 12, padding: "16px 15px 14px", border: "1px solid " + t.line, boxShadow: "inset 0 0 0 3px " + (t.bg2 || t.bg) + ", inset 0 0 0 4px " + t.line, background: t.bg2 || t.bg } },
+          h("div", { className: "flex items-start", style: { gap: 12 } },
+            window.Fanfic.authorFace(a.name, 52),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, letterSpacing: ".04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a.name),
+              h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, marginTop: 3 } }, "@" + ficPenId(a.name))),
+            window.Fanfic.authorSeal(a.name, 34)),
+          a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, lineHeight: 1.9, color: t.ink, marginTop: 12, paddingTop: 11, borderTop: "1px solid " + t.line } }, a.bio) : null,
+          // 那一行数：小字排成一行，不是五个并排的大数字（那是社交 app 的长相）
+          h("div", { className: "flex", style: { gap: 13, marginTop: 11, flexWrap: "wrap" } },
+            stat("作品", st.works), stat("字", st.words), stat("被喜欢", st.kudos), stat("粉丝", st.fans), stat("关注", st.following))),
+        a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, marginTop: 13, borderLeft: "2px solid " + t.line, paddingLeft: 11 } }, a.style) : null,
+        a.sore ? h("div", { className: "flex items-start", style: { gap: 7, marginTop: 9 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "#a8392f", borderRadius: 2, padding: "1.5px 6px", flexShrink: 0, marginTop: 2, whiteSpace: "nowrap" } }, "碰不得"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } }, a.sore)) : null,
+        // ── 写了谁：正字计数 ──
+        cps.length ? h("div", null, sec("写了谁"),
           cps.map(function (c) {
-            return h("div", { key: c.key, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 5 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, width: 96, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.label),
-              h("span", { style: { flex: 1, height: 9, background: t.line, position: "relative" } },
-                h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.max(6, Math.round(c.n / top * 100)) + "%", background: t.accent, opacity: .75 } })),
-              h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, width: 18, textAlign: "right" } }, c.n));
+            return h("div", { key: c.key, className: "flex items-center", style: { gap: 9, marginBottom: 7 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, width: 92, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.label),
+              window.Fanfic.zhengTally(c.n, t.ink, 17),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, c.n + " 篇"));
           })) : null,
-        sec("她写过的"),
-        mine.length ? mine.map(function (f) {
+        // ── 目录：卷号 + 引点线 + 字数（书里的目录就长这样）──
+        sec("目 录"),
+        mine.length ? mine.map(function (f, ix) {
           const hh = f.stats || ficHeat(f.id);
           const w = (f.chapters || []).reduce(function (n2, c) { return n2 + String((c && c.body) || "").length; }, 0) + String(f.body || "").length;
-          return h("div", { key: f.id, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 0", borderBottom: "1px solid " + t.line } },
-            h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
-                cpLabel(f.cp, props.characters, props.userName) + " · " + (f.chapters || []).length + " 章 · " + fmtNum(w) + " 字 · ♡ " + fmtNum(hh.kudos)),
-              // 标签：同人站上认一篇文靠的就是这一排
-              (f.tags || []).length ? h("div", { className: "flex", style: { gap: 5, marginTop: 6, flexWrap: "wrap" } },
-                (f.tags || []).slice(0, 4).map(function (tg, k) {
-                  return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "1.5px 6px", whiteSpace: "nowrap" } }, tg);
-                })) : null),
-            h("button", { onClick: function () { props.onAddOn && props.onAddOn(f.id); }, className: "shrink-0 active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "5px 11px", marginTop: 2 } }, "加笔"));
-        }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, "她还没在这儿写过——生成同人文时点名让她写一批。")));
+          return h("div", { key: f.id, style: { padding: "9px 0 10px", borderBottom: "1px dotted " + t.line } },
+            h("div", { className: "flex items-baseline", style: { gap: 8 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, width: 20, flexShrink: 0, textAlign: "center" } }, cnIndex(ix + 1)),
+              h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { minWidth: 0, background: "transparent", border: "none", padding: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
+              h("span", { style: { flex: 1, minWidth: 12, borderBottom: "1px dotted " + t.line, transform: "translateY(-3px)" } }),
+              h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, flexShrink: 0 } }, fmtNum(w))),
+            h("div", { className: "flex items-center", style: { gap: 6, marginTop: 5, paddingLeft: 28, flexWrap: "wrap" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, cpLabel(f.cp, props.characters, props.userName) + " · " + (f.chapters || []).length + " 章 · ♡ " + fmtNum(hh.kudos)),
+              (f.tags || []).slice(0, 3).map(function (tg, k) {
+                return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap" } }, tg);
+              }),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: function () { props.onAddOn && props.onAddOn(f.id); }, className: "shrink-0 active:opacity-70",
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "3px 10px" } }, "加笔")));
+        }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, "她还没在这儿写过——生成同人文时点名让她写一批。"),
+        // ── 请她离开（她 2026-09-05 要的）──
+        props.onDelete ? h("div", { style: { marginTop: 26 } },
+          ask
+            ? h("div", { style: { border: "1px solid " + t.line, borderRadius: 10, padding: "12px 13px", background: t.bg2 || t.bg } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.ink } },
+                "把「" + a.name + "」从名册里请走？"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.fog, marginTop: 5 } },
+                mine.length ? "她写过的 " + mine.length + " 篇文【留着】，只是往后不再点得到她了。" : "她还没写过文，删掉不影响任何东西。"),
+              h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
+                h("button", { onClick: function () { setAsk(false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", background: "transparent" } }, "算了"),
+                h("button", { onClick: function () { props.onDelete(a.name); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#a8392f", border: "1px solid #a8392f", borderRadius: 10, padding: "9px 0" } }, "请走")))
+            : h("button", { onClick: function () { setAsk(true); }, className: "w-full active:opacity-65", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a8392f", border: "1px solid rgba(168,57,47,.4)", borderRadius: 10, padding: "11px 0", background: "transparent" } }, "把这位请出名册")) : null));
   }
 
   // ---------- 底 nav ----------
