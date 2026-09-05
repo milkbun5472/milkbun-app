@@ -6446,6 +6446,35 @@ function appVitals() {
     return ("版本 " + ver + "；本地存储约 " + (bytes / 1024 / 1024).toFixed(2) + "MB（~" + pct + "%，图片是大头）；住着 " + chars.length + " 位角色；今天全屋收发 " + todayMsgs + " 条消息；云端归档共 " + archN + " 条；" + errTxt + "。").slice(0, 400);
   } catch (e) { return "（体征采集失败：" + String(e && e.message).slice(0, 60) + "）"; }
 }
+// 贴纸走这一条，不走上面那条。
+// ⚠️resizeImageFile 最后一步是 toDataURL("image/jpeg")——**JPEG 没有透明通道**。
+//   她要贴的是抠好的透明底 PNG（猫、咖啡杯、枫叶那种），走那条路会把透明的地方
+//   压成一块黑，贴上去就是一个黑方块。这不是「稍微差一点」，是完全不能用。
+//   所以另开一条：一样缩图、一样进图库，只是编码成 PNG 把 alpha 留着。
+// PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
+function resizeImageAlpha(file, maxDim = 360) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => {
+      const img = new window.Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const m = Math.max(width, height);
+        if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(width));
+        c.height = Math.max(1, Math.round(height));
+        // 不铺白底：铺了就等于自己把透明去掉了
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL("image/png"));
+      };
+      img.onerror = rej;
+      img.src = e.target.result;
+    };
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
 function resizeImageFile(file, maxDim = 400, q = 0.85) {
   return new Promise((res, rej) => {
     const r = new FileReader();

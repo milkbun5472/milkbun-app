@@ -2452,6 +2452,213 @@ const HOME_DECOR_ACCENTS = ["#b65f57", "#c08a43", "#67806f", "#57758b", "#765f83
 // 挑了就整块换掉：一个颜色，或者她自己的一张图。
 // ⚠️换的只是【最外面那一层底】。里头的画——齿孔、木夹子、白边、轴杆、票根的锯齿
 //   ——一律不动：那几样才是「这是什么东西」，换掉就不是那个东西了。
+// ── 贴纸：盖在组件和装饰【上面】的那一层 ─────────────────────────────
+// 她 2026-09-05 发了一张手帐素材包截图：「gpt 画的这种贴纸能做一个怎么样覆盖在
+// 装饰组件上的东西吗」，然后「都要」——组件和装饰都能贴，也能自己传图当贴纸。
+//
+// 分两类，做法完全不同：
+//   · 程序画得出来的（胶带、回形针、燕尾夹、火漆印、日期戳、编号签、撕边纸条、
+//     角标小图标）——一份 SVG/CSS 就够，不占存档、不吃流量、颜色跟主题走；
+//   · 画不出来的（猫、拉花、蜡烛、枫叶那种插画）——只能她自己传，走透明底 PNG。
+//
+// ⚠️贴纸不许挂在「装饰」上：组件和装饰在主屏上是同一种东西（同一份 REG、同一个
+//   key、同一套占格）。挂在装饰那一侧，组件就永远贴不了——那正是「一层写在两处，
+//   第二处没跟上」的起手式。所以这一层认的是【主屏那个 key】，谁在那一格就贴谁。
+const HOME_STICKER_MAX = 3;           // 一个格子最多贴几张（再多就不是点缀是糊脸了）
+const HOME_STICKER_POS = [
+  { id: "tl", zh: "左上", x: "left", y: "top" }, { id: "tc", zh: "上边", x: "center", y: "top" }, { id: "tr", zh: "右上", x: "right", y: "top" },
+  { id: "ml", zh: "左边", x: "left", y: "middle" }, { id: "mc", zh: "正中", x: "center", y: "middle" }, { id: "mr", zh: "右边", x: "right", y: "middle" },
+  { id: "bl", zh: "左下", x: "left", y: "bottom" }, { id: "bc", zh: "下边", x: "center", y: "bottom" }, { id: "br", zh: "右下", x: "right", y: "bottom" }
+];
+const HOME_STICKER_SIZES = [{ id: "s", zh: "小" }, { id: "m", zh: "中" }, { id: "l", zh: "大" }];
+// 角标那一格里的小图案：只画线条，颜色跟着贴纸的色走
+const HOME_STICKER_GLYPH = {
+  heart: "M12 20s-7-4.5-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.5 12 20 12 20z",
+  moon: "M17.5 15.2A7 7 0 0 1 9.2 6.6a7.2 7.2 0 1 0 8.3 8.6z",
+  sun: "M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7",
+  cloud: "M7.5 18h9.2a3.6 3.6 0 0 0 .4-7.2A5.2 5.2 0 0 0 7 9.6 4.2 4.2 0 0 0 7.5 18z",
+  star: "M12 3.6l2.3 5 5.4.6-4 3.7 1.1 5.3-4.8-2.7-4.8 2.7 1.1-5.3-4-3.7 5.4-.6z",
+  cam: "M4 8.5h3.2l1.4-2h6.8l1.4 2H20v10H4zM12 16.6a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8z",
+  cup: "M5 8h11v6.2A4.2 4.2 0 0 1 11.8 18H9.2A4.2 4.2 0 0 1 5 13.8zM16 9.4h1.6a2.2 2.2 0 0 1 0 4.4H16M4 21h13",
+  mail: "M3.5 6.5h17v11h-17zM3.5 6.9l8.5 6 8.5-6",
+  note: "M9 18V6.2l9-1.8v11.2M9 18a2.3 2.3 0 1 1-4.6 0A2.3 2.3 0 0 1 9 18zM18 15.6a2.3 2.3 0 1 1-4.6 0 2.3 2.3 0 0 1 4.6 0z",
+  paw: "M8.4 9.2a1.7 2.1 0 1 0 0-4.2 1.7 2.1 0 0 0 0 4.2zM15.6 9.2a1.7 2.1 0 1 0 0-4.2 1.7 2.1 0 0 0 0 4.2zM4.6 14a1.6 1.9 0 1 0 0-3.8 1.6 1.9 0 0 0 0 3.8zM19.4 14a1.6 1.9 0 1 0 0-3.8 1.6 1.9 0 0 0 0 3.8zM12 20.4c3 0 4.6-1.5 4.6-3.3 0-2-2-4.6-4.6-4.6s-4.6 2.6-4.6 4.6c0 1.8 1.6 3.3 4.6 3.3z",
+  leaf: "M19 5c0 8-4.4 12.4-11 12.4-1.5 0-2.6-.3-3.4-.7C5.2 9.6 10.3 5 19 5zM7 19c1.8-4 4.6-6.8 8.4-8.6",
+  bow: "M12 12a3.4 3.4 0 1 1 0-.1zM12 11.4 5.4 6.6c-1.3-1-2.6.4-2.1 2l1.6 5.6c.4 1.5 2 1.9 3 .8zM12 11.4l6.6-4.8c1.3-1 2.6.4 2.1 2l-1.6 5.6c-.4 1.5-2 1.9-3 .8z"
+};
+const HOME_STICKER_KINDS = [
+  { g: "胶带", items: [
+    { id: "tape", zh: "素胶带" }, { id: "tapeCheck", zh: "格纹胶带" },
+    { id: "tapeStripe", zh: "条纹胶带" }, { id: "tapeFloral", zh: "碎花胶带" }] },
+  { g: "夹子", items: [{ id: "clip", zh: "回形针" }, { id: "binder", zh: "燕尾夹" }] },
+  { g: "印与签", items: [
+    { id: "wax", zh: "火漆印" }, { id: "stamp", zh: "日期戳" },
+    { id: "tag", zh: "编号签" }, { id: "strip", zh: "撕边纸条" }] },
+  { g: "角标", items: Object.keys(HOME_STICKER_GLYPH).map(function (k) {
+    return { id: "ico_" + k, zh: { heart: "心", moon: "月", sun: "日", cloud: "云", star: "星", cam: "相机", cup: "杯子", mail: "信封", note: "音符", paw: "爪印", leaf: "叶子", bow: "蝴蝶结" }[k] }; }) },
+  { g: "自己的", items: [{ id: "photo", zh: "传一张图" }] }
+];
+const HOME_STICKER_TONES = ["#b08968", "#8a6f52", "#5c5346", "#2f2a24", "#a35a4e", "#6f7f63", "#7b7285", "#d8cbb4"];
+// 写得下字的那几种（写什么由她定，跟「图上那行小字」同一条规矩）
+const HOME_STICKER_TEXTY = { stamp: 1, tag: 1, strip: 1 };
+function homeStickerTexty(type) { return !!HOME_STICKER_TEXTY[type]; }
+// 每一种贴上去的第一眼该是什么样：贴哪儿、多大、歪多少，都按它在现实里的样子来。
+// 胶带默认骑在上边，夹子咬左上角，印和签落在右下角——不是一律丢到某个角上。
+const HOME_STICKER_BORN = {
+  tape: { pos: "tc", turn: -4 }, tapeCheck: { pos: "tc", turn: -4 }, tapeStripe: { pos: "tc", turn: 3 }, tapeFloral: { pos: "tc", turn: -3 },
+  clip: { pos: "tl", turn: -8 }, binder: { pos: "tc", turn: 0 },
+  wax: { pos: "br", turn: 0 }, stamp: { pos: "br", turn: -5 }, tag: { pos: "tr", turn: 4 }, strip: { pos: "bl", turn: -3 },
+  photo: { pos: "br", turn: -4 }
+};
+function homeStickerNew(type) {
+  var born = HOME_STICKER_BORN[type] || { pos: "tr", turn: 0 };
+  return { id: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    type: type, pos: born.pos, size: "m", turn: born.turn,
+    text: type === "stamp" ? "" : (type === "tag" ? "" : ""), tone: HOME_STICKER_TONES[0], imageRef: "" };
+}
+function normalizeHomeStickers(v) {
+  if (!Array.isArray(v)) return [];
+  return v.filter(function (s) { return s && typeof s === "object" && s.type; })
+    .slice(0, HOME_STICKER_MAX)
+    .map(function (s) {
+      return { id: String(s.id || ""), type: String(s.type), pos: String(s.pos || "tr"),
+        size: String(s.size || "m"), turn: Math.max(-24, Math.min(24, Number(s.turn) || 0)),
+        text: String(s.text || "").slice(0, 18), tone: String(s.tone || HOME_STICKER_TONES[0]),
+        imageRef: String(s.imageRef || "") };
+    });
+}
+// 位置：一律留在格子里面。
+// ⚠️别为了「骑出框外」去掀 overflow —— 格子高度是钉死的、外面就是 overflow:hidden，
+//   探出去的那一半会被切掉（v63.84 拍立得那次学到的：转过角/探出边的东西要先算得进去）。
+function homeStickerBox(s, pad) {
+  var p = HOME_STICKER_POS.filter(function (a) { return a.id === s.pos; })[0] || HOME_STICKER_POS[2];
+  var st = { position: "absolute", transform: "rotate(" + (Number(s.turn) || 0) + "deg)", transformOrigin: "center" };
+  pad = pad == null ? 5 : pad;
+  if (p.y === "top") st.top = pad; else if (p.y === "bottom") st.bottom = pad;
+  else { st.top = "50%"; st.transform = "translateY(-50%) rotate(" + (Number(s.turn) || 0) + "deg)"; }
+  if (p.x === "left") st.left = pad; else if (p.x === "right") st.right = pad;
+  else {
+    st.left = "50%";
+    st.transform = (p.y === "middle" ? "translate(-50%,-50%) " : "translateX(-50%) ") + "rotate(" + (Number(s.turn) || 0) + "deg)";
+  }
+  return st;
+}
+const HOME_STICKER_SCALE = { s: 0.78, m: 1, l: 1.3 };
+function homeStickerScale(s) { return HOME_STICKER_SCALE[s && s.size] || 1; }
+// 六位色号才配拼透明度后缀；别的一律原样返回（v59.62 那条：拼出废值会整块静默消失）
+function stkA(hex, a) {
+  var m = /^#([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return hex || "#8a6f52";
+  var n = parseInt(m[1], 16);
+  return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+}
+const HOME_STICKER_FILLED = { heart: 1, paw: 1, star: 1, leaf: 0, bow: 0 };
+// 胶带的端头是撕出来的，不是剪出来的：两头各留一排小豁口
+const STK_TAPE_CLIP = "polygon(2% 0,98% 0,100% 20%,96% 50%,100% 80%,98% 100%,2% 100%,0 80%,4% 50%,0 20%)";
+function stkTapeBg(type, tone) {
+  if (type === "tapeCheck") return { backgroundColor: stkA(tone, .32),
+    backgroundImage: "repeating-linear-gradient(90deg," + stkA(tone, .42) + " 0 1px,transparent 1px 7px),repeating-linear-gradient(0deg," + stkA(tone, .42) + " 0 1px,transparent 1px 7px)" };
+  if (type === "tapeStripe") return { backgroundColor: stkA(tone, .2),
+    backgroundImage: "repeating-linear-gradient(115deg," + stkA(tone, .5) + " 0 3px,transparent 3px 8px)" };
+  if (type === "tapeFloral") return { backgroundColor: stkA(tone, .22),
+    backgroundImage: "radial-gradient(" + stkA(tone, .55) + " 1.4px,transparent 1.5px),radial-gradient(" + stkA(tone, .35) + " 1.1px,transparent 1.2px)",
+    backgroundSize: "11px 11px,11px 11px", backgroundPosition: "0 0,5.5px 5.5px" };
+  return { backgroundColor: stkA(tone, .38) };
+}
+// 一张贴纸。**画的全是程序图**，只有 photo 那一种才吃她传的 PNG。
+// preview＝画在挑选格/清单行里的那一小张。
+// 胶带和自传图的宽度是【格子的百分比】，摆进 34px 的小方块里就只剩十几像素——
+// 看着不像胶带像一小段渣。预览里把它们撑满，画的还是同一个组件、同一份样式。
+function HomeSticker({ s, t, preview }) {
+  const k = homeStickerScale(s), tone = s.tone || "#8a6f52";
+  // 一条长胶带歪几度，占的纵向高度就多出 宽×sinθ ——照 5px 的边距摆，上沿会被切平一道。
+  // 这跟 v63.84 拍立得被切掉角是同一件事：**转过角的东西要按转完之后的框来留位置**。
+  const isTape = String(s.type).slice(0, 4) === "tape";
+  const box = homeStickerBox(s, isTape ? 4 + Math.abs(Math.sin((Number(s.turn) || 0) * Math.PI / 180)) * 64 : 5);
+  // ⚠️百分比宽度必须写在【外面这一层】上。
+  //   外层是绝对定位、包含块是整格贴纸层（宽度是确定的），百分比才算得出来；
+  //   写在里面那个 div 上的话，它的包含块是外层，而外层是 width:auto 的收缩盒——
+  //   「宽度取决于内容、内容宽度又取决于宽度」，浏览器直接判成 auto，于是量出来 1px。
+  //   这一条不会报任何错，只会让那张贴纸【静默地不见】——第一版的格纹胶带就是这么没的。
+  const wrap = (ch, ex) => h("div", { style: Object.assign({ lineHeight: 0, filter: "drop-shadow(0 2px 4px rgba(40,34,26,.18))" }, box, ex || {}) }, ch);
+  if (String(s.type).slice(0, 4) === "tape") {
+    // 宽度按【格子的百分比】走，不是写死的 px：装饰可能只有一格宽（约 86px），
+    // 写死 96px 的胶带在那儿一定探出去被切掉——v63.84 拍立得那次就是这么被切的。
+    return wrap(h("div", { style: Object.assign({ width: "100%", height: Math.round(17 * k),
+      borderRadius: 1, clipPath: STK_TAPE_CLIP, opacity: .88 }, stkTapeBg(s.type, tone)) }),
+      { width: preview ? "92%" : Math.min(88, 52 * k) + "%" });
+  }
+  if (s.type === "clip") {                        // 回形针：一根绕两圈的线，咬着纸边
+    const w = Math.round(21 * k), hh = Math.round(40 * k);
+    return wrap(h("svg", { width: w, height: hh, viewBox: "0 0 21 40", fill: "none" },
+      h("path", { d: "M6 33V9a4.6 4.6 0 0 1 9.2 0v23a7.2 7.2 0 0 1-14.4 0V12",
+        stroke: stkA(tone, .95), strokeWidth: 2.2, strokeLinecap: "round" })));
+  }
+  if (s.type === "binder") {                      // 燕尾夹：一个梯形身子 + 两根翘起来的杆
+    const w = Math.round(30 * k), hh = Math.round(26 * k);
+    return wrap(h("svg", { width: w, height: hh, viewBox: "0 0 30 26", fill: "none" },
+      h("path", { d: "M5 7h20l-3 17H8z", fill: stkA(tone, .92) }),
+      h("path", { d: "M8.5 7 4 1.6M21.5 7 26 1.6", stroke: stkA(tone, .8), strokeWidth: 1.6, strokeLinecap: "round" }),
+      h("path", { d: "M5 7h20", stroke: stkA("#ffffff", .35), strokeWidth: 1.4 })));
+  }
+  if (s.type === "wax") {                         // 火漆印：一坨压扁的蜡 + 中间一个星
+    const d = Math.round(30 * k);
+    return wrap(h("div", { style: { width: d, height: d, borderRadius: "48% 52% 46% 54%/52% 46% 54% 48%",
+      background: "radial-gradient(circle at 34% 30%," + stkA(tone, 1) + "," + stkA(tone, .82) + " 62%," + stkA(tone, .95) + ")",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "inset 0 -2px 4px rgba(0,0,0,.22),inset 0 2px 3px rgba(255,255,255,.22)" } },
+      h("svg", { width: Math.round(d * .5), height: Math.round(d * .5), viewBox: "0 0 24 24", fill: "none" },
+        h("path", { d: HOME_STICKER_GLYPH.star, stroke: "rgba(255,255,255,.62)", strokeWidth: 1.6, strokeLinejoin: "round" }))));
+  }
+  if (s.type === "stamp") {                       // 日期戳：一圈虚线框，里头两行小字
+    return wrap(h("div", { style: { border: "1.4px dashed " + stkA(tone, .78), borderRadius: 3,
+      padding: Math.round(3 * k) + "px " + Math.round(7 * k) + "px", background: stkA("#f4efe4", .82),
+      textAlign: "center", fontFamily: F_BODY, color: stkA(tone, 1), letterSpacing: ".06em",
+      overflow: "hidden" } },
+      h("div", { style: { fontSize: Math.round(9 * k), lineHeight: 1.45, fontWeight: 600, whiteSpace: "nowrap",
+        overflow: "hidden", textOverflow: "ellipsis" } }, s.text || stkToday())), { maxWidth: preview ? "98%" : "86%" });
+  }
+  if (s.type === "tag") {                         // 编号签：一张小方牌
+    return wrap(h("div", { style: { border: "1.2px solid " + stkA(tone, .55), borderRadius: 2,
+      padding: Math.round(3 * k) + "px " + Math.round(8 * k) + "px", background: stkA("#f6f1e6", .9),
+      fontFamily: F_BODY, fontSize: Math.round(9 * k), lineHeight: 1.45, color: stkA(tone, 1), letterSpacing: ".08em",
+      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+      s.text || "第 01 号"), { maxWidth: preview ? "98%" : "86%" });
+  }
+  if (s.type === "strip") {                       // 撕边纸条：上下两边是撕的，字随她写
+    return wrap(h("div", { style: { background: stkA("#f2ebdd", .94), color: stkA(tone, 1),
+      clipPath: "polygon(0 8%,6% 0,32% 6%,58% 0,84% 6%,100% 0,100% 92%,88% 100%,62% 94%,36% 100%,12% 94%,0 100%)",
+      padding: Math.round(6 * k) + "px " + Math.round(9 * k) + "px", fontFamily: F_BODY,
+      fontSize: Math.round(9.5 * k), lineHeight: 1.4, letterSpacing: ".03em", whiteSpace: "nowrap",
+      overflow: "hidden", textOverflow: "ellipsis" } }, s.text || "　"), { maxWidth: preview ? "98%" : "88%" });
+  }
+  if (String(s.type).slice(0, 4) === "ico_") {
+    const g = String(s.type).slice(4), d = HOME_STICKER_GLYPH[g], fill = HOME_STICKER_FILLED[g];
+    if (!d) return null;
+    const px = Math.round(21 * k);
+    return wrap(h("svg", { width: px, height: px, viewBox: "0 0 24 24", fill: "none" },
+      h("path", { d: d, stroke: stkA(tone, .92), strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round",
+        fill: fill ? stkA(tone, .82) : "none" })));
+  }
+  if (s.type === "photo") {
+    const src = s.imageRef && typeof resolveImg === "function" ? resolveImg(s.imageRef) : s.imageRef;
+    if (!src) return null;
+    return wrap(h("img", { src: src, alt: "", style: { width: "100%", height: "auto",
+      maxHeight: Math.round(58 * k), objectFit: "contain", display: "block" } }),
+      { width: preview ? "84%" : Math.min(72, 34 * k) + "%" });
+  }
+  return null;
+}
+function stkToday() {
+  var d = new Date();
+  return d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+}
+// 盖在那一格【上面】的一层。不吃点击——底下的组件照旧能按。
+function HomeStickerLayer({ list, t }) {
+  if (!list || !list.length) return null;
+  return h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 12 } },
+    list.map(function (s, i) { return h(HomeSticker, { key: s.id || i, s: s, t: t }); }));
+}
 const HOME_DECOR_GROUNDS = [
   { id: "", name: "原样", swatch: "repeating-linear-gradient(45deg,rgba(120,110,96,.18) 0 5px,transparent 5px 10px)" },
   { id: "#f3ece0", name: "宣纸" }, { id: "#e7ded0", name: "牛皮" }, { id: "#1f1e1b", name: "夜色" },
@@ -3204,6 +3411,103 @@ function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
         ref ? h("button", { type: "button", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClear(i); }, className: "active:opacity-65", "aria-label": "清空第 " + (i + 1) + " 张照片", style: { position: "absolute", right: 5, top: 5, zIndex: 2, width: 23, height: 23, borderRadius: 999, background: "rgba(20,19,17,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 15, lineHeight: "23px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,.2)" } }, "×") : null);
     }));
 }
+// 贴纸编辑：组件那张面板和装饰那一页【共用这一个】。
+// ⚠️各写一份的话，改一处另一处必然落单——装饰能挑倾斜而组件不能、组件能传图而装饰不能，
+//   那正是 v63.82 装饰「新建」和「重改」分家时她抱怨的那两条。所以只此一份。
+function HomeStickerEditor({ list, onChange, onPick, busy }) {
+  const t = useTheme();
+  const [open, setOpen] = useState("");            // 展开的是哪一张（一次只改一张）
+  const [adding, setAdding] = useState(false);
+  const rows = normalizeHomeStickers(list);
+  const full = rows.length >= HOME_STICKER_MAX;
+  const patch = function (id, kv) { onChange(rows.map(function (s) { return s.id === id ? Object.assign({}, s, kv) : s; })); };
+  const kindName = function (type) {
+    var n = "";
+    HOME_STICKER_KINDS.forEach(function (g) { g.items.forEach(function (x) { if (x.id === type) n = x.zh; }); });
+    return n || "贴纸";
+  };
+  const posName = function (id) { return (HOME_STICKER_POS.filter(function (p) { return p.id === id; })[0] || {}).zh || ""; };
+  const lbl = function (s) { return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: t.fog, marginTop: 12, marginBottom: 7 } }, s); };
+  return h("div", null,
+    rows.map(function (s) {
+      var isOpen = open === s.id;
+      return h("div", { key: s.id, style: { borderRadius: 14, border: "1px solid " + (isOpen ? t.ink : t.line), background: t.bg2, marginBottom: 8, overflow: "hidden" } },
+        h("div", { className: "flex items-center", style: { gap: 10, padding: "9px 11px" } },
+          // 左边这一小块就是它本人（不是一个色块，也不是一个名字）
+          h("div", { style: { width: 34, height: 30, flexShrink: 0, position: "relative", borderRadius: 7, background: "repeating-linear-gradient(45deg,rgba(120,110,96,.09) 0 5px,transparent 5px 10px)" } },
+            h(HomeSticker, { s: Object.assign({}, s, { pos: "mc", size: "s", turn: 0 }), t: t, preview: true })),
+          h("button", { onClick: function () { setOpen(isOpen ? "" : s.id); }, className: "flex-1 min-w-0 text-left active:opacity-70" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, kindName(s.type)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              posName(s.pos) + " · " + ((HOME_STICKER_SIZES.filter(function (z) { return z.id === s.size; })[0] || {}).zh || "") + (s.text ? " · " + s.text : ""))),
+          h("button", { onClick: function () { onChange(rows.filter(function (x) { return x.id !== s.id; })); }, className: "active:opacity-60 shrink-0",
+            style: { borderRadius: 999, padding: "5px 10px", border: "1px solid rgba(194,90,74,.4)", background: "transparent", fontFamily: F_BODY, fontSize: 11, color: "#b34f43" } }, "撕掉")),
+        isOpen ? h("div", { style: { padding: "0 11px 12px" } },
+          lbl("贴哪儿"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 } },
+            HOME_STICKER_POS.map(function (p) {
+              var on = s.pos === p.id;
+              // 选中态不只靠色差：那个小方块里的点站在哪儿，本身就说明它贴哪儿
+              return h("button", { key: p.id, onClick: function () { patch(s.id, { pos: p.id }); }, className: "active:opacity-70",
+                style: { borderRadius: 11, padding: "7px 0 6px", background: on ? t.ink : t.bg, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line) } },
+                h("div", { style: { width: 26, height: 19, margin: "0 auto", position: "relative", border: "1px solid " + (on ? t.bg2 : t.line), borderRadius: 3 } },
+                  h("span", { style: Object.assign({ position: "absolute", width: 5, height: 5, borderRadius: 2, background: on ? t.bg2 : t.fog },
+                    p.y === "top" ? { top: 1.5 } : p.y === "bottom" ? { bottom: 1.5 } : { top: "50%", marginTop: -2.5 },
+                    p.x === "left" ? { left: 1.5 } : p.x === "right" ? { right: 1.5 } : { left: "50%", marginLeft: -2.5 }) })),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, marginTop: 4 } }, p.zh));
+            })),
+          lbl("多大"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 } },
+            HOME_STICKER_SIZES.map(function (z) {
+              var on = s.size === z.id;
+              return h("button", { key: z.id, onClick: function () { patch(s.id, { size: z.id }); }, className: "active:opacity-70",
+                style: { borderRadius: 11, padding: "8px 0", background: on ? t.ink : t.bg, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 11.5 } }, z.zh);
+            })),
+          lbl("歪多少"),
+          h("input", { type: "range", min: -24, max: 24, step: 1, value: s.turn,
+            onChange: function (e) { patch(s.id, { turn: Number(e.target.value) }); },
+            style: { width: "100%", accentColor: t.ink } }),
+          s.type === "photo" ? null : h("div", null, lbl("什么色"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+              HOME_STICKER_TONES.map(function (c) {
+                var on = s.tone === c;
+                return h("button", { key: c, onClick: function () { patch(s.id, { tone: c }); }, className: "active:opacity-70",
+                  style: { width: 28, height: 28, borderRadius: 999, background: c, border: on ? "2px solid " + t.ink : "1px solid " + t.line, boxShadow: on ? "0 0 0 2px " + t.bg2 + " inset" : "none" } });
+              }))),
+          homeStickerTexty(s.type) ? h("div", null, lbl("写什么"),
+            h("input", { value: s.text, onChange: function (e) { patch(s.id, { text: e.target.value }); }, maxLength: 18,
+              placeholder: s.type === "stamp" ? "留空＝今天的日期" : (s.type === "tag" ? "留空＝第 01 号" : "写一句短的（可不填）"),
+              style: { width: "100%", outline: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "10px 11px" } })) : null,
+          s.type === "photo" ? h("div", null, lbl("换一张"),
+            h("label", { className: "block active:opacity-70", style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "11px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+              busy ? "正在放进去…" : (s.imageRef ? "换一张透明底 PNG" : "选一张透明底 PNG"),
+              h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onPick(f, s.id); } })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+              "抠好的透明底 PNG 贴上去才没有白边。透明的地方会原样留着，不会被压成白块。")) : null
+        ) : null);
+    }),
+    full ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "一格最多贴 " + HOME_STICKER_MAX + " 张，再多就盖住底下的东西了。")
+      : h("button", { onClick: function () { setAdding(!adding); }, className: "w-full active:opacity-70",
+          style: { borderRadius: 13, padding: "11px 0", border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5, marginTop: rows.length ? 2 : 0 } },
+          adding ? "先不贴了" : "贴一张 ＋"),
+    adding && !full ? h("div", { style: { marginTop: 10 } },
+      HOME_STICKER_KINDS.map(function (g) {
+        return h("div", { key: g.g, style: { marginBottom: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".1em", color: t.fog, marginBottom: 7 } }, g.g),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 7 } },
+            g.items.map(function (x) {
+              return h("button", { key: x.id, className: "active:opacity-70",
+                onClick: function () { var n = homeStickerNew(x.id); onChange(rows.concat([n])); setOpen(n.id); setAdding(false); },
+                style: { borderRadius: 12, padding: "8px 3px 7px", background: t.bg, border: "1px solid " + t.line } },
+                // 格子里画的就是这张贴纸本人，不是一个名字加一个方块
+                h("div", { style: { height: 30, position: "relative" } },
+                  x.id === "photo"
+                    ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: t.sub } }, "＋")
+                    : h(HomeSticker, { s: Object.assign({}, homeStickerNew(x.id), { pos: "mc", size: "s", turn: 0, text: x.id === "strip" ? "小纸条" : "" }), t: t, preview: true })),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.zh));
+            })));
+      })) : null);
+}
 function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, ground, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt, onGround, onGroundPhoto, busy }) {
   const t = useTheme();
   function choiceRow(items, value, onChange) {
@@ -3377,6 +3681,9 @@ function Home({
   const [widgetStyles, setWidgetStyles] = useState(function () { var v = loadJSON("x_homeWidgetStyles", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetAligns, setWidgetAligns] = useState(function () { var v = loadJSON("x_homeWidgetAlign", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetSizes, setWidgetSizes] = useState(function () { var v = loadJSON("x_homeWidgetSizes", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
+  // 贴纸按【主屏那个 key】存，所以组件和装饰是同一份、同一套操作——
+  // 分两份的话，改了一处另一处必然落单（那是这个仓库里最常犯的一种病）。
+  const [stickers, setStickers] = useState(function () { var v = loadJSON("x_homeStickers", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [styleKey, setStyleKey] = useState(null);
   const [showDecorLibrary, setShowDecorLibrary] = useState(false);
   const [decorStep, setDecorStep] = useState("what");   // 这一页一次只摊开一段：what | words | look
@@ -3408,6 +3715,8 @@ function Home({
   const [styleDecorBadge, setStyleDecorBadge] = useState("");
   const [styleDecorMark, setStyleDecorMark] = useState("");
   const [styleDecorTilt, setStyleDecorTilt] = useState(0);
+  // 新做的那一件还没有 key，贴纸先攒在草稿里，放到桌面那一刻才落进 x_homeStickers
+  const [decorDraftStickers, setDecorDraftStickers] = useState([]);
   const [decorBusy, setDecorBusy] = useState(false);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () {
@@ -3672,6 +3981,14 @@ function Home({
   function setWidgetAlign(key, id) {
     setWidgetAligns(function (prev) { var n = Object.assign({}, prev); n[key] = id; saveJSON("x_homeWidgetAlign", n); return n; });
   }
+  function stickersOf(key) { return normalizeHomeStickers(stickers[key]); }
+  function setStickersFor(key, list) {
+    setStickers(function (prev) {
+      var n = Object.assign({}, prev), v = normalizeHomeStickers(list);
+      if (v.length) n[key] = v; else delete n[key];   // 一张不剩就把这一栏也删掉，别留空数组攒成坟场
+      saveJSON("x_homeStickers", n); return n;
+    });
+  }
   function setWidgetPreset(key, preset) {
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[key] = preset; saveJSON("x_homeWidgetStyles", n); return n; });
   }
@@ -3715,7 +4032,7 @@ function Home({
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftGround(null); setDecorDraftSize(""); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftStickers([]); setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftGround(null); setDecorDraftSize(""); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -3741,6 +4058,19 @@ function Home({
       if (!ref) throw new Error("empty");
       (target === "style" ? setStyleDecorGround : setDecorDraftGround)({ imageRef: ref });
     } catch (e) { if (typeof toast === "function") toast("这张图没能当上底"); }
+    setDecorBusy(false);
+  }
+  // 贴纸的图走【保透明】那条路：resizeImageFile 最后编码成 JPEG，透明的地方会变成黑块。
+  // ⚠️这不是「稍微差一点」，是完全不能用——她要贴的就是抠好的透明底 PNG。
+  async function takeStickerPhoto(file, id, list, onChange) {
+    if (!file) return;
+    setDecorBusy(true);
+    try {
+      var data = typeof resizeImageAlpha === "function" ? await resizeImageAlpha(file, 360) : "";
+      var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+      if (!ref) throw new Error("empty");
+      onChange(normalizeHomeStickers(list).map(function (x) { return x.id === id ? Object.assign({}, x, { imageRef: ref }) : x; }));
+    } catch (e) { if (typeof toast === "function") toast("这张图没能变成贴纸"); }
     setDecorBusy(false);
   }
   function clearDecorPhoto(target, slot) {
@@ -3782,7 +4112,10 @@ function Home({
       preset: isNew ? decorDraftPreset : (widgetStyles[key] || "soft"),
       setPreset: isNew ? setDecorDraftPreset : function (id) { setWidgetPreset(key, id); },
       size: isNew ? decorDraftSize : (widgetSizes[key] || "auto"),
-      setSize: isNew ? setDecorDraftSize : function (id) { setWidgetSize(key, id); }
+      setSize: isNew ? setDecorDraftSize : function (id) { setWidgetSize(key, id); },
+      // 贴纸同样【当场落档】：新做的那件还没 key，先攒草稿，放到桌面那一刻才归档
+      stickers: isNew ? decorDraftStickers : stickersOf(key),
+      setStickers: isNew ? setDecorDraftStickers : function (v) { setStickersFor(key, v); }
     };
     return A;
   }
@@ -3801,6 +4134,7 @@ function Home({
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
     // ⚠️她自己在「多大」那一段挑过就听她的；没挑（""＝自动）才按类型／相框推一个。
     //   自动那一路是给「懒得挑」兜底的，不该盖掉她明说的选择。
+    if (decorDraftStickers.length) setStickers(function (prev) { var n = Object.assign({}, prev); n[id] = normalizeHomeStickers(decorDraftStickers); saveJSON("x_homeStickers", n); return n; });
     if (decorDraftSize) setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftSize; saveJSON("x_homeWidgetSizes", n); return n; });
     else if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
     else if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
@@ -3836,6 +4170,7 @@ function Home({
     });
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); delete n[id]; saveJSON("x_homeWidgetStyles", n); return n; });
     setWidgetSizes(function (prev) { var n = Object.assign({}, prev); delete n[id]; saveJSON("x_homeWidgetSizes", n); return n; });
+    setStickers(function (prev) { var n = Object.assign({}, prev); delete n[id]; saveJSON("x_homeStickers", n); return n; });
     setStyleKey(null);
     if (typeof toast === "function") toast("装饰已从桌面移走");
   }
@@ -4323,6 +4658,14 @@ function Home({
       }
     }
     if (presetStyle) inner = h("div", { style: HOME_SHRINK[key] ? Object.assign({}, presetStyle, { height: "auto" }) : presetStyle }, inner);
+    // 贴纸盖在最上面：组件和装饰走同一条，所以「一起听贴条胶带」和「拍立得夹个夹子」
+    // 是同一件事，不是两套代码。整理态下也照贴——她要边挪边看效果。
+    // （只有组件和装饰有那张设置面板，所以也只有它俩贴得上——app 图标长按是「拿起来」，
+    //   没有入口，这里就别写一段永远走不到的分支。）
+    var stkList = (it.kind === "widget" || it.kind === "decor") ? stickersOf(key) : [];
+    if (stkList.length) inner = h("div", { style: { position: "relative", width: "100%",
+      height: HOME_SHRINK[key] ? "auto" : "100%", minWidth: 0, minHeight: 0 } },
+      inner, h(HomeStickerLayer, { list: stkList, t: t }));
     return h("div", {
       key: key, "data-appkey": key,
       style: {
@@ -4504,7 +4847,12 @@ function Home({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 6 } }, a.zh));
       })) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "外观样式"),
-    h(HomePresetGrid, { value: widgetStyles[styleKey] || "native", allowNative: true, onChange: function (id) { setWidgetPreset(styleKey, id); } })),
+    h(HomePresetGrid, { value: widgetStyles[styleKey] || "native", allowNative: true, onChange: function (id) { setWidgetPreset(styleKey, id); } }),
+    // 贴纸：跟装饰那一页共用同一个编辑器（她 2026-09-05「都要」——组件也能贴）
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 22, marginBottom: 9 } }, "贴纸"),
+    h(HomeStickerEditor, { list: stickersOf(styleKey), busy: decorBusy,
+      onChange: function (v) { setStickersFor(styleKey, v); },
+      onPick: function (f, id) { takeStickerPhoto(f, id, stickersOf(styleKey), function (v) { setStickersFor(styleKey, v); }); } })),
   // ── 做一件装饰：整页，不是半窗（no-half-sheet.md）──────────────────────
   // 她 2026-09-05：「增加装饰那一页整理一下吧，越加越多有点难看」。
   // 病灶不是哪一栏难看，是【什么都摊在一条长长的半窗里】：类型 5 格、相框 24 格、
@@ -4561,7 +4909,9 @@ function Home({
         h("div", { style: { height: tallOne ? 186 : 132, borderRadius: 18, padding: 12, display: "flex", alignItems: "center", justifyContent: "center",
             background: "repeating-linear-gradient(45deg,rgba(120,110,96,.07) 0 7px,transparent 7px 14px)", border: "1px dashed " + t.line } },
           h("div", { style: { width: tallOne ? 96 : 208, height: "100%" } },
-            h("div", { style: pvShell }, h(HomeDecorItem, { item: PV, preset: A.preset, now: now })))));
+            h("div", { style: Object.assign({}, pvShell, { position: "relative" }) },
+              h(HomeDecorItem, { item: PV, preset: A.preset, now: now }),
+              h(HomeStickerLayer, { list: A.stickers, t: t })))));
       })(),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 16px 18px" } },
         section("what", "1", "是什么", meta.name + (A.type === "photo" && frameName ? " · " + frameName : ""),
@@ -4613,6 +4963,10 @@ function Home({
             h(HomeSizeGrid, { value: A.size || "auto", onChange: A.setSize }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
               "书签和挂轴那几款是竖的，挑「竖条」「竖块」才立得住。"))),
+        section("stick", "5", "贴什么", A.stickers.length ? A.stickers.length + " 张" : "（还没贴）",
+          h("div", { style: { marginTop: 6 } },
+            h(HomeStickerEditor, { list: A.stickers, busy: decorBusy, onChange: A.setStickers,
+              onPick: function (f, id) { takeStickerPhoto(f, id, A.stickers, A.setStickers); } }))),
         // 已经在桌面上的那一件，才有得移走
         !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
