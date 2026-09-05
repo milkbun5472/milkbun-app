@@ -56,11 +56,22 @@ test("日历的每个分支都渲染得出来", () => {
     ["月视图·角色", { mine: "c1" }], ["日视图·角色（有块、有偏差、有碎碎念）", { mine: "c1", month: "day" }],
     ["月视图·世界", { mine: "world" }], ["各种弹层全开", { month: "day", false: true }]
   ];
-  cases.forEach(([name, ov]) => {
+  // v64.18：经期那一层从半窗改成了整页（PeriodBook），所以「弹层全开」那一档
+  // 现在 Calendar 会直接把整页交出去——这个渲染桩不展开函数组件，得单独点它一次。
+  const CASE_ALL = 5;
+  cases.forEach(([name, ov], i) => {
     setOverrides(ov);
     const out = ctx.Calendar(props());
+    if (i === CASE_ALL) {
+      // pSet 开着＝换成整页的月事本，不再是压在月历上的半窗
+      assert.equal(out.type, ctx.PeriodBook, name + "：pSet 开着的时候没换成整页");
+      return;
+    }
     assert.ok(nodeCount(out) > 30, name + " 渲染出来是空的");
   });
+  setOverrides({});
+  const book = ctx.PeriodBook({ period: props().period, chars: props().characters, daySel: TODAY, onSave: () => {}, onRecord: () => {}, onBack: () => {} });
+  assert.ok(nodeCount(book) > 60, "月事本自己渲染出来是空的");
   setOverrides({});
   assert.ok(nodeCount(ctx.CalEventForm({ initial: { startDate: TODAY }, owner: "mine", ownerName: "我", onClose: () => {}, onSave: () => {}, onDelete: () => {} })) > 30);
   assert.ok(nodeCount(ctx.CalWidget({ now: new Date(), calendar: props().calendar, onOpen: () => {}, period: props().period })) > 30);
