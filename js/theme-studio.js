@@ -18,10 +18,16 @@
     try { if (typeof window !== "undefined" && typeof window.HomeAppList === "function") return window.HomeAppList(); } catch (e) {}
     return APP_ICONS_FALLBACK;
   };
-  const PAGES = [
-    ["all","全 App"],["home","主屏"],["thread","单聊（含线下浮层）"],["gthread","群聊（含群线下浮层）"],
-    ["messages","朋友圈"],["forum","论坛"],["config","设置"],["games","小游戏"],["fanfic","同人文"],["trpg","跑团"]
-  ];
+  // ⚠️这份名单原来是手写的十页，而作用域机制是 html[data-lisa-screen="<screen>"]，
+  //   **每一页都自带这个属性**——十页是名单的限制，不是能力的限制。于是
+  //   「秋秋知道你正开着查手机，却没法给查手机写样式」。而且这里把 messages
+  //   标成了「朋友圈」，那一页其实是整个消息 app（聊天/通讯录/朋友圈/我 四栏）。
+  //   现在从 core.js 那份【全库唯一的页名单】派生，两处再也对不上不了。
+  const PAGES = [["all", "全 App"]].concat(
+    Object.keys(typeof SCREEN_ZH !== "undefined" ? SCREEN_ZH : {}).map(function (k) {
+      const note = (typeof SCREEN_NOTE !== "undefined" && SCREEN_NOTE[k]) || "";
+      return [k, SCREEN_ZH[k] + (note ? "（" + note + "）" : "")];
+    }));
   // ── 内置 CSS 预设 + 每页 5 个自己的槽位（v61.05，她 2026-09-03 点名）──────
   // 「内置」是只读的起手式：点一下把整段 CSS 灌进编辑框，她再改。
   // 「槽位」是她自己的：每一页 5 个，存在 x_themeCssSlots，跟主题档案分开——

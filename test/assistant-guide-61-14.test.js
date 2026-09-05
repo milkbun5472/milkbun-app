@@ -14,6 +14,14 @@ const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
 // 手册是纯数据，直接跑
 const MAN = (() => { const g = {}; new Function("window", manSrc)(g); return g.AssistantManual; })();
 
+// 全库唯一那份页名单，从 core.js 里现取
+const core = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
+const SCREEN_ZH = (() => {
+  const i = core.indexOf("const SCREEN_ZH = {"), j = core.indexOf("\n};", i);
+  assert.ok(i >= 0 && j > i, "core.js 里找不到 SCREEN_ZH");
+  return new Function("return " + core.slice(i + "const SCREEN_ZH = ".length, j + 2))();
+})();
+
 // 帮手的脑子抠出来真跑（不含界面）。callAI 是桩，能截下真正发出去的 system。
 const A = (() => {
   const i = src.indexOf("(function () {\n  const useState = React.useState;");
@@ -32,6 +40,10 @@ const A = (() => {
     //   洗正文那把刀实际收到的是【裸代码行】，不是带围栏的代码块。
     parseJSONLoose: s => { try { return JSON.parse(String(s).replace(/```(?:json)?/gi, "")); } catch (e) { return null; } },
     extractJSON: s => { try { return JSON.parse(String(s).replace(/```(?:json)?/gi, "")); } catch (e) { return null; } },
+    // ⚠️从【core.js 那一份真的】里读出来，不是在这儿另抄一份页名表：
+    //   抄一份的话，core.js 哪天加了一页、这条测试照样绿，
+    //   而秋秋在那一页上什么都说不出（stub-from-the-writer.md）。
+    SCREEN_ZH: SCREEN_ZH,
     window: win
   };
   new Function(...Object.keys(sandbox), src.slice(i, j))(...Object.values(sandbox));
@@ -546,7 +558,7 @@ test("页面上下文：她说「这一页」「他」，有指代对象", () =>
   // 借的是 ai-virtual-phone 那个想法（AGPL，只看不抄）。
   const line = A.api.pageLine({ screen: "thread", charName: "V" });
   assert.match(line, /她此刻在哪儿/);
-  assert.match(line, /和某个角色的单聊/);
+  assert.match(line, /单聊/);
   assert.match(line, /这一页上是「V」/);
   assert.match(line, /别再反问她是哪一页/);
   // 没人的页面不许硬说「他」
@@ -556,13 +568,13 @@ test("页面上下文：她说「这一页」「他」，有指代对象", () =>
   // 认不出来的页面就一个字都不发，别编一个页面名出来
   assert.equal(A.api.pageLine({ screen: "某个还没登记的页" }), "");
   assert.equal(A.api.pageLine(null), "");
-  // 一张表两用：人话 + 这一页的手册词条 id
+  // 页名从 core.js 那份全库唯一的名单来（v63.44）；这儿只留「这一页对应手册哪一条」
   const info = A.api.pageOf({ screen: "trpg" });
   assert.equal(info.zh, "跑团");
   assert.equal(info.man, "trpg");
   // 登记的 man 必须真在手册里，不然那一栏是死的
-  Object.keys(A.api.SCREEN_INFO).forEach(k => {
-    const id = A.api.SCREEN_INFO[k][1];
+  Object.keys(A.api.SCREEN_MAN).forEach(k => {
+    const id = A.api.SCREEN_MAN[k];
     if (id) assert.ok(MAN.byId(id), k + " 指着一个手册里没有的词条：" + id);
   });
 });
@@ -582,7 +594,7 @@ test("这一页上的人算「在说谁」——她一个名字都没提也得�
   assert.match(sys, /【聊天（线上）】/);
   // ⚠️光测 pageLine 本身不够：把 buildSystem 里那句拼接删掉，函数照样是对的，
   //   发出去的 system 里却一个字都没有。所以要从出口验。
-  assert.match(sys, /【她此刻在哪儿】她正开着「和某个角色的单聊」/, "那句人话没进 system");
+  assert.match(sys, /【她此刻在哪儿】她正开着「单聊」/, "那句人话没进 system");
   assert.match(src, /const focus = chatWindow\(history\)[\s\S]{0,200}?here && here\.who/);
 });
 

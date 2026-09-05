@@ -537,37 +537,32 @@
   // 一张表两用：给它一句人话说清在哪儿，再顺手把这一页的手册词条捎上，
   // 于是「这一页是干嘛的」不用她先说出这一页叫什么。
   // 值是 [人话, 手册词条 id]；手册里没有对应词条的就留空。
-  const SCREEN_INFO = {
-    home: ["主屏", "home"], messages: ["消息列表", "chat"],
-    thread: ["和某个角色的单聊", "chat"], gthread: ["一个群聊", "group"],
-    contact: ["某个角色的资料页", "cast"], cast: ["人格档案馆", "cast"],
-    castForm: ["正在编一张角色卡", "cast"], ties: ["关系", "ties"],
-    phone: ["查手机", "phone"], shop: ["购物", "shop"], carry: ["随身物", "carry"],
-    mycloset: ["我的衣柜", "closet"], dwell: ["去处", "dwell"],
-    cwallet: ["钱包", "wallet"], wallet: ["我的钱包", "wallet"], kincard: ["亲属卡账单", "wallet"],
-    ledger: ["记账", "ledger"], calendar: ["日历", "calendar"], memo: ["备忘录", "memo"],
-    map: ["好友地图", "map"], listen: ["一起听", "listen"], diary: ["日记", "diary"],
-    lore: ["世界书", "lore"], memlib: ["记忆库", "memlib"], anon: ["匿名问答", "anon"],
-    study: ["一起学", "study"], fanfic: ["同人文", "fanfic"], read: ["一起读", "read"],
-    weekly: ["周刊", "weekly"], debate: ["擂台", "debate"], dream: ["梦境", "dream"],
-    dreamjournal: ["解梦馆", "dreamjournal"], tarot: ["塔罗", "tarot"],
-    pomodoro: ["番茄钟", "pomodoro"], games: ["小游戏", "games"], trpg: ["跑团", "trpg"],
-    theater: ["小剧场", "theater"], impression: ["月度印象", "impression"],
-    yanqiu: ["秋声", "yanqiu"], loungeapp: ["三席会客", "lounge"],
-    rescue: ["互救台", "rescue"], vpscodex: ["值班室", "vpscodex"],
-    forum: ["论坛", "forum"], momprofile: ["朋友圈", "moments"],
-    us: ["情侣空间", "couple"],
-    favorites: ["收藏", "favorites"], emotes: ["表情包", "emotes"],
-    stylelab: ["文风台", "stylelab"],
-    config: ["设置", "config"], assistant: ["你自己这一页", "assistant"],
-    codex: ["", ""]
+  // 【这一页对应手册的哪一条】。页名不写在这儿——那份在 core.js 的 SCREEN_ZH 里，
+  // 全库唯一（主题工作台的页面 CSS 下拉用的是同一份）。
+  // ⚠️原来这儿存的是「页名 + 手册 id」两样，跟工作台那份页名各写各的，
+  //   于是一处五十页、一处十页，谁也不知道对方漏了什么。
+  const SCREEN_MAN = {
+    home: "home", messages: "chat", thread: "chat", gthread: "group",
+    contact: "cast", cast: "cast", castForm: "cast", ties: "ties",
+    phone: "phone", shop: "shop", carry: "carry", mycloset: "closet", dwell: "dwell",
+    cwallet: "wallet", wallet: "wallet", kincard: "wallet", ledger: "ledger",
+    calendar: "calendar", memo: "memo", map: "map",
+    listen: "listen", musiccard: "listen",
+    diary: "diary", lore: "lore", memlib: "memlib", anon: "anon",
+    study: "study", fanfic: "fanfic", read: "read", weekly: "weekly", debate: "debate",
+    dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", pomodoro: "pomodoro",
+    games: "games", trpg: "trpg", theater: "theater", impression: "impression",
+    yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",
+    forum: "forum", momprofile: "moments", us: "couple",
+    favorites: "favorites", emotes: "emotes", stylelab: "stylelab",
+    config: "config", assistant: "assistant", codex: "codex"
   };
   function pageOf(pg) {
     if (!pg || !pg.screen) return null;
-    const row = SCREEN_INFO[pg.screen];
-    const zh = (row && row[0]) || "";
+    const Z = typeof SCREEN_ZH !== "undefined" ? SCREEN_ZH : {};
+    const zh = Z[pg.screen] || "";
     if (!zh) return null;
-    return { zh: zh, man: (row && row[1]) || "", who: pg.charName || "" };
+    return { zh: zh, man: SCREEN_MAN[pg.screen] || "", who: pg.charName || "" };
   }
   function pageLine(pg) {
     const p = pageOf(pg); if (!p) return "";
@@ -714,7 +709,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_INFO, snippetEdit, shownLen };
+    loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
 })();
 
 // ============================================================

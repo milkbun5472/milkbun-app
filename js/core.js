@@ -483,6 +483,40 @@ const SKIN_PATS = {
 
 // tint：这一页的色相（"r,g,b"）。不给就用主题的 accent —— 于是默认皮肤
 // 也跟着她换的主题走，不会一换主题就有一页还挂着上一套颜色。
+// ── 这个 App 有哪些页 · 全库唯一那一份（v63.44）──────────────────────────
+// 谁在用它：① 主题工作台的「页面 CSS」下拉（哪几页能单独写样式）
+//           ② 秋秋报「她此刻在哪一页」
+// ⚠️原来这两处各存了一份名单：工作台那份只有十页（而作用域机制
+//   html[data-lisa-screen="<screen>"] 是【每一页都自带】的，十页是手写的限制，
+//   不是能力的限制），秋秋那份有五十页——于是「秋秋知道你在查手机，
+//   却没法给查手机写样式」。而且工作台把 messages 标成了「朋友圈」，
+//   实际上那一页是整个消息 app（聊天/通讯录/朋友圈/我 四栏）。
+//   两份名单必然对不上，所以收成这一份。
+// 加一页的规矩：这里加一行，两处自动都有；名字写【她在界面上看到的那个名字】。
+// ⚠️名字要短、要能直接说出口——秋秋会拿它组一句「你正开着『XX』」。
+//   有几页的【范围】跟名字对不上（写 thread 的样式，线下浮层也跟着变），
+//   那种提示放 SCREEN_NOTE，只给主题工作台那个下拉用；名字这一份不背这个包袱。
+const SCREEN_NOTE = {
+  thread: "线下浮层也算这一页", gthread: "群线下浮层也算这一页",
+  messages: "聊天 / 通讯录 / 朋友圈 / 我 四栏都算"
+};
+const SCREEN_ZH = {
+  home: "主屏", messages: "消息",
+  thread: "单聊", gthread: "群聊",
+  contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
+  phone: "查手机", shop: "购物", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
+  cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", ledger: "记账",
+  calendar: "日历", memo: "备忘录", map: "好友地图",
+  listen: "一起听", musiccard: "一起听那张卡的背面",
+  diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答",
+  study: "一起学", fanfic: "同人文", read: "一起读", weekly: "周刊", debate: "擂台",
+  dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", pomodoro: "番茄钟",
+  games: "小游戏", trpg: "跑团", theater: "小剧场", impression: "月度印象",
+  yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
+  forum: "论坛", momprofile: "朋友圈个人页", us: "情侣空间",
+  favorites: "收藏", emotes: "表情包", stylelab: "文风台",
+  config: "设置", assistant: "秋秋", codex: "攻略"
+};
 function pageSkin(kind, t, opts) {
   const o = opts || {};
   const th = t || DEFAULT_THEME;

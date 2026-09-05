@@ -15,7 +15,11 @@ test("有正门：在微信「我」那一屏，一条路由、一页", () => {
   // 刚好人设也是在那里写的」——她的衣服和她的人设是同一类东西。
   assert.ok(comp.indexOf('mycloset: { kind: "app"') < 0, "主屏那一格又长回来了");
   assert.ok(comp.indexOf('"carry", "mycloset"') < 0, "默认布局里还摆着");
-  assert.ok(core.indexOf("mycloset:") < 0, "色相表里还留着一条没人用的");
+  // ⚠️只问【色相表】那一张：v63.44 起 core.js 里多了一份 SCREEN_ZH（全库页名单），
+  //   衣柜是一页真的页面，本来就该在那份里。原来这条写成「core.js 里不许出现
+  //   mycloset:」，那是拿文件当表查——多一张表就误伤。
+  const hue = cut(core, "const APP_TONE_HUE = {", "\n};");
+  assert.ok(hue.indexOf("mycloset:") < 0, "色相表里还留着一条没人用的");
   assert.match(comp, /onClick: onOpenMyCloset,/, "「我」那一屏上没有这一行");
   assert.match(comp, /"我的衣柜"\), h\("div", \{/, "那一行没有名字");
   assert.match(comp, /\n  onOpenMyCloset,/, "组件没收这个 prop");
