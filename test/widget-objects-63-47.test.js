@@ -70,18 +70,19 @@ test("一起听是一张压在唱机上的黑胶，碟心贴着照片、唱臂�
   assert.match(vd, /background: cover \? "center\/cover no-repeat url\(" \+ cover/, "碟心那张照片没贴上去");
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   assert.doesNotMatch(mw, /inset -6px 0 10px -6px/, "纸套还留在原地");
-  assert.match(mw, /const tall = !!\(rows && rows\.rows >= 2\)/, "盘的大小没跟着格子走");
-  assert.match(mw, /tall \? 126 : 62/, "两行高的大卡该给大盘");
+  assert.match(mw, /const discSize = avail/, "盘的大小没跟着量出来的高度走");
   assert.match(mw, /mmss\(cur\)/, "走了多久那一行没了");
 });
 
 test("4×2 那一档：唱片旁边一摞拍立得，中间是进度，底下三颗真能按的键", () => {
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   // 拍立得只在两行高那一档出现——一行高的条子里它会被压扁
-  assert.match(mw, /h\(PolaroidStack, \{ w: 94, photo: card\.photo, note: card\.note, lean: 9/, "拍立得没挂上去，或者没放大 / 没往右歪");
+  // 宽度也跟着量出来的高度走（写死 94 的话矮格子里会顶出去）
+  assert.match(mw, /h\(PolaroidStack, \{ w: Math\.max\(62, Math\.min\(94, Math\.round\(\(avail \|\| 130\) \/ 1\.22\)\)\), photo: card\.photo, note: card\.note, lean: 9/,
+    "拍立得没挂上去，或者没放大 / 没往右歪 / 没跟着高度走");
   // 「大到有点超出边界的迹象」＝被卡边切掉一条，不是真画到卡外面（那会盖住旁边的格子）
   assert.match(mw, /marginRight: -22/, "它不再探出卡外了");
-  assert.match(mw, /alignItems: "center", gap: compact \? 9 : square \? 9 : tall \? 9 : 14, overflow: "hidden"/, "卡不再切它，或者缝又变大了");
+  assert.match(mw, /alignItems: "center", gap: square \? 9 : tall \? 9 : 11, overflow: "hidden"/, "卡不再切它，或者缝又变大了");
   const ps = cut("function PolaroidStack(", "function MusicWidget(");
   // 「一摞」＝后面真的压着两张，不是一张方图加个影子
   assert.equal((ps.match(/"aria-hidden": true, style: sheet\(/g) || []).length, 2, "后面那两张没了，就不是一摞了");
@@ -141,4 +142,33 @@ test("地图上那行版权缩回角落，但一个字都没删", () => {
     "没有这条，Leaflet 默认那行会横穿整张图");
   // ⚠️Esri 的免 key 瓦片要求署名：只许缩小，不许删
   assert.match(fs.readFileSync(P("js/map.js"), "utf8"), /attribution: 'Tiles &copy; Esri'/, "署名不许删");
+});
+
+// v63.47（她 2026-09-05 发了自己手机上的真图：4×1 的字漏到卡外面、4×2 的播放键被切掉一半）
+//
+// 病根：尺寸是按【第几档】拍的（tall ? 126 : 62）。可是一行有多高是【量出来的】——
+// 主屏把剩下的高度除以行数，每台机器都不一样；我按 82px 算出来的 126 在她那儿撑爆了。
+test("卡里的尺寸从量出来的真实高宽推，不是按档位拍死的数", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  assert.match(mw, /const \[boxH, setBoxH\] = useState\(0\);/, "没量高度");
+  assert.match(mw, /const \[boxW, setBoxW\] = useState\(0\);/, "没量宽度");
+  assert.match(mw, /new ResizeObserver\(measure\)/, "格子改尺寸时不会重新量");
+  assert.match(mw, /ref: boxRef, onClick: onOpen/, "ref 没挂到卡上，量到的是别人");
+  // 量不到（首帧）要有兜底，不然会闪一下 0
+  assert.match(mw, /: \(compact \? 44 : square \? 62 : twoRow \? 110 : 58\)/, "首帧没有兜底尺寸");
+  // 露不露某一层，问的是「还剩多少高度」
+  assert.match(mw, /const tall = !square && \(avail \? avail >= 116 : twoRow\)/);
+  assert.match(mw, /const showProg = avail \? avail >= 62/);
+  assert.match(mw, /const showArtist = avail \? avail >= 46/);
+});
+
+test("窄格子里碟也不许顶破：宽度一样参与，竖排不上播放键", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  // 只按高度算的话：2×2 会顶破格子，3×2 会把中间那列挤成一个字一行
+  assert.match(mw, /Math\.min\(130, avail, Math\.round\(room \* 0\.36\)\)/, "横排时碟没受宽度管");
+  assert.match(mw, /square \? Math\.min\(Math\.round\(avail \* 0\.45\), room, 110\)/, "竖排时碟没受宽度管");
+  assert.match(mw, /const tall = !square &&/, "竖排也上了播放键——那点高度装不下，会被切掉");
+  // 拍立得只在四格宽那一档露：三格宽时它一挂上去中间那列只剩三十来 px
+  assert.match(mw, /const showStack = tall && \(boxW \? boxW >= 320 : twoRow\)/);
+  assert.match(mw, /showStack \? h\("div", \{ style: \{ marginRight: -22/);
 });

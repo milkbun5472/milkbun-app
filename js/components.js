@@ -1595,10 +1595,42 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const compact = homeSize === "short";
   const square = homeSize === "square";
   const forced = homeSize && homeSize !== "auto";
-  // 盘的直径跟着格子走：一行高的条子给小盘，两行的大卡给大盘（她：「大小也可以调节」）
+  // ⚠️尺寸不能按「几行」拍（她 2026-09-05 截图：4×1 的字漏到卡外面、4×2 的播放键被切掉一半）。
+  //   一行有多高是【量出来的】——主屏把剩下的高度除以行数，每台机器都不一样，
+  //   我按 82px 算出来的 126 在她那儿就撑爆了。所以这儿量自己这张卡真实的高度，
+  //   碟的大小、哪几层露出来，全部从这个数推。量不到（首帧）先用按档位的老数兜底，不闪。
+  const boxRef = useRef(null);
+  const [boxH, setBoxH] = useState(0);
+  const [boxW, setBoxW] = useState(0);
+  useEffect(function () {
+    const el = boxRef.current; if (!el) return;
+    const measure = function () { setBoxH(el.clientHeight || 0); setBoxW(el.clientWidth || 0); };
+    measure();
+    if (typeof ResizeObserver === "function") { const ro = new ResizeObserver(measure); ro.observe(el); return function () { ro.disconnect(); }; }
+    window.addEventListener("resize", measure);
+    return function () { window.removeEventListener("resize", measure); };
+  }, []);
   const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
-  const tall = !!(rows && rows.rows >= 2);
-  const discSize = compact ? 44 : square ? 62 : tall ? 126 : 62;
+  const twoRow = !!(rows && rows.rows >= 2);
+  const pad = twoRow ? 8 : 10;
+  const avail = boxH ? Math.max(0, boxH - pad * 2) : 0;
+  // 露不露某一层，看的是【还剩多少高度】，不是「这是第几档」
+  // ⚠️2×2 那一档是【竖排】：碟、字、键一层层往下堆，那点高度装不下播放键——
+  //   她截图里就是碟被切掉顶、键被切掉底。所以竖排一律不上播放键。
+  const tall = !square && (avail ? avail >= 116 : twoRow);   // 播放键 + 拍立得
+  const showProg = avail ? avail >= 62 : !compact && !square;
+  // 「一起听」那行眉标是这几层里最不值钱的，先让它走；歌手比它值钱，留到更矮才砍
+  const showEyebrow = square ? false : (avail ? avail >= 76 : !compact);
+  const showArtist = avail ? avail >= 46 : !compact;
+  // ⚠️碟不能只受【高度】管：2×2 那一档是竖排、3×2 那一档只有三格宽，
+  //   光按高度算出来的 130 会顶破格子、或者把中间那一列挤成一个字一行（她那两张截图）。
+  //   所以宽度也要参与——横排时碟至多占卡宽的 36%，竖排时至多占满宽。
+  const room = boxW ? Math.max(0, boxW - pad * 2) : 0;
+  const discSize = avail
+    ? (square ? Math.min(Math.round(avail * 0.45), room, 110) : Math.min(130, avail, Math.round(room * 0.36)))
+    : (compact ? 44 : square ? 62 : twoRow ? 110 : 58);
+  // 拍立得只在【四格宽】那一档露：三格宽时它一挂上去，中间那一列就只剩三十来px
+  const showStack = tall && (boxW ? boxW >= 320 : twoRow);
   const stop = fn => function (e) { e.stopPropagation(); e.preventDefault(); if (fn) fn(); };
   const ctlBtn = (label, node, fn, big) => h("button", {
     onClick: stop(fn), "aria-label": label, className: "active:opacity-60 flex items-center justify-center",
@@ -1608,13 +1640,13 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const tri = (dir, c) => h("svg", { width: 13, height: 13, viewBox: "0 0 13 13", "aria-hidden": true },
     h("path", { d: dir > 0 ? "M2.5 2 9 6.5 2.5 11Z" : "M10.5 2 4 6.5 10.5 11Z", fill: c }),
     h("rect", { x: dir > 0 ? 9.6 : 1.7, y: 2, width: 1.7, height: 9, fill: c }));
-  return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
+  return h("button", { ref: boxRef, onClick: onOpen, className: "w-full active:opacity-85 text-left",
     style: Object.assign({ marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
       border: gr.bg ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
-      padding: compact ? "8px 10px" : square ? "10px 9px" : tall ? "8px 10px" : "10px 14px",
+      padding: twoRow ? (pad + "px 10px") : (pad + "px 13px"),
       boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.72)",
       display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start",
-      alignItems: "center", gap: compact ? 9 : square ? 9 : tall ? 9 : 14, overflow: "hidden" },
+      alignItems: "center", gap: square ? 9 : tall ? 9 : 11, overflow: "hidden" },
       gr.bg ? { background: gr.bg }
             : { background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
                 backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR }) },
@@ -1623,25 +1655,25 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     // 这一小块只吃自己的点击（stopPropagation），不会顺手把一起听整个打开。
     h("div", { style: { position: "relative", flexShrink: 0 } },
       h(VinylDisc, { size: discSize, cover: discImg, playing: playing, frac: frac }),
-      onSetDisc && !editMode && !compact ? h("span", {
+      onSetDisc && !editMode && discSize >= 72 ? h("span", {
         role: "button", tabIndex: 0,
         onClick: stop(function () { if (picker.current) picker.current.click(); }),
         className: "active:opacity-70",
-        style: { position: "absolute", left: tall ? "50%" : -2, transform: tall ? "translateX(-50%)" : "none", bottom: tall ? -9 : -2, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2,
+        style: { position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: -9, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2,
           color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 6px", whiteSpace: "nowrap" }
       }, discImg ? "换照片" : "加照片") : null,
       onSetDisc ? h("input", { ref: picker, type: "file", accept: "image/*", style: { display: "none" },
         onClick: function (e) { e.stopPropagation(); },
         onChange: function (e) { const f = e.target.files && e.target.files[0]; if (f) onSetDisc(f); e.target.value = ""; } }) : null),
     h("div", { style: { flex: 1, minWidth: 0 } },
-      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : tall ? 17 : 16.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
-      !compact && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
+      showEyebrow && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: avail && avail < 62 ? 13 : square ? 14 : tall ? 17 : 15.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
+      showArtist && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
       // 走了多久 / 一共多长，压在一根发丝细的轨上——参考图上就是这一行
-      !compact && !square && h("div", { style: { marginTop: tall ? 8 : 7 } },
+      showProg && !square && h("div", { style: { marginTop: tall ? 7 : 5 } },
         h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(ink, "1c"), position: "relative" } },
           h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac * 100) + "%", borderRadius: 2, background: t.accent } })),
-        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub } },
+        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub, whiteSpace: "nowrap" } },
           h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--"))),
       // 四颗真的能按的键（不是画着好看的）：上一首 / 播停 / 下一首 / 进一起听
       tall && !editMode ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 7 } },
@@ -1654,8 +1686,8 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     // 她 2026-09-05：「拍立得也放大点然后角度再往右侧一点，大到有点超出边界的迹象」。
     // 右边负 marginRight 把它推出卡外，卡自己的 overflow:hidden 会切掉一条——
     // 那一条切口就是「超出边界的迹象」，不是真的画到卡外面去（画出去会盖住旁边的格子）。
-    tall ? h("div", { style: { marginRight: -22, flexShrink: 0 } },
-      h(PolaroidStack, { w: 94, photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
+    showStack ? h("div", { style: { marginRight: -22, flexShrink: 0 } },
+      h(PolaroidStack, { w: Math.max(62, Math.min(94, Math.round((avail || 130) / 1.22))), photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
 }
 // 一起听那张卡的【背面】：换拍立得上的照片、写那句花体、挑卡片的底。
 // ⚠️整页，不是半窗（no-half-sheet.md）：三样东西各占一块，半窗先扣掉半屏就摆不下。
