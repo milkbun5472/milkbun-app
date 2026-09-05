@@ -870,13 +870,13 @@ test("幕间:翻章之后那一拍,而且不能在 confirmStage 里直接开", (
   assert.match(src, /mode === "lull" \? "\\n〔幕间〕/, "幕间那一段提示词");
   // 幕间不掷骰、钟不走、落回自由活动
   assert.match(src, /calm: mode === "rest" \|\| mode === "lull"/, "幕间那一拍威胁钟不许走");
-  assert.match(src, /\(mode === "rest" \|\| mode === "lull" \|\| \(mode && mode\.night\)\) \? "interlude"/, "场景型固定成休整(夜谈也是)");
+  assert.match(src, /\(mode === "rest" \|\| mode === "lull" \|\| \(mode && \(mode\.night \|\| mode\.away\)\)\) \? "interlude"/, "场景型固定成休整(夜谈、离线也是)");
   // 她可以不要这一拍(按次计费,别硬塞)
   assert.match(src, /confirmStage\(true, false\), style: S\.btn\(false\) \}, "翻过·直接接着演"/);
 });
 
 test("打出一张牌只是附注,不该顺手吃掉喘气拍", () => {
   // 原来是 !mode 才给喘气拍;use 走 mode 之后要显式排除,否则连着三拍绷着的间歇会被吞掉
-  assert.match(src, /const specialMode = mode && \(typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.travel \|\| mode\.explore \|\| mode\.seed\)/);
+  assert.match(src, /const specialMode = mode && \(typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away \|\| mode\.travel \|\| mode\.explore \|\| mode\.seed\)/);
   assert.match(src, /const wantLull = !specialMode && !dice && tenseStreak >= 3/);
 });

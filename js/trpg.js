@@ -392,6 +392,27 @@
   };
   // 开章后真正往章目标走的拍数:幕间、探索那些闲拍不算——它们本来就不推进主线
   const stageBeats = since => since.filter(m => m.role === "gm" && !m.lull && m.sceneType !== "interlude" && m.sceneType !== "explore").length;
+  // ---- 离线这几天(她 9/4 问「4 要是我一周不玩咋办」) ----
+  // 隔了一天以上回来,世界没停:钟按真实天数走,但【至多两格、永远不走满】——
+  // 走满是要爆发成事件的,那得她在场。一周不玩也只是两格,回来时压力更近了,不是天塌了。
+  // 最紧的那座先走(filled 最高的),同一座走不到 max-1 就换下一座;哪座都走不了就不走。
+  const AWAY_CLOCK_MAX = 2;
+  const AWAY_DAY_MAX = 7;    // 团内时间最多跟着跳 7 天,再久也只算一周
+  const awayClocks = (clocks, days) => {
+    const out = (clocks || []).map(c2 => Object.assign({}, c2));
+    const moved = [];
+    let left = Math.min(AWAY_CLOCK_MAX, Math.max(0, Math.floor(days)));
+    while (left > 0) {
+      const cand = out.filter(c2 => c2.filled < c2.max - 1).sort((a, b) => b.filled - a.filled)[0];
+      if (!cand) break;
+      const from = cand.filled;
+      cand.filled += 1;
+      const rec = moved.find(m => m.name === cand.name);
+      if (rec) rec.to = cand.filled; else moved.push({ name: cand.name, from, to: cand.filled, max: cand.max });
+      left -= 1;
+    }
+    return { clocks: out, moved };
+  };
   function applyTurnPayload(camp, p, opts) {
     const next = Object.assign({}, camp);
     const notes = [];
@@ -502,8 +523,11 @@
     }
     // 威胁时钟(0~max 格):最多同时 3 座;单拍进退夹 ±2;done=威胁解除拆钟;
     // 走满的钟由守密人负责让它爆发(规则写在 sys 里),这里只记账和亮红
-    const clocks = (camp.clocks || []).map(c2 => Object.assign({}, c2));
-    (Array.isArray(p.clock) ? p.clock : []).forEach(row => {
+    const away = opts && opts.away && opts.away.days > 0 ? opts.away : null;
+    const walked = away ? awayClocks(camp.clocks, away.days) : null;
+    const clocks = walked ? walked.clocks : (camp.clocks || []).map(c2 => Object.assign({}, c2));
+    if (walked) walked.moved.forEach(mv => { notes.push("⏰" + mv.name + " " + mv.to + "/" + mv.max + "(这几天)"); chips.push({ k: "clue", txt: "⏰ " + mv.name + " " + mv.to + "/" + mv.max + "·这几天" }); });
+    (Array.isArray(away ? null : p.clock) ? p.clock : []).forEach(row => {
       if (!row || typeof row !== "object") return;
       const name = String(row.name || "").trim().slice(0, 10);
       if (!name) return;
@@ -649,9 +673,14 @@
       }
     });
     // 团内时间:只向前走(单拍至多跨 2 天),晨→午→暮→夜;限时的事交给威胁钟表达
+    if (away) {
+      const cur0 = camp.time || { day: 1, part: "晨" };
+      next.time = { day: cur0.day + Math.min(AWAY_DAY_MAX, Math.max(1, Math.floor(away.days))), part: cur0.part };
+      chips.push({ k: "lose", txt: "🕯 第" + next.time.day + "日·" + next.time.part + "·隔了" + Math.floor(away.days) + "天" });
+    }
     if (p.time && typeof p.time === "object") {
       const PARTS = ["晨", "午", "暮", "夜"];
-      const cur = camp.time || { day: 1, part: "晨" };
+      const cur = (away ? next.time : camp.time) || { day: 1, part: "晨" };
       const day = Math.round(Number(p.time.day) || 0);
       const pi = PARTS.indexOf(p.time.part);
       if (day > 0 && pi >= 0) {
@@ -782,10 +811,18 @@
         return strip(Object.assign({}, c2, { filled }));
       });
     }
+    // 捎来的信:只有名册里有人情账(欠/被欠)、还活着的那位才写得出来;别人写的一律丢
+    let letter = null;
+    if (away && p.letter && typeof p.letter === "object") {
+      const from = String(p.letter.from || "").trim();
+      const text = String(p.letter.text || "").trim().slice(0, 200);
+      const n = from ? (next.npcs || []).find(x => x.name === from || x.name.indexOf(from) >= 0 || from.indexOf(x.name) >= 0) : null;
+      if (n && n.alive !== false && n.debt && text) { letter = { from: n.name, text }; chips.push({ k: "clue", txt: "✉ " + n.name + "捎来一封信" }); }
+    }
     if (gate) next.gate = gate;
     if (p.ending) next.pendingEnd = String(p.endNote || "").trim() || "故事似乎走到了可以落幕的地方";
     const gateOut = next.gate; delete next.gate;
-    return { camp: next, chips, sysLine: notes.join(" · "), gate: gateOut || null };
+    return { camp: next, chips, sysLine: notes.join(" · "), gate: gateOut || null, letter };
   }
 
   // ---- 手绘旅程图(纯函数) ----
@@ -1032,6 +1069,7 @@
       const role = m.role === "gm" ? "assistant" : "user";
       const content = m.role === "chat"
         ? "〔闲聊〕" + (m.lines || []).map(l => l.name + ":" + l.text + (l.act ? "(" + l.act + ")" : "")).join(" / ")
+        : m.role === "letter" ? "〔" + m.from + " 捎来的信〕" + m.content
         : (m.role === "roll" || m.role === "sys" ? "〔" + m.content + "〕" : m.content) || "";
       if (!content) return;
       if (out.length && out[out.length - 1].role === role) out[out.length - 1] = { role, content: out[out.length - 1].content + "\n" + content };
@@ -1697,7 +1735,7 @@
         "【赶路】叙事跨地图节点时不许瞬移:要么停在动身那一刻(让玩家自己点地图赶路),要么如实更新 place 并把途中写出至少一笔(路况/遭遇/一句对话)。上一拍在甲地下一拍人已站在乙地而中间没有路,是穿帮。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"willing\":null,\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"night\":[],\"stepDone\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险;【这一幕收了】——眼前的危机解决或告一段落、队伍得空能自己活动时——choices 给【空数组】,队伍会落回探索态自己逛(地点动作/找人攀谈/赶路),你不用替他们安排下一步)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"眼下目标\",\"stakes\":\"可见代价或空\"},\"siteActions\":[\"此地专属动作×2-3\"],\"choices\":[{\"text\":\"选项\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险或空\",\"payoff\":\"擅长换来什么\",\"willing\":null,\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\",\"use\":null|{\"name\":\"这一下要用掉的东西\",\"who\":\"从谁身上掏\"}}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\",\"debt\":null|\"owe|owed|clear\",\"debtNote\":\"这笔人情是怎么欠下的\"}],\"bond\":[{\"name\":\"队友名\",\"delta\":1,\"why\":\"因为哪件事\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"night\":[],\"letter\":null,\"stepDone\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1742,7 +1780,7 @@
         const lastGm = liveMsgs.map(m => m.role).lastIndexOf("gm");
         const tailHasCC = liveMsgs.slice(lastGm + 1).some(m => m.role === "sys" && String(m.content || "").indexOf("亲笔·") === 0);
         // 结算拍(mode==="resolve")不再开票:被结算的正是他上一票的动作,再问就是问第二遍
-        const cc = (mode && (mode.talk || mode.night || mode.pov)) || tailHasCC || mode === "resolve" ? null : await ccDeclare(camp, liveMsgs);
+        const cc = (mode && (mode.talk || mode.night || mode.pov || mode.away)) || tailHasCC || mode === "resolve" ? null : await ccDeclare(camp, liveMsgs);
         const ccTry = !!(cc && cc.indexOf("想赌:") >= 0);
         if (cc) {
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + cc, ts: Date.now() };
@@ -1768,7 +1806,7 @@
           return n;
         })();
         // 「打出一张牌」只是给这一拍带了个附注,它仍旧是普通拍——别让它顺手吃掉喘气拍
-        const specialMode = mode && (typeof mode === "string" || mode.talk || mode.night || mode.pov || mode.travel || mode.explore || mode.seed);
+        const specialMode = mode && (typeof mode === "string" || mode.talk || mode.night || mode.pov || mode.away || mode.travel || mode.explore || mode.seed);
         const wantLull = !specialMode && !dice && tenseStreak >= 3 && !camp.ended;
         const seed = mode && mode.seed;
         const exploring = !!(mode && mode.explore);
@@ -1780,6 +1818,7 @@
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕sceneMeta.type 固定 social。这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
           + (mode && mode.pov ? "\n〔换视角·" + mode.pov + "〕这一拍镜头交给「" + mode.pov + "」:正文以他为视点写——他这会儿在哪、在做什么、看见什么、心里转什么,用他自己的声口和眼光看这个世界(别人眼里的他和他眼里的自己不是一回事);他的私念在这一拍可以露出一角,但别全交代。" + uName + " 这一拍不在他身边或只在旁边,绝不替 " + uName + " 说话。choices 是【" + mode.pov + " 的选择】:用他的口吻写他会怎么做,check 的 who 一律写「" + mode.pov + "」;至少一条是他自己的私念会让他选的(willing:true),至少一条是队伍或 " + uName + " 会希望他做、但他自己不情愿的(willing:false),这两条要真的打架;每条都标 willing。这一拍不报 stageDone 也不报 stepDone。" : "")
           + (mode && mode.povPick ? "\n〔视角收回〕上一拍是「" + mode.povPick.who + "」的视角," + uName + " 替他选了「" + mode.povPick.text + "」" + (mode.povPick.against ? "——这是他不情愿的:他照做了,但会有反应,写进他的言行与之后几句里,别演成大度。" : "——这正合他的心意。") + "这一拍镜头回到 " + uName + ":写那个选择落下去的后果," + mode.povPick.who + " 的情绪要带着。" : "")
+          + (mode && mode.away ? (() => { const w = awayClocks(camp.clocks, mode.away); const owed = (camp.npcs || []).filter(n => n.alive !== false && n.debt); const days = Math.floor(mode.away); return "\n〔离线这几天〕sceneMeta.type 固定 interlude。队伍在「" + (camp.pos || camp.place) + "」停了 " + days + " 天(玩家现实里离开了这么久;团内时间已经跟着走到第" + (((camp.time || {}).day || 1) + Math.min(AWAY_DAY_MAX, Math.max(1, days))) + "日,time 就写这一天)。写这几天世界怎么动了——不是一拍戏,是一段【日子过去了】的叙述(3-6句):" + (w.moved.length ? "这几座钟各走了一格:" + w.moved.map(mv => "「" + mv.name + "」" + mv.to + "/" + mv.max).join("、") + "——各自要有看得见的征兆(风声、来人、价钱、封锁、伤口),但都【没有爆发】,别把它写成事件;" : "钟没动,但日子在过;") + "队友们这几天各自在干什么,一两句,照私念与羁绊来。" + (owed.length ? "名册里" + owed.map(n => "「" + n.name + "」(" + (n.debt.side === "owe" ? "欠他人情" : n.debt.side === "owed" ? "他欠着人情" : "有人情账") + ")").join("、") + "可以捎来一封短信或口信,写进 letter 字段 {from, text}(≤120字,用他的身份和口气写——可以要债、可以还情、可以只是问一句);没话说就 letter 给 null。" : "letter 给 null。") + "不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,clock 字段留空(钟已由时间走过了)。结尾 choices 给 2-3 个重新动身的方向。"; })() : "")
           + (mode && mode.travel ? "\n〔赶路〕sceneMeta.type 固定 travel。队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (seed ? "" : Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
           + (exploring ? "\n〔探索拍〕sceneMeta.type 固定 explore。队伍正在「" + (camp.pos || camp.place) + "」" + (siteAction ? "亲手做此地专属动作:「" + siteAction + "」" : "四下看看") + ":写一小段真正由这个动作得到的发现——环境细节、一件小东西、一句传闻、名册上某人此刻在干什么;不开危机、不报 needCheck、不报 stageDone、威胁钟不走。" + (seed ? "" : "这一拍没有偶遇:choices 给【空数组】,队伍还留在探索态自己逛。") : "")
           + (seed ? "\n〔偶遇〕偶遇骰掷中了这一区的支线种子「" + seed.name + "」(触发:" + seed.trigger + (seed.hook ? ";底:" + seed.hook : "") + "):就在这一拍把它自然端出来(quest add 同名),写成眼前真实发生的一件事,结尾给 2-3 个 choices 让队伍接手——这就进入了事件态。" : "")
@@ -1793,14 +1832,16 @@
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
           if (c.id !== camp.id) return c;
-          const forcedScene = (mode === "rest" || mode === "lull" || (mode && mode.night)) ? "interlude" : mode && mode.talk ? "social" : mode && mode.travel ? "travel" : exploring ? "explore" : null;
-          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || mode === "lull" || !!(mode && (mode.talk || mode.night)) || (exploring && !seed), explore: mode && mode.explore, rest: mode === "rest", night: (mode && mode.night) || null, pov: (mode && mode.pov) || null, povPick: (mode && mode.povPick) || null, siteAction: siteAction || null, sceneType: forcedScene, useItem: (mode && mode.use) || null });
+          const forcedScene = (mode === "rest" || mode === "lull" || (mode && (mode.night || mode.away))) ? "interlude" : mode && mode.talk ? "social" : mode && mode.travel ? "travel" : exploring ? "explore" : null;
+          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c), roll: (extra || []).filter(x => x && x.role === "roll").slice(-1)[0] || null, calm: mode === "rest" || mode === "lull" || !!(mode && (mode.talk || mode.night || mode.away)) || (exploring && !seed), away: mode && mode.away ? { days: mode.away } : null, explore: mode && mode.explore, rest: mode === "rest", night: (mode && mode.night) || null, pov: (mode && mode.pov) || null, povPick: (mode && mode.povPick) || null, siteAction: siteAction || null, sceneType: forcedScene, useItem: (mode && mode.use) || null });
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
           const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), sceneType: nc.sceneMeta.type, pov: nc.pov || undefined, chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), seeds: (nc.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices, sceneMeta: nc.sceneMeta, sceneTrail: (nc.sceneTrail || []).slice(), siteActions: Object.assign({}, nc.siteActions || {}), siteDone: Object.assign({}, nc.siteDone || {}) } }]);
           if (wantLull || (exploring && !seed)) msgs[msgs.length - 1].lull = true;
           if (r.gate) msgs.push({ id: rid("rm_"), role: "sys", content: r.gate, ts: Date.now() });
+          // 捎来的信单独一张纸,不混进正文——它是那个人写的,不是守密人说的
+          if (r.letter) msgs.push({ id: rid("rm_"), role: "letter", from: r.letter.from, content: r.letter.text, ts: Date.now() });
           return Object.assign({}, nc, { msgs });
         }));
         setNote(""); setNoteOpen(false); setDice(false);
@@ -2571,12 +2612,19 @@
       const lastTs = camp.msgs.length ? (camp.msgs[camp.msgs.length - 1].ts || 0) : 0;
       const resume = (!camp.ended && lastTs && Date.now() - lastTs > 12 * 3600 * 1000 && resumeSeen !== camp.id) ? (() => {
         const lastGm = camp.msgs.filter(m => m.role === "gm").slice(-1)[0];
+        // 离线这几天:隔了一天以上、而且这个世界有东西会动(钟或人情账),才递这一张
+        const awayDays = Math.floor((Date.now() - lastTs) / 86400000);
+        const worldMoves = (camp.clocks || []).length || (camp.npcs || []).some(n => n.alive !== false && n.debt);
+        const offerAway = awayDays >= 1 && worldMoves && camp.awayAck !== lastTs;
+        const ackAway = () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { awayAck: lastTs })));
         return h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderStyle: "dashed" }) },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 4 } }, "📖 休团回来 · 第" + ((camp.time || {}).day || 1) + "日·" + ((camp.time || {}).part || "晨") + " · " + (camp.place || "")),
           cur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, "当前章:" + cur.goal + (cur.place ? "〔在:" + cur.place + "〕" : "")) : null,
           lastGm ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "上回说到——" + String(lastGm.content || "").slice(-120)) : null,
-          h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
-            h("button", { onClick: () => setResumeSeen(camp.id), style: S.btn(true) }, "接上,继续")));
+          offerAway ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, "你走了 " + awayDays + " 天,这个世界没停——" + ((camp.clocks || []).length ? "钟会跟着走(最多两格,不会走满)" : "有人可能捎信来") + "。") : null,
+          h("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
+            offerAway ? h("button", { onClick: () => { setResumeSeen(camp.id); ackAway(); turn("(隔了 " + awayDays + " 天回来)", null, { away: awayDays }); }, disabled: busy, style: S.btn(true) }, "看看这几天发生了什么") : null,
+            h("button", { onClick: () => { setResumeSeen(camp.id); if (offerAway) ackAway(); }, style: S.btn(!offerAway) }, offerAway ? "当没发生过,接上" : "接上,继续")));
       })() : null;
       const downed = camp.party.filter(m => m.hp <= 0);
       // 终章问询卡:落幕前把「最后一笔」的笔递回她手里(可留空交给命运,但留空
@@ -2662,6 +2710,12 @@
         ? h("div", { key: m.id, style: { margin: "8px 20px", textAlign: "center", fontFamily: "monospace", fontSize: 11.5, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px" } }, "🎲 " + m.content)
         : m.role === "sys"
         ? h("div", { key: m.id, style: { margin: "6px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.content)
+        // 捎来的信:一张折过的纸,落款在右下
+        : m.role === "letter"
+        ? h("div", { key: m.id, style: { margin: "10px 22px", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 4, boxShadow: "2px 3px 0 " + t.line, transform: "rotate(-.6deg)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 6 } }, "✉ 捎来的信"),
+            h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, m.content),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.sub, textAlign: "right", marginTop: 8 } }, "—— " + m.from))
         : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px" } },
             m.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 4 } }, "👁 " + m.pov + " 的视角") : null,
             h("div", { style: S.txt }, m.content),
@@ -3091,5 +3145,5 @@
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
   if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
+  if (typeof module === "object" && module.exports) module.exports = { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
 })();

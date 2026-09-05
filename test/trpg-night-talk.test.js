@@ -44,10 +44,10 @@ test("夜谈拍:接了谁的话头就划掉谁的;别的拍一来,这一夜就�
 });
 
 test("turn():夜谈是特殊拍——不开亲笔票、不触发幕间、场景钉 interlude、钟不走", () => {
-  assert.match(src, /const cc = \(mode && \(mode\.talk \|\| mode\.night \|\| mode\.pov\)\) \|\| tailHasCC/);
-  assert.match(src, /typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.travel/);
-  assert.match(src, /\(mode === "rest" \|\| mode === "lull" \|\| \(mode && mode\.night\)\) \? "interlude"/);
-  assert.match(src, /calm: mode === "rest" \|\| mode === "lull" \|\| !!\(mode && \(mode\.talk \|\| mode\.night\)\)/);
+  assert.match(src, /const cc = \(mode && \(mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away\)\) \|\| tailHasCC/);
+  assert.match(src, /typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away \|\| mode\.travel/);
+  assert.match(src, /\(mode === "rest" \|\| mode === "lull" \|\| \(mode && \(mode\.night \|\| mode\.away\)\)\) \? "interlude"/);
+  assert.match(src, /calm: mode === "rest" \|\| mode === "lull" \|\| !!\(mode && \(mode\.talk \|\| mode\.night \|\| mode\.away\)\)/);
   assert.match(src, /rest: mode === "rest", night: \(mode && mode\.night\) \|\| null/, "opts 里要把休整/夜谈两个口子递进 applyTurnPayload");
 });
 
@@ -58,7 +58,7 @@ test("提示词:休整拍要每位队友开一个话头(不是对下一步的看
   assert.match(src, /〔夜谈·对象:" \+ mode\.night\.who \+ "〕sceneMeta\.type 固定 interlude/);
   assert.match(src, /他隐约察觉 " \+ uName \+ " 心里揣着事\(他不知道那是什么\)/);
   assert.match(src, /问完就住,玩家躲开也不追,绝不点破/);
-  assert.match(src, /\\"night\\":\[\],\\"stepDone\\":null/, "输出 JSON 里有 night");
+  assert.match(src, /\\"night\\":\[\],\\"letter\\":null,\\"stepDone\\":null/, "输出 JSON 里有 night");
   // prompt-no-content-samples:话头没有样例句
   const at = src.indexOf("【夜谈】歇下来的时候人才会说话");
   assert.ok(at > 0);
