@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.73";
+const APP_VERSION = "v63.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3552,13 +3552,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const ageLineFor = char => {
     const bd = String((char && char.birthday) || "").trim();
-    if (!bd) return "";
-    const age = typeof charAge === "function" ? charAge(bd, Date.now()) : null;
-    const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(bd) : "";
+    const age = typeof charAgeNow === "function" ? charAgeNow(char, Date.now()) : null;
+    // ⚠️原来第一行是 `if (!bd) return ""` ——生日没填、只手填了岁数的角色（她 2026-09-05
+    //   要的第三种：生日未知但年龄能填）在这儿被整条挡掉，那个数一路到不了模型手上。
+    if (!bd && age == null) return "";
+    const pinned = !!(char && String(char.age || "").trim());
+    const both = bd && typeof birthdayBothLabel === "function" ? birthdayBothLabel(bd) : "";
     const bits = [];
     if (age != null) bits.push(age + " 岁");
     if (both && typeof parseLunarBirthday === "function" && parseLunarBirthday(bd)) bits.push("生日 " + both);
-    return bits.length ? bits.join("，") + "（按今天现算；人设里写死的岁数是旧数字，以这个为准）" : "";
+    if (!bits.length) return "";
+    // 手填的那个数不是「按今天现算」的——话得说对，不然模型会以为它每年会变
+    return bits.join("，") + (pinned ? "（她手填的岁数，以这个为准）" : "（按今天现算；人设里写死的岁数是旧数字，以这个为准）");
   };
   // 群里一人一份完整日程会把上下文撑爆，而且她按次计费——只取「此刻正在做什么」这一行。
   // 差异是显式的、有理由的：整张行程表留给单聊，群里只保留决定语气和连贯性的那一句。
@@ -3923,7 +3928,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 农历生日以前从来不触发提醒：parseMonthDay 认不出「腊月廿三」这种写法（她 2026-08-24）
       const cdu = daysUntilBirthday(char && char.birthday, today);
       // 生日填了年份就能算出今天满几岁；只填月日的（古风/架空角色多半如此）就不提岁数
-      const _cage = typeof charAge === "function" ? charAge(char && char.birthday, Date.now()) : null;
+      const _cage = typeof charAgeNow === "function" ? charAgeNow(char, Date.now()) : null;
       if (cdu === 0) lines.push("🎂 今天是你自己的生日"
         + (_cage != null ? "，你今天满 " + _cage + " 岁了（昨天还是 " + (_cage - 1) + "）" : "")
         + "。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。");

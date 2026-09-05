@@ -320,11 +320,12 @@ function Cast({
   const cards = characters.map(c => {
     const accent = c.color || t.tint;
     const tz = c.tz ? ("UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", ""))) : "跟随本地";
-    const age = (typeof charAge === "function" && c.birthday) ? charAge(c.birthday, Date.now()) : null;
+    const age = typeof charAgeNow === "function" ? charAgeNow(c, Date.now()) : null;
     // 算得出岁数时年份就是多余的（一栏只有 80 来 px，「1997-3-15 · 29岁」会被截掉）
+    // 生日没填、只填了岁数的（她 2026-09-05 要的第三种）：这一栏也得有东西，不能空着
     const bd = c.birthday
       ? (age != null ? String(c.birthday).replace(/^\s*(农历)?\s*\d{4}\s*[-/.年]\s*/, "$1") + " · " + age + "岁" : String(c.birthday))
-      : "—";
+      : (age != null ? age + "岁" : "—");
     const plen = String(c.persona || "").replace(/\s/g, "").length;
     const sum = castSummary(c);
     // ⚠️外层原来是 <button>。底部信息栏里要放一颗【单独能点】的「心上」，
@@ -366,7 +367,7 @@ function Cast({
       h("div", { className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
         cell("时区", tz, !c.tz),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
-        cell("生日", bd, !c.birthday),
+        cell("生日", bd, !c.birthday && age == null),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
         cell("人设", plen ? plen.toLocaleString() + " 字" : "空白", !plen)),
       // 「你写的卷宗」和「他自己长出来的」是同一份档案的两半——摆在同一张卡上。
@@ -430,6 +431,8 @@ function CastForm({
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
   const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
+  // 年龄和生日分开（v63.65）：留空＝跟着生日走；填了＝钉死，不再自动加一
+  const [ageInput, setAgeInput] = useState(initial && initial.age != null ? String(initial.age) : "");
   // 性别（v58.86，她 2026-08-31 加了女生角色）：只决定别处怎么称呼 TA。
   // 默认不填＝一律用「TA」——中性，永远不会把人叫错。
   const [gender, setGender] = useState(initial && initial.gender || "");
@@ -452,6 +455,7 @@ function CastForm({
       refPhoto: refPhoto,
       photoStyle: photoStyle,
       birthday: birthday.trim(),
+      age: ageInput.trim(),
       gender: gender,
       voiceId: voiceId.trim(),
       remark: initial && initial.remark || ""
@@ -465,7 +469,10 @@ function CastForm({
     ["+8", "北京 / 香港 / 新加坡 / 台北"], ["+9", "东京 / 首尔"], ["+9.5", "阿德莱德"], ["+10", "悉尼 / 墨尔本"], ["+11", "所罗门群岛"],
     ["+12", "奥克兰 / 斐济"], ["+13", "汤加"]
   ];
-  const age = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
+  // 按生日算出来的那个数（只是【建议】，她填了岁数就以她的为准）
+  const autoAge = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
+  const agePinned = ageInput.trim() !== "";
+  const age = agePinned ? (typeof charAgeNow === "function" ? charAgeNow({ age: ageInput }, Date.now()) : null) : autoAge;
   const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
   const born = typeof birthdayBornLabel === "function" ? birthdayBornLabel(birthday) : "";
   const accent = color || t.tint;
@@ -502,18 +509,29 @@ function CastForm({
       h("option", { value: "" }, "跟随系统（默认）"),
       TZ_OPTS.map(o => h("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开时间感知后，Ta 会按自己所在时区报时间；日程仍按你本地日期。"));
-  const birthdayField = (function () {
-    if (age == null) return h("div", null,
-      h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
-      (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填，【带上年份】才会算年龄。"));
-    return h("div", null,
-      h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, marginTop: 6, fontWeight: 600 } }, "现在 " + age + " 岁",
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 } }, "生日一过自动加一，Ta 自己也知道")),
-      (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填，【带上年份】才会算年龄——填好之后，人设正文里那句「XX 岁」可以删掉了。"));
-  })();
+  // 生日和年龄分成两栏（v63.65，她 2026-09-05：「年龄和生日分开吧」）。
+  // 三种填法都成立：年月日全填（自动算、可改）／只填月日（岁数手填）／生日不知道（只填岁数）。
+  // ⚠️「跟着生日走」＝这一栏【留空】，不是把算出来的数填进去：填进去了，
+  //   明年生日一过它就是个旧数字，而生日那条链本来是会自己加一的。
+  const birthdayField = h("div", null,
+    h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五 / 不知道就留空", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
+    (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填。只填月日也行——那到日子照样会记得，岁数在下面单独填。"));
+  const ageField = h("div", null,
+    h("div", { className: "flex items-baseline", style: { gap: 8 } },
+      h("input", { value: ageInput, onChange: e => setAgeInput(e.target.value.replace(/[^\d]/g, "").slice(0, 4)),
+        inputMode: "numeric",
+        placeholder: autoAge != null ? "跟着生日走（现在 " + autoAge + "）" : "多大了",
+        className: "flex-1 min-w-0 bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
+      agePinned ? h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, fontWeight: 600, flexShrink: 0 } }, "岁") : null,
+      (agePinned && autoAge != null) ? h("button", { onClick: () => setAgeInput(""), className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "改回跟着生日") : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+      agePinned
+        ? "这个数【钉住了】：生日过了也不会自己加一，要改就在这儿改。"
+        : (autoAge != null
+            ? "留空＝跟着生日走：生日一过自动加一，Ta 自己也知道。想写别的岁数就直接填。"
+            : "生日没填年份、或者压根不知道生日，就在这儿写个数。填好之后，人设正文里那句「XX 岁」可以删掉了。")));
   const appearanceFields = h("div", null,
     h("div", { className: "flex items-center gap-3 mb-3" },
       h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
@@ -565,6 +583,7 @@ function CastForm({
       h(CastSection, { no: "02", title: "时间坐标", en: "哪一年、在什么地方", tint: accent },
         h(LineField, { zh: "时区", en: "Timezone" }, timezone),
         h(LineField, { zh: "生日", en: "Birthday" }, birthdayField),
+        h(LineField, { zh: "年龄" }, ageField),
         h(LineField, { zh: "性别", en: "Gender" }, h("div", null,
           h("div", { style: { display: "flex", gap: 7 } },
             [["", "他（默认）"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),

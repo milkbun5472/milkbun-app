@@ -12192,7 +12192,7 @@ function ContactDetail({
     }
   }, character.tagline || "—"), (function () {
     // 年龄现算不存盘：生日一过自己就长一岁，不用她进来手动改（她 2026-08-24）
-    const age = typeof charAge === "function" ? charAge(character.birthday, Date.now()) : null;
+    const age = typeof charAgeNow === "function" ? charAgeNow(character, Date.now()) : null;
     const bd = String(character.birthday || "").trim();
     if (age == null && !bd) return null;
     return /*#__PURE__*/React.createElement("div", {

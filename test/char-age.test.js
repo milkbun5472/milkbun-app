@@ -66,7 +66,8 @@ test("生日当天要说清「今天满几岁」——那一刻他才真的知�
 });
 
 test("联系人页显示年龄和生日", () => {
-  assert.match(comp, /const age = typeof charAge === "function" \? charAge\(character\.birthday, Date\.now\(\)\) : null;/);
+  // v63.65 起走 charAgeNow：手填的岁数压过按生日算的那个（年龄和生日分开了）
+  assert.match(comp, /const age = typeof charAgeNow === "function" \? charAgeNow\(character, Date\.now\(\)\) : null;/);
   assert.match(comp, /age \+ " 岁"/);
   assert.match(comp, /if \(age == null && !bd\) return null;/, "两样都没有就别占地方");
 });
@@ -78,17 +79,19 @@ test("年龄要显示在她填生日的那一页，当场就能看见", () => {
   const i = screens.indexOf("function CastForm(");
   const form = screens.slice(i, screens.indexOf("// TIES (directed)", i));
   assert.ok(i > 0 && form.length > 500, "抠不出编辑档案那一页");
-  assert.match(form, /const age = typeof charAge === "function" \? charAge\(birthday, Date\.now\(\)\) : null;/,
+  // v63.65 年龄和生日分成两栏：算出来的那个数是【建议】，她填了就以她的为准
+  assert.match(form, /const autoAge = typeof charAge === "function" \? charAge\(birthday, Date\.now\(\)\) : null;/,
     "要读表单里正在编辑的 birthday，不是存档里的");
-  assert.match(form, /"现在 " \+ age \+ " 岁"/);
-  assert.match(form, /if \(age == null\) return h\("div"/, "只填月日的就别占地方");
+  assert.match(form, /placeholder: autoAge != null \? "跟着生日走（现在 " \+ autoAge \+ "）"/,
+    "算出来的那个数当场就得看得见");
   assert.match(form, /生日一过自动加一，Ta 自己也知道/);
   // 年龄那一段真的挂在「生日」那一栏底下，不是飘在别处
   assert.match(form, /zh: "生日", en: "Birthday" \}, birthdayField\)/);
 });
 
 test("表单说明要指明「人设正文里那句 XX 岁可以删了」", () => {
-  assert.match(screens, /【带上年份】才会算年龄/);
+  // v63.65 改了说法：岁数搬到单独一栏，所以生日那栏不再说「带上年份才会算年龄」
+  assert.match(screens, /只填月日也行——那到日子照样会记得，岁数在下面单独填/);
   assert.match(screens, /人设正文里那句「XX 岁」可以删掉了/, "这才是她要这个字段的原因");
 });
 

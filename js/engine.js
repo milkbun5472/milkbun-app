@@ -2290,13 +2290,17 @@ function buildBundle(ctx, opts) {
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
   // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
   {
-    const _age = charAge(char && char.birthday, Date.now());
+    const _age = charAgeNow(char, Date.now());
     // 农历生日的角色（王爷这类）在提示词里也该看见今年的公历日子，否则他没法跟现实对上
     const _bd = String((char && char.birthday) || "").trim();
     const _both = _bd && typeof birthdayBothLabel === "function" ? birthdayBothLabel(_bd) : "";
     if (_both && parseLunarBirthday(_bd)) parts.push("【你的生日】" + _both + "（你按农历过生日；换算成公历是今年的这一天）。");
-    if (_age != null) parts.push("【你现在的年龄】" + _age + " 岁（按你的生日 " + String(char.birthday).trim()
-      + " 和今天的日期算出来的，每过一次生日会自己长一岁）。人设里若写着别的岁数，那是写下时的旧数字，以这里为准。别动不动把年龄挂在嘴边，它只是你自然知道的事。");
+    // ⚠️手填的岁数不是算出来的：还照原样说「按你的生日和今天算出来的」，
+    //   在【只填了岁数、生日空着】的角色身上就是一句假话（String(undefined) 还会印出 "undefined"）。
+    const _pinned = !!String((char && char.age) || "").trim();
+    if (_age != null) parts.push("【你现在的年龄】" + _age + " 岁"
+      + (_pinned || !_bd ? "。" : "（按你的生日 " + _bd + " 和今天的日期算出来的，每过一次生日会自己长一岁）。")
+      + "人设里若写着别的岁数，那是写下时的旧数字，以这里为准。别动不动把年龄挂在嘴边，它只是你自然知道的事。");
   }
   // 心上毕业念想凝成的长出来的自我（角色亲笔，人设的活体延伸；空=零注入，ctxFor 侧已封顶 400 字）
   // Runtime v2 已在角色卡准则中定义根基、短期状态与长期成长的关系；
@@ -5620,6 +5624,25 @@ function charAge(birthday, now) {
   let age = n.getFullYear() - b.y;
   if (mo < b.mo || (mo === b.mo && d < b.d)) age--;
   return age >= 0 && age <= 200 ? age : null;
+}
+// 年龄和生日是【两件事】（v63.65，她 2026-09-05：在人格档案馆里「年龄和生日分开吧」）。
+// 三种填法都得成立：
+//   ① 年月日都填 → 自动算出岁数，但她可以改（改了就钉死，不再自动走）
+//   ② 只填月日（古风/架空角色多半如此）→ 生日照旧提醒，岁数手填
+//   ③ 生日压根不知道 → 也能只填岁数
+// ⚠️判据：`age` 有值＝【她手填的，钉死】；空＝跟着生日走。所以「跟着生日走」不是
+//   把算出来的数写进去，是把这一栏留空——写进去了，明年生日过完它就是个旧数字。
+// ⚠️算法只在这一处。六处调用点原来各自 charAge(char.birthday)，谁也不知道有手填这回事
+//   （「一层写在六处」那个老形状）。
+function charAgeNow(char, now) {
+  const fixed = char && char.age;
+  if (fixed != null && String(fixed).trim() !== "") {
+    const n = parseInt(String(fixed).trim(), 10);
+    // ⚠️手填的不按 200 封顶：算出来的岁数超过 200 多半是把年份写错了，
+    //   可她【亲手写】五百岁的时候，那就是她要的（妖、神、活了很久的那些）。
+    if (Number.isFinite(n) && n >= 0 && n <= 9999) return n;
+  }
+  return charAge(char && char.birthday, now);
 }
 function parseMonthDay(s) {
   const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
