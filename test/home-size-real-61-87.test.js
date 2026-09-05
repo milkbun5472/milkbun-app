@@ -72,8 +72,11 @@ test("装饰图上印死的那几行英文，全都能换成她要的词", () =>
     assert.ok(deco.slice(Math.max(0, i - 13), i).includes("dmark(item, "), "这句还印死在图上，换不掉：" + w);
   });
   // 存得下、读得回、编辑器里有那一格
-  assert.match(comp, /mark: decorDraftMark\.trim\(\)/, "新建装饰没把它存进去");
-  assert.match(comp, /mark: styleDecorMark\.trim\(\)/, "改样式时没写回");
+  // ⚠️口径改了（v63.82）：新建和重改合成一页，印字由适配器分流、同一个 builder 落档
+  assert.match(comp, /mark: isNew \? decorDraftMark : styleDecorMark/, "适配器没把印字接上");
+  assert.match(comp, /mark: String\(A\.mark \|\| ""\)\.trim\(\)/, "builder 没把印字存进去");
+  //   （改样式那一路也走同一个 builder，所以不再有单独的 mark: styleDecorMark.trim()）
+  assert.match(comp, /var next = decorItemOf\(decorAdapter\("edit"\), styleKey\);/, "改样式时没走同一个 builder");
   assert.match(comp, /setStyleDecorMark\(d\.mark \|\| ""\);/, "打开样式表时没读回来");
   assert.match(comp, /"图上那行小字（留空＝用这一款自带的）"/, "编辑器里没有这一格");
   // 留空＝用自带的那句（清空之后图上不许留一块空白）

@@ -63,7 +63,8 @@ test("装饰才给【无框】，组件不给；组件才给【原生】，装�
   const grid = comp.slice(comp.indexOf("function HomePresetGrid("), comp.indexOf("function HomeSizeGrid("));
   assert.match(grid, /if \(p\.id === "native"\) return !!allowNative;/);
   assert.match(grid, /if \(p\.id === "bare"\) return !allowNative;/);
-  // 两个入口：改已有的那一处按 kind 判，新建装饰那一处写死 false
-  assert.match(comp, /allowNative: REG\[styleKey\]\.kind !== "decor"/);
-  assert.match(comp, /h\(HomePresetGrid, \{ value: decorDraftPreset, allowNative: false/);
+  // ⚠️口径改了（v63.82）：装饰的新建和重改合成了一页（allowNative: false），
+  //   剩下那张半窗只服务普通组件（allowNative: true）。两支各钉一次。
+  assert.match(comp, /h\(HomePresetGrid, \{ value: A\.preset, allowNative: false, onChange: A\.setPreset \}\)/, "装饰那一页");
+  assert.match(comp, /h\(HomePresetGrid, \{ value: widgetStyles\[styleKey\] \|\| "native", allowNative: true/, "组件那张半窗");
 });

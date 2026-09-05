@@ -82,15 +82,11 @@ test("编辑器里有那一行，两个入口都接上了，而且存得住", ()
   assert.match(ed, /HOME_DECOR_GROUNDS\.map/);
   assert.match(ed, /gImg \? "已放图 · 换" : "放一张图"/);
   assert.match(ed, /换的只是这一件最外面那层底/, "得说清里头的画不会跟着变");
-  // 新建那一处 + 改已有那一处
-  assert.equal((comp.match(/onGround: setDecorDraftGround/g) || []).length, 1);
-  assert.equal((comp.match(/onGround: setStyleDecorGround/g) || []).length, 1);
-  // 落档
-  assert.match(comp, /ground: decorDraftGround, align: decorDraftAlign/);
-  // ⚠️改已有那一处有【两条保存路径】（照片框一条、别的小物一条）。
-  //   只钉「出现过」的话，删掉其中一条另一条还在，断言一声不吭（变异测试逮到的）。
-  assert.equal((comp.match(/ground: styleDecorGround, align: styleDecorAlign/g) || []).length, 2,
-    "两条保存路径里有一条没存底");
+  // ⚠️口径改了（v63.82）：新建和重改合成一页，这几项一律由适配器分流、同一个 builder 落档。
+  //   两个入口现在是同一页，所以钉的是【适配器两边都接上】＋【builder 真写进去】。
+  assert.match(comp, /ground: isNew \? decorDraftGround : styleDecorGround, setGround: isNew \? setDecorDraftGround : setStyleDecorGround/);
+  assert.match(comp, /onGround: A\.setGround/, "那一页没把设底接上");
+  assert.match(comp, /accent: A\.accent, ground: A\.ground/, "builder 没把底写进去");
   // 打开编辑器要把已有的带出来，新建要清干净
   assert.match(comp, /setStyleDecorGround\(d\.ground \|\| null\);/);
   assert.match(comp, /setDecorDraftGround\(null\);/);

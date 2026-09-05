@@ -8,6 +8,10 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 // ⚠️锚点改了（v63.78，她：「增加装饰那一页整理一下吧，越加越多有点难看」）：
 //   做装饰那一页从半窗改成了整页（no-half-sheet.md），所以不再有
 //   `showDecorLibrary && h(Sheet`。钉的仍是同一段，只是它现在的开头长这样。
+// ⚠️锚点／口径改了（v63.82，她：「放了的装饰的重新设置页面还是乱。然后设置的时候
+//   没有选大小」）：新建和重改本来是两份代码（同一套外观控件写了两遍），
+//   现在合成一页——页内不再直接读 decorDraft*／styleDecor*，一律走适配器 A.*，
+//   开头那一行也变成「新建 或 长按的是装饰」。钉的仍是同一件事。
 function between(a, b) {
   const i = comp.indexOf(a);
   const j = comp.indexOf(b, i);
@@ -25,7 +29,7 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
 });
 
 test("组件库只给还在用的那几种装饰，退役的三种不再出现在挑选里", () => {
-  const library = between('showDecorLibrary && (function () {', "// 主页名片");
+  const library = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
   // v62.28 她 2026-09-04：「删吧宝宝」——信封／录音磁带／小物陈列盒退役。
   // 退役＝挑不到，不是抠掉：已经摆在桌面上的那几件还得画得出来，否则当场变白框。
   assert.match(library, /homeDecorPickable\(\)\.map/);
@@ -114,10 +118,11 @@ test("照片墙允许空框落桌并按槽位逐张补图", () => {
     "放入一张照片时只能改目标槽位");
   assert.match(home, /next\[slot\] = ""/,
     "清空一张照片时只能改目标槽位");
-  assert.match(home, /normalizeHomePhotoSlots\(decorDraftPhotos, decorDraftFrame\)/,
-    "新建空相框也必须保存固定槽位");
-  assert.match(home, /normalizeHomePhotoSlots\(styleDecorPhotos, styleDecorFrame\)/,
-    "已有相框逐格编辑后必须保存固定槽位");
+  // ⚠️新建和重改合成一页之后，两边都从适配器取照片：钉的是「造装饰的时候一定规范化槽位」
+  assert.match(home, /normalizeHomePhotoSlots\(A\.photos, A\.frame\)/,
+    "造装饰的时候没规范化槽位，空框会被稀疏数组吞掉");
+  assert.match(home, /photos: isNew \? decorDraftPhotos : styleDecorPhotos/,
+    "适配器没把两边的照片都接上");
   assert.doesNotMatch(home, /这个相框需要选 3 张照片/,
     "空框不应被照片数量校验拦住");
 });
@@ -138,19 +143,23 @@ test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式
   assert.match(gestures, /kindOf\(key\) === "widget" \|\| kindOf\(key\) === "decor"/);
   assert.match(gestures, /openStylePanel\(key\)/);
   assert.match(gestures, /else pickUp\(\)/, "普通 App/文件夹的长按整理链不能被装饰面板劫持");
-  const sheet = between("styleKey && REG[styleKey]", "showDecorLibrary && (function () {");
-  assert.match(sheet, /整理位置/);
-  assert.match(sheet, /尺寸与外观分开设置，不改组件原来的功能/);
-  assert.match(sheet, /占格尺寸/);
-  assert.match(sheet, /保存内容/);
-  assert.match(sheet, /styleDecorText/);
+  // ⚠️口径改了（v63.82）：长按【组件】还是那张半窗，长按【装饰】改成开整页。
+  //   所以这两支各钉各的。
+  const widgetSheet = between('REG[styleKey].kind !== "decor" && h(Sheet', "\n  (showDecorLibrary ||");
+  assert.match(widgetSheet, /整理位置/);
+  assert.match(widgetSheet, /尺寸与外观分开设置，不改组件原来的功能/);
+  assert.match(widgetSheet, /占格尺寸/);
+  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
+  assert.match(decorPage, /A\.isNew \? "放到桌面上" : "保存"/);
+  assert.match(decorPage, /移除这件装饰/);
 });
 
 test("装饰不是固定皮肤：内容、透明底、无边框、强调色和角标都能编辑并持久化", () => {
   const materials = between("const HOME_DECOR_SURFACES", "const HOME_PHOTO_FRAMES");
   const home = between("function Home({", "// 主页名片");
-  const oldDecorSheet = between("styleKey && REG[styleKey]", "showDecorLibrary && (function () {");
-  const newDecorSheet = between("showDecorLibrary && (function () {", "// 主页名片");
+  // ⚠️口径改了（v63.82）：新建和重改现在是同一页，所以「两处都得有」变成「那一页里有，
+  //   而且两边都从适配器取」——外观那一套控件全库只许出现一次（见 decor-one-editor）。
+  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
 
   assert.match(materials, /id: "transparent", name: "透明底"/);
   assert.match(materials, /id: "none", name: "无边框"/);
@@ -159,16 +168,16 @@ test("装饰不是固定皮肤：内容、透明底、无边框、强调色和�
   assert.match(materials, /borderMode === "none"[\s\S]*style\.border = "none"/,
     "无边框必须真的清掉边线");
   assert.match(comp, /function HomeDecorAppearanceEditor/);
-  assert.match(oldDecorSheet, /HomeDecorAppearanceEditor/,
-    "旧装饰长按后也必须能打开材质编辑器");
-  assert.match(newDecorSheet, /HomeDecorAppearanceEditor/,
-    "新装饰创建时必须能设置材质");
-  assert.match(home, /surface: decorDraftSurface/);
-  assert.match(home, /borderMode: decorDraftBorderMode/);
-  assert.match(home, /accent: decorDraftAccent/);
-  assert.match(home, /align: decorDraftAlign/);
-  assert.match(home, /badge: decorDraftBadge\.trim\(\)/);
-  assert.match(home, /surface: styleDecorSurface/);
+  assert.match(decorPage, /HomeDecorAppearanceEditor/, "那一页里没有材质编辑器");
+  assert.match(home, /surface: isNew \? decorDraftSurface : styleDecorSurface/, "重改那一支没接上材质");
+  // ⚠️口径改了（v63.82）：这几项不再各写一遍，一律由适配器分流、由同一个 builder 落档。
+  //   钉的是【两边都接上了】和【真的存下去了】。
+  [["surface", "Surface"], ["borderMode", "BorderMode"], ["accent", "Accent"], ["align", "Align"], ["badge", "Badge"]].forEach(function (pair) {
+    assert.match(home, new RegExp(pair[0] + ": isNew \\? decorDraft" + pair[1] + " : styleDecor" + pair[1]),
+      "适配器里少了一项：" + pair[0]);
+  });
+  assert.match(home, /surface: A\.surface, borderMode: A\.borderMode, accent: A\.accent/, "builder 没把材质写进去");
+  assert.match(home, /badge: String\(A\.badge \|\| ""\)\.trim\(\)/);
   // ⚠️口径改了（v63.72）：多传了一个【当前外观 id】。挑了「无框」之后，
   //   这一层那几行是无条件给 style.border 赋值的（borderMode 默认「细边」），
   //   不告诉它现在是无框的话，卡刚被撤掉、边框转头又被这一层画回来。
@@ -193,8 +202,9 @@ test("装饰可以独立倾斜：自然预设、细调、持久化与防裁切�
     "角度必须进入装饰内层渲染，而不是只存在设置里");
   assert.match(editor, /type: "range", min: -12, max: 12, step: 1/);
   assert.match(editor, /aria-label": "微调装饰倾斜角度"/);
-  assert.match(home, /tilt: normalizeHomeDecorTilt\(decorDraftTilt\)/);
-  assert.match(home, /tilt: normalizeHomeDecorTilt\(styleDecorTilt\)/);
+  // ⚠️口径同上（v63.82）：倾斜也走适配器 + 同一个 builder
+  assert.match(home, /tilt: isNew \? decorDraftTilt : styleDecorTilt/);
+  assert.match(home, /tilt: normalizeHomeDecorTilt\(A\.tilt\)/, "builder 没把倾斜写进去");
   assert.match(home, /setStyleDecorTilt\(normalizeHomeDecorTilt\(d\.tilt\)\)/,
     "旧装饰再次打开时必须读回自己的角度");
   assert.match(home, /overflow: it\.kind === "decor" \? "visible"/,

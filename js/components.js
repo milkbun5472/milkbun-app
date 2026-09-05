@@ -3369,6 +3369,7 @@ function Home({
   const [decorDraftBorderMode, setDecorDraftBorderMode] = useState("line");
   const [decorDraftAccent, setDecorDraftAccent] = useState(HOME_DECOR_ACCENTS[0]);
   const [decorDraftGround, setDecorDraftGround] = useState(null);   // 这一件自己那张底：null=原样
+  const [decorDraftSize, setDecorDraftSize] = useState("");        // ""＝自动（按类型/相框推）
   const [decorDraftAlign, setDecorDraftAlign] = useState("left");
   const [decorDraftBadge, setDecorDraftBadge] = useState("");
   const [decorDraftMark, setDecorDraftMark] = useState("");
@@ -3692,7 +3693,7 @@ function Home({
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftGround(null); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftGround(null); setDecorDraftSize(""); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -3725,21 +3726,62 @@ function Home({
     var setter = target === "style" ? setStyleDecorPhotos : setDecorDraftPhotos;
     setter(function (prev) { var next = normalizeHomePhotoSlots(prev, frame); next[slot] = ""; return next; });
   }
-  // ⚠️草稿长什么样【只造一份】：预览画的和真放上去的必须是同一个对象。
+  // ── 做装饰 / 改装饰：同一页、同一套料 ──────────────────────────────
+  // 她 2026-09-05：「放了的装饰的重新设置页面还是乱。然后设置的时候没有选大小」。
+  // 两件事同一个根：**新建和重改本来是两份代码**——新建那一页刚整理成整页四段，
+  // 重改那一页还是老半窗，而且外观那一整套控件在两处各写了一遍。
+  // 一层写在两处，改一处另一处必然落单：新建能挑「无框」和「这一件的底」而重改不能，
+  // 重改能挑尺寸而新建不能——她两条抱怨正好各命中一半。
+  // 所以这里只留【一个适配器】：新建读 decorDraft*，重改读 styleDecor* 和已存的尺寸/外观，
+  // 底下那一页照着适配器画，一份代码两处用。
+  function decorAdapter(mode) {
+    var isNew = mode === "new";
+    var key = isNew ? null : styleKey;
+    var A = {
+      isNew: isNew, key: key, target: isNew ? "draft" : "style",
+      type: isNew ? decorDraftType : (REG[key] || {}).which,
+      // ⚠️已经放上去的不给换类型：换了就不是原来那件东西了，该新做一件。
+      setType: isNew ? function (id) { setDecorDraftType(id); var m = homeDecorMeta(id); setDecorDraftText(m.text || ""); setDecorDraftDetail(m.detail || ""); } : null,
+      frame: isNew ? decorDraftFrame : styleDecorFrame,
+      setFrame: isNew ? setDecorDraftFrame : setStyleDecorFrame,
+      photos: isNew ? decorDraftPhotos : styleDecorPhotos,
+      setPhotos: isNew ? setDecorDraftPhotos : setStyleDecorPhotos,
+      text: isNew ? decorDraftText : styleDecorText, setText: isNew ? setDecorDraftText : setStyleDecorText,
+      detail: isNew ? decorDraftDetail : styleDecorDetail, setDetail: isNew ? setDecorDraftDetail : setStyleDecorDetail,
+      surface: isNew ? decorDraftSurface : styleDecorSurface, setSurface: isNew ? setDecorDraftSurface : setStyleDecorSurface,
+      borderMode: isNew ? decorDraftBorderMode : styleDecorBorderMode, setBorderMode: isNew ? setDecorDraftBorderMode : setStyleDecorBorderMode,
+      accent: isNew ? decorDraftAccent : styleDecorAccent, setAccent: isNew ? setDecorDraftAccent : setStyleDecorAccent,
+      ground: isNew ? decorDraftGround : styleDecorGround, setGround: isNew ? setDecorDraftGround : setStyleDecorGround,
+      align: isNew ? decorDraftAlign : styleDecorAlign, setAlign: isNew ? setDecorDraftAlign : setStyleDecorAlign,
+      badge: isNew ? decorDraftBadge : styleDecorBadge, setBadge: isNew ? setDecorDraftBadge : setStyleDecorBadge,
+      mark: isNew ? decorDraftMark : styleDecorMark, setMark: isNew ? setDecorDraftMark : setStyleDecorMark,
+      tilt: isNew ? decorDraftTilt : styleDecorTilt, setTilt: isNew ? setDecorDraftTilt : setStyleDecorTilt,
+      // 外观和尺寸：新建时是草稿，重改时是【当场落档】的（那两样本来就不用按保存）
+      preset: isNew ? decorDraftPreset : (widgetStyles[key] || "soft"),
+      setPreset: isNew ? setDecorDraftPreset : function (id) { setWidgetPreset(key, id); },
+      size: isNew ? decorDraftSize : (widgetSizes[key] || "auto"),
+      setSize: isNew ? setDecorDraftSize : function (id) { setWidgetSize(key, id); }
+    };
+    return A;
+  }
+  // ⚠️装饰长什么样【只造一份】：预览画的、放上去的、改完存的，必须是同一个对象。
   //   各造一份的话，预览里好看的和落到桌面上的迟早对不上，而且不会有任何报错。
-  function decorDraftItem(id) {
-    var text = decorDraftText.trim();
-    var meta = homeDecorMeta(decorDraftType);
-    return { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, ground: decorDraftGround, align: decorDraftAlign, mark: decorDraftMark.trim(), badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
+  function decorItemOf(A, id) {
+    var text = String(A.text || "").trim();
+    var meta = homeDecorMeta(A.type);
+    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), createdAt: Date.now() };
   }
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
-    var item = decorDraftItem(id);
+    var item = decorItemOf(decorAdapter("new"), id);
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
-    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
-    if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
+    // ⚠️她自己在「多大」那一段挑过就听她的；没挑（""＝自动）才按类型／相框推一个。
+    //   自动那一路是给「懒得挑」兜底的，不该盖掉她明说的选择。
+    if (decorDraftSize) setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftSize; saveJSON("x_homeWidgetSizes", n); return n; });
+    else if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
+    else if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
       var pi = Math.max(0, Math.min(page, L.length - 1));
@@ -3755,12 +3797,12 @@ function Home({
   function saveStyleDecoration() {
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
-    if (it.which === "photo") {
-      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, ground: styleDecorGround, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
-    } else {
-      var meta = homeDecorMeta(it.which);
-      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, ground: styleDecorGround, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
-    }
+    // 走跟新建同一个 builder，改完存的和预览里看到的一定是同一份。
+    // ⚠️id / type / createdAt 不许被这次保存改掉：这一件还是那一件。
+    var next = decorItemOf(decorAdapter("edit"), styleKey);
+    delete next.id; delete next.type; delete next.createdAt;
+    if (it.which !== "photo" && !homeDecorHasDetail(it.which)) next.detail = "";
+    updateDecoration(styleKey, next);
     if (typeof toast === "function") toast("桌面内容已经更新");
   }
   function removeDecoration(id) {
@@ -4358,42 +4400,18 @@ function Home({
     onRemove: function (k) { removeFromFolder(openFolder, k); },
     onClose: function () { return setOpenFolder(null); },
     onPick: function (a) { setOpenFolder(null); if (a.soon) { onSoon && onSoon(a.zh); } else { onOpenApp(a.key); } }
-  }), styleKey && REG[styleKey] && h(Sheet, { onClose: function () { setStyleKey(null); }, tall: true },
+  }),
+  // ⚠️装饰不再走这张半窗——它有自己的整页（下面那一段，跟新建同一页）。
+  //   这里只剩【普通组件】：尺寸、在格子里靠哪儿、外观样式、去整理位置。四小块，短得多。
+  //   她 2026-09-05：「放了的装饰的重新设置页面还是乱」——乱的正是装饰那一支：
+  //   它把内容、相框、照片、材质、边线、强调色、底、倾斜、角标全塞进了这张半窗，
+  //   而同一套控件在新建那一页又写了一遍（一层写在两处，改一处另一处必然落单）。
+  styleKey && REG[styleKey] && REG[styleKey].kind !== "decor" && h(Sheet, { onClose: function () { setStyleKey(null); }, tall: true },
     h("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 18 } },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "桌面组件"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, REG[styleKey].kind === "decor" ? "内容、占格与外观分开保存，改一项不会碰另外两项。" : "尺寸与外观分开设置，不改组件原来的功能。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "尺寸与外观分开设置，不改组件原来的功能。")),
       h("button", { onClick: function () { setStyleKey(null); setEditMode(true); }, className: "active:opacity-65", style: { flexShrink: 0, borderRadius: 999, padding: "8px 13px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "整理位置")),
-    REG[styleKey].kind === "decor" ? h("div", { style: { marginBottom: 20 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, REG[styleKey].which === "photo" ? "照片与相框" : "卡片内容"),
-      REG[styleKey].which === "photo" ? h(React.Fragment, null,
-        h(HomePhotoFrameGrid, { value: styleDecorFrame, onChange: function (id) { setStyleDecorFrame(id); setStyleDecorPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
-        h(HomePhotoSlotEditor, { value: styleDecorPhotos, frame: styleDecorFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "style", slot); }, onClear: function (slot) { clearDecorPhoto("style", slot); } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "每格单独点选；也可以留空，先把相框摆在桌面上。"),
-        h("input", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 10, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })) :
-        h("div", null,
-          h("textarea", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "改写" + homeDecorMeta(REG[styleKey].which).name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
-          homeDecorHasDetail(REG[styleKey].which) ? h("textarea", { value: styleDecorDetail, onChange: function (e) { setStyleDecorDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null),
-      h(HomeDecorAppearanceEditor, {
-        surface: styleDecorSurface,
-        borderMode: styleDecorBorderMode,
-        accent: styleDecorAccent,
-        ground: styleDecorGround,
-        onGround: setStyleDecorGround,
-        onGroundPhoto: function (f) { takeDecorGround(f, "style"); },
-        busy: decorBusy,
-        align: styleDecorAlign,
-        badge: styleDecorBadge,
-        mark: styleDecorMark, onMark: setStyleDecorMark,
-        tilt: styleDecorTilt,
-        onSurface: setStyleDecorSurface,
-        onBorderMode: setStyleDecorBorderMode,
-        onAccent: setStyleDecorAccent,
-        onAlign: setStyleDecorAlign,
-        onBadge: setStyleDecorBadge,
-        onTilt: setStyleDecorTilt
-      }),
-      h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "占格尺寸"),
     h(HomeSizeGrid, { value: widgetSizes[styleKey] || "auto", onChange: function (id) { setWidgetSize(styleKey, id); } }),
     // ⚠️这一栏只对【自己决定高度】的组件有意义：别的组件本来就撑满整格，按了不会有任何变化。
@@ -4410,8 +4428,7 @@ function Home({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 6 } }, a.zh));
       })) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "外观样式"),
-    h(HomePresetGrid, { value: widgetStyles[styleKey] || (REG[styleKey].kind === "decor" ? "soft" : "native"), allowNative: REG[styleKey].kind !== "decor", onChange: function (id) { setWidgetPreset(styleKey, id); } }),
-    REG[styleKey].kind === "decor" ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 18, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
+    h(HomePresetGrid, { value: widgetStyles[styleKey] || "native", allowNative: true, onChange: function (id) { setWidgetPreset(styleKey, id); } })),
   // ── 做一件装饰：整页，不是半窗（no-half-sheet.md）──────────────────────
   // 她 2026-09-05：「增加装饰那一页整理一下吧，越加越多有点难看」。
   // 病灶不是哪一栏难看，是【什么都摊在一条长长的半窗里】：类型 5 格、相框 24 格、
@@ -4423,21 +4440,27 @@ function Home({
   //   ① 是什么 ② 写什么 ③ 什么样子
   // 收起来的那两段【还看得见自己选了什么】（右边那行小字）——长表单最缺的就是这个。
   // 顶上钉一张【实时预览】：在这之前她是闭着眼睛挑的，挑完放上去才知道长什么样。
-  showDecorLibrary && (function () {
-    var PV = decorDraftItem("__preview");
-    var pvShell = homeWidgetPresetStyle(decorDraftPreset, t, decorDraftType);
+  (showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {
+    var A = decorAdapter(showDecorLibrary ? "new" : "edit");
+    var PV = decorItemOf(A, "__preview");
+    var pvShell = homeWidgetPresetStyle(A.preset, t, A.type);
     pvShell = Object.assign({}, pvShell || { width: "100%", height: "100%", minWidth: 0, minHeight: 0, position: "relative", boxSizing: "border-box" },
-      homeDecorMaterialStyle(PV, t, decorDraftPreset));
+      homeDecorMaterialStyle(PV, t, A.preset));
     var frames = decorFrameAll ? HOME_PHOTO_FRAMES : HOME_PHOTO_FRAMES.slice(0, 8);
-    var meta = homeDecorMeta(decorDraftType);
-    var frameName = (HOME_PHOTO_FRAMES.find(function (x) { return x.id === decorDraftFrame; }) || {}).name || "";
-    var presetName = (HOME_WIDGET_PRESETS.find(function (x) { return x.id === decorDraftPreset; }) || {}).name || "";
+    var meta = homeDecorMeta(A.type);
+    var frameName = (HOME_PHOTO_FRAMES.find(function (x) { return x.id === A.frame; }) || {}).name || "";
+    var presetName = (HOME_WIDGET_PRESETS.find(function (x) { return x.id === A.preset; }) || {}).name || "";
+    var sizeName = A.size ? ((HOME_SIZE_PRESETS.find(function (x) { return x.id === A.size; }) || {}).name || A.size) : "自动";
     var groundName = (function () {
-      if (decorDraftGround && decorDraftGround.imageRef) return "自己的图";
-      var c = decorDraftGround && decorDraftGround.color;
+      if (A.ground && A.ground.imageRef) return "自己的图";
+      var c = A.ground && A.ground.color;
       return c ? ((HOME_DECOR_GROUNDS.find(function (g) { return g.id === c; }) || {}).name || "自选色") : "原样";
     })();
     var clip = function (x, n) { x = String(x || "").trim(); return x ? (x.length > n ? x.slice(0, n) + "…" : x) : ""; };
+    var close = function () {
+      if (A.isNew) { setShowDecorLibrary(false); resetDecorDraft(); } else setStyleKey(null);
+      setDecorStep("what"); setDecorFrameAll(false);
+    };
     // 章节条：左边一个序号、中间名字、右边【这一段现在选的是什么】。
     // ⚠️收起来还看得见选了什么，才是把长表单收短的那一下；只收不显等于把东西藏了。
     var section = function (id, no, name, summary, body) {
@@ -4453,65 +4476,73 @@ function Home({
     };
     return h("div", { className: "absolute inset-0 z-50 flex flex-col",
       style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }) },
-      h(Head, { zh: "做一件装饰", sub: "挑一样东西 · 写上字 · 定个样子", bg: "transparent",
-        onBack: function () { setShowDecorLibrary(false); resetDecorDraft(); setDecorStep("what"); setDecorFrameAll(false); } }),
-      // 实时预览：画的就是等会儿真放上去的那一份（同一个 decorDraftItem）
-      h("div", { className: "shrink-0", style: { padding: "2px 16px 12px" } },
-        h("div", { style: { height: 132, borderRadius: 18, padding: 12, display: "flex", alignItems: "center", justifyContent: "center",
+      h(Head, { zh: A.isNew ? "做一件装饰" : "改这件装饰", sub: A.isNew ? "挑一样东西 · 写上字 · 定个样子" : meta.name + " · 改完记得保存", bg: "transparent", onBack: close }),
+      // 实时预览：画的就是等会儿真放上去的那一份（同一个 decorItemOf）
+      (function () {
+        // 竖着的那几款要高一点的台子：132 摆不下一整根挂轴，底下那截会被切掉
+        var tallOne = !!(HOME_PHOTO_FRAMES_TALL[A.frame] || A.type === "bookmark" || A.type === "scroll");
+        return h("div", { className: "shrink-0", style: { padding: "2px 16px 12px" } },
+        h("div", { style: { height: tallOne ? 186 : 132, borderRadius: 18, padding: 12, display: "flex", alignItems: "center", justifyContent: "center",
             background: "repeating-linear-gradient(45deg,rgba(120,110,96,.07) 0 7px,transparent 7px 14px)", border: "1px dashed " + t.line } },
-          h("div", { style: { width: HOME_PHOTO_FRAMES_TALL[decorDraftFrame] || decorDraftType === "bookmark" || decorDraftType === "scroll" ? 96 : 208, height: "100%" } },
-            h("div", { style: pvShell }, h(HomeDecorItem, { item: PV, preset: decorDraftPreset, now: now }))))),
+          h("div", { style: { width: tallOne ? 96 : 208, height: "100%" } },
+            h("div", { style: pvShell }, h(HomeDecorItem, { item: PV, preset: A.preset, now: now })))));
+      })(),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 16px 18px" } },
-        section("what", "1", "是什么", meta.name + (decorDraftType === "photo" && frameName ? " · " + frameName : ""),
+        section("what", "1", "是什么", meta.name + (A.type === "photo" && frameName ? " · " + frameName : ""),
           h("div", null,
-            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginTop: 6 } },
+            // ⚠️已经放上去的那一件不给换类型：换了就不是原来那件东西了，该新做一件。
+            A.setType ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginTop: 6 } },
               homeDecorPickable().map(function (x) {
-                var active = decorDraftType === x.id;
-                return h("button", { key: x.id, onClick: function () { setDecorDraftType(x.id); setDecorDraftText(x.text || ""); setDecorDraftDetail(x.detail || ""); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
+                var active = A.type === x.id;
+                return h("button", { key: x.id, onClick: function () { A.setType(x.id); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, x.glyph), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, x.name));
-              })),
-            decorDraftType === "photo" ? h("div", { style: { marginTop: 14 } },
+              })) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+                "这是一件已经摆上去的" + meta.name + "。想换成别的东西，就再做一件新的。"),
+            A.type === "photo" ? h("div", { style: { marginTop: 14 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "相框样式"),
-              h(HomePhotoFrameGrid, { value: decorDraftFrame, list: frames, onChange: function (id) { setDecorDraftFrame(id); setDecorDraftPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
+              h(HomePhotoFrameGrid, { value: A.frame, list: frames, onChange: function (id) { A.setFrame(id); A.setPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
               // ⚠️二十来种一次全摊开就是一堵墙。默认露八种，想看全的自己点开。
               !decorFrameAll ? h("button", { onClick: function () { setDecorFrameAll(true); }, className: "w-full active:opacity-70",
                 style: { marginTop: 8, borderRadius: 12, padding: "9px 0", border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
                 "全部 " + HOME_PHOTO_FRAMES.length + " 种 ›") : null,
-              h(HomePhotoSlotEditor, { value: decorDraftPhotos, frame: decorDraftFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "draft", slot); }, onClear: function (slot) { clearDecorPhoto("draft", slot); } }),
+              h(HomePhotoSlotEditor, { value: A.photos, frame: A.frame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, A.target, slot); }, onClear: function (slot) { clearDecorPhoto(A.target, slot); } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "照片可以先不放。多格相框以后也是逐格补，不会要求一次选满。")) : null)),
         section("words", "2", "写什么",
-          clip(decorDraftType === "photo" ? decorDraftText : (decorDraftText || meta.text), 12) || "（还没写）",
-          decorDraftType === "photo"
-            ? h("input", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
+          clip(A.type === "photo" ? A.text : (A.text || meta.text), 12) || "（还没写）",
+          A.type === "photo"
+            ? h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
             : h("div", { style: { marginTop: 6 } },
-                h("textarea", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + meta.name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
-                homeDecorHasDetail(decorDraftType) ? h("textarea", { value: decorDraftDetail, onChange: function (e) { setDecorDraftDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null)),
+                h("textarea", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + meta.name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
+                homeDecorHasDetail(A.type) ? h("textarea", { value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null)),
         section("look", "3", "什么样子", presetName + " · 底" + groundName,
           h("div", { style: { marginTop: 6 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "基础版式"),
-            h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),
+            h(HomePresetGrid, { value: A.preset, allowNative: false, onChange: A.setPreset }),
             h(HomeDecorAppearanceEditor, {
-              surface: decorDraftSurface,
-              borderMode: decorDraftBorderMode,
-              accent: decorDraftAccent,
-              ground: decorDraftGround,
-              onGround: setDecorDraftGround,
-              onGroundPhoto: function (f) { takeDecorGround(f, "draft"); },
+              surface: A.surface, borderMode: A.borderMode, accent: A.accent,
+              ground: A.ground, onGround: A.setGround,
+              onGroundPhoto: function (f) { takeDecorGround(f, A.target); },
               busy: decorBusy,
-              align: decorDraftAlign,
-              badge: decorDraftBadge,
-              mark: decorDraftMark, onMark: setDecorDraftMark,
-              tilt: decorDraftTilt,
-              onSurface: setDecorDraftSurface,
-              onBorderMode: setDecorDraftBorderMode,
-              onAccent: setDecorDraftAccent,
-              onAlign: setDecorDraftAlign,
-              onBadge: setDecorDraftBadge,
-              onTilt: setDecorDraftTilt
-            })))),
+              align: A.align, badge: A.badge, mark: A.mark, tilt: A.tilt,
+              onSurface: A.setSurface, onBorderMode: A.setBorderMode, onAccent: A.setAccent,
+              onAlign: A.setAlign, onBadge: A.setBadge, onMark: A.setMark, onTilt: A.setTilt
+            }))),
+        // ⚠️她 2026-09-05：「设置的时候没有选大小」——新建那一页原来压根没有这一段，
+        //   只有已经放上去之后长按才挑得到。两处本来就该是同一页。
+        section("size", "4", "多大", sizeName,
+          h("div", { style: { marginTop: 6 } },
+            A.isNew ? h("button", { onClick: function () { A.setSize(""); }, className: "w-full active:opacity-70",
+              style: { marginBottom: 8, borderRadius: 14, padding: "10px 0", background: A.size ? t.bg2 : t.ink, color: A.size ? t.ink : t.bg2, border: "1px solid " + (A.size ? t.line : t.ink), fontFamily: F_BODY, fontSize: 12.5 } },
+              "自动（按这一款推一个）") : null,
+            h(HomeSizeGrid, { value: A.size || "auto", onChange: A.setSize }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
+              "书签和挂轴那几款是竖的，挑「竖条」「竖块」才立得住。"))),
+        // 已经在桌面上的那一件，才有得移走
+        !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
       h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line, background: t.bg2 } },
-        h("button", { onClick: addDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } }, "放到桌面上")));
+        h("button", { onClick: function () { if (A.isNew) addDecoration(); else { saveStyleDecoration(); setStyleKey(null); setDecorStep("what"); } }, disabled: decorBusy, className: "w-full active:opacity-70", style: { borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } },
+          A.isNew ? "放到桌面上" : "保存")));
   })())
 }
 // 主页名片（v60.84 再改）——她 2026-09-03 又发来一张别家的截图：
