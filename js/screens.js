@@ -2803,6 +2803,46 @@ const COUPLE_QA_BANK = [
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
 const qhash = s => { let x = 0; for (let i = 0; i < s.length; i++) { x = (x * 31 + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); };
 // 情侣空间·问答小本：翻页书 —— 封面(可改标题)/翻页看过往(编辑·reroll·删除)/翻新题作答
+// ── 情侣空间那几扇门的底（v62.85，审美审计还债④第二批）─────────────────
+// 审计的「乙组」：这几页的部件早就合格了（布面本子、挂历页、照片、盆栽、登机牌、唱机），
+// **唯独外壳还是 t.bg 平色或干脆没有 style**——元素合格、外壳裸着。
+// 这一批每一页的底都从【这一页里那样东西本来待在哪儿】长出来，不是随便找个纹理：
+//   本子翻开 → 内页的纸和中缝 · 挂历 → 挂它的那面墙 · 照片 → 相册的黑卡纸
+//   盆栽 → 窗台的光 · 登机牌 → 行李箱的格纹内衬 · 碟 → 唱片箱的绒面内衬
+// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失，
+//   所以一律走这个闸；验不过就退回纯色。
+const cpSkin = (t, kind) => {
+  const ok = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+  if (!ok) return { background: t.bg };
+  const k = t.ink;
+  const layers = {
+    // 本子的内页：横线纸，正中一道装订暗缝（一人一半，缝就在中间）
+    page: ["repeating-linear-gradient(180deg," + k + "00 0 25px," + k + "0c 25px 26px)",
+      "linear-gradient(90deg," + k + "00 calc(50% - 9px)," + k + "0e calc(50% - 3px),rgba(255,255,255,.42) 50%," + k + "0e calc(50% + 3px)," + k + "00 calc(50% + 9px))"],
+    // 挂历挂着的那面墙：细颗粒 + 一大格一大格的淡影（月历的格子），不是纸
+    wall: ["repeating-linear-gradient(90deg," + k + "00 0 47px," + k + "09 47px 48px)",
+      "repeating-linear-gradient(180deg," + k + "00 0 47px," + k + "09 47px 48px)",
+      "radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.5),rgba(255,255,255,0) 60%)"],
+    // 相册的黑卡纸：暗一档、带极细的纸粒
+    album: ["repeating-linear-gradient(41deg," + k + "00 0 2px," + k + "0a 2px 3px)",
+      "linear-gradient(180deg," + k + "1c 0," + k + "12 100%)"],
+    // 窗台：右上角斜进来一道光，加两条窗格的影
+    sill: ["linear-gradient(212deg,rgba(255,250,225,.55) 0%,rgba(255,250,225,0) 46%)",
+      "repeating-linear-gradient(212deg," + k + "00 0 54px," + k + "07 54px 62px)"],
+    // 行李箱的格纹内衬：斜的细格子
+    lining: ["repeating-linear-gradient(45deg," + k + "00 0 9px," + k + "08 9px 10px)",
+      "repeating-linear-gradient(-45deg," + k + "00 0 9px," + k + "08 9px 10px)"],
+    // 名册那一页是【走廊】——它自己写着「挑一扇门进去」。所以底是走廊的墙纸：
+    // 细竖条 + 顶上一点漫光，跟屋里那面挂历墙（大格）一眼分得开。
+    corridor: ["repeating-linear-gradient(90deg," + k + "00 0 11px," + k + "07 11px 12px)",
+      "linear-gradient(180deg,rgba(255,255,255,.42) 0,rgba(255,255,255,0) 34%)"],
+    // 唱片箱的绒面：短促的绒毛纹，比纸暗、比纸软
+    velvet: ["repeating-linear-gradient(102deg," + k + "00 0 1px," + k + "0b 1px 2px)",
+      "repeating-linear-gradient(12deg," + k + "00 0 3px," + k + "07 3px 4px)",
+      "linear-gradient(160deg," + k + "16 0," + k + "0c 100%)"]
+  }[kind] || [];
+  return { background: t.bg, backgroundImage: layers.join(",") };
+};
 function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
   const t = useTheme();
   const mine = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
@@ -2836,9 +2876,9 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
 
   // —— 翻一张新题作答 ——
   if (mode === "draw") {
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "翻一张题", en: partner.name, onBack: () => { setCur(null); setAns(""); setMode("cover"); } }),
-      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+    return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
+      h(Head, { zh: "翻一张题", sub: partner.remark || partner.name, bg: "transparent", onBack: () => { setCur(null); setAns(""); setMode("cover"); } }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 14 } }, "已答 " + mine.length + " / " + bankTotal + " 题。"),
         cur ? h("div", { style: { background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "14px 16px", animation: "fadeUp .3s ease both", backgroundImage: "repeating-linear-gradient(transparent 0 27px, rgba(190,170,120,.16) 27px 28px)", boxShadow: "0 8px 20px rgba(90,70,40,.10)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".18em", color: "#a3987e", marginBottom: 8 } }, cur.cat),
@@ -2854,9 +2894,9 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
     const has = mine.length > 0;
     const idx = Math.max(0, Math.min(pageIdx, mine.length - 1));
     const e = has ? mine[idx] : null;
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: bookTitle, en: has ? "第 " + (idx + 1) + " 页 · 共 " + mine.length + " 页" : "", onBack: () => setMode("cover") }),
-      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8", style: { touchAction: "pan-y" }, onTouchStart: ev => { const tt = ev.touches[0]; swipeRef.current = { x: tt.clientX, y: tt.clientY }; }, onTouchEnd: ev => { const tt = ev.changedTouches[0]; const dx = tt.clientX - swipeRef.current.x, dy = tt.clientY - swipeRef.current.y; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) setPageIdx(Math.min(mine.length - 1, idx + 1)); else setPageIdx(Math.max(0, idx - 1)); } } },
+    return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
+      h(Head, { zh: bookTitle, sub: has ? "第 " + (idx + 1) + " 页 · 共 " + mine.length + " 页" : null, bg: "transparent", onBack: () => setMode("cover") }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { touchAction: "pan-y" }, onTouchStart: ev => { const tt = ev.touches[0]; swipeRef.current = { x: tt.clientX, y: tt.clientY }; }, onTouchEnd: ev => { const tt = ev.changedTouches[0]; const dx = tt.clientX - swipeRef.current.x, dy = tt.clientY - swipeRef.current.y; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) setPageIdx(Math.min(mine.length - 1, idx + 1)); else setPageIdx(Math.max(0, idx - 1)); } } },
         !has ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 10 } }, "还没有答过的题。") : h("div", { key: e.id, style: { position: "relative", background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "16px 18px 14px", animation: "fadeUp .3s ease both",
           // 纸页（v62.13）：横格淡淡铺在底上当纸纹，右下一个折角。配色整套写死——
           // 纸是写死的浅色，字色若还跟主题走，深色主题就是浅字浅纸（信纸那套的同一课）
@@ -3167,10 +3207,10 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
       h("div", { style: { height: 14, width: 2, background: "linear-gradient(rgba(224,138,160,.35), " + ROAD + ")", marginTop: 2, borderRadius: 2 } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: ROAD_DOT, paddingTop: 3 } },
       "今天 · 第 " + Math.max(1, Math.floor((Date.now() - since) / 86400000) + 1) + " 天")) : null;
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的日子", en: partner.name, onBack,
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "wall") },
+    h(Head, { zh: "我们的日子", sub: partner.remark || partner.name, bg: "transparent", onBack,
       right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       // ── 两个入口不是按钮，是【那两样东西本身】（tabs-not-plain-pills.md，她 2026-09-04：
       //    「还是两颗药丸和很普通的框」）。这一页现实里是什么？一条走过来的路 + 一本挂历。
       //    所以：里程碑＝往路上钉一处（路段＋实心点，跟底下时光轴同一套颜色）；
@@ -3563,9 +3603,9 @@ function CoupleAlbum({ partner, photos, onBack }) {
     g.items.push(p);
   });
   const isTwelfth = new Date().getDate() === 12;
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的合照", en: partner.name, onBack: onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 pb-12" },
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "album") },
+    h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
       list.length === 0
         ? h(Empty, { text: "还没有你俩的合照", sub: "在和 " + partner.name + " 的聊天里，让 TA 拍张『我俩的合照』——就会挂到这面墙上。（需先在设置配好图像 API、你和 TA 都传了参考照）" })
         : h(Fragment, null,
@@ -3931,8 +3971,8 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
   const doze = typeof GardenKit !== "undefined" && GardenKit.dozing(g, Date.now());
   const bloomed = !!g.bloomTs;
   const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "花房", sub: partner.remark || partner.name, onBack }),
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "sill") },
+    h(Head, { zh: "花房", sub: partner.remark || partner.name, bg: "transparent", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
       g.species ? h(Fragment, null,
         h("div", { style: { marginTop: 14, borderRadius: 20, padding: "22px 18px 18px", textAlign: "center",
@@ -3975,8 +4015,8 @@ function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
   const done = (trips || []).filter(x => x && x.status === "done");
   const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
   const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "旅行", sub: partner.remark || partner.name, onBack }),
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "lining") },
+    h(Head, { zh: "旅行", sub: partner.remark || partner.name, bg: "transparent", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { overscrollBehavior: "contain" } },
       cur ? h(Fragment, null,
         // ── 登机牌：上一条深带（你们俩），主体目的地大字，右侧竖撕线 + 存根 ──
@@ -4049,9 +4089,9 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
   const nextSong = songs.find(x => x.id === nextId) || null;
   // 唱片面上显示的那一首：正在放的 > 下次会接着放的 > 第一首
   const faceSong = nowSong || nextSong || songs[0];
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "我们的唱片", en: partner.name, onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "velvet") },
+    h(Head, { zh: "我们的唱片", sub: partner.remark || partner.name, bg: "transparent", onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       // ── 唱机台 ──
       h("div", { style: { margin: "14px -24px 0", padding: "26px 24px 22px", background: "linear-gradient(160deg,#241f2c 0%,#171420 70%)", textAlign: "center" } },
         h("div", { style: { position: "relative", width: 208, height: 208, margin: "0 auto" } },
@@ -4951,7 +4991,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       h("div", { style: { position: "absolute", left: "calc(" + (n / maxDays * 100) + "% - 3px)", top: 5,
         width: 6, height: 6, borderRadius: 999, background: "#d16a86" } }));
   };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "corridor") },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：原来那个 30px 大标题 + US/COUPLE 占掉小半屏
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
