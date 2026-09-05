@@ -397,6 +397,10 @@ function Head({
   //   没有这个口子的话，那种页面只能自己手写一条顶栏——月度印象当初就是这么走的，
   //   于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout.md §1）。
   , ink
+  // 底下那条分隔线撤掉：只给【图从顶栏后面透上来】的页面用（一起听的播放页）。
+  // ⚠️不做成「bg 透明就自动不画」——六十多页都传着 transparent，那是一次全 app 的
+  //   视觉改动，不该由这一处顺手决定。要撤的自己点名撤。
+  , noLine
   // 藏起来的开关：给标题本身挂一下（不改任何长相）。传了才挂。
   , onTitleTap
 }) {
@@ -423,7 +427,7 @@ function Head({
       background: bg || t.bg,
       paddingTop: safeTop(8),
       paddingBottom: 8,
-      borderBottom: "1px solid " + LINE
+      borderBottom: noLine ? "none" : "1px solid " + LINE
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 flex items-center",

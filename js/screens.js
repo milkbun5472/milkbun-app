@@ -5218,7 +5218,11 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
 
   const addNet = () => { if (link.trim()) { onAddNetease(link, title, artist); setLink(""); setTitle(""); setArtist(""); } };
   const addLoc = () => { if (localFile) { onAddLocal(localFile, title, artist); setLocalFile(null); setTitle(""); setArtist(""); } };
-  const field = { fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
+  // 输入框＝【刻在板子上的槽】，不是浮着的圆角框（v63.54）：底色比板深一档、
+  // 直角、上沿一道内影——手指按下去像按进一条槽里，而不是点一张卡片。
+  const field = { fontFamily: F_BODY, fontSize: 13.5, background: hex6(t.ink) ? t.ink + "0a" : t.bg, color: t.ink,
+    border: "1px solid " + t.line, borderRadius: 3, padding: "10px 11px", width: "100%", outline: "none",
+    boxShadow: hex6(t.ink) ? "inset 0 2px 4px -2px " + t.ink + "3d" : "none" };
   // 三段【不是药丸】（v62.46，tabs-not-plain-pills）：同一页的云村那排早就做成了
   // 「唱片架里的分隔卡」（cvChip：选中那张满高、纸色、长进底下那一页；没选的往下缩一截、
   // 暗着，像压在后面几张），这三段没跟上。照它抄形状，别再发明第三套。
@@ -5438,7 +5442,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     // 静音保活：像一首歌，点播放=放段无声音频占住后台，让 TA 能后台发消息来；暂停就关、想听真歌直接换
     (() => {
       const kaOn = !!(player && player.songId === KEEPALIVE_ID && player.playing);
-      return h("button", { onClick: () => (player && player.songId === KEEPALIVE_ID) ? onTogglePlay() : onPlaySong(KEEPALIVE_ID), className: "w-full flex items-center gap-3 active:opacity-80", style: { marginTop: 12, background: kaOn ? (t.accent || "#8a6d3b") + "14" : t.bg2, border: "1px solid " + (kaOn ? (t.accent || "#8a6d3b") + "44" : t.line), borderRadius: 14, padding: "11px 13px", textAlign: "left" } },
+      return h("button", { onClick: () => (player && player.songId === KEEPALIVE_ID) ? onTogglePlay() : onPlaySong(KEEPALIVE_ID), className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ marginTop: 12, padding: "11px 13px", textAlign: "left" }, kaOn) },
         h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #3a3a42 0 34%, #23232a 35%)", display: "flex", alignItems: "center", justifyContent: "center", animation: kaOn ? "wk-spin 9s linear infinite" : "none" } }, ic("moon", "#e6dcc4", 17)),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "静音保活"),
@@ -5451,7 +5455,18 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     //   接口、Cookie、登录、把歌弄进来。歌本身是她的东西，归「我的」。
     //   原来叫「曲库」却装着一整页设置，名字和内容对不上，这是她说「很乱」的一处。
     // 添加：链接ID / 本地 + 接口设置（折叠在下方）
-    h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", marginTop: 18 } },
+    // ── 这一页是【唱机背后那块板】（v63.54，她：「这些页面没弄 UI 弄一弄」）──
+    // 不铺纹理（她 2026-09-05 否过一次），靠形状：板是直角的、上沿一道刻线、
+    // 四角各一枚螺丝（程序画的），里面的输入框是刻进去的槽。
+    // 判据同 tabs-not-plain-pills：一张 16 圆角的白卡搬到哪个 app 都成立，那就是没设计。
+    h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line,
+        borderRadius: 4, borderTop: "2px solid " + (hex6(t.ink) ? t.ink + "2e" : t.line),
+        padding: "12px 14px", marginTop: 18,
+        boxShadow: hex6(t.ink) ? "inset 0 1px 0 rgba(255,255,255,.5)" : "none" } },
+      [["l", 6, 6], ["r", null, 6]].map(function (q, qi) {
+        return h("span", { key: qi, "aria-hidden": "true", style: Object.assign({ position: "absolute", top: 6, width: 4, height: 4, borderRadius: 999,
+          background: hex6(t.ink) ? t.ink + "2b" : t.line }, q[0] === "l" ? { left: 6 } : { right: 6 }) });
+      }),
       h(Eyebrow, { style: { marginBottom: 10 } }, "添加歌曲"),
       h("div", { className: "flex gap-2", style: { marginBottom: 10 } }, tabBtn("netease", "链接/ID"), tabBtn("local", "本地")),
       addTab === "netease"
@@ -5546,7 +5561,28 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         borderLeft: "1px solid " + t.line, borderRight: "1px solid " + t.line, borderBottom: "1px solid " + t.line } }) : null,
       h("span", { style: { position: "relative", top: on ? 5 : 0 } }, label));
   };
-  const cvPlRow = pl => h("div", { key: pl.id, className: "w-full flex items-center gap-3 py-2", style: { borderBottom: "1px solid " + t.line } },
+  // ── 碟套（v63.54）──────────────────────────────────────────────
+  // 她 2026-09-05：「一起听这些页面没弄 UI 弄一弄」。发现/我的/设置三页原来是
+  // 一叠一模一样的圆角白卡浮在米白上——那个形状搬到任何 app 里都成立，就是没设计。
+  // ⚠️不铺纹理：她 2026-09-05 已经否过一次（「我们这个纹理背景方向错了，
+  //   他放在听歌软件里不好看」）。所以不靠材质，靠【形状】：
+  //   一张歌单在现实里是一张【插在箱子里的碟套】——左边是压出来的脊（厚、暗、带一道高光），
+  //   右边是开口那侧（薄、圆、有一道浅浅的内影）。所以左右两边长得不一样，它才不是一块方卡。
+  // lit=true：这张碟正被抽出来（静音保活正放着），脊染成强调色
+  function sleeve(extra, lit) {
+    const edge = lit ? (t.accent || "#8a6d3b") : (hex6(t.ink) ? t.ink + "33" : t.line);
+    return Object.assign({
+      background: lit ? ((t.accent || "#8a6d3b") + "12") : t.bg2,
+      borderRadius: "3px 12px 12px 3px",
+      borderLeft: "3px solid " + edge,
+      boxShadow: hex6(t.ink)
+        ? "inset 1px 0 0 " + t.ink + "1f, inset -7px 0 10px -9px " + t.ink + "40, 0 1px 0 " + t.ink + "0d"
+        : "none",
+      border: "1px solid " + t.line,
+      borderLeftWidth: 3
+    }, extra || {});
+  }
+  const cvPlRow = pl => h("div", { key: pl.id, className: "w-full flex items-center gap-3", style: sleeve({ padding: "8px 10px", marginBottom: 6 }) },
     h("button", { onClick: () => openCloudPl(pl), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
       h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
       h("div", { className: "min-w-0 flex-1" },
@@ -5576,8 +5612,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           // 网易云账号区（v54.51）：把她真账号的「我喜欢的音乐」和自建歌单搬进「我的」，
           // 和网易云 App 的我的页一个样；点开跳到推荐页的歌单详情（写权限都在那边）
           (apiBase && cookie) ? h("div", { style: { marginTop: 8 } },
-            h("button", { onClick: () => { setNav("cloud"); openLikePl(); }, className: "w-full flex items-center gap-3 active:opacity-80", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", textAlign: "left" } },
-              h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
+            h("button", { onClick: () => { setNav("cloud"); openLikePl(); }, className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ padding: "11px 13px", textAlign: "left" }) },
+              h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我喜欢的音乐"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 网易云账号"))),
@@ -5610,9 +5646,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                   style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "12px 0" } }, "看最近播放的 →"),
             h(Eyebrow, { style: { marginTop: 14, marginBottom: 2 } }, "本地 · 一起听")) : null,
           // 本地收藏（点左侧打开看列表；右侧圆钮直接播放）
-          h("div", { className: "w-full flex items-center gap-3", style: { marginTop: 8, background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px" } },
+          h("div", { className: "w-full flex items-center gap-3", style: sleeve({ marginTop: 8, padding: "11px 13px" }) },
             h("button", { onClick: () => setOpenPl("__fav__"), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-80 text-left" },
-              h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,#8a6d3b,#cfc0a0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
+              h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#8a6d3b,#cfc0a0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, favs.length + " 首 · 咱家歌库的收藏"))),
@@ -5631,8 +5667,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           // 已有歌单列表（角色生成的歌单也在这儿）
           playlists.length ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "歌单 · " + playlists.length),
-            h("div", { className: "space-y-2" }, playlists.map(pl => { const ch = pl.charId ? (characters || []).find(c => c.id === pl.charId) : null; const q = (pl.songs || []).map(s => s.id); return h("div", { key: pl.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "10px 12px" } },
-              h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-70", style: { width: 46, height: 46, borderRadius: 10, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + ")" : "linear-gradient(135deg,#a8b4c0,#cfc9bd)", display: "flex", alignItems: "center", justifyContent: "center" } }, ch ? h(Avatar, { character: ch, size: 26, radius: 999 }) : ic("note", "#fff", 18)),
+            h("div", { className: "space-y-2" }, playlists.map(pl => { const ch = pl.charId ? (characters || []).find(c => c.id === pl.charId) : null; const q = (pl.songs || []).map(s => s.id); return h("div", { key: pl.id, className: "flex items-center gap-3", style: sleeve({ padding: "9px 11px" }) },
+              h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-70", style: { width: 46, height: 46, borderRadius: 4, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + ")" : "linear-gradient(135deg,#a8b4c0,#cfc9bd)", display: "flex", alignItems: "center", justifyContent: "center" } }, ch ? h(Avatar, { character: ch, size: 26, radius: 999 }) : ic("note", "#fff", 18)),
               h("button", { onClick: () => setOpenPl(pl.id), className: "flex-1 min-w-0 text-left active:opacity-70" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (pl.songs || []).length + " 首" + (ch ? " · " + ch.name : ""))),
@@ -5868,21 +5904,32 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 没有封面的歌只剩一团暖光；另外三格（发现/我的/设置）不铺任何材质，干净的底让封面们自己出来。
   //   歌词页封面压到两成，字才读得清。
   //   mask 不碰主题色，所以不用 hex6 验——这层永远不会静默消失。
-  // v62.96 封面从顶栏【底下】开始铺，不再钻到顶栏后面（她 2026-09-05：「封面太靠上了移到一起听标题下面」）：
-  //   挂进滚动区、跟着内容滚；上沿满、180px 起淡、330px 淡完——标题落在 292px 上下，那儿封面只剩两成半。
-  const coverFade = "linear-gradient(to bottom, rgba(0,0,0,1) 0px, rgba(0,0,0,1) 180px, rgba(0,0,0,0) 330px)";
-  const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 330, zIndex: -1, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
+  // v63.54 封面【透到顶栏后面】去（她 2026-09-05：「播放音乐时封面背景应该透到上面，
+  //   但是不是直接把主体移上去做 fade?」）。两件事分开：
+  //   · 封面这一层往上长，一直铺到屏幕最顶（顶栏是 bg:"transparent"，图从它后面透出来）；
+  //   · 正文【一格都不动】——它还在滚动区里，位置和 v62.96 一模一样。
+  //   v62.96 那版是把封面挂进滚动区，那它就只能从顶栏底下开始：容器 overflow 一裁，
+  //   它永远上不去。所以这一层得挂在【外壳】上，跟顶栏平级。
+  // ⚠️挂在外壳上就不跟着滚了——这正是它该有的样子：它是这一页的底，不是内容的一段。
+  // ⚠️顶栏的字压在封面上要读得清：图上再糊一层从上往下化开的薄底色（scrim），
+  //   只盖住顶栏那一带，正文那边一点不碰。
+  const coverFade = "linear-gradient(to bottom, rgba(0,0,0,1) 0px, rgba(0,0,0,1) 250px, rgba(0,0,0,0) 400px)";
+  const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 400, zIndex: 0, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
     coverSrc ? h("img", { src: coverSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
-      : h("div", { style: { width: "100%", height: "100%", background: hex6(t.accent) ? "radial-gradient(ellipse at 50% 30%," + t.accent + "3a 0%," + t.accent + "12 45%,transparent 75%)" : "transparent" } })) : null;
+      : h("div", { style: { width: "100%", height: "100%", background: hex6(t.accent) ? "radial-gradient(ellipse at 50% 30%," + t.accent + "3a 0%," + t.accent + "12 45%,transparent 75%)" : "transparent" } }),
+    // 顶栏那一带的薄底色：让返回键和「一起听」在任何封面上都读得清
+    h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, height: safeTop(96),
+      background: hex6(t.bg) ? "linear-gradient(to bottom," + t.bg + "b8 0%," + t.bg + "6b 55%,transparent 100%)" : "none" } })) : null;
   const crate = { background: t.bg };
   return h("div", { className: "h-full flex flex-col relative", style: crate },
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
     //   数字不是英文装饰，它是这一页唯一说得清「放到哪了」的东西。
-    h(Head, { zh: "一起听", bg: "transparent",
+    coverField,
+    h("div", { style: { position: "relative", zIndex: 1 } }, h(Head, { zh: "一起听", bg: "transparent", noLine: nav === "play" && !!now,
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
-      onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
-    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", isolation: "isolate" } }, coverField, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
+      onBack: () => { if (openPl) setOpenPl(null); else onBack(); } })),
+    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的

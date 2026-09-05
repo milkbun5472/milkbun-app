@@ -20,11 +20,14 @@ const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));
 const CODE = CRATE.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
 
-test("封面就是这一页：挂在外壳上、顶栏透上来、往下淡进纯底（v62.92）", () => {
+test("封面就是这一页：挂在外壳上、透到顶栏后面、往下淡进纯底（v63.54）", () => {
   // 她 2026-09-05：「封面整个代替掉页面」「纹理背景方向错了，放在听歌软件里不好看」。
   // 四版材质（木纹/沟纹/内袋纸/沟纹一片）的前提都是「这页是一件东西」；播放页现实里是【正在放的那首歌】。
-  // v62.96：封面从顶栏底下开始（她：「封面太靠上了移到一起听标题下面」）——挂进滚动区、跟着内容滚
-  assert.match(CRATE, /style: \{ position: "relative", isolation: "isolate" \} \}, coverField,/, "封面没垫在滚动区里（没有 isolate 它会盖在字上面）");
+  // v62.96 曾把封面挂进滚动区（她：「封面太靠上了移到一起听标题下面」）；
+  // v63.54 她要它【透到上面】去，而且「不是直接把主体移上去做 fade」——
+  // 所以封面回到外壳上、跟顶栏平级，正文一格没动。挂在滚动区里它永远上不去（容器会裁）。
+  assert.match(CRATE, /coverField,\n\s*h\("div", \{ style: \{ position: "relative", zIndex: 1 \} \}, h\(Head, \{ zh: "一起听"/, "封面没挂在外壳上，它就上不了顶栏");
+  assert.match(CRATE, /className: "flex-1 overflow-y-auto", style: \{ position: "relative", zIndex: 1 \}/, "正文那层得压在封面上面");
   assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏得是透明的，底色由外壳给");
   assert.match(LT, /const crate = \{ background: t\.bg \};/, "外壳不是干净的底");
   assert.match(LT, /const coverSrc = now \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
@@ -33,7 +36,7 @@ test("封面就是这一页：挂在外壳上、顶栏透上来、往下淡进�
   const LTC = LT.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(LTC.indexOf("const coverSrc = ") < LTC.indexOf("const playTab = "), "coverSrc 又跑到 playTab 后面去了，一进页面就 TDZ 白屏");
   assert.match(LT, /WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric \? \.22 : 1/, "封面没往下淡出，或歌词页没压暗");
-  assert.match(LT, /rgba\(0,0,0,1\) 0px, rgba\(0,0,0,1\) 180px, rgba\(0,0,0,0\) 330px/, "淡出的位置变了：标题要坐在近乎纯底上");
+  assert.match(LT, /rgba\(0,0,0,1\) 0px, rgba\(0,0,0,1\) 250px, rgba\(0,0,0,0\) 400px/, "淡出的位置变了：标题要坐在近乎纯底上");
   // 内容在动，封面不该跟着动
   assert.doesNotMatch(CODE, /backgroundAttachment/, "又挂上 backgroundAttachment 了");
   assert.match(rule, /底纹铺在【外壳】上，顶栏透明/);
