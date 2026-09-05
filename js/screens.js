@@ -10233,7 +10233,9 @@ function MyDiaryCompose({ onBack, onSave }) {
   const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
   const inp = { background: "transparent", border: "none", outline: "none", textAlign: "right", fontFamily: "'Archivo',sans-serif", fontSize: 15, color: t.ink, width: "60%" };
   const metaRow = (label, node) => h("div", { className: "flex items-center justify-between py-2.5", style: { borderTop: `1px solid ${t.line}` } }, h(Eyebrow, null, label), node);
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg2 } },
+  // v64.00：写日记这一页原来是平色米白——一页纸上写字，纸却没有纹理。
+  // lined（信纸横线）就是给这种页面预备的那一格。
+  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("lined", t, { base: t.bg2, corner: false, strength: .7 }) : { background: t.bg2 }) },
     h("div", { className: "shrink-0 flex items-center justify-between px-6 pb-2", style: { paddingTop: safeTop(20) } },
       h("button", { onClick: onBack, className: "flex items-center gap-2 active:opacity-50" },
         h(IArrow, { size: 19, color: t.ink }),

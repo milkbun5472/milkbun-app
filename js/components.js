@@ -2229,7 +2229,14 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const toggleVis = id => onSavePeriod({ visibleTo: visSet.includes(id) ? visSet.filter(x => x !== id) : [...visSet, id] });
 
   // 外壳自己铺底：原来没写 background，全靠父层透过来——这一页得自己是一张纸
-  return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: t.bg2 } },
+  // v64.00 从平色米白换成纸（她 2026-09-05：「特别是那些比较深的子页面」，
+  // 扫下来这一页是最秃的一张）。
+  // ⚠️没有用 grid（方格纸）——虽然 SKIN_PATS 里那一格写着「账本、日历、行程」。
+  //   因为**这一页自己就是一张格子**：七列的日期表已经是网格了，再铺一层 23px 的方格，
+  //   两套间距对不上，看着是两张网叠在一起。**底纹是给没有结构的页面补结构的，
+  //   本来就有结构的页面只需要一张纸。**
+  return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" },
+      typeof pageSkin === "function" ? pageSkin("paper", t, { base: t.bg2, strength: 1.2 }) : { background: t.bg2 }) },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(16) } },
@@ -10549,7 +10556,7 @@ function OfflineMode({
 
   // ---- 往期回看 ----
   if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
@@ -10561,7 +10568,7 @@ function OfflineMode({
 
   // ---- setup ----
   if (view === "setup") {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + cName),
@@ -11157,7 +11164,7 @@ function GroupOfflineMode({
 
   // ---- 往期回看 ----
   if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
@@ -11173,7 +11180,7 @@ function GroupOfflineMode({
 
   // ---- setup ----
   if (view === "setup") {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + gName),
@@ -12849,6 +12856,14 @@ function ContactDetail({
 
 // ---- chat settings (memory) ----
 // 折叠分区（v48.35）：聊天设置太长往下翻难找——按主题收起，点标题才展开需要改的那块（手风琴，一次一个）
+// 线下那几层子页（往期回看 / 赴约设置）共用这一份底。
+// ⚠️单人线下和群线下是【两份代码】，各写一份迟早只改一处——这个仓库最常犯的病。
+//   挑 lined（信纸）：这两页一个是回头读当时那一场、一个是动手写开场，
+//   两件事都是「在纸上写字」，不是「在设置里拨开关」。
+function offlineSubSkin(t) {
+  return Object.assign({ paddingTop: safeTop(0) },
+    typeof pageSkin === "function" ? pageSkin("lined", t, { corner: false, strength: .8 }) : { background: t.bg });
+}
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
   // ⚠️v63.92 从「一条发丝线 + 一行字」改成卡片：这一页铺上档案纸的底纹之后，
