@@ -2447,6 +2447,42 @@ const HOME_DECOR_TILTS = [
   { value: 8, name: "右斜" }
 ];
 const HOME_DECOR_ACCENTS = ["#b65f57", "#c08a43", "#67806f", "#57758b", "#765f83", "#2e2b28"];
+// 每一件装饰自己那张【底】（她 2026-09-05：「每一个的封面也可以自定义，
+// 不然都是现在米白背景好丑」）。不挑＝各款原样（胶卷是黑的、挂轴是宣纸色…），
+// 挑了就整块换掉：一个颜色，或者她自己的一张图。
+// ⚠️换的只是【最外面那一层底】。里头的画——齿孔、木夹子、白边、轴杆、票根的锯齿
+//   ——一律不动：那几样才是「这是什么东西」，换掉就不是那个东西了。
+const HOME_DECOR_GROUNDS = [
+  { id: "", name: "原样", swatch: "repeating-linear-gradient(45deg,rgba(120,110,96,.18) 0 5px,transparent 5px 10px)" },
+  { id: "#f3ece0", name: "宣纸" }, { id: "#e7ded0", name: "牛皮" }, { id: "#1f1e1b", name: "夜色" },
+  { id: "#2b3a36", name: "墨绿" }, { id: "#3a2f3c", name: "紫檀" }, { id: "#8f4f45", name: "砖红" },
+  { id: "#d9c9a8", name: "米金" }, { id: "#ffffff", name: "纯白" }
+];
+// 挑了深色的底，字必须跟着翻白——不然就是黑底黑字（v59.62 那次的另一种长相：
+// 那次是深色主题里 t.ink 本身是浅色、又写死了白字）。
+// ⚠️底图什么都可能，猜不了：一律按深底处理，并且给字垫一层影——
+//   浅字＋影压在任何一张图上都还读得出来，反过来（深字压深图）就是看不见。
+function decorGroundDark(item) {
+  var g = item && item.ground;
+  if (!g) return false;
+  if (typeof g === "object" && g.imageRef) return true;
+  var col = typeof g === "string" ? g : g.color;
+  var m = /^#([0-9a-f]{6})$/i.exec(String(col || ""));
+  if (!m) return false;
+  var n = parseInt(m[1], 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.55;
+}
+function decorGroundStyle(item) {
+  var g = item && item.ground;
+  if (!g) return null;
+  if (typeof g === "object" && g.imageRef) {
+    var src = typeof resolveImg === "function" ? resolveImg(g.imageRef) : g.imageRef;
+    if (src) return { backgroundImage: "url(" + src + ")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+    return null;   // 图丢了就当没挑，退回这一款自己的底，别落一块纯黑
+  }
+  var col = typeof g === "string" ? g : g.color;
+  return col ? { background: col, backgroundImage: "none" } : null;
+}
 function normalizeHomeDecorTilt(value) {
   var n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -2700,10 +2736,20 @@ function dmark(item, fallback) {
 }
 function HomeDecorItem({ item, preset, now }) {
   const t = useTheme();
-  const dark = preset === "film";
+  // 底挑成深色（或放了一张图）之后，这一件就按深色画——ink / sub 全跟着走
+  const dark = preset === "film" || decorGroundDark(item);
   const ink = dark ? "#f7f1e8" : t.ink;
   const sub = dark ? "rgba(247,241,232,.62)" : t.fog;
   const accent = item.accent || (dark ? "#d7b16b" : t.accent);
+  // 这一件的【封面】。⚠️套在哪一层，得由每一款自己指名——
+  //   有几款的纸是【里面那一层】（书签的纸、挂轴的纸、便利贴那张便条），
+  //   套在根节点上会被那层纸原样盖住，看着就像这个设置没生效。
+  //   所以下面每一款都在它自己那张「纸」上 Object.assign 一次，没有泛用薄壳。
+  const gnd = decorGroundStyle(item) || null;
+  // 放了图就顺手给字垫一层影：图上有亮有暗，光靠翻白还是会有一块读不出来
+  const gShadow = (item && item.ground && typeof item.ground === "object" && item.ground.imageRef)
+    ? { textShadow: "0 1px 3px rgba(0,0,0,.62)" } : null;
+  const onGnd = function (base) { return gnd ? Object.assign({}, base, gnd, gShadow || {}) : base; };
   if (item.type === "photo") {
     var refs = Array.isArray(item.imageRefs) && item.imageRefs.length ? item.imageRefs : (item.imageRef ? [item.imageRef] : []);
     var frame = item.frame || "single";
@@ -2943,6 +2989,9 @@ function HomeDecorItem({ item, preset, now }) {
     } else {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", borderRadius: preset === "editorial" ? 0 : 7, background: dark ? "#0d0d0c" : t.bg2 } }, photo(srcs[0], 0, { width: "100%", height: "100%" }));
     }
+    // 挑了底就把【板子那一层】的底换掉。换根节点没用——板子会原样盖在上面。
+    // ⚠️只 clone 最外面那一层：里头的齿孔、白边、撕口一个都不碰。
+    if (gnd && body && body.props) body = React.cloneElement(body, { style: Object.assign({}, body.props.style, gnd) });
     return h("div", { style: { width: "100%", height: "100%", position: "relative", minWidth: 0, overflow: "hidden" } }, body,
       caption && frame !== "magazine3" ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
   }
@@ -2951,11 +3000,11 @@ function HomeDecorItem({ item, preset, now }) {
   var detail = item.detail || meta.detail;
   if (item.type === "ticket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
-      h("div", { style: { flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" } },
+      h("div", { style: onGnd({ flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" }) },
         h("div", { style: { fontFamily: "monospace", fontSize: 7, letterSpacing: ".18em", color: sub } }, "ADMIT ONE · " + String(new Date(item.createdAt || Date.now()).getFullYear())),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.22, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)),
-      h("div", { style: { width: "25%", minWidth: 47, padding: "7px 5px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderLeft: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,.06)" : "rgba(184,119,66,.13)" } },
+      h("div", { style: onGnd({ width: "25%", minWidth: 47, padding: "7px 5px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderLeft: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,.06)" : "rgba(184,119,66,.13)" }) },
         h("span", { style: { fontFamily: "monospace", fontSize: 6.5, color: sub, writingMode: "vertical-rl", letterSpacing: ".12em" } }, "NO. " + String((item.createdAt || 1) % 10000).padStart(4, "0")),
         h("span", { style: { width: "80%", height: 12, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 7px)", opacity: .6 } })));
   }
@@ -2983,11 +3032,11 @@ function HomeDecorItem({ item, preset, now }) {
       // 穿在孔里的那根绳，从顶上垂下来一小截
       h("div", { style: { position: "absolute", left: "50%", top: 0, width: 2, height: 13, marginLeft: -1, background: accent, opacity: .75, zIndex: 3 } }),
       h("div", { style: { position: "absolute", left: "50%", top: 9, width: 9, height: 9, marginLeft: -4.5, borderRadius: 999, border: "2px solid " + accent, opacity: .75, zIndex: 3 } }),
-      h("div", { style: { width: "78%", maxWidth: 62, marginTop: 15, marginBottom: 2, alignSelf: "center", background: bmPaper, border: "1px solid " + bmEdge,
+      h("div", { style: onGnd({ width: "78%", maxWidth: 62, marginTop: 15, marginBottom: 2, alignSelf: "center", background: bmPaper, border: "1px solid " + bmEdge,
           boxShadow: "0 5px 14px rgba(48,38,26,.16)", display: "flex", flexDirection: "column", alignItems: "center",
           padding: "11px 0 22px", minHeight: 0,
           // 底下那个燕尾：书签的形状就长在这一句上
-          clipPath: "polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)" } },
+          clipPath: "polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)" }) },
         // 顶上那个孔（绳穿过去的地方）
         h("span", { style: { width: 7, height: 7, borderRadius: 999, border: "1px solid " + bmEdge, background: dark ? "#1c1916" : "#e8ddc9", marginBottom: 7, flexShrink: 0 } }),
         // ⚠️竖排文字踩了两个坑，都得写下来：
@@ -3017,12 +3066,12 @@ function HomeDecorItem({ item, preset, now }) {
         h("path", { d: "M23 2 6 13M23 2 40 13", stroke: accent, strokeWidth: 1.2, fill: "none", opacity: .7 }),
         h("circle", { cx: 23, cy: 2.5, r: 2.5, fill: accent, opacity: .8 })),
       rod({ width: "88%" }),
-      h("div", { style: { width: "80%", flex: 1, minHeight: 0, background: scPaper, borderLeft: "1px solid rgba(120,96,64,.2)", borderRight: "1px solid rgba(120,96,64,.2)",
+      h("div", { style: onGnd({ width: "80%", flex: 1, minHeight: 0, background: scPaper, borderLeft: "1px solid rgba(120,96,64,.2)", borderRight: "1px solid rgba(120,96,64,.2)",
           boxShadow: "0 6px 16px rgba(48,38,26,.15), inset 0 0 22px rgba(160,132,88,.10)",
-          display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "stretch", gap: 7, padding: "13px 6px", overflow: "hidden" } },
+          display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "stretch", gap: 7, padding: "13px 6px", overflow: "hidden" }) },
         // 同上：竖排的字要有高度才跑得起来，所以这里 alignItems 是 stretch、两条字各 height 百分比
-        vtext(title, { box: { height: "100%" }, ch: { fontFamily: F_DISPLAY, fontSize: 16, color: "#4a3f30", letterSpacing: 0, marginBottom: 2 } }),
-        detail ? vtext(detail, { box: { height: "78%", marginTop: "10%" }, ch: { fontFamily: F_BODY, fontSize: 9, color: "rgba(96,82,63,.72)", marginBottom: 2 } }) : null),
+        vtext(title, { box: { height: "100%" }, ch: { fontFamily: F_DISPLAY, fontSize: 16, color: dark ? "#f2ece0" : "#4a3f30", letterSpacing: 0, marginBottom: 2 } }),
+        detail ? vtext(detail, { box: { height: "78%", marginTop: "10%" }, ch: { fontFamily: F_BODY, fontSize: 9, color: dark ? "rgba(242,236,224,.72)" : "rgba(96,82,63,.72)", marginBottom: 2 } }) : null),
       rod({ width: "88%" }),
       // 轴头两端各露一小截
       h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: 0, height: 7, display: "flex", justifyContent: "space-between", pointerEvents: "none" } },
@@ -3039,11 +3088,11 @@ function HomeDecorItem({ item, preset, now }) {
       h("div", { style: { position: "absolute", left: "50%", bottom: "17%", width: 28, height: 28, transform: "translateX(-50%)", borderRadius: 999, background: "#a64d45", color: "rgba(255,238,216,.78)", boxShadow: "inset 0 0 0 3px rgba(91,35,31,.20)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4, fontFamily: "Georgia,serif", fontSize: 12 } }, "L"));
   }
   if (item.type === "note") {
-    return h("div", { style: { width: "100%", height: "100%", minHeight: 126, position: "relative", overflow: "hidden", color: dark ? "#302b24" : "#4c4437" } },
-      h("div", { style: { position: "absolute", inset: "3% 4% 5% 3%", padding: "18px 14px 12px", background: dark ? "#d8c88a" : "#f3e3a2", transform: "rotate(-1.5deg)", boxShadow: "0 8px 18px rgba(48,39,24,.18)", clipPath: "polygon(0 0,100% 0,100% 82%,87% 100%,0 100%)" } },
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 126, position: "relative", overflow: "hidden", color: gnd && dark ? "#f2ece0" : dark ? "#302b24" : "#4c4437" } },
+      h("div", { style: onGnd({ position: "absolute", inset: "3% 4% 5% 3%", padding: "18px 14px 12px", background: dark ? "#d8c88a" : "#f3e3a2", transform: "rotate(-1.5deg)", boxShadow: "0 8px 18px rgba(48,39,24,.18)", clipPath: "polygon(0 0,100% 0,100% 82%,87% 100%,0 100%)" }) },
         h("span", { style: { position: "absolute", width: 44, height: 11, left: "50%", top: 4, transform: "translateX(-50%) rotate(2deg)", background: "rgba(255,255,255,.48)" } }),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.25 } }, title),
-        h("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 11, color: "#746650", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.4 } }, h("span", { style: { width: 10, height: 10, border: "1px solid #8a795f", flexShrink: 0, marginTop: 1 } }), h("span", null, detail)),
+        h("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 11, color: gnd && dark ? "rgba(242,236,224,.78)" : "#746650", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.4 } }, h("span", { style: { width: 10, height: 10, border: "1px solid " + (gnd && dark ? "rgba(242,236,224,.6)" : "#8a795f"), flexShrink: 0, marginTop: 1 } }), h("span", null, detail)),
         h("div", { style: { position: "absolute", right: 0, bottom: 0, width: "13%", height: "18%", background: "linear-gradient(135deg,#d3bd70 0 49%,rgba(255,255,255,.45) 51% 100%)" } })));
   }
   if (item.type === "cassette") {
@@ -3069,13 +3118,14 @@ function HomeDecorItem({ item, preset, now }) {
   }
   if (item.type === "date") {
     var d = now instanceof Date ? now : new Date();
-    return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink } },
+    // 这两款自己没有纸——它们的纸就是外面那张卡。所以底套在根上；不挑照旧透明。
+    return h("div", { style: onGnd({ width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink }) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 36, lineHeight: .9, letterSpacing: "-.04em" } }, String(d.getDate()).padStart(2, "0")),
       h("div", { style: { minWidth: 0, borderLeft: "1px solid " + (dark ? "rgba(255,255,255,.24)" : t.line), paddingLeft: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: sub } }, d.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase()),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, item.text || d.toLocaleDateString("zh-CN", { weekday: "long" }))));
   }
-  return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink, minWidth: 0 } },
+  return h("div", { style: onGnd({ width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink, minWidth: 0 }) },
     h("div", { style: { fontFamily: "Georgia,serif", fontSize: 35, lineHeight: .7, color: accent, alignSelf: "flex-start", paddingTop: 7 } }, "“"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.45, minWidth: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, item.text || "把喜欢的日子，慢慢摆在桌面上。"));
 }
@@ -3131,7 +3181,7 @@ function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
         ref ? h("button", { type: "button", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClear(i); }, className: "active:opacity-65", "aria-label": "清空第 " + (i + 1) + " 张照片", style: { position: "absolute", right: 5, top: 5, zIndex: 2, width: 23, height: 23, borderRadius: 999, background: "rgba(20,19,17,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 15, lineHeight: "23px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,.2)" } }, "×") : null);
     }));
 }
-function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt }) {
+function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, ground, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt, onGround, onGroundPhoto, busy }) {
   const t = useTheme();
   function choiceRow(items, value, onChange) {
     return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + items.length + ",minmax(0,1fr))", gap: 7 } }, items.map(function (x) {
@@ -3139,7 +3189,31 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
       return h("button", { key: x.id, type: "button", onClick: function () { onChange(x.id); }, className: "active:opacity-70", style: { minWidth: 0, borderRadius: 12, padding: "9px 4px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line), fontFamily: F_BODY, fontSize: 10.5, whiteSpace: "nowrap" } }, x.name);
     }));
   }
+  // 这一件自己那张【底】（她 2026-09-05：「每一个的封面也可以自定义，
+  // 不然都是现在米白背景好丑」）。挑颜色，或者放一张自己的图。
+  // 「原样」＝不挑：各款照旧用它本来那张底（胶卷是黑的、挂轴是宣纸色…）。
+  var gImg = ground && typeof ground === "object" && ground.imageRef;
+  var gCol = typeof ground === "string" ? ground : (ground && ground.color) || "";
+  var groundRow = onGround ? h("div", null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "这一件的底"),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" } },
+      HOME_DECOR_GROUNDS.map(function (g) {
+        var active = !gImg && (gCol || "") === g.id;
+        return h("button", { key: g.id || "none", type: "button", onClick: function () { onGround(g.id ? { color: g.id } : null); }, "aria-label": g.name,
+          style: { width: 29, height: 29, borderRadius: 999, background: g.swatch || g.id, border: active ? "3px solid " + t.ink : "2px solid " + t.bg2,
+            boxShadow: active ? "0 0 0 2px " + t.bg2 + ",0 0 0 3px " + t.ink : "0 0 0 1px " + t.line } });
+      }),
+      onGroundPhoto ? h("label", { style: { height: 29, borderRadius: 999, padding: "0 11px", display: "inline-flex", alignItems: "center",
+          border: "1px solid " + (gImg ? t.ink : t.line), background: gImg ? t.ink : t.bg2, color: gImg ? t.bg2 : t.ink,
+          fontFamily: F_BODY, fontSize: 10.5, opacity: busy ? .5 : 1 } },
+        gImg ? "已放图 · 换" : "放一张图",
+        h("input", { type: "file", accept: "image/*", style: { display: "none" }, disabled: !!busy,
+          onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onGroundPhoto(f); } })) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } },
+      "换的只是这一件最外面那层底；齿孔、夹子、白边、轴杆这些照旧。"),
+    h("div", { style: { height: 1, background: t.line, margin: "15px 0" } })) : null;
   return h("div", { style: { marginTop: 17, padding: 13, borderRadius: 17, background: t.bg, border: "1px solid " + t.line } },
+    groundRow,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "材质与底色"),
     choiceRow(HOME_DECOR_SURFACES, surface || "paper", onSurface),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 15, marginBottom: 9 } }, "边线（可完全透明）"),
@@ -3291,6 +3365,7 @@ function Home({
   const [decorDraftSurface, setDecorDraftSurface] = useState("paper");
   const [decorDraftBorderMode, setDecorDraftBorderMode] = useState("line");
   const [decorDraftAccent, setDecorDraftAccent] = useState(HOME_DECOR_ACCENTS[0]);
+  const [decorDraftGround, setDecorDraftGround] = useState(null);   // 这一件自己那张底：null=原样
   const [decorDraftAlign, setDecorDraftAlign] = useState("left");
   const [decorDraftBadge, setDecorDraftBadge] = useState("");
   const [decorDraftMark, setDecorDraftMark] = useState("");
@@ -3302,6 +3377,7 @@ function Home({
   const [styleDecorSurface, setStyleDecorSurface] = useState("paper");
   const [styleDecorBorderMode, setStyleDecorBorderMode] = useState("line");
   const [styleDecorAccent, setStyleDecorAccent] = useState(HOME_DECOR_ACCENTS[0]);
+  const [styleDecorGround, setStyleDecorGround] = useState(null);
   const [styleDecorAlign, setStyleDecorAlign] = useState("left");
   const [styleDecorBadge, setStyleDecorBadge] = useState("");
   const [styleDecorMark, setStyleDecorMark] = useState("");
@@ -3605,6 +3681,7 @@ function Home({
       setStyleDecorSurface(d.surface || "paper");
       setStyleDecorBorderMode(d.borderMode || "line");
       setStyleDecorAccent(d.accent || HOME_DECOR_ACCENTS[0]);
+      setStyleDecorGround(d.ground || null);
       setStyleDecorAlign(d.align || "left");
       setStyleDecorBadge(d.badge || "");
       setStyleDecorMark(d.mark || "");
@@ -3612,7 +3689,7 @@ function Home({
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftMark(""); setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftGround(null); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -3626,6 +3703,20 @@ function Home({
     } catch (e) { if (typeof toast === "function") toast("这张照片没能放进相框"); }
     setDecorBusy(false);
   }
+  // 底图跟相框里那些照片走同一条工艺：缩图 → 进图库 → 只存 iv_ 门牌。
+  // ⚠️别直接把 base64 塞进装饰对象：装饰是 x_ 键，会整份进 localStorage 那 5MB 池子，
+  //   一张图就能把它撑爆，然后坏的是旁边的好感度和心情（审计 P1 那一条）。
+  async function takeDecorGround(file, target) {
+    if (!file) return;
+    setDecorBusy(true);
+    try {
+      var data = typeof resizeImageFile === "function" ? await resizeImageFile(file, 900, .84) : "";
+      var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+      if (!ref) throw new Error("empty");
+      (target === "style" ? setStyleDecorGround : setDecorDraftGround)({ imageRef: ref });
+    } catch (e) { if (typeof toast === "function") toast("这张图没能当上底"); }
+    setDecorBusy(false);
+  }
   function clearDecorPhoto(target, slot) {
     var frame = target === "style" ? styleDecorFrame : decorDraftFrame;
     var setter = target === "style" ? setStyleDecorPhotos : setDecorDraftPhotos;
@@ -3635,7 +3726,7 @@ function Home({
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
     var text = decorDraftText.trim();
     var meta = homeDecorMeta(decorDraftType);
-    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, align: decorDraftAlign, mark: decorDraftMark.trim(), badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
+    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, ground: decorDraftGround, align: decorDraftAlign, mark: decorDraftMark.trim(), badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
@@ -3657,10 +3748,10 @@ function Home({
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
     if (it.which === "photo") {
-      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
+      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, ground: styleDecorGround, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     } else {
       var meta = homeDecorMeta(it.which);
-      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
+      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, ground: styleDecorGround, align: styleDecorAlign, mark: styleDecorMark.trim(), badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     }
     if (typeof toast === "function") toast("桌面内容已经更新");
   }
@@ -4279,6 +4370,10 @@ function Home({
         surface: styleDecorSurface,
         borderMode: styleDecorBorderMode,
         accent: styleDecorAccent,
+        ground: styleDecorGround,
+        onGround: setStyleDecorGround,
+        onGroundPhoto: function (f) { takeDecorGround(f, "style"); },
+        busy: decorBusy,
         align: styleDecorAlign,
         badge: styleDecorBadge,
         mark: styleDecorMark, onMark: setStyleDecorMark,
@@ -4330,6 +4425,10 @@ function Home({
       surface: decorDraftSurface,
       borderMode: decorDraftBorderMode,
       accent: decorDraftAccent,
+      ground: decorDraftGround,
+      onGround: setDecorDraftGround,
+      onGroundPhoto: function (f) { takeDecorGround(f, "draft"); },
+      busy: decorBusy,
       align: decorDraftAlign,
       badge: decorDraftBadge,
       mark: decorDraftMark, onMark: setDecorDraftMark,
