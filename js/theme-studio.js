@@ -328,7 +328,7 @@
   // bare：这一套的图自带底（玻璃方块、圆角都画在图里）。选了它就默认不再套主屏那块玻璃，
   //   不然是两层玻璃叠着；她照样可以在工作台里把那个开关拨回去。
   const ICON_PACKS = {
-    autumn: { name: "秋叶", dir: "img/icons/autumn/", bare: true, keys: ["carry", "cast", "cwallet", "debate", "diary", "dream", "dreamjournal", "games", "lore", "memlib", "phone", "pomodoro", "shop", "study", "tarot", "theater", "ties", "vpscodex", "weekly", "yanqiu"] }
+    autumn: { name: "秋叶", dir: "img/icons/autumn/", bare: true, keys: ["carry", "cast", "cwallet", "debate", "diary", "dream", "dreamjournal", "forum", "games", "lore", "loungeapp", "memlib", "messages", "phone", "pomodoro", "rescue", "shop", "study", "stylelab", "tarot", "theater", "ties", "vpscodex", "weekly", "yanqiu"] }
   };
   const packList = () => Object.keys(ICON_PACKS).map(k => [k, ICON_PACKS[k].name, ICON_PACKS[k].keys.length]);
   const packIconSrc = (packKey, appKey) => {
