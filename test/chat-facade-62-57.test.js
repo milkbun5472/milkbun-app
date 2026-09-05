@@ -46,7 +46,13 @@ test("个人朋友圈主页：封面以下自己铺底", () => {
 
 test("日历：外壳自己铺底，月名收成 20px", () => {
   const seg = cut(comp, "function Calendar({", "\n}\n");
-  assert.match(seg, /className: "h-full flex flex-col", style: \{ position: "relative", background: t\.bg2 \}/, "日历外壳没铺底");
+  // ⚠️口径改了（v64.00，她 2026-09-05：「特别是那些比较深的子页面」）：
+  //   这一条原来钉的是「外壳自己铺底、别靠父层透过来」，写法是平色 t.bg2。
+  //   那个【意图】没变，只是底从平色换成了真的纸——所以钉的东西跟着往前挪一格：
+  //   还是要求外壳自己带底，只是现在要求它带的是 pageSkin 那一份。
+  assert.match(seg, /className: "h-full flex flex-col", style: Object\.assign\(\{ position: "relative" \}/, "日历外壳没铺底");
+  assert.match(seg, /pageSkin\("paper", t, \{ base: t\.bg2/, "外壳铺的不是纸");
+  assert.ok(!/style: \{ position: "relative", background: t\.bg2 \}/.test(seg), "又退回平色了");
   assert.match(seg, /fontSize: 20, color: t\.ink, letterSpacing: "0\.02em"/, "月名不是 20px 了");
   assert.ok(!/fontSize: 34/.test(seg), "34px 的月名还在");
 });
