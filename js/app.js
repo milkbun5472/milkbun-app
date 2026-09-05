@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.11";
+const APP_VERSION = "v64.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -161,9 +161,24 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
   const anchor = drag
     ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
     : Object.assign({ top: pos ? pos.top : "42%" }, side === "left" ? { left: 12, flexDirection: "row-reverse" } : { right: 12 });
-  return h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
-    open ? h("div", { style: { width: 226, maxHeight: "58vh", overflowY: "auto", padding: 12, borderRadius: 18, background: t.bg2,
-      border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" } },
+  // ⚠️她 2026-09-05 报的那个：「有很多 api 的时候点开会跳到屏幕下面然后关不掉，
+  //   得关掉 app 重开」。病根有两层，两层都得治：
+  //   ① 这一行原来是 flex + alignItems:center，而【面板是它的兄弟】：
+  //      线路一多面板就长，整行跟着变高，居中对齐把旋钮往下推——
+  //      推出屏幕之后那颗旋钮就点不着了，于是关不掉。
+  //      现在面板改成【自己定位的一层】，不再参与这一行的高度，旋钮一动不动。
+  //   ② 面板自己也不许跑出屏幕：它按【屏幕】居中（top:50% + translateY(-50%)），
+  //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
+  //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
+  //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
+  const panelSide = side === "left" ? { left: 66 } : { right: 66 };
+  return h(React.Fragment, null,
+    open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
+      style: { position: "fixed", inset: 0, zIndex: 89, background: "transparent" } }) : null,
+    open ? h("div", { style: Object.assign({ position: "fixed", zIndex: 91, top: "50%", transform: "translateY(-50%)",
+      width: 226, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+      padding: 12, borderRadius: 18, background: t.bg2,
+      border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "5px 4px" } }, "线上 · " + label(online)),
@@ -173,6 +188,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       [h("button", { key: "offline:follow", onClick: () => onSetOffline(null), className: "active:opacity-60",
         style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12,
           color: !offlineApiId ? t.bg2 : t.ink, background: !offlineApiId ? t.ink : "transparent" } }, "跟随线上主模型")].concat((profiles || []).map(p => choice("offline", p)))) : null,
+    h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
     //「悬浮球」（tabs-not-plain-pills.md 的同一条判据：换个 app 还成立就是没设计）。
@@ -199,7 +215,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
           h("path", { d: "M23 12.5 V20", stroke: "#4a3e2c", strokeWidth: 2.4, strokeLinecap: "round" })),
         open
           ? h("path", { d: "M20 20l6 6M26 20l-6 6", stroke: "#4a3e2c", strokeWidth: 2.1, strokeLinecap: "round" })
-          : h("circle", { cx: 23, cy: 23, r: 3.4, fill: "#4a3e2c" }))));
+          : h("circle", { cx: 23, cy: 23, r: 3.4, fill: "#4a3e2c" })))));
 }
 // 一起听·本地音频存 IndexedDB（音频文件大，localStorage 5MB 存不下）。key=歌曲id，value=Blob。
 function idbAudioOpen() {

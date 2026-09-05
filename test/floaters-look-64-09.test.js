@@ -57,3 +57,32 @@ test("那颗球改成【旋钮】：画出来的，不是一个等宽字体的�
   assert.match(knob, /open\n?\s*\? h\("path", \{ d: "M20 20l6 6M26 20l-6 6"/);
   assert.match(knob, /"aria-label": "快速切换模型"/, "读屏的名字丢了");
 });
+
+// ── 关不掉那个（她 2026-09-05：「悬浮球点开如果有很多 api 选择他会跳到屏幕下面
+//    然后关不掉得关掉 app 重开才行」）──────────────────────────────
+// 无头量过：12 条线路时，旧代码里那颗旋钮从 y=294 被推到 y=474（视口高 700），
+// 面板自己也顶到屏幕外；点旋钮点不着、点别处没反应，只能杀掉 app。
+// 病根是【面板和旋钮是同一行的兄弟】：flex + alignItems:center，面板一长，
+// 整行变高，居中把旋钮往下推。
+test("线路再多，旋钮也不许被面板推走", () => {
+  const seg = app.slice(app.indexOf("  const panelSide = side ==="), app.indexOf("// 一起听·本地音频存 IndexedDB"));
+  assert.ok(seg.length > 600, "抠不出那一段");
+  // 面板自己定位，不再参与那一行的高度
+  assert.match(seg, /position: "fixed", zIndex: 91, top: "50%", transform: "translateY\(-50%\)"/, "面板还挂在那一行上");
+  // 面板按【屏幕】居中，跟旋钮拖到哪儿无关；装不下就自己滚
+  assert.match(seg, /maxHeight: "76vh", overflowY: "auto"/);
+  // 旋钮那一层还在原来的位置逻辑上（anchor 没动）
+  assert.match(seg, /position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 \}, anchor\)/);
+  // ⚠️顺序：面板 zIndex 91 > 背板 89，别把自己盖住
+  assert.match(seg, /zIndex: 89, background: "transparent"/);
+});
+
+test("关它有两条路，不是只有一个开关", () => {
+  const seg = app.slice(app.indexOf("  const panelSide = side ==="), app.indexOf("// 一起听·本地音频存 IndexedDB"));
+  // ① 点面板外面
+  assert.match(seg, /onClick: \(\) => setOpen\(false\), "aria-hidden": "true"/, "点外面关不掉");
+  // ② 再点一次旋钮
+  assert.match(seg, /onClick: \(\) => \{ if \(justDragged\.current\) \{ justDragged\.current = false; return; \} setOpen\(v => !v\); \}/);
+  // ③ 一拖就收（本来就有，别弄丢）
+  assert.match(app, /if \(!s\.moved\) \{ s\.moved = true; setOpen\(false\); \}/);
+});
