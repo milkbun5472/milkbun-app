@@ -60,7 +60,11 @@ test("手写一个不花调用；让模型添才走一次", () => {
 test("加地点是整页，不是半窗", () => {
   const na = grab(map, "  function NodeAdd({ world, busy, onAdd, onGen, onBack }) {", "  // 开世界：整页表单");
   assert.ok(!/h\(Sheet/.test(na), "用了半窗——见 .claude/rules/no-half-sheet.md");
-  assert.match(na, /position: "fixed", inset: 0/);
+  // ⚠️口径改了（v64.03）：`position:"fixed", inset:0` 从这一行搬进了共用的 mapSubSkin
+  //   （三层子页本来是三行一模一样的平色，各改各的迟早只改一处）。
+  //   钉的【意图】没变——还是「这一层是整页」，只是现在问它有没有用那一份。
+  assert.match(na, /style: mapSubSkin\(t\)/, "没走那份共用的整页底");
+  assert.match(map, /position: "fixed", inset: 0, zIndex: 140/, "mapSubSkin 里的整页定位丢了");
   assert.match(na, /flex-1 min-h-0 overflow-y-auto/, "正文不是那一个主滚动容器");
 });
 
