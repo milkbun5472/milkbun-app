@@ -18,7 +18,10 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const GB = require("./_group-bans.js");
 const groupBans = GB.layers;
 
-const CORE = ["<ANTI_CLICHE>", "<CB>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
+// v64.21 多了一层【她说的这句话他那个世界里有没有这门话】：
+// 她 2026-09-05 问「为什么一个王爷看得懂我的英文」——群里一样，她在群里打英文，
+// 古代那位照样不该懂。这一红正是这份把手要的信号（加层就得有人回来认一次）。
+const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
   "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<RP>"];
 

@@ -1487,6 +1487,29 @@ const MOOD_TURN_RULE = `【实时心情·每轮重判】mood.label 必须是非�
 //   于是它成了整段里唯一可复制的东西（见 .claude/rules/prompt-no-content-samples.md：
 //   「写得越好的例子，被抄得越狠」）。爱操心爱做饭对某些角色根本不成立。
 //   改成【维度＋判据】：关心的方式因人而异，用只有你会用的那一种。
+// 他懂不懂这门话（她 2026-09-05：「我记得我加过他人设不知道的东西不能装知道的指令，
+// 那为什么一个王爷看得懂我的英文」）。
+//
+// 她那条 OOC 准则管的是【信息】——没发生过的事、他不该知道的消息。
+// 而【语言】压根不在那条线上：模型自己认识英文，于是把「我看得懂」当成了「他看得懂」，
+// 从来没人告诉过它，他那个世界里没有这门话。
+// 截图里那次尤其能说明问题：他一边准确答上了「在厨房盯着火」，一边说她「一张嘴还带说胡话的」
+// ——半懂不懂，两头都占。这不是他在装傻，是这一层根本没喂过。
+//
+// ⚠️判据写在明处：能不能听懂，取决于【他的世界里有没有这门话】，
+//   不取决于你（模型）认不认识。人设里写着他懂就照懂来（通译、留过洋、现代人），
+//   没写就是不懂——不懂的时候【不许照着意思回答】，那才是真的没听懂。
+const FOREIGN_TONGUE_RULE = `【她说的这句话，他那个世界里有没有这门话】
+先看这一句用的是什么文字／语言，再决定他听不听得懂——判据是【他的世界里有没有它】，
+不是你认不认识。
+· 人设里写明他懂（通译、番邦通商、留过洋、本来就是现代人…）→ 照懂来，正常回答。
+· 人设里没写、而这门话在他的时代或世界里根本不存在 → 他就是不懂。
+  ⚠️不懂的时候【绝不许照着意思回答】：不许先答对再补一句「你说什么胡话」——
+  那是半懂不懂，比装懂还假。要么问她这是什么话／什么意思，要么按他的性子反应
+  （皱眉、当她胡闹、拿去问身边识字的人、猜错了闹个笑话），然后等她解释。
+· 她换回他懂的话再说一遍，他才接得上。
+· 夹在中文里的一两个外语词（人名、缩写、颜文字、网络梗）同理：不认识就是不认识，
+  可以照着音猜、可以问，别不动声色地当成本来就懂。`;
 const STOCK_REPLY_BAN = `【别答成「标准男友三件套」】她随口说一句没什么信息量的话（「打雷了」「好吵」「累死了」「饿」），最容易滑进一套通用应答：先关心一句（窗户关了没／吃饭了没），再给个方案（戴降噪耳机／多穿点／早点睡），最后承诺马上过去（等我二十分钟）。这三拍连着出现就是模板，不是你的反应。
 · **她那句话不是一道题**，没让你解决什么。你可以只接情绪、只顺嘴讲一句你这边正在发生的事、只回一句调侃、或者干脆不解决——不是每句都要「回应＋建议＋承诺」跑满。
 · 你此刻在干什么、心情怎么样，往往比她说的那件事更能决定你的第一反应；先从那儿起，别从「这种时候该说什么」起。
@@ -1553,6 +1576,7 @@ function groupBans(opts) {
   // 线下是叙事正文，另外两条反八股只有它吃得到（写着理由的差异）
   if (opts.narrative) { P.push(INTIMATE_ANTI_CLICHE); P.push(NARRATIVE_ANTI_CLICHE); }
   if (typeof ContentBoundaries !== "undefined") P.push(ContentBoundaries.prompt);
+  P.push(FOREIGN_TONGUE_RULE);   // 群里一样：她在群里说英文，古代那位照样不该懂
   if (opts.worldbook !== false) P.push(WORLDBOOK_RULE);
   P.push(CHARCARD_RULE);
   P.push(GROUP_IN_CHARACTER);
@@ -2082,6 +2106,9 @@ function narrativeCore(opts) {
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
+  // 她说的话他听不听得懂（v64.21）：小剧场／穿书／梦境／跑团／如果馆里她照样会打英文。
+  // ⚠️这几处都不走 buildBundle，所以那一份在这儿是拿不到的——这正是「一层写在两处」的形状。
+  if (typeof FOREIGN_TONGUE_RULE !== "undefined") parts.push(FOREIGN_TONGUE_RULE);
   // 禁烟（她 2026-09-05：「这个禁烟好像没带到梦境，还在抽」）。
   // ⚠️它是【世界事实】，不是聊天礼仪：这个世界里没人抽烟，那在梦里、戏里、文里都得成立。
   //   原来它只挂在 buildBundle 和 groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
@@ -2413,6 +2440,9 @@ function buildBundle(ctx, opts) {
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push("【⚠️用户立下的长期准则·最高优先级，压过一般演绎习惯和对话惯性】\n这些是用户明确要求、而且你【之前已经亲口答应过】的准则，每一条【现在就生效、永久有效】：\n" + dirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") + "\n——从这一轮起就严格照做，别因为上文的惯性、或你原本的说话习惯，聊着聊着又滑回旧样子（惯性和旧习惯都不是理由）；用户若问「不是说好了吗」，大方承认记得、并且已经在照做，绝不许【答应了又照旧】、更不许一脸茫然装不知道。（放心：这些准则在 OOC 立的时候已经确认过不违背你的核心人设，才会留下来，所以【不需要你再判断违不违背人设】，照做就是。）");
   if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+  // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
+  // ⚠️言秋（notRoleplay）不发：他不是被扮演的角色，本来就跟她同一个世界。
+  if (!ctx.notRoleplay) parts.push(FOREIGN_TONGUE_RULE);
   // ⭐时间块（易变·每分钟变）先在这算好，但【推迟到人设/关系之后再拼入 system】——让缓存切点(【当前真实时间】)下移、
   //   前缀能一路缓住 反八股+守则+整个人设+关系网(大头)，命中时省得多。她 2026-07-13 授权移时间；活人感影响忽略不计。
   const timeBlock = [];
