@@ -931,8 +931,14 @@
       votes.forEach(function (v) { if (v.target) count[v.target] = (count[v.target] || 0) + 1; });
       let max = -1, tied = [];
       Object.keys(count).forEach(function (name) { if (count[name] > max) { max = count[name]; tied = [name]; } else if (count[name] === max) tied.push(name); });
-      const outName = tied.length ? tied[Math.floor(Math.random() * tied.length)] : null;
-      const out = players.find(function (p) { return p.alive && p.name === outName; });
+      // 平票不随机抓倒霉蛋（跟狼人杀同一条）：本轮无人出局，直接进下一轮描述
+      if (tied.length > 1) {
+        pushLog([{ type: "info", text: "⚖️ " + tied.join("、") + " 平票，本轮无人出局——再描述一轮。" }]);
+        const nr = round + 1; setRound(nr);
+        setTimeout(function () { startRound(players, nr); }, 40); return;
+      }
+      const outName = tied.length === 1 ? tied[0] : null;
+      const out = outName && players.find(function (p) { return p.alive && p.name === outName; });
       if (!out) { // 没投出有效目标，直接进入下一轮
         pushLog([{ type: "info", text: "没投出有效结果，继续下一轮。" }]);
         const nr = round + 1; setRound(nr);
@@ -1576,6 +1582,8 @@
     const stanceRef = useRef({});                   // { name: {claim,reads,plan} } 立场纪要(模型自写)，防前后矛盾，不显示
     const claimsRef = useRef([]);                    // [{day,name,text}] 全场公开声明台账，跨天累积防集体失忆
     const witchPotRef = useRef({ heal: true, poison: true }); // 女巫药剂状态（全程一份）
+    const wolfChatRef = useRef([]);                 // 狼队各夜密谈，终局复盘时才公开
+    const chatRevealed = useRef(false);
     const guardLastRef = useRef(null);              // 守卫上一晚守的人（不能连守）
     const graveKnowRef = useRef({});                // 守墓人验尸记录 { 守墓人名: [{name,isWolf}] }
     const lastDeathRef = useRef("");                // 同步昨夜结果，避免 setState 尚未提交就进入白天读到上一夜
@@ -1615,6 +1623,17 @@
         + "Lisa：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
         + "终局前公开记录：\n" + log.slice(-8).map(function (x) { return x.text || x.say || x.name || ""; }).filter(Boolean).join("\n"));
     }, [phase, winner]);
+    // 终局复盘：把狼队各夜的密谈亮出来（活着时一个字都看不到的那部分）
+    useEffect(function () {
+      if (phase !== "result" || chatRevealed.current || !wolfChatRef.current.length) return;
+      chatRevealed.current = true;
+      const items = [{ type: "sep", text: "—— 复盘 · 狼队夜间密谈公开 ——" }];
+      wolfChatRef.current.forEach(function (x) {
+        items.push({ type: "info", text: "第 " + x.n + " 夜：" });
+        x.chat.slice(0, 4).forEach(function (c) { if (c && c.name && c.text) items.push({ type: "chat", name: c.name, text: String(c.text).slice(0, 80) }); });
+      });
+      pushLog(items);
+    }, [phase]);
     // 结束后评全场 MVP + 感言
     useEffect(function () {
       if (phase !== "result" || mvp || !api) return;
@@ -1757,6 +1776,8 @@
       const consensusSkip = !!(consensusRaw && /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(consensusRaw)));
       const consensusTarget = ai.wolfConsensus && validWolfTarget(consensusRaw, nightList);
       const nightInfo = { wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: nightList, n: n };
+      // 密谈原来生成完就被扔掉——存起来，终局复盘时公开（进行中一个字不漏）
+      if (nightInfo.wolfChat.length) wolfChatRef.current = wolfChatRef.current.concat([{ n: n, chat: nightInfo.wolfChat }]);
       setNightAI(nightInfo);
       const seerInfo = (seer && !userSeer) ? { seer: seer.name, target: aiSeerCheck } : null;
       if (userWolf) setNightStage("wolf");       // 用户狼：等你投刀，再和队友合票
@@ -1800,7 +1821,8 @@
       // 守卫结算：记住这一晚守的人（供下一晚判「不能连守」）
       const victimP = wolfTarget && list.find(function (p) { return p.alive && (p.name === wolfTarget || (wolfTarget || "").indexOf(p.name) >= 0); });
       const guarded = !!(guardName && victimP && (victimP.name === guardName || String(guardName).indexOf(victimP.name) >= 0));
-      if (list.some(function (p) { return p.alive && p.role === "guard"; })) { const gp = guardName && list.find(function (p) { return p.name === guardName || String(guardName).indexOf(p.name) >= 0; }); guardLastRef.current = gp ? gp.name : guardLastRef.current; }
+      // 这一夜没守人（或名字没对上）＝限制清零：规则是「不能连续两晚守同一人」，隔了一夜就能再守
+      if (list.some(function (p) { return p.alive && p.role === "guard"; })) { const gp = guardName && list.find(function (p) { return p.name === guardName || String(guardName).indexOf(p.name) >= 0; }); guardLastRef.current = gp ? gp.name : null; }
       const deadSet = {}; // name -> 死因("wolf"/"poison")，猎人被毒不能开枪
       // 狼刀致死判定：被守护 或 被解药救 → 挡下；但『同守同救』(既守又救) 会互相抵消 → 仍死
       if (victimP) { const blocked = (guarded || saved) && !(guarded && saved); if (!blocked) deadSet[victimP.name] = "wolf"; }
@@ -2348,7 +2370,7 @@
   }
 
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
-  async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode) {
+  async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode, userName) {
     const K = GUESS_KINDS[kind];
     const secretBlock = kind === "haigui"
       ? "【汤面·已公开】" + ctx.surface + "\n【汤底·只有你知道】" + ctx.truth
@@ -2361,11 +2383,11 @@
     const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）"; }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
-      : "若某个 AI 的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
+      : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
     const sys = AC + SKILL_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
-      (userQ ? "\n\n【真人玩家刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
+      (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
       "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。\n" + who +
       "\n\n" + solveRule +
       "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
@@ -2484,7 +2506,7 @@
       });
       if (uq) pushLog([{ type: "q", name: me.name, text: uq, mine: true }]);
       try {
-        const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode);
+        const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode, me ? me.name : "");
         const items = [];
         const newHist = [];
         if (uq) { newHist.push(uq); if (r.userAnswer) items.push({ type: "a", verdict: r.userAnswer.verdict, note: r.userAnswer.note }); }
@@ -3631,8 +3653,9 @@
         const raw = await genAvVotes(api, voters, tm, players[li].name, players, qn, histText(), hecklesRef.current);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
-          const approve = hit ? !/反对|拒绝|否|reject|no/i.test(String(hit.vote)) && /赞成|同意|通过|approve|yes/i.test(String(hit.vote)) : (Math.random() < 0.5);
-          return { name: v.name, approve: approve, reason: (hit && hit.reason) || "" };
+          // 票对不上名字不掷硬币——那一票谁都解释不了。按赞成计（阿瓦隆没有弃权），理由写明白
+          const approve = hit ? !/反对|拒绝|否|reject|no/i.test(String(hit.vote)) && /赞成|同意|通过|approve|yes/i.test(String(hit.vote)) : true;
+          return { name: v.name, approve: approve, reason: (hit && hit.reason) || (hit ? "" : "（没说清，按赞成计）") };
         });
         if (me && cfg.mode !== "spectate" && uVote != null) votes.push({ name: me.name, approve: uVote === "approve", reason: "（你的一票）", mine: true });
         const yes = votes.filter(function (v) { return v.approve; }).length;
@@ -4012,7 +4035,7 @@
       }
       return UnoCore.newGame(unoPlayers(props), undefined, { stackD2: cfg.unoRule === "stack" });
     });
-    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [colorPick, setColorPick] = useState(null), [saidUno, setSaidUno] = useState(true);
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [colorPick, setColorPick] = useState(null), [saidUno, setSaidUno] = useState(false);
     const [tableTalk, setTableTalk] = useState(""), [chatMode, setChatMode] = useState(false), [chatBusy, setChatBusy] = useState(false);
     const [resultNotice, setResultNotice] = useState("");
     const chatSeq = useRef(0);
@@ -4067,6 +4090,8 @@
         const n = clone(), line = tableTalk.trim();
         UnoCore.act(n, line ? Object.assign({}, action, { say: line }) : action);
         setState(n); setTableTalk(""); setColorPick(null); setError("");
+        // 喊牌是【每一手】的事：出完这手就复位，下次剩两张还得亲口再喊——忘了照罚
+        if (action.kind === "play") setSaidUno(false);
       } catch (e) { setError(e.message); }
     }
     function addChat(player, name, line) {
