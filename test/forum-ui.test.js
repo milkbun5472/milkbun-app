@@ -13,7 +13,9 @@ test("主论坛有自己的社区纸张主题，不再是通用白底列表", ()
   assert.match(screens, /const FORUM_BOARD_SKIN = \{/);
   assert.match(forum, /background: FORUM_SKIN\.bg/);
   assert.match(forum, /borderLeft: "3px solid " \+ bs\[0\]/);
-  assert.match(forum, /NEIGHBORHOOD BOARD/);
+  // v63.00 起换成中文。眉标说的是这一处是什么，不是把英文译回来（no-english-titles.md）
+  assert.match(forum, /"街坊的告示板"/);
+  assert.doesNotMatch(forum, /NEIGHBORHOOD BOARD/, "旧那行英文眉标还在");
   assert.match(forum, /公告栏上剪角、钉住的分类纸签/);
   assert.match(forum, /时间线像公告栏上三张钉着的排序便笺/);
   assert.match(forum, /minHeight: 44/, "排序便笺的点击高度不够");

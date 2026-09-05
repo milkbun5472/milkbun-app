@@ -29,7 +29,10 @@ test("人格档案馆和编辑档案都遵守子页面安全区与单滚动容�
 });
 
 test("编辑页保留完整资料字段，并按四卷分区", () => {
-  assert.match(form, /PERSONA DOSSIER/);
+  // v63.00 起换成中文：顶栏那行「PERSONA DOSSIER」是纯装饰（上面就写着「编辑档案」）
+  // 直接删掉，卷宗封面那张卡的抬头改成「卷宗封面」（no-english-titles.md）
+  assert.match(form, /"卷宗封面"/);
+  assert.doesNotMatch(form, /PERSONA DOSSIER/, "旧那行英文眉标还在");
   for (const label of ["人物底稿", "时间坐标", "视觉档案", "声音档案"]) {
     assert.match(form, new RegExp(label));
   }
