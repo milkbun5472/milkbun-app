@@ -165,7 +165,10 @@ test("卡里的尺寸从量出来的真实高宽推，不是按档位拍死的�
 test("窄格子里碟也不许顶破：宽度一样参与，竖排不上播放键", () => {
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   // 只按高度算的话：2×2 会顶破格子，3×2 会把中间那列挤成一个字一行
-  assert.match(mw, /Math\.min\(130, avail, Math\.round\(room \* 0\.36\)\)/, "横排时碟没受宽度管");
+  // ⚠️口径改了（v63.66）：横排时又多了一道盖——【碟不许比它旁边那一列还高】。
+  //   宽度那一道照旧在（它挡的是「顶破格子」），新增的这道挡的是「白撑着卡」。
+  assert.match(mw, /Math\.min\(130, avail, Math\.round\(room \* 0\.36\), discCap\)/, "横排时碟没受宽度管");
+  assert.match(mw, /const discCap = \(!square && colH\) \? Math\.max\(64, colH\) : Infinity;/, "碟没受旁边那列的高度管");
   assert.match(mw, /square \? Math\.min\(Math\.round\(avail \* 0\.45\), room, 110\)/, "竖排时碟没受宽度管");
   assert.match(mw, /const tall = !square &&/, "竖排也上了播放键——那点高度装不下，会被切掉");
   // 拍立得只在四格宽那一档露：三格宽时它一挂上去中间那列只剩三十来 px

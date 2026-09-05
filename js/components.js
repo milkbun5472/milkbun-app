@@ -1644,6 +1644,22 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     window.addEventListener("resize", measure);
     return function () { window.removeEventListener("resize", measure); };
   }, []);
+  // 旁边那一列（歌名／歌手／进度／播放键）真实有多高。
+  // ⚠️她 2026-09-05：「一起听挡着不给他变矮」。撤掉眉标之后卡只矮了 3px——因为
+  //   **撑着这张卡的从来不是那行字，是碟**：碟按 min(130, avail, 卡宽×0.36) 算，
+  //   4×2 那一档算出来 120，比旁边整整一列还高，高出来的那截就是白撑着的空白。
+  //   横排时碟不该比它旁边那一列还高。这一量【不会循环】：那一列里没有一样东西
+  //   跟碟的大小有关（露几层看的是格子给的预算 avail，不是碟）。
+  //   量不到（首帧）就退回原来的算法，不闪。
+  const colRef = useRef(null);
+  const [colH, setColH] = useState(0);
+  useEffect(function () {
+    const el = colRef.current; if (!el) return;
+    const measure = function () { setColH(el.clientHeight || 0); };
+    measure();
+    if (typeof ResizeObserver === "function") { const ro = new ResizeObserver(measure); ro.observe(el); return function () { ro.disconnect(); }; }
+    return undefined;
+  }, []);
   const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const twoRow = !!(rows && rows.rows >= 2);
   const pad = twoRow ? 8 : 10;
@@ -1655,7 +1671,10 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const tall = !square && (avail ? avail >= 116 : twoRow);   // 播放键 + 拍立得
   const showProg = avail ? avail >= 62 : !compact && !square;
   // 「一起听」那行眉标是这几层里最不值钱的，先让它走；歌手比它值钱，留到更矮才砍
-  const showEyebrow = square ? false : (avail ? avail >= 76 : !compact);
+  // ⚠️她 2026-09-05：「上面那个一起听挡着不给他变矮」。碟在转、播放键就在下面的时候，
+  //   这一行字不告诉任何人任何事——**它唯一的作用就是把这张卡撑高一截**。
+  //   所以有播放键的那一档一律不发；只有矮到没有键、光剩歌名的时候才需要它说一句这是什么。
+  const showEyebrow = square || tall ? false : (avail ? avail >= 76 : !compact);
   const showArtist = avail ? avail >= 46 : !compact;
   // ⚠️碟不能只受【高度】管：2×2 那一档是竖排、3×2 那一档只有三格宽，
   //   光按高度算出来的 130 会顶破格子、或者把中间那一列挤成一个字一行（她那两张截图）。
@@ -1667,8 +1686,10 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   // 碟的宽度上限同理：量得到就用量的，量不到按【占几格】推一个（一格约 (屏宽-40-缝)/4）
   const room = boxW ? Math.max(0, boxW - pad * 2)
     : Math.max(120, Math.round(((typeof window !== "undefined" ? window.innerWidth : 390) - 40 - 8 * 3) / 4 * cols + 8 * (cols - 1)) - pad * 2);
+  // 竖排（2×2）那一档碟在字的【上面】，不存在「比旁边那列高」的问题，不加这道盖。
+  const discCap = (!square && colH) ? Math.max(64, colH) : Infinity;
   const discSize = (avail && room)
-    ? (square ? Math.min(Math.round(avail * 0.45), room, 110) : Math.min(130, avail, Math.round(room * 0.36)))
+    ? (square ? Math.min(Math.round(avail * 0.45), room, 110) : Math.min(130, avail, Math.round(room * 0.36), discCap))
     : (compact ? 44 : square ? 62 : twoRow ? 110 : 58);
   // 拍立得只在【四格宽】那一档露：三格宽时它一挂上去，中间那一列就只剩三十来 px
   const showStack = tall && cols >= 4;
@@ -1706,18 +1727,20 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
       onSetDisc ? h("input", { ref: picker, type: "file", accept: "image/*", style: { display: "none" },
         onClick: function (e) { e.stopPropagation(); },
         onChange: function (e) { const f = e.target.files && e.target.files[0]; if (f) onSetDisc(f); e.target.value = ""; } }) : null),
-    h("div", { style: { flex: 1, minWidth: 0 } },
+    h("div", { ref: colRef, style: { flex: 1, minWidth: 0 } },
       showEyebrow && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: avail && avail < 62 ? 13 : square ? 14 : tall ? 17 : 15.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
       showArtist && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
       // 走了多久 / 一共多长，压在一根发丝细的轨上——参考图上就是这一行
-      showProg && !square && h("div", { style: { marginTop: tall ? 7 : 5 } },
+      showProg && !square && h("div", { style: { marginTop: tall ? 5 : 5 } },
         h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(ink, "1c"), position: "relative" } },
           h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac * 100) + "%", borderRadius: 2, background: t.accent } })),
         h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub, whiteSpace: "nowrap" } },
           h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--"))),
       // 四颗真的能按的键（不是画着好看的）：上一首 / 播停 / 下一首 / 进一起听
-      tall && !editMode ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 7 } },
+      // ⚠️她 2026-09-05：「下面的播放键也太低了」。键跟进度条本来就是一组
+      //   （走到哪儿了 / 要不要换一首），中间不该空出一整行的距离。
+      tall && !editMode ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 3 } },
         ctlBtn("上一首", tri(-1, ink), onPrev),
         ctlBtn("播放或暂停", playing
           ? h("span", { className: "flex", style: { gap: 2.5 } }, h("i", { style: { width: 3, height: 11, background: gr.bg || t.bg2, display: "block" } }), h("i", { style: { width: 3, height: 11, background: gr.bg || t.bg2, display: "block" } }))
@@ -2363,7 +2386,13 @@ const HOME_SIZE_PRESETS = [
   // 她 2026-09-03：「我也觉得要加两档有 3 的」——2 和 4 之间跳太狠，
   // 很多摆不下的洞就是这么留下的（3 格宽正好给日历那种让出一列）
   { id: "three", name: "三格条", note: "3 × 1", cols: 3, rows: 1, glyph: "▭" },
-  { id: "threetall", name: "三格块", note: "3 × 2", cols: 3, rows: 2, glyph: "▮" }
+  { id: "threetall", name: "三格块", note: "3 × 2", cols: 3, rows: 2, glyph: "▮" },
+  // 她 2026-09-05：「再做点竖着的装饰吧，现在都是横的」。
+  // ⚠️这不只是装饰的事——上面这六档【没有一档是高比宽大的】：2×1、2×2、4×1、4×2、
+  //   3×1、3×2，全是横的或方的。装饰再怎么画竖的，摆进一个横格子里也还是横的。
+  //   所以先把格子补上：一格宽的窄条、两格宽的高块。
+  { id: "slim", name: "竖条", note: "1 × 2", cols: 1, rows: 2, glyph: "▯" },
+  { id: "column", name: "竖块", note: "2 × 3", cols: 2, rows: 3, glyph: "▐" }
 ];
 // 装饰不是换图标的文字卡：每一种都有自己的内容语义、默认尺寸和渲染骨架。
 const HOME_DECOR_TYPES = [
@@ -2374,7 +2403,12 @@ const HOME_DECOR_TYPES = [
   { id: "letter", glyph: "✉", name: "信封", text: "给未来的一封信", detail: "慢一点拆开，也没关系。" },
   { id: "note", glyph: "✓", name: "便利贴", text: "今天要记得：", detail: "把重要的小事留在眼前" },
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
-  { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" }
+  { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" },
+  // 竖着的那两样（她 2026-09-05：「现在都是横的」）。它们不是把横的转 90 度——
+  // 现实里这两样东西本来就是竖的：书签夹在书页里往下垂，挂轴挂在墙上往下垂。
+  // 所以字也竖排（writing-mode），形状也照那个东西来（书签底下是燕尾，挂轴上下各一根杆）。
+  { id: "bookmark", glyph: "▯", name: "书签", text: "读到这里", detail: "夹着的那一页" },
+  { id: "scroll", glyph: "▐", name: "挂轴", text: "今日无事", detail: "挂在墙上的一句" }
 ];
 // 退役的那几种（她 2026-09-04：「删吧宝宝」——录音磁带／小物陈列盒／信封三样鸡肋）。
 // ⚠️不是从 HOME_DECOR_TYPES 里抠掉：抠掉了，已经摆在她桌面上的那几件当场变白框。
@@ -2477,6 +2511,8 @@ function defaultHomeItemSpan(it) {
     if (it.which === "quote") return [4, 1];
     if (it.which === "ticket" || it.which === "cassette") return [4, 1];
     if (it.which === "letter" || it.which === "note" || it.which === "trinket") return [2, 2];
+    if (it.which === "bookmark") return [1, 2];
+    if (it.which === "scroll") return [2, 3];
     return [2, 1];
   }
   if (it.which === "cal") return [3, 3];
@@ -2863,6 +2899,76 @@ function HomeDecorItem({ item, preset, now }) {
       h("div", { style: { width: "25%", minWidth: 47, padding: "7px 5px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderLeft: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,.06)" : "rgba(184,119,66,.13)" } },
         h("span", { style: { fontFamily: "monospace", fontSize: 6.5, color: sub, writingMode: "vertical-rl", letterSpacing: ".12em" } }, "NO. " + String((item.createdAt || 1) % 10000).padStart(4, "0")),
         h("span", { style: { width: "80%", height: 12, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 7px)", opacity: .6 } })));
+  }
+  // 竖排的字：一个字一行，自己排。
+  // ⚠️**不用 CSS 的 `writing-mode: vertical-rl`**。它靠字体自带的【竖排度量】，
+  //   字体没有那份度量时每个字的前进量是 0——四个字会叠成一坨墨。
+  //   这台机器上试了五种写法（换字体、加字距、改行高、加/去 text-orientation）全一样。
+  //   ⚠️而且**量出来的盒子是对的**（22×172），糊的是【画出来的字】：
+  //   这种事只有真跑一次、截一张图才看得见，量尺寸永远看不出来。
+  //   一个字一行是自己算的，到哪台机器上都一样。
+  var vtext = function (txt, st) {
+    var chars = Array.from(String(txt || "")).filter(function (c) { return c !== "\n"; });
+    return h("div", { style: Object.assign({ display: "flex", flexDirection: "column", alignItems: "center", overflow: "hidden", flexShrink: 0 }, st.box || {}) },
+      chars.map(function (c, i) {
+        return h("span", { key: i, style: Object.assign({ display: "block", lineHeight: 1.16, whiteSpace: "pre" }, st.ch || {}) }, c === " " ? "\u00a0" : c);
+      }));
+  };
+  // ── 书签（竖着的那一种之一）───────────────────────────────────
+  // 现实里它夹在书页里往下垂：一条窄纸，顶上打个孔穿绳，底下剪成燕尾。
+  // 字跟着这个形状竖排——横着写的话，一格宽的条子一行放不下两个字。
+  if (item.type === "bookmark") {
+    var bmPaper = dark ? "#2b2620" : "#f7efe0";
+    var bmEdge = dark ? "rgba(255,255,255,.16)" : "rgba(120,96,64,.26)";
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 120, position: "relative", display: "flex", justifyContent: "center", overflow: "hidden" } },
+      // 穿在孔里的那根绳，从顶上垂下来一小截
+      h("div", { style: { position: "absolute", left: "50%", top: 0, width: 2, height: 13, marginLeft: -1, background: accent, opacity: .75, zIndex: 3 } }),
+      h("div", { style: { position: "absolute", left: "50%", top: 9, width: 9, height: 9, marginLeft: -4.5, borderRadius: 999, border: "2px solid " + accent, opacity: .75, zIndex: 3 } }),
+      h("div", { style: { width: "78%", maxWidth: 62, marginTop: 15, marginBottom: 2, alignSelf: "center", background: bmPaper, border: "1px solid " + bmEdge,
+          boxShadow: "0 5px 14px rgba(48,38,26,.16)", display: "flex", flexDirection: "column", alignItems: "center",
+          padding: "11px 0 22px", minHeight: 0,
+          // 底下那个燕尾：书签的形状就长在这一句上
+          clipPath: "polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)" } },
+        // 顶上那个孔（绳穿过去的地方）
+        h("span", { style: { width: 7, height: 7, borderRadius: 999, border: "1px solid " + bmEdge, background: dark ? "#1c1916" : "#e8ddc9", marginBottom: 7, flexShrink: 0 } }),
+        // ⚠️竖排文字踩了两个坑，都得写下来：
+        //   ① 行是沿着【高度】跑的——不给高度那一行就缩成一个点（第一版书签整个是空的）。
+        //      所以这一层 flex:1 + minHeight:0，里面两条字各自 height 百分比。
+        //   ② **不许加 `text-orientation: upright`**。它把每个字的前进量压成了 0，
+        //      四个字叠在一起糊成一团（第二版截图上挂轴就是一坨墨）。
+        //      vertical-rl 本身就够了：中文字天生就是正的，数字和拉丁字母转 90 度，
+        //      那正是竖排本来的样子。⚠️量出来的盒子是对的（22×172），糊的是【画出来的字】
+        //      ——所以这种事只有真跑一次截图才看得见，量尺寸看不出来。
+        h("div", { style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "row-reverse", justifyContent: "center", gap: 3, overflow: "hidden" } },
+          vtext(title, { box: { height: "100%" }, ch: { fontFamily: F_DISPLAY, fontSize: 13.5, color: ink } }),
+          detail ? vtext(detail, { box: { height: "82%", marginTop: "9%" }, ch: { fontFamily: F_BODY, fontSize: 8.5, color: sub } }) : null)));
+  }
+  // ── 挂轴（竖着的那一种之二）─────────────────────────────────
+  // 挂在墙上：上下各一根杆，顶上两条绳收进一个结，纸面从上往下垂。
+  if (item.type === "scroll") {
+    var scPaper = dark ? "#efe6d6" : "#fdf8ec";
+    var scRod = dark ? "#7a6a52" : "#8a7454";
+    var rod = function (extra) {
+      return h("div", { style: Object.assign({ height: 7, borderRadius: 4, background: "linear-gradient(180deg," + scRod + " 0%,rgba(0,0,0,.28) 100%)",
+        boxShadow: "0 2px 5px rgba(40,30,18,.28)", flexShrink: 0 }, extra || {}) });
+    };
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 150, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", overflow: "hidden", paddingTop: 12 } },
+      // 两条挂绳收进顶上那个结
+      h("svg", { width: 46, height: 14, viewBox: "0 0 46 14", style: { position: "absolute", top: 0, left: "50%", marginLeft: -23, zIndex: 2 }, "aria-hidden": true },
+        h("path", { d: "M23 2 6 13M23 2 40 13", stroke: accent, strokeWidth: 1.2, fill: "none", opacity: .7 }),
+        h("circle", { cx: 23, cy: 2.5, r: 2.5, fill: accent, opacity: .8 })),
+      rod({ width: "88%" }),
+      h("div", { style: { width: "80%", flex: 1, minHeight: 0, background: scPaper, borderLeft: "1px solid rgba(120,96,64,.2)", borderRight: "1px solid rgba(120,96,64,.2)",
+          boxShadow: "0 6px 16px rgba(48,38,26,.15), inset 0 0 22px rgba(160,132,88,.10)",
+          display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "stretch", gap: 7, padding: "13px 6px", overflow: "hidden" } },
+        // 同上：竖排的字要有高度才跑得起来，所以这里 alignItems 是 stretch、两条字各 height 百分比
+        vtext(title, { box: { height: "100%" }, ch: { fontFamily: F_DISPLAY, fontSize: 16, color: "#4a3f30", letterSpacing: 0, marginBottom: 2 } }),
+        detail ? vtext(detail, { box: { height: "78%", marginTop: "10%" }, ch: { fontFamily: F_BODY, fontSize: 9, color: "rgba(96,82,63,.72)", marginBottom: 2 } }) : null),
+      rod({ width: "88%" }),
+      // 轴头两端各露一小截
+      h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: 0, height: 7, display: "flex", justifyContent: "space-between", pointerEvents: "none" } },
+        h("span", { style: { width: 7, height: 7, borderRadius: 999, background: scRod } }),
+        h("span", { style: { width: 7, height: 7, borderRadius: 999, background: scRod } })));
   }
   if (item.type === "letter") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 130, position: "relative", color: ink, overflow: "hidden" } },
@@ -3469,7 +3575,7 @@ function Home({
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
     if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
-    if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : "square"; saveJSON("x_homeWidgetSizes", n); return n; });
+    if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
       var pi = Math.max(0, Math.min(page, L.length - 1));
