@@ -2746,6 +2746,19 @@ function HomeDecorItem({ item, preset, now }) {
   //   套在根节点上会被那层纸原样盖住，看着就像这个设置没生效。
   //   所以下面每一款都在它自己那张「纸」上 Object.assign 一次，没有泛用薄壳。
   const gnd = decorGroundStyle(item) || null;
+  // ⚠️她 2026-09-05：「这个无框还是不能和背景融合还是有底色」。
+  //   撤掉的那张卡是【外面的壳】；可照片框自己还画着一层【摆照片的台子】
+  //   （V 形拍立得那层 rgba(239,232,220,.55) 就是她截图里那块半透明的方）。
+  //   无框要的是「和壁纸融在一起」，所以这层台子也得撤。
+  // ⚠️只撤【平色】那一种。带 gradient / url 的一律不动——那不是台子，是画出来的东西
+  //   （胶卷的齿孔、纸带的条纹、木纹）；撤掉它胶卷就不是胶卷了。
+  // ⚠️她自己挑过底就听她的，不撤。
+  const bareBoard = (preset === "bare" && !gnd);
+  const unBoard = function (st) {
+    if (!bareBoard || !st) return st;
+    if (/gradient|url\(/i.test(String(st.background || "") + String(st.backgroundImage || ""))) return st;
+    return Object.assign({}, st, { background: "transparent" });
+  };
   // 放了图就顺手给字垫一层影：图上有亮有暗，光靠翻白还是会有一块读不出来
   const gShadow = (item && item.ground && typeof item.ground === "object" && item.ground.imageRef)
     ? { textShadow: "0 1px 3px rgba(0,0,0,.62)" } : null;
@@ -2767,9 +2780,13 @@ function HomeDecorItem({ item, preset, now }) {
         h("div", { style: { position: "absolute", left: 4, right: 4, bottom: 3, height: 4, background: "repeating-linear-gradient(90deg,rgba(255,255,255,.75) 0 5px,transparent 5px 12px)" } }));
     } else if (frame === "fan3") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#171613" : "rgba(239,232,220,.55)" } },
+        // ⚠️她 2026-09-05：「拍立得斜一点就显示不全了」。旋转会把角顶出去：
+        //   一张宽 w 高 h 的照片转 θ 度之后，占的宽是 w·cosθ + h·sinθ——
+        //   原来按【没转之前】的宽去排，左右两张转 10° 之后角就被 overflow:hidden 切了。
+        //   所以收窄一点、往中间挪一点、角度也收到 7°，把转出去的那一截让出来。
         [0, 1, 2].map(function (i) {
-          var turns = [-10, 0, 10], lefts = [7, 27, 47];
-          return photo(srcs[i], i, { position: "absolute", width: "47%", height: "76%", left: lefts[i] + "%", top: i === 1 ? "8%" : "15%", transform: "translateX(-10%) rotate(" + turns[i] + "deg)", transformOrigin: "50% 100%", border: "6px solid #fffdf8", borderBottomWidth: 17, borderRadius: 2, boxShadow: "0 7px 18px rgba(30,26,22,.24)", zIndex: i === 1 ? 2 : 1 });
+          var turns = [-7, 0, 7], lefts = [9, 30, 51];
+          return photo(srcs[i], i, { position: "absolute", width: "40%", height: "70%", left: lefts[i] + "%", top: i === 1 ? "11%" : "17%", transform: "translateX(-10%) rotate(" + turns[i] + "deg)", transformOrigin: "50% 100%", border: "5px solid #fffdf8", borderBottomWidth: 14, borderRadius: 2, boxShadow: "0 7px 18px rgba(30,26,22,.24)", zIndex: i === 1 ? 2 : 1 });
         }));
     } else if (frame === "torn4") {
       var tornPos = [
@@ -2965,9 +2982,10 @@ function HomeDecorItem({ item, preset, now }) {
         }));
     } else if (frame === "tower4") {
       // 叠下来的一摞：四张一张压一张往下走，越往下越靠前，边角各歪一点。
-      var towerAt = [{ top: "1%", left: "10%", turn: -3 }, { top: "24%", left: "20%", turn: 2.5 }, { top: "48%", left: "8%", turn: -2 }, { top: "71%", left: "17%", turn: 3 }];
+      // 同上：转出去的那一截要让出来，别让 overflow:hidden 把边角削掉
+      var towerAt = [{ top: "2%", left: "9%", turn: -2.5 }, { top: "25%", left: "17%", turn: 2 }, { top: "48%", left: "8%", turn: -1.5 }, { top: "71%", left: "15%", turn: 2.5 }];
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 150, position: "relative", overflow: "hidden", background: dark ? "#1b1917" : "rgba(238,231,219,.55)" } },
-        towerAt.map(function (c, i) { return h("div", { key: i, style: { position: "absolute", top: c.top, left: c.left, width: "72%", height: "27%", transform: "rotate(" + c.turn + "deg)", zIndex: 2 + i,
+        towerAt.map(function (c, i) { return h("div", { key: i, style: { position: "absolute", top: c.top, left: c.left, width: "68%", height: "25%", transform: "rotate(" + c.turn + "deg)", zIndex: 2 + i,
             background: "#fffdf8", padding: 4, paddingBottom: 10, boxShadow: "0 6px 15px rgba(34,28,22,.24)" } },
           photo(srcs[i], i, { width: "100%", height: "100%" })); }));
     } else if (frame === "timeline5") {
@@ -2992,6 +3010,7 @@ function HomeDecorItem({ item, preset, now }) {
     // 挑了底就把【板子那一层】的底换掉。换根节点没用——板子会原样盖在上面。
     // ⚠️只 clone 最外面那一层：里头的齿孔、白边、撕口一个都不碰。
     if (gnd && body && body.props) body = React.cloneElement(body, { style: Object.assign({}, body.props.style, gnd) });
+    else if (bareBoard && body && body.props) body = React.cloneElement(body, { style: unBoard(body.props.style) });
     return h("div", { style: { width: "100%", height: "100%", position: "relative", minWidth: 0, overflow: "hidden" } }, body,
       caption && frame !== "magazine3" ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
   }
