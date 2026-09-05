@@ -1102,6 +1102,16 @@ function CalWidget({ now, calendar, onOpen, period }) {
 //     一枪都不花、同一天永远同一个结果。形状和真实天气完全一样，所以这一页不用分叉。
 // ⚠️选地方那一排不是药丸（tabs-not-plain-pills.md）：气象站的观测牌挂在一根横杆上，
 //   选中那块牌吊得更低、是整张纸；没选的缩在杆子底下、发白。形状/高度/位置三样都不同。
+// 【消息】那个 app 的地。聊天列表 / 通讯录 / 朋友圈 / 我，还有从朋友圈点进去的个人页，
+// 全铺这一块——她 2026-09-05：「对齐吧」。原来个人页写的是 t.bg2（偏白）、
+// 列表写的是 t.bg（灰），同一个 app 里两种底，点进点出颜色会跳一下。
+//
+// ⚠️这一处的【平色是有意的】，不是还没装修：它现实里就是手机上那种聊天 app，
+//   地是灰的、格子是白的。所以别给它铺纸——那会跟它扮的那个东西打架。
+//   起这个名字是为了让这份「有意」写在明面上：
+//   `style: { background: t.bg }` 那种裸写法跟「忘了装修」长得一模一样，
+//   而 last-flat-shells 那道闸拦的正是后者。有名字，闸才分得清这两件事。
+function msgAppBg(t) { return { background: t.bg }; }
 function weatherPlaceList(userGeo, characters, worlds) {
   var out = [{ key: "me", kind: "geo", label: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 6) : "我这儿"), sub: "我这儿", lat: userGeo && userGeo.lat, lng: userGeo && userGeo.lng, real: true }];
   // char.home 的字段名照【写它那段代码】抄：map.js 的 onSetHome(sel,{city,lat,lng})
@@ -5552,9 +5562,7 @@ function Messages({
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
-    style: {
-      background: t.bg
-    }
+    style: msgAppBg(t)
   }, h(Head, {
     zh: TITLES[tab],
     onBack: onBack,
@@ -6432,7 +6440,11 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
 
   // 封面底下那一整段自己铺白底：原来没写 background，父层给什么就是什么——
   // 这一页是某个人的朋友圈主页，封面以下就该是他自己那张白纸
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg2 } },
+  // 朋友圈是【消息】那个 app 里的一栏，个人页也从那儿进来——所以底跟它对齐（她 2026-09-05：「对齐吧」）。
+  // ⚠️那一处的平色是【有意的】，代码里写着理由：「它现实里就是手机上那种聊天 app，
+  //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
+  //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
+  return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
     h("div", { style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
       // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张他挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去

@@ -9,20 +9,66 @@ const path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const codex = read("codex.js"), debate = read("debate.js"), fanfic = read("fanfic.js"), phone = read("phone.js");
 
+// ⚠️这道闸原来只认【写在一行里】的 `style: { background: t.bg }`。
+//   而 `Messages` 那一页是跨行写的——
+//       style: {
+//         background: t.bg
+//       }
+//   于是它从闸底下大摇大摆走过去了（2026-09-05 抓到）。闸自己有盲区的时候，全绿什么都不证明。
+//   现在跨行那种也扫。扫出来的两类要分开对待：
+//     · 卡片里的一小格底（评论区、资料卡里那几条）——不是页面外壳，放行；
+//     · 真的页面外壳——要么改，要么写进下面这份【明账】，写清楚为什么还留着。
+const KNOWN_FLAT = {
+  // 查手机的【内层 app 外框】。它是每个内层 app（微信/相册/音乐/论坛…）的底衬，
+  // 各内层 app 大多自己画皮，这一层只在没画的那几个底下露出来。
+  // 要改就得把十几个内层 app 一个个看过来，不是改这一行的事——先记明账，别假装没有。
+  "phone.js": 1
+};
 test("全库不许再有拿 t.bg 当页面外壳的", () => {
   const dir = path.join(__dirname, "..", "js");
   const left = [];
+  const seen = {};
   fs.readdirSync(dir).filter(f => f.endsWith(".js")).forEach(f => {
     if (["games.js", "trpg.js", "yanqiu.js"].includes(f)) return;   // 不是我的地盘
-    const txt = fs.readFileSync(path.join(dir, f), "utf8");
-    txt.split("\n").forEach((l, i) => {
-      if (!l.includes("style: { background: t.bg }")) return;
-      // 朋友圈评论区那一小块：它是【卡片里的一小格底】，不是页面外壳
-      if (f === "components.js" && /rounded-xl px-3 py-2/.test(l)) return;
-      left.push(f + ":" + (i + 1));
+    const raw = fs.readFileSync(path.join(dir, f), "utf8");
+    // 注释里会写着这个模式（就是为了说明它为什么不许出现），先把整行注释剥掉
+    const lines = raw.split("\n").map(l => /^\s*\/\//.test(l) ? "" : l);
+    lines.forEach((l, i) => {
+      const win = lines.slice(i, i + 4).join(" ").replace(/\s+/g, " ");
+      if (!/style: \{ background: t\.bg \}/.test(win)) return;
+      // 卡片里的一小格底（评论区、资料卡那几条），不是页面外壳
+      if (/rounded-xl px-3 py-2/.test(win)) return;
+      // ⚠️同一处会被【相邻好几行】各命中一次（窗口是往后滑的）。
+      //   按窗口内容去重不行——每一行的窗口都不一样。要按【这个 style 块从哪儿开始】去重：
+      //   往回找最近的一行 `style: {`，用它当这一处的身份。
+      //   身份取【窗口里那一行 `style: {`】：窗口是往后滑的，命中它的那几行都指向同一个
+      //   style 块，这样才收成一处。（往回找是错的——窗口的第一行还没到 style: { 那儿。）
+      let anchor = i;
+      for (let k = i; k < i + 4 && k < lines.length; k++) { if (/style: \{/.test(lines[k])) { anchor = k; break; } }
+      const key = f + ":" + anchor;
+      if (seen[key]) return; seen[key] = 1;
+      // ⚠️豁免要【往前看一行】：卡片那几处的 rounded-xl 写在 className 那一行上，
+      //   而 className 就在 style: { 的上一行——只往后看是看不见的。
+      //   窗口只开到上下各两行：开大了就成了「附近有这个词就放行」，
+      //   我第一版开到前三行，结果在 msgAppBg 旁边新造一处假页面也被豁免了。
+      const scope = lines.slice(Math.max(0, anchor - 2), anchor + 2).join(" ");
+      if (/rounded-xl px-3 py-2/.test(scope)) return;
+      // （msgAppBg 那一份不用豁免：用了它的地方压根不含 `style: { background: t.bg }`
+      //   这个字面量，本来就扫不到；它自己的函数体里没有 `style:`，也扫不到。）
+      left.push(f + ":" + (anchor + 1));
     });
   });
-  assert.deepEqual(left, [], "还有页拿 t.bg 当外壳：" + left.join(" "));
+  // 明账上的那几处按文件计数对得上就行；多出来的一律红
+  const byFile = {};
+  left.forEach(x => { const f = x.split(":")[0]; byFile[f] = (byFile[f] || 0) + 1; });
+  Object.keys(byFile).forEach(f => { if (KNOWN_FLAT[f]) byFile[f] -= KNOWN_FLAT[f]; });
+  const extra = Object.keys(byFile).filter(f => byFile[f] > 0).map(f => f + "×" + byFile[f]);
+  assert.deepEqual(extra, [], "还有页拿 t.bg 当外壳（明账之外的）：" + left.join(" "));
+  // 明账不许悄悄变长：写在上面的那几处，数目对不上也要红
+  Object.keys(KNOWN_FLAT).forEach(f => {
+    assert.ok((left.filter(x => x.split(":")[0] === f).length) === KNOWN_FLAT[f],
+      f + " 上明账记的是 " + KNOWN_FLAT[f] + " 处，实际 " + left.filter(x => x.split(":")[0] === f).length + " 处");
+  });
 });
 
 test("攻略页是它自己写着的那本【说明书】", () => {

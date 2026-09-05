@@ -14,7 +14,11 @@ const cut = (s, a, b) => { const i = s.indexOf(a); assert.ok(i >= 0, "锚没了�
 test("消息列表：灰地白格，顶栏走公共 Head，24px 自写大标题退场", () => {
   const seg = cut(comp, "function Messages({", "function MomentCompose({");
   // 外壳是地（t.bg），聊天格子是白的（t.bg2）——手机聊天 app 的层次
-  assert.match(seg, /className: "h-full flex flex-col",\s*style: \{\s*background: t\.bg\s*\}/, "外壳不是灰地了");
+  // ⚠️口径改了（v64.15）：那块地起了名字（msgAppBg），因为**朋友圈个人页也要铺同一块**。
+  //   起名字还有第二个作用：`style: { background: t.bg }` 那种裸写法跟「忘了装修」
+  //   长得一模一样，而 last-flat-shells 那道闸拦的正是后者——有名字，闸才分得清。
+  assert.match(seg, /className: "h-full flex flex-col",\s*style: msgAppBg\(t\)/, "外壳不是灰地了");
+  assert.match(comp, /function msgAppBg\(t\) \{ return \{ background: t\.bg \}; \}/, "那块地的定义没了");
   assert.match(seg, /pinnedSet\.has\(id\) \? "linear-gradient\(rgba\(0,0,0,0\.035\),rgba\(0,0,0,0\.035\)\) " \+ t\.bg2 : t\.bg2/,
     "聊天格子不再是白格，或者置顶那层淡灰丢了");
   // 顶栏是公共 Head（透明让地透上来），不再自己写一条
@@ -41,7 +45,11 @@ test("朋友圈信息流：自己铺白纸，英文眉标退场", () => {
 
 test("个人朋友圈主页：封面以下自己铺底", () => {
   const seg = cut(comp, "function MomentsProfile({", "function VoiceEarComposer");
-  assert.match(seg, /className: "h-full flex flex-col", style: \{ background: t\.bg2 \}/, "封面底下还是父层给什么是什么");
+  // ⚠️口径改了（v64.15，她 2026-09-05：「对齐吧」）：这一条钉的【意图】是
+  //   「封面底下自己铺底，别靠父层给什么是什么」——意图没变，只是那块底不再是
+  //   自成一格的 t.bg2，而是跟它所属的【消息】那个 app 共用同一份（msgAppBg）。
+  //   原来个人页 t.bg2、列表 t.bg，同一个 app 里两种底，点进点出颜色会跳一下。
+  assert.match(seg, /className: "h-full flex flex-col", style: msgAppBg\(t\)/, "封面底下还是父层给什么是什么");
 });
 
 test("日历：外壳自己铺底，月名收成 20px", () => {
