@@ -1116,6 +1116,28 @@ function weatherPlaceList(userGeo, characters, worlds) {
   }
   return out;
 }
+// 两级（她 2026-09-05：「如果开了一个架空地图全部地点都变成 tab，改成还是显示那个世界
+// 然后点那个 tab 才展示它世界里地点的 subtab」）。
+// 一张地图画了十几个坊市，那一排就横着排十几块牌，翻到底才找得到人在哪儿。
+// 所以横杆上挂的是【世界】（我这儿 / 某个人那边 / 大晏 …），点开那个世界，
+// 底下才垂下这个世界里的几处地方。
+// ⚠️选中的 key 照旧是【具体那一处】（w:<世界>:<地名>），下游一个字都不用改——
+//   分级只在这一层做，天气怎么算、存哪一处，全不受影响。
+function weatherRailLevels(places, pick) {
+  const top = [], seen = {};
+  (places || []).forEach(function (p) {
+    if (p.kind !== "world") { top.push(p); return; }
+    const wid = String(p.key).split(":")[1] || "";
+    if (seen[wid]) { seen[wid].n++; return; }
+    seen[wid] = { key: "W:" + wid, kind: "worldGroup", wid: wid, label: p.sub, sub: "", n: 1, first: p.key };
+    top.push(seen[wid]);
+  });
+  top.forEach(function (g) { if (g.kind === "worldGroup") g.sub = g.n + " 处"; });
+  const cur = String(pick || "");
+  const curWid = cur.indexOf("w:") === 0 ? cur.split(":")[1] : null;
+  const sub = curWid ? (places || []).filter(function (p) { return p.kind === "world" && String(p.key).split(":")[1] === curWid; }) : [];
+  return { top: top, sub: sub, topValue: curWid ? "W:" + curWid : cur };
+}
 // 观测牌：一根横杆 + 几块吊牌。选中那块吊得低、满纸、带天象；没选的短一截、发白。
 function WeatherTagRail({ places, value, onPick }) {
   const t = useTheme();
@@ -1138,12 +1160,40 @@ function WeatherTagRail({ places, value, onPick }) {
             on ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 2, whiteSpace: "nowrap" } }, p.kind === "world" ? p.sub + " · " + p.terrain : p.sub) : null));
       })));
 }
+// 世界里的那几处：从选中那块牌子底下垂下来的一串小木签。
+// ⚠️故意跟上面那排【不是同一个形状】：上面是穿绳的吊牌，这里是签——
+//   两排长得一样的话，看着就是两排 tab，分级也就白分了
+//   （.claude/rules/tabs-not-plain-pills.md）。
+function WeatherSubRail({ places, value, onPick }) {
+  const t = useTheme();
+  if (!places || places.length < 2) return null;
+  return h("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 2px 10px", marginTop: -2 } },
+    places.map(function (p) {
+      const on = p.key === value;
+      return h("button", { key: p.key, onClick: function () { onPick(p.key); }, className: "shrink-0 active:opacity-70",
+        style: { background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "center" } },
+        // 签绳：短短一截，接在上面那块牌子底下
+        h("div", { style: { width: 1, height: 6, margin: "0 auto", background: hexA(t.ink, on ? .42 : .16) } }),
+        h("div", { style: { padding: "4px 9px 5px", borderRadius: "6px 6px 3px 3px",
+          background: on ? hexA(t.ink, .08) : "transparent",
+          borderBottom: on ? "2px solid " + hexA(t.ink, .55) : "1px solid " + hexA(t.ink, .12) } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: on ? 11.5 : 10.5, color: on ? t.ink : t.fog, whiteSpace: "nowrap" } }, p.label),
+          on && p.terrain ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 1, whiteSpace: "nowrap" } }, p.terrain) : null));
+    }));
+}
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
   const places = weatherPlaceList(userGeo, characters, worlds);
   const [pick, setPick] = useState(function () { try { return localStorage.getItem("x_weatherPlace") || "me"; } catch (e) { return "me"; } });
   const place = places.find(function (p) { return p.key === pick; }) || places[0];
   const choose = function (k) { setPick(k); setFx(null); try { localStorage.setItem("x_weatherPlace", k); } catch (e) {} };
+  const levels = weatherRailLevels(places, pick);
+  // 点上面那一排：点世界＝进这个世界的第一处（底下那串签跟着出来），点别的照旧
+  const chooseTop = function (k) {
+    if (String(k).indexOf("W:") !== 0) { choose(k); return; }
+    const g = levels.top.find(function (x) { return x.key === k; });
+    if (g && g.first) choose(g.first);
+  };
   const [real, setReal] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
   const [open, setOpen] = useState(false);
   const [fx, setFx] = useState(null); // {hourly:[{h,t,p,code}], daily:[{d,code,hi,lo}]}
@@ -1199,7 +1249,8 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, t)) },
     h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-    h(WeatherTagRail, { places: places, value: place && place.key, onPick: choose }),
+    h(WeatherTagRail, { places: levels.top, value: levels.topValue, onPick: chooseTop }),
+    h(WeatherSubRail, { places: levels.sub, value: place && place.key, onPick: choose }),
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 8 } },
       h("div", null,
         // 地名和「天气」两个字都已经在顶栏里了，正文别再写一遍
