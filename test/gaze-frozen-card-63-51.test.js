@@ -190,7 +190,8 @@ test("接线：先记标记再打调用；线上线下都接上，跟建卡那�
   assert.match(fn, /engineerEyes/);
   // maxTokens 给足（max-tokens-floor：一整份卡是「一屏名单」那一档）
   const call = app.slice(app.indexOf("const reviewGazeFor"), app.indexOf("const maybeAutoReviewGaze"));
-  assert.match(call, /maxTokens: 12000/);
+  // v63.90 抬到 20000：一次要写十块，12000 里还要扣掉思考预算（max-tokens-floor.md）
+  assert.match(call, /maxTokens: 20000/);
 });
 
 test("她盯着一张冻住的卡时得有个按得动的东西", () => {
@@ -207,5 +208,7 @@ test("卡有内容却长期不动时，这一页得把实话说出来", () => {
   const page = gaze.slice(gaze.indexOf("function GazePage"), gaze.indexOf("window.Gaze = {"));
   assert.match(page, /hasAny\(charId\) \? \(function \(\) \{/);
   assert.match(page, /被点名复看 " \+ mu \+ " 轮没答话/);
-  assert.match(page, /自动复看过 " \+ rv\.tries \+ "\/" \+ rv\.max/);
+  // v63.90：「2/3 次」是给我看的日志格式，她要的是「试满了没有」＋一句人话
+  assert.match(page, /自动复看过 " \+ rv\.tries \+ " 次"/);
+  assert.match(page, /rv\.tries >= rv\.max \? "；试满了，往后不再自动试" : ""/);
 });

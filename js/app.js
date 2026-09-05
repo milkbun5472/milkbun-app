@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.89";
+const APP_VERSION = "v63.90";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -570,7 +570,11 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
-      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 12000, timeout: 150000 });
+      // ⚠️这一枪一次要写十块，是【一整份卡】那一档。12000 里还要扣掉思考预算，
+      //   想完就没配额写正文＝空返回＝界面上那句「模型没按格式答」（她 2026-09-05 截图）。
+      //   按 max-tokens-floor.md 的公式抬到 min(24000, 旧+8000)=20000：上限给宽一分钱也不多花，
+      //   给窄了才会白烧一次调用。
+      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 20000, timeout: 150000 });
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.seed(char.id, parsed);
@@ -616,7 +620,7 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
-      const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 12000, timeout: 150000 });
+      const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 20000, timeout: 150000 });
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.review(char.id, parsed);

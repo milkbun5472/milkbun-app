@@ -73,8 +73,9 @@ test("真写出来了才算建过卡", () => {
 test("败因要留下来，不然「试过三次都没成」跟「还没聊够」长得一模一样", () => {
   const { G } = fresh();
   G.markAutoSeed("c");
+  // v63.90 起败因【存进去之前就翻成人话】——存原文的话这句在界面上会一直是机器话
   G.markAutoSeedFail("c", "没解析出卡");
-  assert.equal(G.autoSeedState("c").err, "没解析出卡");
+  assert.equal(G.autoSeedState("c").err, "模型没按格式答");
   G.markAutoSeed("c");
   assert.equal(G.autoSeedState("c").err, "", "新一次开打时把上一次的败因清掉");
 });

@@ -299,9 +299,26 @@
     d[charId] = box; persist(d, charId);
     return true;
   }
+  // 败因要说人话（她 2026-09-05 截图：界面上原样印着「没解析出卡」——
+  // 那是 `throw new Error()` 里的话，是给我看的，不是给她看的）。
+  // ⚠️所以【存进去之前就翻好】：存原文的话，这一句在界面上会一直是机器话。
+  //   认不出来的一律说「这一次没成」，绝不把异常原文摆到她眼前。
+  function plainWhy(msg) {
+    const m = String(msg || "");
+    if (!m) return "这一次没成";
+    if (/解析|JSON|parse/i.test(m)) return "模型没按格式答";
+    if (/超时|timeout|abort/i.test(m)) return "等太久，超时了";
+    if (/401|403|unauthor|密钥|api key|apikey/i.test(m)) return "这条线路没配好";
+    if (/429|rate.?limit|限流|too many/i.test(m)) return "被限流了";
+    if (/fetch|network|网络|连接|ECONN|ENOTFOUND/i.test(m)) return "网没连上";
+    if (/余额|quota|insufficient|billing/i.test(m)) return "额度不够了";
+    // 已经是人话的那几句（「一块也没写出来」「一块都没改」）原样留着
+    if (/[一二三四五六七八九十百]|块|写|改|答/.test(m) && !/[A-Za-z]{4}/.test(m)) return m;
+    return "这一次没成";
+  }
   function markReviewFail(charId, why) {
     const d = load(); const box = boxOf(d, charId);
-    box.reviewErr = String(why || "没写出来").slice(0, 60);
+    box.reviewErr = plainWhy(why).slice(0, 60);
     d[charId] = box; persist(d, charId);
     return true;
   }
@@ -393,7 +410,7 @@
   // 败因留下来:不留的话「试过三次都没成」和「还没到十条」在界面上长得一模一样。
   function markAutoSeedFail(charId, why) {
     const d = load(); const box = boxOf(d, charId);
-    box.autoSeedErr = String(why || "没写出来").slice(0, 60);
+    box.autoSeedErr = plainWhy(why).slice(0, 60);
     d[charId] = box; persist(d, charId);
     return true;
   }
@@ -526,7 +543,8 @@
       hasAny(charId) ? (function () {
         var mu = muteCount(charId), rv = reviewState(charId), lines = [];
         if (mu >= 3) lines.push(say("他") + "被点名复看 " + mu + " 轮没答话");
-        if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + "/" + rv.max + " 次" + (rv.err ? ":" + rv.err : ""));
+        if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次" + (rv.err ? "，都没成（" + plainWhy(rv.err) + "）" : "")
+          + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
         if (!lines.length) return null;
         return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
           lines.map(function (x, i) { return h("div", { key: i }, x); }));
@@ -537,7 +555,8 @@
         // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
           var st = autoSeedState(charId), lines = [];
-          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + "/" + st.max + " 次" + (st.err ? ":" + st.err : ",没写出内容"));
+          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy(st.err || "没写出内容") + "）"
+            + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
           if (st.refuse) lines.push(say("他") + "被点名问过 " + st.refuse + " 轮,每次都答「认识得还不够」");
           if (!lines.length) return null;
           return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
