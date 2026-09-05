@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.55";
+const APP_VERSION = "v63.57";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16778,6 +16778,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     offlineLastTs: (() => { const m = { ...offlineTsRef.current }; const scan = store => { Object.keys(store || {}).forEach(id => { let t = 0; (store[id] || []).forEach(s => { const ms = s.msgs || []; const lt = ms.length ? (ms[ms.length - 1].ts || 0) : 0; if (lt > t) t = lt; }); m[id] = t; }); }; scan(offlines); scan(groupOfflines); return m; })(), // 线下最后一条时间(每场取末条)，供聊天列表排序（线下冒泡也顶上来）。base=开机种子(兜懒加载没灌的)，state 扫描覆盖已打开的（含删空→0）
     tab: msgTab,
     onTab: setMsgTab,
+    onOpenSettings: () => setScreen("config"),   // 备份告警那条横幅点一下直接去设置
     onBack: goHome,
     onOpenThread: c => {
       setActiveChar(c);
@@ -18291,6 +18292,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
 })();
 
 // 启动时：若已登录且云端存档更新，静默拉回并重载（换设备场景）
+// ⚠️这一句跟上面那段 hydrate 是【并排跑的】：它不等文字库灌完。
+//   真正的闸立在 engine.js 的 txtVaultReady / cloud.js 的 autoPush 里——
+//   闸不能靠这里的顺序，顺序写在这一处、用在那一处，就是「一层写在两处」，
+//   哪天有人调了开机顺序，那边不会有任何报错（2026-09-05 审计 P0）。
 if (window.Cloud && window.Cloud.ready()) {
   window.Cloud.autoPull().then(r => { if (r && r.applied) location.reload(); });
 }

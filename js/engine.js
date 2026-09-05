@@ -3961,6 +3961,36 @@ async function idbTxtApplySnapshot(data, preserveKeys) {
   for (const [k, v] of desired) { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); _txtMirror().set(k, v); if (isDurableTextKey(k)) await walDel(k); }
   return desired.size;
 }
+// ── 文字库就绪闸（2026-09-05 审计 P0：开机推送跟灌镜像并排跑）────────────────
+// collect() 上云时是从内存镜像 __txtMirror 里取【全部 IDB 文字键】的：聊天、记忆、
+// 手机、日记、情侣空间、周刊……而镜像是下面 hydrateTxtVault 灌的。
+// 开机那一路 autoPull→autoPush 跟它【并排跑、谁也不等谁】：盘慢网快时，
+// collect 在镜像灌满之前就跑完了，推上去一份**没有任何聊天的快照**，
+// 而且 MARK 会更新、过期闸会被置成「不过期」——两道闸都拦不住它。
+// 这条路**不需要任何外部故障**，只要「IDB 读得慢、网络快」。之后再走
+// 「删了重装 / 从云端恢复」，聊天就真没了。
+//
+// ⚠️这道闸不能靠【开机顺序】立：顺序写在 app.js 的挂载那一段，闸用在 cloud.js，
+//   那正是「一层写在两处」——哪天有人调了开机顺序，这边不会有任何报错。
+//   所以闸立在【灌的那一头】：谁要上云谁自己来问一句「灌完了没有」。
+// ⚠️等超时也算【没灌完】。宁可这一轮不备份，也绝不推一份残档上去覆盖真存档：
+//   不备份是「今天没进展」，推残档是「昨天的也没了」。
+const _txtGate = { done: false, ok: false, err: "", waiters: [] };
+function _txtGateSettle(ok, err) {
+  _txtGate.done = true; _txtGate.ok = !!ok; _txtGate.err = String(err || "");
+  const w = _txtGate.waiters.splice(0);
+  w.forEach(fn => { try { fn(txtVaultState()); } catch (e) {} });
+}
+function txtVaultState() { return { done: _txtGate.done, ok: _txtGate.ok, err: _txtGate.err }; }
+function txtVaultReady(timeoutMs) {
+  if (_txtGate.done) return Promise.resolve(txtVaultState());
+  return new Promise(res => {
+    let fired = false;
+    const fin = st => { if (!fired) { fired = true; res(st); } };
+    _txtGate.waiters.push(fin);
+    setTimeout(() => fin({ done: false, ok: false, err: "文字库还没灌完（等了太久）" }), Number(timeoutMs) || 20000);
+  });
+}
 // 开机：IDB→内存镜像，并把还赖在 localStorage 的同人文键搬进 IDB（复制+验证一致，才删本地——绝不先删）。幂等。
 async function hydrateTxtVault() {
   const mir = _txtMirror();
@@ -3989,8 +4019,14 @@ async function hydrateTxtVault() {
     } catch (e) {
       console.error("durable text WAL recovery failed:", e);
     }
+    _txtGateSettle(true, "");
     return mir.size;
-  } catch (e) { return 0; }
+  } catch (e) {
+    // ⚠️原来这儿只 `return 0`：灌失败和「本来就没东西」返回值一模一样，
+    //   于是残档照推。现在把败因交给闸，上云那一路自己会拦下并说出来。
+    _txtGateSettle(false, (e && e.message) || "文字库没灌起来");
+    return 0;
+  }
 }
 // 取得某个 JSON 键的原始字符串。审计/导出需要原文做逐字指纹，不能只走解析后的 loadJSON。
 // IDB 键优先读已经在挂载前灌好的镜像；迁移尚未完成时回落 localStorage。

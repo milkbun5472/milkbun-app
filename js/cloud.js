@@ -26,13 +26,41 @@
   const protectedSaveCache = new Map(); // 冻结回滚字段每账号/每页面只读一次，杜绝每次小改下载整行 saves
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
   const STALE_GAP_MS = 24 * 3600 * 1000; // 云端比本机新出这么多 = 这台是过期设备，不许静默覆盖
-  let staleVerdict = null, staleAnnounced = false;
+  const PUSH_ERR = "cloud_push_err_v1";  // 上一次自动备份为什么没成（无 x_ 前缀，不进存档）
+  const PUSH_TIMEOUT_MS = 45000;         // 在途 upsert 的硬超时：iOS 切后台时 socket 会被挂起
+  const PUSH_WARN_MS = 24 * 3600 * 1000; // 离上次成功备份超过这么久，界面上必须变成红的
+  // ⚠️staleVerdict 不再缓存整个会话（见 autoPush 里那段）。staleAnnounced 只用来
+  //   保证同一种拦截理由一轮只弹一次 toast，不参与判定。
+  let staleAnnounced = "";
   const tableMemoryMode = () => { try { return localStorage.getItem("memory_table_authority_v1") === "1"; } catch (e) { return false; } };
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
   // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
   const bootHadLocal = (function () { try { return Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
   // 世界书防呆（她 2026-07-24 报「世界书被同步清空」）：判断一份 x_loreEntries 原始字符串里是不是真有词条。
   // 空数组 []、缺失、坏 JSON 都算「空」。防呆闸只在「本机非空 vs 对端空」时护本机、绝不让空覆盖非空。
+  // 拦下这一次自动备份的理由 → 一句人话。toast 和设置页共用同一份，
+  // 各写一份迟早只改一处（这个仓库的老毛病）。
+  const PUSH_WHY = {
+    txt_vault: "聊天/记忆还没从本机仓库读完，这一份传上去会缺东西",
+    auth_lookup: "登录状态查不到（不是没登录，是查失败）",
+    apply_partial: "上次从云端恢复没装下全部数据，半份存档不许上云",
+    apply_threw: "上次从云端恢复中途出错，已还原本机；这一份不许上云",
+    stale: "云端那份比这台设备新得多，怕把别处的改动抹掉",
+    stale_unknown: "查不到云端那份有多新，不敢盖",
+    timeout: "传了很久没有回音（网络被挂起）",
+    upsert: "云端拒绝了这次写入"
+  };
+  const pushWhy = b => (b && (PUSH_WHY[b.reason] || b.reason)) || "";
+  // 这几种是【我们主动拦下的】：这台机器的状态不对，推上去会伤到数据。值得当场打断她。
+  // 其余（upsert 失败 / 超时 / 查不到云端）多半只是网络，记账就够，交给常驻横幅。
+  const LOUD_BLOCK = { txt_vault: 1, stale: 1, apply_partial: 1, apply_threw: 1 };
+  // 在途请求的硬超时。supabase 的 builder 是 thenable，Promise.race 吃得下；
+  // 超时之后那条请求还挂在那儿，但**我们这一侧一定会往下走**——要治的正是
+  // 「既不成功也不失败」把 pushInFlight 永远钉住那个病。
+  const withTimeout = (p, ms) => Promise.race([
+    Promise.resolve(p),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("push_timeout")), ms))
+  ]);
   const loreNonEmpty = function (raw) {
     if (raw == null) return false;
     try { const a = JSON.parse(raw); return Array.isArray(a) && a.length > 0; } catch (e) { return false; }
@@ -173,9 +201,29 @@
 
     // 用云端数据覆盖本地：先清掉本地 x_ 键，再写回
     // 期间挂起自动同步，避免写入触发反向 push
+    // ⚠️「从云端恢复」是她丢了数据之后【唯一的自救键】——修复路径不许比事故更危险。
+    //   这个函数先把本机 x_* 整份 removeItem、再逐键写回。v63.30 补上了逐键 try
+    //   （单个键 QuotaExceeded 不再连累其余，并立 pushBlocked 禁推半份），
+    //   但还有两个洞：
+    //   ① **没有回滚**：删之前不留底，中途出事就只剩半份，旧的那份彻底没了。
+    //   ② **抛异常那条路整个漏在外面**：applyFailed 是空的 → pushBlocked 没立、
+    //      x_cloudApplyFailed_v1 没写 → frozen 还是 false（它写在 try/finally 之后）
+    //      → doPull 的 catch 只弹一句「恢复失败」、**不 reload** → 页面带着半份存档
+    //      继续跑 → 下一次写入 markDirty → autoPush 畅通无阻，**半份存档推上云**。
+    //   现在：删之前把旧的 x_* 原样留一份在内存里；任何抛错都整份回滚 + 立禁推旗 + 说出来。
+    // ⚠️老实说清一件事：回滚的是 **localStorage 这一半**。IDB 文字库那一半由
+    //   idbTxtApplySnapshot 自己逐键写入并核对，它中途抛错时那边已经是混的——
+    //   那种情况只能靠禁推旗兜住（绝不让混的那份上云），并让她重载重来。
     async apply(data) {
       suspend = true;
+      // 回滚材料：删之前把旧的 x_* 原样留一份。这一份只活在内存里，不占存储。
+      const rollback = new Map();
       try {
+        try {
+          Object.keys(localStorage)
+            .filter((k) => k.startsWith("x_"))
+            .forEach((k) => { try { rollback.set(k, localStorage.getItem(k)); } catch (e) {} });
+        } catch (e) {}
         // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
         const keepMemLib = tableMemoryMode() && typeof storedJSONText === "function" ? storedJSONText("x_memLib") : (tableMemoryMode() ? localStorage.getItem("x_memLib") : null);
         // 世界书防呆（拉云→本地方向）：云端这份世界书是空的、而本机还有词条 → 保留本机，绝不让空覆盖非空。
@@ -236,6 +284,18 @@
           } else localStorage.setItem("x_memLib", keepMemLib);
         }
         if (keepLore != null) { localStorage.setItem("x_loreEntries", keepLore); try { console.warn("[Cloud] 世界书防呆：云端为空，保留本机词条，未被覆盖"); } catch (e) {} }
+      } catch (e) {
+        // 整份回滚。此刻 suspend 还是 true、frozen 还是 false，所以写回既不触发
+        // markDirty、也不会被冻结闸挡掉——顺序不能换。
+        try {
+          Object.keys(localStorage).filter((k) => k.startsWith("x_")).forEach((k) => { try { localStorage.removeItem(k); } catch (e2) {} });
+          rollback.forEach((v, k) => { if (v != null) { try { localStorage.setItem(k, v); } catch (e2) {} } });
+        } catch (e2) {}
+        this.pushBlocked = { reason: "apply_threw", at: Date.now(), detail: String((e && e.message) || e || "恢复中断") };
+        try { localStorage.setItem("x_cloudApplyFailed_v1", JSON.stringify({ at: new Date().toISOString(), threw: String((e && e.message) || e) })); } catch (e2) {}
+        try { window.toast && window.toast("⚠️ 云端恢复中断，已把本机原样还原——这一份没上云。先别关，去 设置·云同步 看一眼"); } catch (e2) {}
+        try { console.error("[Cloud] apply 抛错，已整份回滚并禁推", e); } catch (e2) {}
+        throw e;
       } finally {
         suspend = false;
       }
@@ -253,6 +313,8 @@
       // 写回完成后冻结本地 x_ 写入，直到调用方 location.reload()。
       // 目的：apply 与 reload 之间那几百毫秒里，登录前那份旧 React 状态可能 saveJSON，
       // 会把刚恢复的键覆盖回旧值（甚至反向 push 污染云端）→「恢复一半」竞态。冻结后这些写入直接丢弃，重载后自然解除。
+      // ⚠️这一句只走【成功】那条路：上面 catch 里 `throw e` 之后到不了这儿，
+      //   而那正是我们要的——回滚回旧数据之后还冻住，她连改都改不了。
       frozen = true;
     },
 
@@ -1227,7 +1289,26 @@
     //   不在这儿盖一次 MARK 的话，恢复完的第一次自动备份会被自己的闸拦住。
     markSynced(updatedAt) {
       localStorage.setItem(MARK, updatedAt || new Date().toISOString());
-      staleVerdict = null; staleAnnounced = false; this.pushBlocked = null;
+      staleAnnounced = ""; this.pushBlocked = null;
+      try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
+    },
+
+    // ---- 备份状态：给界面用（2026-09-05 审计意见 #1）------------------
+    // ⚠️病灶不是「少一行字」，是【读的那头和写的那头字段名不一样】：
+    //   写的是 cloud_pushed_at（本文件 MARK），而 js/screens.js 那一行读的是
+    //   cloud_synced_at ——全库没有任何一处写过这个键。于是那句
+    //   「云同步开着 · 上次 X」从上线起一次都没出现过，永远走 `? :` 的另一半，
+    //   看着完全正常。JS 读一个不存在的键是 undefined，不是错误（stub-from-the-writer）。
+    //   所以这里开一个方法出去，界面别再自己拼键名——那正是「一层写在两处」。
+    lastPushedAt() { try { return localStorage.getItem(MARK) || ""; } catch (e) { return ""; } },
+    pushState() {
+      const at = this.lastPushedAt();
+      const parsed = at ? Date.parse(at) : 0;
+      const ageMs = parsed ? Date.now() - parsed : Infinity;
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(PUSH_ERR) || "null"); } catch (e) {}
+      const blocked = this.pushBlocked || saved || null;
+      return { at, ageMs, never: !parsed, overdue: !(ageMs < PUSH_WARN_MS), blocked, why: blocked ? pushWhy(blocked) : "" };
     },
 
     async staleness(userId) {
@@ -1247,29 +1328,77 @@
       if (!client) return;
       if (!this.localMeaningful()) return; // 空壳绝不自动上云（手动推送在设置里另有确认）
       if (pushInFlight) { pushAgain = true; return pushInFlight; }
+      // 拦下这一次 / 这一次失败了：把理由记下来。
+      // ⚠️原来这一整段的 catch 是空的——**失败和成功在界面上长得一模一样**，
+      //   9/3 那次 autoPush 连败九天，设置页还写着「已开启自动同步」。
+      //   记一笔（内存 + 一个不进存档的小键），界面那头才有东西可显示。
+      const block = (reason, extra) => {
+        const b = Object.assign({ reason: reason, at: Date.now() }, extra || {});
+        this.pushBlocked = b;
+        try { localStorage.setItem(PUSH_ERR, JSON.stringify(b)); } catch (e) {}
+        // 什么时候值得打断她：**是我们主动拦下的**（这台机器的状态出了问题、数据有风险）
+        // 才弹。掉个网、超个时是常事，那些只记账、由那条常驻横幅去说——
+        // 每次断网都弹一次就成了天天弹窗，跟过期闸当初按【跨度】判是同一个道理。
+        // 但要是已经一天没成功过了，那就不是「掉了个网」，照样吼一声。
+        const loud = LOUD_BLOCK[reason] || this.pushState().overdue;
+        if (loud && staleAnnounced !== reason) {
+          staleAnnounced = reason;
+          try { console.warn("[Cloud] 自动备份被拦下：" + reason, b); } catch (e) {}
+          try { window.toast && window.toast("⚠️ 这一次自动备份没做：" + pushWhy(b) + "——去 设置·云同步 看一眼"); } catch (e) {}
+        } else { try { console.warn("[Cloud] 自动备份没成：" + reason, b); } catch (e) {} }
+        return b;
+      };
       pushInFlight = (async () => {
         try {
+          // ── 闸一：文字库灌完了没有（审计 P0）────────────────────────
+          // collect() 取的是内存镜像；镜像没灌满就推 = 推一份没有聊天的残档。
+          // 等超时也当没灌完：宁可这一轮不备份，也不许拿残档盖掉真存档。
+          if (typeof txtVaultReady === "function") {
+            const txt = await txtVaultReady(20000);
+            if (!txt.ok) { block("txt_vault", { detail: txt.err || "" }); return; }
+          }
+          // ── 闸二：登录态。⚠️查不到 ≠ 访客 ──────────────────────────
+          // getUser() 把网络/限流错误吞成 null，autoPush 原来把它当「访客模式」正常
+          // return——连下面的 catch 都走不到。认证端点 429 时，本机明明揣着持久
+          // session，却每次都当自己是访客：**看着像「没登录」，其实是「备份坏了」**。
           const user = await this.getUser();
-          if (!user) return; // 访客模式：纯本地
-          if (this.pushBlocked && this.pushBlocked.reason === "apply_partial") return; // 半份存档绝不上云（v62.44）
-          try { if (localStorage.getItem("x_cloudApplyFailed_v1")) return; } catch (e) {}
-          // 过期设备闸：一个会话只查一次（推成功之后 MARK 就是最新的，再查也是白查）
-          if (!staleVerdict) staleVerdict = await this.staleness(user.id).catch(() => ({ stale: false }));
-          if (staleVerdict.stale) {
-            this.pushBlocked = staleVerdict;
-            if (!staleAnnounced) {
-              staleAnnounced = true;
-              try { console.warn("[Cloud] 过期设备闸：云端那份比本机新得多，已拦下自动备份", staleVerdict); } catch (e) {}
-              try { window.toast && window.toast("⚠️ 云端存档比这台设备新得多，已拦下自动备份——先去 设置·云同步 看一眼再决定"); } catch (e) {}
-            }
+          if (!user) {
+            const local = await this.getSessionUser().catch(() => null);
+            if (local) block("auth_lookup", {});   // 有 session 却查不到 = 查失败，不是访客
             return;
           }
+          // ── 闸三：半份 / 中断的存档绝不上云 ────────────────────────
+          if (this.pushBlocked && (this.pushBlocked.reason === "apply_partial" || this.pushBlocked.reason === "apply_threw")) return;
+          try { if (localStorage.getItem("x_cloudApplyFailed_v1")) { block("apply_partial", {}); return; } } catch (e) {}
+          // ── 闸四：过期设备闸 ───────────────────────────────────────
+          // ⚠️两处一起改（审计意见 #2）：
+          //   ① 原来【一个会话只查一次】，推成功后还把 verdict 写成永远「不过期」。
+          //      挂了九天的旧标签页任意一次自动写入都会沿用那份九天前的判词，
+          //      把整份旧档盖上云——v61.63 补的闸只挡开机那一下，挡不住它。
+          //      现在每次真正 upsert 之前都重查（一条 select，推送本来就防抖 12 秒）。
+          //   ② 原来查失败 `.catch(() => ({ stale: false }))` 是 **fail-open**：
+          //      慢网下 select 超时就当「不过期」，网络一恢复照样盖。
+          //      现在查不到就算【未知】，未知一律拦下——闸的默认答案必须是「别动」。
+          let verdict;
+          try { verdict = await this.staleness(user.id); }
+          catch (e) { block("stale_unknown", { detail: String((e && e.message) || e) }); return; }
+          if (verdict.stale) { block("stale", verdict); return; }
           const ts = new Date().toISOString();
           const saveData = await this.collectForSave(user.id);
-          const { error } = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts });
-          if (!error) { localStorage.setItem(MARK, ts); staleVerdict = { stale: false, cloudAt: Date.parse(ts), localAt: Date.parse(ts) }; this.pushBlocked = null; }
+          // ⚠️在途 upsert 必须有硬超时。iOS 切后台时 socket 会被挂起，fetch 既不成功
+          //   也不失败：pushInFlight 永不 resolve → 此后每一次 autoPush 都在开头
+          //   `return pushInFlight`，**这个标签页从此再也不备份**，直到整页重载。
+          const { error } = await withTimeout(
+            client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }),
+            PUSH_TIMEOUT_MS);
+          if (error) { block("upsert", { detail: String(error.message || error) }); return; }
+          localStorage.setItem(MARK, ts);
+          this.pushBlocked = null; staleAnnounced = "";
+          try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
         } catch (e) {
-          // 离线或网络错误：静默，等下一次变动重试
+          // 离线、超时、任何没预料到的错：一样要留痕。静默正是 9/3 的第一道哑火。
+          block(String((e && e.message) || e) === "push_timeout" ? "timeout" : "upsert",
+                { detail: String((e && e.message) || e) });
         }
       })();
       try { await pushInFlight; } finally {
@@ -1304,7 +1433,8 @@
         }
         await this.apply(row.data);
         localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
-        staleVerdict = null; this.pushBlocked = null;   // 已经跟云端同龄了，闸门解除
+        this.pushBlocked = null; staleAnnounced = "";   // 已经跟云端同龄了，闸门解除
+        try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
         return { applied: true };
       } catch (e) {
         return { applied: false };

@@ -7079,8 +7079,15 @@ function Config(props) {
         const all = Object.keys(f).length;
         return all ? (on + " / " + all + " 项开着") : "自动内容与主动社交"; } },
     { key: "data", char: "存", title: "我的东西存在哪", tint: "#477f88",
-      state: () => { const at = (function () { try { return localStorage.getItem("cloud_synced_at"); } catch (e) { return null; } })();
-        return at ? "云同步开着 · 上次 " + String(at).slice(0, 10) : "备份、导出、迁移与清理"; } },
+      // ⚠️这一行原来读的是 `cloud_synced_at`——**全库没有任何一处写过这个键**
+      //   （写的那头在 js/cloud.js，叫 cloud_pushed_at）。于是「云同步开着 · 上次 X」
+      //   从上线起一次都没出现过，永远走 `? :` 的另一半，看着完全正常：
+      //   JS 读一个不存在的键是 undefined，不是错误（stub-from-the-writer.md）。
+      //   现在不再自己拼键名，问 Cloud 要——键名是它的，别在两处各写一份。
+      state: () => { const st = (window.Cloud && window.Cloud.pushState) ? window.Cloud.pushState() : null;
+        if (!st || !window.Cloud.ready()) return "备份、导出、迁移与清理";
+        if (st.never) return "还没有备份过";
+        return (st.overdue || st.blocked ? "⚠️ 上次备份 " : "云同步开着 · 上次 ") + String(st.at).slice(0, 10); } },
     { key: "write", char: "写", title: "他们写出来的东西", tint: "#d97c86",
       state: () => { const q = props.coupleQACustom || {};
         const n = Object.keys(q).reduce((a, k) => a + ((q[k] || []).length || 0), 0);
@@ -7901,7 +7908,7 @@ function ThemeConfig({
     }
   }, "默认")));
 }
-function CloudSync({ toast }) {
+function CloudSync({ toast, onExport }) {
   const t = useTheme();
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
@@ -7909,6 +7916,8 @@ function CloudSync({ toast }) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState("");
   const [confirmPull, setConfirmPull] = useState(false);
+  const [confirmOut, setConfirmOut] = useState(false);
+  const [saved, setSaved] = useState("");   // 这一轮已经导出过 / 她自己说有备份了：""|"pull"|"out"
   useEffect(() => {
     if (window.Cloud && window.Cloud.ready()) {
       setReady(true);
@@ -8040,21 +8049,64 @@ function CloudSync({ toast }) {
     }
   };
 
+  // ⚠️这一段原来只有一句「已开启自动同步：数据改动会自动备份到云端」——
+  //   一句**没有任何证据的断言**。9/3 那次自动上云连败九天，这里一个字都没变过：
+  //   「一直在备份」和「九天没备份成」在这一页上长得一模一样。
+  //   现在把实话摆出来：上次成功是什么时候、这一次为什么没成。
+  const st = (window.Cloud && window.Cloud.pushState) ? window.Cloud.pushState() : null;
+  const bad = !!(st && (st.never || st.overdue || st.blocked));
+  const agoText = (function () {
+    if (!st) return "";
+    if (st.never) return "这台设备还没有成功备份过";
+    const d = Math.floor(st.ageMs / 86400000), hh = Math.floor(st.ageMs / 3600000);
+    const ago = d >= 1 ? d + " 天前" : (hh >= 1 ? hh + " 小时前" : "刚刚");
+    return "上次成功备份：" + String(st.at).replace("T", " ").slice(0, 16) + "（" + ago + "）";
+  })();
+  // ── 会让数据消失的按钮，前面必须先摆「导出一份」（never-say-delete-first.md）──
+  // 那条规矩原话是「任何会让数据消失的指令，前面必须先带一句『先导出一份文件备份』」，
+  // 立的时候只立在【对人说话】上，没立在【按钮】上——而这两个按钮做的正是那两件事：
+  // 「从云端恢复」（覆盖本机）和「退出登录」（清空本机）。
+  // ⚠️「云端有备份」不能代替它：云是一行 upsert、没有历史，被盖掉就是被盖掉了。
+  // 所以这里不是提示，是【闸】：没导出、也没亲口说「我已经有备份了」，那个红按钮按不动。
+  // 两处共用一份——各写一份迟早只改一处。
+  const exportGate = which => h("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub } },
+      "做这件事之前，先把现在这一份存到你自己的硬盘上。"),
+    saved === which
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4a7f5c", marginTop: 6 } }, "✅ 好了，下面那个按钮可以按了")
+      : h("div", { className: "flex gap-2 mt-2" },
+          h("button", { onClick: async () => {
+              if (!onExport) { setSaved(which); return; }
+              try { await onExport(); setSaved(which); } catch (e) { toast && toast("导出失败：" + ((e && e.message) || "再试一次")); }
+            }, className: "flex-1 py-2.5", style: { ...btnDark, fontSize: 12.5 } }, "导出全部数据到本机"),
+          h("button", { onClick: () => setSaved(which), className: "py-2.5 px-3",
+            style: { ...btnLine, fontSize: 11.5, color: t.fog } }, "我已经有备份了")));
   const inner = user
     ? [
         h("div", { key: "who", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 4 } },
           "已登录：" + (user.email || user.id)),
-        note("已开启自动同步：数据改动会自动备份到云端，换设备/重装登录后自动拉回最新存档。下面两个按钮一般用不到，仅在你想立刻手动操作时用。"),
+        h("div", { key: "pushstate", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10,
+            background: bad ? "rgba(192,80,63,.09)" : "rgba(71,127,136,.08)",
+            border: "1px solid " + (bad ? "rgba(192,80,63,.35)" : "rgba(71,127,136,.25)") } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: bad ? "#c0503f" : t.sub } },
+            (bad ? "⚠️ " : "") + (agoText || "备份状态未知")),
+          st && st.blocked ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#c0503f", marginTop: 4 } },
+            "这一次没备份：" + st.why) : null,
+          bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 6 } },
+            "先去「导入与导出 → 导出全部数据」存一份到本机，再决定要不要手动备份。") : null),
+        note("数据改动会自动备份到云端，换设备/重装登录后自动拉回最新存档。上面那一行是它真的做到没有——别只看开关。"),
         h("button", { key: "push", onClick: doPush, disabled: !!busy, className: "mt-4 w-full py-3", style: btnDark },
           busy === "push" ? "备份中…" : "立即备份到云端"),
         !confirmPull
-          ? h("button", { key: "pull", onClick: () => setConfirmPull(true), disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine },
+          ? h("button", { key: "pull", onClick: () => { setConfirmPull(true); setSaved(""); }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine },
               "从云端恢复")
           : h("div", { key: "pullc", className: "mt-3" },
-              note("从云端恢复会覆盖本机当前数据，确定？"),
+              note("从云端恢复会覆盖本机当前数据。本机现在这一份，覆盖完就没了。"),
+              exportGate("pull"),
               h("div", { className: "flex gap-3 mt-2" },
-                h("button", { onClick: () => setConfirmPull(false), className: "flex-1 py-3", style: btnLine }, "取消"),
-                h("button", { onClick: doPull, disabled: busy === "pull", className: "flex-1 py-3", style: { ...btnDark, background: t.accent, color: "#fff" } },
+                h("button", { onClick: () => { setConfirmPull(false); setSaved(""); }, className: "flex-1 py-3", style: btnLine }, "取消"),
+                h("button", { onClick: doPull, disabled: busy === "pull" || saved !== "pull", className: "flex-1 py-3",
+                    style: { ...btnDark, background: saved === "pull" ? t.accent : t.line, color: saved === "pull" ? "#fff" : t.fog } },
                   busy === "pull" ? "恢复中…" : "确定恢复"))),
         h("button", { key: "ledgerfix", onClick: () => {
           // 不动本地已有消息：只把账本里 48h 内还活着、本地却缺失的行补回来，并让 CC 气泡全量重拉
@@ -8066,9 +8118,17 @@ function CloudSync({ toast }) {
           setTimeout(() => location.reload(), 600);
         }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine }, "从账本找回缺失消息（最近48小时）"),
         h("div", { key: "outnote", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 18, lineHeight: 1.6 } },
-          "退出登录会先把最新存档同步到云端，然后清空本机数据、回到初始状态。你的数据都在云端，重新登录会自动拉回。"),
-        h("button", { key: "out", onClick: doSignOut, disabled: !!busy, className: "mt-2 w-full py-3", style: { ...btnLine, color: "#c0503f" } },
-          busy === "out" ? "退出中…" : "退出登录（清空本机数据）")
+          "退出登录会先把最新存档同步到云端，然后清空本机数据、回到初始状态。⚠️云端只有一行、没有历史：被盖掉就是被盖掉了。只有落在你自己硬盘上的那份 json 谁也动不了。"),
+        !confirmOut
+          ? h("button", { key: "out", onClick: () => { setConfirmOut(true); setSaved(""); }, disabled: !!busy, className: "mt-2 w-full py-3", style: { ...btnLine, color: "#c0503f" } },
+              "退出登录（清空本机数据）")
+          : h("div", { key: "outc", className: "mt-2" },
+              exportGate("out"),
+              h("div", { className: "flex gap-3 mt-2" },
+                h("button", { onClick: () => { setConfirmOut(false); setSaved(""); }, className: "flex-1 py-3", style: btnLine }, "取消"),
+                h("button", { onClick: doSignOut, disabled: busy === "out" || saved !== "out", className: "flex-1 py-3",
+                    style: { ...btnDark, background: saved === "out" ? "#c0503f" : t.line, color: saved === "out" ? "#fff" : t.fog } },
+                  busy === "out" ? "退出中…" : "确定退出并清空")))
       ]
     : [
         note("访客模式：不登录也能正常玩，数据只存在本机浏览器。登录后可云端备份、换设备恢复。"),
@@ -8499,7 +8559,7 @@ function DataConfig({
     button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true));
   if (part === "storage") content = h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld });
   if (part === "photos") content = h(LocalPhotoLibrary, { toast: toast });
-  if (part === "cloud") content = h(CloudSync, { toast: toast });
+  if (part === "cloud") content = h(CloudSync, { toast: toast, onExport: onExport });
   if (part === "rescue") content = h(LostCharacterRescue, { characters: characters || [], onRescue: onRescueChar, toast: toast });
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),

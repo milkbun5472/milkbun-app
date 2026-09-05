@@ -19,7 +19,16 @@ test("autoPush 除了空壳闸，还要过【过期设备闸】", () => {
   assert.match(fn, /localMeaningful\(\)/, "空壳闸没了");
   assert.match(fn, /staleness\(user\.id\)/, "过期设备闸没接上");
   // 判定为过期时必须【直接 return】，不许推上去
-  assert.match(fn, /if \(staleVerdict\.stale\) \{[\s\S]*?return;/);
+  assert.match(fn, /if \(verdict\.stale\) \{ block\("stale", verdict\); return; \}/);
+  // ⚠️口径改了（v63.57，审计意见 #2）：原来钉的是 `staleVerdict`，那是个**缓存整个
+  //   会话**的判词——推成功之后还会被写成永远「不过期」。挂了九天的旧标签页任意一次
+  //   自动写入都沿用那份九天前的判词，把整份旧档盖上云：v61.63 这道闸只挡开机那一下。
+  //   现在每次真正 upsert 之前都重查，所以这里钉的是【没有缓存】。
+  assert.doesNotMatch(fn, /if \(!staleVerdict\)/, "过期闸又被缓存成一个会话只查一次了");
+  assert.doesNotMatch(cloud, /let staleVerdict/, "那个会话级缓存还留着");
+  // 而且不许 fail-open：查不到就算未知，未知一律拦下
+  assert.doesNotMatch(fn, /catch \(\) => \(\{ stale: false \}\)/);
+  assert.match(fn, /catch \(e\) \{ block\("stale_unknown"/, "查失败又当成「不过期」放行了");
 });
 
 test("过期的判据是【跨度】，不是【云端比本机新就拦】", () => {
@@ -40,7 +49,9 @@ test("拉回云端之后闸门要解除，否则恢复完第一次备份会被�
   const i = cloud.indexOf("markSynced(updatedAt)");
   const fn = cloud.slice(i, cloud.indexOf("\n    },", i));
   assert.match(fn, /localStorage\.setItem\(MARK/);
-  assert.match(fn, /staleVerdict = null/);
+  // 会话级缓存已经删掉了（见上一条），这里改钉「一次拦截只吼一遍」的闩和那条失败留痕
+  assert.match(fn, /staleAnnounced = ""/);
+  assert.match(fn, /removeItem\(PUSH_ERR\)/, "上一次的失败理由没清，界面会一直红着");
   // 手动「从云端恢复」不走 autoPull，必须自己盖一次 MARK
   assert.match(screens, /window\.Cloud\.markSynced\(row\.updated_at\)/);
 });

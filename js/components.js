@@ -4469,7 +4469,8 @@ function Messages({
   onSaveGroups,
   onPostMoment,
   tab: tabProp,
-  onTab
+  onTab,
+  onOpenSettings
 }) {
   const t = useTheme();
   // tab 提到 App 层受控（v48.40）：进角色资料卡再返回时不丢，还回原来的通讯录/朋友圈 tab。无 prop 时回退内部 state（旧行为）
@@ -4602,7 +4603,25 @@ function Messages({
       size: 20,
       color: t.ink
     })) : null
-  }), h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
+  }),
+  // ── 备份坏了要看得见（2026-09-05 审计意见 #1）────────────────────────
+  // 9/3 那次自动上云连败九天，全 app 没有任何一处显示过「上次成功备份是什么时候」，
+  // 设置页还写着「已开启自动同步」——**「一直在备份」和「九天没备份成」长得一模一样**。
+  // 所以这条挂在信息页顶上：这是她每天开得最多的一页，而且钉在不滚的那一层，
+  // 划不走。只有真出事才出现（从没备份过 / 超过一天没成功 / 这一次被闸拦下）。
+  (function () {
+    const st = (window.Cloud && window.Cloud.ready && window.Cloud.ready() && window.Cloud.pushState) ? window.Cloud.pushState() : null;
+    if (!st || !(st.never || st.overdue || st.blocked)) return null;
+    const d = st.never ? 0 : Math.floor(st.ageMs / 86400000);
+    const head = st.never ? "这台设备还没有成功备份过" : ("已经 " + (d >= 1 ? d + " 天" : "一整天") + "没有成功备份了");
+    return h("div", { onClick: onOpenSettings || null, className: "shrink-0" + (onOpenSettings ? " active:opacity-70" : ""),
+      style: { margin: "0 12px 6px", padding: "9px 12px", borderRadius: 10,
+        background: "rgba(192,80,63,.10)", border: "1px solid rgba(192,80,63,.38)" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "#c0503f" } }, "⚠️ " + head),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 2 } },
+        (st.why ? st.why + "。" : "") + "先去 设置 → 数据 → 导出全部数据 存一份，再看云同步。"));
+  })(),
+  h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
     ref: listRef,
     className: "h-full overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
