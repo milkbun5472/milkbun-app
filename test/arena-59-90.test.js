@@ -324,7 +324,9 @@ test("分享：单聊和群聊都能发；发的是纯文本，不另起一种�
 // 病根：擂台的顶栏是【手写的】，只写了 pt-4＝16px，没吃刘海。
 // 全 app 别的顶栏都走 Head（里面有 safeTop(20)），只有这一处自己写了一份。
 test("擂台顶栏自己吃刘海，返回键还要点得着", () => {
-  const i = dbt.indexOf('h("div", { className: "shrink-0", style: { background: t.bg } },');
+  // v63.17 起顶栏不再自己刷一档平色（页面底铺在外壳上，顶栏刷平色会横出一条带子）
+  const i = dbt.indexOf('h("div", { className: "shrink-0", style: { background: "transparent" } },');
+  assert.ok(i > 0, "擂台顶栏找不到了");
   // 注释里要留着病因（那句话里就有 pt-4），所以只看活着的代码
   const hdr = dbt.slice(i, dbt.indexOf("stage),", i)).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(hdr.indexOf("pt-4") < 0, "顶栏又只写了 pt-4，在刘海屏上让不开");
