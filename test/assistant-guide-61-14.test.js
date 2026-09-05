@@ -317,9 +317,11 @@ test("设置页摆得出来，而且照线下/后台那两栏的形状", () => {
   assert.match(src, /还没配过线路，去 设置 · 文字模型 加一条/);
 });
 
+// ⚠️这一条钉的是「两处都递」，不是「离得多近」：上面多写两行注释就红，
+// 是在冻结无关的东西。窗口放宽到 900（v63.94 那次多了一行页面上下文的注释）。
 test("App 把线路表和全局那条都递下去了，两处都递", () => {
-  assert.match(app, /h\(window\.AssistantDock, \{[\s\S]{0,400}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "小悬浮屏没收到线路表");
-  assert.match(app, /h\(AssistantApp, \{[\s\S]{0,400}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "整页没收到线路表");
+  assert.match(app, /h\(window\.AssistantDock, \{[\s\S]{0,900}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "小悬浮屏没收到线路表");
+  assert.match(app, /h\(AssistantApp, \{[\s\S]{0,900}?active: active,\s*\n\s*apiProfiles: apiProfiles,/, "整页没收到线路表");
   // 秋秋的设置页也要收到，不然那一栏画不出来
   assert.match(src, /h\(AssistantSetup, \{ toast: props\.toast, apiProfiles: props\.apiProfiles, active: props\.active,/);
 });

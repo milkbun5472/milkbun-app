@@ -34,10 +34,11 @@ const A = (() => {
 
 // ⚠️这张表是【安全面】，所以故意冻死成员：多一样就是多一处能写坏她数据的口子，
 // 加东西必须同时改这里，让人看见自己在扩权。v61.00 她要「css 装修 + 更新人物档案」，
-// 于是多了 theme 和 profile 两样。
+// 于是多了 theme 和 profile 两样。v63.94 她要「秋秋在悬浮屏里直接改这个聊天窗的气泡」，
+// 于是多了 bubble：它只写【某一个人的聊天窗】那一层，动不了别人的窗口、也动不了全局。
 test("能改的只有白名单那几样", () => {
   assert.deepEqual(Object.keys(A.api.TARGETS).sort(),
-    ["appearance", "memory", "persona", "profile", "style", "theme"]);
+    ["appearance", "bubble", "memory", "persona", "profile", "style", "theme"]);
   assert.match(src, /不在这张表里的一律不许碰/);
 });
 

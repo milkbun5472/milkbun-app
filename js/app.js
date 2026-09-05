@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.93";
+const APP_VERSION = "v63.94";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17743,6 +17743,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
       addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+    // 整页和小悬浮屏是同一个秋秋：写入口要么两处都给，要么两处都没有。
+    // 只给悬浮屏的话，她从整页问同一句就会被告知「这个页面没接写入口」。
+    onPatchBubble: (charId, skin) => applyOocSkin(charId, skin),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
@@ -18115,7 +18118,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return h(window.AssistantDock, {
       // 她此刻开着哪一页 + 这一页上是谁（她 2026-09-03 点名要的「页面上下文」）：
       // 有了它，「这一页」「这里」「他」才有指代对象，秋秋不用反问是哪一页。
-      page: { screen: screen, charName: (offlineChar || activeChar || {}).name || "" },
+      // ⚠️id 也要给：不然它没法填 patch 的 id，只能反问「你说的是谁」——她正开着那个窗口
+      page: { screen: screen, charName: (offlineChar || activeChar || {}).name || "", charId: (offlineChar || activeChar || {}).id || "" },
       // 她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」。
       // active 是【跟随全局】那一档要走的线路（＝线上主模型，和线下/后台的兜底同一条）；
       // 挑了别的线路的话由 Assistant.activeFor 解析，解析只写在那一处。
@@ -18126,6 +18130,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
       onAddMemories: (charId, items) => (items || []).forEach(txt =>
         addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+      // 气泡走的是跟 OOC 那条路同一个出口（applyOocSkin）：合并方式只写在那一处
+      onPatchBubble: (charId, skin) => applyOocSkin(charId, skin),
       toast: toast
     });
   })(), /*#__PURE__*/React.createElement("audio", {

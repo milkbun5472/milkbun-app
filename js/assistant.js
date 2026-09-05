@@ -233,6 +233,13 @@
     photoAccessories: "出图配饰", birthday: "生日", gender: "性别"
   };
 
+  // 气泡那一份摆给她看的样子：只摆它能改的那几栏，一行一栏。
+  // 摆整份 JSON 的话，改前改后并排一比，满屏都是没动过的空栏。
+  const BUB_ZH = { myBg: "我的气泡底色", charBg: "TA 的气泡底色", myText: "我的字色", charText: "TA 的字色",
+    myBorder: "我的描边", charBorder: "TA 的描边", shadow: "投影", chatBg: "聊天页底色", radius: "圆角" };
+  const bubbleText = b => Object.keys(BUB_ZH).filter(k => b[k] !== "" && b[k] != null)
+    .map(k => BUB_ZH[k] + "：" + b[k]).join("\n") || "（都空着）";
+
   // ---- 它能改的东西：白名单。不在这张表里的一律不许碰 ----
   // 每一项都要说清「怎么读」「怎么写」「界面上叫什么」，写入口集中在这里，
   // 免得以后加能力时到处散着改，哪天漏个校验就真把她的数据写坏了。
@@ -301,6 +308,33 @@
           : { ...p, pageCSS: { ...(p.pageCSS || {}), [id]: patch.text } };
         ts.compile(next);          // 编不过就在这儿抛，别等落库之后整个 App 变形
         ts.commit(next);
+        return 1;
+      }
+    },
+    // 这个聊天窗的气泡（她 2026-09-05：「让秋秋在这个人的悬浮屏里可以直接改动，
+    // 比如我说帮我改一下我的气泡颜色，它就能帮我调好。或者我说我想要梦幻风格的它也能改」）。
+    // ⚠️它改的是【某一个人的聊天窗】那一层，不是全局气泡——她开着谁的聊天窗，
+    //   id 就填谁；这跟她在 ••• 里手动细调是同一个出口。
+    // ⚠️text 是一份 JSON，不是散文：所以这一栏【不许走「改一小段」】（见 apply）——
+    //   在 JSON 里替换一小段，出来的多半不再是合法 JSON。
+    bubble: {
+      zh: "聊天窗气泡",
+      read: ctx => {
+        const st = loadJ("x_chatSettings", {}) || {};
+        return (ctx.characters || []).map(c => {
+          const b = (st[c.id] || {}).bubble;
+          return { id: c.id, name: c.name, text: b && typeof b === "object" ? bubbleText(b) : "（跟随全局，还没单独调过）" };
+        });
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onPatchBubble) throw new Error("这个页面没接聊天窗写入口");
+        let obj = null;
+        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        if (!obj) throw new Error("这一条不是一份能读的 JSON");
+        // 洗那一道跟 OOC 那条路共用（engine.js）：模型给的值最后要拼进一张 <style>
+        const clean = typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(obj) : null;
+        if (!clean) throw new Error("这份里没有一栏是能用的");
+        ctx.onPatchBubble(id, clean);
         return 1;
       }
     },
@@ -490,7 +524,15 @@
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n"
-      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
+      + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
+      + "myBorder／charBorder（形如 1px solid #hex）、shadow（形如 0 2px 8px rgba(...)）、chatBg（聊天页底色）、"
+      + "radius（0-30 的整数）。**只填这些栏，不许自造新栏，也不许填贴纸。**\n"
+      + "  · 她只说了一处（如「我的气泡」）就【只填那一栏】，没提到的一栏都别写——写了就是把她原来的盖掉。\n"
+      + "  · 她说的是一种气氛而不是一个颜色时，你要自己定这套配色：先想清楚**那个气氛在她眼里是什么样的光**，"
+      + "再让底色、字色、圆角、投影一起往那个方向走——四栏各说各的，出来就是一套四不像。\n"
+      + "  · **字要看得清**：底色深就把字色调亮，底色浅就调暗。这一条压过任何审美。\n"
+      + "  · 这一份只盖【这一个人的聊天窗】，别人的窗口和全局都不受影响。她没说是谁、你也不知道她开着谁的窗口时，先问。\n"
       + "别的一律不许碰，也别假装你改了。**装修只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把界面弄坏。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
@@ -562,12 +604,13 @@
     const Z = typeof SCREEN_ZH !== "undefined" ? SCREEN_ZH : {};
     const zh = Z[pg.screen] || "";
     if (!zh) return null;
-    return { zh: zh, man: SCREEN_MAN[pg.screen] || "", who: pg.charName || "" };
+    return { zh: zh, man: SCREEN_MAN[pg.screen] || "", who: pg.charName || "", whoId: pg.charId || "" };
   }
   function pageLine(pg) {
     const p = pageOf(pg); if (!p) return "";
     return "【她此刻在哪儿】她正开着「" + p.zh + "」"
       + (p.who ? "，这一页上是「" + p.who + "」" : "")
+      + (p.whoId ? "（id＝" + p.whoId + "，要改这个聊天窗的气泡就填这个 id，别再问她是谁）" : "")
       + "。她说「这一页」「这里」"
       + (p.who ? "「他」「TA」" : "") + "的时候，指的就是这个；别再反问她是哪一页。";
   }
@@ -620,6 +663,9 @@
   const UNDO_KEEP = 40;
   // 能退的：原样写回去就行的那几种。
   // memory 退不了（往里加，没有写回的路）；style 新建也退不了（那要删，不是写回）。
+  // ⚠️气泡不在这张表里，是【说得出理由的】：撤销存的是 before() 那段【摆给她看的人话】，
+  //   写回去要的却是一份 JSON，两头对不上。她要退回去有现成的路：
+  //   ••• → 这个聊天窗 → 气泡 → 「清掉，跟随全局」，或者再跟秋秋说一句。
   const UNDOABLE = { persona: 1, appearance: 1, profile: 1, theme: 1, style: 1 };
   function undoable(patch) {
     if (!patch || !UNDOABLE[patch.target]) return false;
@@ -672,6 +718,8 @@
     if (p.find) {
       // 记忆库是往里加，没有「原文那一段」可言
       if (p.target === "memory") throw new Error("记忆库是往里加的，不能改一小段");
+      // 气泡那一栏是 JSON：在里头替换一小段，出来多半不再是合法 JSON
+      if (p.target === "bubble") throw new Error("气泡这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
@@ -700,6 +748,15 @@
     return String(hit.text || "");
   }
 
+  // 摆给她看的那一份：气泡那一栏存的是 JSON，直接摆出来的话，改前是人话、改后是一串
+  // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
+  const previewText = patch => {
+    if (!patch || patch.target !== "bubble") return String((patch && patch.text) || "");
+    let o = null; try { o = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { o = null; }
+    const c = o && typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(o) : null;
+    return c ? bubbleText(c) : String(patch.text || "");
+  };
+
   function labelOf(patch, ctx) {
     const T = TARGETS[patch.target];
     const rows = (T && T.read(ctx)) || [];
@@ -709,7 +766,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
+    previewText, loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
 })();
 
 // ============================================================
@@ -757,6 +814,7 @@
     const t = useTheme(), p = props.p, ctx = props.ctx, sm = !!props.compact;
     const [open, setOpen] = useState(false);
     const was = A.before(p, ctx);
+    const shown = A.previewText(p);   // 气泡那一栏摆的是人话，不是那串 JSON
     const state = props.state;
     const cutNew = sm ? 130 : 220, cutOld = sm ? 90 : 140;
     return h("div", { style: { marginTop: 10, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
@@ -781,8 +839,8 @@
                 open ? was : was.slice(0, cutOld) + (was.length > cutOld ? "…" : ""))) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, was ? "改后 · 整段替换" : "新增"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
-              open ? p.text : p.text.slice(0, cutNew) + (p.text.length > cutNew ? "…" : "")),
-            (p.text.length > cutNew || (was && was.length > cutOld))
+              open ? shown : shown.slice(0, cutNew) + (shown.length > cutNew ? "…" : "")),
+            (shown.length > cutNew || (was && was.length > cutOld))
               ? h("button", { onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
               : null),
       h("div", { style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
