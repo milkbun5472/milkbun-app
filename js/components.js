@@ -2231,7 +2231,7 @@ const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
-const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide" };
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide", w_recent: "large" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
 function homeSizeOf(key, sizes) {
@@ -2650,6 +2650,11 @@ const DEFAULT_FOLDERS = {
 function Home({
   now,
   characters,
+  groups,
+  chats,
+  groupChats,
+  unreadMap,
+  onOpenChat,
   profile,
   wallpaper,
   unread,
@@ -2794,6 +2799,7 @@ function Home({
     w_muyu: { kind: "widget", which: "muyu" },
     w_ledger: { kind: "widget", which: "ledger" },
     w_wheel: { kind: "widget", which: "wheel" },
+    w_recent: { kind: "widget", which: "recent" },
     cast: { kind: "app", zh: "人格档案馆", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
@@ -2841,7 +2847,7 @@ function Home({
     //（test/home-tone-58-45.test.js），所以别凭手感调换位置，换完要重跑那份测试。
     ["w_memo", "w_weather", "memlib", "f_def_play", "f_def_dream", "f_def_desk",
       "w_ledger", "w_us", "anon", "yanqiu", "f_def_do", "f_def_read"],
-    ["w_music", "w_map", "w_muyu", "w_wheel", "f_def_ops"]
+    ["w_music", "w_map", "w_muyu", "w_wheel", "w_recent", "f_def_ops"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -3500,6 +3506,7 @@ function Home({
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
+    else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
     else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
     else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, characters: characters, worlds: worlds, onOpen: function () { return onOpenApp("map"); } });
     else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
@@ -5143,6 +5150,7 @@ function OfflineLogCard({ m, t, sel }) {
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
 function ChatThread({
+  unreadOther,
   onOpenUs,
   character,
   characters,
@@ -5437,14 +5445,14 @@ function ChatThread({
       WebkitBackdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       borderBottom: `1px solid ${t.line}`
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, (window.RecentWidget ? h(window.RecentWidget.UnreadBack, { count: unreadOther || 0, onBack: onBack }) : /*#__PURE__*/React.createElement("button", {
     onClick: onBack,
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IArrow, {
     size: 19,
     color: t.ink,
     wk: "headink"
-  })), /*#__PURE__*/React.createElement("button", {
+  }))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModeOpen(true),
     className: "flex items-center gap-2.5 flex-1 active:opacity-70"
   }, /*#__PURE__*/React.createElement(Avatar, {
