@@ -313,7 +313,7 @@
             g.items.map((d, di) => h("div", { key: d.key, style: paperCard({ marginBottom: 9, transform: "rotate(" + [0.4, -0.5, 0.3][di % 3] + "deg)" }) },
               h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#2c2822" } }, nameOf(d.charId)),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8b8276" } }, d.status === "queued" ? "未醒的梦" : d.status === "no_dream" ? "无梦之夜" : (d.tone || "有梦"))),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8b8276" } }, d.recurOf ? "又做了一次" : d.status === "queued" ? "未醒的梦" : d.status === "no_dream" ? "无梦之夜" : (d.tone || "有梦"))),
               // 合龙（v62.99）：这场梦是 TA 昨晚真做的，可以从梦境 app 闯进去——
               // 进去过的写一行结果；没进过的给一扇门。无梦之夜没有门。
               (d.status === "queued" || d.status === "generated") ? (d.entered && d.entered.outcome

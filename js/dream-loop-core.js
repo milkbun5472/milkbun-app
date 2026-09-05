@@ -90,5 +90,28 @@
   // 队列幂等键：一角色一夜最多一场梦
   const dreamKey = (charId, nightKey) => hash(String(charId)) + "|" + String(nightKey);
 
-  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, hash, nightKeyOf, nightWindow, refMatches, buildMaterial, shouldDream, remDue, dreamKey });
+  // ── 碎掉的梦会回来（v63.09，玩法⑤）──────────────────────────────
+  // 她从梦境 app 闯进过这场梦、半路碎了（entered.outcome === "broken"）→ 这是一场【未完成的梦】。
+  // 隔 2~7 晚，Ta 会再做一次：不掷骰子（1B 决定论），也不看那晚情绪够不够——
+  // 一场没做完的梦本身就是做梦的理由。一场梦只回来一次（回来的那场再碎就不再回）。
+  const RECUR_MIN_NIGHTS = 2, RECUR_MAX_NIGHTS = 7;
+  function nightsBetween(a, b) {
+    const pa = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(a || "")), pb = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(b || ""));
+    if (!pa || !pb) return NaN;
+    return Math.round((Date.UTC(+pb[1], +pb[2] - 1, +pb[3]) - Date.UTC(+pa[1], +pa[2] - 1, +pa[3])) / 86400000);
+  }
+  // rows：这个角色所有的梦；night：今晚。返回该回来的那一场（原行），没有就 null。
+  function recurDue(rows, charId, night) {
+    const cands = (Array.isArray(rows) ? rows : []).filter(r => r && r.charId === charId
+      && r.entered && r.entered.outcome === "broken" && !r.recurred && !r.recurOf);
+    let best = null;
+    cands.forEach(r => {
+      const n = nightsBetween(r.nightKey, night);
+      if (!(n >= RECUR_MIN_NIGHTS && n <= RECUR_MAX_NIGHTS)) return;
+      if (!best || String(r.nightKey) > String(best.nightKey)) best = r;  // 最近碎的那场先回来
+    });
+    return best;
+  }
+
+  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, RECUR_MIN_NIGHTS, RECUR_MAX_NIGHTS, hash, nightKeyOf, nightWindow, refMatches, buildMaterial, shouldDream, remDue, dreamKey, nightsBetween, recurDue });
 });

@@ -90,11 +90,17 @@
       const existed = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
       if (existed) return null; // 一夜一梦幂等（含已记录的无梦夜）
       const material = C.buildMaterial(await gatherSources(char, windowRange));
-      const verdict = C.shouldDream(material, {});
+      // 碎掉的梦会回来（v63.09）：有一场没做完的，这晚就是它回来的夜——不看情绪够不够
+      const all = C.recurDue ? await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll()) : [];
+      const back = C.recurDue ? C.recurDue(all, char.id, night) : null;
+      const verdict = back ? { dream: true, reason: "recur" } : C.shouldDream(material, {});
       const row = { key, charId: char.id, nightKey: night, status: verdict.dream ? "queued" : "no_dream",
         materialRefs: material.refs, peaks: material.peaks, relationActiveAxes: material.relationActiveAxes,
         intensity: material.intensity, reason: verdict.reason, source: "dream", createdAt: Date.now() };
-      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(row); await done(tx);
+      if (back) { row.recurOf = back.key; row.motifs = back.motifs || []; row.tone = back.tone || ""; }
+      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(row);
+      if (back) tx.objectStore("dreams").put({ ...back, recurred: key });   // 一场梦只回来一次
+      await done(tx);
       addDiag({ charId: char.id, kind: verdict.dream ? "enqueued" : "skipped_no_dream", reason: verdict.reason, night, intensity: material.intensity });
       return row.status;
     } catch (e) { return null; }

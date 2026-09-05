@@ -9,6 +9,8 @@
 // · 合龙（v62.99）：解梦馆里 Ta 昨晚真做的梦可以推门进来，材料是 Ta 昨天真过的一天（sessionFromLoop）
 // · 带东西出来（v63.05）：抵达或直面时，梦里会落一样东西在你手里；「带出梦去」进她的物品，
 //   Ta 见了会莫名眼熟（不知道它来自自己的梦，永远不说破）——她握着一个 Ta 自己都不知道的秘密
+// · 熟不熟（v63.08）：好感/印象卡/记忆攒出档位，越熟逆鳞那条路越露破绽（familiarityTier）
+// · 碎掉的梦会回来（v63.09）：从真梦进来、半路碎的，隔 2~7 晚 Ta 会再做一次；进去从碎之前接着做，选项重给（recur）
 // · 可同时开很多场梦；发起时可递 3 个关键词，让 char 把它们编进梦里
 // 存 localStorage x_dream_saves（随云同步）；模型走全局 callAI + ANTI_CLICHE。
 // 记忆不互通：只把最近聊天当语气参考，梦醒后什么都不写回记忆库。
@@ -156,6 +158,10 @@
       (m.narrative ? "· Ta 醒来还记得的那段（第一人称，是这场梦的底稿——这场梦要从它长出来，意象、地点、人都沿用，可以变形、可以更深，不能另起炉灶）：\n" + String(m.narrative).slice(0, 1200) + "\n" : "") +
       "· 【现实关系边界】" + (m.relationship || "现实中没有已确认的恋人关系") + "\n" +
       "· 【人名铁律】梦里允许具名的人只有：" + (m.allowedNames || "无") + "。其他人物一律写成『一个人』『看不清的人』，不得创造名字。";
+    const r = session.recur;
+    if (r) s += "\n\n【这场梦 Ta 不是第一次做】" + (r.firstNight ? r.firstNight + " 夜" : "上次") + "做到第 " + r.brokenAt + " 幕，在「" + r.wrongText + "」那一步碎了" +
+      (r.whyWrong ? "（" + r.whyWrong + "）" : "") + "。这几天你们又聊过——材料在上面。梦回到碎之前的地方接着做，" +
+      "但 Ta 心里的重量已经变了：接下来这一幕的三条路要重新给，逆鳞可以挪位置、可以变形、可以不再是上次那件事，别照搬上次；上次碎在哪儿，Ta 的潜意识记得，会绕着走一点。";
     return s;
   }
   // 把梦回路里的一行做成梦境 app 的一场戏
@@ -167,9 +173,22 @@
       : cp && cp.status === "pending" ? "Ta 向你表达过关系意愿，但现实中尚未确认成为恋人"
       : "Ta 和你现实中没有已确认的恋人关系：梦里可以渴望、暧昧、欲言又止，但不得出现现实中未发生的关系事实";
     const allowedNames = [c.name, c.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
+    // 回来的梦（v63.09）：找到上次碎掉的那场，从碎之前那一幕接着做——碎的那一幕整个丢掉，重新给选项
+    let recur = null, carried = [];
+    if (row.recurOf) {
+      const orig = loadSaves().find(x => x.loopKey === row.recurOf && x.status === "broken");
+      if (orig) {
+        const sc = orig.scenes || [];
+        let cut = sc.findIndex(x => x && x.chosen != null && x.options && x.options[x.chosen] && x.options[x.chosen].kind === "resist");
+        if (cut < 0) cut = Math.max(0, sc.length - 1);
+        carried = sc.slice(0, cut).map(x => Object.assign({}, x));
+        recur = { origId: orig.id, brokenAt: cut + 1, wrongText: orig.wrongText || "", whyWrong: orig.whyWrong || "", firstNight: orig.nightKey || "" };
+      }
+    }
     return {
       id: "dm_" + Date.now(),
       loopKey: row.key, nightKey: row.nightKey, fromLoop: true,
+      recur: recur,
       charId: c.id, charName: c.name, charPersona: c.persona || "",
       moodLine: (function () { const m = props.moodOf ? props.moodOf(c.id) : ""; return m ? String(m) : ""; })(),
       affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
@@ -183,7 +202,7 @@
         motifs: row.motifs || [], tone: row.tone || "", narrative: row.narrative || "", wakeLine: row.wakeLine || "",
         relationship, allowedNames
       },
-      scenes: [], status: "dreaming", ending: "",
+      scenes: carried, status: "dreaming", ending: "",
       createdTs: Date.now(), lastTs: Date.now()
     };
   }
@@ -476,7 +495,7 @@
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (c.name || "？") + " · " + String(r.nightKey || "").slice(5).replace("-", "/") + " 夜"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                  r.status === "generated" ? ((r.motifs || []).join(" · ") || r.tone || "有梦") : "未醒的梦 · 材料已经攒好")),
+                  r.recurOf ? "又做了一次 · 上次碎在半路" : r.status === "generated" ? ((r.motifs || []).join(" · ") || r.tone || "有梦") : "未醒的梦 · 材料已经攒好")),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: ACC_LIT, flexShrink: 0 } }, "推门 ›")); })) : null,
         saves.length === 0
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
@@ -502,7 +521,7 @@
                   h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: mark.c, boxShadow: "0 0 7px " + mark.c } }),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: mark.c } }, mark.txt),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.recur ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜又做了一次）" : s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   s.fromLoop ? (((s.material || {}).motifs || []).join(" · ") || "从他昨天真过的一天里长出来的") : ((s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）"))
               );
@@ -654,6 +673,10 @@
       if (dreaming && scenes.length === 0 && !kicked.current) {
         kicked.current = true;
         genFirst();
+      } else if (dreaming && s.recur && scenes.length && scenes[scenes.length - 1].chosen != null && !kicked.current) {
+        // 回来的梦（v63.09）：带着碎之前那几幕进来，进门就接着往下织，不用她再按一次
+        kicked.current = true;
+        retryNext();
       }
     }, []); // eslint-disable-line
 
@@ -795,6 +818,8 @@
       h(Head, { zh: s.charName + " 的梦", onBack: props.onBack, right: wakeBtn, bg: "transparent", ink: NIGHT.ink }),
       // 梦境流（flex-1 撑满剩余高度，底部控制区是同级 shrink-0，滚动能到底不被盖）
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-5", style: { paddingBottom: 24 } },
+        s.recur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginBottom: 14, paddingBottom: 10, borderBottom: "1px dashed " + t.line } },
+          "这场梦 Ta 又做了一次。上次做到第 " + s.recur.brokenAt + " 幕，在「" + s.recur.wrongText + "」那一步碎了。前面几幕还是那样，从碎的地方接着走——路已经不是上次的路。") : null,
         scenes.map((sc, i) => {
           const decided = sc.chosen != null && sc.options && sc.options[sc.chosen];
           return h("div", { key: i, style: { marginBottom: 22 } },
