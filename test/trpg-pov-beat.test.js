@@ -42,8 +42,8 @@ test("视角收回:替他做了违心的决定,羁绊 -5 并钉角标;顺心的�
 });
 
 test("turn():换视角是特殊拍;pickChoice 带上 povPick、骰子默认掷他的", () => {
-  assert.match(src, /const cc = \(mode && \(mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away\)\)/);
-  assert.match(src, /mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away \|\| mode\.travel/);
+  assert.match(src, /const cc = \(mode && \([^)]*mode\.pov[^)]*\)\)/);
+  assert.match(src, /const specialMode = mode && \([^)]*mode\.pov[^)]*\)/);
   assert.match(src, /pov: \(mode && mode\.pov\) \|\| null, povPick: \(mode && mode\.povPick\) \|\| null/);
   assert.match(src, /const povMode = camp\.pov \? \{ povPick: \{ who: camp\.pov, against: c\.willing === false, text: c\.text \} \} : null;/);
   assert.match(src, /if \(!m && camp\.pov\) m = findMember\(camp\.party, camp\.pov\);/);

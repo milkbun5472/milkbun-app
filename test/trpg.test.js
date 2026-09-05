@@ -877,6 +877,6 @@ test("幕间:翻章之后那一拍,而且不能在 confirmStage 里直接开", (
 
 test("打出一张牌只是附注,不该顺手吃掉喘气拍", () => {
   // 原来是 !mode 才给喘气拍;use 走 mode 之后要显式排除,否则连着三拍绷着的间歇会被吞掉
-  assert.match(src, /const specialMode = mode && \(typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.away \|\| mode\.travel \|\| mode\.explore \|\| mode\.seed\)/);
+  assert.match(src, /const specialMode = mode && \(typeof mode === "string" \|\|[^)]*mode\.explore \|\| mode\.seed\)/);
   assert.match(src, /const wantLull = !specialMode && !dice && tenseStreak >= 3/);
 });

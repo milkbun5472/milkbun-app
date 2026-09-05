@@ -60,8 +60,8 @@ test("捎信:只有名册里活着、有人情账的那位写得出来;信单独
 });
 
 test("turn():离线拍是特殊拍、场景钉 interlude、钟不锈死;提示词点名走过的钟和有人情账的人", () => {
-  assert.match(src, /mode\.pov \|\| mode\.away\)\) \|\| tailHasCC/);
-  assert.match(src, /mode\.pov \|\| mode\.away \|\| mode\.travel/);
+  assert.match(src, /const cc = \(mode && \([^)]*mode\.away[^)]*\)\) \|\| tailHasCC/);
+  assert.match(src, /const specialMode = mode && \([^)]*mode\.away[^)]*\)/);
   assert.match(src, /\(mode && \(mode\.night \|\| mode\.away\)\)\) \? "interlude"/);
   assert.match(src, /away: mode && mode\.away \? \{ days: mode\.away \} : null,/);
   assert.match(src, /〔离线这几天〕sceneMeta\.type 固定 interlude。队伍在「/);
