@@ -459,7 +459,9 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(DreamView, {
-        session: s, active: props.active, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        // ⚠️characters 必须递进去：幕文旁边那颗朗读点要拿角色的音色（v63.99 她报「一进梦页面就崩」）。
+        //   这一层写在两处：一处用、一处传，传的那处没跟上——用的时候是 undefined.find()，整页当场白。
+        session: s, characters: props.characters, active: props.active, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onKeepsake: props.onKeepsake,
         onPatch: patch => patchSession(s.id, patch)
@@ -553,11 +555,11 @@
       if (!charId) { props.toast && props.toast("先挑一个人，进 Ta 的梦"); return; }
       setStarting(true);
       try {
-        const c = props.characters.find(x => x.id === charId);
+        const c = (props.characters || []).find(x => x.id === charId);
         const uName = (props.profile && props.profile.name) || "我";
         const rels = props.rels || {};
         const guests = guestIds.map(gid => {
-          const g = props.characters.find(x => x.id === gid);
+          const g = (props.characters || []).find(x => x.id === gid);
           if (!g) return null;
           const r = rels[c.id + "->" + g.id];                 // 做梦人对客串的看法（有向）
           const relText = r && r.label ? (r.label + (r.note ? "（" + r.note + "）" : "")) : "";
@@ -588,7 +590,7 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         h("div", { style: label }, "进谁的梦"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 } },
-          props.characters.map(c => {
+          (props.characters || []).map(c => {
             const on = charId === c.id;
             return h("button", { key: c.id, onClick: () => pickDreamer(c.id), className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
@@ -596,7 +598,7 @@
         // 客串角色：选了做梦人才出现；梦里会带上这些人（含做梦人对 Ta 的看法）
         charId ? h("div", { style: label }, "梦里还会梦见谁（选 0~2 个，可不选）") : null,
         charId ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 } },
-          props.characters.filter(c => c.id !== charId).map(c => {
+          (props.characters || []).filter(c => c.id !== charId).map(c => {
             const on = guestIds.includes(c.id);
             return h("button", { key: c.id, onClick: () => toggleGuest(c.id), className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? "#8478a0" : t.bg2, border: "1px solid " + (on ? "#8478a0" : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
@@ -825,7 +827,7 @@
           return h("div", { key: i, style: { marginBottom: 22 } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
-              (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: props.characters.find(c => c.id === s.charId), tp: dtp }) : null),
+              (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: (props.characters || []).find(c => c.id === s.charId), tp: dtp }) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
