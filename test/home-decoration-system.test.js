@@ -5,6 +5,9 @@ const path = require("node:path");
 
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 
+// ⚠️锚点改了（v63.78，她：「增加装饰那一页整理一下吧，越加越多有点难看」）：
+//   做装饰那一页从半窗改成了整页（no-half-sheet.md），所以不再有
+//   `showDecorLibrary && h(Sheet`。钉的仍是同一段，只是它现在的开头长这样。
 function between(a, b) {
   const i = comp.indexOf(a);
   const j = comp.indexOf(b, i);
@@ -22,7 +25,7 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
 });
 
 test("组件库只给还在用的那几种装饰，退役的三种不再出现在挑选里", () => {
-  const library = between('showDecorLibrary && h(Sheet', "// 主页名片");
+  const library = between('showDecorLibrary && (function () {', "// 主页名片");
   // v62.28 她 2026-09-04：「删吧宝宝」——信封／录音磁带／小物陈列盒退役。
   // 退役＝挑不到，不是抠掉：已经摆在桌面上的那几件还得画得出来，否则当场变白框。
   assert.match(library, /homeDecorPickable\(\)\.map/);
@@ -135,7 +138,7 @@ test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式
   assert.match(gestures, /kindOf\(key\) === "widget" \|\| kindOf\(key\) === "decor"/);
   assert.match(gestures, /openStylePanel\(key\)/);
   assert.match(gestures, /else pickUp\(\)/, "普通 App/文件夹的长按整理链不能被装饰面板劫持");
-  const sheet = between("styleKey && REG[styleKey]", "showDecorLibrary && h(Sheet");
+  const sheet = between("styleKey && REG[styleKey]", "showDecorLibrary && (function () {");
   assert.match(sheet, /整理位置/);
   assert.match(sheet, /尺寸与外观分开设置，不改组件原来的功能/);
   assert.match(sheet, /占格尺寸/);
@@ -146,8 +149,8 @@ test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式
 test("装饰不是固定皮肤：内容、透明底、无边框、强调色和角标都能编辑并持久化", () => {
   const materials = between("const HOME_DECOR_SURFACES", "const HOME_PHOTO_FRAMES");
   const home = between("function Home({", "// 主页名片");
-  const oldDecorSheet = between("styleKey && REG[styleKey]", "showDecorLibrary && h(Sheet");
-  const newDecorSheet = between("showDecorLibrary && h(Sheet", "// 主页名片");
+  const oldDecorSheet = between("styleKey && REG[styleKey]", "showDecorLibrary && (function () {");
+  const newDecorSheet = between("showDecorLibrary && (function () {", "// 主页名片");
 
   assert.match(materials, /id: "transparent", name: "透明底"/);
   assert.match(materials, /id: "none", name: "无边框"/);
