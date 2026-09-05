@@ -1592,7 +1592,7 @@ function PolaroidStack({ w, photo, note, onTap, lean }) {
         h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#4a3d2c" : "rgba(74,61,44,.4)",
           textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" } }, note || "写一句"))));
 }
-function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard }) {
+function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard, cellH }) {
   const t = useTheme();
   const picker = useRef(null);
   const data = listen || {};
@@ -1625,12 +1625,16 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   //   一行有多高是【量出来的】——主屏把剩下的高度除以行数，每台机器都不一样，
   //   我按 82px 算出来的 126 在她那儿就撑爆了。所以这儿量自己这张卡真实的高度，
   //   碟的大小、哪几层露出来，全部从这个数推。量不到（首帧）先用按档位的老数兜底，不闪。
+  // ⚠️v63.53 起卡【不再被拉满】：她 2026-09-05 说「它看起来占两格的时候剪掉空的边」——
+  //   卡自己长多高就多高，格子里多出来的那块空白按她选的靠上/居中/靠下站。
+  //   所以高度不能再量自己（量自己＝循环：内容决定高度、高度又决定内容），
+  //   改成用【格子的高度 cellH】当预算：这一格最多能给我这么高，我按这个预算决定露几层。
+  //   cellH 是主屏用量出来的行高算的（homeSpanHeight），所以每台机器都准。
   const boxRef = useRef(null);
-  const [boxH, setBoxH] = useState(0);
   const [boxW, setBoxW] = useState(0);
   useEffect(function () {
     const el = boxRef.current; if (!el) return;
-    const measure = function () { setBoxH(el.clientHeight || 0); setBoxW(el.clientWidth || 0); };
+    const measure = function () { setBoxW(el.clientWidth || 0); };
     measure();
     if (typeof ResizeObserver === "function") { const ro = new ResizeObserver(measure); ro.observe(el); return function () { ro.disconnect(); }; }
     window.addEventListener("resize", measure);
@@ -1639,6 +1643,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const twoRow = !!(rows && rows.rows >= 2);
   const pad = twoRow ? 8 : 10;
+  const boxH = cellH || 0;
   const avail = boxH ? Math.max(0, boxH - pad * 2) : 0;
   // 露不露某一层，看的是【还剩多少高度】，不是「这是第几档」
   // ⚠️2×2 那一档是【竖排】：碟、字、键一层层往下堆，那点高度装不下播放键——
@@ -1667,7 +1672,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     h("path", { d: dir > 0 ? "M2.5 2 9 6.5 2.5 11Z" : "M10.5 2 4 6.5 10.5 11Z", fill: c }),
     h("rect", { x: dir > 0 ? 9.6 : 1.7, y: 2, width: 1.7, height: 9, fill: c }));
   return h("button", { ref: boxRef, onClick: onOpen, className: "w-full active:opacity-85 text-left",
-    style: Object.assign({ marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
+    style: Object.assign({ marginTop: forced ? 0 : 12, height: "auto", minHeight: 0,
       border: gr.bg ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
       padding: twoRow ? (pad + "px 10px") : (pad + "px 13px"),
       boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.72)",
@@ -2576,6 +2581,16 @@ function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (r
 const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide", w_recent: "large" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
+// 组件比它占的格子矮时，多出来的那块空白靠哪儿（她 2026-09-05：
+// 「它看起来占两格的时候剪掉空的边，然后可以选在这两格是居上居中还是居下」）。
+// ⚠️格子本身的高度【不动】——动了整页的落位就全错了（buildLayout 按格算）。
+// 改的只是「组件在这块格子里站哪儿」，以及组件自己不再被拉满。
+const HOME_ALIGNS = [{ id: "top", zh: "靠上" }, { id: "center", zh: "居中" }, { id: "bottom", zh: "靠下" }];
+const HOME_ALIGN_CSS = { top: "flex-start", center: "center", bottom: "flex-end" };
+function homeAlignOf(key, aligns) {
+  var v = aligns && aligns[key];
+  return HOME_ALIGN_CSS[v] ? v : "center";
+}
 function homeSizeOf(key, sizes) {
   var v = sizes && sizes[key];
   return v || HOME_SIZE_DEFAULT[key] || "auto";
@@ -3077,6 +3092,7 @@ function Home({
   const [decorations, setDecorations] = useState(function () { var v = loadJSON("x_homeDecorations", []); return Array.isArray(v) ? v : []; });
   const decorationsRef = useRef(decorations); decorationsRef.current = decorations;
   const [widgetStyles, setWidgetStyles] = useState(function () { var v = loadJSON("x_homeWidgetStyles", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
+  const [widgetAligns, setWidgetAligns] = useState(function () { var v = loadJSON("x_homeWidgetAlign", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetSizes, setWidgetSizes] = useState(function () { var v = loadJSON("x_homeWidgetSizes", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [styleKey, setStyleKey] = useState(null);
   const [showDecorLibrary, setShowDecorLibrary] = useState(false);
@@ -3359,6 +3375,9 @@ function Home({
   function persistLayout(L) { var o = {}; L.forEach(function (arr, i) { o[i] = arr; }); saveJSON("x_homeLayout", o); return o; }
   function persistFolders(nf) { foldersRef.current = nf; saveJSON("x_homeFolders", nf); setFolders(nf); }
   function persistDecorations(nd) { decorationsRef.current = nd; saveJSON("x_homeDecorations", nd); setDecorations(nd); }
+  function setWidgetAlign(key, id) {
+    setWidgetAligns(function (prev) { var n = Object.assign({}, prev); n[key] = id; saveJSON("x_homeWidgetAlign", n); return n; });
+  }
   function setWidgetPreset(key, preset) {
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[key] = preset; saveJSON("x_homeWidgetStyles", n); return n; });
   }
@@ -3875,7 +3894,7 @@ function Home({
     }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
-    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
+    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
@@ -3914,7 +3933,11 @@ function Home({
         borderRadius: 17,
         transition: "transform .15s ease"
       }
-    }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0, overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") } }, inner));
+    }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
+        // 组件自己撑不满这块格子时，剩下的空白靠哪儿由她定（默认居中）。
+        // 撑满的那些（大多数组件写的是 height:100%）不受影响——align 对它们是空转。
+        display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS[homeAlignOf(key, widgetAligns)],
+        overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") } }, inner));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col relative",
@@ -4069,6 +4092,17 @@ function Home({
       h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "占格尺寸"),
     h(HomeSizeGrid, { value: widgetSizes[styleKey] || "auto", onChange: function (id) { setWidgetSize(styleKey, id); } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "在格子里靠哪儿"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
+      HOME_ALIGNS.map(function (a) {
+        var on = homeAlignOf(styleKey, widgetAligns) === a.id;
+        // 选中态不只靠色差：那三条横线的位置本身就说明它站哪儿
+        return h("button", { key: a.id, onClick: function () { setWidgetAlign(styleKey, a.id); }, className: "active:opacity-70",
+          style: { borderRadius: 14, padding: "9px 0 8px", background: on ? t.ink : t.bg, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line) } },
+          h("div", { style: { width: 30, height: 22, margin: "0 auto", border: "1px solid " + (on ? t.bg2 : t.line), borderRadius: 4, display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS[a.id], padding: 2 } },
+            h("div", { style: { height: 7, borderRadius: 2, background: on ? t.bg2 : t.fog } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 6 } }, a.zh));
+      })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "外观样式"),
     h(HomePresetGrid, { value: widgetStyles[styleKey] || (REG[styleKey].kind === "decor" ? "soft" : "native"), allowNative: REG[styleKey].kind !== "decor", onChange: function (id) { setWidgetPreset(styleKey, id); } }),
     REG[styleKey].kind === "decor" ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 18, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),

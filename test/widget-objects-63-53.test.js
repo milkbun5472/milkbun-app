@@ -150,7 +150,7 @@ test("地图上那行版权缩回角落，但一个字都没删", () => {
 // 主屏把剩下的高度除以行数，每台机器都不一样；我按 82px 算出来的 126 在她那儿撑爆了。
 test("卡里的尺寸从量出来的真实高宽推，不是按档位拍死的数", () => {
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
-  assert.match(mw, /const \[boxH, setBoxH\] = useState\(0\);/, "没量高度");
+  assert.match(mw, /const boxH = cellH \|\| 0;/, "高度预算不是从格子拿的");
   assert.match(mw, /const \[boxW, setBoxW\] = useState\(0\);/, "没量宽度");
   assert.match(mw, /new ResizeObserver\(measure\)/, "格子改尺寸时不会重新量");
   assert.match(mw, /ref: boxRef, onClick: onOpen/, "ref 没挂到卡上，量到的是别人");
@@ -171,4 +171,42 @@ test("窄格子里碟也不许顶破：宽度一样参与，竖排不上播放�
   // 拍立得只在四格宽那一档露：三格宽时它一挂上去中间那列只剩三十来 px
   assert.match(mw, /const showStack = tall && \(boxW \? boxW >= 320 : twoRow\)/);
   assert.match(mw, /showStack \? h\("div", \{ style: \{ marginRight: -22/);
+});
+
+// v63.53（她 2026-09-05：「它看起来占两格的时候剪掉空的边，然后可以选在这两格是
+// 居上居中还是居下」）
+test("组件比格子矮时不再被拉满，多出来的空白靠哪儿由她定", () => {
+  // ⚠️格子本身的高度不许动：buildLayout 是按格算落位的，动了整页排布就错了。
+  //   改的只是「组件在这块格子里站哪儿」，和组件自己不再被拉满。
+  assert.match(comp, /height: fixedH \|\| undefined, overflow: fixedH \? "hidden" : undefined/, "格子的高度被动过了");
+  assert.match(comp, /const HOME_ALIGN_CSS = \{ top: "flex-start", center: "center", bottom: "flex-end" \};/);
+  assert.match(comp, /justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\]/, "格子里没有按对齐站位");
+  // ⚠️面板里那三个小图也有一模一样的三件套，所以这条必须钉在【格子那一处】上
+  assert.match(comp, /display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\]/, "没有 flex 的话 justifyContent 是空转的");
+  // 认不出来的值要退回居中，不能让存档里一个脏字符串把布局搞没
+  const seg = comp.slice(comp.indexOf('const HOME_ALIGN_CSS = '), comp.indexOf("function Home({"));
+  const fn = new Function(seg + "\nreturn homeAlignOf;")();
+  assert.equal(fn("w_music", {}), "center");
+  assert.equal(fn("w_music", { w_music: "bottom" }), "bottom");
+  assert.equal(fn("w_music", { w_music: "左" }), "center", "认不出来的值没退回居中");
+  // 存得下来才算数
+  assert.match(comp, /saveJSON\("x_homeWidgetAlign", n\)/);
+  assert.match(comp, /loadJSON\("x_homeWidgetAlign", \{\}\)/);
+});
+
+test("面板里那一栏：三档、选中态不只靠颜色", () => {
+  const panel = comp.slice(comp.indexOf('}, "在格子里靠哪儿"'), comp.indexOf('}, "外观样式"'));
+  assert.match(panel, /HOME_ALIGNS\.map/);
+  assert.match(panel, /setWidgetAlign\(styleKey, a\.id\)/, "点了不存");
+  // 那三个小图里横条自己的位置就说明它站哪儿——不是三颗一样的色块
+  assert.match(panel, /justifyContent: HOME_ALIGN_CSS\[a\.id\]/, "三个小图长得一样，只剩颜色能分");
+  assert.match(comp, /const HOME_ALIGNS = \[\{ id: "top", zh: "靠上" \}, \{ id: "center", zh: "居中" \}, \{ id: "bottom", zh: "靠下" \}\];/);
+});
+
+test("一起听那张卡自己长多高就多高，高度预算从格子拿", () => {
+  const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
+  assert.match(mw, /const boxH = cellH \|\| 0;/, "还在量自己——那是循环：内容决定高度、高度又决定内容");
+  assert.match(mw, /height: "auto", minHeight: 0,/, "卡还被拉满，空边就剪不掉");
+  assert.doesNotMatch(mw, /height: forced \? "100%" : "auto"/, "旧的拉满写法还在");
+  assert.match(comp, /h\(MusicWidget, \{ listen: listen, player: player, homeSize: homeSize, cellH: fixedH,/, "格子高度没递给它");
 });
