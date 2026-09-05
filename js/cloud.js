@@ -185,19 +185,51 @@
         Object.keys(localStorage)
           .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
-        Object.entries(data || {}).forEach(([k, v]) => {
+        // v62.44 热修（审计 P0 当晚应验，她恢复时真吃到 QuotaExceeded）：
+        // 云快照的 x_characters / x_profile 里嵌着 base64 头像/参考照，原来先整段塞 localStorage、
+        // 等开机迁移器再挪进图库——5MB 池子根本装不下，第 N 个键 QuotaExceeded，本机已删光只写回一半。
+        // 现在【落地之前】就把 base64 收进 IndexedDB 图库、localStorage 只存 iv_ 门牌；
+        // 逐键 try 收集失败清单，任何失败都立 pushBlocked——半份存档绝不许再被推上云。
+        const applyFailed = [];
+        const deflateImgs = async (k, v) => {
+          if (k !== "x_characters" && k !== "x_profile") return v;
+          if (typeof imgToVault !== "function") return v;
+          try {
+            const parsed = JSON.parse(v);
+            const rows = Array.isArray(parsed) ? parsed : [parsed];
+            for (const row of rows) {
+              if (!row || typeof row !== "object") continue;
+              for (const f of ["avatarImage", "refPhoto"]) {
+                if (typeof row[f] === "string" && row[f].indexOf("data:") === 0) {
+                  try { row[f] = await imgToVault(row[f]); } catch (e) { row[f] = ""; }
+                }
+              }
+            }
+            return JSON.stringify(parsed);
+          } catch (e) { return v; }
+        };
+        for (const [k, v0] of Object.entries(data || {})) {
           // 凭据键绝不从云端落地（老快照里可能已混入过一份）
-          if (k === "x_neteaseCookie") return;
+          if (k === "x_neteaseCookie") continue;
           // memories 行表已经权威时，旧 saves 里的冻结 x_memLib 只供灾备，不能覆盖当前离线镜像。
-          if (tableMemoryMode() && k === "x_memLib") return;
+          if (tableMemoryMode() && k === "x_memLib") continue;
           // 文字库键(同人文等)：写进 IDB + 内存镜像，绝不进 localStorage(否则又占回 5MB)。apply 后调用方会 reload，hydrateTxtVault 再兜一遍。
           if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
             // idbTxtApplySnapshot 已逐字写入并核对；旧环境才走兼容回落。
-            if (typeof idbTxtApplySnapshot !== "function") { try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {} }
-            return;
+            if (typeof idbTxtApplySnapshot !== "function") { try { window.__txtMirror && window.__txtMirror.set(k, v0); if (typeof idbTxtPut === "function") idbTxtPut(k, v0).catch(() => {}); } catch (e) {} }
+            continue;
           }
-          if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
-        });
+          const v = await deflateImgs(k, v0);
+          try { localStorage.setItem(k, v); }
+          catch (e) { applyFailed.push(k); }
+        }
+        if (!applyFailed.length) { try { localStorage.removeItem("x_cloudApplyFailed_v1"); } catch (e) {} }
+        if (applyFailed.length) {
+          this.pushBlocked = { reason: "apply_partial", keys: applyFailed.slice(0, 20), at: Date.now() };
+          try { localStorage.setItem("x_cloudApplyFailed_v1", JSON.stringify({ at: new Date().toISOString(), keys: applyFailed })); } catch (e) {}
+          try { window.toast && window.toast("⚠️ 云端恢复有 " + applyFailed.length + " 个键没装下（本机存储满）——已禁止把这半份推上云，先联系工程师"); } catch (e) {}
+          try { console.error("[Cloud] apply 部分失败，已立 pushBlocked", applyFailed); } catch (e) {}
+        }
         if (tableMemoryMode() && keepMemLib != null) {
           if (typeof isIdbTextKey === "function" && isIdbTextKey("x_memLib")) {
             try { window.__txtMirror && window.__txtMirror.set("x_memLib", keepMemLib); if (typeof idbTxtPut === "function") idbTxtPut("x_memLib", keepMemLib).catch(() => {}); } catch (e) {}
@@ -1219,6 +1251,8 @@
         try {
           const user = await this.getUser();
           if (!user) return; // 访客模式：纯本地
+          if (this.pushBlocked && this.pushBlocked.reason === "apply_partial") return; // 半份存档绝不上云（v62.44）
+          try { if (localStorage.getItem("x_cloudApplyFailed_v1")) return; } catch (e) {}
           // 过期设备闸：一个会话只查一次（推成功之后 MARK 就是最新的，再查也是白查）
           if (!staleVerdict) staleVerdict = await this.staleness(user.id).catch(() => ({ stale: false }));
           if (staleVerdict.stale) {

@@ -556,7 +556,8 @@
           isAvalonGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, marginBottom: 2 } }, "特殊角色"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 4 } }, "梅林 + 刺客固定在场，其余按人数配忠臣 / 爪牙。加特殊角色让博弈更深。"),
-            [{ k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
+            [{ k: "lady", zh: "湖中仙女", d: "7 人起生效：第 2/3/4 个任务后，持牌人查验一人真实阵营并当众宣布（可以撒谎），牌传给被验的人" },
+             { k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
              { k: "mordred", zh: "莫德雷德", d: "坏人，且【梅林看不见 TA】——好人更难" },
              { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].map(function (o) {
               return h(ToggleRow, { key: o.k, t: t, label: o.zh, sub: o.d, on: !!avOpts[o.k], onToggle: function () { setAvOpts(function (s) { const n = Object.assign({}, s); n[o.k] = !s[o.k]; return n; }); } });
@@ -3613,6 +3614,21 @@
     return "你是【亚瑟的忠臣】（好人）。你不知道任何人的身份，只能靠组队与投票的蛛丝马迹推理，把 3 个任务做成功。";
   }
 
+  // 湖中仙女：AI 持牌人挑一个没被验过的人查验，拿到真实阵营后决定当众宣布什么——
+  // 好人照实宣布（这是好人的信息武器），坏人可以撒谎护同伙。真相只给持牌人，宣布才是公开的。
+  async function genLadyCheck(api, holder, targets, players, hist) {
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·湖中仙女在【" + holder.name + "】手上（" + avSecretFor(holder, players) + "，真实水平：" + (holder.skill || "普通") + "）。从这些人里挑一个查验真实阵营：" + targets.join("、") + "。挑当下最值得看清的人。\n【局面】\n" + (hist || "（刚开局）") + "\n\n【输出】只输出 JSON：{\"target\":\"要查验的人名\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "验谁？" }], { maxTokens: 600 });
+    return extractJSON(raw) || {};
+  }
+  async function genLadyAnnounce(api, holder, target, isEvil, players, hist) {
+    const stance = holder.side === "evil"
+      ? "你是坏人：可以照实宣布，也可以撒谎护同伙或嫁祸好人——按你的水平权衡哪种更划算。"
+      : "你是好人：照实宣布——这是好人阵营少有的确定信息，谎报等于自毁。";
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·你替【" + holder.name + "】决定湖中仙女的宣布。TA 刚查验了 " + target + "，【真实结果：" + (isEvil ? "坏人" : "好人") + "】（这个真相只有 TA 知道）。" + stance + "\n（" + avSecretFor(holder, players) + "）\n【局面】\n" + (hist || "") + "\n\n【输出】只输出 JSON：{\"announce\":\"好人\"或\"坏人\",\"say\":\"宣布时说的一句话\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "宣布。" }], { maxTokens: 700 });
+    return extractJSON(raw) || {};
+  }
   async function setupAvalon(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n你是「阿瓦隆」的 NPC 生成器 + 能力评估器。\n" +
@@ -3758,6 +3774,9 @@
     const [assassinPick, setAssassinPick] = useState(null); // 刺客锁定的人（终局揭示）
     const [heckleText, setHeckleText] = useState("");   // 台下插嘴（观战）
     const hecklesRef = useRef([]);                       // 最近几句起哄，组队投票附带参考
+    const [ladyCtx, setLadyCtx] = useState(null);       // 你持湖中仙女时的查验上下文 {targets, nextQn, nli, seen}
+    const ladyHolderRef = useRef(sv ? (sv.ladyHolder || null) : null);   // 现在牌在谁手上（名字）
+    const ladyDoneRef = useRef(sv ? (sv.ladyDone || []) : []);           // 持有过/被验过的人（不再被验）
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
@@ -3801,7 +3820,7 @@
       const ld = playersArr[li];
       const ckGood = (resultsArr || []).filter(function (r) { return r.success; }).length;
       const ckEvil = (resultsArr || []).length - ckGood;
-      saveGameSnap("avalon", { config: cfg, questNum: qn, leaderIdx: li, voteTrack: vt, results: resultsArr, players: serPlayers(playersArr), log: logDataRef.current, hist: histRef.current, ts: Date.now(), label: "任务 " + (qn + 1) + "/5 · " + ckGood + " 成 " + ckEvil + " 败 · 队长 " + (ld ? ld.name : "?") });
+      saveGameSnap("avalon", { config: cfg, questNum: qn, leaderIdx: li, voteTrack: vt, results: resultsArr, players: serPlayers(playersArr), log: logDataRef.current, hist: histRef.current, ladyHolder: ladyHolderRef.current, ladyDone: ladyDoneRef.current, ts: Date.now(), label: "任务 " + (qn + 1) + "/5 · " + ckGood + " 成 " + ckEvil + " 败 · 队长 " + (ld ? ld.name : "?") });
     };
 
     // ---- 开局 ----
@@ -3825,6 +3844,11 @@
           setPlayers(list);
           const li = Math.floor(Math.random() * n);
           setLeaderIdx(li);
+          if ((cfg.av || {}).lady && n >= 7) {
+            ladyHolderRef.current = list[(li + n - 1) % n].name;
+            ladyDoneRef.current = [ladyHolderRef.current];
+            pushLog([{ type: "info", text: "湖中仙女入场：牌先在 " + ladyHolderRef.current + " 手上，第 2 个任务后开始查验。" }]);
+          }
           const board = roles.map(function (r) { return AV_ROLE_ZH[r]; });
           pushLog([{ type: "info", text: "本局 " + n + " 人。阵营配置：好人 " + roles.filter(function (r) { return avSide(r) === "good"; }).length + " · 坏人 " + roles.filter(function (r) { return avSide(r) === "evil"; }).length + "。身份：" + board.join("、") + "（谁是谁保密）。" }]);
           setPhase("reveal");
@@ -3988,7 +4012,90 @@
       const nli = (li + 1) % players.length;
       setQuestNum(qn + 1); setLeaderIdx(nli); setVoteTrack(0); vtRef.current = 0;
       saveCkpt(qn + 1, nli, 0, newResults, players);
+      // 湖中仙女：第 2/3/4 个任务结算后、胜负未分时查验一轮，验完才进下一个任务
+      if ((cfg.av || {}).lady && players.length >= 7 && newResults.length >= 2 && newResults.length <= 4 && ladyHolderRef.current) {
+        setTimeout(function () { runLady(qn + 1, nli); }, 40);
+        return;
+      }
       setTimeout(function () { startQuest(qn + 1, nli, 0); }, 40);
+    };
+    // ---- 湖中仙女 ----
+    const runLady = function (nextQn, nli) {
+      const holder = players.find(function (p) { return p.name === ladyHolderRef.current; });
+      const targets = players.filter(function (p) { return p !== holder && ladyDoneRef.current.indexOf(p.name) < 0; }).map(function (p) { return p.name; });
+      if (!holder || !targets.length) { startQuest(nextQn, nli, 0); return; }
+      setPhase("lady");
+      pushLog([{ type: "phase", text: "湖中仙女 · " + holder.name + (holder.isUser ? "(你)" : "") + " 持牌查验" }]);
+      if (holder.isUser && cfg.mode !== "spectate") { setLadyCtx({ targets: targets, nextQn: nextQn, nli: nli, seen: null }); return; }
+      (async function () {
+        setBusy(true);
+        try {
+          const isEng = !!holder.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(holder.key));
+          let targetName = null, announce = null, say = "";
+          if (isEng && typeof window !== "undefined" && window.CCSeat) {
+            // 言秋持牌：验谁 + 宣布什么都他自己定；真相由规则层算出后随第二问给他
+            const pick = await window.CCSeat.ask({ tool: "game_turn", game: "avalon_lady", turn_id: gameRunId.current + ":lady-pick:" + nextQn, char_id: holder.key,
+              sys: "「阿瓦隆」湖中仙女在你手上。从这些人里挑一个查验真实阵营：" + targets.join("、") + "。只输出 JSON：{\"target\":\"人名\"}。",
+              msgs: [{ role: "user", content: "【你的身份】" + avSecretFor(holder, players) + "\n【局面】\n" + histText() }], expect: '{"target":"人名"}' }, 90000, { charId: holder.key });
+            targetName = String((pick && pick.target) || "").trim();
+            const tp0 = pByName(targetName);
+            if (tp0) {
+              const truth = tp0.side === "evil" ? "坏人" : "好人";
+              const ann = await window.CCSeat.ask({ tool: "game_turn", game: "avalon_lady", turn_id: gameRunId.current + ":lady-ann:" + nextQn, char_id: holder.key,
+                sys: "「阿瓦隆」你查验了 " + tp0.name + "，真实阵营是【" + truth + "】（只有你知道）。当众宣布 TA 是好人还是坏人（可以撒谎）。只输出 JSON：{\"announce\":\"好人或坏人\",\"say\":\"一句话\"}。",
+                msgs: [{ role: "user", content: "宣布。" }], expect: '{"announce":"好人或坏人","say":"一句话"}' }, 90000, { charId: holder.key });
+              announce = /坏/.test(String((ann && ann.announce) || "")) ? "坏人" : "好人";
+              say = String((ann && ann.say) || "").trim();
+            }
+          } else {
+            const pick = await genLadyCheck(api, holder, targets, players, histText());
+            targetName = String((pick && pick.target) || "").trim();
+            const tp0 = pByName(targetName);
+            if (tp0) {
+              const ann = await genLadyAnnounce(api, holder, tp0.name, tp0.side === "evil", players, histText());
+              const a0 = String((ann && ann.announce) || "").trim();
+              // 解析不出来按阵营本能：好人照实，坏人护同伙（验出坏人谎报好人）
+              announce = a0 ? (/坏/.test(a0) ? "坏人" : "好人")
+                : (holder.side === "evil" ? "好人" : (tp0.side === "evil" ? "坏人" : "好人"));
+              say = String((ann && ann.say) || "").trim();
+            }
+          }
+          const isEng2 = !!holder.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(holder.key));
+          let tp = pByName(targetName);
+          // 只有普通 AI 的非法目标才由规则层随机补；言秋的票非法/没回来一律跳过（不代验不代嘴）
+          if ((!tp || tp === holder || ladyDoneRef.current.indexOf(tp.name) >= 0) && !isEng2) tp = shuffle(targets.map(pByName).filter(Boolean))[0] || null;
+          if (!tp || tp === holder || ladyDoneRef.current.indexOf(tp.name) >= 0 || !announce) {
+            pushLog([{ type: "info", text: holder.name + " 这一轮没有动牌，湖中仙女留在原处。" }]);
+            setBusy(false); startQuest(nextQn, nli, 0); return;
+          }
+          settleLady(holder, tp, announce, say, nextQn, nli);
+        } catch (e) {
+          pushLog([{ type: "info", text: "这一轮查验没验成，牌先留在原处。" }]);
+          setBusy(false); startQuest(nextQn, nli, 0);
+        }
+      })();
+    };
+    const settleLady = function (holder, tp, announce, say, nextQn, nli) {
+      setBusy(false);
+      pushLog([{ type: "talk", name: holder.name, say: (say ? say + " " : "") + "——我宣布，" + tp.name + " 是【" + announce + "】。" }]);
+      pushHist("湖中仙女：" + holder.name + "查验" + tp.name + "，宣布 TA 是" + announce);
+      ladyDoneRef.current = ladyDoneRef.current.concat([tp.name]);
+      ladyHolderRef.current = tp.name;
+      pushLog([{ type: "info", text: "湖中仙女的牌传给了 " + tp.name + "。" }]);
+      setLadyCtx(null);
+      saveCkpt(nextQn, nli, 0, results, players);
+      setTimeout(function () { startQuest(nextQn, nli, 0); }, 40);
+    };
+    const submitLadyPick = function (name) {
+      const c = ladyCtx; if (!c) return;
+      const tp = pByName(name); if (!tp) return;
+      setLadyCtx(Object.assign({}, c, { seen: { name: tp.name, isEvil: tp.side === "evil" } }));
+    };
+    const submitLadyAnnounce = function (announce) {
+      const c = ladyCtx; if (!c || !c.seen) return;
+      const holder = players.find(function (p) { return p.isUser; });
+      const tp = pByName(c.seen.name); if (!holder || !tp) { setLadyCtx(null); startQuest(c.nextQn, c.nli, 0); return; }
+      settleLady(holder, tp, announce, "", c.nextQn, c.nli);
     };
 
     // ---- 终局刺杀 ----
@@ -4092,6 +4199,21 @@
         h("button", { onClick: function () { saveCkpt(0, leaderIdx, 0, results, players); startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
     } else if (busy) {
       inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…桌上正在博弈");
+    } else if (phase === "lady" && ladyCtx) {
+      if (!ladyCtx.seen) {
+        pick = { title: "湖中仙女在你手上", sub: "挑一个人查验真实阵营——结果只有你看得到，宣布什么由你定。",
+          body: h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
+            ladyCtx.targets.map(function (nm) { const p2 = pByName(nm); return p2 ? teamChip(p2, false, function () { submitLadyPick(nm); }) : null; })) };
+      } else {
+        pick = { title: "查验结果（只有你知道）",
+          body: h("div", null,
+            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 15, color: t.ink, marginBottom: 6 } },
+              h("b", { style: { color: ladyCtx.seen.isEvil ? "#c0553f" : "#3f6d5a" } }, ladyCtx.seen.name + " 的真实阵营是【" + (ladyCtx.seen.isEvil ? "坏人" : "好人") + "】")),
+            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "现在当众宣布——可以照实说，也可以撒谎。"),
+            h("div", { style: { display: "flex", gap: 10 } },
+              h("button", { onClick: function () { submitLadyAnnounce("好人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "宣布【好人】"),
+              h("button", { onClick: function () { submitLadyAnnounce("坏人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "宣布【坏人】"))) };
+      }
     } else if (phase === "propose") {
       if (leader && leader.isUser && cfg.mode !== "spectate") {
         pick = { title: "你是队长 · 选 " + needSize + " 人上场", sub: "第 " + (questNum + 1) + " 个任务" + (failsReq === 2 ? "（需 2 张失败票才失败）" : "") + "。点头像加入 / 移除。",
