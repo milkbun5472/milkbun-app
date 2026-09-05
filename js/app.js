@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.84";
+const APP_VERSION = "v63.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11797,7 +11797,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           // ⚠️原来这儿举了三个例子（「深夜城市天台的霓虹倒影」那一串）：
           //   prompt-no-content-samples.md 明令不许——模型会照抄那个句式，
           //   一排马甲全长成一个样。判据和维度写在 ANON_MASK_RULE / ANON_MASK_BG 里。
-          instruction: "为「" + char.name + "」设计 Ta 在匿名社交/树洞 App 上的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 会挑什么样的图当主页背景 bgDesc。"
+          // ⚠️站位（v63.84，她 2026-09-05）：这一枪原来走【分析师】那一路
+          //   （runProbe 默认的「你是角色状态推演引擎，不要扮演角色，冷静推演」）——
+          //   分析师交上来的必然是【关于他的一句提炼】，不是他自己填的东西。
+          //   换成 voice:true：他本人坐在那儿注册这个号。跟解梦馆那次一模一样的形状。
+          voice: true,
+          instruction: "你现在在一个匿名树洞 App 上注册一个号。要填三样：一个网名 netname、一句签名 bio（1-2 句），再挑一张主页背景 bgDesc（写清那是一张什么样的图）。就照你自己会填的填。"
             + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
           schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
         });
@@ -11809,7 +11814,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (typeof anonNameClash === "function" && anonNameClash(mask.netname, taken0)) {
           try {
             const again = await runProbe(apiFor(char.id), { ...ctxFor(char), recentChat: "" }, {
-              instruction: "为「" + char.name + "」重挑一个匿名马甲的网名 netname、第一人称签名 bio（1-2 句），以及主页背景 bgDesc。"
+              voice: true,
+              instruction: "你在这个匿名树洞注册，刚填的那个网名跟别人重了，页面让你换一个。重新填：网名 netname、签名 bio（1-2 句）、主页背景 bgDesc。"
                 + "\n⚠️上一次给的网名「" + mask.netname + "」跟这一屋子里已经有的撞了，这次换一个【完全不同】的说法，别在原来那个词上改。"
                 + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
               schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
@@ -11838,7 +11844,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbe(apiFor(char.id), { ...ctxFor(char), recentChat: "" }, {
         // ⚠️「贴合此刻的心情与最近的经历」这句留着，但它管的是【语气】不是【材料】——
         //   不写清楚的话模型会把最近发生的事直接写进网名（她 2026-09-05 报的就是这个）。
-        instruction: "重新为「" + char.name + "」设计 Ta【此刻】在匿名树洞的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 此刻会挑什么样的图当主页背景 bgDesc。"
+        voice: true,
+        instruction: "你想把这个匿名树洞的号【重新捯饬一下】：改个网名 netname、换一句签名 bio（1-2 句）、再换一张主页背景 bgDesc。就照你此刻的心气儿改。"
           + "心情变了就换一套——丧的、狂的、洒脱的、中二的，看当下；跟以前那套不许重样。"
           + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
         schemaHint: "{\"netname\":\"网名\",\"bio\":\"签名\",\"bgDesc\":\"主页背景图描述\"}"
