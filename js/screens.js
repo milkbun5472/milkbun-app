@@ -5813,16 +5813,22 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   };
   const disc = !(hex6(t.ink) && hex6(t.accent)) ? { background: t.bg } : {
     backgroundColor: t.bg,
+    // v62.85 整体压深一档（她 2026-09-05：「波纹背景颜色不好看有点浅了」）：
+    // 原来沟纹是 3%–5% 的墨，隔着屏幕几乎看不见，整页还是一张米白纸。
+    // 四档并排渲染过（A 原样 / B / C / D），取的是 C：沟纹看得清、暖色还在、标题和封套上的字不闷。
+    // 最深那档 D 整页发灰，字跟着闷——过了。
     backgroundImage: [
+      // 先给整页罩一层薄墨：圆心处 4%、四角 10%，碟是放在深一点的台面上的，不是放在纸上
+      "radial-gradient(circle at 50% 240px," + t.ink + "0a 0%," + t.ink + "1a 100%)",
       // 中心那圈亮：碟面反的光，从圆心往外淡出去
-      "radial-gradient(circle at 50% 240px," + t.accent + "1f 0%," + t.accent + "10 38%,transparent 72%)",
+      "radial-gradient(circle at 50% 240px," + t.accent + "38 0%," + t.accent + "1c 38%,transparent 72%)",
       // 沟纹：一圈一圈的细线。⚠️间距不能等宽——真唱片外圈疏、里圈密，
       //   一套等距同心圆看着像靶子。所以叠三套疏密不同的。
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "0d 5px," + t.ink + "0d 6px)",
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "08 22px," + t.ink + "08 24px)",
-      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "0b 57px," + t.ink + "0b 59px)",
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "26 5px," + t.ink + "26 6px)",
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "18 22px," + t.ink + "18 24px)",
+      "repeating-radial-gradient(circle at 50% 240px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "20 57px," + t.ink + "20 59px)",
       // 四角压暗：碟离得越远越暗，页面才不是一张平纸
-      "radial-gradient(circle at 50% 240px,transparent 40%," + t.ink + "14 100%)"
+      "radial-gradient(circle at 50% 240px,transparent 40%," + t.ink + "3c 100%)"
     ].join(",")
   };
   const crate = nav === "play" ? disc : sleeve;
