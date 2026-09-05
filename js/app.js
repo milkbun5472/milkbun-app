@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.90";
+const APP_VERSION = "v63.91";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -570,11 +570,13 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
-      // ⚠️这一枪一次要写十块，是【一整份卡】那一档。12000 里还要扣掉思考预算，
-      //   想完就没配额写正文＝空返回＝界面上那句「模型没按格式答」（她 2026-09-05 截图）。
-      //   按 max-tokens-floor.md 的公式抬到 min(24000, 旧+8000)=20000：上限给宽一分钱也不多花，
-      //   给窄了才会白烧一次调用。
-      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 20000, timeout: 150000 });
+      // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
+      //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
+      //   模型写多少就是多少，给宽了一分钱也多花不到；给窄了才会写到一半停住、
+      //   然后重来一次，那才是真多花了一次。这一枪一次要写十块，正是最容易被窄上限截断的那种。
+      //   （唯一要留神的是有些上游对 max_tokens 有自己的硬上限，超了会秒失败打回来——
+      //     真遇到某条线路一按就失败，先看是不是这个数被上游拒了，不是提示词的问题。）
+      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.seed(char.id, parsed);
@@ -620,7 +622,8 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
-      const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 20000, timeout: 150000 });
+      // 开满，同上（她 2026-09-05 点名）
+      const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.review(char.id, parsed);
