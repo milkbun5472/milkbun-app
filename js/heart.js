@@ -483,9 +483,15 @@
     const flame = w => w >= 0.75 ? "🔥🔥🔥" : w >= 0.45 ? "🔥🔥" : w >= 0.2 ? "🔥" : "·";
     const statusTag = e => e.status === "ash" ? "（落灰了）" : e.status === "graduated" ? "" : e.status === "withered" ? "（枯萎了）" : "";
     return ReactDOM.createPortal(
-      h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+      // 这一页是【他自己的本子】，而且顶栏那句写着「你只是碰巧看见了」。
+      // 所以底不是通用米白，是一张带着这个盒子自己颜色（旧木盒的暖棕）的纸——
+      // 判据：这一页搬到别的 app 里还成立吗？一张匿名米白成立，这一张不成立。
+      h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 },
+        typeof pageSkin === "function"
+          ? pageSkin("paper", t, { base: (typeof skinMix === "function" ? skinMix(t.bg, ACCENT, .06) : t.bg), tint: (typeof skinRGB === "function" ? skinRGB(ACCENT).join(",") : ""), strength: 1.15 })
+          : { background: t.bg }) },
       // 顶栏用公共的 Head（mobile-ui-layout.md §1：别再自己写一条紧凑栏）
-      h(Head, { zh: (char.remark || char.name) + " 的心上", sub: "只有 TA 能往里写；你只是碰巧看见了", onBack: onClose }),
+      h(Head, { zh: (char.remark || char.name) + " 的心上", sub: "只有 TA 能往里写；你只是碰巧看见了", bg: "transparent", onBack: onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 18px 40px" } },
       // 今日独白
       h("div", { style: { marginTop: 16, padding: "13px 14px", borderRadius: 14, background: ACCENT + "14", border: "1px solid " + ACCENT + "38" } },

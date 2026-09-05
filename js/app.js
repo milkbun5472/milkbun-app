@@ -2008,11 +2008,40 @@ function App() {
   };
   // 基础好感：没手动设过时，按你和 TA 的关系推一个基线，而不是一律 50
   const REL_AFF = { 恋人: 80, 挚爱: 82, 爱人: 80, 暧昧: 70, 挚友: 74, 好友: 66, 朋友: 60, 家人: 72, 亲人: 70, 青梅竹马: 68, 兄妹: 62, 兄弟: 62, 姐妹: 62, 同事: 52, 上下级: 50, 师生: 55, 对手: 34, 宿敌: 28, 前任: 44, 陌生人: 42, 暗恋: 58 };
-  const baseAff = charId => {
-    const labels = [rels["me->" + charId], rels[charId + "->me"]].filter(Boolean).map(r => r.label || "");
+  // ⚠️要能对【任意一份 rels】算，不能只对当前那一份：改关系那一刻要同时算「改之前」
+  //   和「改之后」的起点，才知道该不该把起点重新落一次（见 saveRel）。
+  const baseAffIn = (relsMap, charId) => {
+    const R = relsMap || {};
+    const labels = [R["me->" + charId], R[charId + "->me"]].filter(Boolean).map(r => r.label || "");
     let best = null;
     labels.forEach(l => Object.keys(REL_AFF).forEach(k => { if (l.includes(k) && (best == null || REL_AFF[k] > best)) best = REL_AFF[k]; }));
     return best != null ? best : 50;
+  };
+  const baseAff = charId => baseAffIn(rels, charId);
+  // 起点重新落一次的容差（她 2026-09-05 报的那个 bug）：
+  //   affOf 是「存过就用存的，没存过才问关系」。而【第一句话就会写一次好感】——
+  //   那一刻还没设关系，于是 50 被当成起点焊死进存档，之后再加「恋人」也没用了。
+  //   病根不是 80 没生效，是**起点和走过的路被压成了同一个数**。
+  //   修法：改关系的那一刻，两份 rels 都在手上，算得出「改之前的起点」和「改之后的起点」。
+  //   还没走远（离原起点不到这么多）就把它整段平移过去，走远了的一个字都不动——
+  //   那是真处出来的，不该被一次改关系抹掉。
+  const AFF_REBASE_DRIFT = 12;
+  // 纯函数，好单独验：起点从 before 挪到 after 时，存着的 cur 该变成多少（不该动就回 null）。
+  //   · cur == null    → 没写过，affOf 本来就会去问关系，不用管
+  //   · 走远了          → 一个字都不动（那是真处出来的，不该被一次改关系抹掉）
+  //   · 还没走远        → 整段平移：保住这几轮挣来的那一点点，起点换成新的
+  //   ⚠️**只往上挪，不往下挪**——这个不对称是故意的，因为两头的代价不对称：
+  //     · 往上不挪：她设了「恋人」却还是 51，正是她报的那个 bug；
+  //     · 往下挪：分手改成「前任」（起点 44），好感 90 会当场掉成 54——
+  //       那是一段真处出来的关系，一次改标签不该把它抹掉。
+  //     真要往下，让它自己在相处里掉，别用改关系一刀切。
+  //     （新角色压根没写过好感时不受影响：affOf 本来就直接问关系，设「对手」照样是 34。）
+  const affRebase = (before, after, cur) => {
+    if (cur == null || after <= before) return null;
+    const drift = cur - before;
+    if (Math.abs(drift) > AFF_REBASE_DRIFT) return null;
+    const next = Math.max(0, Math.min(100, after + drift));
+    return next === cur ? null : next;
   };
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
   const setMoodFor = (id, m) => setMoods(p => {
@@ -16738,6 +16767,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       note: (note || "").trim()
     };
     saveJSON("x_rels", n);
+    // 只有【我和某个角色】那条线才牵动好感；角色和角色之间的关系不算。
+    const m = /^me->(.+)$/.exec(key) || /^(.+)->me$/.exec(key);
+    const cid = m && m[1];
+    if (cid) {
+      const before = baseAffIn(p, cid), after = baseAffIn(n, cid);
+      if (after !== before) setAffinities(ap => {
+        const cur = ap[cid];
+        const next = affRebase(before, after, cur);
+        if (next == null) return ap;
+        const nx = { ...ap, [cid]: next };
+        saveJSON("x_affinities", nx);
+        setTimeout(function () { toast("好感起点跟着关系挪到了 " + Math.round(next) + "（原来 " + Math.round(cur) + "）"); }, 0);
+        return nx;
+      });
+    }
     return n;
   });
   const relSummaryFor = char => {
