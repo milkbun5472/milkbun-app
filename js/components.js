@@ -1196,8 +1196,8 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   //   （24 小时横条 + 7 天列表）根本不需要同时看见底下那一层，本来就该是整页。
   //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
   const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
-    h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
-    h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", onBack: function () { setOpen(false); } }),
+    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, t)) },
+    h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
     h(WeatherTagRail, { places: places, value: place && place.key, onPick: choose }),
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 8 } },
@@ -2512,6 +2512,26 @@ const HOME_DECOR_ACCENTS = ["#b65f57", "#c08a43", "#67806f", "#57758b", "#765f83
 // ⚠️贴纸不许挂在「装饰」上：组件和装饰在主屏上是同一种东西（同一份 REG、同一个
 //   key、同一套占格）。挂在装饰那一侧，组件就永远贴不了——那正是「一层写在两处，
 //   第二处没跟上」的起手式。所以这一层认的是【主屏那个 key】，谁在那一格就贴谁。
+// 天气这一整页的底：**跟着今天的天气走**。
+// 判据（tabs-not-plain-pills）：这一页原样搬到别的 app 里还成立吗？
+//   铺一张纸或者一层玻璃——成立，那就是写坏了。天气页的底本来就该是天。
+// 所以底色是天色（晴/阴/雨/雪/雾/雷各一档），纹理一律 glass（只有光，没有线：
+// 天上没有织纹，SKIN_PATS 里 glass 那一格的注释写的就是「一点线都没有，只有光斑」）。
+// ⚠️取不到天气（还没抓到 / 抓失败）时退回主题色，别硬给一片蓝天。
+const WEATHER_SKY = {
+  sun:    "#cfe2f2", partly: "#d8e3ec", cloud: "#d3d6d8",
+  rain:   "#c2ccd3", storm:  "#b4b7c2", snow:  "#e2e8ee", fog: "#d9d9d5"
+};
+function weatherSkin(w, t) {
+  // ⚠️必须是【真的有一个数字 code】才算拿到天气：wmoKind 的兜底 return 是 "partly"，
+  //   所以 code 缺了它照样答一个「多云」，于是「没抓到天气」会被画成一片蓝灰的天。
+  const kind = (w && typeof w.code === "number" && typeof wmoKind === "function") ? wmoKind(w.code) : "";
+  const sky = WEATHER_SKY[kind];
+  if (typeof pageSkin !== "function") return { background: sky || t.bg };
+  // ⚠️掺 .5 太淡：主题底是暖米白，一半一半之后晴天和阴天只差四个色阶，
+  //   在手机上根本看不出来是「跟着天气变」。掺到 .72 才认得出来。
+  return pageSkin("glass", t, sky ? { base: skinMix(t.bg, sky, .72), tint: skinRGB(sky).join(","), strength: 1.15 } : { strength: .9 });
+}
 const HOME_STICKER_MAX = 3;           // 一个格子最多贴几张（再多就不是点缀是糊脸了）
 const HOME_STICKER_POS = [
   { id: "tl", zh: "左上", x: "left", y: "top" }, { id: "tc", zh: "上边", x: "center", y: "top" }, { id: "tr", zh: "右上", x: "right", y: "top" },
