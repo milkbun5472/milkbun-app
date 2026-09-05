@@ -113,7 +113,8 @@ test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸�
   //   页壳写 px-5、dock 写 px-4，两边本来就没对齐，组件那一排看着比 dock 窄一圈。
   //   现在两处共用 HOME_PAD_X 这一个数，所以这里改成钉那个数。
   assert.match(comp, /const HOME_PAD_X = 12;/, "两侧留白又放回去了");
-  assert.match(comp, /h\("div", \{ key: pi, style: \{ width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X/,
+  //   （v63.86 这一行多了个 data-homepage：贴边自动滚要认得出当前这一页是哪个滚动容器）
+  assert.match(comp, /h\("div", \{ key: pi, "data-homepage": pi, style: \{ width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X/,
     "页壳没在用那个共用的留白");
   // ⚠️容量闸还在，只是从写死的 6 行改成【量出来的】那几行（v61.93）：
   // 行高钉死成 82 之后这个数才算得准，写死 6 在高屏上会白空一大截

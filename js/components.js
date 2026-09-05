@@ -2683,6 +2683,9 @@ const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN
 //   （js/components.js 的 room 兜底那一行）。写死在两处的话，改了这边那边就落单——
 //   而且那种落单不会报错，只会让首帧的碟大一圈或小一圈。所以只此一份。
 const HOME_PAD_X = 12;
+// 拖着东西贴到这一页上/下边多少像素之内，就让这一页自己慢慢滚（拖动时纵向滚动是锁死的）。
+// 一帧一个固定步长：滚多快跟手指多快无关，所以停得住、对得准。
+const HOME_EDGE_ZONE = 66, HOME_EDGE_STEP = 9;
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
@@ -4009,7 +4012,97 @@ function Home({
   }
   const clearHover = function () { if (hoverRef.current.timer) clearTimeout(hoverRef.current.timer); hoverRef.current = { key: null, timer: null }; setHoverKey(null); };
   const moveGhost = function (x, y) { var g = ghostRef.current; if (g) { g.style.left = x - 34 + "px"; g.style.top = y - 74 + "px"; } };
-  function exitEdit() { setEditMode(false); setDragKey(null); dragKeyRef.current = null; dropRef.current = null; setDropKey(null); }
+  // 拖东西的时候，页面不许跟着手指一起滚（她 2026-09-05：「想往上移屏幕也会同步上移，
+  // 很难弄到要到的地方」）。每一页自己是个纵向滚动容器（v63.35「跟查手机那样又能下滑又能翻页」），
+  // 手指往上一带，容器就跟着往上滚——目标格子和手指同向同速地跑，等于永远追不上。
+  //
+  // ⚠️病根不在 onTM 里那句 e.preventDefault()，而在于【那句从来没生效过】：
+  //   React 18 把 touchstart / touchmove / wheel 一律按【被动监听】挂在根节点上
+  //   （react-dom：`"touchstart"!==b&&"touchmove"!==b&&"wheel"!==b||(e=!0)`），
+  //   被动监听里 preventDefault 是空转的。横滑翻页当初能成，靠的是 touchAction:"pan-y"
+  //   顺手把横向锁住了，不是那句 preventDefault。所以纵向这一半得自己挂一个非被动的。
+  //   —— 这也是「规则降概率，代码才保证」的另一个形状：写了不等于生效，得看它挂在哪儿。
+  const shellRef = useRef(null);
+  const pageRef = useRef(0); pageRef.current = page;
+  useEffect(function () {
+    var el = shellRef.current; if (!el) return;
+    var block = function (e) {
+      if (!e.cancelable) return;
+      if (dragKeyRef.current) { e.preventDefault(); return; }   // 手里拿着东西：纵横都锁死
+      var r = dragRef.current;
+      if (r && r.dir === "h") e.preventDefault();               // 横滑翻页：这才是真正拦住浏览器的那一道
+    };
+    el.addEventListener("touchmove", block, { passive: false });
+    return function () { el.removeEventListener("touchmove", block); };
+  }, []);
+  // 锁死之后还得够得着屏幕外那几行：手指贴到上/下边就让【这一页】自己慢慢滚，
+  // 一帧一个固定步长——跟手指多快无关，所以拿得稳。跟横向那个「贴边翻页」是同一个形状。
+  const edgeRef = useRef({ raf: 0, dy: 0, x: 0, y: 0 });
+  const pageBox = function () { return document.querySelector('[data-homepage="' + pageRef.current + '"]'); };
+  const stopEdge = function () { var s = edgeRef.current; if (s.raf) cancelAnimationFrame(s.raf); s.raf = 0; s.dy = 0; };
+  // 落点扫描单独成一件事：手指在动的时候要算，【手指不动、页面在自动滚】的时候也要算——
+  // 不然贴边滚上去之后，脚下换了一格，dropRef 还停在滚动之前那一格上。
+  const updateDrop = function (x, y) {
+    // v61.70 落点改用矩形包含扫描，不再用 elementFromPoint：
+    // 浮在页面上层的东西（悬浮播放条、跟手浮影、「+装饰/完成」按钮）会把指下真正的格子挡住，
+    // elementFromPoint 拿到的是遮罩层 → 落点为空/错格（她 9/3「放下面死活不行」「地图跑顶端」的另一半病根）。
+    let overEl = null, overKey = null, bestArea = Infinity;
+    document.querySelectorAll("[data-appkey]").forEach(function (node) {
+      const k = node.getAttribute("data-appkey");
+      if (!k || k === dragKeyRef.current) return;
+      const rc = node.getBoundingClientRect();
+      if (!rc.width || x < rc.left || x > rc.right || y < rc.top || y > rc.bottom) return;
+      const area = rc.width * rc.height;
+      if (area < bestArea) { bestArea = area; overEl = node; overKey = k; }
+    });
+    const dragged = dragKeyRef.current;
+    if (overKey && overKey !== dragged) {
+      // 拖 app 悬停在另一个 app/文件夹的中间区域 → 蓄力合并
+      const rect = overEl.getBoundingClientRect();
+      const rx = (x - rect.left) / Math.max(1, rect.width);
+      const canMerge = kindOf(dragged) === "app" && (kindOf(overKey) === "app" || kindOf(overKey) === "folder");
+      if (canMerge && rx > 0.25 && rx < 0.75) {
+        if (hoverRef.current.key !== overKey) {
+          clearHover();
+          dropRef.current = null; setDropKey(null);
+          hoverRef.current.key = overKey; setHoverKey(overKey);
+          hoverRef.current.timer = setTimeout(function () {
+            const tgt = hoverRef.current.key;
+            clearHover();
+            const dk = dragKeyRef.current;
+            if (!dk || !tgt) return;
+            if (tgt.slice(0, 2) === "f_") addToFolder(tgt, dk); else makeFolder(tgt, dk);
+            if (navigator.vibrate) try { navigator.vibrate(24); } catch (x2) {}
+            stopEdge();
+            setDragKey(null); dragKeyRef.current = null; // 合并即放手
+          }, 600);
+        }
+        return; // 蓄力期间不标落点
+      }
+      clearHover();
+      if (dropRef.current !== overKey) { dropRef.current = overKey; setDropKey(overKey); }
+    } else { // 手指悬在被拖的那个自己身上（overKey===dragged）或空白处：都不能留着旧落点——
+      // 旧落点残留会让「在自己上方松手」落到几秒前扫过的某个格子上（她 9/3：地图跑到顶端）。
+      clearHover(); if (dropRef.current) { dropRef.current = null; setDropKey(null); }
+    }
+  };
+  const edgeScroll = function (y) {
+    var box = pageBox(); if (!box) { stopEdge(); return; }
+    var rc = box.getBoundingClientRect(), s = edgeRef.current;
+    s.y = y;
+    s.dy = y < rc.top + HOME_EDGE_ZONE ? -HOME_EDGE_STEP : (y > rc.bottom - HOME_EDGE_ZONE ? HOME_EDGE_STEP : 0);
+    if (!s.dy) { stopEdge(); return; }
+    if (s.raf) return;                                          // 已经在滚了，只是换了个方向
+    var tick = function () {
+      var st = edgeRef.current;
+      if (!st.dy || !dragKeyRef.current) { stopEdge(); return; }
+      var b = pageBox(); if (b) b.scrollTop += st.dy;
+      updateDrop(st.x, st.y);   // 手指没动，脚下的格子动了——落点得跟着换
+      st.raf = requestAnimationFrame(tick);
+    };
+    s.raf = requestAnimationFrame(tick);
+  };
+  function exitEdit() { stopEdge(); setEditMode(false); setDragKey(null); dragKeyRef.current = null; dropRef.current = null; setDropKey(null); }
   const curLayout = buildLayout(layout);
   // 页数变化后夹住越界的历史页码
   useEffect(function () { if (page > curLayout.length - 1) goPage(curLayout.length - 1); }, []);
@@ -4111,8 +4204,9 @@ function Home({
     // 正在拖：浮影跟手；边缘翻页（东西还拿在手里，落点在松手时才定）；
     // app 中心悬停≥600ms 合并成文件夹；其余情况只标记落点（空格/交换对象），松手才生效
     if (dragKeyRef.current) {
-      if (e.cancelable) e.preventDefault();
       moveGhost(tch.clientX, tch.clientY);
+      edgeRef.current.x = tch.clientX;
+      edgeScroll(tch.clientY);
       const cw = (dragRef.current && dragRef.current.w) || e.currentTarget.offsetWidth || 375;
       const x = tch.clientX, nowT = Date.now();
       if (x < 34 && page > 0 && nowT - flipRef.current > 650) {
@@ -4121,48 +4215,7 @@ function Home({
       if (x > cw - 34 && page < curLayout.length - 1 && nowT - flipRef.current > 650) {
         clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; goPage(page + 1); return;
       }
-      // v61.70 落点改用矩形包含扫描，不再用 elementFromPoint：
-      // 浮在页面上层的东西（悬浮播放条、跟手浮影、「+装饰/完成」按钮）会把指下真正的格子挡住，
-      // elementFromPoint 拿到的是遮罩层 → 落点为空/错格（她 9/3「放下面死活不行」「地图跑顶端」的另一半病根）。
-      const y = tch.clientY;
-      let overEl = null, overKey = null, bestArea = Infinity;
-      document.querySelectorAll("[data-appkey]").forEach(function (node) {
-        const k = node.getAttribute("data-appkey");
-        if (!k || k === dragKeyRef.current) return;
-        const rc = node.getBoundingClientRect();
-        if (!rc.width || x < rc.left || x > rc.right || y < rc.top || y > rc.bottom) return;
-        const area = rc.width * rc.height;
-        if (area < bestArea) { bestArea = area; overEl = node; overKey = k; }
-      });
-      const dragged = dragKeyRef.current;
-      if (overKey && overKey !== dragged) {
-        // 拖 app 悬停在另一个 app/文件夹的中间区域 → 蓄力合并
-        const rect = overEl.getBoundingClientRect();
-        const rx = (x - rect.left) / Math.max(1, rect.width);
-        const canMerge = kindOf(dragged) === "app" && (kindOf(overKey) === "app" || kindOf(overKey) === "folder");
-        if (canMerge && rx > 0.25 && rx < 0.75) {
-          if (hoverRef.current.key !== overKey) {
-            clearHover();
-            dropRef.current = null; setDropKey(null);
-            hoverRef.current.key = overKey; setHoverKey(overKey);
-            hoverRef.current.timer = setTimeout(function () {
-              const tgt = hoverRef.current.key;
-              clearHover();
-              const dk = dragKeyRef.current;
-              if (!dk || !tgt) return;
-              if (tgt.slice(0, 2) === "f_") addToFolder(tgt, dk); else makeFolder(tgt, dk);
-              if (navigator.vibrate) try { navigator.vibrate(24); } catch (x2) {}
-              setDragKey(null); dragKeyRef.current = null; // 合并即放手
-            }, 600);
-          }
-          return; // 蓄力期间不标落点
-        }
-        clearHover();
-        if (dropRef.current !== overKey) { dropRef.current = overKey; setDropKey(overKey); }
-      } else { // 手指悬在被拖的那个自己身上（overKey===dragged）或空白处：都不能留着旧落点——
-        // 旧落点残留会让「在自己上方松手」落到几秒前扫过的某个格子上（她 9/3：地图跑到顶端）。
-        clearHover(); if (dropRef.current) { dropRef.current = null; setDropKey(null); }
-      }
+      updateDrop(x, tch.clientY);
       return;
     }
     const r = dragRef.current;
@@ -4172,7 +4225,6 @@ function Home({
     if (lpRef.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) clearLP();
     if (r.dir == null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) r.dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
     if (r.dir !== "h") return;
-    if (e.cancelable) e.preventDefault(); // 抢下横向手势，别让安卓浏览器/系统当成滚动或前进后退
     let d = dx;
     // 到头/到尾继续拉时加阻尼（橡皮筋）
     if ((page === 0 && d > 0) || (page === curLayout.length - 1 && d < 0)) d *= 0.32;
@@ -4182,6 +4234,7 @@ function Home({
   const onTE = () => {
     clearLP();
     clearHover();
+    stopEdge();
     if (dragKeyRef.current) {
       // 放下：有落点就落到那里（空格=挪过去原位留洞；别的项=互换位置）
       const dragged = dragKeyRef.current, dst = dropRef.current;
@@ -4304,8 +4357,10 @@ function Home({
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col",
+    ref: shellRef,
     // touchAction:pan-y 把横向手势交给我们自己处理（安卓比 iOS 严：不锁就把横滑当浏览器滚动/导航抢走→翻页难）
-    style: { touchAction: "pan-y" },
+    // 手里拿着东西的时候连纵向也收回来：那一刻整块屏幕都归拖拽，不归滚动。
+    style: { touchAction: dragKey ? "none" : "pan-y" },
     onTouchStart: onTS,
     onTouchMove: onTM,
     onTouchEnd: onTE,
@@ -4324,8 +4379,10 @@ function Home({
     // 每一页自己能上下滑（她 2026-09-05：「跟查手机那样又可以下滑又可以翻页」）。
     // 横滑翻页照旧：onTM 里方向锁死了——判成 "h" 才 preventDefault，判成 "v" 直接交给浏览器滚。
     // ⚠️overscrollBehavior: contain：滑到底不许把整页（body）带着一起弹。
-    return h("div", { key: pi, style: { width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X,
-      overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" } },
+    return h("div", { key: pi, "data-homepage": pi, style: { width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X,
+      overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch",
+      // 拖着东西时这一页不许再自己滚（要够屏幕外那几行，靠 edgeScroll 一帧一步地送）
+      touchAction: dragKey ? "none" : undefined } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1" },
         h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
