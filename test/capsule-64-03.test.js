@@ -60,9 +60,23 @@ test("封存期间只给数目和日子，一个字正文都不给", () => {
   assert.match(eng, /别每次都提/, "他会每轮都来数日子");
 });
 
-test("他本来就能主动埋，只是那个数太大了", () => {
-  assert.match(app, /isCouple && n\.capsule >= 45/, "轮数没降下来");
-  // 真正兜住它的是这两道闸，不是轮数
-  assert.match(app, /const hasSealed = own\.some\(x => !x\.opened\);/, "未拆的还能再埋一颗");
+// 她 2026-09-05：「把没拆改成没到期吧宝宝，这样我忘了拆也能继续写新的，80 也是为了多攒点素材」
+test("挡的是【路上还有一颗】，不是【她还没拆】", () => {
+  // 80 是酝酿不是门槛：攒得越久他手上真发生过的事越多。v64.03 我一度降到 45，是看错了
+  assert.match(app, /isCouple && n\.capsule >= 80/, "又把攒素材那个数改小了");
+  assert.ok(app.indexOf("const hasSealed = own.some(x => !x.opened);") < 0,
+    "还在按「她没拆」挡——她忘了拆就永远收不到下一颗，那是拿她的疏忽当闸门");
+  assert.match(app, /window\.CapsulePromptKit\.pendingCapsule\(caps, charId, Date\.now\(\)\)/, "没走那个共用判据");
   assert.match(app, /Date\.now\(\) - latestTs >= 14 \* 86400000/, "冷却没了");
+  // 判据只写一处：回埋那条路和后台主动埋那条路共用
+  assert.match(cap, /const pendingCapsule = \(list, charId, now\) =>/, "共用判据没了");
+  assert.match(cap, /if \(pendingCapsule\(existing, char\.id, Date\.now\(\)\)\) return;/, "回埋那条路没换过来");
+  const f = new Function("return " + /const pendingCapsule = \(list, charId, now\) =>[\s\S]*?;\n/.exec(cap)[0]
+    .replace(/^const pendingCapsule = /, "").replace(/;\n$/, ""))();
+  const now = Date.now(), D = 86400000;
+  assert.equal(f([{ dir: "fromChar", charId: "c1", opened: false, openTs: now + 5 * D }], "c1", now), true, "路上那颗没挡住");
+  assert.equal(f([{ dir: "fromChar", charId: "c1", opened: false, openTs: now - D }], "c1", now), false, "到期没拆的还在挡");
+  assert.equal(f([{ dir: "fromChar", charId: "c1", opened: true, openTs: now + 5 * D }], "c1", now), false);
+  assert.equal(f([{ dir: "toChar", charId: "c1", opened: false, openTs: now + 5 * D }], "c1", now), false, "她自己埋的也算成他埋的了");
+  assert.equal(f([{ dir: "fromChar", charId: "c2", opened: false, openTs: now + 5 * D }], "c1", now), false, "别人的胶囊挡住了这个人");
 });

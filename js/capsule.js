@@ -39,7 +39,16 @@
     if (days <= 90) return "这封信封存了约 " + days + " 天。回应信里最具体的内容，对照当时与现在确实发生的变化；没有证据的变化不要编。";
     return "这封信封存了约 " + days + " 天。回应信里最具体的内容，并从你真实知道的共同经历中对照当时与现在；不把期待冒充事实。";
   };
-  window.CapsulePromptKit = { daysBetween, sealGuide, replyGuide };
+  // 「他还能不能再埋一颗」只写在这一处（她 2026-09-05：「把没拆改成没到期吧宝宝，
+  // 这样我忘了拆也能继续写新的」）。
+  // ⚠️判据换了：挡的是【路上还有一颗】，不是【有一颗她没拆】。
+  //   按「没拆」算的话，她忘了拆就永远收不到下一颗——那是拿她的疏忽当闸门。
+  //   到期了还躺在那儿的，路已经走完了，不该再挡着后面的。
+  // ⚠️两处调用（她埋时的回埋 / 后台主动埋）共用这一个，别各写各的。
+  const pendingCapsule = (list, charId, now) => (Array.isArray(list) ? list : [])
+    .some(x => x && x.dir === "fromChar" && String(x.charId || "") === String(charId)
+      && !x.opened && Number(x.openTs || 0) > (now || Date.now()));
+  window.CapsulePromptKit = { daysBetween, sealGuide, replyGuide, pendingCapsule };
 
   // 三屏共用的那层底（v62.44）：时光胶囊是【埋下去】的东西，所以底纹是一层层压下去的沉积。
   // 铺在最外那个 h-full 外壳上、Head 传 transparent 让它透上来，顶上才不会横一道没盖住的带子
@@ -68,8 +77,9 @@
     const maybeBuryBack = async (char, openTs) => {
       if (!props.active) return;
       const existing = load();
-      // 同一个人已经有一颗话在路上，就别因为用户连续埋信而叠出一排锁盒。
-      if (existing.some(c => c && c.dir === "fromChar" && c.charId === char.id && !c.opened)) return;
+      // 同一个人已经有一颗话在【路上】，就别因为用户连续埋信而叠出一排锁盒。
+      // 到期了她还没拆的不算在路上——那是她忘了拆，不该拿它挡住新的（v64.15）。
+      if (pendingCapsule(existing, char.id, Date.now())) return;
       const everBuried = existing.some(c => c && c.dir === "fromChar" && c.charId === char.id);
       if (everBuried && Math.random() > 0.7) return;
       try {

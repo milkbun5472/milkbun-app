@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.15";
+const APP_VERSION = "v64.16";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10166,18 +10166,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
     if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
     if (autoRefreshOn("forum", charId) && !settingsFor(charId).engineerEyes && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
-    // 时光胶囊要比朋友圈/悄悄话稀：≥45 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
+    // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
-    // ⚠️v64.03 从 80 降到 45（她 2026-09-05：「他应该要可以主动埋」——他一直可以，
-    //   只是这个数太大了）。真正把它兜住的是后面那两道闸（未拆的不许再埋 + 14 天冷却），
-    //   而一颗胶囊封的是 7-30 天：也就是说她不拆，他根本埋不出第二颗。轮数只决定
-    //   「第一颗多久出现」，把它压到 80 只是让这个功能看着不存在。
-    if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 45) {
+    // ⚠️80 是【故意的】（她 2026-09-05：「80 也是为了多攒点素材」）——
+    //   胶囊要写的是这一阵子真发生过的事，攒得越久他手上的料越厚。v64.03 我一度
+    //   降到 45，是没看懂这个数在干嘛：它不是门槛，是酝酿。
+    // ⚠️真正换掉的是另一道闸：原来挡的是「有一颗她没拆」，现在挡的是
+    //   「路上还有一颗（没到期）」。按没拆算，她忘了拆就永远收不到下一颗——
+    //   那是拿她的疏忽当闸门。判据只写在 CapsulePromptKit.pendingCapsule 那一处。
+    if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 80) {
       const caps = loadJSON("x_capsules", []);
       const own = (Array.isArray(caps) ? caps : []).filter(x => x && x.dir === "fromChar" && x.charId === charId);
-      const hasSealed = own.some(x => !x.opened);
+      const onTheWay = window.CapsulePromptKit
+        ? window.CapsulePromptKit.pendingCapsule(caps, charId, Date.now())
+        : own.some(x => !x.opened && Number(x.openTs || 0) > Date.now());
       const latestTs = own.reduce((mx, x) => Math.max(mx, Number(x.createdTs || 0)), 0);
-      if (!hasSealed && (!latestTs || Date.now() - latestTs >= 14 * 86400000)) due.push("capsule");
+      if (!onTheWay && (!latestTs || Date.now() - latestTs >= 14 * 86400000)) due.push("capsule");
     }
     due.forEach(k => { if (k === "whisper") n.whisper = 0; else if (k === "moment") n.moment = 0; else if (k === "capsule") n.capsule = 0; else { n.forum = 0; n.lastForumTs = Date.now(); } });
     const np = { ...ambientCountRef.current, [charId]: n };
