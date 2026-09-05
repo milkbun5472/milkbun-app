@@ -25,6 +25,19 @@ test("全 app 没有一处 maxTokens 低于 " + FLOOR + "（games / trpg 除外�
       while ((m = re.exec(line))) {
         if (Number(m[1]) < FLOOR) bad.push(f + ":" + (i + 1) + "  " + m[1]);
       }
+      // ⚠️第二个盲区（2026-09-05 在 js/read.js 抓到）：上面那条正则要求冒号后面【紧跟数字】，
+      //   所以 `maxTokens: Math.min(8000, 1200 + maxPara * 280)` 整行都匹配不上——
+      //   而它算出来常常只有两千多（一页五六段时 1200+1680=2880），思考型模型光想就吃光了，
+      //   返回空，界面上写「Ta 没讲出来」。**闸绿着，病一直在。**
+      //   算式那一路真正的下限是【加法的底数】，所以按底数判。
+      let m2; const re2 = /maxTokens\s*:\s*Math\.min\(\s*\d+\s*,\s*(\d+)\s*\+/g;
+      while ((m2 = re2.exec(line))) {
+        if (Number(m2[1]) < FLOOR) bad.push(f + ":" + (i + 1) + "  Math.min 那一路的底数 " + m2[1]);
+      }
+      // 连底数都没有的算式（`Math.min(N, x * y)`）下限可以是 0，一律不许
+      if (/maxTokens\s*:\s*Math\.min\(\s*\d+\s*,(?![^)]*\d+\s*\+)/.test(line)) {
+        bad.push(f + ":" + (i + 1) + "  Math.min 里没有底数，算出来可能接近 0");
+      }
     });
   });
   assert.deepEqual(bad, [], "这几处会让思考型模型想完就没配额写正文：\n" + bad.join("\n"));
@@ -63,7 +76,13 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
     assert.ok(cap >= 20000, "上限掉到 " + cap + " 了");
     assert.ok(add >= 8000, "加给思考的那一份掉到 " + add + " 了");
   });
-  assert.match(rd, /maxTokens: Math\.min\(20000, 9500 \+ n \* 400\)/);
+  // ⚠️口径改了（2026-09-05，她：「顺便 maxtoken 也放开吧 65535」）：一起读那五处一律开满。
+  //   上限是【天花板】不是【花销】——模型写多少就是多少，给宽了一分钱也多花不到。
+  //   所以这里不再钉那个算式，改成钉「这个文件里没有一处低于开满值」。
+  assert.equal((rd.match(/maxTokens: 65535/g) || []).length, 5, "一起读那五处没都开满");
+  //   （注释里写着那个被换掉的老算式、就是为了说明它为什么坏，先把整行注释剥掉再搜）
+  const rdCode = rd.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(!/maxTokens: Math\.min\(/.test(rdCode), "一起读里又出现了算出来的预算");
   assert.match(scr, /maxTokens: key === "outfit" \? 14000 : 12000/);
 });
 

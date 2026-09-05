@@ -81,14 +81,17 @@
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
     const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
       "\n\n【正文（按段落编号，可能跨好几页）】\n" + numbered +
-      "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`。示例：\n段3：这人嘴上硬，心里早就软了。\n段3：换我早翻脸走人了。\n段8：一碗黄酒二两黄豆，写得我都馋了。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
-    // 放宽 token 预算：Gemini 等「思考型」模型会先想再答、思考也吃输出 token，预算太紧会想到一半就停（只出一两条）。
-    // 中转站按次计费、输出长短不额外收费，所以给足空间不心疼。
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(20000, 9500 + n * 400) });
+      "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`（段号是上面正文里的方括号编号，一行一条，冒号后直接写批注）。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
+    // 开满（她 2026-09-05：「顺便 maxtoken 也放开吧 65535」）。
+    // ⚠️这一处原来是 Math.min(8000, 1200 + maxPara*280)——一页只有五六段时算出来才 2900，
+    //   思考型模型光想就把它吃光，于是返回空、界面上写「Ta 没讲出来，换一页再试」。
+    //   而【那道 maxTokens 地板闸没抓到它】：闸的正则要求冒号后面紧跟数字，
+    //   `maxTokens: Math.min(...)` 这种写法整行都匹配不上。闸自己有盲区的时候，全绿什么都不证明。
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: 65535 });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -123,7 +126,7 @@
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
       "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。拆成 1~3 条短气泡，像即时通讯，别加名字前缀、别旁白括号、别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 8900 });
+    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 65535 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
     return say && say.length ? say : [String(raw || "").replace(/^\{|\}$/g, "").trim() || "……"];
@@ -137,7 +140,7 @@
     if (!annText && !hist) return "";
     const sys = "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。\n\n【你的人设】\n" + (char.persona || "").slice(0, 300);
     const u = (annText ? "【你的批注】\n" + annText + "\n\n" : "") + (hist ? "【讨论】\n" + hist : "");
-    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 8400 })).trim();
+    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 65535 })).trim();
   }
 
   // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
@@ -150,8 +153,8 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络（你俩之前已经读到这儿，接着往下讲、别自相矛盾）】\n" + synopsis.trim() : "") +
       "\n\n【本页正文（按段落编号）】\n" + numbered +
-      "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`。示例：\n段1：他嘴上说不在乎，其实是怕先被拒绝，才把话说死。\n段2：这里的『黄粱』是个典故，指一场到头来空欢喜的梦。\n梗概：他赌气离了家，半路遇上old友。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: Math.min(8000, 1200 + maxPara * 280) });
+      "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`（段号是上面正文里的方括号编号，一行一段，冒号后直接写讲解）。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: 65535 });
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1").replace(/\s*(梗概\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     const explains = [];
@@ -177,7 +180,7 @@
       (synopsis && synopsis.trim() ? "\n\n【前情脉络】\n" + synopsis.trim() : "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
       "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 9200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 65535 });
     return String(raw || "").replace(/```/g, "").trim();
   }
 
@@ -408,7 +411,9 @@
     // ---- 逐段讲解：让 Ta 把这一页每段都用大白话讲给你听（中译中），并把本页梗概续进已读脉络 ----
     const doExplainPage = async function () {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
       setBusy(true);
@@ -430,7 +435,9 @@
     // ---- 只讲某一段（点段末「讲讲这段」）----
     const explainOne = async function (i) {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
@@ -451,7 +458,9 @@
     };
     const doExplainSel = async function () {
       if (!sel) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       const q = sel.text;
       setSel(null);
@@ -489,17 +498,30 @@
         const rows = await window.Cloud.readInboxFetch();
         const done = []; let added = 0;
         const adds = []; const repliedPids = {};
+        // ⚠️「哪几条算消费掉了」是这个函数最容易写反的一步。
+        //   原来第一行就无条件 done.push(row.id)，紧接着那句
+        //   `if (!pend) return;   // 不是本书的，跳过（下次别的书消费）`
+        //   ——**注释说的和代码做的正好相反**：它已经被塞进 done、马上要被 consume 掉了。
+        //   于是在 A 书里点一次「取批注」，言秋给 B 书写的那几条【当场消失，再也取不回来】。
+        //   现在按【谁认领】来判：本书认领 → 收下并消费；别的书认领 → 一个字都不动，
+        //   留给那本书自己去取；谁都不认（书删了 / 空包） → 才当垃圾清掉，否则会永远堆着。
+        const allPend = {};
+        (loadBooks() || []).forEach(function (bk) {
+          (bk.pending || []).forEach(function (pp) { if (pp && pp.id) allPend[pp.id] = 1; });
+        });
         rows.forEach(function (row) {
-          done.push(row.id);
           const pl = row.payload || {};
           const pid = pl.pending_id, anns = Array.isArray(pl.annotations) ? pl.annotations : [];
-          if (!pid || !anns.length) return;
-          // 找这条 pending 属于本书哪一页（只认本书的 pending）
+          if (!pid || !anns.length) { done.push(row.id); return; }      // 空包：清掉，不然永远堆着
           const pend = (book.pending || []).find(function (p) { return p.id === pid; });
-          if (!pend) return;   // 不是本书的，跳过（下次别的书消费）
+          if (!pend) { if (!allPend[pid]) done.push(row.id); return; }  // 别的书认领的，一个字都别动
+          done.push(row.id);
           repliedPids[pid] = 1;
+          // ⚠️段号要钳在【这一页真有多少段】里：超出去的话这条批注存下来了、
+          //   却永远匹配不到任何一段，等于写进去就看不见（「过滤之后什么都不剩」那一种）。
+          const cap = Math.max(1, (pend.paras || []).length);
           anns.forEach(function (a) {
-            const paraN = Math.max(0, (Number(a.para) || 1) - 1);
+            const paraN = Math.min(cap - 1, Math.max(0, (Number(a.para) || 1) - 1));
             adds.push({ id: "an_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: pend.page, para: paraN, note: String(a.note || "").trim(), charId: partner ? partner.id : "", charName: partner ? partner.name : "言秋", channel: "read", ts: Date.now() });
             added++;
           });
@@ -519,7 +541,9 @@
 
     const doAnnotate = async function () {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
