@@ -1685,7 +1685,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const cols = cellCols || (rows && rows.cols) || 4;
   // 碟的宽度上限同理：量得到就用量的，量不到按【占几格】推一个（一格约 (屏宽-40-缝)/4）
   const room = boxW ? Math.max(0, boxW - pad * 2)
-    : Math.max(120, Math.round(((typeof window !== "undefined" ? window.innerWidth : 390) - 40 - 8 * 3) / 4 * cols + 8 * (cols - 1)) - pad * 2);
+    : Math.max(120, Math.round(((typeof window !== "undefined" ? window.innerWidth : 390) - HOME_PAD_X * 2 - 8 * 3) / 4 * cols + 8 * (cols - 1)) - pad * 2);
   // 竖排（2×2）那一档碟在字的【上面】，不存在「比旁边那列高」的问题，不加这道盖。
   const discCap = (!square && colH) ? Math.max(64, colH) : Infinity;
   const discSize = (avail && room)
@@ -2493,8 +2493,18 @@ const HOME_PHOTO_FRAMES = [
   // 报纸是【版面】，斑马是【横着裁的一张】，票据是【一串小票夹着一条图】。
   { id: "news4", name: "报纸剪贴", note: "三张剪成不规则块，压着几行铅字", need: 3 },
   { id: "zebra1", name: "斑马切片", note: "一张照片横着裁成六条、左右错开", need: 1 },
-  { id: "receipt2", name: "票据长卷", note: "两条图夹在一串小票中间", need: 2 }
+  { id: "receipt2", name: "票据长卷", note: "两条图夹在一串小票中间", need: 2 },
+  // 竖着的那三款（她 2026-09-05：「做几个竖着的照片样式吧」）。
+  // ⚠️上面二十来款【没有一款是竖的】——不是没画竖的，是这三种骨架现实里本来就竖：
+  //   胶卷是竖着从相机里抽出来的、照片是夹在一根垂下来的绳上的、一摞照片是往下叠的。
+  //   新建时自动挑「竖块」那一档，摆进横格子里就又不成立了。
+  { id: "filmV4", name: "竖胶卷", note: "四格胶卷竖着抽出来，两边是齿孔", need: 4 },
+  { id: "clipline3", name: "垂绳夹照", note: "三张照片用夹子挂在一根垂下来的绳上", need: 3 },
+  { id: "tower4", name: "叠下来的一摞", note: "四张照片一张压一张往下叠", need: 4 }
 ];
+// 这几款骨架是竖的：摆进横格子里那几条齿孔、那根绳、那一摞就全不成立了。
+// 新建时直接给「竖块 2×3」，别让她建完再自己去改尺寸。
+const HOME_PHOTO_FRAMES_TALL = { filmV4: 1, clipline3: 1, tower4: 1 };
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
   return found ? found.need : 1;
@@ -2621,6 +2631,13 @@ if (typeof window !== "undefined") { window.homeRepackResize = homeRepackResize;
 // 「比起 fixed px，我们不能做 relative px 吗，就固定把剩下的位置去掉 dock 以后除以 5」）。
 // HOME_ROW_UNIT 只是量出来之前的兜底值；真正在用的是量完算出的那个 unit。
 const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN = 76;
+// 主屏左右各留多少（她 2026-09-05：「横着的边框离屏幕还有一段距离，这个能不能缩小」）。
+// 原来是 tailwind 的 px-5＝20，dock 却是 px-4＝16——**两边本来就没对齐**，
+// 组件那一排看着比底下那条 dock 窄一圈。现在收到 12 并且两处共用这一个数。
+// ⚠️这个数【不止一处在用】：一起听那张卡量不到自己宽度时，要靠它反推一格有多宽
+//   （js/components.js 的 room 兜底那一行）。写死在两处的话，改了这边那边就落单——
+//   而且那种落单不会报错，只会让首帧的碟大一圈或小一圈。所以只此一份。
+const HOME_PAD_X = 12;
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
@@ -2865,6 +2882,35 @@ function HomeDecorItem({ item, preset, now }) {
         photo(srcs[1], 1, { flex: 1, minWidth: 0, height: "92%", alignSelf: "center", transform: "rotate(-1.5deg)", boxShadow: "0 3px 9px rgba(35,28,18,.28)" }),
         slip(2, -1),
         h("div", { style: { position: "absolute", left: 9, top: 1, fontFamily: F_BODY, fontSize: 6.5, letterSpacing: ".14em", color: dark ? "rgba(230,216,190,.6)" : "rgba(70,55,36,.6)" } }, dmark(item, "同一卷上撕下来的")));
+    } else if (frame === "filmV4") {
+      // 竖胶卷：一条胶片竖着抽出来，两边各一列齿孔，四格挨着往下走。
+      // 齿孔是【竖着重复】的（repeating-linear-gradient 走 180deg）——横胶卷那款是 90deg，
+      // 照抄过来就会变成一条横纹，胶卷味立刻没了。
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 150, display: "flex", justifyContent: "center", background: dark ? "#0f0f0e" : "#e6e0d6", padding: "6px 0" } },
+        h("div", { style: { width: "74%", maxWidth: 132, height: "100%", position: "relative", padding: "7px 11px", display: "grid", gridTemplateRows: "repeat(4,minmax(0,1fr))", gap: 4,
+            background: "repeating-linear-gradient(180deg,#161513 0 9px,#292724 9px 13px)" } },
+          [0, 1, 2, 3].map(function (i) { return photo(srcs[i], i, { border: "2px solid rgba(255,255,255,.82)", borderRadius: 1 }); }),
+          h("div", { style: { position: "absolute", top: 4, bottom: 4, left: 3, width: 5, background: "repeating-linear-gradient(180deg,rgba(255,255,255,.75) 0 5px,transparent 5px 12px)" } }),
+          h("div", { style: { position: "absolute", top: 4, bottom: 4, right: 3, width: 5, background: "repeating-linear-gradient(180deg,rgba(255,255,255,.75) 0 5px,transparent 5px 12px)" } })));
+    } else if (frame === "clipline3") {
+      // 垂绳夹照：一根绳从顶上垂下来，三张照片用木夹子夹在上面，各歪一点。
+      var clipAt = [{ top: "9%", turn: -3.5, left: "16%" }, { top: "39%", turn: 2.5, left: "22%" }, { top: "69%", turn: -2, left: "14%" }];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 150, position: "relative", overflow: "hidden", background: dark ? "#191715" : "rgba(240,234,223,.6)" } },
+        // 那根绳：从顶上一路垂到底
+        h("div", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1.6, marginLeft: -0.8, background: dark ? "rgba(226,206,170,.5)" : "rgba(120,98,70,.45)" } }),
+        clipAt.map(function (c, i) { return h("div", { key: i, style: { position: "absolute", left: c.left, top: c.top, width: "68%", height: "26%", transform: "rotate(" + c.turn + "deg)", transformOrigin: "50% 0", zIndex: 2 + i } },
+          photo(srcs[i], i, { width: "100%", height: "100%", border: "5px solid #fffdf8", borderBottomWidth: 12, boxShadow: "0 6px 14px rgba(34,28,22,.22)" }),
+          // 木夹子：一小块方的压在照片上沿，中间一道缝
+          h("span", { style: { position: "absolute", left: "50%", top: -7, marginLeft: -5.5, width: 11, height: 15, borderRadius: 2, background: "linear-gradient(180deg,#c9a878,#a8875a)", boxShadow: "0 2px 4px rgba(40,30,18,.35)" } },
+            h("span", { style: { position: "absolute", left: "50%", top: 3, bottom: 3, width: 1, marginLeft: -0.5, background: "rgba(72,54,32,.55)" } })));
+        }));
+    } else if (frame === "tower4") {
+      // 叠下来的一摞：四张一张压一张往下走，越往下越靠前，边角各歪一点。
+      var towerAt = [{ top: "1%", left: "10%", turn: -3 }, { top: "24%", left: "20%", turn: 2.5 }, { top: "48%", left: "8%", turn: -2 }, { top: "71%", left: "17%", turn: 3 }];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 150, position: "relative", overflow: "hidden", background: dark ? "#1b1917" : "rgba(238,231,219,.55)" } },
+        towerAt.map(function (c, i) { return h("div", { key: i, style: { position: "absolute", top: c.top, left: c.left, width: "72%", height: "27%", transform: "rotate(" + c.turn + "deg)", zIndex: 2 + i,
+            background: "#fffdf8", padding: 4, paddingBottom: 10, boxShadow: "0 6px 15px rgba(34,28,22,.24)" } },
+          photo(srcs[i], i, { width: "100%", height: "100%" })); }));
     } else if (frame === "timeline5") {
       var timelinePos = [
         { left: "5%", top: "8%", width: "34%", height: "34%", transform: "rotate(-5deg)" },
@@ -3574,7 +3620,7 @@ function Home({
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
-    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
+    if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
     if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
@@ -4099,7 +4145,7 @@ function Home({
     // 每一页自己能上下滑（她 2026-09-05：「跟查手机那样又可以下滑又可以翻页」）。
     // 横滑翻页照旧：onTM 里方向锁死了——判成 "h" 才 preventDefault，判成 "v" 直接交给浏览器滚。
     // ⚠️overscrollBehavior: contain：滑到底不许把整页（body）带着一起弹。
-    return h("div", { key: pi, className: "px-5", style: { width: "100%", flexShrink: 0, height: "100%",
+    return h("div", { key: pi, style: { width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X,
       overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1" },
@@ -4125,8 +4171,8 @@ function Home({
           ks.map(function (key, i) { return renderItem(key, pp.pos[i]); }));
       })());
   })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
-    className: "relative shrink-0 px-4 pt-1",
-    style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }
+    className: "relative shrink-0 pt-1",
+    style: { paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X, paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-around px-3 py-3",
     style: {

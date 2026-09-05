@@ -47,7 +47,9 @@ test("只留一把尺子 safeTop，别一处一处手写 calc", () => {
 const INNER = {
   "components.js|shrink-0 flex items-center justify-between px-2 pt-1 pb-1": "日历月视图里的月份切换行，上面还有日历自己的顶栏",
   "components.js|flex justify-center gap-1.5 pt-2 shrink-0": "主屏页码点——主屏不许动",
-  "components.js|relative shrink-0 px-4 pt-1": "主屏 dock 区——主屏不许动",
+  // v63.69：左右留白从 tailwind 的 px-4 挪进 style（跟组件那一排共用 HOME_PAD_X），
+  // 所以 className 少了 px-4。它还是主屏 dock 区，还是不该动。
+  "components.js|relative shrink-0 pt-1": "主屏 dock 区——主屏不许动",
   "components.js|shrink-0 pt-10 pb-3 flex flex-col items-center": "通话浮层内部；外壳自己已经让开了刘海",
   "components.js|shrink-0 px-5 pt-5 pb-3 flex items-center gap-3": "通话记录浮层内部；外壳自己已经让开了刘海",
   "components.js|active:opacity-50 shrink-0 pt-0.5": "记录行里的删除按钮，不是顶栏",

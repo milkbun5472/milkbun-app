@@ -108,7 +108,13 @@ test("地方改叫去处", () => {
 // 她 2026-09-03：「有时候明明肉眼看还有位置但是要么不给放，要么放了就把其他的位置弄坏」
 test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸各管各的", () => {
   assert.match(comp, /className: "grid grid-cols-4 gap-y-2 gap-x-2"/, "缝又放回去了");
-  assert.match(comp, /h\("div", \{ key: pi, className: "px-5"/, "页面两侧留白又放回去了");
+  // ⚠️口径改了（v63.69，她：「横着的边框离屏幕还有一段距离，这个能不能缩小」）：
+  //   留白从 tailwind 的 px-5＝20 收到 12，而且**不再写在 className 上**——
+  //   页壳写 px-5、dock 写 px-4，两边本来就没对齐，组件那一排看着比 dock 窄一圈。
+  //   现在两处共用 HOME_PAD_X 这一个数，所以这里改成钉那个数。
+  assert.match(comp, /const HOME_PAD_X = 12;/, "两侧留白又放回去了");
+  assert.match(comp, /h\("div", \{ key: pi, style: \{ width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X/,
+    "页壳没在用那个共用的留白");
   // ⚠️容量闸还在，只是从写死的 6 行改成【量出来的】那几行（v61.93）：
   // 行高钉死成 82 之后这个数才算得准，写死 6 在高屏上会白空一大截
   assert.match(comp, /var rowCapAt = function \(pi\) \{ return capRows; \};/, "容量闸没了——一页会无限长下去");
