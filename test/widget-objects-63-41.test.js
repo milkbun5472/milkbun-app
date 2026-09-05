@@ -43,7 +43,7 @@ test("转盘是一个圆，不是一张饼图——而且大小跟着格子走",
   assert.doesNotMatch(comp, /const WHEEL_COLORS = \["#f2cfd2"/, "又退回那八个糖果色了");
   // 盘不许写死像素：写死的话格子调大它还是那么小
   const wid = cut("function WheelWidget(", "// 电子木鱼小组件");
-  // v63.32 她澄清「不要框」指的是外面那张方卡：GlassCard 整个撤掉，只剩一个圆
+  // v63.41 她澄清「不要框」指的是外面那张方卡：GlassCard 整个撤掉，只剩一个圆
   assert.doesNotMatch(wid, /h\(GlassCard/, "那张方卡又回来了");
   // ⚠️撤了卡字就直接落在壁纸上，必须走 glassLabelInk，不然亮壁纸上墨字会糊掉
   assert.match(wid, /glassLabelInk\(onWall, t\)/, "字没做壁纸适配，亮壁纸上会看不清");
@@ -71,14 +71,17 @@ test("一起听是一张压在唱机上的黑胶，碟心贴着照片、唱臂�
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   assert.doesNotMatch(mw, /inset -6px 0 10px -6px/, "纸套还留在原地");
   assert.match(mw, /const tall = !!\(rows && rows\.rows >= 2\)/, "盘的大小没跟着格子走");
-  assert.match(mw, /tall \? 104 : 62/, "两行高的大卡该给大盘");
+  assert.match(mw, /tall \? 126 : 62/, "两行高的大卡该给大盘");
   assert.match(mw, /mmss\(cur\)/, "走了多久那一行没了");
 });
 
 test("4×2 那一档：唱片旁边一摞拍立得，中间是进度，底下三颗真能按的键", () => {
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   // 拍立得只在两行高那一档出现——一行高的条子里它会被压扁
-  assert.match(mw, /tall \? h\(PolaroidStack, \{ w: 72/, "拍立得没挂上去");
+  assert.match(mw, /h\(PolaroidStack, \{ w: 94, photo: card\.photo, note: card\.note, lean: 9/, "拍立得没挂上去，或者没放大 / 没往右歪");
+  // 「大到有点超出边界的迹象」＝被卡边切掉一条，不是真画到卡外面（那会盖住旁边的格子）
+  assert.match(mw, /marginRight: -22/, "它不再探出卡外了");
+  assert.match(mw, /alignItems: "center", gap: compact \? 9 : square \? 9 : tall \? 9 : 14, overflow: "hidden"/, "卡不再切它，或者缝又变大了");
   const ps = cut("function PolaroidStack(", "function MusicWidget(");
   // 「一摞」＝后面真的压着两张，不是一张方图加个影子
   assert.equal((ps.match(/"aria-hidden": true, style: sheet\(/g) || []).length, 2, "后面那两张没了，就不是一摞了");
@@ -100,7 +103,11 @@ test("4×2 那一档：唱片旁边一摞拍立得，中间是进度，底下三
 test("卡片的底能换，换深底之后字跟着换——不然直接看不见", () => {
   const mw = cut("function MusicWidget(", "// 一起听那张卡的【背面】");
   assert.match(comp, /const MUSIC_GROUNDS = \[/);
-  assert.match(mw, /const gr = musicGround\(card\.bg\);/);
+  assert.match(mw, /const gr = musicPhotoGround\(card\) \|\| musicGround\(card\.bg\);/, "自定义底图没接上");
+  // 自己的图：明暗不知道，所以盖一层反方向的薄纱 + 字色由她选，不猜
+  const pg = cut("function musicPhotoGround(card)", "function PolaroidStack(");
+  assert.match(pg, /const darkText = card\.bgInk === "dark";/);
+  assert.match(pg, /veil = darkText \? "rgba\(250,246,238,\.55\)" : "rgba\(26,22,18,\.46\)"/, "薄纱没跟着字色反过来，字会糊在图上");
   // ⚠️每一档深底都必须自带 ink/sub：只换 background 的话夜色和木桌上是墨字压深底
   const gs = cut("const MUSIC_GROUNDS = [", "const musicGround =");
   ["night", "wood", "moss", "kraft", "paper"].forEach(id => {

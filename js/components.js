@@ -1506,13 +1506,29 @@ const MUSIC_GROUNDS = [
   { id: "moss", zh: "苔绿", bg: "linear-gradient(160deg,#9aa98c,#77866b)", ink: "#fbf7ee", sub: "rgba(251,247,238,.74)" }
 ];
 const musicGround = id => MUSIC_GROUNDS.find(x => x.id === id) || MUSIC_GROUNDS[0];
+// 卡片的底也可以是她自己的一张图（她 2026-09-05：「封面底也加可以自定义图片吧」）。
+// ⚠️照片的明暗事先不知道，直接把主题墨色压上去有一半概率看不见——所以：
+//   ① 图上盖一层同向的薄纱（浅字配深纱、深字配浅纱），字才有对比；
+//   ② 字色深浅由她自己选（bgInk），不猜。
+function musicPhotoGround(card) {
+  if (!card || !card.bgPhoto) return null;
+  const darkText = card.bgInk === "dark";
+  const veil = darkText ? "rgba(250,246,238,.55)" : "rgba(26,22,18,.46)";
+  return {
+    bg: "linear-gradient(" + veil + "," + veil + "), center/cover no-repeat url(" + card.bgPhoto + ")",
+    ink: darkText ? "#2c261e" : "#fbf7f0",
+    sub: darkText ? "rgba(44,38,30,.66)" : "rgba(251,247,240,.72)"
+  };
+}
 // 一摞拍立得：后面压着两张，前面那张放照片、底下那条白边写字。
 // 参考图里就是这个形状——不是一张方图，是【叠起来的几张】。
-function PolaroidStack({ w, photo, note, onTap, ink }) {
+function PolaroidStack({ w, photo, note, onTap, lean }) {
   const hh = Math.round(w * 1.22);
+  // lean＝整摞往右倒多少度（她 2026-09-05：「角度再往右侧一点」）。0 就是原来那个几乎正的样子。
+  const tilt = typeof lean === "number" ? lean : 0;
   const sheet = (deg, dx, dy, z, dim) => ({
     position: "absolute", left: dx, top: dy, width: w, height: hh, zIndex: z,
-    transform: "rotate(" + deg + "deg)", background: dim ? "#efe7d8" : "#fffdf7",
+    transform: "rotate(" + (deg + tilt) + "deg)", background: dim ? "#efe7d8" : "#fffdf7",
     borderRadius: 2, boxShadow: "0 3px 9px rgba(40,30,20,.26)"
   });
   return h("div", { onClick: onTap ? function (e) { e.stopPropagation(); e.preventDefault(); onTap(); } : undefined,
@@ -1533,7 +1549,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const data = listen || {};
   const songs = data.songs || [];
   const card = loadJSON("x_musicCard", {});
-  const gr = musicGround(card.bg);
+  const gr = musicPhotoGround(card) || musicGround(card.bg);
   const ink = gr.bg ? (gr.ink || t.ink) : t.ink;
   const sub = gr.bg ? (gr.sub || t.fog) : t.fog;
   // 实时反映全局播放器正在放的歌（可能在库/歌单/临时搜索结果里，都要找得到）
@@ -1559,7 +1575,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   // 盘的直径跟着格子走：一行高的条子给小盘，两行的大卡给大盘（她：「大小也可以调节」）
   const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const tall = !!(rows && rows.rows >= 2);
-  const discSize = compact ? 44 : square ? 62 : tall ? 104 : 62;
+  const discSize = compact ? 44 : square ? 62 : tall ? 126 : 62;
   const stop = fn => function (e) { e.stopPropagation(); e.preventDefault(); if (fn) fn(); };
   const ctlBtn = (label, node, fn, big) => h("button", {
     onClick: stop(fn), "aria-label": label, className: "active:opacity-60 flex items-center justify-center",
@@ -1572,10 +1588,10 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
     style: Object.assign({ marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
       border: gr.bg ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
-      padding: compact ? "8px 10px" : square ? "10px 9px" : tall ? "11px 13px" : "10px 14px",
+      padding: compact ? "8px 10px" : square ? "10px 9px" : tall ? "8px 10px" : "10px 14px",
       boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.72)",
       display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start",
-      alignItems: "center", gap: compact ? 9 : square ? 9 : tall ? 12 : 14, overflow: "hidden" },
+      alignItems: "center", gap: compact ? 9 : square ? 9 : tall ? 9 : 14, overflow: "hidden" },
       gr.bg ? { background: gr.bg }
             : { background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
                 backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR }) },
@@ -1612,7 +1628,11 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
           : h("svg", { width: 12, height: 12, viewBox: "0 0 12 12" }, h("path", { d: "M3 1.5 10 6 3 10.5Z", fill: gr.bg || t.bg2 })), onToggle, true),
         ctlBtn("下一首", tri(1, ink), onNext)) : null),
     // 旁边那一摞拍立得：放照片、白边上写一句花体（她 2026-09-05 指着参考图要的）
-    tall ? h(PolaroidStack, { w: 72, photo: card.photo, note: card.note, ink: ink, onTap: editMode ? null : onEditCard }) : null);
+    // 她 2026-09-05：「拍立得也放大点然后角度再往右侧一点，大到有点超出边界的迹象」。
+    // 右边负 marginRight 把它推出卡外，卡自己的 overflow:hidden 会切掉一条——
+    // 那一条切口就是「超出边界的迹象」，不是真的画到卡外面去（画出去会盖住旁边的格子）。
+    tall ? h("div", { style: { marginRight: -22, flexShrink: 0 } },
+      h(PolaroidStack, { w: 94, photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
 }
 // 一起听那张卡的【背面】：换拍立得上的照片、写那句花体、挑卡片的底。
 // ⚠️整页，不是半窗（no-half-sheet.md）：三样东西各占一块，半窗先扣掉半屏就摆不下。
@@ -1620,6 +1640,7 @@ function MusicCardEdit({ onClose }) {
   const t = useTheme();
   const [card, setCard] = useState(function () { return loadJSON("x_musicCard", {}); });
   const fileRef = useRef(null);
+  const bgRef = useRef(null);
   const put = function (n) { const m = Object.assign({}, card, n); setCard(m); saveJSON("x_musicCard", m); };
   const pick = async function (e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
@@ -1627,7 +1648,8 @@ function MusicCardEdit({ onClose }) {
     try { put({ photo: await resizeImageFile(f, 700, 0.84) }); }
     catch (x) { if (typeof toast === "function") toast("图片处理失败"); }
   };
-  const gr = musicGround(card.bg);
+  const gr = musicPhotoGround(card) || musicGround(card.bg);
+  const onPhoto = !!card.bgPhoto;
   // 底纹铺在【外壳】上、顶栏透上来（mobile-ui-layout 3.5）；不铺的话顶上会横一道平色带，
   // 而且会踩到「全库不许再有拿 t.bg 当页面外壳的」那条。
   return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
@@ -1650,13 +1672,37 @@ function MusicCardEdit({ onClose }) {
         "这一行走的是花体（Dancing Script），只有拉丁字母有——写中文会落回衬线体，想要那个手写味就写英文。至多 40 字。"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "22px 0 8px" } }, "卡片的底"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 } },
+        // 她自己的一张图排在最前面（她 2026-09-05：「封面底也加可以自定义图片吧」）
+        h("button", { key: "own", onClick: function () { bgRef.current && bgRef.current.click(); }, className: "active:opacity-80",
+          style: { borderRadius: 12, overflow: "hidden", border: onPhoto ? "2px solid " + t.ink : "1px solid " + t.line, padding: 0, textAlign: "left" } },
+          h("div", { style: { height: 46, background: card.bgPhoto ? "center/cover no-repeat url(" + card.bgPhoto + ")" : "repeating-linear-gradient(45deg," + skinAlpha(t.ink, "12") + " 0 5px,transparent 5px 10px)", backgroundColor: t.bg2 } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: onPhoto ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (onPhoto ? "· " : "") + "我的图")),
+        h("input", { ref: bgRef, type: "file", accept: "image/*", style: { display: "none" },
+          onChange: async function (e) {
+            const f = e.target.files && e.target.files[0]; e.target.value = "";
+            if (!f) return;
+            try { put({ bgPhoto: await resizeImageFile(f, 900, 0.84) }); }
+            catch (x) { if (typeof toast === "function") toast("图片处理失败"); }
+          } }),
         MUSIC_GROUNDS.map(function (g) {
-          const on = gr.id === g.id;
-          return h("button", { key: g.id, onClick: function () { put({ bg: g.id }); }, className: "active:opacity-80",
+          const on = !onPhoto && gr.id === g.id;
+          return h("button", { key: g.id, onClick: function () { put({ bg: g.id, bgPhoto: null }); }, className: "active:opacity-80",
             style: { borderRadius: 12, overflow: "hidden", border: on ? "2px solid " + t.ink : "1px solid " + t.line, padding: 0, textAlign: "left" } },
-            h("div", { style: { height: 46, background: g.bg || "repeating-linear-gradient(135deg," + skinAlpha(t.ink, "0e") + " 0 6px,transparent 6px 12px)", backgroundColor: g.bg ? undefined : t.bg2, boxShadow: g.bg ? "none" : "inset 0 0 0 1px " + t.line } }),
+            h("div", { style: { height: 46, background: g.bg || "linear-gradient(160deg," + skinAlpha(t.ink, "08") + ",transparent 60%)", backgroundColor: g.bg ? undefined : t.bg2, boxShadow: g.bg ? "none" : "inset 0 0 0 1px " + t.line } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (on ? "· " : "") + g.zh));
-        }))));
+        })),
+      onPhoto ? h("div", { style: { marginTop: 14 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 7 } },
+          "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。"),
+        h("div", { className: "flex", style: { gap: 10 } },
+          [["light", "浅字"], ["dark", "深字"]].map(function (o) {
+            const on = (card.bgInk === "dark") === (o[0] === "dark");
+            return h("button", { key: o[0], onClick: function () { put({ bgInk: o[0] }); }, className: "flex-1 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent",
+                border: "1px solid " + (on ? t.ink : t.line), borderRadius: 12, padding: "9px 0" } }, (on ? "· " : "") + o[1]);
+          })),
+        h("button", { onClick: function () { put({ bgPhoto: null }); }, className: "w-full active:opacity-70",
+          style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent", border: "1px solid " + t.line, borderRadius: 12, padding: "8px 0" } }, "拿掉这张底图")) : null));
 }
 // 全局悬浮迷你播放器：所有界面（含主屏）都浮着；可拖动换位置（存 x_miniPos）；点一下跳回播放器
 // ⚠️层级只能是 45：比正文高（浮在所有普通界面上），但【低于半窗(z-50)和全屏 app 壳(z-60)】。
@@ -4680,6 +4726,7 @@ function MomentCompose({
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
   const fileRef = useRef(null);
+  const bgRef = useRef(null);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const pickGroup = g => setSel(s => {
     const all = g.memberIds.length && g.memberIds.every(id => s.includes(id));
