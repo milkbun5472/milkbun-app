@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.78";
+const APP_VERSION = "v63.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11801,11 +11801,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
           schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
         });
+        // ⚠️规矩降概率、代码才保证：撞了名字就当没生成出来，原地再要一次
+        //   （她 2026-09-05 看到三个一模一样的「碳水置换 xx」）。只补这一次，
+        //   还撞就退回她的名字——宁可朴素，也不要一屋子重名。
+        let mask = d;
+        const taken0 = typeof anonMaskNames === "function" ? anonMaskNames(anon, char.id) : [];
+        if (typeof anonNameClash === "function" && anonNameClash(mask.netname, taken0)) {
+          try {
+            const again = await runProbe(apiFor(char.id), { ...ctxFor(char), recentChat: "" }, {
+              instruction: "为「" + char.name + "」重挑一个匿名马甲的网名 netname、第一人称签名 bio（1-2 句），以及主页背景 bgDesc。"
+                + "\n⚠️上一次给的网名「" + mask.netname + "」跟这一屋子里已经有的撞了，这次换一个【完全不同】的说法，别在原来那个词上改。"
+                + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
+              schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
+            });
+            if (again && again.netname && !anonNameClash(again.netname, taken0)) mask = again;
+            else mask = { ...mask, netname: "" };
+          } catch (e2) { mask = { ...mask, netname: "" }; }
+        }
         pAnon(char.id, cur => ({
           ...cur,
-          netname: d.netname || char.name,
-          bio: d.bio || "",
-          bgDesc: d.bgDesc || cur.bgDesc || ""
+          netname: mask.netname || char.name,
+          bio: mask.bio || "",
+          bgDesc: mask.bgDesc || cur.bgDesc || ""
         }));
       } catch (e) {/* silent */} finally {
         setAnonBusy(false);
@@ -11826,8 +11843,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
         schemaHint: "{\"netname\":\"网名\",\"bio\":\"签名\",\"bgDesc\":\"主页背景图描述\"}"
       });
-      pAnon(char.id, cur => ({ ...cur, netname: d.netname || cur.netname || char.name, bio: d.bio || cur.bio || "", bgDesc: d.bgDesc || cur.bgDesc || "" }));
-      toast("马甲已刷新");
+      // 撞名字就不落这个新网名（旧的留着）——「刷新」这一路她随手就能再按一次
+      const taken1 = typeof anonMaskNames === "function" ? anonMaskNames(anon, char.id) : [];
+      const clash1 = typeof anonNameClash === "function" && anonNameClash(d.netname, taken1);
+      pAnon(char.id, cur => ({ ...cur, netname: (clash1 ? "" : d.netname) || cur.netname || char.name, bio: d.bio || cur.bio || "", bgDesc: d.bgDesc || cur.bgDesc || "" }));
+      toast(clash1 ? "签名换了；网名跟别人撞了，先留着原来那个——再按一次试试" : "马甲已刷新");
     } catch (e) {
       toast("刷新失败：" + e.message);
     } finally {

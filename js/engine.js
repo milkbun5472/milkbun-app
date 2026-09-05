@@ -1291,6 +1291,18 @@ const ANON_MASK_RULE = `【马甲是用来不被认出来的】
 //   同一个形状：查手机那边的 phoneSelfAvoidBlock（「别再写一遍」）。
 // ⚠️递的是【别人的签名原文】，只用来躲开，不是给它抄的材料——这一点得说明白，
 //   否则模型会把别人的句子拿来改一改（那比撞形状还糟）。
+// ⚠️v63.76：原来只递了签名，【网名一个字都没递】——于是她的箱子里同时挂着
+//   三个一模一样的网名（她 2026-09-05：「三个碳水置换 xx」）。
+//   同一个坑：说过要躲开的那一层，只递了一半材料。
+function anonMaskNames(anonAll, selfId) {
+  const out = [];
+  Object.keys(anonAll || {}).forEach(function (k) {
+    if (k === selfId) return;
+    const n = String((anonAll[k] && anonAll[k].netname) || "").trim();
+    if (n) out.push(n);
+  });
+  return out;
+}
 function anonMaskAvoid(anonAll, selfId) {
   const rows = [];
   Object.keys(anonAll || {}).forEach(function (k) {
@@ -1299,11 +1311,38 @@ function anonMaskAvoid(anonAll, selfId) {
     const bio = String((a && a.bio) || "").trim();
     if (bio) rows.push("· " + bio.slice(0, 40));
   });
-  if (!rows.length) return "";
-  return "\n\n【这一屋子里已经挂着的签名（别人的）】\n" + rows.slice(-8).join("\n")
-    + "\n⚠️这几句【只是拿来躲开的】，一个字都不许借用、不许改写、不许接着往下写。"
-    + "\n你这一句要跟它们【形状不一样】：它们要都是格言，你就别写格言；"
-    + "都在讲自己，你就别讲自己。摆在一起要像是另一个人写的。";
+  const names = anonMaskNames(anonAll, selfId);
+  if (!rows.length && !names.length) return "";
+  let out = "";
+  if (names.length) {
+    out += "\n\n【这一屋子里已经有人用了的网名】\n" + names.slice(-12).join("、")
+      + "\n⚠️新的网名不许跟上面任何一个【一样，也不许只差一两个字】——"
+      + "连词根都别沾（有人叫了「某某置换」，你就别再是「某某置换」「某某替换」「某某交换」）。"
+      + "换一个完全不同的说法，从别的地方长出来。";
+  }
+  if (rows.length) {
+    out += "\n\n【这一屋子里已经挂着的签名（别人的）】\n" + rows.slice(-8).join("\n")
+      + "\n⚠️这几句【只是拿来躲开的】，一个字都不许借用、不许改写、不许接着往下写。"
+      + "\n你这一句要跟它们【形状不一样】：它们要都是格言，你就别写格言；"
+      + "都在讲自己，你就别讲自己。摆在一起要像是另一个人写的。";
+  }
+  return out;
+}
+// 规矩降概率、代码才保证：撞了就当没生成出来。
+// ⚠️不只挡【一模一样】：她报的那三个是「碳水置换」后面各接一截，字面并不相等。
+//   所以比的是【去掉标点空格之后，谁包含谁】——两个名字只要有一个是另一个的开头，
+//   或者前三个字就一样，就算撞。
+function anonNameClash(name, taken) {
+  const norm = function (x) { return String(x || "").replace(/[\s·・\-—_、，,.。!！?？…]/g, ""); };
+  const a = norm(name);
+  if (!a) return false;
+  return (taken || []).some(function (t) {
+    const b = norm(t);
+    if (!b) return false;
+    if (a === b) return true;
+    if (a.length >= 3 && b.length >= 3 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
+    return a.length >= 3 && b.length >= 3 && a.slice(0, 3) === b.slice(0, 3);
+  });
 }
 
 // 主页背景那句描述同理：它是一张【图】，不是他此刻的定位。

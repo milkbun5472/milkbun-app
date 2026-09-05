@@ -20,10 +20,10 @@ const engineCode = engine.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n"
 const rule = engine.slice(engine.indexOf("const ANON_MASK_RULE = `"), engine.indexOf("`;", engine.indexOf("const ANON_MASK_RULE = `")));
 const bg = engine.slice(engine.indexOf("const ANON_MASK_BG = `"), engine.indexOf("`;", engine.indexOf("const ANON_MASK_BG = `")));
 
-test("三处马甲共用同一条规矩，不许各写各的", () => {
-  // 角色首次生成 / 角色刷新 / 她自己那一个
-  assert.equal((appCode.match(/ANON_MASK_RULE/g) || []).length, 3, "三处得都吃到");
-  assert.equal((appCode.match(/ANON_MASK_BG/g) || []).length, 2, "背景图那条给两处角色马甲用");
+test("四处马甲共用同一条规矩，不许各写各的", () => {
+  // 角色首次生成 / 撞名字那次补发（v63.76）/ 角色刷新 / 她自己那一个
+  assert.equal((appCode.match(/ANON_MASK_RULE/g) || []).length, 4, "四处得都吃到");
+  assert.equal((appCode.match(/ANON_MASK_BG/g) || []).length, 3, "背景图那条给三处角色马甲用（含补发那一枪）");
   assert.match(engine, /const ANON_MASK_RULE = `/);
   assert.match(engine, /const ANON_MASK_BG = `/);
 });
@@ -54,8 +54,9 @@ test("背景图那条挡的是「把定位挂上去」", () => {
 
 test("代码这一道：马甲这一枪不发最近对话", () => {
   // 只靠提示词是降概率——材料还在模型手上，它迟早还会去抄
+  // v63.76 起是三枪：第一次生成 / 撞了名字补发那一次 / 刷新马甲
   const shots = app.match(/runProbe\(apiFor\(char\.id\), \{ \.\.\.ctxFor\(char\), recentChat: "" \}/g) || [];
-  assert.equal(shots.length, 2, "两处角色马甲都得掐掉最近对话，实际 " + shots.length);
+  assert.equal(shots.length, 3, "每一枪角色马甲都得掐掉最近对话，实际 " + shots.length);
   // 人设和心情照给——那是拿来定语气的，掐掉就没语气可跟了
   const seg = app.slice(app.indexOf("const openAnon = async char"), app.indexOf("const anonBans"));
   assert.ok(!/persona: ""/.test(seg), "把人设也掐了，那就没东西定语气了");

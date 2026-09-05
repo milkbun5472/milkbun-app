@@ -7,6 +7,8 @@ const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const RULE = eng.slice(eng.indexOf("const ANON_MASK_RULE"), eng.indexOf("function anonMaskAvoid"));
+// ⚠️anonMaskAvoid 里面会调 anonMaskNames（v63.76 起也递网名），得一起挂上
+global.anonMaskNames = eval("(" + eng.match(/function anonMaskNames\(anonAll, selfId\) \{[\s\S]*?\n\}/)[0].replace("function anonMaskNames", "function") + ")");
 const anonMaskAvoid = eval("(" + eng.match(/function anonMaskAvoid\(anonAll, selfId\) \{[\s\S]*?\n\}/)[0].replace("function anonMaskAvoid", "function") + ")");
 
 test("点名那个默认句式，并给出别的形状可挑", () => {
@@ -29,8 +31,9 @@ test("规矩只降概率，结构才保证：别人的签名要真的递过去",
   assert.match(eng, /function anonMaskAvoid\(anonAll, selfId\)/);
   assert.match(eng, /每个马甲是【单独一枪】生成的，模型压根看不见别人写了什么/);
   // 两处调用点都得接上，否则又是「一层写在两处、第二处没跟上」
-  assert.equal((app.match(/anonMaskAvoid\(anon, char\.id\)/g) || []).length, 2,
-    "第一次生成和「刷新马甲」两处都要递");
+  // v63.76 多了一枪：网名撞了就补发一次，那一枪也得带着这份名单
+  assert.equal((app.match(/anonMaskAvoid\(anon, char\.id\)/g) || []).length, 3,
+    "第一次生成 / 撞名字补发 / 刷新马甲，三处都要递");
 });
 
 test("递过去的是拿来躲开的，不是给它抄的材料", () => {
