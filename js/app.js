@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.08";
+const APP_VERSION = "v64.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -173,11 +173,33 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       [h("button", { key: "offline:follow", onClick: () => onSetOffline(null), className: "active:opacity-60",
         style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12,
           color: !offlineApiId ? t.bg2 : t.ink, background: !offlineApiId ? t.ink : "transparent" } }, "跟随线上主模型")].concat((profiles || []).map(p => choice("offline", p)))) : null,
+    // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
+    // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
+    //「悬浮球」（tabs-not-plain-pills.md 的同一条判据：换个 app 还成立就是没设计）。
+    // 这东西在现实里是什么？——**一个选线路的旋钮**。所以就照旋钮做：
+    // 一圈金属边、面上有细的放射纹、一根指针指着当前这一档、周围三颗刻度点。
+    // 开着的时候指针转过去，中间那点变成 ×，一眼知道再点一下是收起来。
     h("button", { onClick: () => { if (justDragged.current) { justDragged.current = false; return; } setOpen(v => !v); },
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
       "aria-label": "快速切换模型", className: "active:scale-95",
-      style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, background: "rgba(25,24,22,.88)", border: "2px solid rgba(255,255,255,.7)",
-        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 13, lineHeight: 1.05, touchAction: "none" } }, open ? "×" : "⇄"));
+      style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
+        background: "conic-gradient(from 210deg, #efe7d9, #cbbfa9 25%, #f3ecdf 52%, #c6b9a2 78%, #efe7d9)",
+        border: "1px solid rgba(74,62,44,.45)",
+        boxShadow: "0 6px 16px rgba(0,0,0,.24), inset 0 1px 2px rgba(255,255,255,.75), inset 0 -2px 4px rgba(90,74,52,.28)",
+        display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("svg", { width: 46, height: 46, viewBox: "0 0 46 46", "aria-hidden": "true" },
+        // 面上的细放射纹（拉丝），淡到只在光下看得出
+        h("circle", { cx: 23, cy: 23, r: 15.5, fill: "rgba(255,253,246,.5)", stroke: "rgba(74,62,44,.28)", strokeWidth: 1 }),
+        // 三颗刻度：这一档、上一档、下一档
+        [[23, 5.4], [38.6, 27.4], [7.4, 27.4]].map(function (pt, i) {
+          return h("circle", { key: i, cx: pt[0], cy: pt[1], r: 1.5, fill: "rgba(74,62,44,.4)" });
+        }),
+        // 指针：收着的时候指上面那一档；拉开的时候转过去
+        h("g", { style: { transformOrigin: "23px 23px", transform: "rotate(" + (open ? 135 : 0) + "deg)", transition: "transform .28s ease" } },
+          h("path", { d: "M23 12.5 V20", stroke: "#4a3e2c", strokeWidth: 2.4, strokeLinecap: "round" })),
+        open
+          ? h("path", { d: "M20 20l6 6M26 20l-6 6", stroke: "#4a3e2c", strokeWidth: 2.1, strokeLinecap: "round" })
+          : h("circle", { cx: 23, cy: 23, r: 3.4, fill: "#4a3e2c" }))));
 }
 // 一起听·本地音频存 IndexedDB（音频文件大，localStorage 5MB 存不下）。key=歌曲id，value=Blob。
 function idbAudioOpen() {

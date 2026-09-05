@@ -1897,22 +1897,43 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
   const onClick = () => { if (!didDrag.current) onOpen(); };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 };
+  // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
+  // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
+  // ⚠️病不在「有黑」，在【整块都是黑的】：这条子上真正该黑的只有一样东西——唱片本身。
+  //   所以底板换成这个 app 的纸（跟着主题走，深色主题里它自己就深），
+  //   黑只留在那张转着的碟上；字和图标改用 t.ink，不再写死 #fff
+  //  （写死白字在浅色主题上就是白底白字——v59.62 抓到过一次）。
+  // ⚠️位置、拖动、层级一个都没动：那几样是修过很多次的（home-screen-layout.md 的教训）。
+  const ink = t.ink || "#3a3430";
+  const disc = 38, lab = Math.round(disc * 0.44);
   return h("div", { ref: elRef, onClick: onClick, onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
-      background: "rgba(28,26,24,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderRadius: 999, padding: "6px 8px 6px 6px", boxShadow: "0 8px 26px rgba(0,0,0,0.35)" }, place) },
-    h("div", { style: { flexShrink: 0, width: 38, height: 38, borderRadius: 999, background: cover ? "center/cover no-repeat url(" + cover + ")" : "radial-gradient(circle at 50% 50%, #55555c 0 36%, #2b2b30 37%)", animation: playing ? "wk-spin 9s linear infinite" : "none" } }),
+      background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+      border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: "6px 8px 6px 6px",
+      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)" }, place) },
+    // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
+    // 38px 上再画一根臂只会糊成一团）
+    h("div", { style: { position: "relative", flexShrink: 0, width: disc, height: disc, borderRadius: 999,
+      background: "repeating-radial-gradient(circle at 50% 50%, #24242a 0 1.5px, #17171c 1.5px 3px)",
+      boxShadow: "0 2px 7px rgba(0,0,0,.3), inset 0 0 0 1px rgba(255,255,255,.09)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      animation: playing ? "wk-spin 9s linear infinite" : "none" } },
+      h("div", { style: { width: lab, height: lab, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+        background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c9a06a,#8a6a45)",
+        boxShadow: "0 0 0 1px rgba(255,255,255,.22)" } },
+        h("div", { style: { width: 3, height: 3, borderRadius: 999, background: "#f7f1e5", boxShadow: "0 0 0 1px rgba(0,0,0,.35)" } }))),
     h("div", { style: { minWidth: 0, maxWidth: 118 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.artist || "")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog || skinAlpha(ink, "8a"), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.artist || "")),
     h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onToggle), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 30, height: 30 } },
-      loading ? h("span", { style: { color: "#fff", fontSize: 12 } }, "…")
-      : playing ? h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("rect", { x: 6, y: 5, width: 4, height: 14, rx: 1, fill: "#fff" }), h("rect", { x: 14, y: 5, width: 4, height: 14, rx: 1, fill: "#fff" }))
-      : h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("path", { d: "M8 5v14l11-7z", fill: "#fff" }))),
+      loading ? h("span", { style: { color: ink, fontSize: 12 } }, "…")
+      : playing ? h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("rect", { x: 6, y: 5, width: 4, height: 14, rx: 1, fill: ink }), h("rect", { x: 14, y: 5, width: 4, height: 14, rx: 1, fill: ink }))
+      : h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("path", { d: "M8 5v14l11-7z", fill: ink }))),
     h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onNext), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 28, height: 30 } },
-      h("svg", { width: 16, height: 16, viewBox: "0 0 24 24" }, h("path", { d: "M5 5v14l10-7z", fill: "#fff" }), h("rect", { x: 15.6, y: 5, width: 2.4, height: 14, rx: 1, fill: "#fff" }))),
+      h("svg", { width: 16, height: 16, viewBox: "0 0 24 24" }, h("path", { d: "M5 5v14l10-7z", fill: ink }), h("rect", { x: 15.6, y: 5, width: 2.4, height: 14, rx: 1, fill: ink }))),
     // 叉：立刻停播、收起悬浮
     onClose ? h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onClose), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 26, height: 30, marginRight: 2 } },
-      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24" }, h("path", { d: "M6 6l12 12M18 6L6 18", stroke: "rgba(255,255,255,0.75)", strokeWidth: 2.2, strokeLinecap: "round" }))) : null);
+      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24" }, h("path", { d: "M6 6l12 12M18 6L6 18", stroke: skinAlpha(ink, "9c"), strokeWidth: 2.2, strokeLinecap: "round" }))) : null);
 }
 // 全屏月历
 // 经期预测
