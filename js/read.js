@@ -380,6 +380,8 @@
     // 言秋（数字生命）专属通道：不走 API 即时生成——把整页+你的想法送去 CC，他亲读了写回批注（走订阅、不烧钱）。
     const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
     const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
+    const [bookOpen, setBookOpen] = useState(false);  // 批注册
+    const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
     const pendingHere = (book.pending || []).filter(function (p) { return p.page === pageIdx; });
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 讲解/批注朗读（懒合成，重听免费）
@@ -612,6 +614,7 @@
 
     // ---- 顶栏 ----
     const span = book.annSpan || 1;
+    const annoCount = (book.annotations || []).length + Object.keys(book.explains || {}).length;
     const topbar = h("div", { className: "shrink-0", style: { padding: "6px 16px 10px", borderBottom: "1px solid " + t.line } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
         partner
@@ -620,23 +623,46 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "和 " + partner.name + " 一起读"),
               h("button", { onClick: function () { setPickOpen(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "换人"))
           : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "＋ 邀一个角色一起读")),
-      // 批注控制：一次批几条 + 覆盖几页
-      partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 8 } },
+      // 第二行：左边是【这本书读到哪儿】，右边才是那几个钮。
+      // ⚠️原来这一行硬塞了「每次批 N 条」「范围 N 页」「讲解显示中」三组＋批注册，
+      //   窄屏上直接折成两行、每个词都断开（「批注册 7」断成「批注/册 7」）。
+      //   这一版把【设定】收进齿轮里，常驻的只留三样：读到哪儿、讲解开关、批注册。
+      partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+        // 读到哪儿：一条细进度轴，比「3 / 47」看得出这本书有多厚
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
+            h("div", { style: { width: Math.round(((pageIdx + 1) / Math.max(1, totalPages)) * 100) + "%", height: "100%", background: t.tint } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 4, whiteSpace: "nowrap" } },
+            "第 " + (pageIdx + 1) + " 页 / 共 " + totalPages + (annoCount ? " · 写过 " + annoCount + " 条" : ""))),
+        h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); },
+          className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" } }, explainOn ? "讲解 开" : "讲解 关"),
+        h("button", { onClick: function () { setBookOpen(true); }, className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" } }, "批注册"),
+        h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")
+      ) : null,
+      // 「设定」展开才出现：一次批几条、覆盖几页
+      (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "每次批"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")),
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "范围"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, span > 1 ? "页(从当前起)" : "页")),
-        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "本页~第" + Math.min(totalPages, pageIdx + span) + "页") : null,
-        // 逐段讲解卡片显示/隐藏（读累了可收起，只留原文）
-        h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "3px 10px" } }, explainOn ? "讲解 显示中" : "讲解 已隐藏")
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")),
+        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
       ) : null);
 
     // ---- 正文页 ----
-    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "18px 20px 90px" }, onMouseUp: catchSel, onTouchEnd: catchSel },
+    // 正文区就是【一张摊开的书页】：铺纸、留出真的页边距，
+    // 他动过的段落在【页边】立一道细标记——书上做记号本来就是记在页边的，
+    // 不是把整段刷成一块彩色（原来是 t.tint+"12" 整段染底，一页几段就成花的了）。
+    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto",
+      style: Object.assign({ padding: "18px 20px 90px" },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { corner: false, strength: .85 }) : null),
+      onMouseUp: catchSel, onTouchEnd: catchSel },
       loading ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, paddingTop: 40 } }, "翻开中…")
         : curParas.map(function (p, i) {
             const anns = annsForPara(i);
@@ -645,7 +671,12 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink, margin: "0 0 14px", textIndent: "2em", background: hot ? (t.tint + "12") : "transparent", borderRadius: hot ? 6 : 0, padding: hot ? "2px 6px" : 0, WebkitUserSelect: "text", userSelect: "text" } }, p),
+              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+                margin: "0 0 14px", textIndent: "2em", position: "relative",
+                paddingLeft: 11, marginLeft: -11,
+                // 页边那道记号：他批过就实线、只讲解过就虚一点，两种一眼分得开
+                borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
+                WebkitUserSelect: "text", userSelect: "text" } }, p),
               // 中译中·逐段讲解卡片
               ex ? h("div", { key: "ex_" + i, style: { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: t.tint + "16", borderRadius: 10 } },
                 exCh ? h(Avatar, { character: exCh, size: 18, radius: 6 }) : null,
@@ -697,7 +728,7 @@
       pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」") : null,
       pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 } }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
-      h(Head, { zh: book.title, en: "Reading", onBack: props.onBack }),
+      h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
       topbar, yqHead, reader, selBar, actionBar, footer,
       noteSheet ? h(NoteSheet, { anchor: noteSheet.anchor, t: t, onSave: function (v) { saveNoteForYanqiu(noteSheet.anchor, v); }, onClose: function () { setNoteSheet(null); } }) : null,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
@@ -705,8 +736,85 @@
         onClose: function () { setPickOpen(false); } }) : null,
       selResult ? h(SelExplainSheet, { partner: partner, data: selResult, t: t, onClose: function () { setSelResult(null); } }) : null,
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
-        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null
+        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null,
+      bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
+        onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
+        onClose: function () { setBookOpen(false); } }) : null
     );
+  }
+
+  // ---- 批注册 ----------------------------------------------------
+  // 她 2026-09-05：「我觉得有点单调」。单调的另一半不在提示词，在于——
+  // **写完的东西没有去处**。批注和讲解写完就散在几十页里，翻回去只能一页页找，
+  // 于是「一起读过这本书」这件事在界面上不留任何痕迹。
+  // 这一册就是那个痕迹：按页码排成一列，左边页码、右边条目——照书末索引的样子。
+  // ⚠️不是又一个通用列表：左边那一列页码是【可以点的】，点了就翻到那一页；
+  //   而且它把三种来路（他的批注 / 他的讲解 / 你自己记的）摆在同一条时间线上，
+  //   因为你俩本来就是在同一页上一起写的。
+  function AnnoBook(props) {
+    const t = props.t, book = props.book, pages = props.pages || [];
+    const paraOf = function (pg, i) { return ((pages[pg] || [])[i] || "").slice(0, 26); };
+    const rows = [];
+    (book.annotations || []).forEach(function (a) {
+      rows.push({ page: a.page || 0, para: a.para || 0, ts: a.ts || 0, kind: a.who === "user" ? "me" : (a.channel === "read" ? "read" : "ann"),
+        name: a.who === "user" ? "你" : (a.charName || ""), charId: a.charId || "", text: a.note || "", anchor: a.anchor || "" });
+    });
+    Object.keys(book.explains || {}).forEach(function (k) {
+      const m = /^(\d+)_(\d+)$/.exec(k); if (!m) return;
+      const e = book.explains[k];
+      rows.push({ page: Number(m[1]), para: Number(m[2]), ts: e.ts || 0, kind: "ex", name: e.charName || "", charId: e.charId || "", text: e.text || "", anchor: "" });
+    });
+    rows.sort(function (x, y) { return x.page - y.page || x.para - y.para || x.ts - y.ts; });
+    // 收拢成【页 → 段 → 这一段上写过的几条】。
+    // ⚠️不是「一条一行」：同一段上常常有两三条（他批一条、你记一条、他又讲了一遍），
+    //   一条一行的话那句原文要重复印三遍，看着就是一堵重复的墙。
+    //   原文只印一次当小标题，底下挂着那几条——这才是书末索引的样子。
+    const byPage = []; let curP = null, curA = null;
+    rows.forEach(function (r) {
+      if (!curP || curP.page !== r.page) { curP = { page: r.page, paras: [] }; byPage.push(curP); curA = null; }
+      if (!curA || curA.para !== r.para) { curA = { para: r.para, items: [] }; curP.paras.push(curA); }
+      curA.items.push(r);
+    });
+    const TONE = { ann: t.tint, ex: t.tint, read: "#3f6ea8", me: "#c96a94" };
+    const WHAT = { ann: "批注", ex: "讲解", read: "亲读", me: "你记的" };
+    return h("div", { className: "h-full flex flex-col",
+      style: Object.assign({ position: "fixed", inset: 0, zIndex: 60 },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { strength: .9 }) : { background: t.bg }) },
+      h(Head, { zh: "批注册", sub: book.title, bg: "transparent", onBack: props.onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 30px" } },
+        rows.length
+          ? h("div", null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "2px 2px 16px" } },
+                "这本书你俩一共写了 " + rows.length + " 条 · 落在 " + byPage.length + " 页上"),
+              byPage.map(function (g) {
+                return h("div", { key: g.page, style: { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 } },
+                  // 左边那一列页码：照书末索引的样子——数字靠右，底下一条细轴顺着这一页往下走
+                  h("button", { onClick: function () { props.onGoto(g.page); },
+                    className: "shrink-0 active:opacity-60 self-stretch flex flex-col items-end",
+                    style: { width: 34, paddingTop: 1 } },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1 } }, g.page + 1),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 2 } }, "页"),
+                    h("div", { style: { width: 1, flex: 1, minHeight: 12, background: t.line, marginTop: 6, marginRight: 1 } })),
+                  h("div", { style: { flex: 1, minWidth: 0 } },
+                    g.paras.map(function (pa) {
+                      const quote = (pa.items[0] && pa.items[0].anchor) || paraOf(g.page, pa.para);
+                      return h("div", { key: pa.para, style: { marginBottom: 14 } },
+                        // 原文只印这一次
+                        quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginBottom: 6, paddingBottom: 5, borderBottom: "1px dashed " + t.line } },
+                          "「" + quote + "…」") : null,
+                        pa.items.map(function (r, i) {
+                          const ch = r.charId ? props.chOf(r.charId) : null;
+                          const tone = TONE[r.kind] || t.tint;
+                          return h("div", { key: i, style: { marginBottom: 8, paddingLeft: 9, borderLeft: "2px solid " + skinAlpha(tone, "55") } },
+                            h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
+                              ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
+                              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
+                            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.72, color: t.ink } }, r.text));
+                        }));
+                    })));
+              }))
+          : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, paddingTop: 60 } },
+              "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")));
   }
 
   // ---- 划线讲解弹层 ----
