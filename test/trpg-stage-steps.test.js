@@ -101,7 +101,7 @@ test("提示词:当前章亮出坎的进度,输出里有 stepDone,休整和幕�
   assert.match(src, /坎在剧情里【真实过了】才报 stepDone\(写那道坎的原文,一拍最多过一道/);
   assert.match(src, /两道坎都过了、开章后至少四拍、且本章掷过骰,才报 stageDone\(可与最后一道坎同拍\)/);
   assert.match(src, /\\"stepDone\\":null,\\"stageDone\\":false/);
-  assert.equal((src.match(/也不报 stepDone/g) || []).length, 3, "休整拍、幕间、夜谈都不许过坎");
+  assert.equal((src.match(/也不报 stepDone/g) || []).length, 4, "休整拍、幕间、夜谈、换视角都不许过坎");
   assert.doesNotMatch(src, /开章后的前两拍不报 stageDone/, "旧的两拍说法要删干净");
 });
 

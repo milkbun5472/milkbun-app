@@ -203,7 +203,7 @@ test("每一个页面都挂着这一层，不然在那一页点删除就什么�
 });
 
 test("硬闯问过一次就不再问第二遍", () => {
-  const pick = grab("    const pickChoice = async (c, force) => {", "    const send = () =>", 1600);
+  const pick = grab("    const pickChoice = async (c, force) => {", "    const send = () =>", 2400);
   assert.match(pick, /if \(!force && c\.need/, "点了「硬闯」还会再弹一次，永远进不去");
   assert.match(pick, /pickChoice\(c, true\)/);
   assert.match(pick, /if \(c\.need && !hasItem\(camp\.items, c\.need\)\) return turn\(c\.text \+ "\(没有「"/, "硬闯之后没把「硬闯」这件事写进宣言");

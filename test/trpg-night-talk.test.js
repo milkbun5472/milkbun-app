@@ -44,8 +44,8 @@ test("夜谈拍:接了谁的话头就划掉谁的;别的拍一来,这一夜就�
 });
 
 test("turn():夜谈是特殊拍——不开亲笔票、不触发幕间、场景钉 interlude、钟不走", () => {
-  assert.match(src, /const cc = \(mode && \(mode\.talk \|\| mode\.night\)\) \|\| tailHasCC/);
-  assert.match(src, /typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.travel/);
+  assert.match(src, /const cc = \(mode && \(mode\.talk \|\| mode\.night \|\| mode\.pov\)\) \|\| tailHasCC/);
+  assert.match(src, /typeof mode === "string" \|\| mode\.talk \|\| mode\.night \|\| mode\.pov \|\| mode\.travel/);
   assert.match(src, /\(mode === "rest" \|\| mode === "lull" \|\| \(mode && mode\.night\)\) \? "interlude"/);
   assert.match(src, /calm: mode === "rest" \|\| mode === "lull" \|\| !!\(mode && \(mode\.talk \|\| mode\.night\)\)/);
   assert.match(src, /rest: mode === "rest", night: \(mode && mode\.night\) \|\| null/, "opts 里要把休整/夜谈两个口子递进 applyTurnPayload");
@@ -72,6 +72,6 @@ test("界面:话头是几张纸条,点谁接谁;composer 进夜谈模式,「睡�
   assert.match(src, /if \(nightWith\) return turn\(ready, null, \{ night: nightWith \}\)/);
   assert.match(src, /setNightWith\(null\), style: S\.btn\(false\) \}, "睡了"\)/);
   assert.match(src, /if \(nightWith && !\(camp && camp\.night\)\) setNightWith\(null\)/);
-  assert.match(src, /useMode \|\| \(nightWith \? \{ night: nightWith \} : null\)/, "夜里点的轻选项还留在夜谈里");
+  assert.match(src, /mixMode \|\| \(nightWith \? \{ night: nightWith \} : null\)/, "夜里点的轻选项还留在夜谈里");
   assert.match(src, /textDecoration: th\.taken \? "line-through" : "none"/);
 });
