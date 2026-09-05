@@ -263,17 +263,34 @@
 
     // 落地页：每一场是一张【场次单】——左边一条模式色的边条，
     // 判完的那场右上角盖一枚胜者印章（歪着盖的那种，不是又一个圆角徽章）。
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "擂台", en: "Arena", onBack: props.onBack }),
+    // ── 一叠战报（v62.65 重做）───────────────────────────────────────
+    // 审美审计 2026-09-04：这一页是「左 4px 色条卡的通用列表，只有那枚『胜』章不通用」。
+    // 有意思的是：**这个 app 的语言早就有了**——擂台本身（台面线、台裙、挂绳、
+    // 立场牌、吊着的记分牌）是全库为数不多判【合格】的页面之一。
+    // 缺的不是发明一套新的，是让列表跟那座台子长在一起。
+    // 所以一场存档＝**一张贴在台边的战报**：顶上一道台面线（模式色，3px，
+    // 跟台上那条同一个做法），方角、纸色，「胜」章照旧歪着盖上去。
+    const arenaFloor = (typeof pageSkin === "function")
+      ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
+    return h("div", { className: "h-full flex flex-col", style: arenaFloor },
+      h(Head, { zh: "擂台", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
+        // 「摆一场擂台」＝在场地上支起一块空台面：上面那道线是台面，下面是台裙。
+        // 虚线圆角按钮是通用「新建」，跟擂台没有关系。
         h("button", {
           onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
-          className: "w-full py-3 mb-5 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
-        }, "＋ 摆一场擂台"),
+          className: "w-full active:opacity-70",
+          style: {
+            display: "block", padding: "16px 0 20px", margin: "4px 0 20px",
+            // 空台面：线要比有人的那几张淡——满黑的一道 3px 看着是分隔线不是台子
+            borderTop: "3px solid " + t.fog, borderRadius: 0,
+            background: "linear-gradient(180deg,rgba(38,34,28,.05),transparent 78%)",
+            fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".08em", color: t.sub
+          }
+        }, "摆一场擂台"),
         saves.length === 0
-          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "台子还空着。\n出个题、拉一两个人上台，\n讲道理或者随便吵都行。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
+          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "台子还空着。\n挑两三个人，给一句话，看他们怎么吵。")
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
             saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map(s => {
               const names = s.parts.filter(p => p.kind === "char").map(p => p.name).join("  ·  ");
               const ended = s.status === "ended";
@@ -285,7 +302,10 @@
                 onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
                 onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
                 className: "active:opacity-70",
-                style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderLeft: "4px solid " + modeInk, borderRadius: "4px 13px 13px 4px", padding: "13px 15px 14px", cursor: "pointer", overflow: "hidden" }
+                // 台面线在顶上（3px，模式色），线下是台裙那一片渐深——跟台上同一个做法
+                style: { position: "relative", cursor: "pointer", borderRadius: 0,
+                  borderTop: "3px solid " + modeInk, padding: "12px 13px 15px",
+                  background: "linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.20) 62%,transparent)" }
               },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 2, color: modeInk, marginBottom: 5 } }, s.mode === "free" ? "随便吵" : "讲道理"),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.35, color: t.ink, marginBottom: 6, paddingRight: ended ? 74 : 0 } }, s.topic),
@@ -294,8 +314,8 @@
                   h("span", { style: { flex: 1 } }),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } },
                     ended ? "共 " + ((s.rounds || []).length || 1) + " 回合" : "第 " + ((s.rounds || []).length || 1) + " 回合进行中")),
-                // 判完的那一场：歪着盖上去的一枚章
-                (ended && s.verdict) ? h("div", { style: { position: "absolute", right: 8, top: 12, transform: "rotate(-9deg)", border: "1.5px solid " + t.accent, color: t.accent, borderRadius: 5, padding: "3px 7px 4px", textAlign: "center", opacity: .88, maxWidth: 82 } },
+                // 判完的那一场：歪着盖上去的一枚章（这一件本来就是对的，原样留着）
+                (ended && s.verdict) ? h("div", { style: { position: "absolute", right: 8, top: 12, transform: "rotate(-9deg)", border: "1.5px solid " + t.accent, color: t.accent, borderRadius: 4, padding: "3px 7px", textAlign: "center", maxWidth: 78, background: "rgba(255,255,255,.5)" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 2 } }, "胜"),
                   h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.2, marginTop: 1 } }, s.verdict.winner)) : null
               );
@@ -309,6 +329,10 @@
   // ============================================================
   function Setup(props) {
     const t = useTheme();
+    // 报名表也站在同一块场地上（v62.65）：这个 app 的语言早就有了，
+    // 别的页面不该还悬在米白上。
+    const arenaFloor = (typeof pageSkin === "function")
+      ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
     const [topic, setTopic] = useState("");
     const [picked, setPicked] = useState([]); // charId[]
     const [mode, setMode] = useState("serious"); // serious | free
@@ -357,10 +381,13 @@
     };
 
     const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none" };
-    const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
+    // 每一栏的抬头也压一道【台面线】：跟台上那条、跟存档列表上那条同一个做法。
+    // 粗体小灰字是任何表单的 label，那道线才是这个 app 的话。
+    const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3,
+      borderTop: "3px solid " + t.line, paddingTop: 9, marginTop: 4 };
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "摆台子", en: "New", onBack: props.onCancel }),
+    return h("div", { className: "h-full flex flex-col", style: arenaFloor },
+      h(Head, { zh: "摆台子", onBack: props.onCancel, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         // 题目
         h("div", { style: label }, "今天台上吵什么"),
@@ -666,7 +693,10 @@
         (!(props.characters || []).filter(function (c) { return c && !c.npc; }).length && !(props.groups || []).length)
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 5px", textAlign: "center" } }, "还没有可以发过去的人") : null)) : null;
 
-    return h("div", { className: "h-full flex flex-col" },
+    // 台子以外那一片也得是场地（v62.65 审计：「页底仍是米白，台子以外没有场地」）
+    const arenaFloor2 = (typeof pageSkin === "function")
+      ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
+    return h("div", { className: "h-full flex flex-col", style: arenaFloor2 },
       // 头
       h("div", { className: "shrink-0", style: { background: t.bg } },
         // ⚠️顶栏自己吃刘海（mobile-ui-layout.md §1：顶栏自己吃 safe-area-inset-top，用公共 safeTop(px)）。

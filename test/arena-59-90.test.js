@@ -13,7 +13,8 @@ const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 // 「辩论」是个通用类目词（换个 app 照样成立），而且它只说得了一半——
 // 这里另一半的局是【随便吵】：谁先把对方逗笑、谁把话题带跑偏，那压根不是辩论。
 test("改名叫「擂台」，而且五处都跟上了（一层写在五处，别只改一处）", () => {
-  assert.match(dbt, /h\(Head, \{ zh: "擂台", en: "Arena"/, "落地页顶栏没改名");
+  // v62.65 顶栏那个 en:"Arena" 按 no-english-titles 去掉了（Head 里有 zh 时本来就不发它）
+  assert.match(dbt, /h\(Head, \{ zh: "擂台", onBack/, "落地页顶栏没改名");
   assert.match(comp, /debate: \{ kind: "app", zh: "擂台", G: GDebate \}/, "首页那格还叫辩论");
   assert.match(scr, /\["debate", "擂台"\]/, "世界书的适用范围那一栏没跟上");
   assert.match(scr, /\["x_debate_saves", "擂台存档"\]/, "存档清单那一栏没跟上");
@@ -183,7 +184,11 @@ test("判定：吊在台子上方那块记分牌", () => {
 
 test("落地页：一场是一张场次单，判完的盖一枚歪着的章", () => {
   assert.match(dbt, /transform: "rotate\(-9deg\)"[\s\S]{0,260}"胜"/, "判完那场没有印章，只是又一个圆角徽章");
-  assert.match(dbt, /borderLeft: "4px solid " \+ modeInk, borderRadius: "4px 13px 13px 4px"/, "场次单没有那条模式色的边条");
+  // v62.65 审美审计：左 4px 色条 + 圆角 13 是【通用列表项】，只有那枚章不通用。
+  // 这个 app 自己的语言是台面线——所以模式色那一笔从「左边一条」换成
+  // 「顶上一道 3px 的台面线」，线下压一片台裙，跟台上和摆台子那两页同一个做法。
+  // 判的还是同一件事：这一张要带着它的模式色。
+  assert.match(dbt, /borderTop: "3px solid " \+ modeInk, padding: "12px 13px 15px"/, "场次单没有那条模式色的台面线");
   // 两处都要改：场次单上那一行，和擂台顶栏那颗牌
   assert.equal((dbt.match(/s\.mode === "free" \? "随便吵" : "讲道理"/g) || []).length, 2,
     "模式名只改了一处——这里一半的局压根不是辩论");
