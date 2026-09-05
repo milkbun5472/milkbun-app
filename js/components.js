@@ -3227,6 +3227,8 @@ function Home({
   // 底下那排圆点能排到看不清（一页一颗）。12 页 × 24 格＝288 格，够放了。
   // ⚠️定义放在这儿是为了跟 buildLayout 一起被测试抠出去跑（跟 SP_RE 同一段）。
   const HOME_MAX_PAGES = 12;
+  // 一页能上下滑，所以真东西可以比看得见的行数多放这么多行
+  const HOME_SCROLL_EXTRA_ROWS = 2;
   // 每项占几列几行（4 列制）——必须和 renderItem 里写的 gridColumn/gridRow 一模一样
   const spanOf = function (key) {
     if (SP_RE.test(key)) return [1, 1];
@@ -3339,11 +3341,15 @@ function Home({
     // 跟量出来之前的默认值一致。
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按老规矩 6 行算。
     var capRows = Math.max(4, (typeof rowCapRef !== "undefined" && rowCapRef && rowCapRef.current) || 6);
+    // 页面能上下滑之后，一页就不必卡死在【看得见的那几行】：多放两行，滑一下就够着。
+    // ⚠️只放宽【真东西的容量闸】，补位空格照旧按看得见的行数补——
+    //   两个一起放宽的话，空页会凭空长出两排看不见的空格，页面白白变高。
+    var packRows = capRows + HOME_SCROLL_EXTRA_ROWS;
     // 第一页不再少一行：页面能上下滑，硬减一行反而把日历挤走了（v61.97）
     var rowCapAt = function (pi) { return capRows; };
     for (var ci = 0; ci < out.length; ci++) {
       var cw = 0, ckeep = [], cspill = [];
-      var ROWCAP = rowCapAt(ci), CAP = ROWCAP * 4;
+      var ROWCAP = packRows, CAP = ROWCAP * 4;
       (out[ci] || []).forEach(function (k) {
         var wk = wOf(k);
         if (!cspill.length && cw + wk <= CAP && rowsOf(ckeep.concat([k])) <= ROWCAP) { ckeep.push(k); cw += wk; }
@@ -3969,11 +3975,17 @@ function Home({
     ref: gridBoxRef,
     style: {
       display: "flex",
+      height: "100%",       // 轨道撑满，页面才有一个固定高度可以在里头滚
+      alignItems: "stretch",
       transform: "translateX(calc(" + (-page * 100) + "% + " + drag + "px))",
       transition: dragRef.current ? "none" : "transform .34s cubic-bezier(.22,.61,.36,1)"
     }
   }, curLayout.map(function (keys, pi) {
-    return h("div", { key: pi, className: "px-5", style: { width: "100%", flexShrink: 0 } },
+    // 每一页自己能上下滑（她 2026-09-05：「跟查手机那样又可以下滑又可以翻页」）。
+    // 横滑翻页照旧：onTM 里方向锁死了——判成 "h" 才 preventDefault，判成 "v" 直接交给浏览器滚。
+    // ⚠️overscrollBehavior: contain：滑到底不许把整页（body）带着一起弹。
+    return h("div", { key: pi, className: "px-5", style: { width: "100%", flexShrink: 0, height: "100%",
+      overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1" },
         h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },

@@ -106,7 +106,7 @@ test("地方改叫去处", () => {
 // 情侣卡那一条搬去了 dwell-door-58-24：天数已经挪到右上角，不再跟名字挤一行
 
 // 她 2026-09-03：「有时候明明肉眼看还有位置但是要么不给放，要么放了就把其他的位置弄坏」
-test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸不许跟着放宽", () => {
+test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸各管各的", () => {
   assert.match(comp, /className: "grid grid-cols-4 gap-y-2 gap-x-2"/, "缝又放回去了");
   assert.match(comp, /h\("div", \{ key: pi, className: "px-5"/, "页面两侧留白又放回去了");
   // ⚠️容量闸还在，只是从写死的 6 行改成【量出来的】那几行（v61.93）：
@@ -115,5 +115,9 @@ test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸�
   // ⚠️行数只能往上放宽，不许比 6 行少：小屏上往下卡会把日历挤到第二页（v61.97）
   // v61.98 底线从 6 抬到 7（她：「行数是不是要 7 才行，下面的 dock 也算一行」）
   assert.match(comp, /setRowCap\(Math\.max\(7, Math\.min\(9, n\)\)\);/, "行数被往下卡了");
-  assert.match(comp, /var ROWCAP = rowCapAt\(ci\), CAP = ROWCAP \* 4;/, "格子数没跟着行数走");
+  // v63.58：页面能上下滑之后，真东西的容量闸放宽两行（滑一下就够着）；
+  // ⚠️补位空格照旧按【看得见的行数】补——两个一起放宽的话空页会凭空长出两排看不见的空格。
+  assert.match(comp, /var ROWCAP = packRows, CAP = ROWCAP \* 4;/, "格子数没跟着行数走");
+  assert.match(comp, /var packRows = capRows \+ HOME_SCROLL_EXTRA_ROWS;/);
+  assert.match(comp, /var target = rowCapAt\(pi\) \* 4;/, "补位也跟着放宽了");
 });

@@ -224,3 +224,22 @@ test("自己决定高度的组件，换过皮的那层壳也要跟着缩", () =>
   const ps = comp.slice(comp.indexOf("function homeWidgetPresetStyle"), comp.indexOf("// 图上印着的那行小字"));
   assert.match(ps, /var base = \{ width: "100%", height: "100%"/, "壳的默认高度变了，HOME_SHRINK 那一处要跟着重看");
 });
+
+// v63.58（她 2026-09-05：「你觉得要不要开放可以下滑，就跟查手机那样又可以下滑又可以翻页」）
+test("每一页自己能上下滑，横滑翻页照旧", () => {
+  assert.match(comp, /overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch"/,
+    "页面不能上下滑");
+  // 轨道要撑满高度，页面才有一个固定高度可以在里头滚
+  assert.match(comp, /height: "100%",\s*\/\/ 轨道撑满/, "轨道没撑满，页面滚不起来");
+  assert.match(comp, /alignItems: "stretch",/);
+  // 横滑翻页靠的是方向锁：判成 h 才 preventDefault，判成 v 交给浏览器自己滚
+  assert.match(comp, /if \(r\.dir !== "h"\) return;/, "方向锁没了，上下滑会被当成翻页抢走");
+});
+
+test("能滑之后一页可以多放两行，但补位空格照旧按看得见的行数补", () => {
+  assert.match(comp, /const HOME_SCROLL_EXTRA_ROWS = 2;/);
+  assert.match(comp, /var packRows = capRows \+ HOME_SCROLL_EXTRA_ROWS;/);
+  assert.match(comp, /var ROWCAP = packRows, CAP = ROWCAP \* 4;/, "容量闸没放宽，一页照旧卡在看得见的那几行");
+  // ⚠️补位空格必须还按看得见的行数：两个一起放宽的话，空页会凭空长出两排看不见的空格
+  assert.match(comp, /var target = rowCapAt\(pi\) \* 4;/, "补位也跟着放宽了，空页会白白变高");
+});

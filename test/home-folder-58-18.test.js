@@ -39,9 +39,13 @@ function makeHome(layout, folders) {
 }
 // 24 格塞满一页。⚠️里面只许放【当前 REG 里真有】的 key——放了已经退场的（比如 v58.22 撤掉的
 // 日记/备忘录）会被 buildLayout 滤掉，这一页就不满了，「满页」那几条测试会静悄悄地变成空转。
-const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "assistant", "anon", "study",
+// v63.58：页面能上下滑之后，一页的容量闸从 6 行放宽到 8 行（32 格）——
+// 这份「满页」样本要跟着补到 32 格，不然下面几条满页测试会静悄悄变成空转。
+// 1×1 的 app 一共只有 29 个（其中 shop/dwell 在文件夹里），所以补一个 2×2 的组件凑够。
+const FULL = ["f_1", "w_muyu", "cast", "ties", "phone", "cwallet", "lore", "memlib", "assistant", "anon", "study",
   "fanfic", "weekly", "carry", "theater", "impression", "read", "debate", "dream", "tarot",
-  "pomodoro", "games", "trpg", "dreamjournal", "yanqiu"];
+  "pomodoro", "games", "trpg", "dreamjournal", "yanqiu",
+  "rescue", "vpscodex", "loungeapp", "stylelab"];
 // goPage 是放在 setTimeout(…,0) 里的：在别的 setState updater 里同步调 setState
 // 是 React 的忌讳（updater 必须是纯的），所以推到下一拍。测试跟着等一拍。
 const tick = () => new Promise(r => setTimeout(r, 5));

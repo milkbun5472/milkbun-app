@@ -71,7 +71,10 @@ function denseRows(REG, keys) {
 }
 // v61.93 起行数是量出来的（把剩下的地方分给各行），sandbox 里量不到就按兜底的 7 行算。
 // v61.97：第一页不再单独少一行——页面能上下滑，硬减一行会把日历挤到第二页。
-const ROWCAP = 6;
+// v63.58：页面能上下滑了，所以「不许排到看不见的地方」这条判据换了形状——
+// 看得见的还是 capRows(沙盒里 6) 行，但真东西可以多放两行，滑一下就够着。
+// 判的是【那两条闸的关系】，不是「一页只能六行」这个旧长相。
+const ROWCAP = 6, PACKCAP = 8;
 const reach = (L, fr) => {
   const s = new Set();
   L.forEach(a => (a || []).forEach(k => { if (!/^sp_/.test(k)) s.add(k); }));
@@ -91,7 +94,7 @@ test("这组组件确实会排出超过 6 行（不然这条测试是空转的�
   assert.ok(cells <= 24, "样本得是【格数没超但行数超了】才说明只按格数卡不住，现在 " + cells + " 格");
 });
 
-test("买单：任何一页都不许排到 6 行以外", () => {
+test("买单：任何一页都不许排到【滑到底也够不着】的地方", () => {
   const cases = {
     组件挤出第七行: { 0: WIDGETS_7ROWS.slice(), 1: [] },
     满页app: { 0: ["cast", "ties", "phone", "cwallet", "lore", "memlib", "diary", "memo", "study", "fanfic",
@@ -106,7 +109,7 @@ test("买单：任何一页都不许排到 6 行以外", () => {
     const L = api.buildLayout(saved);
     L.forEach((keys, pi) => {
       const r = denseRows(REG, keys);
-      assert.ok(r <= ROWCAP, name + " 的第 " + (pi + 1) + " 页排了 " + r + " 行，超出屏幕看不到了");
+      assert.ok(r <= PACKCAP, name + " 的第 " + (pi + 1) + " 页排了 " + r + " 行，滑到底也够不着了");
     });
   }
 });
@@ -126,5 +129,5 @@ test("从满页文件夹里拿出来的东西，落点也要在看得见的行�
   api.removeFromFolder("f_1", "shop");
   const L = api.buildLayout(st.layout);
   assert.ok(reach(L, foldersRef).has("shop"), "购物又不见了");
-  L.forEach((keys, pi) => assert.ok(denseRows(REG, keys) <= ROWCAP, "第 " + (pi + 1) + " 页排了太多行"));
+  L.forEach((keys, pi) => assert.ok(denseRows(REG, keys) <= PACKCAP, "第 " + (pi + 1) + " 页排了太多行"));
 });
