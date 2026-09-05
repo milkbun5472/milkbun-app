@@ -336,6 +336,22 @@ const GWx = p => {
 //   （她 2026-09-05 早上 9:29 报「昨天就是 63 天了，今天还显示 63」）。
 //   翻页的时刻必须是【午夜】，所以两边都先落到当地的那一天上再相减。
 // ⚠️用 round 不用 floor：夏令时那两天差的是 23 或 25 小时，floor 会少算一天。
+// ── 梦里带出来的东西留不住（她 2026-09-05 同意的那一条）──────────────────
+// 那几件不是买来的，是她从他梦里拿出来的：所以它们该像梦一样，一段时间没人提起就淡掉。
+// 这也顺手治了「只进不出」——名册里唯一自己会走的一类。
+// 「提起过」＝这个名字出现在最近的对话里，那时把 keepTs 续上（见 app.js 那个 effect）。
+// ⚠️只管 source==="dream" 的那些。买的和他送的都是真东西，不许自己消失。
+const DREAM_FADE_DAYS = 14;   // 这么久没被提起：开始变浅
+const DREAM_GONE_DAYS = 30;   // 再没被提起：它自己回梦里去了
+function dreamStage(item, now) {
+  if (!item || item.source !== "dream") return "keep";
+  const base = Number(item.keepTs || item.addedTs || 0);
+  if (!base) return "keep";                       // 认不出日子的不删（照相册回收站那条）
+  const d = ((now || Date.now()) - base) / 86400000;
+  if (d >= DREAM_GONE_DAYS) return "gone";
+  if (d >= DREAM_FADE_DAYS) return "fading";
+  return "keep";
+}
 function homeDayNo(firstTs, now) {
   const f = Number(firstTs) || 0;
   if (!f) return 1;

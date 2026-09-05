@@ -448,6 +448,7 @@ function App() {
   const [favorites, setFavorites] = useState([]);
   const [kinshipCards, setKinshipCards] = useState([]); // 收到的亲属卡 [{charId,cardName,limit,used,ledger:[]}]
   const [inventory, setInventory] = useState([]);
+  const inventoryRef = useRef([]); inventoryRef.current = inventory;
   // 想要清单：看上了但没买的。它的价值不在购物页，在【角色知道你想要什么】——
   // 送礼那个 gift 字段本来就在，缺的只是「他怎么会知道」（她 2026-08-29）。
   const [wish, setWish] = useState([]);
@@ -1015,7 +1016,14 @@ function App() {
     setFavorites(loadJSON("x_favorites", []));
     setKinshipCards(loadJSON("x_kinshipCards", []));
     setTiePos(loadJSON("x_tiesPos", {}));
-    setInventory(loadJSON("x_inventory", []));
+    // 梦里那几件到期就让它回梦里去（她 2026-09-05）：开机时清一遍，
+    // 别等她点进物品页才发现少了东西——那样看着像丢了，不像淡掉了。
+    (() => {
+      const raw = loadJSON("x_inventory", []);
+      const kept = (Array.isArray(raw) ? raw : []).filter(x => dreamStage(x, Date.now()) !== "gone");
+      if (kept.length !== (raw || []).length) saveJSON("x_inventory", kept);
+      setInventory(kept);
+    })();
     setWish(loadJSON("x_shopWish", []));
     setCart(loadJSON("x_shopCart", []));
     setOrders(loadJSON("x_shopOrders", []));
@@ -3765,6 +3773,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     dreamKeep: (() => {
       const mine = (inventory || []).filter(x => x && x.source === "dream" && x.dreamCharId === char.id).slice(-3);
       return mine.map(x => x.name).filter(Boolean).join("、");
+    })(),
+    // 她今天带在身上的（v63.98）：物品那一层的三个动词之一。
+    // 不分谁送的——带着谁的东西出门，这件事本身就是话。
+    onMe: (inventory || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, 2).join("、"),
+    // 他送的东西被用掉了（v63.98）：以前送出去就石沉大海，这是那件事的回响。
+    usedLog: (() => {
+      const log = loadJSON("x_inventoryUsed", []);
+      return (Array.isArray(log) ? log : []).filter(x => x && x.fromCharId === char.id)
+        .slice(0, 4).map(x => x.name).filter(Boolean).join("、");
     })(),
     giftLog: (() => {
       const given = (carryGiftsRef.current[char.id] || []).map(g => g.name).filter(Boolean);
@@ -16244,6 +16261,113 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     });
     toast("已入库「" + o.name + "」");
   };
+  // ============================================================
+  // 物品的三个动词（她 2026-09-05：「送了收到了没用了你想想有啥能联动的」）
+  // ------------------------------------------------------------
+  // 病根不是分类不够，是【没有动词】：入库之后这一栏只进不出，答的是「我有哪些」，
+  // 却没有任何一件事能让它变化——攒着攒着就成了仓库。
+  // 所以给它三个出口：用掉 / 带在身上 / 留在他那儿（外加入库后仍能转赠、衣服收进衣柜）。
+  // ⚠️「用掉」不是删除：删掉是没发生过，用掉是【发生过】。所以它进日志（只进不出是对的，
+  //   phone-data-layers 的第二问），而且要让送东西的那个人知道——他送出去的东西
+  //   第一次有了回响。
+  const K_USED = "x_inventoryUsed";
+  const USED_KEEP = 60;
+  const ON_ME_CAP = 2;           // 身上同时带几件：多了就不叫「今天带着的」了
+  const dropInv = id => setInventory(inv => {
+    const n = (inv || []).filter(x => x.id !== id);
+    saveJSON("x_inventory", n); return n;
+  });
+  const patchInv = (id, patch) => setInventory(inv => {
+    const n = (inv || []).map(x => x.id === id ? { ...x, ...patch } : x);
+    saveJSON("x_inventory", n); return n;
+  });
+  // 用掉：从物品里退出去，进「用过的」这本日志
+  const useUpItem = id => {
+    const it = (inventoryRef.current || []).find(x => x.id === id);
+    if (!it) return;
+    const log = loadJSON(K_USED, []);
+    saveJSON(K_USED, [{ name: it.name, fromCharId: it.fromCharId || null, source: it.source || "", ts: Date.now() }]
+      .concat(Array.isArray(log) ? log : []).slice(0, USED_KEEP));
+    dropInv(id);
+    toast("「" + it.name + "」用掉了");
+  };
+  // 带在身上：他线下见到你会看见（同时最多两件）
+  const toggleOnMe = id => {
+    const cur = (inventoryRef.current || []).filter(x => x.onMe);
+    const it = (inventoryRef.current || []).find(x => x.id === id);
+    if (!it) return;
+    if (!it.onMe && cur.length >= ON_ME_CAP) { toast("身上最多带 " + ON_ME_CAP + " 件，先放下一件"); return; }
+    patchInv(id, { onMe: !it.onMe });
+    toast(it.onMe ? "放下了" : "带上了「" + it.name + "」");
+  };
+  // 入库之后再转赠：走的还是送礼那条路（sendGiftToChar），不另开一条
+  const giftInvItem = (id, charId) => {
+    const it = (inventoryRef.current || []).find(x => x.id === id);
+    if (!it) return;
+    dropInv(id);
+    sendGiftToChar(charId, it.name, it.cat || null, true);
+  };
+  // 收进衣柜：衣柜那一层现成的（myClosetAdd），别在这儿另存一份衣服
+  const closetInvItem = (id, occ) => {
+    const it = (inventoryRef.current || []).find(x => x.id === id);
+    if (!it) return;
+    myClosetAdd(occ || "日常", it.name, "");
+    dropInv(id);
+    toast("收进衣柜了");
+  };
+  // 留在他那儿：进【去处】里他那处地方的某一块区域。
+  // ⚠️那一页的主角是【他自己的想法】，所以放下之后补问他一句（一次调用，失败也照样放下）。
+  const leaveAtHis = async (id, charId, placeId, zoneIdx) => {
+    const it = (inventoryRef.current || []).find(x => x.id === id);
+    const char = characters.find(c => c.id === charId);
+    if (!it || !char || !window.Dwell) return;
+    const places = window.Dwell.placesOf(charId) || [];
+    const place = places.find(p => p.id === placeId) || places[0];
+    if (!place) { toast("他那儿还没有地方，先去【去处】串个门"); return; }
+    const zi = Math.max(0, Math.min((place.zones || []).length - 1, Number(zoneIdx) || 0));
+    let thought = "";
+    try {
+      if (apiFor(charId)) {
+        const d = await runProbe(apiFor(charId), ctxFor(char), {
+          voice: true,
+          instruction: "她把一样东西留在了你这儿——" + (((place.zones || [])[zi] || {}).name || place.name)
+            + "，那件东西是「" + it.name + "」。写一句你看见它时心里的话。\n"
+            + "只写那一句：别复述它是什么、别道谢、别解释为什么它在这儿。",
+          schemaHint: "{\"thought\":\"心里那一句，第一人称\"}",
+          maxTokens: 8000
+        });
+        thought = String((d && d.thought) || "").trim().slice(0, 160);
+      }
+    } catch (e) { thought = ""; }
+    const zones = (place.zones || []).map((z, i) => i !== zi ? z : Object.assign({}, z, {
+      items: [{ name: it.name, note: "她留在这儿的", thought: thought }].concat(z.items || []).slice(0, 6)
+    }));
+    window.Dwell.savePlace(charId, Object.assign({}, place, { zones: zones }));
+    dropInv(id);
+    toast("留在「" + (((place.zones || [])[zi] || {}).name || place.name) + "」了");
+  };
+
+  // 梦里那几件：被提起一次就续一次命（她 2026-09-05）。
+  // 「提起过」＝这个名字出现在最近的对话里——她说的、他说的都算。
+  // ⚠️只写在这一处：各处发消息的地方有十几个，逐个去续必然漏（一层写在 N 处的老病）。
+  //   所以盯的是【聊天记录变了】这件事，不是【谁发了消息】。
+  useEffect(() => {
+    const dreams = (inventoryRef.current || []).filter(x => x && x.source === "dream" && x.name);
+    if (!dreams.length) return;
+    const now = Date.now();
+    const hits = dreams.filter(it => {
+      if (now - Number(it.keepTs || it.addedTs || 0) < 3600000) return false;   // 一小时内刚续过就别再写盘
+      return (chatsRef.current[it.dreamCharId] || []).slice(-12)
+        .some(m => m && m.content && String(m.content).indexOf(it.name) >= 0);
+    });
+    if (!hits.length) return;
+    const ids = new Set(hits.map(x => x.id));
+    setInventory(inv => {
+      const n = (inv || []).map(x => ids.has(x.id) ? { ...x, keepTs: now } : x);
+      saveJSON("x_inventory", n); return n;
+    });
+  }, [chats]);
+
   // 转赠（待收货→送给角色）
   const receiveGift = (orderId, charId) => {
     const o = ordersRef.current.find(x => x.id === orderId);
@@ -17351,6 +17475,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onToggleWish: toggleWish,
     onReceiveUse: receiveUse,
     onReceiveGift: receiveGift,
+    // 物品的几个动词（v63.98）：入库之后它终于能变化了
+    onUseUp: useUpItem,
+    onToggleOnMe: toggleOnMe,
+    onGiftInv: giftInvItem,
+    onClosetInv: closetInvItem,
+    onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     characters: liveChars,
