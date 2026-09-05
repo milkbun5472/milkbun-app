@@ -4424,6 +4424,19 @@
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
       const pendingStacks = state.pendingDraw > 0 ? UnoCore.legalCodes(state) : [];
       if (state.pendingDraw > 0 && !pendingStacks.length) {
+        // 顶上是带记档的 +4 → 这一家可以质疑：接受还是赌一把由本人（模型 / CC）决定
+        if (state.w4 && top && top.value === "W4") {
+          const sysC = "你正在玩 UNO，被上一家的 +4 罚牌。规则：你可以质疑这张 +4——若 TA 出牌时手里其实还有当前颜色的牌（诈打），改由 TA 罚摸 4 张、你不用摸、原地轮你出牌；若 TA 打得合规，你罚摸 6 张。你看不到 TA 的手牌，凭桌面和你的性格赌。" + SKILL_RULE +
+            "\n只输出 JSON：接受 {\"kind\":\"draw\",\"say\":\"可空\"}；质疑 {\"kind\":\"challenge\",\"say\":\"可空\"}。";
+          routeSeatCall(current, api, sysC, [{ role: "user", content: unoPublic(state) + "\n你被 +4 了，接受还是质疑？" }], { turnId: turnId + "#w4", expect: '{"kind":"draw|challenge","say":"..."}', timeout: 150000, ai: { maxTokens: 400 } })
+            .then(function (r) {
+              const a = unoJson(r.value), n = clone();
+              UnoCore.act(n, { kind: a.kind === "challenge" ? "challenge" : "draw", say: a.say, delegated: r.delegated });
+              setState(n);
+            }).catch(function (e) { setError("这手没接稳：" + e.message); })
+            .finally(function () { running.current = ""; setBusy(false); });
+          return;
+        }
         setTimeout(function () { try { const n = clone(); UnoCore.act(n, { kind: "draw" }); setState(n); } catch (e) { setError(e.message); } setBusy(false); }, 450); return;
       }
       const drawn = state.drawnUid;
@@ -4431,7 +4444,7 @@
       const sys = "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" + SKILL_RULE +
         "\n你的私人手牌：" + current.hand.map(function (c) { return c.code + "=" + UnoCore.describe(c); }).join("，") +
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
-        "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
+        "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。W4 官方该在没有当前颜色时才打——你也可以冒险诈打，但被下家质疑抓到要替 TA 罚 4，按你的性格权衡。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
       const msgs = [{ role: "user", content: unoPublic(state) + "\n现在轮到你。" }];
       routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 500 } })
         .then(function (r) {
@@ -4515,6 +4528,7 @@
         h("input", { value: tableTalk, onChange: function (e) { setTableTalk(e.target.value); }, placeholder: "这手牌顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
           h("button", { onClick: function () { userAct({ kind: state.pendingDraw ? "draw" : (state.drawnUid ? "pass" : "draw") }); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", color: t.ink, background: t.bg2 } }, state.pendingDraw ? ("接受 +" + state.pendingDraw) : state.drawnUid ? "不出" : "摸一张"),
+          (state.pendingDraw && state.w4 && top && top.value === "W4") ? h("button", { onClick: function () { userAct({ kind: "challenge" }); }, style: { borderRadius: 999, padding: "9px 16px", color: "#fff", background: "#c0553f", border: "1px solid #c0553f" } }, "质疑这张 +4") : null,
           h("button", { onClick: function () { setSaidUno(!saidUno); }, style: { borderRadius: 999, padding: "9px 16px", color: saidUno ? "white" : t.sub, background: saidUno ? t.tint : t.bg2, border: "1px solid " + (saidUno ? t.tint : t.line) } }, saidUno ? "UNO ✓" : "不喊 UNO"))) : busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人看牌…（票失败只按牌规行动，不代说话）" : "TA 在看牌…") : null,
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }

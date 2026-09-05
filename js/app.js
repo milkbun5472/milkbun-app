@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.31";
+const APP_VERSION = "v63.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16606,6 +16606,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     wallpaper: wallpaper,
     unread: unreadTotal,
     onSetDisc: setListenDisc,   // 主屏那张碟的碟心照片（原来只有播放页能换，还得先有一首歌）
+    // 一起听那张卡上真能按的三颗键 + 拍立得那一摞的编辑页
+    onTogglePlay: togglePlay,
+    onNextSong: () => stepSong(1),
+    onPrevSong: () => stepSong(-1),
+    onEditMusicCard: () => setScreen("musiccard"),
     // 「捎来的字条」组件要的三样：说过什么、有没有没看的、点了往哪儿去
     groups: groups,
     chats: chats,
@@ -17621,7 +17626,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAddMyEntry: addMyDiaryEntry,
     onGenComments: genDiaryCommentsFor,
     toast: toast
-  });else if (screen === "listen") body = h(ListenTogether, {
+  });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
+  else if (screen === "listen") body = h(ListenTogether, {
     listen: listen,
     characters: liveChars,
     onBack: exitListen,
