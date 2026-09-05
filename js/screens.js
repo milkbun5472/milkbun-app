@@ -2397,7 +2397,7 @@ function shopFmtLeft(ms) {
   if (hr > 0) return hr + "小时" + (m % 60) + "分";
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
 }
-function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, toast }) {
+function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState("home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -2407,6 +2407,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
   const [now, setNow] = useState(Date.now());
   const [detail, setDetail] = useState(null);   // 点开的那件商品（以前商品根本点不进去）
   const [askFor, setAskFor] = useState(null);   // 拿给谁看
+  const [invItem, setInvItem] = useState(null); // 点开的那件已入库物品（v63.98：它以前点不动）
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
@@ -2600,12 +2601,20 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.giver ? MSHOP.ink : MSHOP.sub } },
                   g.dreamy ? ((g.giver ? (g.giver.remark || g.giver.name) : "谁") + " 的梦里带出来的") : g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, "· " + g.items.length)),
+              // 这一组一直在起作用，只是她看不见（v63.98）：它每轮都进他的上下文。
+              // ⚠️只说到「眼熟」为止——说破它从哪儿来，这个设定就没了。
+              g.dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim, lineHeight: 1.6, margin: "-2px 0 7px 2px" } },
+                "他见了会眼熟，但说不上在哪见过。放太久没人提起，它自己会淡掉。") : null,
               h("div", { className: "grid grid-cols-3", style: { gap: 8 } }, g.items.map((it, i) => {
                 const c = shopTone(it, i);
-                return h("div", { key: it.id || i, style: { background: MSHOP.card, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+                // 梦里带出来的会淡（v63.98）：淡了的那一档整格压浅，她一眼看得出它快没了
+                const st = typeof dreamStage === "function" ? dreamStage(it, Date.now()) : "keep";
+                return h("button", { key: it.id || i, onClick: () => setInvItem(it), className: "text-left active:opacity-70 block w-full",
+                  style: { background: MSHOP.card, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)", opacity: st === "fading" ? .45 : 1 } },
                   h("div", { style: { position: "relative", height: 56, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } },
                     c.word ? h("span", { style: { position: "absolute", right: 5, bottom: 4, fontFamily: F_BODY, fontSize: 8.5, color: "rgba(255,255,255,.9)" } }, c.word) : null,
-                    it.qty > 1 ? h("span", { style: { position: "absolute", left: 5, top: 5, padding: "0 5px", borderRadius: 999, background: "rgba(0,0,0,.32)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "×" + it.qty) : null),
+                    it.qty > 1 ? h("span", { style: { position: "absolute", left: 5, top: 5, padding: "0 5px", borderRadius: 999, background: "rgba(0,0,0,.32)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "×" + it.qty) : null,
+                    it.onMe ? h("span", { style: { position: "absolute", left: 5, top: 5, padding: "0 6px", borderRadius: 999, background: "rgba(255,80,0,.9)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "带着") : null),
                   h("div", { style: { padding: "6px 7px 8px" } },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.ink, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 30 } }, it.name),
                     it.addedTs ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: MSHOP.dim, marginTop: 3 } },
@@ -2728,6 +2737,53 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name || "亲属卡"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: remaining >= selTotal ? t.fog : t.accent } }, "剩余额度 ¥" + remaining)));
       })));
+  } else if (invItem) {
+    // 已入库那件东西的几个动词（她 2026-09-05：「送了收到了没用了」）。
+    // ⚠️这里配用半窗（no-half-sheet 的第二种）：一格一个动词、选一下就走，
+    //   而且下面那一层【正是它要改的那一格】——她要看得见东西还在原地。
+    //   皮也接父页的：这一页是淘宝那种浅灰货架，别退回米白。
+    const gone = () => setInvItem(null);
+    const dreamy = invItem.source === "dream";
+    // 留在他那儿：同一块面板换一屏，不许再掀一层半窗压上去
+    const spots = invItem._leave && window.Dwell
+      ? (characters || []).filter(c => c && !c.npc).flatMap(c => (window.Dwell.placesOf(c.id) || [])
+          .flatMap(pl => (pl.zones || []).map((z, zi) => ({ c: c, pl: pl, z: z, zi: zi }))))
+      : [];
+    const row = (zh, sub, fn, tone) => h("button", { key: zh, onClick: fn, className: "w-full text-left active:opacity-60", style: { padding: "11px 2px" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: tone || MSHOP.ink } }, zh),
+      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 2, lineHeight: 1.55 } }, sub) : null);
+    sheetEl = h(Sheet, { onClose: gone, skin: { background: MSHOP.card } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: MSHOP.ink } }, invItem.name),
+      dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 3, lineHeight: 1.6 } },
+        "他见了会眼熟，但说不上在哪见过。") : null,
+      h("div", { style: { height: 1, background: MSHOP.line, margin: "12px 0 4px" } }),
+      invItem._leave
+        ? (spots.length
+            ? h("div", { className: "max-h-80 overflow-y-auto" }, spots.map((sp, i) =>
+                h("button", { key: i, onClick: () => { const it = invItem; gone(); onLeaveAtHis && onLeaveAtHis(it.id, sp.c.id, sp.pl.id, sp.zi); },
+                  className: "w-full text-left active:opacity-60 flex items-center gap-3", style: { padding: "9px 2px" } },
+                  h(Avatar, { character: sp.c, size: 30, radius: 999 }),
+                  h("div", { className: "min-w-0" },
+                    h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink } }, sp.z.name),
+                    h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, (sp.c.remark || sp.c.name) + " · " + sp.pl.name)))))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, padding: "10px 2px", lineHeight: 1.7 } },
+                "还没有可以放的地方。先去【去处】串个门，写出他常待的那几块地方，再回来放。"))
+        : invItem._gift
+        ? h("div", { className: "max-h-80 overflow-y-auto" }, (characters || []).map(c =>
+            h("button", { key: c.id, onClick: () => { const it = invItem; gone(); onGiftInv && onGiftInv(it.id, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+              h(Avatar, { character: c, size: 34, radius: 9 }),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: MSHOP.ink } }, c.remark || c.name))))
+        : h("div", null,
+            row("用掉", "吃了、喝了、用完了。它从这儿退出去，但这件事发生过——" + (invItem.fromCharId ? "送你的那个人会知道。" : "记在「用过的」里。"),
+              () => { const it = invItem; gone(); onUseUp && onUseUp(it.id); }),
+            row(invItem.onMe ? "放下" : "带在身上", invItem.onMe ? "他见面就看不见它了。" : "见面的时候他看得见。最多带两件。",
+              () => { const it = invItem; gone(); onToggleOnMe && onToggleOnMe(it.id); }),
+            row("留在他那儿", "放进【去处】里他那处地方的某一块。他下次看见会说一句自己的话。",
+              () => setInvItem(Object.assign({}, invItem, { _leave: true }))),
+            row("送给谁", "入库之后照样能转赠——原来只有还没收下的时候能送。",
+              () => { if (!(characters || []).length) { toast("还没有角色"); return; } setInvItem(Object.assign({}, invItem, { _gift: true })); }),
+            row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
+              () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); })));
   } else if (sheet && sheet.kind === "regift") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "转赠给谁"),
