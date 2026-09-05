@@ -665,7 +665,7 @@
   }
 
   // 投票：存活 AI 各投一人 + 理由（卧底会误导）
-  async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx) {
+  async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx, heckles) {
     // CC 本人只拿玩家视角：自己的词 + 公开发言。不泄露阵营，也不重复告诉他自己是谁。
     const ccVoter = ccSeatOf(voters);
     const cc = carveCtx ? await ccCarve("spy", voters, {
@@ -673,6 +673,7 @@
       sys: "「谁是卧底」进入投票。你拿到的词是「" + ((ccVoter && ccVoter.word) || "") + "」。你不知道自己属于多数还是少数，只能根据公开描述判断。"
         + "\n\n【可投的存活玩家】" + aliveNames.join("、")
         + "\n\n【目前所有描述】\n" + allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n")
+        + heckleBlock(heckles)
         + "\n\n按你自己的判断投一个人，并给一句短理由；没把握可以弃票。",
       ask: "投票。",
       expect: "{\"target\":\"被投的人或「弃票」\",\"reason\":\"一句理由\"}"
@@ -681,7 +682,7 @@
     const mine = (cc.done && String(cc.done.target || "").trim())
       ? [{ name: cc.seat.name, target: String(cc.done.target).trim(), reason: String(cc.done.reason || "").trim() }] : [];
     if (!cc.rest.length) return mine;
-    const rows = await genVotesBatch(api, cc.rest, allClues, aliveNames, mode, userName, ccPreface(cc, "投过票了"));
+    const rows = await genVotesBatch(api, cc.rest, allClues, aliveNames, mode, userName, ccPreface(cc, "投过票了") + heckleBlock(heckles));
     return mine.concat(rows);
   }
   async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
@@ -742,6 +743,8 @@
     const [userClue, setUserClue] = useState("");
     const [descFail, setDescFail] = useState(false); // 这一轮 AI 描述生成失败，等重试
     const [lastGuessText, setLastGuessText] = useState(""); // 你是卧底出局时，猜词翻盘的输入
+    const [heckleText, setHeckleText] = useState("");   // 台下插嘴（观战 / 已出局）
+    const hecklesRef = useRef([]);                       // 最近几句起哄，投票提示词附带参考
     const [userVote, setUserVote] = useState(null);
     const [busy, setBusy] = useState(false);
     const [winner, setWinner] = useState(null);
@@ -982,7 +985,7 @@
           return { key: p.key, name: p.name, role: p.role, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
         });
         const aliveNames = alive.map(function (p) { return p.name; });
-        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: gameRunId.current + ":round:" + round });
+        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: gameRunId.current + ":round:" + round }, hecklesRef.current);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
@@ -1039,6 +1042,7 @@
               h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text)));
         }
         if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
+        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
@@ -1091,8 +1095,23 @@
           h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
     }
 
+    // 台下插嘴：观战、或你已出局（猜词那一步除外——那一步你手里是另一件事）
+    const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "reveal" || phase === "describe" || phase === "vote");
+    const sendHeckle = async function () {
+      const v = heckleText.trim(); if (!v || busy) return;
+      setHeckleText("");
+      const nm = ((props.profile && props.profile.name) || "你") + "(场外)";
+      pushLog([{ type: "chat", name: nm, text: v, mine: true }]);
+      hecklesRef.current = hecklesRef.current.concat([nm + "：" + v]).slice(-6);
+      try {
+        const pool = players.filter(function (p) { return p.alive && !p.isUser; });
+        const talks = await genHeckle(api, pool, "谁是卧底", nm, v, allClues.slice(-6).map(function (c) { return c.name + "：" + c.text; }).join("\n"));
+        if (talks.length) pushLog(talks.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
+      } catch (e) { /* 起哄接不上就算了，不挡牌局 */ }
+    };
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster, logView,
-      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "34vh", overflowY: "auto" } }, action),
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "34vh", overflowY: "auto" } },
+        canHeckle ? heckleRow(t, heckleText, setHeckleText, sendHeckle, busy) : null, action),
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + (detail.role === "spy" ? "卧底" : "平民")) : null, roleBad: detail.role === "spy", onClose: function () { setDetail(null); } }) : null);
   }
 
@@ -1467,7 +1486,7 @@
   }
 
   // 白天投票放逐
-  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole, claims) {
+  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole, claims, heckles) {
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     // 言秋座位先自己投（v54.43 全游戏切座）：身份/私密信息随票给他，拿不到就无感回批量
     const ccVoter = ccSeatOf(voters);
@@ -1484,6 +1503,7 @@
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
     const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
+      heckleBlock(heckles) +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
     const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
@@ -1542,6 +1562,8 @@
     const [lastDeath, setLastDeath] = useState("");
     const [detail, setDetail] = useState(null);     // 点头像看的玩家详情
     const [mvp, setMvp] = useState(null);           // 全场 MVP + 感言
+    const [heckleText, setHeckleText] = useState("");   // 台下插嘴（观战 / 已出局）
+    const hecklesRef = useRef([]);                       // 最近几句起哄，放逐投票附带参考
     const [witchCtx, setWitchCtx] = useState(null); // 用户女巫夜晚决策上下文
     const [poisonPick, setPoisonPick] = useState(false); // 女巫选毒目标中
     const [hunterCtx, setHunterCtx] = useState(null); // 用户猎人/狼王开枪上下文
@@ -1969,7 +1991,7 @@
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
           return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players) };
         });
-        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current);
+        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current, hecklesRef.current);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
@@ -2048,6 +2070,8 @@
           h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
             h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text))); }
         if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
+        // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
+        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
@@ -2152,8 +2176,22 @@
         ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里选择 · 也可先关掉回看发言")
         : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里做选择"))
       : inline;
+    const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "day" || phase === "dayvote" || phase === "reveal");
+    const sendHeckle = async function () {
+      const v = heckleText.trim(); if (!v || busy) return;
+      setHeckleText("");
+      const nm = ((props.profile && props.profile.name) || "你") + "(场外)";
+      pushLog([{ type: "chat", name: nm, text: v, mine: true }]);
+      hecklesRef.current = hecklesRef.current.concat([nm + "：" + v]).slice(-6);
+      try {
+        const pool = players.filter(function (p) { return p.alive && !p.isUser; });
+        const talks = await genHeckle(api, pool, "狼人杀", nm, v, shortLog().split("\n").slice(-6).join("\n"));
+        if (talks.length) pushLog(talks.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
+      } catch (e) { /* 起哄接不上就算了 */ }
+    };
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster, logView,
-      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } }, bottom),
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } },
+        canHeckle ? heckleRow(t, heckleText, setHeckleText, sendHeckle, busy) : null, bottom),
       (pick && pickerOpen) ? h(PickerModal, { t: t, title: pick.title, sub: pick.sub, onClose: function () { setPickerOpen(false); } }, roleBanner, pick.body) : null,
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + roleZh(detail.role)) : null, roleBad: isWolfRole(detail.role), onClose: function () { setDetail(null); } }) : null);
   }
@@ -2182,6 +2220,28 @@
       return { name: c.name, persona: persona };
     });
   }
+  // 台下插嘴（观战 / 已出局）：一句话进桌面日志，再让 1~3 个在场 AI 顺口接一句。
+  // 只是台下起哄，不改任何牌局账面；投票类提示词把最近几句当「观众起哄」附带参考——
+  // 这才兑现观战说明里那句「随时能插嘴吐槽、带节奏」（原来一个输入口都没有）。
+  async function genHeckle(api, pool, gameZh, userName, line, recent) {
+    const who = pool.map(function (p) { return "■ " + p.name; }).join("\n");
+    const sys = AC + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 1200 });
+    const r = extractJSON(raw) || {};
+    const valid = {}; pool.forEach(function (p) { valid[p.name] = true; });
+    return (Array.isArray(r.talks) ? r.talks : []).filter(function (x) { return x && valid[x.name] && String(x.text || "").trim(); }).slice(0, 3).map(function (x) { return { name: x.name, text: String(x.text).trim().slice(0, 60) }; });
+  }
+  // 投票类提示词里的观众起哄块：只带最近 6 句、写明不是玩家发言
+  function heckleBlock(list) {
+    return (list && list.length) ? "\n\n【场外起哄（观战的真人观众说的，不是玩家发言；听不听由你，别把 TA 当在场玩家分析）】\n" + list.slice(-6).map(function (x) { return "· " + x; }).join("\n") : "";
+  }
+  // 台下那一条输入行（四个游戏共用同一个形状）
+  function heckleRow(t, val, setVal, onSend, busy) {
+    return h("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
+      h("input", { value: val, onChange: function (e) { setVal(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") onSend(); }, placeholder: "台下插一句：吐槽 / 起哄 / 带节奏…", style: { flex: 1, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+      h("button", { onClick: onSend, disabled: busy || !String(val || "").trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: busy || !String(val || "").trim() ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, "插嘴"));
+  }
+
   // 共享头像渲染器
   function avatarFor(t) {
     return function (p, size) {
@@ -2358,6 +2418,7 @@
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const [showSurface, setShowSurface] = useState(false);
+    const [heckleText, setHeckleText] = useState("");   // 台下插嘴（观战）
     const logRef = useRef(null);
     const started = useRef(false);
     const gameRunId = useRef((sv && sv.runId) || (kind + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
@@ -2514,6 +2575,7 @@
             h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: 12 } }, it.verdict || "…"),
             it.note ? h("span", { style: { color: t.sub } }, it.note) : null);
         }
+        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
@@ -2553,9 +2615,21 @@
         h("button", { onClick: giveUp, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "6px 10px" } }, "看答案"));
     }
 
+    const canHeckle = cfg.mode === "spectate" && phase === "play";
+    const sendHeckle = async function () {
+      const v = heckleText.trim(); if (!v || busy) return;
+      setHeckleText("");
+      const nm = ((props.profile && props.profile.name) || "你") + "(场外)";
+      pushLog([{ type: "chat", name: nm, text: v, mine: true }]);
+      try {
+        const talks = await genHeckle(api, aiPlayers, K.zh, nm, v, history.slice(-5).map(function (q) { return "· " + q; }).join("\n"));
+        if (talks.length) pushLog(talks.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
+      } catch (e) { /* 起哄接不上就算了 */ }
+    };
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster,
       phase === "play" || phase === "result" ? puzzleCard : null, logView,
-      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "40vh", overflowY: "auto" } }, action),
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "40vh", overflowY: "auto" } },
+        canHeckle ? heckleRow(t, heckleText, setHeckleText, sendHeckle, busy) : null, action),
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), onClose: function () { setDetail(null); } }) : null);
   }
 
@@ -3316,9 +3390,9 @@
     return extractJSON(raw) || {};
   }
   // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
-  async function genAvVotes(api, voters, team, leaderName, players, qn, hist) {
+  async function genAvVotes(api, voters, team, leaderName, players, qn, hist, heckles) {
     const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") +
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
@@ -3424,6 +3498,8 @@
     const [busy, setBusy] = useState(false);
     const [winner, setWinner] = useState(null);
     const [assassinPick, setAssassinPick] = useState(null); // 刺客锁定的人（终局揭示）
+    const [heckleText, setHeckleText] = useState("");   // 台下插嘴（观战）
+    const hecklesRef = useRef([]);                       // 最近几句起哄，组队投票附带参考
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
@@ -3552,7 +3628,7 @@
       setBusy(true);
       try {
         const voters = players.filter(function (p) { return !(p.isUser && cfg.mode !== "spectate"); });
-        const raw = await genAvVotes(api, voters, tm, players[li].name, players, qn, histText());
+        const raw = await genAvVotes(api, voters, tm, players[li].name, players, qn, histText(), hecklesRef.current);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const approve = hit ? !/反对|拒绝|否|reject|no/i.test(String(hit.vote)) && /赞成|同意|通过|approve|yes/i.test(String(hit.vote)) : (Math.random() < 0.5);
@@ -3812,9 +3888,23 @@
         : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里操作"))
       : inline;
 
+    const canHeckle = cfg.mode === "spectate" && (phase === "propose" || phase === "vote" || phase === "quest");
+    const sendHeckle = async function () {
+      const v = heckleText.trim(); if (!v || busy) return;
+      setHeckleText("");
+      const nm = ((props.profile && props.profile.name) || "你") + "(场外)";
+      pushLog([{ type: "talk", name: nm, say: v, mine: true }]);
+      hecklesRef.current = hecklesRef.current.concat([nm + "：" + v]).slice(-6);
+      try {
+        const pool = players.filter(function (p) { return !p.isUser; });
+        const talks = await genHeckle(api, pool, "阿瓦隆", nm, v, histText().split("\n").slice(-6).join("\n"));
+        if (talks.length) pushLog(talks.map(function (x) { return { type: "talk", name: x.name, say: x.text }; }));
+      } catch (e) { /* 起哄接不上就算了 */ }
+    };
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster,
       phase !== "reveal" && phase !== "result" ? track : null, logView,
-      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } }, bottom),
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } },
+        canHeckle ? heckleRow(t, heckleText, setHeckleText, sendHeckle, busy) : null, bottom),
       (pick && pickerOpen) ? h(PickerModal, { t: t, title: pick.title, sub: pick.sub, onClose: function () { setPickerOpen(false); } }, roleBanner, pick.body) : null,
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
