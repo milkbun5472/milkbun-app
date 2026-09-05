@@ -1135,6 +1135,26 @@
       + "并且【停在那个当口】——那一页本身不许在这一拍里写完，它发不发生由玩家定。"
       + "已经作废的那几页，当它们从来没写进这本书。";
   }
+  // 偏离度分档（她 2026-09-05：「后果不能他们弃坑不写，就是看他们批注才有意思」）。
+  // ⚠️所以这四档变的是【她怎么在场】，不是【她还在不在场】——
+  //   四档都照样伸手、照样在页边写。改的是那一手多重、那一句什么口气。
+  //   「作者弃坑，从此没有批注」是把这个玩法最好玩的东西当成惩罚拿走，绝不许做。
+  const RP_DEV_BANDS = [
+    { max: 24, tag: "还看着", line: "现在故事基本还走在她写的那条道上：她这一手很轻，多半只是把某个细节按回原样，或者干脆只是让场面顺着原样往下走；页边那一句偏挑刺、偏自言自语，像在看别人替她写。" },
+    { max: 54, tag: "开始往回拽", line: "故事已经明显不是她写的那个走向了：她这一手要构成【真的阻力】，让玩家刚才那一步不那么容易成；页边那一句比刚才冲，开始直接冲着玩家说话，而不只是自言自语。" },
+    { max: 79, tag: "下场跟你抢笔", line: "她不装了：这一手要【直接动玩家刚写下的那段】——把某个人的反应改掉、把玩家安排好的人挪走、让刚成的事在下一秒翻掉；页边那一句是当面较劲，短、硬，带脾气。" },
+    { max: 100, tag: "跟你一起写", line: "改到这一步她已经认了这不是原来那篇了。她这一手不再往回拽，而是【加码】：把玩家开的头推得比玩家还远一点，甚至替玩家把后路断掉，看他还敢不敢往下走；页边那一句从护稿变成起哄、变成较量，她开始享受这件事。⚠️「认了」不等于放手：她伸手比之前更狠，只是方向反过来了。" }
+  ];
+  function rpDevBand(dev) {
+    const n = Math.max(0, Math.min(100, Math.round(+dev || 0)));
+    return RP_DEV_BANDS.find(function (b) { return n <= b.max; }) || RP_DEV_BANDS[RP_DEV_BANDS.length - 1];
+  }
+  function rpDevBlock(session) {
+    const dev = Number.isFinite(session && session.dev) ? session.dev : 0;
+    const b = rpDevBand(dev);
+    return "【她现在到哪一步了（偏离度 " + dev + "/100 · " + b.tag + "）】" + b.line
+      + "\n⚠️不管到哪一步，她都【不会撒手不管】：这一手照伸，页边那一句照写。变的是轻重和口气，不是在不在。";
+  }
   // 页边批注：写这一栏的时候换一个人格——不是引擎，是这篇文的作者本人
   // ⚠️她 2026-09-03：「生成穿书的时候也给作者一个迷你人设吧用于她吐槽的语气」。
   //   只写「你是作者本人、有脾气」是不够的：那是一个【类型】，不是一个人，
@@ -1151,7 +1171,6 @@
   }
   function rpAuthorBlock(fic, session) {
     const an = rpAuthorName(fic);
-    const dev = Number.isFinite(session && session.dev) ? session.dev : 0;
     const broken = ((session && session.beats) || []).filter(function (b) { return b.state === "broken"; }).length;
     return "【页边批注 · 这一栏换一个人写】\n"
       + "写 note 的时候你不再是引擎。你是「" + an + "」——这篇文的作者本人，趴在自己的稿子边上，"
@@ -1162,7 +1181,8 @@
       + "你的人被写出了你没写过的样子时是另一种，你写的一整页被拦下作废时又是另一种；"
       + "这三种不是同一句话的三个版本，别写成同一个态度。\n"
       + "你对自己的文有脾气：护短、嘴硬、可也真的会被写服。别写成编辑评语，别写成鼓励。\n"
-      + "（目前偏离度 " + dev + "/100，被拦下的页数 " + broken + "。）不超过 30 字，一句，不加引号。";
+      + rpDevBlock(session) + "\n"
+      + "（被拦下的页数 " + broken + "。）不超过 30 字，一句，不加引号。";
   }
   // 作者【伸手】那一段（她 2026-09-04：「我每改一段就会有作者过来试图把剧情接回来然后再批注」）。
   // ⚠️和页边批注是两件事，别合成一件：
@@ -1178,6 +1198,7 @@
       + "于是【在故事里】动了一手——不是评论，是真的发生的事：某个人偏偏这时候出现、某件东西刚好不在原位、"
       + "某句话被谁接了过去、天气变了、某个约定提前到了眼前。\n"
       + (c.temper ? "她是这一路的人：" + c.temper + "。所以她这一手往哪个方向使，照这句来——\n" : "")
+      + rpDevBlock(session) + "\n"
       + "· 想把故事拽回她原来那条道的：这一手要真的构成阻力，让玩家刚才那一步没那么容易成；\n"
       + "· 觉得玩家改得有意思、想跟着玩的：这一手要把故事推得【比玩家还远一点】，给他加码，别只是顺着；\n"
       + "· 先冷着看的：这一手轻，但不许是没有——留一个她在场的痕迹。\n"
@@ -1344,19 +1365,38 @@
       (kept.length ? "照原样发生过的那几页（" + kept.map(function (b) { return "「" + b.label + "」"; }).join("、") + "）也要认。" : "") +
       "三四段，不要抛新的抉择，别问玩家问题。\n\n" +
       "【输出格式】只输出一个合法 JSON 对象：\n" +
-      "{\"scene\":\"收束正文\",\"verdict\":\"作者「" + an + "」看完这一整版之后，写在末页的一句话\"}\n" +
+      "{\"scene\":\"收束正文\",\"verdict\":\"作者「" + an + "」看完这一整版之后，写在末页的一句话\","
+      + "\"reviews\":[{\"author\":\"说这句话的人\",\"isAuthor\":true 或 false,\"content\":\"这条评论\"}]}\n" +
+      // ⚠️圈子的反应【搭这一枪的车】，不另开一次调用（她按次计费）。
+      //   收尾这一次的 system 里本来就压着整篇原著和这一版走过的路，问它「圈子会怎么说」
+      //   是同一份料的另一个问题，再开一枪等于同样的东西付两回钱。
+      "\n【顺带：这一版发回圈子之后，底下会有人说话】给 3-5 条评论，"
+      + "其中【必须有且只有一条】是原作者「" + an + "」自己下场那条（isAuthor 填 true），其余是这个圈子里的读者（各是各的人，不是同一个语气的三份）。\n"
+      + "· 她们说的是【这一版】——被拦下的那几页、被改掉的那几段、玩家把谁写成了什么样，"
+      + "要具体到看得出真读过，不是「好好看」「太好哭了」这种放在哪篇下面都成立的话；\n"
+      + "· 有人喜欢就有人不买账：至少一条是替原著抱不平的、或者跟别人吵起来的；\n"
+      + "· 原作者那条的口气照她此刻的态度来（见上面那一段），别写成客气的场面话。\n" +
       rpAuthorBlock(fic, session) +
       "\nverdict 就按上面这个人格写，只是这一次她看的是【整本】不是一拍：她认不认这一版、认到什么程度。不超过 40 字。";
     const raw = await callAI(active, sys, rpMessages(session, null), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
     const txt = String(raw || "").trim();
     const d = rpJSON(txt);
+    const rvs = (d && Array.isArray(d.reviews)) ? d.reviews : [];
+    let authorSeen = false;
+    const reviews = rvs.filter(function (x) { return x && x.content; }).slice(0, 5).map(function (x) {
+      // 作者那条只许有一条：模型多写几条「作者」的话，后面几条按普通读者收
+      const isAu = (!!x.isAuthor || String(x.author || "").trim() === an) && !authorSeen;
+      if (isAu) authorSeen = true;
+      return { id: uid("rv"), author: isAu ? an : String(x.author || "路人读者").slice(0, 20), isAuthor: isAu, content: String(x.content).trim().slice(0, 300), replies: [] };
+    });
     return {
       text: (d && d.scene) ? String(d.scene).trim() : (rpSalvage(txt) || txt),
-      verdict: (d && d.verdict) ? String(d.verdict).trim().slice(0, 60) : rpGrab(txt, "verdict").slice(0, 60)
+      verdict: (d && d.verdict) ? String(d.verdict).trim().slice(0, 60) : rpGrab(txt, "verdict").slice(0, 60),
+      reviews: reviews
     };
   }
   // 把走完的这一版拧成一篇文放回书架：她走过的那版，跟原篇并排摆着
-  function rpToFic(session, fic, verdict) {
+  function rpToFic(session, fic, verdict, reviews) {
     const now = Date.now();
     const dead = session.voided || [];
     const body = (session.transcript || []).map(function (e) {
@@ -1370,7 +1410,7 @@
     }).filter(Boolean).join("\n\n");
     const bs = session.beats || [];
     const broken = bs.filter(function (b) { return b.state === "broken"; }).length;
-    const tail = "\n\n———\n这一版由「" + (session.playerIdentity && session.playerIdentity.name ? session.playerIdentity.name : "穿进来的那个人") + "」走出来："
+    const tail = "\n\n———\n这一版由" + (session.playerIdentity && session.playerIdentity.name ? "「" + session.playerIdentity.name + "」" : "动笔的那个人") + "走出来："
       + bs.filter(function (b) { return b.state !== "pending"; }).map(function (b) { return "「" + b.label + "」" + (b.state === "broken" ? "被拦下" : "照原样"); }).join("；")
       + (broken ? "。这本书被改了 " + broken + " 处。" : "。一页也没改。")
       + (dead.length ? "\n原稿有 " + dead.length + " 段被改掉了。" : "")
@@ -1381,7 +1421,7 @@
       author: rpAuthorName(fic), tags: ["加笔", broken ? "改写" : "照原样"],
       chapters: [{ content: body + tail, endHook: verdict || "" }],
       source: "rp", fromRP: session.id, onShelf: true, sharedTo: [],
-      stats: ficHeat(session.id), reviews: [], createdAt: now, updatedAt: now
+      stats: ficHeat(session.id), reviews: Array.isArray(reviews) ? reviews : [], createdAt: now, updatedAt: now
     };
   }
 
@@ -1406,7 +1446,7 @@
     allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
-    loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpLeftPct: rpLeftPct, rpAuthorCardOf: rpAuthorCardOf, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel
+    loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpLeftPct: rpLeftPct, rpAuthorCardOf: rpAuthorCardOf, rpDevBand: rpDevBand, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel
   };
 
   // ============================================================
@@ -2536,7 +2576,7 @@
       return h(RPThread, {
         session: sess, fic: (props.fics || []).find(function (f) { return f.id === sess.ficId; }),
         tab: (props.tabs || []).find(function (x) { return x.id === sess.tabId; }) || { name: "", desc: "" },
-        active: props.active, characters: props.characters, profile: props.profile, userName: props.userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onShelveFic: props.onShelveFic,
+        active: props.active, characters: props.characters, profile: props.profile, userName: props.userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onShelveFic: props.onShelveFic, onExtendFic: props.onExtendFic,
         onBack: function () { setSessions(window.Fanfic.loadRP()); setOpenId(null); setView("list"); },
         onUpdate: function (fn) { const list = window.Fanfic.loadRP().map(function (s) { return s.id === sess.id ? fn(Object.assign({}, s)) : s; }); persist(list); }
       });
@@ -2762,6 +2802,30 @@
       setBusy(false);
     }
 
+    // 她写的到头了：让她自己接着写下去（她 2026-09-05：「如果没写完的同人文改到底
+    // 可以让她先继续写下去然后我们再继续改」）。
+    // ⚠️两条线在这儿分岔，界线不许糊：
+    //   · 她续的那一章是【她的字】→ 追加进原篇，谁再开一局都读得到；
+    //   · 你改出来的那些是【你的字】→ 只留在这一版里，绝不回灌原文。
+    //     回灌了的话，下一局你就是在改自己写的东西，「在别人写好的文上动笔」这个前提就没了。
+    // ⚠️续写只吃【原文】，不吃这一局的 transcript：她那本书跟你这一版是平行的。
+    //   把你这局的走向喂进去，别的局打开原文会读到你这儿发生的事——串场。
+    //   genNextChapter 本来就只读 fic，所以直接用它，不另写一份（一层写在两处的老病）。
+    // ⚠️只往【末尾】追加，绝不动前面的段落：voided / paraIdx 存的都是段落下标，
+    //   在中间插一段会把正在玩的每一局都错位。
+    async function writeOn() {
+      if (busy || !props.fic) return;
+      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      if (!props.onExtendFic) { props.toast && props.toast("这一处没接上，先别点"); return; }
+      setBusy(true);
+      try {
+        const ch = await window.Fanfic.genNextChapter(props.active, props.fic, props.tab, cpc, props.userName, storyLore("续章"), { perFic: perFic, style: (props.fic && props.fic.style) || "" });
+        props.onExtendFic(props.fic.id, ch);
+        props.toast && props.toast(authorName + "又写下去了一章，接着读吧");
+      } catch (e) { props.toast && props.toast(String(e.message || e)); }
+      setBusy(false);
+    }
+
     // 收尾：写最后一段 + 作者的判词，然后把这一版当成一篇文放回书架
     async function finish() {
       if (busy) return;
@@ -2775,9 +2839,11 @@
           done = ss; return ss;
         });
         if (props.onShelveFic && done) {
-          const f = window.Fanfic.rpToFic(done, props.fic, r.verdict || "");
+          const f = window.Fanfic.rpToFic(done, props.fic, r.verdict || "", r.reviews);
           props.onShelveFic(f);
-          props.toast && props.toast("这一版放回书架了：" + f.title);
+          props.toast && props.toast((r.reviews || []).length
+            ? "这一版放回书架了，底下已经有 " + r.reviews.length + " 条在说话"
+            : "这一版放回书架了：" + f.title);
         }
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -2843,6 +2909,15 @@
           h("span", { style: { flex: 1, height: 3, background: t.line, position: "relative" } },
             h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: leftPct + "%", background: t.ink, opacity: .7 } })),
           h("span", { style: { fontFamily: "monospace", fontSize: 10, color: t.fog } }, leftPct + "%")) : null,
+        // 她此刻站在哪一步：改得越远她越往前站，但【永远不会走开】
+        // （她 2026-09-05：「后果不能他们弃坑不写，就是看他们批注才有意思」）。
+        // ⚠️不是一颗填色的药丸：它是压在原稿那条线下面的一行落款小字，带一支笔尖。
+        (paras.length && !s.done) ? h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "0 2px 10px" } },
+          h("span", { style: { fontSize: 10, color: t.accent } }, "✍"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, authorName),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "此刻"),
+          h("span", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 11.5, color: t.accent, borderBottom: "1px solid " + hexA(t.accent, .45), paddingBottom: 1 } },
+            window.Fanfic.rpDevBand(s.dev).tag)) : null,
         // 书脊：原著后面本来会发生的那几页，走过一页在脊上就落一个记号
         h(RPSpine, { t: t, beats: beats, spoiler: spoiler, sel: sel, onPick: setSel }),
         selBeat ? h("div", { className: "mb-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px 10px" } },
@@ -2898,7 +2973,12 @@
         (!s.done && !busy && !moreToReveal && moreSrc) ? h("button", { onClick: readOn, className: "w-full active:opacity-60 mt-1 mb-3",
           style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "11px", border: "1px dashed " + t.line, borderRadius: 10, background: "transparent" } },
           "▾ 接着读她写的（还剩 " + (paras.length - s.paraIdx) + " 段）") : null,
-        (!s.done && !moreSrc && paras.length) ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0 12px" } }, "—— 她写的到这儿就没了 ——") : null,
+        (!s.done && !moreSrc && paras.length) ? h("div", { className: "text-center", style: { padding: "6px 0 12px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "—— 她写的到这儿就没了 ——"),
+          // 没写完的文：让她自己往下写一章，写完你接着改
+          (!busy && props.onExtendFic) ? h("button", { onClick: writeOn, className: "active:opacity-60 mt-2",
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "9px 16px", border: "1px solid " + hexA(t.accent, .5), borderRadius: 999, background: "transparent" } },
+            "催她写下去（她再写一章，你接着改）") : null) : null,
         s.done ? h("div", { className: "text-center py-6", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8 } },
           "—— 这一版到此为止 ——", h("br"), brokenN ? "这本书被你改了 " + brokenN + " 处，已经放回书架" : "你一页也没改，这一版已经放回书架") : null),
       // 底部：走到原著某一页的当口 → 先决定它发不发生；否则读完了才出现"写下你的行动"
@@ -3385,7 +3465,14 @@
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onWrite: function () { setView("publish"); },
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
-      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); } });
+      inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); },
+        // ⚠️这两条原来【一条都没传】：收尾那段代码写着 if (props.onShelveFic)，
+        //   一路声明、一路转发、最后没人给——于是「这一版放回书架」从上线起一次都没发生过，
+        //   而且不报任何错（.claude/rules/four-surfaces-same-context.md v55.95 那个形状：
+        //   声明了但没人引用，比压根没写更坏，看代码以为已经在发了）。
+        onShelveFic: function (f) { persistFics([f].concat(loadFics())); },
+        // 她续的那一章追加进【原篇】：只往末尾加，前面的段落一个下标都不许动
+        onExtendFic: function (id, ch) { updateFic(id, function (f) { f.chapters = (f.chapters || []).concat([ch]); f.updatedAt = Date.now(); return f; }); } });
     } else if (view === "authors") {
       inner = h(AuthorsPage, { fics: fics, tabs: tabs, characters: cast, userName: userName, active: props.active, toast: props.toast,
         onBack: function () { setView("feed"); },
