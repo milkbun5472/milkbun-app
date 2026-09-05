@@ -182,8 +182,10 @@ test("组件比格子矮时不再被拉满，多出来的空白靠哪儿由她�
   assert.match(comp, /height: fixedH \|\| undefined, overflow: fixedH \? "hidden" : undefined/, "格子的高度被动过了");
   assert.match(comp, /const HOME_ALIGN_CSS = \{ top: "flex-start", center: "center", bottom: "flex-end" \};/);
   assert.match(comp, /justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\]/, "格子里没有按对齐站位");
-  // ⚠️面板里那三个小图也有一模一样的三件套，所以这条必须钉在【格子那一处】上
-  assert.match(comp, /display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\]/, "没有 flex 的话 justifyContent 是空转的");
+  // ⚠️面板里那三个小图也有一模一样的三件套，所以这条必须钉在【格子那一处】上；
+  //   而且 flex 那一层只许套在【自己决定高度】的那几个上（见下面那条）
+  assert.match(comp, /HOME_SHRINK\[key\] \? \{ display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\] \} : null/,
+    "没有 flex 的话 justifyContent 是空转的；套给所有人的话会把名片压扁");
   // 认不出来的值要退回居中，不能让存档里一个脏字符串把布局搞没
   const seg = comp.slice(comp.indexOf('const HOME_ALIGN_CSS = '), comp.indexOf("function Home({"));
   const fn = new Function(seg + "\nreturn homeAlignOf;")();
@@ -264,4 +266,23 @@ test("露不露拍立得看的是【它占几格】，不是量出来的宽", ()
   assert.match(mw, /const room = boxW \? Math\.max\(0, boxW - pad \* 2\)/);
   assert.match(mw, /: Math\.max\(120, Math\.round\(\(\(typeof window !== "undefined" \? window\.innerWidth : 390\)/,
     "量不到宽时没有兜底");
+});
+
+// v63.61（她 2026-09-05：「你这样把我名片弄坏了宝宝」）
+//
+// v63.53 我给【每一个】格子都套上了竖排 flex 对齐层。名片本来是「比一行高、
+// 靠 overflow:visible 露出来」的那一种（HOME_FREE_HEIGHT 里就它一个）：
+// 块级孩子只会溢出，**flex 孩子会被压扁**（flex-shrink 默认 1）——
+// 93px 的内容压成 66px，底下「N 认识 · N 记忆 · N 天」那一行直接没了。
+//
+// 判据：**这一层只许套在需要它的那几个上。**
+test("对齐层只套给自己决定高度的组件——别的照旧是块级，不许被压扁", () => {
+  assert.match(comp, /HOME_SHRINK\[key\] \? \{ display: "flex", flexDirection: "column"/, "又套给所有人了");
+  // 名片是唯一一个高度自由的：它比一行高，靠溢出露出来，压不得
+  assert.match(comp, /const HOME_FREE_HEIGHT = \{ w_card: true \};/);
+  assert.equal(/const HOME_SHRINK = \{([^}]*)\}/.exec(comp)[1].indexOf("w_card"), -1,
+    "名片被登记成「自己决定高度」了，它会重新被 flex 压扁");
+  // 面板里那一栏也只对这几个出现——摆一个按了没反应的钮比没有还糟
+  assert.match(comp, /HOME_SHRINK\[styleKey\] \? h\("div", \{[^}]*\}[^)]*\}, "在格子里靠哪儿"\) : null/, "面板那一栏的标题没跟着收口");
+  assert.match(comp, /HOME_SHRINK\[styleKey\] \? h\("div", \{ style: \{ display: "grid", gridTemplateColumns: "repeat\(3,minmax\(0,1fr\)\)", gap: 8 \} \},/, "面板那三个钮没跟着收口");
 });

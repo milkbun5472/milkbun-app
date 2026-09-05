@@ -3954,11 +3954,14 @@ function Home({
         borderRadius: 17,
         transition: "transform .15s ease"
       }
-    }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
-        // 组件自己撑不满这块格子时，剩下的空白靠哪儿由她定（默认居中）。
-        // 撑满的那些（大多数组件写的是 height:100%）不受影响——align 对它们是空转。
-        display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS[homeAlignOf(key, widgetAligns)],
-        overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") } }, inner));
+    }, h("div", { style: Object.assign({ pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
+        overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") },
+        // ⚠️只有【自己决定高度】的那几个才套 flex 对齐层。
+        //   v63.53 我给所有格子都套上了，结果把名片弄坏了（她 2026-09-05 截图）：
+        //   竖排 flex 里的孩子 flex-shrink 默认是 1，名片本来是「比一行高、靠 overflow:visible
+        //   露出来」的那一种，一进 flex 就被【压扁】——93px 的内容压成 66px，底下两行直接没了。
+        //   它是块级孩子的时候只会溢出，不会被压。
+        HOME_SHRINK[key] ? { display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS[homeAlignOf(key, widgetAligns)] } : null) }, inner));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col relative",
@@ -4119,8 +4122,10 @@ function Home({
       h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "占格尺寸"),
     h(HomeSizeGrid, { value: widgetSizes[styleKey] || "auto", onChange: function (id) { setWidgetSize(styleKey, id); } }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "在格子里靠哪儿"),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
+    // ⚠️这一栏只对【自己决定高度】的组件有意义：别的组件本来就撑满整格，按了不会有任何变化。
+    //   摆一个按了没反应的钮，比没有还糟。
+    HOME_SHRINK[styleKey] ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "在格子里靠哪儿") : null,
+    HOME_SHRINK[styleKey] ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
       HOME_ALIGNS.map(function (a) {
         var on = homeAlignOf(styleKey, widgetAligns) === a.id;
         // 选中态不只靠色差：那三条横线的位置本身就说明它站哪儿
@@ -4129,7 +4134,7 @@ function Home({
           h("div", { style: { width: 30, height: 22, margin: "0 auto", border: "1px solid " + (on ? t.bg2 : t.line), borderRadius: 4, display: "flex", flexDirection: "column", justifyContent: HOME_ALIGN_CSS[a.id], padding: 2 } },
             h("div", { style: { height: 7, borderRadius: 2, background: on ? t.bg2 : t.fog } })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 6 } }, a.zh));
-      })),
+      })) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 20, marginBottom: 9 } }, "外观样式"),
     h(HomePresetGrid, { value: widgetStyles[styleKey] || (REG[styleKey].kind === "decor" ? "soft" : "native"), allowNative: REG[styleKey].kind !== "decor", onChange: function (id) { setWidgetPreset(styleKey, id); } }),
     REG[styleKey].kind === "decor" ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 18, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
