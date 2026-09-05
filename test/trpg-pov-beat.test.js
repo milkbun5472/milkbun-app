@@ -47,8 +47,8 @@ test("turn():换视角是特殊拍;pickChoice 带上 povPick、骰子默认掷�
   assert.match(src, /pov: \(mode && mode\.pov\) \|\| null, povPick: \(mode && mode\.povPick\) \|\| null/);
   assert.match(src, /const povMode = camp\.pov \? \{ povPick: \{ who: camp\.pov, against: c\.willing === false, text: c\.text \} \} : null;/);
   assert.match(src, /if \(!m && camp\.pov\) m = findMember\(camp\.party, camp\.pov\);/);
-  assert.match(src, /rollRec\(m, c\.check, res\)\)\], mixMode\);/, "带检定的那条也要带 povPick");
-  assert.match(src, /return turn\(txt, null, mixMode \|\| \(nightWith \? \{ night: nightWith \} : null\)\);/);
+  assert.match(src, /rollRec\(m, c\.check, res\)\)\]\), mixMode\);/, "带检定的那条也要带 povPick");
+  assert.match(src, /return turn\(txt, tableRolls\.length \? tableRolls : null, mixMode \|\| \(nightWith \? \{ night: nightWith \} : null\)\);/);
 });
 
 test("提示词:换视角拍以他为视点、选项标 willing、两条要打架;收回时写他的反应;输出 JSON 有 willing", () => {

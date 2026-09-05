@@ -668,7 +668,7 @@ test("简化先攻:只在危险拍出顺序标尺,名字要在队", () => {
   assert.match(r.chips.map(c => c.txt).join("|"), /⚔ 顺序:裴照川→Lisa/, "去重+过滤陌生名");
   const r2 = applyTurnPayload(camp0(), { order: ["只有一个人"] });
   assert.ok(!r2.chips.some(c => c.txt.indexOf("顺序") >= 0), "凑不齐两人不出顺序");
-  assert.match(src, /平时省略——别拿先攻打断叙事/);
+  assert.match(src, /平时省略 order——别拿先攻打断叙事/);
 });
 
 test("安全线:最高优先级,淡出处理", () => {
