@@ -210,3 +210,17 @@ test("一起听那张卡自己长多高就多高，高度预算从格子拿", ()
   assert.doesNotMatch(mw, /height: forced \? "100%" : "auto"/, "旧的拉满写法还在");
   assert.match(comp, /h\(MusicWidget, \{ listen: listen, player: player, homeSize: homeSize, cellH: fixedH,/, "格子高度没递给它");
 });
+
+// v63.54（她 2026-09-05：「没有变化宝宝，那个框还是一样大」）
+//
+// v63.53 里头那张卡确实缩了，可是【换过皮的那一层没缩】——外观样式的壳写死 height:100%，
+// 于是看得见的那个框还是满格，一眼看过去一模一样。
+// 判据一句话：**缩的必须是【看得见的那个框】，不是它里头那张卡。**
+test("自己决定高度的组件，换过皮的那层壳也要跟着缩", () => {
+  assert.match(comp, /const HOME_SHRINK = \{ w_music: true \};/);
+  assert.match(comp, /style: HOME_SHRINK\[key\] \? Object\.assign\(\{\}, presetStyle, \{ height: "auto" \}\) : presetStyle/,
+    "换过皮之后看得见的框还是满格");
+  // 壳本来写死的就是 100%——这条钉住病根，它哪天改了这个测试要跟着重想
+  const ps = comp.slice(comp.indexOf("function homeWidgetPresetStyle"), comp.indexOf("// 图上印着的那行小字"));
+  assert.match(ps, /var base = \{ width: "100%", height: "100%"/, "壳的默认高度变了，HOME_SHRINK 那一处要跟着重看");
+});

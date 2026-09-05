@@ -2586,6 +2586,11 @@ const HOME_FREE_HEIGHT = { w_card: true };
 // ⚠️格子本身的高度【不动】——动了整页的落位就全错了（buildLayout 按格算）。
 // 改的只是「组件在这块格子里站哪儿」，以及组件自己不再被拉满。
 const HOME_ALIGNS = [{ id: "top", zh: "靠上" }, { id: "center", zh: "居中" }, { id: "bottom", zh: "靠下" }];
+// 自己决定高度的那几个组件（卡长多高就多高，不许被格子拉满）。
+// ⚠️换过皮的那一份也要跟着 auto：外观样式的壳写死 height:100%，
+//   壳不缩的话【看得见的那个框】还是满格——她 2026-09-05 报「没有变化，那个框还是一样大」，
+//   就是这一处：里头的卡确实缩了 26px，外面那层皮没缩，所以一眼看过去一模一样。
+const HOME_SHRINK = { w_music: true };
 const HOME_ALIGN_CSS = { top: "flex-start", center: "center", bottom: "flex-end" };
 function homeAlignOf(key, aligns) {
   var v = aligns && aligns[key];
@@ -3917,7 +3922,7 @@ function Home({
           h("span", { style: { position: "absolute", right: 7, top: 6, zIndex: 8, maxWidth: "62%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRadius: 999, padding: "2px 7px", background: it.decor.accent || "#b65f57", color: "#fff", fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".08em", boxShadow: "0 2px 7px rgba(30,28,24,.13)" } }, it.decor.badge));
       }
     }
-    if (presetStyle) inner = h("div", { style: presetStyle }, inner);
+    if (presetStyle) inner = h("div", { style: HOME_SHRINK[key] ? Object.assign({}, presetStyle, { height: "auto" }) : presetStyle }, inner);
     return h("div", {
       key: key, "data-appkey": key,
       style: {
