@@ -5331,21 +5331,13 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
           lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
             : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
             : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.sub, opacity: i === lyricActive ? 1 : .82, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s,opacity .2s" } }, l.text)))
-      // ── 碟（v62.81 再摆）──────────────────────────────────────────
-      // v62.46 为了让「一起」露脸，把 TA 做成后面那张碟露一牙，碟因此整体往右偏了 22px、
-      // 牙上再贴一枚歪着的小头像——她看着还是「有点丑」。碟归碟：一张、居中、转着。
-      // 「和谁听」另给一整张封套（见上面 sleeveCard），不再挤在碟上。
-      : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90", style: { position: "relative", width: 232, height: 232, marginTop: 14, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #2b2b30 0 61%, #17171b 62%)", boxShadow: "0 16px 44px rgba(0,0,0,0.34)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
-          // 沟：外圈疏、里圈密，跟外壳那三套同一个道理
-          h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, backgroundImage: [
-            "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 2px,rgba(255,255,255,.045) 2px 3px)",
-            "repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 9px,rgba(255,255,255,.05) 9px 10px)"
-          ].join(",") } }),
-          // 斜着一道高光：碟是有光泽的，没有这一道它就是一个灰圆
-          h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, background: "linear-gradient(118deg,rgba(255,255,255,0) 34%,rgba(255,255,255,.10) 47%,rgba(255,255,255,0) 58%)" } }),
-          h("div", { style: { position: "relative", width: 148, height: 148, borderRadius: 999, background: nowCover ? "center/cover no-repeat url(" + nowCover + ")" : discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(135deg,#e8b6c8,#f0d9a8)", boxShadow: "inset 0 0 0 5px rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
-            h("div", { style: { width: 18, height: 18, borderRadius: 999, background: t.bg, border: "3px solid rgba(0,0,0,0.35)" } }))),
-    showLyric ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "点唱片换封面"),
+      // ── 封面舞台（v62.92）：碟撤了。封面已经是整页的底（见下面 coverField），
+      //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
+      //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
+      : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
+          style: { height: 300, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
+
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
     h("div", { className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
@@ -5828,62 +5820,32 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                   cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
                 (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
 
-  // ── 底：唱片自己的那圈纹（v61.44）──────────────────────────────
-  // v61.43 我做成了木台面，她 2026-09-03：「这个木头出现率是不是有点高了最近」——
-  // 是真的：小游戏那架柜子已经是木头了，再来一块木头，两页就成了同一个材质。
-  // 判据还是那句「原样搬到别的 app 里还成立吗」：木纹搬去哪儿都成立，所以它不说明
-  // 这是什么东西；**唱片的同心纹只有音乐这一处成立**。
-  // 圆心放在碟真正待的位置（播放页那张碟的圆心），整页就是那张碟放大之后荡出去的纹。
-  // ⚠️底纹铺在【最外面这个外壳】上、Head 传 bg:"transparent"（mobile-ui-layout.md §3.5）。
-  // ⚠️不挂 backgroundAttachment:"local"——内容在动，碟不该跟着动。
-  // ⚠️沟纹的圆心原来死钉在 50% 240px——注释写着「圆心放在碟真正待的位置」，
-  //   可那句只在【播放页】成立。切到发现/我的/设置，240px 那儿是一条搜索框、一张大卡、
-  //   一张开关卡，沟还在从那儿荡出去，而那儿没有碟（审美审计点名）。
-  //   所以另外三格不铺沟，改铺【唱片内袋的纸】：一箱碟不只有碟，还有装碟的纸袋。
-  //   碟只画在真有碟的那一格。
-  const sleeve = !hex6(t.ink) ? { background: t.bg } : {
-    backgroundColor: t.bg,
-    backgroundImage: [
-      // 纸纹：极淡的横竖交织，像牛皮纸内袋
-      "repeating-linear-gradient(90deg," + t.ink + "00 0 3px," + t.ink + "07 3px 4px)",
-      "repeating-linear-gradient(0deg," + t.ink + "00 0 3px," + t.ink + "05 3px 4px)",
-      // 内袋中间被碟压出来的那一圈浅印
-      "radial-gradient(circle at 50% 44%," + t.ink + "0a 0 30%," + t.ink + "00 31%)"
-    ].join(",")
-  };
-  const disc = !(hex6(t.ink) && hex6(t.accent)) ? { background: t.bg } : {
-    backgroundColor: t.bg,
-    // v62.89 沟纹只铺在碟周围那一片、往下淡出（她 2026-09-05 拿网易云那页对照：
-    // 「现在有点太暗了下面的字看不到」「它下面是会 fade 掉的」）。
-    // v62.88 那版是整页压深——碟在的地方深得对，可标题、封套、队列也一起坐进了暗处。
-    // 所以沟纹现在是【一片】不是【一页】：只在碟那一带，到标题就淡成了纯底（见下面 discField 的 mask）。
-    // 圆心 130px＝碟的圆心（marginTop 14 + 半径 116）——这片是贴在滚动区里的，跟着碟走。
-    backgroundImage: [
-      // 中心那圈亮：碟面反的光，从圆心往外淡出去
-      "radial-gradient(circle at 50% 130px," + t.accent + "38 0%," + t.accent + "1c 38%,transparent 72%)",
-      // 沟纹：一圈一圈的细线。⚠️间距不能等宽——真唱片外圈疏、里圈密，
-      //   一套等距同心圆看着像靶子。所以叠三套疏密不同的。
-      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 5px," + t.ink + "26 5px," + t.ink + "26 6px)",
-      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 22px," + t.ink + "18 22px," + t.ink + "18 24px)",
-      "repeating-radial-gradient(circle at 50% 130px," + t.ink + "00 0px," + t.ink + "00 57px," + t.ink + "20 57px," + t.ink + "20 59px)"
-    ].join(",")
-  };
-  // 沟纹那一片：贴在滚动区顶上、跟着内容滚，上沿 40px 淡入（别在顶栏底下切出一条硬边）、
-  // 260px 之后淡出、460px 到底——标题坐在余纹上，封套和队列坐在纯底上。
-  // zIndex:-1 + 滚动区 isolation:isolate：它在内容底下、又在外壳的底色之上。
-  const discFade = "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,1) 40px, rgba(0,0,0,1) 260px, rgba(0,0,0,0) 460px)";
-  // ⚠️歌词页不铺沟纹：那页没有碟，沟纹在小字底下只会让字更难读（她 2026-09-05：「歌词是灰的看不见」——
-  //   一半是字色用了 fog，一半是底下的圈）。
-  const discField = nav === "play" && !showLyric ? h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, top: 0, height: 460, zIndex: -1, pointerEvents: "none", WebkitMaskImage: discFade, maskImage: discFade }, disc) }) : null;
-  const crate = nav === "play" ? { background: t.bg } : sleeve;
+  // ── 底：封面就是这一页（v62.92）─────────────────────────────────
+  // 她 2026-09-05：「封面整个代替掉页面」「我们这个纹理背景方向错了，他放在听歌软件里不好看」。
+  // 木纹（v61.43）、沟纹（v61.44）、内袋纸（v62.46）、沟纹只铺一片再淡出（v62.89）——四版材质
+  // 都在一个前提上：这一页现实里是【一件东西】（台面、碟、纸袋）。前提错了：听歌软件的播放页
+  // 现实里不是一件东西，是【正在放的那首歌】——所以底就是它的封面，从顶栏底下铺下来、
+  // 到标题那儿淡进纯底（她拿网易云那页对照：「它下面是会 fade 掉的」）。
+  // 没有封面的歌只剩一团暖光；另外三格（发现/我的/设置）不铺任何材质，干净的底让封面们自己出来。
+  // ⚠️封面挂在【外壳】上、顶栏透明（mobile-ui-layout.md §3.5）：顶上 30% 淡入，顶栏的字压得住；
+  //   到 250px 满、400px 淡完——标题落在 368px 上下，那儿封面只剩两成，深色封面上墨字也读得清。
+  //   歌词页封面压到两成，字才读得清。
+  //   mask 不碰主题色，所以不用 hex6 验——这层永远不会静默消失。
+  const coverSrc = (nav === "play" && now) ? (nowCover || discImg || "") : "";
+  const coverFade = "linear-gradient(to bottom, rgba(0,0,0,.3) 0px, rgba(0,0,0,1) 110px, rgba(0,0,0,1) 250px, rgba(0,0,0,0) 400px)";
+  const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 440, zIndex: -1, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
+    coverSrc ? h("img", { src: coverSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+      : h("div", { style: { width: "100%", height: "100%", background: hex6(t.accent) ? "radial-gradient(ellipse at 50% 30%," + t.accent + "3a 0%," + t.accent + "12 45%,transparent 75%)" : "transparent" } })) : null;
+  const crate = { background: t.bg, isolation: "isolate" };
   return h("div", { className: "h-full flex flex-col relative", style: crate },
+    coverField,
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
     //   数字不是英文装饰，它是这一页唯一说得清「放到哪了」的东西。
     h(Head, { zh: "一起听", bg: "transparent",
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
-    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", isolation: "isolate" } }, discField, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的

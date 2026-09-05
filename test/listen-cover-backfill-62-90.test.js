@@ -27,7 +27,7 @@ test("补封面那条路在，两处都接上了：播放时、刚贴进来时",
   assert.match(app, /const resultToSong = s => \(\{[^\n]*cover: s\.cover \|\| null/);
 });
 
-test("歌词页：没唱到的行是正文色不是雾色，底下不铺沟纹", () => {
+test("歌词页：没唱到的行是正文色不是雾色，底下的封面压暗", () => {
   assert.match(LT, /color: i === lyricActive \? t\.ink : t\.sub, opacity: i === lyricActive \? 1 : \.82/, "没唱到的行还是 fog");
-  assert.match(LT, /const discField = nav === "play" && !showLyric \? h\("div"/, "歌词页底下还铺着沟纹");
+  assert.match(LT, /opacity: showLyric \? \.22 : 1/, "歌词页底下的封面没压暗");
 });

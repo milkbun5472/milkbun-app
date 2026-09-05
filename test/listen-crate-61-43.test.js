@@ -12,7 +12,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const src = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
 const rule = fs.readFileSync(path.join(root, ".claude/rules/mobile-ui-layout.md"), "utf8");
-const i = src.indexOf("  // ── 底：唱片自己的那圈纹");
+const i = src.indexOf("  // ── 底：封面就是这一页");
 assert.ok(i > 0, "抠不出那层底");
 const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));
 // ⚠️「不许出现 X」这类断言必须对着【剥掉注释的代码】问：注释里正写着
@@ -20,69 +20,37 @@ const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));
 const CODE = CRATE.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
 
-test("底纹铺在外壳上、顶栏透上来（mobile-ui-layout.md §3.5）", () => {
-  // 铺在滚动区上的话顶栏那一条还是平色，顶上横一道没盖住的带子
-  assert.match(CRATE, /className: "h-full flex flex-col relative", style: crate/, "底纹没铺在最外面那个外壳上");
-  assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏没让底纹透上来");
-  // 内容在动，木头不该跟着动
+test("封面就是这一页：挂在外壳上、顶栏透上来、往下淡进纯底（v62.92）", () => {
+  // 她 2026-09-05：「封面整个代替掉页面」「纹理背景方向错了，放在听歌软件里不好看」。
+  // 四版材质（木纹/沟纹/内袋纸/沟纹一片）的前提都是「这页是一件东西」；播放页现实里是【正在放的那首歌】。
+  assert.match(CRATE, /style: crate \},\s*coverField,/, "封面没挂在最外面那个外壳上");
+  assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏没让封面透上来");
+  assert.match(LT, /const crate = \{ background: t\.bg, isolation: "isolate" \};/, "外壳不是干净的底，或没建 stacking context（封面 zIndex:-1 会掉到外壳底色后面）");
+  assert.match(LT, /const coverSrc = \(nav === "play" && now\) \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
+  assert.match(LT, /WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric \? \.22 : 1/, "封面没往下淡出，或歌词页没压暗");
+  assert.match(LT, /rgba\(0,0,0,\.3\) 0px, rgba\(0,0,0,1\) 110px, rgba\(0,0,0,1\) 250px, rgba\(0,0,0,0\) 400px/, "淡出的位置变了：顶栏底下要能读字、标题要坐在纯底上");
+  // 内容在动，封面不该跟着动
   assert.doesNotMatch(CODE, /backgroundAttachment/, "又挂上 backgroundAttachment 了");
-  // 规矩本身还在（这条塌了，上面几条就没有出处了）
   assert.match(rule, /底纹铺在【外壳】上，顶栏透明/);
 });
 
-test("主题色拼不出六位色号时退回纯色，不许整层静默消失", () => {
-  // 深色/自定义主题下 t.ink 可能不是 #rrggbb，拼 t.ink+"1c" 会拼出废值，
-  // 那一整条 background-image 被浏览器丢掉——界面上看着像「这一页没做」。
-  // ⚠️v62.46 起 hex6 提到了组件最上头（曲目单那一行也要用它，而那几个 tab 是
-  //   `const x = h(...)`、声明处就求值，引用后面的 const 会 TDZ 白屏）。所以这一条
-  //   对着【整个组件】问，不再对着底那一段问。
-  assert.match(LT, /const hex6 = v => \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(v \|\| ""\)\)/);
-  assert.match(LT, /const disc = !\(hex6\(t\.ink\) && hex6\(t\.accent\)\) \? \{ background: t\.bg \}/,
-    "碟那一层验不过没退回纯色；两个都要验，它两样颜色都在拼");
-  assert.match(LT, /const sleeve = !hex6\(t\.ink\) \? \{ background: t\.bg \}/,
-    "碟套那一层验不过没退回纯色");
+test("材质全撤了：没有沟纹、没有木纹、没有内袋纸；碟也撤了", () => {
+  assert.doesNotMatch(LT, /repeating-radial-gradient/, "沟纹又回来了");
+  assert.doesNotMatch(LT, /repeating-linear-gradient\(90deg/, "内袋纸又回来了");
+  assert.doesNotMatch(CODE, /#c25a4a|木纹|wood/, "木台面那一版又长回来了");
+  assert.doesNotMatch(LT, /const disc = /, "碟那层底还在");
+  assert.doesNotMatch(LT, /const sleeve = !hex6/, "内袋纸那层底还在");
+  // 播放页顶上是一块让封面露出来的位子，不是一张 232 的碟——碟上那张小封面跟整页的是同一张
+  const play = LT.slice(LT.indexOf("  const playTab ="), LT.indexOf("  const homeTab ="));
+  assert.doesNotMatch(play, /width: 232, height: 232/, "碟还在");
+  assert.match(play, /"aria-label": "换封面"/, "换封面的入口没了");
+  assert.match(play, /coverSrc \? "换封面" : "加封面"/);
 });
 
-test("底纹是唱片的同心沟纹，不是又一块木头", () => {
-  // 木纹换个 app 照样成立＝没设计；同心沟纹只有音乐这一处成立。
-  //
-  // ⚠️v62.46 这一条改了口径，不是放宽：审美审计指出「圆心放在碟真正待的位置」
-  //   这句只在【播放页】成立——切到发现/我的/设置，240px 那儿是一条搜索框、一张大卡、
-  //   一张开关卡，沟还在从那儿荡出去，而那儿没有碟。四分之三的时间里那套纹只是纹理。
-  //   所以现在是两层底：有碟的那一格铺沟，另外三格铺【碟套的内袋纸】。
-  //   于是「不许出现 repeating-linear-gradient(90deg)」这个代理判据失效了——
-  //   内袋纸的纸纹本来就是平行线。改成对着【两层各自该是什么】问：
-  const groove = LT.slice(LT.indexOf("  const disc ="), LT.indexOf("  const crate = nav"));
-  const sleeveBlk = LT.slice(LT.indexOf("  const sleeve ="), LT.indexOf("  const disc ="));
-  // v62.89：播放页外壳退回纯底，沟纹改成贴在滚动区顶上的【一片】（discField），往下 mask 淡出——
-  // 她拿网易云那页对照：「它下面是会 fade 掉的」。整页压深那版把标题和封套也压进了暗处。
-  assert.match(LT, /const crate = nav === "play" \? \{ background: t\.bg \} : sleeve;/, "播放页外壳没退回纯底");
-  assert.match(LT, /const discField = nav === "play" && !showLyric \? h\("div", \{ "aria-hidden": "true"/, "沟纹那一片没了（v62.90 起歌词页不铺）");
-  assert.match(LT, /WebkitMaskImage: discFade, maskImage: discFade \}, disc\)/, "沟纹没往下淡出");
-  assert.match(LT, /rgba\(0,0,0,1\) 260px, rgba\(0,0,0,0\) 460px/, "淡出的位置变了——标题该坐在余纹上、封套坐在纯底上");
-  assert.match(LT, /style: \{ position: "relative", isolation: "isolate" \} \}, discField,/, "沟纹那片没垫在内容底下（没有 isolate 它会盖在字上面）");
-  // 木头那一版的痕迹一处都不许回来
-  assert.doesNotMatch(CODE, /#c25a4a|木纹|wood/, "木台面那一版又长回来了");
-  // 碟套之所以是碟套，不是「一张纸」：中间有碟压出来的那一圈印
-  assert.match(sleeveBlk, /radial-gradient\(circle at 50% 44%/, "内袋中间没有碟压出来的那圈印，那就只是一张纸了");
-  assert.doesNotMatch(sleeveBlk, /repeating-radial-gradient/, "没有碟的那三格不该再铺沟纹");
-  assert.match(groove, /repeating-radial-gradient\(circle at 50% 130px/, "没有沟纹");
-  // 圆心得跟播放页那张碟对齐，不然纹是纹、碟是碟，两回事
-  const centers = [...new Set((CODE.match(/circle at 50% (\d+)px/g) || []))];
-  assert.equal(centers.length, 1, "圆心不止一个：" + centers.join(" / ") + "——所有圈得同心");
-  // 暖来自主题的 accent，不是硬写一个颜色
-  assert.match(CRATE, /radial-gradient\(circle at 50% 130px," \+ t\.accent/, "没有那层暖底");
-  const hard = CODE.match(/#[0-9a-f]{6}/gi) || [];
-  assert.deepEqual(hard, [], "木头里写死了颜色：" + hard.join(" "));
-  // 每套沟纹的【周期】＝那一行里最大的那个 px。
-  // ⚠️先把「circle at 50% 240px」那截剔掉——那是圆心坐标，不是周期；
-  //   不剔的话三行都会算出 240，这条断言就成了空转（我第一版正是这么错的）。
-  const grain = (CODE.match(/repeating-radial-gradient\(circle[^\n]*/g) || [])
-    .map(line => line.replace(/circle at [\d.]+% \d+px/, ""))
-    .map(line => Math.max.apply(null, (line.match(/(\d+)px/g) || ["0px"]).map(x => parseInt(x, 10))));
-  assert.ok(grain.length >= 3, "只有 " + grain.length + " 套沟纹");
-  assert.ok(new Set(grain).size === grain.length,
-    "沟纹疏密撞了（" + grain.join(" / ") + "）——等距同心圆看着像靶子");
+test("主题色拼透明度后缀前先验六位色号，验不过退回纯色", () => {
+  // 封面那层 mask 不碰主题色，所以永远不会静默消失；只有没封面时那团暖光拼了 accent
+  assert.match(LT, /const hex6 = v => \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(v \|\| ""\)\)/);
+  assert.match(LT, /hex6\(t\.accent\) \? "radial-gradient\(ellipse at 50% 30%," \+ t\.accent \+ "3a/, "没封面时那团暖光没验色号");
 });
 
 test("「第几首」走 sub 不走 en——走 en 会被「标题不留英文」吃掉", () => {
