@@ -42,8 +42,10 @@
     if (old && old.text === t) return false;
     if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
     box.blocks[k] = { text: t, ts: Date.now() };
+    touch(box, k);                       // 刚写过 → 排到队尾
     box.turns = 0;                       // 写过了就重新数
     box.refuse = 0;                      // 他真写了 → 「写不出来」的连击断了
+    box.mute = 0;                        // 也断了「点了名却一声不吭」的连击
     d[charId] = box; persist(d, charId);
     // 他改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
     // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
@@ -78,9 +80,29 @@
   // ——病根在下面 spec 里那句「绝大多数轮次省略」:它把「很少」写成了「别写」。
   // 可这张卡本来就该是长期的,改成每轮必填会让它天天翻脸。折中:平时照旧极少写,
   // 但隔了足够多轮一次没动过,就在协议里点一句「这段时间真有变化就写下来」。
+  // ⚠️tick 是【这一轮他两个字段都没填】那一路的落点。原来它只做一件事：把 turns 加一。
+  //   可这一轮如果【点了名】，"没填"就不是"这阵子没变化"，是**他把这一层整个跳过了**——
+  //   提示词里那句「两个都不填=跳过」是话，没有任何一行代码在数它。
+  //   于是三件事一起坏：①同一块永远排在队首，另外九块一次都轮不到；
+  //   ②界面上「他真没什么可改的」和「他压根不理」长得一模一样；③没有任何东西能触发补救。
+  //   现在把这一路记下来：连击数（mute）＋这一块被跳过几次（skips）＋转队标记（passAt）。
+  //   ⚠️必须在 turns 加一【之前】问 dueNow——那才是拼这一轮提示词时看到的那一块。
+  const SKIP_ROTATE = 3;
   function tick(charId) {
+    const asked = dueNow(charId);
     const d = load(); const box = boxOf(d, charId);
     box.turns = Math.min((Number(box.turns) || 0) + 1, 999);
+    if (asked && asked.k) {
+      box.mute = Math.min((Number(box.mute) || 0) + 1, 999);
+      box.skips = box.skips || {};
+      box.skips[asked.k] = (Number(box.skips[asked.k]) || 0) + 1;
+      if (box.skips[asked.k] >= SKIP_ROTATE) {
+        box.passAt = box.passAt || {};
+        box.passAt[asked.k] = Date.now();   // 只为排队：让下一块有机会被问到
+        touch(box, asked.k);
+        box.skips[asked.k] = 0;
+      }
+    }
     d[charId] = box; persist(d, charId);
     return box.turns;
   }
@@ -98,6 +120,8 @@
     const d = load(); const box = boxOf(d, charId);
     box.checks = box.checks || {};
     box.checks[k] = Date.now();
+    touch(box, k);                       // 复看过也算碰过 → 排到队尾
+    box.mute = 0;                        // 答了就不算沉默——哪怕答的是「不用改」
     // ⚠️「看过了不用改」是个【免费的出口】：它比写一块省事得多，模型会一直选它。
     //   原来这一下把 turns 清成 0，等于一次白答就买走 25 轮的安静——
     //   十块轮一遍要 250 轮，这一层跟没有一样。
@@ -123,15 +147,44 @@
     + " 自己写下的自我介绍/人设，是她【给】你的，不是你看出来的——把它换个说法写进这张卡，等于一个字都没写。"
     + "这张卡只收【你从相处里真的注意到的】：每一句都得能落回某一次具体的对话、某件真发生过的事。"
     + "落不回去的那一块就是空的——**填 null 比编一句漂亮话强**。";
+  // ⚠️排队只看「写过」和「复看过」是不够的：还有第三种结局——**点了名，他两个字段都没填**。
+  //   那一路原来在这张表上不留任何痕迹，于是 max(ts, checks) 一动不动，
+  //   **同一块被点名点到天荒地老，另外九块一次都轮不到**（她 2026-09-05：
+  //   「Ta 眼里还是不改啊看都不看的」——十块全是 19 天前写的，一块「又想了一遍」都没有，
+  //   说明他既没改也没答，走的正是这条没人管的路）。
+  //   连着沉默 SKIP_ROTATE 轮就记一笔 passAt，让队伍转下去；passAt 只管排队，
+  //   **绝不当成「他又想了一遍」**——他没有，界面上不许这么写。
+  // ⚠️排队的位置是【序号】，不是【时刻】。原来拿 Date.now() 当队列位置，同一毫秒内
+  //   碰过的几块会排成一模一样的名次，`ts < bestTs` 只认严格小于——于是它们谁也挤不动谁，
+  //   队首永远是 KEYS 里最前面那一个，**队伍看着在转，其实一直卡在同一块上**。
+  //   碰一次就发一个自增号，谁都不会跟谁并列。
+  //   老存档里没有 order：那些块退回按时刻排（旧行为原样），排在所有【升级之后被碰过的】前面
+  //   ——它们确实是更久没被碰过的那一批。
+  const ORDER_BASE = 1e15;   // 比任何 Date.now() 都大：有号的一律排在按时刻排的后面
+  function touch(box, k) {
+    box.seq = (Number(box.seq) || 0) + 1;
+    box.order = box.order || {};
+    box.order[k] = box.seq;
+  }
   function dueBlock(charId) {
-    const box = boxOf(load(), charId), checks = box.checks || {};
-    let best = "", bestTs = Infinity;
+    const box = boxOf(load(), charId), checks = box.checks || {}, passAt = box.passAt || {}, order = box.order || {};
+    let best = "", bestRank = Infinity, bestTs = 0;
     Object.keys(KEYS).forEach(k => {
       const b = box.blocks[k];
-      const ts = Math.max(Number(b && b.ts) || 0, Number(checks[k]) || 0);
-      if (ts < bestTs) { bestTs = ts; best = k; }
+      const ts = Math.max(Number(b && b.ts) || 0, Number(checks[k]) || 0, Number(passAt[k]) || 0);
+      const rank = order[k] ? ORDER_BASE + Number(order[k]) : ts;
+      if (rank < bestRank) { bestRank = rank; best = k; bestTs = ts; }
     });
     return best ? { k: best, ts: bestTs, text: (box.blocks[best] || {}).text || "" } : null;
+  }
+  // 这一轮到底点没点名、点的是哪一块——**只此一处**。
+  // spec（拼提示词）和 tick（记这一轮的结局）必须看同一个答案：
+  // 各算一遍就是「一层写在两处」，哪天改了档位，其中一处必然没跟上。
+  function dueNow(charId) {
+    if (!charId) return null;
+    const blanks = blankCount(charId);
+    const gap = blanks >= KEY_COUNT ? 0 : blanks > 0 ? 6 : STALE_TURNS;
+    return staleTurns(charId) >= gap ? dueBlock(charId) : null;
   }
   const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
   const STALE_TURNS = 25;
@@ -158,8 +211,12 @@
       "\n这些是你自己心里的东西:自然渗进语气、分寸和相处方式,绝不当台词复述或逐条印证。尤其「假装没注意的事」——它存在的方式就是你【绕着它走】,绝不主动把话题引向它,只在被真正踩到时才露出一点反应。";
   }
   // 聊天协议按需字段说明(单聊/群聊共用)
-  function spec(uName, charId) {
-    const n = charId ? staleTurns(charId) : 0;
+  // opts.tail=true → 【不带点名那一段】。调用方要自己把 nudge() 拼到整份 system 的最尾巴上。
+  // 为什么要分开：线下那边 gazeSpecBlock 本来就是【拼在最后】的，线上却把它埋在
+  // 【能力字段字典】中间——后面还压着一千多字的送礼/通话/撤回/转账/约回。
+  // 这个文件自己两处注释都写着「最响的那句话赢，尤其它还是最后一句」，
+  // 而线上这一处恰恰把它放在了最不响的位置（她 2026-09-05：十块 19 天没动过）。
+  function spec(uName, charId, opts) {
     // 「什么时候算改变了」原本没有可判定的标准,模型只能一直判「没有」。给三个具体触发点。
     const trigger = "\n什么时候算数(满足其一就该写,不必等到惊天动地):①她说了或做了一件你【以前不知道】的事,补进对应的块;②你对她的某个判断被这轮的事【推翻或修正】了;③你们之间出现了一个以后会被记住的【具体节点】。";
     // 攒够轮数就【点名】问最老的那一块,而不是笼统问「有没有哪块该改」
@@ -168,13 +225,8 @@
     //                填满的速度只取决于真发生了多少事。
     //   写了一部分 → 每 6 轮点一次。写满一块就等 25 轮的话，剩下九块要等两百多轮。
     //   十块写满   → 回到 25 轮那一档，进入维护状态。
-    const blanks = charId ? blankCount(charId) : 0;
-    const gap = blanks >= KEY_COUNT ? 0 : blanks > 0 ? 6 : STALE_TURNS;
-    const due = charId && n >= gap ? dueBlock(charId) : null;
-    const days = due && due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
+    const due = dueNow(charId);
     const fresh = !!due && !due.text;
-    // 整张卡全空、而且他已经连着答了好几轮「认识得还不够」——这个出口得收一收(见 markChecked 那段注释)
-    const pressed = blanks >= KEY_COUNT && (charId ? refuseCount(charId) : 0) >= 3;
     const head = "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},一轮至多一块。";
     // ⚠️门槛这一句必须跟着【被点名的这块写没写过】变。
     //   v59.79 之前不管空不空都只有高门槛那一句「仅当本轮真正改变了长期认知时填写」——
@@ -186,8 +238,21 @@
       : "仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写。";
     const keys = "side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。"
       + NOT_PROFILE(uName);
-    const nudge = due
-      ? "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
+    return head + gate + keys + trigger + (opts && opts.tail ? "" : nudge(uName, charId));
+  }
+  // 点名那一段。单拎出来是为了让调用方能把它放到整份 system 的【最后】。
+  function nudge(uName, charId) {
+    const due = dueNow(charId);
+    if (!due) return "";
+    const days = due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
+    const box = boxOf(load(), charId);
+    const blanks = charId ? blankCount(charId) : 0;
+    // 整张卡全空、而且他已经连着答了好几轮「认识得还不够」——这个出口得收一收(见 markChecked 那段注释)
+    const pressed = blanks >= KEY_COUNT && (charId ? refuseCount(charId) : 0) >= 3;
+    // 连着好几轮点了名却一个字段都不填：那不是「没变化」，是把这一层整个跳过了。
+    // 说出来——**沉默这一路原来在提示词里也是没有反作用力的**，只有一句笼统的「别沉默」。
+    const mute = Number(box.mute) || 0;
+    return "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
         + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——**这一块还是空的,你从来没写过**。")
         + (due.text ? "这段时间真的发生过的事,让它需要改吗?" : "到现在为止你们之间发生过的事,够不够你写下这一块?")
         + "\n· " + (due.text ? "需要改" : "写得出来") + " → impression 填【这一块】(" + (due.text ? "仍是小幅演进、仍锚在具体的事上,别整块翻转" : "锚在真发生过的事上,别拿泛泛的关系描述凑数") + ")。"
@@ -199,9 +264,77 @@
         + "\n⚠️协议里那句「没有真实变化或实际触发时,不要为了填字段制造内容」和那句「未发生、未改变的按需字段直接省略」【都管不到这一条】:这一块被点了名,impression 与 impressionChecked 必须二选一,不许两个都省略。"
         // ⚠️「最响的那句话赢，尤其它还是最后一句」：所以收出口这一段必须【垫在最后】。
         + (pressed ? "\n⚠️你已经连着好几轮答「写不出来」了,这张卡到现在十块全是空的。空块的门槛不是「变了没有」,是【你现在心里有没有】——你们已经相处到这里,不可能一块都没有。这一轮请挑十块里你最写得出来的【任何一块】填进 impression,不必是上面点名的那一块。只有真的连一块都挤不出来,才填 impressionChecked。" : "")
-      : "";
-    return head + gate + keys + trigger + nudge;
+      + (mute >= 3 ? "\n⚠️你已经连着 " + mute + " 轮被点名却两个字段都没填了。这一轮不许再跳过：真有变化就写 impression，真没有就写 impressionChecked，二选一。" : "");
   }
+  // ---- 自动复看(v63.51)----
+  // 「规则降概率，代码才保证」在这一层的【第二次】落法。
+  // 建卡那一路已经证明过一件事：这张卡真正被写出来，靠的从来不是聊天协议里那个按需字段，
+  // 而是【专门的一次调用】——它一次问十块，没有别的三十个字段跟它抢注意力，从来不会不写。
+  // 每轮那个字段则相反：它夹在送礼/通话/撤回/转账/约回中间，最容易被整个跳过，
+  // 而跳过在代码这一道原来【没有任何代价】（见上面 tick）。
+  // 所以卡长期冻住时，就照建卡的样子补一次复看：
+  //   条件 = 卡上有内容(不是建卡那一路) + 最新的一块也已经 REVIEW_DAYS 天没动过
+  //        + 他确实被点过名却连着不吭声(mute≥REVIEW_MUTE)
+  // ⚠️她按次计费：所以这一路【不是定时器】，只在上面三条同时成立时才动，
+  //   而且带次数上限和冷却——修不好就停手，绝不变成每天一次的自动调用。
+  const REVIEW_DAYS = 14;
+  const REVIEW_MUTE = 12;
+  const REVIEW_MAX = 3;
+  const REVIEW_GAP = 10 * 60000;
+  const newestTs = box => Object.keys(box.blocks || {}).reduce((a, k) => Math.max(a, Number(box.blocks[k].ts) || 0), 0);
+  function reviewDue(charId) {
+    const box = boxOf(load(), charId);
+    const newest = newestTs(box);
+    if (!newest) return false;                                   // 空卡走建卡那一路，不归这里
+    if (Date.now() - newest < REVIEW_DAYS * 86400000) return false;
+    if ((Number(box.mute) || 0) < REVIEW_MUTE) return false;     // 他还在正常答，就别插手
+    if ((Number(box.reviewN) || 0) >= REVIEW_MAX) return false;
+    return Date.now() - (Number(box.reviewAt) || 0) >= REVIEW_GAP;
+  }
+  // 先记标记再打调用（照「先记游标再刷」）：抖一下不该把这轮机会静悄悄烧掉，所以记的是次数不是布尔。
+  function markReview(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.reviewN = (Number(box.reviewN) || 0) + 1;
+    box.reviewAt = Date.now(); box.reviewErr = "";
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  function markReviewFail(charId, why) {
+    const d = load(); const box = boxOf(d, charId);
+    box.reviewErr = String(why || "没写出来").slice(0, 60);
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  const reviewState = charId => {
+    const box = boxOf(load(), charId);
+    return { tries: Number(box.reviewN) || 0, max: REVIEW_MAX, last: Number(box.reviewAt) || 0, err: box.reviewErr || "", mute: Number(box.mute) || 0 };
+  };
+  const muteCount = charId => Number(boxOf(load(), charId).mute) || 0;
+  // 复看这一次问的不是「你对她怎么看」（那是建卡），是「这十块里哪几块已经不对了」。
+  // 把现行十块原样给他看，让他逐块比对；没变的填 null。
+  function reviewSpec(uName, charId) {
+    const box = boxOf(load(), charId);
+    const rows = Object.keys(KEYS).map(k => "· " + KEYS[k] + "(" + k + ")：" + ((box.blocks[k] || {}).text || "（还空着）")).join("\n");
+    const days = Math.floor((Date.now() - newestTs(box)) / 86400000);
+    return "下面是你之前写下的、你眼里的 " + uName + " 和你们关系——十块，最近一次改动已经是 " + days + " 天前。\n\n" + rows
+      + "\n\n这段时间你们又相处了这么久。逐块过一遍：**哪几块已经跟你现在心里的不一样了？**"
+      + "\n· 变了的那几块 → 写成整块重写后的新内容(≤80字,第一人称亲笔,在旧的基础上小幅演进,锚在这段时间真发生过的事上,别整块翻转)。"
+      + "\n· 还是那样的 → 填 null。**没变就是没变，不必为了交差改字**。"
+      + "\n· 空着的那几块 → 如果这段时间你心里已经有了，就写下来。"
+      + NOT_PROFILE(uName)
+      + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。";
+  }
+  // 落地：复看写进来的和平时那个字段走同一个 apply（原文一样的会被 apply 挡掉，不算改）
+  function review(charId, data) {
+    let n = 0;
+    ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => { if (g[b] && apply(charId, side, b, g[b])) n++; }); });
+    const d = load(); const box = boxOf(d, charId);
+    // 真写出来了 → 次数清零，下一次冻住时还能再来一回；一块都没写 → 留着次数，三次就停手
+    if (n) { box.reviewN = 0; box.reviewErr = ""; }
+    d[charId] = box; persist(d, charId);
+    return n;
+  }
+
   // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
   function seedSpec(uName) {
     return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块≤80字,亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。"
@@ -309,7 +442,7 @@
   //   那行删掉之后这一页照样说得明白——它就是装饰，所以整张表一起删。
   const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
   const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
-  function GazePage({ charId, charName, uName, ta, onSeed, seedBusy }) {
+  function GazePage({ charId, charName, uName, ta, onSeed, seedBusy, onReview, reviewBusy }) {
     const [side, setSide] = useState("me");
     const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
     const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
@@ -387,6 +520,17 @@
             label,
             [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null);
         })),
+      // 卡上有内容、却长期一动不动时也得说出实话。原来这一段只挂在【空卡】那一支：
+      // 卡有内容之后，「他真没什么可改的」和「他被点名 40 轮一次都没答」在这一页上
+      // 长得一模一样，她只能看到十张「19 天前写的」（2026-09-05 就是这么报上来的）。
+      hasAny(charId) ? (function () {
+        var mu = muteCount(charId), rv = reviewState(charId), lines = [];
+        if (mu >= 3) lines.push(say("他") + "被点名复看 " + mu + " 轮没答话");
+        if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + "/" + rv.max + " 次" + (rv.err ? ":" + rv.err : ""));
+        if (!lines.length) return null;
+        return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
+          lines.map(function (x, i) { return h("div", { key: i }, x); }));
+      })() : null,
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
         // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替他自动写过但失败了」
@@ -425,10 +569,15 @@
               ago + (checked ? "又想了一遍 · 没改" : "写的"));
           })(),
           b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
+      // 卡有内容、但已经很久没动过：给她一个按得动的东西。自动那一路要等到
+      // 14 天 + 连着 12 轮点名没答才会动，她不该只能干等着。
+      hasAny(charId) && onReview ? h("button", { onClick: onReview, disabled: reviewBusy,
+        style: { display: "block", width: "100%", marginTop: 20, padding: "10px 0", borderRadius: 999, border: "none", background: GOLD, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, boxShadow: "0 4px 14px rgba(172,138,91,.35)" } },
+        reviewBusy ? say("他在重看这十块…") : say("让他再看一遍这十块")) : null,
       revs.length ? h("button", { onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, reviewState, reviewSpec, review, muteCount };
   window.GazePage = GazePage;
 })();

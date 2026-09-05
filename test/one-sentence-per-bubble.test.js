@@ -10,13 +10,25 @@ const app = R("app.js"), eng = R("engine.js");
 // 查下来「把话拆成多条短气泡」那句只活在两个不发出去的串里：
 //   selfTask（只进 _digitalTaskFull，只给言秋）、_normalTaskFull（注释写着不再发送）。
 // v2 切换的时候没跟过来，普通角色一个字都没收到。
+// ⚠️口径改了（v63.51）：原来这三处都钉死了 `crossSamenessHint(charId) + _biTurnLine + _turnClosing)`
+//   这个【逐字相邻】的写法，于是任何一条新的每轮提示插进来都会当场红——可它们真正要钉的是
+//   「_turnClosing 是这一串的【最后一项】」，不是「它前面紧挨着谁」。
+//   （v63.51 把 Ta 眼里的点名复看接在了它前面：那一段必须在整份提示词的尾巴上，
+//   但仍要给 _turnClosing 让出最后一句。）改成直接钉【最后一项】，两件事都保住。
+const taskV2 = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint")).trim();
+const endsWithClosing = () => {
+  assert.match(taskV2, /\+ _turnClosing\)\.replace\(\/用户\/g, uName\);$/, "_turnClosing 不再是每轮任务串的最后一项");
+  assert.match(taskV2, /crossSamenessHint\(charId\)/, "禁用词表那一层掉了");
+  assert.match(taskV2, /_biTurnLine/, "双语那一层掉了");
+};
+
 test("普通角色真的收到断句这条，不是只躺在没人用的串里", () => {
   // 每轮那串的最后一句（_turnClosing）拼在 _normalTaskV2 末尾，临落笔前读到的就是它
   const i = app.indexOf("const _turnClosing =");
   const closing = app.slice(i, i + 900);
   assert.match(closing, /【一条一句】/, "收尾那句里得有");
   assert.match(closing, /别拿逗号缝成一条/);
-  assert.match(app, /crossSamenessHint\(charId\) \+ _biTurnLine \+ _turnClosing\)/, "收尾那句没拼进每轮任务串");
+  endsWithClosing();
   // 字段定义上也写一句——和双语同一个落法，这是最强的位置
   assert.match(app, /word: string\[\]，角色实际发送的消息。【一个元素＝一句话】/, "字段定义上没写");
   assert.match(app, /想说三句就给三个元素/);

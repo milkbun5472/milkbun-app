@@ -9103,7 +9103,7 @@ function CenterCard({ children, onClose, maxWidth }) {
 }
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, roomName
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -9215,7 +9215,7 @@ function StateCard({
   return h(CenterCard, { onClose: onClose }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       (page === "gaze" && gazeOn && window.GazePage)
-        ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy }))
+        ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy, onReview: onGazeReview, reviewBusy: gazeReviewBusy }))
         : body),
     (page === "now" && !showHist) ? scale : null);
 }

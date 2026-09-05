@@ -175,13 +175,28 @@ test("点名必须点名把那两句「省略」排除掉，否则它夹在中�
   assert.ok(G.spec("阿棠").indexOf("都管不到这一条") < 0, "没点名也在喊「不许省略」");
 });
 
-test("线上协议里，点名那一段要排在「按需字段直接省略」之后（最后一句最响）", () => {
-  // 只看线上那份协议模板里的顺序（线下那份在别处，用整份 app 找会撞上它）
+// ⚠️口径改了（v63.51，她 2026-09-05：「Ta 眼里还是不改啊看都不看的」）。
+// 旧口径只要求点名排在【同一份协议模板里】那句「直接省略」之后，那已经不够：
+// 排在它后面之后，点名后面还压着一千多字的【能力使用总则】【能力字段字典】
+// （送礼/通话/撤回/转账/约回），它照样不是最后一句。线下那边 gazeSpecBlock
+// 一直是拼在整份 system 的最尾巴上——线上从来没有对齐过。
+// 现在：协议模板里只留【字段说明】（spec 传 tail:true），点名那一段单独由
+// nudge() 拿出来，接在每轮任务串的末尾、_turnClosing 之前。
+test("点名那一段要在整份提示词的尾巴上，不许再埋回字段字典里", () => {
+  // 协议模板里只剩字段说明，点名不在里面
+  assert.match(app, /window\.Gaze\.spec\("对方", charId, \{ tail: true \}\)/, "线上协议还在整份 spec 里带着点名");
   const proto = app.slice(app.indexOf("const _normalProtocolStable = `"), app.indexOf("【能力使用总则】"));
-  const omit = proto.indexOf("未发生、未改变的按需字段直接省略；action 不属于按需字段");
-  const nudge = proto.indexOf('window.Gaze.spec("对方", charId)');
-  assert.ok(omit > 0 && nudge > 0, "线上协议里没找着这两句");
-  assert.ok(nudge > omit, "点名又被压在「直接省略」上面了——那一句是后说的，它赢");
+  assert.ok(proto.indexOf("Gaze.nudge") < 0, "点名又被塞回协议模板中段了");
+  // 点名接在每轮任务串的尾巴上，而且在 _turnClosing 之前（那一句是这一轮的任务，得留在最后）
+  assert.match(app, /const _gazeNudgeHint = \(!_s\.engineerEyes && window\.Gaze && window\.Gaze\.nudge\) \? window\.Gaze\.nudge\("对方", charId\) : ""/);
+  const task = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint"));
+  const nudge = task.indexOf("_gazeNudgeHint");
+  const closing = task.indexOf("_turnClosing");
+  const dict = app.indexOf("【能力字段字典】");
+  assert.ok(nudge > 0 && closing > nudge, "点名没接在任务串尾巴上，或跑到 _turnClosing 后面去了");
+  assert.ok(app.indexOf("_gazeNudgeHint = ") > dict, "点名又跑到字段字典前面去了");
+  // 线下那一路照旧整份 spec（它本来就拼在最后），别顺手把它也改坏
+  assert.match(app, /oCtx\.gazeSpec = .*window\.Gaze\.spec\("对方", charId\) : ""/);
 });
 
 test("线下那块的开场白，点了名就不许再说「用不上就整个省略」", () => {
@@ -209,7 +224,10 @@ test("接线：先记标记再打调用；线上线下两路都接上，且都�
   assert.match(app, /const GAZE_AUTOSEED_MSGS = 30/);
   assert.match(app, /if \(msgs\.length \+ \(Number\(extra\) \|\| 0\) < GAZE_AUTOSEED_MSGS\) return/);
   // 线上
-  assert.match(app, /window\.Gaze\.tick\(char\.id\); \} catch \(e\) \{\} \}\n\s*try \{ maybeAutoSeedGaze\(char\); \}/);
+  // ⚠️断言要跳过注释行：v63.51 在这两行之间加了一句解释，原来那个「紧挨着下一行」的
+  //   正则当场红——它测的是「接线在不在」，不是「中间有没有注释」。
+  const appCode = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.match(appCode, /window\.Gaze\.tick\(char\.id\); \} catch \(e\) \{\} \}\n\s*try \{ maybeAutoSeedGaze\(char\); \}/);
   // 线下：这一场的对话不在 chatsRef 里，只数线上会永远够不着门槛
   assert.match(app, /maybeAutoSeedGaze\(char, \(\(workSess && workSess\.msgs\) \|\| \[\]\)\.length\)/);
   // 言秋和 NPC 不参与

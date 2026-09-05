@@ -29,10 +29,13 @@ const mkG = () => {
 
 test("那条围栏两路共用，只写一份", () => {
   assert.equal((gaze.match(/const NOT_PROFILE = uName =>/g) || []).length, 1, "围栏抄成了两份");
-  assert.equal((gaze.match(/NOT_PROFILE\(uName\)/g) || []).length, 2, "两路里有一路没挂上");
+  // ⚠️口径从 2 改成 3（v63.51）：现在有三路会问这张卡——每轮那个字段、建卡那一次、
+  //   还有卡冻住时的【自动复看】。新加一路而没给它挂围栏，正是这条规矩要挡的事。
+  assert.equal((gaze.match(/NOT_PROFILE\(uName\)/g) || []).length, 3, "三路里有一路没挂上");
   const G = mkG();
   assert.match(G.spec("Lisa"), /绝不许复述她的设定/, "每轮那一路没挂");
   assert.match(G.seedSpec("Lisa"), /绝不许复述她的设定/, "建卡那一次没挂");
+  assert.match(G.reviewSpec("Lisa", "nobody"), /绝不许复述她的设定/, "自动复看那一路没挂");
   // 围栏要说清「凭什么算写过」：能落回具体的事，落不回就填 null
   assert.match(G.seedSpec("Lisa"), /每一句都得能落回某一次具体的对话、某件真发生过的事/);
   assert.match(G.seedSpec("Lisa"), /填 null 比编一句漂亮话强/);

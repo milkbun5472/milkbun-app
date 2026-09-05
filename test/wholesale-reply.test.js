@@ -11,6 +11,18 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 //   ① 窗户关紧了没  ② 嫌吵就把降噪耳机戴上（两人一字不差）  ③ 等我，马上过去
 // 「这怎么是批发市场啊」。
 
+// ⚠️口径改了（v63.51）：原来这三处都钉死了 `crossSamenessHint(charId) + _biTurnLine + _turnClosing)`
+//   这个【逐字相邻】的写法，于是任何一条新的每轮提示插进来都会当场红——可它们真正要钉的是
+//   「_turnClosing 是这一串的【最后一项】」，不是「它前面紧挨着谁」。
+//   （v63.51 把 Ta 眼里的点名复看接在了它前面：那一段必须在整份提示词的尾巴上，
+//   但仍要给 _turnClosing 让出最后一句。）改成直接钉【最后一项】，两件事都保住。
+const taskV2 = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint")).trim();
+const endsWithClosing = () => {
+  assert.match(taskV2, /\+ _turnClosing\)\.replace\(\/用户\/g, uName\);$/, "_turnClosing 不再是每轮任务串的最后一项");
+  assert.match(taskV2, /crossSamenessHint\(charId\)/, "禁用词表那一层掉了");
+  assert.match(taskV2, /_biTurnLine/, "双语那一层掉了");
+};
+
 test("三件套要被点名，而且给一把可判定的尺子", () => {
   const i = engine.indexOf("const STOCK_REPLY_BAN");
   assert.ok(i > 0);
@@ -97,7 +109,7 @@ test("禁用词表只给句子，不给是谁说的——这不是把 A 的私�
 });
 
 test("单聊两条路径都要吃到禁用词表（漏一条换线路又变批发）", () => {
-  assert.match(app, /MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ _biTurnLine \+ _turnClosing\)\.replace/, "v2 每轮任务");
+  endsWithClosing();
   assert.match(app, /MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ "\\n【输出】/, "旧全量任务串");
   // 群聊不该有这一层，理由要写在代码里
   const why = app.slice(app.indexOf("const CROSS_SAMENESS_WINDOW_MS") - 700, app.indexOf("const CROSS_SAMENESS_WINDOW_MS"));
