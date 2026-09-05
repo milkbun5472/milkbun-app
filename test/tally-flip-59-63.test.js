@@ -99,8 +99,9 @@ test("五栏各长各的样子，不是同一张白卡", () => {
   const face = view.slice(view.indexOf("const faceOf = e =>"), view.indexOf("const backOf = e =>"));
   ["debts", "policies", "statements", "treasures"].forEach(k =>
     assert.ok(face.indexOf('e.kind === "' + k + '"') > 0, k + " 没有自己的正面"));
-  assert.match(face, /"POLICY " \+ String\(e\.i \+ 1\)/, "兜底不是一张保单");
-  assert.match(face, /"LOT " \+ String\(e\.i \+ 1\)/, "估价不是一张拍品签");
+  // v63.01 no-english-titles：POLICY 01 / LOT 01 换成「第 01 条」「第 01 号」
+  assert.match(face, /"第 " \+ String\(e\.i \+ 1\)\.padStart\(2, "0"\) \+ " 条"/, "兜底不是一张保单");
+  assert.match(face, /"第 " \+ String\(e\.i \+ 1\)\.padStart\(2, "0"\) \+ " 号"/, "估价不是一张拍品签");
   assert.match(face, /承保范围[\s\S]{0,40}理赔条件/, "保单上没有条目表");
 });
 

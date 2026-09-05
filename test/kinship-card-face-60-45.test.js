@@ -32,7 +32,10 @@ test("这张卡换个角色就整个变样——搬不去别的 app", () => {
   // tabs-not-plain-pills 那把尺子：原样搬到另一个 app 还成立，就是写坏了。
   assert.match(face, /avatarSrcOf\(c\)/, "他的脸得在卡上，不然这张卡跟谁都没关系");
   assert.match(face, /const ink = c\.color \|\| /, "卡底是他的颜色");
-  assert.match(face, /副卡 · SUPPLEMENTARY/, "它在现实里就是【开在别人账上的副卡】");
+  // v63.01 no-english-titles：「副卡 · SUPPLEMENTARY」那半英文是装饰，
+  // 中文那半已经把这张卡是什么说清楚了
+  assert.match(face, /"副卡"/, "它在现实里就是【开在别人账上的副卡】");
+  assert.ok(!face.includes("SUPPLEMENTARY"), "旧那半英文还在");
   // 签名条：真卡背面那条，他的话签在上面
   assert.match(face, /repeating-linear-gradient/, "签名条的斜纹没了，就又是一张普通卡片");
   assert.match(face, /"「" \+ note \+ "」"/, "他开卡时说的那句话得签在条上");

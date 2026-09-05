@@ -103,28 +103,28 @@ const PHONE_DECOR = ["clock", "frame", "saying"];
 // 还有一条统一的规矩：【这一页已经有组件的 app，就不在这一页再摆一个图标】——
 // 她问的「哪些留图标、哪些换组件」，答案是按页去重，而不是全局二选一。
 const PHONE_DESKTOP_LAYOUTS = [{
-  id: "social", label: "SOCIAL",
+  id: "social", label: "爱聊的",
   dock: ["calls", "wechat", "browser", "music"],
   pages: [["notes", "album", "forum", "shopping"],
           ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail", "anon"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "health" }, { key: "calendar" }]]
 }, {
-  id: "archive", label: "ARCHIVE",
+  id: "archive", label: "爱记的",
   dock: ["calls", "wechat", "notes", "browser"],
   pages: [["album", "music", "clipboard", "calendar"],
           ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout", "anon"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }],
             [{ key: "reading", span: 2, size: "wide" }, { key: "saying", span: 2, size: "wide" }, { key: "mail" }, { key: "clock" }]]
 }, {
-  id: "media", label: "MEDIA",
+  id: "media", label: "泡内容的",
   dock: ["calls", "wechat", "music", "album"],
   pages: [["forum", "browser", "notes", "reading"],
           ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail", "anon"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "liked" }, { key: "timeline" }]]
 }, {
-  id: "wander", label: "WANDER",
+  id: "wander", label: "安静的",
   dock: ["calls", "wechat", "browser", "album"],
   pages: [["notes", "music", "shopping", "forum"],
           ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health", "anon"]],
@@ -1717,7 +1717,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       // 保单：险种名压在顶上，承保范围和理赔条件排成两行条目表
       return [
         h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 } },
-          eyebrow("POLICY " + String(e.i + 1).padStart(2, "0")), whoPill(e)),
+          eyebrow("第 " + String(e.i + 1).padStart(2, "0") + " 条"), whoPill(e)),
         h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.4, color: TALLY_INK, wordBreak: "break-word" } }, e.lead),
         (e.scope || e.terms) ? h("div", { key: "t", style: { marginTop: 11, borderTop: "1px solid " + TALLY_LINE, paddingTop: 9, display: "grid", gap: 6 } },
           [["承保范围", e.scope], ["理赔条件", e.terms]].filter(r => r[1]).map(r =>
@@ -1741,7 +1741,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       // 拍品签：编号在顶上，名字在中间，归类和跟谁有关在底下
       return [
         h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingBottom: 9, borderBottom: "1px solid " + TALLY_LINE } },
-          eyebrow("LOT " + String(e.i + 1).padStart(2, "0"), TALLY_RED),
+          eyebrow("第 " + String(e.i + 1).padStart(2, "0") + " 号", TALLY_RED),
           e.kind2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TALLY_DIM } }, e.kind2) : null),
         h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TALLY_INK, marginTop: 11, wordBreak: "break-word" } }, e.lead),
         e.who ? h("div", { key: "w", style: { marginTop: 9 } }, whoPill(e)) : null
@@ -5530,7 +5530,7 @@ function PhoneCarry({
             h(Avatar, { character: meAv, size: 50, radius: 999 }),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1.1 } }, "通讯录"),
-              h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.18em", color: t.fog, marginTop: 3 } }, "CONTACTS · " + characters.length))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, characters.length + " 个人"))),
           // 每周刷新正在跑：一次唤起会把这一周欠的人连着刷完，一个人十几次串行调用。
           // 中间那几分钟不摆出来的话，看起来跟卡住了一模一样。
           weekAt ? h("div", {
@@ -6085,7 +6085,7 @@ function PhoneCarry({
         r.text.length > 60 ? r.text.slice(0, 60) + "…" : r.text) : null))) : null,
   !q.trim() && h("div", { className: "shrink-0 px-5 pb-1 flex items-center justify-between" },
   h("div", null),   // 「向左滑还有一页」她 2026-09-01 说去掉——底下那排页点已经在说这件事了
-  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, layout.label)),
+  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog } }, layout.label)),
   !q.trim() && h("div", {
     ref: deskRef,
     className: "flex-1 min-h-0 flex overflow-x-auto",

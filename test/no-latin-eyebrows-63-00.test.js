@@ -1,22 +1,100 @@
-// 审美审计还债收尾（二）：screens.js 里最后那批英文眉标（no-english-titles.md）。
+// 英文眉标那道闸（no-english-titles.md）。
 //
-// Head 和 LineField 都已经有闸：有中文 zh 时纯拉丁的 en 一律不发。
-// 漏网的是【不走这两个组件、自己手写一行小字】的那些——闸管不到它们，
-// 只能一处处改。这条测试就是那道补上的闸：以后新加一处也会当场红。
+// Head / LineField / StudyHead 都已经有闸：有中文 zh 时纯拉丁的 en 一律不发。
+// 漏网的是【不走这几个组件、自己手写一行小字】的那些——闸管不到它们，只能一处处改。
+// 这个文件就是那道补上的闸：以后新加一处会当场红。
+// v63.00 只管 screens.js；v63.01 起 Lisa 把别的文件也交过来了，改成全库一起问。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
 
-test("screens.js 里不许再有大写拉丁眉标", () => {
-  // 大写拉丁串 = 眉标那一款的样子。技术缩写不算（它们没有中文名，是规矩里写明的例外）
-  const OK = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|NFKC|SSR|SR|UID|PWA|AI|OK|ID|TA)$/;
-  const hits = (src.match(/"[A-Z][A-Z ·&/]{3,26}"/g) || [])
-    .map(x => x.slice(1, -1)).filter(x => !OK.test(x.trim()))
-    // pageSkin 的 word 是页脚那个 5% 的水印，不是标题，规矩管不到它
-    .filter(x => x !== "CARRY");
-  assert.deepEqual(hits, [], "还留着英文眉标：" + hits.join(" / "));
+// 全库一起问。以前这条只管 screens.js，v63.01 起 Lisa 把别的文件也交过来了。
+// 例外分三类，每一类都写着理由——不是"看着顺眼就放过"：
+const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
+const ALLOW = {
+  // ① 这一处压根没有中文名（no-english-titles.md 里写明的那条例外）
+  "js/notify.js": ["ARCHIVE"],            // app 自己的名字，manifest 里就叫这个
+  // OOC 在中文同人圈里就是这么写的，它【就是】那个中文词，不是没翻译
+  "js/components.js": ["OOC",
+    // ④ 主屏装饰件上印的字：她 2026-09-03 对这一类另外定过一条——
+    //    「任何有英文字母在图上的都要【可以编辑】换成我要的词」，给的解法是可编辑
+    //    （dmark 那一层，v61.87 已经做了），不是翻成中文。它们是道具上的印刷字，
+    //    不是标题、副标题或栏目名，no-english-titles 管不到。
+    "EVIDENCE / ", "ARCHIVED", "PHOTO BOOTH", "WEEKEND", "A SMALL STORY",
+    "CABINET OF MOMENTS", "ADMIT ONE"],
+  "js/vps-codex.js": ["CODEX · ALWAYS ON"], // 那台机器自己的名字
+  // ③ 发给模型的枚举值 / 模型返回的枚举值——不是给人看的字，各自都有中文映射
+  "js/app.js": ["HIGH LOAD", "LOW LOAD", "NORMAL", "LIGHT"],
+  "js/engine.js": ["CLEAR", "CLOUDY", "DRIZZLE", "KEEP", "OVERCAST", "PARTLY CLOUDY",
+    "RAIN", "REWRITE", "SHOWERS", "SNOW", "THUNDERSTORM", "WAVE"],
+  // 测量字宽用的那串字母
+  "js/weekly.js": ["ABCDEFGHIJKL"]
+};
+test("全库不许再有大写拉丁眉标", () => {
+  const dir = path.join(__dirname, "..", "js");
+  const bad = [];
+  fs.readdirSync(dir).filter(f => f.endsWith(".js")).forEach(f => {
+    // games.js 是 Codex 的地盘、trpg.js 和 yanqiu.js 是言秋的，都不碰
+    if (["games.js", "trpg.js", "yanqiu.js"].includes(f)) return;
+    // ② pageSkin 的 word 是页脚那个 5% 的大水印，是背景装饰不是标题——先摘掉它再问。
+    //    ⚠️别写成「这个词在这个文件里放行」：那样连【显示出来的副标题】也一起放行了
+    //    （dwell 的 topBar("去处","PLACES") 就是这么漏过去的）。
+    const txt = fs.readFileSync(path.join(dir, f), "utf8").replace(/word: "[^"]*"/g, 'word: ""');
+    (txt.match(/"[A-Z][A-Z ·&/]{3,26}"/g) || []).map(x => x.slice(1, -1)).forEach(x => {
+      if (OK_TECH.test(x.trim())) return;
+      if ((ALLOW["js/" + f] || []).some(a => x.indexOf(a) >= 0)) return;
+      bad.push("js/" + f + " → " + x);
+    });
+  });
+  assert.deepEqual([...new Set(bad)], [], "还留着英文眉标：\n" + [...new Set(bad)].join("\n"));
+});
+
+test("「英文 · 中文」夹着写的也算——中文那半已经把话说完了", () => {
+  // ⚠️只查【整串都是大写】的话，这一类全查不出来：LAST NOTES · 学到哪了、
+  //   NEW ENTRY / 写日记、PAY FOR ME · 代付请求、CORRECTION · 更正……
+  //   它们混着汉字，上一条那个正则一个都匹配不到。第一版就是这么漏掉七处的。
+  const dir = path.join(__dirname, "..", "js");
+  const bad = [];
+  fs.readdirSync(dir).filter(f => f.endsWith(".js")).forEach(f => {
+    if (["games.js", "trpg.js", "yanqiu.js"].includes(f)) return;
+    // 提示词里给模型看的枚举、技术名词和说明文字不算——它们不是界面上的眉标
+    if (["engine.js", "app.js", "phone.js", "assistant.js", "assistant-manual.js", "codex.js",
+      "fanfic.js", "mcp.js", "read.js", "style-presets.js", "theme-studio.js", "theme-studio-ui.js",
+      "uno-core.js", "vps-codex.js", "map.js", "notify.js", "rescue-console.js"].includes(f)) return;
+    const txt = fs.readFileSync(path.join(dir, f), "utf8");
+    (txt.match(/"[^"\n]*"/g) || []).forEach(raw => {
+      const x = raw.slice(1, -1);
+      if (!/[一-鿿]/.test(x)) return;                       // 没汉字的走上一条
+      // 眉标是【短】的。超过 40 字的是正文、说明或提示词，不是栏目名——
+      // 不设这条的话这条测试会被一屏提示词淹掉，然后没人再看它
+      if (x.length > 40) return;
+      const caps = x.match(/\b[A-Z]{3,}(?:[ ][A-Z]{2,})*\b/g) || [];
+      caps.forEach(c => {
+        // 技术名词 / 产品名 / 中文圈里就这么写的词 / 主屏装饰件上的印刷字
+        if (/^(DOCX|TXT|PDF|CSS|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI)$/.test(c)) return;
+        bad.push("js/" + f + " → " + x.slice(0, 40));
+      });
+    });
+  });
+  assert.deepEqual([...new Set(bad)], [], "还有中英夹着的眉标：\n" + [...new Set(bad)].join("\n"));
+});
+
+test("pageSkin 的 word 放行的只是水印，不是顺带把那个词整篇放行", () => {
+  const dwell = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
+  // 去处那三页的顶栏副标题原来写着 PLACES——它是显示出来的字，跟水印不是一回事
+  assert.ok(!/topBar\("[^"]*", "[A-Z]/.test(dwell), "顶栏副标题又塞了一行英文");
+  assert.equal((dwell.match(/word: "PLACES"/g) || []).length, 3, "页脚那个水印不该被顺手删掉");
+});
+
+test("Head / LineField / StudyHead 那道闸后面不许再挂死的 en", () => {
+  // 三个组件都是「有中文 zh 时纯拉丁的 en 一律不发」，留着只是让人以为还在用
+  ["components.js", "screens.js", "study.js", "phone.js", "rescue-console.js"].forEach(f => {
+    const txt = fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
+    ["NEW COURSE FILE", "NEW RESEARCH SHEET", "OPEN STUDY BINDER", "REMOTE RESCUE"]
+      .forEach(w => assert.ok(!txt.includes(w), f + " 里还挂着死的 en：" + w));
+  });
 });
 
 test("换掉的那些说的是这一栏在干嘛，不是把英文译回来", () => {

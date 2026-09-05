@@ -997,7 +997,7 @@
           supplements.length < 3 ? h("button", { onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11.5, color: GOLD, border: "1px dashed rgba(184,145,80,.42)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
         // 占卜师综合收束：旧存档没有 readerSummary 时回退到原 summary。
         allRevealed && (s.readerSummary || s.summary) ? h("div", { style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(122,104,176,.14),rgba(184,145,80,.10))", border: "1px solid rgba(184,145,80,.26)", borderRadius: 13 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: GOLD, marginBottom: 7 } }, "占卜师总结 · READER'S SYNTHESIS"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: GOLD, marginBottom: 7 } }, "占卜师总结"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: SKY_INK, whiteSpace: "pre-wrap" } }, s.readerSummary || s.summary)) : null,
         // 角色本人对这几张牌的想法
         allRevealed && s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: SKY_PANEL, border: "1px solid " + SKY_LINE, borderRadius: 13 } },

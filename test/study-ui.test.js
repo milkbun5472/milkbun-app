@@ -10,10 +10,14 @@ const ui = src.slice(src.indexOf("// UI"));
 test("一起学整套界面是一册活页学习夹，不再是通用白卡", () => {
   assert.match(ui, /const STUDY_SKIN = \{/);
   assert.match(ui, /const STUDY_MODE_SKIN = \{[\s\S]*teach:[\s\S]*costudy:[\s\S]*nv1:/);
-  assert.match(ui, /COURSE FILE/);
-  assert.match(ui, /LAST NOTES/);
-  assert.match(ui, /LESSON SLIPS/);
-  assert.match(ui, /NEW RESEARCH SHEET/);
+  // v63.01 no-english-titles 收尾：这几条原来是「英文 · 中文」夹着写的
+  // （LAST NOTES · 学到哪了…），中文那半已经把话说完了，英文那半是装饰，删掉。
+  // StudyHead 的 en 有中文 zh 时本来就不发，那几个死的 en 也一并撤了。
+  ["学到哪了", "历次课 ", "研究什么", "大目标", "找谁一起", "找谁教（选 1 个）"]
+    .forEach(z => assert.ok(ui.includes('"' + z + '"'), "少了这条中文眉标：" + z));
+  ["COURSE FILE", "LAST NOTES", "LESSON SLIPS", "NEW RESEARCH SHEET", "OPEN STUDY BINDER",
+    "COURSE SUBJECT", "RESEARCH QUESTION", "PARTNER ·", "TEACHER ·", "SEATING ·"]
+    .forEach(w => assert.ok(!ui.includes(w), "旧那条英文眉标还在：" + w));
   // v62.73 no-english-titles：QUIZ CARD → 「小测」。眉标说的是这一栏在干嘛，
   // 不是把英文原样译回来。
   assert.match(ui, /"小测 · "/);

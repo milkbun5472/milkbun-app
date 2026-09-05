@@ -95,7 +95,10 @@ test("地方改叫去处", () => {
   const { api } = makeHome();
   assert.equal(api.REG.dwell.zh, "去处");
   assert.ok(!/zh: "地方"/.test(comp), "主屏图标名还有写「地方」的");
-  assert.match(dwell, /topBar\("去处", "PLACES"\)/, "去处那一页的标题没改");
+  // v63.01 no-english-titles：topBar 的第二个参数是【显示出来的副标题】，
+  // 「PLACES」那行是装饰（页脚那个 5% 的水印才是 pageSkin 的 word，另一回事）
+  assert.match(dwell, /topBar\("去处"\)/, "去处那一页的标题没改");
+  assert.ok(!/topBar\("去处", "PLACES"\)/.test(dwell), "副标题那行英文还在");
   assert.ok(!/["「]地方["」]/.test(dwell.split("\n").filter(l => /F_DISPLAY|topBar\(|zh:/.test(l)).join("\n")),
     "去处页面里还有个标题写着「地方」");
 });

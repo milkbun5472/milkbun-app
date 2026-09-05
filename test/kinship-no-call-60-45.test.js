@@ -49,7 +49,8 @@ test("聊天里那条长成一张刷卡通知，不是居中红斜体的 SYSTEM 
   //   一张提额申请单，切片一下子把它也圈了进来，assert 就误报在别人身上。
   const _i = comp.indexOf("function KinshipSpendCard");
   const card = comp.slice(_i, comp.indexOf("\nfunction ", _i + 10));
-  assert.ok(!/fontStyle: "italic"/.test(card) && !/SYSTEM RESPONSE/.test(card),
+  // v63.01 起那条系统行本身也改叫「系统消息」了，两种写法都不许出现在这张卡上
+  assert.ok(!/fontStyle: "italic"/.test(card) && !/SYSTEM RESPONSE|"系统消息"/.test(card),
     "v60.44 那个形状就是它，她说格式不对");
   // 刷卡短信该说清的四件事：谁的卡、买了什么、多少钱、还剩多少
   assert.match(card, /Avatar/, "看不出是谁的卡");

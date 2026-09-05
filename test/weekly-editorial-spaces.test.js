@@ -11,7 +11,8 @@ test("周刊入口、合订本和工具台是三种可辨认的整页空间", ()
   assert.match(weekly, /一个人的周刊/);
   assert.match(weekly, /data-weekly-space": "archive"/);
   assert.match(weekly, /编辑部书架/);
-  assert.match(weekly, /BOUND VOLUMES/);
+  // v63.01 no-english-titles：BOUND VOLUMES · SINCE THE FIRST ISSUE → 合订本 · 从创刊号起
+  assert.match(weekly, /"合订本 · 从创刊号起"/);
   assert.match(weekly, /data-weekly-space": "tools"/);
   assert.match(weekly, /编辑部工作台/);
 });

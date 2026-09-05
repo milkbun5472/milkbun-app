@@ -23,7 +23,7 @@
     const latestStatus = rows.find(r => r.action === "status" && r.state === "completed" && r.result);
     const services = latestStatus && latestStatus.result && latestStatus.result.services || {};
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
-      h(Head, { zh: "互救台", en: "REMOTE RESCUE", onBack: onBack }),
+      h(Head, { zh: "互救台", onBack: onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "手机发命令，VPS 常驻急救室执行；Mac 合盖也能看体征和重启白名单服务。这里只保存 VPS 运行态检查点，不会擅自改写聊天历史。"),
         err && h("div", { style: { padding: 12, borderRadius: 12, background: "rgba(194,90,74,.10)", color: t.accent, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, marginBottom: 12 } }, err),

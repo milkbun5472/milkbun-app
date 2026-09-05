@@ -895,7 +895,7 @@ function GlassIcon({
     : h(G, { size: 27, color: tone ? tone.glyph : t.ink, sw: 1.7 });
   // 角标和 SOON 两支共用：玻璃版和自带底版都要挂
   const marks = [
-    soon ? h("span", { key: "soon", style: { position: "absolute", bottom: -4, right: -4, fontSize: 8, fontFamily: "'Archivo',sans-serif", letterSpacing: "0.08em", color: "#fff", background: t.ink, borderRadius: 999, padding: "1px 5px" } }, "SOON") : null,
+    soon ? h("span", { key: "soon", style: { position: "absolute", bottom: -4, right: -4, fontSize: 8, fontFamily: "'Archivo',sans-serif", letterSpacing: "0.08em", color: "#fff", background: t.ink, borderRadius: 999, padding: "1px 5px" } }, "快了") : null,
     badge > 0 ? h("span", { key: "badge", style: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, badge) : null
   ];
   return /*#__PURE__*/React.createElement("button", { onClick: onClick, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform", style: soon ? { opacity: 0.5 } : null },
@@ -5235,7 +5235,7 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
 function OfflineLogCard({ m, t, sel }) {
   const [open, setOpen] = useState(false);
   return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过 · OFFLINE"),
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过"),
     m.content,
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
@@ -5752,7 +5752,7 @@ function ChatThread({
         opacity: 0.7,
         marginTop: 6
       }
-    }, "SYSTEM RESPONSE",
+    }, "系统消息",
       // OOC 回复（system 形态·turnId ooc_ 开头）也给删除口（和 OOC 提问一起清干净）
       (onDeleteMessages && isOocRecord(m)) ? h("button", {
         onClick: e => { e.preventDefault(); e.stopPropagation(); onDeleteMessages([i]); },
@@ -6890,8 +6890,7 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
     h("div", { className: "shrink-0 px-5 flex items-center justify-between", style: { height: 62, borderBottom: `1px solid ${A.line}` } },
       h("button", { onClick: onBack, className: "active:opacity-50", "aria-label": "返回" }, h(IArrow, { size: 19, color: A.ink })),
       h("div", { style: { textAlign: "center" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: A.ink } }, "匿名问答"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: A.fog, marginTop: 1 } }, "ANONYMOUS Q&A")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: A.ink } }, "匿名问答")),
       h("div", { style: { width: 19 } })),
     h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 12 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
@@ -7932,7 +7931,7 @@ function ShopAskCard({ m }) {
   return h("div", { "data-wk": "card", style: { width: 216, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid #ececf0", boxShadow: "0 1px 4px rgba(0,0,0,.06)" } },
     h("div", { style: { height: 4, background: "linear-gradient(90deg,#ff5000,#ff9500)" } }),
     h("div", { style: { padding: "10px 12px 11px" } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.16em", color: "#ff5000" } }, "SHOPPING"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#ff5000" } }, "购物"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#20202a", lineHeight: 1.45, marginTop: 5 } }, a.name || ""),
       a.desc ? h("div", { className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: "#ff5000", background: "#fff2ea", borderRadius: 3 } }, a.desc) : null,
       h("div", { className: "flex items-end justify-between", style: { marginTop: 7 } },
@@ -8049,7 +8048,7 @@ function KinshipCardFace({ character, limit, used, note, width }) {
         background: "linear-gradient(118deg, rgba(255,255,255,.09) 0%, rgba(0,0,0,.16) 52%, rgba(0,0,0,.44) 100%)" } }),
       h("div", { style: { position: "relative", padding: "13px 15px 15px" } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 22 } },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.22em", opacity: 0.8 } }, "副卡 · SUPPLEMENTARY"),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.22em", opacity: 0.8 } }, "副卡"),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, opacity: 0.95, maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "")),
         h("div", { className: "flex items-baseline", style: { gap: 7 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em" } }, "¥" + (remain == null ? (limit || 0) : remain)),
@@ -8274,7 +8273,7 @@ function PayLaterCard({ m }) {
   return h("div", { className: "py-1 flex justify-end" },
     h("div", { "data-wk": "card", style: { width: 236, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + t.line } },
       h("div", { className: "px-4 pt-3.5 pb-3" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.18em", color: t.fog } }, "PAY FOR ME · 代付请求"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: t.fog } }, "代付请求"),
         h("div", { className: "mt-1.5", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.3 } }, names || "购物清单"),
         h("div", { className: "mt-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.accent } }, "¥" + m.total)),
       h("div", { className: "px-4 py-2", style: { background: t.bg2, fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.04em", color: bc } }, badge)));
@@ -8290,7 +8289,7 @@ function TransferCard({
   const pending = m.status === "pending";
   const canAct = pending && m.dir === "toMe"; // 我是收款方，可操作
   const statusLabel = m.status === "accepted" ? "已收款" : m.status === "returned" ? "已退回" : m.dir === "toChar" ? "等待 TA 接受" : "待接收";
-  const stamp = m.status === "accepted" ? "RECEIVED" : m.status === "returned" ? "RETURNED" : "SENT";
+  const stamp = m.status === "accepted" ? "已收" : m.status === "returned" ? "已退" : "已发";
   // 头像跟位置卡同一个摆法：对方的在左、我的在右（她 2026-08-27：「转账旁边没有头像」）
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
@@ -9444,7 +9443,7 @@ function OfflineMode({
       const presetName = usingPreset ? window.StylePresets.byId(sess.presetId).name : "";
       const on = usingPreset || !!(own || (named && named.prompt));
       return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog } }, "文风"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
           usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
@@ -10109,7 +10108,7 @@ function GroupOfflineMode({
       const presetName = usingPreset ? window.StylePresets.byId(sess.presetId).name : "";
       const on = usingPreset || !!(own || (named && named.prompt));
       return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog } }, "文风"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
           usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
@@ -12231,14 +12230,14 @@ function ChatSettings({
       h("button", { disabled: temperamentBusy, onClick: async () => { await onGenerateTemperament(temperamentWords()); setTemperamentDirty(false); }, className: "active:opacity-60", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 8px", color: t.sub, opacity: temperamentBusy ? .55 : 1 } }, temperamentBusy ? "正在提炼…" : "生成一次草稿"),
       h("button", { disabled: !temperamentWords().length, onClick: async () => { const ok = await onSaveTemperament(temperamentWords()); if (ok) setTemperamentDirty(false); }, className: "active:opacity-70", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 9, padding: "9px 8px", background: t.ink, color: t.bg2, opacity: temperamentWords().length ? 1 : .45 } }, "确认并保存")),
     aShadowPanel && aShadowPanel.state && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
-      h(Eyebrow, null, "A SHADOW · 只看不注入"),
+      h(Eyebrow, null, "A 影子 · 只看不注入"),
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value).toFixed(2)))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 10, lineHeight: 1.6 } },
         aShadowPanel.projection && aShadowPanel.projection.text ? "若开阀会投影：" + aShadowPanel.projection.text : "若开阀会投影：无（目前接近常态）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } },
         "样本 " + Number(aShadowPanel.report && aShadowPanel.report.sampleCount || 0) + " · mood 未命中 " + Number(aShadowPanel.report && aShadowPanel.report.unmatchedMoodCount || 0) + " · 封顶触发 " + Number(aShadowPanel.report && aShadowPanel.report.clippedCount || 0) + " · 预计 " + Number(aShadowPanel.projection && aShadowPanel.projection.tokenEstimate || 0) + " tokens")),
     aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
-      h(Eyebrow, null, "B RELATION SHADOW · 只看不干预"),
+      h(Eyebrow, null, "B 关系影子 · 只看不干预"),
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.bReport.state && aShadowPanel.bReport.state.axes || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: value.active ? t.accent : t.sub, border: "1px solid " + (value.active ? t.accent : t.line), borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value.pressure || 0).toFixed(2) + (value.repairLocked ? " 🔒" : "")))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, lineHeight: 1.7 } },
         "后台检测 " + Number(aShadowPanel.bReport.calls || 0) + " 次 · 失败 " + Number(aShadowPanel.bReport.failures || 0) + " · 平均 " + Number(aShadowPanel.bReport.avgLatencyMs || 0) + "ms", h("br"),

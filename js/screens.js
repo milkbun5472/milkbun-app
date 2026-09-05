@@ -2756,7 +2756,7 @@ function KinshipBill({ card, character, onBack, onRaise }) {
                 h("button", { onClick: () => { setAsking(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消")))),
       // 账单
       h("div", { className: "px-5 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 10 } }, "刷卡账单 · STATEMENT"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 10 } }, "刷卡账单"),
         ledger.length === 0
           ? h("div", { className: "text-center mt-6", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有刷过这张卡。\n去购物 App 结算时选「用亲属卡付」。")
           : ledger.map(l => h("div", { key: l.id, className: "py-3.5", style: { borderBottom: "1px solid " + t.line } },
@@ -11724,8 +11724,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
       ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的")
       : h("div", { style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
-              (groups.length > 1 ? groups.length + " OCCASIONS · " : "") + total + " SETS"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
+              (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"),
             h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
           groups.map((g, gi) => h("div", { key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },

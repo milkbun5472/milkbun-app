@@ -52,7 +52,8 @@ test("解牌输出包含高预算的占卜师综合总结", () => {
   assert.match(tarot, /readerSummary（220~520 字）/);
   assert.match(tarot, /StylePresets\.OUT_CEILING/);
   assert.match(tarot, /\|\| 65535/);
-  assert.match(tarot, /占卜师总结 · READER'S SYNTHESIS/);
+  // v63.01 no-english-titles：中英夹着的那半英文删掉
+  assert.match(tarot, /"占卜师总结"/);
   assert.match(tarot, /readerSummary: out\.readerSummary/);
 });
 

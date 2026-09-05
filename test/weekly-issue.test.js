@@ -13,7 +13,7 @@ test("专访接入声纹样本，资料室语录逐字验真、数据本地统�
   assert.match(w, /数字、人名、词全部照抄，一个都不许改/, "模型只配文，不碰数字");
   assert.match(w, /hay\.indexOf\(q\.text\) > -1/, "语录必须逐字来自真实记录");
   assert.match(w, /type: "desk"/, "资料室要成为一个版块");
-  assert.match(w, /QUOTED · 本周语录/);
+  assert.match(w, /"本周语录"/);
   assert.match(w, /数字上看/);
 });
 
@@ -38,8 +38,10 @@ test("媒体腔按周抽签，来信/更正/中缝到位", () => {
   assert.deepEqual(mod.voicesForWeek("W2", past, 2).map(v => v.id), second.map(v => v.id), "手动补版不得消耗抽签池");
   assert.match(w, /async function genLetters/, "读者来信要换立场而不是换口音");
   assert.match(w, /type: "letters"/);
-  assert.match(w, /CORRECTION · 更正/);
-  assert.match(w, /CLASSIFIEDS · 中缝/);
+  // v63.01 no-english-titles：中英夹着的那半英文是装饰，删掉
+  assert.match(w, /"更正"/);
+  assert.ok(!w.includes("CORRECTION"), "旧那半英文还在");
+  assert.match(w, /"中缝"/);
   assert.match(w, /genMediaBatch\(active, weekVoices,/, "出刊要用抽签结果而不是全量 VOICES");
 });
 

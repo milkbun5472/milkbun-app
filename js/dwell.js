@@ -398,7 +398,7 @@
 
     // ── 门：推开才进去 ─────────────────────────────────────
     if (view === "door" || !chars.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
-      topBar("去处", "PLACES"),
+      topBar("去处"),
       h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-8" },
         h("button", {
           onClick: function () { if (!chars.length) return; setOpening(true); setTimeout(function () { setView("who"); }, 560); },
@@ -417,7 +417,7 @@
 
     // ── 推开之后：想见谁 ──────────────────────────────────
     if (view === "who") return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
-      topBar("去处", "PLACES"),
+      topBar("去处"),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, textAlign: "center", margin: "18px 0 4px" } }, "想见谁"),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, textAlign: "center", marginBottom: 26 } }, "WHO"),
@@ -459,7 +459,7 @@
     const made = new Set(places.map(function (p) { return p.name; }));
     const todo = freq.filter(function (f) { return !made.has(f.name); });
     return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
-      topBar(char ? (char.remark || char.name) : "去处", "PLACES",
+      topBar(char ? (char.remark || char.name) : "去处", null,
         // 生成的时候要不要顺带出图：她按次付钱，这是第二次调用，所以放在明面上随时能关
         h("button", { onClick: function () { setCfg(saveCfg({ withImg: !cfg.withImg })); }, className: "active:opacity-60",
           style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap",
