@@ -165,7 +165,7 @@ test("加笔中那一页不再顶着一块 30px 大标题", () => {
   assert.ok(th.length > 2000, "抠不出 RPThread");
   // v61.27：Head 本身已经改成紧凑标题栏了（components.js），所以这一页改回用 Head——
   // 同一层东西不许有两个实现，不然下次只会改到其中一处。
-  assert.match(th, /h\(Head, \{\n\s+zh: s\.ficTitle \|\| "加笔中",/);
+  assert.match(th, /h\(Head, \{ bg: "transparent",\n\s+zh: s\.ficTitle \|\| "加笔中",/);
   assert.match(th, /sub: window\.Fanfic\.rpModeShort/, "副标题没接上");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
   // 书名只写一遍——底下那份重复的抬头撤掉了

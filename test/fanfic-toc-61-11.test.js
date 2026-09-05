@@ -51,7 +51,7 @@ test("卷首靠字号和双线压屏，不是靠一块深底", () => {
   const lead = seg.slice(seg.indexOf("if (isLead)"));
   assert.match(lead, /fontSize: 24/, "卷首标题没有比别的大一截");
   assert.ok(!/background: t\.ink|background: c\.bg/.test(lead), "卷首又铺了一块深底");
-  assert.match(lead, /props\.leadLabel \|\| "TOP OF THE FEED"/);
+  assert.match(lead, /props\.leadLabel \|\| "圈子里最上面那一篇"/);
 });
 
 test("序号还是【此刻排第几】算出来的，不存到文章上", () => {

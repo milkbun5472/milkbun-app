@@ -1580,7 +1580,7 @@
     },
       binding, staple("28%"), staple("62%"), foreEdge, ribbon,
       h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + hexA(t.ink, .12) } },
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "TOP OF THE FEED"),
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "圈子里最上面那一篇"),
         h("span", { style: { flex: 1 } }),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: hasMe ? t.accent : t.fog } }, no)),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.18, color: t.ink, fontWeight: 500 } }, f.title),
@@ -1991,10 +1991,10 @@
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "by " + authorName))),
-        metaRow("RELATION", h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName))),
-        (f.tags || []).length ? metaRow("TAGS", h("div", { className: "flex flex-wrap", style: { gap: 5 } },
+        metaRow("这一对", h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName))),
+        (f.tags || []).length ? metaRow("标签", h("div", { className: "flex flex-wrap", style: { gap: 5 } },
           (f.tags || []).map(function (tag, i) { return h(FicTag, { key: i, tag: tag }); }))) : null,
-        metaRow("STATS", h("div", { className: "flex flex-wrap", style: { gap: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 1 } },
+        metaRow("数目", h("div", { className: "flex flex-wrap", style: { gap: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 1 } },
           h("span", null, fmtNum(_words) + " 字"),
           h("span", null, (f.chapters || []).length + " 章"),
           h("span", null, "♡ " + fmtNum(_heat.kudos + (f.liked ? 1 : 0))),
@@ -2120,7 +2120,7 @@
     const characters = props.characters;
     function finalCP() { return [pickA, pickB].filter(function (x) { return x; }); }
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "发布同人文", en: "Publish", onBack: props.onBack }),
+      h(Head, { bg: "transparent", zh: "发布同人文", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到世界观"),
         h("select", { value: tabId, onChange: function (e) { setTabId(e.target.value); }, className: "w-full mb-4", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
@@ -2168,7 +2168,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, lab));
     };
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "我的", en: "Mine", onBack: props.onBack, right: h("button", { onClick: function () { setMeEdit(true); }, className: "active:opacity-60" }, h(IPencil, { size: 17, color: t.ink })) }),
+      h(Head, { bg: "transparent", zh: "我的", onBack: props.onBack, right: h("button", { onClick: function () { setMeEdit(true); }, className: "active:opacity-60" }, h(IPencil, { size: 17, color: t.ink })) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         // 作者主页卡：背景图 + 头像 + 昵称 + id + 简介 + 三个统计
         h("div", { className: "rounded-2xl overflow-hidden mb-5", style: { border: "1px solid " + t.line } },
@@ -2193,7 +2193,7 @@
   function MinePublished(props) {
     const t = useTheme();
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "我发布的", en: "Published", onBack: props.onBack }),
+      h(Head, { bg: "transparent", zh: "我发布的", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
         props.fics.length ? props.fics.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).map(function (f, i) {
           // 「我发布的」不摆头条：这一页每一篇都是她自己写的，挑一篇出来当头条没有意义
@@ -2220,7 +2220,7 @@
     }
     const picks = cpOptions(characters, props.userName);
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "磕 CP 管理", en: "Ships", onBack: props.onBack, right: h("button", { onClick: function () { adding ? reset() : open(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 加 CP") }),
+      h(Head, { bg: "transparent", zh: "磕 CP 管理", onBack: props.onBack, right: h("button", { onClick: function () { adding ? reset() : open(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 加 CP") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
           h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "备注名（可空，默认用名字）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
@@ -2328,7 +2328,7 @@
       inp.click();
     }
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "生成设置", en: "Settings", onBack: props.onBack }),
+      h(Head, { bg: "transparent", zh: "生成设置", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-center justify-between mb-2" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "预设文风"),
@@ -2507,7 +2507,7 @@
     // 选文
     if (view === "pick") {
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "挑一篇下笔", sub: "只有收藏进书架的才能加笔", onBack: function () { setView("list"); } }),
+        h(Head, { bg: "transparent", zh: "挑一篇下笔", sub: "只有收藏进书架的才能加笔", onBack: function () { setView("list"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿进【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
           shelf.length ? shelf.map(function (f) {
@@ -2542,7 +2542,7 @@
         setOpenId(sess.id); setNewFic(null); setLandings(null); setAuthorCard(null); setView("thread");
       }
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "加笔设定", sub: "你是谁 · 带着什么进去", onBack: function () { setView("pick"); } }),
+        h(Head, { bg: "transparent", zh: "加笔设定", sub: "你是谁 · 带着什么进去", onBack: function () { setView("pick"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 2 } }, newFic.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 16 } }, cpLabel(newFic.cp, props.characters, props.userName)),
@@ -2580,7 +2580,7 @@
     // 存档列表
     const sorted = sessions.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
+      h(Head, { bg: "transparent", zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "挑一篇收藏的同人文，进去读**她真正写下的那些字**。要动手就【点住其中一句】——从那句起，她写的就作废了，换成你改出来的。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，好让后面的原文还接得上；有人觉得你改得有意思，连着后面几段也不要了），然后在页边写一句。她是哪一路，开局挑落点时就定下来。顶上那条「原稿剩余」是这篇文还剩几成是她写的。收尾时这一版会当成一篇文放回书架。"),
         sorted.length ? sorted.map(function (s) {
@@ -2831,7 +2831,7 @@
       //   Head 已经改成紧凑栏了（components.js），这一份就撤掉——
       //   同一层东西不许有两个实现，不然下次只会改到其中一处。
       //   「收尾」放右侧那个等宽操作位；这一步不可逆，所以照旧要点两下。
-      h(Head, {
+      h(Head, { bg: "transparent",
         zh: s.ficTitle || "加笔中",
         sub: window.Fanfic.rpModeShort(s.mode, cpc) + " · " + (s.landing && s.landing.label || "") + (s.playerIdentity && s.playerIdentity.name ? " · 你是「" + s.playerIdentity.name + "」" : ""),
         onBack: props.onBack,
@@ -2841,7 +2841,10 @@
           : null
       }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
+      // ⚠️这一层原来写着 background: t.bg，把外壳那张纸皮整个盖掉了
+      // （审美审计 2026-09-04 点名；mobile-ui-layout §3.5：底纹铺在最外那层外壳上，
+      //   中间这些层一律透明）。
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8" },
         endAsk ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, paddingTop: 10 } }, "再点一下右上角就定稿：写完收束和作者的判词，这一版放回书架") : null,
         h("div", { style: { height: 8 } }),
         // 原稿剩余：偏离度不再是一个抽象数字，是【这篇文还剩几成是她写的】
@@ -2963,7 +2966,7 @@
       onBack: function () { setOpen(null); refresh(); }, onOpenFic: props.onOpenFic, onAddOn: props.onAddOn });
     // 一行一位：左边名字立着，右边是她的产出
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
+      h(Head, { bg: "transparent", zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
         right: h("button", { onClick: invite, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } }, busy ? "请人中…" : "＋ 请人") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 12px" } },
@@ -2991,7 +2994,7 @@
     const cps = window.Fanfic.authorCPStats(a.name, props.fics, props.characters, props.userName);
     const top = cps.length ? cps[0].n : 1;
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: a.name, sub: mine.length + " 篇", onBack: props.onBack }),
+      h(Head, { bg: "transparent", zh: a.name, sub: mine.length + " 篇", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         a.bio ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.85, color: t.ink, paddingTop: 12 } }, a.bio) : null,
         a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, a.style) : null,
@@ -3290,7 +3293,7 @@
           h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
           h("div", { className: "flex-1 min-w-0 text-center" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, view === "shelf" ? "书架" : "同人文"),
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginTop: 2 } }, view === "shelf" ? "SHELF" : "FANFIC")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: t.fog, marginTop: 2 } }, view === "shelf" ? "收进来的那些" : "别人都在写什么")),
           h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } },
             view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "导出")
               : view === "feed" ? h(React.Fragment, null,
@@ -3332,7 +3335,7 @@
               key: f.id, fic: f, characters: cast, userName: userName,
               // ⚠️位置传【当前这一屏的下标】，不是它在库里的位置：
               // 删一篇、筛个标签、搜一下，下面那篇顶上来就该自动变色、序号跟着重排。
-              index: i, leadLabel: view === "shelf" ? "ON THE SHELF" : "TOP OF THE FEED",
+              index: i, leadLabel: view === "shelf" ? "架上这一本" : "圈子里最上面那一篇",
               readAt: rd ? (chN > 1 && rd.chap > 0 ? "读到 " + (rd.chap + 1) + "/" + chN : "读过") : "",
               onTag: function (tag) { setTagFilter(tag === tagFilter ? "" : tag); },
               onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });

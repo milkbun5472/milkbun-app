@@ -28,7 +28,7 @@ test("深浅和序号【由此刻排第几算出来】，不存在文章上", ()
   assert.doesNotMatch(fic, /f\.(dark|isDark|cardTone|seq|no)\s*=/, "把深浅或序号存到文章上了");
   // 传进去的必须是【当前这一屏】的下标
   assert.match(fic, /list\.length \? list\.map\(function \(f, i\) \{/);
-  assert.match(fic, /index: i, leadLabel: view === "shelf" \? "ON THE SHELF" : "TOP OF THE FEED"/);
+  assert.match(fic, /index: i, leadLabel: view === "shelf" \? "架上这一本" : "圈子里最上面那一篇"/);
   // 「我发布的」那页每篇都是她自己写的，挑一篇当头条没意义
   assert.match(fic, /h\(FicCard, \{ key: f\.id, fic: f, index: i, noLead: true,/);
 });

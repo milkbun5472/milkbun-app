@@ -88,9 +88,11 @@ test("AO3 的 work header：标题 by 作者 / 关系 / 标签 / 统计", () => 
   const i = fic.indexOf("    const metaRow = function (label, node)");
   assert.ok(i > 0, "找不到 work header");
   const seg = fic.slice(i, fic.indexOf("        h(\"div\", { style: { height: 1, background: t.line", i));
-  assert.match(seg, /"RELATION"/);
-  assert.match(seg, /"TAGS"/);
-  assert.match(seg, /"STATS"/);
+  // v62.69 no-english-titles：这三个栏名换成中文了。换的时候不硬翻——
+  // 眉标该说的是这一栏在干嘛（"这一对" / "标签" / "数目"），不是把英文原样译回来。
+  assert.match(seg, /"这一对"/);
+  assert.match(seg, /"标签"/);
+  assert.match(seg, /"数目"/);
   assert.match(seg, /fmtNum\(_words\) \+ " 字"/);
   assert.match(seg, /"by " \+ authorName/);
 });
