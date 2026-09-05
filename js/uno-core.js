@@ -31,7 +31,10 @@
     // 可选桌规：开启后，+2 可用任意颜色的 +2 继续叠，罚牌转给下一家。
     if (state.pendingDraw > 0) return !!(state.rules && state.rules.stackD2 && top.value === "D2" && c.value === "D2");
     if (c.value === "W") return true;
-    if (c.value === "W4") return !(hand || []).some(x => x.color === state.color);
+    // W4 随时能打（可以诈）：官方规则允许手里有同色时冒险偷出，代价是被下家质疑抓到罚 4。
+    // 合法性在出牌那一刻记进 state.w4，质疑时由规则层翻牌结算——原来引擎级禁掉诈打，
+    // 等于把「质疑 +4」这半条规则一起删了。
+    if (c.value === "W4") return true;
     return c.color === state.color || c.value === top.value;
   }
   function nextIndex(state, steps) { const n = state.players.length; return (state.turn + state.direction * (steps || 1) % n + n) % n; }
@@ -66,8 +69,23 @@
         if (!p.hand.length) { state.status = "finished"; state.winner = p.key; state.log.push({ kind: "finish", player: p.key, text: p.name + " 赢了！" }); return state; }
         state.turn = nextIndex(state); state.round++; return state;
       }
+      if (a.kind === "challenge") {
+        const top = state.discard[state.discard.length - 1];
+        if (!state.w4 || !top || top.value !== "W4") throw new Error("现在没有可质疑的 +4");
+        const culprit = state.players.find(x => x.key === state.w4.by);
+        if (state.w4.illegal && culprit) {
+          draw(state, culprit, 4, random);
+          state.log.push({ kind: "challenge", player: p.key, text: withSay(p.name + " 质疑 +4——抓到了！" + culprit.name + " 手里其实还有" + (LABEL[state.w4.color] || "同色") + "牌，改由 TA 罚摸 4 张；" + p.name + " 不用摸，照常出牌", a) });
+          state.pendingDraw = 0; state.drawnUid = null; state.w4 = null;
+          return state; // 轮次不动：质疑成功的这一家接着正常出牌
+        }
+        draw(state, p, state.pendingDraw + 2, random);
+        state.log.push({ kind: "challenge", player: p.key, text: withSay(p.name + " 质疑 +4——那张打得合规，罚摸 " + (state.pendingDraw + 2) + " 张", a) });
+        state.pendingDraw = 0; state.drawnUid = null; state.w4 = null;
+        state.turn = nextIndex(state); state.round++; return state;
+      }
       if (a.kind === "play") throw new Error("官方规则不能叠加 +2");
-      const n = state.pendingDraw; draw(state, p, n, random); state.pendingDraw = 0; state.drawnUid = null;
+      const n = state.pendingDraw; draw(state, p, n, random); state.pendingDraw = 0; state.drawnUid = null; state.w4 = null;
       state.log.push({ kind: "draw", player: p.key, text: withSay(p.name + " 摸 " + n + " 张", a) }); state.turn = nextIndex(state); state.round++; return state;
     }
     if (a.kind === "draw") {
@@ -88,6 +106,7 @@
     if (state.drawnUid && c.uid !== state.drawnUid) throw new Error("摸牌后只能打刚摸的那张");
     if (!playable(c, state, p.hand)) throw new Error("这张现在不能出");
     if (c.color === "W" && !COLORS.includes(a.color)) throw new Error("万能牌要选颜色");
+    const priorColor = state.color;
     p.hand.splice(idx, 1); state.discard.push(c); state.color = c.color === "W" ? a.color : c.color; state.drawnUid = null;
     let note = p.name + " 出 " + describe(c) + (c.color === "W" ? "，改成" + LABEL[state.color] : "");
     if (p.hand.length === 1 && !a.uno) { draw(state, p, 2, random); note += "；忘喊 UNO，罚摸 2 张"; }
@@ -98,7 +117,7 @@
     if (c.value === "S") steps = 2;
     if (c.value === "V") { state.direction *= -1; if (state.players.length === 2) steps = 2; }
     if (c.value === "D2") state.pendingDraw = 2;
-    if (c.value === "W4") state.pendingDraw = 4;
+    if (c.value === "W4") { state.pendingDraw = 4; state.w4 = { by: p.key, illegal: p.hand.some(x => x.color === priorColor), color: priorColor }; }
     state.turn = nextIndex(state, steps); state.round++; return state;
   }
   return { COLORS, LABEL, makeDeck, newGame, playable, legalCodes, act, describe };

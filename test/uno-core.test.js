@@ -11,11 +11,48 @@ test("UNO 标准牌堆 108 张且每人起手 7 张", () => {
   assert.match(s.discard[0].value, /^[0-9]$/);
 });
 
-test("同色同值与万能牌可出，+4 有同色牌时不可偷出", () => {
+// v63.33 判词重写：原来引擎直接禁止有同色时打 +4——那等于把「质疑 +4」半条规则删了。
+// 官方规则允许诈打：牌随时能出，但出牌那刻的合法性记进 state.w4，被质疑抓到罚 4。
+test("同色同值与万能牌可出；+4 可以诈打，但违规会被记档", () => {
   const s = U.newGame(players(), () => .4); s.color = "R"; s.discard = [{ color: "R", value: "5" }];
   const hand = [{ color: "R", value: "2" }, { color: "G", value: "5" }, { color: "W", value: "W" }, { color: "W", value: "W4" }];
   assert.equal(U.playable(hand[0], s, hand), true); assert.equal(U.playable(hand[1], s, hand), true);
-  assert.equal(U.playable(hand[2], s, hand), true); assert.equal(U.playable(hand[3], s, hand), false);
+  assert.equal(U.playable(hand[2], s, hand), true); assert.equal(U.playable(hand[3], s, hand), true);
+  // 诈打（手里还有红）→ 记为违规；老实打（没有当前颜色）→ 记为合规
+  const s2 = U.newGame(players(), () => .4); s2.turn = 0; s2.color = "R"; s2.discard = [{ color: "R", value: "5" }];
+  s2.players[0].hand = [{ uid: "a", color: "R", value: "2", code: "R2" }, { uid: "b", color: "W", value: "W4", code: "W4" }];
+  U.act(s2, { kind: "play", uid: "b", color: "G", uno: true }, () => .2);
+  assert.equal(s2.w4.illegal, true); assert.equal(s2.w4.color, "R"); assert.equal(s2.pendingDraw, 4);
+  const s3 = U.newGame(players(), () => .4); s3.turn = 0; s3.color = "R"; s3.discard = [{ color: "R", value: "5" }];
+  s3.players[0].hand = [{ uid: "a", color: "G", value: "2", code: "G2" }, { uid: "b", color: "W", value: "W4", code: "W4" }];
+  U.act(s3, { kind: "play", uid: "b", color: "G", uno: true }, () => .2);
+  assert.equal(s3.w4.illegal, false);
+});
+
+test("质疑 +4：抓到违规改由出牌人罚 4、质疑者原地出牌；质疑合规自罚 6", () => {
+  const mk = function (culpritHand) {
+    const s = U.newGame(players(), () => .4); s.turn = 0; s.color = "R"; s.discard = [{ color: "R", value: "5" }];
+    s.players[0].hand = culpritHand.concat([{ uid: "w", color: "W", value: "W4", code: "W4" }]);
+    U.act(s, { kind: "play", uid: "w", color: "G", uno: false }, () => .2);
+    return s;
+  };
+  // 违规局：质疑成功
+  const s1 = mk([{ uid: "r", color: "R", value: "2", code: "R2" }, { uid: "r2", color: "R", value: "3", code: "R3" }]);
+  const victim = s1.turn, victimHand = s1.players[victim].hand.length, culpritHand = s1.players[0].hand.length;
+  U.act(s1, { kind: "challenge" }, () => .2);
+  assert.equal(s1.players[0].hand.length, culpritHand + 4, "违规的出牌人没被罚 4");
+  assert.equal(s1.players[victim].hand.length, victimHand, "质疑成功还罚了质疑者");
+  assert.equal(s1.pendingDraw, 0); assert.equal(s1.w4, null);
+  assert.equal(s1.turn, victim, "质疑成功后该原地轮到质疑者出牌");
+  // 合规局：质疑失败罚 6
+  const s2 = mk([{ uid: "g", color: "G", value: "2", code: "G2" }, { uid: "g2", color: "G", value: "3", code: "G3" }]);
+  const v2 = s2.turn, v2Hand = s2.players[v2].hand.length;
+  U.act(s2, { kind: "challenge" }, () => .2);
+  assert.equal(s2.players[v2].hand.length, v2Hand + 6, "质疑失败该罚 4+2=6");
+  assert.notEqual(s2.turn, v2, "质疑失败还占着轮次");
+  // 没有 +4 摆着时不许质疑
+  const s3 = U.newGame(players(), () => .4);
+  assert.throws(function () { U.act(s3, { kind: "challenge" }, () => .2); });
 });
 
 test("忘喊 UNO 自动罚二，+2 让下家摸牌并跳过", () => {
