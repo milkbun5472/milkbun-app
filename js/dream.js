@@ -10,7 +10,30 @@
 // 记忆不互通：只把最近聊天当语气参考，梦醒后什么都不写回记忆库。
 // ============================================================
 (function () {
-  const ACCENT = "#6a5b86";      // 梦的主色（雾紫）
+  const ACCENT = "#6a5b86";      // 梦的主色（雾紫）——填色用它
+  // ── 夜（v62.62 审美审计点名）─────────────────────────────────────
+  // 审计原话：这三页「米白 + 圆角卡 + 徽标，没有一样属于梦」，而且是「最可惜的一处」——
+  // core.js 里 SKIN_PATS.night（星点）现成摆着，一直没人用。
+  // 梦不发生在米白的纸上。这三页整个进夜色：底是 pageSkin("night")，
+  // 字、线、卡全部换成夜里那一套。
+  // ⚠️不重写结构，只把取色的那个 t 换掉（跟 v62.61 歌单同一个手法）——
+  //   幕、选项、回档、结局块本来的排布是对的，动它们纯属把好东西改坏。
+  const DREAM_NIGHT = "#161a24";
+  const NIGHT = {
+    bg: DREAM_NIGHT, bg2: "rgba(232,230,240,.055)", ink: "#e8e6f0",
+    sub: "rgba(232,230,240,.70)", fog: "rgba(232,230,240,.42)",
+    line: "rgba(232,230,240,.14)", tint: "#a99ac9", accent: "#a99ac9"
+  };
+  // 雾紫在夜里做【字】太暗，读不出来；做【填色】正好。所以分成两支：
+  // ACCENT 只用来填按钮和药丸，ACC_LIT 用来写字和画线。
+  const ACC_LIT = "#a99ac9";
+  const GOOD_LIT = "#7fc0a0";    // 抵达（原 #4f8a6a 在夜里发黑）
+  const BAD_LIT = "#d98a8a";     // 梦碎（原 #a24a4a 同理）
+  const dreamPage = () => (typeof pageSkin === "function")
+    // strength 压到 .55：满强度时那两层星点是【等距的点阵】，看着像织物纹理不像夜空，
+    // 而且 17px / 29px 两层还会打出摩尔纹。压下去之后它退成「远处有几点光」。
+    ? pageSkin("night", NIGHT, { base: DREAM_NIGHT, tint: "169,154,201", corner: true, strength: .55 })
+    : { background: DREAM_NIGHT };
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
   // 反八股那一整套（去人机味／角色卡准则／线下叙事准则／叙事反陈词滥调／语气年龄锚）。
@@ -200,7 +223,7 @@
   // 主组件
   // ============================================================
   function Dream(props) {
-    const t = useTheme();
+    const t = NIGHT;
     const [saves, setSaves] = useState(loadSaves);
     const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
     const lpTimer = useRef(null), lpFired = useRef(false);
@@ -233,20 +256,30 @@
     }
 
     // 落地页
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "梦境", en: "Dream", onBack: props.onBack }),
+    return h("div", { className: "h-full flex flex-col", style: dreamPage() },
+      h(Head, { zh: "梦境", onBack: props.onBack, bg: "transparent", ink: NIGHT.ink }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
+        // 「编织一场梦」＝推开一扇门。上圆下方的那个轮廓就是门洞，
+        // 虚线圆角按钮是任何 app 的「新建」，跟梦没有关系。
         h("button", {
           onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("setup"); },
-          className: "w-full py-3 mb-5 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
-        }, "＋ 编织一场梦"),
+          className: "w-full active:opacity-70",
+          // ⚠️门要【高于宽】才是门；铺满一整行的那个上圆下方，看着是桥洞不是门。
+          style: {
+            display: "block", width: 150, maxWidth: "56%", margin: "6px auto 30px",
+            padding: "116px 0 26px",
+            fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".08em", color: ACC_LIT,
+            borderRadius: "75px 75px 3px 3px",
+            border: "1px solid rgba(169,154,201,.38)",
+            background: "radial-gradient(110% 62% at 50% 108%, rgba(169,154,201,.20), transparent 72%)"
+          }
+        }, "推开一扇门"),
         saves.length === 0
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
-            saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map(s => {
+          : h("div", null,
+            saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map((s, si) => {
               const broken = s.status === "broken", left = s.status === "left", done = s.status === "fulfilled";
-              const badge = broken ? { txt: "已碎", bg: "#a24a4a" } : done ? { txt: "抵达", bg: "#4f8a6a" } : left ? { txt: "已醒", bg: t.fog } : { txt: "梦中", bg: ACCENT };
+              const mark = broken ? { txt: "已碎", c: BAD_LIT } : done ? { txt: "抵达", c: GOOD_LIT } : left ? { txt: "已醒", c: t.fog } : { txt: "梦中", c: ACC_LIT };
               return h("div", {
                 key: s.id,
                 onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView(s.id); },
@@ -254,12 +287,18 @@
                 onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
                 onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
                 className: "active:opacity-70",
-                style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer" }
+                // ⚠️不给框。梦没有边——一条会在两头淡掉的地平线就够把两场梦分开，
+                //   圆角 13 的卡是通用列表项，摆在夜里也还是通用列表项。
+                style: { cursor: "pointer", padding: "17px 2px 18px", borderTop: si ? "1px solid transparent" : "none",
+                  backgroundImage: si ? "linear-gradient(90deg,transparent,rgba(232,230,240,.20) 22%,rgba(232,230,240,.20) 78%,transparent)" : "none",
+                  backgroundSize: "100% 1px", backgroundRepeat: "no-repeat", backgroundPosition: "0 0" }
               },
-                h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 5 } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: .5, padding: "1px 7px", borderRadius: 6, color: "#fff", background: badge.bg } }, badge.txt),
+                h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+                  // 徽标换成一颗点 + 两个字：色块 badge 是标签组件，星点才是这一页的话
+                  h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: mark.c, boxShadow: "0 0 7px " + mark.c } }),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: mark.c } }, mark.txt),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, marginBottom: 4 } }, s.charName + " 的梦"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   (s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）")
               );
@@ -272,7 +311,7 @@
   // 发起设置：选 1 个角色 + 3 个关键词
   // ============================================================
   function Setup(props) {
-    const t = useTheme();
+    const t = NIGHT;
     const [charId, setCharId] = useState("");
     const [guestIds, setGuestIds] = useState([]);       // 客串角色（最多 2）
     const [injectChat, setInjectChat] = useState(true); // 是否注入最近聊天记录
@@ -320,8 +359,8 @@
 
     const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "编织一场梦", en: "New", onBack: props.onCancel }),
+    return h("div", { className: "h-full flex flex-col", style: dreamPage() },
+      h(Head, { zh: "编织一场梦", onBack: props.onCancel, bg: "transparent", ink: NIGHT.ink }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         h("div", { style: label }, "进谁的梦"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 } },
@@ -364,7 +403,7 @@
   // 梦境正文
   // ============================================================
   function DreamView(props) {
-    const t = useTheme();
+    const t = NIGHT;
     const s = props.session;
     const [busy, setBusy] = useState(false);
     const [phaseMsg, setPhaseMsg] = useState("");
@@ -490,8 +529,8 @@
               style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "↻ 梦卡住了，继续做梦")
             : null) : null;
 
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: s.charName + " 的梦", en: "Dream", onBack: props.onBack, right: wakeBtn }),
+    return h("div", { className: "h-full flex flex-col", style: dreamPage() },
+      h(Head, { zh: s.charName + " 的梦", onBack: props.onBack, right: wakeBtn, bg: "transparent", ink: NIGHT.ink }),
       // 梦境流（flex-1 撑满剩余高度，底部控制区是同级 shrink-0，滚动能到底不被盖）
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-5", style: { paddingBottom: 24 } },
         scenes.map((sc, i) => {
@@ -504,9 +543,9 @@
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
             decided
-              ? h("div", { style: { marginTop: 12, paddingLeft: 12, borderLeft: "2px solid " + ACCENT },
+              ? h("div", { style: { marginTop: 12, paddingLeft: 12, borderLeft: "2px solid " + ACC_LIT },
                   onClick: () => rewindTo(i) },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: ACCENT } }, "你选择了：" + sc.options[sc.chosen].text),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: ACC_LIT } }, "你选择了：" + sc.options[sc.chosen].text),
                 h("button", { onClick: e => { e.stopPropagation(); rewindTo(i); }, className: "active:opacity-60",
                   style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "↩ 从这里重选"))
               : null);
@@ -514,12 +553,12 @@
         // 抵达梦核（圆满收束）结局
         s.status === "fulfilled"
           ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#4f8a6a", marginBottom: 8 } }, "梦　核"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "梦　核"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             s.dreamCore
-              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(79,138,106,0.08)", border: "1px solid rgba(79,138,106,0.28)", borderRadius: 12 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: "#4f8a6a", marginBottom: 6 } }, "这场梦其实是关于"),
+              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "这场梦其实是关于"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
             h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
@@ -528,13 +567,13 @@
           // 梦碎 / 醒来 结局
           : s.status === "broken"
           ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#a24a4a", marginBottom: 8 } }, "梦　碎"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: BAD_LIT, marginBottom: 8 } }, "梦　碎"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             // 为什么这个选项是错的
             s.whyWrong
-              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(162,74,74,0.07)", border: "1px solid rgba(162,74,74,0.25)", borderRadius: 12 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: "#a24a4a", marginBottom: 6 } }, "为什么这条路走不通"),
+              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(217,138,138,0.10)", border: "1px solid rgba(217,138,138,0.30)", borderRadius: 12 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: BAD_LIT, marginBottom: 6 } }, "为什么这条路走不通"),
                 s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "「" + s.wrongText + "」") : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.whyWrong))
               : null,
