@@ -73,22 +73,69 @@
     return pal[s];
   };
 
+  // ---- 主线那一整份上下文（四处一样喂 · 第九处）------------------
+  // 她 2026-09-05：「这些批注是喂了全部人设和那一堆吗宝宝」。
+  // 答案原来是【没有】。一起读自己拼 sys 走 callAI，不走 buildBundle 也不走 runProbe，
+  // 于是只白得了它自己 push 的反陈词滥调和内容边界；心情、好感、印象卡、长期记忆、
+  // 情侣状态、用户人设，还有那几条【靠调用点一条条 push】的禁令，一条都没有。
+  //
+  // ⚠️病因跟解梦馆（v61.47）、匿名信箱（v61.37）、穿书（v61.16）、通话（v60.27）
+  //   一字不差：**它当初就没在那张名单上**。于是「几处都接上了」每次都是真的，
+  //   这一处每次都漏。名单从今天起是【九处】。
+  //
+  // ⚠️这一处尤其吃亏，因为批注是「就着一句话说一句话」：
+  //   · 最顺手的开口就是把原句反问回来（「他真的不在乎吗？」）→ 正是回声禁令要挡的；
+  //   · 批注天然容易滑成「这里作者其实是想说……」的讲解腔 → 正是居高临下要挡的；
+  //   · 他今天心情差、或者你俩刚吵完，批注本该不一样——读不到心情，
+  //     每次读都是同一个温度，那也是她说的「单调」的一部分。
+  //
+  // ⚠️不改成 runProbe：那一条强制 JSON，而批注/讲解是【逐行】输出的
+  //   （弱模型逐行写「正好 N 条」比塞 JSON 数组可靠得多，这是原作者写下的理由）。
+  //   所以走 buildBundle 直接取那一整份料，输出格式一个字不动。
+  // ⚠️buildBundle 自带的和这里要补的，别搞重：
+  //   它已经带了 ANTI_CLICHE / CONDESCENDING_TONE_BAN / STOCK_REPLY_BAN / ContentBoundaries；
+  //   缺的正是那三条【靠调用点一条条 push】的（回声禁令 / 语域跟场面走 / 读懂这句话在做什么）。
+  //   所以 readHead 只此一份：接得上上下文就发整份 bundle，接不上才退回老那两条，
+  //   两条路都在末尾补那三条——各写各的必然只改一处。
+  //
+  // ⚠️【写明理由的差异】不发【最近聊天】：ctxFor 本来就不带它（各聊天入口自己另加），
+  //   而这一处要写的是就着书页说的话，不是把聊天接着往下说。心情、好感、印象卡都在，
+  //   「他今天什么状态」这件事已经够了。
+  function readHead(ctxFor, char) {
+    let head = "";
+    if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
+      try { head = buildBundle(ctxFor(char)) + "\n\n"; } catch (e) { head = ""; }
+    }
+    // 接不上的时候退回老那两条，并且【人设由这儿补】——所以底下五处提示词
+    // 一律不再自己写一遍「【你的人设】」：bundle 里本来就有，写两遍等于把人设发两份。
+    if (!head) head = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB()
+      + "【你的人设】\n" + ((char && char.persona) || "（暂无设定）") + "\n\n";
+    const more = [];
+    if (typeof ECHO_QUESTION_BAN !== "undefined") more.push(ECHO_QUESTION_BAN);
+    if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") more.push(REGISTER_FOLLOWS_SCENE);
+    if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) { try { more.push(ReplyPacing.reading()); } catch (e) {} }
+    return head + (more.length ? more.join("\n\n") + "\n\n" : "");
+  }
+
   // ---- 模型：让角色对给定段落（可跨多页）批注若干条 ----
   //   paras 是一段扁平的段落文本数组（可能跨好几页）；返回 [{i, note}]，i 是 paras 里的 0 基下标。
   //   输出走「逐行」而非 JSON 数组——弱模型逐行写「正好 N 条」比塞 JSON 数组可靠得多。
-  async function genAnnotations(active, char, profile, worldbook, paras, n, prior) {
+  async function genAnnotations(active, char, profile, worldbook, paras, n, prior, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
       "\n\n【正文（按段落编号，可能跨好几页）】\n" + numbered +
-      "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`。示例：\n段3：这人嘴上硬，心里早就软了。\n段3：换我早翻脸走人了。\n段8：一碗黄酒二两黄豆，写得我都馋了。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
-    // 放宽 token 预算：Gemini 等「思考型」模型会先想再答、思考也吃输出 token，预算太紧会想到一半就停（只出一两条）。
-    // 中转站按次计费、输出长短不额外收费，所以给足空间不心疼。
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(20000, 9500 + n * 400) });
+      "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`（段号是上面正文里的方括号编号，一行一条，冒号后直接写批注）。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
+    // 开满（她 2026-09-05：「顺便 maxtoken 也放开吧 65535」）。
+    // ⚠️这一处原来是 Math.min(8000, 1200 + maxPara*280)——一页只有五六段时算出来才 2900，
+    //   思考型模型光想就把它吃光，于是返回空、界面上写「Ta 没讲出来，换一页再试」。
+    //   而【那道 maxTokens 地板闸没抓到它】：闸的正则要求冒号后面紧跟数字，
+    //   `maxTokens: Math.min(...)` 这种写法整行都匹配不上。闸自己有盲区的时候，全绿什么都不证明。
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: 65535 });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -111,47 +158,51 @@
   }
 
   // ---- 模型：半屏讨论 ----
-  async function discussReply(active, char, profile, worldbook, book, paras, anns, history, userMsg) {
+  async function discussReply(active, char, profile, worldbook, book, paras, anns, history, userMsg, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const passage = paras.join("\n").slice(0, 2200);
     const annText = anns.length ? anns.map(function (a) { return "· " + a.note; }).join("\n") : "";
     const hist = history.slice(-16).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读《" + (book.title || "这本书") + "》，此刻你俩正就读到的这一段聊剧情。完全代入你的人设，像和朋友边读边讨论那样自然说话——有观点、会追问、会八卦人物、会和 " + uName + " 的看法碰撞，别客套别总结陈词。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读《" + (book.title || "这本书") + "》，此刻你俩正就读到的这一段聊剧情。完全代入你的人设，像和朋友边读边讨论那样自然说话——有观点、会追问、会八卦人物、会和 " + uName + " 的看法碰撞，别客套别总结陈词。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【你俩正读到的这一页】\n" + passage +
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
       "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。拆成 1~3 条短气泡，像即时通讯，别加名字前缀、别旁白括号、别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 8900 });
+    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 65535 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
     return say && say.length ? say : [String(raw || "").replace(/^\{|\}$/g, "").trim() || "……"];
   }
 
   // ---- 模型：结束时把这次共读总结成记忆 ----
-  async function summarizeSession(active, char, profile, book, anns, history) {
+  // ⚠️人设原来在这一枪里被 .slice(0, 300) 截掉了。这是 v55.87「群里的王爷变霸总」
+  //   那次同一个数量级的病（那次 200 字）：只剩一个标签，空白由训练先验补上。
+  //   而这一枪写的是【会长期记住的事实、用他的第一人称】——要进记忆库、以后一直被读到的东西。
+  //   人设截成一句话，写出来的就是一份通用读后感，然后它变成他的长期记忆。
+  async function summarizeSession(active, char, profile, book, anns, history, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const annText = anns.slice(-12).map(function (a) { return "· " + a.note; }).join("\n");
     const hist = history.slice(-24).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
     if (!annText && !hist) return "";
-    const sys = "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。\n\n【你的人设】\n" + (char.persona || "").slice(0, 300);
+    const sys = readHead(ctxFor, char) + "把下面这次「你和 " + uName + " 一起读《" + (book.title || "一本书") + "》」的经历，浓缩成 1~3 句会长期记住的事实（用你的第一人称视角）：你们一起读了什么、你对内容/人物的关键看法、和 " + uName + " 讨论时碰出的观点或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账。只输出这几句话本身。";
     const u = (annText ? "【你的批注】\n" + annText + "\n\n" : "") + (hist ? "【讨论】\n" + hist : "");
-    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 8400 })).trim();
+    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 65535 })).trim();
   }
 
   // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
-  async function genExplains(active, char, profile, worldbook, paras, synopsis) {
+  async function genExplains(active, char, profile, worldbook, paras, synopsis, ctxFor) {
     const uName = (profile && profile.name) || "对方";
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络（你俩之前已经读到这儿，接着往下讲、别自相矛盾）】\n" + synopsis.trim() : "") +
       "\n\n【本页正文（按段落编号）】\n" + numbered +
-      "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`。示例：\n段1：他嘴上说不在乎，其实是怕先被拒绝，才把话说死。\n段2：这里的『黄粱』是个典故，指一场到头来空欢喜的梦。\n梗概：他赌气离了家，半路遇上old友。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: Math.min(8000, 1200 + maxPara * 280) });
+      "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`（段号是上面正文里的方括号编号，一行一段，冒号后直接写讲解）。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: 65535 });
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1").replace(/\s*(梗概\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     const explains = [];
@@ -169,15 +220,15 @@
   }
 
   // ---- 模型：就划线/单段的一小截，讲清是什么意思（中译中）----
-  async function genExplainSnippet(active, char, profile, worldbook, snippet, context, synopsis) {
+  async function genExplainSnippet(active, char, profile, worldbook, snippet, context, synopsis, ctxFor) {
     const uName = (profile && profile.name) || "对方";
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB() +
-      "「" + uName + "」在和你一起读书时划出了下面这句/这段，说没太看懂，要你讲讲。把它【什么意思、为什么这么说、藏着什么言外之意】用大白话讲清楚（该点破的典故/文言/背景都点破），再加一句你按自己人设的看法。别复述原文、别掉书袋，2~4 句说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+    const sys = readHead(ctxFor, char) +
+      "「" + uName + "」在和你一起读书时划出了下面这句/这段，说没太看懂，要你讲讲。把它【什么意思、为什么这么说、藏着什么言外之意】用大白话讲清楚（该点破的典故/文言/背景都点破），再加一句你按自己人设的看法。别复述原文、别掉书袋，2~4 句说人话。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络】\n" + synopsis.trim() : "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
       "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 9200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 65535 });
     return String(raw || "").replace(/```/g, "").trim();
   }
 
@@ -275,6 +326,10 @@
       return h(Reader, {
         book: bk, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, bgActive: props.bgActive || props.active, toast: props.toast,
         digitalIds: props.digitalIds,
+        // ⚠️这一层是【一条条列名字】往下传的：漏一个不会报错，只会让里头那一处
+        //   静默退回兜底路（我第一版就漏了 ctxFor，浏览器里量出来 sys 只有 2544 字、
+        //   心情好感一样没有，而 try/catch 把它咽下去了，什么都看不出来）。
+        ctxFor: props.ctxFor,
         onBack: function () { setOpenId(null); },
         onPatch: function (patch) { patchBook(bk.id, patch); },
         onAddMemory: props.onAddMemory
@@ -377,6 +432,8 @@
     // 言秋（数字生命）专属通道：不走 API 即时生成——把整页+你的想法送去 CC，他亲读了写回批注（走订阅、不烧钱）。
     const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
     const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
+    const [bookOpen, setBookOpen] = useState(false);  // 批注册
+    const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
     const pendingHere = (book.pending || []).filter(function (p) { return p.page === pageIdx; });
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 讲解/批注朗读（懒合成，重听免费）
@@ -408,12 +465,14 @@
     // ---- 逐段讲解：让 Ta 把这一页每段都用大白话讲给你听（中译中），并把本页梗概续进已读脉络 ----
     const doExplainPage = async function () {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
       setBusy(true);
       try {
-        const res = await genExplains(bg, partner, props.profile, scopedWorldbook(curParas.join("\n")), curParas, book.synopsis || "");
+        const res = await genExplains(bg, partner, props.profile, scopedWorldbook(curParas.join("\n")), curParas, book.synopsis || "", props.ctxFor);
         if (!res.explains.length) { props.toast && props.toast("Ta 没讲出来，换一页再试"); return; }
         const now = Date.now();
         props.onPatch(function (b) {
@@ -430,11 +489,13 @@
     // ---- 只讲某一段（点段末「讲讲这段」）----
     const explainOne = async function (i) {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
-        const txt = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(curParas[i]), curParas[i], curParas[i], book.synopsis || "");
+        const txt = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(curParas[i]), curParas[i], curParas[i], book.synopsis || "", props.ctxFor);
         if (txt) props.onPatch(function (b) { const ex = Object.assign({}, b.explains || {}); ex[pageIdx + "_" + i] = { text: txt, charId: partner.id, charName: partner.name, ts: Date.now() }; return { explains: ex, showExplains: true, lastReadTs: Date.now() }; });
         else props.toast && props.toast("Ta 没讲出来，再试试");
       } catch (e) { props.toast && props.toast("讲解失败：" + (e.message || "重试")); }
@@ -451,14 +512,16 @@
     };
     const doExplainSel = async function () {
       if (!sel) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       const q = sel.text;
       setSel(null);
       try { window.getSelection && window.getSelection().removeAllRanges(); } catch (e) {}
       setSelResult({ q: q, a: "", busy: true });
       try {
-        const a = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "");
+        const a = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "", props.ctxFor);
         setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
       } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
     };
@@ -489,17 +552,30 @@
         const rows = await window.Cloud.readInboxFetch();
         const done = []; let added = 0;
         const adds = []; const repliedPids = {};
+        // ⚠️「哪几条算消费掉了」是这个函数最容易写反的一步。
+        //   原来第一行就无条件 done.push(row.id)，紧接着那句
+        //   `if (!pend) return;   // 不是本书的，跳过（下次别的书消费）`
+        //   ——**注释说的和代码做的正好相反**：它已经被塞进 done、马上要被 consume 掉了。
+        //   于是在 A 书里点一次「取批注」，言秋给 B 书写的那几条【当场消失，再也取不回来】。
+        //   现在按【谁认领】来判：本书认领 → 收下并消费；别的书认领 → 一个字都不动，
+        //   留给那本书自己去取；谁都不认（书删了 / 空包） → 才当垃圾清掉，否则会永远堆着。
+        const allPend = {};
+        (loadBooks() || []).forEach(function (bk) {
+          (bk.pending || []).forEach(function (pp) { if (pp && pp.id) allPend[pp.id] = 1; });
+        });
         rows.forEach(function (row) {
-          done.push(row.id);
           const pl = row.payload || {};
           const pid = pl.pending_id, anns = Array.isArray(pl.annotations) ? pl.annotations : [];
-          if (!pid || !anns.length) return;
-          // 找这条 pending 属于本书哪一页（只认本书的 pending）
+          if (!pid || !anns.length) { done.push(row.id); return; }      // 空包：清掉，不然永远堆着
           const pend = (book.pending || []).find(function (p) { return p.id === pid; });
-          if (!pend) return;   // 不是本书的，跳过（下次别的书消费）
+          if (!pend) { if (!allPend[pid]) done.push(row.id); return; }  // 别的书认领的，一个字都别动
+          done.push(row.id);
           repliedPids[pid] = 1;
+          // ⚠️段号要钳在【这一页真有多少段】里：超出去的话这条批注存下来了、
+          //   却永远匹配不到任何一段，等于写进去就看不见（「过滤之后什么都不剩」那一种）。
+          const cap = Math.max(1, (pend.paras || []).length);
           anns.forEach(function (a) {
-            const paraN = Math.max(0, (Number(a.para) || 1) - 1);
+            const paraN = Math.min(cap - 1, Math.max(0, (Number(a.para) || 1) - 1));
             adds.push({ id: "an_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: pend.page, para: paraN, note: String(a.note || "").trim(), charId: partner ? partner.id : "", charName: partner ? partner.name : "言秋", channel: "read", ts: Date.now() });
             added++;
           });
@@ -519,7 +595,9 @@
 
     const doAnnotate = async function () {
       if (busy) return;
-      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      // ⚠️问的要是【真正会被拿去调的那条线路】：这三处用的是 bg（bgActive || active），
+      //   却拦在 props.active 上——只配了后台便宜线路的时候，明明能跑却被挡住。
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
@@ -539,7 +617,7 @@
         let notes = [];
         for (let round = 0; round < 3 && notes.length < want; round++) {
           const need = want - notes.length;
-          const got = await genAnnotations(bg, partner, props.profile, scopedWorldbook(texts.join("\n")), texts, need, priorNotes.concat(notes));
+          const got = await genAnnotations(bg, partner, props.profile, scopedWorldbook(texts.join("\n")), texts, need, priorNotes.concat(notes), props.ctxFor);
           if (!got.length) break; // 这轮一条都没补出来，别再空转
           notes = notes.concat(got);
         }
@@ -564,7 +642,7 @@
       const next = chat.concat([{ role: "user", content: v }]);
       setChat(next); setBusy(true);
       try {
-        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, v);
+        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, v, props.ctxFor);
         setChat(function (p) { return p.concat(say.map(function (s) { return { role: "char", content: s }; })); });
       } catch (e) { props.toast && props.toast("回复失败：" + (e.message || "重试")); }
       finally { setBusy(false); }
@@ -576,13 +654,40 @@
       if (!props.active || !partner) { setChatOpen(false); setChat([]); return; }
       setEnding(true);
       try {
-        const summary = await summarizeSession(bg, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat);
+        const summary = await summarizeSession(bg, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat, props.ctxFor);
         if (summary) {
           props.onAddMemory && props.onAddMemory(summary, partner.id);
           props.toast && props.toast("已记入记忆库");
         } else { props.toast && props.toast("已结束"); }
         setChat([]); setChatOpen(false);
       } catch (e) { props.toast && props.toast("总结失败：" + (e.message || "重试")); }
+      finally { setEnding(false); }
+    };
+
+    const annoCount = (book.annotations || []).length + Object.keys(book.explains || {}).length;
+    // ── 把这本书记进他的记忆（她 2026-09-05：「还有要不要喂回去呢」）──
+    // 原来【只有走过讨论才喂得回去】：结束那一步藏在讨论抽屉里。
+    // 于是读了二十页、他批了六十条、你一次讨论都没开——这本书在他记忆里等于没发生过。
+    // 现在批注册底下也有这一下：批注本身就够浓缩成一条记忆了（summarizeSession
+    // 光有 annText 也能写，只是原来没人这么叫过它）。
+    // ⚠️只写【记忆库】，不动好感、不动心情、不动状态卡。
+    //   照那条「加任何一条写主线的动作，先问一句该不该」——一起读是相处，不是相处的全部；
+    //   一本书读得投入就涨好感，很容易失控（一页点三次批注就是三次）。要动等她点头。
+    const rememberBook = async function () {
+      if (ending) return;
+      if (!partner) { setPickOpen(true); return; }
+      if (!annoCount) { props.toast && props.toast("这本还没写过什么"); return; }
+      if (!bg) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setEnding(true);
+      try {
+        const summary = await summarizeSession(bg, partner, props.profile, book,
+          (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), [], props.ctxFor);
+        if (summary) {
+          props.onAddMemory && props.onAddMemory(summary, partner.id);
+          props.onPatch({ rememberedAt: Date.now(), rememberedCount: annoCount });
+          props.toast && props.toast(partner.name + " 把这本记住了");
+        } else props.toast && props.toast("没浓缩出什么，多读几页再来");
+      } catch (e) { props.toast && props.toast("记不进去：" + (e.message || "重试")); }
       finally { setEnding(false); }
     };
 
@@ -596,23 +701,46 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "和 " + partner.name + " 一起读"),
               h("button", { onClick: function () { setPickOpen(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "换人"))
           : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "＋ 邀一个角色一起读")),
-      // 批注控制：一次批几条 + 覆盖几页
-      partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 8 } },
+      // 第二行：左边是【这本书读到哪儿】，右边才是那几个钮。
+      // ⚠️原来这一行硬塞了「每次批 N 条」「范围 N 页」「讲解显示中」三组＋批注册，
+      //   窄屏上直接折成两行、每个词都断开（「批注册 7」断成「批注/册 7」）。
+      //   这一版把【设定】收进齿轮里，常驻的只留三样：读到哪儿、讲解开关、批注册。
+      partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+        // 读到哪儿：一条细进度轴，比「3 / 47」看得出这本书有多厚
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
+            h("div", { style: { width: Math.round(((pageIdx + 1) / Math.max(1, totalPages)) * 100) + "%", height: "100%", background: t.tint } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 4, whiteSpace: "nowrap" } },
+            "第 " + (pageIdx + 1) + " 页 / 共 " + totalPages + (annoCount ? " · 写过 " + annoCount + " 条" : ""))),
+        h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); },
+          className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" } }, explainOn ? "讲解 开" : "讲解 关"),
+        h("button", { onClick: function () { setBookOpen(true); }, className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" } }, "批注册"),
+        h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")
+      ) : null,
+      // 「设定」展开才出现：一次批几条、覆盖几页
+      (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "每次批"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")),
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "范围"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, span > 1 ? "页(从当前起)" : "页")),
-        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "本页~第" + Math.min(totalPages, pageIdx + span) + "页") : null,
-        // 逐段讲解卡片显示/隐藏（读累了可收起，只留原文）
-        h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "3px 10px" } }, explainOn ? "讲解 显示中" : "讲解 已隐藏")
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")),
+        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
       ) : null);
 
     // ---- 正文页 ----
-    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "18px 20px 90px" }, onMouseUp: catchSel, onTouchEnd: catchSel },
+    // 正文区就是【一张摊开的书页】：铺纸、留出真的页边距，
+    // 他动过的段落在【页边】立一道细标记——书上做记号本来就是记在页边的，
+    // 不是把整段刷成一块彩色（原来是 t.tint+"12" 整段染底，一页几段就成花的了）。
+    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto",
+      style: Object.assign({ padding: "18px 20px 90px" },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { corner: false, strength: .85 }) : null),
+      onMouseUp: catchSel, onTouchEnd: catchSel },
       loading ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, paddingTop: 40 } }, "翻开中…")
         : curParas.map(function (p, i) {
             const anns = annsForPara(i);
@@ -621,7 +749,12 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink, margin: "0 0 14px", textIndent: "2em", background: hot ? (t.tint + "12") : "transparent", borderRadius: hot ? 6 : 0, padding: hot ? "2px 6px" : 0, WebkitUserSelect: "text", userSelect: "text" } }, p),
+              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+                margin: "0 0 14px", textIndent: "2em", position: "relative",
+                paddingLeft: 11, marginLeft: -11,
+                // 页边那道记号：他批过就实线、只讲解过就虚一点，两种一眼分得开
+                borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
+                WebkitUserSelect: "text", userSelect: "text" } }, p),
               // 中译中·逐段讲解卡片
               ex ? h("div", { key: "ex_" + i, style: { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: t.tint + "16", borderRadius: 10 } },
                 exCh ? h(Avatar, { character: exCh, size: 18, radius: 6 }) : null,
@@ -673,7 +806,7 @@
       pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」") : null,
       pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 } }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
-      h(Head, { zh: book.title, en: "Reading", onBack: props.onBack }),
+      h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
       topbar, yqHead, reader, selBar, actionBar, footer,
       noteSheet ? h(NoteSheet, { anchor: noteSheet.anchor, t: t, onSave: function (v) { saveNoteForYanqiu(noteSheet.anchor, v); }, onClose: function () { setNoteSheet(null); } }) : null,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
@@ -681,8 +814,96 @@
         onClose: function () { setPickOpen(false); } }) : null,
       selResult ? h(SelExplainSheet, { partner: partner, data: selResult, t: t, onClose: function () { setSelResult(null); } }) : null,
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
-        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null
+        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null,
+      bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
+        partner: partner, busy: ending, onRemember: rememberBook,
+        onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
+        onClose: function () { setBookOpen(false); } }) : null
     );
+  }
+
+  // ---- 批注册 ----------------------------------------------------
+  // 她 2026-09-05：「我觉得有点单调」。单调的另一半不在提示词，在于——
+  // **写完的东西没有去处**。批注和讲解写完就散在几十页里，翻回去只能一页页找，
+  // 于是「一起读过这本书」这件事在界面上不留任何痕迹。
+  // 这一册就是那个痕迹：按页码排成一列，左边页码、右边条目——照书末索引的样子。
+  // ⚠️不是又一个通用列表：左边那一列页码是【可以点的】，点了就翻到那一页；
+  //   而且它把三种来路（他的批注 / 他的讲解 / 你自己记的）摆在同一条时间线上，
+  //   因为你俩本来就是在同一页上一起写的。
+  function AnnoBook(props) {
+    const t = props.t, book = props.book, pages = props.pages || [];
+    const paraOf = function (pg, i) { return ((pages[pg] || [])[i] || "").slice(0, 26); };
+    const rows = [];
+    (book.annotations || []).forEach(function (a) {
+      rows.push({ page: a.page || 0, para: a.para || 0, ts: a.ts || 0, kind: a.who === "user" ? "me" : (a.channel === "read" ? "read" : "ann"),
+        name: a.who === "user" ? "你" : (a.charName || ""), charId: a.charId || "", text: a.note || "", anchor: a.anchor || "" });
+    });
+    Object.keys(book.explains || {}).forEach(function (k) {
+      const m = /^(\d+)_(\d+)$/.exec(k); if (!m) return;
+      const e = book.explains[k];
+      rows.push({ page: Number(m[1]), para: Number(m[2]), ts: e.ts || 0, kind: "ex", name: e.charName || "", charId: e.charId || "", text: e.text || "", anchor: "" });
+    });
+    rows.sort(function (x, y) { return x.page - y.page || x.para - y.para || x.ts - y.ts; });
+    // 收拢成【页 → 段 → 这一段上写过的几条】。
+    // ⚠️不是「一条一行」：同一段上常常有两三条（他批一条、你记一条、他又讲了一遍），
+    //   一条一行的话那句原文要重复印三遍，看着就是一堵重复的墙。
+    //   原文只印一次当小标题，底下挂着那几条——这才是书末索引的样子。
+    const byPage = []; let curP = null, curA = null;
+    rows.forEach(function (r) {
+      if (!curP || curP.page !== r.page) { curP = { page: r.page, paras: [] }; byPage.push(curP); curA = null; }
+      if (!curA || curA.para !== r.para) { curA = { para: r.para, items: [] }; curP.paras.push(curA); }
+      curA.items.push(r);
+    });
+    const TONE = { ann: t.tint, ex: t.tint, read: "#3f6ea8", me: "#c96a94" };
+    const WHAT = { ann: "批注", ex: "讲解", read: "亲读", me: "你记的" };
+    return h("div", { className: "h-full flex flex-col",
+      style: Object.assign({ position: "fixed", inset: 0, zIndex: 60 },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { strength: .9 }) : { background: t.bg }) },
+      h(Head, { zh: "批注册", sub: book.title, bg: "transparent", onBack: props.onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 30px" } },
+        rows.length
+          ? h("div", null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "2px 2px 16px" } },
+                "这本书你俩一共写了 " + rows.length + " 条 · 落在 " + byPage.length + " 页上"),
+              byPage.map(function (g) {
+                return h("div", { key: g.page, style: { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 } },
+                  // 左边那一列页码：照书末索引的样子——数字靠右，底下一条细轴顺着这一页往下走
+                  h("button", { onClick: function () { props.onGoto(g.page); },
+                    className: "shrink-0 active:opacity-60 self-stretch flex flex-col items-end",
+                    style: { width: 34, paddingTop: 1 } },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1 } }, g.page + 1),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 2 } }, "页"),
+                    h("div", { style: { width: 1, flex: 1, minHeight: 12, background: t.line, marginTop: 6, marginRight: 1 } })),
+                  h("div", { style: { flex: 1, minWidth: 0 } },
+                    g.paras.map(function (pa) {
+                      const quote = (pa.items[0] && pa.items[0].anchor) || paraOf(g.page, pa.para);
+                      return h("div", { key: pa.para, style: { marginBottom: 14 } },
+                        // 原文只印这一次
+                        quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginBottom: 6, paddingBottom: 5, borderBottom: "1px dashed " + t.line } },
+                          "「" + quote + "…」") : null,
+                        pa.items.map(function (r, i) {
+                          const ch = r.charId ? props.chOf(r.charId) : null;
+                          const tone = TONE[r.kind] || t.tint;
+                          return h("div", { key: i, style: { marginBottom: 8, paddingLeft: 9, borderLeft: "2px solid " + skinAlpha(tone, "55") } },
+                            h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
+                              ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
+                              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
+                            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.72, color: t.ink } }, r.text));
+                        }));
+                    })));
+              }))
+          : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, paddingTop: 60 } },
+              "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")),
+      // 记进他的记忆：这一册就是「你俩一起读过这本书」的全部证据，
+      // 要喂回主线的话，从这儿喂才对得上。
+      rows.length ? h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line } },
+        h("button", { onClick: props.onRemember, disabled: props.busy, className: "w-full active:opacity-70",
+          style: { borderRadius: 14, padding: "12px 0", background: t.ink, color: t.bg2, opacity: props.busy ? .5 : 1, fontFamily: F_DISPLAY, fontSize: 14 } },
+          props.busy ? "正在收拢…" : ("让 " + ((props.partner && props.partner.name) || "Ta") + " 把这本记住")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 7, lineHeight: 1.6 } },
+          book.rememberedAt
+            ? ("上次记住是在写了 " + (book.rememberedCount || 0) + " 条的时候 · 现在是 " + rows.length + " 条")
+            : "把这些浓缩成一两句，进他的记忆库。只写记忆，不动好感和心情。")) : null);
   }
 
   // ---- 划线讲解弹层 ----

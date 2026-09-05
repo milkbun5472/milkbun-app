@@ -75,7 +75,17 @@ test("每一处 sys 的头上真的接了，不是只声明了一个没人叫的
   // 逐处点名：这几处的 sys 头上必须真的带着它
   assert.match(read("dreamjournal.js"), /\+ CB\(\)   \/\/ ⚠️她 2026-09-05 就是在这一处看见他还在抽/);
   assert.match(read("study.js"), /parts\.push\(ANTI_CLICHE\);\n\s*if \(typeof ContentBoundaries !== "undefined" && ContentBoundaries\.prompt\) parts\.push\(ContentBoundaries\.prompt\);/);
-  assert.equal((read("read.js").match(/ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB\(\) \+/g) || []).length, 4, "一起读那四处没一起接上");
+  // ⚠️口径改了（v64.07，她问「这些批注是喂了全部人设和那一堆吗」）：
+  //   一起读那几处原来各自拼 `ANTI_CLICHE + CB() +`，现在收成了一个 readHead——
+  //   它接得上上下文就发整份 buildBundle（里头本来就带 ContentBoundaries），
+  //   接不上才退回 `ANTI_CLICHE + CB()`。**两条路都带禁烟**，这一条的意图没变。
+  //   所以改成钉那一份：五枪都得走它，而且它两条路都得带上这一层。
+  const rd = read("read.js");
+  assert.equal((rd.match(/= readHead\(ctxFor, char\)/g) || []).length, 5, "一起读那五处没一起接上");
+  const rh = rd.slice(rd.indexOf("function readHead(ctxFor, char)"), rd.indexOf("async function genAnnotations"));
+  assert.match(rh, /buildBundle\(ctxFor\(char\)\)/, "接得上那一路没走 bundle（bundle 里带着这一层）");
+  assert.match(rh, /if \(!head\) head = \(typeof ANTI_CLICHE !== "undefined" \? ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB\(\)/, "兜底那一路没带 CB()");
+  assert.match(read("engine.js"), /ContentBoundaries/, "buildBundle 那头不带内容边界了，一起读就漏了");
 });
 
 test("牌桌上也不许抽：AC 那条 + 座位级那批说话的 sys", () => {
