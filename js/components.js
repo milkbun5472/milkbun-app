@@ -190,6 +190,47 @@ function applyBubblePreset(key) {
   applyBubbleSkinCSS();
   return next;
 }
+// 那一整排细调字段 + 试衣镜：三处共用（设置→聊天气泡、单聊 ••• 里「只给 TA 换气泡」）。
+// ⚠️跟 BubbleSkinPresets 同一条道理——一处画、多处用。各写一份的话，
+//   加一个新字段就只会加在其中一处，另一处永远少一栏（「一层写在两处，第二处没跟上」）。
+// s 是【草稿】，set 是【打补丁】：两边各自决定草稿存在哪、什么时候落盘。
+function BubbleSkinFields({ s, set }) {
+  const t = useTheme();
+  const inSt = { width: "100%", outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const row = (label, key, ph) => h("div", { key: key, className: "mb-2.5" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, label),
+    h("input", { value: s[key] == null ? "" : String(s[key]), onChange: e => set({ [key]: e.target.value }), placeholder: ph || "", style: inSt }));
+  const numRow = (label, key, min, max) => h("div", { key: key, className: "mb-2.5" },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 3 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, label),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.tint } }, String(s[key]))),
+    h("input", { type: "range", min: min, max: max, step: 1, value: Number(s[key]) || 0, onChange: e => set({ [key]: Number(e.target.value) }), style: { width: "100%" } }));
+  // 试衣镜：两只气泡实时读草稿——还没保存就能看效果
+  const bub = (mine, text) => h("div", { className: "flex " + (mine ? "justify-end" : "justify-start"), style: { margin: "8px 0" } },
+    h("div", { style: { position: "relative", maxWidth: "78%", padding: "9px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5,
+      background: mine ? s.myBg : s.charBg, color: mine ? s.myText : (s.charText || t.ink),
+      border: (mine ? s.myBorder : s.charBorder) || "none", borderRadius: Number(s.radius) || 0, boxShadow: s.shadow || "none" } },
+      (mine ? s.mySticker : s.charSticker) ? h("img", { src: mine ? s.mySticker : s.charSticker, alt: "", style: { position: "absolute", top: -(Number(s.stickerSize) || 52) / 2, right: mine ? -10 : "auto", left: mine ? "auto" : -10, width: Number(s.stickerSize) || 52, height: Number(s.stickerSize) || 52, objectFit: "contain", pointerEvents: "none", transform: mine ? "none" : "scaleX(-1)" } }) : null,
+      text));
+  return h(React.Fragment, null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, marginBottom: 10 } },
+      "颜色填 #hex 或一整段渐变 linear-gradient(...)；贴纸填图片地址（assets/xx.png 或 https）；描边/贴纸留空=不启用。试衣镜实时预览。"),
+    h("div", { style: { padding: "14px 14px 10px", borderRadius: 12, background: s.chatBg || t.bg, border: "1px solid " + t.line, marginBottom: 12, overflow: "hidden" } },
+      bub(false, "试衣镜：TA 的气泡"),
+      bub(true, "试衣镜：我的气泡")),
+    row("我的气泡底色（可渐变）", "myBg", "#f7b6c2"),
+    row("TA 的气泡底色（可渐变）", "charBg", "#a8c8e8"),
+    numRow("圆角", "radius", 0, 30),
+    row("我的文字色", "myText", "#16330a"),
+    row("我的描边", "myBorder", "2px solid #f56a91"),
+    row("我的贴纸", "mySticker", ""),
+    row("TA文字色", "charText", "#16330a"),
+    row("TA描边", "charBorder", "2px solid #75b0eb"),
+    row("TA的贴纸", "charSticker", ""),
+    row("投影", "shadow", "0 6px 18px rgba(141,189,255,0.3)"),
+    row("聊天背景", "chatBg", "#dadbc9"),
+    numRow("贴纸大小", "stickerSize", 32, 72));
+}
 const BUBBLE_SKIN_DEFAULTS = Object.assign({}, BUBBLE_SKIN);
 try { Object.assign(BUBBLE_SKIN, JSON.parse(localStorage.getItem("x_bubbleSkin") || "{}")); } catch (e) {}
 // 开机就把皮肤那张 style 发出去（否则第一次进聊天页要等她去设置里点一下才生效）
@@ -13059,6 +13100,10 @@ function ChatSettings({
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
   const [bubble, setBubble] = useState((settings.bubble && typeof settings.bubble === "object") ? settings.bubble : null);
+  const [bubOpen, setBubOpen] = useState(false);
+  // 细调一栏＝在【当前实际显示的那一套】上改：跟随全局时先把全局那份铺开当底，
+  // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
+  const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
@@ -13398,7 +13443,21 @@ function ChatSettings({
               border: "1px solid " + (on ? t.ink : t.line) } },
             o.key ? h("span", { style: { width: 10, height: 10, borderRadius: 999, background: o.tint, flexShrink: 0 } }) : null,
             o.name);
-        }))),
+        })),
+      // 细调：设置里那一整排字段（她 2026-09-05：「气泡这里每个人都可以搞设置里那些」）。
+      // 同一个 BubbleSkinFields，只是草稿存在这个人身上——预设只是起手的那一套，
+      // 挑完还能一栏栏改，改的只盖这个聊天窗。
+      h("button", { onClick: () => setBubOpen(v => !v), className: "w-full flex items-center justify-between active:opacity-60",
+        style: { minHeight: 40, marginTop: 10 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+          bubble && bubble._tuned ? "细调（已单独改过）" : "细调这一套"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, display: "inline-block", transition: "transform .2s", transform: bubOpen ? "rotate(90deg)" : "none" } }, "›")),
+      bubOpen ? h("div", null,
+        h(BubbleSkinFields, { s: Object.assign({}, BUBBLE_SKIN, bubble || {}), set: tuneBubble }),
+        // ⚠️退得回去：细调之后「跟随全局」那一档还在上面，但改过之后离它太远了，这里再给一个
+        h("button", { onClick: () => setBubble(null), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.line, borderRadius: 9, padding: "8px 14px" } },
+          "清掉，跟随全局")) : null),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
