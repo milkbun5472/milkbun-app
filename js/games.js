@@ -439,7 +439,9 @@
     const total = base + needNpc;
     const overMax = total > game.max;
     // 观战至少要 2 个 AI 玩家才有的看；否则至少 1 个角色
-    const tooFew = spectate ? (picked.length + needNpc) < 2 : total < game.min;
+    // 观战也按各游戏自己的最低人数来：阿瓦隆/狼人杀的板子按 5 人起设计，
+    // 2~4 人观战局会配出坏牌（AV_EVIL[2] 不存在→身份牌比人多、可能整局没有梅林）。
+    const tooFew = (spectate ? picked.length + needNpc : total) < game.min;
     // 狼人杀神职：effGods = 选中的(或标准板)；至少留 1 民
     const isWolfGame = game.key === "werewolf";
     const isAvalonGame = game.key === "avalon";
@@ -461,7 +463,7 @@
 
     let countMsg;
     if (overMax) countMsg = "人太多了，" + game.zh + "最多 " + game.max + " 人（现在 " + total + "）";
-    else if (tooFew) countMsg = spectate ? "观战至少要 2 个角色下场" : "还差人——至少 " + game.min + " 人" + (npcFill ? "（可加 NPC 凑数）" : "，或开 NPC 凑数");
+    else if (tooFew) countMsg = spectate ? ("观战也要凑满 " + game.min + " 个角色下场" + (npcFill ? "（可加 NPC）" : "，或开 NPC 凑数")) : "还差人——至少 " + game.min + " 人" + (npcFill ? "（可加 NPC 凑数）" : "，或开 NPC 凑数");
     else if (avOverflow) countMsg = "特殊坏人槽位不够：当前人数最多再选 " + avSpecialRoom + " 组（派西维尔会连带莫甘娜）";
     else countMsg = "共 " + total + " 人" + (humanPlays ? "（含你）" : "（你观战）") + (needNpc ? " · 含 " + needNpc + " 个 NPC" : "");
 
@@ -709,12 +711,14 @@
     const [allClues, setAllClues] = useState(sv ? (sv.allClues || []) : []);     // 全场描述（喂投票）
     const [userFirst, setUserFirst] = useState(sv ? !!sv.userFirst : true); // 你这轮排最先(true)还是最后(false)——每轮随机
     const [userClue, setUserClue] = useState("");
+    const [descFail, setDescFail] = useState(false); // 这一轮 AI 描述生成失败，等重试
     const [userVote, setUserVote] = useState(null);
     const [busy, setBusy] = useState(false);
     const [winner, setWinner] = useState(null);
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
+    const descArgs = useRef(null);   // 最近一次 AI 描述的参数，失败后原样重跑
     const started = useRef(false);
     // CC 工具用 turn_id 做幂等。每局必须有自己的命名空间；否则每个新局的第 1 轮
     // 都叫 spy:1，云端会把第一局的旧回答原样取回来。
@@ -796,6 +800,10 @@
     const beginDescribe = function () { startRound(players, round); };
     // 用指定名单跑 AI 描述；waitUser=true 时说完不进投票、停在描述阶段等你最后补一句
     const aiDescribeWith = async function (plist, prior, rnd, waitUser) {
+      // 失败时不回滚已入账的发言（你那句已经算数），只把这一步原样重跑；
+      // 原来失败后界面退回输入框，重新提交会把你的描述和轮次标记双份入账。
+      descArgs.current = { plist: plist, prior: prior, rnd: rnd, waitUser: waitUser };
+      setDescFail(false);
       setBusy(true);
       try {
         const aAI = plist.filter(function (p) { return p.alive && !p.isUser; });
@@ -811,8 +819,12 @@
         setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
         pushLog((prior.length ? [] : [{ type: "round", n: rnd }]).concat(norm.map(function (c) { return { type: "clue", name: c.name, text: c.text }; })));
         if (!waitUser) { setPhase("vote"); setUserVote(null); }
-      } catch (e) { props.toast && props.toast("描述失败：" + ((e && e.message) || "重试")); }
+      } catch (e) { setDescFail(true); props.toast && props.toast("描述失败：" + ((e && e.message) || "点「重试这一轮」")); }
       finally { setBusy(false); }
+    };
+    const retryDescribe = function () {
+      const a = descArgs.current; if (!a || busy) return;
+      aiDescribeWith(a.plist, a.prior, a.rnd, a.waitUser);
     };
     const submitUserClue = function () {
       const v = userClue.trim(); if (!v || busy) return;
@@ -959,6 +971,9 @@
         h("button", { onClick: beginDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（看他们描述）" : "开始描述"));
     } else if (phase === "describe") {
       if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在想怎么描述");
+      else if (descFail) action = h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "刚才那一轮没生成出来，你已说的话都还算数"),
+        h("button", { onClick: retryDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "重试这一轮"));
       else if (me && me.alive) action = h("div", null, myWordBanner,
         h("div", { style: { display: "flex", gap: 8 } },
           h("input", { value: userClue, onChange: function (e) { setUserClue(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserClue(); }, placeholder: "用一句话描述你的词（别说出词本身）", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
@@ -1632,12 +1647,13 @@
       const consensusRaw = ai.wolfConsensus && ai.wolfConsensus.target;
       const consensusSkip = !!(consensusRaw && /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(consensusRaw)));
       const consensusTarget = ai.wolfConsensus && validWolfTarget(consensusRaw, nightList);
-      setNightAI({ wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: nightList, n: n });
+      const nightInfo = { wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: nightList, n: n };
+      setNightAI(nightInfo);
       const seerInfo = (seer && !userSeer) ? { seer: seer.name, target: aiSeerCheck } : null;
       if (userWolf) setNightStage("wolf");       // 用户狼：等你投刀，再和队友合票
       else if (userSeer) setNightStage("seer");
       else if (userGuard) setNightStage("guard");
-      else finishNight(nightList, consensusSkip ? null : (consensusTarget || tallyKill(wolfVotes, nightList)), seerInfo, n, wolfVotes, false, aiGuardName);
+      else finishNight(nightList, aiKillOf(nightInfo), seerInfo, n, wolfVotes, false, aiGuardName);
     };
     // 狼刀 + 预言家定好后走这里：处理女巫（用户或 AI），再结算
     const finishNight = async function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog, guardName) {
@@ -1735,10 +1751,17 @@
       const allVotes = (info.wolfVotes || []).concat([{ name: userName, target: name, privateReason: "由真人狼最终拍板" }]);
       finishNight(info.list, finalKill, info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, allVotes, true, info.guardName);
     };
+    // AI 狼的最终刀口只有一种算法：协商说空刀就空刀，协商有结果用协商的，
+    // 都没有才落回各自投票的多数决。⚠️三个出口（无夜身份/你是预言家/你是守卫）
+    // 必须走同一个函数——原来后两个各自只调 tallyKill，狼队分歧夜里协商好的
+    // 那一刀被整个丢掉，平票时直接变假平安夜。
+    const aiKillOf = function (info) {
+      return info.consensusSkip ? null : (info.consensusTarget || tallyKill(info.wolfVotes, info.list));
+    };
     // 用户守卫守护
     const submitGuardProtect = function (name) {
       const info = nightAI;
-      finishNight(info.list, tallyKill(info.wolfVotes, info.list), info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, info.wolfVotes, false, name);
+      finishNight(info.list, aiKillOf(info), info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, info.wolfVotes, false, name);
     };
     // 用户预言家查验
     const submitSeerCheck = function (name) {
@@ -1748,7 +1771,7 @@
       if (seerNm && tp) { const km = Object.assign({}, seerKnowRef.current); km[seerNm] = (km[seerNm] || []).concat([{ name: tp.name, isWolf: isWolf }]); seerKnowRef.current = km; }
       setSeerResult({ name: name, isWolf: isWolf });
     };
-    const seerDone = function () { const info = nightAI; finishNight(info.list, tallyKill(info.wolfVotes, info.list), null, info.n, info.wolfVotes, false, info.guardName); };
+    const seerDone = function () { const info = nightAI; finishNight(info.list, aiKillOf(info), null, info.n, info.wolfVotes, false, info.guardName); };
     // 用户女巫：救 / 毒 / 都不用
     const submitWitch = function (action) {
       const c = witchCtx; if (!c) return;
