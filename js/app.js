@@ -17346,6 +17346,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // ⚠️只读不写：梦醒后什么都不写回（记忆、好感、心情一律不动）——跟闭群同一条界线。
     moodOf: cid => { const m = (moods || {})[cid] || {}; return m.label ? String(m.label) : ""; },
     affinityLineOf: cid => { const v = affinities[cid]; return typeof v === "number" ? "Ta 现在对你的好感：" + v : ""; },
+    // 熟不熟（v63.08）：三样真攒出来的东西——好感、印象卡厚度、Ta 知道的记忆条数。只读。
+    familiarityOf: cid => ({
+      affinity: affinities[cid],
+      gazeLen: (function () { try { return String((window.Gaze && window.Gaze.text) ? window.Gaze.text(cid, profile && profile.name) || "" : "").length; } catch (e) { return 0; } })(),
+      memCount: (function () { try { return retrieveMemories(memLibRef.current, cid, "", { limit: 500 }).length; } catch (e) { return 0; } })()
+    }),
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     rels: rels,

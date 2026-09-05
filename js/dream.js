@@ -94,6 +94,28 @@
     return shuffle(opts);
   }
 
+  // ── 熟不熟（v63.08，玩法④）──────────────────────────────────────────
+  // 逆鳞在字面上分不出来，等于掷骰子。现在：你对 Ta 越熟，逆鳞那条路越露破绽。
+  // 「熟」不是一个数值，是你们真攒出来的东西：好感、印象卡厚不厚、记忆库里有多少条是 Ta 知道的。
+  //   0 生：三条路一模一样，只能凭心；
+  //   1 熟：抗拒项的措辞里留一处轻微的不对劲（一个 Ta 不会用的词、一个不像 Ta 的小动作）；
+  //   2 很熟：那条路走起来明显不像 Ta 的梦会给的，细读认得出来。
+  // 档位在进梦时定下，写进存档；这场梦里不变。
+  function familiarityTier(f) {
+    f = f || {};
+    const aff = Number(f.affinity); let score = 0;
+    if (isFinite(aff) && aff >= 50) score++;
+    if (isFinite(aff) && aff >= 75) score++;
+    if (Number(f.gazeLen) >= 150) score++;
+    if (Number(f.memCount) >= 15) score++;
+    return score >= 3 ? 2 : score >= 1 ? 1 : 0;
+  }
+  const FAMILIAR_LINE = ["你对 Ta 还生——三条路一模一样，只能凭心。", "你和 Ta 熟了些——有一条的措辞不太像 Ta，细读。", "你很懂 Ta——走起来不像 Ta 的那条，你认得出来。"];
+  function familiarityRule(tier, nm) {
+    if (tier >= 2) return "【客人很懂 " + nm + "】抗拒项要留【一处明显些】的破绽：那条路走起来不像 " + nm + " 的梦会给的——口吻、物件、场合里有一样是错的，细读能认出来；另外两条必须都像 " + nm + "。破绽只许一处，别解释、别加重。";
+    if (tier >= 1) return "【客人和 " + nm + " 已经熟了些】抗拒项的措辞里留【一处轻微】的不对劲——一个 " + nm + " 不会用的词、一个不像 " + nm + " 会顺手做的小动作——熟人能觉出来，生人看不出来。只此一处，别解释、别加重。";
+    return "";
+  }
   // stage: open 入梦 / rise 渐深 / deep 临近梦核；canFinal 允许模型标可收束；forceFinal 本幕必须逼到梦核边缘
   function sceneRules(cotT, opts) {
     opts = opts || {};
@@ -114,6 +136,7 @@
       "· 用第二人称『你』，130~280 字。氛围要像梦：细节鲜明却哪里不对劲、逻辑会打滑、情绪被放大——但【必须有具体发生的情节】（场景＋对象＋动作/对话/事件），不能是纯情绪、纯意识流的漂浮描写。梦可以怪诞，但始终要有抓得住的东西在推进，别越写越虚。\n" +
       "· 【角色色彩·硬要求】这一幕的场景、出现的人、反复的意象，都要从「" + nm + "」自己的人设、Ta 和你的关系、Ta 的近况里长出来，是【只有 Ta 会做的梦】——把人物、地点、心结换成别人就不成立。绝不写放之四海皆准的通用梦意象堆砌。\n" +
       "· 然后给『你』三个可做的回应/行动：其中【两个】顺着这场梦、能让它继续往下走；【剩一个】戳到 " + nm + " 内心抗拒、不愿被打破的东西，一旦选中梦就碎。三个字面上都像合理选择，别露出哪个安全哪个危险、别用语气暗示；抗拒项是「看着无害、却恰好碰了逆鳞」。" +
+      (familiarityRule(opts.familiarity || 0, nm) ? "\n· " + familiarityRule(opts.familiarity || 0, nm) : "") +
       finalLine +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "\n【输出】只输出 JSON：{\"scene\":\"梦境叙事\"," + ((opts.canFinal || opts.forceFinal) ? "\"final\":true或false," : "") + "\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
@@ -152,6 +175,7 @@
       affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
       gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
       keywords: [], guests: [], injectChat: true,
+      familiarity: familiarityTier(props.familiarityOf ? props.familiarityOf(c.id) : null),
       voiceRef: recentChatSnippet(c.id, uName, c.name),
       material: {
         excerpts: (window.DreamLoop && window.DreamLoop.excerptsFor) ? window.DreamLoop.excerptsFor(row, 12) : [],
@@ -220,7 +244,7 @@
       (kw.length ? "\n\n【" + uName + "递来的关键词，把它们自然编进这场梦】" + kw.join("、") : "") +
       "\n\n这是开场第一幕：把梦的门推开，让 " + uName + " 落进 " + session.charName + " 的梦里。" +
       (session.material ? "这场梦 Ta 昨晚真的做过（材料在上面）——门推开之后落进去的，得是【那场梦】：同一个地方、同一些人、同一股情绪，只是这回她也在里面。" : "") +
-      sceneRules(cotT, { stage: "open", charName: session.charName });
+      sceneRules(cotT, { stage: "open", charName: session.charName, familiarity: session.familiarity || 0 });
     const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
@@ -243,7 +267,7 @@
       (worldbook && worldbook.trim() ? (typeof WORLDBOOK_RULE !== "undefined" ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
       "\n\n接着上一幕 " + uName + " 的选择往下写新的一幕：推进新情节、让梦更贴近 " + session.charName + " 藏着的东西，别原地打转、别复读上一幕。" +
-      sceneRules(cotT, { stage: stage, canFinal: canFinal && !forceFinal, forceFinal: forceFinal, charName: session.charName });
+      sceneRules(cotT, { stage: stage, canFinal: canFinal && !forceFinal, forceFinal: forceFinal, charName: session.charName, familiarity: session.familiarity || 0 });
     const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
@@ -528,6 +552,7 @@
           affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
           gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
           keywords: kw.map(x => x.trim()).filter(Boolean),
+          familiarity: familiarityTier(props.familiarityOf ? props.familiarityOf(c.id) : null),
           guests: guests, injectChat: injectChat,
           voiceRef: injectChat ? recentChatSnippet(c.id, uName, c.name) : "",
           scenes: [], status: "dreaming", ending: "",
@@ -758,7 +783,9 @@
             cur.options.map((op, i) => h("button", {
               key: i, onClick: () => pick(i), className: "w-full active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, textAlign: "left", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "13px 15px" }
-            }, op.text)))
+            }, op.text)),
+            // 熟不熟（v63.08）：告诉她这场梦里破绽有没有、有多明显；挣扎那一幕不适用（那三条是另一套）
+            cur.struggle ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", paddingTop: 2 } }, FAMILIAR_LINE[Math.max(0, Math.min(2, s.familiarity || 0))]))
           : needRetry
             ? h("button", { onClick: retryNext, className: "w-full active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "↻ 梦卡住了，继续做梦")
@@ -844,5 +871,5 @@
 
   window.Dream = Dream;
   // 给测试用的口子（v62.99 合龙那两把纯函数）：不走界面也能验材料块和结算
-  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock; Dream.normStruggleOptions = normStruggleOptions; Dream.normKeepsake = normKeepsake;
+  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock; Dream.normStruggleOptions = normStruggleOptions; Dream.normKeepsake = normKeepsake; Dream.familiarityTier = familiarityTier; Dream.familiarityRule = familiarityRule;
 })();
