@@ -24,21 +24,56 @@ function load() {
   return sandbox.window.RecentWidget;
 }
 
-test("这一沓答的是「刚来了什么」：没说过话的不上夹子，最新的压在最上面", () => {
+test("这一沓答的是「有什么在等你」：只夹没看的，最新的压在最上面", () => {
   const R = load();
   const now = 1757000000000;
   const rows = R.recentRows({
     characters: [{ id: "c1", name: "甲" }, { id: "c2", name: "乙", remark: "王爷" }, { id: "c3", name: "丙" }],
     groups: [{ id: "g1", name: "茶水间" }],
-    chats: { c1: [{ ts: now - 1000, content: "刚说的" }], c2: [{ ts: now - 90000, content: "早些说的" }] },
-    groupChats: { g1: [{ ts: now - 50000, content: "群里那句" }] },
+    chats: {
+      c1: [{ ts: now - 1000, content: "刚说的" }],
+      c2: [{ ts: now - 90000, content: "早些说的" }],
+      c4: [{ ts: now, content: "查无此人" }]
+    },
+    groupChats: { g1: [{ ts: now - 50000, content: "群里那句" }], g2: [{ ts: now, content: "看过的群" }] },
+    // c2/g2 说过话但看完了；c3 有未读却一句没说过
     unreadMap: { c1: 3, g1: 12, c3: 9 }
   });
   // rows 是在 vm 里造的，跨 realm 的数组过不了 deepStrictEqual，所以比字符串
-  assert.equal(rows.map(r => r.id).join(","), "c1,g1,c2", "从没说过话的 c3 不该上夹子，排序要按最后一条时间倒着来");
+  assert.equal(rows.map(r => r.id).join(","), "c1,g1",
+    "v63.68 起只夹【还没看的】（她 2026-09-05：「我要只有未读的」）：看完的 c2/g2 不该在，一句没说过的 c3 也不该在");
   assert.equal(rows[0].unread, 3);
   assert.equal(rows[1].type, "group");
-  assert.equal(rows[2].name, "王爷", "有备注就用备注，跟聊天列表同一个叫法");
+});
+
+test("有备注就用备注，跟聊天列表同一个叫法", () => {
+  const R = load();
+  const now = 1757000000000;
+  const rows = R.recentRows({
+    characters: [{ id: "c2", name: "乙", remark: "王爷" }],
+    groups: [], chats: { c2: [{ ts: now, content: "在" }] }, groupChats: {}, unreadMap: { c2: 1 }
+  });
+  assert.equal(rows[0].name, "王爷");
+});
+
+// 空着的时候要说对话：一条都没说过 vs 说过但都看完了，是两件事。
+// 全说成「夹子上还空着」的话，她每天看完消息都会以为这个组件坏了。
+test("两种空态说的不是同一件事", () => {
+  const w = src.slice(src.indexOf("function RecentWidget("), src.indexOf("function UnreadBack("));
+  assert.match(w, /everSpoke\(props\) \? "都看完了。" : "夹子上还空着/);
+  const es = src.slice(src.indexOf("function everSpoke(p)"), src.indexOf("function clampBar("));
+  assert.match(es, /Object\.keys\(chats\)\.some/);
+  assert.match(es, /Object\.keys\(gchats\)\.some/, "群聊那一半漏了：只跟群说过话的人会看到「还空着」");
+});
+
+// 撤掉东西要删干净：夹上全是没看的之后，「看过的那一档」的浅样式不许留在原地
+test("「看过的那一档」的样式删干净了，没留在原地", () => {
+  const w = src.slice(src.indexOf("const slip = function"), src.indexOf("    return h(\"div\", {\n      className: \"w-full h-full flex flex-col\""));
+  assert.doesNotMatch(w, /un \? /, "还留着「看过的怎么摆」那些分支");
+  assert.match(w, /borderLeft: "3px solid #b04a3f"/);
+  // 时刻和条数都要：只剩条数的话，「这是刚来的还是昨天的」就看不出来了
+  assert.match(w, /whenLabel\(r\.ts, props\.now\)/, "时刻没了");
+  assert.match(w, /un > 99 \? "99\+" : un/, "条数没了");
 });
 
 test("字条真的能翻：高度钉死 + 自己那一层滚，不靠内容把主屏格子撑大", () => {

@@ -49,8 +49,8 @@
     return (d.getMonth() + 1) + "月" + d.getDate() + "日";
   }
 
-  // 把角色和群合成一列「刚来的」，按最后一条时间倒序。没有任何消息的不进来——
-  // 这一沓答的是「刚来了什么」，不是「我认识谁」。
+  // 把角色和群合成一列「还没看的」，按最后一条时间倒序。
+  // 没有任何消息的不进来，看过的也不进来——这一沓答的是「有什么在等你」。
   function recentRows(p) {
     const chats = p.chats || {}, gchats = p.groupChats || {}, un = p.unreadMap || {};
     const rows = [];
@@ -67,7 +67,18 @@
       rows.push({ id: g.id, type: "group", group: g, name: g.name || "群聊", last: last, ts: last.ts || 0, unread: un[g.id] || 0 });
     });
     rows.sort(function (a, b) { return b.ts - a.ts; });
-    return rows;
+    // ⚠️只夹【还没看的】（她 2026-09-05：「现在显示全部的消息，我要只有未读的」）。
+    //   夹子答的是「有什么在等你」，不是「你跟谁说过话」——后者是聊天列表那一页的活。
+    //   看过的一张都不留：一进那个聊天框 clearUnread 就把它摘下来了。
+    return rows.filter(function (r) { return (r.unread || 0) > 0; });
+  }
+
+  // 空着的时候要说对话：一条都没说过 vs 说过但都看完了，是两件事。
+  // 全说成「夹子上还空着」的话，她每天看完消息都会以为这个组件坏了。
+  function everSpoke(p) {
+    const chats = p.chats || {}, gchats = p.groupChats || {};
+    return Object.keys(chats).some(function (k) { return (chats[k] || []).length; })
+      || Object.keys(gchats).some(function (k) { return (gchats[k] || []).length; });
   }
 
   // 压条：整只夹子的脸面。标题和「还剩几条没看」都写在这一条上——
@@ -114,13 +125,14 @@
         className: "block w-full text-left active:opacity-80",
         style: {
           background: paper,
-          border: "1px solid " + skinAlpha(ink, un ? "2e" : "18"),
-          borderLeft: "3px solid " + (un ? "#b04a3f" : skinAlpha(ink, "1c")),
+          // 夹上的全是没看的（v63.68 起），所以「看过的那一档」的浅样式整个删掉，
+          // 不留在原地写一句「这一支用不到」
+          border: "1px solid " + skinAlpha(ink, "2e"),
+          borderLeft: "3px solid #b04a3f",
           borderRadius: 4,
           padding: "6px 9px 7px",
           marginTop: i === 0 ? 0 : -3,               // 一张压着一张，像插在夹子里
-          marginLeft: un ? 0 : 5,                     // 没看的那几张往外探出一截
-          marginRight: un ? 5 : 0,
+          marginRight: 5,
           transform: "rotate(" + tilt + "deg)",
           boxShadow: "0 1px 3px " + skinAlpha(ink, "14"),
           position: "relative", zIndex: 40 - i
@@ -130,21 +142,23 @@
           h("span", {
             style: {
               fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink,
-              fontWeight: un ? 600 : 400, whiteSpace: "nowrap",
+              fontWeight: 600, whiteSpace: "nowrap",
               overflow: "hidden", textOverflow: "ellipsis", maxWidth: "58%"
             }
           }, r.name),
           r.type === "group" ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog } }, "群") : null,
           h("span", { style: { flex: 1 } }),
-          un ? h("span", {
+          // 时刻和条数都要：只剩条数的话，「这是刚来的还是昨天的」就看不出来了
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginRight: 4, whiteSpace: "nowrap" } }, whenLabel(r.ts, props.now)),
+          h("span", {
             style: {
               fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "#b04a3f",
               borderRadius: 999, padding: "1px 5px", lineHeight: 1.35
             }
-          }, un > 99 ? "99+" : un) : h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, whenLabel(r.ts, props.now))),
+          }, un > 99 ? "99+" : un)),
         h("div", {
           style: {
-            fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, color: un ? t.sub : t.fog,
+            fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, color: t.sub,
             marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
           }
         }, (mine ? "我：" : "") + (excerpt(r.last) || "…")));
@@ -176,7 +190,7 @@
                 background: paper, border: "1px dashed " + skinAlpha(ink, "22"), borderRadius: 4,
                 padding: "12px 10px", fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75
               }
-            }, "夹子上还空着。跟谁说过话，字条就会夹上来。")));
+            }, everSpoke(props) ? "都看完了。" : "夹子上还空着。跟谁说过话，字条就会夹上来。")));
   }
 
   // ── 聊天框顶上那个返回键 ────────────────────────────────
