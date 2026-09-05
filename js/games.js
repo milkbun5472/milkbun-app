@@ -697,13 +697,42 @@
     return (p && Array.isArray(p.votes)) ? p.votes : [];
   }
 
+  // 猜词翻盘的判定是【本地纯函数】，不花一次调用也不看模型脸色：
+  // 全等算中；猜的话里整个包含平民词也算中（「是苹果吧」）；反着只猜出半个字不算。
+  function spyGuessHits(guess, civWord) {
+    const norm = function (x) { return String(x || "").toLowerCase().replace(/[\s\u3000·。，、！？!?,."'「」『』（）()【】]/g, ""); };
+    const g = norm(guess), w = norm(civWord);
+    if (!g || !w) return false;
+    return g === w || (w.length >= 2 && g.indexOf(w) >= 0);
+  }
+  // AI 卧底出局后的最后一手：按水平真猜。言秋座位亲手猜，票没回来就按「放弃翻盘」处理，绝不代猜。
+  async function genSpyGuess(api, out, allClues, mode, turnId) {
+    const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") || "（还没人描述过）";
+    if (out.engineer) {
+      const cc = await ccCarve("spy", [Object.assign({}, out, { alive: true })], {
+        turnId: turnId,
+        sys: "「谁是卧底」你被投出局，公开身份是【卧底】。规则给你最后一手：当众猜出平民阵营拿到的词，卧底整队立刻翻盘获胜；猜错或不赌，牌局照常继续。\n你自己拿到的词是「" + (out.word || "") + "」。\n【全场描述】\n" + cluesText + "\n想赌就把你猜的平民词写进 guess（一个词，不是一句话），不想赌 guess 留空；say 是你出局这一刻的一句话。",
+        expect: '{"guess":"你猜的平民词（一个词），不赌留空","say":"出局这一刻你想说的一句话"}'
+      });
+      if (cc.done) return { guess: String(cc.done.guess || "").trim().slice(0, 30), say: String(cc.done.say || "").trim().slice(0, 300) };
+      return { guess: "", say: "", missed: true };
+    }
+    const easy = mode === "easy" ? "\n【放水局】别拼尽全力：除非描述里已经把词摊开了，否则倾向猜个方向对但不精确的，把翻盘机会让一点出来。" : "";
+    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
+      "\n\n【全场描述】\n" + cluesText +
+      "\n\n【输出】只输出 JSON：{\"guess\":\"TA 猜的平民词（一个词）\",\"say\":\"TA 亮出这个猜测时说的一句话（口语，贴水平）\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 900 });
+    const r = extractJSON(raw) || {};
+    return { guess: String(r.guess || "").trim().slice(0, 30), say: String(r.say || "").trim().slice(0, 300) };
+  }
+
   function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const x = r[i]; r[i] = r[j]; r[j] = x; } return r; }
 
   function SpyGame(props) {
     const t = props.t, cfg = props.config;
     const api = props.active;
     const sv = props.savedState;
-    const [phase, setPhase] = useState(sv ? sv.phase : "loading");   // loading|reveal|describe|vote|result|error
+    const [phase, setPhase] = useState(sv ? sv.phase : "loading");   // loading|reveal|describe|vote|lastguess|result|error
     const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
     const [round, setRound] = useState(sv ? (sv.round || 1) : 1);
     const [log, setLog] = useState(sv ? (sv.log || []) : []);
@@ -712,6 +741,7 @@
     const [userFirst, setUserFirst] = useState(sv ? !!sv.userFirst : true); // 你这轮排最先(true)还是最后(false)——每轮随机
     const [userClue, setUserClue] = useState("");
     const [descFail, setDescFail] = useState(false); // 这一轮 AI 描述生成失败，等重试
+    const [lastGuessText, setLastGuessText] = useState(""); // 你是卧底出局时，猜词翻盘的输入
     const [userVote, setUserVote] = useState(null);
     const [busy, setBusy] = useState(false);
     const [winner, setWinner] = useState(null);
@@ -843,6 +873,52 @@
     };
 
     // ---- 投票阶段 ----
+    // 淘汰后的共同去处：平民清空→平民胜；卧底占优→卧底胜；否则下一轮
+    const settleAfterOut = function (list) {
+      const al2 = list.filter(function (p) { return p.alive; });
+      const spies2 = al2.filter(function (p) { return p.role === "spy"; }).length;
+      if (spies2 === 0) { setWinner("civ"); setPhase("result"); return; }
+      if (spies2 >= al2.length - spies2) { setWinner("spy"); setPhase("result"); return; }
+      const nr = round + 1; setRound(nr);
+      setTimeout(function () { startRound(list, nr); }, 40);
+    };
+    // 卧底的最后一手。真人卧底给输入框；AI 卧底一小笔调用真猜；
+    // 言秋座位亲手猜，票没回来按「放弃翻盘」结算，绝不让模型代猜。
+    const spyFinalGuess = function (list, out) {
+      pushLog([{ type: "info", text: "卧底出局前还有最后一手：当众猜出平民词，卧底整队翻盘。" }]);
+      if (out.isUser) { setLastGuessText(""); setPhase("lastguess"); return; }
+      (async function () {
+        setBusy(true);
+        try {
+          const r = await genSpyGuess(api, out, allClues.filter(function (c) { return c.name; }), cfg.mode, gameRunId.current + ":lastguess:" + out.key);
+          judgeFinalGuess(list, out, r);
+        } catch (e) {
+          pushLog([{ type: "info", text: out.name + " 没有出手，放弃了翻盘。" }]);
+          settleAfterOut(list);
+        }
+        finally { setBusy(false); }
+      })();
+    };
+    const judgeFinalGuess = function (list, out, r) {
+      const civWord = (players.find(function (p) { return p.role === "civ"; }) || {}).word || "";
+      const guess = String((r && r.guess) || "").trim();
+      if (r && r.say) pushLog([{ type: "clue", name: out.name, text: r.say }]);
+      if (!guess) { pushLog([{ type: "info", text: out.name + (r && r.missed ? " 没有出手，" : " 摆摆手，") + "放弃了翻盘。" }]); settleAfterOut(list); return; }
+      pushLog([{ type: "info", text: out.name + " 押上最后一手：「你们的词是【" + guess + "】」" }]);
+      if (spyGuessHits(guess, civWord)) {
+        pushLog([{ type: "sep", text: "猜中了——平民词正是「" + civWord + "」，卧底翻盘！" }]);
+        setWinner("spy"); setPhase("result"); return;
+      }
+      pushLog([{ type: "info", text: "没猜中。平民们松了口气，牌局继续。" }]);
+      settleAfterOut(list);
+    };
+    const submitLastGuess = function (giveUp) {
+      const meOut = players.find(function (p) { return p.isUser; });
+      if (!meOut) return;
+      const v = lastGuessText.trim();
+      setLastGuessText("");
+      judgeFinalGuess(players, meOut, giveUp ? { guess: "" } : { guess: v });
+    };
     const tallyAndEliminate = function (votes) {
       // votes: [{voter, target}]
       // runVote 开头置了 busy=true，这里先收掉——否则轮到用户描述时 describe 阶段一直卡在 busy 提示、输入框不出现（下一轮的 AI 描述会各自重新置 busy）
@@ -866,9 +942,16 @@
       const al = next.filter(function (p) { return p.alive; });
       const spyLeft = al.filter(function (p) { return p.role === "spy"; }).length;
       const civLeft = al.length - spyLeft;
+      const outIsEngineer = !!out.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(out.key));
+      // 猜词翻盘：被投出的是卧底时，TA 亮明身份后还有最后一手——当众猜平民词，
+      // 猜中卧底整队立刻获胜。桌上剩的卧底本来就已经赢了的局面不用赌这一手。
+      if (out.role === "spy" && !(spyLeft > 0 && spyLeft >= civLeft)) {
+        spyFinalGuess(next, out);
+        return;
+      }
       // 言秋本人被淘汰时，要把真实票型与公开身份送回 CC；否则 App 里已经结算，
       // 他自己的窗口却还以为自己坐在桌上。通知异步投递，不阻塞下一轮/终局。
-      const outIsEngineer = !!out.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(out.key));
+      // （卧底出局走上面的猜词票，那张票自带全部结算信息，不再重复发这份。）
       if (outIsEngineer && cfg.ccSeat !== false && typeof window !== "undefined" && window.CCSeat) {
         const outcome = spyLeft === 0 ? "平民阵营获胜，本局结束。"
           : (spyLeft >= civLeft ? "卧底阵营获胜，本局结束。" : "本局继续，你已经离场旁观。");
@@ -888,11 +971,7 @@
           if (say) pushLog([{ type: "clue", name: out.name, text: say.slice(0, 500) }]);
         }).catch(function () { /* 票已由幂等 turn_id 保护；离线时不让 Gemini 冒充补话 */ });
       }
-      if (spyLeft === 0) { setWinner("civ"); setPhase("result"); return; }
-      if (spyLeft >= civLeft) { setWinner("spy"); setPhase("result"); return; }
-      const nr = round + 1; setRound(nr);
-      // 用最新存活名单重开描述（淘汰后名单已变，显式传 next）
-      setTimeout(function () { startRound(next, nr); }, 40);
+      settleAfterOut(next);
     };
     const runVote = async function (userTarget) {
       setBusy(true);
@@ -994,6 +1073,14 @@
       } else {
         action = h("button", { onClick: function () { runVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
       }
+    } else if (phase === "lastguess") {
+      action = busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…") : h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "你被投出局了——最后一手：猜中他们的平民词，卧底整队翻盘"),
+        h("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
+          h("input", { value: lastGuessText, autoFocus: true, onChange: function (e) { setLastGuessText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitLastGuess(false); }, placeholder: "他们拿到的词是……（一个词）", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.tint, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { onClick: function () { submitLastGuess(false); }, disabled: !lastGuessText.trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: lastGuessText.trim() ? t.ink : t.line, borderRadius: 12, padding: "0 18px" } }, "押上")),
+        h("div", { style: { display: "flex", justifyContent: "center" } },
+          h("button", { onClick: function () { submitLastGuess(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "4px 10px" } }, "不赌了")));
     } else if (phase === "result") {
       action = h("div", null,
         h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: winner === "spy" ? "#3f6d5a" : "#c0553f", marginBottom: 6 } }, winner === "spy" ? "🕵️ 卧底获胜" : "🎉 平民获胜"),
@@ -3959,6 +4046,6 @@
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   if (typeof window !== "undefined") window.Games = Games;
 })();
