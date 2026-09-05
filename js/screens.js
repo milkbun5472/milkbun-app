@@ -5330,7 +5330,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       ? h("div", { ref: lyricBoxRef, onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
           lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
             : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
-            : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.fog, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s" } }, l.text)))
+            : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.sub, opacity: i === lyricActive ? 1 : .82, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s,opacity .2s" } }, l.text)))
       // ── 碟（v62.81 再摆）──────────────────────────────────────────
       // v62.46 为了让「一起」露脸，把 TA 做成后面那张碟露一牙，碟因此整体往右偏了 22px、
       // 牙上再贴一枚歪着的小头像——她看着还是「有点丑」。碟归碟：一张、居中、转着。
@@ -5872,7 +5872,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 260px 之后淡出、460px 到底——标题坐在余纹上，封套和队列坐在纯底上。
   // zIndex:-1 + 滚动区 isolation:isolate：它在内容底下、又在外壳的底色之上。
   const discFade = "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,1) 40px, rgba(0,0,0,1) 260px, rgba(0,0,0,0) 460px)";
-  const discField = nav === "play" ? h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, top: 0, height: 460, zIndex: -1, pointerEvents: "none", WebkitMaskImage: discFade, maskImage: discFade }, disc) }) : null;
+  // ⚠️歌词页不铺沟纹：那页没有碟，沟纹在小字底下只会让字更难读（她 2026-09-05：「歌词是灰的看不见」——
+  //   一半是字色用了 fog，一半是底下的圈）。
+  const discField = nav === "play" && !showLyric ? h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, top: 0, height: 460, zIndex: -1, pointerEvents: "none", WebkitMaskImage: discFade, maskImage: discFade }, disc) }) : null;
   const crate = nav === "play" ? { background: t.bg } : sleeve;
   return h("div", { className: "h-full flex flex-col relative", style: crate },
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，

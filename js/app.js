@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v62.92";
+const APP_VERSION = "v62.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15094,6 +15094,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
     return null;
   };
+  // 补封面/歌名/歌手（v62.90，她 2026-09-05：「有没有办法 pull 网易云的时候把他的封面也一起拿过来」）：
+  // 贴链接/ID 进来的歌只存了个 ID，封面、歌名（「网易云歌曲 123」）、歌手都是空的——搜索来的和角色歌单才带。
+  // 放这首歌的时候顺手问一次 /song/detail，缺什么补什么；她自己填过的歌名/歌手不动。
+  // 一首歌一个会话只问一次（metaTriedRef），不 await、不挡播放。
+  const metaTriedRef = useRef(new Set());
+  const backfillSongMeta = async song => {
+    if (!song || song.source !== "netease" || !song.neteaseId || !neteaseApi) return;
+    const placeholder = !song.title || /^网易云(歌曲)? ?\d+$/.test(String(song.title));
+    if (song.cover && !placeholder && song.artist) return;
+    if (metaTriedRef.current.has(song.id)) return;
+    metaTriedRef.current.add(song.id);
+    try {
+      const r = await fetch(neteaseApi + "/song/detail?ids=" + encodeURIComponent(song.neteaseId) + "&timestamp=" + Date.now());
+      const d = await r.json(); const it = d && d.songs && d.songs[0]; if (!it) return;
+      const patch = {};
+      const cover = (it.al || it.album || {}).picUrl; if (cover && !song.cover) patch.cover = cover;
+      if (placeholder && it.name) patch.title = it.name;
+      const artist = (it.ar || it.artists || []).map(a => a.name).filter(Boolean).join(" / "); if (artist && !song.artist) patch.artist = artist;
+      if (Object.keys(patch).length) patchSongEverywhere(song.id, patch);
+    } catch (e) {}
+  };
   // 抓网易云歌词（让一起听的角色知道歌词，v48.87 她要）：只对 netease 歌、缓存进 songLyricsRef、去时间戳与制作信息、封顶。本地/外链歌没歌词
   const fetchLyrics = async song => {
     if (!song || song.source !== "netease" || !song.neteaseId || !neteaseApi) return;
@@ -15156,6 +15177,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       return patch;
     });
     fetchLyrics(song); // 并行抓歌词(网易云歌)，让一起听的角色知道歌词；不 await、不挡播放
+    backfillSongMeta(song); // 并行补封面/歌名/歌手（贴 ID 进来的歌只有个号）；不 await、不挡播放
     const url = await resolvePlayUrl(song);
     if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
     if (!url) { setPlayer(p => ({ ...p, loading: false, playing: false, err: song.source === "netease" ? "拿不到播放地址（多半 VIP/无版权）" : "音频丢了（可能清过缓存）" })); return; }
@@ -15373,7 +15395,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const addNeteaseSong = (input, title, artist) => {
     const nid = parseNeteaseId(input);
     if (!nid) { toast("没认出网易云歌曲链接或ID"); return; }
-    saveListen(p => ({ ...p, songs: [{ id: "sg_" + Date.now(), source: "netease", neteaseId: nid, title: (title || "").trim() || ("网易云歌曲 " + nid), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || []).filter(x => x.neteaseId !== nid)].slice(0, 40) }));
+    const nsong = { id: "sg_" + Date.now(), source: "netease", neteaseId: nid, title: (title || "").trim() || ("网易云歌曲 " + nid), artist: (artist || "").trim(), ts: Date.now() };
+    saveListen(p => ({ ...p, songs: [nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)].slice(0, 40) }));
+    backfillSongMeta(nsong); // 刚贴进来就去拿封面/歌名/歌手，不用等到播放
     toast("已添加");
   };
   // 本地音频：真文件 → 存 IndexedDB（持久），播放时取出建 objectURL
