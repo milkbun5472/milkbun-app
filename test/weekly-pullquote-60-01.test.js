@@ -43,7 +43,7 @@ test("卷宗那一版：头条和次条不等重，靠规矩分开不靠盒子",
   assert.match(dossier, /fontSize: lead \? 26 : 17/, "头条和次条的标题一样大");
   assert.match(dossier, /articleBody\(a, !lead\)/, "次条没有收紧");
   // 卷宗标签压在规矩上（卷宗边上贴的那种），不是框里的一行小字
-  assert.match(dossier, /display: "inline-block"[\s\S]{0,180}background: L\.tint[\s\S]{0,80}"EXHIBIT " \+ String\.fromCharCode\(65 \+ i\)/);
+  assert.match(dossier, /display: "inline-block"[\s\S]{0,180}background: L\.tint[\s\S]{0,80}"物证 " \+ String\.fromCharCode\(65 \+ i\)/);
   // 那个三处都一样的「WEEKLY LOG」撤掉——写着同一句话的东西什么也没说
   // 只看活代码——注释里要留着病因（那句话里就有 WEEKLY LOG）
   const live = dossier.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");

@@ -14,7 +14,7 @@ test("专访接入声纹样本，资料室语录逐字验真、数据本地统�
   assert.match(w, /hay\.indexOf\(q\.text\) > -1/, "语录必须逐字来自真实记录");
   assert.match(w, /type: "desk"/, "资料室要成为一个版块");
   assert.match(w, /QUOTED · 本周语录/);
-  assert.match(w, /BY THE NUMBERS/);
+  assert.match(w, /数字上看/);
 });
 
 // 第二步(2026-08-18):媒体腔换的是戏服不是视角 → 扩池、每期抽 3，
@@ -51,7 +51,7 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /float: "left"/, "首段要有落款首字（drop cap）");
   assert.match(w, /transform: "rotate\(-7deg\)"/, "期数做成盖歪的印章");
   assert.match(w, /function CoverPage\(props\)/, "主页面是一本杂志封面，不是目录列表");
-  assert.match(w, /TAP A HEADLINE/);
+  assert.match(w, /点标题进去看/);
   assert.match(w, /scrollRef\.current\.scrollTop = 0/, "换版必须回到顶部");
   // 资料室一次调用出五块，别再各调各的
   assert.match(w, /genDeskPage\(active, globalText, stats, userName, personasFor/);
@@ -154,8 +154,8 @@ test("十种媒体腔与四个编辑部页面都有独立纸张、字体与结�
 test("来信、资料室与采访目录都改成编辑网格而非旧卡片列表", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
-  assert.match(issue, /LETTER " \+ String\(i \+ 1\)\.padStart/, "来信要有刊物编号");
-  assert.match(issue, /FACTS \/ QUOTES/, "资料室要有竖版边栏");
+  assert.match(issue, /来信 " \+ String\(i \+ 1\)\.padStart/, "来信要有刊物编号");
+  assert.match(issue, /"事实 \/ 原话"/, "资料室要有竖版边栏");
   assert.match(issue, /borderTop: "5px solid " \+ SECTION_LOOK\.interview\.tint/, "采访人物索引要用编辑部横梁");
   assert.doesNotMatch(issue, /boxShadow: on \? "0 2px 8px/, "采访索引不能继续是浮起的圆角卡片");
 });

@@ -17,10 +17,12 @@ test("十种媒体腔按内容身份分骨架，不再共用同一流水线", ()
 
 test("各骨架具有自己不可互换的排版语言", () => {
   assert.match(weekly, /> loading dispatch_/);
-  assert.match(weekly, /EXHIBIT /);
+  assert.match(weekly, /物证 /);
   assert.match(weekly, /争点 /);
-  assert.match(weekly, /FIELD NOTE/);
-  assert.match(weekly, /MATCH NOTE/);
+  // v62.81 那一版的洋名（FIELD NOTES）删了；它自己的排版语言现在靠这两个记号认
+  assert.match(weekly, /随记 · /);
+  assert.match(weekly, /观察 · /);
+  assert.match(weekly, /战报 /);
   assert.match(weekly, /❦/);
 });
 

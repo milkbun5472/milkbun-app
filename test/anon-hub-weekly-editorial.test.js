@@ -38,5 +38,5 @@ test("周刊减去重复英文帽子、长稿加入金句并拉开标题层级",
   assert.match(weekly, /fontSize: 16/);
   assert.doesNotMatch(weekly, /SHORT READ/);
   assert.doesNotMatch(weekly, /FEATURE 0/);
-  assert.match(weekly, /LEAD · 01/);
+  assert.match(weekly, /头条 · 01/);
 });

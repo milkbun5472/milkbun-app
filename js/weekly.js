@@ -101,7 +101,7 @@
   // ---- 媒体腔（world book 层：世界观 + 声纹 + 禁止 + 缺席句）----------
   const VOICES = [
     {
-      id: "victorian", name: "维多利亚社交小报", en: "THE SOCIETY PAGES",
+      id: "victorian", name: "维多利亚社交小报",
       world:
         "设定：摄政／维多利亚时代的上流社交圈。你是这个圈子里一份匿名社交小报的笔者，把本周发生的事，当作上流社会的社交事件来报道。\n" +
         "声纹：\n① 一律用「某位不便具名的绅士／淑女」「一位年轻的先生」之类指代，绝不直呼角色本名。\n" +
@@ -112,7 +112,7 @@
       absent: "某君本周深居简出，未见于任何社交场合，惹人揣测。"
     },
     {
-      id: "cyberpunk", name: "赛博朋克数据快讯", en: "DATASTREAM",
+      id: "cyberpunk", name: "赛博朋克数据快讯",
       world:
         "设定：一座巨型企业的用户监控终端。你把本周发生的事，当作某个用户的行为数据流与情绪监控日志来输出。\n" +
         "声纹：\n① 全部小写，穿插方括号标记如 [数据泄露][已加密][阈值告警][信号丢失]，用双斜杠 // 写系统注释。\n" +
@@ -123,7 +123,7 @@
       absent: "[信号丢失] 本周无活跃数据流 // 最后活跃:未知 // 状态:离线"
     },
     {
-      id: "republican", name: "民国鸳鸯蝴蝶派", en: "THE OLD SHANGHAI TATTLER",
+      id: "republican", name: "民国鸳鸯蝴蝶派",
       world:
         "设定：民国旧上海的一份市井小报。你用鸳鸯蝴蝶派、才子佳人的腔调，报道本周发生的事。\n" +
         "声纹：\n① 半文半白，文言与白话夹杂。\n② 用「据本报访员探得」「闻……者也」这类旧报腔行文。\n" +
@@ -132,7 +132,7 @@
       absent: "某君本周杳无音讯，想是忙于俗务，佳人独守空闺，徒惹相思。"
     },
     {
-      id: "editorial", name: "严肃大报社论", en: "THE EDITORIAL",
+      id: "editorial", name: "严肃大报社论",
       world:
         "设定：一份权威大报的社论版。你对本周发生的琐事作「深度评论」，杀鸡偏用牛刀。\n" +
         "声纹：\n① 一本正经地把鸡毛蒜皮上升到理论高度、社会现象。\n" +
@@ -143,7 +143,7 @@
       absent: "论亲密关系中的沉默：本周的集体缺席意味着什么"
     },
     {
-      id: "naturalist", name: "自然观察笔记", en: "FIELD NOTES",
+      id: "naturalist", name: "自然观察笔记",
       world:
         "设定：一位博物学家在野外蹲守，把这几个人当作某种值得记录的物种来观察。\n" +
         "声纹：\n① 全程用观察笔记体：日期、天气、个体编号式的冷静记述，「该个体」「本群落」「初次记录到」。\n" +
@@ -154,7 +154,7 @@
       absent: "本周未记录到活动迹象，疑似进入静默期"
     },
     {
-      id: "noir", name: "黑色侦探档案", en: "CASE FILE",
+      id: "noir", name: "黑色侦探档案",
       world:
         "设定：一个疲惫的私家侦探在结案报告里写下本周的跟踪记录。\n" +
         "声纹：\n① 第一人称、短句、硬派：时间地点先行，情绪压在陈述底下。\n" +
@@ -165,7 +165,7 @@
       absent: "本周目标毫无动静。我在车里坐了七个晚上，什么也没发生"
     },
     {
-      id: "tabloid", name: "娱乐头条爆料", en: "THE SCANDAL SHEET",
+      id: "tabloid", name: "娱乐头条爆料",
       world:
         "设定：一本消息灵通、标题凶猛的都市娱乐周刊。把本周小事做成足以占据报摊头版的独家爆料。\n" +
         "声纹：\n① 标题短、狠、有悬念，导语先抛最反常的画面或后果。\n" +
@@ -176,7 +176,7 @@
       absent: "全员神隐七日：本刊记者扑空，沉默本身成了最大新闻"
     },
     {
-      id: "markets", name: "情感市场收盘", en: "CLOSING BELL",
+      id: "markets", name: "情感市场收盘",
       world:
         "设定：财经终端的收盘简报，把关系、承诺、注意力和情绪当作一周市场走势。\n" +
         "声纹：\n① 用开盘、震荡、增持、抛售、风险敞口、流动性等财经语言解释真实互动。\n" +
@@ -187,7 +187,7 @@
       absent: "本周交投清淡，主要关系指数横盘，市场等待新的明确信号"
     },
     {
-      id: "tribunal", name: "关系庭审纪要", en: "THE TRIBUNAL",
+      id: "tribunal", name: "关系庭审纪要",
       world:
         "设定：一场只审理日常关系争议的公开听证会。报道以证据、陈述、争点和裁定组织。\n" +
         "声纹：\n① 把真实消息、行动和物件当证据编号，不虚构证人。\n" +
@@ -198,7 +198,7 @@
       absent: "因本周无人提交证据，合议庭宣布休庭，所有悬案顺延"
     },
     {
-      id: "sportsdesk", name: "关系赛事战报", en: "THE SPORTS DESK",
+      id: "sportsdesk", name: "关系赛事战报",
       world:
         "设定：体育报的赛后复盘，把一周互动视为同一支队伍内部的攻防、配合与临场决策。\n" +
         "声纹：\n① 开头先报决定走势的关键回合，不从赛前背景慢慢讲。\n" +
@@ -215,7 +215,7 @@
     return VOICES.find(function (v) { return v.id === key; }) || null;
   }
   function voiceOf(id) {
-    return knownVoice(id) || { id: normalizeVoiceId(id) || "unknown", name: "未知文风", en: "UNKNOWN EDITION", world: "", absent: "" };
+    return knownVoice(id) || { id: normalizeVoiceId(id) || "unknown", name: "未知文风", world: "", absent: "" };
   }
   function mediaHasContent(sec) {
     return !!(sec && Array.isArray(sec.articles) && sec.articles.some(function (a) {
@@ -1130,7 +1130,7 @@
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".18em", color: t.fog, marginBottom: 4 } }, "← PREVIOUS"),
         h("div", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.prev.label)) : h("div", { style: { flex: 1 } }),
       props.next ? h("button", { onClick: props.next.onClick, className: "active:opacity-60", style: btn },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".18em", color: t.fog, marginBottom: 4, textAlign: "right" } }, "NEXT →"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: t.fog, marginBottom: 4, textAlign: "right" } }, "下一页 →"),
         h("div", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" } }, props.next.label)) : h("div", { style: { flex: 1 } }));
   }
   // 种子随机:同一期封面每次打开必须长得一样,所以不能用 Math.random
@@ -1207,7 +1207,12 @@
       h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: L.ink })),
       h("div", { className: "flex-1 min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.2, color: L.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.zh || "周刊"),
-        props.en ? h("div", { style: { marginTop: 2, fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: L.muted } }, props.en) : null),
+        // ⚠️跟公共 Head 里那道闸同一件事（no-english-titles）：有中文标题时，
+        //   纯拉丁的 en 一律不发。判据看的是【这串字里有没有汉字】——
+        //   写中文的照旧当副标题用，一刀切会把中文副题也误伤掉。
+        //   这一处是整份周刊所有内页共用的顶栏，改这里＝十几页一起合规。
+        (props.en && (/[一-鿿]/.test(String(props.en)) || !props.zh))
+          ? h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: L.muted } }, props.en) : null),
       h("div", { style: { width: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" } }, props.right || null));
   }
   function Masthead(props) {
@@ -1220,7 +1225,7 @@
       h("div", { style: { textAlign: "center", padding: "13px 0 9px" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
           h("span", { style: { flex: 1, height: 1, background: t.line } }),
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.42em", textTransform: "uppercase", fontSize: 8.5, color: t.fog, whiteSpace: "nowrap" } }, "THE WEEKLY"),
+          h("span", { style: { fontFamily: F_BODY, letterSpacing: ".1em", fontSize: 8.5, color: t.fog, whiteSpace: "nowrap" } }, "周刊"),
           h("span", { style: { flex: 1, height: 1, background: t.line } })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 40, fontWeight: 400, color: t.ink, lineHeight: 1.05, letterSpacing: "0.16em", margin: "4px 0 2px", textIndent: "0.16em" } }, "周刊"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, letterSpacing: ".08em" } },
@@ -1288,16 +1293,16 @@
       h("div", { className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
         h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk })),
         h("div", { className: "flex items-center", style: { gap: 5 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".24em", color: sub } }, "VOL. " + (props.num || "—")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: sub } }, "第 " + (props.num || "—")),
           h("button", { onClick: props.onTools, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -10, color: coverInk, fontFamily: "Arial,sans-serif", fontSize: 27, fontWeight: 300, lineHeight: 1 }, "aria-label": "周刊工具" }, "+"))),
       // 不居中的刊头：大字占左八栏，刊期与倒计时做右侧编辑注脚。
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", columnGap: 6, alignItems: "end", padding: "7px 0 16px", borderBottom: "1px solid rgba(35,32,25,.32)" } },
         h("div", { style: { gridColumn: "1 / 9" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: ".42em", fontSize: 7.5, color: sub } }, "INDEPENDENT WEEKLY"),
+          h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 7.5, color: sub } }, "一个人的周刊"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 50, letterSpacing: ".02em", color: coverInk, lineHeight: .94, marginTop: 6 } }, "周刊"),
           h("div", { style: { width: "54%", height: 7, background: ck.sections[0].solid, marginTop: 10 } })),
         h("div", { style: { gridColumn: "9 / 13", paddingBottom: 2, borderLeft: "1px solid " + progressTrack, paddingLeft: 9 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: sub } }, "ISSUE " + (props.num || "—")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: sub } }, "第 " + (props.num || "—")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.45, color: sub, marginTop: 5 } }, props.label || ""),
           h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.sections[1].solid }))),
       // 七块内容落在 12 栏网格里：三块实心承重，其余用同栏目色的淡底与实体边梁咬合。
@@ -1318,13 +1323,15 @@
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: c.align === "right" ? "flex-end" : "flex-start", gap: 6, marginBottom: 6 } },
               h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", color: titleInk } }, String(i + 1).padStart(2, "0")),
               h("span", { style: { width: c.kind === "hero" ? 34 : 16, height: 1, background: titleInk, opacity: .65 } }),
-              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".2em", textTransform: "uppercase", color: metaInk } }, L.it.en)),
+              // ⚠️原来这儿还挂一行小字英文（版面的洋名）压在中文标题上面。
+              //   号码 + 横线已经给足编辑部的节奏，那一段是多余的（no-english-titles）。
+              null),
             h("div", { style: { position: "relative", zIndex: 1, fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.13, letterSpacing: c.kind === "hero" ? "-.02em" : 0, color: titleInk, wordBreak: "keep-all", overflowWrap: "break-word", display: "-webkit-box", WebkitLineClamp: c.kind === "hero" ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, L.it.title),
             L.it.meta ? h("div", { style: { position: "relative", zIndex: 1, fontFamily: F_BODY, fontSize: 9, color: metaInk, marginTop: 7, letterSpacing: ".05em", wordBreak: "keep-all" } }, L.it.meta) : null);
         })),
       additions.length ? h("section", { "data-weekly-cover-additions": "true", style: { marginTop: 22, borderTop: "1px solid " + progressTrack, paddingTop: 13 } },
         h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: sub } }, "ADDED TO THIS ISSUE"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: sub } }, "这期新加的"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub } }, "后来刊入 · " + additions.length + " 栏")),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
           additions.map(function (A, i) {
@@ -1337,13 +1344,13 @@
               h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 9 } },
                 h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", color: titleInk } }, String(A.index + 1).padStart(2, "0")),
                 h("span", { style: { width: wide ? 30 : 16, height: 1, background: titleInk, opacity: .65 } }),
-                h("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", textTransform: "uppercase", color: metaInk } }, A.it.en || "SUPPLEMENT")),
+                h("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 7, letterSpacing: ".08em", color: metaInk } }, A.it.en || "副刊")),
               h("div", { style: { fontFamily: wide ? F_DISPLAY : F_BODY, fontSize: wide ? 22 : 17, fontWeight: wide ? 500 : 600, lineHeight: 1.15, color: titleInk, wordBreak: "keep-all", overflowWrap: "break-word", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, A.it.title),
               A.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: metaInk, marginTop: 7, letterSpacing: ".04em" } }, A.it.meta) : null);
           }))) : null,
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 15 } },
         h("div", { style: { height: 1, flex: 1, background: progressTrack } }),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".24em", color: sub } }, "TAP A HEADLINE")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: sub } }, "点标题进去看")));
   }
 
   function WeeklyToolsSheet(props) {
@@ -1406,7 +1413,7 @@
     return h("div", null,
       h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
       h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".28em", textTransform: "uppercase", opacity: .72, marginBottom: 15 } }, "LEAD STORY · 01"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
         h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)),
       c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 ? 2 : 1, columnGap: 22 } }, c.lead) : null,
       (c.highlights || []).length ? h("div", { style: { borderTop: "5px solid " + L.tint, padding: "15px 0 4px", marginBottom: 8 } },
@@ -1426,7 +1433,7 @@
     return h("div", { style: { position: "relative" } },
       h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 74px", alignItems: "end", borderBottom: "7px solid " + L.tint, margin: "0 -2px 22px", paddingBottom: 13 } },
         h("div", null,
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.22em", textTransform: "uppercase", fontSize: 8, color: L.tint, marginBottom: 7 } }, "EXCLUSIVE INTERVIEW · 04"),
+          h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, color: L.tint, marginBottom: 7 } }, "独家专访 · 04"),
           h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, color: L.ink, lineHeight: 1.05 } }, e.charName)),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
       (e.interview && e.interview.qa || []).map(function (qa, i) {
@@ -1448,7 +1455,7 @@
           i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null);
       }),
       e.paparazzi && (e.paparazzi.title || e.paparazzi.body) ? h("div", { style: { margin: "26px -10px 0 36px", padding: "17px 18px", background: L.tint, color: "#fff" } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 8, opacity: .7, marginBottom: 8 } }, "GOSSIP · SIDE NOTE"),
+        h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, opacity: .7, marginBottom: 8 } }, "边角闲话"),
         e.paparazzi.title ? h("div", { style: { fontFamily: "'Heiti SC','PingFang SC',sans-serif", fontSize: 18, fontWeight: 700, lineHeight: 1.28, marginBottom: 7 } }, e.paparazzi.title) : null,
         h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 13.5, lineHeight: 1.75, opacity: .94 } }, e.paparazzi.body)) : null);
   }
@@ -1550,7 +1557,7 @@
           //   · 那个恒定的「WEEKLY LOG」撤掉——三处写着同一句话的东西什么也没说。
           const lead = i === 0;
           return h("article", { key: i, style: { marginBottom: lead ? 24 : 20, paddingTop: 0, borderTop: (lead ? "5px solid " : "1px solid ") + L.tint } },
-            h("div", { style: { display: "inline-block", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.paper, background: L.tint, padding: "3px 9px 4px", marginBottom: lead ? 13 : 10 } }, "EXHIBIT " + String.fromCharCode(65 + i)),
+            h("div", { style: { display: "inline-block", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.paper, background: L.tint, padding: "3px 9px 4px", marginBottom: lead ? 13 : 10 } }, "物证 " + String.fromCharCode(65 + i)),
             h("div", { style: { fontFamily: L.titleFace, fontSize: lead ? 26 : 17, fontWeight: 700, lineHeight: 1.2, marginBottom: lead ? 12 : 9 } }, a.title),
             articleBody(a, !lead));
         })));
@@ -1570,20 +1577,20 @@
       return h("div", { "data-layout-dna": "notes", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
         h("div", { style: { margin: "0 16px" } }, arts.map(function (a, i) {
           return h("article", { key: i, style: { display: "grid", gridTemplateColumns: stableVariant ? "1fr 58px" : "58px 1fr", gap: 14, padding: "18px 0", borderBottom: "1px solid " + L.tint + "55" } },
-            stableVariant ? null : h("aside", { style: { borderRight: "1px solid " + L.tint, paddingRight: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "FIELD NOTE · " + String(i + 1).padStart(2, "0")),
+            stableVariant ? null : h("aside", { style: { borderRight: "1px solid " + L.tint, paddingRight: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "随记 · " + String(i + 1).padStart(2, "0")),
             h("div", null, h("div", { style: { fontFamily: L.titleFace, fontSize: i ? 18 : 26, fontWeight: 600, lineHeight: 1.2, marginBottom: 12 } }, a.title), articleBody(a, false)),
-            stableVariant ? h("aside", { style: { borderLeft: "1px solid " + L.tint, paddingLeft: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "OBSERVATION · " + String(i + 1).padStart(2, "0")) : null);
+            stableVariant ? h("aside", { style: { borderLeft: "1px solid " + L.tint, paddingLeft: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "观察 · " + String(i + 1).padStart(2, "0")) : null);
         })));
     }
     function standardLayout() {
       return h("div", { "data-layout-dna": "standard", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 8 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-        arts[0] ? h("article", { style: { margin: "0 0 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } }, h("div", { style: { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint } }, h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: L.tint, marginBottom: 8 } }, "LEAD · 01"), h("div", { style: { fontFamily: L.titleFace, fontSize: 30, fontWeight: 600, lineHeight: 1.12 } }, arts[0].title)), h("div", { style: { margin: "0 18px" } }, articleBody(arts[0], false))) : null,
+        arts[0] ? h("article", { style: { margin: "0 0 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } }, h("div", { style: { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint } }, h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"), h("div", { style: { fontFamily: L.titleFace, fontSize: 30, fontWeight: 600, lineHeight: 1.12 } }, arts[0].title)), h("div", { style: { margin: "0 18px" } }, articleBody(arts[0], false))) : null,
         arts.length >= 3 ? h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, margin: "0 18px 34px" } }, pairedArticle(arts[1], 1, "left"), pairedArticle(arts[2], 2, "right")) : null,
         arts.length === 2 ? wideArticle(arts[1], 1) : null, arts.slice(3).map(function (a, offset) { return wideArticle(a, offset + 3); }));
     }
     function scoreboardLayout() {
       return h("div", { "data-layout-dna": "scoreboard", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-        h("div", { style: { margin: "0 18px", display: "grid", gridTemplateColumns: arts.length >= 3 ? "1fr 1fr" : "1fr", gap: 12 } }, arts.map(function (a, i) { return h("article", { key: i, style: { gridColumn: i === 0 ? "1 / -1" : "auto", padding: i === 0 ? "18px" : "13px", background: i === 0 ? L.tint : L.pale, color: i === 0 ? "#fff" : L.ink } }, h("div", { style: { fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".16em", opacity: .72, marginBottom: 8 } }, "MATCH NOTE " + String(i + 1).padStart(2, "0")), h("div", { style: { fontFamily: L.titleFace, fontSize: i === 0 ? 29 : 17, fontWeight: 700, lineHeight: 1.12, marginBottom: 11 } }, a.title), articleBody(a, i > 0)); })));
+        h("div", { style: { margin: "0 18px", display: "grid", gridTemplateColumns: arts.length >= 3 ? "1fr 1fr" : "1fr", gap: 12 } }, arts.map(function (a, i) { return h("article", { key: i, style: { gridColumn: i === 0 ? "1 / -1" : "auto", padding: i === 0 ? "18px" : "13px", background: i === 0 ? L.tint : L.pale, color: i === 0 ? "#fff" : L.ink } }, h("div", { style: { fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".16em", opacity: .72, marginBottom: 8 } }, "战报 " + String(i + 1).padStart(2, "0")), h("div", { style: { fontFamily: L.titleFace, fontSize: i === 0 ? 29 : 17, fontWeight: 700, lineHeight: 1.12, marginBottom: 11 } }, a.title), articleBody(a, i > 0)); })));
     }
     const renderer = layoutDNA === "manifesto" ? manifestoLayout : layoutDNA === "dossier" ? dossierLayout : layoutDNA === "classic" ? classicLayout : layoutDNA === "notes" ? notesLayout : layoutDNA === "scoreboard" ? scoreboardLayout : standardLayout;
     return h("div", { style: { margin: "0 -10px" } }, renderer());
@@ -1708,37 +1715,37 @@
     }
 
     // ---- 详情视图 ----
-    let headZh = "本期", headEn = "ISSUE #" + num, detail = null;
+    let headZh = "本期", headEn = "第 " + num + " 期", detail = null;
     if (sub && sub.kind === "letters" && lettersSec) {
-      headZh = "读者来信"; headEn = "LETTERS";
+      headZh = "读者来信"; headEn = "";
       const LL = SECTION_LOOK.letters;
       detail = h("div", { style: { margin: "0 -10px", color: LL.ink } },
         h("div", { style: { display: "grid", gridTemplateColumns: "82px 1fr", minHeight: 116, marginBottom: 26 } },
           h("div", { style: { background: LL.tint, color: "#fffaf5", display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { writingMode: "vertical-rl", fontFamily: "'STKaiti','KaiTi',serif", fontSize: 22, letterSpacing: ".22em" } }, "本周来信")),
           h("div", { style: { background: LL.pale, padding: "19px 18px" } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".26em", color: LL.tint } }, "LETTERS · 03"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", color: LL.tint } }, "读者来信 · 03"),
             h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 17, lineHeight: 1.65, color: LL.ink, marginTop: 13 } }, "有人把这一周折好，塞进了编辑部的门缝。"))),
         (lettersSec.letters || []).map(function (letter, i) {
           const featured = i === 0;
           return h("article", { key: i, style: { width: featured ? "88%" : "calc(100% - 34px)", margin: featured ? "0 0 30px auto" : (i % 2 ? "0 34px 28px 0" : "0 0 28px 34px"), padding: featured ? "19px 18px" : "0 0 19px", background: featured ? LL.tint : "transparent", color: featured ? "#fffaf5" : LL.ink, borderBottom: featured ? "none" : "1px solid " + LL.tint + "55" } },
             h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 11 } },
-              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", opacity: featured ? .72 : 1, color: featured ? "inherit" : LL.tint } }, "LETTER " + String(i + 1).padStart(2, "0")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: featured ? .72 : 1, color: featured ? "inherit" : LL.tint } }, "来信 " + String(i + 1).padStart(2, "0")),
               h("span", { style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: 13, opacity: .76 } }, "—— " + letter.from)),
             h("div", { style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: featured ? 16 : 15, lineHeight: 1.95, whiteSpace: "pre-wrap", textAlign: "justify" } }, letter.body),
             letter.reply ? h("div", { style: { width: featured ? "94%" : "86%", margin: "15px 0 0 auto", padding: "10px 12px", background: featured ? "rgba(255,255,255,.14)" : LL.pale, borderLeft: "4px solid " + (featured ? "rgba(255,255,255,.75)" : LL.tint), fontFamily: "'Songti SC',Georgia,serif", fontSize: 11.5, lineHeight: 1.72, color: "inherit" } }, "编者按 · " + letter.reply) : null);
         }));
     } else if (sub && sub.kind === "desk" && deskSec) {
-      headZh = "资料室"; headEn = "THE DESK";
+      headZh = "资料室"; headEn = "";
       const qs = deskSec.quotes || [], dk = deskSec.desk || { rows: [] };
       const DL = SECTION_LOOK.desk;
       detail = h("div", { style: { margin: "0 -10px", color: DL.ink } },
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 92px", minHeight: 112, marginBottom: 25 } },
           h("div", { style: { padding: "19px 18px", background: DL.tint, color: "#fff" } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".27em", opacity: .72 } }, "ARCHIVE · 02"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", opacity: .72 } }, "资料室 · 02"),
             h("div", { style: { fontFamily: "'Heiti SC','PingFang SC',sans-serif", fontSize: 28, fontWeight: 700, marginTop: 14 } }, "资料室")),
           h("div", { style: { background: DL.pale, display: "flex", alignItems: "center", justifyContent: "center" } },
-            h("span", { style: { writingMode: "vertical-rl", fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: DL.tint } }, "FACTS / QUOTES"))),
+            h("span", { style: { writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: DL.tint } }, "事实 / 原话"))),
         // 语录榜：大引号 + 悬挂式排版，一句一块，像杂志的抽言页
         qs.length ? h("div", { style: { marginBottom: 30 } },
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.28em", color: DL.tint, textTransform: "uppercase", margin: "0 18px 16px" } }, "QUOTED · 本周语录"),
@@ -1754,7 +1761,7 @@
         // 数据版：细横线分隔的边栏条目，数字放大、点评压小
         dk.rows && dk.rows.length ? h("div", { style: { margin: "0 18px", borderTop: "7px solid " + DL.tint, paddingTop: 14 } },
           h("div", { style: { fontFamily: "'Heiti SC','PingFang SC',sans-serif", fontSize: 20, fontWeight: 700, color: DL.ink, marginBottom: 2 } }, dk.title),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.26em", color: t.fog, textTransform: "uppercase", marginBottom: 14 } }, "BY THE NUMBERS"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".1em", color: t.fog, marginBottom: 14 } }, "数字上看"),
           dk.rows.map(function (r, i) {
             return h("div", { key: i, style: { padding: "11px 0", borderBottom: "1px solid " + t.line } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.7 } }, r.line),
@@ -1772,10 +1779,10 @@
             return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.9, color: t.sub, paddingLeft: 10, borderLeft: "2px solid " + t.line, marginBottom: 7 } }, adText);
           })) : null);
     } else if (sub && sub.kind === "cover" && cover) {
-      headZh = "头版"; headEn = "FRONT PAGE";
+      headZh = "头版"; headEn = "";
       detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); } });
     } else if (sub && sub.kind === "interview" && iv) {
-      headZh = "采访版"; headEn = "THE INTERVIEWS";
+      headZh = "采访版"; headEn = "";
       const entries = iv.entries || [];
       const sel = Math.min(ivSel, Math.max(0, entries.length - 1));
       const en = entries[sel];
@@ -1808,7 +1815,7 @@
           }))));
     } else if (sub && sub.kind === "media") {
       const sec = medias.find(function (s) { return s.id === sub.id; });
-      if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = voiceOf(sec.voiceId).en; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
+      if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = ""; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
     }
 
     const pages = [].concat(
@@ -1851,13 +1858,13 @@
             issueKey: issue.key, num: num, label: issue.label, target: window.Weekly.nextRefreshTime(), onBack: props.onBack,
             onTools: function () { setTools("menu"); },
             items: [].concat(
-              cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
-              deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
-              lettersSec ? [{ en: "LETTERS", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
-              iv ? [{ en: "INTERVIEWS", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
+              cover ? [{ en: "", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
+              deskSec ? [{ en: "", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
+              lettersSec ? [{ en: "", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
+              iv ? [{ en: "", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
               medias.map(function (sec) {
                 const v = voiceOf(sec.voiceId);
-                return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
+                return { title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
           }))))),
       tools ? h(WeeklyToolsSheet, {
@@ -1884,7 +1891,7 @@
     }, []);
     const bookColors = ["#683647", "#315b5d", "#966522", "#595374", "#805044"];
     return h("div", { "data-weekly-space": "archive", className: "h-full flex flex-col", style: pageBackground(L) },
-      h(WeeklyHead, { zh: "合订本", en: "THE ARCHIVE", look: L, onBack: props.onBack }),
+      h(WeeklyHead, { zh: "合订本", en: "", look: L, onBack: props.onBack }),
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "20px 20px calc(env(safe-area-inset-bottom) + 34px)" } },
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 90px", alignItems: "end", gap: 12, marginBottom: 22 } },
           h("div", null,
@@ -1923,7 +1930,7 @@
                 h("div", { style: { minWidth: 0, padding: "15px 13px" } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: L.ink } }, "第 " + num + " 期"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: L.muted, marginTop: 5 } }, (iss.label || "") + " · " + issueArticleCount(iss) + " 篇"),
-                  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: color, marginTop: 12 } }, "OPEN THE BOUND VOLUME")),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".1em", color: color, marginTop: 12 } }, "翻开合订本")),
                 h("div", { style: { borderLeft: "1px solid " + color + "33", display: "flex", alignItems: "center", justifyContent: "center", color: color, fontFamily: F_DISPLAY, fontSize: 18 } }, "›")),
               h("button", { onClick: function () { props.onDelete(iss.id); }, className: "active:opacity-60", style: { position: "absolute", right: 42, top: 9, padding: "5px 7px", fontFamily: F_BODY, fontSize: 10.5, color: L.muted } }, "移出书架"));
           })) : h(Empty, { text: "书架还是空的", sub: "出刊后会装订在这里" })));
@@ -1939,9 +1946,9 @@
     return h("div", { "data-weekly-space": "newsroom", style: { minHeight: "100%", padding: "18px 20px calc(env(safe-area-inset-bottom) + 34px)", color: L.ink } },
       h("div", { style: { display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "end", borderBottom: "1px solid " + L.tint + "70", paddingBottom: 13 } },
         h("div", null,
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".3em", color: L.muted } }, "THE EDITORIAL ROOM · EST. ISSUE 01"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: L.muted } }, "编辑部 · 第 01 期起"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.08, marginTop: 8 } }, "编辑部装帧台")),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".16em", color: L.muted, textAlign: "right", lineHeight: 1.7 } }, "MON—SUN", h("br"), props.label || "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: L.muted, textAlign: "right", lineHeight: 1.7 } }, "周一到周日", h("br"), props.label || "")),
       h("div", { style: { position: "relative", minHeight: 410, margin: "25px 0 20px", padding: "19px 13px 24px", background: "linear-gradient(145deg," + L.pale + "aa,rgba(255,255,255,.20))", border: "1px solid " + L.tint + "35", overflow: "hidden" } },
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: -26, top: 34, width: 120, height: 18, background: L.tint, opacity: .2, transform: "rotate(-8deg)" } }),
         h("div", { "aria-hidden": "true", style: { position: "absolute", right: 24, bottom: 17, width: 84, height: 84, border: "1px solid " + L.tint + "55", borderRadius: "50%" } }),
@@ -1951,19 +1958,19 @@
           h("button", { onClick: hasIssue ? props.onRead : props.onGenerate, disabled: props.busy, className: "w-full text-left active:opacity-80", style: { position: "relative", minHeight: 320, padding: "22px 20px", background: L.paper, border: "1px solid " + L.tint + "77", color: L.ink, boxShadow: "0 15px 34px rgba(48,38,29,.17)", overflow: "hidden" } },
             h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "start", borderBottom: "5px solid " + L.tint, paddingBottom: 13 } },
               h("div", null,
-                h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".3em", color: L.muted } }, "INDEPENDENT WEEKLY"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: L.muted } }, "一个人的周刊"),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 46, lineHeight: 1, marginTop: 8 } }, "周刊")),
-              h("div", { style: { borderLeft: "1px solid " + L.tint + "66", paddingLeft: 13, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".12em", lineHeight: 1.8, color: L.muted } }, "ISSUE ", num, h("br"), props.label || "")),
+              h("div", { style: { borderLeft: "1px solid " + L.tint + "66", paddingLeft: 13, fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", lineHeight: 1.8, color: L.muted } }, "第 ", num, h("br"), props.label || "")),
             hasIssue ? h("div", null,
               h("div", { style: { background: L.tint, color: "#fffaf3", margin: "22px -20px 0", padding: "16px 20px 18px" } },
-                h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".22em", opacity: .72 } }, "THIS WEEK · NOW BOUND"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", opacity: .72 } }, "这一周 · 已装订"),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.25, marginTop: 8 } }, "上一周，已经装订成册。")),
               h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13, marginTop: 18 } },
                 h("div", { style: { borderTop: "1px solid " + L.tint, paddingTop: 8, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: L.muted } }, "头版 · 来信", h("br"), "专访 · 卷宗"),
                 h("div", { style: { borderTop: "1px solid " + L.tint, paddingTop: 8, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: L.muted } }, "多种媒体腔", h("br"), "各自一副骨架"))) : h("div", { style: { paddingTop: 30 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.4 } }, props.busy ? "印刷机正在转。" : "这一周，还在等你装订。"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: L.muted, lineHeight: 1.7, marginTop: 13 } }, props.busy ? (props.progress || "编辑部正在排版……") : "把周一到周日真正发生过的事，交给不同版面重新讲一遍。")),
-            h("div", { style: { position: "absolute", right: 18, bottom: 17, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".22em", color: L.tint } }, props.busy ? "PRINTING…" : hasIssue ? "TAP TO READ →" : "TAP TO PUBLISH →"))),
+            h("div", { style: { position: "absolute", right: 18, bottom: 17, fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: L.tint } }, props.busy ? "付印中…" : hasIssue ? "点开来读 →" : "点一下发刊 →"))),
         h("div", { style: { marginTop: 28 } }, h(Countdown, { target: props.target, ink: L.muted, track: L.tint + "22", fill: L.tint }))),
       h("div", { style: { display: "grid", gridTemplateColumns: hasIssue ? "1fr auto" : "1fr", gap: 10, alignItems: "center" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: L.muted } }, hasIssue ? "第 " + num + " 期已在桌上。点封面拿起来读。" : "每周一本；素材少也可以诚实地留白。"),
@@ -2050,7 +2057,7 @@
     // cover / 编辑部装帧台
     return h("div", { className: "h-full flex flex-col", style: pageBackground(SECTION_LOOK.contents) },
       h(WeeklyHead, {
-        zh: "周刊", en: "THE WEEKLY",
+        zh: "周刊", en: "",
         look: SECTION_LOOK.contents,
         onBack: props.onBack,
         right: (issues.length || missed.length) ? h("button", { onClick: function () { setView("shelf"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "往期") : null

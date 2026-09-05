@@ -8,7 +8,7 @@ const weekly = fs.readFileSync(path.resolve(__dirname, "../js/weekly.js"), "utf8
 test("周刊入口、合订本和工具台是三种可辨认的整页空间", () => {
   assert.match(weekly, /data-weekly-space": "newsroom"/);
   assert.match(weekly, /编辑部装帧台/);
-  assert.match(weekly, /INDEPENDENT WEEKLY/);
+  assert.match(weekly, /一个人的周刊/);
   assert.match(weekly, /data-weekly-space": "archive"/);
   assert.match(weekly, /编辑部书架/);
   assert.match(weekly, /BOUND VOLUMES/);
