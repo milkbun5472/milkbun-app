@@ -13,7 +13,18 @@
 //     盘一盘    ← 「会在心里把那只盒子盘一盘」（原话）
 //     发呆      ← 「每角色每天一次发呆」（原话）
 //     岔出来的  ← 「从旧念想岔出的藤」（原话）
-//   保留的两个：落灰、毕业——中文里本来就这么说，不是那份文档造的。
+//   保留的一个：落灰——中文里本来就这么说，不是那份文档造的。
+//   ⚠️2026-09-05 她又点了一批：「盒子、根、刻痕、蜕变轴、生长时间线、火苗、毕业、
+//     枯萎、告别小诗」——这些要么还是那份文档的味道，要么是硬造的。照同一条规矩换成
+//     【这份代码自己已经在用的说法】：
+//       盒子 → 心上（页名本来就是）      根 → 打哪儿来（注释原话「它从哪长出来」）
+//       刻痕 → 做过的（分层注释里原话）  蜕变轴/生长时间线 → 他这一路
+//       火苗 → 分量（左边一道竖标尺，不再用 emoji）
+//       毕业 → 长成了（注释原话「长成他的一部分」）
+//       枯萎 → 放下了（LETGO 那一段原话就是「放下」）
+//       告别小诗 → 留下的一句
+//   ⚠️提示词里那套词必须【跟着一起换】：只改界面的话，模型照旧写「刻痕」「毕业」，
+//     界面上就会同时出现两套说法——那是「一层写在两处，第二处没跟上」。
 //
 //   ⚠️lastMellow / lastSolstice / lastObserve 这几个字段名是【存进 x_desires 的】，
 //     名字里还带着旧词的影子，但改了就读不回上次跑到哪儿——一律不动。
@@ -33,7 +44,7 @@
 //             spark=白日梦一闪念（出生权重 0.05，24h 没被再想起就没接住不留痕）。
 // ============================================================
 (function () {
-  const ACCENT = "#a8763e"; // 盒子主色（旧木盒的暖棕）
+  const ACCENT = "#a8763e"; // 这一页的主色（旧木盒的暖棕）
 
   // ---- 数据形状 ----
   // x_desires = { [charId]: { list:[entry], log:[{ts,text}], lastMuse, lastMellow, lastSolstice, lastObserve,
@@ -169,16 +180,16 @@
     // 时间相对词（治「几天前的事被连着好几天念成昨天」，她 2026-07-13 报）
     const _ago = ts => { if (!ts) return "不久前"; const d = Math.floor((_now - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d < 7 ? d + "天前" : d < 30 ? "约" + Math.round(d / 7) + "周前" : "约" + Math.round(d / 30) + "个月前"; };
     const listTxt = living.length
-      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次刻痕（" + _ago(e.tracks[0].ts) + "）：" + e.tracks[0].text : "")).join("\n")
-      : "（盒子还是空的——TA 还没有攒下念想）";
+      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次做过的（" + _ago(e.tracks[0].ts) + "）：" + e.tracks[0].text : "")).join("\n")
+      : "（他心上还空着——还没攒下念想）";
     return {
       instruction: AC + "今天是 " + new Date(_now).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「心上」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
         briefsTxt(box) + avoidTxt(box) + together +
         "\n\n以 TA 的第一人称推演这次发呆：" +
-        "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。\n【时间别乱安·重要】回想过去的事时，别不管过了几天都一律说『昨天』——只有真发生在昨天的才说昨天。上面每条念想的『上次刻痕』都标了是几天前/几周前，严格照那个来；拿不准具体哪天的事，就用『前阵子／那天／上次／最近』这类模糊说法，绝不硬安一个『昨天』。" +
+        "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。\n【时间别乱安·重要】回想过去的事时，别不管过了几天都一律说『昨天』——只有真发生在昨天的才说昨天。上面每条念想的『上次做过的』都标了是几天前/几周前，严格照那个来；拿不准具体哪天的事，就用『前阵子／那天／上次／最近』这类模糊说法，绝不硬安一个『昨天』。" +
         "\ntouch：这次发呆里【真正被想起】的既有念想（0~2 个，一个没想起就给空数组）。每个元素 {id, note}：note 是这条念想今天的「做过的」——TA 为它做了什么/有什么进展/此刻怎么想它，一句话（如「水流还是不稳，换了更细的滤纸」）；只是路过想了一下没有实质进展，note 给 null。" +
-        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/旁人纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从盒子里某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
-        "\n【铁网】新念想必须长在 TA 的人设、记忆和最近生活的土壤上：记忆/对话里反复出现、或带强烈情绪的事，才配长出扎根的念想（root 必须写得出依据）；毫无来由的突发奇想偶尔可以有（root=null，它若之后没再被想起会自己消散）。绝不许冒出和 TA 的生活完全不搭界的怪念头，盒子里已有的也别换个说法重复冒。另外：【已经和对方说好/约好的事不算念想】（那是你们的约定，记忆里自会记着）——盒子里只放 TA 自己私藏的、还没成形的想头。" + (together ? "上面【你俩真一起做过的事】也算这样的土壤——那是真发生过的，不是聊过而已。" : "") + "",
+        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/旁人纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从心上某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
+        "\n【铁网】新念想必须长在 TA 的人设、记忆和最近生活的土壤上：记忆/对话里反复出现、或带强烈情绪的事，才配长出扎根的念想（root 必须写得出依据）；毫无来由的突发奇想偶尔可以有（root=null，它若之后没再被想起会自己消散）。绝不许冒出和 TA 的生活完全不搭界的怪念头，他心上已经有的也别换个说法重复冒。另外：【已经和对方说好/约好的事不算念想】（那是你们的约定，记忆里自会记着）——心上只搁 TA 自己私藏的、还没成形的想头。" + (together ? "上面【你俩真一起做过的事】也算这样的土壤——那是真发生过的，不是聊过而已。" : "") + "",
       schemaHint: "{\"monologue\":\"一段内心独白\",\"touch\":[{\"id\":\"念想id\",\"note\":\"做过的一句或null\"}],\"sprout\":{\"text\":\"想做的事一句\",\"root\":\"依据一句或null\",\"parent\":\"母念想id或null\"}}（没有新念想时 sprout 填 null）",
       maxTokens: 14000 // 本体文本由调用方传入角色专线/主池；预算不能因线路治理而缩水
     };
@@ -267,15 +278,15 @@
   // 角色在下次发呆/盘点时看到纸条，可采可弃——采了才会变成 TA 自己的念想/权重判断。
   function observerSpec(char, box) {
     const living = livingList(box);
-    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜最近刻痕：" + e.tracks[0].text : "")).join("\n") || "（盒子是空的）";
+    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜最近做过的：" + e.tracks[0].text : "")).join("\n") || "（心上还空着）";
     const persTxt = box.persona.map(p => "· " + p.text).join("\n") || "（还没有档案）";
     return {
       instruction: "你现在【不是】这个角色，而是一位安静的旁观「旁人」：只看事实、只摘录，【绝不下结论、绝不评价人格】。对照上面背景里的最近对话，和下面这两份材料：\n【" + char.name + " 的心上】\n" + listTxt + "\n【" + char.name + " 的长出来的自我】\n" + persTxt +
         "\n\n写 0~3 张观测纸条 briefs，每张 {type, target, note}：" +
         "\n- type=印证：某条念想/档案和 TA 最近言行对得上（note 例：「我注意到 TA 这周三次提到练拉花」）；target 填那条念想 id 或 null。" +
         "\n- type=对立：写着的和实际做的相反（只摘事实，不评判）。" +
-        "\n- type=根系确认：某条念想被反复碰、刻痕扎实，看起来长熟了（是否毕业仍由 TA 自己在盘点日定）。" +
-        "\n- type=萌发：对话里 TA 或对方有某个反复出现/情绪强烈、但盒子里还没有的兴趣或状态（note 例：「我注意到对方连续几天说累、失眠」）——只摘录，不替 TA 断言想做什么。" +
+        "\n- type=根系确认：某条念想被反复碰、做过的扎实，看起来长熟了（是否算长成仍由 TA 自己在盘点日定）。" +
+        "\n- type=萌发：对话里 TA 或对方有某个反复出现/情绪强烈、但他心上还没有的兴趣或状态（note 例：「我注意到对方连续几天说累、失眠」）——只摘录，不替 TA 断言想做什么。" +
         "\n每张 note 都以「我注意到」开头、一句话、只写看得到的事实。没什么可写就给空数组，别硬凑。" +
         "\navoid：0~2 条 TA 明显【回避】的话题（TA 说过不想聊/明显岔开/表现不适的），{topic:\"话题两三个字\", level:1~3}；没有就 []。别把只是没聊到的当回避。",
       schemaHint: "{\"briefs\":[{\"type\":\"印证|对立|根系确认|萌发\",\"target\":\"念想id或null\",\"note\":\"我注意到…\"}],\"avoid\":[{\"topic\":\"话题\",\"level\":2}]}",
@@ -303,13 +314,13 @@
     const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "\n    做过的：" + e.tracks.map(tk => tk.text).join("→") : "")).join("\n");
     const recentMono = box.log.slice(0, 3).map(l => "· " + l.text).join("\n");
     return {
-      instruction: AC + "每隔一阵子，「" + char.name + "」会在心里把那只心上盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【盒子现状】\n" + listTxt +
+      instruction: AC + "每隔一阵子，「" + char.name + "」会把心上的这些盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【心上现在有这些】\n" + listTxt +
         (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") + briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次盘点：" +
         "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、做过的、聊天里的热度、TA 现在的生活重心（旁人若递了「对立」纸条——写着的和做的相反——通常该降）。没变化的不用列，多数日子只微动一两条。" +
-        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有毕业，没有就 null）。**只有被想起多次、做过的扎实的才够资格申请**；还没动手的绝不许毕业。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
+        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有谁长成，没有就 null）。**只有被想起多次、做过的扎实的才够资格申请**；还没动手的绝不许算长成。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
         "\nwither：TA 想明白了【彻底不想要了】的念想 id 数组（最多 1 条，罕见；不是没空做，是不要了；没有给 []）。" +
-        "\n【铁律】毕业要有真凭实据（刻痕/对话/独白里真的做了），诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
+        "\n【铁律】说谁长成了要有真凭实据（做过的/对话/独白里真的做了），诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
       schemaHint: "{\"tune\":[{\"id\":\"念想id\",\"weight\":0.6}],\"graduate\":{\"id\":\"念想id\",\"poem\":\"小诗\",\"persona\":\"我是一个…的人\"},\"wither\":[\"念想id\"]}（graduate 没有时填 null，wither 没有时 []）",
       maxTokens: 14000
     };
@@ -326,22 +337,29 @@
     });
     // 毕业：念想蜕变成长出来的自我的一行（+出师那句）
     const g = d && d.graduate;
-    if (g && g.id && g.persona) {
+    // ⚠️她 2026-09-05：「这个告别小诗我也从来没收到」。
+    //   这儿原来的闸是 `g && g.id && g.persona`——**少一个 persona，整件事连同那句话一起丢掉**。
+    //   而这一枪一次要模型交三样（id / 那句话 / 一句「我是一个…的人」），
+    //   少交一样是常事；少交的那一样通常正是最难写的自我认知。
+    //   于是「他放下了一件事、留了一句话」这件真发生过的事，被一个附带字段吞掉了。
+    //   现在只认 id：长成了就是长成了；自我认知交得出来才添那一行，交不出来不影响前者。
+    if (g && g.id) {
       const e = box.list.find(x => x.id === String(g.id));
       if (e && e.status !== "graduated") {
         e.status = "graduated";
         e.gradTs = Date.now();
         e.poem = g.poem ? String(g.poem).trim().slice(0, 90) : "";
-        box.persona = [...box.persona, {
+        const pText = String((g && g.persona) || "").trim().slice(0, 40);
+        if (pText) box.persona = [...box.persona, {
           id: "p" + Date.now().toString(36),
-          text: String(g.persona).trim().slice(0, 40),
+          text: pText,
           poem: e.poem, from: e.text, ts: Date.now()
         }];
         // 今昔（P3）：毕业后下次单聊，TA 有一次「今昔对比」的自然流露机会（一次性，用掉即清）
-        box.echoPending = { text: e.text, persona: String(g.persona).trim().slice(0, 40), ts: Date.now() };
+        box.echoPending = { text: e.text, persona: pText, ts: Date.now() };
       }
     }
-    // 枯萎：留在盒子里（不删），发呆/显灵不再看它
+    // 放下：留在心上（不删），发呆/显灵不再看它
     (Array.isArray(d && d.wither) ? d.wither : []).slice(0, 2).forEach(id => {
       const e = box.list.find(x => x.id === String(id));
       if (e && e.status !== "graduated") { e.status = "withered"; e.witherTs = Date.now(); }
@@ -357,9 +375,9 @@
     const listTxt = living.map(e => "· 「" + e.text + "」" + (e.status === "ash" ? "（落灰）" : "")).join("\n");
     const grads = box.list.filter(e => e.status === "graduated").map(e => "· 「" + e.text + "」已成了 TA 的一部分").join("\n");
     return {
-      instruction: AC + "又一季过去了。某个安静的晚上，「" + char.name + "」回头看这九十来天——盒子里的念想来了又去，有的落了灰，有的成了自己的一部分。\n" +
+      instruction: AC + "又一季过去了。某个安静的晚上，「" + char.name + "」回头看这九十来天——心上的念想来了又去，有的落了灰，有的成了自己的一部分。\n" +
         (persTxt ? "【TA 亲笔攒下的自我认知】\n" + persTxt + "\n" : "") +
-        (grads ? "【这段日子毕业的念想】\n" + grads + "\n" : "") +
+        (grads ? "【这段日子长成的念想】\n" + grads + "\n" : "") +
         (listTxt ? "【还搁在心上的】\n" + listTxt + "\n" : "") +
         "\n以 TA 的第一人称写一段 80~150 字的季度自述 reflection：这一季我变成了什么样的人、什么留下了、什么放下了。要有 TA 自己的口吻和性格，像写给自己看的，不许升华成鸡汤、不许总结陈词。" +
         "\n另外 persona：回望这一季，若有一条【新的自我认知】值得正式写进长出来的自我（一句『我是一个…的人』，25字内，和已有档案不重复），就写；多数季度没有，没有填 null。",
@@ -437,21 +455,23 @@
   // ============================================================
   const SRC_LABEL = { echo: "从旧事里长的", spark: "一闪念", vine: "岔出来的" };
   function fmtDay(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; }
-  // 蜕变轴：把盒子里所有带时间的事件铺成一条时间线（P3，纯现有数据零调用）
+  // 他这一路：把心上所有带时间的事件铺成一条线（P3，纯现有数据零调用）
   function timelineOf(b) {
     const ev = [];
     b.list.forEach(e => {
-      ev.push({ ts: e.born, icon: e.source === "vine" ? "🌿" : e.source === "spark" ? "✨" : "🌱", text: "「" + e.text + "」冒了出来" + (e.source === "vine" ? "（从旧念想岔出的藤蔓）" : "") });
-      if (e.gradTs) ev.push({ ts: e.gradTs, icon: "🎓", text: "「" + e.text + "」毕业，长成了 TA 的一部分" });
-      if (e.witherTs) ev.push({ ts: e.witherTs, icon: "🥀", text: "「" + e.text + "」枯萎了——TA 想明白了不要了" });
+      // 每一档一个【汉字】，不用 emoji：跟聊天设置那七格索引牌同一个做法，
+      // 换机器不会变形，也不会跟这一页的旧木盒调子打架。
+      ev.push({ ts: e.born, icon: e.source === "vine" ? "岔" : e.source === "spark" ? "闪" : "起", text: "「" + e.text + "」冒了出来" + (e.source === "vine" ? "（从旧念想岔出来的）" : "") });
+      if (e.gradTs) ev.push({ ts: e.gradTs, icon: "成", text: "「" + e.text + "」长成了 TA 的一部分" });
+      if (e.witherTs) ev.push({ ts: e.witherTs, icon: "放", text: "「" + e.text + "」他放下了——想明白了，不要了" });
     });
-    b.persona.forEach(p => { if (p.from === "季度回望") ev.push({ ts: p.ts, icon: "🪞", text: "季度回望里写下：" + p.text }); });
-    b.milestones.forEach(m => ev.push({ ts: m.ts, icon: "🕯️", text: "写下季度自述" }));
+    b.persona.forEach(p => { if (p.from === "季度回望") ev.push({ ts: p.ts, icon: "望", text: "季度回望里写下：" + p.text }); });
+    b.milestones.forEach(m => ev.push({ ts: m.ts, icon: "季", text: "写下季度自述" }));
     return ev.sort((a, x) => x.ts - a.ts);
   }
 
   // ⚠️v61.63 从【半窗】改成【整页】（.claude/rules/no-half-sheet.md）：
-  //   这一页装着念想列表 + 长出来的自我 + 蜕变轴 + 旁人纸条 + 不想碰的 + 一季自述 +
+  //   这一页装着念想列表 + 长出来的自我 + 他这一路 + 旁人纸条 + 不想碰的 + 一季自述 +
   //   历年独白——没有一样是三行能说完的，正是那条规矩点名不许用半窗的情形。
   //   半窗的代价是固定的：不管里面装多少，先扣掉一半屏幕。
   // ⚠️用 fixed 整屏浮层而不是新开一个 screen：它有两个入口（人格档案馆、聊天资料卡），
@@ -480,8 +500,7 @@
     const rank = { active: 0, ash: 1, graduated: 2, withered: 3 };
     const list = b.list.slice().sort((a, x) => (rank[a.status] ?? 0) - (rank[x.status] ?? 0) || (x.weight || 0) - (a.weight || 0));
     // 权重火苗：0.05 一粒火星 → 0.9+ 三簇
-    const flame = w => w >= 0.75 ? "🔥🔥🔥" : w >= 0.45 ? "🔥🔥" : w >= 0.2 ? "🔥" : "·";
-    const statusTag = e => e.status === "ash" ? "（落灰了）" : e.status === "graduated" ? "" : e.status === "withered" ? "（枯萎了）" : "";
+    const statusTag = e => e.status === "ash" ? "（落灰了）" : e.status === "graduated" ? "" : e.status === "withered" ? "（放下了）" : "";
     return ReactDOM.createPortal(
       // 这一页是【他自己的本子】，而且顶栏那句写着「你只是碰巧看见了」。
       // 所以底不是通用米白，是一张带着这个盒子自己颜色（旧木盒的暖棕）的纸——
@@ -508,6 +527,27 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, fmtDay(latest.ts) + (latestIsToday ? "" : " · 那天发呆时想的")))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.7 } },
               "TA 还没发过呆。每天 TA 会自己找个安静时刻走一会儿神；也可以现在就点右上角让 TA 来一次。")),
+      // ── 刚长成的那一条：把它端到最上面 ──────────────────────────
+      // 她 2026-09-05：「这个告别小诗我也从来没收到」。
+      // 两个原因，都修了：
+      //   ① 代码那头：毕业原来卡在 `g.id && g.persona` 上——模型少交一个自我认知，
+      //      连同那句话一起丢掉。现在只认 id（见 applyMellow）。
+      //   ② 界面这头：就算写进去了，它也只是躺在某张纸条里，得往下翻才看得见。
+      //      「攒着」和「收到」是两件事——**没送到手上的东西，等于没有**。
+      // 所以刚长成的那一条（十四天内，正好一个盘点周期）端到最上面，带着他留下的那句话。
+      (function () {
+        const fresh = (b.list || []).filter(e => e.status === "graduated" && e.gradTs && Date.now() - e.gradTs < 14 * 86400000)
+          .sort((x, y) => (y.gradTs || 0) - (x.gradTs || 0))[0];
+        if (!fresh) return null;
+        return h("div", { style: { marginTop: 16, padding: "13px 15px", borderRadius: "2px 15px 15px 2px",
+          background: skinAlpha(ACCENT, "16"), borderLeft: "3px solid " + skinAlpha(ACCENT, "cc") } },
+          h(Eyebrow, { style: { marginBottom: 7 } }, "他刚放下一件事 · " + fmtDay(fresh.gradTs)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.6 } }, "「" + fresh.text + "」长成了他的一部分。"),
+          fresh.poem
+            ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: t.ink, lineHeight: 1.9, marginTop: 9, whiteSpace: "pre-wrap" } }, fresh.poem)
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 7 } }, "这次他没留下话。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8 } }, "他自己写的 · 攒了 " + Math.max(1, Math.round((fresh.gradTs - fresh.born) / 86400000)) + " 天 · 被想起 " + (fresh.touches || 0) + " 次"));
+      })(),
       // 长出来的自我：毕业念想凝成的「我是一个…的人」——TA 亲笔，常驻进 TA 的人设
       b.persona.length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, { style: { marginBottom: 8 } }, "TA 长出来的自我"),
@@ -516,49 +556,81 @@
           (personaHealth.hiddenByBudget ? " · 预算外留档 " + personaHealth.hiddenByBudget + " 条" : "") +
           (personaHealth.duplicatePairs ? " · 近重复 " + personaHealth.duplicatePairs + " 对" : "") +
           (personaHealth.missingProvenance ? " · 缺来源 " + personaHealth.missingProvenance + " 条" : "")),
+        // ⚠️这几条【不能跟念想长一个样】：念想是还搁着的纸条，这几条是已经长进他这个人里的。
+        //   所以不是纸条，是【压在盒底的一行刻字】：没有框、左边两道细杠、纸色比周围沉一点。
         h("div", { className: "space-y-2.5" }, b.persona.slice().reverse().map(p => h("div", {
           key: p.id,
-          style: { padding: "11px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + ACCENT + "55" }
+          style: { padding: "10px 13px 10px 15px", borderRadius: 0,
+            background: "linear-gradient(90deg," + skinAlpha(ACCENT, "12") + ",transparent 62%)",
+            borderLeft: "3px double " + skinAlpha(ACCENT, "aa") }
         },
           h("div", { className: "flex items-start gap-8", style: { justifyContent: "space-between" } },
             h("div", { style: { flex: 1, minWidth: 0 } },
               h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.6 } }, p.text),
               p.poem ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 11.5, color: t.sub, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, p.poem) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, (p.from ? "由「" + p.from + "」蜕变 · " : "") + fmtDay(p.ts))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, (p.from ? "由「" + p.from + "」长成 · " : "") + fmtDay(p.ts))),
             confirmId === p.id
               ? h("button", { onClick: () => { onRemovePersona && onRemovePersona(p.id); setConfirmId(null); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#c25a4a" } }, "确定拿走")
               : h("button", { onClick: () => setConfirmId(p.id), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿走")))))) : null,
       // 念想列表
       h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "盒子里 · " + list.length + " 条念想"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "心上 · " + list.length + " 条念想"),
         list.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.7, padding: "18px 4px", textAlign: "center" } },
-              "盒子还空着。聊得多了、日子过下去，念想会自己长出来——急不来的。")
-          : h("div", { className: "space-y-2.5" }, list.map(e => h("div", {
+              "心上还空着。聊得多了、日子过下去，念想会自己长出来——急不来的。")
+          : h("div", { className: "space-y-2.5" }, list.map(e => {
+              // ⚠️她 2026-09-05：「心上还是一个个框」。原来每条都是同一个圆角方块，
+              //   一屏下来全一个样——那正是 tabs-not-plain-pills 那条说的「基础款」：
+              //   搬到别的 app 里照样成立，所以它没从「一条搁在心上的念想」里长出来。
+              //
+              //   这一版让它是【压在盒沿上的一张纸条】：
+              //     · 左边那条竖杠就是分量本身——高度＝它在他心里多重，不再另摆一排火苗；
+              //     · 圆角只在右边，左边是平的（那是压着盒沿的那一边）；
+              //     · 还在心上的浮起来一点，落灰/放下的贴回去、褪色。
+              //   于是「轻重」「新旧」「长成没长成」三件事靠【形状】就分得开，不靠色差。
+              const dim = e.status === "ash" || e.status === "withered";
+              const grown = e.status === "graduated";
+              const barH = 22 + Math.round(Math.max(0, Math.min(1, e.weight || 0)) * 52);
+              return h("div", {
               key: e.id,
-              style: { padding: "11px 13px", borderRadius: 12, background: (e.status === "ash" || e.status === "withered") ? t.bg : t.bg2, border: "1px solid " + (e.status === "graduated" ? ACCENT + "55" : t.line), opacity: (e.status === "ash" || e.status === "withered") ? 0.62 : 1 }
+              style: { position: "relative", padding: "11px 13px 11px 17px",
+                borderRadius: "2px 13px 13px 2px",
+                background: dim ? skinAlpha(t.bg, "cc") : t.bg2,
+                border: "1px solid " + (grown ? skinAlpha(ACCENT, "66") : t.line),
+                borderLeft: "none",
+                boxShadow: dim ? "none" : "0 1px 2px rgba(70,52,28,.05), 0 6px 14px -10px rgba(70,52,28,.3)",
+                opacity: dim ? 0.72 : 1 }
             },
+              // 左边那条竖杠＝分量（长成了的换成整条实心：它已经不再是"有多重"，是"落定了"）
+              h("span", { style: { position: "absolute", left: 0, top: 11, width: 3, height: grown ? "calc(100% - 22px)" : barH,
+                borderRadius: "2px 0 0 2px", background: grown ? skinAlpha(ACCENT, "cc") : skinAlpha(ACCENT, dim ? "44" : "aa") } }),
               h("div", { className: "flex items-start gap-8", style: { justifyContent: "space-between" } },
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.55 } },
                     e.text, statusTag(e) ? h("span", { style: { fontSize: 11, color: t.fog } }, statusTag(e)) : null),
                   e.status === "graduated" && e.poem ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, e.poem) : null,
-                  e.root ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "根：" + e.root) : null,
-                  e.tracks && e.tracks.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, lineHeight: 1.5 } }, "刻痕：" + e.tracks[0].text + (e.tracks.length > 1 ? "（共 " + e.tracks.length + " 道）" : "")) : null,
+                  e.root ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "打哪儿来：" + e.root) : null,
+                  e.tracks && e.tracks.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, lineHeight: 1.5 } }, "做过的：" + e.tracks[0].text + (e.tracks.length > 1 ? "（共 " + e.tracks.length + " 道）" : "")) : null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
-                    (SRC_LABEL[e.source] || "念想") + " · " + fmtDay(e.born) + "生 · 被想起 " + (e.touches || 0) + " 次" + (e.status === "graduated" ? " · " + fmtDay(e.gradTs || e.born) + "毕业" : ""))),
-                h("div", { className: "shrink-0 text-right" },
-                  h("div", { style: { fontSize: e.status === "graduated" ? 13 : 11, letterSpacing: 1 } }, e.status === "graduated" ? "🎓" : e.status === "withered" ? "🥀" : flame(e.weight || 0)),
+                    (SRC_LABEL[e.source] || "念想") + " · " + fmtDay(e.born) + "生 · 被想起 " + (e.touches || 0) + " 次" + (e.status === "graduated" ? " · " + fmtDay(e.gradTs || e.born) + "长成了" : ""))),
+                h("div", { className: "shrink-0 flex flex-col items-center", style: { gap: 6 } },
+                  // 长成了＝盖一枚印；放下了＝一道横杠；还在心上＝那道分量标尺
+                  e.status === "graduated"
+                    ? h("span", { style: { width: 17, height: 17, borderRadius: 999, border: "1.5px solid " + skinAlpha(ACCENT, "cc"), display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 9.5, color: ACCENT } }, "成")
+                    : e.status === "withered"
+                      ? h("span", { style: { width: 15, height: 2, borderRadius: 1, background: skinAlpha(t.fog, "aa"), display: "block", marginTop: 7 } })
+                      : null,
                   confirmId === e.id
                     ? h("button", { onClick: () => { onRemove(e.id); setConfirmId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#c25a4a", marginTop: 6 } }, "确定拿走")
-                    : h("button", { onClick: () => setConfirmId(e.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "拿走"))))))),
+                    : h("button", { onClick: () => setConfirmId(e.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "拿走"))));
+            }))),
       // 不想碰的：TA 在回避的话题（旁人记的，反向铁网；可拿走）
       b.avoid.length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, { style: { marginBottom: 8 } }, "TA 在回避的 · 不想碰的"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, b.avoid.map(a => h("span", {
           key: a.topic,
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub }
-        }, "🚫 " + a.topic,
+        }, a.topic,
           onRemoveAvoid && h("button", { onClick: () => onRemoveAvoid(a.topic), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "✕")))),
         h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } }, "TA 明显不想聊的领域——新念想不会长在这些雷区上。旁人记的，记错了就 ✕ 掉。")) : null,
       // 旁人纸条（旁观的便宜小模型，只摘录不下结论；TA 发呆/盘点时会看到）
@@ -588,16 +660,18 @@
           card.type === "对不上" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: card.eligibleAfterTenDays ? ACCENT : t.fog, marginTop: 6 } },
             card.eligibleAfterTenDays ? "至少两次且已跨 10 天，仍然只是待审候选" : "需至少两次、跨满 10 天且没有相反证据") : null
         ))) : null) : null,
-      // 蜕变轴：TA 的人格生长时间线
+      // 他这一路：这些年他是怎么长的
       (() => {
         const axis = timelineOf(b);
         return axis.length >= 2 ? h("div", { style: { marginTop: 18 } },
           h("button", { onClick: () => setShowAxis(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
-            (showAxis ? "收起" : "展开") + "蜕变轴 · TA 的生长时间线（" + axis.length + "）"),
+            (showAxis ? "收起" : "展开") + "他这一路（" + axis.length + "）"),
           showAxis ? h("div", { style: { marginTop: 10, borderLeft: "2px solid " + ACCENT + "55", paddingLeft: 14 } }, axis.map((ev, i) => h("div", {
             key: i, style: { position: "relative", paddingBottom: i === axis.length - 1 ? 0 : 12 }
           },
-            h("span", { style: { position: "absolute", left: -23, top: 1, fontSize: 11 } }, ev.icon),
+            h("span", { style: { position: "absolute", left: -25, top: 0, width: 16, height: 16, borderRadius: 999,
+              background: t.bg2, border: "1px solid " + skinAlpha(ACCENT, "66"), display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: F_DISPLAY, fontSize: 9.5, color: ACCENT } }, ev.icon),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, ev.text),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, fmtDay(ev.ts))))) : null) : null;
       })(),
@@ -620,6 +694,6 @@
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, l.text),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, fmtDay(l.ts))))) : null) : null,
       h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
-        "火苗=这条念想在 TA 心里的分量，被想起会旺、太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘盒子：做到了的念想会🎓毕业成 TA 人格的一部分（配一首告别小诗），想通了不要的会🥀枯萎。「拿走」只是你悄悄拿走这张纸条，TA 不会知道。"))), document.body);
+        "左边那道竖标尺＝这条念想在 TA 心里的分量：被想起会往上长，太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘：做到了的会长成 TA 的一部分，还留下一句话；想通了不要的就放下。「拿走」只是你悄悄抽走这张纸条，TA 不会知道。"))), document.body);
   };
 })();
