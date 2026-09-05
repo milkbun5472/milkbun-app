@@ -46,10 +46,14 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
    ['if (m.kind === "narration" || m.role === "narration")', "旁白"],
    ['if (m.kind === "recalled")', "撤回"],
    ['if (m.kind === "silence")', "沉默"],
-   ['if (m.kind === "system")', "系统行"]].forEach(([a, name]) =>
+  ].forEach(([a, name]) =>
     assert.match(near(a), /\.\.\.plate\(/, "这一支还是裸字：" + name));
-  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 5,
-    "单聊里该垫的正好五处（拍一拍/旁白/撤回/沉默/系统行）");
+  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 4,
+    "单聊里该垫的正好四处（拍一拍/旁白/撤回/沉默）");
+  // v63.49：系统行和 OOC 收进 SysNote，它【自带一张纸】（近实心的 bg2），
+  // 所以不再走 plate；但那张纸本身必须挡得住壁纸，不能是裸字。
+  const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气泡角落贴纸"));
+  assert.match(note, /background: skinAlpha\(t\.bg2, "e6"\)/, "SysNote 那张纸不实心，压在壁纸上就看不清了");
 });
 
 test("通话小结那一行：CallEndPill 拿不到 dsp，得把「有没有壁纸」传进去", () => {
@@ -65,6 +69,6 @@ test("群聊也有背景图，旁白同样要垫", () => {
   const g = comp.slice(comp.indexOf("const gChatBg = settings && settings.chatBg"));
   const narr = g.slice(g.indexOf('m.role === "narration" || m.kind === "narration"'));
   assert.match(narr.slice(0, 700), /gChatBg \? \{ background: "rgba\(255,255,255,0\.62\)"/);
-  // 群里的系统行本来就有底，别重复垫
-  assert.match(g, /background: t\.bg2,\n\s*padding: "3px 12px",\n\s*borderRadius: 999/);
+  // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
+  assert.match(g, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });

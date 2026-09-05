@@ -5,9 +5,13 @@ const src = fs.readFileSync(require("path").join(__dirname, "..", "js", "compone
 
 assert.match(src, /function isOocRecord\(m\)[\s\S]*?m\.kind === "ooc"[\s\S]*?indexOf\("ooc_"\)/,
   "渲染层应同时识别普通 OOC 与旧版 system OOC 回复");
-assert.match(src, /isOocRecord\(m\)\) \? h\("button"[\s\S]*?onDeleteMessages\(\[i\]\)/,
-  "单人线上 system OOC 回复应可删除");
-assert.match(src, /function OffCard[\s\S]*?if \(m\.kind === "ooc"\)[\s\S]*?editable && onDelete[\s\S]*?onDelete\(m\.id\)/,
+// v63.49：系统提示这一族收成一个 SysNote，删除口从「只有 OOC 那一条有」
+// 变成【每一条都有】——system / OOC / 群聊那颗药丸，右上角都能 ✕ 掉。
+assert.match(src, /if \(m\.kind === "system"\) return h\(SysNote, \{ key: i, label: "系统"[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
+  "单人线上 system 应可删除");
+assert.match(src, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
+  "群聊 system 也得能删——原来那颗药丸连删都删不掉");
+assert.match(src, /function OffCard[\s\S]*?if \(m\.kind === "ooc"\)[\s\S]*?editable && onDelete[\s\S]*?onDelete\(m\.id/,
   "单人/群体线下 OOC 应通过消息 id 删除");
 
 assert.doesNotMatch(src, /confirm\("删除这条 OOC 记录/,

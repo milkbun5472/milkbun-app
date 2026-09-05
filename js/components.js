@@ -205,6 +205,32 @@ function skinAlpha(c, a) { return (typeof c === "string" && c[0] === "#" && c.le
 function isOocRecord(m) {
   return !!(m && (m.kind === "ooc" || (m.turnId && String(m.turnId).indexOf("ooc_") === 0)));
 }
+// ── 系统提示这一族，只有这一个长相（v63.49，她 2026-09-05）────────────────
+// 她原话：「群聊和单聊的所有系统提示包括 ooc 改成同一个样式，并且可以点 ❌ 从屏幕删掉」。
+// 在这之前是五处各写各的：单聊 system 是一整块居中的斜体大字（发送失败那种能占半屏），
+// 单聊 OOC 是右对齐的虚线气泡，群聊 system 是一颗小药丸（连删都删不掉），
+// 群聊 OOC 和线下 OOC 又各是一份——同一层东西五个实现，改一处只会漏四处。
+//
+// ⚠️它不是一颗药丸：系统提示在这个 app 里是【夹在信里的一张小纸条】——
+//   撕下来的一条纸，左边压一道墨线，右上角一个 ✕ 可以把它拿掉。
+//   换个 app 还成立的形状（一颗灰药丸、一行小字）就是没设计（tabs-not-plain-pills.md）。
+// ⚠️颜色一律从 t 兑：深色主题里写死的白纸黑字会翻车。
+function SysNote({ label, text, tone, onClose, title }) {
+  const t = useTheme();
+  const col = tone === "warn" ? t.accent : t.fog;
+  return h("div", { className: "flex justify-center my-3 px-5" },
+    h("div", { style: { position: "relative", maxWidth: "88%", minWidth: 0, display: "flex", gap: 9,
+        padding: "8px 30px 9px 10px", background: skinAlpha(t.bg2, "e6"),
+        border: "1px dashed " + hexA(t.ink, .22), borderLeft: "2px solid " + hexA(col, .55),
+        borderRadius: "2px 8px 8px 2px" } },
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: col, opacity: .85, marginBottom: 3 } }, label) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: tone === "warn" ? t.sub : t.fog, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text)),
+      onClose ? h("button", { onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClose(); },
+        className: "active:opacity-50", title: title || "从屏幕上拿掉",
+        style: { position: "absolute", right: 2, top: 2, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: F_BODY, fontSize: 12, lineHeight: 1, color: t.fog, background: "transparent", border: "none" } }, "✕") : null));
+}
 // 气泡角落贴纸：绝对定位悬在气泡外沿（我的在右上、TA 的在左上并水平翻转），不挡点击
 function bubbleSticker(isU) {
   const src = isU ? BUBBLE_SKIN.mySticker : BUBBLE_SKIN.charSticker;
@@ -5964,26 +5990,9 @@ function ChatThread({
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
       title: "删除旁白"
     }, "✕") : null);
-    if (m.kind === "ooc") return h("div", {
-      key: i,
-      className: "flex justify-end my-2 items-start gap-1.5"
-    }, onDeleteMessages ? h("button", {
-      onClick: e => { e.preventDefault(); e.stopPropagation(); onDeleteMessages([i]); },
-      className: "active:opacity-50 shrink-0",
-      style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.55, padding: "4px 4px 0 0", order: -1 }
-    }, "✕") : null, h("div", {
-      className: "px-3 py-1.5",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 12.5,
-        lineHeight: 1.5,
-        color: t.fog,
-        background: t.bg,
-        border: `1px dashed ${t.line}`,
-        borderRadius: 10,
-        maxWidth: "78%"
-      }
-    }, "OOC · " + m.content));
+    // 系统提示这一族全走 SysNote（v63.49）：单聊 / 群聊 / 线下同一个长相，右上角都能 ✕ 掉
+    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
@@ -5992,34 +6001,8 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i) }));
-    if (m.kind === "system") return h("div", {
-      key: i,
-      className: "text-center my-4 px-6"
-    }, h("div", { style: { ...plate("8px 14px"), textAlign: "center" } }, h("div", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 13.5,
-        fontStyle: "italic",
-        lineHeight: 1.75,
-        color: t.accent,
-        whiteSpace: "pre-wrap"
-      }
-    }, m.content), h("div", {
-      style: {
-        fontFamily: "'Archivo',sans-serif",
-        fontSize: 9,
-        letterSpacing: "0.18em",
-        color: t.accent,
-        opacity: 0.7,
-        marginTop: 6
-      }
-    }, "系统消息",
-      // OOC 回复（system 形态·turnId ooc_ 开头）也给删除口（和 OOC 提问一起清干净）
-      (onDeleteMessages && isOocRecord(m)) ? h("button", {
-        onClick: e => { e.preventDefault(); e.stopPropagation(); onDeleteMessages([i]); },
-        className: "active:opacity-50",
-        style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 10, letterSpacing: 0 }
-      }, "✕ 删除") : null)));
+    if (m.kind === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -9973,16 +9956,10 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
   const [txt, setTxt] = useState(m.content || "");
   const tp = useTtsPlayer(); // 整段 beat 朗读（懒合成，最多 800 字）
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
+  // 系统提示这一族全走 SysNote（v63.49）：线下和单聊、群聊同一个长相
   if (m.kind === "ooc") {
-    const isU = m.role === "user";
-    return h("div", { className: "my-2 flex items-start gap-1.5 " + (isU ? "justify-end" : "justify-start") },
-      editable && onDelete ? h("button", {
-        onClick: e => { e.preventDefault(); e.stopPropagation(); onDelete(m.id, msgIndex); },
-        className: "active:opacity-50 shrink-0",
-        title: "删除 OOC",
-        style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.55, padding: "4px 3px 0", order: isU ? -1 : 1 }
-      }, "✕") : null,
-      h("div", { style: { maxWidth: "84%", padding: "8px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.fog, background: t.bg, border: "1px dashed " + t.line, borderRadius: 10, whiteSpace: "pre-wrap" } }, "OOC · " + m.content));
+    return h(SysNote, { label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+      onClose: (editable && onDelete) ? function () { onDelete(m.id, msgIndex); } : null });
   }
   const isUser = m.role === "user";
   const isNarr = m.role === "narration";
@@ -10775,27 +10752,9 @@ function GroupThread({
     text: "群聊已创建",
     sub: gs.spectate ? "用旁白（下方输入）推动，成员们会互动" : "发条消息，成员们会陆续回应"
   }), messages.map((m, i) => {
-    if (m.kind === "ooc") return h("div", {
-      key: i,
-      className: "flex my-2 items-start gap-1.5 " + (m.role === "user" ? "justify-end" : "justify-start")
-    }, onDeleteMessages ? h("button", {
-      onClick: e => { e.preventDefault(); e.stopPropagation(); onDeleteMessages([i]); },
-      className: "active:opacity-50 shrink-0",
-      style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.55, padding: "4px 4px 0 0", order: m.role === "user" ? -1 : 1 }
-    }, "✕") : null, h("div", {
-      className: "px-3 py-1.5",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 12.5,
-        lineHeight: 1.5,
-        color: t.fog,
-        background: t.bg,
-        border: "1px dashed " + t.line,
-        borderRadius: 10,
-        maxWidth: "82%",
-        whiteSpace: "pre-wrap"
-      }
-    }, "OOC · " + m.content));
+    // 系统提示这一族全走 SysNote（v63.49）：和单聊、线下同一个长相，右上角都能 ✕ 掉
+    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i, className: "my-3 mx-6"
     }, h(OfflineLogCard, { m: m, t: t }));
@@ -10820,20 +10779,8 @@ function GroupThread({
       title: "删除旁白"
     }, "✕") : null);
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
-    if (m.role === "system") return h("div", {
-      key: i,
-      className: "flex justify-center py-1"
-    }, h("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 11,
-        color: t.fog,
-        background: t.bg2,
-        padding: "3px 12px",
-        borderRadius: 999,
-        border: "1px solid " + t.line
-      }
-    }, m.content));
+    if (m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "poll") return h(PollCard, {
       key: i,
       poll: m,
