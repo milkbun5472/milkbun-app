@@ -57,7 +57,7 @@ test("底纹是唱片的同心沟纹，不是又一块木头", () => {
   // v62.89：播放页外壳退回纯底，沟纹改成贴在滚动区顶上的【一片】（discField），往下 mask 淡出——
   // 她拿网易云那页对照：「它下面是会 fade 掉的」。整页压深那版把标题和封套也压进了暗处。
   assert.match(LT, /const crate = nav === "play" \? \{ background: t\.bg \} : sleeve;/, "播放页外壳没退回纯底");
-  assert.match(LT, /const discField = nav === "play" \? h\("div", \{ "aria-hidden": "true"/, "沟纹那一片没了");
+  assert.match(LT, /const discField = nav === "play" && !showLyric \? h\("div", \{ "aria-hidden": "true"/, "沟纹那一片没了（v62.90 起歌词页不铺）");
   assert.match(LT, /WebkitMaskImage: discFade, maskImage: discFade \}, disc\)/, "沟纹没往下淡出");
   assert.match(LT, /rgba\(0,0,0,1\) 260px, rgba\(0,0,0,0\) 460px/, "淡出的位置变了——标题该坐在余纹上、封套坐在纯底上");
   assert.match(LT, /style: \{ position: "relative", isolation: "isolate" \} \}, discField,/, "沟纹那片没垫在内容底下（没有 isolate 它会盖在字上面）");
