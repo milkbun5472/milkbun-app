@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.74";
+const APP_VERSION = "v63.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11798,7 +11798,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           //   prompt-no-content-samples.md 明令不许——模型会照抄那个句式，
           //   一排马甲全长成一个样。判据和维度写在 ANON_MASK_RULE / ANON_MASK_BG 里。
           instruction: "为「" + char.name + "」设计 Ta 在匿名社交/树洞 App 上的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 会挑什么样的图当主页背景 bgDesc。"
-            + "\n\n" + ANON_MASK_RULE + "\n\n" + ANON_MASK_BG,
+            + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
           schemaHint: "{\"netname\":\"网名\",\"bio\":\"简介\",\"bgDesc\":\"主页背景图描述\"}"
         });
         pAnon(char.id, cur => ({
@@ -11823,7 +11823,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         //   不写清楚的话模型会把最近发生的事直接写进网名（她 2026-09-05 报的就是这个）。
         instruction: "重新为「" + char.name + "」设计 Ta【此刻】在匿名树洞的马甲：网名 netname、第一人称签名 bio（1-2 句），以及 Ta 此刻会挑什么样的图当主页背景 bgDesc。"
           + "心情变了就换一套——丧的、狂的、洒脱的、中二的，看当下；跟以前那套不许重样。"
-          + "\n\n" + ANON_MASK_RULE + "\n\n" + ANON_MASK_BG,
+          + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
         schemaHint: "{\"netname\":\"网名\",\"bio\":\"签名\",\"bgDesc\":\"主页背景图描述\"}"
       });
       pAnon(char.id, cur => ({ ...cur, netname: d.netname || cur.netname || char.name, bio: d.bio || cur.bio || "", bgDesc: d.bgDesc || cur.bgDesc || "" }));
