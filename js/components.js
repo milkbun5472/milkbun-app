@@ -4137,7 +4137,10 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     (Array.isArray(lib) ? lib : []).forEach(m => eat(m && (m.ts || m.createdAt)));
     const mom = rd("x_moments", []); (Array.isArray(mom) ? mom : []).forEach(m => eat(m && m.ts));
     const lts = rd("x_coupleLetters", []); (Array.isArray(lts) ? lts : []).forEach(m => eat(m && m.createdAt));
-    const dayN = first ? Math.max(1, Math.floor((Date.now() - first) / 86400000) + 1) : 1;
+    // ⚠️数的是【日历天】不是【几个 24 小时】——算法只在 core.js 的 homeDayNo 一处
+    //   （她 2026-09-05：「昨天就是 63 天了，今天还显示 63」：起点在晚上，
+    //   原来那个数就在每天晚上翻，白天一整天都慢一天）。
+    const dayN = typeof homeDayNo === "function" ? homeDayNo(first) : 1;
     // 起点落一份小缓存给开屏读（v62.23，她：「开屏的天数跟名片一样」）。
     // 开屏跑在一切脚本之前，loadJSON/IDB 都还不存在，它自己去算必然掉进
     // 上面那个「直接读 localStorage 永远是 null」的坑——所以算法只在这儿一处，
@@ -4146,7 +4149,9 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     return [[(characters || []).length, "认识"], [memN, "记忆"], [dayN, "天"]];
     // 只在名片挂上来时算一次：这几样都是慢慢长的，不值得每次重渲都翻一遍仓库
     // eslint-disable-next-line
-  }, [(characters || []).length]);
+    // ⚠️deps 里必须有【今天是哪一天】：只挂 characters 的话，App 开着过一夜
+    //   这个数不会动——那正是「翻页时刻不对」的另一半。
+  }, [(characters || []).length, new Date().toDateString()]);
   const round = (kid, onClick, title) => h("button", { onClick, title, className: "active:opacity-60 flex items-center justify-center",
     style: { width: 19, height: 19, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",

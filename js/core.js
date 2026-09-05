@@ -329,6 +329,21 @@ const GWx = p => {
     h("path", { d: "M9.4 2.6v1.5M4.9 8.2H3.4M5.9 4.7L4.8 3.6M12.9 4.7L14 3.6M14.9 8.2h1" }),
     h("path", { d: "M10.6 19.6h6.6a3.1 3.1 0 000-6.2 4.4 4.4 0 00-8.4 1 2.7 2.7 0 001.8 5.2z" }));
 };
+// 「来这儿第几天」——名片底下那个数，开屏那行日子也是它。
+// ⚠️数的是【日历天】，不是【过了几个 24 小时】。
+//   原来写的是 floor((now - first) / 86400000) + 1：起点如果是晚上 9 点，
+//   那这个数就在每天晚上 9 点翻，白天一整天都还停在昨天那个数
+//   （她 2026-09-05 早上 9:29 报「昨天就是 63 天了，今天还显示 63」）。
+//   翻页的时刻必须是【午夜】，所以两边都先落到当地的那一天上再相减。
+// ⚠️用 round 不用 floor：夏令时那两天差的是 23 或 25 小时，floor 会少算一天。
+function homeDayNo(firstTs, now) {
+  const f = Number(firstTs) || 0;
+  if (!f) return 1;
+  const a = new Date(f), b = now instanceof Date ? now : new Date(now || Date.now());
+  const A = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const B = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.max(1, Math.round((B - A) / 86400000) + 1);
+}
 // wmo 天气码 → 上面那七种画法（和 engine.js 的 wmoEmoji 一一对应）
 function wmoKind(c) {
   if (c === 0 || c === 1) return "sun";
