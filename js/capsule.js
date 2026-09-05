@@ -24,11 +24,14 @@
   // 胶囊不是一律写给“遥远未来”。一周后的纸条与一年后的信，时间感和可谈的变化本来就不同。
   // 统一给手动回埋、自动埋与到期回信使用，免得三条路径各自把短期胶囊写成人生预言（v53.90）。
   const daysBetween = (fromTs, toTs) => Math.max(1, Math.round((Number(toTs) - Number(fromTs)) / 86400000));
+  // ⚠️字数（她 2026-09-05：「现在字数是不是太少了」）：原来是 140-480，
+  //   短到写不开——封了三个月的信只有三百来字，读起来像张便签，不像一封信。
+  //   这一层是【下限】比上限重要：说清「至少要写到这个份上」，别让它草草收尾。
   const sealGuide = openTs => {
     const days = daysBetween(Date.now(), openTs);
-    if (days <= 14) return "这颗胶囊约 " + days + " 天后就会拆开，它是一张延时抵达的私密纸条，不是写给遥远未来的预言。把【今天此刻】一个具体念头、细节、小秘密或没说出口的话封进去；不要凭空预告人生、关系或性格会发生巨大变化。写 2-4 个自然短段，约 140-300 个汉字；内容宁可具体、有只属于你们的细节，也不要泛泛祝福。";
-    if (days <= 90) return "这颗胶囊约 " + days + " 天后拆开。重点保存【现在】真正值得回看的一个具体瞬间、牵挂、疑问或约定；可以期待届时回看，但不要把不确定的未来写成已经发生。写 2-4 个自然段，约 180-380 个汉字，有细节、有你自己的口吻。";
-    return "这颗胶囊约 " + days + " 天后拆开。写下此刻真正想留给那一天的 Ta 的东西：具体处境、心愿、疑问、约定或没说出口的话。可以谈长时间后的期待，但不替未来下结论。写 3-5 个自然段，约 240-480 个汉字，有细节、有你自己的口吻。";
+    if (days <= 14) return "这颗胶囊约 " + days + " 天后就会拆开，它是一张延时抵达的私密纸条，不是写给遥远未来的预言。把【今天此刻】一个具体念头、细节、小秘密或没说出口的话封进去；不要凭空预告人生、关系或性格会发生巨大变化。写 3-5 个自然段，**至少 300 个汉字、别超过 700**；内容宁可具体、有只属于你们的细节，也不要泛泛祝福。";
+    if (days <= 90) return "这颗胶囊约 " + days + " 天后拆开。重点保存【现在】真正值得回看的一个具体瞬间、牵挂、疑问或约定；可以期待届时回看，但不要把不确定的未来写成已经发生。写 4-6 个自然段，**至少 450 个汉字、别超过 900**，有细节、有你自己的口吻。";
+    return "这颗胶囊约 " + days + " 天后拆开——隔这么久，值得好好写一封。写下此刻真正想留给那一天的 Ta 的东西：具体处境、心愿、疑问、约定或没说出口的话。可以谈长时间后的期待，但不替未来下结论。写 5-8 个自然段，**至少 650 个汉字、别超过 1300**，有细节、有你自己的口吻。长不等于绕：每一段都要有一件具体的事，别用感慨把篇幅填满。";
   };
   const replyGuide = (createdTs, openedTs) => {
     const days = daysBetween(createdTs, openedTs);
@@ -70,10 +73,17 @@
       const everBuried = existing.some(c => c && c.dir === "fromChar" && c.charId === char.id);
       if (everBuried && Math.random() > 0.7) return;
       try {
-        const sys = buildBundle(props.ctxFor(char)) +
-          "\n\n【任务】" + uName + " 刚埋下一颗写给你的时光胶囊（内容保密），约定 " + fmtD(openTs) + " 才能拆。你心里一动，也悄悄把一封【现在写下、到期才送达】的信埋给 Ta。" + sealGuide(openTs) + "第一人称，贴你的人设与此刻心情；别客套、别落款。只输出 JSON：{\"letter\":\"信的正文\"}";
-        const raw = await callAI(props.apiFor ? props.apiFor(char.id) : props.active, sys, [{ role: "user", content: "写吧。" }], { maxTokens: 12000 }); // 反向埋胶囊=TA 亲笔，跟随专线（v48.37）
-        const d = extractJSON(raw);
+        // ⚠️站位（v64.03，她 2026-09-05 点名对比情书和悄悄话）：那两处走的是
+        //   runProbe({voice:true})——「你就是他本人正在写」；这一处原来自己拼 sys 直发，
+        //   料一样、站位没有。写信这题的训练先验就是书信八股（见字如面／提笔时窗外…），
+        //   没有那句站位它必然往那儿滑。解梦馆那次是同一个形状。
+        const d = await runProbe(props.apiFor ? props.apiFor(char.id) : props.active, props.ctxFor(char), {
+          voice: true,
+          instruction: uName + " 刚埋下一颗写给你的时光胶囊（内容保密），约定 " + fmtD(openTs) + " 才能拆。你心里一动，也悄悄把一封【现在写下、到期才送达】的信埋给 Ta。"
+            + sealGuide(openTs) + "第一人称，贴你的人设与此刻心情；别客套、别落款。",
+          schemaHint: "{\"letter\":\"信的正文\"}",
+          maxTokens: 20000   // 一封长信＝「一整章」那一档（max-tokens-floor）；放宽字数之后 12000 会截在半句
+        });
         if (!d || !d.letter) { props.toast && props.toast(char.name + " 想回埋一颗但没写成，回头再说～"); return; }
         const entry = { id: uid(), dir: "fromChar", source: "reciprocal", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
         updateAll(prev => [entry, ...prev]);
@@ -100,14 +110,34 @@
         if (!c) return;
         setBusy(cap.id);
         try {
-          const sys = buildBundle(props.ctxFor(c)) +
-            "\n\n【任务】" + uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给你，约定今天才能拆。你刚拆开，读到 Ta 当时写的信：\n「" + cap.text + "」\n\n" + replyGuide(cap.createdTs, Date.now()) + "以你此刻的人设与心情写回信：直接回应信里最具体、最让你有反应的地方，联系你真正知道的共同经历。写 2-4 个自然段，约 160-360 个汉字；第一人称，动真格，别客套、别复述原文、别落款。只输出 JSON：{\"reply\":\"回信正文\"}";
-          const raw = await callAI(props.apiFor ? props.apiFor(c.id) : props.active, sys, [{ role: "user", content: "拆开了，回信吧。" }], { maxTokens: 12000 }); // 胶囊回信=TA 亲笔，跟随专线（v48.37）
-          const d = extractJSON(raw);
+          const d = await runProbe(props.apiFor ? props.apiFor(c.id) : props.active, props.ctxFor(c), {
+            voice: true,
+            instruction: uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给你，约定今天才能拆。你刚拆开，读到 Ta 当时写的信：\n「" + cap.text + "」\n\n"
+              + replyGuide(cap.createdTs, Date.now())
+              + "以你此刻的人设与心情写回信：直接回应信里最具体、最让你有反应的地方，联系你真正知道的共同经历。"
+              + "写 4-6 个自然段，**至少 400 个汉字、别超过 900**；第一人称，动真格，别客套、别复述原文、别落款。",
+            schemaHint: "{\"reply\":\"回信正文\"}",
+            maxTokens: 20000
+          });
           if (d && d.reply) upd({ reply: String(d.reply).trim() });
+          keepOpened(cap, c, d && d.reply ? String(d.reply).trim() : "");
         } catch (e) { props.toast && props.toast("回信没等到：" + (e.message || "重试")); }
         finally { setBusy(null); }
+      } else if (cap.dir === "fromChar") {
+        keepOpened(cap, charOf(cap.charId), "");
       }
+    };
+    // 拆开那一刻记一笔（她 2026-09-05：情书会进记忆库，胶囊什么都不进——
+    // 于是他认认真真回了一封信，下次聊天完全不知道自己拆过）。
+    // ⚠️只在【拆开之后】写。封存期间一个字都不许进记忆或上下文，那是这个功能的全部机制。
+    const keepOpened = (cap, c, reply) => {
+      if (!props.onKeep || !c || cap.dir === "toSelf") return;
+      const snip = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
+      const text = cap.dir === "toChar"
+        ? uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给" + c.name + "，今天拆开了。信里写着「" + snip(cap.text, 120) + "」"
+          + (reply ? "；" + c.name + "回信说「" + snip(reply, 120) + "」" : "")
+        : c.name + " 在 " + fmtD(cap.createdTs) + " 悄悄埋了一颗时光胶囊，今天" + uName + "拆开了，他当时写的是「" + snip(cap.text, 120) + "」";
+      props.onKeep(c.id, text, "时光胶囊");
     };
     const delCap = id => requestAppConfirm("删掉这颗胶囊？", "删了不可恢复。", () => {
       const next = allList.filter(x => x.id !== id);

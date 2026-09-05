@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.13";
+const APP_VERSION = "v64.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3840,6 +3840,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     dreamKeep: (() => {
       const mine = (inventory || []).filter(x => x && x.source === "dream" && x.dreamCharId === char.id).slice(-3);
       return mine.map(x => x.name).filter(Boolean).join("、");
+    })(),
+    // 埋下去还没到期的胶囊（v64.03，她 2026-09-05 问「要不要进上下文」）。
+    // ⚠️只给【几颗 + 还有几天】，一个字的正文都不给：这个功能的全部机制就是「他不知道
+    //   里面写了什么」。给了内容，胶囊就不成立了。
+    // ⚠️他自己回埋的那颗是他写的、他当然知道——所以危险的不是他不知道，是他说漏嘴。
+    //   那一句挡在 engine.js 那头（提示词里明写「一个字都不许提前说」）。
+    // 给自己写的（toSelf）不算：那跟他没关系。
+    capsuleWait: (() => {
+      const caps = loadJSON("x_capsules", []);
+      const now = Date.now();
+      const mine = (Array.isArray(caps) ? caps : []).filter(x => x && !x.opened && x.dir !== "toSelf"
+        && String(x.charId || "") === String(char.id) && Number(x.openTs || 0) > now);
+      if (!mine.length) return "";
+      const soon = mine.reduce((mn, x) => Math.min(mn, Number(x.openTs)), Infinity);
+      const days = Math.max(1, Math.ceil((soon - now) / 86400000));
+      const own = mine.some(x => x.dir === "fromChar");
+      return mine.length + " 颗 · 最近的一颗还有 " + days + " 天" + (own ? " · 其中一颗是你自己埋的" : "");
     })(),
     // 她今天带在身上的（v63.98）：物品那一层的三个动词之一。
     // 不分谁送的——带着谁的东西出门，这件事本身就是话。
@@ -10093,10 +10110,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const capsuleGuide = window.CapsulePromptKit
         ? window.CapsulePromptKit.sealGuide(openTs)
         : "把今天此刻一个具体念头或没说出口的话封进去，不预测遥远未来。写 2-4 个自然短段。";
-      const sys = buildBundle(ctxFor(char)) +
-        "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。" + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid + "\n只输出 JSON：{\"letter\":\"信的正文\"}";
-      const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 12000 });
-      const d = extractJSON(raw);
+      // 站位跟另外两处一样（v64.03）：capsule.js 里那两处也换成了 runProbe voice，
+      // 三处主动埋/回埋/回信必须同一个站位，不然同一个人写出来是三种腔调
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。"
+          + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid,
+        schemaHint: "{\"letter\":\"信的正文\"}",
+        maxTokens: 20000
+      });
       if (!d || !d.letter) return;
       const entry = { id: "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), dir: "fromChar", source: "ambient", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
       saveJSON("x_capsules", [entry, ...list]);
@@ -10144,9 +10166,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
     if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
     if (autoRefreshOn("forum", charId) && !settingsFor(charId).engineerEyes && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
-    // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
+    // 时光胶囊要比朋友圈/悄悄话稀：≥45 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
-    if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 80) {
+    // ⚠️v64.03 从 80 降到 45（她 2026-09-05：「他应该要可以主动埋」——他一直可以，
+    //   只是这个数太大了）。真正把它兜住的是后面那两道闸（未拆的不许再埋 + 14 天冷却），
+    //   而一颗胶囊封的是 7-30 天：也就是说她不拆，他根本埋不出第二颗。轮数只决定
+    //   「第一颗多久出现」，把它压到 80 只是让这个功能看着不存在。
+    if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 45) {
       const caps = loadJSON("x_capsules", []);
       const own = (Array.isArray(caps) ? caps : []).filter(x => x && x.dir === "fromChar" && x.charId === charId);
       const hasSealed = own.some(x => !x.opened);
@@ -15168,9 +15194,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。一个标题 + 一段完整的信（150-300 字，贴人设，可回顾你们的点滴、说心里话，结尾落款），别喊口号、别写成流水账。信要写完整，别中途断。",
+        // 字数（她 2026-09-05：「情书是不是也有点短」）：150-300 写不开——
+        // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
+        instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。"
+          + "一个标题 + 一封完整的信：**至少 450 个汉字、别超过 1000**，4-7 个自然段，贴人设，可回顾你们的点滴、说心里话，结尾落款。"
+          + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。",
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
-        maxTokens: 12000   // 一整封信＝「一段正文」那档（maxTokens 手册），8000 只是地板
+        maxTokens: 20000   // 放宽字数之后 12000 会截在半句（max-tokens-floor：新 = min(24000, 旧+8000)）
 
       });
       const st = letterStyleFor(char);
@@ -17582,7 +17612,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     duoPhotosFor: duoPhotosOf,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
-    capsuleProps: { active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast },
+    // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，
+    // 别在胶囊这儿另写一条写记忆的路。
+    capsuleProps: { active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast, onKeep: coupleKeep },
     coupleDisc: coupleDisc,
     onDiscAdd: discAdd,
     onDiscRemove: discRemove,

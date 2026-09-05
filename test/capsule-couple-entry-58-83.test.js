@@ -23,7 +23,7 @@ test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回",
   assert.match(screens, /sub === "capsule" && typeof window !== "undefined" && window\.CapsuleApp\)/);
   assert.match(screens, /characters: characters, characterId: partner\.id, profile: profile, onBack: \(\) => setSub\(null\)/,
     "退出来没有只退一层");
-  assert.match(app, /capsuleProps: \{ active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast \}/);
+  assert.match(app, /capsuleProps: \{ active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast, onKeep: coupleKeep \}/);
   // 旧那一屏整块删掉，不是留在原地打个叉（她 2026-08-30）
   assert.doesNotMatch(app, /screen === "capsule"/, "那一屏还留着——两条路进同一个页面");
   assert.doesNotMatch(app, /capsuleCharId/, "只给那一屏用的 state 还留着");
