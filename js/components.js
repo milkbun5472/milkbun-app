@@ -12851,11 +12851,20 @@ function ContactDetail({
 // 折叠分区（v48.35）：聊天设置太长往下翻难找——按主题收起，点标题才展开需要改的那块（手风琴，一次一个）
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
-  return h("div", { style: { borderTop: "1px solid " + t.line } },
-    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 0" } },
+  // ⚠️v63.92 从「一条发丝线 + 一行字」改成卡片：这一页铺上档案纸的底纹之后，
+  //   光靠发丝线分隔的几行字浮在纹理上，看着像还没画完（她 2026-09-05：
+  //   「聊天设置里面的子页也还是白屏很无聊」——无聊的一半是这个）。
+  //   卡片压在纸上才立得住，也才对得上这一页「一叠档案卡」的样子。
+  return h("div", { style: { borderRadius: 15, border: "1px solid " + t.line,
+    // ⚠️skinAlpha 收的是【两位十六进制后缀】，不是 0-1 的小数：传 .82 会拼出
+    //   "#xxxxxx0.82" 这种废值（六位色号才拼，所以只有真拼上的时候才坏，
+    //   非六位的反而原样返回——正是 v59.62 那种只在某些主题下静默出错的长相）。
+    background: skinAlpha(t.bg2, open ? "f5" : "d4"), marginBottom: 9, overflow: "hidden",
+    boxShadow: open ? "0 3px 14px rgba(40,34,26,.07)" : "none", transition: "box-shadow .2s" } },
+    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: danger ? t.accent : t.ink } }, title),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
-    open ? h("div", { className: "pb-3" }, children) : null);
+    open ? h("div", { style: { padding: "0 14px 12px" } }, children) : null);
 }
 function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize, embedded }) {
   const t = useTheme();
@@ -13245,9 +13254,33 @@ function ChatSettings({
   //   同时看见底下那一层。顶栏用公共的 Head（mobile-ui-layout.md §1）。
   const setScrollRef = useRef(null);
   useEffect(() => { if (setScrollRef.current) setScrollRef.current.scrollTop = 0; }, [settingsTab]);
+  // ⚠️底纹铺在【最外面这个外壳】上、顶栏透明（mobile-ui-layout.md §3.5）：
+  //   铺在滚动区上的话，顶栏那一条还是平色，顶上横着一道没盖住的带子。
+  //
+  // 这一页在现实里是什么？——它自己早就答了：「关于 XX 的七件事」，一类一个汉字索引牌。
+  // 那就是一叠【卡片索引 / 档案抽屉】。所以底子是档案纸，而且——
+  //   **拉开哪一格，整页就是那一格自己的颜色**（tint 直接取 settingPages 里那一份，
+  //   不另存一份色表；一层写在两处，第二处必然落单）。
+  // 于是不看标题也知道自己拉开的是哪个抽屉：动是暖金、记是苔绿、清是砖红。
+  // 判据过了没有：这一页原样搬到别的 app 里还成立吗？——不成立，别处没有「他」。
+  const curPage = settingsTab ? settingPages.find(x => x.key === settingsTab) : null;
+  const curTint = (curPage && curPage.tint) || t.accent;
+  // ⚠️让颜色读得出来，靠的是【掺进底色】，不是把 strength 调大——
+  //   strength 会把纹理和光一起加重，页面会脏，颜色还是不明显。
+  const pgSkin = typeof pageSkin === "function"
+    ? pageSkin("paper", t, {
+        tint: skinRGB(curTint).join(","),
+        // 深色主题上同样的比例几乎看不出来（深底把色相压平了），所以深色多掺一点
+        base: settingsTab ? skinMix(t.bg, curTint, skinIsDark(t.bg) ? .13 : .07) : t.bg,
+        // 子页右下角印那一格自己的汉字索引牌：不看标题也知道拉开的是哪个抽屉，
+        // 顺带把「两行设置底下六百像素空白」那一大片填住。
+        glyph: settingsTab ? (curPage && curPage.char) : ""
+      })
+    : { background: t.bg };
   return ReactDOM.createPortal(
-    h("div", { className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
     h(Head, {
+      bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",
       sub: settingsTab
         ? ((settingPages.find(x => x.key === settingsTab) || {}).state || (() => cNm))()

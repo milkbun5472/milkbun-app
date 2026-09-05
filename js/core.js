@@ -389,6 +389,14 @@ function skinIsDark(hex) {
 // ⚠️它本来只长在 fanfic.js 的闭包里，components.js v62.06 那一版直接喊了它的名字
 //   → ReferenceError，整个 App 开不了机（救援页）。所以搬到 skinIsDark 边上，
 //   跟它同一个家：谁都看得见，也只有这一份。
+// 两个色按比例掺一掺（k=0 全是 a，k=1 全是 b）。
+// 分页底色要「这一页是那一格自己的颜色」时用：拿 t.bg 掺一点那一格的 tint 进去，
+// 比调 strength 靠谱——strength 会把纹理和光一起加重，页面会脏。
+function skinMix(a, b, k) {
+  const x = skinRGB(a), y = skinRGB(b), m = Math.max(0, Math.min(1, Number(k) || 0));
+  const v = x.map(function (n, i) { return Math.round(n + (y[i] - n) * m); });
+  return "#" + v.map(function (n) { return n.toString(16).padStart(2, "0"); }).join("");
+}
 function skinShade(hex, k) {
   const c = skinRGB(hex).map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
   return "rgb(" + c.join(",") + ")";
@@ -560,6 +568,9 @@ function pageSkin(kind, t, opts) {
   // 否则它整个躲在栏后面，等于没画。传 CSS 长度，如 "58px"。
   const wm = skinWordLayer(o.word, dark ? "255,255,255" : skinRGB(th.ink).join(","), dark ? .055 : .045, o.wordLift);
   if (wm) layers.push(wm);
+  // 汉字水印走同一条路：一页只印一个字，淡到只剩个影子
+  const gm = skinGlyphLayer(o.glyph, dark ? "255,255,255" : skinRGB(th.ink).join(","), dark ? .07 : .055, o.glyphLift);
+  if (gm) layers.push(gm);
   // ④ 角上那两笔：右下一道大弧、左上一个配重。构图里一对对角的重量，
   // 是「这页被安排过」和「这页只是铺了个底色」的分界。
   if (o.corner !== false) {
@@ -582,6 +593,23 @@ function pageSkin(kind, t, opts) {
   };
 }
 
+// 特大汉字。跟下面那个英文页脚字是同一招，但这个 app 的规矩是【标题不留英文】
+// （.claude/rules/no-english-titles.md），所以要一个能印汉字的。
+// ⚠️SVG 背景里能不能画出汉字，是【浏览器里量过】的：竖排那次（v63.66）字形全叠成
+//   一坨、量出来的框却完全正常，只有截图看得出来。这次先在浏览器里画了「性」和「A」
+//   两张对照，确认汉字正常才写进来。
+// 印在【右下角】：英文那个在左下，两个同时出现也不会打架。
+function skinGlyphLayer(ch, rgb, a, lift) {
+  const c = String(ch || "").trim().slice(0, 1);
+  if (!c || /[\x00-\x7F]/.test(c)) return null;   // 只印汉字；拉丁字母走下面那个
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260">'
+    + '<text x="130" y="212" text-anchor="middle" font-family="Songti SC,Noto Serif CJK SC,serif"'
+    + ' font-size="238" fill="rgba(' + rgb + ',' + Number(a).toFixed(3) + ')">' + c + '</text></svg>';
+  // ⚠️只让它从【右边】出血一点；底下要留够，否则上下都被切就不像「有意压在角上」，
+  //   像是没画完。默认抬高 76px 让开悬浮球和底部安全区。
+  return ["url('data:image/svg+xml;utf8," + encodeURIComponent(svg).replace(/'/g, "%27") + "')",
+    "236px 236px", "right -6px bottom " + (lift || "76px"), "no-repeat"];
+}
 // 特大页脚字。SVG 里加载不了 Archivo（外链字体在 img 语境不生效），
 // 就让它退到系统无衬线——5% 的淡影子上没人分得出字体，但少了它页面就空。
 function skinWordLayer(word, rgb, a, lift) {
