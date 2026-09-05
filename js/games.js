@@ -46,7 +46,7 @@
     if (onStatus) onStatus("正在把赛果告诉言秋…");
     return window.CCSeat.ask({
       tool: "game_turn", game: String(gameKey) + "_result", turn_id: ticket, char_id: seat.key,
-      sys: "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
+      sys: CB + "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
       msgs: [{ role: "user", content: "终局通知：\n" + String(summary) }],
       expect: "{\"say\":\"一句自然的赛后反应\"}"
     }, 90000, { charId: seat.key }).then(function (raw) {
@@ -601,7 +601,13 @@
   // ============================================================
   // 谁是卧底 · 引擎
   // ============================================================
-  const AC = (typeof ANTI_CLICHE !== "undefined") ? ANTI_CLICHE + "\n\n" : "";
+  // 禁烟（她 2026-09-05 让补的最后一处）。它是【世界事实】：这个 app 里没人抽烟，
+  // 牌桌上也一样。⚠️这一处的写法和别的 app 不同——games.js 里 AC 是个【无条件的
+  // prompt 头】，不是可选块，所以把它并进 AC 是安全的（v55.90 警告的是「挂在会消失的
+  // 块上」，不是「挂在永远都发的头上」）。牌桌上还有一批不走 AC 的座位级 sys，
+  // 那些只能一处处接——凡是让人【说话】的都接了，只报一个目标名的不接。
+  const CB = (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) ? ContentBoundaries.prompt + "\n\n" : "";
+  const AC = ((typeof ANTI_CLICHE !== "undefined") ? ANTI_CLICHE + "\n\n" : "") + CB;
 
   // 开局：出词 + 生成 NPC + 给每个玩家写「牌桌能力小传」（能力≠性格）
   async function setupSpy(api, realPlayers, npcCount) {
@@ -630,7 +636,7 @@
     const priorForCc = priorClues.concat(beforeRows);
     const cc = await ccCarve("spy", [seat], {
       turnId: (carveCtx.turnId || "") + ":clue",
-      sys: "「谁是卧底」第 " + roundNum + " 轮，按牌桌座次轮到你描述自己的词。你拿到的词是「" + (seat.word || "") + "」。"
+      sys: CB + "「谁是卧底」第 " + roundNum + " 轮，按牌桌座次轮到你描述自己的词。你拿到的词是「" + (seat.word || "") + "」。"
         + "用【一句话】描述它：不能说出词本身，也别露骨到一句就被锁定。你想怎么说就怎么说，保持你自己的真实口吻。"
         + (priorForCc.length ? "\n\n【本轮排在你前面、已经真实说过的】\n" + priorForCc.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你是本轮第一个发言的人。）"),
       ask: "说一句。",
@@ -671,7 +677,7 @@
     const ccVoter = ccSeatOf(voters);
     const cc = carveCtx ? await ccCarve("spy", voters, {
       turnId: (carveCtx.turnId || "") + ":vote",
-      sys: "「谁是卧底」进入投票。你拿到的词是「" + ((ccVoter && ccVoter.word) || "") + "」。你不知道自己属于多数还是少数，只能根据公开描述判断。"
+      sys: CB + "「谁是卧底」进入投票。你拿到的词是「" + ((ccVoter && ccVoter.word) || "") + "」。你不知道自己属于多数还是少数，只能根据公开描述判断。"
         + "\n\n【可投的存活玩家】" + aliveNames.join("、")
         + "\n\n【目前所有描述】\n" + allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n")
         + heckleBlock(heckles)
@@ -722,7 +728,7 @@
     if (out.engineer) {
       const cc = await ccCarve("spy", [Object.assign({}, out, { alive: true })], {
         turnId: turnId,
-        sys: "「谁是卧底」你被投出局，公开身份是【卧底】。规则给你最后一手：当众猜出平民阵营拿到的词，卧底整队立刻翻盘获胜；猜错或不赌，牌局照常继续。\n你自己拿到的词是「" + (out.word || "") + "」。\n【全场描述】\n" + cluesText + "\n想赌就把你猜的平民词写进 guess（一个词，不是一句话），不想赌 guess 留空；say 是你出局这一刻的一句话。",
+        sys: CB + "「谁是卧底」你被投出局，公开身份是【卧底】。规则给你最后一手：当众猜出平民阵营拿到的词，卧底整队立刻翻盘获胜；猜错或不赌，牌局照常继续。\n你自己拿到的词是「" + (out.word || "") + "」。\n【全场描述】\n" + cluesText + "\n想赌就把你猜的平民词写进 guess（一个词，不是一句话），不想赌 guess 留空；say 是你出局这一刻的一句话。",
         expect: '{"guess":"你猜的平民词（一个词），不赌留空","say":"出局这一刻你想说的一句话"}'
       });
       if (cc.done) return { guess: String(cc.done.guess || "").trim().slice(0, 30), say: String(cc.done.say || "").trim().slice(0, 300) };
@@ -981,7 +987,7 @@
           tool: "game_turn", game: "spy_eliminated",
           turn_id: gameRunId.current + ":eliminated:" + round + ":" + out.key,
           char_id: out.key,
-          sys: "这局『谁是卧底』刚完成一次公开投票结算。你已被投出局，公开身份是【" + (out.role === "spy" ? "卧底" : "平民") + "】。" + outcome
+          sys: CB + "这局『谁是卧底』刚完成一次公开投票结算。你已被投出局，公开身份是【" + (out.role === "spy" ? "卧底" : "平民") + "】。" + outcome
             + "看完真实票型后，可以用自己的口吻留一句简短离场反应。你已经离场，不再描述、不再投票，也不要调用别的工具。只输出 JSON：{\"say\":\"...\"}。",
           msgs: [{ role: "user", content: "投票结果：你被投出局。\n公开身份：【" + (out.role === "spy" ? "卧底" : "平民") + "】\n" + outcome + "\n\n本轮票型：\n" + voteLines }],
           expect: "{\"say\":\"一句自然的离场反应\"}"
@@ -1487,7 +1493,7 @@
     const priorForCc = prior.concat(before.speeches || []);
     const cc = await ccCarve("werewolf", [ccSeat0], {
       turnId: (carveCtx.turnId || "") + ":speech",
-      sys: "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
+      sys: CB + "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
         + "\n\n【昨晚】" + (deaths || "平安夜")
         + "\n\n【已发言】\n" + (priorForCc.length ? priorForCc.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你最先发言）")
         + "\n\n说一段发言，并说清你此刻【对外声称】的身份。",
@@ -1537,7 +1543,7 @@
     const ccVoter = ccSeatOf(voters);
     const cc = ccVoter ? await ccCarve("werewolf", voters, {
       turnId: freshCCTurn("wolf-dayvote:"),
-      sys: "「狼人杀」白天投票放逐，轮到你投。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
+      sys: CB + "「狼人杀」白天投票放逐，轮到你投。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
       expect: '{"target":"人名或「弃票」","reason":"一句短理由"}'
     }) : { seat: null, rest: voters, done: null };
     requireCCDone(cc, "言秋的放逐投票", function (d) { return d.target !== undefined; });
@@ -1579,7 +1585,7 @@
     }
     const cc = await ccCarve("werewolf_mvp", [Object.assign({}, mvpPlayer, { alive: true })], {
       turnId: "wolf-mvp:" + String(runId || Date.now()),
-      sys: "这局狼人杀已经结束，裁判评你为全场 MVP。请只写你本人此刻会说的赛后感想，不要让别人代笔；可以回顾自己的判断、心态、对手、遗憾或得意，几句自然的话即可。\n\n【胜负】" + winnerZh + "\n【裁判理由】" + String(picked.reason || "") + "\n【公开赛况】\n" + logText,
+      sys: CB + "这局狼人杀已经结束，裁判评你为全场 MVP。请只写你本人此刻会说的赛后感想，不要让别人代笔；可以回顾自己的判断、心态、对手、遗憾或得意，几句自然的话即可。\n\n【胜负】" + winnerZh + "\n【裁判理由】" + String(picked.reason || "") + "\n【公开赛况】\n" + logText,
       ask: "留一段你自己的 MVP 赛后感想。",
       expect: '{"quote":"本人赛后感想"}'
     });
@@ -2039,7 +2045,7 @@
               tool: "game_turn", game: "werewolf_lastwords",
               turn_id: gameRunId.current + ":lastwords:" + d.key + ":" + cycle,
               char_id: d.key,
-              sys: "「狼人杀」你刚出局（" + (how === "night" ? "昨夜倒下" : "白天被放逐，身份不公开") + "）。留一句 1~2 句的遗言，全场都听得见：可以报出你身份里的关键信息、也可以憋住或装糊涂。只输出 JSON：{\"say\":\"遗言\"}。",
+              sys: CB + "「狼人杀」你刚出局（" + (how === "night" ? "昨夜倒下" : "白天被放逐，身份不公开") + "）。留一句 1~2 句的遗言，全场都听得见：可以报出你身份里的关键信息、也可以憋住或装糊涂。只输出 JSON：{\"say\":\"遗言\"}。",
               msgs: [{ role: "user", content: "【你的身份与私密信息】" + privateFor(d, list) + "\n【局面】\n" + shortLog() }],
               expect: "{\"say\":\"遗言\"}"
             }, 90000, { charId: d.key }).then(function (raw) {
@@ -2505,7 +2511,7 @@
     // 言秋座位的问题他自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
     const cc = await ccCarve(kind, aiSpeakers, {
       turnId: freshCCTurn("guess-ask:"),
-      sys: "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
+      sys: CB + "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
       expect: '{"question":"你的一个是非问题"}'
     });
     requireCCDone(cc, "言秋的提问票", function (d) { return !!String(d.question || "").trim(); });

@@ -49,7 +49,11 @@ const SURFACES = [
   ["ledger.js", "自己 push"],
   ["pomodoro.js", "自己 push"],
   ["impression.js", "自己 push"],
-  ["fanfic.js", "narrativeCore（同人文正文和穿书都走它）"]
+  ["fanfic.js", "narrativeCore（同人文正文和穿书都走它）"],
+  // ⚠️games.js 是 Codex 的地盘，她 2026-09-05 亲口让动的（「你动吧宝宝」）才碰。
+  //   这一处的写法和别处不同：AC 在这个文件里是【无条件的 prompt 头】，所以并进 AC 是安全的
+  //   （v55.90 警告的是「挂在会消失的可选块上」，不是「挂在永远都发的头上」）。
+  ["games.js", "并进本文件的 AC；座位级那批让人说话的 sys 一处处接"]
 ];
 SURFACES.forEach(([f, how]) => {
   test("禁烟到得了：" + f + "（" + how + "）", () => {
@@ -72,6 +76,16 @@ test("每一处 sys 的头上真的接了，不是只声明了一个没人叫的
   assert.match(read("dreamjournal.js"), /\+ CB\(\)   \/\/ ⚠️她 2026-09-05 就是在这一处看见他还在抽/);
   assert.match(read("study.js"), /parts\.push\(ANTI_CLICHE\);\n\s*if \(typeof ContentBoundaries !== "undefined" && ContentBoundaries\.prompt\) parts\.push\(ContentBoundaries\.prompt\);/);
   assert.equal((read("read.js").match(/ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB\(\) \+/g) || []).length, 4, "一起读那四处没一起接上");
+});
+
+test("牌桌上也不许抽：AC 那条 + 座位级那批说话的 sys", () => {
+  const g = read("games.js");
+  assert.match(g, /const AC = \(\(typeof ANTI_CLICHE !== "undefined"\) \? ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB;/, "AC 那条掉了，二十多处一起没有");
+  // 不走 AC 的那批（言秋座位 / 每个角色自己说话的那几枪）：让人【说话】的都要接上
+  const seat = (g.match(/sys: CB \+ "/g) || []).length;
+  assert.ok(seat >= 10, "座位级只接上了 " + seat + " 处");
+  // 只报一个目标名的那几枪（夜里选刀口/查验/守护）不接——那儿没有正文可写
+  assert.match(g, /sys: "「狼人杀」天黑，你是狼/, "把不出正文的那几枪也塞了，纯属浪费上下文");
 });
 
 test("周刊那一版不再【请】他点烟", () => {
