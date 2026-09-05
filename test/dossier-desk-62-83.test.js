@@ -13,8 +13,9 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 test("桌子只画一次，同族四处共用同一张", () => {
   // 不新发明材质：DESK 就是编辑页那张 dossierDeskBg 包一层
   assert.match(src, /const DESK = accent => \(\{ background: dossierDeskBg\(accent\) \}\);/);
-  assert.equal((src.match(/style: DESK\(/g) || []).length, 5,
-    "铺到的页数变了：档案馆列表 / 关系板 / 按条看 / 亲属卡（有卡、无卡两态）共五处");
+  // v62.99 起第六处：导角色卡那一屏也归档案馆这一族，搬同一张桌子
+  assert.equal((src.match(/style: DESK\(/g) || []).length, 6,
+    "铺到的页数变了：档案馆列表 / 关系板 / 按条看 / 亲属卡（有卡、无卡两态）/ 导卡，共六处");
   // 编辑页那一处照旧直接用 dossierDeskBg，不改它——这条只是钉住两边是同一张桌子
   assert.match(src, /style: \{ background: dossierDeskBg\(accent\) \}/);
 });

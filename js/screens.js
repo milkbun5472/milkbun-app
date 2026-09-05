@@ -137,8 +137,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const line = (zh, v) => h("div", { className: "flex items-baseline gap-2", style: { marginTop: 4 } },
     h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, zh),
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, v));
-  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), background: t.bg, borderBottom: "1px solid " + t.line } },
+  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK(t.accent || t.tint) },
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line } },
       h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 44 } },
         h("button", { onClick: onClose, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "text-center min-w-0" },
@@ -236,6 +236,42 @@ function hexA(hex, a) {
 // 「同一个 app 两张桌子」——列表页米白、编辑页桌面——是审计原话点名的一处。
 // 所以这一批不新发明材质，只把现成那一张铺到同族的其余几页上，Head/顶栏一律透上来。
 const DESK = accent => ({ background: dossierDeskBg(accent) });
+// ── 还剩那几页米白的底（v62.99，审美审计还债收尾）───────────────────────
+// 先复用：导卡回档案馆那张桌子（DESK）、日记文风页回日记那张纸、随身物两个柜子页
+// 回主页那块布、第一次们回情侣空间那本本子内页。真没有现成材质可搬的才新画，
+// 而且新画的这三张都得跟库里已有的分得开（纸/布/皮/绒/牛皮/离型纸都占过了）。
+// ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
+const _hex6 = t => /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+// 世界书：一本活页夹——左边一列装订孔 + 一条装订线 + 纸的细横纹
+const binderSkin = t => {
+  if (!_hex6(t)) return { background: t.bg };
+  const k = t.ink;
+  return { background: [
+    "radial-gradient(circle at 10px 16px," + k + "26 0 4px," + k + "00 4.5px) repeat-y left 0 top 14px/24px 46px",
+    "linear-gradient(" + k + "1c," + k + "1c) no-repeat left 18px top 0/1px 100%",
+    "repeating-linear-gradient(180deg," + k + "00 0 27px," + k + "07 27px 28px)",
+    t.bg].join(",") };
+};
+// 抽卡：一整包还没拆的卡——锡箔纸，斜着一道道会跳的反光
+const foilSkin = t => {
+  if (!_hex6(t)) return { background: t.bg };
+  const k = t.ink;
+  return { background: [
+    "repeating-linear-gradient(102deg," + k + "00 0 7px," + k + "0a 7px 8px," + k + "00 8px 15px,rgba(255,255,255,.36) 15px 16px)",
+    "linear-gradient(66deg,rgba(255,255,255,.30) 0%," + k + "00 22%,rgba(255,255,255,.22) 44%," + k + "00 64%,rgba(255,255,255,.26) 86%," + k + "00 100%)",
+    "radial-gradient(120% 80% at 50% 45%," + k + "00 50%," + k + "18 100%)",
+    t.bg].join(",") };
+};
+// 照相馆：影棚那张无缝背景纸——顶上一束光，底下一道弯折接到地台
+const cycSkin = t => {
+  if (!_hex6(t)) return { background: t.bg };
+  const k = t.ink;
+  return { background: [
+    "linear-gradient(180deg," + k + "00 0 62%," + k + "0e 74%," + k + "04 78%," + k + "14 100%)",
+    "radial-gradient(80% 52% at 50% 15%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%)",
+    "radial-gradient(120% 88% at 50% 40%," + k + "00 46%," + k + "1c 100%)",
+    t.bg].join(",") };
+};
 // 分区＝一张有索引页签的活页。页签是竖着的一条（编号在上、色带贯穿整个抬头），
 // 抬头右边拉一条虚线引到边（表格上的那种 leader line），正文区换一档纸色压在抬头下面。
 function CastSection({ no, title, en, tint, children }) {
@@ -1410,8 +1446,8 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: binderSkin(t) },
+    h("div", { className: "shrink-0 px-4 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "世界书"),
       h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IPlus, { size: 20, color: t.ink }))),
@@ -10033,8 +10069,8 @@ function DiaryStylePage({ char, onSave, onClose }) {
     hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, hint) : null,
     node);
   const inputStyle = { width: "100%", outline: "none", background: t.bg2, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14, color: t.ink };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "日记档案", sub: char.remark || char.name, onBack: onClose }),
+  return h("div", { className: "h-full flex flex-col", style: pageSkin(diaryPaperOf(char), t, { corner: false }) },
+    h(Head, { zh: "日记档案", sub: char.remark || char.name, bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
         "只影响 TA 的日记：签名会印在日记封面上、也会让写日记的 TA 知道；文风直接进写日记的笔。留空就从人设自己长。"),
@@ -11926,7 +11962,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
     backgroundImage: "repeating-linear-gradient(90deg,rgba(0,0,0,.055) 0px,rgba(0,0,0,.055) 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 4px),"
       + "linear-gradient(152deg,rgba(74,58,40,.32) 0%,rgba(74,58,40,.54) 46%,rgba(74,58,40,.38) 100%)"
   };
-  if (inBox) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  if (inBox) return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center" },
@@ -12026,7 +12062,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
     const n = carryFlatItems(sec.key, data[sec.key]).length;
     return n ? n + " 件" : "";
   };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
     h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: () => setInBox(true), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
@@ -12173,7 +12209,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
   const have = p && typeof p === "object" ? (Number(p.pts) || 0) : 0;
   const lk = (luck || {})[partner.id] || { pulls: 0, sinceSSR: 0 };
   const pull = n => { const made = onPull(partner, n); if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); } };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: foilSkin(t) },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
@@ -12336,7 +12372,7 @@ function CoupleFirstsBook({ partner, items, onBack }) {
     const s = rows[0] && rows[0].key === "since" ? rows[0].ts : 0;
     return s && ts > s ? "第 " + (Math.floor((ts - s) / 86400000) + 1) + " 天" : "";
   };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "第一次们"),
@@ -12395,11 +12431,17 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
   const [note, setNote] = useState("");
   const n = groups.reduce((a, g) => a + (g.sets || []).length, 0);
   const submit = () => { if (onAdd(occ, name, note)) { setOcc(""); setName(""); setNote(""); setOpenAdd(false); } };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我的衣柜"),
       h("button", { onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 40, height: 40, marginRight: -8, fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+")),
+    // 一根挂衣杆：光有木纹只是块木头，杆才说明这是柜子里头
+    h("div", { "aria-hidden": "true", className: "shrink-0", style: { height: 13, margin: "0 14px 2px", position: "relative" } },
+      h("span", { style: { position: "absolute", left: 0, right: 0, top: 3, height: 5, borderRadius: 999,
+        background: "linear-gradient(180deg,rgba(255,255,255,.55),rgba(120,96,60,.55))", boxShadow: "0 3px 6px rgba(60,44,22,.22)" } }),
+      h("span", { style: { position: "absolute", left: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } }),
+      h("span", { style: { position: "absolute", right: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } })),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
         "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。"),
@@ -12453,7 +12495,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
   const rows = (shots || []).filter(x => x.charId === partner.id);
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  return h("div", { className: "h-full flex flex-col", style: cycSkin(t) },
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: () => big ? setBig(null) : onBack(), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, big ? "" : "照相馆"),
