@@ -5997,9 +5997,9 @@ function lunarFestivalOn(dateObj) {
 // ②单聊的 OOC 回复历史上存的是 kind:"system" + turnId:"ooc_…"——按 turnId 前缀兜住（含她已有的旧记录）。
 // 所有「角色视角」的取材（记忆抽取/长期记忆/日记/周刊/同人文/塔罗/梦境/擂台/番茄钟/prompt 原文窗）都用它过滤。
 function isOocMsg(m) { return !!(m && (m.kind === "ooc" || (m.turnId && String(m.turnId).indexOf("ooc_") === 0))); }
-// ── OOC 顺手改这个聊天窗的气泡（她 2026-09-05：「让秋秋在这个人的聊天框里可以直接改动，
-//    比如我说帮我改一下我的气泡颜色，它就能帮我调好。或者我说我想要梦幻风格的它也能改」）──
-// 只在【这个聊天窗】生效，走的还是「这个人自己的气泡」那一层，跟她手动细调同一个出口。
+// ── 洗一份【模型给的】气泡补丁（她 2026-09-05：「让秋秋在这个人的悬浮屏里可以直接改动」）──
+// 用它的是秋秋那条路（assistant.js 的 TARGETS.bubble）。放在这儿是因为它是一道
+// 【安全闸】，不是界面的事；秋秋那头自己再抄一份的话，改一处另一处永远落单。
 // ⚠️模型给的值要当【外来的字符串】看：它最后会被拼进一张 <style>。
 //   bubbleDecls 的 q() 只拦 <>{}，拦不住 ";" ——一个值里带分号就能多写一条声明。
 //   所以这一道自己拦死：分号、@、反斜杠、url( 一律判为不合法，整条丢掉（不是截断，
@@ -6023,31 +6023,18 @@ function sanitizeBubblePatch(obj) {
   if (obj.stickerSize != null) num("stickerSize", 32, 72);
   return Object.keys(out).length ? out : null;
 }
-// 这一段告诉 OOC 助手：她提到长相时可以顺手改，改什么不许乱填。
-// ⚠️不给【内容示范】（prompt-no-content-samples）：写死一套「梦幻＝紫粉渐变」，
-//   模型会把它当模板，以后不管她说什么风格都往那一套上靠。只给判据和维度。
-const BUBBLE_AI_RULE = "\n\n(C) 她提到这个聊天窗【长什么样】——换颜色、换风格、太亮了太暗了、想要某种气氛——"
-  + "你可以直接动手，把改好的样子填进 skin。这一份只盖这一个聊天窗，别人的窗口不受影响。\n"
-  + "   · skin 的每一栏都是 CSS 值：颜色填 #hex 或一整段 linear-gradient(...)；描边填形如 1px solid #hex 的一串；"
-  + "投影填形如 0 2px 8px rgba(...) 的一串；radius 是 0-30 的整数。**只填这些栏，不许自造新栏。**\n"
-  + "   · 她只说了一处（如「我的气泡」）就【只改那一处】，别顺手把整套换掉——没提到的栏一律不填。\n"
-  + "   · 她说的是一种气氛而不是一个颜色时，你要自己决定这套配色：先想清楚**那个气氛在她眼里是什么样的光**，"
-  + "再让底色、字色、圆角、投影一起往那个方向走——四栏各说各的，出来就是一套四不像。\n"
-  + "   · **字要看得清**：底色深就把字色调亮，底色浅就调暗。这一条压过任何审美。\n"
-  + "   · 没提到长相就 skin 填 null。**改完在 reply 里用一句话说你改了什么、为什么是这个样子**，别只答「好的」。";
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + BUBBLE_AI_RULE + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次是要取消/修改其中某条，也在 reply 里说明，directive 可填修正后的新表述）" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"refused\":false,\"skin\":null}";
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次是要取消/修改其中某条，也在 reply 里说明，directive 可填修正后的新表述）" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
   if (parsed && typeof parsed.reply === "string") {
-    return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused,
-      skin: sanitizeBubblePatch(parsed.skin) };
+    return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
   }
-  // 兜底：解析失败当作纯文本回复，不动准则、也不动长相
-  return { reply: String(raw || "").trim(), directive: null, refused: false, skin: null };
+  // 兜底：解析失败当作纯文本回复，不动准则
+  return { reply: String(raw || "").trim(), directive: null, refused: false };
 }
 // OOC（群聊 / 群聊线下）：跳出所有角色，直接和模型对话
 async function oocAskGroup(p, ctx, question) {
