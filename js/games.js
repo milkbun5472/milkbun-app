@@ -2440,6 +2440,16 @@
     return extractJSON(raw) || {};
   }
 
+  // 连坐的下一题：只出题，不重摆桌（NPC、能力小传都沿用）。把前几题的答案带上防出重复。
+  async function genGuessNext(api, kind, prevAnswers) {
+    const avoid = (prevAnswers || []).filter(Boolean).length ? "\n【本场已出过的（别重复、也别出近似的）】\n" + prevAnswers.map(function (x) { return "· " + x; }).join("\n") : "";
+    const sys = kind === "haigui"
+      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
+      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 2000 });
+    return extractJSON(raw) || {};
+  }
+
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
   async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode, userName) {
     const K = GUESS_KINDS[kind];
@@ -2502,6 +2512,7 @@
     const [log, setLog] = useState(sv ? (sv.log || []) : []);
     const [history, setHistory] = useState(sv ? (sv.history || []) : []);    // 问过的问题（防重复）
     const [qCount, setQCount] = useState(sv ? (sv.qCount || 0) : 0);        // 已问总数（25问用）
+    const [scores, setScores] = useState(sv ? (sv.scores || []) : []);      // 连坐比分：[{solver,isUser,ans}]，一场三题
     const [userQ, setUserQ] = useState("");
     const [guessing, setGuessing] = useState(false); // 猜答案输入框开着
     const [guessText, setGuessText] = useState("");
@@ -2526,7 +2537,7 @@
       if (!started.current) return;
       if (phase === "result") { clearGameSave(kind); return; }
       if (busy || phase === "loading" || phase === "error") return;
-      saveGameSnap(kind, { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, ts: Date.now(), label: kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题") });
+      saveGameSnap(kind, { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, scores: scores, ts: Date.now(), label: "第 " + (scores.length + 1) + "/3 题 · " + (kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题")) });
     }, [phase, log, busy]);
     useEffect(function () {
       if (phase !== "result" || !players.length) return;
@@ -2596,12 +2607,14 @@
           setWon(!!(solver && solver.isUser));
           setReveal(r.reveal || (kind === "haigui" ? ctx.truth : ctx.secret));
           pushLog([{ type: "solve", name: r.solvedBy, isUser: !!(solver && solver.isUser) }]);
+          recordScore(solver ? solver.name : String(r.solvedBy), !!(solver && solver.isUser));
           setPhase("result"); setBusy(false); return;
         }
         // 25 问用尽
         if (K.limit && (qCount + newHist.length) >= K.limit) {
           setWon(false); setReveal(ctx.secret);
           pushLog([{ type: "info", text: "25 个问题用完了，没人猜中——答案揭晓。" }]);
+          recordScore(null, false);
           setPhase("result");
         }
       } catch (e) { props.toast && props.toast("这一轮出错：" + ((e && e.message) || "重试")); }
@@ -2615,12 +2628,30 @@
       pushLog([{ type: "q", name: me.name, text: "🎯 我猜：" + v, mine: true }]);
       try {
         const j = await judgeGuess(api, kind, ctx, v);
-        if (j.correct) { setWon(true); setReveal(kind === "haigui" ? ctx.truth : ctx.secret); pushLog([{ type: "solve", name: me.name, isUser: true, note: j.note }]); setPhase("result"); }
+        if (j.correct) { setWon(true); setReveal(kind === "haigui" ? ctx.truth : ctx.secret); pushLog([{ type: "solve", name: me.name, isUser: true, note: j.note }]); recordScore(me.name, true); setPhase("result"); }
         else { pushLog([{ type: "a", name: "__miss", verdict: "还没中", note: j.note || "" }]); }
       } catch (e) { props.toast && props.toast("判题出错：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
     };
-    const giveUp = function () { setWon(false); setReveal(kind === "haigui" ? (ctx && ctx.truth) : (ctx && ctx.secret)); setPhase("result"); };
+    const giveUp = function () { setWon(false); setReveal(kind === "haigui" ? (ctx && ctx.truth) : (ctx && ctx.secret)); recordScore(null, false); setPhase("result"); };
+    // 一题记一笔（ans 用来提醒下一题别出重复）
+    const recordScore = function (solver, isUser) {
+      setScores(function (S) { return S.concat([{ solver: solver, isUser: !!isUser, ans: (kind === "haigui" ? (ctx && ctx.surface || "").slice(0, 40) : (ctx && ctx.secret || "")) }]); });
+    };
+    // 连坐的下一题：同一桌人接着来，只重新出题
+    const nextPuzzle = async function () {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const r = await genGuessNext(api, kind, scores.map(function (x) { return x.ans; }));
+        if (kind === "haigui") { if (!r.surface || !r.truth) throw new Error("出题失败，再点一次"); setCtx({ surface: r.surface, truth: r.truth }); }
+        else { if (!r.secret) throw new Error("出题失败，再点一次"); setCtx({ secret: r.secret, category: r.category || "东西" }); }
+        setHistory([]); setQCount(0); setWon(false); setReveal(""); setGuessing(false); setGuessText("");
+        setLog([{ type: "info", text: "第 " + (scores.length + 1) + " / 3 题——" + (kind === "haigui" ? "新汤上桌。" : "想好了一个新东西。") }]);
+        setPhase("play");
+      } catch (e) { props.toast && props.toast((e && e.message) || "出题失败，再点一次"); }
+      finally { setBusy(false); }
+    };
 
     const table = gameTable(kind, t);
     const header = h(Head, { zh: K.zh, en: K.en, onBack: props.onBack, bg: "transparent" });
@@ -2680,9 +2711,23 @@
         h("div", { style: { background: t.bg2, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, letterSpacing: 1, marginBottom: 4 } }, kind === "haigui" ? "汤底" : "答案"),
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, reveal || "")),
+        // 连坐比分：一场三题，谁破的记谁头上
+        scores.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, textAlign: "center", marginBottom: 10 } },
+          scores.map(function (x, i) { return "第" + (i + 1) + "题 " + (x.solver ? (x.isUser ? "你" : x.solver) : "无人"); }).join(" · ")) : null,
+        scores.length >= 3 ? (function () {
+          const cnt = {};
+          scores.forEach(function (x) { if (x.solver) { const k = x.isUser ? "你" : x.solver; cnt[k] = (cnt[k] || 0) + 1; } });
+          const best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
+          const top = best.length ? best.filter(function (k) { return cnt[k] === cnt[best[0]]; }) : [];
+          return h("div", { style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 13, padding: "10px 13px", marginBottom: 12, textAlign: "center" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, marginBottom: 4 } }, "本 场 头 名"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, top.length ? top.join("、") + "（破 " + cnt[top[0]] + " 题）" : "这场谁也没赢，题赢了"));
+        })() : null,
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, scores.length >= 3 ? "散场 · 回中枢" : "返回"),
+          scores.length < 3
+            ? h("button", { onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
+            : h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")));
     } else if (busy) {
       action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
     } else if (guessing) {
