@@ -33,7 +33,7 @@ test("真图两处都认：本轮这一张身上没有，就去收藏那条记�
     "imageRef 只看了本轮这一张");
   assert.match(view, /const drawnUrl = p => \{ const k = keptOf\(p\); return p\.imageUrl \|\| p\.imgUrl \|\| \(k && k\.imageUrl\) \|\| ""; \};/,
     "imageUrl 只看了本轮这一张");
-  const art = view.slice(view.indexOf("const art = (it, radius)"), view.indexOf("const tile = "));
+  const art = view.slice(view.indexOf("const art = (it, radius, bare)"), view.indexOf("const tile = "));
   assert.match(art, /drawnUrl\(it\)/, "缩略图不认收藏里那张真图");
   assert.match(art, /drawnRef\(it\)/, "缩略图不认收藏里那个 imageRef");
 });

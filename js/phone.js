@@ -2421,7 +2421,11 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
   const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
-  const innerHead = (title, sub, back) => h("div", { className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, className: "active:opacity-50", style: { fontSize: 26, lineHeight: 1, color: t.ink } }, "‹"), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
+  const innerHead = (title, sub, back) => h("div", { className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10, flexShrink: 0 } },
+    // 本尊那根细尖角照旧，但它得是画出来的，而且要有 40px 可点区
+    // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
+    h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
+      h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).map((m, i) => {
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } }, m.text)));
@@ -2465,7 +2469,42 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
       arr(d.moments).map(momentCard));
   }
   else body = h("div", { style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18 } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: 22 } }, "›")));
-  if (thread && thread.type === "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, innerHead(thread.remark || thread.name, null, () => setThread(null)), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "28px 20px" } }, h("div", { className: "flex items-center gap-4" }, h(Avatar, { character: person(thread.name, thread.avatarImage), size: 68, radius: 9 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#222" } }, thread.remark || thread.name), thread.remark && thread.remark !== thread.name ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#999", marginTop: 5 } }, "昵称：" + thread.name) : null)), h("div", { style: { background: "#fff", borderRadius: 8, padding: "18px", marginTop: 26 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginBottom: 9 } }, char.name + " 对这个人的备注与真实感想"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#333", whiteSpace: "pre-wrap" } }, thread.intro))));
+  // ── 联系人详情（v62.60 重做）────────────────────────────────────────
+  // 审美审计 2026-09-04 把这一页判成【基础款】：灰底 + 头像 + 一张白色圆角卡。
+  // 换成任何一个 app 的「某某的资料」都成立——而这个 app 仿的是本尊，
+  // 本尊的联系人页是【分组 cell】：几块白，块与块之间空一段灰，行与行之间一道浅线。
+  // 往本尊靠，不是往通用卡靠。
+  if (thread && thread.type === "contact") {
+    const sess = chats.find(c2 => c2 && c2.name === thread.name);
+    const cell = (label, value, last) => h("div", { className: "flex items-baseline", style: { gap: 12, padding: "13px 16px", borderTop: last === "first" ? "none" : "1px solid #ededed" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: "#191919", flexShrink: 0 } }, label),
+      h("div", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: 15, color: "#8a8a8a", wordBreak: "break-word" } }, value));
+    const block = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", marginTop: 10 }, extra || {}) }, kids);
+    return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } },
+      innerHead(thread.remark || thread.name, null, () => setThread(null)),
+      h("div", { className: "flex-1 overflow-y-auto", style: { paddingBottom: 28 } },
+        block(h("div", { className: "flex items-center", style: { gap: 14, padding: "18px 16px" } },
+          h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 }),
+          h("div", { style: { minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#191919" } }, thread.remark || thread.name),
+            thread.remark && thread.remark !== thread.name
+              ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#8a8a8a", marginTop: 4 } }, "昵称：" + thread.name) : null))),
+        block([
+          cell("备注", thread.remark && thread.remark !== thread.name ? thread.remark : "无", "first"),
+          cell("来源", sess ? "微信联系人" : "通讯录")
+        ]),
+        // 这一块是我们独有的东西（不是本尊有的），所以它单独成一组，
+        // 用一行灰色小字点明它是什么，正文才不会被误读成「个性签名」
+        block(h("div", { style: { padding: "14px 16px 17px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a8a8a", marginBottom: 9 } }, char.name + " 对这个人的备注与真实感想"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.9, color: "#333", whiteSpace: "pre-wrap" } }, thread.intro || "（没写）"))),
+        // 发消息只在真有这个人的会话时才给——按了没反应的按钮比没有按钮更糟
+        sess ? h("button", {
+          onClick: () => setThread(sess),
+          className: "w-full active:opacity-70",
+          style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: 15, color: "#07c160" }
+        }, "发消息") : null));
+  }
   const navs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
   return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "env(safe-area-inset-bottom)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label)))));
 }
@@ -2594,7 +2633,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   };
   // 零 API 的程序化缩略图：按照片内容稳定生成不同色光、景深与构图；不是灰色占位，
   // 也不会为 25 张照片额外烧生图额度。若将来数据带 imageRef/imageUrl，会优先显示真图。
-  const art = (it, radius) => {
+  // bare=true：不在缩略图上烧那行说明文字。缩略图上要它（那是替代照片的全部信息），
+  // 点开满幅之后底下已经有大标题了，再烧一行就是同一句话写两遍。
+  const art = (it, radius, bare) => {
     const seed = phoneStableHash((it.caption || "") + (it.desc || ""));
     const hue = seed % 360, hue2 = (hue + 45 + seed % 70) % 360;
     // imageRef 是本机保险箱里的键，得先解出来才能给 <img>（v59.59 起「我收着的」
@@ -2606,7 +2647,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
       img ? h("img", { src: img, alt: it.caption || "照片", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(React.Fragment, null,
         h("span", { style: { position: "absolute", width: "72%", height: "72%", borderRadius: "50%", left: `${-12 + seed % 35}%`, top: `${-8 + (seed >> 3) % 35}%`, background: "rgba(255,255,255,.28)", filter: "blur(10px)" } }),
         h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
-        h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, it.caption || "照片")));
+        bare ? null : h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, it.caption || "照片")));
   };
   const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
@@ -2619,35 +2660,58 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
   // （.claude/rules/mobile-ui-layout.md §2）
   const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
-  if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", closePhoto), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
-    h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
-    h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
-    h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。")),
-    // ── 画出来（v59.59）──────────────────────────────────────────────────
-    // 她 2026-09-01：「相册放进我的收藏后可以给他一个按钮生成真图吧，
-    // 就按图上的 prompt 生成」。
-    // ⚠️只给【已经收着的】那几张：收藏是她自己挑的，刷新不会冲掉，
-    //   画出来的图才有地方留着；随手给二十五张都配个按钮等于劝人烧额度。
-    // ⚠️走 buildScenePrompt（空景那条路），不走 buildPhotoPrompt——
-    //   后者是【画一个人】的说明书（身份锁、骨架、手指、参考照），
-    //   外挂一句「不要有人」压不住它（v59.16 那次的教训）。
-    //   相册里绝大多数是景和物（窗外那场雨、桌上那根发绳），空景那条路才对得上。
-    isSaved(photo) && onDrawPhoto ? h("button", {
-      onClick: () => drawPhoto(photo),
-      disabled: !!drawing,
-      className: "w-full active:opacity-60 disabled:opacity-45",
-      style: { marginTop: 12, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
-    }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
-      : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
-    onPeek ? (function () {
-      // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
-      const hid = photo.category === "private" || photo.category === "deleted";
-      return h("button", {
-        onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·删了又没真删的" : photo.category === "private" ? "相册·锁起来的" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
-        className: "w-full active:opacity-60",
-        style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (hid ? "rgba(200,80,70,.45)" : "#d9d9de"), color: hid ? "#b6473c" : "#333" }
-      }, hid ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机"));
-    })() : null));
+  // ── 一张照片（v62.60 重做）─────────────────────────────────────────
+  // 审美审计 2026-09-04 把这一页判成【基础款】：白底 + 圆角 20 的缩略图 +
+  // 一块 #f2f2f7 圆角 17 的灰卡——换成任何一个 app 的详情页都成立。
+  // 这个 app 仿的是本尊（iOS 相册），而本尊点开一张照片是【黑底、照片满幅】：
+  // 白底加圆角缩略图恰恰是本尊【不会】做的事。所以这里往本尊靠，不是往通用卡靠。
+  if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#000" } },
+    // 顶栏也跟着进黑：白底顶栏压在满幅照片上是两套皮
+    h("div", { className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56 } },
+      h("button", { onClick: closePhoto, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -6 } }, h(IArrow, { size: 19, color: "#fff" })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#fff" } }, "照片"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 2 } }, photo.date || photo.time || "日期未记")),
+      // ⚠️收藏键必须还在。本尊把它放在工具栏里，所以这里也进顶栏右位——
+      // 改版时它差点被我连着那张灰卡一起删掉（测试拦住了）。
+      h("button", { onClick: () => toggle(photo), "aria-label": "收藏", className: "active:scale-90 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -6 } },
+        h(IHeart, { size: 21, color: isSaved(photo) ? "#ff375f" : "rgba(255,255,255,.65)", filled: isSaved(photo) }))),
+    h("div", { className: "flex-1 overflow-y-auto" },
+      // 满幅、不切角、不投影——本尊就是把照片摊在黑底上
+      h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", overflow: "hidden" } }, art(photo, 0, true)),
+      h("div", { style: { padding: "20px 20px 30px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff" } }, photo.caption || "照片"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。"),
+        // 他的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
+        h("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.14)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.42)", marginBottom: 9 } }, char.name + " 对这张照片的想法"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "rgba(255,255,255,.9)", whiteSpace: "pre-wrap" } }, photo.thought || T("他没多说什么。"))),
+        // ── 画出来（v59.59）──────────────────────────────────────────────────
+        // 她 2026-09-01：「相册放进我的收藏后可以给他一个按钮生成真图吧，
+        // 就按图上的 prompt 生成」。
+        // ⚠️只给【已经收着的】那几张：收藏是她自己挑的，刷新不会冲掉，
+        //   画出来的图才有地方留着；随手给二十五张都配个按钮等于劝人烧额度。
+        // ⚠️走 buildScenePrompt（空景那条路），不走 buildPhotoPrompt——
+        //   后者是【画一个人】的说明书（身份锁、骨架、手指、参考照），
+        //   外挂一句「不要有人」压不住它（v59.16 那次的教训）。
+        //   相册里绝大多数是景和物（窗外那场雨、桌上那根发绳），空景那条路才对得上。
+        isSaved(photo) && onDrawPhoto ? h("button", {
+          onClick: () => drawPhoto(photo),
+          disabled: !!drawing,
+          className: "w-full active:opacity-60 disabled:opacity-45",
+          style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
+        }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
+          : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
+        onPeek ? (function () {
+          // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
+          const hid = photo.category === "private" || photo.category === "deleted";
+          return h("button", {
+            onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·删了又没真删的" : photo.category === "private" ? "相册·锁起来的" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
+            className: "w-full active:opacity-60",
+            style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (hid ? "rgba(224,115,107,.55)" : "rgba(255,255,255,.22)"), color: hid ? "#e0736b" : "rgba(255,255,255,.82)" }
+          }, hid ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机"));
+        })() : null)));
+
   if (opened) {
     const meta = albums.find(a => a.key === opened);
     const list = items.filter(p => p.category === opened);
@@ -4177,13 +4241,20 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           className: "w-full active:opacity-60",
           style: { marginTop: 20, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (open._draft ? "rgba(200,80,70,.45)" : "#e6e6ea"), color: open._draft ? "#b6473c" : "#55555c" }
         }, open._draft ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
-  const followPage = h("div", { style: { padding: "4px 0" } },
-    follows.length ? follows.map((f, i) => h("div", { key: i, className: "flex items-center gap-3", style: { background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 10 } },
-      h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
-      h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK } }, f.name || ""),
-        f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: PLAZA_DIM, marginTop: 4 } }, f.desc) : null)))
-      : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, T("他谁也没关注")));
+  // ── 关注（v62.60 重做）─────────────────────────────────────────────
+  // 审美审计 2026-09-04 判成【基础款】：一排白色圆角 14 的卡，卡里头像 + 名字 + 一句简介。
+  // 那是通用的联系人列表，搬到哪儿都成立。本尊的关注页不长这样：
+  // 一整块白纸上一行一个人，行与行只隔一道发丝线，右边永远挂着一枚【已关注】的描边胶囊
+  // ——那枚胶囊就是「这是关注列表」而不是「这是通讯录」的全部区别。
+  const followPage = follows.length
+    ? h("div", { style: { background: "#fff", borderRadius: 12, overflow: "hidden", margin: "4px 0" } },
+        follows.map((f, i) => h("div", { key: i, className: "flex items-center", style: { gap: 12, padding: "13px 14px", borderTop: i ? "1px solid #f0f0f2" : "none" } },
+          h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.name || ""),
+            f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: PLAZA_DIM, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.desc) : null),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: PLAZA_DIM, border: "1px solid #dcdce0", borderRadius: 999, padding: "5px 13px" } }, "已关注"))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, T("他谁也没关注"));
   // ── 「我的」：照小红书个人页（她 2026-08-29 给了参考稿）──
   // 大背景 + 头像 + 小红书号 + 三个数字 + 简介 + 药丸标签，
   // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是他写了却没发的。

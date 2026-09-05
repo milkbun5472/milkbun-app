@@ -45,7 +45,9 @@ test("相册底栏沿用聊天输入栏的四成安全区，不再垫高一截",
 test("照片详情返回恢复进入前的滚动位置", () => {
   assert.match(phone, /returnScroll\.current = \{ top: scrollRef\.current \? scrollRef\.current\.scrollTop : 0/);
   assert.match(phone, /scrollRef\.current\.scrollTop = top/);
-  assert.match(phone, /chrome\("照片", photo\.date \|\| photo\.time \|\| "日期未记", closePhoto\)/);
+  // v62.60 详情往本尊靠（黑底满幅），顶栏改成这一页自己的一条，不再借 chrome()。
+  // 但「返回要回到进入前那个位置」这件事没变，判词跟着换到新的返回键上。
+  assert.match(phone, /onClick: closePhoto, "aria-label": "返回"/);
 });
 
 test("照片详情含日期、画面介绍、单独想法框和收藏按钮", () => {
@@ -54,6 +56,10 @@ test("照片详情含日期、画面介绍、单独想法框和收藏按钮", ()
   assert.match(phone, /对这张照片的想法/);
   assert.match(phone, /photo\.thought/);
   assert.match(phone, /onClick: \(\) => toggle\(photo\)/);
+  // v62.60 起满幅照片压在黑底上（本尊就是这样），收藏键进顶栏右位。
+  // 白底 + 圆角 20 缩略图 + #f2f2f7 圆角灰卡是通用详情页，换个 app 照样成立。
+  assert.match(phone, /aspectRatio: "1 \/ 1\.12", overflow: "hidden" \} \}, art\(photo, 0, true\)\)/);
+  assert.doesNotMatch(phone, /borderRadius: 17, background: "#f2f2f7"/);
 });
 
 test("收藏独立持久化且缩略图零 API 程序化渲染", () => {
