@@ -84,25 +84,41 @@
   // 压条：整只夹子的脸面。标题和「还剩几条没看」都写在这一条上——
   // ⚠️v63.08 之前它们写在夹板上，而夹板是半透明的：铺了照片壁纸就整个消失
   //（她 2026-09-05 截图：只剩三张白纸飘在树林上）。字要待在自己有底的东西上。
-  function clampBar(t, ink, onWall, title, unread) {
-    // ⚠️压条是【墨色】的，所以上面的字一律用 t.bg，绝不写死 #fff——
-    //   深色主题里 ink 是浅的，白字压上去就是白底白字（tabs-not-plain-pills 那条踩过）。
-    var fg = t.bg || "#fff";
+  // 压在强调色上的那几个字该是浅的还是深的，按【那个颜色本身有多亮】算。
+  // ⚠️不许写死：写死 #fff 遇上浅色强调就白底白字，写死 t.bg2 遇上深色强调就黑底黑字。
+  //   认不出来的颜色（渐变、rgba）一律当深色处理——退回白字最不容易出事。
+  function inkOn(c) {
+    var m = /^#([0-9a-fA-F]{6})$/.exec(String(c || ""));
+    if (!m) return "#fff";
+    var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#241f1b" : "#fff";
+  }
+  function clampBar(t, ink, onWall, title, unread, accent) {
+    // ⚠️v63.70：这一条原来是【整块墨色】，压在她那张暖色壁纸上就是一道黑框
+    //   （她 2026-09-05：「这个黑框能不能改改，不是很百搭」）。
+    //   黑是当初为了「字要待在自己有底的东西上」加的；可 v63.08 之后夹板本身
+    //   已经是不透明的纸色了——字早就有底，那块黑是多余的一层。
+    //   现在压条走【主题自己的颜色】：亮主题是浅的、深主题是深的，字一律 t.ink，
+    //   跟哪张壁纸都不打架。它还是一只夹子，靠的是【形状】——
+    //   上圆下方、底下一道墨色的唇线、两颗铆钉、以及压条底下那道影。
+    var fg = t.ink || "#3a3430";
     return h("div", {
       className: "shrink-0 flex items-center",
       style: {
-        height: 30, borderRadius: "13px 13px 4px 4px", padding: "0 10px", gap: 6,
-        background: "linear-gradient(180deg," + skinAlpha(ink, "ff") + " 0%," + skinAlpha(ink, "e0") + " 62%," + skinAlpha(ink, "f2") + " 100%)",
-        boxShadow: "inset 0 1px 0 " + skinAlpha(fg, "30") + ", 0 2px 6px rgba(30,26,22,.28)"
+        height: 28, borderRadius: "13px 13px 3px 3px", padding: "0 10px", gap: 6,
+        background: "linear-gradient(180deg," + skinAlpha(ink, "0f") + " 0%," + skinAlpha(ink, "06") + " 55%," + skinAlpha(ink, "14") + " 100%)",
+        borderBottom: "1px solid " + skinAlpha(ink, "2a"),
+        boxShadow: "inset 0 1px 0 " + skinAlpha(t.bg2 || "#fff", "aa")
       }
     },
-      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(fg, "88"), flexShrink: 0 } }),
+      // 铆钉：一点点金属色（比墨浅、比纸深），不抢字
+      h("span", { style: { width: 4.5, height: 4.5, borderRadius: 999, background: skinAlpha(ink, "55"), flexShrink: 0 } }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: fg, letterSpacing: ".06em", whiteSpace: "nowrap" } }, title),
       h("span", { style: { flex: 1 } }),
       unread ? h("span", {
-        style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "#b8483c", borderRadius: 999, padding: "1.5px 7px", whiteSpace: "nowrap" }
+        style: { fontFamily: F_BODY, fontSize: 10, color: inkOn(accent), background: accent, borderRadius: 999, padding: "1.5px 7px", whiteSpace: "nowrap" }
       }, unread + " 条没看") : null,
-      h("span", { style: { width: 5, height: 5, borderRadius: 999, background: skinAlpha(fg, "88"), flexShrink: 0, marginLeft: 6 } }));
+      h("span", { style: { width: 4.5, height: 4.5, borderRadius: 999, background: skinAlpha(ink, "55"), flexShrink: 0, marginLeft: 6 } }));
   }
 
   function RecentWidget(props) {
@@ -113,6 +129,8 @@
     const paper = t.bg2 || t.bg;
     const totalUn = rows.reduce(function (a, r) { return a + (r.unread || 0); }, 0);
     const onWall = typeof useOnWallpaper === "function" ? useOnWallpaper() : false;
+    // 那一抹红跟着主题的强调色走（她换主题时它也跟着换）；主题没给就退回朱砂
+    const accent = t.accent || "#b04a3f";
 
     const slip = function (r, i) {
       const s = seedOf(r.id);
@@ -128,7 +146,7 @@
           // 夹上的全是没看的（v63.68 起），所以「看过的那一档」的浅样式整个删掉，
           // 不留在原地写一句「这一支用不到」
           border: "1px solid " + skinAlpha(ink, "2e"),
-          borderLeft: "3px solid #b04a3f",
+          borderLeft: "3px solid " + accent,
           borderRadius: 4,
           padding: "6px 9px 7px",
           marginTop: i === 0 ? 0 : -3,               // 一张压着一张，像插在夹子里
@@ -152,7 +170,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginRight: 4, whiteSpace: "nowrap" } }, whenLabel(r.ts, props.now)),
           h("span", {
             style: {
-              fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "#b04a3f",
+              fontFamily: F_BODY, fontSize: 9.5, color: inkOn(accent), background: accent,
               borderRadius: 999, padding: "1px 5px", lineHeight: 1.35
             }
           }, un > 99 ? "99+" : un)),
@@ -176,7 +194,7 @@
         boxShadow: onWall ? "0 10px 26px rgba(30,26,22,.28)" : "0 6px 16px rgba(30,26,22,.12)"
       }
     },
-      clampBar(t, ink, onWall, "捎来的字条", totalUn),
+      clampBar(t, ink, onWall, "捎来的字条", totalUn, accent),
       // 压条底下压着一道影：纸是【插进夹子里】的，不是摆在下面的
       h("div", { className: "shrink-0", style: { height: 5, marginBottom: -5, background: "linear-gradient(180deg," + skinAlpha(ink, "24") + ",transparent)", position: "relative", zIndex: 50 } }),
       h("div", {

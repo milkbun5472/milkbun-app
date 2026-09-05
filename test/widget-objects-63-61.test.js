@@ -25,9 +25,39 @@ test("标题和未读挪到压条上——字要待在自己有底的东西上",
   const bar = rw.slice(rw.indexOf("function clampBar("), rw.indexOf("function RecentWidget("));
   assert.match(bar, /title/, "标题没写在压条上");
   assert.match(bar, /unread \+ " 条没看"/, "未读数没写在压条上");
-  // 压条是墨色的，字一律 t.bg——深色主题里 ink 是浅的，写死 #fff 就是白底白字
-  assert.match(bar, /var fg = t\.bg \|\| "#fff";/);
   assert.doesNotMatch(bar, /color: "rgba\(255,255,255/, "压条上的字写死了白色，深色主题会看不见");
+});
+
+// v63.70（她 2026-09-05：「这个黑框能不能改改，不是很百搭」）
+//
+// 压条原来是【整块墨色】——压在她那张暖色壁纸上就是一道黑框。
+// 那块黑是 v63.08 为了「字要待在自己有底的东西上」加的；可夹板从那时起
+// 就已经是不透明的纸色了，字早就有底，那一层黑是多余的。
+// 判据：**它是不是一只夹子，该由【形状】说了算，不是靠涂一块深色。**
+test("压条走主题自己的颜色，不再是一块压在壁纸上的黑", () => {
+  const bar = rw.slice(rw.indexOf("function clampBar("), rw.indexOf("function RecentWidget("));
+  assert.doesNotMatch(bar, /skinAlpha\(ink, "ff"\)/, "又涂回整块墨色了");
+  assert.match(bar, /var fg = t\.ink \|\| "#3a3430";/, "字不是墨色——浅底上得用墨字");
+  assert.match(bar, /skinAlpha\(ink, "0f"\)/, "压条不再跟着主题的深浅走");
+  // 夹子的身份靠形状：上圆下方 + 底下那道唇线 + 两颗铆钉
+  assert.match(bar, /borderRadius: "13px 13px 3px 3px"/);
+  assert.match(bar, /borderBottom: "1px solid " \+ skinAlpha\(ink, "2a"\)/, "唇线没了，它就只是一条色带");
+  assert.equal((bar.match(/width: 4\.5, height: 4\.5, borderRadius: 999/g) || []).length, 2, "铆钉不是两颗");
+});
+
+test("那一抹红跟着主题的强调色走，压在上面的字按亮度自己选深浅", () => {
+  const w = rw.slice(rw.indexOf("function RecentWidget("), rw.indexOf("// ── 聊天框顶上那个返回键"));
+  assert.match(w, /const accent = t\.accent \|\| "#b04a3f";/);
+  assert.match(w, /borderLeft: "3px solid " \+ accent/, "字条左边那道还是写死的红");
+  assert.match(w, /background: accent,/);
+  // ⚠️写死 #fff 遇上浅色强调就白底白字，写死 t.bg2 遇上深色强调就黑底黑字
+  const io = rw.slice(rw.indexOf("function inkOn(c)"), rw.indexOf("function clampBar("));
+  assert.match(io, /> 150 \? "#241f1b" : "#fff"/);
+  const f = new Function(io + "\nreturn inkOn;")();
+  assert.equal(f("#b04a3f"), "#fff", "深红上该用白字");
+  assert.equal(f("#f2d7a0"), "#241f1b", "浅黄上该用墨字");
+  assert.equal(f("linear-gradient(x)"), "#fff", "认不出来的颜色该退回白字");
+  assert.equal(f(undefined), "#fff");
 });
 
 test("转盘是一个圆，不是一张饼图——而且大小跟着格子走", () => {

@@ -70,7 +70,8 @@ test("两种空态说的不是同一件事", () => {
 test("「看过的那一档」的样式删干净了，没留在原地", () => {
   const w = src.slice(src.indexOf("const slip = function"), src.indexOf("    return h(\"div\", {\n      className: \"w-full h-full flex flex-col\""));
   assert.doesNotMatch(w, /un \? /, "还留着「看过的怎么摆」那些分支");
-  assert.match(w, /borderLeft: "3px solid #b04a3f"/);
+  // v63.70 起那道红跟着主题的强调色走（她换主题时它也跟着换）
+  assert.match(w, /borderLeft: "3px solid " \+ accent/);
   // 时刻和条数都要：只剩条数的话，「这是刚来的还是昨天的」就看不出来了
   assert.match(w, /whenLabel\(r\.ts, props\.now\)/, "时刻没了");
   assert.match(w, /un > 99 \? "99\+" : un/, "条数没了");
