@@ -5083,6 +5083,10 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const idx = nowQueue.findIndex(s => s.id === nowId);
   const nowCover = (now && now.cover) || null;
   const discImg = data.disc || null;
+  // ⚠️封面来源必须在这儿就算好（v62.95 修白屏）：播放页那块「换封面/加封面」是 `const playTab = h(...)`，
+  //   声明处就求值；v62.94 我把 coverSrc 写在页尾那段底里，前面一引用就是 TDZ，一进页面就崩。
+  //   nav 还没声明（在下面几行），所以这儿不看 nav——底那层自己按 nav 决定挂不挂。
+  const coverSrc = now ? (nowCover || discImg || "") : "";
   const playing = !!(player && player.playing);
   const dur = (player && player.dur) || 0, cur = (player && player.t) || 0;
   const frac = dur ? cur / dur : 0;
@@ -5831,7 +5835,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   //   到 250px 满、400px 淡完——标题落在 368px 上下，那儿封面只剩两成，深色封面上墨字也读得清。
   //   歌词页封面压到两成，字才读得清。
   //   mask 不碰主题色，所以不用 hex6 验——这层永远不会静默消失。
-  const coverSrc = (nav === "play" && now) ? (nowCover || discImg || "") : "";
   const coverFade = "linear-gradient(to bottom, rgba(0,0,0,.3) 0px, rgba(0,0,0,1) 110px, rgba(0,0,0,1) 250px, rgba(0,0,0,0) 400px)";
   const coverField = (nav === "play" && now) ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 440, zIndex: -1, pointerEvents: "none", overflow: "hidden", WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric ? .22 : 1, transition: "opacity .25s" } },
     coverSrc ? h("img", { src: coverSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })

@@ -26,7 +26,9 @@ test("封面就是这一页：挂在外壳上、顶栏透上来、往下淡进�
   assert.match(CRATE, /style: crate \},\s*coverField,/, "封面没挂在最外面那个外壳上");
   assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏没让封面透上来");
   assert.match(LT, /const crate = \{ background: t\.bg, isolation: "isolate" \};/, "外壳不是干净的底，或没建 stacking context（封面 zIndex:-1 会掉到外壳底色后面）");
-  assert.match(LT, /const coverSrc = \(nav === "play" && now\) \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
+  assert.match(LT, /const coverSrc = now \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
+  // v62.95 白屏：coverSrc 必须声明在 playTab 之前——playTab 是声明处就求值的 const，引用后面的 const 就是 TDZ
+  assert.ok(LT.indexOf("const coverSrc = ") < LT.indexOf("const playTab = "), "coverSrc 又跑到 playTab 后面去了，一进页面就 TDZ 白屏");
   assert.match(LT, /WebkitMaskImage: coverFade, maskImage: coverFade, opacity: showLyric \? \.22 : 1/, "封面没往下淡出，或歌词页没压暗");
   assert.match(LT, /rgba\(0,0,0,\.3\) 0px, rgba\(0,0,0,1\) 110px, rgba\(0,0,0,1\) 250px, rgba\(0,0,0,0\) 400px/, "淡出的位置变了：顶栏底下要能读字、标题要坐在纯底上");
   // 内容在动，封面不该跟着动
