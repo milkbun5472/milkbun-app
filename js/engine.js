@@ -602,6 +602,13 @@ async function callAI(p, system, messages, opts) {
   const _putMeta = (reasoning, from) => {
     if (!_meta) return;
     _meta.model = model; _meta.ms = Date.now() - _t0;
+    // ⚠️没要就不许记（她 2026-09-05：「有一个开启看模型思考链的开关，但我不开也还是
+    //   能显示出来」）。病根：思考型模型【不管你问不问都会把思考发回来】——
+    //   DeepSeek 的 reasoning_content、OpenRouter 的 reasoning、Gemini 的 thought part
+    //   都是自己冒出来的。原来这儿见到就往 meta 里塞，上面那个开关只管【要不要请求】，
+    //   管不到【收到了要不要留】，于是关着也照样显示。
+    //   收在这一处：五条调用链（单聊/线下/群聊/群线下/言秋）一起干净。
+    if (!(opts && opts.wantReasoning)) return;
     const r = String(reasoning == null ? "" : reasoning).trim();
     if (r) { _meta.reasoning = r; _meta.from = from || ""; }
   };

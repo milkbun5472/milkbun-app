@@ -6480,7 +6480,7 @@ function ChatThread({
       borderRadius: 10, padding: pad || "3px 10px"
     } : {};
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
-    if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m });
+    if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m, off: dsp.reason === false });
     if (m.recalled) return /*#__PURE__*/React.createElement("div", {
       key: i,
       className: "text-center py-1.5"
@@ -8528,7 +8528,10 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
 //   ② 中转有没有偷偷换便宜模型——会不会返回思考链本身就是一条线索。
 // 默认收起，点箭头展开。这是【模型】在想「我该怎么回」，和角色的「心声」不是一回事，
 // 所以样式上刻意做得像调试面板，不像剧情。
-function ReasoningBlock({ m }) {
+// off=true：她把「显示模型思考链」关了。⚠️关掉是【立刻不显示】，包括早先存下来的那些——
+// 不然改完她还是看得见，跟没修一样（她 2026-09-05 报的就是「关了也还显示」）。
+// 联网那一行不归这个开关管：它是「他去查了什么」，不是思考链。
+function ReasoningBlock({ m, off }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const [zh, setZh] = useState("");
@@ -8565,7 +8568,7 @@ function ReasoningBlock({ m }) {
     h("span", { className: "shrink-0", style: { fontSize: 10.5, opacity: 0.75 } }, "🔎"),
     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, minWidth: 0 } },
       bits.join(" · "))) : null;
-  if (!m.reasoning) return webLine ? h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine) : null;
+  if (!m.reasoning || off) return webLine ? h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine) : null;
   return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine,
     h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60",
       style: { textAlign: "left", width: "100%", padding: "1px 0", overflow: "hidden" } },
@@ -9879,6 +9882,7 @@ function OfflineMode({
   schedNow,
   onOpenSched,
   onOpenStyleLab
+  , showReason
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
@@ -10264,7 +10268,7 @@ function OfflineMode({
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, String(s.summary || (s.msgs && s.msgs.length ? s.msgs.length + " 段" : "")).replace(/\s+/g, " ").slice(0, 60) || "点开回看"))))),
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
@@ -10483,7 +10487,7 @@ function offCardSkin(t, accent) {
     padding: "14px 16px"
   };
 }
-function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState }) {
+function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const tp = useTtsPlayer(); // 整段 beat 朗读（懒合成，最多 800 字）
@@ -10542,7 +10546,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
   return h("div", { className: "my-2.5" },
     // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。
     // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
-    (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m }) : null,
+    (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
     h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
@@ -10590,6 +10594,7 @@ function GroupOfflineMode({
   onSaveSettings,
   onOpenMemberState,
   onOpenStyleLab
+  , showReason
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传就退回线上群（兜底）
@@ -10921,7 +10926,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
@@ -11014,6 +11019,7 @@ function GroupThread({
   archCount,
   onLoadOlder,
   toast
+  , showReason
 }) {
   const t = useTheme();
   const gsp = settings || {};
@@ -11551,7 +11557,7 @@ function GroupThread({
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
     const _m = messages[i];
-    return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m }), row] : [row];
+    return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
   }), sending && h("div", {
     "data-wk": "row",
     className: "flex items-center gap-2"

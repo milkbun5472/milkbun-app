@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.86";
+const APP_VERSION = "v63.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16985,7 +16985,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea),
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept),
     profile: profile,
-    disp: { myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
+    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
@@ -17064,6 +17064,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
     }
   });else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
+    showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,
     groups: groups,
     characters: liveChars,
@@ -18317,6 +18319,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenMask: genAnonMe,
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
+    showReason: !!settingsFor(offlineChar.id).showReasoning,
     char: offlineChar,
     room: activeOfflineRoom,
     profile: profile,
@@ -18351,6 +18354,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onOpenStyleLab: goStyleLab,
     onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
   }), offlineGroup && h(GroupOfflineMode, {
+    showReason: (offlineGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: offlineGroup,
     profile: profile,
     members: (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean),

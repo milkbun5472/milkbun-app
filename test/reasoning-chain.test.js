@@ -65,7 +65,7 @@ test("一轮只挂一份，画在这组回复上方", () => {
   const seg = app.slice(app.indexOf("let _reasonLeft"), app.indexOf("if (words.length && window.Notify)"));
   assert.match(seg, /const _takeReason = \(\) => \{ const r = _reasonLeft; _reasonLeft = null; return r \|\| \{\}; \}/, "取一次就消费掉");
   assert.match(seg, /\.\.\._takeReason\(\)/);
-  assert.match(comp, /if \(part === -1\) return h\(ReasoningBlock, \{ key: "rz" \+ i, m: m \}\);/, "用伪条目插在前面，别去动那条几十个分支的 if 链");
+  assert.match(comp, /if \(part === -1\) return h\(ReasoningBlock, \{ key: "rz" \+ i, m: m, off: dsp\.reason === false \}\);/, "用伪条目插在前面，别去动那条几十个分支的 if 链");
 });
 
 // 她 2026-08-26：「太大块太显眼了，做就一行字和箭头没有框，放第一个气泡上面越近越好」

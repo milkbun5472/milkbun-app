@@ -64,6 +64,6 @@ test("整批只想一次：思考链挂在这一轮最先冒出来的那条上",
 test("三处新界面都用同一个 ReasoningBlock，不另起一套 UI", () => {
   const hits = (comp.match(/h\(ReasoningBlock, \{/g) || []).length;
   assert.equal(hits, 3, "单聊 + 线下卡片 + 群聊，现在只有 " + hits + " 处");
-  assert.match(comp, /\(!isUser && m\.reasoning\) \? h\(ReasoningBlock, \{ m: m \}\) : null/, "线下卡片（单人和群线下共用 OffCard）");
-  assert.match(comp, /h\(ReasoningBlock, \{ key: "grz" \+ i, m: _m \}\), row\]/, "群聊线上");
+  assert.match(comp, /\(!isUser && m\.reasoning\) \? h\(ReasoningBlock, \{ m: m, off: showReason === false \}\) : null/, "线下卡片（单人和群线下共用 OffCard）");
+  assert.match(comp, /h\(ReasoningBlock, \{ key: "grz" \+ i, m: _m, off: showReason === false \}\), row\]/, "群聊线上");
 });
