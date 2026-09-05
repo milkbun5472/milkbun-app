@@ -17,6 +17,11 @@
 // 空周：素材不足不报错，每种腔按自己方式把「缺席」变成一条报道。
 // ============================================================
 (function () {
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   周刊尤其要给：它把这一周重新叙事化，而「硬派」「深夜」这些腔调的训练先验里
+  //   第一件道具就是烟——不明说不许，它自己就会点上。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   const useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
 
   // ---- 刷新闸门常量（一行可改）---------------------------------------
@@ -160,7 +165,7 @@
         "声纹：\n① 第一人称、短句、硬派：时间地点先行，情绪压在陈述底下。\n" +
         "② 把每件小事都当线索处理：「值得注意的是」「这不合逻辑」「我记下了时间」。\n" +
         "③ 结尾常有一句自嘲或不了了之的判断，不给答案。\n" +
-        "④ 允许描写雨、烟、廉价咖啡这类硬派意象，但每篇至多一处，不许堆。\n" +
+        "④ 允许描写雨、霓虹、廉价咖啡这类硬派意象，但每篇至多一处，不许堆。⚠️硬派不靠烟：这个世界里没人抽烟，别拿烟当氛围。\n" +
         "禁止：① 不出现真凶／案件之类真犯罪情节，跟踪的只是这几个人的日常。② 不煽情。③ 不用网络梗。",
       absent: "本周目标毫无动静。我在车里坐了七个晚上，什么也没发生"
     },
@@ -600,7 +605,7 @@
     const persona = (char.persona || "（暂无设定，据名字合理发挥其性格）").trim();
     const materialCount = String(material || "").split("\n").filter(function (x) { return x.trim(); }).length;
     const sys =
-      ANTI_CLICHE +
+      ANTI_CLICHE + "\n\n" + CB() +
       "\n\n" + CHARCARD_RULE +
       "\n\n【叙述者人格 · 记者（NPC，非角色卡）】" + REPORTER_VOICE +
       "\n\n【被采访角色 · 严格贴合这份角色卡声纹】「" + char.name + "」：\n" + persona +
@@ -661,7 +666,7 @@
       "凌晨 0-5 点的消息：" + stats.night + " 条；最热闹的时段是 " + stats.peakHour + " 点",
       stats.longest ? "最长的一条来自 " + stats.longest.who + "，" + stats.longest.len + " 字" : ""
     ].filter(Boolean);
-    const sys = ANTI_CLICHE +
+    const sys = ANTI_CLICHE + "\n\n" + CB() +
       "\n\n你是这份周刊的资料室编辑，负责两块小版面。" +
       "\n\n【一、本周语录】从下面的真实记录里挑 4~6 句【原样摘录】的话，要挑最有性格、最像本人、或者放在一周之后回看最有意思的。" +
       "\n· quote 必须【逐字照抄】记录里的原句，一个字都不许改写、缩写或润色；不要挑旁白，只挑人说的话。" +
@@ -707,7 +712,7 @@
   // 同一件事在不同人嘴里长得不一样，这才是真正的多视角。
   async function genLetters(active, personasBlock, globalText, uName, empty, letterAuthors) {
     const letterNames = (letterAuthors || []).map(function (c) { return c.name; }).filter(Boolean);
-    const sys = ANTI_CLICHE + "\n\n" + CHARCARD_RULE +
+    const sys = ANTI_CLICHE + "\n\n" + CB() + CHARCARD_RULE +
       "\n\n你是周刊「读者来信」版的编辑。本周有几位读者写信来谈论刊登过的事——他们本人就是当事人或旁观者。" +
       "\n\n【写信人声纹（严格贴合，各写各的）】\n" + personasBlock +
       "\n\n【本周真实发生的事（只能就这里的事写，不许编新情节）】\n" + String(globalText || "").slice(-5000) +
@@ -744,7 +749,7 @@
     const free = (o.blocks || []).filter(function (b) { return (o.usedBlocks || []).indexOf(b.id) < 0; });
     if (free.length) material = blocksToText(free, 8000);
     const sys =
-      ANTI_CLICHE +
+      ANTI_CLICHE + "\n\n" + CB() +
       "\n\n【媒体腔 · " + voice.name + "（本版块叙述者的世界观与声纹，是最高创作框架，全程严格遵守）】\n" + voice.world +
       "\n\n" + CHARCARD_RULE +
       "\n【本周出场人物（当你在报道里引用他们说话或反应时，必须守住各自这份声纹，别被媒体腔同化成同一个调子）】\n" + personasBlock + NAME_GUARD +
@@ -790,7 +795,7 @@
       return "【" + v.id + "｜" + v.name + "】\n" + v.world + (empty ? "\n空周写法：" + v.absent : "");
     }).join("\n\n");
     const useBlocks = (blocks || []).length >= 2;
-    const sys = ANTI_CLICHE + "\n\n你是周刊里几个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
+    const sys = ANTI_CLICHE + "\n\n" + CB() + "你是周刊里几个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
       "\n\n" + CHARCARD_RULE + "\n【本周出场人物】\n" + personasBlock + NAME_GUARD +
       "\n\n【本周 RP 聊天记录" + (useBlocks ? "（已切成带编号的素材块）" : "") + "】\n" + (empty ? "（本周素材几乎为空。）" : material) +
       (useBlocks ? "\n\n【本期选材顺序 · 先挑先得】\n" +
@@ -878,7 +883,7 @@
   const HEADLINE_VOICE = "你是这期周刊的主编，正在写整本刊物的封面头版——最抓眼球、最勾人往里翻的一版。语气像八卦杂志封面，会吊胃口、留悬念，但不低俗。";
   async function genCover(active, personasBlock, material, empty) {
     const sys =
-      ANTI_CLICHE +
+      ANTI_CLICHE + "\n\n" + CB() +
       "\n\n【身份 · 周刊主编（NPC 叙述者，非角色卡）】" + HEADLINE_VOICE +
       "\n\n" + CHARCARD_RULE +
       "\n【本周出场人物（在头版里引用他们说话或反应时，守住各自这份声纹）】\n" + personasBlock + NAME_GUARD +

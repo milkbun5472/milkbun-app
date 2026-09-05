@@ -6,6 +6,12 @@
 //   角色卡 + 世界书 + 本 slot 的 progress + curriculum 切片 + transcript 尾巴
 // ============================================================
 (function () {
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   // ---- 内置 prompt 块 -------------------------------------------------
   const USER_SLOT_PROTECT =
     "【用户槽位保护（最高优先级）】\n" +
@@ -294,6 +300,7 @@
     const cur = session.curriculum_id ? findCurriculum(session.curriculum_id) : null;
     const parts = [];
     parts.push(ANTI_CLICHE);
+    if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
     if (worldbook && worldbook.trim()) parts.push(WORLDBOOK_RULE);
     parts.push(CHARCARD_RULE);
     parts.push(USER_SLOT_PROTECT);

@@ -11,6 +11,13 @@
 (function () {
   const ACCENT = "#7a6a9a";   // 备忘录主色（柔紫）
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
 
   // ---- 数据存取 ----
@@ -187,7 +194,7 @@
     const evIntro = opts && opts.event
       ? "下面这条是 " + uName + " 备忘录里的提醒，Ta 刚把它标为完成——" + opts.event.desc + "。下面每位角色恰好【自己注意到】了这事。请【分别以每位角色本人的口吻】，各说一句 Ta 主动开口的第一反应：夸一句、松口气、打趣 Ta 拖延、心疼 Ta 辛苦都行，按各自人设来。\n"
       : "下面是 " + uName + " 在自己备忘录里记下的一条东西。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 记的这条时会真实说出口的话。\n";
-    const sys = AC() + NAC() +
+    const sys = AC() + CB() + NAC() +
       evIntro +
       "【硬性要求】\n" +
       "· 真的进入角色、说出有内容有态度的一句，结合人设＋此刻心情＋这条的内容。严禁敷衍成『看了一眼没说什么』『随你』这类空话。\n" +

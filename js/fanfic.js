@@ -1010,7 +1010,7 @@
     //   于是「六处都接上了」每次都是真的，穿书每次都漏。跟 v60.27 通话那次一模一样的形状。
     //   narrativeCore 白得了去人机味／角色卡准则／叙事反陈词滥调／亲密反模板／语气年龄锚，
     //   剩下这几条是【别处一条条 push 进去的】，谁都没想着给这儿：
-    if (typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+    // 内容边界（含禁烟）现在由 narrativeCore 白送，这儿不再重复 push。
     if (typeof CONDESCENDING_TONE_BAN !== "undefined") parts.push(CONDESCENDING_TONE_BAN);
     if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") parts.push(REGISTER_FOLLOWS_SCENE);
     if (typeof STOCK_REPLY_BAN !== "undefined") parts.push(STOCK_REPLY_BAN);

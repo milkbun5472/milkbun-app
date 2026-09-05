@@ -45,9 +45,12 @@
   // 反八股那一整套（去人机味／角色卡准则／线下叙事准则／叙事反陈词滥调／语气年龄锚）。
   // v61.48 之前这儿只有 AC+NAC 两条——梦是连续叙事正文，该吃的是 narrativeCore 那一份，
   // 跟穿书、小剧场同一套（.claude/rules/four-surfaces-same-context.md）。
-  const CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : AC() + NAC())
-    + (typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN + "\n\n" : "")
-    + (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // ⚠️禁烟这一层：narrativeCore 里已经带了（v63.100 挪进去的），所以这儿不再单push一遍。
+  //   但 narrativeCore 不在的那条兜底路（AC()+NAC()）拿不到，得自己补上——
+  //   兜底路少一层规矩，就是「换个入口就什么都没有」那个形状。
+  const CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n"
+    : AC() + NAC() + (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : ""))
+    + (typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN + "\n\n" : "");
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   function loadSaves() { return loadJSON("x_dream_saves", []); }

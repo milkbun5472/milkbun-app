@@ -5,6 +5,12 @@
 // 剪影不需要锁脸(看不见五官)，所以完全不碰参考照那套，也就不吃合照那些审核麻烦。
 // ============================================================
 (function () {
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   const useState = React.useState, useEffect = React.useEffect;
   const K = "x_impressions";
   const load = () => { try { return JSON.parse(localStorage.getItem(K) || "{}"); } catch (e) { return {}; } };
@@ -230,7 +236,7 @@
     const others = ((opts && opts.others) || []).filter(x => x && (x.quote || x.title)).slice(0, 8);
     const uName = (profile && profile.name) || "她";
     const lines = ownLines(rows, char.name, turn);
-    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
+    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB()
       + (typeof CHARCARD_RULE !== "undefined" ? CHARCARD_RULE + "\n\n" : "")
       + "你就是「" + char.name + "」本人。现在回望这一个月，写下【" + uName + " 在你眼里是什么样子】。\n"
       + "【你的人设】\n" + String(char.persona || char.name).slice(0, 1600)

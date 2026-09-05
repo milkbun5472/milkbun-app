@@ -2062,6 +2062,12 @@ function narrativeCore(opts) {
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
+  // 禁烟（她 2026-09-05：「这个禁烟好像没带到梦境，还在抽」）。
+  // ⚠️它是【世界事实】，不是聊天礼仪：这个世界里没人抽烟，那在梦里、戏里、文里都得成立。
+  //   原来它只挂在 buildBundle 和 groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   放进 narrativeCore，一切写连续正文的地方（小剧场／跑团／穿书／梦境）一起白得，
+  //   不用一处处记着 push——那正是「一层写在十处，第十处没跟上」的病根。
+  if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
   return parts.join("\n\n");
 }
 

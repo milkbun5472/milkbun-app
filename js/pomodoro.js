@@ -11,6 +11,13 @@
 (function () {
   const ACTIVE_KEY = "x_pomodoro_active";
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+
   const loadSaves = () => loadJSON("x_pomodoro_saves", []);
   const saveSaves = l => saveJSON("x_pomodoro_saves", l);
   const loadActive = () => loadJSON(ACTIVE_KEY, null);
@@ -73,7 +80,7 @@
 
   async function genPack(active, ctx) {
     const { charName, persona, mood, uName, task, min, mode, chatRef, worldbook } = ctx;
-    const sys = AC() +
+    const sys = AC() + CB() +
       "你是「" + charName + "」，正和 " + uName + " 在一张桌子两边专注。Ta 这轮只做：「" + task + "」，时长 " + min + " 分钟；陪伴方式是「" + (modeLabels[mode] || modeLabels.notes) + "」。你不是监督员，也不要把专注写成服从测试。\n" +
       "【你的人设】" + (persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 400) + (mood ? "\n【你此刻心情】" + mood : "") +
       (chatRef ? "\n【最近聊天（只用来还原关系与口吻）】\n" + chatRef : "") +

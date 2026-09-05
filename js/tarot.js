@@ -11,6 +11,13 @@
   const ACCENT = "#4a3f6b";      // 塔罗主色（深紫）
   const GOLD = "#b89150";        // 烫金点缀
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
   // 忠于牌面、别为讨好而美化
   const HONEST = "【忠于牌面】牌是随机抽出的、无法更改。别为了讨好或安慰就把凶牌、逆位往好里圆——该警示就警示、该沉就沉，正位逆位要解出真差别，像一次正经的占卜，不是心灵鸡汤。";
@@ -244,7 +251,7 @@
   // 不把一次犹豫或拒绝写成人格，也不替角色硬答应。
   async function askReadingIntent(active, ctx) {
     const forSelf = ctx.mode === "forchar";
-    const sys = AC() + "你就是「" + ctx.charName + "」本人。" +
+    const sys = AC() + CB() + "你就是「" + ctx.charName + "」本人。" +
       "现在 " + ctx.uName + (forSelf ? "提出替你算一卦。" : "请你自己挑一个此刻真正想拿来问牌的问题。") +
       "按你的人设、此刻心情和最近相处自然反应，不必配合演出。" +
       (forSelf ? "你可以接受、带着一点犹豫接受，或明确拒绝。拒绝时说人话，不要讲规则。犹豫仍代表愿意继续，但问题可以保守些。" : "挑真实、具体、此刻会在意的问题；不要替自己制造重大危机。") +
@@ -300,7 +307,7 @@
       thoughtAsk = "charThought：切换成「" + charName + "」本人的口吻，说一句 Ta 若看到替自己算的这一卦、心里真实的一句反应（第一人称）。";
     }
 
-    const sys = AC() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" + voice + "\n\n" +
+    const sys = AC() + CB() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" + voice + "\n\n" +
       "【角色资料】「" + charName + "」：" + (charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 800) +
       (mood ? "\n\n【Ta 此刻的心情：" + mood + "】顺带透一点即可，别喧宾夺主、牌义才是主角。" : "") +
       (voiceRef ? "\n\n【Ta 近期的语气 / 近况，仅参考】\n" + voiceRef : "") +
@@ -326,7 +333,7 @@
 
   async function readSupplement(active, session, char, uName, pos, card) {
     const ref = cardReference(card);
-    const sys = AC() + HONEST + "\n\n你就是「" + session.charName + "」本人，仍坐在 " + uName + " 对面。" +
+    const sys = AC() + CB() + HONEST + "\n\n你就是「" + session.charName + "」本人，仍坐在 " + uName + " 对面。" +
       "刚才的整副牌已经解完；现在只为【" + pos + "】补了一张牌。用你自己的口吻补充 50~130 字：说明它澄清了什么、推翻了什么或加重了什么。不要重做整副解牌，不要报幕。" +
       "\n【人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 700) +
       "\n【原问题】" + (session.question || "未明说") + "\n【原收束】" + String(session.summary || "").slice(0, 500) +
@@ -340,7 +347,7 @@
   // ============================================================
   async function readDailyForCard(active, card, list, uName, worldbook) {
     const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 260) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.voiceRef ? "\n  近况一瞥：" + it.voiceRef.replace(/\n/g, "；").slice(0, 90) : "")).join("\n\n");
-    const sys = AC() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" +
+    const sys = AC() + CB() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" +
       "今天的塔罗牌是【同一张】：" + cardLabel(card) + "。请【分别以下面每位角色本人的口吻】，就【这同一张牌】给 " + uName + " 递一句今天的当日签——短，像随口说的一两句，结合这张牌（含正/逆位）与各自人设" + (list.some(it => it.mood) ? "（有此刻心情就顺带透一点，但别喧宾夺主，牌义才是主角）" : "") + "，别混淆、别串味、别把几个人写成同一个腔调、也别千篇一律。\n\n" +
       "【要解读这张牌的角色】\n" + block +
       "\n\n【输出】只输出 JSON，readings 数组和上面角色顺序【一一对应、数量一致】：{\"readings\":[{\"name\":\"角色名\",\"text\":\"这位角色对今天这张牌的当日签\"}...]}。别加解释、别加代码块。";
@@ -822,7 +829,7 @@
   async function continueAtTable(active, session, char, uName, history, question) {
     const cards = (session.cards || []).map((c, i) => "【" + ((session.spread || [])[i] || "第" + (i + 1) + "张") + "】" + cardLabel(c)).join("；");
     const reads = (session.reads || []).map(r => (r.pos || "") + "：" + r.text).join("\n");
-    const sys = AC() + "你就是「" + session.charName + "」本人。占卜已经结束，但你和 " + uName + " 还坐在店里的小桌边。" +
+    const sys = AC() + CB() + "你就是「" + session.charName + "」本人。占卜已经结束，但你和 " + uName + " 还坐在店里的小桌边。" +
       "现在是围绕刚才这副牌自然说话，不是重新生成一份解牌报告，也不是客服答疑。你可以赞同、保留、调侃、追问，或者承认自己也没想明白；保持你自己对占卜的态度和人设。" +
       "不要声称牌能证明事实，不要每次都总结人生。用第一人称，通常一两段就够。" +
       "\n\n【你的人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 850) +

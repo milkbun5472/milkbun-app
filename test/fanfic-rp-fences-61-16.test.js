@@ -39,13 +39,18 @@ test("穿书补上了别处一条条 push 进去的那几条", () => {
   // narrativeCore 白送的那几层照旧
   assert.match(seg, /narrativeCore\(\{ intimate: true \}\)/);
   assert.match(seg, /FANFIC_ANTI_CLICHE/);
+  // 内容边界（含禁烟）v63.100 起挪进了 narrativeCore：写连续正文的地方一起白得，
+  // 不用一处处 push——所以这儿不再单列它，改成认那一份（上面那条 narrativeCore 断言）。
+  const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const nc = eng.slice(eng.indexOf("function narrativeCore(opts) {"), eng.indexOf("\n// 她 2026-08-28 发来一段单人线下的心声历史"));
+  assert.match(nc, /parts\.push\(ContentBoundaries\.prompt\)/, "内容边界从 narrativeCore 里掉了，穿书就跟着没有");
   // 这几条以前一条都没有
-  [["ContentBoundaries.prompt", "内容边界"], ["CONDESCENDING_TONE_BAN", "居高临下的训话腔"],
+  [["CONDESCENDING_TONE_BAN", "居高临下的训话腔"],
    ["REGISTER_FOLLOWS_SCENE", "语域跟场面走"], ["STOCK_REPLY_BAN", "标准男友三件套"],
    ["ECHO_QUESTION_BAN", "回声式反问"], ["ReplyPacing.reading()", "读懂这句话在做什么"]].forEach(([k, zh]) =>
     assert.ok(seg.indexOf(k) > 0, "穿书还是没吃到「" + zh + "」（" + k + "）"));
   // 全都要挡一道 typeof：这几个常量住在 engine.js，加载顺序变了不许整页白屏
-  ["ContentBoundaries", "CONDESCENDING_TONE_BAN", "REGISTER_FOLLOWS_SCENE", "STOCK_REPLY_BAN", "ECHO_QUESTION_BAN", "ReplyPacing"].forEach(k =>
+  ["CONDESCENDING_TONE_BAN", "REGISTER_FOLLOWS_SCENE", "STOCK_REPLY_BAN", "ECHO_QUESTION_BAN", "ReplyPacing"].forEach(k =>
     assert.ok(seg.indexOf('typeof ' + k + ' !== "undefined"') > 0, k + " 没挡 typeof"));
 });
 

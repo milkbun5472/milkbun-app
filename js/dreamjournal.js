@@ -9,6 +9,12 @@
 // 成本：零常驻、零自动调用——只有她点「找TA解」才走一次 apiFor(charId) 专线
 // ============================================================
 (function () {
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   "use strict";
   const useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
 
@@ -95,6 +101,7 @@
     //   梦就长成「谁都能做的那种梦」。反八股这两条也一起给上。
     return (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
       + (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "")
+      + CB()   // ⚠️她 2026-09-05 就是在这一处看见他还在抽：TA 们每晚那场梦自己拼 sys，谁都没给过它
       + "你是「" + char.name + "」。人设：" + String(char.persona || "").slice(0, 6000) + "\n\n" +
       "你昨晚睡着后做了一场梦。下面是入梦材料——你昨天真实经历的对话片段和情绪状态。请把它们揉成一场【你的梦】。\n" +
       "【当日对话片段】\n" + (excerpts.length ? excerpts.map(x => "· " + x).join("\n") : "（昨天没什么对话，梦从情绪里长出来）") + "\n" +

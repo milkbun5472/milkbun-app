@@ -19,6 +19,13 @@
   const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
+  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
+  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
+  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+
   // ── 各人只能用自己那个世界里有的东西讲道理（v63.61）────────────────────────
   // 她 2026-09-05：「你看这是一个王爷一个大小姐，是不是怪怪的」——
   // 截图里古代王爷和现代大小姐一起开口就是「基因突变」「受精卵」「遗传物质」「神经网络」。
@@ -98,7 +105,7 @@
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
   async function assignStances(active, worldbook, topic, chars, isFree) {
     const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
-    const sys = AC() +
+    const sys = AC() + CB() +
       "下面有一道辩题和几个人物。请【严格根据每个人的人设】判断 Ta 在这道题上最可能真心站的立场——性格、经历、价值观决定态度，别随便分正反。\n\n" +
       "【辩题】" + topic +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
@@ -145,7 +152,7 @@
       return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500)
         + (c.injection ? "\n  （" + c.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(c.injection).replace(/\s+/g, " ").slice(-300) : "");
     }).join("\n");
-    const sys = AC() +
+    const sys = AC() + CB() +
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
       "【辩题】" + meta.topic +
@@ -215,7 +222,7 @@
   async function genResult(active, session, uName) {
     const chars = session.parts.filter(p => p.kind === "char");
     const charRoster = chars.map(c => "「" + c.name + "」（立场：" + (c.stance || "—") + "；人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + "）").join("\n");
-    const sys = AC() +
+    const sys = AC() + CB() +
       "你是这场辩论的裁判兼主持。辩题：「" + session.topic + "」。参赛各方及立场：" + session.parts.map(p => p.name + "（" + (p.stance || "—") + "）").join("；") + "。\n" +
       (session.mode === "free"
         ? "本场是放飞局，胜负标准就按这一条来评：「" + (session.winCond || "谁整体最出彩谁赢") + "」，别用常规辩论对错来评。"
