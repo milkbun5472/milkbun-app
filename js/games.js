@@ -1117,7 +1117,14 @@
           "卧底：" + players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、") + "　词：平民「" + (players.find(function (p) { return p.role === "civ"; }) || {}).word + "」 / 卧底「" + (players.find(function (p) { return p.role === "spy"; }) || {}).word + "」"),
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+          h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
+        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+          if (!props.keepGameMemory) return false;
+          const spies2 = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、");
+          return props.keepGameMemory(realCharIds(players),
+            "一起玩了「谁是卧底」，" + (winner === "spy" ? "卧底赢了" : "平民赢了") + "。卧底是 " + spies2 + "；"
+            + (me ? ("她拿到" + (me.role === "spy" ? "卧底" : "平民") + "牌，" + (me.alive ? "撑到了最后" : "中途被投了出去")) : "她在旁边观战") + "。");
+        } }));
     }
 
     // 台下插嘴：观战、或你已出局（猜词那一步除外——那一步你手里是另一件事）
@@ -2249,6 +2256,13 @@
       const mvpP = mvp && players.find(function (p) { return mvp.name && (p.name === mvp.name || mvp.name.indexOf(p.name) >= 0); });
       inline = h("div", null,
         h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: winner === "wolf" ? "#c0553f" : "#3f6d5a", marginBottom: 8 } }, winner === "wolf" ? "🐺 狼人获胜" : "🎉 好人获胜"),
+        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+          if (!props.keepGameMemory) return false;
+          return props.keepGameMemory(realCharIds(players),
+            "一起玩了「狼人杀」，" + (winner === "wolf" ? "狼人阵营赢了" : "好人阵营赢了") + "。"
+            + (me ? ("她抽到" + roleZh(me.role) + "，" + (me.alive ? "活到了终局" : "中途出局")) : "她观战") + "。"
+            + (mvp && mvp.name ? "全场 MVP 是 " + mvp.name + "。" : ""));
+        } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + roleZh(p.role); }).join("　")),
         // 全场 MVP
         mvp ? h("div", { style: { display: "flex", gap: 10, padding: "11px 13px", borderRadius: 13, background: t.tint + "14", border: "1px solid " + t.tint, marginBottom: 12 } },
@@ -2314,6 +2328,21 @@
       return { name: c.name, persona: persona };
     });
   }
+  // 终局「把这局收进记忆」：沙盒读不写的唯一例外——她亲手点了才写一条进主线，
+  // 默认一个字不写；只认上场的真实角色（全 NPC 的局没有能收的人）。
+  function KeepMemBtn(props) {
+    const t = props.t;
+    const [kept, setKept] = useState(false);
+    return h("button", { disabled: kept, onClick: function () {
+      if (kept) return;
+      const ok = props.keep && props.keep();
+      if (ok) { setKept(true); props.toast && props.toast("收进记忆了，他们会记得这一局"); }
+      else props.toast && props.toast("没有能收的：这局上场的都是 NPC");
+    }, className: "active:opacity-70", style: { width: "100%", marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
+      kept ? "已收进记忆" : "把这一局收进记忆（他们以后会记得）");
+  }
+  function realCharIds(players) { return (players || []).filter(function (p) { return !p.isNpc && !p.isUser && !p.engineer; }).map(function (p) { return p.key; }); }
+
   // 台下插嘴（观战 / 已出局）：一句话进桌面日志，再让 1~3 个在场 AI 顺口接一句。
   // 只是台下起哄，不改任何牌局账面；投票类提示词把最近几句当「观众起哄」附带参考——
   // 这才兑现观战说明里那句「随时能插嘴吐槽、带节奏」（原来一个输入口都没有）。
@@ -2728,7 +2757,13 @@
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, scores.length >= 3 ? "散场 · 回中枢" : "返回"),
           scores.length < 3
             ? h("button", { onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
-            : h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")));
+            : h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")),
+        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+          if (!props.keepGameMemory) return false;
+          const line = scores.map(function (x, i) { return "第" + (i + 1) + "题" + (x.solver ? (x.isUser ? "她破的" : x.solver + "破的") : "没人破"); }).join("，");
+          return props.keepGameMemory(realCharIds(players),
+            "一起玩了「" + K.zh + "」" + (scores.length > 1 ? "连着 " + scores.length + " 题" : "") + "：" + line + "。");
+        } }));
     } else if (busy) {
       action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
     } else if (guessing) {
@@ -3328,7 +3363,13 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 10 } }, "这一场散了。改天再聚，或者现在就再开一场。"),
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
-          h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")));
+          h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
+        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+          if (!props.keepGameMemory) return false;
+          const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
+          return props.keepGameMemory(realCharIds(players),
+            "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (wrap && wrap.star ? "，今晚之星是" + (wrap.star.isUser ? "她" : wrap.star.name) : "") + "。");
+        } }));
     }
     else {
       const spun = log.some(function (x) { return x.type === "td"; });
@@ -3549,7 +3590,13 @@
         h("button",{onClick:function(){if(selectedTile!=null)setSelectedTile(null);else setBoardOpen(false);},style:{fontFamily:F_BODY,fontSize:9.5,color:t.tint,padding:"4px 10px",border:"1px solid "+t.line,borderRadius:999}},selectedTile!=null?"返回回合信息":"收起棋盘 · 看对话"))),MONO_BOARD.map(function(tile,i){const here=players.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=owners[i],owner=players.find(function(p){return p.key===own;}),lv=levels[i]||0,pos=monoGridPos(i);return h("button",{key:i,onClick:function(){setSelectedTile(i);},title:tile.name+(tile.price?" $"+tile.price:""),style:Object.assign({},pos,{borderRadius:5,padding:"2px 1px",background:tile.type==="property"?(tile.color+"35"):t.bg2,border:"1px solid "+(i===(cur&&cur.pos)?t.tint:t.line),textAlign:"center",overflow:"hidden",minWidth:0})},h("div",{style:{fontFamily:F_BODY,fontSize:7.5,lineHeight:1.08,color:t.sub,whiteSpace:"normal",wordBreak:"break-all",height:17,overflow:"hidden"}},tile.icon||"▪",tile.name),h("div",{style:{fontSize:6.5,color:t.fog,whiteSpace:"nowrap",overflow:"hidden"}},tile.price?(owner?(owner.name.slice(0,2)+(lv?" L"+lv:"")):("$"+tile.price)):(tile.type==="station"?"直达":"")),h("div",{style:{height:9,display:"flex",alignItems:"center",justifyContent:"center",gap:1}},here.map(function(p){return h("span",{key:p.key,title:p.name,style:{display:"inline-block",width:7,height:7,borderRadius:"50%",background:monoTokenColor(p,players),border:"1px solid rgba(255,255,255,.9)",boxShadow:"0 0 0 1px rgba(0,0,0,.18)"}});})));})):h("button",{onClick:function(){setBoardOpen(true);},style:{flexShrink:0,margin:"3px 12px 5px",padding:"8px 12px",borderRadius:11,background:t.bg2,border:"1px solid "+t.line,display:"flex",justifyContent:"space-between",fontFamily:F_BODY,fontSize:11.5,color:t.sub}},h("span",null,"🏙️ 棋盘已收起 · 第 "+(moves+1)+" / "+maxMoves+" 手"),h("span",{style:{color:t.tint}},"展开棋盘"));
     const roster=h("div",{style:{display:"flex",gap:7,overflowX:"auto",padding:"4px 12px 8px",flexShrink:0,minHeight:55}},players.map(function(p,i){const pc=monoTokenColor(p,players);return h("div",{key:p.key,style:{minWidth:106,padding:"7px",borderRadius:10,background:i===turn&&!p.bankrupt?pc+"18":t.bg2,border:(i===turn?"2px solid "+pc:"1px solid "+t.line),boxShadow:i===turn&&!p.bankrupt?"0 4px 10px rgba(20,16,10,.16)":"0 1px 4px rgba(20,16,10,.07)",transform:i===turn&&!p.bankrupt?"translateY(-2px)":"none",opacity:p.bankrupt?.45:1}},h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("span",{title:"棋子颜色",style:{width:9,height:9,borderRadius:"50%",background:pc,boxShadow:"0 0 0 1px rgba(0,0,0,.15)",flexShrink:0}}),pAvatar(p,25),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.name+(p.isUser?"(你)":""))),h("div",{style:{fontFamily:"monospace",fontSize:10.5,color:t.sub,marginTop:4}},p.bankrupt?"已破产":"$"+p.cash+" · 地"+propertyCount(p.key)+(p.jailed?" · 关押":"")));}));
     const logView=h("div",{className:"flex-1 overflow-y-auto",style:{padding:"7px 14px",minHeight:110,borderTop:"1px solid "+t.line}},logs.slice(-22).map(function(x,i){return h("div",{key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.say);}));
-    let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"));}
+    let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"),
+      h(KeepMemBtn,{t:t,toast:props.toast,keep:function(){
+        if(!props.keepGameMemory)return false;
+        const lisa=players.find(function(p){return p.isUser;});
+        return props.keepGameMemory(realCharIds(players),
+          "一起玩了「大富翁」，"+(winner?winner.name:ranking[0].name)+" 赢下这座城"+(lisa?("；她排第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)):"")+"。");
+      }}));}
     else if(pending&&pending.kind==="trade"){
       const tile=MONO_BOARD[pending.tile],owner=players.find(function(p){return p.key===owners[pending.tile];}),me2=players.find(function(p){return p.isUser;});
       if(!owner||!tile){setPending(null);action=null;}
@@ -4260,7 +4307,14 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + AV_ROLE_ZH[p.role] + (p.side === "evil" ? "🗡" : ""); }).join("　") + (assassinPick ? "　｜ 刺客指认了 " + assassinPick : "")),
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
+        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+          if (!props.keepGameMemory) return false;
+          return props.keepGameMemory(realCharIds(players),
+            "一起玩了「阿瓦隆」，" + (winner === "good" ? "亚瑟的忠臣赢了" : "莫德雷德的爪牙赢了") + "。"
+            + (me ? ("她是" + AV_ROLE_ZH[me.role] + "，" + ((winner === "good") === (me.side === "good") ? "站在赢的一边" : "输了这一局")) : "她观战")
+            + (assassinPick ? "；刺客终局指认了 " + assassinPick : "") + "。");
+        } }));
     }
 
     const bottom = pick
@@ -4514,7 +4568,13 @@
         error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
         state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
           (state.players.find(function (p) { return p.key === state.winner; }) || {}).name + " 赢啦！",
-          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null) : null),
+          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null,
+          h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
+            if (!props.keepGameMemory) return false;
+            const w = state.players.find(function (p) { return p.key === state.winner; });
+            return props.keepGameMemory(realCharIds(state.players),
+              "一起打了一局「UNO」，" + ((w && (w.isUser ? "她" : w.name)) || "有人") + " 赢了。");
+          } })) : null),
       state.status === "playing" && chatMode ? h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", background: t.bg } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "牌局已暂停。你可以连发几条；只有按黑色键，他们才接话。"),
         h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },

@@ -1089,19 +1089,19 @@
   }
   const VOICE_LOOK = {
     // 宋：端正、旧书感
-    victorian:  { tint: "#765337", face: "serif", titleFace: "Georgia,'Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "❦", eyebrow: "letterpress", ink: "#35271d", muted: "#806e5d", paper: "#f4ead6", pale: "#e6d2b5" },
-    editorial:  { tint: "#282828", face: "serif", titleFace: "'Times New Roman','Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "—", eyebrow: "editorial", ink: "#171717", muted: "#666", paper: "#f5f3ed", pale: "#dedbd2" },
-    tribunal:   { tint: "#75523a", face: "serif", titleFace: "'Noto Serif SC','Songti SC',Georgia,serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "§", eyebrow: "hearing record", ink: "#33271f", muted: "#84766c", paper: "#eee8dd", pale: "#ddd0bd" },
+    victorian:  { tint: "#765337", face: "serif", titleFace: "Georgia,'Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "❦", eyebrow: "铅字排印", ink: "#35271d", muted: "#806e5d", paper: "#f4ead6", pale: "#e6d2b5" },
+    editorial:  { tint: "#282828", face: "serif", titleFace: "'Times New Roman','Noto Serif SC','Songti SC',serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "—", eyebrow: "社论版", ink: "#171717", muted: "#666", paper: "#f5f3ed", pale: "#dedbd2" },
+    tribunal:   { tint: "#75523a", face: "serif", titleFace: "'Noto Serif SC','Songti SC',Georgia,serif", bodyFace: "'Noto Serif SC','Songti SC',Georgia,serif", deco: "§", eyebrow: "庭审记录", ink: "#33271f", muted: "#84766c", paper: "#eee8dd", pale: "#ddd0bd" },
     // 楷／细宋：旧、手写气。民国那腔用毛笔楷（马善政），田野笔记用站酷小薇（细宋楷）
-    republican: { tint: "#9b3f49", face: "serif", titleFace: "'Ma Shan Zheng','STKaiti','KaiTi',serif", bodyFace: "'ZCOOL XiaoWei','STKaiti','Songti SC',serif", deco: "❁", eyebrow: "old shanghai", ink: "#352a28", muted: "#8b746d", paper: "#f2e8d8", pale: "#e7d2c8" },
-    naturalist: { tint: "#47724b", face: "serif", titleFace: "'ZCOOL XiaoWei',Optima,'Songti SC',serif", bodyFace: "'ZCOOL XiaoWei','Songti SC',Georgia,serif", deco: "✿", eyebrow: "field notes", ink: "#263d2b", muted: "#758472", paper: "#edf2e5", pale: "#d9e4d2" },
+    republican: { tint: "#9b3f49", face: "serif", titleFace: "'Ma Shan Zheng','STKaiti','KaiTi',serif", bodyFace: "'ZCOOL XiaoWei','STKaiti','Songti SC',serif", deco: "❁", eyebrow: "旧上海小报", ink: "#352a28", muted: "#8b746d", paper: "#f2e8d8", pale: "#e7d2c8" },
+    naturalist: { tint: "#47724b", face: "serif", titleFace: "'ZCOOL XiaoWei',Optima,'Songti SC',serif", bodyFace: "'ZCOOL XiaoWei','Songti SC',Georgia,serif", deco: "✿", eyebrow: "田野笔记", ink: "#263d2b", muted: "#758472", paper: "#edf2e5", pale: "#d9e4d2" },
     // 黑：响、硬。小报最重，体育次之
-    tabloid:    { tint: "#d12f28", face: "sans", titleFace: "Impact,'Arial Black','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'Noto Sans SC','PingFang SC',sans-serif", deco: "★", eyebrow: "exclusive", ink: "#171717", muted: "#76635b", paper: "#fff1d6", pale: "#f3d7a9" },
-    sportsdesk: { tint: "#2369a1", face: "sans", titleFace: "'Arial Narrow','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'PingFang SC','Noto Sans SC',sans-serif", deco: "●", eyebrow: "match report", ink: "#142d43", muted: "#667d90", paper: "#e8f1f7", pale: "#caddea" },
-    noir:       { tint: "#c3a55d", face: "mono", titleFace: "'Courier New','Noto Sans SC','Heiti SC',monospace", bodyFace: "'Noto Serif SC','Songti SC','Courier New',serif", deco: "▲", eyebrow: "case file", ink: "#eee9df", muted: "#aaa6a0", paper: "#202124", pale: "#343537" },
+    tabloid:    { tint: "#d12f28", face: "sans", titleFace: "Impact,'Arial Black','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'Noto Sans SC','PingFang SC',sans-serif", deco: "★", eyebrow: "独家爆料", ink: "#171717", muted: "#76635b", paper: "#fff1d6", pale: "#f3d7a9" },
+    sportsdesk: { tint: "#2369a1", face: "sans", titleFace: "'Arial Narrow','Noto Sans SC','Heiti SC',sans-serif", bodyFace: "'PingFang SC','Noto Sans SC',sans-serif", deco: "●", eyebrow: "赛后战报", ink: "#142d43", muted: "#667d90", paper: "#e8f1f7", pale: "#caddea" },
+    noir:       { tint: "#c3a55d", face: "mono", titleFace: "'Courier New','Noto Sans SC','Heiti SC',monospace", bodyFace: "'Noto Serif SC','Songti SC','Courier New',serif", deco: "▲", eyebrow: "卷宗一件", ink: "#eee9df", muted: "#aaa6a0", paper: "#202124", pale: "#343537" },
     // 机器腔：西文等宽 + 中文黑，两边都不带一点书卷气
-    cyberpunk:  { tint: "#55c9c0", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "▮▮▯", eyebrow: "datastream", ink: "#d9fffb", muted: "#78aaa8", paper: "#101b21", pale: "#18343a" },
-    markets:    { tint: "#167164", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "↗", eyebrow: "closing bell", ink: "#173a34", muted: "#617e78", paper: "#e5f0e9", pale: "#cfe1d7" }
+    cyberpunk:  { tint: "#55c9c0", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "▮▮▯", eyebrow: "数据流", ink: "#d9fffb", muted: "#78aaa8", paper: "#101b21", pale: "#18343a" },
+    markets:    { tint: "#167164", face: "mono", titleFace: "'Archivo',ui-monospace,'Noto Sans SC',monospace", bodyFace: "ui-monospace,'SFMono-Regular','Noto Sans SC',monospace", deco: "↗", eyebrow: "收市快报", ink: "#173a34", muted: "#617e78", paper: "#e5f0e9", pale: "#cfe1d7" }
   };
   function lookOf(id) {
     const L = VOICE_LOOK[id] || VOICE_LOOK.editorial;
@@ -1239,7 +1239,7 @@
   function SectionRule(props) {
     const t = useTheme();
     return h("div", { className: "flex items-center gap-2", style: { margin: "22px 0 12px" } },
-      h("div", { style: { flex: "0 0 auto", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 9.5, color: t.fog } }, props.en || ""),
+      h("div", { style: { flex: "0 0 auto", fontFamily: F_BODY, letterSpacing: ".06em", fontSize: 10.5, color: t.fog } }, props.en || ""),
       h("div", { style: { flex: 1, height: 1, background: t.line } }),
       props.right || null);
   }
@@ -1260,7 +1260,7 @@
     const ink = props.ink || "rgba(0,0,0,.46)";
     const track = props.track || "rgba(0,0,0,.13)";
     return h("div", { style: { width: "100%", textAlign: "center", marginTop: 10 } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.14em", textTransform: "uppercase", fontSize: 8.5, color: ink } }, txt),
+      h("div", { style: { fontFamily: F_BODY, letterSpacing: ".05em", fontSize: 10, color: ink } }, txt),
       h("div", { style: { height: 3, borderRadius: 999, background: track, overflow: "hidden", marginTop: 7 } },
         h("div", { style: { width: (progress * 100).toFixed(2) + "%", height: "100%", borderRadius: 999, background: props.fill || ink, transition: "width .35s ease" } })));
   }
@@ -1417,7 +1417,7 @@
         h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)),
       c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 ? 2 : 1, columnGap: 22 } }, c.lead) : null,
       (c.highlights || []).length ? h("div", { style: { borderTop: "5px solid " + L.tint, padding: "15px 0 4px", marginBottom: 8 } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 8.5, color: L.tint, marginBottom: 12 } }, "本期看点"),
+        h("div", { style: { fontFamily: F_BODY, letterSpacing: ".05em", fontSize: 10.5, color: L.tint, marginBottom: 12 } }, "本期看点"),
         (c.highlights || []).map(function (hl, i) {
           return h("div", { key: i, style: { display: "grid", gridTemplateColumns: "30px 1fr", gap: 10, padding: "10px 0", borderBottom: "1px solid " + L.tint + "33" } },
             h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 700, fontSize: 11, color: L.tint } }, String(i + 1).padStart(2, "0")),
@@ -1518,7 +1518,7 @@
     const stableVariant = String(s.id || s.voiceId).split("").reduce(function (n, ch) { return n + ch.charCodeAt(0); }, 0) % 2;
     function masthead(extra) {
       return h("div", { style: { padding: "17px 18px 15px", borderTop: "8px solid " + L.tint, borderBottom: "1px solid " + L.tint, color: L.ink, background: extra && extra.dark ? L.paper : "transparent" } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".24em", color: L.tint, textTransform: "uppercase" } }, L.eyebrow),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".08em", color: L.tint } }, L.eyebrow),
         h("div", { style: { fontFamily: L.titleFace, fontSize: 25, fontWeight: 700, lineHeight: 1.08, marginTop: 8 } }, v.name));
     }
     function manifestoLayout() {
@@ -1748,7 +1748,7 @@
             h("span", { style: { writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: DL.tint } }, "事实 / 原话"))),
         // 语录榜：大引号 + 悬挂式排版，一句一块，像杂志的抽言页
         qs.length ? h("div", { style: { marginBottom: 30 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.28em", color: DL.tint, textTransform: "uppercase", margin: "0 18px 16px" } }, "本周语录"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: DL.tint, margin: "0 18px 16px" } }, "本周语录"),
           qs.map(function (q, i) {
             return h("div", { key: i, style: { display: "flex", gap: 12, margin: "0 18px 22px" } },
               h("div", { style: { fontFamily: "Georgia,serif", fontSize: 40, lineHeight: .8, color: DL.tint, flexShrink: 0, marginTop: 4 } }, "\u201C"),
@@ -1770,11 +1770,11 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line, marginTop: 12, textAlign: "right" } }, "数字由本刊自行统计，未经润色")) : null,
         // 更正启事：报纸角落里那种小字方框
         deskSec.correction ? h("div", { style: { marginTop: 26, padding: "10px 12px", border: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.24em", color: t.fog, textTransform: "uppercase", marginBottom: 5 } }, "更正"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".05em", color: t.fog, marginBottom: 5 } }, "更正"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub } }, deskSec.correction)) : null,
         // 分类广告：中缝一句话广告，竖排堆叠、字很小
         (deskSec.ads || []).length ? h("div", { style: { marginTop: 22, borderTop: "1px solid " + t.line, paddingTop: 12 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.24em", color: t.fog, textTransform: "uppercase", marginBottom: 8 } }, "中缝"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".05em", color: t.fog, marginBottom: 8 } }, "中缝"),
           deskSec.ads.map(function (adText, i) {
             return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.9, color: t.sub, paddingLeft: 10, borderLeft: "2px solid " + t.line, marginBottom: 7 } }, adText);
           })) : null);
@@ -1805,7 +1805,7 @@
       const rest = (props.characters || []).filter(function (c) { return shown.indexOf(c.id) < 0; });
       if (rest.length) detail = h("div", null, detail,
         h("div", { style: { marginTop: 26, paddingTop: 14, borderTop: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".24em", textTransform: "uppercase", color: t.fog, marginBottom: 8 } }, "本期未采访"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".05em", color: t.fog, marginBottom: 8 } }, "本期未采访"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "每期至多采访三人，轮流来。想现在就看某位的，点一下单独补——补出来的不占轮次，下期照样能抽到 Ta。"),
           h("div", { className: "flex flex-wrap", style: { gap: 7 } }, rest.map(function (c) {
             const on = busyUnit === ("add_" + c.id);

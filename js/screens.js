@@ -11583,19 +11583,29 @@ function CarryAll(props) {
       h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
         h("button", { onClick: () => onGenAll(char), disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
     // 一排小标签：点哪个跳哪个（跟下面的分节标题是同一套锚点）
-    h("div", { className: "shrink-0 flex px-5 pb-2", style: { gap: 7, overflowX: "auto" } },
+    // ── 分区条不是一排药丸（tabs-not-plain-pills）───────────────────────
+    //   这一页整块是【布】，那这几个分区就该是【缝在布上的布标】：
+    //   小方角、两端各一道针脚（短虚线）、上沿一道亮线像压出来的边。
+    //   形状、深浅、针脚三样一起变，不是只换个填色。
+    h("div", { className: "shrink-0 flex px-5 pb-2", style: { gap: 8, overflowX: "auto" } },
       secs.map(x => h("button", {
         key: x.key,
         onClick: () => { const el = secRefs.current[x.key], sc = scRef.current; if (el && sc) sc.scrollTop = Math.max(0, el.offsetTop - 8); },
-        className: "shrink-0 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, color: carryTint(x.key, .95), background: carryTint(x.key, .10), border: "1px solid " + carryTint(x.key, .26) }
-      }, x.zh))),
+        className: "shrink-0 active:opacity-60 flex items-center",
+        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "6px 5px", minHeight: 40, gap: 5,
+          borderRadius: 3, color: carryTint(x.key, .95), background: carryTint(x.key, .13),
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.16)" }
+      },
+        h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "3px 0",
+          background: "repeating-linear-gradient(180deg," + carryTint(x.key, .6) + " 0 2px,transparent 2px 4px)" } }),
+        h("span", { key: "z" }, x.zh),
+        h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "3px 0",
+          background: "repeating-linear-gradient(180deg," + carryTint(x.key, .6) + " 0 2px,transparent 2px 4px)" } })))),
     h("div", { ref: scRef, className: "flex-1 overflow-y-auto px-5 pt-1 pb-10" },
       secs.map(x => h("div", { key: x.key, ref: el => { secRefs.current[x.key] = el; } },
         // 分节标题：这一栏的色相 + 一条渐隐的线，四栏靠它分开而不是靠换底色
         h("div", { className: "flex items-center", style: { gap: 8, margin: "16px 0 9px" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: carryTint(x.key, .95) } }, x.zh),
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.16em", color: t.fog } }, (x.en || "").toUpperCase()),
           h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(x.key, .3) + ",rgba(0,0,0,0))" } })),
         h(CarrySection, {
           embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
@@ -12117,7 +12127,6 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
               h("div", { style: { position: "absolute", right: 11, top: "50%", marginTop: -9, width: 9, height: 18, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.72),rgba(56,42,28,.38))", boxShadow: "0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3)" } }),
               h("div", { className: "flex items-baseline", style: { gap: 7 } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, sec.zh),
-                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: "0.16em", color: t.fog } }, (sec.en || "").toUpperCase()),
                 h("span", { className: "flex-1" }),
                 cnt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, cnt) : null,
                 isNew ? h("span", { style: { width: 7, height: 7, borderRadius: 7, background: sec.gifts ? t.accent : "#7fb85f", boxShadow: "0 0 0 1.5px rgba(255,255,255,.7)" } }) : null),

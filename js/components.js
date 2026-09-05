@@ -2162,10 +2162,21 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
       h("div", { style: { marginBottom: 14 } }, lbl("地点"), h("input", { value: loc, onChange: e => setLoc(e.target.value), placeholder: "例如：公司会议室 / 家里 / 商场", style: inSt })),
       lbl("重复"),
       h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } },
-        (typeof CAL_REPEAT_OPTIONS !== "undefined" ? CAL_REPEAT_OPTIONS : [["none", "不重复"]]).map(([v, l]) =>
-          h("button", { key: v, onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999,
-              background: repeat === v ? t.ink : "transparent", color: repeat === v ? t.bg2 : t.sub, border: "1px solid " + (repeat === v ? t.ink : t.line) } }, l))),
+        // ── 不是一排药丸（tabs-not-plain-pills）───────────────────────
+        //   这一页是日历，日历上挑一个的动作是【在那一格上画个圈】。
+        //   所以每个选项是一小格（方角，像日历的一天），选中那格外面套一个
+        //   手画的墨圈——歪一点、椭圆、盖出格子外。形状之外还多一样东西，
+        //   不是只换个填色。
+        (typeof CAL_REPEAT_OPTIONS !== "undefined" ? CAL_REPEAT_OPTIONS : [["none", "不重复"]]).map(([v, l]) => {
+          const on = repeat === v;
+          return h("button", { key: v, onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0",
+            style: { position: "relative", fontFamily: F_BODY, fontSize: 12.5, padding: "9px 13px", minHeight: 40,
+              borderRadius: 3, background: "transparent", color: on ? t.ink : t.sub,
+              border: "1px solid " + (on ? "transparent" : t.line) } },
+            on ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: -5, right: -5, top: -4, bottom: -4,
+              border: "1.6px solid " + t.accent, borderRadius: "50%", transform: "rotate(-3.5deg)", pointerEvents: "none" } }) : null,
+            l);
+        })),
       rec ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px", marginBottom: 14 } },
         (() => {
           const d = sd ? new Date(sd.split("-")[0], sd.split("-")[1] - 1, sd.split("-")[2]) : null;

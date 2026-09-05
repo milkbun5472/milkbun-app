@@ -1573,16 +1573,27 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
             "邮件" + (unreadN ? " · " + unreadN + " 封未读" : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM, marginTop: 1, wordBreak: "break-all" } }, S(me.addr))),
         h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK }))),
-      h("div", { className: "flex", style: { gap: 4, marginTop: 10 } }, MAIL_TABS.map(x => h("button", {
-        key: x.k, onClick: () => { setTab(x.k); setOpen(null); },
-        className: "flex-1 active:opacity-60",
-        style: {
-          fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
-          background: tab === x.k ? "#fff" : "transparent", color: tab === x.k ? MAIL_INK : MAIL_DIM,
-          border: "1px solid " + (tab === x.k ? MAIL_LINE : "transparent")
-        }
-      }, x.zh + (rows(x.k).length ? " " + rows(x.k).length : ""))))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid " + MAIL_LINE } }, body),
+      // ── 三页＝吊挂文件夹的标签舌（tabs-not-plain-pills）─────────────
+      //   原来是三颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
+      //   信箱现实里是几个夹子，夹子的舌是【梯形】——两侧斜切、宽度按名字走、
+      //   不占满一行；选中那片抬到最前、变成信件区的白、压住底下那条线。
+      //   跟浏览器那条标签条分得开：那条是等宽相接的方肩，这三片是斜肩、不等宽。
+      h("div", { className: "flex items-end", style: { gap: 3, marginTop: 12, borderBottom: "1px solid " + MAIL_LINE } },
+        MAIL_TABS.map(x => {
+          const on = tab === x.k, n = rows(x.k).length;
+          return h("button", {
+            key: x.k, onClick: () => { setTab(x.k); setOpen(null); }, className: "active:opacity-70",
+            style: {
+              fontFamily: F_BODY, fontSize: 12.5, padding: on ? "10px 16px 9px" : "8px 14px 7px",
+              minHeight: 40, marginBottom: -1,
+              clipPath: "polygon(9px 0, calc(100% - 9px) 0, 100% 100%, 0 100%)",
+              background: on ? "#fff" : "rgba(0,0,0,.035)",
+              color: on ? MAIL_INK : MAIL_DIM
+            }
+          }, x.zh + (n ? " " + n : ""));
+        })),
+      null),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff" } }, body),
     detail);
 }
 
@@ -2083,10 +2094,10 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       groups.map((g, gi) => h("div", { key: g.label + gi },
         h("div", {
           style: {
-            fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".17em",
+            fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em",
             color: t.fog, padding: "16px 0 8px 61px"
           }
-        }, g.label.toUpperCase()),
+        }, g.label),
         g.rows.map((r, i) => row(r, i === 0, i === g.rows.length - 1 && gi === groups.length - 1)))),
       // 线走完最后一条不该就这么断掉——底下那一大片空白，本身也是时间的一部分。
       // 让竖轴接着往下走一小截、淡出去，收在一个空心的点上，旁边说清楚那头是什么。

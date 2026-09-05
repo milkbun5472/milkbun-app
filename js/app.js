@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v63.36";
+const APP_VERSION = "v63.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17477,6 +17477,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 注入最近聊天抓人设用（只读，不写回记忆）
     recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
+    // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
+    keepGameMemory: (charIds, text) => {
+      const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
+      const t0 = String(text || "").trim().slice(0, 300);
+      if (!t0 || !ids.length) return false;
+      addMemEntry({ text: t0, tags: ["小游戏"], charIds: ids, knownBy: ids, source: "manual" });
+      return true;
+    },
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "trpg") body = h(window.TrpgApp, {
