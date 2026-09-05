@@ -13,8 +13,10 @@ function manualSkin(t) {
   if (!/^#[0-9a-f]{6}$/i.test(String(t.ink || ""))) return { background: t.bg };
   const k = t.ink, L = [];
   // 左上角两枚订书钉：一枚一段短斜线，斜着钉进去的那种
-  [["left 15px top 30px", "-24deg"], ["left 15px top 52px", "-24deg"]].forEach(([pos]) => {
-    L.push("linear-gradient(-24deg," + k + "00 0 3px," + k + "5a 3px 12px," + k + "00 12px)"
+  // ⚠️钉在【顶栏底下】，不是顶栏那一行：钉在 top 30px 上会跟返回键叠在一起
+  //   （v63.45 浏览器里看出来的）。说明书的订书钉本来也在封面标题下面那一截。
+  [["left 15px top 104px", "-24deg"], ["left 15px top 126px", "-24deg"]].forEach(([pos]) => {
+    L.push("linear-gradient(-24deg," + k + "00 0 3px," + k + "46 3px 12px," + k + "00 12px)"
       + " no-repeat " + pos + "/16px 7px");
   });
   L.push("repeating-linear-gradient(180deg," + k + "00 0 25px," + k + "06 25px 26px)");
@@ -23,105 +25,84 @@ function manualSkin(t) {
   return { background: L.join(",") };
 }
 (function () {
-  const DB = [
-    // —— 聊天 ——
-    { cat: "聊天", t: "私聊", b: "和角色像发微信一样聊，回复会拆成几条短气泡、像真人连发。\n· 长按气泡：撤回 / 重发 / 引用 / 转发 / 存成好吃范例\n· 输入框左边的 + ：发图、发语音、发红包、约通话、约线下\n· 上滑到顶自动加载更早的；归档过的老聊天点「加载更早」捞回来", k: "私聊 聊天 气泡 撤回 引用" },
-    { cat: "聊天", t: "他会自己来找你", b: "app 开着的时候角色会主动开口，不是定点打卡。\n· 越久没理他、他越想你；你好好道过晚安他涨得慢，敷衍两句反而更快\n· 手机彻底杀掉的那段时间发不出，但你重开时他会把这段想念补上\n· 没有定时早晚安（v54.77 停掉了）：他什么时候来找你，由此刻的心情决定\n· 每个角色单独开关，在人格档案馆那一行上", k: "主动 想你 动念 打招呼" },
-    { cat: "聊天", t: "群聊", b: "多个角色一起说话，会互相接梗、抢话、投票、发红包、约线下。\n· 建群时可选【封闭群】：群里发生的事不写回记忆库、不动好感——平行沙盒\n· 群里也能 @ 某个人让他先说\n· 群通话、群线下都有", k: "群聊 建群 封闭群 沙盒" },
-    { cat: "聊天", t: "线下模式", b: "同一个人，换成面对面的叙事：第三人称，带动作、神态、心理。\n· 聊天页顶上切换，随时切回线上\n· 长度、人称、镜头感在「线下设置」里调\n· 线下发生的事照样进记忆", k: "线下 小剧场 叙事 沉浸" },
-    { cat: "聊天", t: "语音与通话", b: "接了语音 API 之后，语音条会真出声。\n· 语音消息、语音通话、视频通话都有；挂断后会留一条摘要进记忆\n· 音色在人格档案馆里给每个角色单独选", k: "语音 通话 视频 音色 tts" },
-    { cat: "聊天", t: "OOC：跳出剧情说话", b: "输入框旁切到 OOC，直接跟幕后的 AI 说话，不影响剧情。\n· 问「他刚才那句什么意思」「这段能不能重写」\n· OOC 说的话不进记忆、不算他说过", k: "ooc 场外 幕后" },
-    { cat: "聊天", t: "查找聊天记录", b: "聊天页 + 面板里的「查找记录」。\n· 搜关键词，或按类型筛：语音 / 图片 / 红包 / 通话\n· 点结果直接跳回当时那一段", k: "搜索 查找 记录" },
-
-    // —— 角色 ——
-    { cat: "角色", t: "人格档案馆", b: "所有角色都住在这儿，也是所有开关的总闸。\n· 人设、外貌（发自拍用）、参考照（锁长相）、音色、家乡城市\n· 时间感知、主动找你、每周刷手机，都在角色那一行上单独开\n· 长按角色可以克隆一份改着玩", k: "角色 人设 档案 建角色" },
-    { cat: "角色", t: "导入角色卡", b: "人格档案馆里「导入角色卡」：一整篇粘进来，自动拆成人设 / 开场白 / 例句。\n· 酒馆格式的卡也认\n· 认不出来的字段会原样留在人设里，导入后自己改", k: "导入 角色卡 酒馆 st" },
-    { cat: "角色", t: "查手机", b: "偷看他手机里的样子：微信、相册、外卖、购物、健康、书架、便签……\n· 每周自动刷一次（要在角色那一行上开）；也能手动刷\n· 号码和过敏这种钉死不变；昵称、备注、对你的评价会慢慢变；聊天记录只增不减", k: "查手机 手机 微信 相册 健康" },
-    { cat: "角色", t: "关系网", b: "角色之间的关系图：谁认识谁、什么交情。\n· 关系会随剧情变化，也可以自己改\n· 配角（NPC）挂在主角身边，不占角色额度", k: "关系 npc 配角 关系网" },
-    { cat: "角色", t: "行程与天气", b: "每天自动推演每个角色这一天在干嘛。\n· 按人设 + 他家乡城市的真实天气排\n· 聊天时他知道自己此刻在做什么、那边什么天气\n· 主屏日历里能看到他的一天", k: "行程 日程 天气 时间线" },
-    { cat: "角色", t: "钱包与消费", b: "每个角色有自己的钱包，按人设生成收入，按日程逐笔花钱。\n· 送你东西是真扣钱的；欠账能结清\n· 「为你花的」只统计真发生过的那些", k: "钱包 钱 消费 欠账" },
-    { cat: "角色", t: "去处与随身物", b: "他住的地方、常去的地方，和身上带的东西。\n· 每个地方分几个区域，区域里有具体物件，点得进去\n· 随身物会随剧情增减", k: "去处 地方 随身物 物件" },
-    { cat: "角色", t: "月度印象", b: "每个月，每个角色眼里的「你」长什么样：一张剪影 + 三个关键词 + 一段鉴定词。\n· 一个月一张，同月重写是覆盖\n· 别人写过的意象他不会再用", k: "印象 月度 剪影" },
-
-    // —— 记忆 ——
-    { cat: "记忆", t: "他是怎么记住事的", b: "三层记忆加一条遗忘曲线。\n· 最近的原文 → 聊多了自动浓缩 → 重要的进记忆库长期留着\n· 越久没提起的越淡，被再次提起会重新变清楚\n· 记忆库里能自己加、改、删", k: "记忆 遗忘 浓缩 长期" },
-    { cat: "记忆", t: "记忆库", b: "所有长期记忆都在这儿，按角色分。\n· 「导入长文」：一大段旧对话 / 回忆录粘进来，自动拆成一条条\n· 每条能改归属、改内容、删掉\n· 云端存过的记忆即使角色被覆盖也还在（设置里有「找回失联的角色」）", k: "记忆库 导入 长文" },
-    { cat: "记忆", t: "世界书", b: "结构化的设定集，比全塞进人设省得多。\n· 词条能绑角色、设关键词——聊到才注入\n· 分类分册，可以整册开关", k: "世界书 设定 词条 lore" },
-
-    // —— 社交 ——
-    { cat: "社交", t: "朋友圈", b: "你和角色都能发。\n· 角色会点赞、评论、互相回复；点任意一条评论能追问\n· 发的图会进相册", k: "朋友圈 动态 点赞" },
-    { cat: "社交", t: "论坛", b: "四个版块：吐槽 / 日常 / 求助 / 匿名。\n· 角色和路人网友发帖盖楼，你能发帖、回帖、私信楼主\n· 匿名版里没人知道是谁", k: "论坛 贴吧 发帖" },
-    { cat: "社交", t: "匿名问答", b: "一个树洞：陌生人向你提问，你答。\n· 也可以自己攒一箱问题给某个角色答\n· 问题里有挑衅和试探，他不会每条都认真作答", k: "匿名 提问 树洞 问答" },
-    { cat: "社交", t: "情侣空间", b: "表白在一起之后解锁的一整间屋子。\n· 纪念日倒数、时光轴、我们的档案、他记得的\n· 交换日记、情书、悄悄话便签、问答小本（他也会出题）\n· 愿望板：钉着还没做成的事，他会挑日子来约你\n· 甜蜜值打卡攒抽卡点数", k: "情侣 恋爱 纪念日 愿望板 甜蜜值" },
-    { cat: "社交", t: "秋声", b: "言秋那一支自己的朋友圈：他干活时真有感而发才会发。\n· 不是定时生成的，也不能催", k: "秋声 言秋 朋友圈" },
-
-    // —— 玩法 ——
-    { cat: "玩法", t: "同人文", b: "让角色世界观里的人替你们写文。\n· 分版块（古风 / ABO / 民国 / 志怪 / 西幻……），每版有自己的文风\n· 能追更、写书评、收藏进书架\n· 「加笔」：挑一篇进去读原文，点住其中一句就从那儿改写；作者会在故事里伸手把剧情往回接（或者跟你一起推远），再在页边写一句", k: "同人文 写文 加笔 穿书 书架 作者" },
-    { cat: "玩法", t: "小剧场", b: "指定场景、指定角色，演一段。\n· 可以设定开场、目标、谁在场\n· 平行时空：不写回主线记忆", k: "小剧场 演 剧本" },
-    { cat: "玩法", t: "跑团", b: "文字跑团：你 + 最多四位角色队友，模型当守密人。\n· 建队掷数值、成长按队隔离、世界可收藏\n· 沙盒数值，不进他的状态卡", k: "跑团 trpg 骰子 守密人" },
-    { cat: "玩法", t: "擂台", b: "搭一个台子让两边吵。\n· 你出题，角色各站一边，一轮轮打\n· 最后有裁决", k: "擂台 辩论 吵架" },
-    { cat: "玩法", t: "小游戏", b: "六个派对游戏：谁是卧底 / 狼人杀 / 海龟汤 / 25 问 / 真心话大冒险 / 阿瓦隆。\n· 角色按人设玩，会骗人也会破防", k: "游戏 狼人杀 卧底 海龟汤" },
-    { cat: "玩法", t: "一起做", b: "陪伴型的那几样。\n· 一起学：角色当老师按课程教，有掌握度\n· 一起读：一起看同一本书，边看边聊\n· 番茄钟：他陪你坐着，中途会说话", k: "一起学 一起读 番茄钟 学习" },
-    { cat: "玩法", t: "一起听", b: "上传本地音乐或贴外链，一起听。\n· 他对歌有反应，聊天里会点歌切歌\n· 主屏那个组件显示正在放什么", k: "听歌 音乐 一起听" },
-    { cat: "玩法", t: "解梦馆", b: "把你真做过的梦记下来，让角色按他自己的方式解。\n· 不是心理测试，是这个人用他的腔调胡说八道\n· 梦会攒成一本，能翻回去看", k: "解梦 梦 梦境" },
-    { cat: "玩法", t: "塔罗与转盘", b: "两个抽签的。\n· 塔罗：整副牌，角色替你解\n· 命运转盘：选择困难就交给它，主题和选项自己编", k: "塔罗 转盘 抽签 占卜" },
-    { cat: "玩法", t: "周刊", b: "把上一周真发生过的事重新写成一份刊物。\n· 五个版块，十种媒体腔（社论 / 小报 / 赛博 / 民国……），每种腔调连字体都不一样\n· 每周自动装订一期，也能手动出", k: "周刊 杂志 报纸" },
-    { cat: "玩法", t: "抽卡", b: "攒点数抽卡。\n· 甜蜜值打卡、完成一起做那几样都给点数\n· 抽是抽、兑是兑：抽到的进卡池，想要的另外兑", k: "抽卡 卡池 点数" },
-
-    // —— 图与声 ——
-    { cat: "图与声", t: "角色自拍", b: "设置里接了图像 API 之后，填过外貌或参考照的角色会在聊天里发自拍。\n· 参考照锁长相：多张更稳\n· 画风跟着参考图走，二次元不会被转成真人", k: "自拍 图片 生图 参考照" },
-    { cat: "图与声", t: "合照与场景图", b: "两个人的合照要说清楚哪张参考图是谁。\n· 锁脸前置，不然会长成别人\n· 场景图按当前在哪、在做什么生成", k: "合照 场景 生图" },
-
-    // —— 桌面 ——
-    { cat: "桌面", t: "主屏整理", b: "长按图标进编辑态。\n· 拖到虚线空格＝放到那里（原位留洞，可以自由摆）\n· 拖到别的图标上停一下＝合成文件夹\n· 拖到屏幕边缘＝换页；「收紧」把这一页贴到顶", k: "主屏 整理 文件夹 排列" },
-    { cat: "玩法", t: "作者榜", b: "这个圈子里固定的那几位太太。\n· 底栏「作者」：请一批新作者进来，各有简介和文风\n· 生成同人文时能点名让某一位来写\n· 点进她主页：她是谁、都写了谁（按 CP 统计）、写过哪几篇\n· 每篇后面能直接「加笔」\n· 清空版块只清文，人留着", k: "作者 太太 笔名 作者榜 统计" },
-    { cat: "系统", t: "创作小稿", b: "让他落笔前先写四行计划，再写正文。\n· 设置 → 写 → 创作小稿：总开关 + 检查方式 + 三套内置预设\n· 用它的五处：同人文、加笔、小剧场、梦境、群聊线下\n· 开了之后还能单独关掉某一处\n· 小稿不进正文，每段正文旁边能展开看他当时怎么想的\n· 普通角色的单人线下和所有线上聊天都不走这条", k: "小稿 思维链 COT 计划 八股" },
-    { cat: "桌面", t: "天气看谁那边", b: "天气组件不只看你自己这儿。\n· 点开天气，上面挂着一排牌子：我这儿 / 设了家乡的每个角色 / 你造过的架空世界\n· 挑哪块牌子，卡片就一直停在那边，下次开还是他那边\n· 角色的家乡在好友地图里设\n· 架空世界的天气是按地形算出来的（山地冷、荒漠热、水泽多雨），同一天永远一样，不花调用", k: "天气 家乡 架空 世界 气候" },
-    { cat: "桌面", t: "组件与尺寸", b: "主屏上那些卡片都能换大小。\n· 长按组件挑尺寸：短条 / 方块 / 三格 / 长条 / 大卡\n· 一行的高度是按你屏幕算出来的，所以 4×1 就真的只占一行\n· 名片、日历、天气、记账、备忘录、情侣、一起听、地图、木鱼、转盘都是组件", k: "组件 尺寸 大小 主屏" },
-    { cat: "桌面", t: "桌面装饰", b: "编辑态里的「＋装饰」：往桌面上摆点没用但好看的东西。\n· 照片框、字句卡、日期签、票根夹、便利贴\n· 照片框有十几种构图：胶卷、拍立得、撕页拼贴、印样、明信片、时间轴…\n· 拼贴那几款：长板切条、错拼长板、报纸剪贴、斑马切片、票据长卷\n· 材质、边线、强调色、角度都能调；图上印的那行小字也能改成你要的词", k: "装饰 摆件 照片框 便利贴" },
-    { cat: "桌面", t: "主题与皮肤", b: "整台手机的长相都能换。\n· 主题工作台：图标皮肤、页面配色、气泡样式，改完能先预览\n· 聊天皮肤分层：全局一套，某个角色可以单独盖掉\n· 壁纸、字体、纸张质感都能换", k: "主题 皮肤 换肤 壁纸 气泡" },
-
-    // —— 记事 ——
-    { cat: "记事", t: "日历", b: "主屏 3×3 的那个。\n· 世界 / 角色 / 我的 三种视角\n· 公历农历节日、生日、经期上色、备忘录提醒都在上面\n· 点某一天看两天并排的时间轴", k: "日历 日程 节日 经期" },
-    { cat: "记事", t: "备忘录", b: "备忘和提醒两栏。\n· 提醒能重复（每周 / 每月 / 月底），到期主屏红点\n· 设成可见的角色会在聊天里提醒你", k: "备忘录 提醒 待办" },
-    { cat: "记事", t: "日记", b: "底部那一栏里的日记，写给自己的。\n· 有笔迹和纸张风格\n· 角色看不到，除非你让他看", k: "日记 写日记" },
-    { cat: "记事", t: "记账", b: "多币种各记各的，不换算。\n· 可以叫角色批注某一笔，他记得自己之前说过什么\n· 主屏那个组件显示本月支出", k: "记账 钱 账本 支出" },
-    { cat: "记事", t: "时光胶囊", b: "给未来写信。\n· 给某个角色埋：到期他才拆开、读完写回信\n· 也能给未来的自己埋\n· 封存期间谁都看不了", k: "胶囊 时光 未来 信" },
-
-    // —— 系统 ——
-    { cat: "系统", t: "秋秋（就是我）", b: "住在这台手机里的小肥鸟向导。\n· 找不到东西、看不懂哪个按钮、想知道某个功能怎么用，问它\n· 它还能帮你改一部分设置：先给你看改动稿，你点头才真写进去\n· 不知道的它会说不知道，不会编", k: "秋秋 助手 向导 帮助" },
-    { cat: "系统", t: "API 配置", b: "在设置里配，互不影响。\n· 主 API 跑聊天和创作\n· 后台池配便宜的模型跑推演（日程 / 钱包 / 手机 / 印象这些）\n· 图像、语音各配各的", k: "api 模型 配置 key" },
-    { cat: "系统", t: "存档与备份", b: "数据默认只在这台设备上。\n· ⚠️删 app、清浏览器数据、换设备之前，先去 设置 → 数据 → 导出全部数据，存一份 json\n· 注册账号可以自动同步；云是覆盖式的，没有历史版本\n· 「找回失联的角色」能把云上没人认领的记忆接回来", k: "备份 导出 同步 云 恢复" },
-    { cat: "系统", t: "存储与清理", b: "快满了会提醒。\n· 老聊天可以归档（还能捞回来）\n· 图片占大头，相册里能清\n· 记忆库有上限，满了挤掉最旧的——收藏过的不算数", k: "存储 清理 归档 空间" },
-    { cat: "系统", t: "遇到问题", b: "开不了机、图标不见了、东西放不下：\n· 开不了机 → 救援页（开机那句提示上点一下）\n· 图标找不到 → 设置 → 数据 → 复制主屏布局，发给我们\n· ⚠️任何「删了重装 / 清缓存 / 换设备」之前，先导出一份 json", k: "问题 故障 救援 白屏 打不开" }
-  ];
-  const CATS = [];
-  DB.forEach(e => { if (CATS.indexOf(e.cat) < 0) CATS.push(e.cat); });
+  // 攻略原来自己另存了一份 53 条的说明（DB），跟秋秋那份手册是同一件事写了两遍——
+  // 改一处漏一处，而且它按【话题】切：聊天一个 app 被拆成七条摆在一起，桌面拆成五条，
+  // 她 2026-09-05 点名的就是这个（「有些同一个页面的都分开两条了」）。
+  // 现在数据只剩 assistant-manual.js 那一份，这一页按【app】把它归堆：
+  // 一个 app 一行，点开是整页——那一页名下所有词条全摊开（no-half-sheet：这是详情，整页）。
+  const MAN = () => (typeof window !== "undefined" && window.AssistantManual) || null;
   const no2 = n => String(n + 1).padStart(2, "0");
 
   function CodexApp(props) {
     const t = useTheme();
     const [q, setQ] = useState("");
-    const [open, setOpen] = useState(null);
-    const qq = q.trim().toLowerCase();
-    const hit = e => !qq || (e.t + e.b + (e.k || "") + e.cat).toLowerCase().indexOf(qq) >= 0;
-    const list = DB.filter(hit);
-    const shown = CATS.filter(c => list.some(e => e.cat === c));
+    const [open, setOpen] = useState(null);       // 打开的是哪个 app
+    const M = MAN();
+    if (!M) return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+      h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
+      h("div", { style: { padding: "40px 24px", fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.9 } },
+        "说明书没加载出来。\n退出去再进一次。"));
 
-    // 一条：像说明书里的一款——左边一个小号章节编号，右边标题；展开是那一页的正文
-    const row = (e, ci, i) => {
-      const on = open === e.t;
-      return h("div", { key: e.t, style: { position: "relative" } },
+    const qq = q.trim().toLowerCase();
+    const hitApp = a => {
+      if (!qq) return true;
+      if (a.zh.toLowerCase().indexOf(qq) >= 0) return true;
+      return M.appEntries(a.id).some(e =>
+        (e.zh + e.what + (e.how || "") + (e.more || []).join("") + (e.kw || []).join(" ")).toLowerCase().indexOf(qq) >= 0);
+    };
+    const apps = M.APPS.filter(hitApp);
+    const cats = M.APP_CATS.filter(c => apps.some(a => a.cat === c));
+
+    // ── 某一个 app 的整页 ─────────────────────────────────────────
+    if (open) {
+      const app = M.APPS.find(a => a.id === open);
+      const list = app ? M.appEntries(app.id) : [];
+      const sec = (e, i) => h("div", { key: e.id, style: { marginTop: i ? 22 : 14 } },
+        h("div", { className: "flex items-baseline", style: { gap: 9 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 22, flexShrink: 0 } }, no2(i)),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.zh)),
+        h("div", { style: { height: 1, background: t.ink, opacity: .13, margin: "7px 0 0 22px" } }),
+        h("div", { style: { paddingLeft: 22 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "9px 0 6px" } }, "在哪儿：" + e.where),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: t.ink } }, e.what),
+          e.how ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.95, color: t.sub, marginTop: 7 } }, e.how) : null,
+          (e.more || []).length ? h("div", { style: { marginTop: 9 } }, e.more.map((m, j) =>
+            h("div", { key: j, className: "flex", style: { gap: 7, marginTop: 5 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, flexShrink: 0 } }, "·"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: t.sub } }, m)))) : null));
+      return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+        h(Head, { zh: (app && app.zh) || "攻略", sub: app ? app.cat + " · 共 " + list.length + " 节" : "", bg: "transparent", onBack: () => setOpen(null) }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12", style: { WebkitOverflowScrolling: "touch" } },
+          list.map(sec),
+          h("button", {
+            onClick: () => props.onAskAssistant && props.onAskAssistant(),
+            className: "w-full text-left active:opacity-80",
+            style: { display: "flex", alignItems: "center", gap: 10, marginTop: 26, padding: "12px 13px", borderRadius: 14,
+              background: hexA(t.accent, .10), border: "1px solid " + hexA(t.accent, .26) }
+          },
+            h("span", { className: "flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: hexA(t.accent, .16), flexShrink: 0 } },
+              h(window.GAssist || GDuty, { size: 16, color: t.accent })),
+            h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } },
+              "这一页还有不明白的，直接问秋秋"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.accent, flexShrink: 0 } }, "›"))));
+    }
+
+    // ── 目录：一章一章，一个 app 一行 ───────────────────────────────
+    const row = (a, ci, i) => {
+      const first = M.appEntries(a.id)[0];
+      const n = M.appEntries(a.id).length;
+      return h("div", { key: a.id },
         h("button", {
-          onClick: () => setOpen(on ? null : e.t), className: "w-full text-left active:opacity-70",
-          style: { display: "flex", alignItems: "baseline", gap: 10, padding: "11px 2px 11px 0", width: "100%" }
+          onClick: () => setOpen(a.id), className: "w-full text-left active:opacity-70",
+          style: { display: "flex", alignItems: "baseline", gap: 10, padding: "11px 2px 11px 0", width: "100%", minHeight: 44 }
         },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: on ? t.accent : t.fog, width: 30, flexShrink: 0, letterSpacing: ".04em" } },
-            no2(ci) + "." + no2(i)),
-          h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, fontWeight: on ? 600 : 500 } }, e.t),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: on ? t.accent : t.line, flexShrink: 0, transform: on ? "rotate(45deg)" : "none", transition: "transform .18s" } }, "＋")),
-        on ? h("div", { style: { padding: "0 2px 14px 40px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.95, color: t.sub, whiteSpace: "pre-wrap", paddingLeft: 11, borderLeft: "2px solid " + t.accent } }, e.b)) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 30, flexShrink: 0 } }, no2(ci) + "." + no2(i)),
+          h("span", { className: "flex-1 min-w-0" },
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+              a.zh, n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 7 } }, n + " 节") : null),
+            first ? h("span", { className: "truncate", style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } },
+              M.teaser(first)) : null),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: t.line, flexShrink: 0 } }, "›")),
         h("div", { style: { height: 1, background: t.line, opacity: .7 } }));
     };
 
@@ -139,36 +120,36 @@ function manualSkin(t) {
             border: "1px solid " + hexA(t.accent, .28)
           }
         },
-          h("span", { className: "flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 999, background: t.bg, flexShrink: 0 } },
+          h("span", { className: "flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 999, background: hexA(t.accent, .18), flexShrink: 0 } },
             h(window.GAssist || GDuty, { size: 18, color: t.accent })),
           h("span", { className: "flex-1 min-w-0" },
-            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "这儿没写的，直接问秋秋"),
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "这儿没写的，问秋秋"),
             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2, lineHeight: 1.5 } },
               "找不到东西、看不懂哪个按钮，跟它说一声")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.accent, flexShrink: 0 } }, "›")),
 
         h("input", {
-          value: q, onChange: e => { setQ(e.target.value); setOpen(null); },
+          value: q, onChange: e => setQ(e.target.value),
           placeholder: "搜功能：自拍 / 备份 / 组件 / 加笔 / 抽卡…",
           style: { width: "100%", outline: "none", padding: "10px 13px", borderRadius: 12, marginBottom: 6,
             background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 }
         }),
 
-        list.length === 0
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 40, lineHeight: 2 } },
+        apps.length === 0
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 40, lineHeight: 1.9, whiteSpace: "pre-wrap" } },
               "没搜到这个词。\n换个说法，或者上去问秋秋。")
-          : shown.map((cat, ci) => {
-              const items = list.filter(e => e.cat === cat);
+          : cats.map((cat, ci) => {
+              const items = apps.filter(a => a.cat === cat);
               return h("div", { key: cat, style: { marginTop: 18 } },
                 // 章头：大号章节数 + 章名，底下一条实一条虚——像说明书的分章页
                 h("div", { className: "flex items-baseline", style: { gap: 9 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1, color: hexA(t.ink, .18) } }, no2(ci)),
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, letterSpacing: ".08em" } }, cat),
                   h("span", { style: { flex: 1 } }),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, items.length + " 条")),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, items.length + " 个")),
                 h("div", { style: { height: 2, background: t.ink, opacity: .16, marginTop: 6 } }),
                 h("div", { style: { height: 1, borderTop: "1px dashed " + t.line, marginBottom: 2 } }),
-                items.map((e, i) => row(e, ci, i)));
+                items.map((a, i) => row(a, ci, i)));
             })));
   }
   window.CodexApp = CodexApp;

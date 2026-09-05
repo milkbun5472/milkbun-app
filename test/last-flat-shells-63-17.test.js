@@ -35,8 +35,9 @@ test("攻略页是它自己写着的那本【说明书】", () => {
   const bg = manualSkin({ ink: "#2b2620", bg: "#f7f3ea" }).background;
   // 订书钉两枚——一枚的话那是别的东西
   assert.equal((bg.match(/linear-gradient\(-24deg/g) || []).length, 2, "订书钉不是两枚");
-  assert.match(bg, /left 15px top 30px/);
-  assert.match(bg, /left 15px top 52px/);
+  // v63.45 挪到顶栏底下：钉在 top 30px 会跟返回键叠在一起
+  assert.match(bg, /left 15px top 104px/);
+  assert.match(bg, /left 15px top 126px/);
   assert.match(bg, /repeating-linear-gradient\(180deg/, "薄纸的横纹没了");
   assert.ok(/,#f7f3ea$/.test(bg), "主题底色没压在最后一层");
   // 跟世界书那本活页夹分得开：那本是左边一列【孔】，这本是【钉】

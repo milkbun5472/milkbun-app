@@ -49,5 +49,8 @@ test("tick 里留了字条，说明问候是【停掉的】不是【漏写的】
 test("说明书跟着改口，别再写着有早晚安", () => {
   assert.ok(!/· 早晚安、你生日的祝福/.test(codex), "功能列表还写着早晚安");
   assert.ok(!/凌晨开 app 不会被一排早安糊脸/.test(codex), "旧的时段说明该退场");
-  assert.match(codex, /没有定时早晚安（v54\.77 停掉了）/);
+  // v63.45 起攻略不再自存一份说明，数据搬进 assistant-manual.js（一个 app 一页）
+  const man = fs.readFileSync(path.join(__dirname, "..", "js", "assistant-manual.js"), "utf8");
+  assert.match(man, /没有定时早晚安/);
+  assert.ok(!/没有定时早晚安/.test(codex), "攻略又自己存了一份说明");
 });
