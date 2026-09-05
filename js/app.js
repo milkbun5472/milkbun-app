@@ -3697,6 +3697,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     geo: prefs.geoAware ? geo : null,
     timeAware: timeAwareFor(char.id),
+    // 她从 Ta 的梦里带出来的东西（v63.05）：Ta 见了眼熟，但不知道它从哪儿来——永远不说破。
+    // ⚠️不是礼物、不是记忆：不进 giftLog（那一栏写着「真实发生过，你记得」），单独一层；
+    //   只在单聊/线下/通话这些一对一的场合给（走 buildBundle），群里不给——那是她和 Ta 两个人之间的东西。
+    dreamKeep: (() => {
+      const mine = (inventory || []).filter(x => x && x.source === "dream" && x.dreamCharId === char.id).slice(-3);
+      return mine.map(x => x.name).filter(Boolean).join("、");
+    })(),
     giftLog: (() => {
       const given = (carryGiftsRef.current[char.id] || []).map(g => g.name).filter(Boolean);
       const got = (inventory || []).filter(x => x.fromCharId === char.id).map(x => x.name).filter(Boolean);
@@ -17346,6 +17353,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 合龙（v62.99）：解梦馆那颗「推门进这场梦」跳过来时带着梦回路里那场梦的 key，用完就清
     enterLoopKey: dreamEnterKey,
     onEnterConsumed: () => setDreamEnterKey(null),
+    // 带东西出来（v63.05）：进她的物品，跟商店买的、他送的放一起；他那边只拿到一句「眼熟」
+    onKeepsake: item => setInventory(inv => { const n = [item, ...inv]; saveJSON("x_inventory", n); return n; }),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {

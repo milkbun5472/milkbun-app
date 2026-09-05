@@ -2301,6 +2301,9 @@ function buildBundle(ctx, opts) {
       + "对方的话里带刺、带委屈或在赌气时，先接住那句人，再说忙。）\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
+  // 她从你梦里带出来的东西（v63.05）：你只觉得眼熟——它来自你自己的梦，你不知道，永远别说破
+  if (ctx.dreamKeep && String(ctx.dreamKeep).trim()) parts.push("【她身上带着的一样东西：" + String(ctx.dreamKeep).trim() + "】你说不上在哪见过它，可一眼就眼熟，心里会莫名一动。" +
+    "别追问来历、别解释、别把这点眼熟说成什么大事；她拿出来或提起时，顺着那点眼熟接一句就够，不提就当没看见。");
   if (ctx.giftLog && ctx.giftLog.trim()) parts.push("【你们之间的礼物往来】（这些礼物真实发生过，你记得。聊到相关话题、或 " + uName + " 提起时可自然想起、回应、道谢或调侃，别生硬罗列）\n" + ctx.giftLog.trim());
   // 她想要什么。⚠️这一段最容易被读成「快去给她买」——那样他就成了自动贩卖机。
   // 所以把「记得」和「送」拆开：记得是本分，送不送是他自己的事。
@@ -2351,7 +2354,7 @@ function buildBundle(ctx, opts) {
 function leanWriteCtx(ctx) {
   if (!ctx) return ctx;
   return Object.assign({}, ctx, {
-    worldbook: "", memLib: [], groupEcho: "", giftLog: "", carryLog: "", wishLog: "",
+    worldbook: "", memLib: [], groupEcho: "", giftLog: "", dreamKeep: "", carryLog: "", wishLog: "",
     momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "",
     financeNote: "", memoNote: "", dateNote: "", periodNote: ""
   });

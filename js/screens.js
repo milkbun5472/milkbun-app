@@ -2567,8 +2567,10 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
             const groups = [];
             const byKey = {};
             (inventory || []).forEach(it => {
-              const k = it.fromCharId || "__me";
-              if (!byKey[k]) { byKey[k] = { key: k, giver: it.fromCharId ? charById(it.fromCharId) : null, items: [] }; groups.push(byKey[k]); }
+              // 梦里带出来的（v63.05）自成一组，按从谁的梦里来分
+              const dreamy = it.source === "dream";
+              const k = dreamy ? "__dream:" + (it.dreamCharId || "") : (it.fromCharId || "__me");
+              if (!byKey[k]) { byKey[k] = { key: k, dreamy, giver: dreamy ? charById(it.dreamCharId) : (it.fromCharId ? charById(it.fromCharId) : null), items: [] }; groups.push(byKey[k]); }
               byKey[k].items.push(it);
             });
             // 自己买的排最后：别人送的才是要一眼看见的
@@ -2577,7 +2579,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
               h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 7, paddingLeft: 2 } },
                 g.giver ? h(Avatar, { character: g.giver, size: 20, radius: 999 }) : null,
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.giver ? MSHOP.ink : MSHOP.sub } },
-                  g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
+                  g.dreamy ? ((g.giver ? (g.giver.remark || g.giver.name) : "谁") + " 的梦里带出来的") : g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, "· " + g.items.length)),
               h("div", { className: "grid grid-cols-3", style: { gap: 8 } }, g.items.map((it, i) => {
                 const c = shopTone(it, i);

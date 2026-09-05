@@ -3,8 +3,12 @@
 // · 这场梦属于某个角色、为 Ta 而做，顺着 Ta 内心的渴望/执念/恐惧铺展
 // · 我（user）是闯进梦里的客人，不能自由行动，只能在 char 给的选项里选
 // · 每幕 3 个选项：2 个是这场梦所期待/顺应的，1 个是 char 内心抗拒的
-//   —— 字面上分不出哪个是哪个；选到「抗拒」项 → 梦碎、被惊醒踢出梦境
-//   —— 一直没选到抗拒，剧情就一直往深处走下去
+//   —— 字面上分不出哪个是哪个；选到「抗拒」项 → 梦先挣扎一幕（v63.04），再选一次：
+//      安抚对了 → 直面（第四种结局）；错了 → 梦碎、被惊醒踢出梦境。一场梦只给一次挣扎
+//   —— 一直没选到抗拒，剧情就一直往深处走下去，够深了再顺一步 → 抵达梦核
+// · 合龙（v62.99）：解梦馆里 Ta 昨晚真做的梦可以推门进来，材料是 Ta 昨天真过的一天（sessionFromLoop）
+// · 带东西出来（v63.05）：抵达或直面时，梦里会落一样东西在你手里；「带出梦去」进她的物品，
+//   Ta 见了会莫名眼熟（不知道它来自自己的梦，永远不说破）——她握着一个 Ta 自己都不知道的秘密
 // · 可同时开很多场梦；发起时可递 3 个关键词，让 char 把它们编进梦里
 // 存 localStorage x_dream_saves（随云同步）；模型走全局 callAI + ANTI_CLICHE。
 // 记忆不互通：只把最近聊天当语气参考，梦醒后什么都不写回记忆库。
@@ -248,6 +252,16 @@
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, final: forceFinal || !!p.final };
   }
 
+  // ---- 带东西出来（v63.05）：结局那一次调用顺手多要一样东西，不另花一次 ----
+  // 它得是【能拿在手里的小东西】：一片叶子、一把没齿的钥匙、一张写了半句话的纸——不是一句话、不是一种感觉。
+  // 名字 ≤8 字；note 是它在梦里是什么（≤40 字），带出去之后她自己看。
+  const KEEPSAKE_ASK = "\n③ 这场梦收束时，有一样东西落在了『你』手里，醒来还攥着（keepsake）：一件【具体、小、能拿在手里】的东西，" +
+    "是这场梦里出现过的、或从梦核那件事上掉下来的一片——不是一句话、不是一种感觉、不是抽象的意象。name ≤8 字；note 一句（≤40 字）说它在梦里是什么。\n";
+  const normKeepsake = raw => {
+    const name = String(raw && raw.name || "").replace(/\s+/g, " ").trim().slice(0, 12);
+    if (!name) return null;
+    return { name, note: String(raw && raw.note || "").replace(/\s+/g, " ").trim().slice(0, 60), taken: false };
+  };
   // ---- 模型：抵达梦核（一路选对、够深了、再顺一步 → 圆满收束，第三种结局） ----
   async function weaveEnding(active, session, worldbook, uName, chosenText) {
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }, "dream") : "";
@@ -257,13 +271,14 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
       "\n\n① 写抵达梦核的这一幕（arrive，160~320字，第二人称『你』）：让整场梦收束到它最深处那个【具体的渴望/执念/恐惧】上——把它揭开，让它成真、或让 " + session.charName + " 终于直面它。这是全梦的情绪高点，顺着这一路走来的基调与 Ta 的人设去写：可以温柔、可以酸楚、可以释然、可以惊心，但要有具体的画面和落点，不是抽象升华、不是空转的意识流。最后梦【温和地、走完了地】合上——不是被赶出去，是抵达终点后自然醒来。\n" +
-      "② 再抽离出来，点破这场梦到底关于什么（core，40~90字，旁白口吻）：这场梦一路在绕的，其实是 " + session.charName + " 心里的什么。具体、贴人设，别空泛。\n" +
+      "② 再抽离出来，点破这场梦到底关于什么（core，40~90字，旁白口吻）：这场梦一路在绕的，其实是 " + session.charName + " 心里的什么。具体、贴人设，别空泛。" +
+      KEEPSAKE_ASK +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "【输出】只输出 JSON：{\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\"}。别加别的。";
+      "【输出】只输出 JSON：{\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\",\"keepsake\":{\"name\":\"东西的名字\",\"note\":\"它在梦里是什么\"}}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "抵达梦核。" }], { maxTokens: 11500 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
-    return { arrive: String(p.arrive || sp.clean || "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
+    return { arrive: String(p.arrive || sp.clean || "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。").trim(), core: String(p.core || "").trim(), keepsake: normKeepsake(p.keepsake), cot: sp.cot };
   }
 
   // ---- 模型：挣扎（v63.04，玩法③）——踩到逆鳞不立刻碎，梦先变质一幕，给一次安抚的机会 ----
@@ -312,13 +327,14 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
       "\n\n① 写直面的这一幕（face，160~320字，第二人称『你』）：梦不再扭曲，但也没有变得轻松——" + session.charName + " 在梦里第一次正眼看那个 Ta 一直绕开的东西，你在旁边。写 Ta 怎么看它、怎么呼吸、说了什么或什么都没说；梦怎么安静下来、怎么合上。别写成和解或治愈，写【看见】。\n" +
-      "② 再抽离出来，点破被直面的到底是什么（core，40~90字，旁白口吻）：Ta 一直绕开的是 Ta 心里的什么，这一步为什么算数。具体、贴人设，别空泛。\n" +
+      "② 再抽离出来，点破被直面的到底是什么（core，40~90字，旁白口吻）：Ta 一直绕开的是 Ta 心里的什么，这一步为什么算数。具体、贴人设，别空泛。" +
+      KEEPSAKE_ASK +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "【输出】只输出 JSON：{\"face\":\"直面的叙事\",\"core\":\"被直面的是什么\"}。别加别的。";
+      "【输出】只输出 JSON：{\"face\":\"直面的叙事\",\"core\":\"被直面的是什么\",\"keepsake\":{\"name\":\"东西的名字\",\"note\":\"它在梦里是什么\"}}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "直面。" }], { maxTokens: 11500 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
-    return { face: String(p.face || sp.clean || "梦安静下来了。Ta 没有逃开，你也没有。你慢慢醒来，手心还是热的。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
+    return { face: String(p.face || sp.clean || "梦安静下来了。Ta 没有逃开，你也没有。你慢慢醒来，手心还是热的。").trim(), core: String(p.core || "").trim(), keepsake: normKeepsake(p.keepsake), cot: sp.cot };
   }
 
   // ---- 模型：梦碎（选到抗拒项） ----
@@ -402,6 +418,7 @@
       return h(DreamView, {
         session: s, active: props.active, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
+        onKeepsake: props.onKeepsake,
         onPatch: patch => patchSession(s.id, patch)
       });
     }
@@ -565,9 +582,30 @@
   // ============================================================
   // 梦境正文
   // ============================================================
+  // 梦里落在你手里的那件东西（v63.05）：抵达 / 直面两种结局底下都有；「带出梦去」进她的物品
+  function KeepsakeCard(props) {
+    const t = NIGHT, k = props.keepsake; if (!k || !k.name) return null;
+    return h("div", { style: { marginTop: 14, padding: "12px 14px", borderRadius: 12, border: "1px dashed rgba(169,154,201,.45)", background: "rgba(169,154,201,.07)" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, k.name),
+      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.sub, marginTop: 3 } }, k.note) : null,
+      k.taken
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8 } }, "已经带出来了，在你的物品里。Ta 见了会眼熟，但不知道它从哪儿来。")
+        : h("button", { onClick: props.onKeep, className: "active:opacity-70",
+            style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg, background: ACC_LIT, borderRadius: 10, padding: "7px 14px" } }, "带出梦去"));
+  }
+
   function DreamView(props) {
     const t = NIGHT;
     const s = props.session;
+    // 带出梦去：进她的物品，标着从谁的梦里来；梦这边记一笔「已带出」
+    const keep = () => {
+      const k = s.keepsake; if (!k || !k.name || k.taken) return;
+      const item = { id: "iv_dream_" + Date.now(), name: k.name, fromCharId: null, dreamCharId: s.charId, dreamNote: k.note || "", source: "dream", addedTs: Date.now() };
+      props.onKeepsake && props.onKeepsake(item);
+      props.onPatch({ keepsake: Object.assign({}, k, { taken: true, itemId: item.id }) });
+      props.toast && props.toast("带出来了：" + k.name);
+    };
     const [busy, setBusy] = useState(false);
     const [phaseMsg, setPhaseMsg] = useState("");
     const feedRef = useRef(null);
@@ -620,7 +658,7 @@
           setBusy(true); setPhaseMsg("Ta 没有逃开…");
           try {
             const r = await weaveFace(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text, resistText);
-            props.onPatch({ scenes: marked, status: "faced", ending: r.face, dreamCore: r.core, endCot: r.cot || null, wrongText: resistText });
+            props.onPatch({ scenes: marked, status: "faced", ending: r.face, dreamCore: r.core, keepsake: r.keepsake || null, endCot: r.cot || null, wrongText: resistText });
           } catch (e) {
             props.onPatch({ scenes: marked, status: "faced", ending: "梦安静下来了。Ta 没有逃开，你也没有。你慢慢醒来，手心还是热的。", dreamCore: "", wrongText: resistText });
           }
@@ -661,7 +699,7 @@
         setBusy(true); setPhaseMsg("梦走到了最深处…");
         try {
           const r = await weaveEnding(props.active, sess2, scopedWorldbook(chosen.text), uName(), chosen.text);
-          props.onPatch({ scenes: marked, status: "fulfilled", ending: r.arrive, dreamCore: r.core, endCot: r.cot || null });
+          props.onPatch({ scenes: marked, status: "fulfilled", ending: r.arrive, dreamCore: r.core, keepsake: r.keepsake || null, endCot: r.cot || null });
         } catch (e) {
           props.onPatch({ scenes: marked, status: "fulfilled", ending: "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。", dreamCore: "" });
         }
@@ -701,7 +739,8 @@
       const kept = scenes.slice(0, k + 1).map((sc, i) => i === k ? Object.assign({}, sc, { chosen: null }) : sc);
       // 挣扎那一幕要是被抹掉了，那一次机会就还回来；还留着就仍然算用过
       const stillStruggling = kept.some(sc => sc && sc.struggle);
-      props.onPatch({ scenes: kept, status: "dreaming", ending: "", whyWrong: "", wrongText: "", dreamCore: "", struggled: stillStruggling, struggleFor: stillStruggling ? s.struggleFor : "" });
+      // 已经带出去的东西不收回（它已经在她物品里了），没带的随梦一起抹掉
+      props.onPatch({ scenes: kept, status: "dreaming", ending: "", whyWrong: "", wrongText: "", dreamCore: "", keepsake: (s.keepsake && s.keepsake.taken) ? s.keepsake : null, struggled: stillStruggling, struggleFor: stillStruggling ? s.struggleFor : "" });
     };
 
     // 上一幕已选好、但还没有下一幕（续写失败留下的中间态）
@@ -757,6 +796,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "这场梦其实是关于"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
+            h(KeepsakeCard, { keepsake: s.keepsake, onKeep: keep }),
             h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
             scenes.length ? h("button", { onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
               style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
@@ -772,6 +812,7 @@
                 s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "踩到它的那一步：「" + s.wrongText + "」") : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
+            h(KeepsakeCard, { keepsake: s.keepsake, onKeep: keep }),
             h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你没有退开，也没有把它戳破。它被看见了。"),
             scenes.length ? h("button", { onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
               style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
@@ -803,5 +844,5 @@
 
   window.Dream = Dream;
   // 给测试用的口子（v62.99 合龙那两把纯函数）：不走界面也能验材料块和结算
-  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock; Dream.normStruggleOptions = normStruggleOptions;
+  Dream.sessionFromLoop = sessionFromLoop; Dream.settleLoopDream = settleLoopDream; Dream.loopMaterialBlock = loopMaterialBlock; Dream.normStruggleOptions = normStruggleOptions; Dream.normKeepsake = normKeepsake;
 })();
