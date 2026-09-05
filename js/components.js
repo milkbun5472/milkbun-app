@@ -7312,8 +7312,17 @@ function AnonBox({
   records.length ? h("div", { className: "px-5 pt-3 pb-1 flex gap-2" },
     [["all", "全部", records.length], ["me", "我问的", records.filter(function (r) { return r.from === "me"; }).length], ["netizen", "网友问的", records.filter(function (r) { return r.from !== "me"; }).length]]
       .map(function (x) {
+        // ── 三个筛选＝三枚邮戳（tabs-not-plain-pills）──────────────────
+        //   这一页是【投进来的信】。药丸填个色搬到任何 app 里都成立；
+        //   盖上去的戳不一样：方角、双线边、盖歪一点。没盖的是空的虚线框。
+        //   形状、边、歪不歪三样一起变，不是只换个填色。
+        var on = tab === x[0];
         return h("button", { key: x[0], onClick: function () { setTab(x[0]); }, className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: `1px solid ${tab === x[0] ? "transparent" : A.line}`, background: tab === x[0] ? A.ink : "transparent", color: tab === x[0] ? A.bg : A.sub } },
+          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "8px 12px", minHeight: 40, borderRadius: 3,
+            border: (on ? 1.5 : 1) + "px " + (on ? "solid" : "dashed") + " " + (on ? A.hot : A.line),
+            boxShadow: on ? "inset 0 0 0 1px " + A.bg + ", inset 0 0 0 2.5px " + A.hot : "none",
+            transform: on ? "rotate(-2deg)" : "none",
+            background: "transparent", color: on ? A.hot : A.sub } },
           x[1] + (x[2] ? " " + x[2] : ""));
       })) : null,
   records.length === 0 && !busy && h(Empty, {
@@ -7801,9 +7810,14 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 10 } }, "查找聊天记录"),
             h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜关键词…", style: { width: "100%", outline: "none", padding: "10px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
             h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 12 } },
-              [[null, "全部"], ["voice", "🎤语音"], ["image", "📷图片"], ["transfer", "💸转账"], ["callend", "📞通话"], ["geo", "📍位置"], ["redpacket", "🧧红包"]].map(p =>
+              // ── 七个筛选＝七个小气泡（tabs-not-plain-pills）──────────────
+              //   翻的是聊天记录，筛的是「只留哪一种气泡」，那筛选就该长成气泡：
+              //   左下角一个尖（气泡的那个角），选中那个填上色，像被点亮的那条消息。
+              //   emoji 图标一并撤掉（🎤📷💸📞📍🧧）——mobile-ui-layout §2 最后一条：
+              //   不用 Unicode 方块当图标；这七个筛选靠形状和填色分得清，用不着它们。
+              [[null, "全部"], ["voice", "语音"], ["image", "图片"], ["transfer", "转账"], ["callend", "通话"], ["geo", "位置"], ["redpacket", "红包"]].map(p =>
                 h("button", { key: String(p[0]), onClick: () => setTypeF(p[0]), className: "active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, background: typeF === p[0] ? t.ink : t.bg, color: typeF === p[0] ? t.bg2 : t.sub, border: "1px solid " + (typeF === p[0] ? t.ink : t.line) } }, p[1]))),
+                  style: { fontFamily: F_BODY, fontSize: 11.5, padding: "8px 12px", minHeight: 40, borderRadius: "11px 11px 11px 3px", background: typeF === p[0] ? t.ink : t.bg, color: typeF === p[0] ? t.bg2 : t.sub, border: "1px solid " + (typeF === p[0] ? t.ink : t.line) } }, p[1]))),
             archCount > 0 && loadArch ? h("button", { onClick: pullArch, className: "w-full active:opacity-70", disabled: arch === "loading",
               style: { fontFamily: F_BODY, fontSize: 11.5, padding: "8px 11px", borderRadius: 10, marginBottom: 12, textAlign: "center",
                 background: Array.isArray(arch) ? "rgba(90,150,90,0.1)" : t.bg, color: Array.isArray(arch) ? "#4a7a4a" : (arch === "error" ? "#b0503f" : t.sub),

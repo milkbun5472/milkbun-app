@@ -67,3 +67,33 @@ test("日历的「重复」＝在那一格上画个圈", () => {
   assert.match(seg, /pointerEvents: "none"/, "圈会挡住点击");
   assert.match(seg, /minHeight: 40/, "可点区不够");
 });
+
+// ── 第三批（v63.42）：匿名箱三个筛选 / 聊天搜索七个筛选 ─────────────────
+test("匿名箱三个筛选＝三枚邮戳", () => {
+  const i = comp.indexOf("三个筛选＝三枚邮戳");
+  assert.ok(i > 0, "那段注释没了，八成整块被改回去了");
+  const seg = comp.slice(i, i + 1100);
+  assert.match(seg, /borderRadius: 3,/, "还是圆药丸");
+  assert.ok(!/borderRadius: 999/.test(seg), "药丸还在");
+  // 盖上去的戳：双线边（内描边两层）、盖歪一点；没盖的是空的虚线框
+  assert.match(seg, /\(on \? "solid" : "dashed"\)/, "没盖的那两个不是虚线框");
+  assert.match(seg, /boxShadow: on \? "inset 0 0 0 1px " \+ A\.bg \+ ", inset 0 0 0 2\.5px " \+ A\.hot : "none"/, "戳没有双线边");
+  assert.match(seg, /transform: on \? "rotate\(-2deg\)" : "none"/, "戳盖得太正了");
+  assert.match(seg, /background: "transparent"/, "戳不该是填色块");
+  assert.match(seg, /minHeight: 40/, "可点区不够");
+});
+
+test("聊天搜索七个筛选＝七个小气泡，emoji 图标撤掉", () => {
+  const i = comp.indexOf("七个筛选＝七个小气泡");
+  assert.ok(i > 0, "那段注释没了");
+  const seg = comp.slice(i, i + 1300);
+  // 气泡：左下角一个尖
+  assert.match(seg, /borderRadius: "11px 11px 11px 3px"/, "不是气泡形状");
+  assert.ok(!/borderRadius: 999/.test(seg), "药丸还在");
+  assert.match(seg, /minHeight: 40/, "可点区不够");
+  // emoji 一个不留（注释里那一串是在说撤掉了什么，不算）
+  const code = seg.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(code), "还拿 emoji 当图标：" + code.slice(0, 120));
+  ["语音", "图片", "转账", "通话", "位置", "红包"].forEach(z =>
+    assert.ok(code.includes('"' + z + '"'), "少了这一档：" + z));
+});
