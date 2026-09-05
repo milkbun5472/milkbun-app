@@ -1208,46 +1208,37 @@ function MemoWidget({ onOpen, homeSize }) {
 const WHEEL_COLORS = ["#d9a86c", "#a8b898", "#c98d7e", "#9fb0c4", "#d6c07a", "#b09ab5", "#c2a17e", "#8fae9e"];
 function wheelSlicePath(i, n) {
   const a0 = (i * 360 / n - 90) * Math.PI / 180, a1 = ((i + 1) * 360 / n - 90) * Math.PI / 180;
-  // R 从 46 收到 39：外面那一圈木框才有地方（46 的时候扇区一直铺到边上，
-  // 木框和铜钉全被压没了，看着还是一张饼图）。
-  const R = 39;
+  // v63.18 木框撤掉之后盘面铺满：R 回到 48。
+  // （v63.08 那版收到 39 是给木框让地方的；框没了还留着 39，盘边上就空一圈。）
+  const R = 48;
   return "M50,50 L" + (50 + R * Math.cos(a0)).toFixed(2) + "," + (50 + R * Math.sin(a0)).toFixed(2) + " A" + R + "," + R + " 0 " + (360 / n > 180 ? 1 : 0) + " 1 " + (50 + R * Math.cos(a1)).toFixed(2) + "," + (50 + R * Math.sin(a1)).toFixed(2) + " Z";
 }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
 function WheelDisc({ items, angle, spinning, size, labels, dur }) {
   const n = items.length;
-  // 一只木转盘，不是一张饼图（她 2026-09-05：「太普通了」）：
-  //   外面一圈木框、框上钉着一圈铜钉、扇区之间是墨线不是白线、正中一颗铜轴。
-  //   木框和铜钉跟着盘一起转——真的转盘就是这样，而且转起来一眼看得出在转。
-  const nails = [];
-  for (let k = 0; k < 12; k++) {
-    const a = (k * 30 - 90) * Math.PI / 180;
-    nails.push(h("circle", { key: "n" + k, cx: 50 + 44 * Math.cos(a), cy: 50 + 44 * Math.sin(a), r: 2.3, fill: "#8a6a3c", stroke: "rgba(58,42,22,.45)", strokeWidth: .4 }));
-  }
+  // 她 2026-09-05 第二轮：「转盘直接改成圆的变大，不要外面的框了」。
+  // 所以 v63.08 那圈木框和铜钉整个撤掉（不是留在原地调透明度）——盘面自己铺满整格。
+  // 留下来的是让它【不是一张饼图】的那几样：扇区之间的墨线、压边那道内影、正中那颗铜轴。
   return h("svg", { viewBox: "0 0 100 100", width: size, height: size, style: { transform: "rotate(" + angle + "deg)", transition: spinning ? "transform " + (dur || 3.2) + "s cubic-bezier(0.12,0.6,0.08,1)" : "none", display: "block" } },
     h("defs", null,
       h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
-        h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" })),
-      h("linearGradient", { id: "wkWheelRim", x1: "0", y1: "0", x2: "1", y2: "1" },
-        h("stop", { stopColor: "#c39a68" }), h("stop", { offset: ".5", stopColor: "#9a7042" }), h("stop", { offset: "1", stopColor: "#7a5530" }))),
-    h("circle", { cx: 50, cy: 50, r: 48, fill: "url(#wkWheelRim)" }),
-    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(52,36,20,.5)", strokeWidth: 1 }),
-    nails,
+        h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" }))),
     n >= 2 ? items.map((it, i) => h("g", { key: i },
       h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[i % WHEEL_COLORS.length], stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
-      labels ? h("text", { x: wheelLabelPos(i, n, 26).x, y: wheelLabelPos(i, n, 26).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 6.5 : 8, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5)) : null))
-      : h("circle", { cx: 50, cy: 50, r: 39, fill: "#e5ddd0" }),
-    // 盘面压进木框里那一道内影
-    h("circle", { cx: 50, cy: 50, r: 39, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
-    h("circle", { cx: 50, cy: 50, r: 6.4, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
-    h("circle", { cx: 48.3, cy: 48.2, r: 1.5, fill: "rgba(255,248,232,.7)" }));
+      labels ? h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5)) : null))
+      : h("circle", { cx: 50, cy: 50, r: 48, fill: "#e5ddd0" }),
+    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
+    h("circle", { cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
+    h("circle", { cx: 48.2, cy: 48, r: 1.7, fill: "rgba(255,248,232,.7)" }));
 }
 // 转盘顶上那根【簧片指针】：一片带弯的铜簧，尖头压在盘边上。
 // 不跟着盘转，所以画在 WheelDisc 外面。size 是盘的直径。
 function WheelNeedle({ size }) {
-  const w = Math.max(16, size * 0.2);
-  return h("svg", { width: w, height: w * 1.05, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
+  // size 可以是像素数，也可以是 "100%"（盘跟着格子撑大时用后者）
+  const w = typeof size === "number" ? Math.max(16, size * 0.2) : size;
+  const hh = typeof size === "number" ? Math.max(16, size * 0.2) * 1.05 : "auto";
+  return h("svg", { width: w, height: hh, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
     h("defs", null, h("linearGradient", { id: "wkNeedle", x1: "0", y1: "0", x2: "1", y2: "1" },
       h("stop", { stopColor: "#f3e0b8" }), h("stop", { offset: ".5", stopColor: "#c79a55" }), h("stop", { offset: "1", stopColor: "#8a6329" }))),
     h("path", { d: "M4 1.5h12c1.1 0 1.6 1.3.9 2.1L11.4 10c-.5.6-.6 1.4-.2 2l1.2 2.2c.6 1-.1 2.3-1.3 2.3H10L10 20 8.6 16.5H8.7c-1.2 0-1.9-1.3-1.3-2.3L8.6 12c.4-.6.3-1.4-.2-2L3.1 3.6C2.4 2.8 2.9 1.5 4 1.5Z",
@@ -1334,12 +1325,14 @@ function WheelWidget({ editMode, onReact }) {
   const [open, setOpen] = useState(false);
   const items = (data.items || []).map(s => String(s).trim()).filter(Boolean);
   const save = n => { const merged = Object.assign({}, data, n); setData(merged); saveJSON("x_wheel", merged); };
-  return h(GlassCard, { onClick: () => { if (!editMode) setOpen(true); }, style: { padding: "8px 10px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" } },
-    data.title ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 3, maxWidth: "90%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, data.title) : null,
-    h("div", { style: { position: "relative", width: 86, height: 86, flexShrink: 0 } },
-      h(WheelDisc, { items: items, angle: 0, spinning: false, size: 86, labels: true }),
-      h("div", { style: { position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 86 }))),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, marginTop: 4, maxWidth: "94%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+  // 盘不再钉死 86px：它吃掉标题和那行小字之外的全部高度，宽高取小的那一边（永远是正圆）。
+  // 她 2026-09-05：「转盘直接改成圆的变大」——写死一个像素数的话，格子调大它还是那么小。
+  return h(GlassCard, { onClick: () => { if (!editMode) setOpen(true); }, style: { padding: "7px 8px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" } },
+    data.title ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3, maxWidth: "90%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, data.title) : null,
+    h("div", { className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center" } },
+      h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true }),
+      h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%" }))),
+    h("div", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, marginTop: 4, maxWidth: "94%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
 }
@@ -1465,8 +1458,38 @@ function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "情侣空间"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "还没有正式在一起的 TA"))));
 }
-function MusicWidget({ listen, player, onOpen, homeSize }) {
+// 一张【真的唱片】压在唱机上：整张黑胶（有纹路）、中间贴着封面照当标签、
+// 一根唱臂从右上压下来搭在盘面上——臂的角度就是进度（她 2026-09-05 给了参考图）。
+// v63.08 那版是「碟从纸套里抽出一半」，她看完参考图要的是这一种，所以纸套整个撤掉。
+// size = 盘的直径（px）；playing 时盘在转，臂跟着 frac 往里走。
+function VinylDisc({ size, cover, playing, frac }) {
+  const label = size * 0.38;
+  // 唱臂：支点在盘的右上角，针一开始落在最外圈；越放越往里走——
+  // 所以整根臂只需要小幅转（9°），转多了就飞出盘外了。
+  const armDeg = 9 * Math.max(0, Math.min(1, frac || 0));
+  return h("div", { style: { position: "relative", width: size, height: size, flexShrink: 0 } },
+    h("div", { style: { position: "absolute", inset: 0, borderRadius: 999,
+      background: "repeating-radial-gradient(circle at 50% 50%, #24242a 0 1.6px, #17171c 1.6px 3.2px)",
+      boxShadow: "0 4px 14px rgba(0,0,0,.34), inset 0 0 0 1px rgba(255,255,255,.08)",
+      animation: playing ? "wk-spin 9s linear infinite" : "none",
+      display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { width: label, height: label, borderRadius: 999, overflow: "hidden",
+        background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c9a06a,#8a6a45)",
+        boxShadow: "0 0 0 1px rgba(255,255,255,.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("div", { style: { width: Math.max(3, size * 0.045), height: Math.max(3, size * 0.045), borderRadius: 999, background: "#f7f1e5", boxShadow: "0 0 0 1px rgba(0,0,0,.35)" } }))),
+    // 唱臂：一根细杆 + 尾端配重 + 针头，支点画在右上角
+    h("svg", { width: size, height: size, viewBox: "0 0 100 100", "aria-hidden": true, style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      h("g", { style: { transformOrigin: "84px 12px", transform: "rotate(" + armDeg + "deg)", transition: "transform .6s ease" } },
+        h("circle", { cx: 84, cy: 12, r: 5.4, fill: "#d8cfc0", stroke: "rgba(60,48,32,.6)", strokeWidth: 1 }),
+        h("circle", { cx: 84, cy: 12, r: 1.6, fill: "rgba(60,48,32,.6)" }),
+        h("path", { d: "M84 12 L57 43", stroke: "#efe7da", strokeWidth: 3.4, strokeLinecap: "round" }),
+        h("path", { d: "M84 12 L57 43", stroke: "rgba(60,48,32,.45)", strokeWidth: .8, strokeLinecap: "round" }),
+        h("path", { d: "M55 40 l-8 6 5 7 8-6Z", fill: "#e6dccb", stroke: "rgba(60,48,32,.6)", strokeWidth: .9, strokeLinejoin: "round" }),
+        h("path", { d: "M50 52 l-2 3", stroke: "rgba(40,32,22,.8)", strokeWidth: 1.4, strokeLinecap: "round" }))));
+}
+function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode }) {
   const t = useTheme();
+  const picker = useRef(null);
   const data = listen || {};
   const songs = data.songs || [];
   // 实时反映全局播放器正在放的歌（可能在库/歌单/临时搜索结果里，都要找得到）
@@ -1481,44 +1504,51 @@ function MusicWidget({ listen, player, onOpen, homeSize }) {
   };
   const now = findSong(nowId) || songs[0] || null;
   const playing = !!(player && player.playing && now && now.id === nowId);
+  // 标签上那张照片：这首歌自己的封面优先，没有就用她在【一起听 → 换封面】里放的那张
   const discImg = (now && now.cover) || data.disc || null;
-  const frac = player && player.dur ? Math.max(0, Math.min(1, (player.t || 0) / player.dur)) : 0;
+  const dur = (player && player.dur) || 0, cur = (player && player.t) || 0;
+  const frac = dur ? Math.max(0, Math.min(1, cur / dur)) : 0;
+  const mmss = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
   const compact = homeSize === "short";
   const square = homeSize === "square";
   const forced = homeSize && homeSize !== "auto";
-  const discSize = compact ? 38 : square ? 54 : 56;
+  // 盘的直径跟着格子走：一行高的条子给小盘，两行的大卡给大盘（她：「大小也可以调节」）
+  const rows = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
+  const tall = !!(rows && rows.rows >= 2);
+  const discSize = compact ? 44 : square ? 62 : tall ? 108 : 62;
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
-    style: { marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto", background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22, padding: compact ? "8px 10px" : square ? "12px 9px" : "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)", display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start", alignItems: "center", gap: compact ? 8 : square ? 9 : 13, overflow: "hidden" } },
-    // 一张唱片从纸套里抽出来一半（她 2026-09-05：「太普通了」）。
-    // 原来是一个圆头像＋一条通用进度条——换到任何一个播放器 app 里都成立，就是写坏了。
-    // 现在这一块是【方的纸套 + 从套口探出来的那一弯碟】：封面印在套上，碟只露右边一弯，
-    // 放着的时候那一弯在转。没封面时纸套是素的、碟是黑胶纹。
-    h("div", { style: { flexShrink: 0, position: "relative", width: discSize * 1.34, height: discSize } },
-      h("div", { style: { position: "absolute", right: 0, top: discSize * 0.06, width: discSize * 0.88, height: discSize * 0.88, borderRadius: 999,
-        background: "repeating-radial-gradient(circle at 50% 50%, #26262b 0 1.5px, #1b1b1f 1.5px 3px)",
-        boxShadow: "0 3px 10px rgba(0,0,0,.3)", display: "flex", alignItems: "center", justifyContent: "center",
-        animation: playing ? "wk-spin 9s linear infinite" : "none" } },
-        h("div", { style: { width: discSize * 0.3, height: discSize * 0.3, borderRadius: 999, background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "#8a6a4a", display: "flex", alignItems: "center", justifyContent: "center" } },
-          h("div", { style: { width: 4, height: 4, borderRadius: 999, background: "rgba(250,246,238,.9)" } }))),
-      h("div", { style: { position: "absolute", left: 0, top: 0, width: discSize, height: discSize, borderRadius: 3,
-        background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(150deg,#e6dccb,#cbbda6)",
-        boxShadow: "0 3px 12px rgba(0,0,0,0.22), inset -6px 0 10px -6px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.35)" } },
-        // 套口：右边那条缝，碟就是从这儿抽出去的
-        h("div", { style: { position: "absolute", right: 0, top: "8%", bottom: "8%", width: 2, borderRadius: 2, background: "linear-gradient(180deg,rgba(255,255,255,.5),rgba(0,0,0,.28))" } }))),
+    style: { marginTop: forced ? 0 : 12, height: forced ? "100%" : "auto", minHeight: forced ? 0 : "auto",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
+      backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22,
+      padding: compact ? "8px 10px" : square ? "10px 9px" : "10px 14px",
+      boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)",
+      display: "flex", flexDirection: square ? "column" : "row", justifyContent: square ? "center" : "flex-start",
+      alignItems: "center", gap: compact ? 9 : square ? 9 : 14, overflow: "hidden" } },
+    // 碟心那张照片可以自己换（她 2026-09-05：「唱片 cover 可以添加照片」）。
+    // 在这之前只有【播放页】能换，而且得先有一首歌——没歌的时候那张碟是换不了的。
+    // 这一小块只吃自己的点击（stopPropagation），不会顺手把一起听整个打开。
+    h("div", { style: { position: "relative", flexShrink: 0 } },
+      h(VinylDisc, { size: discSize, cover: discImg, playing: playing, frac: frac }),
+      onSetDisc && !editMode && !compact ? h("span", {
+        role: "button", tabIndex: 0,
+        onClick: function (e) { e.stopPropagation(); e.preventDefault(); if (picker.current) picker.current.click(); },
+        className: "active:opacity-70",
+        style: { position: "absolute", left: -2, bottom: -2, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2,
+          color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 6px", whiteSpace: "nowrap" }
+      }, discImg ? "换照片" : "加照片") : null,
+      onSetDisc ? h("input", { ref: picker, type: "file", accept: "image/*", style: { display: "none" },
+        onClick: function (e) { e.stopPropagation(); },
+        onChange: function (e) { const f = e.target.files && e.target.files[0]; if (f) onSetDisc(f); e.target.value = ""; } }) : null),
     h("div", { style: { flex: 1, minWidth: 0 } },
       !compact && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : 16.5, textAlign: square ? "center" : "left", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : square ? 14 : tall ? 18 : 16.5, textAlign: square ? "center" : "left", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
       !compact && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
-      // 进度＝【唱针走到哪儿了】：一根发丝细的轨，左端一个支点，针尖压在轨上。
-      // 通用那条圆角进度条哪个 app 都在用，这一根只有唱片机上有。
-      !compact && !square && h("div", { style: { height: 9, marginTop: 7, position: "relative" } },
-        h("div", { style: { position: "absolute", left: 4, right: 0, top: 4, height: 1, background: skinAlpha(t.ink, "26") } }),
-        h("div", { style: { position: "absolute", left: 0, top: 1.5, width: 6, height: 6, borderRadius: 999, background: skinAlpha(t.ink, "44") } }),
-        h("div", { style: { position: "absolute", left: "calc(4px + " + (frac ? frac * 100 : 0) + "% * 0.96)", top: 0, width: 2, height: 9, borderRadius: 2, background: t.accent, boxShadow: "0 0 0 2px " + skinAlpha(t.accent, "22") } }))),
-    !square && h("div", { style: { flexShrink: 0, width: compact ? 27 : 34, height: compact ? 27 : 34, borderRadius: 999, background: "rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "center" } },
-      playing
-        ? h("div", { style: { display: "flex", gap: 2 } }, h("div", { style: { width: 3, height: 12, borderRadius: 2, background: t.ink } }), h("div", { style: { width: 3, height: 12, borderRadius: 2, background: t.ink } }))
-        : h("div", { style: { width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid " + t.ink, marginLeft: 2 } })));
+      // 走了多久 / 一共多长，压在一根发丝细的轨上——参考图上就是这一行
+      !compact && !square && h("div", { style: { marginTop: tall ? 10 : 7 } },
+        h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(t.ink, "1c"), position: "relative" } },
+          h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac * 100) + "%", borderRadius: 2, background: t.accent } })),
+        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: t.fog } },
+          h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--")))));
 }
 // 全局悬浮迷你播放器：所有界面（含主屏）都浮着；可拖动换位置（存 x_miniPos）；点一下跳回播放器
 // ⚠️层级只能是 45：比正文高（浮在所有普通界面上），但【低于半窗(z-50)和全屏 app 壳(z-60)】。
@@ -2716,6 +2746,7 @@ const DEFAULT_FOLDERS = {
 function Home({
   now,
   characters,
+  onSetDisc,
   groups,
   chats,
   groupChats,
@@ -3594,7 +3625,7 @@ function Home({
     }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
-    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, onOpen: function () { return onOpenApp("listen"); } });
+    else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, editMode: editMode, onSetDisc: onSetDisc, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);

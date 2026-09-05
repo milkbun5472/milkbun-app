@@ -191,6 +191,14 @@
 
   // 蓝点 HTML（你自己的实时位置）
   function meDotHtml(size) { const s = size || 18; return "<div style='width:" + s + "px;height:" + s + "px;border-radius:50%;background:#3f6d8c;border:3px solid #fff;box-shadow:0 0 0 4px rgba(63,109,140,.28)'></div>"; }
+  // 「我在这儿」在【纸地图】上是一枚按下去的图钉，不是一个蓝点（她 2026-09-05 给的参考图）。
+  // 只给主屏那张小地图用；全屏那张仍是蓝点——那一张是真在导航，蓝点才是对的语言。
+  function mePinHtml(size) {
+    const s = size || 22, w = s * 0.72;
+    return "<svg width='" + w + "' height='" + s + "' viewBox='0 0 16 22' style='display:block;filter:drop-shadow(0 2px 3px rgba(40,26,14,.45))'>"
+      + "<path d='M8 21.4C8 21.4 2 13.6 2 8.6a6 6 0 1 1 12 0c0 5-6 12.8-6 12.8Z' fill='#b8483c' stroke='rgba(72,26,20,.75)' stroke-width='1'/>"
+      + "<circle cx='8' cy='8.4' r='2.3' fill='rgba(255,246,236,.92)'/></svg>";
+  }
   // 主屏 2×2 实时小组件：就是一张地图，不写标题（她 2026-08-30 让删的：那块白渐变盖掉上沿快 50px）
   function MapWidget({ characters, status, userGeo, onOpen }) {
     const list = characters || [];
@@ -209,7 +217,7 @@
       const st = (status || {})[c.id];
       return { pos: charPos(c, st, anchor), html: avatarHtml(c, 26), size: 26 };
     }).filter(function (p) { return p.pos; });
-    if (myPos) pins.push({ pos: myPos, size: 16, html: meDotHtml(14) });
+    if (myPos) pins.push({ pos: myPos, size: 24, html: mePinHtml(24) });
     // 一张【摊开过的旧海图】，不是一块生瓦片（她 2026-09-05：「太普通了」）。
     // 原来就是把 Esri 的街道图直接嵌进一个圆角方框——那个东西在任何一个 app 里都成立，
     // 而且底下那行 "Leaflet | Tiles © Esri" 还横着漏出来。现在：
@@ -220,13 +228,13 @@
     return h("button", { onClick: onOpen, className: "active:opacity-90 text-left wk-mapwidget",
       style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 6, overflow: "hidden", isolation: "isolate",
         border: "1px solid rgba(92,72,48,.45)", boxShadow: "0 8px 26px rgba(30,28,24,.18), inset 0 0 0 3px rgba(247,241,229,.85)", background: "#e6dcc6" } },
-      h("div", { style: { position: "absolute", inset: 0, filter: "sepia(.42) saturate(.72) contrast(1.04) brightness(1.02)" } },
+      h("div", { style: { position: "absolute", inset: 0, filter: "sepia(.24) saturate(.86) contrast(1.02) brightness(1.06)" } },
         h(MapCanvas, { pins: pins, opts: { static: true, zoom: 12, onReady: function (m) { mapRef.current = m; if (myPos) { try { m.setView(myPos, 12); } catch (e) {} } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } })),
       // 折痕：竖一道、横一道，各带一侧的亮边
       h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, pointerEvents: "none",
         backgroundImage: "linear-gradient(90deg,transparent calc(50% - 1.2px),rgba(84,66,44,.16) 50%,rgba(255,252,244,.5) calc(50% + 1.2px),transparent calc(50% + 3px)),"
           + "linear-gradient(180deg,transparent calc(50% - 1.2px),rgba(84,66,44,.13) 50%,rgba(255,252,244,.42) calc(50% + 1.2px),transparent calc(50% + 3px)),"
-          + "radial-gradient(120% 110% at 50% 45%, transparent 46%, rgba(70,54,34,.3))" } }),
+          + "radial-gradient(120% 110% at 50% 45%, transparent 52%, rgba(70,54,34,.22))" } }),
       // 罗盘：北针一半上墨一半留白，外面一圈刻度
       h("svg", { width: 34, height: 34, viewBox: "0 0 34 34", "aria-hidden": true, style: { position: "absolute", right: 7, bottom: 7, opacity: .82 } },
         h("circle", { cx: 17, cy: 17, r: 15, fill: "rgba(247,241,229,.72)", stroke: "rgba(74,56,36,.6)", strokeWidth: 1 }),
