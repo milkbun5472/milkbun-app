@@ -706,6 +706,15 @@
     if (!g || !w) return false;
     return g === w || (w.length >= 2 && g.indexOf(w) >= 0);
   }
+  // 卧底里被投出的平民留一句（真冤）：不服、点名怀疑真正的卧底、或自嘲——进公开日志。
+  async function genSpyOutWords(api, out, allClues, votes) {
+    const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
+    const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 800 });
+    const r = extractJSON(raw) || {};
+    return String(r.say || "").trim().slice(0, 300);
+  }
   // AI 卧底出局后的最后一手：按水平真猜。言秋座位亲手猜，票没回来就按「放弃翻盘」处理，绝不代猜。
   async function genSpyGuess(api, out, allClues, mode, turnId) {
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") || "（还没人描述过）";
@@ -979,6 +988,15 @@
           const say = String(raw && raw.say || "").trim();
           if (say) pushLog([{ type: "clue", name: out.name, text: say.slice(0, 500) }]);
         }).catch(function () { /* 票已由幂等 turn_id 保护；离线时不让 Gemini 冒充补话 */ });
+      }
+      // 被冤枉的平民留一句再走（真人自己会说话，言秋走上面的离场票）
+      if (!out.isUser && !outIsEngineer) {
+        setBusy(true);
+        genSpyOutWords(api, out, allClues.filter(function (c) { return c.name; }), votes)
+          .then(function (say) { if (say) pushLog([{ type: "clue", name: out.name, text: say }]); })
+          .catch(function () { /* 遗言可缺席 */ })
+          .finally(function () { setBusy(false); settleAfterOut(next); });
+        return;
       }
       settleAfterOut(next);
     };
@@ -1357,6 +1375,19 @@
     let max = -1, tied = []; Object.keys(cnt).forEach(function (nm) { if (cnt[nm] > max) { max = cnt[nm]; tied = [nm]; } else if (cnt[nm] === max) tied.push(nm); });
     const pick = tied.length === 1 ? tied[0] : null;
     return (!pick || pick === KILL_SKIP) ? null : pick; // 空刀/无有效票 → 不杀
+  }
+
+  // 硬公开声明的判式（真人发言和出局遗言共用一份，别各写各的）
+  const WOLF_HARD_CLAIM = /(?:我是|我就是|我才是|我跳|我来跳|我起跳).{0,8}预言家|(?:我|昨晚)(?:验了?|查了?).{1,24}(?:查杀|金水|是狼|是好人)|(?:我查杀|我的?金水|我给.{1,16}金水)/;
+  // 出局遗言：夜里倒下的、白天被放逐的各留 1~2 句——遗言进公开记录（shortLog 收 speech），
+  // 后面的发言和投票都看得见它。神职可以用这最后一句报出关键信息，也可以憋住；
+  // 狼装无辜、平民点名怀疑。被枪带走 / 被自爆带走的来不及留（突然死亡无遗言）。
+  async function genWolfLastWords(api, deads, how, log) {
+    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv; }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 1600 });
+    const r = extractJSON(raw) || {};
+    return Array.isArray(r.words) ? r.words : [];
   }
 
   // 立场纪要 → 文本（喂模型保持前后一致）
@@ -1840,7 +1871,9 @@
       nightItems.push({ type: "death", text: deathText });
       pushLog(nightItems);
       setNightStage(null);
-      concludeDeaths(next, deadSet, deadNames, n, function (l) { startDay(l, n); });
+      const proceed = function () { concludeDeaths(next, deadSet, deadNames, n, function (l) { startDay(l, n); }); };
+      const dying = deadNames.map(function (nm) { return next.find(function (p) { return p.name === nm; }); }).filter(function (p) { return p && !p.isUser; });
+      if (dying.length) wolfFarewell(dying, next, "night", proceed); else proceed();
     };
     // 结算一批死亡：先处理猎人/狼王开枪(被毒不能开)，再判胜负、再继续
     const concludeDeaths = function (list, causeByName, deadNames, dayNum, cont) {
@@ -1984,11 +2017,48 @@
       } catch (e) { props.toast && props.toast("发言失败：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
     };
+    // 出局遗言：AI 合一笔调用；言秋座位单独 CC 票亲笔（失败缺席、不代笔、不挡牌局）。
+    // 遗言按 speech 入日志（shortLog 收得到），硬声明照样入台账——它是真发言，不是装饰。
+    const wolfFarewell = function (deads, list, how, cont) {
+      (async function () {
+        setBusy(true);
+        try {
+          const isEng = function (d) { return !!d.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(d.key)); };
+          const engs = deads.filter(isEng), ais = deads.filter(function (d) { return !isEng(d); });
+          engs.forEach(function (d) {
+            if (cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return;
+            window.CCSeat.ask({
+              tool: "game_turn", game: "werewolf_lastwords",
+              turn_id: gameRunId.current + ":lastwords:" + d.key + ":" + cycle,
+              char_id: d.key,
+              sys: "「狼人杀」你刚出局（" + (how === "night" ? "昨夜倒下" : "白天被放逐，身份不公开") + "）。留一句 1~2 句的遗言，全场都听得见：可以报出你身份里的关键信息、也可以憋住或装糊涂。只输出 JSON：{\"say\":\"遗言\"}。",
+              msgs: [{ role: "user", content: "【你的身份与私密信息】" + privateFor(d, list) + "\n【局面】\n" + shortLog() }],
+              expect: "{\"say\":\"遗言\"}"
+            }, 90000, { charId: d.key }).then(function (raw) {
+              const say = String(raw && raw.say || "").trim();
+              if (!say) return;
+              pushLog([{ type: "speech", name: d.name, text: say.slice(0, 300) }]);
+              if (WOLF_HARD_CLAIM.test(say)) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: d.name, text: say.slice(0, 240) }]);
+            }).catch(function () { /* 遗言可缺席，绝不代笔 */ });
+          });
+          if (ais.length) {
+            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, priv: privateFor(d, list) }; }), how, shortLog());
+            const valid = {}; ais.forEach(function (d) { valid[d.name] = 1; });
+            const words = rows.filter(function (w) { return w && valid[w.name] && String(w.text || "").trim(); });
+            if (words.length) {
+              pushLog(words.map(function (w) { return { type: "speech", name: w.name, text: String(w.text).trim().slice(0, 220) }; }));
+              words.forEach(function (w) { const tx = String(w.text).trim(); if (WOLF_HARD_CLAIM.test(tx)) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: w.name, text: tx.slice(0, 240) }]); });
+            }
+          }
+        } catch (e) { /* 遗言可缺席，不挡牌局 */ }
+        finally { setBusy(false); cont(); }
+      })();
+    };
     const submitUserSpeech = function () {
       const v = userSpeech.trim(); if (!v || !me) return;
       pushLog([{ type: "speech", name: me.name, text: v, mine: true }]);
       // 真人的硬公开声明不会经过模型返回的 claims，必须在本地同步入台账，夜狼才能听见真人跳预言家/报验人。
-      const hardClaim = /(?:我是|我就是|我才是|我跳|我来跳|我起跳).{0,8}预言家|(?:我|昨晚)(?:验了?|查了?).{1,24}(?:查杀|金水|是狼|是好人)|(?:我查杀|我的?金水|我给.{1,16}金水)/.test(v);
+      const hardClaim = WOLF_HARD_CLAIM.test(v);
       if (hardClaim) claimsRef.current = claimsRef.current.concat([{ day: cycle, name: me.name, text: v.slice(0, 240) }]);
       stanceRef.current[me.name] = v.slice(0, 60); // 记下你的立场，AI 后续保持连贯
       const mine = { name: me.name, text: v };
@@ -2052,7 +2122,8 @@
         setPlayers(next);
         setBusy(false);
         const cause = {}; cause[out.name] = "vote";
-        concludeDeaths(next, cause, [out.name], cycle, function (l) { setCycle(cycle + 1); enterNight(l, cycle + 1); });
+        const proceedEx = function () { concludeDeaths(next, cause, [out.name], cycle, function (l) { setCycle(cycle + 1); enterNight(l, cycle + 1); }); };
+        if (!out.isUser) wolfFarewell([out], next, "exile", proceedEx); else proceedEx();
       } catch (e) { props.toast && props.toast("投票失败：" + ((e && e.message) || "重试")); setBusy(false); }
     };
 
