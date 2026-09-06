@@ -65,7 +65,12 @@ test("按 TA 今天的作息判醒没醒，没行程才退回 8-23", () => {
   const pi = app.indexOf("const jw = (typeof window !== \"undefined\" && window.__dongnian && window.__dongnian[cid])");
   const proactive = app.slice(pi, app.indexOf("return; // 一次一个，错峰", pi));
   assert.ok(!/hr < 8 \|\| hr > 23/.test(proactive), "动念这条路上写死的 8-23 要撤掉");
-  assert.match(proactive, /charAwakeState\(c\) === "asleep"/);
+  // ⚠️v64.66 改口径：主动开口和聊天回复要用【同一把尺子】，所以这儿调的是
+  //   sleepPhaseOf（它自己第一件事就是问 charAwakeState），不再直接问旧尺子。
+  //   各调各的话，排了作息的角色会有两个答案，drowsy/waking 那两截能差出一个多小时。
+  assert.match(proactive, /sleepPhaseOf\(c\) === "asleep"/);
+  assert.match(app, /const sleepPhaseOf = char =>[\s\S]{0,600}charAwakeState\(char\) === "asleep"/,
+    "sleepPhaseOf 得把旧尺子包在里面，不能绕开它");
 });
 
 // 她 2026-08-26：「早上8点打开，下一次晚上十点，能看到他们这个时间段发过的消息，
@@ -108,10 +113,11 @@ test("动念进度条与人格影响说明合并，不在主动消息里重复",
   // 状态还没算出来时也要说一句，别只留一片空白让她以为没做
   assert.match(comp, /if \(!dongnianState\) return h\("div", null,/);
   assert.match(comp, /还没算出来。开机后十几秒才跑第一轮/);
-  assert.match(comp, /动念实时进度/);
+  // v64.66 换成人话了（她要把 app 发给别人玩，「动念」是内部说法）
+  assert.match(comp, /现在想你想到哪儿了/);
   assert.match(comp, /mark\(0\.35\), mark\(0\.5\)/, "两道线都要画");
   assert.match(comp, /忍不住了 · 随时会开口/);
   assert.match(comp, /刚聊过，还不想你/);
-  assert.match(comp, /关着 app 的时间也算数/, "得说清楚离线也在攒，不然她以为要一直开着");
+  assert.match(comp, /关着 app 的时候也照样在攒/, "得说清楚离线也在攒，不然她以为要一直开着");
   assert.match(app, /dongnianState: \(typeof window !== "undefined" && window\.__dongnian/);
 });

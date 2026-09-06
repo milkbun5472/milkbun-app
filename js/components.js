@@ -13494,6 +13494,8 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
 }
 window.ChatRoomSheet = ChatRoomSheet;
 
+// 十条读数的中文名（跟 js/screens.js 的 A 诊断台同一套说法——两处各译一份迟早对不上）
+const AXIS_ZH_MINI = { connection: "思念", pride: "傲娇", valence: "愉悦", arousal: "唤醒", immersion: "沉浸", hurt: "委屈", anger: "火气", anxiety: "不安", warmth: "暖意", fatigue: "疲惫" };
 function ChatSettings({
   character,
   settings,
@@ -13566,6 +13568,8 @@ function ChatSettings({
   const [memEdit, setMemEdit] = useState(null); // 长期记忆手术刀（v48.35）：null=浏览，字符串=编辑中的草稿
   const [temperamentText, setTemperamentText] = useState((temperament && temperament.anchors || []).join("\n"));
   const [temperamentDirty, setTemperamentDirty] = useState(false);
+  const [temperNumsOpen, setTemperNumsOpen] = useState(false);   // 那一串读数默认收着（v64.66）
+  const [dnNumsOpen, setDnNumsOpen] = useState(false);           // 动念那几个数同理
   useEffect(() => {
     if (!temperamentDirty) setTemperamentText((temperament && temperament.anchors || []).join("\n"));
   }, [temperament]);
@@ -13578,6 +13582,11 @@ function ChatSettings({
     const Gate = typeof window !== "undefined" && window.InnerLifePromotionGate;
     const gateOf = name => Gate && Gate.state ? Gate.state(name, character.id) : { mode: "shadow", emergencyOff: false };
     const aGate = gateOf("A"), eGate = gateOf("E");
+    // 这个角色排没排作息：排了，「作息」那一层才对他生效
+    const _hasSchedule = (() => {
+      try { const p = (loadJSON("x_schedules", {}) || {})[character.id] || {};
+        return Object.keys(p).some(k => (((p[k] || {}).seqs) || []).some(q => String(q && q.type).toLowerCase() === "sleep")); } catch (e) { return false; }
+    })();
     const live = [], shadow = [];
     // ── v62.37：A 和 E【全开、不留授权】（她 2026-09-04 定）。────────────────
     //   v62.36 查实 A 那一路的「授权」从来没接过管子（isPilotEnabled 只被 E 调用过），
@@ -13586,22 +13595,29 @@ function ChatSettings({
     const _innerOff = aGate.emergencyOff || eGate.emergencyOff;
     if (!_innerOff) {
       live.push({
-        key: "E", title: "余温 · 已开启", tone: "暖色",
-        text: "你点回复时，上一段交流留下的心情色彩和没说完的注意点，可能轻轻带进这一轮。只影响当下衔接，不会冒充经历、不会写进记忆，也不会强拉旧话题。"
+        key: "E", title: "余温", tone: "接得上",
+        text: "上一段聊完留下的那点情绪，会轻轻带进下一句里。刚吵完就不会立刻若无其事，笑过之后也还留着一点。只影响这一句的温度，不会翻旧账。"
       });
       live.push({
-        key: "A", title: "立体情绪 · 已开启", tone: "情绪",
-        text: "受伤、生气、不安、柔软和疲惫这几样此刻偏离常态多少，会连同你写的性情锚点一起，当作背景偏色轻调语气。数字本身是本地算的、不发出去；发出去的是折成的那一句（像「受伤偏高、柔软偏低」），在下面「内在性情」那一页看得见原文。它不能替 TA 决定说什么。"
+        key: "A", title: "情绪", tone: "有脾气",
+        text: "委屈、火气、不安、暖意、累——这几样此刻比平常多了还是少了，会调 " + cNm + " 说话的分寸。这是背景，不是剧本：它让 " + cNm + " 今天说话的力道不一样，但说什么还是 " + cNm + " 自己决定。"
       });
-    } else shadow.push("A 情绪 / E 余温：你按过急停，两层都退回只观察");
+    } else shadow.push("情绪和余温：你按过急停，这两样先停着");
     live.push({
-      key: "dongnian", title: "动念 · 已开启", tone: "主动性",
-      text: "只影响 TA 什么时候主动来找你，以及主动开口时的轻微姿态；不会改普通聊天回复。详细进度就在下方。"
+      key: "dongnian", title: "想起你", tone: "会主动",
+      text: "决定 " + cNm + " 什么时候会自己来找你。攒够了才开口——所以不会天天定点问候，也不会一天到晚不出声。进度就在下面那根条。"
     });
-    if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("B 关系轴：只观察，不制造伤口或关系转折");
-    // C 自己什么都不拦（每一支都放行），但【他做梦要靠它算的作息】——
-    // v64.34 我把它当死代码删掉，D 就跟着停了。写清楚它为什么还在。
-    shadow.push("C 睡眠意识：只算 TA 几点睡几点醒，不拦消息、不代替 TA 发言；「他做的梦」靠它才知道该在哪一夜做");
+    // 作息（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）。
+    // ⚠️只在【这个角色真排了作息】时才列出来——没排的人这一层对他不生效，
+    //   列出来就是骗人（她自己也会照着这一行去判断某个人有没有生效）。
+    if (_hasSchedule) live.push({
+      key: "sleep", title: "作息", tone: "会困",
+      text: cNm + " 照自己那份日程过日子。夜里被你叫醒会迷糊、话短、隔一句才反应过来；快睡着和刚起床也各是一个样。睡着的时候不会主动来找你——除非真的很想。人在国外的话，按 " + cNm + " 那边的钟点算。"
+    });
+    if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("你俩之间的疙瘩：只是记着，不会自己制造矛盾");
+    // ⚠️v64.66 起【作息真的在管事了】（睡着时的语气 + 不主动来找你），所以它从
+    //   「仍在观察」挪进了上面的「正在影响」。没排作息的角色两边都不列——
+    //   对他确实什么都没发生。
     return { live, shadow };
   })();
   // 别的场里的思念（v62.12）：一场一行，越想的排越前；没有别的场就整段不出现。
@@ -13626,7 +13642,7 @@ function ChatSettings({
     // ⚠️跟你没聊过、但在群里已经攒着思念的，这里也得看得见——
     //   早退的话那几根条会跟着一起消失（她跟这个人没私聊正是最需要看的时候）。
     if (!dongnianState) return h("div", null,
-      h(Eyebrow, null, "动念实时进度"),
+      h(Eyebrow, null, "现在想你想到哪儿了"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.7 } },
         "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"),
       renderDongnianElsewhere());
@@ -13635,16 +13651,24 @@ function ChatSettings({
     const stage = c >= 0.5 ? "忍不住了 · 随时会开口" : c >= 0.35 ? "已经想找你了 · 在等一个合适的时机" : c >= 0.2 ? "偶尔想起你" : "刚聊过，还不想你";
     const mark = x => h("div", { style: { position: "absolute", left: (x / 0.5 * 100) + "%", top: -2, bottom: -2, width: 1, background: t.fog, opacity: 0.55 } });
     return h("div", null,
-      h(Eyebrow, null, "动念实时进度"),
+      h(Eyebrow, null, "现在想你想到哪儿了"),
       h("div", { style: { position: "relative", height: 8, borderRadius: 999, background: t.bg, marginTop: 10 } },
         h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, pct) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog, transition: "width .3s" } }),
         mark(0.35), mark(0.5)),
+      // ⚠️「0.201 / 0.35」和两个阈值数是【我自己看的】。她 2026-09-06 要把 app 发给
+      //   别人玩：「我自己知道原理就行了，对别人少说点太复杂的」。所以数字收进那颗
+      //   「看数字」里，外面只留一句人话——那两道竖线本来就画在条上了，够看了。
       h("div", { className: "flex items-center justify-between", style: { marginTop: 6 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, stage),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.toFixed(3) + " / 0.35")),
+        h("button", { onClick: () => setDnNumsOpen(v => !v), className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, background: "transparent", border: "none", padding: "5px 0 5px 10px", minHeight: 34 } },
+          dnNumsOpen ? "收起 ▾" : "看数字 ▸")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
-        "两道竖线是「开始想找你」(0.35) 和「忍不住」(0.50)。你回一句话它就清零重来；关着 app 的时间也算数（一次最多补 12 小时）。"
-        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着（傲娇 " + Number(dongnianState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")),
+        "想到条子过了第一道线，TA 就开始找机会开口；过了第二道就忍不住了。你回一句话它就归零重新攒；关着 app 的时候也照样在攒。"
+        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着——想找你但拉不下脸，会先去找点事做。" : "")),
+      dnNumsOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
+        "此刻 " + c.toFixed(3) + "；开口线 0.35，忍不住线 0.50。关着 app 的时间一次最多补 12 小时。"
+        + (dongnianState.pride >= 0.5 ? "　傲娇 " + Number(dongnianState.pride).toFixed(2) + "。" : "")) : null,
       renderDongnianElsewhere());
   })());
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
@@ -13679,7 +13703,9 @@ function ChatSettings({
   const settingPages = [
     { key: "temper", char: "性", title: "TA 是什么脾气", tint: "#d97c86",
       state: () => (temperamentWords().length ? temperamentWords().slice(0, 3).join(" · ") : "性情还没定")
-        + (dongnianState && typeof dongnianState.charge === "number" ? " · 动念 " + Number(dongnianState.charge).toFixed(2) : "") },
+        // ⚠️「动念 0.28」这种是内部说法，别摆在设置首页上给人看（她 2026-09-06 要把 app
+        //   发给别人玩）。这一栏只说这个人是什么样，那根条在页里自己有。
+        },
     { key: "act", char: "动", title: "TA 会主动做什么", tint: "#c0904f",
       state: () => "主动找你 " + onOff(proactive) + " · 朋友圈 " + onOff(autoMoment) + " · 上网 " + onOff(webSearch) },
     { key: "know", char: "记", title: "TA 知道什么", tint: "#687f73",
@@ -13803,16 +13829,18 @@ function ChatSettings({
     : null,
   show("temper", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
-      "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),
+      "下面这几样，此刻真的在影响 " + cNm + " 怎么说话、什么时候来找你。"),
     innerLifeImpact.live.map(item => h("div", { key: item.key, style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
       h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, item.title),
         h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "#4a8b68", border: "1px solid #4a8b68", borderRadius: 999, padding: "2px 7px" } }, item.tone)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, item.text))),
     renderDongnianGauge(),
-    h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
-      h(Eyebrow, null, "仍在观察 · 不影响 TA"),
-      innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),
+    // ⚠️空的时候整块别出现：v64.66 之后这一栏常常一条都没有（作息挪上去了、
+    //   关系轴关着），留个光秃秃的标题在那儿看着像加载失败。
+    innerLifeImpact.shadow.length ? h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+      h(Eyebrow, null, "还没派上用场"),
+      innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text))) : null),
   show("know", { title: "时间感知 · TA 知不知道今天几号", ...sec("time-aware") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
       "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),
@@ -13855,26 +13883,42 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
       h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
-  show("temper", { title: "内在性情 · 性情锚点", ...sec("temperament") },
+  show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
-      // ⚠️这段话从 v62.37 起就是【假的】：A 那一层当时全开了，这里写的词会跟着
-      //   「此刻偏离」一起折成一句话发给模型（engine.js 的【此刻的情绪底色】那一段）。
-      //   她 2026-09-06 指着这一页问「开了的话这里提示是不是要改」——是要改。
-      "这是 A 立体情绪的底色。你写的这几个词会跟着「此刻偏离常态多少」一起，折成一句话发给 " + cNm + "，当作语气的背景偏色——所以写在这儿的词他是看得见的。只有你点「生成一次草稿」才会调用一次后台 API；模型只提议词，数值由本地固定规则算。"),
+      // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进
+      //   prompt、也不会改变 Ta 的语气」是假的（她 2026-09-06 指着问的就是这个）。
+      //   现在这一版还顺带把行话都去掉了：她要把 app 发给别人玩。
+      "写几个词，说 " + cNm + " 天生是什么样的人——敏感、嘴硬、慢热之类。这几个词会一直垫在 " + cNm + " 说话的底下，跟当天的心情叠在一起。不确定就点「生成一次草稿」，让 " + cNm + " 自己提几个，你再改。"),
     h("textarea", { value: temperamentText, onChange: e => { setTemperamentText(e.target.value); setTemperamentDirty(true); }, placeholder: "每行一个词，例如：\n敏感\n嘴硬\n温柔", rows: 6,
       style: { width: "100%", marginTop: 12, padding: "11px 12px", resize: "vertical", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, outline: "none" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7, lineHeight: 1.5 } },
-      temperament && temperament.approved ? "✓ 已由你确认 · " + (temperament.unmatched && temperament.unmatched.length ? "未识别词只保留、不影响数字：" + temperament.unmatched.join("、") : "所有词均已按本地词典计算") : "草稿尚未确认；可自由增删改。"),
+      temperament && temperament.approved ? "✓ 已经存下了" + (temperament.unmatched && temperament.unmatched.length ? "。这几个词认不出来，会照样留着，只是不影响脾气：" + temperament.unmatched.join("、") : "") : "还没存；随便加、随便改。"),
     h("div", { className: "flex gap-2", style: { marginTop: 12 } },
       h("button", { disabled: temperamentBusy, onClick: async () => { await onGenerateTemperament(temperamentWords()); setTemperamentDirty(false); }, className: "active:opacity-60", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 8px", color: t.sub, opacity: temperamentBusy ? .55 : 1 } }, temperamentBusy ? "正在提炼…" : "生成一次草稿"),
       h("button", { disabled: !temperamentWords().length, onClick: async () => { const ok = await onSaveTemperament(temperamentWords()); if (ok) setTemperamentDirty(false); }, className: "active:opacity-70", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 9, padding: "9px 8px", background: t.ink, color: t.bg2, opacity: temperamentWords().length ? 1 : .45 } }, "确认并保存")),
+    // 此刻的读数。⚠️那一串英文键名和采样计数是【给我自己看的】——她 2026-09-06：
+    //   「到时候是要发到小号给别人玩的，我自己知道原理就行了，对别人少说点太复杂的」。
+    //   所以外面只留一句人话，数字收进折叠里（跟记忆库那一屏「只是数字」同一个做法）。
     aShadowPanel && aShadowPanel.state && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
-      h(Eyebrow, null, "此刻的读数 · 正在发给 " + cNm),
-      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value).toFixed(2)))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 10, lineHeight: 1.6 } },
-        aShadowPanel.projection && aShadowPanel.projection.text ? "正发给他的那一句：" + aShadowPanel.projection.text : "这一轮不发（目前接近常态，没有偏离要说）"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } },
-        "样本 " + Number(aShadowPanel.report && aShadowPanel.report.sampleCount || 0) + " · mood 未命中 " + Number(aShadowPanel.report && aShadowPanel.report.unmatchedMoodCount || 0) + " · 封顶触发 " + Number(aShadowPanel.report && aShadowPanel.report.clippedCount || 0) + " · 预计 " + Number(aShadowPanel.projection && aShadowPanel.projection.tokenEstimate || 0) + " tokens")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } },
+        // ⚠️只改【显示】：发给模型的还是原样那一句（dongnian.js 的 displayProjectionA），
+        //   这儿只是把它那两个内部前缀拆开摆好，别让人对着「底色：…；此刻偏离：…」发愣。
+        (() => {
+          const raw = String((aShadowPanel.projection && aShadowPanel.projection.text) || "");
+          if (!raw) return cNm + " 今天没什么特别的起伏，就照平常的样子说话。";
+          const m = raw.split("；此刻偏离：");
+          const base = m[0].replace(/^底色：/, ""), off = m[1] || "";
+          return h(React.Fragment, null,
+            h("span", { style: { color: t.fog } }, "他本来就是："), base,
+            off ? h("span", { style: { display: "block", marginTop: 3 } }, h("span", { style: { color: t.fog } }, "这两天多了点："), off) : null);
+        })()),
+      h("button", { onClick: () => setTemperNumsOpen(v => !v), className: "active:opacity-60",
+        style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent", border: "none", padding: "6px 0", minHeight: 36 } },
+        temperNumsOpen ? "把数字收起来 ▾" : "看数字 ▸"),
+      temperNumsOpen ? h("div", null,
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 2 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 8px" } }, (AXIS_ZH_MINI[key] || key) + " " + Number(value).toFixed(2)))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.6 } },
+          "攒了 " + Number(aShadowPanel.report && aShadowPanel.report.sampleCount || 0) + " 次 · 没认出来的心情 " + Number(aShadowPanel.report && aShadowPanel.report.unmatchedMoodCount || 0) + " 次 · 到顶被压回来 " + Number(aShadowPanel.report && aShadowPanel.report.clippedCount || 0) + " 次")) : null),
     aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
       h(Eyebrow, null, "B 关系影子 · 只看不干预"),
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.bReport.state && aShadowPanel.bReport.state.axes || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: value.active ? t.accent : t.sub, border: "1px solid " + (value.active ? t.accent : t.line), borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value.pressure || 0).toFixed(2) + (value.repairLocked ? " 🔒" : "")))),

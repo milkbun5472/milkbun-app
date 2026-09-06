@@ -50,7 +50,8 @@ test("群线上：每位成员自己那一段里带上，且真的拼进了 memb
   assert.match(seg[0], /〔此刻的情绪底色·只作内在背景〕/);
   assert.match(seg[0], /别复述、别把「偏高\/偏低」这种说法带进话里/);
   // v55.95 那条：声明了但没人引用，比压根没写更坏。所以要看到它真的进了拼接串。
-  assert.match(app, /\+ afSeg \+ aSeg \+ ageSeg \+/,
+  // v64.66 起 aSeg 后面多了 zSeg（此刻睡没睡），所以别再钉死「紧跟着就是 ageSeg」
+  assert.match(app, /\+ afSeg \+ aSeg \+ [a-zA-Z]*Seg? ?\+? ?[a-zA-Z]* ?\+? ageSeg \+/,
     "aSeg 声明了却没拼进 memberDesc");
 });
 

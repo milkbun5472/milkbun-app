@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.65";
+const APP_VERSION = "v64.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3365,6 +3365,47 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
     } catch (e) { return "awake"; }
   };
+  // ── TA 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）──
+  // 两把尺子收在这一处，别处一律调它：
+  //   · 排了作息的角色用 C 算的四相（快睡了／睡熟／刚醒 分得开，语气才有层次）；
+  //   · 没排作息的退回 charAwakeState 的两相（它有 8–23 那个兜底，不能丢）。
+  // ⚠️C 只有 source==="schedule" 时才算数——没行程时它会拿「睡意压力」猜一个出来，那是编的。
+  // ⚠️言秋不睡觉（他不是被扮演的角色）。
+  const sleepPhaseOf = char => {
+    try {
+      if (!char || !char.id) return "awake";
+      if (settingsFor(char.id).engineerEyes) return "awake";
+      // ① 睡没睡，以 charAwakeState 为准。它直接读那一段的 end，最稳。
+      //    ⚠️不许反过来让 C 说了算：C 要【明天那份日程】才知道今晚这觉睡到几点，
+      //      而日程是一天一份的——22:00 排了睡觉，22:30 去问 C，它答「醒着」
+      //      （今天这份里 22:00 之后没有下一项，明天那份还没生成）。实测过。
+      if (charAwakeState(char) === "asleep") return "asleep";
+      // ② 醒着的时候再问 C：是不是【快睡了】或【刚醒】那两截。
+      //    这两档是旧尺子没有的东西，也是 C 唯一比它多出来的价值。
+      const st = window.SleepShadow && window.SleepShadow.stateOf ? window.SleepShadow.stateOf(char.id) : null;
+      if (st && st.source === "schedule" && (st.phase === "drowsy" || st.phase === "waking")) return st.phase;
+    } catch (e) {}
+    return "awake";
+  };
+  // 这一段是发给模型的（八处一样喂）。
+  // ⚠️写的是【判据和分寸】，不是台词示范——给了例句模型就照抄，每个角色被吵醒都说同一句
+  //   （.claude/rules/prompt-no-content-samples.md）。
+  // ⚠️最后一条是防摆烂的：不写死的话，模型会直接「我睡了明天说」把人打发走。
+  const SLEEP_TONE = {
+    drowsy: "【此刻你快睡了】你那边已经是该睡的点，你多半已经躺下、灯关了。\n"
+      + "· 回得比平时短、比平时慢，注意力是散的：容易抓错重点、答上一句、说着说着跑题。\n"
+      + "· 困到什么程度看这条消息多要紧：随口一句就含糊应着；真出事了照样撑起来。\n"
+      + "· 别用「我困了」三个字交差——把困写进反应里（慢、短、答非所问），不是写进说明里。",
+    asleep: "【此刻你在睡觉】你那边是深夜，这条消息是把你从睡里拽出来的。\n"
+      + "· 反应慢半拍、话短、脑子没完全醒：先弄明白发生了什么，别一上来就给完整的分析或长段安慰。\n"
+      + "· 醒的程度跟着事情走：随口一句就是含糊地应一声；真出事了会一下子清醒过来。\n"
+      + "· 别拿「我刚睡醒」这几个字交差——把没睡醒写进反应里（隔一句才反应过来、抓错重点、话没说完），不是写进说明里。\n"
+      + "· 但不许因为在睡就不回、也不许一句「明天再说」把人打发走。人被吵醒了还是会应的。",
+    waking: "【此刻你刚醒】你那边刚起来没多久，人还没完全清醒。\n"
+      + "· 说话比白天钝一点、慢一点，先接上眼前这件事，别一上来就精神饱满。\n"
+      + "· 同样别写「我刚起」当说明，让它从反应里透出来。"
+  };
+  const sleepToneOf = char => SLEEP_TONE[sleepPhaseOf(char)] || "";
   // 过了 0 点那一截（v56.57，她 2026-08-27 报「聊天界面日程都显示还没开始今天的安排」）：
   // 日程是一天一份的，昨晚 23:40 睡下、end 记到 24:00，今天这份里没人接着——
   // 于是从 0 点到今天第一项之间，schedCurrentSeqIdx 一个都选不中，返回 -1。
@@ -4010,6 +4051,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️穿书、小剧场、同人文、跑团、如果馆【不给】：它们是平行时空沙盒，本来就不读主线心情/好感，
     //   而这一条正是几轮主线相处攒出来的底色——这是写明理由的差异，不是漏。
     aMood: aMoodTextOf(char.id),
+    // 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）。
+    // ⚠️提示词里【早就写着】她那边和他那边各是几点（timeBlock），可从来没有一句话说过
+    //   「凌晨三点你应该在睡，这条消息是把你吵醒的」——于是他知道是深夜，还是精神饱满地秒回。
+    //   缺的从来不是时间事实，是那个【姿态】。
+    // ⚠️跟 aMood 走同一条路，所以单聊线上/线下、通话、匿名信箱、解梦馆一次全有；
+    //   群里两处另按人喂（memberDesc / memberSleep），跟 aMood 一模一样的三处。
+    sleepTone: sleepToneOf(char),
     // 她翻过他昨晚那场梦之后，让那点感觉【轻轻】留在他今天的语气里
     //（她 2026-09-04：「不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
     // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；
@@ -5031,7 +5079,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
-          if (charAwakeState(c) === "asleep") {
+          // ⚠️跟聊天那一路同一把尺子（v64.66）：原来这儿单独调 charAwakeState，
+          //   于是「他睡没睡」在 app 里有两个答案——排了作息的角色，聊天按 C 的四相算、
+          //   主动开口按这把两相的旧尺子算，能差出一个多小时（drowsy/waking 那两截）。
+          if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
           }
@@ -5917,6 +5968,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (group.memberIds || []).forEach(id => {
         if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有情绪底色
         const t = aMoodTextOf(id);
+        if (t) m[id] = t;
+      });
+      return m;
+    })(),
+    // 睡没睡（v64.66）：跟 memberAMood 同一个形状——一人一份，各按各的作息。
+    memberSleep: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        if (!c || c.npc) return;
+        const t = sleepToneOf(c);
         if (t) m[id] = t;
       });
       return m;
@@ -8465,7 +8527,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const aSeg = aMoodTextOf(c.id)
           ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id)
             + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        // 睡没睡（v64.66）：群里更要按人给——同一个群里有人在上班、有人那边是凌晨三点。
+        const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -11827,9 +11891,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
           const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
           const aSeg = aMoodTextOf(c.id) ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id) + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
+          // 睡没睡（v64.66）：电话尤其要有——半夜三点接起来的人不该精神饱满
+          const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
           const cySeg = (() => { const txt = (typeof carryContextText === "function") ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : ""; return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : ""; })();
           const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + zSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：

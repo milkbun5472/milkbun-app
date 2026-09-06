@@ -158,5 +158,12 @@
   }
 
   hydrate();
-  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence, ready: hydrate, hashId: chash };
+  // 纯读一份现成的状态（v64.66）：给聊天那条链用。
+  // ⚠️不许在这儿调 tick——它会写 IDB、还会往云端投 presence，
+  //   而拼提示词是每一轮都走的路，副作用不能挂在上面。
+  //   拿不到就返回 null，调用方自己退回旧那把尺子。
+  function stateOf(charId) {
+    try { if (!hydrated) hydrate(); return states.get(charId) || null; } catch (e) { return null; }
+  }
+  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence, stateOf, ready: hydrate, hashId: chash };
 })();

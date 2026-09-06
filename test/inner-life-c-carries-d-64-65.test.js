@@ -53,8 +53,11 @@ test("A 真的在往提示词里发，所以页面上不许再写它不发", () 
   assert.match(eng, /parts\.push\("【此刻的情绪底色·只作内在背景】" \+ ctx\.aMood\.trim\(\)/,
     "A 的投影不再进 system 了？那下面几条断言要整个重看");
   assert.match(app, /aMood: aMoodTextOf\(char\.id\)/, "单聊那一路没接上");
-  ["现在不会进 prompt", "也不会改变 Ta 的语气", "A 影子 · 只看不注入", "若开阀会投影"].forEach(bad => {
-    assert.ok(!comp.includes(bad), "这句话是假的，还留在「TA 是什么脾气」上：" + bad);
+  // ⚠️只查【会显示出来的字符串】——注释里照旧写着「原来那句是假的」，那是留给
+  //   下一个人看的记录，不该被这条误伤。
+  const shown = comp.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  ["现在不会进 prompt", "不会改变 Ta 的语气", "A 影子 · 只看不注入", "若开阀会投影"].forEach(bad => {
+    assert.ok(!shown.includes(bad), "这句话是假的，还留在「TA 是什么脾气」上：" + bad);
   });
   // ⚠️只查 A 那一张诊断台：五感和 B 确实还是纯影子，它俩说「纯影子诊断」是对的，
   //   一刀切会把两句真话也误伤掉。
@@ -66,20 +69,24 @@ test("A 真的在往提示词里发，所以页面上不许再写它不发", () 
   assert.match(aSheet, /常开/, "得说清它现在是开着的");
 });
 
-test("性情锚点那几个词是发给模型的，这一页得说出来", () => {
+test("底色那几个词是发给模型的，这一页得说出来", () => {
   // ⚠️anchor 在 sec("temperament") 上：show("temper" 有两处，头一处是「正在影响 TA」那一页
   const i = comp.indexOf('...sec("temperament")');
-  assert.ok(i > 0, "抠不出内在性情那一页");
-  const seg = comp.slice(i, i + 1400);
-  assert.match(seg, /折成一句话发给/, "得说清这几个词他看得见");
-  // 也别把话说过头：数字本身确实不发出去
-  assert.match(comp, /数字本身是本地算的、不发出去/);
+  assert.ok(i > 0, "抠不出底色那一页");
+  const seg = comp.slice(i, i + 1400).split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  // v64.66 换成人话了：不说「进 prompt」，说「会一直垫在他说话的底下」——
+  // 意思一样，但发给别人玩的时候读得懂。
+  assert.match(seg, /会一直垫在 " \+ cNm \+ " 说话的底下/, "得说清这几个词是真在起作用的");
+  // 「只是不影响脾气」说的是【认不出来的那几个词】，那句是对的，别误伤
+  assert.ok(!/不会进 prompt|不会改变|不影响 " \+ cNm|对 " \+ cNm \+ " 没有影响/.test(seg), "不许再说它不起作用");
 });
 
-test("C 那一行说的是它现在真在干的事", () => {
-  const i = comp.indexOf('shadow.push("C 睡眠意识');
-  assert.ok(i > 0, "C 那一行没了");
-  const line = comp.slice(i, comp.indexOf("\n", i));
-  assert.match(line, /不拦消息/, "它确实不拦——这半句是真的");
-  assert.match(line, /他做的梦/, "得写清它为什么还在：D 靠它");
+// ⚠️v64.66：作息真的管事了，那一行从「还没派上用场」挪进了「正在影响」，
+//   所以它现在的落点是 live.push 那一条，不再是 shadow.push。
+test("作息那一层在页面上写清了它在干嘛", () => {
+  const i = comp.indexOf('key: "sleep", title: "作息"');
+  assert.ok(i > 0, "作息那一条没了");
+  const seg = comp.slice(i, i + 400);
+  assert.match(seg, /照自己那份日程过日子/);
+  assert.match(seg, /睡着的时候不会主动来找你/);
 });
