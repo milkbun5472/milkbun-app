@@ -27,7 +27,13 @@ test("接线齐全:script 标签在 app.js 之前、REG、默认布局、路由"
   // REG key 和 screen 字符串是同一个词,路由那边也要有
   assert.match(app, /screen === "trpg"/);
   // 默认布局里要有,否则新图标只对重置过布局的用户可见(REG 安全网虽会回填,但默认位要有)
-  assert.match(components, /"games", "trpg"/);
+  // v64.53：默认文件夹「一起玩」按她的顺序变成 games/theater/trpg。
+  // 钉【意图】：跑团在某个默认文件夹里摸得着。
+  assert.match(components, /f_def_\w+:\s+\{ name: "[^"]+", keys: \[[^\]]*"trpg"[^\]]*\] \}/,
+    "默认桌面的文件夹里找不到跑团");
+  // 文件夹本身也得摆在页面上——不然里面的东西一样点不到
+  const fid = (components.match(/(f_def_\w+):\s+\{ name: "[^"]+", keys: \[[^\]]*"trpg"[^\]]*\]/) || [])[1];
+  assert.ok(fid && components.indexOf('"' + fid + '"') > 0, "装着跑团的那个默认文件夹没摆上桌面");
 });
 
 test("沙箱纪律:跑团和小剧场一样不接主线记忆/世界书/好感", () => {

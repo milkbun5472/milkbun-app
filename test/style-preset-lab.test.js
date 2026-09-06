@@ -187,8 +187,19 @@ test("版本指纹一致，两个新文件都挂上了", () => {
 test("首页能点进去", () => {
   assert.match(comp, /stylelab: \{ kind: "app", zh: "文风台"/);
   // v61.58：默认布局改成她那套，文风台收在默认的「工作台」文件夹里
-  assert.match(comp, /f_def_desk:\s+\{ name: "工作台", keys: \["stylelab", "assistant"\] \}/, "默认布局里没有它，新装的人找不到");
-  assert.ok(comp.indexOf('"f_def_desk"') > 0, "那个文件夹本身没摆上去");
+  // v64.53：默认布局按她那三页重排，文风台从「工作台」文件夹挪到第三页明面上。
+  // 钉【意图】：默认桌面上摸得着（在页面上或在某个默认文件夹里都算）。
+  // 摸得着＝要么自己躺在某一页上，要么在一个【本身摆在页面上】的默认文件夹里。
+  // 只看文件夹存在是不够的：文件夹没摆上去，里面的东西一样点不到。
+  const reachableInDefault = key => {
+    const lay = comp.slice(comp.indexOf("const DEFAULT_LAYOUT = ["), comp.indexOf("const SP_RE = /^sp_/;"));
+    if (new RegExp('"' + key + '"').test(lay)) return true;
+    const fd = comp.slice(comp.indexOf("const DEFAULT_FOLDERS = {"), comp.indexOf("\n};", comp.indexOf("const DEFAULT_FOLDERS = {")));
+    const m = fd.match(new RegExp('(f_def_\\w+):\\s+\\{ name: "[^"]+", keys: \\[[^\\]]*"' + key + '"[^\\]]*\\]'));
+    return !!(m && new RegExp('"' + m[1] + '"').test(lay));
+  };
+  assert.ok(reachableInDefault("stylelab"), "默认桌面上摸不着文风台，新装的人找不到");
+
 });
 
 // —— 她 2026-08-23 传了一份 Ako 1.91 酒馆预设，要拆成能勾的模块 ——

@@ -3291,6 +3291,13 @@ const HOME_EDGE_ZONE = 66, HOME_EDGE_STEP = 9;
 function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (rows - 1) * HOME_ROW_GAP; }
 // 几个组件天生就该是一条，不该占掉两行：没单独挑过尺寸时按这个来。
 // 挑过的（x_homeWidgetSizes 里有这一项）一律听她的。
+// ⚠️默认尺寸【没有】跟着她那份 x_homeWidgetSizes 改（v64.53 试过又退回来）：
+//   ① 这几个数是上一次专门定过的，理由写在 home-size-real-61-87 里
+//      （「情侣空间和一起听默认就是一条 4×1，不占两行」「备忘录默认一条」）；
+//   ② 照她那份放大之后，默认第三页会排到【滑到底也够不着】的行数
+//      （home-rows-58-19 当场红）——位置排对了，人却看不见。
+//   她自己那台机器上这几项都显式存过，所以这儿不动她。要连尺寸一起换的话，
+//   得把每页的容量一起重排，那是另一件事。
 const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide", w_recent: "large" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
@@ -3975,15 +3982,25 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 // 新装的人一进来就是一面图标墙；她自己的摆法是【组件当主角、app 收进文件夹】。
 // ⚠️只在【第一次装】时铺（x_homeLayout 和 x_homeFolders 都空）——
 // 已经在用的人自己摆过的一律不动。
+// v64.53 起照她自己那三张主屏重排（她 2026-09-06 把 x_homeLayout 整份发过来：
+// 「按我这样的布局把 app 默认布局重新排一遍」）。和上一版的差别是【分组按她的来】：
+// 去处跟着查手机进「查一查」（都是翻他的），周刊从「每日看」挪去「回头看」，
+// 同人文从「一起做」挪去和解梦、擂台一组，阅读挪进「一起做」。
+// ⚠️她那份里有两个 key 没跟过来：lifestyle 和 capsule ——这个版本的 REG 里
+//   压根没有它们，写进来会变成「占着格子、渲染成 null」的死格（v64.x 那处旧病）。
+// ⚠️她那三个没起名的文件夹在这儿得有名字：默认布局里并排三个「文件夹」等于没分组。
+//   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
-  f_def_check: { name: "查一查", keys: ["phone", "shop", "cwallet"] },
-  f_def_daily: { name: "每日看", keys: ["weekly", "tarot", "carry"] },
-  f_def_ties:  { name: "角色关系", keys: ["cast", "ties", "lore", "dwell"] },
-  f_def_play:  { name: "玩一玩", keys: ["games", "trpg", "theater"] },
-  f_def_dream: { name: "梦与印象", keys: ["dream", "dreamjournal", "impression"] },
-  f_def_read:  { name: "看和吵", keys: ["read", "debate"] },
-  f_def_desk:  { name: "工作台", keys: ["stylelab", "assistant"] },
-  f_def_do:    { name: "一起做", keys: ["study", "pomodoro", "fanfic"] },
+  f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
+  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop"] },
+  f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
+  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
+  f_def_do:    { name: "一起做", keys: ["study", "read", "pomodoro"] },
+  // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
+  //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
+  //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
+  f_def_naodong:  { name: "脑洞", keys: ["dream", "fanfic", "debate"] },
+  f_def_back:  { name: "回头看", keys: ["weekly", "impression"] },
   f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
 };
 function Home({
@@ -4196,13 +4213,20 @@ function Home({
   // 三页照她截图的摆法：每页都由一个整行组件领头，图标只作为文件夹点缀在组件旁边。
   // ⚠️顺序＝dense 排布的先后，不是坐标：整行组件先落，2×2 的组件占中间，
   // 1×1 的文件夹自动补进左边那一列的空当（跟截图里日历左侧那三个文件夹是同一回事）。
+  // 照她自己那三页排（她 2026-09-06 发来整份 x_homeLayout）。
+  // 一句话概括她的摆法：**组件当主角、app 收进文件夹**——
+  //   第一页最少：名片、日历，和三个「翻他」的文件夹；
+  //   第二页最满：情侣条、天气、账本、歌单 四个组件，中间夹着功能文件夹；
+  //   第三页是零碎的：备忘、地图、最近、木鱼、转盘 + 三个单开的 app。
+  // ⚠️第二页的图标顺序是【算过色相】的：挨着的两个图标色相至少差 40
+  //（test/home-tone-58-45.test.js），所以别凭手感调换位置，换完要重跑那份测试。
+  // ⚠️她那三页里还有 d_ 开头的装饰（她自己画/传的那些）——那是她的数据，
+  //   不能进默认布局，所以只搬结构不搬装饰。
   const DEFAULT_LAYOUT = [
     ["w_card", "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
-    // ⚠️这一页的图标顺序是【算过色相】的：挨着的两个图标色相至少差 40
-    //（test/home-tone-58-45.test.js），所以别凭手感调换位置，换完要重跑那份测试。
-    ["w_memo", "w_weather", "memlib", "f_def_play", "f_def_dream", "f_def_desk",
-      "w_ledger", "w_us", "anon", "yanqiu", "f_def_do", "f_def_read"],
-    ["w_music", "w_map", "w_muyu", "w_wheel", "w_recent", "f_def_ops"]
+    ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
+      "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "w_recent", "w_muyu", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;

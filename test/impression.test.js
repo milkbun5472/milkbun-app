@@ -105,8 +105,20 @@ test("三处注册齐全：脚本、图标、路由", () => {
   assert.match(comp, /impression: \{ kind: "app", zh: "月度印象"/);
   // v61.58 默认布局改成她自己那套（组件当主角、app 收进默认文件夹），
   // 所以「摆进桌面」＝在 DEFAULT_LAYOUT 里，或者在某个默认文件夹里
-  assert.match(comp, /f_def_dream: \{ name: "梦与印象", keys: \["dream", "dreamjournal", "impression"\] \}/, "要真的摆进桌面，不然点不到");
-  assert.match(comp, /"f_def_dream"/, "那个文件夹本身没摆上去");
+  // v64.53：默认布局按她自己那三页重排过一次，月度印象换了个文件夹。
+  // 所以这儿钉的是【意图】不是那一行的字面：新装的人在默认桌面上摸得着它就行——
+  // 钉死组成的话，她每重排一次这条就红一次，而它其实什么都没坏。
+  // 摸得着＝要么自己躺在某一页上，要么在一个【本身摆在页面上】的默认文件夹里。
+  // 只看文件夹存在是不够的：文件夹没摆上去，里面的东西一样点不到。
+  const reachableInDefault = key => {
+    const lay = comp.slice(comp.indexOf("const DEFAULT_LAYOUT = ["), comp.indexOf("const SP_RE = /^sp_/;"));
+    if (new RegExp('"' + key + '"').test(lay)) return true;
+    const fd = comp.slice(comp.indexOf("const DEFAULT_FOLDERS = {"), comp.indexOf("\n};", comp.indexOf("const DEFAULT_FOLDERS = {")));
+    const m = fd.match(new RegExp('(f_def_\\w+):\\s+\\{ name: "[^"]+", keys: \\[[^\\]]*"' + key + '"[^\\]]*\\]'));
+    return !!(m && new RegExp('"' + m[1] + '"').test(lay));
+  };
+  assert.ok(reachableInDefault("impression"), "默认桌面上摸不着月度印象，新装的人点不到");
+
   assert.match(app, /screen === "impression"\) body = h\(ImpressionApp/);
   assert.match(app, /active: offlineActive/);
 });
