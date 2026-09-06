@@ -170,3 +170,56 @@ test("建卡那一路同病同治：原文也留着", () => {
   // 那正是对的：认得多少说多少，剩下的靠原文那一份。
   assert.equal(st.err, "模型一个字都没吐出来");
 });
+
+// ── v64.40：她第三轮报「不行」，这次原文露出来了，写的是「没解析出卡」 ──────
+//
+// 那是我自己 throw 里的一句话，等于什么都没说——**一句只描述「我没看懂」的错误
+// 是个死胡同：它不含任何能往下查的东西**。所以先让它带上【他到底说了什么】。
+// 带上之后当场看见病根：
+//
+//   engine 里有个加固版 parseJSONLoose，它自己的注释就写着
+//   「任何『拿模型返回当 JSON 用』的地方都该走它，别再各写各的」。
+//   主聊天、群聊、小剧场、跑团、同人文都走了，**只有建卡和复看这两枪没跟上**。
+//   差别正好落在这一处的痛点上：这十块要的是「亲笔碎句」，模型很容易在 JSON
+//   字符串里直接敲一个真换行——JSON.parse 当场死，repairJSON 只补截断补不了它。
+//   于是每一次都「没解析出卡」，四次全一样，因为它根本不是抖动，是必然。
+const vm2 = require("node:vm");
+const ENG = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+const P = (() => {                       // 把 engine 里那四个真函数抠出来跑，不重写一份
+  const ctx = { console }; vm2.createContext(ctx);
+  ["extractJSON", "repairJSON", "escapeJsonStringControls", "parseJSONLoose"].forEach(n => {
+    const i = ENG.indexOf("function " + n + "(");
+    assert.ok(i > 0, n + " 不见了");
+    const j = ENG.indexOf("\nfunction ", i + 1);
+    vm2.runInContext(ENG.slice(i, j < 0 ? ENG.length : j), ctx);
+  });
+  return ctx;
+})();
+
+test("④ 病根：JSON 字符串里一个真换行，裸 extractJSON 就整份丢掉", () => {
+  const bad = '{"me":{"person":"她是和我反复拉扯的另一端。\n她总能一句话把我拽回来。","soft":null},"us":{}}';
+  assert.equal(P.extractJSON(bad), null, "裸的那条路要是能解了，这条测试就没在测病根了");
+  const ok = P.parseJSONLoose(bad);
+  assert.equal(ok.me.person, "她是和我反复拉扯的另一端。\n她总能一句话把我拽回来。");
+});
+
+test("④ 建卡和复看两枪都换成加固版（别只修一处）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  [["建卡", seed], ["复看", rev]].forEach(([zh, seg]) => {
+    assert.match(seg, /parseJSONLoose\(raw\)/, zh + "那一枪还在用裸的 extractJSON");
+    assert.doesNotMatch(seg, /const parsed = extractJSON\(raw\);/, zh + "还留着旧那行");
+    // 解析不出来时必须带上他的原话，否则又是一句「我没看懂」的死胡同
+    assert.match(seg, /throw new Error\("没解析出卡。他这回答的是：\\n" \+ String\(raw \|\| ""\)\.slice\(0, 320\)\)/, zh + "报错里没带他的原话");
+  });
+});
+
+test("④ 提示词把「没变」也逼进 JSON 里", () => {
+  const spec = SRC.slice(SRC.indexOf("function reviewSpec(uName, charId)"), SRC.indexOf("function review(charId, data)"));
+  // 这一问最可能的正确答案就是「什么都没变」，而那句话用中文说比填一份全 null 的
+  // JSON 自然得多——不说死的话他很可能直接答一句话，一个大括号都没有。
+  assert.match(spec, /就算十块一块都没变，也【必须】把上面那份 JSON 原样输出/);
+  assert.match(spec, /不许改成一句话回答「没什么要改的」/);
+  assert.match(spec, /连 \/\/ 也不行/, "注释这条没说，模型爱在 null 后面写「\/\/ 没变」");
+});

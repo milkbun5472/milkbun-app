@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.44";
+const APP_VERSION = "v64.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -619,8 +619,20 @@ function App() {
       //   （唯一要留神的是有些上游对 max_tokens 有自己的硬上限，超了会秒失败打回来——
       //     真遇到某条线路一按就失败，先看是不是这个数被上游拒了，不是提示词的问题。）
       const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
-      const parsed = extractJSON(raw);
-      if (!parsed) throw new Error("没解析出卡");
+      // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
+      //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
+      //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
+      //   **只有建卡和复看这两枪没跟上**（又一次「一层写在两处，第二处没跟上」）。
+      //   差别正好落在这一处的痛点上：这十块要的是「亲笔碎句」，模型很容易在 JSON
+      //   字符串里直接敲一个真换行——JSON.parse 当场死，repairJSON 只补截断补不了它，
+      //   于是每一次都「没解析出卡」。她 2026-09-06 连报三轮，原话就是这一句。
+      const parsed = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw));
+      // ⚠️把【他这回到底说了什么】带上（v64.40）。
+      //   她 2026-09-06 连报三轮「还是不行」，v64.39 好不容易把原文露出来了，
+      //   露出来的却是「没解析出卡」——那是我自己写的一句话，等于什么都没说。
+      //   一句只描述「我没看懂」的错误，是个死胡同：它不含任何能往下查的东西。
+      //   ⚠️所以判据是：**报错里必须带着我没看懂的那个东西本身**，不然下一轮还是这样。
+      if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
       const n = window.Gaze.seed(char.id, parsed);
       // 跟着这个角色的性别走(她 2026-09-01)——别处早有 charTa 这张表,不要再各写一份判断
       const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
@@ -669,8 +681,20 @@ function App() {
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
       // 开满，同上（她 2026-09-05 点名）
       const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
-      const parsed = extractJSON(raw);
-      if (!parsed) throw new Error("没解析出卡");
+      // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
+      //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
+      //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
+      //   **只有建卡和复看这两枪没跟上**（又一次「一层写在两处，第二处没跟上」）。
+      //   差别正好落在这一处的痛点上：这十块要的是「亲笔碎句」，模型很容易在 JSON
+      //   字符串里直接敲一个真换行——JSON.parse 当场死，repairJSON 只补截断补不了它，
+      //   于是每一次都「没解析出卡」。她 2026-09-06 连报三轮，原话就是这一句。
+      const parsed = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw));
+      // ⚠️把【他这回到底说了什么】带上（v64.40）。
+      //   她 2026-09-06 连报三轮「还是不行」，v64.39 好不容易把原文露出来了，
+      //   露出来的却是「没解析出卡」——那是我自己写的一句话，等于什么都没说。
+      //   一句只描述「我没看懂」的错误，是个死胡同：它不含任何能往下查的东西。
+      //   ⚠️所以判据是：**报错里必须带着我没看懂的那个东西本身**，不然下一轮还是这样。
+      if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
       const n = window.Gaze.review(char.id, parsed);
       // ⚠️一块都没改【不是失败】（v64.35）：提示词里白纸黑字写着「没变就是没变，
       //   不必为了交差改字」，模型照做了，代码这一道原来把它记成一次失败——
