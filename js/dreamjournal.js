@@ -266,14 +266,32 @@
     // 梦＝压在夜色上的一张浅纸条
     const paperCard = (extra) => Object.assign({ background: "#f4efe4", borderRadius: 3,
       boxShadow: "0 8px 20px rgba(8,10,20,.42)", padding: "12px 14px", marginBottom: 10 }, extra || {});
+    // 纸条上那几个小动作（找TA解 / 删 / 展开 / 推门进这场梦 / 选谁来解）——
+    // 她 2026-09-06：「解梦馆那个找ta解按了没反应」「有时候可以有时候又点不到」。
+    // 不是逻辑：在浏览器里量出来「找TA解」是 **37×18**、「删」是 **12×17**，
+    // 仓库自己的线是【可点区域别低于 40 高】（tabs-not-plain-pills.md §2）。
+    // 18 高不到一半，手指落下去有一半在旁边的空白上——那就是「有时候点不到」。
+    // ⚠️垫的是 padding，不是字号：字号是这一页的分寸，大了整页就吵。
+    // ⚠️也别只垫「找TA解」：它右边 10px 就是【删】，按歪了会点到删。两颗一起垫开。
+    const tap = (extra) => Object.assign({ fontFamily: F_BODY, fontSize: 11.5,
+      minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center",
+      background: "transparent", border: "none", padding: "0 10px" }, extra || {});
+    // 纸卡上的字色不跟主题走（这张纸在任何主题下都是同一张浅纸）——
+    // 这两处原来写的是 t.tint / t.fog：深色主题里那两个色本来就是【给夜色用的浅色】，
+    // 落在浅纸上会淡到几乎看不见。改用这一页自己那套纸上色（#6f6796 / #8b8276），
+    // 跟底下「解法」那一块和「推门进这场梦」是同一套，不是新调的。
+    const PINK = "#6f6796", PSUB = "#8b8276";
     // 分栏＝这本梦簿书口上伸出来的三条布书签（不是一排药丸，tabs-not-plain-pills.md）
     const ribbon = (k, label) => {
       const on = view === k;
       return h("button", { key: k, onClick: () => { setView(k); if (k === "theirs") loadTheirs(); },
         className: "active:opacity-80", style: { flex: 1, minWidth: 0, position: "relative", paddingTop: 0,
-          height: on ? 46 : 36, transition: "height .16s ease", background: "transparent", border: "none" } },
-        // 带子本身：从页顶垂下来，选中的那条更长、更实，末端剪成燕尾
-        h("div", { style: { position: "absolute", left: 6, right: 6, top: 0, bottom: 0,
+          height: 46, background: "transparent", border: "none" } },
+        // 带子本身：从页顶垂下来，选中的那条更长、更实，末端剪成燕尾。
+        // ⚠️缩的是【带子】，不是那颗键：键一直 46 高（可点区域不许低于 40），
+        //   没选中的带子只是垂得短一截，往下那 10px 仍然点得着。
+        h("div", { style: { position: "absolute", left: 6, right: 6, top: 0, bottom: on ? 0 : 10,
+          transition: "bottom .16s ease",
           background: on ? "linear-gradient(#8d84b8,#6f6796)" : "rgba(239,233,224,.20)",
           clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)",
           boxShadow: on ? "0 5px 12px rgba(10,10,25,.4)" : "none" } }),
@@ -327,7 +345,7 @@
                 ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#6f6796", marginBottom: 6 } },
                     "你进去过这场梦：" + ({ fulfilled: "走到了梦核", broken: "半路碎了", left: "自己醒了" })[d.entered.outcome] || "去过")
                 : (props.onEnterDream ? h("button", { onClick: () => props.onEnterDream(d), className: "active:opacity-70",
-                    style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6f6796", border: "1px solid rgba(111,103,150,.45)", borderRadius: "14px 14px 3px 3px", padding: "5px 12px 4px", marginBottom: 8, background: "rgba(111,103,150,.07)" } },
+                    style: tap({ color: PINK, border: "1px solid rgba(111,103,150,.45)", borderRadius: "14px 14px 3px 3px", padding: "0 13px", marginBottom: 8, background: "rgba(111,103,150,.07)" }) },
                     "推门进这场梦") : null)) : null,
               d.status === "queued" ? h("button", { onClick: () => generate(d), disabled: !!genBusy, className: "w-full py-2 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, genBusy === d.key ? "梦正在成形…" : "轻轻推醒这场梦") : null,
               d.status === "no_dream" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, ({ calm_night: "那晚心里太平静，一夜无梦。", no_material: "那天没说上什么话，梦没有材料。" })[d.reason] || "一夜无梦。") : null,
@@ -339,7 +357,7 @@
                 // ⚠️不弹卡片、不发消息、不写记忆——只在 x_dreamSeen 留一行，
                 //   由 ctxFor 挑成一句轻的塞进他的上下文，三天自己过期。
                 h("button", { onClick: () => { const on = openId === d.key; setOpenId(on ? null : d.key); if (!on) markDreamSeen(d); },
-                  className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6f6796", marginTop: 6 } },
+                  className: "active:opacity-60", style: tap({ color: PINK, padding: "0 8px 0 0" }) },
                   openId === d.key ? "合上" : "展开这场梦"),
                 (d.motifs || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, d.motifs.map(m => h("span", { key: m, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, padding: "1px 8px", borderRadius: 999 } }, m))) : null,
                 d.wakeLine ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, borderTop: "1px dashed " + t.line, paddingTop: 6 } }, "醒来他大概会说：「" + d.wakeLine + "」") : null) : null)))); })()
@@ -357,9 +375,9 @@
             h(DictateButton, { onText: v => setText(x => (x ? x + " " : "") + v), toast: props.toast })),
           h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 3, placeholder: "梦到什么都行——一个画面、一种颜色、一句醒来还记得的话。残渣也是梦。", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#2c2822", background: "rgba(255,255,255,.55)", border: "1px solid rgba(120,100,70,.2)", resize: "none" } }),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
-            h("button", { onClick: () => addEntry("dream"), className: "flex-1 py-2 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "记完整的梦"),
-            h("button", { onClick: () => addEntry("fragment"), className: "flex-1 py-2 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "只有残渣"),
-            h("button", { onClick: () => addEntry("none"), className: "py-2 px-3 active:opacity-70", style: { borderRadius: 8, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "没梦"))),
+            h("button", { onClick: () => addEntry("dream"), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "记完整的梦"),
+            h("button", { onClick: () => addEntry("fragment"), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "只有残渣"),
+            h("button", { onClick: () => addEntry("none"), className: "px-3 active:opacity-70", style: { minHeight: 40, borderRadius: 8, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "没梦"))),
 
         // 历史（按天分组）
         byDay.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: NSUB, textAlign: "center", padding: "30px 0", lineHeight: 1.8 } }, "馆里还空着。", h("br"), "明早睁眼第一件事：来这儿嘟囔十秒。") : null,
@@ -369,19 +387,23 @@
             h("div", { className: "flex items-center justify-between", style: { marginBottom: e.text ? 6 : 0 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: (KIND[e.kind] || KIND.dream)[1], padding: "1px 8px", borderRadius: 999 } }, (KIND[e.kind] || KIND.dream)[0]),
               h("div", { className: "flex", style: { gap: 10 } },
-                h("button", { onClick: () => setPickFor(pickFor === e.id ? null : e.id), disabled: !!busyId, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, busyId === e.id ? "解梦中…" : "找TA解"),
-                h("button", { onClick: () => requestAppConfirm("删掉这条梦？", "解读也会一起消失。", () => commit(loadLog().filter(x => x.id !== e.id)), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "删"))),
+                h("button", { onClick: () => setPickFor(pickFor === e.id ? null : e.id), disabled: !!busyId, className: "active:opacity-60 disabled:opacity-40",
+                  style: tap({ color: PINK, padding: "0 13px", borderRadius: 999, border: "1px solid rgba(111,103,150,.45)", background: "rgba(111,103,150,.08)" }) },
+                  busyId === e.id ? "解梦中…" : "找TA解"),
+                h("button", { onClick: () => requestAppConfirm("删掉这条梦？", "解读也会一起消失。", () => commit(loadLog().filter(x => x.id !== e.id)), "删除"), className: "active:opacity-60",
+                  style: tap({ color: PSUB }) }, "删"))),
             // 正文：收起来时只露两行（她 2026-09-04：「一条很容易变很长翻好久才到下一条」）
             e.text ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: "#2c2822", lineHeight: 1.75, whiteSpace: "pre-wrap" },
               openId === e.id ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, e.text) : null,
             // 展开/收起：解法有几条也写在这一行上，收着的时候看得出这条底下还有东西
             (e.text && e.text.length > 40) || (e.interpretations || []).length
               ? h("button", { onClick: () => setOpenId(openId === e.id ? null : e.id), className: "active:opacity-60",
-                  style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6f6796", marginTop: 6 } },
+                  style: tap({ color: PINK, padding: "0 8px 0 0" }) },
                   openId === e.id ? "收起" : ((e.interpretations || []).length ? "展开 · " + e.interpretations.length + " 个人解过" : "展开"))
               : null,
             pickFor === e.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, chars.map(c =>
-              h("button", { key: c.id, onClick: () => interpret(e, c), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, background: t.bg2 } }, c.remark || c.name))) : null,
+              h("button", { key: c.id, onClick: () => interpret(e, c), className: "active:opacity-70",
+                style: tap({ padding: "0 15px", borderRadius: 999, border: "1px solid rgba(111,103,150,.32)", color: "#2c2822", background: "rgba(255,255,255,.62)" }) }, c.remark || c.name))) : null,
             openId === e.id ? (e.interpretations || []).map((it, i) => h("div", { key: i, style: { marginTop: 9, background: "rgba(111,103,150,.10)", borderRadius: 2, padding: "9px 11px", borderLeft: "3px solid #6f6796" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7b7286", marginBottom: 4 } }, it.name + " 的解法"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#2c2822", lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text),

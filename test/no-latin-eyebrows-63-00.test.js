@@ -138,7 +138,9 @@ test("上面一行就是中文标题的，英文直接删掉，不是改文案",
   assert.ok(!src.includes('"IMPORT"'), "导卡那行 IMPORT 还在");
   assert.match(src, /fontSize: 17, color: t\.ink \} \}, "导入角色卡"\)\),/, "IMPORT 该整行删掉");
   assert.ok(!src.includes('"NEW LORE"') && !src.includes('"EDIT LORE"'));
-  assert.match(src, /h\("span", \{ style: \{ fontFamily: F_DISPLAY, fontSize: 22, color: t\.ink \} \}, isNew \? "新建设定" : "编辑设定"\)\),/);
+  // v64.24：这一处从半窗改成整页，那行 22px 大字也跟着换成了公共 Head
+  // （mobile-ui-layout §1）。要钉的还是同一件事——中文标题在，英文没了。
+  assert.match(src, /h\(Head, \{ zh: isNew \? "新建设定" : "编辑设定"/);
   // 随身物两处顶栏的 CARRY：标题就写着「随身物」
   assert.equal((src.match(/letterSpacing: "0\.18em", color: t\.fog, marginTop: 2 \} \}, "CARRY"\)/g) || []).length, 0);
 });

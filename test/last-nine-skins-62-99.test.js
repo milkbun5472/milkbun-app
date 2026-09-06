@@ -37,8 +37,10 @@ test("能搬的都搬了，没有为这九页新发明四张材质", () => {
   // 日记文风页跟日记正文同一张纸——跟着那个人的纸走，不是随便挑一张
   assert.match(src, /style: pageSkin\(diaryPaperOf\(char\), t, \{ corner: false \}\) \},\s*\n\s*h\(Head, \{ zh: "日记档案"/);
   // 随身物两个柜子页跟主页同一块布、同一个 tint
-  assert.equal((src.match(/pageSkin\("cloth", t, \{ tint: CARRY_TINT\.bag/g) || []).length, 3,
-    "主页 + 柜门页 + 抽屉柜页，三处得是同一块布");
+  // v64.24 多了第四处：一个角色都没有时的那一屏。原来它是纯米白，
+  // 跟有内容时完全是两个 app——空状态也得站在同一块布上。
+  assert.equal((src.match(/pageSkin\("cloth", t, \{ tint: CARRY_TINT\.bag/g) || []).length, 4,
+    "主页 + 柜门页 + 抽屉柜页 + 空状态，四处得是同一块布");
   // 第一次们是一本册子，直接用情侣空间那本本子的内页
   assert.match(src, /style: cpSkin\(t, "page"\) \},[\s\S]{0,520}"第一次们"/);
 });

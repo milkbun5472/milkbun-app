@@ -81,7 +81,12 @@ test("分栏是书口上垂下来的布书签，不是一排药丸", () => {
   assert.match(c, /const ribbon = \(k, label\) =>/);
   // 燕尾剪口＋选中那条更长——形状和高度都在变，不是只换个填色
   assert.match(c, /clipPath: "polygon\(0 0,100% 0,100% 100%,50% calc\(100% - 7px\),0 100%\)"/);
-  assert.match(c, /height: on \? 46 : 36/);
+  // v64.25：长度差还在，只是搬了个地方——原来是【那颗键】自己缩到 36，
+  // 于是没选中的两条整个只有 36 高，够不着「可点区域别低于 40」那条线。
+  // 现在键一直 46，缩的是里头那条带子（没选中的少垂 10px），
+  // 看着一模一样，底下那 10px 仍然点得着。
+  assert.match(c, /height: 46, background: "transparent"/, "键又跟着选中态缩了");
+  assert.match(c, /top: 0, bottom: on \? 0 : 10/, "带子不缩了，三条一样长");
   assert.ok(c.indexOf("borderRadius: 999, border: \"1px solid \" + (view === k") < 0, "又变回药丸了");
 });
 

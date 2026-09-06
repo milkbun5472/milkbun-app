@@ -251,6 +251,11 @@ const binderSkin = t => {
     "repeating-linear-gradient(180deg," + k + "00 0 27px," + k + "07 27px 28px)",
     t.bg].join(",") };
 };
+// 情书：航空信封那圈斜条边——一道道细斜纹，跟横格的日记本、竖格的字据一眼分得开。
+// ⚠️两页共用一处（我们的情书 / 情书设置）：抄成两份的话，改一处另一处就落单了。
+//   斜纹用的是定死的 rgba，不吃 t.ink，所以不需要 _hex6 那道保险。
+const letterSkin = t => ({ background: t.bg,
+  backgroundImage: "repeating-linear-gradient(45deg,rgba(176,141,82,.055) 0 5px,rgba(0,0,0,0) 5px 13px,rgba(150,90,90,.04) 13px 18px,rgba(0,0,0,0) 18px 26px)" });
 // 抽卡：一整包还没拆的卡——锡箔纸，斜着一道道会跳的反光
 const foilSkin = t => {
   if (!_hex6(t)) return { background: t.bg };
@@ -1518,13 +1523,13 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
         shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
           h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条")))),
-    editing && h(WorldBookEntrySheet, {
+    editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
 }
-function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
+function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   const t = useTheme();
   const isNew = !(entry && entry.id);
   const [f, setF] = useState(() => {
@@ -1552,11 +1557,15 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
     h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
     h("button", { onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
-  return h(Sheet, { onClose: onClose, tall: true },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, paddingBottom: 13, borderBottom: "1px solid " + t.line } },
-      h("div", null,
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, isNew ? "新建设定" : "编辑设定")),
-      onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null),
+  // 半窗 → 整页（v64.24）。按 no-half-sheet.md 的判据问一句「填这张表的时候，
+  // 需要同时看见底下那份目录吗」——不需要。而它是一张长表单：标题、正文（光 minHeight
+  // 就 132）、给谁、去哪几处、优先级、一段汇总，半窗先扣掉半块屏幕装不下。
+  // ⚠️盖在目录上，不是替掉它：目录还挂着，退出来时滚动位置原样在（mobile-ui-layout §3）。
+  // 底走 binderSkin —— 这一张就是从那本活页夹里抽出来的，材质得是同一张纸。
+  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
+    h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
+      right: onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索，不改变模型权重"),
     h("input", { value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
     h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),
@@ -1577,14 +1586,14 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
     lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: 13, color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
     h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),
-    h("div", { style: { background: t.bg, border: "1px solid " + t.line, padding: "12px", marginTop: 4 } },
+    h("div", { style: { background: t.bg2, border: "1px solid " + t.line, padding: "12px", marginTop: 4 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: t.fog } }, "这条会怎么送出去"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginTop: 6 } },
         (f.charIds || []).length ? "只给：" + (f.charIds || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean).join("、") : "给所有角色",
         " · ", f.alwaysOn ? "每次常驻" : "话题触发",
         " · 去往 ", loreScopeNames(f).join(" / ") || "无")),
     error ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, lineHeight: 1.5, marginTop: 12 } }, error) : null,
-    h("button", { onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器"));
+    h("button", { onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器")));
 }
 // ============================================================
 // FORUM —— 仿贴吧/推特：底部四 tab（主页/搜索/私信/我）
@@ -3504,11 +3513,11 @@ function CoupleLetterSettings({ partner, cfg, onSave, onBack }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: sub ? 3 : 10 } }, title),
     sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, sub) : null,
     body);
-  return h("div", { className: "h-full flex flex-col" },
-    h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "情书设置"),
-      h("div", { style: { width: 40 } })),
+  // 底跟【我们的情书】同一张信封纸（v64.24）：设置是从那一叠里翻出来的一页，
+  // 不该退回米白。顶栏也换成公共 Head——原来这儿是手写的一条，
+  // 于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout §1）。
+  return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
+    h(Head, { zh: "情书设置", sub: partner && partner.name ? "写给 " + (partner.remark || partner.name) + " 的那一叠" : "", bg: "transparent", onBack: onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 22px 40px", overscrollBehavior: "contain" } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 24 } },
         h("div", { style: { paddingRight: 14 } },
@@ -3694,8 +3703,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
   // 底纹铺在【外壳】上（v62.44，她 2026-09-04：「收着的这些除了交换日记背景也都没做」）。
   // 情书这一叠底下垫的是【航空信封那圈斜条边】：一道道细斜纹，跟横格的日记本、
   // 竖格的字据一眼分得开。顶栏透明让它透上来（.claude/rules/mobile-ui-layout.md §3.5）。
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
-    backgroundImage: "repeating-linear-gradient(45deg,rgba(176,141,82,.055) 0 5px,rgba(0,0,0,0) 5px 13px,rgba(150,90,90,.04) 13px 18px,rgba(0,0,0,0) 18px 26px)" } },
+  return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
     h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { width: 32 } }),   // 右边有两颗键，这儿垫一格，标题才真在正中
@@ -10390,8 +10398,10 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
     else setView("entries");
   };
 
-  if (!authors.length) return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "日记", en: "Diary", onBack }),
+  // 空状态也别掉底（v64.24）：一个角色都没有时原来是纯米白的一屏，
+  // 跟有内容时完全是两个 app。钱包那边早就是对的，照那个来。
+  if (!authors.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
+    h(Head, { zh: "日记", bg: "transparent", onBack }),
     h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }));
 
   // ---- 我写日记 ----
@@ -10569,9 +10579,11 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   }
 
   // ---- 目录定位：角色列表（从大图右上角 INDEX 进入，点一个跳回该角色大图）----
-  return h("div", { className: "h-full flex flex-col" },
+  // 这一页是那一摞日记的目录，底该跟日记本身是同一张纸（v64.24）——
+  // 原来只有它是米白，翻进翻出像换了个 app。
+  return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
     h(Head, {
-      zh: "目录", sub: "记录对象",
+      zh: "目录", sub: "记录对象", bg: "transparent",
       onBack: () => setView("archive")
     }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10 pt-1" },
@@ -12171,7 +12183,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   const markSeen = (cid, k) => setSeen(p => { const n = { ...p, [cid]: { ...(p[cid] || {}), [k]: true } }; saveJSON("x_carrySeen", n); return n; });
   const clearSeen = cid => setSeen(p => { const n = { ...p }; delete n[cid]; saveJSON("x_carrySeen", n); return n; });
   const char = characters.find(c => c.id === selId) || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
+  if (!char) return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) }, h(Head, { zh: "随身物", bg: "transparent", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
   // 进随身物的第一屏：一扇关着的对开柜门，点一下门向两边开，里头挂着这些人。
   // 原先这里是个盒子——内页已经全改成柜子了，门口还摆个盒子对不上（她 2026-08-29）。
   const doorFace = {
