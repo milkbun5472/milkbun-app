@@ -130,7 +130,9 @@ test("被摘掉的那些不是丢了：本场滚动摘要要带上来", () => {
   assert.match(app, /offSummary = \(active && active\.summary \? String\(active\.summary\)\.trim\(\) : ""\)\.slice\(-1200\)/);
   // v60.49 起 unshift 落在 rendered 上（瘦身版和全文版都指向它），
   // 所以两条路都带得上这份摘要——名字变了，这件事没变。
-  assert.match(app, /if \(offSummary\) rendered\.unshift\("【这场线下前面发生过的（摘要）】/);
+  // v64.92 起收过线的那一场也带得进来，所以抬头分两种说法——带摘要这件事没变
+  assert.match(app, /if \(offSummary\) rendered\.unshift\(\(offEnded \? "【刚结束的那场线下·前面发生过的（摘要）】/);
+  assert.match(app, /: "【这场线下前面发生过的（摘要）】\\n"\) \+ offSummary\);/);
   assert.match(app, /let rendered = lines;/);
 });
 

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.91";
+const APP_VERSION = "v64.92";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4544,17 +4544,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const online = (chatsRef.current[char.id] || [])
         .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
         .map(m => ({ ...m, _surface: "online" }));
-      let offline = [], offSummary = "";
+      let offline = [], offSummary = "", offEnded = false;
       if (!settingsFor(char.id).engineerEyes) {
         let list = offlinesRef.current[char.id];
         if (!list) { list = loadJSON("x_offline:" + char.id, []); offlinesRef.current = { ...offlinesRef.current, [char.id]: list }; }
-        const active = (list || []).find(s => s && !s.endTs && (s.msgs || []).length > 0);
+        // 她 2026-09-06：「线下的部分也不进上下文了」。原来这儿只找【还没结束】的那一场，
+        // 于是她一按「收线」，整场线下当场从上下文里消失——刚刚一起经历的事，回到线上
+        // 他就不知道了。⚠️不是不该收：收完那场是过去式，但【刚过去的】仍然算最近发生的事。
+        // 所以改成：拿最新那一场；已经结束的，只在它结束得还近（跟聊天记录同一根 recentDays
+        // 地板）时才带——三周前那场线下不该压在今天的上下文里，那是记忆库的活。
+        const newest = (list || []).find(s => s && (s.msgs || []).length > 0);
+        const offFloor = Math.max(0, Number(memCfgRef.current.recentDays ?? 3)) * 86400000;
+        const active = newest && (!newest.endTs || (offFloor && Date.now() - newest.endTs <= offFloor)) ? newest : null;
         offline = active ? (active.msgs || [])
           .filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system")
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
         // 老拍子被摘掉的那些（写景、感官、没带对话的过场）不是丢了——本场的滚动摘要
         // （maybeSummarizeOffline 攒的 sess.summary）就是它们的去处，这里把它带上来。
         offSummary = (active && active.summary ? String(active.summary).trim() : "").slice(-1200);
+        offEnded = !!(active && active.endTs);
       }
       const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
       if (!ctxN) return "";
@@ -4646,7 +4654,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : char.name);
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
         const body = (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
-        const line = speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
+        // 通话（她 2026-09-06：「语音视频聊天好像不挂进上下文」）：这条回执的 content
+        // 只有「视频通话 已结束 · 时长 02:01」，通话里说了什么全在 sum 那一栏，
+        // 而 sum 从来没人读——于是他打完电话回到聊天，跟没打过一样。
+        // ⚠️挂进来的是【小结】不是逐字转录：一通电话几十句，原文会把预算吃光；
+        //   小结正是为这件事生成的（endCall 那头已经在写了）。
+        const line = (m.kind === "callend")
+          ? "【" + (m.callMode === "video" ? "视频通话" : "语音通话") + "·刚打完】"
+            + (m.sum ? String(m.sum).trim() : String(body || "").trim())
+          : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
         if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
@@ -4673,7 +4689,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         out.unshift("（线上消息的原文在下面的消息记录里，这儿只标出它们和线下的先后）");
         rendered = out;
       }
-      if (offSummary) rendered.unshift("【这场线下前面发生过的（摘要）】\n" + offSummary);
+      if (offSummary) rendered.unshift((offEnded ? "【刚结束的那场线下·前面发生过的（摘要）】\n" : "【这场线下前面发生过的（摘要）】\n") + offSummary);
+      // ⚠️收过线的那一场也带进来了（见上面 newest/offFloor），所以必须说清它已经散了——
+      //   不说的话他会以为你俩还面对面站着，隔着手机说「你手上那杯还没喝完吧」。
+      if (offEnded && offSlice.length) rendered.unshift("（下面掺在里头的【线下】那几段是刚结束的那一场，已经散了——你们现在隔着手机说话，别当成还在一块儿。）");
       return rendered.join("\n");
     })()
   });
