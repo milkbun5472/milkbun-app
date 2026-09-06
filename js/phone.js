@@ -4389,13 +4389,18 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const CAL_BG = "#f5f5f7", CAL_INK = "#1c1c1e", CAL_DIM = "#8e8e93", CAL_RED = "#ff3b30";
   const parse = v => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(v || "")); return m ? { y: +m[1], m: +m[2], d: +m[3] } : null; };
   const dated = items.map(x => ({ x: x, at: parse(x.date) })).filter(r => r.at);
-  // 月份：优先用数据里出现最多的那个月，没有就用今天
+  // 月份（v64.29 改，她 2026-09-06：「为啥查手机显示 8 月明明已经九月了」）。
+  // ⚠️原来是【数据里出现最多的那个月】：她日历上多半是七八月记下的旧事，
+  //   于是九月打开还停在八月——而这一页是「他的日历」，人翻开日历默认看的是【这个月】。
+  //   出现最多的那个月是个统计量，不是一个人会想看的东西。
   const now = new Date();
-  const tally = {};
-  dated.forEach(r => { const k = r.at.y + "-" + r.at.m; tally[k] = (tally[k] || 0) + 1; });
-  const topKey = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
-  const cy = topKey ? +topKey.split("-")[0] : now.getFullYear();
-  const cm = topKey ? +topKey.split("-")[1] : now.getMonth() + 1;
+  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() + 1 });
+  const cy = ym.y, cm = ym.m;
+  const stepMonth = n => { const d0 = new Date(cy, cm - 1 + n, 1); setYm({ y: d0.getFullYear(), m: d0.getMonth() + 1 }); setSel(null); };
+  const thisMonth = cy === now.getFullYear() && cm === now.getMonth() + 1;
+  // 哪几个月真有东西：翻到空月时告诉她东西在哪儿，别让她一个月一个月地找
+  const monthsWith = [...new Set(dated.map(r => r.at.y + "-" + r.at.m))]
+    .sort().map(k => ({ y: +k.split("-")[0], m: +k.split("-")[1] }));
   const first = new Date(cy, cm - 1, 1);
   const lead = (first.getDay() + 6) % 7; // 周一起头
   const days = new Date(cy, cm, 0).getDate();
@@ -4419,7 +4424,10 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       key: j, style: { width: 4, height: 4, borderRadius: 99, background: picked ? "rgba(255,255,255,.9)" : late(x) ? CAL_RED : x.done ? "#c7c7cc" : "#4a90d9" }
     })))));
   }
-  const listFor = sel ? onDay(sel) : items;
+  // ⚠️没选某一天时列【这个月的】，不是全部：上面那张月历翻到了九月、
+  //   底下却还铺着七月的事，两处对不上，人会以为月历坏了。
+  const inMonth = dated.filter(r => r.at.y === cy && r.at.m === cm).map(r => r.x);
+  const listFor = sel ? onDay(sel) : inMonth;
   const row = (x, i) => h("button", {
     key: i, onClick: () => setOpen(x), className: "w-full text-left active:opacity-60",
     style: { display: "flex", gap: 12, background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 9 }
@@ -4446,19 +4454,38 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CAL_BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CAL_INK })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CAL_INK } }, data.monthLabel || (cm + "月")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CAL_INK } },
+        (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月"),
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK }))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 14px 22px" } },
       h("div", { style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
+        // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
+        h("div", { className: "flex items-center justify-between", style: { padding: "0 2px 8px" } },
+          h("button", { onClick: () => stepMonth(-1), "aria-label": "上个月", className: "active:opacity-50",
+            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: 15, color: CAL_DIM } }, "‹"),
+          h("button", { onClick: () => { setYm({ y: now.getFullYear(), m: now.getMonth() + 1 }); setSel(null); }, disabled: thisMonth,
+            className: "active:opacity-60 disabled:opacity-100",
+            style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: thisMonth ? CAL_INK : "#4a90d9" } },
+            (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月" + (thisMonth ? "" : " · 回今天")),
+          h("button", { onClick: () => stepMonth(1), "aria-label": "下个月", className: "active:opacity-50",
+            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: 15, color: CAL_DIM } }, "›")),
         h("div", { className: "grid grid-cols-7", style: { marginBottom: 6 } }, ["一", "二", "三", "四", "五", "六", "日"].map((w, i) => h("div", {
           key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: CAL_DIM }
         }, w))),
         h("div", { className: "grid grid-cols-7", style: { gap: 2 } }, cells)),
       h("div", { className: "flex items-baseline justify-between", style: { padding: "0 4px 10px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: CAL_INK } }, sel ? cm + "月" + sel + "日" : "全部安排"),
+        // ⚠️底下列的是【这个月】，标题就不能再叫「全部安排」——名字和内容对不上，
+        //   人只会以为这个月之外的事被弄丢了
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: CAL_INK } }, sel ? cm + "月" + sel + "日" : cm + "月的安排"),
         sel ? h("button", { onClick: () => setSel(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#4a90d9" } }, "看全部") : null),
       listFor.length ? listFor.map(row)
-        : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CAL_DIM } }, sel ? "这天没有安排" : "日历上还没有东西")),
+        : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, lineHeight: 1.8 } },
+            sel ? "这天没有安排"
+              : h("div", null,
+                  h("div", null, "这个月他日历上没有东西"),
+                  // ⚠️别只说「没有」：翻空一个月就以为整本是空的。有的话就指出来在哪几个月
+                  monthsWith.length ? h("div", { style: { fontSize: 12, marginTop: 6 } },
+                    "有安排的是 " + monthsWith.slice(-4).map(x => (x.y === now.getFullYear() ? "" : x.y + "年") + x.m + "月").join("、")) : null))),
     detail);
 }
 // ============================================================
