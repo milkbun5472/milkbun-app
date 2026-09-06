@@ -318,13 +318,15 @@ test("⑦ 建卡和复看都从那扇公共门拿世界书", () => {
   // 一处定义、两处用；scope 用 chat（这张卡说的就是主线关系里他怎么看她）
   assert.equal((app.match(/const gazeLore = \(typeof loreForContext === "function" \? loreForContext\("chat", char\.id, recent\) : ""\);/g) || []).length, 2,
     "有一枪没接上世界书，或者没走那扇公共门");
-  // 空的时候不发一个空栏目
-  assert.equal((app.match(/\(gazeLore \? "\\n\\n【世界书】\\n" \+ gazeLore : ""\)/g) || []).length, 2);
+  // 空的时候不发一个空栏目——v64.60 起这件事由 base 那个三元表达式表达：
+  // 没有世界书时 base 就等于 bare，而不是拼一个空的【世界书】进去。
+  assert.equal((app.match(/const base = gazeLore \? [\s\S]{0,400}?: bare;/g) || []).length, 2);
   // ⚠️v64.55 起它在 base 里＝三级全都带着。缩料时不许把她要的这一层缩掉。
   //（那一条钉在 ⑨ 里，这儿只确认它确实落在 base 上、而不是只挂在最全那一级。）
-  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  // v64.60：base 的形状变成 gazeLore ? 带世界书的一份 : bare（最后一级要用 bare）
+  const bases = app.match(/const base = gazeLore \? "【你的人设】[\s\S]{0,320}?: bare;\n/g) || [];
   assert.equal(bases.length, 2);
-  bases.forEach(b => assert.ok(b.includes("【世界书】"), "世界书没落在 base 上，缩到后面几级就吃不到"));
+  bases.forEach(b => assert.ok(b.includes("【世界书】"), "世界书没落在 base 上，前几级就吃不到"));
 });
 
 test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () => {
@@ -418,19 +420,22 @@ test("⑨ 阶梯的顺序：先缩聊天、再缩记忆；人设和世界书缩�
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const arrs = app.match(/const levels = \[[\s\S]*?\];/g) || [];
   assert.equal(arrs.length, 2, "建卡和复看各要一份");
-  // 级数各是几级由 ⑪ 钉（建卡 3、复看 4）；这儿只管【前三级的顺序】
+  // 级数各是几级由 ⑪/⑬ 钉（建卡 4、复看 5）；这儿只管【缩的先后顺序】
   arrs.forEach(a => {
     assert.ok(a.indexOf('zh: "整份"') < a.indexOf('zh: "去掉聊天记录"'), "顺序反了：得从最全的开始");
     assert.ok(a.indexOf('zh: "去掉聊天记录"') < a.indexOf('zh: "连长期记忆也去掉"'), "记忆得在聊天之后才缩");
     // 最后一级用 base：人设 + 世界书 + 好感度，一样都不少
     // v64.57：每一级自己带 sys 了，所以这儿连 sys 一起认
     assert.match(a, /zh: "连长期记忆也去掉", sys: \w+, text: base \+ NO_CHAT/);
+    // 世界书是最后才舍的那一层（⑬ 单独钉）
+    assert.ok(a.indexOf('zh: "连长期记忆也去掉"') < a.lastIndexOf('zh: "连世界书也不发"'));
   });
-  // base 里必须有世界书——她要的就是这一层，缩到最后也不许缩掉它
-  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  // base 里必须有世界书（前几级都靠它）；记忆不许留在 base 里，否则第三级就没缩到东西。
+  // v64.60：base 变成 gazeLore ? 带世界书的一份 : bare。
+  const bases = app.match(/const base = gazeLore \? [\s\S]{0,400}?: bare;/g) || [];
   assert.equal(bases.length, 2);
   bases.forEach(b => {
-    assert.ok(b.includes("【世界书】"), "缩到最后把世界书也缩掉了");
+    assert.ok(b.includes("【世界书】"), "前几级也不带世界书了");
     assert.ok(!b.includes("【长期记忆】"), "记忆还留在 base 里，那第三级就没缩到东西");
   });
   // 记忆单独一段，第二级才连它一起去掉
@@ -448,7 +453,7 @@ test("⑨ 成一级就停；只有被拦才往下走；封顶就是级数", () =
   // 三级都没成时那句结论
   assert.match(call, /都试过了，还是被拦——/);
   // v64.57：第四级连卡的正文都不摆回去了，所以那句结论也收窄了
-  assert.match(call, /连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身/);
+  assert.match(call, /连世界书和这张卡自己的正文都没再发，剩下的只有【人设】本身和这十道题/);
 });
 
 test("⑨ 那句结论翻成人话，而且排在更笼统那句前面", () => {
@@ -555,11 +560,12 @@ test("⑪ 每一级自己带 sys：复看的第四级换成建卡那份问法", 
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
   assert.match(call, /const gazeCall = async \(p, levels, onFallback\)/, "sys 还是整条阶梯共用一份");
-  assert.match(call, /await callAI\(p, levels\[i\]\.sys, /, "没按级取 sys，那 system 那半永远缩不掉");
+  // v64.60：料全挪进 system 之后写法变成 levels[i].sys + "\n\n" + levels[i].text
+  assert.match(call, /await callAI\(p, levels\[i\]\.sys \+ /, "没按级取 sys，那 system 那半永远缩不掉");
 
   const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
   const arr = rev.slice(rev.indexOf("const levels = ["), rev.indexOf("];", rev.indexOf("const levels = [")));
-  assert.equal((arr.match(/zh: "/g) || []).length, 4, "复看是四级");
+  assert.equal((arr.match(/zh: "/g) || []).length, 5, "复看是五级（末级连世界书也不发）");
   // 前三级还是复看那份问法（要「逐块比对」就得看得见旧的）
   assert.equal((arr.match(/sys: revSys/g) || []).length, 3);
   // 第四级：不摆正文，改用建卡那份
@@ -567,8 +573,8 @@ test("⑪ 每一级自己带 sys：复看的第四级换成建卡那份问法", 
   // 建卡那一路本来就没有卡的正文，所以还是三级
   const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
   const arr2 = seed.slice(seed.indexOf("const levels = ["), seed.indexOf("];", seed.indexOf("const levels = [")));
-  assert.equal((arr2.match(/zh: "/g) || []).length, 3);
-  assert.equal((arr2.match(/sys: seedSys/g) || []).length, 3, "建卡三级都该是同一份问法");
+  assert.equal((arr2.match(/zh: "/g) || []).length, 4);
+  assert.equal((arr2.match(/sys: seedSys/g) || []).length, 4, "建卡四级都该是同一份问法");
 });
 
 test("⑪ 病因确认：复看那份【真的】把卡的正文摆了回去，建卡那份没有", () => {
@@ -601,4 +607,55 @@ test("⑪ 四级都被拦时那句结论：只剩人设本身", () => {
   assert.equal(G.reviewState("c1").err, "连这张卡的正文都不发了还是被拦，只剩人设本身");
   const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
   assert.ok(why.indexOf("连这张卡的正文都不发了") < why.indexOf("聊天记录和长期记忆都去掉了"), "顺序反了，这句永远轮不到");
+});
+
+// ── v64.60：她 2026-09-06 第四级也被拦了——「就是只剩人设了」 ─────────
+//
+// ⚠️先更正我上一条的说法：阶梯只证明了「不在聊天、不在记忆、不在卡的正文里」，
+//   剩下的是【人设 ＋ 世界书 ＋ 这十道题】三样，不是人设单独。别把结论说过头。
+//
+// 而这里有个一直没人动过的差别：**主聊天把人设放在 system 里，
+// 这两枪一直是把人设当成 user 的正文发出去的**。同一段字，作为「用户说的话」
+// 递上去，和作为「给你的设定」摆在 system 里，输入过滤器读起来完全是两件事。
+// 而这个 app 自己的一次性生成调用（周刊/朋友圈那几处）本来就是
+// 「料全在 system，user 只有一句『开始。』」——只有这两枪没跟上。又是同一个形状。
+test("⑫ 料全放 system，user 只留一句「开始。」", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
+  assert.match(call, /await callAI\(p, levels\[i\]\.sys \+ "\\n\\n" \+ levels\[i\]\.text, \[\{ role: "user", content: "开始。" \}\]/,
+    "料还挂在 user 上");
+  // 跟这个 app 自己那三处一次性生成写法一致（不是我新发明的形状）
+  assert.ok((app.match(/\[\{ role: "user", content: "开始。" \}\]/g) || []).length >= 4);
+});
+
+test("⑬ 最后一级连世界书也不发（她要的那一层放在最后才舍）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  // bare = 人设 + 好感度，没有世界书；base = bare 里插进世界书
+  const bares = app.match(/const bare = "【你的人设】[\s\S]{0,220}?;\n/g) || [];
+  assert.equal(bares.length, 2);
+  bares.forEach(b => assert.equal(b.includes("【世界书】"), false, "bare 里还带着世界书，那最后一级就没缩到东西"));
+  const bases = app.match(/const base = gazeLore \? "【你的人设】[\s\S]{0,320}?: bare;\n/g) || [];
+  assert.equal(bases.length, 2, "没有世界书时 base 就该等于 bare，别多发一个空栏目");
+  bases.forEach(b => assert.ok(b.includes("【世界书】")));
+  // 级数：建卡 4、复看 5；最后一级都是 bare
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const arr = t => t.slice(t.indexOf("const levels = ["), t.indexOf("];", t.indexOf("const levels = [")));
+  assert.equal((arr(seed).match(/zh: "/g) || []).length, 4);
+  assert.equal((arr(rev).match(/zh: "/g) || []).length, 5);
+  [["建卡", arr(seed)], ["复看", arr(rev)]].forEach(([zh, a]) => {
+    assert.match(a, /\{ zh: "连世界书也不发", sys: [^,]+, text: bare \+ NO_CHAT \}/, zh + "的最后一级不是 bare");
+    // ⚠️它必须【在最后】：世界书是她点名要的一层，前面每一级都得还带着
+    assert.ok(a.lastIndexOf('zh: "连世界书也不发"') > a.indexOf('zh: "连长期记忆也去掉"'), zh + "把世界书缩得太早了");
+  });
+});
+
+test("⑬ 全都缩过还是被拦时，那句话不许说过头", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  G.markReviewFail("c1", "这条线路把提示词拦了；…… 都试过了，还是被拦——连世界书和这张卡自己的正文都没再发，剩下的只有【人设】本身和这十道题。");
+  assert.equal(G.reviewState("c1").err, "世界书、卡的正文都不发了还是被拦，只剩人设本身");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  // ⚠️「这十道题」也得算在嫌疑里——它是唯一没法缩掉的那一样（缩了就没得问了）
+  assert.match(app, /剩下的只有【人设】本身和这十道题/);
 });

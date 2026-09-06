@@ -30,7 +30,10 @@ test("深浅和序号【由此刻排第几算出来】，不存在文章上", ()
   assert.match(fic, /list\.length \? list\.map\(function \(f, i\) \{/);
   assert.match(fic, /index: i, leadLabel: view === "shelf" \? "架上这一本" : "圈子里最上面那一篇"/);
   // 「我发布的」那页每篇都是她自己写的，挑一篇当头条没意义
-  assert.match(fic, /h\(FicCard, \{ key: f\.id, fic: f, index: i, noLead: true,/);
+  // ⚠️v64.63 起这一页的每一篇外面多包了一层（卡片 + 下面那根「删掉这一篇」），
+  //   React 的 key 就跟着挪到外层那个 div 上了——这里只查 noLead 还在不在。
+  assert.match(fic, /h\(FicCard, \{ fic: f, index: i, noLead: true,/);
+  assert.match(fic, /return h\("div", \{ key: f\.id \},\n\s*h\(FicCard, \{ fic: f, index: i, noLead: true,/, "key 得落在外层那个 div 上");
 });
 
 test("深卡上的标签得提亮——#a4342c 压在墨底上读不出来", () => {

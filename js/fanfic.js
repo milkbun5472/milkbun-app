@@ -333,6 +333,16 @@
     saveAuthors(left);
     return true;
   }
+  // 一位太太的【嗓子】：她是谁、什么路数、最护着哪一点。
+  // ⚠️出文（genBatch）和续写（genNextChapter）共用这一份——各写一份的话
+  //   迟早只改一处（.claude/rules/four-surfaces-same-context.md 那条老病）。
+  //   她 2026-09-06 问的就是这个：「生成文有作者是有参考她的文风和雷点的吧？续写也要」。
+  function authorVoiceLines(by) {
+    if (!by) return "";
+    return (by.bio ? "· 她是谁：" + by.bio + "\n" : "")
+      + (by.style ? "· 她的路数：" + by.style + "（要看得出是她写的——结构、长度、力气花在哪儿、故意不写什么，都照她来）\n" : "")
+      + (by.sore ? "· 她最护着的那一点：" + by.sore + "（这一点她绝不会自己拆掉）\n" : "");
+  }
   function findAuthor(name) {
     const nm = String(name || "").trim();
     if (!nm) return null;
@@ -664,9 +674,7 @@
     const by = opts.author && authorName(opts.author) ? opts.author : null;
     const byBlock = by
       ? "\n\n【这一批由谁写】笔名「" + authorName(by) + "」。\n"
-        + (by.bio ? "· 她是谁：" + by.bio + "\n" : "")
-        + (by.style ? "· 她的路数：" + by.style + "（这几篇要看得出是她写的——结构、长度、力气花在哪儿、故意不写什么，都照她来）\n" : "")
-        + (by.sore ? "· 她最护着的那一点：" + by.sore + "\n" : "")
+        + authorVoiceLines(by)
         + "每一篇的 author 都填「" + authorName(by) + "」，不许换别的笔名，也不要再交 authorBio／authorStyle。"
       : "";
     // ⚠️这一份简介和 genAuthors 那一份是同一层东西，所以那条「不许拉郎配」也得给它
@@ -743,8 +751,20 @@
     // 优先用生成时自报的 premise；老文没有就拿第一章开头当设定依据
     const premise = (fic.premise && String(fic.premise).trim()) || "";
     const ch1Head = String(((chapters[0] || {}).content || fic.body || "")).trim().slice(0, 500);
+    // 这一章由谁执笔（她 2026-09-06：「生成文有作者是有参考她的文风和雷点的吧？续写也要」）。
+    // 点了枪手就是那一位；没点就是【这篇文原来那位太太】——她自己的连载，
+    // 本来就该她接着写，那才是「随缘」的正确默认值，不是换个人来。
+    // ⚠️名册里查不到那个笔名（老文、手写的）时返回 null，这一段就不发，不会出错。
+    const penBy = (opts.author && authorName(opts.author)) ? opts.author : findAuthor(fic.author);
+    const penName = authorName(penBy);
+    const ghost = penName && authorName(opts.author) && penName !== String(fic.author || "").trim();
+    const byBlock = penBy && authorVoiceLines(penBy) ?
+      "\n【这一章由谁执笔】" + (ghost ? "笔名「" + penName + "」——她是被请来接这篇的（原作者是「" + (fic.author || "无名") + "」）。" : "笔名「" + penName + "」，这篇文本来就是她写的。") + "\n"
+      + authorVoiceLines(penBy)
+      + (ghost ? "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n" : "")
+      : "";
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
-      "【当前任务：给一篇已在连载的同人文续写下一章】\n" +
+      "【当前任务：给一篇已在连载的同人文续写下一章】\n" + byBlock +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
       "【本篇基本设定（地基·每一章都不许动）】\n" + (premise ? premise + "\n" : "") + (ch1Head ? "第一章开头（设定以此为准）：" + ch1Head + "……\n" : "") +
       "【改设禁令（比剧情更优先）】第一章确立的东西一个字不许变：两人的关系设定（开篇是前未婚夫妻就全程是前未婚夫妻，绝不许写成青梅竹马/前同事/初次见面）、双方身份职业、称呼、世界观、已发生的事实和时间线；tags 里的关系标签同样是铁律。写之前先对着上面的基本设定自查一遍，若你记忆中的前情与第一章开头冲突，一律以第一章开头为准。\n" +
@@ -1817,85 +1837,136 @@
     }
     // 两个都是角色（都不是「我」/原创）时才给「带上我」开关
     function twoRealChars() { const cc = chosenCP(); return cc.length === 2 && cc.every(function (x) { return x && x !== "me"; }); }
-    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose },
-      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "82vh", overflowY: "auto" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginBottom: 4 } }, "生成配置"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 18 } }, "【" + props.tab.name + "】世界观 × 选中 CP × 篇数 → 往本版 feed 出文"),
+    // ── 四格收放（v64.63）──────────────────────────────────────────────
+    const [secOpen, setSecOpen] = useState("n");   // 一次只开一格，默认开第一格
+    const briefN = briefs.slice(0, n).filter(function (x) { return String(x || "").trim(); }).length;
+    function cpSummary() {
+      const cc = chosenCP();
+      if (!cc.length) return "还没挑";
+      return cpLabel(cc, characters, props.userName) + (twoRealChars() && includeMe ? " · 带上我" : "");
+    }
+    function styleSummary() {
+      if (!styleIds.length) return "不限";
+      const names = styles.filter(function (x) { return styleIds.indexOf(x.id) >= 0; }).map(function (x) { return x.name; });
+      return names.length <= 2 ? names.join("、") : names.slice(0, 2).join("、") + " 等 " + names.length + " 种";
+    }
+    function authorSummary() {
+      if (!byId) return "随缘";
+      const a = authors.filter(function (x) { return x.id === byId; })[0];
+      return (a && a.name) || "随缘";
+    }
+    // ⚠️标题栏那一行【自带摘要】：收起来也看得见这一格现在是什么。
+    //   只写个名字的话，等于把设置藏起来了——那比原来那根长条还难用。
+    // ⚠️body 收成 rest：这四格里有三格是好几段并排的，写成单个 body 参数
+    //   只会渲染第一段——第一版就是这么漏掉滑杆和每篇的梗那几个框的。
+    function sec(id, title, summary) {
+      const body = Array.prototype.slice.call(arguments, 3);
+      const on = secOpen === id;
+      return h("div", { key: id, style: { borderRadius: 14, border: "1px solid " + (on ? t.ink : t.line), background: t.bg2, marginBottom: 8, overflow: "hidden" } },
+        h("button", { onClick: function () { setSecOpen(on ? "" : id); }, className: "w-full text-left active:opacity-70",
+          style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48, padding: "0 13px", background: "transparent", border: "none" } },
+          h("span", { style: { flex: 1, minWidth: 0 } },
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, title),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, summary)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, on ? "收起 ▾" : "展开 ▸")),
+        on ? h.apply(null, [ "div", { style: { padding: "2px 13px 13px" } } ].concat(body)) : null);
+    }
+    // ⚠️整页，不是半窗（.claude/rules/no-half-sheet.md）。
+    //   这一层要填的是四格设置，压根不需要同时看见底下那一屏 feed；
+    //   而半窗的代价是固定的——不管里面装多少，先扣掉一半屏幕。
+    //   （v64.63 之前它是半窗，一屏装不下、也看不出自己填到哪儿了。）
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+      h(Head, { bg: "transparent", zh: "生成配置", sub: "【" + props.tab.name + "】世界观 × 选中 CP × 篇数 → 往本版 feed 出文", onBack: props.onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pt-1 pb-4" },
 
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "生成篇数　" + n + " 篇"),
-        h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4" }),
+        // ── 分成四格收起来（v64.63，她 2026-09-06：「生成新文是不是也很长很乱，
+        //    你做个和装饰一样的分类收放来填吧」）──────────────────────────
+        // 原来六段东西直接摞成一长条，一屏装不下、也看不出自己填到哪儿了。
+        // 照贴纸编辑器那个形状：一行一格、一次只展开一格（secOpen === id）。
+        // ⚠️**每一格的标题上写着这一格现在是什么**——不然收起来之后
+        //   等于把设置藏起来了，比长条还难用。
+        sec("n", "写几篇 · 每篇写什么", n + " 篇 · " + (briefN ? briefN + " 篇写了梗" : "都自由发挥"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "生成篇数　" + n + " 篇"),
+          h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4" }),
 
-        // 每篇一个框：想好了就写，没写的那篇自由发挥。
-        // ⚠️框数跟着篇数走，但 briefs 不随之截断——她把篇数调小再调回来，
-        // 之前写的那几条还在（改成截断的话，手一滑就白写了）。
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 2 } }, "每篇想看什么（可留空）"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "留空的那篇自由发挥；写了的会当成那一篇的地基，不是结尾提一句"),
-        h("div", { className: "mb-6", style: { display: "flex", flexDirection: "column", gap: 6 } },
-          Array.from({ length: n }, function (_, i) {
-            return h("div", { key: i, className: "flex items-start", style: { gap: 8 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 8, width: 26, flexShrink: 0 } }, "第" + (i + 1)),
-              h("textarea", {
-                value: briefs[i] || "", onChange: function (e) { setBrief(i, e.target.value); },
-                rows: 1, placeholder: "自由发挥",
-                style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "6px 10px", outline: "none", resize: "vertical" }
-              }));
-          })),
+          // 每篇一个框：想好了就写，没写的那篇自由发挥。
+          // ⚠️框数跟着篇数走，但 briefs 不随之截断——她把篇数调小再调回来，
+          // 之前写的那几条还在（改成截断的话，手一滑就白写了）。
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 2 } }, "每篇想看什么（可留空）"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "留空的那篇自由发挥；写了的会当成那一篇的地基，不是结尾提一句"),
+          h("div", { className: "mb-6", style: { display: "flex", flexDirection: "column", gap: 6 } },
+            Array.from({ length: n }, function (_, i) {
+              return h("div", { key: i, className: "flex items-start", style: { gap: 8 } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 8, width: 26, flexShrink: 0 } }, "第" + (i + 1)),
+                h("textarea", {
+                  value: briefs[i] || "", onChange: function (e) { setBrief(i, e.target.value); },
+                  rows: 1, placeholder: "自由发挥",
+                  style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "6px 10px", outline: "none", resize: "vertical" }
+                }));
+            })),
+        ),
+        sec("cp", "谁和谁", cpSummary(),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "选择预设好的 CP，或本次手动设置一对"),
+          // 从 CP 预设名单里选
+          cps.length ? h("div", { className: "flex flex-wrap gap-2 mb-3" },
+            cps.map(function (cp) {
+              const on = JSON.stringify(chosenCP()) === JSON.stringify(cp.cp);
+              return h("button", {
+                key: cp.id, onClick: function () { setPickA(""); setPickB(""); setSel(on ? [] : cp.cp); },
+                style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }
+              }, cp.label || cpLabel(cp.cp, characters, props.userName));
+            })
+          ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "还没有 CP 预设，可在「我的」页添加，或下面本次手动设置一对："),
 
-        // 本次文风（在「我的·生成设置」里建，这里按需勾选，可多选，不选=不限）
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "文风（本次生效，可多选，不选＝不限）"),
-        styles.length ? h("div", { className: "flex flex-wrap gap-2 mb-6" },
-          styles.map(function (s) {
-            const on = styleIds.indexOf(s.id) >= 0;
-            return h("button", { key: s.id, onClick: function () { toggleStyle(s.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) } }, s.label);
-          })
-        ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 18 } }, "还没有文风预设，去「我的 → 生成设置」新建或导入，之后每次在这里勾选。"),
+          // 本次手动设置一对（不进预设）：原创 / 我（面具人设）/ 角色
+          h("div", { className: "flex items-center gap-2 mb-2" },
+            h("select", { value: pickA, onChange: function (e) { setSel([]); setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+              cpOptions(characters, props.userName)),
+            h("span", { style: { fontFamily: F_BODY, color: t.fog } }, "×"),
+            h("select", { value: pickB, onChange: function (e) { setSel([]); setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+              cpOptions(characters, props.userName))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按你在设置里的面具人设来写，没填则自由发挥"),
 
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "选择预设好的 CP，或本次手动设置一对"),
-        // 从 CP 预设名单里选
-        cps.length ? h("div", { className: "flex flex-wrap gap-2 mb-3" },
-          cps.map(function (cp) {
-            const on = JSON.stringify(chosenCP()) === JSON.stringify(cp.cp);
-            return h("button", {
-              key: cp.id, onClick: function () { setPickA(""); setPickB(""); setSel(on ? [] : cp.cp); },
-              style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }
-            }, cp.label || cpLabel(cp.cp, characters, props.userName));
-          })
-        ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "还没有 CP 预设，可在「我的」页添加，或下面本次手动设置一对："),
+          // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
+          twoRealChars() ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
+            h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (includeMe ? t.ink : t.line), background: includeMe ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, includeMe ? "✓" : "")) : null,
+        ),
+        sec("style", "什么味道", styleSummary(),
+          // 本次文风（在「我的·生成设置」里建，这里按需勾选，可多选，不选=不限）
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "文风（本次生效，可多选，不选＝不限）"),
+          styles.length ? h("div", { className: "flex flex-wrap gap-2 mb-6" },
+            styles.map(function (s) {
+              const on = styleIds.indexOf(s.id) >= 0;
+              return h("button", { key: s.id, onClick: function () { toggleStyle(s.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) } }, s.label);
+            })
+          ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 18 } }, "还没有文风预设，去「我的 → 生成设置」新建或导入，之后每次在这里勾选。"),
+        ),
+        sec("by", "谁来写", authorSummary(),
+          // 谁来写这一批（她 2026-09-04）。不选＝随缘：模型自己起笔名，事后也会收进作者库。
+          // ⚠️不是一排药丸：署名表上的一行行名字，选中那行左边落一个墨点、名字加重。
+          authors.length ? h("div", { style: { marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, marginBottom: 6 } }, "让谁来写"),
+            [{ id: "", name: "随缘（谁写都行）", style: "模型自己起个笔名，写完收进作者库" }].concat(authors).map(function (a) {
+              const on = (byId || "") === a.id;
+              return h("button", { key: a.id || "_any", onClick: function () { setById(a.id); }, className: "w-full text-left active:opacity-70",
+                style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 2px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+                h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 6, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+                h("span", { style: { minWidth: 0 } },
+                  h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
+                  a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, lineHeight: 1.5 } }, a.style) : null));
+            })) : null,
+        ),
 
-        // 本次手动设置一对（不进预设）：原创 / 我（面具人设）/ 角色
-        h("div", { className: "flex items-center gap-2 mb-2" },
-          h("select", { value: pickA, onChange: function (e) { setSel([]); setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-            cpOptions(characters, props.userName)),
-          h("span", { style: { fontFamily: F_BODY, color: t.fog } }, "×"),
-          h("select", { value: pickB, onChange: function (e) { setSel([]); setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-            cpOptions(characters, props.userName))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按你在设置里的面具人设来写，没填则自由发挥"),
-
-        // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
-        twoRealChars() ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
-          style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 } },
-          h("div", { style: { textAlign: "left" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
-          h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (includeMe ? t.ink : t.line), background: includeMe ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, includeMe ? "✓" : "")) : null,
-
-        // 谁来写这一批（她 2026-09-04）。不选＝随缘：模型自己起笔名，事后也会收进作者库。
-        // ⚠️不是一排药丸：署名表上的一行行名字，选中那行左边落一个墨点、名字加重。
-        authors.length ? h("div", { style: { marginBottom: 14 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: t.fog, marginBottom: 6 } }, "让谁来写"),
-          [{ id: "", name: "随缘（谁写都行）", style: "模型自己起个笔名，写完收进作者库" }].concat(authors).map(function (a) {
-            const on = (byId || "") === a.id;
-            return h("button", { key: a.id || "_any", onClick: function () { setById(a.id); }, className: "w-full text-left active:opacity-70",
-              style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 2px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
-              h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 6, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
-              h("span", { style: { minWidth: 0 } },
-                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
-                a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, lineHeight: 1.5 } }, a.style) : null));
-          })) : null,
-
-        h("div", { className: "flex items-center gap-3" },
-          h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
-          h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成"))));
+        ),
+      // 页脚固定在底下：四格再怎么展开，「确定生成」永远在手边（底部只吃 0.4 条
+      // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
+      h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
+        h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -1931,6 +2002,10 @@
     const chapterTaskKey = "fanfic:chapter:" + f.id;
     const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
     const [busyRev, setBusyRev] = useState(false);   // 刷书评（可与追更并行）
+    const [myWrite, setMyWrite] = useState(false);  // 她自己写下一章（v64.63）
+    const [myChap, setMyChap] = useState("");
+    const [ghostOpen, setGhostOpen] = useState(false); // 请枪手：先挑人（v64.64）
+    const [ghostId, setGhostId] = useState("");        // 空＝照原样，这篇原来那位太太接着写
     const [replyTo, setReplyTo] = useState(null); // review id
     const [replyText, setReplyText] = useState("");
     const [newComment, setNewComment] = useState("");
@@ -1968,11 +2043,17 @@
 
     function genOpts() { const cfg = window.Fanfic.loadCfg(); return { style: window.Fanfic.activeStyleText(cfg), perFic: cfg.perFic, chatMaterial: window.Fanfic.chatMaterialFor(chars) }; }
 
-    async function addChapter() {
+    // by＝她点名请的那位枪手；不传＝照原样，genNextChapter 自己去名册里找这篇原来那位太太。
+    async function addChapter(by) {
       if (busyChap) return;
       const newIdx = (f.chapters || []).length; // 新章的索引
       const run = async function () {
-        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"), genOpts());
+        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"), Object.assign(genOpts(), { author: by || null }));
+        // 请了别人代笔就把名字记在这一章上：翻到这一章时看得见是谁写的。
+        // ⚠️记在【章】上不是记在【篇】上——这篇的作者没变，只是这一章的笔换了人。
+        // ⚠️这里不能用外面那个 authorName()——Reader 里有个同名的 const 把它挡住了
+        const byNm = String((by && by.name) || "").trim();
+        if (byNm && byNm !== String(f.author || "").trim()) ch.byAuthor = byNm;
         props.onUpdate(f.id, function (fic) { fic.chapters = (fic.chapters || []).concat([ch]); fic.updatedAt = Date.now(); return fic; });
         props.toast && props.toast("已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
@@ -1987,6 +2068,21 @@
       }
       try { await window.BackgroundGeneration.start(chapterTaskKey, { label: "追更生成中" }, run); }
       catch (e) { props.toast && props.toast(String(e.message || e)); }
+    }
+    // 她自己写的那一章：跟枪手写的走【同一条落地路】（onUpdate + chapters.concat），
+    // 所以翻页、阅读进度、分享给角色那几处一个字都不用改。
+    // ⚠️endHook 留空：那是给续写用的锚点，她写的时候没这一栏——
+    //   genNextChapter 拿到空的会自己写成「（无锚点）」，不会崩。
+    function saveMyChapter() {
+      const txt = myChap.trim();
+      if (!txt) { props.toast && props.toast("还没写呢"); return; }
+      const newIdx = (f.chapters || []).length;
+      props.onUpdate(f.id, function (fic) {
+        fic.chapters = (fic.chapters || []).concat([{ content: txt, endHook: "", byMe: true }]);
+        fic.updatedAt = Date.now(); return fic;
+      });
+      setMyChap(""); setMyWrite(false); setChapIdx(newIdx);
+      props.toast && props.toast("接上去了");
     }
     async function loadReviews() {
       if (busyRev) return;
@@ -2084,7 +2180,11 @@
           const btn = function (label, to, disabled) { return h("button", { onClick: function () { goChap(to); }, disabled: disabled, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: disabled ? t.line : t.sub, padding: "2px 4px" } }, label); };
           const pager = function (top) { return chs.length > 1 ? h("div", { className: "flex items-center justify-between " + (top ? "mb-4 pb-2" : "mt-5 pt-3"), style: (top ? { borderBottom: "1px solid " + t.line } : { borderTop: "1px solid " + t.line }) },
             btn("‹ 上一章", idx - 1, idx <= 0),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog } }, "第 " + (idx + 1) + " / " + chs.length + " 章"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.35 } },
+              h("span", { style: { display: "block" } }, "第 " + (idx + 1) + " / " + chs.length + " 章"),
+              // 这一章的笔在谁手上：她自己写的、或请了谁代笔。原作者自己写的那几章不标
+              // （每一章都写一遍「by 某某」＝等于没标）。
+              (ch.byMe || ch.byAuthor) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10, color: t.fog, opacity: .8 } }, ch.byMe ? "你写的" : ch.byAuthor + " 代笔") : null),
             btn("下一章 ›", idx + 1, idx >= chs.length - 1)) : null; };
           return h("div", {
             ref: chapRef,
@@ -2106,9 +2206,26 @@
             pager(false));
         })(),
 
-        // 追更按钮
-        h("button", { onClick: addChapter, disabled: busyChap, className: "w-full active:opacity-70 mb-8", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "11px", borderRadius: 12, border: "1px dashed " + t.line, opacity: busyChap ? 0.5 : 1 } },
-          busyChap ? "后台续写中…可以离开本页" : "＋ 追更下一章"),
+        // 续写：两个入口（v64.63，她 2026-09-06：「我写了的为啥只能追更！
+        // 应该换成两个入口一个是我续写一个是请枪手再让模型继续」）。
+        // ⚠️原来这里只有一颗「追更」＝只能让模型写。她自己写的文，凭什么下一章轮不到她。
+        myWrite ? h("div", { style: { marginBottom: 32 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 7 } }, "第 " + ((f.chapters || []).length + 1) + " 章 · 你自己写"),
+          h("textarea", { value: myChap, onChange: function (e) { setMyChap(e.target.value); }, placeholder: "接着往下写…",
+            className: "w-full outline-none", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.95, padding: "13px 14px", borderRadius: 12,
+              background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 260, resize: "vertical" } }),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
+            h("button", { onClick: function () { setMyWrite(false); setMyChap(""); }, className: "active:opacity-70",
+              style: { minHeight: 44, padding: "0 16px", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "算了"),
+            h("button", { onClick: saveMyChapter, className: "flex-1 active:opacity-80",
+              style: { minHeight: 44, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, "写好了，接上去"))) : null,
+        !myWrite ? h("div", { className: "flex", style: { gap: 8, marginBottom: 32 } },
+          h("button", { onClick: function () { setMyWrite(true); }, className: "flex-1 active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, minHeight: 46, borderRadius: 12, border: "1px solid " + t.ink, background: "transparent" } },
+            "我来写下一章"),
+          h("button", { onClick: function () { setGhostOpen(true); }, disabled: busyChap, className: "flex-1 active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, minHeight: 46, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent", opacity: busyChap ? 0.5 : 1 } },
+            busyChap ? "枪手写着呢…" : "请枪手接着写")) : null,
 
         // 书评区
         h("div", { className: "flex items-center justify-between mb-3" },
@@ -2153,7 +2270,51 @@
           }, "跟着默认书页走") : null)) : null,
       fwdOpen ? h(FwdSheet, { characters: props.fwdChars || props.characters, groups: props.groups, onClose: function () { setFwdOpen(false); },
         onPickChar: function (c) { setFwdOpen(false); props.onForwardToChat && props.onForwardToChat(f, c); },
-        onPickGroup: function (g) { setFwdOpen(false); props.onForwardToGroup && props.onForwardToGroup(f, g); } }) : null);
+        onPickGroup: function (g) { setFwdOpen(false); props.onForwardToGroup && props.onForwardToGroup(f, g); } }) : null,
+      ghostOpen ? h(GhostPage, { fic: f, pickedId: ghostId,
+        onPick: function (id) { setGhostId(id); },
+        onClose: function () { setGhostOpen(false); },
+        onGo: function (by) { setGhostOpen(false); addChapter(by); } }) : null);
+  }
+
+  // ---------- 请谁接着写（v64.64，她 2026-09-06：「请枪手可以选择已有的作者吧，也可以不选」）
+  // 整页，不是半窗（no-half-sheet.md）：一位太太一行两句，作者库能攒到几十位，
+  // 半窗一掀就只剩三四行——「拿不准就用整页」。
+  function GhostPage(props) {
+    const t = useTheme();
+    const f = props.fic;
+    const authors = loadAuthors();
+    const own = String(f.author || "").trim();
+    // 「照原样」那一行：名册里认得这篇的太太就写她的名字——她自己的连载本来就该她接着写。
+    const ownCard = findAuthor(own);
+    const head = { id: "", name: ownCard ? "照原样：「" + own + "」自己接着写" : (own ? "照原样：「" + own + "」接着写" : "随缘（谁接都行）"),
+      // ⚠️这一行写她【真正的路数】，不是一句「会带进这一章」的空话——
+      //   旁边那两位列的都是自己的路数，这一行摆句解说词就成了另一种东西。
+      style: ownCard ? (ownCard.style || "她的路数、雷点都会带进这一章") : (own ? "名册里还没有这位太太的卡，只按前情往下写" : "模型自己接，不钉笔名"),
+      sore: ownCard ? ownCard.sore : "" };
+    const rows = [head].concat(authors.filter(function (a) { return authorName(a) !== own; }));
+    const picked = rows.filter(function (a) { return (a.id || "") === (props.pickedId || ""); })[0] || head;
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+      h(Head, { bg: "transparent", zh: "请谁接着写", sub: "《" + f.title + "》第 " + ((f.chapters || []).length + 1) + " 章", onBack: props.onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
+        // ⚠️不是一排药丸：署名表上的一行行名字，选中那行左边落一个墨点、名字加重
+        //   （tabs-not-plain-pills.md：换个 app 就不成立的形状才算长出来了）
+        rows.map(function (a) {
+          const on = (a.id || "") === (picked.id || "");
+          return h("button", { key: a.id || "_own", onClick: function () { props.onPick(a.id || ""); }, className: "w-full text-left active:opacity-70",
+            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+            h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 7, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+            h("span", { style: { minWidth: 0 } },
+              h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
+              a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } }, a.style) : null,
+              (on && a.sore) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "护着：" + a.sore) : null));
+        }),
+        authors.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } },
+          "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。")),
+      h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
+        h("button", { onClick: function () { props.onGo(picked.id ? picked : null); }, className: "w-full active:opacity-80",
+          style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, minHeight: 46, borderRadius: 12, border: "none" } },
+          picked.id ? "就请「" + picked.name + "」写" : "开始写")));
   }
 
   // ---------- 转发选人 sheet ----------
@@ -2191,23 +2352,31 @@
     function finalCP() { return [pickA, pickB].filter(function (x) { return x; }); }
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { bg: "transparent", zh: "发布同人文", onBack: props.onBack }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到世界观"),
-        h("select", { value: tabId, onChange: function (e) { setTabId(e.target.value); }, className: "w-full mb-4", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-          props.tabs.map(function (tb) { return h("option", { key: tb.id, value: tb.id }, tb.name); })),
-        h("input", { value: title, onChange: function (e) { setTitle(e.target.value); }, placeholder: "标题", className: "w-full outline-none mb-3", style: { fontFamily: F_DISPLAY, fontSize: 17, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("div", { className: "flex items-center gap-2 mb-3" },
-          h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-            cpOptions(characters, props.userName)),
-          h("span", { style: { color: t.fog } }, "×"),
-          h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-            cpOptions(characters, props.userName))),
-        h("input", { value: tags, onChange: function (e) { setTags(e.target.value); }, placeholder: "标签，用空格或逗号分隔（如 HE 破镜重圆）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("textarea", { value: body, onChange: function (e) { setBody(e.target.value); }, placeholder: "正文…", rows: 12, className: "w-full outline-none mb-4 resize-none", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.8, padding: "11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { className: "flex-1 min-h-0 flex flex-col px-6 pb-8" },
+        // 上面这一截固定不动（shrink-0），下面正文那格才吃得到剩下的高度
+        h("div", { className: "shrink-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到世界观"),
+          h("select", { value: tabId, onChange: function (e) { setTabId(e.target.value); }, className: "w-full mb-4", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+            props.tabs.map(function (tb) { return h("option", { key: tb.id, value: tb.id }, tb.name); })),
+          h("input", { value: title, onChange: function (e) { setTitle(e.target.value); }, placeholder: "标题", className: "w-full outline-none mb-3", style: { fontFamily: F_DISPLAY, fontSize: 17, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("div", { className: "flex items-center gap-2 mb-3" },
+            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+              cpOptions(characters, props.userName)),
+            h("span", { style: { color: t.fog } }, "×"),
+            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+              cpOptions(characters, props.userName))),
+          h("input", { value: tags, onChange: function (e) { setTags(e.target.value); }, placeholder: "标签，用空格或逗号分隔（如 HE 破镜重圆）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } })
+        ),
+        // ⚠️正文那格【撑满剩下的整页】（v64.63，她 2026-09-06：「正文部分太小了」）。
+        //   原来是写死的 rows:12 + resize-none：上面五个字段占掉大半屏，
+        //   真正要写字的地方只剩十来行，还不许拉。
+        //   现在外壳是 h-full flex flex-col、上面那截 shrink-0、这一格 flex-1 min-h-0，
+        //   屏幕多高它就有多高（跟主聊天正文区同一套层级，mobile-ui-layout §3）。
+        h("textarea", { value: body, onChange: function (e) { setBody(e.target.value); }, placeholder: "正文…", className: "w-full outline-none flex-1 min-h-0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.9, padding: "13px 14px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 200, resize: "none" } }),
         h("button", { onClick: function () {
           if (!title.trim() || !body.trim()) { props.toast && props.toast("标题和正文都要填"); return; }
           props.onPublish(tabId, title.trim(), finalCP(), tags.split(/[\s,，、]+/).filter(Boolean), body.trim());
-        }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "发布")));
+        }, className: "w-full active:opacity-80 shrink-0", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "13px", borderRadius: 12, marginTop: 10 } }, "发布")));
   }
 
   // ---------- 我的页 hub（作者主页 + 我发布的 + CP管理 + 设置）----------
@@ -2221,7 +2390,7 @@
     const derivedHeat = mine.reduce(function (s, f) { return s + ((f.stats && f.stats.kudos) || 0) + (f.liked ? 1 : 0) + (f.reviews || []).length * 5 + (f.chapters || []).length; }, 0);
     const heat = me.heat > 0 ? me.heat : derivedHeat;
 
-    if (sub === "published") return h(MinePublished, { fics: mine, characters: props.characters, userName: props.userName, onBack: function () { setSub(null); }, onOpen: props.onOpenFic });
+    if (sub === "published") return h(MinePublished, { fics: mine, characters: props.characters, userName: props.userName, onBack: function () { setSub(null); }, onOpen: props.onOpenFic, onDelete: props.onDeleteFic });
     if (sub === "cp") return h(MineCP, { cps: props.cps, characters: props.characters, userName: props.userName, toast: props.toast, onBack: function () { setSub(null); }, onAddCP: props.onAddCP, onDelCP: props.onDelCP });
     if (sub === "settings") return h(MineSettings, { active: props.active, toast: props.toast, onPaper: props.onPaper, onBack: function () { setSub(null); } });
 
@@ -2267,8 +2436,21 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
         props.fics.length ? props.fics.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).map(function (f, i) {
           // 「我发布的」不摆头条：这一页每一篇都是她自己写的，挑一篇出来当头条没有意义
-          return h(FicCard, { key: f.id, fic: f, index: i, noLead: true, characters: props.characters, userName: props.userName, onOpen: function () { props.onOpen(f.id); }, onLike: function () {} });
-        }) : h(Empty, { text: "还没发布过", sub: "用底部 ＋ 写一篇，会出现在这里随时回看" })));
+          return h("div", { key: f.id },
+            h(FicCard, { fic: f, index: i, noLead: true, characters: props.characters, userName: props.userName, onOpen: function () { props.onOpen(f.id); }, onLike: function () {} }),
+            // 删掉这一篇（v64.63 她点名）：只在【我发布的】这一页有，
+            // feed 那边的卡片一个字不动——那是别人的文，没有删的道理。
+            // ⚠️这一行要明显【贴着上面那张卡】：上下留白一样宽的话，
+            //   它看着既像上一篇的、又像下一篇的（第一版就是这样）。
+            props.onDelete ? h("div", { className: "flex justify-end", style: { margin: "-16px 2px 22px" } },
+              h("button", { onClick: function () {
+                requestAppConfirm("删掉《" + (f.title || "这一篇") + "》？",
+                  ((f.chapters || []).length > 1 ? "连同 " + f.chapters.length + " 章一起没了。" : "") + "删了就找不回来了。",
+                  function () { props.onDelete(f.id); }, "删掉");
+              }, className: "active:opacity-60",
+                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 12px", background: "transparent", border: "none",
+                  fontFamily: F_BODY, fontSize: 11.5, color: "#b34f43" } }, "删掉这一篇")) : null);
+        }) : h(Empty, { text: "还没发布过", sub: "在上一页点「自己写一篇」，写完就会出现在这里" })));
   }
 
   // CP 预设管理（独立页）
@@ -3304,6 +3486,12 @@
       const next = loadFics().map(function (f) { return f.id === id ? fn(Object.assign({}, f)) : f; });
       persistFics(next);
     }
+    // 单篇删除（v64.63，她 2026-09-06：「要每一篇文可以单独删除」）。
+    // ⚠️只从存档里拿掉这一篇，别动别的；删完不弹 toast——列表当场少一行，
+    //   那比一句话更清楚（确认框已经问过一次了）。
+    function deleteFic(id) {
+      persistFics(loadFics().filter(function (f) { return f.id !== id; }));
+    }
     function toggleShelf(id) {
       updateFic(id, function (f) { f.onShelf = !f.onShelf; return f; });
       props.toast && props.toast("已" + (loadFics().find(function (f) { return f.id === id; }).onShelf ? "收藏" : "取消收藏"));
@@ -3463,7 +3651,7 @@
       inner = h(Mine, { characters: cast, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
         onPaper: setPaperId,
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onWrite: function () { setView("publish"); },
-        onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
+        onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn, onDeleteFic: deleteFic });
     } else if (view === "rp") {
       inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); },
         // ⚠️这两条原来【一条都没传】：收尾那段代码写着 if (props.onShelveFic)，

@@ -2537,6 +2537,9 @@ function buildBundle(ctx, opts) {
   // 它跟上面那条【心情】是两层：心情是这一轮贴的标签，这一条是几轮攒下来的底色，所以并排发、不互相取代。
   if (!ctx.notRoleplay && ctx.aMood && ctx.aMood.trim()) parts.push("【此刻的情绪底色·只作内在背景】" + ctx.aMood.trim()
     + "\n⚠️这是【你自己身上的温度】，只影响语气分寸和反应的快慢轻重：禁止复述这段提示、禁止把「偏高/偏低」这种说法带进话里、也别拿它当话题去解释自己怎么了。");
+  // 睡着/快睡了/刚醒 时的姿态（v64.66）。放在情绪底色后面：它比底色更硬——
+  // 一个被吵醒的人，不管底色是暖是冷，反应都是慢的。
+  if (!ctx.notRoleplay && ctx.sleepTone && ctx.sleepTone.trim()) parts.push(ctx.sleepTone.trim());
   if (!ctx.notRoleplay && ctx.gazeText && ctx.gazeText.trim()) parts.push(ctx.gazeText.trim());
   // 梦的余味（v61.48）：只在她真翻过那场梦、且三天之内才有；过期由 ctxFor 那头判。
   if (!ctx.notRoleplay && ctx.dreamEcho && ctx.dreamEcho.trim()) parts.push(ctx.dreamEcho.trim());
@@ -5660,6 +5663,8 @@ async function generateOfflineGroup(p, ctx, session) {
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
     + ((ctx.memberAff && ctx.memberAff[c.id] != null) ? "\n〔对 " + userName + " 的好感〕" + ctx.memberAff[c.id] + "/100" : "")
     + ((ctx.memberAMood && ctx.memberAMood[c.id]) ? "\n〔此刻的情绪底色·只作内在背景〕" + ctx.memberAMood[c.id] + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "")
+    // 睡没睡（v64.66）：一人一份，别合成一块共享注入——同一个群里有人在上班、有人那边是凌晨三点
+    + ((ctx.memberSleep && ctx.memberSleep[c.id]) ? "\n〔" + String(ctx.memberSleep[c.id]).replace(/\n/g, "\n　") + "〕" : "")
     // 「四处一样喂」第二轮（她 2026-08-25「还是很霸总」）：年龄／此刻在做什么／和用户的关系状态，
     // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
     + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")

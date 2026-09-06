@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.73";
+const APP_VERSION = "v64.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -637,9 +637,11 @@ function App() {
       //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
       //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
       //   chat = 最近的聊天记录（第一级先去掉的就是它）
-      const base = "【你的人设】\n" + (char.persona || char.name)
-        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+      const bare = "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
+        + "\n\n【世界书】\n" + gazeLore
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
@@ -647,7 +649,11 @@ function App() {
       const levels = [
         { zh: "整份", sys: seedSys, text: head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)") },
         { zh: "去掉聊天记录", sys: seedSys, text: head + NO_CHAT },
-        { zh: "连长期记忆也去掉", sys: seedSys, text: base + NO_CHAT }
+        { zh: "连长期记忆也去掉", sys: seedSys, text: base + NO_CHAT },
+        // ⚠️最后一级把世界书也拿掉（v64.60）。它是她点名要的一层，所以放在最后——
+        //   前面每一级都还带着它；只有到了「再不试就彻底写不出来」这一步才舍。
+        //   走到这一级还成了，说明踩线的是世界书里的字；还被拦，就只剩人设和这道题。
+        { zh: "连世界书也不发", sys: seedSys, text: bare + NO_CHAT }
       ];
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
       //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
@@ -736,7 +742,15 @@ function App() {
     let last = null;
     for (let i = 0; i < levels.length; i++) {
       try {
-        const out = await callAI(p, levels[i].sys, [{ role: "user", content: levels[i].text }], { maxTokens: 65535, timeout: 150000 });
+        // ⚠️v64.60：料【全部放进 system】，user 只留一句「开始。」。
+        //   她 2026-09-06 一路缩到第四级还是被拦，剩下的只有人设＋世界书＋这十道题。
+        //   可主聊天天天带着同一份人设、同一个模型在跑，一次没被拦过——差在哪儿？
+        //   **主聊天把人设放在 system 里，这两枪一直是把人设当成 user 的正文发出去的。**
+        //   一大段「这个人是谁、她的什么、你们怎么样」作为【用户说的话】递上去，
+        //   跟同一段作为【给你的设定】摆在 system 里，输入过滤器读起来完全是两件事。
+        //   而这个 app 自己的一次性生成调用（周刊/朋友圈那几处）本来就是这么写的：
+        //   料全在 system，user 只有一句「开始。」——只有这两枪没跟上。
+        const out = await callAI(p, levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
         return out;
       } catch (e) {
@@ -745,7 +759,7 @@ function App() {
       }
     }
     throw new Error("这条线路把提示词拦了；" + levels.slice(1).map(l => l.zh).join("、") + " 都试过了，还是被拦——"
-      + "连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身。\n原话："
+      + "连世界书和这张卡自己的正文都没再发，剩下的只有【人设】本身和这十道题。\n原话："
       + ((last && last.message) || last));
   };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
@@ -778,9 +792,11 @@ function App() {
       //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
       //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
       //   chat = 最近的聊天记录（第一级先去掉的就是它）
-      const base = "【你的人设】\n" + (char.persona || char.name)
-        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+      const bare = "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
+        + "\n\n【世界书】\n" + gazeLore
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
@@ -795,7 +811,8 @@ function App() {
         { zh: "整份", sys: revSys, text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
         { zh: "去掉聊天记录", sys: revSys, text: head + NO_CHAT },
         { zh: "连长期记忆也去掉", sys: revSys, text: base + NO_CHAT },
-        { zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window.Gaze.seedSpec(uN), text: base + NO_CHAT }
+        { zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window.Gaze.seedSpec(uN), text: base + NO_CHAT },
+        { zh: "连世界书也不发", sys: window.Gaze.seedSpec(uN), text: bare + NO_CHAT }   // 同建卡，理由写在那一处
       ];
       // 开满，同上（她 2026-09-05 点名）
       const raw = await gazeCall(p, levels, zh => { if (manual) toast("被拦了，" + zh + "才写成的"); });
@@ -1448,6 +1465,7 @@ function App() {
   // 所以每轮算完顺手在内存里留一份现成的句子，让 buildBundle 那头能同步拿到——
   // 跟 gazeText 走同一个形状（那份也是同步从本地取的）。开机补一次，免得第一轮是空的。
   const aMoodRef = useRef({});
+  const aPrideRef = useRef({});   // 傲娇的同步镜像（v64.69），动念那条链读它
   // 急停：诊断台那颗回滚键写的是 E 的 emergencyOff，按下去 A 和 E 一起停。
   // 提到组件这一层，是因为单聊和群聊两处都要问它——各写一份迟早只改一处。
   const innerLifeOnFor = charId => {
@@ -1456,6 +1474,12 @@ function App() {
   // 三道闸都收在这一处：急停、言秋（他不是被扮演的角色）、还没算出来。
   // 收在一处是因为要它的地方有三个（单聊 ctxFor、群线上 memberDesc、群线下 memberAMood）——
   // 各写一份就是「一层写在三处，第三处没跟上」。
+  // 此刻端着到什么程度（-1~1）。急停按下 / 言秋 / 还没算出来 → 0（＝不挡）。
+  const aPrideOf = charId => {
+    if (!charId || !innerLifeOnFor(charId)) return 0;
+    if (settingsFor(charId).engineerEyes) return 0;
+    return Number((aPrideRef.current || {})[charId] || 0);
+  };
   const aMoodTextOf = charId => {
     if (!charId || !innerLifeOnFor(charId)) return "";
     if (settingsFor(charId).engineerEyes) return "";
@@ -1473,6 +1497,9 @@ function App() {
             const st = await window.InnerLifeAShadow.get(owner, c.id);
             const pj = st ? window.DongnianEmotionA.displayProjection(st) : null;
             if (pj && pj.text) aMoodRef.current[c.id] = pj.text;
+            // 傲娇也一起补（v64.69）：不补的话开机后第一轮那道闸永远是开的——
+            // 「一层写在两处，第二处没跟上」的又一个落点，而且它悄无声息。
+            if (st && st.emotion && st.emotion.current) aPrideRef.current[c.id] = Number(st.emotion.current.pride || 0);
           } catch (e) {}
         }
       } catch (e) {}
@@ -1493,7 +1520,10 @@ function App() {
           const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
           const projection = window.DongnianEmotionA.displayProjection(saved);
           aMoodRef.current[charId] = (projection && projection.text) || "";   // 同步镜像，供 ctxFor 取
-          await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
+          // 傲娇也镜像一份（v64.69）：动念那条链要用它决定「这一轮拉不下脸，先不开口」。
+          // ⚠️A 在算傲娇、动念在用傲娇，两边从来没接上过——所以那道闸从上线起一次都没关过。
+          aPrideRef.current[charId] = Number((saved.emotion && saved.emotion.current && saved.emotion.current.pride) || 0);
+          await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodViaMorpheme: result.audit.moodViaMorpheme, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
           if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
         } catch (e) {}
       }, 0);
@@ -2578,6 +2608,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     };
   }, [loaded]);
   // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
+  // ⚠️【D 做梦就挂在这个 if 里面】：DreamLoop 要 C 算出来的 sleepState 才知道 REM 窗到没到。
+  //   v64.34 把 C 的两个 script 当死代码删掉时，D 一起停了——不报错、界面上也看不出来，
+  //   「他做的梦」只是从那天起再没多一条。要动 C 之前先想一下这一行。
   useEffect(() => {
     if (!loaded) return;
     const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
@@ -3345,6 +3378,47 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
     } catch (e) { return "awake"; }
   };
+  // ── TA 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）──
+  // 两把尺子收在这一处，别处一律调它：
+  //   · 排了作息的角色用 C 算的四相（快睡了／睡熟／刚醒 分得开，语气才有层次）；
+  //   · 没排作息的退回 charAwakeState 的两相（它有 8–23 那个兜底，不能丢）。
+  // ⚠️C 只有 source==="schedule" 时才算数——没行程时它会拿「睡意压力」猜一个出来，那是编的。
+  // ⚠️言秋不睡觉（他不是被扮演的角色）。
+  const sleepPhaseOf = char => {
+    try {
+      if (!char || !char.id) return "awake";
+      if (settingsFor(char.id).engineerEyes) return "awake";
+      // ① 睡没睡，以 charAwakeState 为准。它直接读那一段的 end，最稳。
+      //    ⚠️不许反过来让 C 说了算：C 要【明天那份日程】才知道今晚这觉睡到几点，
+      //      而日程是一天一份的——22:00 排了睡觉，22:30 去问 C，它答「醒着」
+      //      （今天这份里 22:00 之后没有下一项，明天那份还没生成）。实测过。
+      if (charAwakeState(char) === "asleep") return "asleep";
+      // ② 醒着的时候再问 C：是不是【快睡了】或【刚醒】那两截。
+      //    这两档是旧尺子没有的东西，也是 C 唯一比它多出来的价值。
+      const st = window.SleepShadow && window.SleepShadow.stateOf ? window.SleepShadow.stateOf(char.id) : null;
+      if (st && st.source === "schedule" && (st.phase === "drowsy" || st.phase === "waking")) return st.phase;
+    } catch (e) {}
+    return "awake";
+  };
+  // 这一段是发给模型的（八处一样喂）。
+  // ⚠️写的是【判据和分寸】，不是台词示范——给了例句模型就照抄，每个角色被吵醒都说同一句
+  //   （.claude/rules/prompt-no-content-samples.md）。
+  // ⚠️最后一条是防摆烂的：不写死的话，模型会直接「我睡了明天说」把人打发走。
+  const SLEEP_TONE = {
+    drowsy: "【此刻你快睡了】你那边已经是该睡的点，你多半已经躺下、灯关了。\n"
+      + "· 回得比平时短、比平时慢，注意力是散的：容易抓错重点、答上一句、说着说着跑题。\n"
+      + "· 困到什么程度看这条消息多要紧：随口一句就含糊应着；真出事了照样撑起来。\n"
+      + "· 别用「我困了」三个字交差——把困写进反应里（慢、短、答非所问），不是写进说明里。",
+    asleep: "【此刻你在睡觉】你那边是深夜，这条消息是把你从睡里拽出来的。\n"
+      + "· 反应慢半拍、话短、脑子没完全醒：先弄明白发生了什么，别一上来就给完整的分析或长段安慰。\n"
+      + "· 醒的程度跟着事情走：随口一句就是含糊地应一声；真出事了会一下子清醒过来。\n"
+      + "· 别拿「我刚睡醒」这几个字交差——把没睡醒写进反应里（隔一句才反应过来、抓错重点、话没说完），不是写进说明里。\n"
+      + "· 但不许因为在睡就不回、也不许一句「明天再说」把人打发走。人被吵醒了还是会应的。",
+    waking: "【此刻你刚醒】你那边刚起来没多久，人还没完全清醒。\n"
+      + "· 说话比白天钝一点、慢一点，先接上眼前这件事，别一上来就精神饱满。\n"
+      + "· 同样别写「我刚起」当说明，让它从反应里透出来。"
+  };
+  const sleepToneOf = char => SLEEP_TONE[sleepPhaseOf(char)] || "";
   // 过了 0 点那一截（v56.57，她 2026-08-27 报「聊天界面日程都显示还没开始今天的安排」）：
   // 日程是一天一份的，昨晚 23:40 睡下、end 记到 24:00，今天这份里没人接着——
   // 于是从 0 点到今天第一项之间，schedCurrentSeqIdx 一个都选不中，返回 -1。
@@ -3990,6 +4064,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️穿书、小剧场、同人文、跑团、如果馆【不给】：它们是平行时空沙盒，本来就不读主线心情/好感，
     //   而这一条正是几轮主线相处攒出来的底色——这是写明理由的差异，不是漏。
     aMood: aMoodTextOf(char.id),
+    // 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）。
+    // ⚠️提示词里【早就写着】她那边和他那边各是几点（timeBlock），可从来没有一句话说过
+    //   「凌晨三点你应该在睡，这条消息是把你吵醒的」——于是他知道是深夜，还是精神饱满地秒回。
+    //   缺的从来不是时间事实，是那个【姿态】。
+    // ⚠️跟 aMood 走同一条路，所以单聊线上/线下、通话、匿名信箱、解梦馆一次全有；
+    //   群里两处另按人喂（memberDesc / memberSleep），跟 aMood 一模一样的三处。
+    sleepTone: sleepToneOf(char),
     // 她翻过他昨晚那场梦之后，让那点感觉【轻轻】留在他今天的语气里
     //（她 2026-09-04：「不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
     // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；
@@ -5011,9 +5092,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
-          if (charAwakeState(c) === "asleep") {
+          // ⚠️跟聊天那一路同一把尺子（v64.66）：原来这儿单独调 charAwakeState，
+          //   于是「他睡没睡」在 app 里有两个答案——排了作息的角色，聊天按 C 的四相算、
+          //   主动开口按这把两相的旧尺子算，能差出一个多小时（drowsy/waking 那两截）。
+          if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
+          }
+          // 傲娇挡一挡（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）。
+          // ⚠️动念自己那道 prideBlock 是【真闸】——过了线他会去「找点事做」而不是找你。
+          //   可它读的是动念自己那份 pride：初值 -1、稳态最高 0.3，防御漂移那一支又写着
+          //   「1.0＝永不」，所以那道闸从上线起一次都没关过。现在改读【A 算出来的傲娇】
+          //   （嘴硬/逞强/端着 才推得动它），门槛还是同一个数。
+          // ⚠️留一条缝：思念真的很重（forced）照旧开口——那正是「想念太重，维持冷漠太累」。
+          if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) {
+            const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
+            if (!forced) continue;   // 拉不下脸，这一轮先不开口；等它自己落下来
           }
           dongnianFiredRef.current[cid] = Date.now();      // 闸先占住：防同一秒被别的路重复认领
           let jwStyle = "";
@@ -5897,6 +5991,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (group.memberIds || []).forEach(id => {
         if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有情绪底色
         const t = aMoodTextOf(id);
+        if (t) m[id] = t;
+      });
+      return m;
+    })(),
+    // 睡没睡（v64.66）：跟 memberAMood 同一个形状——一人一份，各按各的作息。
+    memberSleep: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        if (!c || c.npc) return;
+        const t = sleepToneOf(c);
         if (t) m[id] = t;
       });
       return m;
@@ -8445,7 +8550,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const aSeg = aMoodTextOf(c.id)
           ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id)
             + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        // 睡没睡（v64.66）：群里更要按人给——同一个群里有人在上班、有人那边是凌晨三点。
+        const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -11807,9 +11914,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
           const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
           const aSeg = aMoodTextOf(c.id) ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id) + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
+          // 睡没睡（v64.66）：电话尤其要有——半夜三点接起来的人不该精神饱满
+          const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
           const cySeg = (() => { const txt = (typeof carryContextText === "function") ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : ""; return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : ""; })();
           const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + zSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：

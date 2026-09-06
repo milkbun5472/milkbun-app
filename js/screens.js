@@ -9185,7 +9185,10 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
   const t = useTheme();
   const [rows, setRows] = useState(null);
   const [gateTick, setGateTick] = useState(0);
-  const AXIS_ZH = { connection: "思念", pride: "傲娇", valence: "愉悦", arousal: "唤醒", immersion: "沉浸", hurt: "委屈", anger: "火气", anxiety: "不安", warmth: "暖意", fatigue: "疲惫" };
+  // ⚠️名字只有 dongnian.js 那一份（A_DISPLAY_LABELS）。这儿再抄一遍的话，
+  //   界面和发给他的那句话迟早对不上——v64.68 之前就是这样：这儿写「暖意」，
+  //   发出去的是「柔软」。拿不到就退回英文键名，别自作主张补一套。
+  const AXIS_ZH = (window.DongnianEmotionA && window.DongnianEmotionA.displayLabels) || {};
   const load = async () => {
     setRows(null);
     try {
@@ -9205,21 +9208,29 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
   useEffect(() => { load(); }, []);
   const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
   return h(Sheet, { onClose },
-    h(Eyebrow, null, "A · 情绪统一 · 纯影子诊断"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "十维只算不注入：当前值在影子库里演算与回归，投影采样只记录「如果注入会给哪些维度」。评审看：投影维度分布合不合理、mood 未匹配率、钳制次数。"),
+    h(Eyebrow, null, "A · 立体情绪 · 常开中"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "十维【正在接进语气】（v62.37 起常开，急停在记忆库那一屏）：数字本身不发出去，发出去的是折成的那一句偏离。这里看：维度分布合不合理、mood 未匹配率、钳制次数。"),
     !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
     rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
     !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "还没有任何角色的情绪影子数据") :
-    rows.list.map(({ char, st, r }) => { const ready=window.InnerLifePromotionGate?window.InnerLifePromotionGate.evaluateA(r):null,gate=window.InnerLifePromotionGate?window.InnerLifePromotionGate.state("A",char.id):{mode:"shadow"}; return h("div", { key: char.id, style: { marginBottom: 14 } },
+    rows.list.map(({ char, st, r }) => { const ready=window.InnerLifePromotionGate?window.InnerLifePromotionGate.evaluateA(r):null; return h("div", { key: char.id, style: { marginBottom: 14 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 4 } }, char.remark || char.name),
+      // ⚠️只列【算数的那几条】（DongnianEmotionA.projectedAxes）：思念被撤掉了，
+      //   动念那根进度条才是权威——两个都叫思念、数还不一样，看的人只会更糊涂。
       st && st.emotion && st.emotion.current ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 5 } },
-        Object.entries(st.emotion.current).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
+        Object.entries(st.emotion.current).filter(([k]) => ((window.DongnianEmotionA && window.DongnianEmotionA.projectedAxes) || Object.keys(st.emotion.current)).indexOf(k) >= 0).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "无状态（引擎还没为 TA 演算过）"),
       line("投影采样 / mood未匹配 / 被钳制", (r.sampleCount || 0) + " / " + (r.unmatchedMoodCount || 0) + " / " + (r.clippedCount || 0)),
+      // v64.67：整词没撞上、靠拆字接住的次数。这一栏是【那一层到底在不在干活】的唯一证据——
+      // 光看未匹配率降了不算数：也可能只是这几天模型没写怪词。
+      line("其中靠拆字接住", String(r.morphemeMoodCount || 0)),
       r.dictionaryVersion ? line("固定词典版本 / 旧版留档样本", "v" + r.dictionaryVersion + " / " + (r.legacySampleCount || 0)) : null,
       r.topUnmatchedMoods && r.topUnmatchedMoods.length ? line("本版未识别 mood", r.topUnmatchedMoods.map(x => x.label + "×" + x.count).join("、")) : null,
       r.dimensionCounts && Object.keys(r.dimensionCounts).length ? line("投影维度分布", Object.entries(r.dimensionCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => (AXIS_ZH[k] || k) + "×" + n).join(" ")) : null,
-      ready ? h("div", { style:{marginTop:7,padding:"7px 9px",borderRadius:9,background:ready.ready?"rgba(74,139,104,.09)":"rgba(186,139,70,.10)",fontFamily:F_BODY,fontSize:10.5,color:ready.ready?"#4a8b68":"#9a6d2e",lineHeight:1.55} }, gate.mode==="pilot" ? "🟢 已获试点授权（注入接线仍未开启）" : ready.ready ? "🟢 已达机械门槛，等待你和 TA 主观确认" : "🟡 继续观察："+ready.blockers.join("；")) : null,
+      // ⚠️「授权」那一路从来没接过管子（v62.36 查实，isPilotEnabled 全 app 零调用），
+      //   A 从 v62.37 起就是常开的——所以这里【不再说授权】，那句话跟底下那行直接打架。
+      //   门槛没过不代表它没在发，只代表这份读数还不够稳，所以只在没过的时候提一句。
+      ready && !ready.ready ? h("div", { style:{marginTop:7,padding:"7px 9px",borderRadius:9,background:"rgba(186,139,70,.10)",fontFamily:F_BODY,fontSize:10.5,color:"#9a6d2e",lineHeight:1.55} }, "🟡 这份读数还不够稳："+ready.blockers.join("；")+"（它照常在发，只是别太当真）") : null,
       h("div",{style:{marginTop:6,fontFamily:F_BODY,fontSize:10.5,color:"#4a8b68",border:"1px solid rgba(74,139,104,.45)",borderRadius:9,padding:"6px",textAlign:"center"}},"常开 · 已接进语气")); }),
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
