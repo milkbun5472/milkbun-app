@@ -3,7 +3,17 @@
 (function(root,factory){"use strict";const api=factory(root);if(typeof module==="object"&&module.exports)module.exports=api;if(root)root.InnerLifeBShadow=api;})(typeof globalThis!=="undefined"?globalThis:this,function(root){
   "use strict";
   // 试点身份按角色稳定 ID 锁定；昵称/正式名变化不再让整条 shadow 悄悄停摆。
-  const PILOTS=Object.freeze({"char_1783061729716":["continuity","neglect","boundary","seriousness"],"char_1783354607122":["identity","continuity","boundary","neglect"]});
+  // ⚠️v64.26 起【空着】——她 2026-09-06 定的。
+  //   这一层跟别的 shadow 不一样：别的都是零成本本机推演，**只有它每轮真发一次
+  //   callAI**（关系含义检测器，8000 tokens），而且是在她已经付过一次的那一轮之外
+  //   额外再付一次。产出只进【记忆库→工程仪表】里那个诊断面板：不进上下文、
+  //   不进记忆、不影响任何一句回复。她按次计费，跟这两位聊天等于每轮付双份。
+  //   跑了几个月，那个面板她一次都没打开过。
+  //   ⚠️开关只有这一处：清空＝pilotFor 返回 null＝observe 立刻 skipped，
+  //   一行模型调用都不会发。想再开回来，把 id 填回来就行；
+  //   已经攒下的影子数据一条没删，还在 A 那个 IDB 里。
+  //   （别在调用点那边再加一道闸——那就成了「一层写在两处」，迟早只改一处。）
+  const PILOTS=Object.freeze({});
   const DENY_NAMES=Object.freeze(["小克"]),AXES=["identity","continuity","seriousness","boundary","neglect","repairFailure"],KINDS=["harm","repair_progress","neutral"],REPAIRS=["behavior_changed","apology_only","silence","elapsed","mood_softened",null];
   const queues=new Map(),clean=(v,n)=>String(v==null?"":v).trim().replace(/\s+/g," ").slice(0,n),nameOf=char=>clean(char&&char.name,40);
   function pilotFor(char){const name=nameOf(char),charId=String(char&&char.id||"");if(!name||!charId||DENY_NAMES.some(x=>name===x||name.includes(x)))return null;const enabled=PILOTS[charId];return enabled?{charId,name,enabledAxes:enabled.slice(),phase:"shadow",approvedBy:"lisa"}:null;}

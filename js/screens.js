@@ -6812,7 +6812,7 @@ function RecallShadowPanel() {
           "· 证据结局：兑现 " + more.repair.fulfilled + " · 修复 " + more.repair.resolved + " · 放弃 " + more.repair.abandoned, h("br"),
           "· 被重复提名 " + Number(more.repair.repeatedOpenMemories || 0) + " 条 · 重复证据行 " + Number(more.repair.duplicateEvidenceRows || 0) + " · 结局互相冲突 " + Number(more.repair.outcomeConflicts || 0) + " 条") : null,
         more.correction && !more.correction.error ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + t.line } },
-          "🪡 纠错留环：" + more.correction.pairs + " 组包含配对 · 旧规则本会硬删 " + more.correction.currentWouldPrune) : null,
+          "纠错留环：" + more.correction.pairs + " 组包含配对 · 旧规则本会硬删 " + more.correction.currentWouldPrune) : null,
         more.experience && !more.experience.error ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + t.line } },
           "🏝️ 来源诚实性 v" + (more.experience.auditVersion || 1) + "：" + more.experience.audits + " 次上下文 · " + more.experience.callsWithRisk + " 次含真假宣称风险 · 旧版留档 " + (more.experience.legacySamples || 0), h("br"),
           "· 真正文断言 " + Number(more.experience.riskReasons&&more.experience.riskReasons.assertive_body||0) + " · 仅标题误报 " + Number(more.experience.riskReasons&&more.experience.riskReasons.header_label_only||0), h("br"),
@@ -9291,45 +9291,6 @@ function InnerLifeBDiagnosticSheet({ characters, onClose }) {
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
 
-// C 第5步：睡眠与发声闸影子诊断台（只读；hashId 把诊断里的角色哈希映射回名字）
-function InnerLifeCDiagnosticSheet({ characters, onClose }) {
-  const t = useTheme();
-  const [r, setR] = useState(null);
-  const PHASE_ZH = { awake: "醒着", drowsy: "犯困", asleep: "睡着", waking: "将醒", exempt_digital: "数字生命豁免" };
-  const OUTLET_ZH = { chat: "聊天", moments: "朋友圈", forum: "论坛", whisper: "悄悄话", proactive: "主动消息", "?": "未知口" };
-  const load = async () => {
-    setR(null);
-    try {
-      const S = window.SleepShadow;
-      if (!S) { setR({ error: "C 影子模块未载入" }); return; }
-      const agg = await S.report(300);
-      if (agg && !agg.error && S.hashId) {
-        const nameByHash = {};
-        (characters || []).forEach(c => { nameByHash[S.hashId(c.id)] = c.remark || c.name; });
-        agg.phases = (agg.phases || []).map(p => ({ ...p, name: nameByHash[p.c] || "已清仓角色" }));
-      }
-      setR(agg);
-    } catch (e) { setR({ error: "C 影子诊断读取失败" }); }
-  };
-  useEffect(() => { load(); }, []);
-  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
-  return h(Sheet, { onClose },
-    h(Eyebrow, null, "C · 睡眠与发声闸 · 纯影子诊断"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只记不拦：角色睡着时发声只登记 would_hold，实际永远放行。评审看三件事：would_hold 分布合不合作息、fail_open 多不多（多=状态老丢）、相位转换是否闪烁。"),
-    !r ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
-    r.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, String(r.error)) :
-    h(React.Fragment, null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, marginBottom: 2 } }, "当前相位"),
-      (r.phases || []).length ? r.phases.map(p => line(p.name, (PHASE_ZH[p.phase] || p.phase) + " · 压力 " + p.pressure + (p.source ? " · " + ({ schedule: "按日程", pressure_guard: "睡压保底", knock: "被敲醒", unknown_schedule: "缺日程放行" }[p.source] || p.source) : ""))) :
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0" } }, "还没有任何角色的睡眠状态（tick 一次都没跑过）"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, margin: "10px 0 2px" } }, "近 " + (r.observations || 0) + " 条诊断"),
-      Object.keys(r.wouldHold || {}).length ? Object.entries(r.wouldHold).map(([o, n]) => line("😴 睡着时想说话（" + (OUTLET_ZH[o] || o) + "）", String(n))) : line("😴 睡着时想说话", "0 次"),
-      line("相位转换", String(r.transitions || 0)),
-      line("fail_open（状态缺失放行）", String(r.failOpen || 0)),
-      line("数字生命豁免", String(r.exempt || 0))),
-    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
-}
-
 function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }) {
   const t = useTheme();
   const eventMode = mode === "event";
@@ -9465,7 +9426,6 @@ function MemoryLib({
   onBulkImport,
   onAudit,
   onPostCutoverAudit,
-  onShadowMigrate,
   migrationBusy,
   onSyncStatus,
   onChatLedgerStatus,
@@ -9480,7 +9440,6 @@ function MemoryLib({
   const [importOpen, setImportOpen] = useState(false);
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const [bAxesOpen, setBAxesOpen] = useState(false);
-  const [cSleepOpen, setCSleepOpen] = useState(false);
   const [aEmoOpen, setAEmoOpen] = useState(false);
   const [somaticOpen, setSomaticOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false); // 日常页面只留搜索与记忆；低频整理统一收进这里
@@ -9489,6 +9448,17 @@ function MemoryLib({
   const [eventMergePreview, setEventMergePreview] = useState(null);
   const [routinePreview, setRoutinePreview] = useState(null);
   const [repairConflictOpen, setRepairConflictOpen] = useState(false);
+  // 有几条结局对不上（v64.26）：这一颗改成【有才出现】，所以得先数一次。
+  // ⚠️只在整理页真被打开时数，别挂在整个记忆库上——那是每次进记忆库都白读一次 IDB。
+  const [repairConflictN, setRepairConflictN] = useState(0);
+  useEffect(() => {
+    if (!manageOpen || !onListRepairConflicts) { return; }
+    let alive = true;
+    Promise.resolve(onListRepairConflicts())
+      .then(list => { if (alive) setRepairConflictN(Array.isArray(list) ? list.length : 0); })
+      .catch(() => { if (alive) setRepairConflictN(0); });
+    return () => { alive = false; };
+  }, [manageOpen, onListRepairConflicts]);
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
   const [correctionPicking, setCorrectionPicking] = useState(null); // null=关闭；{oldId:null|string}=正在挑旧→新
@@ -9626,7 +9596,6 @@ function MemoryLib({
   , importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
   innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters, onClose: () => setInnerLifeOpen(false) }) : null,
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
-  cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
   aEmoOpen ? h(InnerLifeADiagnosticSheet, { characters, onClose: () => setAEmoOpen(false) }) : null,
   somaticOpen ? h(SomaticDiagnosticSheet, { characters, onClose: () => setSomaticOpen(false) }) : null,
   duplicatePreview ? h(MemoryDuplicatePreviewSheet, { groups: duplicatePreview, onConfirm: onArchiveDuplicateGroups, onClose: () => setDuplicatePreview(null) }) : null,
@@ -9651,8 +9620,40 @@ function MemoryLib({
       onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
       onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
+  // ── 这一片重排（v64.26，她 2026-09-06：「这堆是不是没用了可以不要了」）──────
+  // 原来十二颗一模一样的虚线药丸摞在一起，工具和仪表混在同一堆里。于是三样她真会用的
+  // （清重复／收拢／清仓）和两样安全工具（结局冲突／核对云端）看着都像工程仪表，
+  // 整堆一起被当成没用的。分堆的判据不是「它是不是影子」，是【按下去会不会改变什么】：
+  //   · 会改东西 → 留在外面、说人话（下面两格）
+  //   · 只显示数字 → 收进「只是数字 · 工程仪表」那一折
+  //   · 压根没接线 → 删掉（C 睡眠、迁移390条）
+  h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 2 } }, "清一遍"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "三样都是先预览再动手，没有一颗会直接删记忆。"),
+    onScanDuplicates ? h("button", { onClick: () => { setManageOpen(false); setDuplicatePreview(onScanDuplicates()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "扫描重复记忆") : null,
+    onScanEventMerges ? h("button", { onClick: () => { setManageOpen(false); setEventMergePreview(onScanEventMerges()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "收拢同一事件进展") : null,
+    onScanRoutineMemories ? h("button", { onClick: () => { setManageOpen(false); setRoutinePreview(onScanRoutineMemories()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "日常流水清仓") : null,
+    // ⚠️结局冲突这一颗不是仪表：decideRepairConflict 会真的改一条记忆的「未了／闭环」，
+    //   是这些冲突唯一的处理入口。所以留着，但改成【有冲突才出现】——
+    //   没有的时候不占位置，有的时候一眼看得出有几条。
+    repairConflictN > 0 ? h("button",{onClick:()=>{setManageOpen(false);setRepairConflictOpen(true);},className:"w-full rounded-xl py-2.5 mb-2 active:opacity-60",style:{border:"1px dashed #9f5149",color:"#9f5149",fontFamily:F_BODY,fontSize:12.5}},"有 " + repairConflictN + " 条记忆的结局对不上 · 你来定") : null,
+    // ⚠️「只读迁移审计」也不是仪表，是存档丢过两次之后最该有的那把尺子
+    //   （.claude/rules/never-say-delete-first.md）。旧名字是迁移那阵子的说法，
+    //   它现在答的是「本机和云上到底差多少」，就照这个叫。
+    onAudit ? h("button", { onClick: onAudit, className: "w-full rounded-xl py-2.5 active:opacity-60",
+      style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
+      "核对本机与云端记忆 · 只读导出一份") : null),
+  // ── 已经在跑的那两层：这两颗不是「诊断」，是【急停】────────────────────────
+  // v62.37 起 A（立体情绪）和 E（余温）就是常开的，真的在往每轮回复里带东西。
+  // 可按钮上写的还是「查看纯影子诊断」——名字停在它们还是影子的那会儿，
+  // 于是看着像两个没用的仪表，其实是全 app 唯一能把它们关掉的地方。
+  h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 2 } }, "正在影响每轮回复的两层"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "两层现在都开着。点进去能看它带过什么，也能一键急停。"),
+    h("button", { onClick: () => { setManageOpen(false); setAEmoOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "立体情绪 · 开着 · 点进去可急停"),
+    h("button", { onClick: () => { setManageOpen(false); setInnerLifeOpen(true); }, className: "w-full rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "余温与潮汐 · 开着 · 点进去可急停")),
   h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
-    h("span", null, "🔬 诊断与审计 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
+    h("span", null, "只是数字 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
   diagOpen ? h(React.Fragment, null,
   h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 8 } }, "记忆清理总览"),
@@ -9663,54 +9664,43 @@ function MemoryLib({
     onClick: async () => { try { await window.ShadowReview.download(characters, typeof APP_VERSION !== "undefined" ? APP_VERSION : null); window.__toast && window.__toast("转正评审包已导出：只含影子数字与状态"); } catch (e) { window.__toast && window.__toast("评审包导出失败：" + (e.message || e)); } },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
-  }, "📋 一键导出 Shadow 转正评审包") : null,
-  onScanDuplicates ? h("button", { onClick: () => { setManageOpen(false); setDuplicatePreview(onScanDuplicates()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧹 扫描重复记忆 · 先预览再软归档") : null,
-  onScanEventMerges ? h("button", { onClick: () => { setManageOpen(false); setEventMergePreview(onScanEventMerges()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 收拢同一事件进展 · 先预览再确认") : null,
-  onScanRoutineMemories ? h("button", { onClick: () => { setManageOpen(false); setRoutinePreview(onScanRoutineMemories()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧺 日常流水清仓 · 逐条预览再软归档") : null,
-  onListRepairConflicts ? h("button",{onClick:()=>{setManageOpen(false);setRepairConflictOpen(true);},className:"w-full rounded-xl py-2.5 mb-2 active:opacity-60",style:{border:"1px dashed #9f5149",color:"#9f5149",fontFamily:F_BODY,fontSize:12.5}},"⚖️ RepairGate 结局冲突 · 人工过目") : null,
-  h("button", { onClick: () => { setManageOpen(false); setAEmoOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫀 A 情绪统一 · 查看纯影子诊断"),
-  h("button", { onClick: () => { setManageOpen(false); setSomaticOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫧 五感系统 · 查看全角色纯影子诊断"),
-  h("button", { onClick: () => { setManageOpen(false); setInnerLifeOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 诊断与试点"), h("button", { onClick: () => { setManageOpen(false); setBAxesOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => { setManageOpen(false); setCSleepOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
-    onClick: onAudit,
-    className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 }
-  }, "🧾 只读迁移审计 · 导出本机/旧云备份与指纹") : null, onShadowMigrate ? h("button", {
-    onClick: () => { if (confirm("只把锁定的390条逐行复制到新表并当场核对，不切换读取、不删除旧记忆。现在开始吗？")) onShadowMigrate(); },
-    disabled: migrationBusy,
-    className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
-    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
-  }, migrationBusy ? "正在逐行迁移并核对…" : "🚚 迁移390条到影子表 · 不切读取") : null, onSyncStatus ? h("button", {
+  }, "导出一份评审包 · 看这几层到底在不在跑") : null,
+  h("button", { onClick: () => { setManageOpen(false); setSomaticOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "五感系统 · 全角色影子诊断"),
+  // B 关系轴：v64.26 起试点名单空着——它是唯一每轮真发一次 callAI 的影子层，
+  // 而产出只进这个面板。面板留着：已经攒下的数据还看得见，想再开也是改那一处。
+  h("button", { onClick: () => { setManageOpen(false); setBAxesOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.fog, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "关系轴 · 已停 · 查看攒下的影子数据"),
+  onSyncStatus ? h("button", {
     onClick: onSyncStatus,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 }
-  }, memoryTableMode ? "✅ 新记忆表是当前权威 · 查看同步状态" : "🔄 查看行级影子同步状态") : null,
+  }, memoryTableMode ? "新记忆表是当前权威 · 查看同步状态" : "查看行级影子同步状态") : null,
   onChatLedgerStatus ? h("button", {
     onClick: onChatLedgerStatus,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
-  }, "💬 CC 回流影子 · 拉取并查看诊断（不注入）") : null,
+  }, "CC 回流影子 · 拉取并查看诊断（不注入）") : null,
   memoryTableMode && onPostCutoverAudit ? h("button", {
     onClick: onPostCutoverAudit,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
-  }, "🧪 权威表纪律复核 · 逐 ID 只读导出") : null,
+  }, "权威表纪律复核 · 逐 ID 只读导出") : null,
   !memoryTableMode && onEnableTableMemory ? h("button", {
     onClick: () => { if (confirm("会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。现在验收并启用吗？")) onEnableTableMemory(); },
     disabled: migrationBusy,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
-  }, migrationBusy ? "正在逐 ID 验收…" : "🛟 逐 ID 验收并启用新记忆表") : null,
+  }, migrationBusy ? "正在逐 ID 验收…" : "逐 ID 验收并启用新记忆表") : null,
   memoryTableMode && onUseLegacyMemory ? h("button", {
     onClick: () => { if (confirm("紧急改回本机旧镜像读取？不会删除新表或任何记忆；重新启用前不要在两边同时修改。")) onUseLegacyMemory(); },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 }
   }, "紧急回退：改读本机镜像") : null) : null,
   corrections.length ? h("div", { style: { border: "1px dashed " + t.tint, borderRadius: 11, padding: "8px 10px", marginBottom: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "🧷 待你定夺的纠错候选 " + corrections.length + " 条"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "待你定夺的纠错候选 " + corrections.length + " 条"),
     corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => { setManageOpen(false); setCorrectionOpen(c); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
       ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
   h("button", { onClick: () => { setCorrectionPicking(p => p ? null : { oldId: null }); setManageOpen(false); }, className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + (correctionPicking ? "#9f5149" : t.line), color: correctionPicking ? "#9f5149" : t.fog, fontFamily: F_BODY, fontSize: 11.5 } },
-    correctionPicking ? (correctionPicking.oldId ? "已选旧说法 · 现在点正确的新说法（取消）" : "现在点一条错误的旧说法（取消）") : "🪡 手动挑两条做事实纠正"),
+    correctionPicking ? (correctionPicking.oldId ? "已选旧说法 · 现在点正确的新说法（取消）" : "现在点一条错误的旧说法（取消）") : "手动挑两条做事实纠正"),
   h("button", { onClick: () => { setManageOpen(false); setDiagOpen(false); }, className: "w-full py-1.5 mb-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "收起整理工具")) : null,
   h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } },
     h("div", { style: { margin: "14px 0 12px", padding: "13px 4px 12px", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line } },
