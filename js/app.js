@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.74";
+const APP_VERSION = "v64.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10081,8 +10081,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }));
     setSelPhone(char.id);
     try {
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, {
-        instruction: "推演此刻「" + char.name + "」手机屏幕的真实状态，依据当下对话与心境，分模块。通知可带 detail 字段供点开细看。",
+      // 锁屏偷看也是【他自己的手机】：跟查手机同一条围栏，别只治其中一处
+      const d = await runProbe(bgActive, phoneCtx(char), {
+        instruction: "推演此刻「" + char.name + "」手机屏幕的真实状态，依据当下对话与心境，分模块。通知可带 detail 字段供点开细看。"
+          + (window.PhoneKit ? window.PhoneKit.ownOnlyBlock(char.name) : ""),
         schemaHint: "{\"notifications\":[{\"from\":\"来源\",\"preview\":\"摘要\",\"time\":\"14:20\",\"detail\":\"点开后的完整内容(可选)\"}],\"searches\":[\"搜索1\"],\"apps\":[{\"name\":\"应用\",\"detail\":\"在做什么\"}],\"wallpaper\":\"锁屏壁纸一句话\"}"
       });
       setSnoops(p => {
@@ -10750,6 +10752,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
   };
   // ---- 查手机：每个 app 独立生成/刷新 ----
+  // 手机是【他自己的东西】，所以取材要比聊天窄一圈（她 2026-09-06 报：
+  // 「查手机会互通素材，这些都在陆衍手机里但是这些应该是沈屿白的信息」）。
+  // ⚠️病根是查手机一直吃整份 ctxFor：里头的群回声、群线下回声，全是【别人在他面前
+  //   说过的话】。他确实听见了，但那是别人的事——写进他手机就成了他的经历。
+  //   日记那一处早就把这两栏掐掉了（见 genDiary 里的 groupEcho:"", groupOfflineEcho:""），
+  //   查手机没跟上：又是「一层写在两处，第二处没跟上」。
+  // ⚠️只掐【别人的事】那两栏，不动他自己的（人设、心情、好感、他自己的记忆、
+  //   他和用户的私聊）——砍多了他会退化成一张标签（群里王爷变霸总那次的教训）。
+  const phoneCtx = char => Object.assign({}, ctxFor(char), {
+    worldbook: loreFor(char, "subjects"),
+    groupEcho: "", groupOfflineEcho: ""
+  });
   const relatedNames = char => {
     const set = new Set();
     for (const o of characters) {
@@ -12606,7 +12620,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
       const spec = phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char));
-      let d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, spec);
+      let d = await runProbe(bgActive, phoneCtx(char), spec);
       // ⚠️模型会把 schemaHint 里的占位说明原样抄回来当数据（她 2026-09-01：想吃清单
       // 刷完「什么时候会想起它」那句变成了灰的——那不是空，是占位词被逐字照抄，
       // 还把上一轮真写的那句盖掉了）。凡是跟这个 app 自己 schemaHint 里某条字符串
@@ -12655,7 +12669,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，他的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
+        const d = await runProbe(bgActive, phoneCtx(char), phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;

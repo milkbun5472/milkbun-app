@@ -6441,6 +6441,20 @@ function phoneDropDupWechat(d, taken) {
 }
 // 同一个人别用好几个别称各占一条（她 2026-08-31：「饭桌上的人有时候是同一个人
 // 好几个别称」）。留先出现的那条——列表本来就按分量排。
+// ── 这是【他自己】的手机（v64.36，她 2026-09-06：「为什么查手机会互通素材，
+//    这些都在陆衍手机里但是这些应该是沈屿白的信息」）────────────────────────
+// 病根不在这一层，在上下文：查手机吃的是整份 ctxFor，里头有群回声、朋友圈回声、
+// 记忆库里没绑角色的那些……那些他【确实知道】，但知道不等于是他的。
+// 代码那一半在 app.js 的 phoneCtx（掐掉群回声）；这一句管剩下的那一半——
+// 上下文里总还会有别人的名字和事，得说死「听说过 ≠ 发生在你身上」。
+// ⚠️写成一个函数、只此一份：十几个 app 加上锁屏偷看那一处共用，新加一个也漏不掉。
+function phoneOwnOnlyBlock(name) {
+  const who = String(name || "他");
+  return "\n\n【这是他自己的手机 · 最高优先】这台手机里只许有【" + who + "】自己的东西：他自己的事、他自己认识的人、他自己的职业和日常。\n"
+    + "· 上下文里会出现别人（别的角色、群里说过的话、记忆库里记着的事）。那些是他**听说过**的，不是他**经历过**的——**听说过绝不等于发生在他身上**。\n"
+    + "· **绝不许**把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到他名下写成他的。判据一句话：这一条要是搬到另一个角色的手机里也照样成立，那它就不该出现在这里。\n"
+    + "· 别人可以作为【他生活里的人】出现（他跟对方说话、提起对方、和对方约了什么），但事情本身必须是**他这一头**的。";
+}
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const visitHint = key === "health" ? phoneVisitHint(known) : "";
@@ -6737,7 +6751,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
@@ -6745,9 +6759,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 // 源码里一句话常被 + 断成好几段，照着源码写断言既难写又冻长相。
 // 浏览器里没有 module，用一个全局挂出去给 app.js 调（跟 IfKit / GachaKit 一个叫法）
 if (typeof window !== "undefined") window.PhoneKit = {
+  ownOnlyBlock: phoneOwnOnlyBlock,
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
   photoSig: phonePhotoSig
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };

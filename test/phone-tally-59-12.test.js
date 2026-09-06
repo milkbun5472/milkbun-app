@@ -62,7 +62,8 @@ test("「他跟谁有账」这一段真的发出去了", () => {
   // ③ phone 那端收得到、并且真拼进了 instruction
   assert.match(ph, /function phoneProbeSpec\(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond\)/, "签名没收 bond");
   assert.match(ph, /const bondBlock = \(key === "tally" && bond\) \? bond : "";/, "bond 没按栏取用");
-  assert.match(ph, /const _full = spec\.instruction \+ bondBlock \+ angle/, "bondBlock 没拼进最终 instruction");
+  // ⚠️别冻「它前后紧挨着谁」——v64.36 中间插进了 OWN_ONLY。要验的是【拼进去了】。
+  assert.match(ph, /const _full = spec\.instruction \+ [^\n]*\bbondBlock\b/, "bondBlock 没拼进最终 instruction");
 });
 
 test("界面上看得出这笔是跟谁的", () => {
