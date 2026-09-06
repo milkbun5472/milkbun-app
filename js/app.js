@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.30";
+const APP_VERSION = "v64.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16416,9 +16416,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_inventory", n); return n;
   });
   // 用掉：从物品里退出去，进「用过的」这本日志
+  // 梦里带出来的那几件不许走这四个口（她 2026-09-06）。界面上已经不给按钮了，
+  // 这儿再兜一道：它们是唯一会自己淡掉的一类（core.js 的 dreamStage），
+  // 从任何一个口出去都等于给它办了张永居，或者把「他只觉得眼熟」说破。
+  const dreamBound = it => {
+    if (!it || it.source !== "dream") return false;
+    toast("梦里带出来的东西只能你自己带着");
+    return true;
+  };
   const useUpItem = id => {
     const it = (inventoryRef.current || []).find(x => x.id === id);
-    if (!it) return;
+    if (!it || dreamBound(it)) return;
     const log = loadJSON(K_USED, []);
     saveJSON(K_USED, [{ name: it.name, fromCharId: it.fromCharId || null, source: it.source || "", ts: Date.now() }]
       .concat(Array.isArray(log) ? log : []).slice(0, USED_KEEP));
@@ -16437,14 +16445,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 入库之后再转赠：走的还是送礼那条路（sendGiftToChar），不另开一条
   const giftInvItem = (id, charId) => {
     const it = (inventoryRef.current || []).find(x => x.id === id);
-    if (!it) return;
+    if (!it || dreamBound(it)) return;
     dropInv(id);
     sendGiftToChar(charId, it.name, it.cat || null, true);
   };
   // 收进衣柜：衣柜那一层现成的（myClosetAdd），别在这儿另存一份衣服
   const closetInvItem = (id, occ) => {
     const it = (inventoryRef.current || []).find(x => x.id === id);
-    if (!it) return;
+    if (!it || dreamBound(it)) return;
     myClosetAdd(occ || "日常", it.name, "");
     dropInv(id);
     toast("收进衣柜了");
@@ -16454,7 +16462,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const leaveAtHis = async (id, charId, placeId, zoneIdx) => {
     const it = (inventoryRef.current || []).find(x => x.id === id);
     const char = characters.find(c => c.id === charId);
-    if (!it || !char || !window.Dwell) return;
+    if (!it || !char || !window.Dwell || dreamBound(it)) return;
     const places = window.Dwell.placesOf(charId) || [];
     const place = places.find(p => p.id === placeId) || places[0];
     if (!place) { toast("他那儿还没有地方，先去【去处】串个门"); return; }

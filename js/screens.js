@@ -2805,17 +2805,29 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
             h("button", { key: c.id, onClick: () => { const it = invItem; gone(); onGiftInv && onGiftInv(it.id, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
               h(Avatar, { character: c, size: 34, radius: 9 }),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: MSHOP.ink } }, c.remark || c.name))))
+        // 梦里带出来的那几件只剩【带在身上】这一格（她 2026-09-06：「梦里带出来的
+        // 不应该有这些吧」）。剩下那四个动词全都把它当成一件【真东西】在处置：
+        //   用掉   —— 吃了喝了记进「用过的」，可它压根没真的存在过；
+        //   留在他那儿 —— 放进他屋里，他下次看见还要说一句话，那就等于说破了
+        //                （engine.js 那条：他只觉得眼熟，永远别说破）；
+        //   送给谁 —— 从他自己的梦里拿出来的东西，转手送给第三个人；
+        //   收进衣柜 —— 衣柜不归 dreamStage 管，收进去等于给它办了张永居，
+        //               而这一类【唯一的规矩】就是没人提起就会淡掉（core.js）。
+        // 留下的那一格恰恰是这件事本来的玩法：带在身上，见面时他看得见、只觉得眼熟。
         : h("div", null,
-            row("用掉", "吃了、喝了、用完了。它从这儿退出去，但这件事发生过——" + (invItem.fromCharId ? "送你的那个人会知道。" : "记在「用过的」里。"),
+            dreamy ? null : row("用掉", "吃了、喝了、用完了。它从这儿退出去，但这件事发生过——" + (invItem.fromCharId ? "送你的那个人会知道。" : "记在「用过的」里。"),
               () => { const it = invItem; gone(); onUseUp && onUseUp(it.id); }),
             row(invItem.onMe ? "放下" : "带在身上", invItem.onMe ? "他见面就看不见它了。" : "见面的时候他看得见。最多带两件。",
               () => { const it = invItem; gone(); onToggleOnMe && onToggleOnMe(it.id); }),
-            row("留在他那儿", "放进【去处】里他那处地方的某一块。他下次看见会说一句自己的话。",
+            dreamy ? null : row("留在他那儿", "放进【去处】里他那处地方的某一块。他下次看见会说一句自己的话。",
               () => setInvItem(Object.assign({}, invItem, { _leave: true }))),
-            row("送给谁", "入库之后照样能转赠——原来只有还没收下的时候能送。",
+            dreamy ? null : row("送给谁", "入库之后照样能转赠——原来只有还没收下的时候能送。",
               () => { if (!(characters || []).length) { toast("还没有角色"); return; } setInvItem(Object.assign({}, invItem, { _gift: true })); }),
-            row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
-              () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); })));
+            dreamy ? null : row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
+              () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); }),
+            dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 10, lineHeight: 1.75 } },
+              "它只能你自己带着。送不出去、收不进衣柜、也放不到他屋里——" +
+              "梦里带出来的东西留不住，没人再提起，它自己就淡回梦里去了。") : null));
   } else if (sheet && sheet.kind === "regift") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "转赠给谁"),
