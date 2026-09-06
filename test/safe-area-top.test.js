@@ -67,6 +67,11 @@ test("逐个顶栏查：谁没让开刘海就报谁的名字", () => {
     while ((m = re.exec(src))) {
       const near = src.slice(m.index + m[0].length, m.index + m[0].length + 200);
       if (near.includes("safeTop(") || near.includes("safe-area-inset-top")) continue;
+      // 让【下】边安全区的那一条是页脚，不是顶栏——刘海压不到它。
+      // ⚠️这是给闸补的一个真判据，不是放行口子：只有明写了底部安全区的才算，
+      //   没写的照旧要报出来。不这样的话，每加一条页脚就得往 INNER 里塞一行，
+      //   那张名单迟早长到没人看，闸也就废了。
+      if (near.includes("COMPOSER_PAD_BOTTOM") || near.includes("safe-area-inset-bottom")) continue;
       const key = f + "|" + m[1];
       if (INNER[key]) continue;
       bad.push(key + "  (第 " + (src.slice(0, m.index).split("\n").length) + " 行)");
