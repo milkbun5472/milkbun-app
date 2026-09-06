@@ -40,7 +40,9 @@ test("外观设置是完整可滚动子页面，顶底安全区沿用移动端�
   const end = phone.indexOf("function LockScreen(", start);
   assert.ok(start >= 0 && end > start, "找不到 PhoneLookSettings");
   const view = phone.slice(start, end);
-  assert.match(view, /paddingTop: safeTop\(10\)/);
+  // v64.95 起顶栏走共用 Head，刘海归它让（她：「共用 head 全部套上去」）
+  assert.match(view, /h\(Head, \{ zh: "手机外观", sub: \(char && char\.name \|\| "TA"\) \+ " 的这一部", bg: "transparent", noLine: true, onBack \}\)/);
+  assert.doesNotMatch(view, /paddingTop: safeTop\(10\)/, "又自己垫了一份刘海");
   assert.match(view, /flex-1 min-h-0 overflow-y-auto/);
   assert.match(view, /paddingBottom: COMPOSER_PAD_BOTTOM/);
 });

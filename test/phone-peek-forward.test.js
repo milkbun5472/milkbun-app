@@ -95,14 +95,11 @@ test("所有非整屏的 app 共用同一条紧凑标题栏", () => {
   // mobile-ui-layout.md §1：返回键 + 居中小标题 + 右侧等宽操作位。
   // v57.59 起电话/浏览器/设置也并进来了——它们是最后三个还顶着 30px 大标题的
   //（她 2026-08-29：「有个界面没做但是忘记是哪个了」）。
-  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
-  assert.match(phone, /paddingTop: safeTop\(10\)/);
+  // ⚠️v64.95 起这条通用栏【就是】共用 Head：安全区、返回键、居中标题、右侧等宽位
+  //   全归它管，查手机不再自己写第二份（她 2026-09-06：「共用 head 全部套上去」）。
+  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(phone, /const liveTitle = appKey === "music"/);
-  assert.match(phone, /isLive \? liveTitle : zh/);
-  // 右侧等宽占位，标题才真的居中
-  assert.match(phone, /h\("div", \{ style: \{ width: 40, height: 40, display: "flex"/);
-  // 通用大 Head 在查手机里已经没人用了
-  assert.doesNotMatch(phone, /h\(Head, \{\n    zh,/);
+  assert.match(phone, /zh: isLive \? liveTitle : zh, bg: t\.bg, noLine: true, onBack/);
 });
 
 test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () => {

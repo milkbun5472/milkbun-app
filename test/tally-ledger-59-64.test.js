@@ -16,9 +16,12 @@ test("顶上那一块是墨色的封皮，字反白出来", () => {
   const head = view.slice(view.indexOf("h(\"div\", { className: \"shrink-0\", style: { background: TALLY_INK"),
     view.indexOf("h(\"div\", { className: \"flex-1 min-h-0 overflow-y-auto px-5\""));
   assert.ok(head.length > 200, "顶上那一块不是墨色的");
-  assert.match(head, /paddingTop: safeTop\(10\)/, "顶栏没自己吃刘海");
+  // ⚠️v64.95 起刘海归共用 Head 让；封皮这一块【不许再自己垫一份】，两层都垫会顶出去一截
+  assert.match(head, /h\(Head, \{ zh: "账簿", bg: "transparent", noLine: true, ink: TALLY_BG, onBack/, "封皮里那条顶栏没走共用 Head");
+  assert.doesNotMatch(head, /paddingTop: safeTop\(10\)/, "封皮又自己垫了一份刘海");
   // 反白：返回键、标题、刷新键都得是纸色的，不然墨底上是黑字
-  assert.ok((head.match(/TALLY_BG/g) || []).length >= 4, "墨底上还留着墨字");
+  // 反白：整条顶栏的墨色（返回键、标题、刷新键）由 Head 的 ink 一处说了算
+  assert.ok((head.match(/TALLY_BG/g) || []).length >= 2, "墨底上还留着墨字");
   // 五栏也在封皮里
   assert.ok(head.indexOf("TALLY_TABS.map") > 0, "五栏没在封皮里，封皮就只是一条空带子");
 });

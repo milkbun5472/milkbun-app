@@ -69,5 +69,6 @@ test("想买详情是整页，不是半窗（no-half-sheet）", () => {
   assert.doesNotMatch(nocom(d), /borderRadius: "20px 20px 0 0"/);
   assert.doesNotMatch(nocom(d), /maxHeight: "84%"/);
   // 整页得有自己的返回键（40px 可点区）
-  assert.match(nocom(d), /"aria-label": "返回"[\s\S]{0,170}width: 40, height: 40/);
+  // v64.95 起返回键、安全区、居中标题都归共用 Head（她：「共用 head 全部套上去」）
+  assert.match(nocom(d), /h\(Head, \{ zh: "一直没下手的"[\s\S]{0,120}onBack: \(\) => setSheet\(null\)/);
 });

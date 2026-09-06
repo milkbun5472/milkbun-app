@@ -243,7 +243,7 @@ test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () =
   const P = loadPhone();
   // v62.61 歌单也自己画整屏了（它原来是唯一一个躺在她主题色上的内层 app）
   assert.deepEqual(P.FULL_BLEED_KEYS, ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"]);
-  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
+  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
 
@@ -599,7 +599,7 @@ test("手机里那两块大标题都换成紧凑栏了", () => {
   // 她 2026-08-29：「进入手机主页那一大块角色名也删了」「查手机 whose phone 也删了」
   assert.doesNotMatch(SRC, /en: "Whose Phone"/);
   assert.doesNotMatch(SRC, /fontSize: 28, color: t\.ink, lineHeight: 1\.05/);
-  assert.match(SRC, /}, "查手机"\),/);
+  assert.match(SRC, /h\(Head, \{ zh: "查手机",\s*\n\s*bg: "transparent",\s*\n\s*noLine: true,\s*\n\s*onBack: onBack \}\)/);
 });
 
 test("赞过改名小红书，界面也照小红书来", () => {

@@ -20,7 +20,7 @@ test("整页外壳只有一份，七处都用它", () => {
   assert.match(fn, /className: "absolute inset-0 h-full min-h-0 flex flex-col"/);
   assert.match(fn, /className: "flex-1 min-h-0 overflow-y-auto"/);
   // 返回键 40px 可点区（mobile-ui-layout §1）
-  assert.match(fn, /"aria-label": "返回"[\s\S]{0,180}width: 40, height: 40/);
+  assert.match(fn, /h\(Head, \{ zh: title \|\| ""[\s\S]{0,140}onBack: onClose/);
 });
 
 test("从底下掀起来的那种半窗，phone.js 里一处不剩", () => {

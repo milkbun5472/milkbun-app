@@ -1432,13 +1432,12 @@ function computeLedger(w) {
 // bg 收的是那个 app 自己的皮（style 对象），ink 是它顶栏该用的墨色。
 function PhoneSubPage({ bg, ink, title, onClose, right, children }) {
   return h("div", { className: "absolute inset-0 h-full min-h-0 flex flex-col", style: Object.assign({ zIndex: 30 }, bg || {}) },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", {
-        onClick: onClose, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center",
-        style: { width: 40, height: 40, marginLeft: -8 }
-      }, h(IArrow, { size: 19, color: ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title || ""),
-      right || h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: title || "",
+      bg: "transparent",
+      noLine: true,
+      ink: ink,
+      onBack: onClose,
+      right: right }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } }, children));
 }
 function PGlyph({
@@ -1561,11 +1560,8 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         tab === "drafts" ? "草稿箱是空的" : tab === "sent" ? T("他最近没往外发什么") : "收件箱是空的");
 
   const detail = open ? h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
-    h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + MAIL_LINE } },
-      h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: MAIL_INK })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 12.5, color: MAIL_DIM } },
-        open._kind === "drafts" ? "草稿 · 没发出去" : open._kind === "sent" ? "已发送" : "收件箱"),
-      h("div", { style: { width: 40 } })),
+    h(Head, { zh: open._kind === "drafts" ? "草稿 · 没发出去" : open._kind === "sent" ? "已发送" : "收件箱",
+      bg: "#fff", ink: MAIL_INK, subInk: MAIL_DIM, lineInk: MAIL_LINE, onBack: () => setOpen(null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.5, color: MAIL_INK, marginTop: 18, wordBreak: "break-word" } }, S(open.subject) || "（没有主题）"),
       h("div", { className: "flex items-center", style: { gap: 10, marginTop: 14, paddingBottom: 14, borderBottom: "1px solid " + MAIL_LINE } },
@@ -1604,14 +1600,10 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       }, open._kind === "drafts" ? T("摆到他面前 · 这封他没敢发") : T("转发给 TA · 他会知道你翻了手机")) : null)) : null;
 
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: MAIL_BG } },
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("div", { className: "flex items-center", style: { gap: 8 } },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 38, marginLeft: -6 } }, h(IArrow, { size: 19, color: MAIL_INK })),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: MAIL_INK } },
-            "邮件" + (unreadN ? " · " + unreadN + " 封未读" : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM, marginTop: 1, wordBreak: "break-all" } }, S(me.addr))),
-        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK }))),
+    h("div", { className: "shrink-0" },
+      h(Head, { zh: "邮件" + (unreadN ? " · " + unreadN + " 封未读" : ""), sub: S(me.addr),
+        bg: "transparent", noLine: true, ink: MAIL_INK, subInk: MAIL_DIM, onBack,
+        right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK })) }),
       // ── 三页＝吊挂文件夹的标签舌（tabs-not-plain-pills）─────────────
       //   原来是三颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
       //   信箱现实里是几个夹子，夹子的舌是【梯形】——两侧斜切、宽度按名字走、
@@ -1907,12 +1899,10 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     // ── 账本的封面那一块（v59.64）────────────────────────────────
     // 原来整页从上到下一个色度：米底、近白的卡、灰字，没有一处压得住。
     // 把顶上这一块做成墨色的封皮，字反白出来——账页才有个开头。
-    h("div", { className: "shrink-0", style: { background: TALLY_INK, paddingTop: safeTop(10) } },
-      h("div", { className: "px-4 pb-1 flex items-center gap-2" },
-        h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: TALLY_BG })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".18em", color: TALLY_BG } }, "账簿"),
-        h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
-          onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null)),
+    // ⚠️封皮这一块【不许再自己垫 safeTop】：刘海归 Head 让，两层都让就顶出去一截
+    h("div", { className: "shrink-0", style: { background: TALLY_INK } },
+      h(Head, { zh: "账簿", bg: "transparent", noLine: true, ink: TALLY_BG, onBack,
+        right: onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null }),
       // ── 五栏＝账簿边上伸出来的索引标签（v59.65）─────────────────
       // 她 2026-09-01：「这几个tab药丸形状还是有点普通」。
       // 药丸是哪儿都能用的那一种，换个 app 照样成立——按她那条老判据就是写坏了。
@@ -2052,13 +2042,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       + "linear-gradient(180deg," + light.top + ",transparent 52%),"
       + "linear-gradient(0deg," + light.foot + ",transparent 36%)," + t.bg
   } },
-    h("div", {
-      className: "shrink-0 px-4 pb-2 flex items-center gap-2",
-      style: { paddingTop: safeTop(10) }
-    },
-    h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
-    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "时间线"),
-    h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "时间线", bg: "transparent", noLine: true, onBack }),
     // ── 两格＝这条轴的两头（v59.66）────────────────────────────────
     // 她 2026-09-01：「把时间线的也弄了吧」→ .claude/rules/tabs-not-plain-pills.md。
     // v59.60 只改了一半：位置有意义了（各站一头、中间钉着现在），形状还是两颗药丸。
@@ -2248,12 +2232,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
   };
   const iconPreset = look.iconPreset || "own";   // 设置页高亮的那一档也要跟默认一致，不然看着像选了「主界面彩釉」
   return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "手机外观"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, (char && char.name || "TA") + " 的这一部")),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "手机外观", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "壁纸"),
       h("div", { className: "grid grid-cols-2", style: { gap: 10 } }, uploadCard("lockWallpaper", "锁屏", "拿起手机第一眼"), uploadCard("homeWallpaper", "主页", "解锁后的桌面")),
@@ -2719,15 +2698,12 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   // 白底加圆角缩略图恰恰是本尊【不会】做的事。所以这里往本尊靠，不是往通用卡靠。
   if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#000" } },
     // 顶栏也跟着进黑：白底顶栏压在满幅照片上是两套皮
-    h("div", { className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56 } },
-      h("button", { onClick: closePhoto, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -6 } }, h(IArrow, { size: 19, color: "#fff" })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#fff" } }, "照片"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 2 } }, photo.date || photo.time || "日期未记")),
+    h(Head, { zh: "照片", sub: photo.date || photo.time || "日期未记", bg: "transparent", noLine: true, ink: "#fff", onBack: closePhoto,
+      right:
       // ⚠️收藏键必须还在。本尊把它放在工具栏里，所以这里也进顶栏右位——
       // 改版时它差点被我连着那张灰卡一起删掉（测试拦住了）。
       h("button", { onClick: () => toggle(photo), "aria-label": "收藏", className: "active:scale-90 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -6 } },
-        h(IHeart, { size: 21, color: isSaved(photo) ? "#ff375f" : "rgba(255,255,255,.65)", filled: isSaved(photo) }))),
+        h(IHeart, { size: 21, color: isSaved(photo) ? "#ff375f" : "rgba(255,255,255,.65)", filled: isSaved(photo) })) }),
     h("div", { className: "flex-1 overflow-y-auto" },
       // 满幅、不切角、不投影——本尊就是把照片摊在黑底上
       h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", overflow: "hidden" } }, art(photo, 0, true)),
@@ -2874,12 +2850,9 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     requestAnimationFrame(() => requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = top; }));
   }, [book, tab]);
   const palOf = i => READ_PALETTES[i % READ_PALETTES.length];
-  const chrome = h("div", {
-    className: "shrink-0 flex items-center px-4 pb-2",
-    style: { paddingTop: safeTop(10), minHeight: 52, background: READ_BG }
-  }, h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: READ_INK })),
-  h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: READ_INK } }, tab === "shelf" ? "书架" : "阅读档案"),
-  h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })));
+  const chrome = h(Head, { zh: tab === "shelf" ? "书架" : "阅读档案", bg: READ_BG, noLine: true, ink: READ_INK, onBack,
+    right:
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })) });
   // 书脊：深底上一律浅色书脊配深字——保证每一架都看得清，也不会有哪一架糊进背景
   const spineStyle = (pal, w, ht) => ({
     width: w, height: ht, borderRadius: "3px 8px 8px 3px", position: "relative", overflow: "hidden",
@@ -3319,10 +3292,12 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ACCENT, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
     }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
-  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10), background: "transparent" } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: SHOP_INK })),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })));
+  const chrome = h(Head, { zh: page.zh,
+    bg: "transparent",
+    noLine: true,
+    ink: SHOP_INK,
+    onBack: onBack,
+    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })) });
   // ── 详情：整页，不是半窗（no-half-sheet）───────────────────────────
   // 原来是从底下掀起来的半窗。这一层的正文是他为什么想买这样东西——
   // 那是这一格的命，从来不是三行能说完的，也不需要同时看见底下那一列。
@@ -3333,10 +3308,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       className: "absolute inset-0 h-full min-h-0 flex flex-col",
       style: { background: SHOP_BG, backgroundImage: SHOP_LAID, zIndex: 30 }
     },
-      h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: () => setSheet(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: SHOP_INK })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, "一直没下手的"),
-        h("div", { style: { width: 40, height: 40 } })),
+      h(Head, { zh: "一直没下手的",
+        bg: "transparent",
+        noLine: true,
+        ink: SHOP_INK,
+        onBack: () => setSheet(null) }),
       h("div", {
         className: "flex-1 min-h-0 flex flex-col",
         style: { margin: "2px 13px 10px", border: "0.8px solid " + SHOP_FRAME, boxShadow: "0 0 0 2.5px " + SHOP_BG + ", 0 0 0 4px " + SHOP_FRAME }
@@ -3729,10 +3705,12 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
-  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: TAKE_INK })),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK })));
+  const chrome = h(Head, { zh: page.zh,
+    bg: "transparent",
+    noLine: true,
+    ink: TAKE_INK,
+    onBack: onBack,
+    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK })) });
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
@@ -4038,10 +4016,9 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [trendSec, timelineSec, tailSec].filter(Boolean) }]);
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
-  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: HEALTH_BODY })),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: HEALTH_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: HEALTH_BODY })));
+  const chrome = h(Head, { zh: page.zh, bg: "transparent", noLine: true, ink: HEALTH_INK, onBack,
+    right:
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: HEALTH_BODY })) });
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 8px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
@@ -4201,10 +4178,12 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
     }, T("摆到 TA 面前 · 这是他藏起来的")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BG } },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: INK })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, letterSpacing: ".08em", color: INK } }, "深夜台"),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))),
+    h(Head, { zh: "深夜台",
+      bg: "transparent",
+      noLine: true,
+      ink: INK,
+      onBack: onBack,
+      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 24px" } },
       (me.lastAt || me.note) ? h("div", { style: { padding: "10px 0 16px", borderBottom: "1px solid rgba(232,227,230,.08)", marginBottom: 4 } },
         (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
@@ -4273,11 +4252,8 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // 整页照【去处】那两页的做法：顶栏 shrink-0、正文 flex-1 min-h-0 overflow-y-auto，
   // 上一层那张封面糊开压暗当底衬——接得住上一层，又不抢正文。
   const detailPage = open ? h("div", { className: "h-full min-h-0 flex flex-col", style: { background: PLAZA_BG } },
-    h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), background: "#fff", borderBottom: "1px solid #eeeef1" } },
-      h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: PLAZA_INK })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-        open._draft ? T("他没发出去的") : (open.act === "收藏" ? T("他收藏的") : T("他赞过的"))),
-      h("div", { className: "shrink-0", style: { width: 36 } })),
+    h(Head, { zh: open._draft ? T("他没发出去的") : (open.act === "收藏" ? T("他收藏的") : T("他赞过的")),
+      bg: "#fff", ink: PLAZA_INK, lineInk: "#eeeef1", onBack: () => setOpen(null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       h("div", { style: { height: 188, background: "linear-gradient(150deg," + cover(open.cover)[0] + "," + cover(open.cover)[1] + ")" } }),
       h("div", { style: { padding: "16px 20px calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
@@ -4479,11 +4455,12 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
     }, T("转发给 TA · 他会知道你翻了手机")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CAL_BG } },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CAL_INK })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CAL_INK } },
-        (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月"),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK }))),
+    h(Head, { zh: (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月",
+      bg: "transparent",
+      noLine: true,
+      ink: CAL_INK,
+      onBack: onBack,
+      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 14px 22px" } },
       h("div", { style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
         // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
@@ -4579,10 +4556,12 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: STICKY_BG } },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#4a4438" })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#4a4438" } }, "便签"),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" }))),
+    h(Head, { zh: "便签",
+      bg: "transparent",
+      noLine: true,
+      ink: "#4a4438",
+      onBack: onBack,
+      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 14px 26px" } },
       items.length
         ? h("div", { className: "grid grid-cols-2", style: { gap: 13, alignItems: "start" } },
@@ -4681,10 +4660,11 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const detail = open ? (function () {
     const isHeld = open.sent === false;
     return h("div", { className: "absolute inset-0 h-full min-h-0 flex flex-col", style: { background: CLIP_DESK, zIndex: 30 } },
-      h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CLIP_DESKINK })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CLIP_DESKINK } }, isHeld ? "没发出去的那张" : "复制过的那张"),
-        h("div", { style: { width: 40, height: 40 } })),
+      h(Head, { zh: isHeld ? "没发出去的那张" : "复制过的那张",
+        bg: "transparent",
+        noLine: true,
+        ink: CLIP_DESKINK,
+        onBack: () => setOpen(null) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 18px 28px" } },
         h("div", { style: { position: "relative", paddingTop: 10 } },
           h("div", {
@@ -4717,10 +4697,12 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(240,238,232,.32)" } }, list.length + " 张")),
     list.map((x, i) => slip(x, i, isHeld))) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CLIP_DESK } },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CLIP_DESKINK })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: CLIP_DESKINK } }, "剪贴板"),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK }))),
+    h(Head, { zh: "剪贴板",
+      bg: "transparent",
+      noLine: true,
+      ink: CLIP_DESKINK,
+      onBack: onBack,
+      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } },
       items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
         : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
@@ -5065,12 +5047,8 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CALL_BG } },
-    h("div", { className: "shrink-0", style: { paddingTop: safeTop(10) } },
-      h("div", { className: "flex items-center px-4 pb-2" },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CALL_INK })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: CALL_INK } }, page.zh),
-        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK }))),
-      null),
+    h(Head, { zh: page.zh, bg: "transparent", noLine: true, ink: CALL_INK, onBack,
+      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK })) }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, page.body),
     // ── 四页＝电话 app 底下那条图标栏（tabs-not-plain-pills）──────────
     //   原来是顶上四颗白药丸：那是 iOS 的通用分段控件，搬到任何 app 里都成立。
@@ -5126,10 +5104,11 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack }) {
     background: MUSIC_SKIN.bg,
     backgroundImage: "radial-gradient(120% 70% at 18% -6%, rgba(200,160,106,.13), transparent 62%)"
   } },
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "歌单"),
-      onGen ? h("button", { onClick: () => onGen(), disabled: !!busy, "aria-label": "重出一张", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: t.ink })) : h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "歌单",
+      bg: "transparent",
+      noLine: true,
+      onBack: onBack,
+      right: onGen ? h("button", { onClick: () => onGen(), disabled: !!busy, "aria-label": "重出一张", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: t.ink })) : h("div", { style: { width: 40, height: 40 } }) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: pad || "6px 20px 28px" } }, kids));
   if (!songs.length) return shell(h("div", { className: "py-6" }, h(Empty, {
     text: T("他还没有歌单"),
@@ -5270,13 +5249,11 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
       text: isPost ? item.body : item.text
     });
   };
-  const top = h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + skin.line, background: skin.bg } },
-    h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 40 } },
-      h("button", { onClick: open ? closeOne : onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-start", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: skin.ink })),
-      h("div", { className: "min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: skin.ink } }, open ? (open.kind === "post" ? "帖子" : "回帖") : "论坛足迹"),
-        !open ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".19em", color: skin.dim, marginTop: 2 } }, "同一个人的三副面孔") : null),
-      h("div", { className: "flex items-center justify-end", style: { width: 40, height: 40, marginRight: -8 } }, h(PGlyph, { k: "forum", size: 17, color: skin.dim }))));
+  const top = h(Head, { zh: open ? (open.kind === "post" ? "帖子" : "回帖") : "论坛足迹",
+    sub: open ? "" : "同一个人的三副面孔",
+    bg: skin.bg, ink: skin.ink, subInk: skin.dim, lineInk: skin.line,
+    onBack: open ? closeOne : onBack,
+    right: h("span", { className: "flex items-center justify-center", style: { width: 40, height: 40 } }, h(PGlyph, { k: "forum", size: 17, color: skin.dim })) });
   if (!list.length) return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5" }, h("div", { style: { padding: "64px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: skin.dim } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: skin.ink, marginBottom: 7 } }, T("论坛还没有他的痕迹")),
@@ -5501,25 +5478,16 @@ function PhoneApp({
     style: phoneAppBg(t)
   },
   respin,
-  FULL_BLEED_KEYS.indexOf(appKey) < 0 && h("div", {
-    className: "shrink-0 px-4 pb-2 flex items-center gap-2",
-    style: { background: t.bg, paddingTop: safeTop(10) }
-  }, h("button", {
-    onClick: onBack, className: "active:opacity-50 flex items-center justify-center",
-    style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回"
-  }, h(IArrow, { size: 19, color: t.ink })),
-  h("div", {
-    className: "flex-1 min-w-0 text-center",
-    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, isLive ? liveTitle : zh),
-  h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
-    refreshKey ? h("button", {
+  FULL_BLEED_KEYS.indexOf(appKey) < 0 && h(Head, {
+    zh: isLive ? liveTitle : zh, bg: t.bg, noLine: true, onBack,
+    right: refreshKey ? h("button", {
       onClick: () => onGen(char, refreshKey),
       disabled: !!busyKey,
       "aria-label": "重新推演",
       className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center",
       style: { width: 40, height: 40 }
-    }, h(IRefresh, { size: 18, color: t.ink })) : null)), h("div", {
+    }, h(IRefresh, { size: 18, color: t.ink })) : null
+  }), h("div", {
     className: FULL_BLEED_KEYS.indexOf(appKey) >= 0 ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5"
   }, content), sheet && h(Sheet, {
     onClose: () => setSheet(null),
@@ -5656,10 +5624,10 @@ function PhoneCarry({
     // 不是一片米白（顶栏跟着透上来，不然顶上横一条没盖住的带子）
     return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
       // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1），不再顶一块 30px 大标题
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "查手机"),
-        h("div", { style: { width: 40, height: 40 } })),
+      h(Head, { zh: "查手机",
+        bg: "transparent",
+        noLine: true,
+        onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 px-4 pb-6" },
         h("div", { className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
           // 手机顶栏：我的头像 + 通讯录

@@ -28,7 +28,7 @@ test("查手机：外观页那三条栏名、账簿抬头、论坛副题都换�
   assert.match(ph, /\} \}, "壁纸"\)/);
   assert.match(ph, /\} \}, "图标长什么样"\)/);
   assert.match(ph, /\} \}, "逐个换图标"\)/);
-  assert.match(ph, /\} \}, "账簿"\)/);
+  assert.match(ph, /h\(Head, \{ zh: "账簿"/);
   assert.match(ph, /"同一个人的三副面孔"/);
 });
 

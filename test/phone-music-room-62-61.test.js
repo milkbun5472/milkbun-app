@@ -36,7 +36,7 @@ test("自画外壳就得进 full-bleed 名单，否则外面那层通用顶栏�
   assert.match(NOC, /const FULL_BLEED_KEYS = \["music",/);
   // 自己画顶栏就得自己接返回
   assert.match(NOC, /onPeek: ctx\.onPeek, onBack: ctx\.onBack\n?\s*\}\);/);
-  assert.match(MV, /"aria-label": "返回"[\s\S]{0,170}width: 40, height: 40/);
+  assert.match(MV, /h\(Head, \{ zh: "歌单"[\s\S]{0,120}onBack: onBack/);
 });
 
 test("眉标不留英文（no-english-titles）", () => {

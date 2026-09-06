@@ -55,7 +55,7 @@ test("详情是整页，不是半窗（no-half-sheet）", () => {
   assert.doesNotMatch(CVC, /flex flex-col justify-end/);
   assert.match(CVC, /className: "absolute inset-0 h-full min-h-0 flex flex-col"/);
   // 整页就得有自己的返回键（40px 可点区），不能只剩一个 ✕
-  assert.match(CVC, /"aria-label": "返回"[\s\S]{0,160}width: 40, height: 40/);
+  assert.match(CVC, /h\(Head, \{ zh: isHeld \? "没发出去的那张" : "复制过的那张"[\s\S]{0,140}onBack: \(\) => setOpen\(null\)/);
 });
 
 test("分栏名不做成英文眉标", () => {

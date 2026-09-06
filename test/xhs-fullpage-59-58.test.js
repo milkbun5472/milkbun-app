@@ -16,10 +16,10 @@ test("点开一条笔记是整页，不是从底下掀起来的半窗", () => {
   // 照移动端铁律：顶栏 shrink-0、正文 flex-1 min-h-0 overflow-y-auto
   const i = view.indexOf("const detailPage = open ?");
   const seg = view.slice(i, view.indexOf("const followPage", i));
-  assert.match(seg, /className: "shrink-0 flex items-center px-3 pb-2"/, "顶栏没按铁律写");
-  assert.match(seg, /paddingTop: safeTop\(10\)/, "顶栏没吃安全区");
+  // v64.95 起顶栏走共用 Head：安全区、返回键、居中标题、右侧等宽位全归它
+  assert.match(seg, /h\(Head, \{ zh: open\._draft \? T\("他没发出去的"\)[\s\S]{0,190}bg: "#fff", ink: PLAZA_INK/, "顶栏没走共用 Head");
+  assert.doesNotMatch(seg, /paddingTop: safeTop\(10\)/, "又自己垫了一份刘海——那归 Head 让");
   assert.match(seg, /className: "flex-1 min-h-0 overflow-y-auto"/, "正文不是唯一的主滚动容器");
-  assert.match(seg, /aria-label": "返回"/, "没有返回键");
   // ⚠️整页要顶掉列表，不是浮在它上面；而且必须排在所有 hook 后面
   assert.match(view, /if \(detailPage\) return detailPage;/, "整页没顶掉列表");
   const hookAfter = view.slice(view.indexOf("if (detailPage) return detailPage;"));

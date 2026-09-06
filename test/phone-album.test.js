@@ -14,7 +14,7 @@ test("相册是三页完整界面", () => {
   assert.match(phone, /function AlbumNavIcon/);
   // 相册自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
   assert.match(phone, /const FULL_BLEED_KEYS = \[[^\]]*"album"[^\]]*\];/);
-  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
+  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
 });
 
 // v59.50：名字换了、横滑改成竖排了，但**这五个 key 一个都不许动**——
@@ -47,7 +47,8 @@ test("照片详情返回恢复进入前的滚动位置", () => {
   assert.match(phone, /scrollRef\.current\.scrollTop = top/);
   // v62.60 详情往本尊靠（黑底满幅），顶栏改成这一页自己的一条，不再借 chrome()。
   // 但「返回要回到进入前那个位置」这件事没变，判词跟着换到新的返回键上。
-  assert.match(phone, /onClick: closePhoto, "aria-label": "返回"/);
+  // v64.95 起这一条也走共用 Head，返回键归它画，判词跟着挪到 onBack 上
+  assert.match(phone, /h\(Head, \{ zh: "照片", sub: photo\.date \|\| photo\.time \|\| "日期未记"[\s\S]{0,90}onBack: closePhoto/);
 });
 
 test("照片详情含日期、画面介绍、单独想法框和收藏按钮", () => {
