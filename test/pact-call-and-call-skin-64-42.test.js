@@ -82,11 +82,14 @@ test("约定能约成打电话，而且到点走的是【响铃】不是发消�
   assert.match(app, /dueTs, memId, via: v/, "via 没存进那条约里");
   // 到期那一段：电话在 replyNow 之前就 return，不许先花一次调用生成文字
   const seg = app.slice(app.indexOf("const due = (promisesRef.current || [])"), app.indexOf("} catch (e) {}\n      try {\n        for (const c of characters)"));
-  const iRing = seg.indexOf("ringFromChar(c, pm.via");
+  const iRing = seg.indexOf('if (pm.via === "voice" || pm.via === "video")');
   const iReply = seg.indexOf("replyNow(pm.charId");
   assert.ok(iRing > 0 && iRing < iReply, "打电话这一路没排在发消息前面");
-  assert.match(seg, /if \(pm\.via === "voice" \|\| pm\.via === "video"\) \{\s*\n\s*ringFromChar\(c, pm\.via, pm\.dueTs, late\);\s*\n\s*return;/,
-    "电话那一支没有当场 return，会接着再发一条消息（两次）");
+  // v64.50 起这一支自己 drop、自己算 late（它排到了「她正看着这个聊天」那道闸前面）
+  const branch = seg.slice(iRing, seg.indexOf("return;", iRing));
+  assert.match(branch, /drop\(\);/, "电话这一支没把那条约消费掉");
+  assert.match(branch, /ringFromChar\(c, pm\.via, pm\.dueTs,/, "没走响铃那条路");
+  assert.ok(seg.indexOf("return;", iRing) < iReply, "电话那一支没有当场 return，会接着再发一条消息（两次）");
 });
 
 test("响铃这一路一次模型都不调", () => {

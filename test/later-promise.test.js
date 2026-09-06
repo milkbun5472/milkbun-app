@@ -8,7 +8,7 @@ const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), 
 // 她 2026-08-26：「有时候他们会说等我 xxx 再找你，能不能设定让他们真的主动发，
 // 不用等 dongnian 满。如果我那段时间没上 app 等下一次补上。」
 test("协议里有约回字段，而且明说没说过就别填", () => {
-  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事"\}/);
+  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video"\}/);
   assert.match(app, /只有你这一轮【真的说了】/);
   assert.match(app, /绝不许为了制造互动硬填/);
   assert.match(app, /"call", "laterPromise"\]/, "得挂进本轮开放能力，不然模型不知道能填");
@@ -17,7 +17,7 @@ test("协议里有约回字段，而且明说没说过就别填", () => {
 test("落盘时校验时长，同一个人只留最新那一个", () => {
   const i = app.indexOf("const lp = parsed.laterPromise;");
   assert.ok(i > 0);
-  const seg = app.slice(i, i + 900);
+  const seg = app.slice(i, i + 1800);
   assert.match(seg, /mins >= 5 && mins <= 60 \* 24/, "五分钟到一天，别让它约到下辈子");
   assert.match(seg, /p\.filter\(x => x && x\.charId !== charId\)/, "他又说一次就以最新的为准，别攒一堆");
   assert.match(seg, /saveJSON\("x_promises", n\)/);
@@ -62,7 +62,7 @@ test("约回不该被防连发闸拦掉", () => {
 test("开口方式和「忽然想你」不一样：兑现那句话，别重开话题", () => {
   const i = app.indexOf("const promiseHint = opts.promise");
   assert.ok(i > 0);
-  const seg = app.slice(i, i + 900);
+  const seg = app.slice(i, i + 1800);
   assert.match(seg, /你说好了要回来找 Ta/);
   assert.match(seg, /别当没这回事重新起一个话题/);
   assert.match(app, /const proactiveHint = opts\.promise \? promiseHint :/, "要顶掉普通主动那套开场白");

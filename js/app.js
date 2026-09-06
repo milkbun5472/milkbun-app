@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.48";
+const APP_VERSION = "v64.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4840,18 +4840,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!c) { drop(); continue; }                       // 角色没了，约也没了
           if (!settingsFor(pm.charId).proactive) { drop(); continue; }
           if (laneBusy("c:" + pm.charId)) continue;           // 正在生成，下一轮再说
-          if (currentlyTogetherWithChar(pm.charId)) continue; // 人就在旁边，不用发消息
+          if (currentlyTogetherWithChar(pm.charId)) continue; // 人就在旁边，不用发消息、也不用打电话
+          // 约的是【打电话】：直接把电话打过来，不先花一次调用去生成一段文字
+          //（她 2026-09-06：「约好了打电话没做」）。接了才进通话、那时才调模型；
+          //  不接就是一条未接来电——放着不接本来就该是免费的。
+          // ⚠️这一支【排在「她正看着这个聊天」那道闸前面】：那道闸是为了跟前台那条
+          //   发消息的链错开、防双发，而响铃这件事全 app 只有这一个出口，
+          //   拦下来不是让别人接手，是一直拖到过了 20 分钟、变成一条未接来电——
+          //   她明明就坐在这个聊天里等他电话。而且来电浮层挂在根上，她在哪一页都看得见。
+          if (pm.via === "voice" || pm.via === "video") {
+            drop();
+            dongnianFiredRef.current[pm.charId] = Date.now();
+            ringFromChar(c, pm.via, pm.dueTs, Math.round((Date.now() - pm.dueTs) / 60000));
+            return;
+          }
           if (viewRef.current.charId === pm.charId) continue; // 她正看着这个聊天，前台那套负责
           drop();
           dongnianFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让动念紧跟着再来一条
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
-          // 约的是【打电话】：直接把电话打过来，不先花一次调用去生成一段文字
-          //（她 2026-09-06：「约好了打电话没做」）。接了才进通话、那时才调模型；
-          //  不接就是一条未接来电——放着不接本来就该是免费的。
-          if (pm.via === "voice" || pm.via === "video") {
-            ringFromChar(c, pm.via, pm.dueTs, late);
-            return;
-          }
           // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
           replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
             backdateTs: pm.dueTs < Date.now() - 60000 ? pm.dueTs : 0 });
@@ -7042,7 +7048,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 impressionChecked:"块名"=对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。两个都不填等于跳过。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
       const selfTask = _s.engineerEyes
@@ -7316,7 +7322,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const mins = lp && Number(lp.minutes);
         if (lp && Number.isFinite(mins) && mins >= 5 && mins <= 60 * 24) {
           const due = Date.now() + mins * 60000;
-          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), createdTs: Date.now() };
+          // 他说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
+          // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
+          // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
+          // 文字消息——说好的电话到点变成一句「我到家了」。
+          // ⚠️只认这三个值：模型写别的（"call"/"电话"/true…）一律当 chat，
+          //   宁可少响一次，也不能凭一个认不出的值把电话打过去。
+          const via = ["voice", "video"].indexOf(String(lp.how || "").toLowerCase()) >= 0 ? String(lp.how).toLowerCase() : "chat";
+          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now() };
           setPromises(p => {
             // 同一个人只留最新那一个：他又说了一次「等我忙完」，就以最新的为准，别攒一堆
             const n = [...p.filter(x => x && x.charId !== charId), row];
