@@ -4,6 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+// ⚠️抠出来的这段现在会调 userName(profile)：真的那一个从 core.js 抠出来递进去，
+//   别在这儿抄一份兜底（stub-from-the-writer.md）。
+const { userName } = require("./_user-name.js");
 const grab = (src, a, b, why) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + why); return src.slice(i, j); };
 
 function makeGift(store) {
@@ -12,7 +15,7 @@ function makeGift(store) {
   const ref = { current: st.w };
   return {
     st,
-    api: new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date",
+    api: new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date", "userName",
       src + "\nreturn { giftPrice, walletSpend, postCharGift };")(
       ref, [{ id: "c1", name: "江识" }], { name: "Lisa" },
       fn => { const n = fn(ref.current); if (n) { ref.current = n; st.w = n; } },
@@ -21,7 +24,7 @@ function makeGift(store) {
       v => Math.round(v * 100) / 100,
       (id, fn) => { st.chat = fn(st.chat); },
       o => { st.orders.push(o); },
-      Date)
+      Date, userName)
   };
 }
 const wal = extra => ({ c1: { init: true, balance: 5000, ledger: [], ...extra } });

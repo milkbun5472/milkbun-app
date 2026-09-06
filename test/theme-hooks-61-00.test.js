@@ -36,25 +36,25 @@ test("挂点只是一个写死的名字，夹带不了任何东西", () => {
   //      挂点得由外面递进去。这一支的保证落在【每个调用点都传字面量】上，
   //      所以下面单独把 wk: 的调用点也查一遍；漏查的话这条口子就是真的开着。
   const lit = /^"[a-z]+"$/;
-  const all = [...comp.matchAll(/"data-wk":\s*([^,\n]+)/g)].map(m => m[1].trim());
+  // ⚠️挂点写在对象最后一项时后面跟的是 }（v65.05 的时钟那一处），别把它一起捞进来
+  const all = [...comp.matchAll(/"data-wk":\s*([^,\n}]+)/g)].map(m => m[1].trim());
   assert.ok(all.length >= 30, "挂点只剩 " + all.length + " 个，是不是被删了");
   const PASS = ["wk || undefined"];               // ②：转交，值由调用点保证
-  const bad = all.filter(v => {
-    if (lit.test(v) || PASS.includes(v)) return false;
-    // ①：三元的两头必须都是字面量或 undefined
-    const parts = v.split(/\?|:/).map(x => x.trim()).slice(1);
-    return !(parts.length === 2 && parts.every(x => lit.test(x) || x === "undefined"));
-  });
+  // ①：三元（可以一串接一串）的每个【取值位】都必须是字面量或 undefined。
+  //    a ? x : b ? y : z 拆开是 [a, x, b, y, z]：单数位和最后那一位是取值位，
+  //    双数位是条件——条件里写什么都不会进 DOM，不管。
+  const litChain = v => {
+    const parts = v.split(/\?|:/).map(x => x.trim());
+    if (parts.length < 3 || parts.length % 2 === 0) return false;
+    return parts.every((x, i) => (i % 2 === 0 && i !== parts.length - 1) || lit.test(x) || x === "undefined");
+  };
+  const bad = all.filter(v => !(lit.test(v) || PASS.includes(v) || litChain(v)));
   assert.deepEqual(bad, [], "这些挂点不是写死的名字，能把值夹带进 DOM：\n  " + bad.join("\n  "));
 
   // ②的另一半：转交那一支，每个调用点传的也必须是写死的名字
   for (const src of [comp, fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8")]) {
     const calls = [...src.matchAll(/\bwk:\s*([^,\n}]+)/g)].map(m => m[1].trim());
-    const bad2 = calls.filter(v => {
-      if (lit.test(v)) return false;
-      const parts = v.split(/\?|:/).map(x => x.trim()).slice(1);
-      return !(parts.length === 2 && parts.every(x => lit.test(x) || x === "undefined"));
-    });
+    const bad2 = calls.filter(v => !(lit.test(v) || litChain(v)));
     assert.deepEqual(bad2, [], "这几处把变量当挂点名递进去了：\n  " + bad2.join("\n  "));
   }
   // Svg / Marquee 收到什么就原样放上去，自己不许再拼

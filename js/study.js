@@ -307,7 +307,7 @@
     parts.push(RETEACH_RULE);
     parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
     if (profile.name || profile.persona)
-      parts.push("【和你一起学的人 · " + (profile.name || "用户") + "】\n" + (profile.persona || "（未填写）"));
+      parts.push("【和你一起学的人 · " + userName(profile) + "】\n" + (profile.persona || "（未填写）"));
     if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
 
     const mode = role || session.mode;
@@ -326,7 +326,7 @@
       const pending = session.progress && session.progress.summary_buffer;
       if (Array.isArray(pending) && pending.length) {
         parts.push("【尚未浓缩的较早研究片段（同样属于上下文，不能遗忘）】\n" + pending.map(function (m) {
-          return (m.role === "user" ? ((profile.name || "用户") + "：") : ((m.name || char.name || "同伴") + "：")) + String(m.content || "");
+          return (m.role === "user" ? (userName(profile) + "：") : ((m.name || char.name || "同伴") + "：")) + String(m.content || "");
         }).join("\n"));
       }
     } else {
@@ -666,7 +666,7 @@
     const unit = units.find(function (u) { return u.id === cp.current_unit; }) || units[0];
     const gram = (unit.grammar || []).map(function (g) { return g.id + "(" + g.label + ")"; }).join("、");
     const conv = tail(session.transcript, 30).map(function (m) {
-      return (m.role === "user" ? (ctx.profile && ctx.profile.name || "用户") : m.name) + "：" + m.content;
+      return (m.role === "user" ? (ctx.profile && ctx.userName(profile)) : m.name) + "：" + m.content;
     }).join("\n");
     const sys = "你在给一堂课的【结课小测】做证据式结算。当前单元「" + unit.title + "」，要点(用 id)：" + gram + "。" +
       "能做到清单：" + (unit.can_do || []).join("；") + "。" +

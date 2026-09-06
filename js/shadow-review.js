@@ -151,7 +151,7 @@
           spanHours: finiteRound(aRow.report && aRow.report.spanHours),
           readiness: aRow.readiness || null
         } : { sampleCount: 0, spanHours: 0, readiness: null },
-        interpretation: "delta 只表示两套引擎此刻读数之差，不代表谁对谁错；须由 Lisa 与角色本人评审。"
+        interpretation: "delta 只表示两套引擎此刻读数之差，不代表谁对谁错；须由你与角色本人评审。"
       };
     });
     const runtimePhases = {

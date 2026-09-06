@@ -12,7 +12,7 @@
 //   键名是内部字段，她在界面上看不见，留着没有任何代价。
 // 五轴连续状态：connection / pride / valence / arousal / immersion
 // 数学漂移 + 阈值触发 + 可注入持久化/消息源/LLM分析
-// ⭐接进 Lisa-phone：v48.47 先只做引擎+接线（跑通再放开触发去真发消息）
+// ⭐接进这个 app：v48.47 先只做引擎+接线（跑通再放开触发去真发消息）
 // 全文用 IIFE 包住，只把 createDongnian 挂到 window，别泄漏 clamp/defaultPromptContext 等常见名
 // ============================================================
 ;(function () {

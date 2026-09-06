@@ -19,12 +19,19 @@ assert.strictEqual(flow.isAutonomousContinuation([
   { id: "n_1", role: "narration", content: "今晚大家在厨房。" }
 ]), false, "Lisa 写的开场旁白仍需先得到回应");
 
-const single = flow.cue(false);
+// ⚠️她的名字是【传进来的】，不是写死的（v65.05 把全库六十来处 "Lisa" 收成 userName(profile)）。
+//   桩钉在写它那一头：换个名字传进去，那一段必须跟着换——
+//   写死的话这条当场红，不然别人打开这个 app 会被叫成 Lisa。
+const single = flow.cue(false, "阿念");
 assert(single.includes("不是重新回答"));
 assert(single.includes("至少造成一个看得见的新变化"));
-assert(single.includes("不要替 Lisa 发明新的台词、动作、选择或感受"));
+assert(single.includes("不要替 阿念 发明新的台词、动作、选择或感受"));
+assert(!single.includes("Lisa"), "名字被写死在提示词里了");
 
-const group = flow.cue(true);
+// 没传名字时退回中性的「用户」，不是退回某个人的名字
+assert(flow.cue(false).includes("不要替 用户 发明新的台词、动作、选择或感受"));
+
+const group = flow.cue(true, "阿念");
 assert(group.includes("最后一个角色或旁白 beat"));
 assert(group.includes("彼此接话"));
 

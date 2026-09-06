@@ -65,13 +65,13 @@ test("群聊线上补上心情/好感/印象卡", () => {
   const now = app.slice(app.indexOf("const groupNowSegs ="), app.indexOf("const memberPrivLines ="));
   assert.ok(now.length > 200, "找不到 groupNowSegs");
   assert.match(now, /mdSeg: md\.label \? "\\n〔此刻心情〕" \+ md\.label/);
-  assert.match(now, /afSeg: "\\n〔对 " \+ \(profile\.name \|\| "用户"\) \+ " 的好感〕"/);
+  assert.match(now, /afSeg: "\\n〔对 " \+ userName\(profile\) \+ " 的好感〕"/);
   // 心情要走平复逻辑，别把三天前那阵气当成此刻
   assert.match(now, /window\.MoodLabel\.settle\(\(moods\[c\.id\] \|\| \{\}\)\.label, \(moods\[c\.id\] \|\| \{\}\)\.ts, Date\.now\(\)\)/);
   // 群聊那一处真的用了这一份（不是各写各的）
   assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/);
   // 印象卡属于「发生过什么」，只在开了记忆互通时给，而且要落在本人那一段
-  assert.match(app, /const gz = window\.Gaze && !settingsFor\(c\.id\)\.engineerEyes \? window\.Gaze\.text\(c\.id, profile\.name \|\| "用户"\) : "";/);
+  assert.match(app, /const gz = window\.Gaze && !settingsFor\(c\.id\)\.engineerEyes \? window\.Gaze\.text\(c\.id, userName\(profile\)\) : "";/);
   assert.match(app, /印象卡跟长期记忆同一档/);
 });
 

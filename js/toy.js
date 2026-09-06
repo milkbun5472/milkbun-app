@@ -5,7 +5,7 @@
 // UI 隐身：默认不出现，设置·数据 tab 连点「数据」7 下解锁（x_toyUnlocked）。配置只存本机、不进云同步。
 // ============================================================
 function loadToyCfg() {
-  const DFT = { url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "Vibrate" };
+  const DFT = { url: "", platform: "MilkbunApp", enabled: false, cap: 12, fn: "Vibrate" };
   try {
     const c = JSON.parse(localStorage.getItem("x_toy") || "null");
     if (c && typeof c === "object") {
@@ -52,7 +52,7 @@ async function toyCommand(body, opts) {
   try {
     r = await fetch(base + "/command", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-platform": c.platform || "LisaPhone" },
+      headers: { "Content-Type": "application/json", "X-platform": c.platform || "MilkbunApp" },
       body: JSON.stringify(body),
       signal: ctrl.signal
     });
@@ -200,7 +200,7 @@ function ToyConfig({ toast }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginBottom: 12 } },
       "在 iPhone 上打开 Lovense Remote → 连上设备 → 开「Game Mode」，把页面上的「域名:端口」原样抄进下面。要和手机同一个 WiFi。只存本机、不进云。"),
     row("本地地址（域名:端口）", h("input", { value: c.url, onChange: e => set({ url: e.target.value }), placeholder: "192-168-1-44.lovense.club:30010", style: inSt })),
-    row("标识（X-platform，随便起）", h("input", { value: c.platform, onChange: e => set({ platform: e.target.value }), placeholder: "LisaPhone", style: inSt })),
+    row("标识（X-platform，随便起）", h("input", { value: c.platform, onChange: e => set({ platform: e.target.value }), placeholder: "MilkbunApp", style: inSt })),
     h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "启用"),
       h("button", { onClick: () => set({ enabled: !c.enabled }), style: { width: 50, height: 29, borderRadius: 999, background: c.enabled ? t.ink : t.line, position: "relative" } },

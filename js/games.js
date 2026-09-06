@@ -46,7 +46,7 @@
     if (onStatus) onStatus("正在把赛果告诉言秋…");
     return window.CCSeat.ask({
       tool: "game_turn", game: String(gameKey) + "_result", turn_id: ticket, char_id: seat.key,
-      sys: CB + "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
+      sys: CB + "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及用户本人的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
       msgs: [{ role: "user", content: "终局通知：\n" + String(summary) }],
       expect: "{\"say\":\"一句自然的赛后反应\"}"
     }, 90000, { charId: seat.key }).then(function (raw) {
@@ -792,7 +792,7 @@
       ccGameResult("spy", gameRunId.current, players, cfg,
         "《谁是卧底》" + (winner === "spy" ? "卧底获胜" : "平民获胜") + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + (p.role === "spy" ? "卧底" : "平民"); }).join("；") + "。\n"
-        + "卧底：" + spies.join("、") + "。Lisa：" + (lisa ? (lisa.role === "spy" ? "卧底" : "平民") + (lisa.alive ? "，留到终局" : "，已出局") : "本局观战") + "。",
+        + "卧底：" + spies.join("、") + "。" + ((lisa && lisa.name) || "用户") + "：" + (lisa ? (lisa.role === "spy" ? "卧底" : "平民") + (lisa.alive ? "，留到终局" : "，已出局") : "本局观战") + "。",
         function (say, seat) { pushLog([{ type: "clue", name: seat.name, text: say }]); });
     }, [phase, winner]);
 
@@ -1665,7 +1665,7 @@
       ccResultPromiseRef.current = ccGameResult("werewolf", gameRunId.current, players, cfg,
         "《狼人杀》" + (winner === "wolf" ? "狼人阵营获胜" : "好人阵营获胜") + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + roleZh(p.role) + (p.alive ? "(存活)" : "(出局)"); }).join("；") + "。\n"
-        + "Lisa：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
+        + ((lisa && lisa.name) || "用户") + "：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
         + "终局前公开记录：\n" + log.slice(-8).map(function (x) { return x.text || x.say || x.name || ""; }).filter(Boolean).join("\n"));
     }, [phase, winner]);
     // 终局复盘：把狼队各夜的密谈亮出来（活着时一个字都看不到的那部分）
@@ -2582,7 +2582,7 @@
       ccGameResult(kind, gameRunId.current, players, cfg,
         "《" + title + "》已经揭晓。\n"
         + (solved ? (solved.name + " 最先答对。") : "本局无人答对，已由主持人揭晓。") + "\n"
-        + "Lisa：" + (won ? "亲自破题成功" : (solved && solved.isUser ? "亲自破题成功" : "没有抢到本局答案")) + "。\n"
+        + ((lisa && lisa.name) || "用户") + "：" + (won ? "亲自破题成功" : (solved && solved.isUser ? "亲自破题成功" : "没有抢到本局答案")) + "。\n"
         + (kind === "haigui" ? "汤底：" : "答案：") + String(reveal || "") + "。\n"
         + "全局共问 " + qCount + " 个问题。",
         function (say, seat) { pushLog([{ type: "q", name: seat.name, text: say }]); });
@@ -3535,7 +3535,7 @@
       ccGameResult("monopoly",gameRunId.current,players,cfg,
         "《大富翁》结算，"+(ranking[0]?ranking[0].name:"无人")+" 获胜。\n"
         +"最终排名："+ranking.map(function(p,i){return(i+1)+". "+p.name+"，总资产 $"+monoNetWorth(p,owners,levels)+(p.bankrupt?"（破产）":"");}).join("；")+"。\n"
-        +"Lisa："+(lisa?("第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)) : "本局观战")+"。\n"
+        +((lisa && lisa.name) || "用户")+"："+(lisa?("第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)) : "本局观战")+"。\n"
         +"最后记录：\n"+logs.slice(-8).map(function(x){return x.say||"";}).filter(Boolean).join("\n"));
     },[phase,winner]);
     function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
@@ -3865,7 +3865,7 @@
         + "任务比分：好人成功 " + score.good + "，任务失败 " + score.evil + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + AV_ROLE_ZH[p.role]; }).join("；") + "。\n"
         + (assassinPick ? "刺客最终指认了 " + assassinPick + "。\n" : "")
-        + "Lisa：" + (lisa ? AV_ROLE_ZH[lisa.role] + "，属于" + (lisa.side === "good" ? "好人" : "坏人") + "阵营" : "本局观战") + "。",
+        + ((lisa && lisa.name) || "用户") + "：" + (lisa ? AV_ROLE_ZH[lisa.role] + "，属于" + (lisa.side === "good" ? "好人" : "坏人") + "阵营" : "本局观战") + "。",
         function (say, seat) { pushLog([{ type: "talk", name: seat.name, say: say }]); });
     }, [phase, winner]);
     // 存档：在每次「进入某个任务的组队」前存一份干净断点（续局从 startQuest 重进该轮，不复读已发生的）
@@ -4427,7 +4427,7 @@
   function unoJson(raw) { if (raw && typeof raw === "object") return raw; return extractJSON(String(raw || "")) || {}; }
   function unoPlayers(props) {
     const cfg = props.config || {}, chars = props.characters || [], out = [];
-    if (cfg.mode !== "spectate") out.push({ key: "lisa", name: (props.profile && props.profile.name) || "Lisa", isUser: true, persona: "Lisa 本人" });
+    if (cfg.mode !== "spectate") out.push({ key: "lisa", name: userName(props.profile), isUser: true, persona: "用户本人" });
     (cfg.charIds || []).forEach(function (id) {
       const c = chars.find(function (x) { return String(x.id) === String(id); }); if (!c) return;
       const persona = [c.persona, c.personality, c.tagline, c.background].filter(Boolean).join("\n").slice(0, 1800);
@@ -4472,7 +4472,7 @@
       const finalLines = state.log.slice(-10).map(function (x) { return x.text; }).join("\n");
       ccGameResult("uno", state.id, state.players, cfg,
         "《UNO》" + ((winnerP && winnerP.name) || "未知玩家") + " 获胜。\n"
-        + "Lisa：" + (lisa && lisa.key === state.winner ? "获胜" : "未获胜") + "。\n"
+        + ((lisa && lisa.name) || "用户") + "：" + (lisa && lisa.key === state.winner ? "获胜" : "未获胜") + "。\n"
         + "最终余牌：" + state.players.map(function (p) { return p.name + "=" + p.hand.length + " 张"; }).join("；") + "。\n"
         + "最后几手：\n" + finalLines,
         function (say, seat) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: seat.key, text: seat.name + "：“" + say + "”" }); return n; }); },
@@ -4529,7 +4529,7 @@
       const clean = String(line || "").trim(); if (!clean) return;
       setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: player, text: name + "：“" + clean.slice(0, 500) + "”" }); return n; });
     }
-    function sendTableMessage() { const line = tableTalk.trim(); if (!line) return; addChat("lisa", "Lisa", line); setTableTalk(""); }
+    function sendTableMessage() { const line = tableTalk.trim(); if (!line) return; addChat("lisa", userName(props.profile), line); setTableTalk(""); }
     function inviteTableReplies() {
       if (chatBusy) return;
       const seats = state.players.filter(function (p) { return !p.isUser; }); if (!seats.length) return;

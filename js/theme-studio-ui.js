@@ -164,6 +164,35 @@
           page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
+        // ── 这一页抓得住的挂点（v65.05）────────────────────────────────
+        // 她在这儿手写 CSS，界面上却从没说过【能抓住什么】——只能猜类名，
+        // 而这个 App 没有语义 class，猜出来的一条都不生效（跟秋秋当初栽的是同一处）。
+        // ⚠️名单只有 ThemeStudio 那一份（WK_COMMON + WK_SCOPED），这儿不另抄。
+        (function () {
+          const common = studio.WK_COMMON || [];
+          const grp = (studio.WK_SCOPED || []).filter(function (g) { return (g.pages || []).indexOf(page) >= 0; })[0];
+          const rows = [["每一页都有", common]].concat(grp ? [["这一页专有（" + grp.zh + "）", grp.hooks]] : []);
+          const put = function (nm) {
+            setCSS((css.trim() ? css.replace(/\s*$/, "") + "\n\n" : "") + '[data-wk="' + nm + '"] {\n  \n}');
+          };
+          return h("div", { style: { marginTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
+              "这一页抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
+              + "所以每一条声明都要带 !important，不带等于没写。"),
+            rows.map(function (row) {
+              return h("div", { key: row[0], style: { marginBottom: 8 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
+                h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+                  (row[1] || []).map(function (hk) {
+                    return h("button", { key: hk[0], onClick: function () { put(hk[0]); }, className: "active:opacity-70",
+                      style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, textAlign: "left" } },
+                      h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.ink } }, hk[0]),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, hk[1]));
+                  })));
+            }),
+            !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } },
+              "这一页只有上面这几个通用的。正文里的卡片、按钮、列表还没挂钩子——底色、字色、顶栏、半窗、空状态改得动，单独改某一张卡片改不动。") : null);
+        })(),
         // ── 内置预设 + 这一页自己的 5 个槽位（v61.05，她 2026-09-03 要的）──
         // ⚠️内置是【拷贝】进编辑框的，不是引用：内置改了，她手上那份不会跟着变。
         //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，

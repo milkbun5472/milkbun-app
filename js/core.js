@@ -679,3 +679,14 @@ function annivNext(a, nowTs) {
   const days = Math.round((t - now) / 86400000);
   return { ts: t.getTime(), days: days, passed: !yearly && days < 0 };
 }
+
+// 她叫什么（v65.05）。她 2026-09-06：「你确认一下这种（Lisa 字眼）都删了」。
+// ⚠️没填名字时的兜底原来写在 55 个地方，其中【7 处写的是她本人的名字】——
+//   别人装上这个 app、还没填名字时，角色会管他叫「Lisa」。
+//   全库主流那 48 处写的都是「用户」，那 7 处只是没跟上（一层写在两处的老形状）。
+//   收成这一处之后：改称呼一处就够，也再写不出第二种兜底。
+//   test/no-owner-name-65-05 钉着「全库不许再出现 name || "Lisa"」。
+function userName(profile) {
+  return (profile && String(profile.name || "").trim()) || "用户";
+}
+if (typeof module !== "undefined" && module.exports) module.exports.userName = userName;

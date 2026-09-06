@@ -1,4 +1,4 @@
-// Lisa-phone 主题工作台：图标皮肤 + 页面作用域 CSS + 可撤销预览。
+// 主题工作台：图标皮肤 + 页面作用域 CSS + 可撤销预览。
 // 素材只存 x_imgvault；配置只保存 iv_ 引用，避免 localStorage 被图片撑爆。
 (function (g) {
   "use strict";
@@ -311,8 +311,8 @@
   // ⚠️这个 App 的样式【几乎全是内联 style】（每个组件从 useTheme() 拿 t.bg / t.ink
   //   自己写在 style 里）。行内样式赢过普通 CSS 规则——所以一条不带 !important 的
   //   规则，写得再对也一点效果都没有。
-  // ⚠️而且只有【聊天页】埋了语义钩子（data-wk），别的页一个都没有：
-  //   在那些页上写 CSS，除非用通用选择器硬压，否则改不动任何东西。
+  // ⚠️语义钩子（data-wk）只有【WK_COMMON 那几个 + WK_SCOPED 里点了名的那几页】才有。
+  //   没挂钩子的地方，在那一页上写 CSS 除非用通用选择器硬压，否则改不动任何东西。
   // 秋秋（js/assistant.js）要照这份说给模型听——它原来什么都不知道，
   //   于是自己发明了 `.theme-xxx [data-page="xxx"]` 这种选择器，写完一点不生效
   //   （她 2026-09-06：「秋秋这个能改 css 是假的，应用了也不改」）。
@@ -325,19 +325,39 @@
     ["sheet", "从底下掀起来的半窗"],
     ["avatar", "头像（全 App 每一颗）"]
   ]);
-  const WK_HOOKS = Object.freeze([
-    ["chat", "聊天页整块背景"], ["body", "正文区背景"],
-    ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
-    ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
-    ["row", "一整行消息（含头像）"], ["avatar", "头像"],
-    ["bubble", "气泡本体（data-me=\"1\" 是她的）"], ["msg", "一条消息（同样有 data-me）"],
-    ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
-    ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
-    ["card", "气泡里的卡片（照片、转发、语音）"],
-    ["composer", "底部输入栏整条"], ["send", "发送键"]
+  // 底下这几组是【某几页专有】的（气泡、输入栏、主屏那些格子，别处没有）。
+  // ⚠️一张表，一行一组【叫什么 · 哪几页 · 有哪些挂点】。第二组进来的时候
+  //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
+  //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
+  const WK_SCOPED = Object.freeze([
+    Object.freeze({
+      zh: "聊天页", pages: Object.freeze(["thread", "gthread"]),
+      hooks: Object.freeze([
+        ["chat", "聊天页整块背景"], ["body", "正文区背景"],
+        ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
+        ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
+        ["row", "一整行消息（含头像）"], ["avatar", "头像"],
+        ["bubble", "气泡本体（data-me=\"1\" 是她的）"], ["msg", "一条消息（同样有 data-me）"],
+        ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
+        ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
+        ["card", "气泡里的卡片（照片、转发、语音）"],
+        ["composer", "底部输入栏整条"], ["send", "发送键"]
+      ])
+    }),
+    // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
+    // ⚠️病根不是主题台坏了——是主屏上【一个挂点都没有】，只有最外那层 app。
+    //   给主屏写的 CSS 因此抓不到任何东西，写得再对也一条不生效。
+    Object.freeze({
+      zh: "主屏", pages: Object.freeze(["home"]),
+      hooks: Object.freeze([
+        ["icon", "app 图标那一格（文件夹也是）"], ["iconlabel", "图标底下那行字"],
+        ["dock", "底部 dock 那一条"],
+        ["widget", "组件卡那一格（天气、音乐、木鱼这些）"], ["decor", "装饰那一格"],
+        ["homeclock", "顶上时钟那一块"], ["homeclockink", "时钟的数字"], ["homedate", "时钟底下那行日期"],
+        ["pager", "页码点那一行"], ["pagerdot", "单个页码点（data-on=\"1\" 是当前页）"]
+      ])
+    })
   ]);
-  // 底下这几个是【聊天页专有】的（气泡、输入栏这些别处没有）
-  const WK_PAGES = Object.freeze(["thread", "gthread"]);
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
   const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };
@@ -465,13 +485,13 @@
     return JSON.stringify({ kind: "lisa-theme", format: 1, exportedAt: new Date().toISOString(), profile, baseTheme: extras && extras.baseTheme, wallpaper: extras && extras.wallpaper, assets }, null, 2);
   };
   const importPackage = async text => {
-    const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是 Lisa-phone 主题包");
+    const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是这个 app 的主题包");
     const map = {};
     for (const [oldRef, data] of Object.entries(pkg.assets || {})) { try { map[oldRef] = await g.imgToVault(data); } catch (_) {} }
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

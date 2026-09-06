@@ -1134,7 +1134,7 @@
       if (error) throw error;
     },
 
-    // ---- 桌面对话回流（desk_log 表，Stack-chan 实体：见 [[lisa-phone-next-window]] 图纸）----
+    // ---- 桌面对话回流（desk_log 表，Stack-chan 实体：见 [[next-window]] 图纸）----
     // stackchan-relay 每轮把「用户说的话 user_text + 角色回复 reply_text + 时刻」insert 进 desk_log；
     // app 开机/tick 拉走未消费的，投进 x_chat:小克（两具身体一条记忆流）。表不存在=安静报错、整块 dormant。
     // ⚠️relay 只 insert desk_log，【绝不直写 saves】（手机 autoPush 会整行覆盖，必撞）。

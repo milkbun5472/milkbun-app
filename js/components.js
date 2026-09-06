@@ -1105,11 +1105,12 @@ function appIconSrc(appKey) {
 function appIconBare() {
   return !!(window.ThemeStudio && window.ThemeStudio.iconBare && window.ThemeStudio.iconBare());
 }
-function GlassPane({ radius = 17, tone, style, className, children }) {
+function GlassPane({ radius = 17, tone, style, className, children, wk }) {
   const onWall = useOnWallpaper();
   const fill = glassFill(onWall);
   return h("div", {
     className: className,
+    "data-wk": wk || undefined,
     style: Object.assign({
       position: "relative",
       borderRadius: radius,
@@ -1180,16 +1181,16 @@ function GlassIcon({
   ];
   return /*#__PURE__*/React.createElement("button", { onClick: onClick, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform", style: soon ? { opacity: 0.5 } : null },
     bare
-      ? h("div", { className: "flex items-center justify-center", style: { position: "relative", width: 62, height: 62, borderRadius: 16, filter: "drop-shadow(0 6px 10px rgba(30,28,24,0.18))" } }, body, marks)
-      : h(GlassPane, { className: "flex items-center justify-center", radius: 17, tone: tone, style: { width: 62, height: 62 } }, body, marks),
-    h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
+      ? h("div", { "data-wk": "icon", className: "flex items-center justify-center", style: { position: "relative", width: 62, height: 62, borderRadius: 16, filter: "drop-shadow(0 6px 10px rgba(30,28,24,0.18))" } }, body, marks)
+      : h(GlassPane, { wk: "icon", className: "flex items-center justify-center", radius: 17, tone: tone, style: { width: 62, height: 62 } }, body, marks),
+    h("span", { "data-wk": "iconlabel", style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹磁贴：格子里放前 4 个 app 的 2x2 迷你预览，点开弹出内部 app 网格
 function FolderIcon({ apps, label, onOpen, onWallpaper }) {
   const t = useTheme();
   const preview = (apps || []).slice(0, 4);
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
-    h(GlassPane, { radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
+    h(GlassPane, { wk: "icon", radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
       // ⚠️这里显示哪张图，一律问 appIconSrc（她 2026-09-03 两次报同一个形状：
       //   先是「我自己放了个图标上去但是他在文件夹里显示不出来更新的图标」，
       //   修完之后又是「文件夹小图显示不出来换上的，还是原来的丑鸟」）。
@@ -1204,7 +1205,7 @@ function FolderIcon({ apps, label, onOpen, onWallpaper }) {
               : h(a.G, { size: 15, color: t.ink, sw: 1.7 }));
       }),
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i }))),
-    h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
+    h("span", { "data-wk": "iconlabel", style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹展开层：半透明背景 + 内部 app 网格 + 改名 + 整理模式（✕ 移回主屏）
 function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
@@ -5222,6 +5223,9 @@ function Home({
       inner, h(HomeStickerLayer, { list: stkList, t: t }));
     return h("div", {
       key: key, "data-appkey": key,
+      // 挂点长在这一格上：组件卡是 widget、装饰是 decor，app 图标那一格不挂
+      //（图标自己的挂点在 GlassIcon 里，挂在这儿等于同一样东西挂两层）
+      "data-wk": it.kind === "widget" ? "widget" : it.kind === "decor" ? "decor" : undefined,
       style: {
         gridColumn: gCol, gridRow: gRow,
         height: fixedH || undefined, overflow: fixedH ? "hidden" : undefined,
@@ -5281,10 +5285,10 @@ function Home({
       // 拖着东西时这一页不许再自己滚（要够屏幕外那几行，靠 edgeScroll 一帧一步地送）
       touchAction: dragKey ? "none" : undefined } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
-      pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1" },
-        h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
+      pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1", "data-wk": "homeclock" },
+        h("div", { "data-wk": "homeclockink", style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
           wallpaper ? { color: "#fff", textShadow: "0 2px 10px rgba(20,18,15,0.45), 0 0 24px rgba(20,18,15,0.25)" } : { color: t.ink }) }, fmtClock(now)),
-        h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, marginTop: 2 }, glassLabelInk(!!wallpaper, t), wallpaper ? {} : { color: t.sub }) }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
+        h("div", { "data-wk": "homedate", style: Object.assign({ fontFamily: F_BODY, fontSize: 13, marginTop: 2 }, glassLabelInk(!!wallpaper, t), wallpaper ? {} : { color: t.sub }) }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
       // 格与格之间从 12 收到 8（她 2026-09-03：「明明肉眼看还有位置但是要么不给放、
       // 要么放了就把别处弄坏」）。空隙是【看得见但用不上】的那部分：一页四列六行，
       // 12px 的缝一共吃掉横 36 / 竖 60，正好是「看着还有一块地方，其实排不下」的来源。
@@ -5303,11 +5307,17 @@ function Home({
         return h("div", { className: "grid grid-cols-4 gap-y-2 gap-x-2", style: { gridAutoRows: rowUnit + "px" } },
           ks.map(function (key, i) { return renderItem(key, pp.pos[i]); }));
       })());
-  })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
+  })), // ⚠️页码点【浮在上面】，不占一块位置（她 2026-09-06：「那几个点是在一条实块上面的，
+  //   导致这个实块挡住了可以显示的内容，没有实块的话木鱼和转盘能露出来的部分会多一点」）。
+  //   量过：格子区比可视区高出 68px、超出的被 overflow-hidden 切掉，而这一条在流里就吃掉 14px。
+  //   改成 absolute 之后那 14px 还给内容，最后一排少切一截。跟 iOS 一样：点是浮在壁纸上的。
+  //   pointer-events-none：它不该挡住底下那一排的点击。
+  curLayout.length > 1 && h("div", { "data-wk": "pager", className: "absolute left-0 right-0 flex justify-center gap-1.5 pointer-events-none", style: { bottom: 4, zIndex: 3 } }, curLayout.map(function (_, pi) { return h("span", { key: pi, "data-wk": "pagerdot", "data-on": pi === page ? "1" : "0", style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 pt-1",
     style: { paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X, paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-around px-3 py-3",
+    "data-wk": "dock",
     style: {
       borderRadius: 28,
       // dock 跟图标同一块玻璃，只是更大更厚（no-half-sheet 之外的另一条：一层做法只写一处）
@@ -13433,6 +13443,23 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   const [summaryBusy, setSummaryBusy] = useState(false);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); };
+  // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
+  // ⚠️两个毛病一起修：
+  //   ① 删除键埋在长表单最底下——现在门上就有一颗 ✕，她按下决定的那一刻手就在那儿。
+  //   ② 删完还停在那间【已经不存在的】房里，得自己再点回主聊天。
+  //      删的如果正是此刻开着的那间，就把聊天一起送回主聊天——
+  //      不然她面对的是一间刚被自己删掉的房。
+  const removeRoom = room => {
+    if (!room || room.main) return;
+    requestAppConfirm("删掉「" + (room.name || "这间房") + "」？", "这间房的聊天记录先留着，不会被硬删。", () => {
+      if (!Kit.remove(character.id, room.id)) return window.__toast && window.__toast("这次没删成功，房间入口还在");
+      setRooms(Kit.list(character.id));
+      pick("main");
+      // 正开着的就是它 → 聊天也一起退回主聊天
+      if (String(activeRoomId || "main") === String(room.id)) onSelect("main", false);
+      window.__toast && window.__toast("删掉了「" + (room.name || "这间房") + "」，已回到主聊天");
+    }, "删掉");
+  };
   const patch = p => setDraft(d => ({ ...d, ...p }));
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
@@ -13532,7 +13559,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
     creating && h("div", { style: { marginTop: 10, padding: "13px", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "给它留块门牌"),
       h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), placeholder: "房间名字", style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15, outline: "none" } }),
-      h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "想在这里慢慢继续什么？例如：把 Lisa-phone 的记忆系统一起修明白", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
+      h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "想在这里慢慢继续什么？例如：把那门课从头学一遍", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
       h("div", { style: { marginTop: 9, padding: "10px 11px", borderRadius: 12, border: "1px solid #c99aa5", background: "rgba(201,154,165,.10)" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "本房限定设定 · 每轮最后提醒 TA"),
         h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 4, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
@@ -13589,7 +13616,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
       )),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
       h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); if (!saved) return window.__toast && window.__toast("这次没保存成功，原房间还在"); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
-      !draft.main && !creating && h("button", { onClick: () => requestAppConfirm("删除房间入口？", "本房记录先保留，不会被硬删。", () => { if (!Kit.remove(character.id, draft.id)) return window.__toast && window.__toast("这次没删成功，房间入口还在"); setRooms(Kit.list(character.id)); pick("main"); }, "删除"), style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
+      !draft.main && !creating && h("button", { onClick: () => removeRoom(draft), style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
       ));
   // 房间不是一排 tab，是一条走廊上的几扇门（tabs-not-plain-pills）：
   // 门是拱顶的、竖着写门牌、右边一颗把手；开着的那扇齐着地板、纸色跟下面那块板同一张，
@@ -13620,7 +13647,17 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   };
   const hallway = h("div", { style: { position: "relative", overflowX: "auto", WebkitOverflowScrolling: "touch" } },
     h("div", { style: { display: "flex", alignItems: "flex-end", gap: 9, minWidth: "min-content", padding: "6px 1px 0" } },
-      rooms.map(r => doorOf(r, editingId === r.id, () => pick(r.id))),
+      rooms.map(r => doorOf(r, editingId === r.id, () => pick(r.id),
+        // 开着的那扇非主房门，右上角一颗小 ✕：删除就在手边，不用滚到表单最底下。
+        // ⚠️用 span 不用 button——它在一颗 button 里面，嵌 button 是非法 HTML。
+        (editingId === r.id && !r.main) ? h("span", {
+          role: "button", "aria-label": "删掉这间房", tabIndex: 0,
+          onClick: e => { e.stopPropagation(); removeRoom(r); },
+          onKeyDown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); removeRoom(r); } },
+          style: { position: "absolute", top: 2, right: 2, width: 22, height: 22, borderRadius: 99,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: t.fog, background: t.bg2, border: "1px solid " + t.line }
+        }, "×") : null)),
       h("div", { style: { flexShrink: 0, width: 74, height: 84, marginBottom: 8, borderRadius: "36px 36px 5px 5px", border: "1px dashed " + t.line, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "再开一间"),
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 3, padding: "0 4px" } },

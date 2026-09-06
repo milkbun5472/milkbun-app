@@ -222,7 +222,7 @@
     });
     const picked = eligible.slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
     if (!picked.length) return "";
-    const who = text(userName) || "Lisa";
+    const who = text(userName) || "用户";
     const lineCap = Math.max(80, Math.min(1200, Number(maxLineChars) || 1200));
     const lines = picked.map(row => {
       const at = Date.parse(row.occurred_at), stamp = Number.isFinite(at) ? new Date(at).toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }) : "时间未知";

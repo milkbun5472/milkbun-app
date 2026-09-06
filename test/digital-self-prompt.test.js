@@ -79,7 +79,8 @@ test("engineerEyes subscription chat caches one full-budget history copy", () =>
 });
 
 test("engineerEyes chat carries a lean volatile baggage budget", () => {
-  assert.match(source, /continuityPrompt\(saved\.rows \|\| \[\], profile\.name \|\| "Lisa", 20,[\s\S]*240\)/);
+  // ⚠️她的名字不许再写死（v65.05）：这儿走的也是全库那一处 userName(profile)
+  assert.match(source, /continuityPrompt\(saved\.rows \|\| \[\], userName\(profile\), 20,[\s\S]*240\)/);
   assert.match(source, /isLeanYanqiuChat \? 3/);
   assert.match(source, /slice\(0, 3\)\.map/);
   assert.match(source, /slice\(0, 240\)/);

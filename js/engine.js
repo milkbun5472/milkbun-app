@@ -72,7 +72,7 @@ async function nativeProviderFetch(url, init) {
   if (!h || typeof h.postMessage !== "function") {
     try { return await fetch(url, init); }
     catch (e) {
-      throw new Error("网络请求失败 · " + method + " " + url + " · " + String((e && e.message) || e) + "。CatsAPI 未开放浏览器跨域；请在更新后的 Lisa-phone 原生 App 中使用");
+      throw new Error("网络请求失败 · " + method + " " + url + " · " + String((e && e.message) || e) + "。CatsAPI 未开放浏览器跨域；请在更新后的原生 App 中使用");
     }
   }
   const headers = {};
@@ -1133,7 +1133,7 @@ function takenByOthersLine(charId, rels, chars, uName) {
 }
 function directedRelationLines(char, rels, chars, profile) {
   const lines = [];
-  const me = profile.name || "用户";
+  const me = userName(profile);
   const fmt = r => r ? (r.label + (r.note ? "（" + r.note + "）" : "")) : null;
   const a = rels[char.id + "->me"],
     b = rels["me->" + char.id];
@@ -2637,7 +2637,7 @@ function buildBundle(ctx, opts) {
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push("【" + uName + " 允许你看到的记账动态】（这是 " + uName + " 真实的个人开销与收入，Ta 特意让你能看到。可按你的人设自然反应——心疼 Ta 乱花、调侃、陪 Ta 心疼氪金、或体贴地不点破；别报流水账、别说教、别越界。这钱是 " + uName + " 自己的、与你无关，只是让你知道并能有反应）\n" + ctx.financeNote.trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
-  if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + (profile && profile.name || "用户") + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
+  if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
   // 珊瑚岛 Experience Gate shadow：只看每块的标题/来源类别/长度和真假宣称风险，原 bundle 一个字不改。
   try { window.ExperienceGateShadow && window.ExperienceGateShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
   // Persona Hub 统一上下文预算 shadow：只留原 bundle 审计；按次计费渠道不裁实际 prompt。
@@ -3058,7 +3058,7 @@ function splitRedPacket(total, count) {
 }
 // 把一段群聊浓缩成一条群体记忆（第三人称，供存入记忆库）
 async function summarizeGroup(p, ctx, msgs) {
-  const text = msgs.map(m => (m.role === "user" ? ctx.profile && ctx.profile.name || "用户" : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + (m.content || "")).join("\n");
+  const text = msgs.map(m => (m.role === "user" ? ctx.profile && ctx.userName(profile) : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + (m.content || "")).join("\n");
   const system = "把下面这段群聊浓缩成一句到几句第三人称的记忆，抓住关键事件、谁和谁的互动、达成的约定或情绪转折。简洁、具体、可复用。只输出正文。";
   return await callAI(p, system, [{ role: "user", content: "【群聊】\n" + text }], { maxTokens: 11000 });
 }
@@ -5381,7 +5381,7 @@ async function generateOffline(p, ctx, session) {
   }
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
-  const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false) : "";
+  const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false, userName) : "";
   // 代写用户行动是用户在本场线下亲自开的权限，必须放在离生成最近的尾部。
   // 只放 system 中段会被长历史、文风和反八股尾注稀释，表现成“开关开了也没用”。
   const userActionTail = session.narr && session.narr.describeMe === true
@@ -5782,7 +5782,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
   const gBudget = Math.min(window.StylePresets.OUT_CEILING,
     Math.max(Number(session.maxTokens) || 1900, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
-  const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
+  const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true, userName) : "";
   const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
   // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账
   const gFlashbackTail = offlineFlashbackBlock(
@@ -6491,12 +6491,12 @@ async function generateDiaryComment(p, ctx, entryText, opts) {
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel);
   const prev = opts && Array.isArray(opts.prevSaid) ? opts.prevSaid.filter(Boolean) : [];
   if (prev.length) parts.push("【你最近评论 Ta 别的日记时说过】" + prev.map(s => "「" + String(s).slice(0, 50) + "」").join("、") + "——这次必须换新的说法和角度：开头、句式、梗都不许和之前重样，别活成复读机。");
-  parts.push("【" + (ctx.profile && ctx.profile.name || "用户") + " 刚写下的这篇日记】\n" + entryText);
-  const system = "你现在完全代入「" + ctx.char.name + "」。上面是 " + (ctx.profile && ctx.profile.name || "用户") + " 写的私人日记，Ta 给你看了。请以你的口吻写**一条评论**——就像在对方日记/朋友圈底下留言。\n要求：依据你此刻的心情、你和 Ta 的关系与好感度来决定语气（可以心疼/调侃/吃醋/欲言又止/敷衍，符合人设；好感高的更上心，好感低的可以淡）；口语、自然、简短（1~2 句，最多一小段）；不要复述日记内容，不要加旁白或动作括号，不要@别人。只输出评论正文。\n\n" + parts.join("\n\n");
+  parts.push("【" + (ctx.profile && ctx.userName(profile)) + " 刚写下的这篇日记】\n" + entryText);
+  const system = "你现在完全代入「" + ctx.char.name + "」。上面是 " + (ctx.profile && ctx.userName(profile)) + " 写的私人日记，Ta 给你看了。请以你的口吻写**一条评论**——就像在对方日记/朋友圈底下留言。\n要求：依据你此刻的心情、你和 Ta 的关系与好感度来决定语气（可以心疼/调侃/吃醋/欲言又止/敷衍，符合人设；好感高的更上心，好感低的可以淡）；口语、自然、简短（1~2 句，最多一小段）；不要复述日记内容，不要加旁白或动作括号，不要@别人。只输出评论正文。\n\n" + parts.join("\n\n");
   return (await callAI(p, system, [{ role: "user", content: "写评论。" }], { maxTokens: 8900 })).trim();
 }
 async function summarizeChat(p, ctx, olderMsgs) {
-  const text = olderMsgs.map(m => (m.role === "user" ? ctx.profile.name || "用户" : ctx.char.name) + ": " + m.content).join("\n");
+  const text = olderMsgs.map(m => (m.role === "user" ? ctx.userName(profile) : ctx.char.name) + ": " + m.content).join("\n");
   const system = "把下面这段对话融进第三人称的长期记忆里。抓住关键事件、情绪变化、承诺、约定、身份/背景信息、未完成的事、以及你俩关系的推进——**宁可写长一些、保留细节，也别丢掉任何重要的人、事、约定或情感转折**。已有记忆在前，请把新内容自然融合进去，输出一份完整的新记忆（保留旧记忆里仍然重要的部分，别为了简短而删掉过往）。可以分段。只输出记忆正文。\n\n【已有记忆】\n" + (ctx.memory || "（无）");
   return await callAI(p, system, [{
     role: "user",
@@ -6508,7 +6508,7 @@ async function summarizeChat(p, ctx, olderMsgs) {
 }
 // 止摘要漂移：只浓缩【这段新对话】成一小段，不重炼旧记忆（旧记忆由调用方原样保留、追加这段带日期的新段）
 async function summarizeChatBlock(p, ctx, newMsgs) {
-  const text = newMsgs.map(m => (m.role === "user" ? ctx.profile.name || "用户" : ctx.char.name) + ": " + m.content).join("\n");
+  const text = newMsgs.map(m => (m.role === "user" ? ctx.userName(profile) : ctx.char.name) + ": " + m.content).join("\n");
   // 七要素清单（v47.77 借 LNPhone conclusion 规范）：让浓缩段不只记事件、还留住氛围和悬着的事
   const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆。这段要覆盖到（有则写、无则跳，别硬凑）：①发生的关键事件 ②聊的主题 ③两人此刻的关系氛围（如刚吵完在冷战/正在暧昧/和好如初）④用户显露的情绪与需求 ⑤角色的情绪与态度 ⑥未完成的事（答应了没做的、约好的、话说一半的）⑦红包转账礼物照片等功能事件。具体可回看、信息密度高。这是要【追加】到长期记忆末尾的一段，别逐字复述对话、别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
   return (await callAI(p, system, [{ role: "user", content: "【新对话】\n" + text }], { maxTokens: 10600 })).trim();

@@ -1353,7 +1353,7 @@ function phoneImage(ref) {
 const PHONE_ICON_PRESETS = [
   // ⭐默认：他的手机就该跟她自己的界面不一样，不然「翻别人手机」在视觉上不成立
   { key: "own", name: "他自己的", sub: "一人一个底色，跟你的界面分得开" },
-  { key: "main", name: "主界面彩釉", sub: "跟 Lisa's phone 同一套颜色" },
+  { key: "main", name: "主界面彩釉", sub: "跟这个 app 主界面同一套颜色" },
   { key: "soft", name: "柔光", sub: "更浅、更像磨砂玻璃" },
   { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
   { key: "glass", name: "透明玻璃", sub: "让壁纸透出来" }
@@ -2389,7 +2389,7 @@ function WeChatView({ d, char, t, setSheet, profile }) {
   const [tab, setTab] = useState("chats");
   const arr = a => Array.isArray(a) ? a : [];
   const actual = arr(d.actualChats), generated = arr(d.chats);
-  const meName = profile && profile.name || "Lisa";
+  const meName = userName(profile);
   const chatRow = (c, i, real) => h("button", {
     key: (real ? "r" : "g") + i + (c.id || c.name || ""),
     onClick: () => c.messages && c.messages.length && setSheet(WeChatThread(c, char, t)),
@@ -2448,7 +2448,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
     return known.concat(unknown);
   };
   const chats = [...actual, ...byWhen(generated)];
-  const meName = profile && profile.name || "Lisa";
+  const meName = userName(profile);
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
   const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
@@ -2566,7 +2566,7 @@ function AlbumNavIcon({ kind, active }) {
 const ALBUM_ACCENT = "#8a6478";   // 藕：这一路谁都没用过（外卖暖、购物靛、健康草药）
 const ALBUM_ALERT = "#a8524a";    // 只给「删了又没真删的」和「锁起来的」
 const ALBUM_DIM = "#948e96";
-// 收藏仍独立存在 x_phoneKeep，刷新推演只换本轮相册，不覆盖 Lisa 留下的收藏。
+// 收藏仍独立存在 x_phoneKeep，刷新推演只换本轮相册，不覆盖她留下的收藏。
 // 一张照片的指纹：id 优先；没有 id 的旧数据用内容指纹。不要把本轮数组下标写进去，
 // 否则同一张照片在下次刷新排序变化后会被误当成另一张。
 // ⚠️模块级函数，不是 AlbumView 里的局部量——App 那边画完真图要按同一个指纹
@@ -6503,10 +6503,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
           + "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；"
           + "**不写就是照旧**，绝大多数轮次都该一栏都不写。\n"
           + wxChatList + relHint)
-        : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
+        : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
       schemaHint: wxUpdOnly
         ? "{\"updates\":[{\"name\":\"从名单里原样照抄的会话名\",\"messages\":[{\"from\":\"说话人\",\"text\":\"新说的话\"}],\"last\":\"最后一条\",\"time\":\"14:20\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"signature\":\"心境真变了才写，否则整个 me 都别给\",\"cover\":\"同上\"}}"
-        : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
+        : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"用户本人的名字\",\"remark\":\"TA给用户的微信备注\",\"intro\":\"TA对用户具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
       instruction: "推演「" + char.name + "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n"

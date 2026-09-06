@@ -5,6 +5,9 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const { select, costOf } = require(path.join(root, "js/chat-context-window.js"));
+// ⚠️这段 app.js 里现在会调 userName(profile)——真的那一个从 core.js 抠出来，
+//   一处开好谁要谁 require（test/_user-name.js），不许各自抄一份兜底。
+const { userName } = require("./_user-name.js");
 
 // 她 2026-08-28：「跑了很多长线下，一堆没用的描写占着字数，本来可以带更多密度的
 // 聊天记录都被描写占满了咋办」。两个口子：
@@ -51,11 +54,11 @@ const recent = (() => {
   // v60.49 那把瘦身刀只改【怎么渲染】，挑法一个字没动（渲染那半在
   // test/recent-chat-thin-60-49.test.js 里单独真跑）。
   return (online, offline, budget, ctxN = 50, days = 0) => new Function(
-    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline",
+    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline", "userName",
     body.replace("const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));", "const ctxN = " + ctxN + ";")
         .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";")
         .replace("const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));", "const recentDays = " + days + ";"))
-    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {}, false);
+    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {}, false, userName);
 })();
 
 let ts = 0;

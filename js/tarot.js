@@ -928,7 +928,7 @@
       const next = followups.concat(mine);
       setFollowups(next); setFollowText(""); setFollowBusy(true);
       try {
-        const answer = await continueAtTable(props.active, s, char, (props.profile && props.profile.name) || "Lisa", followups, text);
+        const answer = await continueAtTable(props.active, s, char, userName(props.profile), followups, text);
         const done = next.concat({ id: "tfa_" + Date.now(), role: "assistant", content: answer || "……", ts: Date.now() });
         setFollowups(done);
         props.onUpdate && props.onUpdate({ ...s, followups: done });
@@ -953,7 +953,7 @@
       setSuppBusy(i);
       let text = "";
       try {
-        text = await readSupplement(props.active, s, char, (props.profile && props.profile.name) || "Lisa", pos, card);
+        text = await readSupplement(props.active, s, char, userName(props.profile), pos, card);
       } catch (e) {
         text = cardReference(card).text;
         props.toast && props.toast("补牌解读没接上，先保留了牌面");
