@@ -4297,7 +4297,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4390,6 +4390,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   if (partner && cp[view] && cp[view].status === "together" && sub === "ifroom") {
     return h(IfRoom, { partner, lines: ifLines, uName: (profile || {}).name || "我", busy: ifBusy, bgBusy: ifBgBusy,
       onOpen: hint => onIfOpen(partner, hint), onAdvance: onIfAdvance, onBg: onIfBg, onEnd: onIfEnd, onDrop: onIfDrop,
+      shotBusy: studioBusy, onShot: onIfShot,
       onBack: () => setSub(null) });
   }
   // 情侣空间子模块：照相馆
@@ -12627,23 +12628,31 @@ function CoupleFirstsBook({ partner, items, onBack }) {
 //  或者选择重新生成一套约会装放进衣柜然后给我也弄一套衣柜可以生成合照？」
 // 我的衣柜跟角色衣柜同一个形状（closetGroups 两边共用），所以这一页两侧的挑衣服
 // 是同一套渲染。挑好的两身会【显式写进画面描述】——只挂在衣柜里图像端读不到。
+// ⚠️可以挑好几件（她 2026-09-06：「照相馆能不能多选衣服。。。有时候衣服和鞋子
+//   都被拆成单件了」）。衣柜里挂的本来就不一定是「一整身」——外套是一件、鞋是一件，
+//   只能单选等于逼她二选一，出图那头就永远少一半。
+//   value 是一个数组；点一下加进来、再点一下拿掉。
 function StudioPicker({ zh, groups, value, onPick, tint }) {
   const t = useTheme();
+  const picked = Array.isArray(value) ? value : (value ? [value] : []);   // 老调用传字符串也认
+  const on = n => picked.indexOf(n) >= 0;
+  const toggle = n => onPick(on(n) ? picked.filter(x => x !== n) : picked.concat([n]));
   const sets = [];
   (groups || []).forEach(g => (g.sets || []).forEach(x => sets.push({ occasion: g.occasion, name: x.name, note: x.note })));
   return h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, zh),
-      value ? h("button", { onClick: () => onPick(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "不指定") : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+        zh, picked.length ? h("span", { style: { color: tint, marginLeft: 6 } }, "挑了 " + picked.length + " 件") : null),
+      picked.length ? h("button", { onClick: () => onPick([]), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "不指定") : null),
     sets.length
       ? h("div", { className: "flex gap-2 overflow-x-auto", style: { marginTop: 7, paddingBottom: 3 } },
           sets.slice(0, 24).map((x, i) => h("button", {
-            key: i, onClick: () => onPick(x.name === value ? "" : x.name), className: "active:opacity-70 shrink-0 text-left",
-            style: { maxWidth: 176, padding: "7px 11px", borderRadius: 13, border: "1px solid " + (x.name === value ? tint : t.line), background: x.name === value ? tint : "transparent" }
+            key: i, onClick: () => toggle(x.name), className: "active:opacity-70 shrink-0 text-left",
+            style: { maxWidth: 176, padding: "7px 11px", borderRadius: 13, border: "1px solid " + (on(x.name) ? tint : t.line), background: on(x.name) ? tint : "transparent" }
           },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: x.name === value ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: on(x.name) ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
               (x.occasion ? x.occasion + " · " : "") + x.name),
-            x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: x.name === value ? "rgba(255,255,255,.8)" : t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.note) : null)))
+            x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: on(x.name) ? "rgba(255,255,255,.8)" : t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.note) : null)))
       : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "衣柜里还没有——不指定也能拍，或者让他配一套"));
 }
 // 我的衣柜（v59.27）。她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
@@ -12719,8 +12728,9 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
 function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onBack }) {
   const t = useTheme();
   const [scene, setScene] = useState("");
-  const [mine, setMine] = useState("");
-  const [theirs, setTheirs] = useState("");
+  // 两边都是【一组】衣服，不是一件（v64.34）：衣柜里外套和鞋常常分开挂着
+  const [mine, setMine] = useState([]);
+  const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
@@ -12753,7 +12763,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 14 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "10px 14px", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
                 fitBusy ? "配着…" : "让他配一对"),
-              h("button", { onClick: () => onShoot({ scene, mine, theirs }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、") }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
                 busy ? "在拍了…" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
@@ -12932,7 +12942,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MK_DIM, lineHeight: 1.7, marginTop: 4 } }, sub))),
         h("button", { onClick: () => setEnding(false), className: "w-full active:opacity-70", style: { marginTop: 12, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: MK_DIM } }, "还没完"))) : null);
 }
-function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, onDrop, onBack }) {
+function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvance, onBg, onShot, onEnd, onDrop, onBack }) {
   const t = useTheme();
   const mine = (lines || []).filter(x => x.charId === partner.id);
   const [openId, setOpenId] = useState(null);
@@ -13105,8 +13115,13 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
       ] : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: IF_DIM, padding: "12px 0 6px" } },
         busy ? "他在写……" : line.endedAt ? "这条已经收了" : "点一下继续"),
       h("div", { className: "flex items-center justify-between", style: { marginTop: myTurn ? 9 : 2 } },
-        h("button", { onClick: () => onBg(line.id), disabled: !!bgBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
-          bgBusy ? "画着…" : bg ? "换张背景" : "生成背景图"),
+        h("div", { className: "flex items-center", style: { gap: 14 } },
+          h("button", { onClick: () => onBg(line.id), disabled: !!bgBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
+            bgBusy ? "画着…" : bg ? "换张背景" : "生成背景图"),
+          // ⚠️跟上面那颗是两件事：背景图是【纯空景】（这一页要压字的底板，没有人是对的），
+          //   这一颗才是你俩的脸。她 2026-09-06 问「为什么生图不出脸」，问的是那一张。
+          h("button", { onClick: () => onShot(line.id), disabled: !!shotBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
+            shotBusy ? "拍着…" : "拍张我俩")),
         line.endedAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "这条已经收了")
           : h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "就到这儿"))),
     // 侧栏：翻已经过去的那些拍
