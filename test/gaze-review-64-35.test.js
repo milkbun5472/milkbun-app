@@ -223,3 +223,41 @@ test("④ 提示词把「没变」也逼进 JSON 里", () => {
   assert.match(spec, /不许改成一句话回答「没什么要改的」/);
   assert.match(spec, /连 \/\/ 也不行/, "注释这条没说，模型爱在 null 后面写「\/\/ 没变」");
 });
+
+// ── v64.43：她第四轮把原文发过来了，写的是 ─────────────────────────────
+//   「The prompt could not be submitted. The prompt contains sensitive words…」
+//   而她补的一句更要紧：**「只有这个站子是这个，其他都是 empty response from Gemini API」**。
+//   两句话不一样，是同一件事：Gemini 把这一枪的【提示词本身】拦了。
+//
+// 病因两层，都不在提示词上：
+//   ① app 本来认识这两句（UPSTREAM_ERROR_PATTERNS 里两条都有，注释里还记着
+//      「她 2026-08-25 抓到过」），但那两条正则里的 `\b` 是【真正的退格字节 0x08】，
+//      从写下来那天起一次都没匹配过——所以拒绝话被当成模型正文，界面报「没解析出卡」。
+//      （那道闸在 test/no-control-chars-64-43.test.js，扫全库控制字符，不靠人看。）
+//   ② 拦得住之后还是得能用：这一枪把人设＋好感度＋长期记忆＋几十条聊天打成
+//      【一大段单条 user 消息】，比一来一回的聊天容易触发输入过滤器得多。
+//      全 app 的后台活儿本来就走后台线路，只有这两枪没跟上。
+test("⑤ 建卡和复看都改走后台线路优先（没配后台时行为不变）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  [["建卡", seed], ["复看", rev]].forEach(([zh, seg]) => {
+    assert.match(seg, /const p = bgActive \|\| apiFor\(char\.id\);/, zh + "还锁死在角色自己那条线路上");
+    // ⚠️顺序不许反：后台线路是【逃生口】，反过来写就等于没接
+    assert.doesNotMatch(seg, /apiFor\(char\.id\) \|\| bgActive/, zh + "的优先级反了");
+  });
+  // 跟全 app 那条约定是同一个形状（解梦生成那一路早就这么写了）
+  const dj = fs.readFileSync(path.join(__dirname, "..", "js", "dreamjournal.js"), "utf8");
+  assert.match(dj, /props\.bgApi \|\| \(props\.apiFor \? props\.apiFor\(char\.id\) : null\)/);
+});
+
+test("⑤ 被线路拦下来时，卡上那句话说的是【被拦】，不是「模型没按格式答」", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  // engine 认出上游错误之后抛的就是这一句
+  G.markReviewFail("c1", "线路报错（不是模型写的正文）：The prompt could not be submitted. The prompt contains sensitive words that violate Google's Generative AI Prohibited Use policy…");
+  assert.equal(G.reviewState("c1").err, "这条线路把提示词拦了（内容政策）");
+  // 另一个站子那句（同一件事，说法不同）
+  G.markReviewFail("c1", "线路报错（不是模型写的正文）：empty response from Gemini API");
+  assert.equal(G.reviewState("c1").err, "这条线路此刻没跑起来");
+});

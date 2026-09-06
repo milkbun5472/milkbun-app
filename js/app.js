@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.47";
+const APP_VERSION = "v64.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -602,7 +602,16 @@ function App() {
   const GAZE_AUTOSEED_MSGS = 30; // 聊够三十条(约十五个来回)才自动建卡:更早建出来的只会是人设复读
   const seedGazeFor = async (char, auto) => {
     if (gazeSeedBusy || !window.Gaze) return;
-    const p = apiFor(char.id);
+    // ⚠️后台线路优先（v64.43）。这一枪跟聊天不一样：它把【人设＋好感度＋长期记忆＋
+    //   最近几十条聊天】打成一大段单条 user 消息发出去，而不是一来一回的对话。
+    //   她 2026-09-06 抓到的就是这个——Gemini 的输入过滤器把整段拦了：
+    //   一个站子回「The prompt could not be submitted…（sensitive words）」，
+    //   别的站子回「empty response from Gemini API」，说法不同，都是同一件事。
+    //   全 app 的批量/后台活儿（解梦生成、B 影子…）本来就走后台线路，
+    //   **只有建卡和复看这两枪没跟上**——又是「一层写在两处，第二处没跟上」。
+    //   接上之后她只要把后台线路指成一条不拦这种内容的，这两枪就活了，
+    //   不用动角色自己那条（那条得管聊天）。没配后台线路时行为一个字不变。
+    const p = bgActive || apiFor(char.id);
     if (!p) return auto ? undefined : toast("请先配置 API");
     // 先记标记再打调用(照周刷那条「先记游标再刷」),但记的是【第几次】不是【试过没有】:
     // 一次网络抖动不该把这个角色一辈子仅有的机会静悄悄烧掉。上限三次,由 Gaze 那边兜。
@@ -671,7 +680,7 @@ function App() {
   //   原来两条路共用 reviewN，她手动重试几次就把自动那三次按光了。
   const reviewGazeFor = async (char, manual) => {
     if (gazeReviewBusy || !window.Gaze || !window.Gaze.reviewSpec) return;
-    const p = apiFor(char.id);
+    const p = bgActive || apiFor(char.id);   // 同建卡：后台线路优先，理由写在上面那一处
     if (!p) return;
     if (window.Gaze.markReview) window.Gaze.markReview(char.id, manual);   // 先记游标再刷
     setGazeReviewBusy(true);

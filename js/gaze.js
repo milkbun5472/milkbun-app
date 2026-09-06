@@ -317,6 +317,13 @@
     //   它的原话是「…＝上游直接打回来了（拦截／格式／配额），**不是超时**」——
     //   里头带着「超时」两个字。先跑下面那条 /超时/ 的话，
     //   一句明说「不是超时」的诊断会被判成超时（我第一版就是这么写反的，测试当场逮到）。
+    // 上游把【提示词本身】拦了（内容政策），不是模型不会答、也不是线路坏了。
+    // 她 2026-09-06 遇到的就是这一种：Gemini 回的原话是
+    // 「The prompt could not be submitted. The prompt contains sensitive words…」。
+    // ⚠️这句得排在「线路报错」前面：它更具体，说的是【为什么】被拦，
+    //   而「线路报错」只说了「没跑起来」——换条线路是对的做法，但不知道换的理由。
+    if (/not be submitted|prohibited use|sensitive words|was blocked|safety|内容政策/i.test(m)) return "这条线路把提示词拦了（内容政策）";
+    if (/线路报错/.test(m)) return "这条线路此刻没跑起来";
     if (/上游直接打回来/.test(m)) return "上游把这次请求打回来了";
     if (/等到一半才断/.test(m)) return "等太久，超时了";
     if (/解析|JSON|parse/i.test(m)) return "模型没按格式答";

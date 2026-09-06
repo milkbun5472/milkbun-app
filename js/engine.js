@@ -499,11 +499,18 @@ function captureWirePayload(fmt, url, body, opts, attempt) {
 // 方向指错了：模型根本没跑，是这条线路此刻不通。
 // 判据收得很紧：必须【从头】就是这些话，或者整条短到不可能是正文却带着这些字眼；
 // 角色本人用英文说话不该被误伤。
+// ⚠️2026-09-06：这七条里有【四条从写下来那天起一次都没生效过】。
+//   源码里 `\b` 那两个字符被写成了一个【真正的退格字节 0x08】——看上去一模一样，
+//   实际要求文本里真有个退格符，那永远不可能。于是
+//   「The prompt could not be submitted…」这条（就是为她 2026-08-25 报的那次加的）
+//   一路放行，被当成模型写的正文塞给 extractJSON，界面上显示「没解析出卡」。
+//   ⚠️判据：**正则里看不见的字符，肉眼永远查不出来**。所以另有一条闸扫全库控制字符
+//   （test/no-control-chars-64-43.test.js），不靠人看。
 const UPSTREAM_ERROR_PATTERNS = [
-  /^empty response from/i,
-  /^the prompt could not be submitted/i,
-  /^(an )?(internal (server )?error|bad gateway|service unavailable|gateway time-?out)/i,
-  /^upstream (error|request failed)/i,
+  /^empty response from\b/i,
+  /^the prompt could not be submitted\b/i,
+  /^(an )?(internal (server )?error|bad gateway|service unavailable|gateway time-?out)\b/i,
+  /^upstream (error|request failed)\b/i,
   /^\{?\s*"?error"?\s*[:：]/,
   /^request failed with status code \d+/i,
   /^\[?(GoogleGenerativeAI|OpenAI|Anthropic) ?Error\]?/i
