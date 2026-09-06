@@ -585,6 +585,27 @@ const phoneNameNorm = v => String(v == null ? "" : v).replace(/[\s。，、,.!�
 //   *.account.month* / points（本月统计）、latenight.me.lastAt / note、
 //   latenight.me.note
 const PHONE_TIME_FIELDS = ["time", "date", "savedAt", "lastAt"];
+// 「这封存了多久」那一句（她 2026-09-06 抓到「已经存了 9月3日」）。
+// 病根：savedAt 问的是【存了多久】（一段时长），可 phoneFreezeTime 会把
+// 「存了三天」这种相对写法冻成绝对日期——冻是对的（放两周之后「存了三天」就是谎话），
+// 错的是【冻完之后那句话没跟着变】：时长的句式套在日期上就成了病句。
+// 所以这句话自己算：冻过的行身上有 _ts，用它现算天数；没有 _ts 就按 savedAt
+// 长什么样挑句式，绝不硬往「已经存了 X」里塞。
+function phoneKeptLine(x, nowTs) {
+  const raw = String((x && x.savedAt) || "").trim();
+  const ts = x && x._ts;
+  if (ts != null && Number.isFinite(Number(ts))) {
+    const d = Math.floor(((nowTs || Date.now()) - Number(ts)) / 86400000);
+    if (d <= 0) return "今天存下的，还没发。";
+    return "已经存了 " + d + " 天。";
+  }
+  if (!raw) return "";
+  // 冻成日期了（9月3日 / 2025年3月1日 / 3-1）：那就用日期的说法
+  if (/\d+\s*月|\d{4}\s*年|\d{1,2}\s*-\s*\d{1,2}/.test(raw)) return raw + "写下的，一直没发。";
+  // 模型自己写的时长：可能带「存了」也可能不带，别拼成「已经存了存了三天」
+  // 空格只在数字前面加（「存了 11 天」好看，「存了 三天」难看）
+  return /^(存|放|搁)/.test(raw) ? "已经" + raw + "。" : "已经存了" + (/^\d/.test(raw) ? " " : "") + raw + "。";
+}
 const phoneTimeField = x => (x && typeof x === "object") ? PHONE_TIME_FIELDS.find(k => typeof x[k] === "string" && x[k].trim()) : undefined;
 // 一行的身份：由内容决定，不用模型自己编的 id（那玩意儿每次都变，或者反过来撞车）
 const phoneRowKey = x => {
@@ -1566,7 +1587,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: MAIL_INK, marginTop: 5, wordBreak: "break-word" } }, S(open.thought))) : null,
       open._kind === "drafts" ? h("div", {
         style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: "#b6473c", lineHeight: 1.8 }
-      }, "这封一直没发出去。" + (S(open.savedAt) ? "已经存了 " + S(open.savedAt) + "。" : "")) : null,
+      }, "这封一直没发出去。" + phoneKeptLine(open, Date.now())) : null,
       onPeek ? h("button", {
         onClick: () => onPeek({
           tier: open._kind === "drafts" ? "hidden" : "quiet",
@@ -6783,8 +6804,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 if (typeof window !== "undefined") window.PhoneKit = {
   ownOnlyBlock: phoneOwnOnlyBlock,
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
-  dropDupWechat: phoneDropDupWechat,
+  dropDupWechat: phoneDropDupWechat, keptLine: phoneKeptLine,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
   photoSig: phonePhotoSig
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
