@@ -51,13 +51,13 @@ test("连着刷完这一周欠的，每个人都是成没成都先记账", () =>
   const i = app.indexOf("  const phoneWeeklySweep = async () => {");
   const seg = app.slice(i, app.indexOf("  const phoneMoneyFor = char =>"));
   assert.match(seg, /for \(const due of pending\) \{/, "还是只补一个");
-  assert.match(seg, /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "游标比对没了就会每次唤起都刷");
+  assert.match(seg, /window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)/, "游标比对没了就会每次唤起都刷");
   // 记账必须在循环【里面】、每个人各记各的：整轮跑完才一起记的话，
   // 中途关掉 app 就等于这一周谁都没记上，下次唤起从头再刷一整轮
   const loop = seg.slice(seg.indexOf("for (const due of pending)"));
-  assert.ok(loop.indexOf("saveJSON(\"x_phoneAuto\", n)") >= 0, "记账掉到循环外面了,中途退出就整轮重刷");
+  assert.ok(loop.indexOf('AutoGate.claim("phone|" + due.id, wk)') >= 0, "记账掉到循环外面了,中途退出就整轮重刷");
   // 先记游标再刷：中途失败也不该下次唤起又整份重刷
-  assert.ok(loop.indexOf("saveJSON(\"x_phoneAuto\", n)") < loop.indexOf("await genPhoneAll(due, true)"),
+  assert.ok(loop.indexOf('AutoGate.claim("phone|" + due.id, wk)') < loop.indexOf("genPhoneAll(due, true)"),
     "先刷后记账的话，失败一次就会每次唤起重来");
 });
 

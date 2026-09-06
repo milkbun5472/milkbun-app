@@ -658,6 +658,13 @@ async function callAI(p, system, messages, opts) {
   // baseUrl 没填对（空/没 http 前缀/残留中文占位或空格）时，浏览器 fetch 会抛天书 DOMException
   // 「the string did not match the expected pattern」——这里提前拦成看得懂的话，指到具体线路。
   if (!p.proxyRef && !/^https?:\/\/\S+$/i.test(base)) throw new Error("这条线路的接口地址填得不对：「" + (p.baseUrl || "（空）") + "」——去设置·API 检查【" + (p.name || model || "该线路") + "】的 baseUrl（要以 http(s):// 开头，别留空格或中文占位）");
+  // ⚠️记账数在这一处：全库所有调用（runProbe 也是）都从 callAI 过，一处数完就是全的；
+  //   各功能自己数一份的话，漏掉哪一处永远不知道——她 2026-09-06 问「我昨天都在修 bug，
+  //   绝对没调用 800 次」，而当时 app 里根本答不了这句话。
+  //   ⚠️位置必须在上面那几道检查【之后】：没填密钥、地址填错这些是【压根没发出去】，
+  //   中转站不会收她的钱，数进来就成了比账单还大的假数。数的是【发出去了几次】——
+  //   发出去之后失败的那几次照旧算，因为她按次计费，那些是真收钱的。
+  try { if (typeof window !== "undefined" && window.ApiMeter) window.ApiMeter.note(opts.tag); } catch (e) {}
   // 云端密钥代理（v49.38）：线路填了 proxyRef（如 DZZI/ANTHROPIC）就借道 llm-proxy 函数——
   // 密钥住 Supabase secrets，浏览器一个字不存；函数只认 Lisa 本人登录态+域名白名单
   const viaProxy = p.proxyRef ? (url, bodyObj, xh) => {
@@ -6298,11 +6305,13 @@ async function runProbe(p, ctx, probe) {
   //（形状照抄 StylePresets 里那个 tooBig）。
   const tooBig = e => /max_tokens|max output|maximum.*token|too large|invalid.*token/i.test(String((e && e.message) || e || ""));
   let raw;
+  // tag 只为记账：probe 上写了就带下去，没写就落进「其它」（见 ApiMeter）
+  const _tag = probe.tag || "";
   try {
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag });
   } catch (e) {
     if (!tooBig(e) || want <= 8000) throw e;
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag });
   }
   let parsed = extractJSON(raw);
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
@@ -6311,7 +6320,7 @@ async function runProbe(p, ctx, probe) {
   if (!parsed) {
     try {
       const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
-        [{ role: "user", content: "重来一次。" }], { maxTokens: want });
+        [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag });
       parsed = extractJSON(again);
       if (parsed) return parsed;
       raw = again;

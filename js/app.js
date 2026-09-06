@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.01";
+const APP_VERSION = "v65.03";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7643,7 +7643,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -7653,7 +7653,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -10166,8 +10166,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   · 周日 0 点起 → 排【下一周】(周一~周日)，一周一次；
   //   · 引导（新角色 / 头一回用）：今天完全没日程 → 补【今天到本周日】，也只补一次；
   //   · 失败也写账，最多补三次、每次至少隔两小时。宁可当天没日程，也不许它循环烧钱。
-  const SCHED_WEEK_MARK_KEY = "x_schedWeekMark";
-  const SCHED_WEEK_RETRY_MS = 2 * 3600000, SCHED_WEEK_MAX_TRIES = 3;
   const schedMondayOf = dayKey => schedShiftDayKey(dayKey, -((schedParseKey(dayKey).getDay() + 6) % 7));
   const schedGenAllToday = async () => {
     if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
@@ -10178,17 +10176,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const k = schedLocalDayKey(c), p = (schedulesRef.current[c.id] || {})[k];
       if (p && p.kind === "plan") saveSchedDay(c.id, k, { ...p, kind: "live" });
     });
-    const marks = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
-    const now = Date.now(), jobs = [];
+    const jobs = [];
     liveChars.filter(c => autoRefreshOn("schedule", c.id)).forEach(c => {
       const today = schedLocalDayKey(c);
       const dowMon = (schedParseKey(today).getDay() + 6) % 7;   // 周一=0 … 周日=6
       const thisMon = schedMondayOf(today), nextMon = schedShiftDayKey(thisMon, 7);
       const have = schedulesRef.current[c.id] || {};
+      // ⚠️这份闸原来是这儿手写的（成败都记、两小时冷却、封顶三次）。
+      //   它写得是对的，但同一层规则活在好几处就是下次改的时候必漏一处——
+      //   她 2026-09-06：「以后这种形状都开公共然后合在一起，不要照着已有的新开」。
+      //   所以搬进 AutoGate，参数一模一样（MAX_TRIES 3 / COOLDOWN 两小时）。
       const pick = (weekKey, from, count) => {
-        const id = c.id + "|" + weekKey, m = marks[id];
-        if (m && (m.tries >= SCHED_WEEK_MAX_TRIES || now - m.ts < SCHED_WEEK_RETRY_MS)) return;
-        jobs.push({ c, from, count, id, tries: m ? m.tries : 0 });
+        if (!window.AutoGate.due("schedule|" + c.id, weekKey)) return;
+        jobs.push({ c, from, count, weekKey });
       };
       if (dowMon === 6) pick(nextMon, nextMon, 7);              // 周日 0 点起排下一周
       if (!have[today]) pick(thisMon, today, 7 - dowMon);       // 引导：补到本周日为止
@@ -10197,15 +10197,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     schedRunRef.current = true;
     try {
       for (const j of jobs) {
-        let ok = false;
-        try { ok = await genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }); } catch (e) {}
-        // ⚠️成败都记账：不记的话失败一次就会每次切回前台重来一遍
-        const cur = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
-        cur[j.id] = { ts: Date.now(), tries: ok ? SCHED_WEEK_MAX_TRIES : j.tries + 1 };
-        // 只留最近 40 条，别让这本账越攒越厚
-        const ks = Object.keys(cur);
-        if (ks.length > 40) ks.sort((a, b) => (cur[a].ts || 0) - (cur[b].ts || 0)).slice(0, ks.length - 40).forEach(k => delete cur[k]);
-        saveJSON(SCHED_WEEK_MARK_KEY, cur);
+        await window.AutoGate.run("schedule|" + j.c.id, j.weekKey,
+          () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }));
       }
     } finally {
       schedRunRef.current = false;
@@ -10489,13 +10482,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 原来是 useEffect([screen]) 只在 screen==="diary" 时才跑，所以过了零点必须点进日记
     // 才开始生成（她反复修过几次的老问题）。改成任意界面都跑之后，屏幕型的锁就不成立了，
     // 否则同一天会被反复触发；跨到第二天时 dayKey 变化，锁自然失效。
+    // ⚠️内存里那把锁一刷新就没了。补写失败时它留不下任何痕迹，于是【每刷新一次
+    //   就把所有角色重打一遍】——她 2026-09-06 那 800 次调用有一大半是这么来的。
+    //   闸改走公共那一层（AutoGate）：成了这一天不再跑，没成也记一笔、隔两小时才重试、
+    //   最多试三次。判据是【日记真落盘了吗】，不是【没报错】。
     if (diaryRunRef.current === dayKey) return;
     diaryRunRef.current = dayKey;
     try {
       for (const c of characters) {
         if (!autoRefreshOn("diary", c.id)) continue;
         if (diaryWroteFor(c.id, targetTs)) continue;
-        await genDiary(c.id, { manual: false });
+        await window.AutoGate.run("diary|" + c.id, dayKey, async () => {
+          await genDiary(c.id, { manual: false });
+          return diaryWroteFor(c.id, targetTs);
+        });
       }
     } catch (e) { diaryRunRef.current = false; } // 整批失败就放开，下次开 app 或换天再补
   };
@@ -10723,7 +10723,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     if (!todo.length) return;
     desireRunRef.current = true;
-    try { for (const c of todo) await desireMuseFor(c); } finally { desireRunRef.current = false; }
+    // ⚠️发不出呆的时候 lastMuse 不会被写上，于是每次开 app 重来一遍。走公共闸。
+    try { for (const c of todo) await window.AutoGate.run("desire|" + c.id, today, () => desireMuseFor(c)); }
+    finally { desireRunRef.current = false; }
   };
   // P2 三节奏后两拍（v48.23）：盘一盘=每10天盘盒子（校准js钳±0.15/毕业出师那句入长出来的自我/枯萎），回头看=每90天季度自述。
   // 同样只有角色落笔、走便宜池；首次见到的盒子只记基准日不当天跑（防连环烧）；失败不记基准日、下个 tick 重试。
@@ -10802,6 +10804,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const todo = liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("impression", c.id)
         && !((book0[c.id] || []).some(x => x.monthKey === monthKey)));
       for (const char of todo) {
+        // ⚠️写成了才算数、没写成什么都不记的话，每次开 app 都会把整批重跑一遍
+        //   （这一枪还可能顺带出一张图）。走公共闸。
+        if (!window.AutoGate.due("impression|" + char.id, monthKey)) continue;
+        let _impOk = false;
         try {
           // 素材面照 ImpressionApp 的 make：云端归档 + 本地窗口 + 互通群（封闭群不算）
           const arch = {};
@@ -10826,7 +10832,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           next[char.id] = [{ id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, turn: 0, ts: Date.now() }]
             .concat((next[char.id] || []).filter(x => x.monthKey !== monthKey));
           M.save(next);
+          _impOk = true;
         } catch (e) {/* 单人失手不拖累后面几个 */}
+        window.AutoGate.mark("impression|" + char.id, monthKey, _impOk);
       }
     } finally { impressionAutoRunRef.current = false; }
   };
@@ -10875,8 +10883,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (phoneWeekRunRef.current || !active || !autoRefreshOn("phone")) return;
     const wk = typeof phoneWeekKey === "function" ? phoneWeekKey(Date.now()) : null;
     if (!wk) return;
-    const box = phoneAutoRef.current || { on: {}, done: {} };
-    const pending = liveChars.filter(c => c && autoRefreshOn("phone", c.id) && (box.done || {})[c.id] !== wk);
+    // ⚠️这份「上次刷到哪一周」的游标原来是这儿自己存的（x_phoneAuto.done）。
+    //   同一层规则活在好几处，下次改必漏一处——搬进公共那把闸（AutoGate）。
+    //   ⚠️用 claim 不用 run：这一枪是【十五次串行调用】，跑之前就得占住这一轮，
+    //   中途关掉浏览器也不许下次开机整份重跑。想补由她自己进去点刷新。
+    const pending = liveChars.filter(c => c && autoRefreshOn("phone", c.id) && window.AutoGate.due("phone|" + c.id, wk, { maxTries: 1 }));
     if (!pending.length) return;
     phoneWeekRunRef.current = true;
     let done = 0;
@@ -10888,19 +10899,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 而且开了五个角色就得来回切五次前台才刷得完。周刊那条链就是这个形状——
       // 一步一步 await，每一步各自兜底，一个人失手不拖垮后面几个。
       for (const due of pending) {
-        // 先记游标再刷：中途失败也不该在下一次唤起时又整份重刷一遍（那是十几次调用）。
-        // 想补就她自己进去点刷新。
-        setPhoneAuto(p => {
-          const n = { on: { ...(p.on || {}) }, done: { ...(p.done || {}), [due.id]: wk } };
-          phoneAutoRef.current = n;
-          saveJSON("x_phoneAuto", n);
-          return n;
-        });
+        // 先占住这一轮再刷（同上）
+        window.AutoGate.claim("phone|" + due.id, wk);
         // 一个人十几次串行调用，几个人要跑好一阵。每换一个人报一次，
         // 不然中间那几分钟她看不出是在跑还是卡住了。
         setPhoneWeekAt({ id: due.id, name: due.remark || due.name, i: done + 1, n: pending.length });
         try {
-          const r = await genPhoneAll(due, true);
+          const r = await window.AutoGate.tagged(window.AutoGate.labelOf("phone"), () => genPhoneAll(due, true));
           if (r && r.ok < r.total) thin.push(due.remark || due.name);
           done++;
         } catch (e) {/* 单个角色硬失败就跳过，不拖垮这一轮剩下的人 */ }
@@ -11687,11 +11692,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (lastKey >= cutoffKey) return;
     const cursor = schedParseKey(lastKey);
     const stop = schedParseKey(cutoffKey);
+    // ⚠️applyWalletDay 里那一枪失败的话 lastDailyKey 不会往前走，于是【同一天
+    //   每次开 app 都重补一遍】。走公共闸：那一天补不成就记一笔，隔两小时再说。
     let guard = 0;
     while (cursor < stop && guard < 14) {
       cursor.setDate(cursor.getDate() + 1);
       guard++;
-      await applyWalletDay(char, schedDayKey(cursor));
+      const dk = schedDayKey(cursor);
+      const r = await window.AutoGate.run("wallet|" + char.id, dk, async () => {
+        await applyWalletDay(char, dk);
+        const now2 = charWalletRef.current[char.id];
+        return !!(now2 && now2.lastDailyKey >= dk);
+      });
+      if (r !== "ok") break;   // 这一天没补成就别往后补了，顺序断了后面全是错的
     }
   };
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
@@ -18818,9 +18831,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenWeek: async c => {
       const today = schedLocalDayKey(c), dowMon = (schedParseKey(today).getDay() + 6) % 7;
       const ok = await genScheduleWeek(c, { force: true, from: today, count: 7 - dowMon });
-      const cur = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
-      cur[c.id + "|" + schedMondayOf(today)] = { ts: Date.now(), tries: ok ? SCHED_WEEK_MAX_TRIES : 1 };
-      saveJSON(SCHED_WEEK_MARK_KEY, cur);
+      window.AutoGate.mark("schedule|" + c.id, schedMondayOf(today), ok);
     }
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
     // 预览台回来时直接落在主题工作台那一栏，不用她再翻一次（v65.00）

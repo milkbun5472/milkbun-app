@@ -72,11 +72,14 @@ test("档案馆里有性别这一栏，存得下、默认不指定", () => {
 const app = R("app.js");
 test("每周刷新一次把这一周欠的全刷完", () => {
   const sweep = app.slice(app.indexOf("  const phoneWeeklySweep = async () => {"), app.indexOf("  const phoneAutoToggle = charId =>"));
-  assert.match(sweep, /const pending = liveChars\.filter\(c => c && autoRefreshOn\("phone", c\.id\) && \(box\.done \|\| \{\}\)\[c\.id\] !== wk\)/, "没算出这一周还有谁欠着");
+  // v65.03 起周次游标走公共那把闸（AutoGate），规矩没变
+  assert.match(sweep, /const pending = liveChars\.filter\(c => c && autoRefreshOn\("phone", c\.id\) && window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)\)/, "没算出这一周还有谁欠着");
   assert.match(sweep, /for \(const due of pending\) \{/, "退回成一次只补一个了");
   assert.ok(sweep.indexOf("pending[0]") < 0, "还留着「只取第一个」");
-  assert.match(sweep, /await genPhoneAll\(due, true\);/, "没告诉生成侧这是例行刷新");
+  assert.match(sweep, /genPhoneAll\(due, true\)/, "没告诉生成侧这是例行刷新");
   // 每个人各自记游标、各自兜底：中途失败或关掉 app 都不该下次整轮重刷
   const loop = sweep.slice(sweep.indexOf("for (const due of pending)"));
-  assert.ok(loop.indexOf("saveJSON(\"x_phoneAuto\", n)") < loop.indexOf("await genPhoneAll"), "先刷后记游标,失败一次就会重刷");
+  assert.ok(loop.indexOf('AutoGate.claim("phone|" + due.id, wk)') >= 0
+    && loop.indexOf('AutoGate.claim("phone|" + due.id, wk)') < loop.indexOf("genPhoneAll(due, true)"),
+    "先刷后记游标,失败一次就会重刷");
 });

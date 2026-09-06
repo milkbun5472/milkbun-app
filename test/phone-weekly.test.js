@@ -15,7 +15,10 @@ const sweep = app.match(/const phoneWeeklySweep = async \(\) => \{[\s\S]*?\n  \}
 test("靠周次游标防重复，不靠闹钟", () => {
   assert.ok(sweep, "找不到 phoneWeeklySweep");
   assert.match(sweep[0], /phoneWeekKey\(Date\.now\(\)\)/);
-  assert.match(sweep[0], /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "没比对「这一周刷过没有」");
+  // ⚠️v65.03 起这份周次游标搬进公共那把闸（AutoGate）：同一层规则原来活在三处，
+  //   下次改必漏一处（她 2026-09-06：「这种形状都开公共然后合在一起」）。
+  //   规矩一个字没变：这一周刷过就不再刷、先占坑再刷、maxTries 1 表示不重试。
+  assert.match(sweep[0], /window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)/, "没比对「这一周刷过没有」");
   // 代码里不许出现定时器式的写法
   assert.ok(sweep[0].indexOf("setTimeout") < 0 && sweep[0].indexOf("setInterval") < 0,
     "别用定时器——PWA 后台不跑代码，半夜那一拍根本不会响");
@@ -41,7 +44,7 @@ test("一次唤起把这一周欠的全刷完，刷完一个接下一个", () =>
   assert.match(sweep[0], /if \(!pending\.length\) return;/, "没人要刷的时候没有早退");
   // 周刊那条链的形状：一个人失手不拖垮后面几个
   const body = sweep[0].slice(sweep[0].indexOf("for (const due of pending)"));
-  assert.match(body, /try \{[\s\S]*await genPhoneAll\(due, true\)[\s\S]*\} catch/, "循环里没各自兜底,一个人抛了后面全不刷");
+  assert.match(body, /try \{[\s\S]*genPhoneAll\(due, true\)[\s\S]*\} catch/, "循环里没各自兜底,一个人抛了后面全不刷");
   assert.match(sweep[0], /phoneWeekRunRef\.current = true/, "没有并发闸，来回切前台会叠着跑");
 });
 
@@ -61,7 +64,9 @@ test("跑的时候看得见正在刷谁、刷到第几个", () => {
 });
 
 test("先记游标再刷：中途失败不会下次又整份重刷", () => {
-  const i = sweep[0].indexOf("setPhoneAuto");
+  // ⚠️占坑必须在真正开刷【之前】：这一枪是十五次串行调用，中途关掉浏览器
+  //   也不许下次开机整份重跑。AutoGate.claim 就是「先占住这一轮」那一档。
+  const i = sweep[0].indexOf('AutoGate.claim("phone|"');
   const j = sweep[0].indexOf("genPhoneAll");
   assert.ok(i >= 0 && j >= 0 && i < j, "游标得在真正开刷之前落下");
   assert.match(sweep[0], /genPhoneAll\(due, true\)/, "没告诉生成侧这是例行刷新");
@@ -84,6 +89,6 @@ test("没配 API、没开开关、这周刷过了，都不动", () => {
   // 每个角色自己的开关：以前是 box.on[c.id]，后来并进了统一的 autoRefreshOn 策略。
   // 名字换了，规矩没换——默认全关、一个一个角色自己开（她按次计费）
   assert.match(sweep[0], /autoRefreshOn\("phone", c\.id\)/, "没按角色看开关，会把没开的人也刷了");
-  assert.match(sweep[0], /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "没看周次游标，这周刷过了还会再刷一遍");
+  assert.match(sweep[0], /window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)/, "没看周次游标，这周刷过了还会再刷一遍");
   assert.match(sweep[0], /if \(!pending\.length\) return;/, "这一周谁都不欠的时候也往下走");
 });

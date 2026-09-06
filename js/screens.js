@@ -7094,6 +7094,44 @@ function ConfigPanel({ children, flush }) {
   } }, children);
 }
 
+// 今天打了几枪（v65.03）。她 2026-09-06：「api 站子 24 小时用掉 8 块，一次 call 一分钱，
+// 我昨天都在修 bug，绝对没调用 800 次」——当时 app 里【答不了这句话】，
+// 只有一个 window.__cacheStat()，留 30 条、刷新就清空，等于永远查不了。
+// ⚠️数的是【发出去几次】不是【成功几次】：她按次计费，失败那次照样收钱。
+//   所以这张卡上的数就是她账单上的数，不是「有用的那几次」。
+function ApiMeterCard({ toast }) {
+  const t = useTheme();
+  const [days, setDays] = useState(() => (window.ApiMeter ? window.ApiMeter.recent(7) : []));
+  const [open, setOpen] = useState(false);
+  const refresh = () => setDays(window.ApiMeter ? window.ApiMeter.recent(7) : []);
+  useEffect(() => { const i = setInterval(refresh, 4000); return () => clearInterval(i); }, []);
+  const today = days[0] || { day: "", n: 0, by: {} };
+  const rows = Object.keys(today.by || {}).map(k => [k, today.by[k]]).sort((a, b) => b[1] - a[1]);
+  const max = rows.length ? rows[0][1] : 1;
+  const week = days.reduce((n, d) => n + (d.n || 0), 0);
+  return h("div", { style: { marginBottom: 22, borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 15px 12px" } },
+    h("div", { className: "flex items-end justify-between", style: { marginBottom: 2 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "今天往上游打了几枪"),
+        h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: t.ink } }, today.n),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "次"))),
+      h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+        h("div", null, "近七天 " + week + " 次"),
+        h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, padding: "4px 0 0" } }, open ? "收起" : "按天看"))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 4, marginBottom: rows.length ? 10 : 0 } },
+      "数的是发出去的次数——失败和重试那几次也算，因为账单上也算。"),
+    rows.map(([k, v]) => h("div", { key: k, style: { marginBottom: 7 } },
+      h("div", { className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } },
+        h("span", null, k), h("span", { style: { color: t.fog } }, v)),
+      h("div", { "aria-hidden": "true", style: { height: 4, borderRadius: 999, background: t.line, marginTop: 3, overflow: "hidden" } },
+        h("div", { style: { width: Math.max(3, Math.round(v / max * 100)) + "%", height: "100%", background: t.tint } })))),
+    !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0 2px" } }, "今天还没打过。") : null,
+    open ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.line } },
+      days.map(d => h("div", { key: d.day, className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "3px 0" } },
+        h("span", null, d.day), h("span", { style: { color: d.n > 200 ? t.accent : t.fog } }, d.n + " 次")))) : null);
+}
+
 function AutoRefreshConfig(props) {
   const t = useTheme();
   const policy = window.AutoRefreshPolicy.normalize(props.policy);
@@ -7110,6 +7148,7 @@ function AutoRefreshConfig(props) {
   return h("div", null,
     h("div", { style: { padding: "2px 2px 14px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
       "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
+    h(ApiMeterCard, { toast: props.toast }),
     groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
       h("div", { style: { padding: "0 2px 9px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, g.eyebrow),
@@ -7295,7 +7334,7 @@ function Config(props) {
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
-      page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar }),
+      page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));

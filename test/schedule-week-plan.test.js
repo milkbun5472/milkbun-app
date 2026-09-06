@@ -99,11 +99,14 @@ test("按周记账：一个角色一个周次只排一次，成没成都记账",
   const seg = app.slice(j, app.indexOf("const schedMaybeSelfRevise", j));
   assert.match(seg, /dowMon === 6\) pick\(nextMon, nextMon, 7\)/, "周日 0 点起排下一周");
   assert.match(seg, /if \(!have\[today\]\) pick\(thisMon, today, 7 - dowMon\)/, "引导只补到本周日");
-  assert.match(seg, /m\.tries >= SCHED_WEEK_MAX_TRIES \|\| now - m\.ts < SCHED_WEEK_RETRY_MS/, "退避");
-  assert.match(seg, /cur\[j\.id\] = \{ ts: Date\.now\(\), tries: ok \? SCHED_WEEK_MAX_TRIES : j\.tries \+ 1 \}/,
+  // ⚠️v65.03 起这份闸搬进公共那一层（AutoGate）：退避、成没成都记账这些规矩
+  //   一个字没变（MAX_TRIES 3 / 冷却两小时），只是不再由这一处自己写一遍。
+  //   她 2026-09-06：「这种形状都开公共然后合在一起，不要照着已有的新开」。
+  assert.match(seg, /window\.AutoGate\.due\("schedule\|" \+ c\.id, weekKey\)/, "退避");
+  assert.match(seg, /await window\.AutoGate\.run\("schedule\|" \+ j\.c\.id, j\.weekKey,\s*\n\s*\(\) => genScheduleWeek/,
     "失败也必须记账，不记就会每次切回前台重来");
   assert.ok(!/some\(k => !have\[k\]\)/.test(seg), "「缺一天就重排」那条判据必须已经删掉");
-  assert.match(app, /SCHED_WEEK_MARK_KEY = "x_schedWeekMark"/);
+  assert.ok(!/SCHED_WEEK_MARK_KEY/.test(app), "那份手写闸该删干净，不是留在原地");
 });
 
 // 便宜池（bgActive）——她 2026-08-26 问的，日程一律不许走主池
