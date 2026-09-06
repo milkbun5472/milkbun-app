@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.23";
+const APP_VERSION = "v64.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -553,6 +553,9 @@ function App() {
   const [geo, setGeo] = useState(null);
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
   const [worlds, setWorlds] = useState([]);   // 架空世界（x_worlds）：一份设定 + 区域骨架，地图每次现算
+  // ⚠️行程那条链是 async 的，跑起来时闭包里的 worlds 可能已经是旧的一份——
+  //   跟 schedulesRef / ifLinesRef 同一个做法，留一份 ref 给它读。
+  const worldsRef = useRef([]); worldsRef.current = worlds;
   const [worldBusy, setWorldBusy] = useState(false);
   const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
   const [apiProfiles, setApiProfiles] = useState([]);
@@ -3223,9 +3226,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (cy) return { time: "", title: cy.title, location: cy.location, type: "sleep", dev: false };
       return { time: "", title: "还没开始今天的安排", location: "", dev: false };
     }
-    return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
+    return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", place: cur.place || "", type: cur.type || "other", dev: !!cur.deviation };
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
+  // 今天他那儿什么天气——【看他住在哪套世界】（她 2026-09-06 那个「钉了温尼伯又钉了架空世界」）。
+  // ⚠️住在架空世界的角色不许再灌现实天气：一个王爷跟着温尼伯下雨，那句「外头下了一整天
+  //   的毛毛雨」就是这么来的。架空那边的天气本来就有（WorldWeather，按世界+地形现算，
+  //   一次调用都不用花）。
+  // ⚠️一层只写一处：单天那条链和整周那条链共用这一个，别再各取各的。
+  const schedWeatherLine = async char => {
+    try {
+      const realm = (window.MapKit && window.MapKit.charRealm) ? window.MapKit.charRealm(char, worldsRef.current || []) : { kind: "real" };
+      if (realm.kind === "world" && typeof WorldWeather !== "undefined") {
+        const w = WorldWeather.dayOf(realm.world.id + "|" + realm.node, realm.terrain, new Date());
+        return w ? (weatherLine(w) + "（" + realm.world.name + "·" + realm.node + "）") : "";
+      }
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+      return hm ? weatherLine(await weatherFor(hm.lat, hm.lng)) : "";
+    } catch (e) { return ""; }
+  };
   const mapStatusAll = () => { const m = {}; liveChars.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
   // 「此刻是不是真和用户面对面」——不只看线下 session 开着，还看【最近一拍够不够新】（她 2026-07-23）：
   //   线下可能开着但他俩已在剧情里分开/各自去忙，或就是没关线下挂着；那时角色该能正常线上找人/找用户/在群里聊，别死锁。
@@ -9552,10 +9571,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 聊天经 schedNow 顺带看到，不另加聊天注入（Lisa 的减负思路：少一个常驻）
       let wline = "";
       if (!retro && !isDigital) {
-        try {
-          const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
-          if (hm) wline = weatherLine(await weatherFor(hm.lat, hm.lng));
-        } catch (e) {}
+        wline = await schedWeatherLine(char);
       }
       const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const schedInstr = isDigital
@@ -9565,7 +9581,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         // ⚠️占位值写【说明】，不写【样例内容】：写成「起床，晨间咖啡／家里厨房」的话，
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
-        : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（贴着他那个世界的地名／处所）\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
+        : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他人在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
@@ -9575,7 +9591,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const plan = {
         load: d.load || "NORMAL",
         estTime: Number(d.estTime) || null,
-        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
+        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
         // 今天先不留碎碎念（明天回看时补）；回溯的过去日才当场写
         murmurs: retro ? (Array.isArray(d.murmurs) ? d.murmurs : []).filter(m => m && m.text) : [],
         generatedAt: Date.now()
@@ -9630,10 +9646,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }).join("\n");
       let wline = "";
       if (!isDigital) {
-        try {
-          const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
-          if (hm) wline = weatherLine(await weatherFor(hm.lat, hm.lng));
-        } catch (e) {}
+        wline = await schedWeatherLine(char);
       }
       const instr = (isDigital
         ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】接下来这几天的【存在时间线】。他没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱。"
@@ -9650,7 +9663,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + schedPeerBlock(char, want)
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE;
       // ⚠️同上：占位值只写说明，别给样例内容（一层写在两处，这是第二处）
-      const schema = "{\"days\":[{\"day\":\"" + want[0] + "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（贴着他那个世界的地名／处所）\",\"type\":\"从给定那几个词里挑最接近的\",\"deviation\":null}]}]}"
+      const schema = "{\"days\":[{\"day\":\"" + want[0] + "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他人在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从给定那几个词里挑最接近的\",\"deviation\":null}]}]}"
         + "（days 数组按上面列出的日子一天一项，day 逐字用上面的日期字符串；type 从 coffee/work/create/meal/rest/sleep/social/out 里选）";
       const raw = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: instr, schemaHint: schema, maxTokens: 8000
@@ -9664,6 +9677,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const clean = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(dd) : dd;
         const seqs = schedFillEnds((Array.isArray(clean.seqs) ? clean.seqs : []).map((x, i) => ({
           seq: i + 1, time: x.time || "", end: x.end || "", title: x.title || "", location: x.location || "",
+          // 「大地方」：城／坊市／宅院这一级，专门给两张地图对地名用（v64.24）
+          place: x.place || "",
           type: x.type || "other",
           // 未来那几天一律不许带偏差——还没发生的事没有「被打断」这回事
           deviation: (key === today && x.deviation && (x.deviation.plan || x.deviation.reason)) ? x.deviation : null
@@ -9764,7 +9779,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           });
           const d = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(rawRevision) : rawRevision;
           if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
-            const seqs = schedFillEnds(d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null })));
+            const seqs = schedFillEnds(d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null })));
             const cur = (schedulesRef.current[c.id] || {})[today] || plan;
             saveSchedDay(c.id, today, { ...cur, seqs: seqs, selfRevCheck: true, selfRevisedAt: Date.now() });
           }

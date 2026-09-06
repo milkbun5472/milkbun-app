@@ -90,12 +90,38 @@ function mapSubSkin(t) {
       geoBump = function () { tick(function (n) { return n + 1; }); };
       (characters || []).forEach(function (c) {
         const st = (status || {})[c.id];
-        if (st && st.location && !geoHit(c, st.location)) geoWant(c, st.location);
+        const q2 = st && (st.place || st.location);
+        if (q2 && !geoHit(c, q2)) geoWant(c, q2);
       });
       return function () { geoBump = null; };
     });
   }
   function charHome(char) { const hm = char && char.home; return hm && typeof hm.lat === "number" ? hm : null; }
+  // 他到底住在哪一套世界里（她 2026-09-06：「比如说王爷我钉到温尼伯和一个架空世界
+  // 这种怎么算呢」）。
+  //
+  // 判据一句话：**他被钉进哪个架空世界，他就住在那个世界。** 没钉进任何世界，才算住在现实。
+  // 理由是这一钉是她【专门为这个人做的动作】，而 home 那个坐标常常只是随手给的一个参照
+  //（没设城市的角色本来就会被撒在她定位附近）。取消那一钉，他自己就回现实。
+  //
+  // 谁在乎这件事：① 现实地图不再画住在架空世界里的人（不然一个王爷插在温尼伯街上）；
+  //              ② 行程那一枪不再给他灌现实天气——古代那位不该跟着温尼伯下雨。
+  function charRealm(char, worlds) {
+    if (!char) return { kind: "real" };
+    const list = Array.isArray(worlds) ? worlds : [];
+    for (let i = 0; i < list.length; i++) {
+      const w = list[i], node = w && w.pins && w.pins[char.id];
+      if (node) return { kind: "world", world: w, node: node, terrain: terrainOfNode(w, node) };
+    }
+    return { kind: "real" };
+  }
+  function terrainOfNode(world, node) {
+    let t = "";
+    ((world && world.regions) || []).forEach(function (r) {
+      ((r && r.nodes) || []).forEach(function (n) { if (n && String(n.name) === String(node)) t = String(r.terrain || ""); });
+    });
+    return t || "平原";
+  }
   // 没设城市的角色：按 id 稳定地在锚点(你的定位/温尼伯)附近撒开 ±0.024°(≈2.5km)，不重叠
   function charJitter(char) {
     const id = String((char && (char.id || char.name)) || "");
@@ -112,7 +138,11 @@ function mapSubSkin(t) {
     const j = charJitter(char);
     // 行程里写了地名、而且查到过坐标：直接站到那个真地方去（只叠 jitter，不叠活动偏移，
     // 那个偏移本来就是「不知道他具体在哪」时的替代品）
-    const g = st && st.location ? geoHit(char, st.location) : null;
+    // ⚠️先认 place（城／坊市这一级），再认 location（具体处所）。
+    //   她 2026-09-06：「角色好像都不会随着日程移动」——根因是行程写的是【他家里的一个房间】，
+    //   而这张图上查得到的是【城市级】的地名，永远搜不到，于是永远退回落脚点。
+    const q = (st && (st.place || st.location)) || "";
+    const g = q ? geoHit(char, q) : null;
     if (g && g !== "miss") return [g[0] + j[0], g[1] + j[1]];
     let lat = anc.lat + j[0], lng = anc.lng + j[1];
     const off = st && ACT_OFFSET[st.type]; if (off) { lat += off[0]; lng += off[1]; }
@@ -210,7 +240,9 @@ function mapSubSkin(t) {
       + "<circle cx='8' cy='8.4' r='2.3' fill='rgba(255,246,236,.92)'/></svg>";
   }
   // 主屏 2×2 实时小组件：就是一张地图，不写标题（她 2026-08-30 让删的：那块白渐变盖掉上沿快 50px）
-  function MapWidget({ characters, status, userGeo, onOpen }) {
+  // ⚠️worlds 必须传进来：现实图不画住在架空世界里的人，靠的就是它
+  //   （没传＝undefined＝所有人都算住现实，那这一层等于没有）
+  function MapWidget({ characters, status, userGeo, worlds, onOpen }) {
     const list = characters || [];
     useSchedGeo(list, status);
     const mapRef = useRef(null);
@@ -223,7 +255,7 @@ function mapSubSkin(t) {
     // 拿到定位就把组件地图对准你
     useEffect(function () { if (mapRef.current && myPos) { try { mapRef.current.setView(myPos, 12); } catch (e) {} } }, [myPos]);
     const anchor = myPos ? { lat: myPos[0], lng: myPos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
-    const pins = list.map(function (c) {
+    const pins = list.filter(function (c) { return charRealm(c, worlds).kind === "real"; }).map(function (c) {
       const st = (status || {})[c.id];
       return { pos: charPos(c, st, anchor), html: avatarHtml(c, 26), size: 26 };
     }).filter(function (p) { return p.pos; });
@@ -345,13 +377,17 @@ function mapSubSkin(t) {
     const names = worldNodeNames(world);
     const loc = String(st.location || "").trim();
     const title = String(st.title || "").trim();
-    // ① 行程写了地点，直接拿地点名对节点名
-    let hit = loc ? bestNode(names, loc, 0.34) : null;
+    const place = String(st.place || "").trim();
+    // ⓪ place 是【大地方】（城／坊市这一级），本来就是照着地图上的地名写的，
+    //    所以它最先对、门槛也最低（v64.24：她报「两张图都不动」，根因是粒度对不上）
+    let hit = place ? bestNode(names, place, 0.28) : null;
+    // ① 再拿细地点对一次
+    if (!hit && loc) hit = bestNode(names, loc, 0.34);
     // ② 有些行程把地点写在标题里（「回王府用饭」），标题再对一次；
     //    标题噪音多（动词、人名都在里头），门槛抬高，免得随便撞上一个节点
     if (!hit && title) hit = bestNode(names, title, 0.5);
     // 标题本来就常以「在」开头（「在城南茶楼见人」），不去掉就成了「此刻在在城南…」
-    if (hit) return { node: hit, live: true, why: "此刻在" + String(title || loc).replace(/^在/, "") };
+    if (hit) return { node: hit, live: true, why: "此刻在" + String(title || loc || place).replace(/^在/, "") };
     // ③ 兜底：开世界那天那张「他会去哪儿」的小表。分开比、取高的，不拼在一起
     const r = (world.route || {})[char.id];
     if (r) {
@@ -365,7 +401,7 @@ function mapSubSkin(t) {
     }
     // ④ 行程明明写着他在某处、图上却没有这个地方——这就是她看到的那个样子。
     //    把它说出来（miss），别默默退回落脚点让人以为是坏了。
-    return { node: pinned, live: false, miss: loc || title || "" };
+    return { node: pinned, live: false, miss: place || loc || title || "" };
   }
 
 
@@ -821,7 +857,9 @@ function mapSubSkin(t) {
       if (mapRef.current && livePos && !centeredRef.current) { try { mapRef.current.setView(livePos, 12); centeredRef.current = true; } catch (e) {} }
     }, [livePos]);
     const anchor = livePos ? { lat: livePos[0], lng: livePos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
-    const pins = (characters || []).map(function (c) {
+    // 住在架空世界里的那几位不画在现实图上（她 2026-09-06 那个「钉了温尼伯又钉了架空世界」）：
+    // 一个王爷插在温尼伯的街上，看着就不对。取消那一钉，他自己就回来了。
+    const pins = (characters || []).filter(function (c) { return charRealm(c, worlds).kind === "real"; }).map(function (c) {
       const st = (status || {})[c.id];
       const label = st && st.title ? (c.name + " · " + st.title) : c.name;
       return { pos: charPos(c, st, anchor), html: avatarHtml(c, 40), size: 40, tooltip: label, onClick: function () { setSel(c.id); } };
@@ -846,6 +884,16 @@ function mapSubSkin(t) {
       (mode || "real") === "story"
         ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onAddNode: onAddNode, onGenNodes: onGenNodes })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
+            // ⚠️人少了要说一声：住在架空世界里的那几位不画在这张图上。
+            //   不说的话她只会看见「有人不见了」，以为坏了（诚实的诊断要写在她看得见的地方）。
+            (function () {
+              const away = (characters || []).filter(function (c) { return charRealm(c, worlds).kind === "world"; });
+              if (!away.length) return null;
+              return h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 12, zIndex: 1200,
+                background: "rgba(255,255,255,0.94)", border: "1px solid " + t.line, borderRadius: 12, padding: "8px 12px",
+                fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.6, boxShadow: "0 4px 14px rgba(0,0,0,.10)" } },
+                away.map(function (c) { return c.name; }).join("、") + " 住在架空世界里，没画在这张图上（去「架空」那边看；把那边的钉子取消，他就回来）");
+            })(),
             h(MapCanvas, { pins: pins, opts: { noFit: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; const c = livePos || (anchor ? [anchor.lat, anchor.lng] : allPtsRef.current[0]); if (c) { try { m.setView(c, livePos ? 12 : 11); } catch (e) {} if (livePos) centeredRef.current = true; } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
             // 地点搜索条（真·全球搜索）
             h("div", { style: { position: "absolute", top: 10, left: 12, right: 12, zIndex: 1200 } },
@@ -916,7 +964,7 @@ function mapSubSkin(t) {
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm };
   // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
-  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap };
+  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos };
 })();
