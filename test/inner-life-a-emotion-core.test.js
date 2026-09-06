@@ -55,7 +55,9 @@ test("固定词典覆盖既有真实未命中词，仍不调用模型解释", ()
   assert.equal(A.moodDictionaryVersion,8);
   const cases=[["松快","positive_valence"],["郁闷","low_valence"],["動揺","anxiety"],["激动","high_arousal"],["冷酷","cold"]];
   for(const [word,rule] of cases)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
-  const added=[["平静","calm"],["专注","calm"],["得意","positive_valence"],["调皮","playful"],["害羞","shy"],["落寞","hurt"],["心疼","warmth"],["慵懒","fatigue"]];
+  // ⚠️v64.70 改口径：「专注」不再是 calm。calm 的 delta 是 {}，
+  //   于是「投进去了」这件事从上线起一个数都没动过——它跟「心里没波澜」不是一回事。
+  const added=[["平静","calm"],["专注","absorbed"],["得意","positive_valence"],["调皮","playful"],["害羞","shy"],["落寞","hurt"],["心疼","warmth"],["慵懒","fatigue"]];
   for(const [word,rule] of added)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
   assert.deepEqual(A.moodEvidence("平静").delta,{},"中性词只算识别，不硬改数字");
   const event=A.applyEvent(A.createState("char",T0),{moodLabel:"松快"},T0+1);
@@ -145,10 +147,12 @@ test("既有真实未命中词受控归轴，姿态词只识别不推数字", ()
   assert.ok(jealous.delta.hurt>0&&jealous.delta.valence<0);
   // ⚠️v64.69 改口径：「嘴硬」不再算姿态，它就是傲娇本身（她 2026-09-06：
   //   「如果它永远 0 那怎么可能端着」）。剩下的真姿态照旧一个数都不动。
-  const posture=A.moodEvidence("走神又想掌控");
+  const posture=A.moodEvidence("忙碌又想掌控");
   assert.equal(posture.matched,true);
   assert.deepEqual(posture.delta,{});
   assert.ok(A.moodEvidence("嘴硬又想掌控").delta.pride>0,"嘴硬该推傲娇了");
+  // v64.70：走神也不是姿态，它是【注意力不在这儿】
+  assert.ok(A.moodEvidence("走神").delta.immersion<0,"走神该把沉浸压下去");
 });
 
 test("v5 覆盖第三轮影子审计高频未命中，复合标签按词片机械命中", () => {
@@ -322,7 +326,7 @@ test("嘴硬就是傲娇本身，不是「姿态、不动数值」", () => {
     assert.ok(A.moodEvidence(w).delta.pride < 0, w + " 该把防备卸下来");
   });
   // 真姿态照旧一个数都不动
-  ["掌控", "走神", "忙碌", "审视"].forEach(w => assert.deepEqual(A.moodEvidence(w).delta, {}, w));
+  ["掌控", "忙碌", "审视", "不为所动"].forEach(w => assert.deepEqual(A.moodEvidence(w).delta, {}, w));
   // ⚠️「松口气」是松弛不是服软——别被「松口」那条吃掉
   assert.deepEqual(A.moodEvidence("松口气").rules, ["relieved"]);
 });
@@ -360,4 +364,40 @@ test("端着的时候不开口，但思念真的很重照旧开口", () => {
   const seg = src.slice(i, i + 420);
   assert.match(seg, /t\.action === "contact" && t\.forced/, "没留那条缝：想念太重时也该开口");
   assert.match(seg, /if \(!forced\) continue;/);
+});
+
+
+// ── 沉浸（v64.70，她 2026-09-06：「补补吧宝宝」）───────────────────────────
+// ⚠️跟嘴硬同一个形状：「专注」「认真」「好奇」「若有所思」原来全归在 calm 里，
+//   而 calm 的 delta 是 {}——于是这条轴只有 fatigue 能把它往下压一点，恒等于 0。
+test("投进去了 ≠ 心里没波澜：专注那一批推得动沉浸", () => {
+  ["专注", "认真", "入迷", "埋头", "钻研", "好奇", "若有所思", "上头"].forEach(w => {
+    assert.ok(A.moodEvidence(w).delta.immersion > 0, w + " 推不动沉浸");
+  });
+  // 反过来那一头也得有，否则它只涨不落
+  ["走神", "心不在焉", "神游", "三心二意"].forEach(w => {
+    assert.ok(A.moodEvidence(w).delta.immersion < 0, w + " 该把沉浸压下去");
+  });
+  // 真的「平静」照旧一个数都不动——那是基线本身
+  ["平静", "淡定", "从容", "释然", "踏实"].forEach(w => assert.deepEqual(A.moodEvidence(w).delta, {}, w));
+  // ⚠️也别留在旧那个桶里：一个词同时命中「投进去了」和「不动数值的平静」，
+  //   数字上没差别，但下一个人读到会以为专注还是中性的——这次就是这么绕了一圈才发现。
+  assert.deepEqual(A.moodEvidence("专注").rules, ["absorbed"]);
+  assert.deepEqual(A.moodEvidence("走神").rules, ["distracted"]);
+  assert.deepEqual(A.moodEvidence("嘴硬").rules, ["proud_guarded"]);
+  // 一次就上得了台面
+  let st = A.applyEvent(A.createState("c", T0), { moodLabel: "专注" }, T0 + 1).state;
+  assert.match(A.displayProjection(st).text, /沉浸偏高/);
+});
+
+test("十条轴现在没有一条是 mood 永远推不动的", () => {
+  // ⚠️这条是【总账】：谁哪天再把某条轴的词全塞进一个 delta 为 {} 的规则里，这里当场红。
+  const dead = Object.keys(A.axes).filter(k => {
+    for (const w of ["温柔","开心","难过","生气","紧张","累","激动","嘴硬","服软","专注","走神","挂心","惦念"]) {
+      const d = A.moodEvidence(w).delta;
+      if (d[k] !== undefined && d[k] !== 0) return false;
+    }
+    return true;
+  });
+  assert.deepEqual(dead, [], "这几条轴 mood 推不动：" + dead.join("、"));
 });
