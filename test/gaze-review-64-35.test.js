@@ -461,3 +461,74 @@ test("⑨ 降级只在她按了键时才吭声（auto 那一路不打扰她）",
   assert.match(app, /gazeCall\(p, window\.Gaze\.seedSpec\(uN\), levels, zh => \{ if \(!auto\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
   assert.match(app, /gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), levels, zh => \{ if \(manual\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
 });
+
+// ── v64.56：她贴了沈屿白的整份人设过来 ────────────────────────────────
+// 那份人设**本身完全干净**——而且主聊天天天带着同一份人设、同一个模型在跑，一次没拦过。
+// 再加上她那条「只有两个能过」：
+//   · 光有这十道题不够（有角色能过）
+//   · 光有人设也不够（主聊天用同一份人设没事）
+// ⇒ 是【人设 × 问法】撞在一起。她那份人设里有「姐姐」「年龄差」「调情」「撒娇」，
+//   而这十块里三块问的是「她的软肋和雷区」「我吃她哪一套」「我假装没注意的事」——
+//   合起来读就是「分析这个真人的弱点、什么招对她管用、她有什么把柄」。
+//   人设是她的，改不得；能动的只有我这半边。
+// ⚠️只换【发给模型的措辞】，界面上那十个名字一个字不动——那是她的东西。
+const G = boot().G;
+test("⑩ 两套名字：界面照旧，发出去的换了说法", () => {
+  assert.equal(G.KEYS["me.soft"], "她的软肋和雷区", "界面上的名字被动了");
+  assert.equal(G.KEYS["me.like"], "我吃她哪一套·头疼哪一套");
+  assert.equal(G.KEYS["us.elephant"], "我假装没注意的事");
+  // 三份真提示词里，那股「给真人做弱点分析」的味道一处都不剩
+  const bad = ["软肋", "雷区", "吃她哪一套", "把柄", "假装没注意"];
+  // ⚠️「每轮那一句」里那行点名是【有 due 才发】的：拿一个随手的桩去调 spec，
+  //   那一行根本不出现，于是把 ASK 换回 KEYS 也测不出来（第一版就这么逃掉了）。
+  //   所以这儿两条都要：源码上钉住它用的是 ASK，行为上再造一个真有 due 的桩。
+  assert.match(SRC, /「" \+ ASK\[due\.k\] \+ "」\(" \+ due\.k \+ "\)"/, "每轮那一句又发老说法了");
+  const b2 = boot();
+  b2.store.x_gaze = JSON.stringify({ c1: { seeded: true, mute: 0, hist: [], turns: 99,
+    blocks: { "me.soft": { text: "她送我键盘那次。", ts: Date.now() - 40 * 86400000 } } } });
+  const nudged = String(b2.G.spec("Lisa", "c1") || "");
+  assert.match(nudged, /【这一轮请复看这一块】/, "桩没造出 due 来，这一条又白测了");
+  [["建卡", G.seedSpec("Lisa")], ["复看", G.reviewSpec("Lisa", "c1")], ["每轮那一句", nudged]]
+    .forEach(([zh, t]) => bad.forEach(w =>
+      assert.equal(String(t || "").includes(w), false, zh + "那份里还带着「" + w + "」")));
+  assert.match(G.seedSpec("Lisa"), /什么事会让她一下子不好受/);
+  assert.match(G.seedSpec("Lisa"), /她哪些地方最打动我、哪些地方让我头疼/);
+  assert.match(G.seedSpec("Lisa"), /有件事我一直没提/);
+});
+
+test("⑩ 覆盖那一行的 key 打错字，模块直接起不来", () => {
+  // ⚠️我第一版的闸问的是「ASK 会不会漏一块」——**那根本不可能**：
+  //   ASK 是 Object.assign({}, KEYS, {...}) 出来的，永远带着全部 key。
+  //   写完才发现那道闸从来不会触发（这条测试当场抓到的）。
+  //   真会出事的是【覆盖那一行的 key 打错字】：写成 "me.softt"，
+  //   ASK 里多一条垃圾，而 me.soft 悄悄退回老说法——提示词变回去了，界面上一点看不出来。
+  const bad = SRC.replace('"me.soft": "什么事会让她一下子不好受"', '"me.softt": "什么事会让她一下子不好受"');
+  assert.throws(() => {
+    const ctx2 = { window: { localStorage: { getItem: () => null, setItem: () => {} } }, document: { createElement: () => ({}) },
+      React: { useState: v => [v, () => {}], createElement: () => null }, h: () => null, F_BODY: "", F_DISPLAY: "", console };
+    ctx2.globalThis = ctx2; ctx2.localStorage = ctx2.window.localStorage;
+    vm2.createContext(ctx2); vm2.runInContext(bad, ctx2);
+  }, /发给模型那套说法里，这个 key 打错了：me\.softt/);
+});
+
+test("⑩ 名字只剩两份，不许再抄第三第四份", () => {
+  // 原来 spec 的 keys 串和 seedSpec 的 schemaHint 各自把十个名字又抄了一遍。
+  // 现在都从 ASK 长出来；照字面数一下，除了 ME/US 那两行不该再有第二处。
+  ["她的软肋和雷区", "我吃她哪一套·头疼哪一套", "我假装没注意的事"].forEach(n => {
+    const inCode = SRC.split("\n").filter(l => !l.trim().startsWith("//") && l.includes(n));
+    assert.equal(inCode.length, 1, "「" + n + "」在代码里出现了 " + inCode.length + " 处，只该在 ME/US 那一行");
+  });
+  assert.match(SRC, /const _side = \(arr, sd\) =>/, "spec 那串 keys 又写死了");
+  assert.match(SRC, /me: ME\.reduce\(\(o, \[k\]\) => \(o\[k\] = ASK\["me\." \+ k\], o\), \{\}\)/, "schemaHint 又写死了");
+});
+
+test("⑩ 他用哪一套说法答回来都认，抄说明回来都不算写", () => {
+  const g = boot().G;
+  assert.equal(g.normKey("me", "什么事会让她一下子不好受"), "me.soft", "他照新说法答，这一块会被静悄悄丢掉");
+  assert.equal(g.normKey("us", "有件事我一直没提"), "us.elephant");
+  assert.equal(g.normKey("me", "她的软肋和雷区"), "me.soft", "老说法不认了");
+  // 把栏目说明原样抄回来当内容，两套都得挡（他现在看到的是新那套）
+  assert.equal(g.apply("c9", "me", "soft", "什么事会让她一下子不好受"), false);
+  assert.equal(g.apply("c9", "us", "elephant", "我假装没注意的事"), false);
+  assert.equal(g.apply("c9", "us", "elephant", "她其实还在等我回答那句话。"), true, "真写的一句被误挡了");
+});

@@ -158,8 +158,11 @@ test("复看那一份问的是「哪几块已经不对了」，不是「你对�
   const id = fullCard(G, "old2");
   ageCard(store, id, 20);
   const sp = G.reviewSpec("阿棠", id);
-  // 现行十块要原样摆给他看，否则他只能凭空再编一份
-  Object.keys(G.KEYS).forEach(k => assert.ok(sp.indexOf(G.KEYS[k]) >= 0, "复看没把这一块给他看：" + k));
+  // 现行十块要原样摆给他看，否则他只能凭空再编一份。
+  // ⚠️v64.56 起【发给模型的名字换了一套】（KEYS 只留给界面，ASK 才是发出去的）——
+  //   要点的是「十块一块不少地摆给他看」，不是「用界面上那套字」。
+  const askOf = k => (G.ASK || G.KEYS)[k];
+  Object.keys(G.KEYS).forEach(k => assert.ok(sp.indexOf(askOf(k)) >= 0, "复看没把这一块给他看：" + k));
   assert.match(sp, /哪几块已经跟你现在心里的不一样了/);
   assert.match(sp, /没变就是没变，不必为了交差改字/, "不给「没变」留出口，他就会为了交差乱改");
   assert.match(sp, /20 天前/, "得告诉他上次改是多久以前");
