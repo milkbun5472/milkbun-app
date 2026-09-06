@@ -1,11 +1,7 @@
 {
   "name": "ARCHIVE",
   "short_name": "ARCHIVE",
-<<<<<<< Updated upstream
-  "start_url": "./index.html?launch=64.95",
-=======
-  "start_url": "./index.html?launch=64.96",
->>>>>>> Stashed changes
+  "start_url": "./index.html?launch=64.98",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
