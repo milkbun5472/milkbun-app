@@ -89,7 +89,9 @@ test("单聊线上/线下·通话·匿名信箱·解梦馆：走 bundle，一次
 
 test("群线上 / 群线下 / 群通话：三处各按人喂，不许合成一块共享注入", () => {
   // 群线上：memberDesc 那一串里
-  assert.match(app, /const zSeg = sleepToneOf\(c\)[\s\S]{0,120}\n\s*return "【" \+ c\.name \+ "】" \+ groupPersonaText\(c\.persona, gPersonaCap\)[^;]*\+ zSeg/,
+  // ⚠️v64.72 起 zSeg 后面又多了 hcSeg（他住在哪儿），所以别钉死「紧跟着就是 return」
+  assert.match(app, /const zSeg = sleepToneOf\(c\)/);
+  assert.match(app, /groupPersonaText\(c\.persona, gPersonaCap\)[^;]*\+ zSeg/,
     "群线上的 memberDesc 没拼进去");
   // 群线下：memberSleep 一人一份 → engine 按 c.id 取
   assert.match(app, /memberSleep: \(\(\) => \{[\s\S]{0,320}sleepToneOf\(c\)/, "群线下没算");

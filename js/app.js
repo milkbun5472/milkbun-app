@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.76";
+const APP_VERSION = "v64.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4109,6 +4109,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return copyMemoryRecallMeta(rows, rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) })));
     })(),
     geo: prefs.geoAware ? geo : null,
+    // 他自己住在哪儿（v64.72）：地图上钉的那个点。原来只用来画地图和查天气，
+    // 一次都没进过提示词——所以「生成他的生活」那几处只能靠训练先验猜他在哪个国家。
+    homeCity: (char && char.home && char.home.city) ? String(char.home.city).trim().slice(0, 40) : "",
     timeAware: timeAwareFor(char.id),
     // 她从 Ta 的梦里带出来的东西（v63.05）：Ta 见了眼熟，但不知道它从哪儿来——永远不说破。
     // ⚠️不是礼物、不是记忆：不进 giftLog（那一栏写着「真实发生过，你记得」），单独一层；
@@ -5992,6 +5995,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有情绪底色
         const t = aMoodTextOf(id);
         if (t) m[id] = t;
+      });
+      return m;
+    })(),
+    // 他住在哪儿（v64.72）：一人一份——同一个群里的人可能压根不在一个国家。
+    memberHome: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        if (c && c.home && c.home.city) m[id] = String(c.home.city).trim().slice(0, 40);
       });
       return m;
     })(),
@@ -8552,7 +8564,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
         // 睡没睡（v64.66）：群里更要按人给——同一个群里有人在上班、有人那边是凌晨三点。
         const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        // 他住在哪儿（v64.72）：群里更要按人给——同一个群里的人可能压根不在一个国家
+        const hcSeg = (c.home && c.home.city) ? "\n〔你自己住在" + String(c.home.city).trim().slice(0, 40) + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "";
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -11930,9 +11944,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const aSeg = aMoodTextOf(c.id) ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id) + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
           // 睡没睡（v64.66）：电话尤其要有——半夜三点接起来的人不该精神饱满
           const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
+          const hcSeg = (c.home && c.home.city) ? "\n〔你自己住在" + String(c.home.city).trim().slice(0, 40) + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "";
           const cySeg = (() => { const txt = (typeof carryContextText === "function") ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : ""; return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : ""; })();
           const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + zSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + zSeg + hcSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：

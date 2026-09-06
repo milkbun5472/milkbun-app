@@ -6268,6 +6268,28 @@ function PhoneCarry({
 // 每个 app 站的位置：他在这个 app 里是「对谁」的样子，以及往回捞多久。
 // 时间窗尤其重要——现在所有 app 默认都在写「这几天」，相册本该跨年、
 // 购物本该跨月，全挤在同一个窗口里，撞车是必然的。
+// 【他人在哪儿】（v64.72，她 2026-09-06：「以前查手机他们都会查温尼伯有关的…
+// 现在都变回 general 的国内了」）。
+//
+// ⚠️她 2026-09-05 报过一模一样的病，那次是行程：「资料丢了重新找回来，王爷就变成
+//   在公寓里了」。当时给行程写了 SCHED_WORLD_RULE（engine.js），查手机没跟上——
+//   .claude/rules/four-surfaces-same-context.md 那条老病，而查手机压根没在那张名单上。
+//
+// ⚠️查手机比别处更容易滑回去，因为【这个界面本身就是中文的】：微信、朋友圈、小红书、
+//   仿 bilibili，连渲染层的钱都写死了 ¥。模型看见一屏中文 app，就默认这人在国内。
+//   所以这一条要挑明：**界面语言不代表他人在哪儿**——中国人在国外照样用微信。
+//
+// ⚠️写的是判据不是示范（prompt-no-content-samples.md）：给了「曼大教授的邮件」
+//   这种例子，每个角色的邮箱里都会长出一个教授。
+const PHONE_WORLD_RULE = "\n\n【先认准他人在哪儿，再往手机里填东西】\n"
+  + "· 这台手机的界面是中文的，**这不代表他人在国内**：人在国外照样用中文 app。\n"
+  + "· 每一条内容都要落在【他真正生活的那个地方】：收到的信来自哪儿的机构和学校、"
+  + "约人去的地方在哪座城、地址和电话是哪国的写法、价格用哪种货币、"
+  + "刷到的热闹是哪儿的事、身边这些人是谁。\n"
+  + "· 判据一句话：**这一条搬到另一座城市还成立吗？成立就说明写空了，重写。**\n"
+  + "· 他在哪儿由上面【你自己住在哪儿】那一行、人设和世界书说了算；三处都没写才按人设的语感来推，"
+  + "**绝不许因为界面是中文的就默认国内**。";
+
 const PHONE_ANGLE = {
   wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
   notes: "【取材层】完全没人看的时候，他留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
@@ -6751,7 +6773,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过

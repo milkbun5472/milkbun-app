@@ -2526,6 +2526,17 @@ function buildBundle(ctx, opts) {
         + "默认你和 " + uName + " 就在同一座城市，能约、能上门、能过去陪。**绝不许据此推断成异地恋或异国恋**"
         + "——你住哪、离多远，只由你的人设说了算；人设里没写，就按同城来。"));
   }
+  // 他自己住在哪儿（v64.72，她 2026-09-06 报查手机「都变回 general 的国内了」）。
+  // ⚠️上面那一整块讲的都是【她在哪】。他自己住哪儿这件事，全 app 只用来画地图和查天气
+  //   （char.home.city 在提示词里一次都没出现过），于是查手机、朋友圈这些「生成他的生活」
+  //   的地方只能靠训练先验补——中文提示词 + 微信小红书，补出来就是国内。
+  // ⚠️这是【这个人是谁】的一部分，所以放 buildBundle：八处一起有，不是只给查手机打补丁。
+  // ⚠️只说地方、不替他编生活：具体写什么由人设和世界书说了算。
+  if (!ctx.notRoleplay && ctx.homeCity) {
+    parts.push("【你自己住在哪儿】" + ctx.homeCity
+      + "\n他的生活都发生在这儿：认识的人、去的地方、收到的信、买东西的渠道、用的货币和地址格式，都按这里来。"
+      + "\n⚠️别把这一条挂在嘴上报地名，它只是让你写出来的东西落在真地方，而不是一个谁都能套的通用城市。");
+  }
   if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。
@@ -5665,6 +5676,8 @@ async function generateOfflineGroup(p, ctx, session) {
     + ((ctx.memberAMood && ctx.memberAMood[c.id]) ? "\n〔此刻的情绪底色·只作内在背景〕" + ctx.memberAMood[c.id] + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "")
     // 睡没睡（v64.66）：一人一份，别合成一块共享注入——同一个群里有人在上班、有人那边是凌晨三点
     + ((ctx.memberSleep && ctx.memberSleep[c.id]) ? "\n〔" + String(ctx.memberSleep[c.id]).replace(/\n/g, "\n　") + "〕" : "")
+    // 他住在哪儿（v64.72）：一人一份，别合成一块——同一个群里的人可能压根不在一个国家
+    + ((ctx.memberHome && ctx.memberHome[c.id]) ? "\n〔你自己住在" + ctx.memberHome[c.id] + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "")
     // 「四处一样喂」第二轮（她 2026-08-25「还是很霸总」）：年龄／此刻在做什么／和用户的关系状态，
     // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
     + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")
