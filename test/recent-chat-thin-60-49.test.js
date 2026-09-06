@@ -51,11 +51,18 @@ test("线下那几行带着时刻——他要靠这个知道那场戏发生在�
   assert.match(app, /text: isOff \? "\[" \+ fmtStampAI\(m\.ts\) \+ "\] " \+ line : ""/);
 });
 
-test("只在【历史会另发一遍】那条路上瘦身，别的调用方照旧拿全文", () => {
-  assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/);
+// ⚠️v64.93 改了口径（她 2026-09-06：「线上发了 a、线下发生了 b、然后线上 c，
+//   他也应该带着线下的记忆」）。原来 anthropic 那条路把 recentChat【整块清空】，
+//   理由是「线上原文另发一遍了」——可线下那些拍子【只住在 recentChat 里】，
+//   messages 里一条都没有，于是跟着一起被倒掉。
+//   现在两条路都走 thinOnline：线上压成一行位置标记、线下留原文。
+test("两条路都只瘦掉线上原文，线下一条都不许丢", () => {
+  assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: true \}\)/);
   assert.match(app, /const thinOnline = !!\(ctxOpts && ctxOpts\.thinOnline\);/);
-  // anthropic 那条路本来就整块清空，别改成瘦身版（那会白留一块没用的标记）
-  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._roomCtx, recentChat: "" \} : _roomCtx/);
+  // 不许再有「整块清空」那条路
+  assert.ok(app.indexOf('_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx') < 0,
+    "anthropic 那条路还在把线下一起倒掉");
+  assert.match(app, /const _bundleFull = buildBundle\(_roomCtx\);/);
 });
 
 test("⚠️不许顺手动『system 从【当前真实时间】劈两半』那条切法", () => {

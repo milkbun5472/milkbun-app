@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.92";
+const APP_VERSION = "v64.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4541,6 +4541,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   ⚠️别的调用方（推演/朋友圈/论坛/日记…）不发 messages，它们照旧拿全文。
     recentChat: (() => {
       const thinOnline = !!(ctxOpts && ctxOpts.thinOnline);
+      // 通话转录：24 小时内的那几通给原文，更早的只留小结（小结在上面一行已经拼过）。
+      // ⚠️动作行（act）也带上——视频里「他把镜头凑近」跟说了什么一样是发生过的事。
+      const CALL_VERBATIM_MS = 24 * 3600000, CALL_LOG_CAP = 1200;
+      const callLogText = (m, uNm, cNm) => {
+        const log = Array.isArray(m.log) ? m.log : [];
+        if (!log.length || Date.now() - (m.ts || 0) > CALL_VERBATIM_MS) return "";
+        const rows = log.filter(x => x && x.content && String(x.content).trim()).map(x => {
+          const who = x.role === "user" ? uNm : (x.senderName || cNm);
+          return x.act ? "（" + who + " " + String(x.content).trim() + "）" : who + "：" + String(x.content).trim();
+        });
+        const out = [];
+        let n = 0;
+        for (let i = rows.length - 1; i >= 0; i--) {
+          n += rows[i].length + 1;
+          if (n > CALL_LOG_CAP && out.length) { out.unshift("…（前面还说了几句）"); break; }
+          out.unshift(rows[i]);
+        }
+        return out.join("\n");
+      };
       const online = (chatsRef.current[char.id] || [])
         .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
         .map(m => ({ ...m, _surface: "online" }));
@@ -4659,9 +4678,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 而 sum 从来没人读——于是他打完电话回到聊天，跟没打过一样。
         // ⚠️挂进来的是【小结】不是逐字转录：一通电话几十句，原文会把预算吃光；
         //   小结正是为这件事生成的（endCall 那头已经在写了）。
+        // ⚠️只给小结不够（她 2026-09-06：「他电话里说我们下次去 xxx 结束了就忘了」）——
+        //   小结是一两句概括，具体那句约定多半被概括掉了。所以近期那几通挂【原文】：
+        //   24 小时内的给转录（从末尾往回收，封顶 1200 字），更早的才退回小结。
+        //   ⚠️不能一律给原文：一通电话几十句，攒几通就把整份预算吃光。
         const line = (m.kind === "callend")
           ? "【" + (m.callMode === "video" ? "视频通话" : "语音通话") + "·刚打完】"
-            + (m.sum ? String(m.sum).trim() : String(body || "").trim())
+            + (m.sum ? String(m.sum).trim() + "\n" : "")
+            + callLogText(m, uName, char.name)
           : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
@@ -6933,10 +6957,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 识别正确后照样发送稳定 system + 历史断点；内容与预算一字不裁。
       const _histCache = (typeof detectFormat === "function" ? detectFormat(_route) : "openai") === "anthropic";
       const _singleHistoryLayout = _histCache || _engineerChat;
-      // 历史会不会另外作为 messages 发一遍，决定【最近对话】要不要留线上原文：
-      // _singleHistoryLayout 那条路本来就把 recentChat 整块清空（见下面 buildBundle），
-      // 剩下这条（openai 方言，订阅桥就是）才是重复的那个。
-      const _roomCtx = ctxFor(char, { chat: true, thinOnline: !_singleHistoryLayout });
+      // 历史另外作为 messages 发一遍，所以【最近对话】里线上的原文不必再抄一遍——
+      // 但线下那些拍子【只住在这儿】，messages 里一条都没有。
+      // ⚠️她 2026-09-06 报的就是这个：「线上发了 a、线下发生了 b、然后线上 c」，
+      //   到 c 那一轮他不知道 b 发生过。病根在下面那行：_singleHistoryLayout
+      //   （anthropic 线路 / 言秋）整块把 recentChat 清空了——线上原文是重复的，
+      //   可它把线下也一起倒掉了。thinOnline 本来就是为这件事做的：线上压成一行
+      //   位置标记、线下留原文。两条路都用它，别再有一条走「整块清空」。
+      const _roomCtx = ctxFor(char, { chat: true, thinOnline: true });
       if (room && room.id !== "main") _roomCtx.recentChat = "";
       if (room && room.cognition) {
         const rc = room.cognition;
@@ -6947,7 +6975,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         else { _roomCtx.schedNow = schedNowFor(char); _roomCtx.geo = prefs.geoAware ? geo : null; }
         if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
       }
-      const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
+      // ⚠️recentChat 拼在【当前真实时间】【之后】（engine.js 2631 那一行），
+      //   落在易变那半里——所以给 anthropic 那条路带上它，不会动到打了缓存的稳定前缀。
+      const _bundleFull = buildBundle(_roomCtx);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_singleHistoryLayout) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");
@@ -12152,12 +12182,51 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const uN = profile.name || "用户";
           const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
             + (byName ? "\n（这通电话是 " + byName + " 主动挂断的）" : "");
-          const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
-            "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
-            "\"open\":[\"这通电话里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
-          const raw = await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 10400 });
-          const d = extractJSON(raw);
-          const sum = d && d.summary ? String(d.summary).trim() : String(raw || "").trim();
+          // 一对一那通顺手把状态卡也刷了（她 2026-09-06：「语音和视频聊天是不是也得
+          // 更新一下心声卡」——挂了电话他的心情/在哪/在干嘛/心里那句全停在通话之前）。
+          // ⚠️站位换成【他本人刚挂掉电话】：原来这一枪是个光秃秃的归档 sys，人设、心情、
+          //   记忆一层都没有（四处一样喂里那个「自己拼 sys」的老形状）。心声尤其不能用
+          //   分析师的椅子写——那出来的是判词，不是他心里那句。
+          // ⚠️群通话不刷：一通电话好几个人，一枪刷不动几张卡，硬刷只会把别人的心情写歪。
+          const solo = (!cur.groupId && cur.participants.length === 1) ? cur.participants[0] : null;
+          let d = null;
+          if (solo) {
+            d = await runProbe(bgActiveRef.current, ctxFor(solo), {
+              voice: true,
+              instruction: "你刚跟「" + uN + "」" + (cur.mode === "video" ? "视频" : "语音") + "通完话，电话已经挂了。下面是这通电话的全部内容。\n"
+                + "【通话内容】\n" + text + "\n\n"
+                + "① summary：用【第三人称】写 1~2 句归档——聊了什么关键内容、情绪怎么走的。具体、可复用。\n"
+                + "② open：这通电话里【双方明确新约好或答应对方、尚未兑现且值得惦记】的事，每条一句；普通吃饭洗澡上班这类生活安排不是开环，没有就 []。\n"
+                + "③ 后面几栏是【你此刻】的状态，挂了电话这一刻的：mood 一个中文心情词；thought 你心里那一句（第一人称，你自己的话，不是总结）；"
+                + "place 人在哪一句短的；action 此刻在做什么；wearing 此刻穿着（只在跟刚才不同时才写，否则留空）；condition 身体状态（没异常就 null）。",
+              schemaHint: "{\"summary\":\"第三人称归档\",\"open\":[\"没兑现的约定\"],\"mood\":\"中文心情词\",\"thought\":\"心里那一句\",\"place\":\"人在哪\",\"action\":\"在做什么\",\"wearing\":\"\",\"condition\":null}",
+              maxTokens: 12000
+            });
+          } else {
+            const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
+              "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
+              "\"open\":[\"这通电话里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
+            const raw = await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 10400 });
+            d = extractJSON(raw);
+          }
+          const sum = d && d.summary ? String(d.summary).trim() : "";
+          // 状态卡：走跟聊天同一个出口（setStateFor + pushStateHist），别另写一条写状态的路
+          if (solo && d) {
+            const st = {};
+            ["thought", "place", "action", "wearing", "condition"].forEach(k => {
+              const v = d[k] == null ? "" : String(d[k]).trim();
+              if (v && v.toLowerCase() !== "null") st[k] = v;
+            });
+            if (st.thought) st.thoughtUpdatedAt = Date.now();
+            const ml = d.mood ? String(d.mood).trim() : "";
+            if (Object.keys(st).length || ml) {
+              const liveState = statesRef.current[solo.id] || {};
+              const ns = { ...liveState, ...st, mood: ml || liveState.mood, ts: Date.now(), turnId: callId };
+              setStateFor(solo.id, ns);
+              pushStateHist(solo.id, ns);
+            }
+            if (ml) { try { setMoodFor(solo.id, { label: ml, ts: Date.now() }); } catch (e) {} }
+          }
           const opens = d && Array.isArray(d.open) ? d.open.map(x => String(x).trim()).filter(Boolean).slice(0, 3) : [];
           if (!sum) return;
           const patch = list => list.map(x => x.id === callId ? { ...x, sum } : x);
