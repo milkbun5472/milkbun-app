@@ -67,38 +67,40 @@ test("这条刀四处都挂上了", () => {
 // 规则降概率，代码才保证——这一整轮反复验证过的。
 // 单聊是几次互不知情的独立调用，谁也不知道刚才别处已经这么答过了；
 // 群聊是一次调用写完所有人，模型天然看得见彼此，不需要这一层。
-test("禁用词表：把别的角色刚说过的短句收集起来当模板证据", () => {
+test("禁用词表：只收【两个以上的人都说过】的那种句子", () => {
+  // ⚠️v64.79 改口径。原来这条钉的是「别人刚说过的任何一句都收进来」——
+  //   那正是病本身：她 2026-09-06 报「陆衍提到了沈屿白的羽毛球」，两人不认识、
+  //   无群、记忆库和世界书里也没有。6~40 字的私聊原话被原样贴进另一个人的提示词，
+  //   而当时那行注释还写着「这不是把 A 的私聊漏给 B」。
+  //   现在真的验一遍：同一句被两个以上不同的角色说过，才算「已经被证明是通用模板」。
   const i = app.indexOf("const CROSS_SAMENESS_WINDOW_MS");
   const j = app.indexOf("  const ctxFor = (char, ctxOpts) =>");
   assert.ok(i > 0 && j > i);
   const body = app.slice(i, j);
-  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", body
-    + "\nreturn {crossSamenessHint, crossSamenessBlocklist, crossThoughtBlocklist};")(ctx, [], hist || { current: {} });
+  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", "window", body
+    + "\nreturn {crossSamenessHint, crossSamenessBlocklist, crossThoughtBlocklist};")(
+      ctx, [], hist || { current: {} }, { ChatRooms: { personFromKey: k => String(k).split("::room::")[0] } });
   const now = Date.now();
+  const A = (t, extra) => Object.assign({ role: "assistant", content: t, ts: now - 3 * 60000 }, extra || {});
+  const TPL = "嫌吵就把降噪耳机戴上，或者把卧室门带上";
   const ctx = { current: {
-    shen: [
-      { role: "assistant", content: "窗户关紧了吗？阳台的门也顺便拉上，省得雨飘进去", ts: now - 4 * 60000 },
-      { role: "user", content: "好吵", ts: now - 5 * 60000 },
-      { role: "assistant", content: "超过半小时的老话不该进来", ts: now - 90 * 60000 }
-    ],
-    lu: [
-      { role: "assistant", content: "嫌吵就把降噪耳机戴上，或者把卧室门带上", ts: now - 2 * 60000 },
-      { role: "assistant", content: "撤回的不该进来", ts: now - 2 * 60000, recalled: true },
-      { role: "assistant", content: "太短", ts: now - 60000 }
-    ]
+    shen: [A(TPL), A("刚打完羽毛球，累死了"), { role: "user", content: "好吵", ts: now - 5 * 60000 }],
+    lu:   [A(TPL), A("超过半小时的老话不该进来", { ts: now - 90 * 60000 })],
+    gu:   [A(TPL), A("撤回的不该进来", { recalled: true }), A("太短")]
   } };
-  const f = mk(ctx);
-  const list = f.crossSamenessBlocklist("v");
-  assert.ok(list.some(t => /降噪耳机/.test(t)), "别人刚说的要收进来");
-  assert.ok(list.some(t => /窗户关紧了吗/.test(t)));
+  const list = mk(ctx).crossSamenessBlocklist("v");
+  assert.ok(list.some(t => /降噪耳机/.test(t)), "三个人都说过这一句，它就是模板");
+  assert.ok(!list.some(t => /羽毛球/.test(t)), "只有沈屿白说过——那是他的事，不是模板");
   assert.ok(!list.some(t => /老话/.test(t)), "超过半小时的不算刚才");
   assert.ok(!list.some(t => /撤回/.test(t)), "撤回的不算说过");
   assert.ok(!list.includes("太短"), "太短的没有信息量");
   // 自己说过的话绝不进自己的禁用单，否则等于禁止自己保持连贯
-  assert.ok(!f.crossSamenessBlocklist("shen").some(t => /窗户关紧了吗/.test(t)));
+  const ctx2 = { current: { shen: [A(TPL)], lu: [A(TPL)] } };
+  assert.equal(mk(ctx2).crossSamenessBlocklist("shen").length, 0, "除了我只剩一个人说过，那还不算被证明");
   // 没有别人说过话时是空串＝零成本、零干扰
   assert.equal(mk({ current: {} }).crossSamenessHint("x"), "");
 });
+
 
 test("禁用词表只给句子，不给是谁说的——这不是把 A 的私聊漏给 B", () => {
   const i = app.indexOf("const crossSamenessHint");
@@ -122,28 +124,36 @@ test("单聊两条路径都要吃到禁用词表（漏一条换线路又变批�
 //   ① 心声也要进那张「别处已经出现过」的表（以前只收气泡，心声一层没管）
 //   ② 提示词封的是【那个位置】，不是某个词
 test("心声也进禁用表：几个人心里冒出同一个套路要被抓住", () => {
+  // ⚠️v64.79 跟气泡那半一起改口径：心声是那个人【没说出口】的东西，
+  //   漏出去比气泡更糟。所以同样要【两个以上的人想过同一句】才算通用套路。
+  //   她当初立这一层是因为「封了『回去收拾你』，全员改成『回去捏你脸』」——
+  //   那个场景本来就是好几个人同时冒出同一句，新口径接得住。
   const i = app.indexOf("const CROSS_SAMENESS_WINDOW_MS");
   const j = app.indexOf("  const ctxFor = (char, ctxOpts) =>");
   const body = app.slice(i, j);
-  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", body
-    + "\nreturn {crossSamenessHint, crossThoughtBlocklist};")(ctx, [], hist);
+  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", "window", body
+    + "\nreturn {crossSamenessHint, crossThoughtBlocklist};")(
+      ctx, [], hist, { ChatRooms: { personFromKey: k => String(k).split("::room::")[0] } });
   const now = Date.now();
+  const SAME = "回去非得捏一下她的脸不可";
   const hist = { current: {
-    shen: [{ thought: "待会儿买完菜回去要捏她脸", ts: now - 3 * 60000 }],
-    pei: [{ thought: "回头非得捏一下她的脸不可", ts: now - 6 * 60000 }],
-    old: [{ thought: "这句太久了不该再算数", ts: now - 90 * 60000 }],
-    me: [{ thought: "本人自己的心声不该进自己的表", ts: now - 2 * 60000 }]
+    shen: [{ thought: SAME, ts: now - 3 * 60000 }, { thought: "她今天提的那篇文献我还没看", ts: now - 3 * 60000 }],
+    pei:  [{ thought: SAME, ts: now - 6 * 60000 }],
+    gu:   [{ thought: SAME, ts: now - 4 * 60000 }],
+    old:  [{ thought: "这句太久了不该再算数", ts: now - 90 * 60000 }],
+    me:   [{ thought: "本人自己的心声不该进自己的表", ts: now - 2 * 60000 }]
   } };
   const api = mk({ current: {} }, hist);
   const got = api.crossThoughtBlocklist("me");
-  assert.ok(got.includes("待会儿买完菜回去要捏她脸"));
-  assert.ok(got.includes("回头非得捏一下她的脸不可"));
+  assert.ok(got.includes(SAME), "三个人同时想到同一句，那就是通用套路");
+  assert.ok(!got.some(x => /文献/.test(x)), "只有沈屿白想过的，是他自己的心事，不许漏给别人");
   assert.ok(!got.some(x => /太久了/.test(x)), "半小时以外的不算");
   assert.ok(!got.some(x => /本人自己/.test(x)), "自己的心声不进自己的表");
   const hint = api.crossSamenessHint("me");
   assert.match(hint, /【心声也别和别处重样】/);
   assert.match(hint, /换个说法说同一件事也算重样/);
 });
+
 
 test("提示词封的是那个位置，不是某个词", () => {
   assert.match(app, /心声可以没有结尾/);

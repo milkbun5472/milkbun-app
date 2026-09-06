@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.79";
+const APP_VERSION = "v64.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3956,42 +3956,73 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // **规则降概率，代码才保证**。
   // 这里给一把代码侧的尺子：把最近半小时里【别的角色】刚说过的短句收集起来，
   // 当作「已经被证明是通用模板」的句子发给本轮，明令不许重样。
-  // ⚠️只发句子、不发是谁说的，也不给上下文——这不是把 A 的私聊漏给 B，是一张禁用词表。
   // 群聊没有这个问题、也不需要这一层：群里是一次调用写完所有人，模型天然看得见彼此，
   // 自然会岔开；单聊是几次互不知情的独立调用，谁也不知道刚才别处已经这么答过了。
+  //
+  // ⚠️v64.79 重写（她 2026-09-06 报「陆衍提到了沈屿白的羽毛球」，两人不认识、无群、
+  //   也没在记忆库里）。原来这儿收的是【别人说过的任何一句】，可上面这行注释写的是
+  //   「已经被证明是通用模板」——**代码从来没验证过那个「已经被证明」**。
+  //   于是 6~40 字的私聊原话被原样搬进另一个人的提示词。原注释里还写着
+  //   「这不是把 A 的私聊漏给 B」：是。所以那句删掉了，不是留着说它错了。
+  //   （负面清单尤其漏得狠：跟模型说「别提这个」，它照样会想起这个。）
+  //
+  // 现在【真的验一遍】：同一句话在这半小时里被【两个以上不同的角色】说过，才算模板。
+  // ⚠️这一改把隐私堵死在结构上，不是靠又加一道过滤：沈屿白独有的事实，
+  //   陆衍不可能独立地也说一模一样的一句——所以它永远进不了这张单子。
+  //   反过来，真模板（「早点休息」「怎么了」）本来就会从好几个人嘴里同时冒出来。
+  // ⚠️代价是【第一次重样放过去】：要两个人说过才算数。那是对的——
+  //   一句话只出现过一次的时候，谁也没证据说它是模板。
   const CROSS_SAMENESS_WINDOW_MS = 30 * 60000;
-  const crossSamenessBlocklist = charId => {
-    const now = Date.now(), out = [], seen = new Set();
-    const all = chatsRef.current || {};
-    Object.keys(all).forEach(id => {
-      if (String(id) === String(charId)) return;
-      (all[id] || []).forEach(m => {
-        if (!m || m.role !== "assistant" || m.recalled || m.kind) return;
-        if (!m.ts || now - m.ts > CROSS_SAMENESS_WINDOW_MS) return;
-        const t = String(m.content || "").replace(/\s+/g, " ").trim();
-        if (t.length < 6 || t.length > 40) return;   // 太短没信息、太长不是模板句
-        if (seen.has(t)) return;
-        seen.add(t); out.push(t);
+  const CROSS_SAMENESS_MIN_SPEAKERS = 2;
+  // ⚠️chats 是按 chatKey 索引的，侧房的键是「charId::room::xxx」——
+  //   直接拿 id 跟 charId 比，他自己侧房里说过的话会被当成【别人】。
+  const _ownerOfChatKey = k => (window.ChatRooms && window.ChatRooms.personFromKey) ? String(window.ChatRooms.personFromKey(k)) : String(k);
+  // 收成 line -> 说过它的角色集合；够人数的才留下，保持最后说的排在后面。
+  const _byWhom = (store, pick, minLen, maxLen) => {
+    const now = Date.now(), m = new Map();
+    Object.keys(store || {}).forEach(k => {
+      const owner = _ownerOfChatKey(k);
+      (store[k] || []).forEach(row => {
+        const t = pick(row, now);
+        if (!t || t.length < minLen || t.length > maxLen) return;
+        if (!m.has(t)) m.set(t, new Set());
+        m.get(t).add(owner);
       });
+    });
+    return m;
+  };
+  const crossSamenessBlocklist = charId => {
+    const me = String(charId);
+    const m = _byWhom(chatsRef.current, (msg, now) => {
+      if (!msg || msg.role !== "assistant" || msg.recalled || msg.kind) return "";
+      if (!msg.ts || now - msg.ts > CROSS_SAMENESS_WINDOW_MS) return "";
+      return String(msg.content || "").replace(/\s+/g, " ").trim();
+    }, 6, 40);   // 太短没信息、太长不是模板句
+    const out = [];
+    m.forEach((whom, t) => {
+      if (whom.size < CROSS_SAMENESS_MIN_SPEAKERS) return;   // 只有一个人说过＝还不是模板，是他自己的话
+      if (whom.size === CROSS_SAMENESS_MIN_SPEAKERS && whom.has(me)) return; // 除了我只剩一个人，那也没被证明
+      out.push(t);
     });
     return out.slice(-8);
   };
   // 心声那半（v56.91）：上面这张表只收气泡，心声一层都没管——于是同一个套路在
   // 几个角色的心声里同时长出来（她 2026-08-27：封了「回去收拾你」，全员改成「回去捏你脸」）。
   // 心声存在 stateHist 里，不在聊天记录里，所以得单独收一遍。
+  // ⚠️心声这半也照上面那条改（v64.79）：它原来同样是「别人的任何一句都收」，
+  //   而心声比气泡更私密——它是那个人没说出口的东西。
   const crossThoughtBlocklist = charId => {
-    const now = Date.now(), out = [], seen = new Set();
-    const all = stateHistRef.current || {};
-    Object.keys(all).forEach(id => {
-      if (String(id) === String(charId)) return;
-      (all[id] || []).forEach(h => {
-        if (!h || !h.thought) return;
-        if (!h.ts || now - h.ts > CROSS_SAMENESS_WINDOW_MS) return;
-        const t = String(h.thought).replace(/\s+/g, " ").trim();
-        if (t.length < 6 || t.length > 60) return;
-        if (seen.has(t)) return;
-        seen.add(t); out.push(t);
-      });
+    const me = String(charId);
+    const m = _byWhom(stateHistRef.current, (h, now) => {
+      if (!h || !h.thought) return "";
+      if (!h.ts || now - h.ts > CROSS_SAMENESS_WINDOW_MS) return "";
+      return String(h.thought).replace(/\s+/g, " ").trim();
+    }, 6, 60);
+    const out = [];
+    m.forEach((whom, t) => {
+      if (whom.size < CROSS_SAMENESS_MIN_SPEAKERS) return;
+      if (whom.size === CROSS_SAMENESS_MIN_SPEAKERS && whom.has(me)) return;
+      out.push(t);
     });
     return out.slice(-6);
   };
