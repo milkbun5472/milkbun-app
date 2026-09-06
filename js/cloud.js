@@ -318,6 +318,52 @@
       frozen = true;
     },
 
+    // ── 图库存到 VPS（她 2026-09-06：「昨天数据丢了然后所以图也没了，
+    //    以后有没有办法图库存到 vps 里，换页面啥的也都不会失效」）────────────
+    //
+    // 图从来没进过云：`saves` 那一行只存 x_ 文本，像素在本机 IndexedDB 里
+    //（x_selfies 和 x_imgvault）。所以本机数据一没，图就真没了——云端连一份
+    // 副本都没有过。这三个口把像素接到 VPS 那台自托管 Supabase 的 Storage 上。
+    //
+    // ⚠️只用【一个】桶，路径里再分层（<user_id>/<bucket>/<key>）：
+    //    桶是要在服务器上手开的，开两个就等于两次「第二处没跟上」的机会。
+    // ⚠️三个口一律【不抛】：桶还没开出来、没登录、断网，都只是返回 false/null，
+    //    调用方照旧走本机那条路——上云是多一层保险，不许变成多一个故障点。
+    MEDIA_BUCKET: "media",
+    async mediaPath(bucket, key) {
+      if (!client || !key) return "";
+      const user = await this.getUser();
+      if (!user) return "";
+      return user.id + "/" + String(bucket || "misc") + "/" + String(key);
+    },
+    async mediaPut(bucket, key, blob) {
+      try {
+        if (!blob || !blob.size) return false;
+        const path = await this.mediaPath(bucket, key);
+        if (!path) return false;
+        const { error } = await client.storage.from(this.MEDIA_BUCKET)
+          .upload(path, blob, { upsert: true, contentType: blob.type || "image/png" });
+        return !error;
+      } catch (e) { return false; }
+    },
+    async mediaGet(bucket, key) {
+      try {
+        const path = await this.mediaPath(bucket, key);
+        if (!path) return null;
+        const { data, error } = await client.storage.from(this.MEDIA_BUCKET).download(path);
+        if (error || !data || !data.size) return null;
+        return data;
+      } catch (e) { return null; }
+    },
+    async mediaDel(bucket, key) {
+      try {
+        const path = await this.mediaPath(bucket, key);
+        if (!path) return false;
+        const { error } = await client.storage.from(this.MEDIA_BUCKET).remove([path]);
+        return !error;
+      } catch (e) { return false; }
+    },
+
     async getUser() {
       if (!client) return null;
       try {

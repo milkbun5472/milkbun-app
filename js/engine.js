@@ -3302,11 +3302,87 @@ async function nativeMediaPut(bucket, k, blob) { try { const d = await blobToDat
 async function nativeMediaGet(bucket, k) { try { const d = await nativeMediaCall("get", bucket, k, ""); return typeof d === "string" && d.indexOf("data:") === 0 ? dataUrlToBlob(d) : null; } catch (e) { return null; } }
 async function nativeMediaDel(bucket, k) { try { await nativeMediaCall("delete", bucket, k, ""); } catch (e) {} }
 async function nativeMediaKeys(bucket) { try { const a = await nativeMediaCall("keys", bucket, "", ""); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+// ---- 图上云：本机 → 原生壳 → VPS，三层（她 2026-09-06 数据丢了图也没了）----
+// 像素从来没进过云（saves 那一行只有 x_ 文本），所以本机一没图就真没了。
+// 现在每张图写进本机之后再进一条【上传队列】，队列里的名字慢慢往 VPS 上送；
+// 读不到的时候反过来从 VPS 拉回来、顺手回填本机——换页面、换设备、清过数据，
+// 只要还是同一个账号，图都还在。
+//
+// ⚠️队列里只放【名字】，不放像素：像素本来就在 IndexedDB 里躺着，
+//   存两份的话 localStorage 分分钟被撑爆（那正是当初把图挪进 IDB 的原因）。
+// ⚠️三层一律不抛：桶没开、没登录、断网，都只是这一张没上去，本机那条路照旧。
+//   上云是多一层保险，不许变成多一个故障点。
+const MEDIA_Q_KEY = "x_mediaUpQ";
+const MEDIA_Q_CAP = 800;     // 攒到这么多就挤掉最旧的——它是队列，不是第二个图库
+let mediaDraining = false;
+function mediaQueueRead() {
+  try { const a = JSON.parse(localStorage.getItem(MEDIA_Q_KEY) || "[]"); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function mediaQueueWrite(list) {
+  try { localStorage.setItem(MEDIA_Q_KEY, JSON.stringify(list.slice(-MEDIA_Q_CAP))); } catch (e) {}
+}
+function mediaQueueAdd(bucket, k) {
+  if (!k) return;
+  const id = bucket + "|" + k;
+  const list = mediaQueueRead().filter(x => x !== id);
+  list.push(id);
+  mediaQueueWrite(list);
+}
+// 队列里那个名字的像素现在在本机哪儿——上传前现读，队列里不留副本
+async function mediaLocalRead(bucket, k) {
+  // ⚠️两个都用【只读本机】那一支：走 idbVaultGet 的话，本机没有的它会去 VPS 拉一份
+  //   回来，然后我们再把这份刚拉回来的原样传上去——一次白跑的来回。
+  try { return bucket === "vault" ? await idbVaultGetOnly(k) : await idbImgGetOnly(k); }
+  catch (e) { return null; }
+}
+async function mediaDrain(limit) {
+  if (mediaDraining) return 0;
+  if (!(window.Cloud && typeof window.Cloud.mediaPut === "function")) return 0;
+  mediaDraining = true;
+  let sent = 0;
+  try {
+    const list = mediaQueueRead();
+    const n = Math.min(list.length, Math.max(1, Number(limit) || 6));
+    for (let i = 0; i < n; i++) {
+      const id = list[0];
+      const cut = String(id).indexOf("|");
+      if (cut < 0) { list.shift(); continue; }
+      const bucket = id.slice(0, cut), k = id.slice(cut + 1);
+      const blob = await mediaLocalRead(bucket, k);
+      // 本机已经没有这张了（删掉了/清过了）：它不该永远堵在队头
+      if (!blob || !blob.size) { list.shift(); continue; }
+      let ok = false;
+      try { ok = await window.Cloud.mediaPut(bucket, k, blob); } catch (e) { ok = false; }
+      // 送不上去就【停在这儿】：多半是没登录或桶还没开，接着试下一张也是白试
+      if (!ok) break;
+      list.shift(); sent++;
+    }
+    mediaQueueWrite(list);
+  } catch (e) {/* 上传这一层永远不许连累读写 */ }
+  finally { mediaDraining = false; }
+  return sent;
+}
+// 回前台/联网时补送。跟云同步那条链同一个形状（后台不跑代码，靠这一拍补）。
+try {
+  window.addEventListener("online", () => { mediaDrain(12); });
+  window.addEventListener("focus", () => { mediaDrain(12); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) mediaDrain(12); });
+} catch (e) {}
+async function remoteMediaGet(bucket, k) {
+  try {
+    if (!(window.Cloud && typeof window.Cloud.mediaGet === "function")) return null;
+    return await window.Cloud.mediaGet(bucket, k);
+  } catch (e) { return null; }
+}
+async function remoteMediaDel(bucket, k) {
+  try { if (window.Cloud && typeof window.Cloud.mediaDel === "function") await window.Cloud.mediaDel(bucket, k); } catch (e) {}
+}
 async function idbImgPutOnly(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMediaPut("selfies", k, blob); }
+async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMediaPut("selfies", k, blob); mediaQueueAdd("selfies", k); mediaDrain(4); }
 async function idbImgGetOnly(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
-async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } return null; }
-async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); }
+async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("selfies", k); if (far && far.size) { try { await idbImgPutOnly(k, far); } catch (e) {} return far; } return null; }
+async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); await remoteMediaDel("selfies", k); }
 // 自拍整仓遍历（备份 v3 用）：[[key, blob], ...]
 async function idbImgEntries() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
 async function hydrateNativeSelfies() {
@@ -4116,9 +4192,11 @@ function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + 
 // 图库全读进内存缓存，Avatar 等同步组件可直接同步取用，不用每处改成异步）。此阶段纯新增、无处调用、零行为改动。
 // ============================================================
 function idbVaultOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_imgvault", 2); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); if (!r.result.objectStoreNames.contains("album")) r.result.createObjectStore("album"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbVaultPut(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbVaultGet(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
-async function idbVaultDel(k) { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+async function idbVaultPutOnly(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbVaultPut(k, blob) { await idbVaultPutOnly(k, blob); mediaQueueAdd("vault", k); mediaDrain(4); }
+async function idbVaultGetOnly(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+async function idbVaultGet(k) { const own = await idbVaultGetOnly(k).catch(() => null); if (own) return own; const far = await remoteMediaGet("vault", k); if (far && far.size) { try { await idbVaultPutOnly(k, far); } catch (e) {} return far; } return null; }
+async function idbVaultDel(k) { const db = await idbVaultOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await remoteMediaDel("vault", k); }
 // 清空图库（导入 v2+ 备份前用：旧机器攒的孤儿 blob 不再带进新档，防止越导越大）
 async function idbVaultClear() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction(["img", "album"], "readwrite"); tx.objectStore("img").clear(); tx.objectStore("album").clear(); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbVaultEntries() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
