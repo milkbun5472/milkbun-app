@@ -6,7 +6,8 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 const codeOnly = src.split("\n").filter(l => !l.trim().startsWith("//")).join("\n");
 const wb = (() => {
   const i = src.indexOf("function WorldBook({ entries");
-  const j = src.indexOf("function WorldBookEntrySheet(", i);
+  // v64.24：词条编辑从半窗改成整页，组件也跟着改了名（WorldBookEntrySheet → …Page）。
+  const j = src.indexOf("function WorldBookEntryPage(", i);
   assert.ok(i > 0 && j > i);
   return src.slice(i, j);
 })();

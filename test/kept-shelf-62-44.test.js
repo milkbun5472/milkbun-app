@@ -73,7 +73,10 @@ test("说好的每条是一张字据，日子挂在旁边", () => {
 // ── 收着的那几本：底纹各有各的 ──────────────────────────────
 test("收着的每一本都有自己的底，而且都铺在外壳上、顶栏透上来", () => {
   const pages = [
-    ["情书", cut(scr, "  // 底纹铺在【外壳】上（v62.44", "// 情侣空间·合照墙"), "repeating-linear-gradient(45deg"],
+    // v64.24：情书那圈斜条抽成了 letterSkin，【我们的情书】和【情书设置】共用一处
+    //（原来只有前一页有底，设置页是纯米白）。所以这一行钉的从"内联的那串渐变"
+    // 换成"用的是那处共用皮"，渐变本身另有一条单独钉着（见文件末尾）。
+    ["情书", cut(scr, "  // 底纹铺在【外壳】上（v62.44", "// 情侣空间·合照墙"), "style: letterSkin(t)"],
     ["交换日记", cut(scr, "function CoupleExDiary({", "\nconst COUPLE_MOODS"), "repeating-linear-gradient(135deg"],
     ["问答小本", cut(scr, "  // 这一本躺在【点阵纸】上", "// 情侣空间·情书"), "radial-gradient(circle,rgba(120,110,80,.14)"],
     ["他记得的", cut(scr, "  // 底纹（v62.44）：这一页摊的是", "// 情侣空间·我们说好的"), "linear-gradient(90deg,rgba(0,0,0,0) calc(50% - 6px)"],
@@ -85,7 +88,7 @@ test("收着的每一本都有自己的底，而且都铺在外壳上、顶栏�
     assert.ok(blk.indexOf(mark) >= 0, zh + " 没有自己的底纹");
     // ⚠️底纹必须铺在【最外那个 h-full 外壳】上，不是铺在滚动区上——
     //   铺在滚动区上，顶栏那一条还是平色，顶上横着一道没盖住的带子。
-    assert.match(blk, /className: "h-full flex flex-col", style: \{ background: t\.bg/, zh + " 的底纹没铺在外壳上");
+    assert.match(blk, /className: "h-full flex flex-col", style: (\{ background: t\.bg|letterSkin\(t\))/, zh + " 的底纹没铺在外壳上");
     assert.ok(/bg: "transparent"/.test(blk) || zh === "情书", zh + " 的顶栏没透上来");
   });
   // 底不跟着滚：内容在动，底不该动
@@ -101,4 +104,17 @@ test("那两块纯黑药丸换成了各自这一页的材质", () => {
   // 「挑一件事，问问他记得的」换成一条纸带
   assert.match(scr, /busy \? "他在想…" : "挑一件事，问问他记得的"/);
   assert.match(scr, /border: "1px dashed rgba\(140,115,70,\.45\)"/, "那一颗还是纯黑药丸");
+});
+
+// ── v64.24：情书那张皮现在两页共用，单独钉一条 ──────────────
+test("情书那圈斜条只有一处，两页都从它拿", () => {
+  const scr2 = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  assert.match(scr2, /const letterSkin = t => \(\{ background: t\.bg,\n\s*backgroundImage: "repeating-linear-gradient\(45deg,rgba\(176,141,82,\.055\)/,
+    "那圈斜条不在 letterSkin 里了");
+  assert.equal((scr2.match(/repeating-linear-gradient\(45deg,rgba\(176,141,82/g) || []).length, 1,
+    "又抄成两份了——改一处另一处就落单");
+  assert.equal((scr2.match(/style: letterSkin\(t\)/g) || []).length, 2,
+    "我们的情书 + 情书设置，两页都得从这一处拿");
+  // 设置页原来是纯米白，还自己手写了一条顶栏
+  assert.match(scr2, /h\(Head, \{ zh: "情书设置"[^\n]*bg: "transparent"/, "情书设置的顶栏没换成 Head");
 });
