@@ -283,6 +283,12 @@
     const [books, setBooks] = useState(loadBooks);
     const [openId, setOpenId] = useState(null);
     const fileRef = useRef(null);
+    // 长按移除（她 2026-09-06：「一起读长按封面删不了」）。
+    // ⚠️病因：这儿原来只挂了 onContextMenu。桌面右键会发它，**iOS 长按一个 <button>
+    //   压根不发这个事件**——弹的是系统那个选择/预览菜单。所以这行「长按封面可移除」
+    //   在她手机上从上线起就是句空话，而且不报任何错。
+    // 照梦境/塔罗那两处现成的做法：touch 计时 550ms 自己判长按，contextmenu 留给桌面。
+    const lpTimer = useRef(null), lpFired = useRef(false);
 
     const persist = function (list) { if (saveBooks(list)) setBooks(list); else props.toast && props.toast("这次没保存成功，原书还在"); };
     const patchBook = function (id, patch) {
@@ -344,6 +350,15 @@
     const shelfPage = (typeof pageSkin === "function")
       ? pageSkin("wood", t, { strength: .8 }) : { background: t.bg };
     const sorted = books.slice().sort(function (a2, b2) { return (b2.lastReadTs || 0) - (a2.lastReadTs || 0); });
+    const askDrop = function (b) {
+      requestAppConfirm("从书架移除《" + b.title + "》？", "正文和批注会一并删除。", function () { delBook(b.id); }, "删除");
+    };
+    const startLP = function (b) {
+      lpFired.current = false;
+      cancelLP();
+      lpTimer.current = setTimeout(function () { lpFired.current = true; askDrop(b); }, 550);
+    };
+    const cancelLP = function () { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
     const bookCell = function (b) {
       const partner = props.characters.find(function (c) { return c.id === b.partnerId; });
       const pages = b.size ? Math.max(1, Math.ceil(b.size / PAGE_CHARS)) : 1;
@@ -351,9 +366,13 @@
       const pct = Math.max(0, Math.min(100, Math.round(((b.page || 0) / Math.max(1, pages - 1 || 1)) * 100)));
       return h("div", { key: b.id },
         h("button", {
-          onClick: function () { setOpenId(b.id); },
-          onContextMenu: function (e) { e.preventDefault(); requestAppConfirm("从书架移除《" + b.title + "》？", "正文和批注会一并删除。", function () { delBook(b.id); }, "删除"); },
-          style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }
+          // 长按刚弹过确认框，松手那一下别再把书打开
+          onClick: function () { if (lpFired.current) { lpFired.current = false; return; } setOpenId(b.id); },
+          onContextMenu: function (e) { e.preventDefault(); askDrop(b); },
+          onTouchStart: function () { startLP(b); }, onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
+          onMouseDown: function () { startLP(b); }, onMouseUp: cancelLP, onMouseLeave: cancelLP,
+          // ⚠️不关掉 iOS 自己那套长按行为，系统菜单会盖在确认框前面
+          style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }
         },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
           h("div", null,

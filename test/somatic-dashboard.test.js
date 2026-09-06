@@ -17,5 +17,7 @@ test("五感诊断台覆盖四通道、状态报告和 CC 回流来源", () => {
 test("五感诊断台明确只读、不注入且不读取私人 CC transcript", () => {
   assert.match(screens, /只看不注入/);
   assert.match(screens, /不读取私人 CC transcript/);
-  assert.match(screens, /五感系统 · 查看全角色纯影子诊断/);
+  // v64.26 改了名：「纯影子诊断」这个说法她看不懂，而且这一片重排之后
+  // 它已经明确收在「只是数字 · 工程仪表」那一折里了，标题不用再自称影子。
+  assert.match(screens, /五感系统 · 全角色影子诊断/);
 });

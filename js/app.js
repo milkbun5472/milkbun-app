@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.36";
+const APP_VERSION = "v64.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14667,11 +14667,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
       ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, bgKey: bgKey, bgUrl: bgUrl } : x));
       // 生出来的也留在情侣空间的墙上（她 2026-08-31 定）
-      addCoupleShot({ charId: char.id, imgKey: bgKey, imgUrl: bgUrl, desc: "《" + line.title + "》" + (line.premise ? "·" + line.premise : ""), from: "另一种我们" });   // ⚠️旧记录里写的还是「如果馆」，那是历史，不回头改她的存档
+      addCoupleShot({ charId: char.id, imgKey: bgKey, imgUrl: bgUrl, desc: "《" + line.title + "》那个世界的一角" + (line.premise ? "·" + line.premise : ""), from: "另一种我们" });   // ⚠️说清它是空景：不写这四个字，合照墙上一间没有人的屋子看着就像「脸没画出来」（她 2026-09-06 问的就是这个）   // ⚠️旧记录里写的还是「如果馆」，那是历史，不回头改她的存档
       toast("背景画好了");
       return true;
     } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, ifBg: null })); }
+  };
+  // 拍一张【我俩在那个世界的】合照（她 2026-09-06）。
+  // ⚠️跟上面那张背景图是两件事，别混：背景图走 buildScenePrompt，是【纯空景】——
+  //   那是这一页要压字的底板，它没有脸是对的。她要的这张是【合照】，
+  //   所以走照相馆那条现成的真 duo 路（两张参考照把两张脸都锁住），
+  //   不在这儿另拼一份出图提示词。
+  const ifShot = async lineId => {
+    const line = ifLinesRef.current.find(x => x.id === lineId);
+    const char = line && characters.find(c => c.id === line.charId);
+    if (!line || !char) return false;
+    // 这条线走到哪儿了，就拍哪儿：末尾那几拍比开头那句设定更像「此刻」
+    // ⚠️字段名照着【写这份存档的那段代码】抄（stub-from-the-writer）：
+    //   一拍是 { role, boxes:[{who,text}] }，不是 beat.text——写成 b.text 一条都取不到，
+    //   而且不报错，只是这张照片永远只按开头那句设定拍。
+    const last = (line.beats || []).slice(-2)
+      .flatMap(b => ((b && b.boxes) || []).map(x => String((x && x.text) || "").trim()))
+      .filter(Boolean).join(" ");
+    const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
+      + (last ? "。此刻：" + last.slice(0, 200) : "");
+    return await studioShoot(char, { scene: scene, ifTitle: line.title });
   };
   // 收线。三个去处她 2026-08-31 说都要。
   //  keep  只留在馆里——主线一个字都不知道
@@ -14845,7 +14865,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
-        scene: scene, mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull };
+        // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
+        scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
@@ -17766,6 +17788,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onIfOpen: ifOpen,
     onIfAdvance: ifAdvance,
     onIfBg: ifBg,
+    onIfShot: ifShot,
     onIfEnd: ifEnd,
     onIfDrop: ifDrop,
     // 和好间
