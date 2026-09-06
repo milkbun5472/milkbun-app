@@ -47,13 +47,16 @@ test("B 关系轴：真的一行模型调用都不发了", async () => {
   assert.match(R("js/app.js"), /if \(!char \|\| !window\.InnerLifeBShadow \|\| !window\.InnerLifeBShadow\.pilotFor\(char\)\) return;/);
 });
 
-test("C 睡眠那条线整条删干净，不是留着说它没用", () => {
-  // 模块在 app/engine 里 0 引用＝什么都没在记，面板只可能是空的
-  ["InnerLifeCSleepShadow", "InnerLifeCSleepCore"].forEach(g =>
-    assert.equal((R("js/app.js") + R("js/engine.js")).indexOf(g), -1, g + " 又被接上了？那这条不该删"));
+// ⚠️v64.65 改口径：这一条原来还断言【index.html 里也不许有 c-sleep】——那是错的，
+//   而且 v64.34 就是照着它把两个 script 删掉的。C 自己确实什么都不拦，
+//   但【D 做梦挂在它身上】：DreamLoop.observe 要 C 算出来的 sleepState。
+//   删掉之后 D 一起停了，不报错、界面上也看不出来，只是「他做的梦」再没多一条。
+//   现在这条只管【那块空面板】——面板该删，模块得留。C↔D 那条线由
+//   test/inner-life-c-carries-d-64-65.test.js 单独钉。
+test("C 那块空面板删干净，不是留着说它没用（模块本身要留给 D）", () => {
   ["InnerLifeCDiagnosticSheet", "cSleepOpen", "setCSleepOpen", "C 睡眠与发声闸"].forEach(x =>
     assert.equal(screens.indexOf(x), -1, "screens 里还留着 " + x));
-  assert.equal(html.indexOf("c-sleep"), -1, "index.html 还在下载这两个没人用的模块");
+  assert.notEqual(html.indexOf("c-sleep"), -1, "C 的模块不许再从 index.html 里删掉——D 靠它算作息");
 });
 
 test("从来没显示过的那颗也删了（onShadowMigrate 压根没传过）", () => {

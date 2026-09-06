@@ -13591,7 +13591,7 @@ function ChatSettings({
       });
       live.push({
         key: "A", title: "立体情绪 · 已开启", tone: "情绪",
-        text: "受伤、生气、不安、柔软和疲惫这几样此刻偏离常态多少，会连同你写的性情锚点一起，当作背景偏色轻调语气。数字是本地算的，模型看不见；它也不能替 TA 决定说什么。"
+        text: "受伤、生气、不安、柔软和疲惫这几样此刻偏离常态多少，会连同你写的性情锚点一起，当作背景偏色轻调语气。数字本身是本地算的、不发出去；发出去的是折成的那一句（像「受伤偏高、柔软偏低」），在下面「内在性情」那一页看得见原文。它不能替 TA 决定说什么。"
       });
     } else shadow.push("A 情绪 / E 余温：你按过急停，两层都退回只观察");
     live.push({
@@ -13599,7 +13599,9 @@ function ChatSettings({
       text: "只影响 TA 什么时候主动来找你，以及主动开口时的轻微姿态；不会改普通聊天回复。详细进度就在下方。"
     });
     if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("B 关系轴：只观察，不制造伤口或关系转折");
-    shadow.push("C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言");
+    // C 自己什么都不拦（每一支都放行），但【他做梦要靠它算的作息】——
+    // v64.34 我把它当死代码删掉，D 就跟着停了。写清楚它为什么还在。
+    shadow.push("C 睡眠意识：只算 TA 几点睡几点醒，不拦消息、不代替 TA 发言；「他做的梦」靠它才知道该在哪一夜做");
     return { live, shadow };
   })();
   // 别的场里的思念（v62.12）：一场一行，越想的排越前；没有别的场就整段不出现。
@@ -13855,7 +13857,10 @@ function ChatSettings({
       h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
   show("temper", { title: "内在性情 · 性情锚点", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
-      "这是 A 情绪影子的性情底稿。只有你点按钮才会调用一次后台 API；模型只提议词，数值由本地固定规则计算。现在不会进 prompt，也不会改变 Ta 的语气。"),
+      // ⚠️这段话从 v62.37 起就是【假的】：A 那一层当时全开了，这里写的词会跟着
+      //   「此刻偏离」一起折成一句话发给模型（engine.js 的【此刻的情绪底色】那一段）。
+      //   她 2026-09-06 指着这一页问「开了的话这里提示是不是要改」——是要改。
+      "这是 A 立体情绪的底色。你写的这几个词会跟着「此刻偏离常态多少」一起，折成一句话发给 " + cNm + "，当作语气的背景偏色——所以写在这儿的词他是看得见的。只有你点「生成一次草稿」才会调用一次后台 API；模型只提议词，数值由本地固定规则算。"),
     h("textarea", { value: temperamentText, onChange: e => { setTemperamentText(e.target.value); setTemperamentDirty(true); }, placeholder: "每行一个词，例如：\n敏感\n嘴硬\n温柔", rows: 6,
       style: { width: "100%", marginTop: 12, padding: "11px 12px", resize: "vertical", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, outline: "none" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7, lineHeight: 1.5 } },
@@ -13864,10 +13869,10 @@ function ChatSettings({
       h("button", { disabled: temperamentBusy, onClick: async () => { await onGenerateTemperament(temperamentWords()); setTemperamentDirty(false); }, className: "active:opacity-60", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 8px", color: t.sub, opacity: temperamentBusy ? .55 : 1 } }, temperamentBusy ? "正在提炼…" : "生成一次草稿"),
       h("button", { disabled: !temperamentWords().length, onClick: async () => { const ok = await onSaveTemperament(temperamentWords()); if (ok) setTemperamentDirty(false); }, className: "active:opacity-70", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 9, padding: "9px 8px", background: t.ink, color: t.bg2, opacity: temperamentWords().length ? 1 : .45 } }, "确认并保存")),
     aShadowPanel && aShadowPanel.state && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
-      h(Eyebrow, null, "A 影子 · 只看不注入"),
+      h(Eyebrow, null, "此刻的读数 · 正在发给 " + cNm),
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value).toFixed(2)))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 10, lineHeight: 1.6 } },
-        aShadowPanel.projection && aShadowPanel.projection.text ? "若开阀会投影：" + aShadowPanel.projection.text : "若开阀会投影：无（目前接近常态）"),
+        aShadowPanel.projection && aShadowPanel.projection.text ? "正发给他的那一句：" + aShadowPanel.projection.text : "这一轮不发（目前接近常态，没有偏离要说）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } },
         "样本 " + Number(aShadowPanel.report && aShadowPanel.report.sampleCount || 0) + " · mood 未命中 " + Number(aShadowPanel.report && aShadowPanel.report.unmatchedMoodCount || 0) + " · 封顶触发 " + Number(aShadowPanel.report && aShadowPanel.report.clippedCount || 0) + " · 预计 " + Number(aShadowPanel.projection && aShadowPanel.projection.tokenEstimate || 0) + " tokens")),
     aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },

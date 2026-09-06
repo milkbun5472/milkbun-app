@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.64";
+const APP_VERSION = "v64.65";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2595,6 +2595,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     };
   }, [loaded]);
   // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
+  // ⚠️【D 做梦就挂在这个 if 里面】：DreamLoop 要 C 算出来的 sleepState 才知道 REM 窗到没到。
+  //   v64.34 把 C 的两个 script 当死代码删掉时，D 一起停了——不报错、界面上也看不出来，
+  //   「他做的梦」只是从那天起再没多一条。要动 C 之前先想一下这一行。
   useEffect(() => {
     if (!loaded) return;
     const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
