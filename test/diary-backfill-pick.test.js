@@ -14,7 +14,12 @@ test("补齐可以只补指定的某几天", () => {
   assert.match(app, /const pick = Array\.isArray\(opts\.days\) && opts\.days\.length \? opts\.days\.slice\(\) : null;/);
   assert.match(app, /const days = pick \|\| diaryMissingDays\(charId\);/);
   // 指定了哪天就别再弹确认框问"要补 N 篇吗"
-  assert.match(app, /if \(!pick && !confirm\(/);
+  // ⚠️v64.88 起弹的是 App 自己那层（原生 confirm 在 PWA 里会被吞掉、返回 false 且不抛异常）；
+  //   它是异步的，所以确认之后才走 diaryBackfillRun，pick 那一路仍旧直接开跑。
+  assert.match(app, /if \(!pick\) \{ requestAppConfirm\("补齐漏掉的 " \+ days\.length \+ " 篇？"/);
+  assert.match(app, /\(\) => diaryBackfillRun\(charId, days\), "开始补"\); return; \}/, "确认之后没接上真正干活那一步");
+  assert.match(app, /\n    return diaryBackfillRun\(charId, days\);/, "挑了某几天时应该直接开跑，不再问一遍");
+  assert.ok(!/!confirm\(/.test(app), "又用回原生 confirm 了");
   assert.match(app, /onBackfill: \(id, opts\) => backfillDiary\(id, opts\)/);
 });
 

@@ -5756,7 +5756,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             h("button", { onClick: () => setOpenPl(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "‹ 歌单"),
             h("div", { className: "flex-1 min-w-0 flex items-center justify-center gap-1.5" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, openPlObj.name),
-              !isFavView ? h("button", { onClick: () => { const nv = window.prompt("歌单改名", openPlObj.name); if (nv && nv.trim()) onRenamePlaylist(openPlObj.id, nv.trim()); }, className: "shrink-0 active:opacity-60", style: { fontSize: 12.5, color: t.fog, padding: "0 2px" } }, null) : null),
+              !isFavView ? h("button", { onClick: () => requestAppPrompt("歌单改名", "", openPlObj.name, function (nv) { if (String(nv || "").trim()) onRenamePlaylist(openPlObj.id, String(nv).trim()); }, "改好了", { maxLength: 24 }), className: "shrink-0 active:opacity-60", style: { fontSize: 12.5, color: t.fog, padding: "0 2px" } }, null) : null),
             !isFavView ? h("button", { onClick: () => { onDeletePlaylist(openPlObj.id); setOpenPl(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删除") : h("div", { style: { width: 28 } })),
           (openPlObj.songs || []).length
             ? h("div", null, (openPlObj.songs || []).map((s, i2) => songRow(s, { no: i2 + 1, queue: (openPlObj.songs || []).map(x => x.id), inPlaylist: isFavView ? null : openPlObj.id })))
@@ -6198,13 +6198,16 @@ function CotConfig({ toast, activeProfile }) {
     if (pr) { save({ ...cfg, think: pr.think }); toast && toast("已载入「" + name + "」"); }
   };
   const saveAsPreset = () => {
-    const name = (window.prompt("给这套思考方式起个名字（如：温柔向 / 高张力 / 专治八股）") || "").trim();
-    if (!name) return;
+    // ⚠️先看有没有东西可存，再问名字——问完才说「是空的」是白让她填一遍
     if (!(cfg.think || "").trim()) { toast && toast("思考方式是空的，先写点内容再存"); return; }
-    const others = (cfg.presets || []).filter(x => x.name !== name);
-    save({ ...cfg, presets: [...others, { name, think: cfg.think }] });
-    setSel(name);
-    toast && toast("已存为预设「" + name + "」");
+    requestAppPrompt("给这套思考方式起个名字", "同名会盖掉原来那一份。", "", function (raw) {
+      const name = String(raw || "").trim();
+      if (!name) { toast && toast("没起名字，没存"); return; }
+      const others = (cfg.presets || []).filter(x => x.name !== name);
+      save({ ...cfg, presets: [...others, { name, think: cfg.think }] });
+      setSel(name);
+      toast && toast("已存为预设「" + name + "」");
+    }, "存起来", { maxLength: 20 });
   };
   const delPreset = () => {
     if (!sel) { toast && toast("先在上面选一个要删的预设"); return; }
@@ -6257,7 +6260,10 @@ function CotConfig({ toast, activeProfile }) {
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "小稿检查方式"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "落笔前先按这几条过一遍")),
         h("div", { className: "flex gap-2 flex-wrap" }, COT_BUILTIN.map(function (pr) {
-          return h("button", { key: pr.name, onClick: function () { if (!(cfg.think || "").trim() || window.confirm("用「" + pr.name + "」替换当前内容？")) { setThink(pr.think); setSel(pr.name); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, pr.name);
+          // ⚠️不许用 window.confirm：PWA 里它被系统吞掉、直接返回 false 且不抛异常，
+          //   于是编辑框里已经写了东西时这几颗按钮全变成摆设（components.js requestAppConfirm）
+          const take = function () { setThink(pr.think); setSel(pr.name); };
+          return h("button", { key: pr.name, onClick: function () { if (!(cfg.think || "").trim()) return take(); requestAppConfirm("用「" + pr.name + "」替换当前内容？", "现在写的这段会被盖掉。", take, "替换"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, pr.name);
         }))),
       h("div", { className: "flex gap-2 mb-2" }, chip("{{char}}", () => insertVar("{{char}}")), chip("{{user}}", () => insertVar("{{user}}"))),
       h("textarea", { ref: taRef, value: cfg.think || "", onChange: e => setThink(e.target.value), rows: 9,
@@ -8135,23 +8141,34 @@ function CloudSync({ toast, onExport }) {
       toast("注册失败：" + (e.message || "请重试"));
     } finally { setBusy(""); }
   };
-  const doPush = async () => {
+  // ⚠️这两道闸是 2026-09-04 丢存档之后补的，绝不许再用 window.confirm 挂着：
+  //   PWA 里它被系统吞掉、返回 false 且不抛异常——那样闸倒是「拦住」了，
+  //   可她点【备份到云端】会永远毫无反应，而且看不出是被拦了还是坏了。
+  const doPush = () => {
     // 空壳防呆（v48.31）：本机连一个角色都没有还要覆盖云端备份，十有八九是站错设备了——拦一道确认
     if (window.Cloud && typeof window.Cloud.localMeaningful === "function" && !window.Cloud.localMeaningful()) {
-      if (!window.confirm("⚠️ 本机现在没有任何角色（看起来是空存档）。\n确定要用这份空数据覆盖云端备份吗？\n（若你是想把云端数据拿回来，请点下面的「从云端恢复」）")) return;
+      requestAppConfirm("本机现在一个角色都没有", "看起来是空存档。用这份空数据覆盖云端备份，云上那份就没了。\n想把云端数据拿回来的话，点下面的「从云端恢复」。", doPushStale, "仍要覆盖");
+      return;
     }
-    // 过期设备防呆（v61.63）：本机有角色、但已经很久没跟云端同步过——2026-09-04 就是这样
-    // 把手机刚备份的那份盖掉、少了三个角色的。空壳那道闸拦不住「旧的盖新的」。
+    doPushStale();
+  };
+  // 过期设备防呆（v61.63）：本机有角色、但已经很久没跟云端同步过——2026-09-04 就是这样
+  // 把手机刚备份的那份盖掉、少了三个角色的。空壳那道闸拦不住「旧的盖新的」。
+  const doPushStale = async () => {
     try {
       const u = await window.Cloud.getUser();
       const g = u && await window.Cloud.staleness(u.id);
       if (g && g.stale) {
         const when = x => x ? new Date(x).toLocaleString() : "从来没有过";
-        if (!window.confirm("⚠️ 云端那份存档比这台设备新得多。\n\n云端最后一次备份：" + when(g.cloudAt) +
+        requestAppConfirm("云端那份比这台设备新得多", "云端最后一次备份：" + when(g.cloudAt) +
           "\n这台设备最后一次同步：" + when(g.localAt) +
-          "\n\n现在备份会用本机这份覆盖掉云端那份，中间的改动全部拿不回来。\n（想把云端拿回来请点「从云端恢复」）\n\n确定要覆盖吗？")) return;
+          "\n\n现在备份会用本机这份盖掉云端那份，中间的改动全部拿不回来。\n（想把云端拿回来请点「从云端恢复」）", doPushNow, "仍要覆盖");
+        return;
       }
     } catch (e) {}
+    doPushNow();
+  };
+  const doPushNow = async () => {
     setBusy("push");
     try {
       await window.Cloud.push();
@@ -8896,28 +8913,27 @@ function CandidateReviewSheet({ candidateId, characters, onClose, onChanged, toa
     setEditing(false);
     toast && toast("已还原成执笔人原稿");
   };
-  const doReturn = async () => {
-    const fb = prompt("退回给执笔人，说说要改哪里（他下次起草能看到）：");
-    if (fb == null) return;
+  const doReturn = () => requestAppPrompt("退回给执笔人", "说说要改哪里（他下次起草能看到）。", "", async function (fb) {
     setBusy(true);
-    try { await window.Cloud.eventCandidateSetStatus(candidateId, "requested", fb.trim() || "退回重写"); toast && toast("已退回，等他重新起草"); onChanged && onChanged(); onClose(); }
+    try { await window.Cloud.eventCandidateSetStatus(candidateId, "requested", String(fb || "").trim() || "退回重写"); toast && toast("已退回，等他重新起草"); onChanged && onChanged(); onClose(); }
     catch (e) { toast && toast("退回失败：" + ((e && e.message) || "")); }
     finally { setBusy(false); }
-  };
-  const doReject = async () => {
-    if (!confirm("拒绝这份候选？候选和草稿都会留档（不删除），只是不再推进。")) return;
+  }, "退回", { multiline: true });
+  const doReject = () => requestAppConfirm("拒绝这份候选？", "候选和草稿都会留档（不删除），只是不再推进。", async function () {
     setBusy(true);
     try { await window.Cloud.eventCandidateSetStatus(candidateId, "rejected"); toast && toast("已拒绝，留档可查"); onChanged && onChanged(); onClose(); }
     catch (e) { toast && toast("拒绝失败：" + ((e && e.message) || "")); }
     finally { setBusy(false); }
-  };
+  }, "拒绝");
   const d = cand && cand.draft;
   const canConfirm = !editing && lights && !lights.length && typeof (window.Cloud && window.Cloud.eventCandidateAccept) === "function";
   const edited = !!edits || eTitle !== ((d && d.title) || "") || eNarr !== ((d && d.narrative) || "") || eSyn !== ((d && d.synopsis) || "");
-  const doConfirm = async () => {
+  const doConfirm = () => {
     if (!canConfirm || !cand) return;
     if (!eTitle.trim() || !eNarr.trim()) { toast && toast("标题和事件正文不能留空"); return; }
-    if (!confirm("把这份候选正式写进事件书架？确认会原子落下事件和来源链接。")) return;
+    requestAppConfirm("写进事件书架？", "确认会原子落下事件和来源链接。", doConfirmNow, "写进去");
+  };
+  const doConfirmNow = async () => {
     const mutations = loadJSON(K_EVC_ACCEPT_MUTATIONS, {});
     const makeUuid = () => (window.crypto && window.crypto.randomUUID)
       ? window.crypto.randomUUID()
@@ -9176,7 +9192,7 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
       (characters||[]).map(c=>{const charHash=window.InnerLifeEAfterglowShadow&&window.InnerLifeEAfterglowShadow.hash(c.id),rdy=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.evaluateE(report,charHash),gate=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.state("E",c.id),armed=gate&&gate.mode==="pilot",stats=report.byChar&&report.byChar[charHash]||{},live=Number(stats.kinds&&stats.kinds.live_surface)||0,preview=previews[c.id];return h("div",{key:c.id,style:{padding:"7px 0",borderBottom:"1px dashed "+t.line}},h("div",{className:"flex items-center justify-between",style:{gap:8}},h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.sub}},c.remark||c.name),h("span",{style:{fontFamily:F_BODY,fontSize:10.5,color:"#4a8b68",border:"1px solid rgba(74,139,104,.45)",borderRadius:999,padding:"3px 8px"}},"常开")),h("div",{style:{fontFamily:F_BODY,fontSize:10,color:t.fog,lineHeight:1.55,marginTop:3}},"已真实带入 "+live+" 次 · "+(preview?("下次可带入："+(preview.mood||"无心情色彩")+(preview.threads&&preview.threads.length?" · "+preview.threads.length+" 个未完注意点":"")):"目前没有待用余温")));}),
       ),
     h("button", { onClick:load,className:"w-full mt-3 py-2.5 active:opacity-70",style:{borderRadius:9,border:"1px solid "+t.line,fontFamily:F_BODY,fontSize:12,color:t.sub} }, "刷新诊断"),
-    h("button", { onClick:()=>{if(confirm("急停 A/E？两层立刻不再进提示词，影子观察照常跑、任何角色都不会丢数据。想恢复常开，再按一次这颗键。")){const g=window.InnerLifePromotionGate;if(g){const off=g.state("E","*").emergencyOff;if(off)g.armAllE({ready:true,metrics:{}});else g.rollbackAll();}setGateTick(x=>x+1);window.__toast&&window.__toast("已切换");}},className:"w-full mt-2 py-2 active:opacity-70",style:{borderRadius:9,border:"1px solid #9f5149",fontFamily:F_BODY,fontSize:11,color:"#9f5149"} },
+    h("button", { onClick:()=>requestAppConfirm("急停 A/E？","两层立刻不再进提示词；影子观察照常跑，任何角色都不会丢数据。想恢复常开，再按一次这颗键。",()=>{const g=window.InnerLifePromotionGate;if(g){const off=g.state("E","*").emergencyOff;if(off)g.armAllE({ready:true,metrics:{}});else g.rollbackAll();}setGateTick(x=>x+1);window.__toast&&window.__toast("已切换");},"急停"),className:"w-full mt-2 py-2 active:opacity-70",style:{borderRadius:9,border:"1px solid #9f5149",fontFamily:F_BODY,fontSize:11,color:"#9f5149"} },
       (window.InnerLifePromotionGate&&window.InnerLifePromotionGate.state("E","*").emergencyOff) ? "恢复常开 · A/E 重新接进语气" : "急停 · A/E 暂时退回只观察"));
 }
 
@@ -9363,7 +9379,7 @@ function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }
           !routineMode ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, g.keep.text) : null,
           h("div", { style: { borderTop: routineMode ? "none" : "1px dashed " + t.line, marginTop: routineMode ? 0 : 8, paddingTop: routineMode ? 0 : 7, fontFamily: F_BODY, fontSize: 11, color: "#a06455" } }, routineMode ? "确认后软归档" : (eventMode ? "事件过程 · 确认后软归档" : "软归档")),
           (g.archive || []).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, "· " + x.text)))),
-        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; if (confirm((eventMode ? "确认收拢已勾选的 " : "确认软归档已勾选的 ") + picked.length + " 组？不会删除正文，可从已精炼归档区恢复。")) { onConfirm(picked); onClose(); } }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
+        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; requestAppConfirm((eventMode ? "收拢已勾选的 " : "软归档已勾选的 ") + picked.length + " 组？", "不会删除正文，可从已精炼归档区恢复。", () => { onConfirm(picked); onClose(); }, eventMode ? "收拢" : "归档"); }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
 }
 
 /* Replaced below: the first draft is retained only as review history.
@@ -9372,7 +9388,7 @@ function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
   const load=()=>{setRows(null);Promise.resolve(onList()).then(x=>setRows(x||[])).catch(()=>setRows([]));};useEffect(load,[]);
   const byId=new Map((entries||[]).filter(x=>x&&x.id).map(x=>[String(x.id),x]));
   const labels={fulfilled:"已兑现",resolved:"已解决",abandoned:"明确放弃"};
-  const decide=async(row,value)=>{if(busy)return;if(!confirm(value==="keep_open"?"确认保持这条未了？系统不会替你猜结局。":"确认真实结局是“"+labels[value]+"”？原正文不会删除。"))return;setBusy(row.oldMemoryId);try{await onDecide(row,value);setRows(p=>(p||[]).filter(x=>x.oldMemoryId!==row.oldMemoryId));}finally{setBusy(null);}};
+  const decide=(row,value)=>{if(busy)return;requestAppConfirm(value==="keep_open"?"保持这条未了？":"确认真实结局是「"+labels[value]+"」？",value==="keep_open"?"系统不会替你猜结局。":"原正文不会删除。",async()=>{setBusy(row.oldMemoryId);try{await onDecide(row,value);setRows(p=>(p||[]).filter(x=>x.oldMemoryId!==row.oldMemoryId));}finally{setBusy(null);}},"确认");};
   return h(Sheet,{onClose},h(Eyebrow,null,"RepairGate · 结局冲突过目"),
     h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"}},"旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
     rows===null?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"}},"正在读取冲突…"):!rows.length?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"18px 0",textAlign:"center"}},"没有待处理的结局冲突"):rows.map(row=>{const mem=byId.get(String(row.oldMemoryId));return h("div",{key:row.oldMemoryId,style:{background:t.bg2,border:"1px solid "+t.line,borderRadius:12,padding:11,marginBottom:9}},
@@ -9388,12 +9404,14 @@ function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
   useEffect(load, []);
   const byId = new Map((entries || []).filter(x => x && x.id).map(x => [String(x.id), x]));
   const labels = { fulfilled: "已兑现", resolved: "已解决", abandoned: "明确放弃" };
-  const decide = async (row, value) => {
+  const decide = (row, value) => {
     if (busy) return;
-    if (!confirm(value === "keep_open" ? "确认保持这条未了？系统不会替你猜结局。" : "确认真实结局是“" + labels[value] + "”？原正文不会删除。")) return;
-    setBusy(row.oldMemoryId);
-    try { await onDecide(row, value); setRows(p => (p || []).filter(x => x.oldMemoryId !== row.oldMemoryId)); }
-    finally { setBusy(null); }
+    requestAppConfirm(value === "keep_open" ? "保持这条未了？" : "确认真实结局是「" + labels[value] + "」？",
+      value === "keep_open" ? "系统不会替你猜结局。" : "原正文不会删除。", async () => {
+        setBusy(row.oldMemoryId);
+        try { await onDecide(row, value); setRows(p => (p || []).filter(x => x.oldMemoryId !== row.oldMemoryId)); }
+        finally { setBusy(null); }
+      }, "确认");
   };
   return h(Sheet, { onClose },
     h(Eyebrow, null, "RepairGate · 结局冲突过目"),
@@ -9732,13 +9750,13 @@ function MemoryLib({
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, "权威表纪律复核 · 逐 ID 只读导出") : null,
   !memoryTableMode && onEnableTableMemory ? h("button", {
-    onClick: () => { if (confirm("会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。现在验收并启用吗？")) onEnableTableMemory(); },
+    onClick: () => requestAppConfirm("验收并启用新记忆表？", "会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。", onEnableTableMemory, "验收并启用"),
     disabled: migrationBusy,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, migrationBusy ? "正在逐 ID 验收…" : "逐 ID 验收并启用新记忆表") : null,
   memoryTableMode && onUseLegacyMemory ? h("button", {
-    onClick: () => { if (confirm("紧急改回本机旧镜像读取？不会删除新表或任何记忆；重新启用前不要在两边同时修改。")) onUseLegacyMemory(); },
+    onClick: () => requestAppConfirm("改回本机旧镜像读取？", "不会删除新表或任何记忆；重新启用前不要在两边同时修改。", onUseLegacyMemory, "改回去"),
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 }
   }, "紧急回退：改读本机镜像") : null) : null,
@@ -10994,10 +11012,11 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               (mine ? "−" : "+") + fmtMoney(d.amount))),
           !done && onSettleDebt ? h("button", {
             onClick: () => {
-              const q = mine ? ("把欠 " + d.who + " 的 ¥" + Math.round(d.amount) + " 还掉？余额会少这么多。")
-                : ("收回 " + d.who + " 欠的 ¥" + Math.round(d.amount) + "？余额会多这么多。");
-              if (!window.confirm(q + (peer && peer.ready ? "\n（" + peer.name + " 那边也会同时记一笔反向的）" : ""))) return;
-              onSettleDebt(char.id, d.id);
+              // ⚠️不许用 window.confirm：PWA 里它被吞掉、返回 false 且不抛异常，这颗键就成摆设
+              const q = mine ? ("把欠 " + d.who + " 的 ¥" + Math.round(d.amount) + " 还掉？")
+                : ("收回 " + d.who + " 欠的 ¥" + Math.round(d.amount) + "？");
+              const body = (mine ? "余额会少这么多。" : "余额会多这么多。") + (peer && peer.ready ? "\n" + peer.name + " 那边也会同时记一笔反向的。" : "");
+              requestAppConfirm(q, body, () => onSettleDebt(char.id, d.id), mine ? "还清" : "收回");
             },
             className: "active:opacity-60",
             style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 2, padding: "5px 13px", background: "transparent" }

@@ -57,10 +57,13 @@ test("拉回云端之后闸门要解除，否则恢复完第一次备份会被�
 });
 
 test("手动备份也要拦一道：告诉她两边各是什么时候", () => {
-  const i = screens.indexOf("const doPush = async ()");
+  // ⚠️v64.88 起这道闸不再用原生 confirm（PWA 里它会被吞掉、返回 false 且不抛异常，
+  //   那样她点「备份到云端」会永远毫无反应）；改走 App 自己那层弹窗。
+  const i = screens.indexOf("const doPushStale = async ()");
   const fn = screens.slice(i, screens.indexOf("\n  };", i));
   assert.match(fn, /staleness\(u\.id\)/);
-  assert.match(fn, /window\.confirm\(/);
+  assert.match(fn, /requestAppConfirm\("云端那份比这台设备新得多"/);
+  assert.ok(!/window\.confirm\(/.test(fn), "又用回原生 confirm 了");
   // 光说「云端比较新」没用，得把两个时刻摆出来让她自己判断
   assert.match(fn, /云端最后一次备份/);
   assert.match(fn, /这台设备最后一次同步/);

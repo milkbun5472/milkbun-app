@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.87";
+const APP_VERSION = "v64.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -971,6 +971,7 @@ function App() {
   const [editingMsg, setEditingMsg] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
   const [appConfirm, setAppConfirm] = useState(null);
+  const [appPrompt, setAppPrompt] = useState(null);   // 借这一层填一行字（v64.88）
   const [loaded, setLoaded] = useState(false);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const toast = (m, ms) => {
@@ -984,6 +985,13 @@ function App() {
     const open = req => setAppConfirm(req && typeof req.onConfirm === "function" ? req : null);
     window.__appConfirmOpen = open;
     return () => { if (window.__appConfirmOpen === open) delete window.__appConfirmOpen; };
+  }, []);
+  // 同一条道理：原生 prompt 在 PWA 里会被吞掉（而且不抛异常、直接返回 null），
+  // 所以要她填字的地方一律借这一层（components.js 的 requestAppPrompt）。
+  useEffect(() => {
+    const open = req => setAppPrompt(req && typeof req.onOk === "function" ? req : null);
+    window.__appPromptOpen = open;
+    return () => { if (window.__appPromptOpen === open) delete window.__appPromptOpen; };
   }, []);
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 30000);
@@ -10413,7 +10421,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const pick = Array.isArray(opts.days) && opts.days.length ? opts.days.slice() : null;
     const days = pick || diaryMissingDays(charId);
     if (!days.length) { toast("最近一个月没有漏掉的"); return; }
-    if (!pick && !confirm("补齐最近 " + DIARY_BACKFILL_DAYS + " 天里漏掉的 " + days.length + " 篇?会一天一天写,中途失败已写好的都保留。")) return;
+    // ⚠️不许用原生 confirm：PWA 里会被吞掉，这颗按钮就永远不干活（v64.88 那一批）
+    if (!pick) { requestAppConfirm("补齐漏掉的 " + days.length + " 篇？",
+      "最近 " + DIARY_BACKFILL_DAYS + " 天里漏掉的都补上。会一天一天写，中途失败已写好的都保留。",
+      () => diaryBackfillRun(charId, days), "开始补"); return; }
+    return diaryBackfillRun(charId, days);
+  };
+  const diaryBackfillRun = async (charId, days) => {
     diaryBackfillRef.current = true;
     let done = 0;
     try {
@@ -19179,6 +19193,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     danger: true,
     onCancel: () => { const fn = appConfirm.onCancel; setAppConfirm(null); if (typeof fn === "function") setTimeout(() => { try { fn(); } catch (e) {} }, 0); },
     onConfirm: () => { const fn = appConfirm.onConfirm; setAppConfirm(null); setTimeout(() => { try { const r = fn(); if (r && typeof r.catch === "function") r.catch(e => toast("操作失败：" + ((e && e.message) || "请重试"), 5000)); } catch (e) { toast("操作失败：" + ((e && e.message) || "请重试"), 5000); } }, 0); }
+  }), appPrompt && h(PromptDialog, {
+    title: appPrompt.title, body: appPrompt.body, value: appPrompt.value,
+    placeholder: appPrompt.placeholder, okLabel: appPrompt.okLabel,
+    multiline: appPrompt.multiline, maxLength: appPrompt.maxLength,
+    onCancel: () => setAppPrompt(null),
+    onOk: v => { const fn = appPrompt.onOk; setAppPrompt(null); setTimeout(() => { try { const r = fn(v); if (r && typeof r.catch === "function") r.catch(e => toast("没成：" + ((e && e.message) || "再试一次"), 5000)); } catch (e) { toast("没成：" + ((e && e.message) || "再试一次"), 5000); } }, 0); }
   }), /*#__PURE__*/React.createElement(Toast, {
     msg: toastMsg
   })));

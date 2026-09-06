@@ -781,14 +781,18 @@
       setBusy(false); setPhaseMsg("");
     }
 
-    const wakeUp = () => { if (window.confirm("主动醒来，离开这场梦？")) props.onPatch({ status: "left" }); };
+    // ⚠️不许用 window.confirm：PWA / iOS 独立窗口里它会被系统吞掉，直接返回 false
+    //   且【不抛异常】，于是「醒来」按下去什么都不发生（components.js requestAppConfirm）。
+    const wakeUp = () => requestAppConfirm("主动醒来，离开这场梦？", "", () => props.onPatch({ status: "left" }), "醒来");
 
     // 回档：退回到第 k 幕的决策点，清掉这之后的所有进展 + 结局，重新选
     const rewindTo = k => {
       if (busy) return;
       const later = scenes.length - 1 - k;
-      const tail = later > 0 ? "，这之后的 " + later + " 幕会被抹去" : "";
-      if (!window.confirm("回到第 " + (k + 1) + " 幕重新选" + tail + "？")) return;
+      const tail = later > 0 ? "这之后的 " + later + " 幕会被抹去。" : "";
+      requestAppConfirm("回到第 " + (k + 1) + " 幕重新选？", tail, () => rewindToNow(k), "回到那一幕");
+    };
+    const rewindToNow = k => {
       const kept = scenes.slice(0, k + 1).map((sc, i) => i === k ? Object.assign({}, sc, { chosen: null }) : sc);
       // 挣扎那一幕要是被抹掉了，那一次机会就还回来；还留着就仍然算用过
       const stillStruggling = kept.some(sc => sc && sc.struggle);

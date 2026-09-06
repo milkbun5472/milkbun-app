@@ -41,7 +41,9 @@ test("pick：第一次踩逆鳞走挣扎、第二次直接碎；挣扎幕里 fac
 });
 
 test("回档：抹掉挣扎幕就把机会还回去", () => {
-  const ri = dream.indexOf("    const rewindTo = k => {"); const R = dream.slice(ri, dream.indexOf("\n    };", ri));
+  // ⚠️v64.88 起确认走 requestAppConfirm，真正干活的挪进了 rewindToNow（原生 confirm 在 PWA 里会被吞掉）
+  const ri = dream.indexOf("    const rewindToNow = k => {"); const R = dream.slice(ri, dream.indexOf("\n    };", ri));
+  assert.match(dream, /requestAppConfirm\("回到第 " \+ \(k \+ 1\) \+ " 幕重新选？", tail, \(\) => rewindToNow\(k\)/, "回档前那一问没了");
   assert.match(R, /const stillStruggling = kept\.some\(sc => sc && sc\.struggle\);/);
   assert.match(R, /struggled: stillStruggling/);
 });

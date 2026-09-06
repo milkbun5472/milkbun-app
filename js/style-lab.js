@@ -82,11 +82,13 @@
     };
     // 只读开头一小段来判形状，别为了看一眼把整个文件读两遍
     const peek = async file => { try { return await file.slice(0, 64).text(); } catch (e) { return ""; } };
-    const pasteBundle = () => {
-      const txt = prompt("把模块包的 json 整段粘贴进来（从「文件」里选不出来时用这个）：", "");
-      if (!txt || !txt.trim()) return;
-      try { takeText(txt.trim(), "粘贴进来的"); } catch (err) { alert("导入失败：" + (err && err.message || "内容读不出来")); }
-    };
+    // ⚠️不许用原生 prompt：PWA 里它被吞掉、直接返回 null，这颗按钮就是个摆设（v64.88 那一批）
+    const pasteBundle = () => requestAppPrompt("粘贴模块包", "把 json 整段贴进来（从「文件」里选不出来时用这个）。", "",
+      function (txt) {
+        if (!String(txt || "").trim()) { props.toast && props.toast("什么都没贴"); return; }
+        try { takeText(String(txt).trim(), "粘贴进来的"); }
+        catch (err) { props.toast && props.toast("导入失败：" + (err && err.message || "内容读不出来")); }
+      }, "导入", { multiline: true });
     const importFile = async e => {
       const file = e.target.files && e.target.files[0];
       e.target.value = "";
@@ -104,11 +106,13 @@
       try { old = (typeof loadJSON === "function" ? loadJSON("x_offlineStyles", []) : []) || []; } catch (e) { old = []; }
       const cands = old.filter(s => s && s.custom && String(s.prompt || "").trim());
       if (!cands.length) return props.toast && props.toast("线下那边还没有自定义文风");
-      const pick = prompt("搬哪一条过来？填序号：\n" + cands.map((s, i) => (i + 1) + ". " + s.name + "（" + cnt(s.prompt) + " 字）").join("\n"), "1");
-      const i = Number(pick) - 1;
-      if (!(i >= 0 && i < cands.length)) return;
-      addPreset({ name: cands[i].name, free: String(cands[i].prompt).trim() });
-      props.toast && props.toast("搬过来了，原来那条还在线下留着");
+      requestAppPrompt("搬哪一条过来？", cands.map((s, i) => (i + 1) + ". " + s.name + "（" + cnt(s.prompt) + " 字）").join("\n") + "\n\n填序号：", "1",
+        function (pick) {
+          const i = Number(String(pick || "").trim()) - 1;
+          if (!(i >= 0 && i < cands.length)) { props.toast && props.toast("没有这个序号"); return; }
+          addPreset({ name: cands[i].name, free: String(cands[i].prompt).trim() });
+          props.toast && props.toast("搬过来了，原来那条还在线下留着");
+        }, "搬过来");
     };
 
     const assembled = cur ? SP.textFor(cur, null, { uName: (props.profile && props.profile.name) || "你" }) : "";

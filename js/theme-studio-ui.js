@@ -157,9 +157,16 @@
                     if (sl) { setCSS(sl.css); toast("读出「" + sl.name + "」"); return; }
                     const cur = page === "all" ? (draft.globalCSS || "") : (draft.pageCSS[page] || "");
                     if (!cur.trim()) { toast("编辑框还是空的，先写点东西再存"); return; }
-                    let nm = ""; try { nm = window.prompt("给这一套起个名字（12 字内）", "预设 " + (i + 1)) || ""; } catch (_) { nm = "预设 " + (i + 1); }
-                    if (nm === "") return;                    // 取消就什么都不做
-                    setSlots(studio.saveSlot(page, i, nm, cur)); toast("存好了：" + nm);
+                    // ⚠️不许用 window.prompt：PWA 里它会被系统吞掉，而且【不抛异常、
+                    //   直接返回 null】——所以原来那个 try/catch 一次都没走到，
+                    //   走的是「空字符串 → return」，按钮按下去什么都不发生
+                    //   （她 2026-09-06：「可以放 5 套预设那个按钮也是摆设」）。
+                    requestAppPrompt("给这一套起个名字", "存进第 " + (i + 1) + " 格；重名会盖掉那一格。", "预设 " + (i + 1),
+                      function (nm) {
+                        nm = String(nm || "").trim().slice(0, 12);
+                        if (!nm) { toast("没起名字，没存"); return; }
+                        setSlots(studio.saveSlot(page, i, nm, cur)); toast("存好了：" + nm);
+                      }, "存进去", { maxLength: 12 });
                   }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: sl ? t.ink : t.fog } },
                   sl ? (i + 1) + " " + sl.name : (i + 1) + " 空"),
                 sl ? h("button", { onClick: () => setSlots(studio.clearSlot(page, i)), "aria-label": "清掉这一套", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 3px" } }, "×") : null);

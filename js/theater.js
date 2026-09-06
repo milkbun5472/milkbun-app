@@ -568,10 +568,13 @@
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 重开:旧剧情整段归档,同一套设定从第一轮重来(新开场+新目标)
-    const restartLine = async () => {
+    // 重开 = 同一个处境从头再演一遍(要换处境请用收藏基线开新局);两者的分工别混
+    // ⚠️不许用原生 confirm：PWA 里会被吞掉，这颗按钮就永远不干活（v64.88 那一批）
+    const restartLine = () => {
       if (!line || busy) return;
-      // 重开 = 同一个处境从头再演一遍(要换处境请用收藏基线开新局);两者的分工别混
-      if (!confirm("重开此线?当前剧情会归档,同一个处境从第一轮重演。\n(想要同样的身份、全新的故事,请用「收藏此设定」再开新局)")) return;
+      requestAppConfirm("重开此线？", "当前剧情会归档，同一个处境从第一轮重演。\n想要同样的身份、全新的故事，请用「收藏此设定」再开新局。", restartLineNow, "重开");
+    };
+    const restartLineNow = async () => {
       setBusy(true);
       try {
         const char = charOf(line);
@@ -587,9 +590,11 @@
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 谢幕:生成终场戏并标记完结(仍可回看,面板里可重开)
-    const endLine = async () => {
+    const endLine = () => {
       if (!line || busy) return;
-      if (!confirm("为这条线谢幕?会生成终场戏并标记完结。")) return;
+      requestAppConfirm("为这条线谢幕？", "会生成终场戏并标记完结（仍可回看，面板里还能重开）。", endLineNow, "谢幕");
+    };
+    const endLineNow = async () => {
       setBusy(true);
       try {
         const char = charOf(line);

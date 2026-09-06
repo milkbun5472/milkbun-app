@@ -732,6 +732,49 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel) {
   open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定", onCancel: typeof onCancel === "function" ? onCancel : null });
   return true;
 }
+// 要她填一行字的时候借这一层（v64.88，她 2026-09-06 报「可以放 5 套预设那个按钮也是摆设」）。
+// ⚠️病根跟 confirm 那次一字不差：**window.prompt 在 PWA / iOS 独立窗口里会被系统吞掉**，
+//   而且【不抛异常、直接返回 null】——调用点写的 `try{...}catch{兜底}` 一次都不会走到，
+//   走的是 `nm === "" → return`，于是按钮按下去什么都不发生。
+//   debate.js 里已经为这件事记过一次教训（「和 confirm 一样会被 iOS/PWA 永久吞掉」），
+//   可全库还有六处在用它——又是「一层写在六处，五处没跟上」。
+function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
+  if (typeof onOk !== "function") return false;
+  const open = typeof window !== "undefined" && window.__appPromptOpen;
+  if (typeof open !== "function") {
+    if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("输入层还没准备好，请再点一次");
+    return false;
+  }
+  const o = opts || {};
+  open({ title: title || "填一下", body: body || "", value: String(defaultValue == null ? "" : defaultValue),
+    onOk: onOk, okLabel: okLabel || "好", placeholder: o.placeholder || "", multiline: !!o.multiline, maxLength: o.maxLength || 0 });
+  return true;
+}
+// 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
+//   由调用点自己决定要不要拦——这一层不替它做主。
+function PromptDialog({ title, body, value, placeholder, okLabel, multiline, maxLength, onOk, onCancel }) {
+  const t = useTheme();
+  const [v, setV] = useState(String(value == null ? "" : value));
+  const ref = useRef(null);
+  useEffect(() => { const el = ref.current; if (el) { try { el.focus(); el.select && el.select(); } catch (e) {} } }, []);
+  const box = { width: "100%", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink,
+    background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", outline: "none" };
+  return h("div", { className: "fixed inset-0 z-[220] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginBottom: body ? 8 : 14, textAlign: "center" } }, title),
+      body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 14, whiteSpace: "pre-wrap" } }, body) : null,
+      multiline
+        ? h("textarea", { ref: ref, value: v, placeholder: placeholder || "", rows: 6, maxLength: maxLength || undefined,
+            onChange: e => setV(e.target.value), style: Object.assign({}, box, { resize: "vertical", minHeight: 120 }) })
+        : h("input", { ref: ref, value: v, placeholder: placeholder || "", maxLength: maxLength || undefined,
+            onChange: e => setV(e.target.value),
+            onKeyDown: e => { if (e.key === "Enter") { e.preventDefault(); onOk(v); } },
+            style: box }),
+      h("div", { className: "flex gap-3", style: { marginTop: 16 } },
+        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
+        // ⚠️字色 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色（tabs-not-plain-pills §2）
+        h("button", { onClick: () => onOk(v), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, okLabel || "好"))));
+}
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
 function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
   const t = useTheme();
