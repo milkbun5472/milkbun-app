@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.52";
+const APP_VERSION = "v64.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -621,7 +621,21 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
-      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
+      // 我世界书里有让它不要那么敏感的提示」）。
+      // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
+      //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
+      //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
+      // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
+      //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
+      //   这是写着理由的差异，不是漏。
+      // ⚠️full 和 slim 两份都带着它——它正是她要的那一层，缩料时不许把它缩掉。
+      const gazeLore = (typeof loreForContext === "function" ? loreForContext("chat", char.id, recent) : "");
+      const head = "【你的人设】\n" + (char.persona || char.name)
+        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const user = head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
       const userSlim = head + "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
@@ -712,7 +726,21 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
-      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
+      // 我世界书里有让它不要那么敏感的提示」）。
+      // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
+      //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
+      //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
+      // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
+      //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
+      //   这是写着理由的差异，不是漏。
+      // ⚠️full 和 slim 两份都带着它——它正是她要的那一层，缩料时不许把它缩掉。
+      const gazeLore = (typeof loreForContext === "function" ? loreForContext("chat", char.id, recent) : "");
+      const head = "【你的人设】\n" + (char.persona || char.name)
+        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const user = head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
       const userSlim = head + "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
       // 开满，同上（她 2026-09-05 点名）

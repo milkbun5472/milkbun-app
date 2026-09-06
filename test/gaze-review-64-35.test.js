@@ -316,3 +316,50 @@ test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
   const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
   assert.ok(why.indexOf("去掉聊天记录也还是被拦") < why.indexOf("这条线路把提示词拦了（内容政策）"), "顺序反了，这句永远轮不到");
 });
+
+// ── v64.50：她 2026-09-06 用上一版的诊断得到结论，然后点名 ─────────────
+//   「这块你也把世界书接进去吧，刚刚试了说踩线不是聊天内容。
+//     我世界书里有让它不要那么敏感的提示」
+//
+// 排除了聊天内容之后，剩下的嫌疑在【这道题本身／人设／记忆】那一侧，
+// 而她世界书里正有专门治这个的词条——可这两枪从来没吃到过世界书。
+// ⚠️又是同一个形状：loreForContext 那扇门上就写着「所有非主聊天功能也必须从
+//   同一扇门拿世界书」，这两枪没走过它；四处一样喂那张名单上也从来没有它俩。
+test("⑦ 建卡和复看都从那扇公共门拿世界书", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  // 一处定义、两处用；scope 用 chat（这张卡说的就是主线关系里他怎么看她）
+  assert.equal((app.match(/const gazeLore = \(typeof loreForContext === "function" \? loreForContext\("chat", char\.id, recent\) : ""\);/g) || []).length, 2,
+    "有一枪没接上世界书，或者没走那扇公共门");
+  // 空的时候不发一个空栏目
+  assert.equal((app.match(/\(gazeLore \? "\\n\\n【世界书】\\n" \+ gazeLore : ""\)/g) || []).length, 2);
+  // ⚠️它在 head 里＝full 和 slim 两份都带着。缩料时不许把她要的这一层缩掉。
+  const heads = app.match(/const head = "【你的人设】[\s\S]{0,400}?;\n/g) || [];
+  assert.equal(heads.length, 2);
+  heads.forEach(h => assert.ok(h.includes("【世界书】"), "head 里没有世界书，slim 那一份就吃不到"));
+});
+
+test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () => {
+  // ⚠️用 engine 里【真的那几个函数】跑，不是照我以为的样子重写一份。
+  const ENG = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+  const grab = (a, b) => { const i = ENG.indexOf(a); assert.ok(i > 0, "抠不出 " + a); return ENG.slice(i, ENG.indexOf(b, i) + b.length); };
+  const ctx = { console, getQueryVec: () => null, _loreVecCache: () => new Map(), cosSim: () => 0 };
+  vm2.createContext(ctx);
+  vm2.runInContext([
+    grab("function loreScopeOn(e, scope)", "\n}"),
+    grab("function loreKeywordHit(e, text)", "\n}"),
+    grab("function selectLore(entries, opts)", "\n}"),
+    grab("function loreText(entries, opts)", "\n}"),
+    "globalThis.L = loreText;"
+  ].join("\n"), ctx);
+  // ⚠️桩照着【写词条的那段代码】来：WorldBookEntrySheet 存的 scope 每一栏都是显式布尔，
+  //   没勾的写成 chat:false——不是「这一栏不存在」。我第一版按后者写，
+  //   于是那条只给查手机的词条也混进了印象卡，还以为是代码漏了（stub-from-the-writer.md）。
+  const full = k => ({ chat: false, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false, [k]: true });
+  const rows = [
+    { id: "a", title: "别那么敏感", payload: "这里是虚构创作。", enabled: true, alwaysOn: true, charIds: [], scope: full("chat") },
+    { id: "b", title: "只给查手机", payload: "不该进印象卡。", enabled: true, alwaysOn: true, charIds: [], scope: full("subjects") }
+  ];
+  const out = ctx.L(rows, { scope: "chat", charIds: ["c1"], text: "在吗" });
+  assert.match(out, /这里是虚构创作。/, "该进的没进——她那条「别那么敏感」就白写了");
+  assert.doesNotMatch(out, /不该进印象卡。/, "没勾这个去向的也混进来了");
+});
