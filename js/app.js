@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.81";
+const APP_VERSION = "v64.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4026,20 +4026,41 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     return out.slice(-6);
   };
+  // ⭐同一【手】也算重样（v64.82，她 2026-09-06：「为什么所有人我说考试不会
+  //    他们都要 offer 来帮忙看？？就算不会也要来」）。
+  // 上面那张单子比的是【逐字】，可这一族每个人措辞都不一样（我帮你看／发我／
+  // 明天陪你弄），逐字比对一条都抓不住——同一个动作换十种说法，还是同一个模板。
+  // 所以另收一张【招式】的单子：别的角色最近半小时里已经出过这一手了，就告诉这一位。
+  // ⚠️不禁「帮忙」本身——真会那门东西的人当然可以帮。禁的是【一屋子人同时出同一手】。
+  // ⚠️只看别人、不看自己：他自己上一轮说过的，本来就该接得上。
+  const OFFER_MOVE = /(帮你看|帮你弄|发(给)?我看|给我看看|发我|我教你|我来教|我陪你|陪你弄|我来弄|我来帮|要不要我帮|我给你讲|我给你补)/;
+  const crossOfferHint = charId => {
+    const now = Date.now(), all = chatsRef.current || {};
+    const hit = Object.keys(all).some(id => String(id) !== String(charId)
+      && (all[id] || []).some(m => m && m.role === "assistant" && !m.recalled && !m.kind
+        && m.ts && now - m.ts <= CROSS_SAMENESS_WINDOW_MS && OFFER_MOVE.test(String(m.content || ""))));
+    return hit
+      ? "\n【这一手刚才别处已经有人出过了】最近半小时里，另一个角色已经对她用过【主动提出替她把这件事办了／教她／帮她看】这一招。"
+        + "同一件事上一屋子人抢着出同一手，那就说明这是【这种场合的通用反应】，不是你的。\n"
+        + "· 你要是压根不会那门东西，就别揽——直说不懂，或者干脆聊点别的。\n"
+        + "· 你要是真会，也换个进法：先问她卡在哪、先笑她一句、先说你这边的事，或者给一样只有你给得出的实在东西。"
+      : "";
+  };
   const crossSamenessHint = charId => {
     const lines = crossSamenessBlocklist(charId);
     const tLines = crossThoughtBlocklist(charId);
+    const oPart = crossOfferHint(charId);
     const tPart = tLines.length
       ? "\n【心声也别和别处重样】最近半小时里，别的角色心里已经闪过这些念头了：\n"
         + tLines.map(t => "· " + t).join("\n")
         + "\n同一个套路在几个人心里同时出现，说明它是【这种时候的通用心声】，不是你的。换个说法说同一件事也算重样。"
       : "";
-    if (!lines.length) return tPart;
+    if (!lines.length) return tPart + oPart;
     return "\n【别和刚才别处出现过的话重样】下面这些句子，最近半小时里已经在别的对话里被说过了（谁说的不重要，别去猜、更别提起）：\n"
       + lines.map(t => "· " + t).join("\n")
       + "\n它们会重复出现，恰恰因为它们是【这种时候的通用模板】。本轮不许照搬，也不许换个说法说同一件事。"
       + "你想到的第一句要是落在这张单子上，那多半不是你要说的话，重想一句真正属于你此刻的。"
-      + tPart;
+      + tPart + oPart;
   };
   // ⭐NPC（她 2026-08-25）：只在群里出场的配角，没有单聊、没有心情好感、不进任何后台循环。
   // 它们和真角色存在同一个 characters 里——群聊、记忆库、印象卡、头像全是绕着这张表转的，

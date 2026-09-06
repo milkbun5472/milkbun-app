@@ -18,12 +18,14 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const GB = require("./_group-bans.js");
 const groupBans = GB.layers;
 
+// v64.82 又多一层【别揽你接不住的活】：她 2026-09-06 报「所有人我说考试不会都要
+// offer 来帮忙看，就算不会也要来」。它是三件套的近亲，所以跟着一起进这一摞。
 // v64.21 多了一层【她说的这句话他那个世界里有没有这门话】：
 // 她 2026-09-05 问「为什么一个王爷看得懂我的英文」——群里一样，她在群里打英文，
 // 古代那位照样不该懂。这一红正是这份把手要的信号（加层就得有人回来认一次）。
 const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
-  "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<RP>"];
+  "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<RP>"];
 
 test("三处群共用的那一摞，一层都不许少", () => {
   assert.deepEqual(groupBans({ echo: false }), CORE, "群线上");
@@ -58,7 +60,7 @@ test("三处都真的用了这一份，没有谁还在自己拼", () => {
   // 群线上和群通话那两段 system 里，不许再自己拼这几条（单聊线上/线下照旧各有各的，那不归这条管）
   const gOnline = app.slice(app.indexOf("const system = groupBans"), app.indexOf("const system = groupBans") + 3400);
   const gCall = app.slice(app.indexOf("const sys = groupBans"), app.indexOf("const sys = groupBans") + 1600);
-  ["REGISTER_FOLLOWS_SCENE", "PERSONA_REGISTER_ANCHOR", "CONDESCENDING_TONE_BAN", "ANTI_CLICHE", "STOCK_REPLY_BAN"].forEach(k => {
+  ["REGISTER_FOLLOWS_SCENE", "PERSONA_REGISTER_ANCHOR", "CONDESCENDING_TONE_BAN", "ANTI_CLICHE", "STOCK_REPLY_BAN", "OVERREACH_BAN"].forEach(k => {
     assert.ok(gOnline.indexOf(k) < 0, "群线上又自己拼了 " + k);
     assert.ok(gCall.indexOf(k) < 0, "群通话又自己拼了 " + k);
   });
