@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.98";
+const APP_VERSION = "v64.99";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4545,16 +4545,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 没有区别呢？为什么要设上限？」）。所以这儿把那条通话回执【摊平】成一条条消息，
       // 跟线上的气泡混在同一条时间线上、按同一份预算收——不另设时限、不另设字数上限，
       // 也不另写一套渲染。旧的通话自然会被预算从最老那头挤掉，跟聊天记录一模一样。
+      // ⚠️别在每一行后面挂「（视频通话里）」（她 2026-09-06：「每一轮都喂的话就会冲掉
+      //   很多实际有效内容」）——一通电话几十句，每句多七个字，挤掉的是真内容。
+      //   改成【开始一次、结束一次】，开始那句自己说清：到「结束」为止都是在通话里。
+      //   ⚠️预算是从最新往回收的，可能只收到半通——所以结束那句必须自己站得住
+      //   （自带是哪一种通话和时长），不靠开始那句解释。
       const expandCall = m => {
         const log = Array.isArray(m.log) ? m.log : [];
         if (!log.length) return [m];
-        return log.filter(x => x && x.content && String(x.content).trim()).map(x => ({
+        const zh = m.callMode === "video" ? "视频通话" : "语音通话";
+        const rows = log.filter(x => x && x.content && String(x.content).trim()).map(x => ({
           role: x.role === "user" ? "user" : "assistant",
           senderName: x.senderName || null,
           content: x.act ? "（" + String(x.content).trim() + "）" : String(x.content).trim(),
-          ts: x.ts || m.ts || 0,
-          _call: m.callMode === "video" ? "视频通话" : "语音通话"
+          ts: x.ts || m.ts || 0
         }));
+        if (!rows.length) return [m];
+        return [{ _callMark: "—— " + zh + " 开始（到下面那句「" + zh + " 结束」为止，中间这些都是在" + zh + "里说的、做的）", ts: rows[0].ts }]
+          .concat(rows)
+          .concat([{ _callMark: "—— " + zh + " 结束" + (m.dur ? " · 时长 " + m.dur : ""), ts: m.ts || rows[rows.length - 1].ts }]);
       };
       const online = (chatsRef.current[char.id] || [])
         .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
@@ -4667,8 +4676,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 只数他的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
         if (isOff && m.role !== "user") offSeen++;
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
-        const speaker = (m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name)))
-          + (m._call ? "（" + m._call + "里）" : "");
+        const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
         const body = (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
         // 通话（她 2026-09-06：「语音视频聊天好像不挂进上下文」）：这条回执的 content
@@ -4676,7 +4684,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 而 sum 从来没人读——于是他打完电话回到聊天，跟没打过一样。
         // ⚠️挂进来的是【小结】不是逐字转录：一通电话几十句，原文会把预算吃光；
         //   小结正是为这件事生成的（endCall 那头已经在写了）。
-        const line = (m.kind === "callend")
+        // 通话开始/结束那两条标记行是【行本身】，不挂「谁：」
+        const line = m._callMark ? m._callMark
+          // 没存下转录的老通话（expandCall 摊不开）：退回小结那一行
+          : (m.kind === "callend")
           ? "【" + (m.callMode === "video" ? "视频通话" : "语音通话") + "·刚打完】"
             + (m.sum ? String(m.sum).trim() : String(body || "").trim())
           : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");

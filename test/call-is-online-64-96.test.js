@@ -21,11 +21,16 @@ test("② 通话就是线上：摊平进同一条时间线，不另设时限和�
   assert.ok(app.indexOf("CALL_VERBATIM_MS") < 0, "又设了时限");
   assert.ok(app.indexOf("CALL_LOG_CAP") < 0, "又设了字数上限");
   // 每一句带自己的时刻，才排得进 a→b→c 的顺序里
-  assert.match(app, /ts: x\.ts \|\| m\.ts \|\| 0,/, "通话那几句没有自己的时刻");
+  assert.match(app, /ts: x\.ts \|\| m\.ts \|\| 0\n/, "通话那几句没有自己的时刻");
   // 视频里的动作行也算发生过的事
   assert.match(app, /x\.act \? "（" \+ String\(x\.content\)\.trim\(\) \+ "）"/, "动作行丢了");
-  // 看得出这句是在电话里说的
-  assert.match(app, /\+ \(m\._call \? "（" \+ m\._call \+ "里）" : ""\)/, "分不出哪句是电话里说的");
+  // ⚠️她 2026-09-06 追的：别在每一行后面挂「（视频通话里）」——一通几十句，
+  //   每句多七个字，挤掉的是真内容。改成开始一次、结束一次。
+  assert.ok(app.indexOf('m._call ? "（" + m._call + "里）"') < 0, "又在每一行后面挂标签了");
+  assert.match(app, /_callMark: "—— " \+ zh \+ " 开始（到下面那句「" \+ zh \+ " 结束」为止/, "开始那句没说清管到哪儿");
+  assert.match(app, /_callMark: "—— " \+ zh \+ " 结束" \+ \(m\.dur \? " · 时长 " \+ m\.dur : ""\)/, "结束那句没自带通话种类和时长");
+  // 预算从最新往回收，可能只收到半通——结束那句得自己站得住
+  assert.match(app, /const line = m\._callMark \? m\._callMark/, "标记行还被套上了「谁：」");
 });
 
 test("③ 每轮都写状态卡，字段跟线上那份协议一样", () => {

@@ -7,11 +7,12 @@ const assert = require("node:assert");
 const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 
-test("通话回执带的是小结，不是「已结束·时长 02:01」", () => {
+// v64.99 起通话被 expandCall 摊平成一条条了，这一支只剩给【没存转录的老通话】兜底
+test("没存转录的老通话，退回那句小结", () => {
   // 病根：那条气泡的 content 只有标签，通话里说了什么全在 sum，而 sum 从来没人读
   assert.match(app, /const bubble = \{ role: "system", kind: "callend"[\s\S]{0,200}content: label/, "写入方变了，这条得重看");
   assert.match(app, /\{ \.\.\.x, sum \}/, "小结那一栏没了");
-  assert.match(app, /const line = \(m\.kind === "callend"\)/, "读的时候还是照普通消息渲染");
+  assert.match(app, /: \(m\.kind === "callend"\)/, "读的时候还是照普通消息渲染");
   assert.match(app, /\+ \(m\.sum \? String\(m\.sum\)\.trim\(\) : String\(body \|\| ""\)\.trim\(\)\)/, "没有小结时该退回标签，别空着");
   assert.match(app, /"【" \+ \(m\.callMode === "video" \? "视频通话" : "语音通话"\) \+ "·刚打完】"/, "看不出这段是电话里发生的");
 });
