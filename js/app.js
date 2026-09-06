@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.06";
+const APP_VERSION = "v65.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -576,6 +576,7 @@ function App() {
   const [activeRoomId, setActiveRoomId] = useState("main");
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
   const [studyEntry, setStudyEntry] = useState(null);
+  const [gameEntry, setGameEntry] = useState(null);
   useEffect(() => { setActiveRoomId("main"); setChatRoomsOpen(false); }, [activeChar && activeChar.id]);
   const [activeGroup, setActiveGroup] = useState(null);
   // 记录此刻在看的聊天，供未读红点判断
@@ -3621,6 +3622,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     grab(() => { const seen = {};
       A(loadJSON("x_study_sessions", [])).filter(x => x && (A(x.character_ids).some(id => String(id) === String(char.id))
           || String(x.teacher_id || "") === String(char.id)))
+        // 侧房里上的课不一定算数：那间房自己没开写回口子的，不许从主线的他嘴里说出来。
+        // 判在 ChatRooms.studyCounts 一处，这儿别再判一遍（没戳 roomId 的老课＝主线，照旧放行）。
+        .filter(x => typeof window === "undefined" || !window.ChatRooms || window.ChatRooms.studyCounts(char.id, x))
         .sort((a, b) => (b.updated_at || b.created_at || 0) - (a.updated_at || a.created_at || 0))
         .forEach(x => { const k = String(x.subject || "").trim();
           if (k && !seen[k] && Object.keys(seen).length < 1) { seen[k] = 1; L.push("· 你和她一起学过『" + k + "』（" + (day(x.updated_at || x.created_at) || "最近") + "）"); } }); });
@@ -7418,11 +7422,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       const roomStudySessions = room && !room.main && room.actions && room.actions.study && !_s.engineerEyes && window.ChatRooms
-        ? window.ChatRooms.studySessionsFor(charId).slice(0, 6) : [];
+        ? window.ChatRooms.studySessionsFor(charId, room.id).slice(0, 6) : [];
       const roomStudyOn = !!(room && !room.main && room.actions && room.actions.study && !_s.engineerEyes);
       if (roomStudyOn) {
         openCaps.push("studyInvite");
         capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由对方点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
+      }
+      // 小游戏跟一起学同一个形状：房里开了这一条，他才能开口约你玩，
+      // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——他不许声称已经开局。
+      const roomGamesOn = !!(room && !room.main && room.actions && room.actions.games && !_s.engineerEyes);
+      if (roomGamesOn && window.Games && Array.isArray(window.Games.LIST)) {
+        openCaps.push("gameInvite");
+        capState.push("gameInvite：只有你此刻真的想约对方玩一局才填写。格式 {gameKey:\"下面列表里的真实 key\",say:\"为什么此刻想玩这个、想跟对方玩哪一局\"}。不能声称已经开局或界面已经打开，最终由对方点卡片确认；不想玩就省略。可选："
+          + window.Games.LIST.map(g => g.key + "=" + g.zh + "（" + g.min + "-" + g.max + "人）").join("；"));
       }
       // ⚠️这一条必须挂在【Protocol v2】上：旁边那个 _normalTaskFull 写着「暂留作 A/B
       // 回滚基线，但不再发送给普通角色」——挂上去等于挂在死路上，一个字都发不出去。
@@ -7909,6 +7921,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             sessionTitle: existing ? (existing.title || existing.subject || "继续上课") : "",
             subject: String((existing && existing.subject) || inv.subject || "").trim().slice(0, 120),
             say: String(inv.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
+          }]);
+          delivered = true;
+        }
+      }
+      if (roomGamesOn && parsed.gameInvite && typeof parsed.gameInvite === "object") {
+        const gv = parsed.gameInvite;
+        const def = (window.Games && Array.isArray(window.Games.LIST) ? window.Games.LIST : []).find(g => String(g.key) === String(gv.gameKey || ""));
+        if (def) {
+          pChat(chatKey, p => [...p, {
+            role: "assistant", kind: "gameinvite", gameKey: def.key,
+            subject: def.zh, sessionTitle: def.rule || "",
+            say: String(gv.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
           }]);
           delivered = true;
         }
@@ -17993,8 +18017,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
     onOpenStudyInvite: m => {
-      setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id });
+      // 带上是在哪间房里被邀请的：建出来的课会戳上这一戳，写回边界才认得出它。
+      setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id, roomId: m.roomId || activeRoomId || "main" });
       setScreen("study");
+    },
+    // 小游戏走同一张卡、同一条路（studyinvite 那个形状），只是落到游戏架上。
+    onOpenGameInvite: m => {
+      setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id });
+      setScreen("games");
     },
     emotes: emotesForCharMine(activeChar.id),
     onManageEmotes: () => setScreen("emotes"),
@@ -18644,6 +18674,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "games") body = h(Games, {
+    entry: gameEntry,
     // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
     active: offlineActive,
     bgActive: offlineActive,

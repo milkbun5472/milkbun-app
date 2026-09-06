@@ -235,12 +235,28 @@
   function listSummaries(personId) {
     return readSummaries().filter(x => x && String(x.personId) === String(personId)).sort((a, b) => Number(a.ts || 0) - Number(b.ts || 0));
   }
-  function studySessionsFor(personId) {
+  // 课也认房间：一起学的课节记着 roomId（study.js 建课/建节时戳的），没戳的算主线。
+  // 不按房筛的话，「不带出门」那间房照样看得见你在主线上跟他上的课。
+  function roomIdOf(session) { return String(session && session.roomId ? session.roomId : MAIN_ID); }
+  function studySessionsFor(personId, roomId) {
     try {
       if (!window.Study || typeof window.Study.loadSessions !== "function") return [];
-      return window.Study.loadSessions().filter(s => s && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
+      const want = String(roomId || MAIN_ID);
+      return window.Study.loadSessions()
+        .filter(s => s && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
+        .filter(s => roomIdOf(s) === want)
         .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0));
     } catch (_) { return []; }
+  }
+  // 这节课算不算数：主线的一律算；侧房的课要那间房自己开了写回口子才算。
+  // 读的那头（发呆的「你俩一起做过的事」）拿这一句问，别自己再判一遍。
+  function studyCounts(personId, session) {
+    const rid = roomIdOf(session);
+    if (rid === MAIN_ID) return true;
+    const room = list(personId).find(r => r && r.id === rid);
+    if (!room) return false;                        // 房间已经删了：按不算数处理，宁可少说
+    const w = room.writeback || {};
+    return !!(w.sharedState || w.memoryCandidate);   // 两个口子有一个开着，这节课才算数
   }
   // 写回闸。sharedState 是总开关，心情和印象卡各自还有一道。
   // ⚠️最要紧的一条：认知里关了「关系与内在状态」时，这两样一律不许写——
@@ -283,7 +299,7 @@
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
     if (allowedActions.length) lines.push("【本房可提议的活动】" + allowedActions.join("、") + "。只需在真的想做时自然开口，不要把它当作每轮任务，也不要假装界面已经打开。");
     if (a.study) {
-      const ss = studySessionsFor(room.personId).slice(0, 6);
+      const ss = studySessionsFor(room.personId, room.id).slice(0, 6);
       lines.push("【一起学邀请规则】先看下面已有课程；主题相关时优先提议续上现有 session。没有合适旧课时，你可以先提出一个轻量课程想法（学什么、为什么此刻想一起学、建议从哪个小点开始），但不能声称已经建课或已经打开界面，必须等对方确认。\n" + (ss.length ? "已有课程：\n" + ss.map(s => "· sessionId=" + s.id + "｜" + (s.title || s.subject || "未命名") + "｜" + (s.subject || "")).join("\n") : "目前没有你参与的已有课程。"));
     }
     const scenarioOn = !!room.scenario;
@@ -298,5 +314,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
+  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
 });

@@ -290,6 +290,16 @@
     const [game, setGame] = useState(null);       // 进入配置的游戏
     const [session, setSession] = useState(null);  // {game, config, resume, saved} 进入对局
     const [saveTick, setSaveTick] = useState(0);   // 存档变动后强刷横幅
+    // 从聊天里那张邀请卡进来的：直接落到这一局的配置页，并把他先勾上。
+    // 形状照 study.js 的 props.entry / entryHandledRef 抄，不另开一条路。
+    const entryHandledRef = useRef(null);
+    const entry = props.entry;
+    useEffect(function () {
+      if (!entry || !entry.key || entryHandledRef.current === entry.key) return;
+      entryHandledRef.current = entry.key;
+      const def = GAMES.find(function (g) { return g.key === entry.gameKey; });
+      if (def) { setSession(null); setGame(def); }
+    }, [entry && entry.key]);
     const wolfSave = loadWolfSave();
     const gSaves = loadGamesSaves();               // 通用存档（卧底/海龟汤/25问/真心话/阿瓦隆）
 
@@ -314,6 +324,7 @@
     }
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
+      initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
       onStart: function (config) { setSession({ game: game, config: config }); }
     });
@@ -418,7 +429,7 @@
     const t = props.t, game = props.game;
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
-    const [picked, setPicked] = useState([]);        // 选中的角色 id
+    const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上他）
     const [npcFill, setNpcFill] = useState(true);
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
@@ -618,7 +629,7 @@
       "3. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按上面的能力与性格分开原则，点出 TA 玩这种推理游戏时——藏词、听别人描述抓破绽、被怀疑时嘴硬博弈——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也一并给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"pair\":{\"civ\":\"\",\"spy\":\"\"},\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 4500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 12500 });
     return extractJSON(raw) || {};
   }
 
@@ -666,7 +677,7 @@
       "\n\n【本轮已说过的】\n" + prior + "\n\n【现在这些人各说一句（按顺序）】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"clues\":[{\"name\":\"玩家名\",\"text\":\"一句描述\"}]}，顺序照上面。";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "各说一句。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "各说一句。" }], { maxTokens: 12000 });
     const p = extractJSON(raw);
     return (p && Array.isArray(p.clues)) ? p.clues : [];
   }
@@ -700,7 +711,7 @@
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 3500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 11500 });
     const p = extractJSON(raw);
     return (p && Array.isArray(p.votes)) ? p.votes : [];
   }
@@ -718,7 +729,7 @@
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 800 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 8800 });
     const r = extractJSON(raw) || {};
     return String(r.say || "").trim().slice(0, 300);
   }
@@ -738,7 +749,7 @@
     const sys = AC + SKILL_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
       "\n\n【全场描述】\n" + cluesText +
       "\n\n【输出】只输出 JSON：{\"guess\":\"TA 猜的平民词（一个词）\",\"say\":\"TA 亮出这个猜测时说的一句话（口语，贴水平）\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 900 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 8900 });
     const r = extractJSON(raw) || {};
     return { guess: String(r.guess || "").trim().slice(0, 30), say: String(r.say || "").trim().slice(0, 300) };
   }
@@ -1234,7 +1245,7 @@
       "2. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按能力与性格分开的原则，点出 TA 玩狼人杀时——伪装/悍跳、听发言抓逻辑漏洞、带节奏说服人、被架时嘴硬翻盘——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 4500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 12500 });
     return extractJSON(raw) || {};
   }
 
@@ -1298,7 +1309,7 @@
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你是法官，替 AI 玩家做今晚的决定。\n" + (opts.nightNote || "") + need.join("") +
       "\n\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职/验人威胁（狼队全都听见了，必须纳入刀口）】\n" + opts.publicThreats : "") + (opts.log ? "\n【目前局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：" + JSON.stringify(schema);
-    const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 9600 });
     const out = extractJSON(raw) || {};
     if (ccExtra.wolfVote) out.wolfVotes = [ccExtra.wolfVote].concat(Array.isArray(out.wolfVotes) ? out.wolfVotes.filter(function (v) { return v.name !== ccExtra.wolfVote.name; }) : []);
     if (ccExtra.seerCheck) out.seerCheck = ccExtra.seerCheck;
@@ -1311,7 +1322,7 @@
     const wolves = (opts.wolfTeam || []).map(function (w) { return w.name + "（真实水平：" + (w.skill || "普通") + "）"; }).join("\n");
     const proposals = (opts.votes || []).map(function (v) { return "· " + v.name + "提议刀 " + v.target + "：" + (v.privateReason || "没细说"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n狼人杀·狼队夜间秘密会议。狼队最初刀口不一致，现在只进行【一轮短协商】后统一决定，别反复拉扯。按每头狼的真实水平权衡公开跳神/查杀威胁、守护与救药风险、发言和投票；弱狼的意见可以被高手说服，但高手也不是永远正确。绝不能选择狼队友。\n" + (opts.nightNote || "") + "\n【狼队】\n" + wolves + "\n【初始提议】\n" + proposals + (opts.publicThreats ? "\n【公开威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【公开局况】\n" + opts.log : "") + "\n【可刀目标】" + opts.targets.join("、") + "\n\n输出 2~4 条简短密谈并给出唯一最终刀口。只输出 JSON：{\"chat\":[{\"name\":\"狼名\",\"text\":\"密谈\"}],\"target\":\"最终刀口或空刀\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "统一今晚刀口。" }], { maxTokens: 1200 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "统一今晚刀口。" }], { maxTokens: 9200 });
     return extractJSON(raw) || {};
   }
   // 夜晚：替 AI 女巫决定用不用药（一晚最多一瓶）
@@ -1329,7 +1340,7 @@
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你替 AI 女巫做决定。女巫有解药和毒药、【一晚最多用一瓶】、别乱用。\n今晚被狼刀的是：" + (opts.victim || "（没人被刀，平安夜）") + "。\n你手上还有：" + (bottles.length ? bottles.join("、") : "（药都用完了）") + "。\n按你的水平决定：值不值得用解药救 TA（是不是关键神/好人？是不是首刀骗药？）？要不要用毒药毒一个明显的狼？没把握就都别用、留着更值钱。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"save\":true/false,\"poison\":\"要毒的人名，或 null\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "用不用药？" }], { maxTokens: 800 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "用不用药？" }], { maxTokens: 8800 });
     return extractJSON(raw) || {};
   }
   // 猎人 / 狼王 出局开枪：AI 决定带走谁（按阵营给不同目标取向）
@@ -1350,7 +1361,7 @@
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·你替 AI " + roleZh + " 做决定。" + roleZh + " " + opts.hunterName + " 刚出局，可以开枪带走【一个】还在场的人（也可以不开枪）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"target\":\"要带走的人名，或 null（不开枪）\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "开枪带走谁？" }], { maxTokens: 700 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "开枪带走谁？" }], { maxTokens: 8700 });
     return extractJSON(raw) || {};
   }
   // 白狼王：AI 决定今天要不要自爆带人（自爆=亮身份+带走一人+直接天黑）
@@ -1367,7 +1378,7 @@
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天亮了，你替 AI【白狼王】" + opts.name + " 决定现在要不要【自爆】。自爆＝当场亮明狼身份、立刻带走一名玩家、并直接结束今天进入黑夜（跳过发言与投票放逐）。\n【何时值得自爆】狼队要被翻盘、队友快被票出去时搅局止损；或看准机会炸掉关键神（预言家/女巫）打乱好人节奏。没有明确收益就【别炸】——多数时候留着更有用，倾向于不自爆。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"selfDestruct\":true/false,\"target\":\"自爆要带走的人名，或 null（只炸不带人）\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 600 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 8600 });
     return extractJSON(raw) || {};
   }
   function validWolfTarget(target, list) {
@@ -1399,7 +1410,7 @@
   async function genWolfLastWords(api, deads, how, log) {
     const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv; }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 1600 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 9600 });
     const r = extractJSON(raw) || {};
     return Array.isArray(r.words) ? r.words : [];
   }
@@ -1525,11 +1536,11 @@
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
     const parse = function (raw) { const r = extractJSON(raw); return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [], claims: (r && Array.isArray(r.claims)) ? r.claims : [] }; };
-    let raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
+    let raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 14000 });
     let result = parse(raw), bad = seerTruthViolations(speakers, result);
     if (bad.length) {
       const correction = bad.map(function (v) { return v.seerName + "真实验到" + v.target + "=" + (v.isWolf ? "狼人（只能报查杀）" : "好人（只能给金水）"); }).join("；");
-      raw = await callRetry(api, sys, [{ role: "user", content: "上一版出现真预言家颠倒查验的硬错误：" + correction + "。请重新生成整份 JSON；真预言家可以不报，但绝不能反报。" }], { maxTokens: 6000 });
+      raw = await callRetry(api, sys, [{ role: "user", content: "上一版出现真预言家颠倒查验的硬错误：" + correction + "。请重新生成整份 JSON；真预言家可以不报，但绝不能反报。" }], { maxTokens: 14000 });
       result = parse(raw); bad = seerTruthViolations(speakers, result);
       if (bad.length) result = enforceSeerTruth(result, bad);
     }
@@ -1557,7 +1568,7 @@
       heckleBlock(heckles) +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
-    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
+    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 12500 });
     const r = extractJSON(raw); const rows = (r && Array.isArray(r.votes)) ? r.votes : [];
     return ccVotes.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
@@ -1568,7 +1579,7 @@
     const roster = players.map(function (p) { return "· " + p.name + (p.isUser ? "(你)" : "") + "（" + roleZh(p.role) + "，" + (p.alive ? "存活到终局" : "中途出局") + "）水平：" + (p.skill || "—"); }).join("\n");
     const logText = log.filter(function (it) { return it.type === "speech" || it.type === "death" || it.type === "out" || it.type === "vote"; }).map(function (it) { return it.type === "speech" ? (it.name + "：" + it.text) : it.text; }).slice(-40).join("\n");
     const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一两句客观点评为什么是 TA）、quote（以 TA 本人口吻、贴 TA 性格写一段赛后感言；但如果 MVP 是工程师本人座位，quote 必须留空，App 会另请本人亲写，绝不能替他代笔）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "评全场 MVP + 感言。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "评全场 MVP + 感言。" }], { maxTokens: 12000 });
     const picked = extractJSON(raw) || {};
     const mvpPlayer = players.find(function (p) { return picked.name && (p.name === picked.name || String(picked.name).indexOf(p.name) >= 0); });
     if (!mvpPlayer || !mvpPlayer.engineer || mvpPlayer.isUser || !cfg || cfg.ccSeat === false) return picked;
@@ -2355,7 +2366,7 @@
   async function genHeckle(api, pool, gameZh, userName, line, recent) {
     const who = pool.map(function (p) { return "■ " + p.name; }).join("\n");
     const sys = AC + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 1200 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 9200 });
     const r = extractJSON(raw) || {};
     const valid = {}; pool.forEach(function (p) { valid[p.name] = true; });
     return (Array.isArray(r.talks) ? r.talks : []).filter(function (x) { return x && valid[x.name] && String(x.text || "").trim(); }).slice(0, 3).map(function (x) { return { name: x.name, text: String(x.text).trim().slice(0, 60) }; });
@@ -2472,7 +2483,7 @@
         "\n\n【真实玩家】\n" + (lines || "（只有 NPC）") +
         "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\",\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"\"}]}";
     }
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出题：给谜题、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出题：给谜题、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 12000 });
     return extractJSON(raw) || {};
   }
 
@@ -2482,7 +2493,7 @@
     const sys = kind === "haigui"
       ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
       : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 2000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
     return extractJSON(raw) || {};
   }
 
@@ -2517,7 +2528,7 @@
     requireCCDone(cc, "言秋的提问票", function (d) { return !!String(d.question || "").trim(); });
     const ccQ = (cc.seat && cc.done && String(cc.done.question || "").trim()) ? String(cc.done.question).trim().slice(0, 120) : null;
     const sysFinal = sys + (ccQ ? "\n\n【" + cc.seat.name + " 已亲自提问·不要改写 TA 的问题、由你作答并放进 ai 数组】问题是：「" + ccQ + "」。名单里的 TA 已完成提问，绝不要再替 TA 另生成问题。" : (cc.seat ? "\n\n【" + cc.seat.name + " 这一轮选择沉默·不要替 TA 生成问题】" : ""));
-    const raw = await callRetry(api, sysFinal, [{ role: "user", content: "处理这一轮。" }], { maxTokens: 3200 });
+    const raw = await callRetry(api, sysFinal, [{ role: "user", content: "处理这一轮。" }], { maxTokens: 11200 });
     const out = extractJSON(raw) || {};
     if (ccQ && Array.isArray(out.ai)) {
       const mine = out.ai.find(function (a) { return a.name === cc.seat.name; });
@@ -2534,7 +2545,7 @@
     const block = kind === "haigui" ? "汤面：" + ctx.surface + "\n汤底（真相）：" + ctx.truth : "答案是：" + ctx.secret;
     const crit = kind === "haigui" ? "玩家的复原是否抓住了汤底的【核心因果 / 关键反转】？细节不必全中，逻辑对上即可判对。" : "玩家猜的是否就是这个东西？（近义 / 同物不同名也算对。）";
     const sys = AC + "你是「" + K.zh + "」主持人。\n" + block + "\n\n玩家正式猜测：「" + guess + "」\n" + crit + "\n只输出 JSON：{\"correct\":true/false,\"note\":\"一句点评（对就点破真相，不对就说差在哪、给个方向）\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "判一下。" }], { maxTokens: 800 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "判一下。" }], { maxTokens: 8800 });
     return extractJSON(raw) || { correct: false, note: "" };
   }
 
@@ -2831,7 +2842,7 @@
     const sys = AC + "你是「真心话大冒险」的主持。生成 " + npcCount + " 个 NPC 玩家（name 中文名 + persona 一句含职业与性格的人设，多样别雷同）。\n" +
       "【已有真实玩家】\n" + (lines || "（只有 NPC）") + "\n\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\"}]}";
     if (!npcCount) return { npcs: [] };
-    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 3500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 11500 });
     return extractJSON(raw) || { npcs: [] };
   }
   const TD_PROMPT_HISTORY = "tod_prompt_history_v1"; // 跨新局保留题目去重，不随「弃掉本局」清空
@@ -2915,7 +2926,7 @@
       "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
     // 言秋座位的戏份自己演（v54.43）：他被点到→答案他给；他出题→题他出。另一半照旧交模型。
     if (target && target.engineer) {
-      const pr = await callRetry(api, sys + "\n\n【只出题】本次只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":\"…\"}，response 留给本人。", [{ role: "user", content: "只出题。" }], { maxTokens: 2000 });
+      const pr = await callRetry(api, sys + "\n\n【只出题】本次只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":\"…\"}，response 留给本人。", [{ role: "user", content: "只出题。" }], { maxTokens: 10000 });
       const po = extractJSON(pr) || {};
       const prompt = String(po.prompt || "").trim();
       if (prompt) {
@@ -2937,17 +2948,17 @@
       });
       const myPrompt = (cc.done && String(cc.done.prompt || "").trim()) ? String(cc.done.prompt).trim() : null;
       if (myPrompt) {
-        const rr = await callRetry(api, sys + "\n\n【题已由 " + askerName + " 亲自出好·不要改】prompt=「" + myPrompt + "」，只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":" + JSON.stringify(myPrompt) + ",\"response\":\"…\"}。", [{ role: "user", content: "只演回应。" }], { maxTokens: 4000 });
+        const rr = await callRetry(api, sys + "\n\n【题已由 " + askerName + " 亲自出好·不要改】prompt=「" + myPrompt + "」，只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":" + JSON.stringify(myPrompt) + ",\"response\":\"…\"}。", [{ role: "user", content: "只演回应。" }], { maxTokens: 12000 });
         const ro = extractJSON(rr) || {};
         if (String(ro.response || "").trim()) return { choice: plan.choice, prompt: myPrompt, response: String(ro.response).trim() };
       }
       // 出题人这座没有拿到真实回复，本轮应显式失败/重试；绝不让 Gemini 顶着他的名字出题。
       throw new Error(cc.reason || "本人出题票未送达");
     }
-    let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
+    let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 14000 });
     let out = extractJSON(raw) || {};
     if (out.choice !== plan.choice || !tdPromptMatchesChoice(plan.choice, out.prompt)) {
-      raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，而且题目内容本身也必须属于这一类，不能只改 choice 标签。真心话只能要求诚实回答，不能要求现场表演、模仿、发消息或做动作；大冒险必须要求一个当场可执行的动作。请重新输出完整 JSON。" }], { maxTokens: 6000 });
+      raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，而且题目内容本身也必须属于这一类，不能只改 choice 标签。真心话只能要求诚实回答，不能要求现场表演、模仿、发消息或做动作；大冒险必须要求一个当场可执行的动作。请重新输出完整 JSON。" }], { maxTokens: 14000 });
       out = extractJSON(raw) || out;
     }
     if (!tdPromptMatchesChoice(plan.choice, out.prompt)) {
@@ -2974,10 +2985,10 @@
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"prompt\":\"\"}";
-    let raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
+    let raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000 });
     let out = extractJSON(raw) || {};
     if (!tdPromptMatchesChoice(choice, out.prompt)) {
-      raw = await callRetry(api, sys, [{ role: "user", content: "刚才题目内容与【" + choice + "】不符。不能只贴标签：真心话只让真人诚实回答，不要求现场表演或做动作；大冒险必须是当场能执行的动作。重出一道，只输出 JSON。" }], { maxTokens: 4000 });
+      raw = await callRetry(api, sys, [{ role: "user", content: "刚才题目内容与【" + choice + "】不符。不能只贴标签：真心话只让真人诚实回答，不要求现场表演或做动作；大冒险必须是当场能执行的动作。重出一道，只输出 JSON。" }], { maxTokens: 12000 });
       out = extractJSON(raw) || out;
     }
     if (!tdPromptMatchesChoice(choice, out.prompt)) out.prompt = choice === "真心话" ? "你现在最想对在场谁说一句平时不会说的话？为什么？" : "用十秒钟模仿在场任意一个人的说话方式，让大家猜是谁。";
@@ -2996,7 +3007,7 @@
       throw new Error(cc.reason || "本人回答票未送达");
     }
     const sys = AC + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 12000 });
     const out = extractJSON(raw) || {};
     return String(out.response || "").trim();
   }
@@ -3041,7 +3052,7 @@
       sys: "「真心话大冒险」的自由群聊时间。" + (focus ? "刚发生：" + focus.name + " 做了【" + focus.choice + "】，题「" + (focus.prompt || "") + "」，回答「" + (focus.response || "") + "」。" : "") + (userMsg ? "她刚插话：「" + userMsg + "」。" : "") + "\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "想起哄/追问/调侃就给一两句（每句30字内）；不想说 lines 给空数组。",
       expect: '{"lines":["最多两句，可空"]}'
     });
-    const raw = await callRetry(api, sys + ccPreface(cc, "插过话了（也可能没说）"), [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
+    const raw = await callRetry(api, sys + ccPreface(cc, "插过话了（也可能没说）"), [{ role: "user", content: "群聊起来。" }], { maxTokens: 13000 });
     const p = extractJSON(raw); let rows = (p && Array.isArray(p.chat)) ? p.chat : [];
     // 真人玩家名字硬拉黑（v54.60 她抓到）：模型会编一条 name=她 的发言，渲染层模糊匹配
     // 到真人玩家就挂上她的头像、变成"她说的话"。围观路人（短发女生这类临时编的）保留，
@@ -3064,7 +3075,7 @@
     const names = players.map(function (p) { return p.name + (p.isUser ? "(真人)" : ""); }).join("、");
     const pool = players.filter(function (p) { return !p.isUser && !p.engineer; }).map(function (p) { return "■ " + p.name + "：" + tdDesc(p, 300); }).join("\n");
     const sys = AC + TD_IC + "\n\n今晚这场「真心话大冒险」到散场了。\n1. 从在场的人里选一个【今晚之星】：答得最有戏的、最敢的、被玩得最惨还接住的都行。name 必须出自：" + names + "。reason 用裁判口吻给一两句客观点评，不替任何人说话。\n2. 从下面这些人里挑 2~3 个各说一句散场话（20 字内口语，贴人设；可以点名今晚之星、约下回、嘴硬不服）。\n" + pool + "\n\n【今晚各轮】\n" + (lines || "（一轮都没转成）") + "\n\n【输出】只输出 JSON：{\"star\":{\"name\":\"\",\"reason\":\"\"},\"byes\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "散场。" }], { maxTokens: 1600 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "散场。" }], { maxTokens: 9600 });
     return extractJSON(raw) || {};
   }
 
@@ -3478,7 +3489,7 @@
   async function setupMonopoly(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i+1)+". "+p.name+"："+(p.persona||"（没写人设）"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n你是大富翁桌游的 NPC 生成器与玩家风格评估器。生成 "+npcCount+" 个职业、性格各异的 NPC；并给每个真实玩家和 NPC 一句 skill，明确其风险偏好、现金安全线、谈判/读人能力。不要把内向等同于笨，也不要写胜负结果。\n【真实玩家】\n"+(lines||"（只有NPC）")+"\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"\",\"skill\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:3200}); return extractJSON(raw)||{};
+    const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:11200}); return extractJSON(raw)||{};
   }
   async function monoTalk(api, players, event, standings, recent) {
     // 大富翁的买地/移动仍由规则引擎结算；攒成一批事件后，言秋本人收到一张桌上发言票。
@@ -3491,7 +3502,7 @@
     const cast = cc.rest.map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
     const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     let talks=[];
-    if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:1800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}
+    if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:9800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}
     if(cc.seat&&cc.done&&Array.isArray(cc.done.lines))cc.done.lines.slice(0,2).forEach(function(line){const say=String(line||"").trim();if(say)talks.push({name:cc.seat.name,say:say.slice(0,80)});});
     return talks;
   }
@@ -3514,7 +3525,7 @@
     }
     const sys = AC + SKILL_RULE + "\n\n「大富翁」牌桌上，真人玩家想收购【" + owner.name + "】名下的【" + tile.name + "】（地价 $" + tile.price + "，当前等级 " + lv + (tile.group ? "，属于「" + tile.group + "」组" : "") + "），开价 $" + offer + "。\n" + owner.name + " 的人设：" + (owner.persona || "（没写）") + "（真实水平：" + (owner.skill || "普通") + "）\n按 TA 的人设和账面利益决定：接受 / 拒绝 / 还一个价。会算账的人看得出成组的地和高等级的地更值钱；重感情或记仇的人可能不按市价来。你只输出决定和一句 TA 会说的话——钱和地契由规则代码执行，你改不了账。\n【各家账面】" + standings + (recent ? "\n【桌上最近】\n" + recent : "") +
       "\n\n【输出】只输出 JSON：{\"accept\":true/false,\"counter\":还价数字（不还价填 0）,\"say\":\"TA 说的一句话\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "你卖不卖？" }], { maxTokens: 800 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "你卖不卖？" }], { maxTokens: 8800 });
     return extractJSON(raw) || {};
   }
   function MonopolyGame(props) {
@@ -3671,7 +3682,7 @@
   // 好人照实宣布（这是好人的信息武器），坏人可以撒谎护同伙。真相只给持牌人，宣布才是公开的。
   async function genLadyCheck(api, holder, targets, players, hist) {
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·湖中仙女在【" + holder.name + "】手上（" + avSecretFor(holder, players) + "，真实水平：" + (holder.skill || "普通") + "）。从这些人里挑一个查验真实阵营：" + targets.join("、") + "。挑当下最值得看清的人。\n【局面】\n" + (hist || "（刚开局）") + "\n\n【输出】只输出 JSON：{\"target\":\"要查验的人名\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "验谁？" }], { maxTokens: 600 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "验谁？" }], { maxTokens: 8600 });
     return extractJSON(raw) || {};
   }
   async function genLadyAnnounce(api, holder, target, isEvil, players, hist) {
@@ -3679,7 +3690,7 @@
       ? "你是坏人：可以照实宣布，也可以撒谎护同伙或嫁祸好人——按你的水平权衡哪种更划算。"
       : "你是好人：照实宣布——这是好人阵营少有的确定信息，谎报等于自毁。";
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·你替【" + holder.name + "】决定湖中仙女的宣布。TA 刚查验了 " + target + "，【真实结果：" + (isEvil ? "坏人" : "好人") + "】（这个真相只有 TA 知道）。" + stance + "\n（" + avSecretFor(holder, players) + "）\n【局面】\n" + (hist || "") + "\n\n【输出】只输出 JSON：{\"announce\":\"好人\"或\"坏人\",\"say\":\"宣布时说的一句话\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "宣布。" }], { maxTokens: 700 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "宣布。" }], { maxTokens: 8700 });
     return extractJSON(raw) || {};
   }
   async function setupAvalon(api, realPlayers, npcCount) {
@@ -3689,7 +3700,7 @@
       "2. 给【每个真实玩家】和每个 NPC 各写一句 skill「牌桌能力小传」：点出 TA 玩阿瓦隆时——从组队与投票里读心找坏人、伪装隐身份、带节奏说服人——的【真实强弱】（由职业背景推，别被性格带偏）。\n\n" +
       "【真实玩家】\n" + (lines || "（只有 NPC）") +
       "\n\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 12000 });
     return extractJSON(raw) || {};
   }
   async function genProposal(api, leader, players, needSize, qn, failsReq, hist, names) {
@@ -3707,13 +3718,13 @@
       });
       requireCCDone(cc, "言秋的队长组队票", function (d) { return Array.isArray(d.team) && d.team.length > 0; });
       if (cc.done && Array.isArray(cc.done.team) && cc.done.team.length) {
-        const talksRaw = await callRetry(api, sys + "\n\n【队长已亲自定队·不要改】team=" + JSON.stringify(cc.done.team) + "，只输出圆桌发言 talks。", [{ role: "user", content: "只出 talks。" }], { maxTokens: 1200 });
+        const talksRaw = await callRetry(api, sys + "\n\n【队长已亲自定队·不要改】team=" + JSON.stringify(cc.done.team) + "，只输出圆桌发言 talks。", [{ role: "user", content: "只出 talks。" }], { maxTokens: 9200 });
         const tk = extractJSON(talksRaw) || {};
         return { team: cc.done.team, reason: String(cc.done.reason || ""), talks: Array.isArray(tk.talks) ? tk.talks : [] };
       }
       throw new Error("言秋的队长组队票格式无效，请重试当前步骤");
     }
-    const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 9500 });
     return extractJSON(raw) || {};
   }
   // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
@@ -3731,7 +3742,7 @@
     const mine = (cc.seat && cc.done && cc.done.vote) ? [{ name: cc.seat.name, vote: /反/.test(String(cc.done.vote)) ? "反对" : "赞成", reason: String(cc.done.reason || "") }] : [];
     const useVoters = cc.seat ? cc.rest : voters;
     if (!useVoters.length) return mine;
-    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 6500 });
+    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 14500 });
     const p = extractJSON(raw); const rows = (p && Array.isArray(p.votes)) ? p.votes : [];
     return mine.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
@@ -3746,7 +3757,7 @@
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务组队后的圆桌讨论。队长 " + leaderName + " 提议：[" + team.join("、") + "]" + (reason ? "，理由：" + reason : "") + "。\n【你的身份与私密信息】" + (ccSeatOf(pool) ? avSecretFor(ccSeatOf(pool), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n想说就给一句 30 字内的桌上话（质疑/辩护/拉票都行，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
-    const raw = await callRetry(api, sys + ccPreface(cc, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "讨论。" }], { maxTokens: 3200 });
+    const raw = await callRetry(api, sys + ccPreface(cc, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "讨论。" }], { maxTokens: 11200 });
     const p = extractJSON(raw); let rows = (p && Array.isArray(p.talks)) ? p.talks : [];
     if (cc.seat) rows = rows.filter(function (v) { return v.name !== cc.seat.name; });
     if (cc.seat && cc.done && String(cc.done.say || "").trim()) rows.push({ name: cc.seat.name, say: String(cc.done.say).trim().slice(0, 60) });
@@ -3762,7 +3773,7 @@
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务失败了（" + fails + " 张失败票），全桌炸锅。队伍是 [" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(poolB) ? avSecretFor(ccSeatOf(poolB), players) : "") + "\n【局面】\n" + (hist || "") + "\n想说就给一句 30 字内（自证/互咬/点名分析，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
-    const raw = await callRetry(api, sys + ccPreface(ccB, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "甩锅。" }], { maxTokens: 2600 });
+    const raw = await callRetry(api, sys + ccPreface(ccB, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "甩锅。" }], { maxTokens: 10600 });
     const p = extractJSON(raw); let rows = (p && Array.isArray(p.talks)) ? p.talks : [];
     if (ccB.seat) rows = rows.filter(function (v) { return v.name !== ccB.seat.name; });
     if (ccB.seat && ccB.done && String(ccB.done.say || "").trim()) rows.push({ name: ccB.seat.name, say: String(ccB.done.say).trim().slice(0, 60) });
@@ -3783,7 +3794,7 @@
     const mine = (cc.seat && cc.done && cc.done.play) ? [{ name: cc.seat.name, play: /失/.test(String(cc.done.play)) ? "失败" : "成功" }] : [];
     const restEvil = cc.seat ? cc.rest : evilOnTeam;
     if (!restEvil.length) return mine;
-    const raw = await callRetry(api, sys + ccPreface(cc, "出过牌了"), [{ role: "user", content: "出任务。" }], { maxTokens: 600 });
+    const raw = await callRetry(api, sys + ccPreface(cc, "出过牌了"), [{ role: "user", content: "出任务。" }], { maxTokens: 8600 });
     const p = extractJSON(raw); const rows = (p && Array.isArray(p.plays)) ? p.plays : [];
     return mine.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
@@ -3801,7 +3812,7 @@
       if (cc.done && cc.done.target) return { target: String(cc.done.target), reason: String(cc.done.reason || "") };
       throw new Error(cc.reason || "本人刺杀票未送达");
     }
-    const raw = await callRetry(api, sys, [{ role: "user", content: "刺谁？" }], { maxTokens: 700 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "刺谁？" }], { maxTokens: 8700 });
     return extractJSON(raw) || {};
   }
 
@@ -4488,7 +4499,7 @@
         if (state.w4 && top && top.value === "W4") {
           const sysC = "你正在玩 UNO，被上一家的 +4 罚牌。规则：你可以质疑这张 +4——若 TA 出牌时手里其实还有当前颜色的牌（诈打），改由 TA 罚摸 4 张、你不用摸、原地轮你出牌；若 TA 打得合规，你罚摸 6 张。你看不到 TA 的手牌，凭桌面和你的性格赌。" + SKILL_RULE +
             "\n只输出 JSON：接受 {\"kind\":\"draw\",\"say\":\"可空\"}；质疑 {\"kind\":\"challenge\",\"say\":\"可空\"}。";
-          routeSeatCall(current, api, sysC, [{ role: "user", content: unoPublic(state) + "\n你被 +4 了，接受还是质疑？" }], { turnId: turnId + "#w4", expect: '{"kind":"draw|challenge","say":"..."}', timeout: 150000, ai: { maxTokens: 400 } })
+          routeSeatCall(current, api, sysC, [{ role: "user", content: unoPublic(state) + "\n你被 +4 了，接受还是质疑？" }], { turnId: turnId + "#w4", expect: '{"kind":"draw|challenge","say":"..."}', timeout: 150000, ai: { maxTokens: 8400 } })
             .then(function (r) {
               const a = unoJson(r.value), n = clone();
               UnoCore.act(n, { kind: a.kind === "challenge" ? "challenge" : "draw", say: a.say, delegated: r.delegated });
@@ -4506,7 +4517,7 @@
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
         "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。W4 官方该在没有当前颜色时才打——你也可以冒险诈打，但被下家质疑抓到要替 TA 罚 4，按你的性格权衡。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
       const msgs = [{ role: "user", content: unoPublic(state) + "\n现在轮到你。" }];
-      routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 500 } })
+      routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8500 } })
         .then(function (r) {
           const a = unoJson(r.value), n = clone(); let action;
           if (a.kind === "play" && legal.indexOf(String(a.code || "")) >= 0) action = { kind: "play", code: String(a.code), color: String(a.color || "R"), uno: !!a.uno, say: a.say, delegated: r.delegated };
@@ -4537,7 +4548,7 @@
       const context = state.log.slice(-14).map(function (x) { return x.text; }).join("\n");
       Promise.all(seats.map(function (p) {
         const sys = "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE;
-        return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 350 } })
+        return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8350 } })
           .then(function (r) { return { p: p, say: String(unoJson(r.value).say || "").trim(), delegated: r.delegated }; })
           .catch(function (e) { return { p: p, say: "", error: e.message }; });
       })).then(function (rows) {
@@ -4600,5 +4611,7 @@
   }
 
   if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  // 聊天那头要按 key 报菜名（房间里的「他可以拉你玩点什么」），别在那边再抄一份清单。
+  Games.LIST = GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
 })();

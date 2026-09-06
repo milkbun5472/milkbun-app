@@ -4,14 +4,18 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const FLOOR = 8000;
-// games.js 是 Codex 的地盘、trpg.js 是言秋的，都不碰
-const SKIP = new Set(["games.js", "trpg.js"]);
+// trpg.js 是言秋的，不碰。
+// ⚠️games.js 原来也在这张免死名单上（「Codex 的地盘」），v65.02 拿掉了：
+//   她 2026-09-06「不止是 codex 可能动这块」——按地盘划免检，等于谁接手谁背一份
+//   47 处全在 8000 以下的旧账，而这条规矩防的病（想完就没配额写正文、空返回、
+//   重来一次反而多花一次调用）在小游戏里一样犯。
+const SKIP = new Set(["trpg.js"]);
 
 // 她 2026-09-01：「maxtoken 也放开了吧宝宝」→ 看完清单 →「扫吧宝宝」。
 // 思考型模型的思考预算是从 maxTokens 里扣的：给紧了它想完就没配额写正文，
 // 直接空返回或者写一半停在半句。她按【次】计费、输出不另外收钱——
 // 省这几千 token 一分钱省不到，换来的是一次空返回再重来一次，反而多花一次调用。
-test("全 app 没有一处 maxTokens 低于 " + FLOOR + "（games / trpg 除外）", () => {
+test("全 app 没有一处 maxTokens 低于 " + FLOOR + "（trpg 除外）", () => {
   const bad = [];
   fs.readdirSync(path.join(root, "js")).filter(f => f.endsWith(".js") && !SKIP.has(f)).forEach(f => {
     const src = fs.readFileSync(path.join(root, "js", f), "utf8");

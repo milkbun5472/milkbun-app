@@ -92,13 +92,17 @@ test("side-room summaries return only to the matching person's main prompt", () 
   assert.doesNotMatch(Rooms.prompt(Rooms.get("p2", "main"), []), /我们在雪地走了一圈/);
 });
 
+// v65.02 起课还认房间：roomId 是 study.js 建课时戳的（没戳＝主线）。
+// 所以这间房要看见自己那门课，桩里就得戳上这间房的 id——照着写入方写。
 test("study-enabled room lists only this character's existing sessions", () => {
-  global.window = { Study: { loadSessions: () => [
-    { id: "mine", teacher_id: "p1", subject: "日语", updated_at: 20 },
-    { id: "other", teacher_id: "p2", subject: "吉他", updated_at: 30 }
-  ] } };
   const room = Rooms.create("p1", "补习角", "focused");
+  global.window = { Study: { loadSessions: () => [
+    { id: "mine", teacher_id: "p1", subject: "日语", updated_at: 20, roomId: room.id },
+    { id: "other", teacher_id: "p2", subject: "吉他", updated_at: 30, roomId: room.id },
+    { id: "mainline", teacher_id: "p1", subject: "主线那门", updated_at: 40 }
+  ] } };
   const prompt = Rooms.prompt(room, []);
   assert.match(prompt, /sessionId=mine/);
   assert.doesNotMatch(prompt, /sessionId=other/);
+  assert.doesNotMatch(prompt, /sessionId=mainline/);   // 主线的课不串进侧房
 });

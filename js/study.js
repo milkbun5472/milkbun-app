@@ -884,6 +884,9 @@
       const cur = {
         id: "cur_" + Date.now(), subject: subject.trim(), level: level.trim(), mode: mode,
         character_ids: picked.slice(), teacher_id: teacherId, memory: { summaries: [], review_items: [] },
+        // 从哪间房里被邀请出来的。房间的写回边界要认这一戳，
+        // 否则「不带出门」那间房里上的课会从主线的他嘴里说出来（chat-rooms.js studySessionsFor）。
+        roomId: String(props.initialRoomId || "") || null,
         created_at: Date.now(), updated_at: Date.now()
       };
       saveCurriculum(cur);
@@ -1025,6 +1028,7 @@
         id: "st_" + Date.now(), curriculum_id: cur.id, mode: cur.mode,
         character_ids: (cur.character_ids || []).slice(), teacher_id: cur.teacher_id || null,
         subject: cur.subject, title: cur.subject + " · " + chars.map(function (c) { return c.name; }).join("&"),
+        roomId: cur.roomId || null,
         outline: outline, progress: progress,
         created_at: Date.now(), updated_at: Date.now(), transcript: []
       };
@@ -1672,6 +1676,7 @@
         mode: tab, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         initialSubject: props.entry && props.entry.mode === "propose" ? props.entry.subject : "",
         initialCharacterId: props.entry && props.entry.mode === "propose" ? props.entry.characterId : "",
+        initialRoomId: props.entry && props.entry.mode === "propose" ? (props.entry.roomId || "") : "",
         onBack: function () { setView("home"); restoreHome(); },
         onCreated: function (cur) { setCurId(cur.id); setView("console"); }, // 落到控制台，自己开第一节
         // 认真教判定不够格→用户选「改为一起研究」：建 costudy session 直接进聊天
@@ -1679,6 +1684,7 @@
           const chars = avatarsFor([charId], props.characters);
           const sess = {
             id: "st_" + Date.now(), curriculum_id: null, mode: "costudy",
+            roomId: (props.entry && props.entry.roomId) || null,
             character_ids: [charId], teacher_id: null, subject: subject,
             title: subject + " · " + chars.map(function (c) { return c.name; }).join("&"),
             updated_at: Date.now(), progress: newProgress("costudy"), transcript: []
@@ -1705,6 +1711,7 @@
           const chars = avatarsFor([d.charId], props.characters);
           const sess = {
             id: "st_" + Date.now(), curriculum_id: null, mode: "costudy",
+            roomId: (props.entry && props.entry.roomId) || null,
             character_ids: [d.charId], teacher_id: null, subject: d.subject,
             title: d.subject + " · " + chars.map(function (c) { return c.name; }).join("&"),
             updated_at: Date.now(), progress: newProgress("costudy"), transcript: []

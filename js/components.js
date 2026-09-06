@@ -7018,6 +7018,7 @@ function ChatThread({
   askingCouple,
   onAcceptListen,
   onOpenStudyInvite,
+  onOpenGameInvite,
   onSendTransfer,
   onRespondTransfer,
   onOpenMoments,
@@ -7582,13 +7583,21 @@ function ChatThread({
         m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", lineHeight: 1.5, marginBottom: m.song ? 4 : 8 } }, m.say) : null,
         m.song ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#f0d9a8", marginBottom: 8 } }, "《" + m.song + "》") : null,
         h("button", { onClick: () => onAcceptListen && onAcceptListen(character.id, m.song || ""), className: "w-full active:opacity-80", style: { background: "#fff", color: "#17171b", fontFamily: F_DISPLAY, fontSize: 14, padding: "8px", borderRadius: 10 } }, "和 TA 一起听 →")));
-    if (m.kind === "studyinvite") return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 34, radius: 10 }),
-      h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".14em", color: t.fog, marginBottom: 5 } }, m.mode === "resume" ? "继续一起学" : "一起学邀请"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || "一起学点什么"),
-        m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
-        h("button", { onClick: function () { onOpenStudyInvite && onOpenStudyInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, m.mode === "resume" ? "继续这门课" : "看看课程草案")));
+    // 一起学和小游戏是同一张卡（他在房里开口约你，点了才真进那一屏）。
+    // 小游戏当初没有卡，那个开关等于空的——补的时候不另画一张，就长在这一张上。
+    if (m.kind === "studyinvite" || m.kind === "gameinvite") {
+      const isGame = m.kind === "gameinvite";
+      const eyebrow = isGame ? "一起玩" : m.mode === "resume" ? "继续一起学" : "一起学邀请";
+      const go = isGame ? "去摆这一局" : m.mode === "resume" ? "继续这门课" : "看看课程草案";
+      return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
+        h(Avatar, { character: character, size: 34, radius: 10 }),
+        h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, eyebrow),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || (isGame ? "玩一局" : "一起学点什么")),
+          isGame && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
+          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
+          h("button", { onClick: function () { if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, go)));
+    }
     const isU = m.role === "user";
     return /*#__PURE__*/React.createElement("div", {
       key: part ? i + ":" + part : i,
