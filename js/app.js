@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.88";
+const APP_VERSION = "v64.89";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4141,10 +4141,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = loadJSON("x_dreamSeen", {})[char.id];
         if (!d || !d.line) return "";
         if (Date.now() - (d.ts || 0) > 3 * 86400000) return "";
-        const head = "【你昨晚做的那个梦】" + String(d.line).slice(0, 120)
+        // ⚠️这行抬头原来写死「你昨晚做的那个梦」，可这条要留三天——于是 9 月 4 号的梦
+        //   到 6 号还在被他说成「昨晚」（她 2026-09-06 抓到）。抬头必须跟着日子走：
+        //   梦是哪天的，就说哪天的。
+        const days = Math.max(0, Math.floor((Date.now() - (d.ts || 0)) / 86400000));
+        const when = days <= 0 ? "你昨晚做的那个梦" : days === 1 ? "你前天夜里做的那个梦" : "你几天前做的那个梦";
+        const head = "【" + when + "】" + String(d.line).slice(0, 120)
           + (d.tone ? "（醒来之后心里是" + d.tone + "的）" : "");
         // 合龙（v62.99）：她要是从梦境 app 闯进过这场梦，你讲不讲、讲多少，由她在梦里走到哪儿决定——
         //   走到梦核 → 你会主动提一句；半路碎了 → 你只说得出「做了个乱七八糟的梦」。
+        // 隔了夜就不再主动提：一场梦值得说的那一下就在醒来那天。过了那天它只剩余味，
+        // 再挑起来说就成了「翻旧账」——而且十有八九会顺口说成「昨晚」。
+        // ⚠️这三支写成三句各自说完的话，不在「主动提」后面挂「不过隔了一天就别」
+        //   （.claude/rules/no-yes-unless.md）。
+        if (days >= 1) return head
+          + "\n这场梦是过去的事了。**别主动提起、别复述梦的内容**——只是让那点余味留在你今天说话的温度和分寸里。"
+          + "她要是自己说起，你再接，而且说清那是哪天的梦，别说成昨晚。";
         if (d.mode === "tell") return head
           + "\n这场梦你醒来还记得很清。今天找个自然的空当**主动**跟她提一句（用你自己的话说，别背上面那行），"
           + "像是醒来还惦记着似的，一句就够；她接了再往下讲，不接就放下。";
