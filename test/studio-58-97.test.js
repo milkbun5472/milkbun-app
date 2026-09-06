@@ -66,13 +66,16 @@ test("拍出来的同时上合照墙", () => {
 
 // .claude/rules/no-half-sheet.md / mobile-ui-layout.md
 test("整页，紧凑标题栏，正门在情侣空间", () => {
-  const ui = scr.slice(scr.indexOf("function PhotoStudio({"));
+  // ⚠️切到 IF 线那一段之前为止：原来一路切到文件末尾，把别的组件也圈进来了
+  const ui = scr.slice(scr.indexOf("function PhotoStudio({"), scr.indexOf("\nconst IF_INK"));
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");
   assert.match(ui, /className: "h-full flex flex-col"/);
   assert.match(ui, /className: "flex-1 min-h-0 overflow-y-auto/);
-  assert.match(ui, /paddingTop: safeTop\(10\)/, "顶栏没吃安全区");
+  // v64.90 起走共用 Head，安全区归它吃
+  assert.match(ui, /h\(Head, \{ zh: big \? "" : "照相馆"/, "顶栏没走共用 Head");
+  assert.doesNotMatch(ui, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
   // 看大图是同一页里退一层，不是再掀一层
-  assert.match(ui, /onClick: \(\) => big \? setBig\(null\) : onBack\(\)/, "看大图之后返回键一下退两层");
+  assert.match(ui, /onBack: \(\) => big \? setBig\(null\) : onBack\(\)/, "看大图之后返回键一下退两层");
   assert.match(scr, /sub === "studio"\) \{/, "情侣空间里没有这一页");
   assert.match(scr, /(?:wall|spine)\("studio",|setSub\("studio"\)/, "首页上没有入口");
   assert.match(app, /onStudioShoot: studioShoot,/, "没接上");

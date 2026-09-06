@@ -9,7 +9,8 @@ const cast = screens.slice(screens.indexOf("function Cast("), screens.indexOf("f
 // ── 人格档案馆 ──────────────────────────────────────────
 // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」
 test("顶栏和主屏图标都叫人格档案馆，全 app 不再有第二个名字", () => {
-  assert.match(cast, /fontSize: 17, color: t\.ink \} \}, "人格档案馆"\)/, "顶栏还写着别的名字");
+  // v64.90 起顶栏走共用 Head（标题的字号字色归它管）
+  assert.match(cast, /h\(Head, \{ zh: "人格档案馆"/, "顶栏还写着别的名字");
   assert.match(comp, /cast: \{ kind: "app", zh: "人格档案馆"/, "主屏图标还叫旧名字");
   const files = fs.readdirSync(path.join(__dirname, "..", "js")).filter(f => f.endsWith(".js"));
   const left = [];

@@ -101,8 +101,9 @@ test("⌖ 只归位视野，不许顺手清掉她摆好的位置", () => {
 
 test("整页 + 紧凑标题栏，配角简介的入口没丢", () => {
   assert.ok(!/h\(Sheet,/.test(board), "不许用半窗");
-  assert.match(ties, /paddingTop: safeTop\(10\)/);
-  assert.ok(!/h\(Head, \{\n?\s*zh: "关系"/.test(ties), "Head 那个大标题要吃掉三百多像素");
+  // ⚠️原来这里禁的是 Head——v61.27 起 Head 本身就是那条紧凑栏，v64.90 换了过来
+  assert.match(ties, /h\(Head, \{ zh: \(boardId === "me" \? me : nameOf\(boardId\)\) \+ " 的关系"/, "顶栏没走共用 Head");
+  assert.doesNotMatch(ties, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
   assert.match(board, /className: "flex-1 min-h-0"/);
   assert.match(board, /touchAction: "none"/);
   // 配角没有自己的资料页，读全文/改/删只能落在按条看那一页（她 2026-08-25 定的）

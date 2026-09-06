@@ -139,5 +139,6 @@ test("导入页是整页，不是半窗", () => {
   assert.doesNotMatch(sheet, /h\(Sheet,/, "又改回半窗了");
   assert.match(sheet, /h-full flex flex-col/);
   assert.match(sheet, /flex-1 min-h-0 overflow-y-auto/);
-  assert.match(sheet, /paddingTop: safeTop\(8\)/, "顶栏没让开刘海");
+  // ⚠️v64.90 起顶栏走共用 Head，刘海归它让（mobile-ui-layout.md §1）
+  assert.match(sheet, /h\(Head, \{ zh: "导入角色卡", bg: "transparent", onBack: onClose \}\)/, "顶栏没走共用 Head");
 });

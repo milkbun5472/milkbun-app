@@ -491,6 +491,25 @@ function Spinner({
 //
 // 版式：返回键 / 居中小标题（副标题跟在下面一行）/ 右侧等宽操作位。
 // 左右两边等宽，标题才真的居中——右边没东西时也留着那块空位。
+// 顶栏那个 ink 是浅色还是深色（决定副标题和分隔线该用白影还是黑影）。
+// ⚠️认不出来的一律当【浅色】：那正好是改这一处之前的老样子（深底白字），
+//   所以看不懂的颜色不会因为这次改动而变个样。
+//   （主题色不一定是六位色号——mobile-ui-layout.md §3.5 那条同样的坑。）
+function headInkIsLight(c) {
+  const s = String(c || "").trim();
+  let r, g, b;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+  if (hex) {
+    const v = hex[1];
+    const p = v.length === 3 ? v.split("").map(x => x + x) : [v.slice(0, 2), v.slice(2, 4), v.slice(4, 6)];
+    r = parseInt(p[0], 16); g = parseInt(p[1], 16); b = parseInt(p[2], 16);
+  } else {
+    const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(s);
+    if (!m) return true;
+    r = +m[1]; g = +m[2]; b = +m[3];
+  }
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 140;
+}
 function Head({
   zh,
   en,
@@ -502,17 +521,32 @@ function Head({
   //   没有这个口子的话，那种页面只能自己手写一条顶栏——月度印象当初就是这么走的，
   //   于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout.md §1）。
   , ink
+  // 副标题色和分隔线色：不传就按 ink 是深是浅自动推。页面自己调好过这两档
+  // （论坛的雾绿、淘宝的浅灰）就直接传进来，别让自动推的那一档把它冲淡。
+  , subInk
+  , lineInk
+  // 标题浮在【一张照片】上时给它一层影，不然遇到亮的那张就读不出字来。
+  , inkShadow
   // 底下那条分隔线撤掉：只给【图从顶栏后面透上来】的页面用（一起听的播放页）。
   // ⚠️不做成「bg 透明就自动不画」——六十多页都传着 transparent，那是一次全 app 的
   //   视觉改动，不该由这一处顺手决定。要撤的自己点名撤。
   , noLine
   // 藏起来的开关：给标题本身挂一下（不改任何长相）。传了才挂。
   , onTitleTap
+  // 顶栏这一条自己还要加的样式（毛玻璃、渐变、内阴影……）。论坛那种「浮在正文上的一条」
+  // 靠它，不用再各页手写一条顶栏。⚠️只收样式，别拿它塞布局——布局归这一处管。
+  , barStyle
 }) {
   const t = useTheme();
   const INK = ink || t.ink;
-  const SUB = ink ? "rgba(255,255,255,.55)" : t.fog;
-  const LINE = ink ? "rgba(255,255,255,.14)" : t.line;
+  // ⚠️副标题和分隔线不许一律当成【深底白字】。
+  //   原来写死 rgba(255,255,255,…)，等于假定「传了 ink 就是夜色页」——
+  //   可牛皮纸、绿纸论坛、木桌这些页的 ink 是深棕色，白副标题在上面看不见
+  //   （「我们的档案」「愿望板」两页的 partner.name 一直是隐形的）。
+  //   改成看这个 ink 本身是深是浅：深字配深底的淡影，浅字才配白影。
+  const LIGHT_INK = headInkIsLight(INK);
+  const SUB = subInk || (ink ? (LIGHT_INK ? "rgba(255,255,255,.55)" : "rgba(0,0,0,.42)") : t.fog);
+  const LINE = lineInk || (ink ? (LIGHT_INK ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.12)") : t.line);
   // 副标题：sub 优先。
   // ⚠️她 2026-09-03 立：**标题里所有英文都去掉，只留中文——除非这一处压根没写中文。**
   //   所以有 zh 的时候，纯拉丁的 en 一律不发（那一行「FOCUS DESK」「MOMENTS」谁都看得懂，
@@ -528,7 +562,7 @@ function Head({
   return /*#__PURE__*/React.createElement("div", {
     "data-wk": "head",
     className: "shrink-0 flex items-center",
-    style: {
+    style: Object.assign({
       // ⚠️默认铺 t.bg；页面外壳自己有底纹时传 bg:"transparent" 让它透上来。
       //   不给这个口子的话，顶栏会在底纹上压出一条平色带——顶上那截没被盖住
       //   （她 2026-09-03：「你的小游戏背景又没覆盖顶部」）。
@@ -537,7 +571,7 @@ function Head({
       paddingTop: safeTop(8),
       paddingBottom: 8,
       borderBottom: noLine ? "none" : "1px solid " + LINE
-    }
+    }, barStyle || {})
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 flex items-center",
     style: { width: SIDE }
@@ -562,6 +596,7 @@ function Head({
       fontSize: 15.5,
       lineHeight: 1.2,
       color: INK,
+      textShadow: inkShadow || undefined,
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
@@ -574,6 +609,7 @@ function Head({
       lineHeight: 1.3,
       marginTop: 1,
       color: SUB,
+      textShadow: inkShadow || undefined,
       letterSpacing: cjk ? 0 : "0.14em",
       textTransform: cjk ? "none" : "uppercase",
       overflow: "hidden",

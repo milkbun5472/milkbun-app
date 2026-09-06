@@ -14,8 +14,9 @@ test("借来的那套版式不许再冒出来", () => {
   assert.deepEqual(back, [], "这几样是照着别人版式来的，又回来了：" + back.join("、"));
   // 日记那几页的顶栏一律走紧凑标题栏（mobile-ui-layout.md），不许再顶「BACK / INDEX」大字
   const entry = grab("function DiaryEntryView(", "\nfunction fmtClockShort", "全文页");
-  assert.match(entry, /shrink-0 flex items-center px-4 pb-2/, "全文页没用紧凑标题栏");
-  assert.match(entry, /safeTop\(10\)/, "顶栏没让开刘海");
+  // v64.90 起走共用 Head（它本身就是那条紧凑栏）
+  assert.match(entry, /h\(Head, \{ zh: char \? \(char\.remark \|\| char\.name\) : "日记", sub: isMe \? "我的手记" : "他写的"/, "全文页没用紧凑标题栏");
+  assert.doesNotMatch(entry, /safeTop\(10\)/, "又自己手写一条顶栏了——刘海归 Head 让");
   assert.ok(!/"BACK"|"INDEX"/.test(entry));
 });
 

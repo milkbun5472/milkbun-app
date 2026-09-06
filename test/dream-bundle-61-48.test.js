@@ -93,9 +93,10 @@ test("分栏是书口上垂下来的布书签，不是一排药丸", () => {
 test("Head 多了一个 ink 口子：页面自带底色时顶栏的字跟着走", () => {
   const comp = fs.readFileSync("js/components.js", "utf8");
   const i = comp.indexOf("function Head({");
-  const head = comp.slice(i, i + 2200);
+  const head = comp.slice(i, comp.indexOf("\n}\n", i));   // ⚠️切到函数结尾，不用定长窗口（多几个口子就把要找的行挤出去了）
   assert.match(head, /const INK = ink \|\| t\.ink;/);
-  assert.match(head, /const LINE = ink \? "rgba\(255,255,255,\.14\)" : t\.line;/);
+  // ⚠️v64.90 起分隔线还看 ink 本身是深是浅：深墨（牛皮纸、绿纸论坛）配黑影，浅墨才配白影
+  assert.match(head, /const LINE = lineInk \|\| \(ink \? \(LIGHT_INK \? "rgba\(255,255,255,\.14\)" : "rgba\(0,0,0,\.12\)"\) : t\.line\)/);
   // ⚠️v64.86 起返回箭头多带一个 wk: "headink"（让页面 CSS 抓得住它的描边），
   //   所以这里不再钉死大括号里只有那两项——要钉的是「颜色跟着 INK 走」，不是那一行的长相。
   assert.match(head, /React\.createElement\(IArrow, \{ size: 18, color: INK[^}]*\}\)/);

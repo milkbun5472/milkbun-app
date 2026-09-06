@@ -7,7 +7,7 @@ const comp = fs.readFileSync("js/components.js", "utf8");
 
 test("有中文标题时，纯拉丁的副标题一律不发", () => {
   const i = comp.indexOf("function Head({");
-  const head = comp.slice(i, i + 1400);
+  const head = comp.slice(i, comp.indexOf("\n}\n", i));   // ⚠️切到函数结尾，不用定长窗口（多几个口子就把要找的行挤出去了）
   assert.match(head, /const enCJK = \/\[一-鿿\]\/\.test\(String\(en \|\| ""\)\);/);
   assert.match(head, /const line = sub \|\| \(\(zh && !enCJK\) \? "" : \(en \|\| ""\)\) \|\| "";/);
 });
@@ -15,7 +15,7 @@ test("有中文标题时，纯拉丁的副标题一律不发", () => {
 test("en 里写的是中文时照旧当副标题——判断看的是有没有汉字，不是看写在哪个字段", () => {
   // 好些地方是拿 en 当 sub 使的；一刀切会把那些中文副标题也误伤
   const i = comp.indexOf("function Head({");
-  const head = comp.slice(i, i + 1400);
+  const head = comp.slice(i, comp.indexOf("\n}\n", i));   // ⚠️切到函数结尾，不用定长窗口（多几个口子就把要找的行挤出去了）
   assert.ok(head.indexOf("enCJK") > 0);
   // 只有 en、没有 zh 的那种（真的只写了英文）也得留着
   assert.match(head, /\(zh && !enCJK\)/);

@@ -21,11 +21,15 @@ test("人格档案馆自己是一套奶油纸视觉，不套用参考图", () =>
 });
 
 test("人格档案馆和编辑档案都遵守子页面安全区与单滚动容器", () => {
+  // ⚠️原来这里禁的是 Head——那是 v57.x 的实情（那时 Head 自己是 30px 大标题）。
+  //   v61.27 起 Head 本身就是那条紧凑栏，安全区归它吃；v64.90 这两页换了过来。
   for (const source of [cast, form]) {
-    assert.match(source, /paddingTop: safeTop\(8\)/);
+    assert.match(source, /h\(Head, \{ zh: /, "顶栏没走共用 Head（安全区归它吃）");
+    assert.doesNotMatch(source, /paddingTop: safeTop\(8\)/, "又自己手写一条顶栏了");
     assert.match(source, /flex-1 min-h-0 overflow-y-auto/);
-    assert.doesNotMatch(source, /React\.createElement\(Head/);
   }
+  // 编辑页那条是压在毛玻璃上的，材质从调用点传进去（Head 的 barStyle）
+  assert.match(form, /barStyle: \{ backdropFilter: "blur\(10px\)", WebkitBackdropFilter: "blur\(10px\)" \}/, "编辑页那条毛玻璃没了");
 });
 
 test("编辑页保留完整资料字段，并按四卷分区", () => {

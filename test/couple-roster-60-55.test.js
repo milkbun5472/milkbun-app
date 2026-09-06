@@ -52,8 +52,11 @@ test("解除用 SVG 图标，不用 💔 这个 emoji", () => {
 });
 
 test("紧凑标题栏，不是那个占掉小半屏的大标题", () => {
-  assert.ok(!/h\(Head, \{ zh: "情侣", en: "Us \/ Couple"/.test(us));
-  assert.match(us, /paddingTop: safeTop\(10\)/);
+  // ⚠️v61.27 起 Head 本身就是紧凑栏，所以这一页 v64.90 换了回去；
+  //   要挡的一直是那个 30px 大标题＋「Us / Couple」眉标，不是 Head 这个组件。
+  assert.ok(!/en: "Us \/ Couple"/.test(us), "那行英文眉标又回来了");
+  assert.match(us, /h\(Head, \{ zh: "情侣", sub: entries\.length \? entries\.length \+ " 段 · 最久的走了 " \+ maxDays \+ " 天" : ""/, "名册顶栏没走共用 Head");
+  assert.doesNotMatch(us, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
   assert.match(us, /className: "flex-1 min-h-0 overflow-y-auto/);
 });
 

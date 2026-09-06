@@ -60,6 +60,6 @@ test("顶上那块大标语也撤了（子页面用紧凑标题栏）", () => {
   assert.equal(codeOnly.indexOf('"设定只去该去的地方"'), -1);
   assert.equal(codeOnly.indexOf('"INJECTION MAP"'), -1);
   assert.equal(codeOnly.indexOf('"LORE INDEX"'), -1);
-  assert.match(wb, /fontFamily: F_DISPLAY, fontSize: 16\.5, color: t\.ink \} \}, "世界书"\)/);
+  assert.match(wb, /h\(Head, \{ zh: "世界书", bg: "transparent", onBack,/, "顶栏没走共用 Head");
   assert.match(wb, /一条设定要盖够章才送得出去/, "该说的那句话要留着，只是不再当大标语");
 });

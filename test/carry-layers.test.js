@@ -172,22 +172,19 @@ test("护理那一栏删了，旧版随身物那套死代码也删了", () => {
 });
 
 // ── UI（她 2026-08-29「页面略丑，先做衣柜」）──────────────────
-// 铁律 .claude/rules/mobile-ui-layout.md §1：普通子页面用紧凑标题栏，
-// 禁止 30–40px 大标题和大块上下留白。随身物的详情页原先用的是 Head，
-// 一屏先被标题吃掉五分之一。
-test("随身物详情页用紧凑标题栏，不许退回大标题", () => {
+// 铁律 .claude/rules/mobile-ui-layout.md §1：普通子页面用紧凑标题栏。
+// ⚠️这条原来写的是「禁止用 Head」——那是 v57.x 的实情：那时 Head 自己就是
+//   30px 大标题。v61.27 起 Head 本身【就是】那条紧凑栏，于是这句禁令反过来了：
+//   现在必须走 Head，安全区、返回键、居中标题、右侧等宽位全归它管
+//   （她 2026-09-06：「共用 head 全部套上去，不然一堆屎山代码这里改了那里没跟上」）。
+test("随身物详情页走共用 Head", () => {
   const i = screens.indexOf("function CarrySection(");
   const seg = screens.slice(i, screens.indexOf("\nfunction Carry(", i));
-  assert.doesNotMatch(seg, /h\(Head, \{/, "又退回 Head 那块大标题了（mobile-ui-layout.md §1）");
-  assert.match(seg, /paddingTop: safeTop\(10\)/, "顶栏得自己吃安全区");
-  assert.match(seg, /fontSize: 16, color: t\.ink/, "居中小标题");
-  assert.match(seg, /"aria-label": "返回"/);
-  // 左返回、右操作位等宽，标题才真的居中。
-  // ⚠️只在顶栏那一段里数——整个 CarrySection 里 40×40 的东西不止顶栏
-  //（礼盒那个方块正好也是 40×40，v57.100 撞上过）。
-  const bar = seg.slice(seg.indexOf("    // 紧凑标题栏"), seg.indexOf("    // 衣柜整页比别的栏暖一档"));
+  assert.match(seg, /h\(Head, \{ zh: sec\.zh, sub: char\.name, bg: "transparent", noLine: true, onBack,/, "顶栏没走共用 Head");
+  assert.doesNotMatch(seg, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
+  const bar = seg.slice(seg.indexOf("    h(Head, { zh: sec.zh"), seg.indexOf("    // 衣柜整页比别的栏暖一档"));
   assert.ok(bar, "找不到顶栏那一段");
-  assert.equal((bar.match(/width: 40, height: 40/g) || []).length, 2, "左右操作位要等宽");
+  assert.match(bar, /"重新翻一遍"/, "右侧那颗重刷键没了");
 });
 
 test("衣服的颜色是从它自己的名字里长出来的", () => {
@@ -430,14 +427,14 @@ test("进随身物是一扇对开的柜门，不是盒子", () => {
   assert.match(seg, /inset 13px 0 18px -14px/, "内壁的侧影——柜子是有深度的");
 });
 
-test("两处入口也用紧凑标题栏（mobile-ui-layout §1）", () => {
+test("两处入口也走共用 Head（mobile-ui-layout §1）", () => {
   const box = screens.slice(screens.indexOf("  // 进随身物的第一屏"), screens.indexOf("\n  const data = carry[char.id]"));
   const cab = screens.slice(screens.indexOf("  // 一格一格的抽屉"), screens.indexOf("\n    // ⚠️这个弹层以前写在滚动容器"));
   [["柜门屏", box], ["柜子屏", cab]].forEach(([name, seg]) => {
-    assert.doesNotMatch(seg, /h\(Head, \{/, name + " 又退回 Head 那块大标题了");
-    assert.match(seg, /paddingTop: safeTop\(10\)/, name + " 顶栏得自己吃安全区");
-    assert.equal((seg.match(/width: 40, height: 40/g) || []).length, 2, name + " 左右操作位要等宽，标题才真居中");
+    assert.match(seg, /h\(Head, \{ zh: "随身物"/, name + " 顶栏没走共用 Head");
+    assert.doesNotMatch(seg, /paddingTop: safeTop\(10\)/, name + " 又自己手写一条顶栏了");
   });
+  assert.match(cab, /sub: busyKey === "__all__" \? "正在一栏一栏翻…" : char\.name/, "柜子屏那行副标题没了");
 });
 
 test("切换角色那个弹层挪出了滚动容器", () => {

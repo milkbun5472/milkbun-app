@@ -76,12 +76,12 @@ test("底纹铺在外壳上，顶栏透上来——顶上不许横一条没盖�
     const heads = s.match(/h\(Head, \{[^\n]*?\}\)/g) || [];
     heads.forEach(hd => assert.match(hd, /bg: "transparent"/, a + " 里有顶栏还在刷平色：" + hd.slice(0, 80)));
   });
-  // 情侣名册（Us）自己手写了紧凑标题栏、没走 Head，那条栏本来就没刷背景
+  // 情侣名册（Us）v64.90 也换成了共用 Head，同样要透出外壳那层底
   const ci = src.indexOf('style: cpSkin(t, "corridor")');
   assert.ok(ci > 0, "名册那一页的底没了");
   const bar = src.slice(ci, src.indexOf("overflow-y-auto", ci));
-  assert.match(bar, /className: "shrink-0 flex items-center px-4 pb-2"/, "名册那条手写的紧凑栏没了");
-  assert.doesNotMatch(bar, /background: t\.bg/, "名册顶栏又刷回平色了");
+  assert.match(bar, /h\(Head, \{ zh: "情侣"/, "名册顶栏没走共用 Head");
+  assert.match(bar, /bg: "transparent"/, "名册顶栏又刷回平色了");
 });
 
 test("铺了底的这几页，正文照旧是唯一那个滚动容器", () => {

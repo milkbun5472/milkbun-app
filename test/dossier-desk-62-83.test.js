@@ -28,10 +28,11 @@ test("铺了桌子的那几页，顶栏不许再自己刷一档平色", () => {
   // ⚠️这里【不能】写 DESK(accent)：accent 是 characters.map 回调里的局部变量，
   //   在外壳这一层是 undefined → ReferenceError → 白屏（第一版就是这么写的）。
   assert.doesNotMatch(cast, /style: DESK\(accent\)/, "外壳用了 map 回调里的局部变量");
-  assert.match(cast, /paddingTop: safeTop\(8\), borderBottom: "1px solid " \+ t\.line \} \}/, "档案馆的顶栏还在自己刷 t.bg");
+  // v64.90 起两页都走共用 Head，透不透底由 bg 这一个口子说了算
+  assert.match(cast, /h\(Head, \{ zh: "人格档案馆", bg: "transparent"/, "档案馆的顶栏还在自己刷 t.bg");
   const kin = src.slice(src.indexOf("function KinshipBill("), src.indexOf("function KinshipBill(") + 3000);
   assert.doesNotMatch(kin, /paddingTop: safeTop\(20\), background: t\.bg2/, "亲属卡的顶栏还在刷另一档平色");
-  assert.match(kin, /width: 40, height: 40, marginLeft: -8/, "亲属卡返回键的可点区不够");
+  assert.match(kin, /h\(Head, \{ zh: \(c\.name \|\| ""\) \+ " 的亲属卡", bg: "transparent"/, "亲属卡的顶栏没走共用 Head");
 });
 
 test("按条看那一页顺手把英文副标题换掉了", () => {

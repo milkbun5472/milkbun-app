@@ -22,8 +22,12 @@ test("主论坛有自己的社区纸张主题，不再是通用白底列表", ()
 });
 
 test("主论坛顶栏、底栏和详情返回遵守移动端布局铁律", () => {
-  assert.match(forum, /paddingTop: safeTop\(10\)/, "顶栏没吃安全区");
-  assert.match(forum, /gridTemplateColumns: "72px 1fr 72px"/, "标题没有真正居中");
+  // v64.90 起顶栏走共用 Head：安全区、居中、左右等宽位全归它管；
+  // 论坛自己那身雾绿和那条毛玻璃从调用点传进去（subInk / lineInk / barStyle）
+  assert.match(forum, /h\(Head, \{ zh: title, sub: \(!inSub && nav === "home"\) \? "街坊的告示板" : ""/, "顶栏没走共用 Head");
+  assert.match(forum, /ink: FORUM_SKIN\.ink, subInk: FORUM_SKIN\.fog, lineInk: FORUM_SKIN\.line/, "论坛那身雾绿没传进去");
+  assert.match(forum, /barStyle: \{ backdropFilter: "blur\(14px\)"/, "那条毛玻璃没了");
+  assert.match(forum, /noLine: !\(inSub \|\| nav !== "home"\)/, "首页不画分隔线那一档没了");
   assert.match(forum, /paddingBottom: COMPOSER_PAD_BOTTOM/, "底栏没跟主聊天输入栏用同一把尺");
   assert.match(forum, /ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto"/, "主页没有唯一主滚动容器");
   assert.match(forum, /feedScrollTopRef\.current = feedScrollRef\.current\.scrollTop/);

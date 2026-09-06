@@ -84,12 +84,13 @@ test("购物车、我的两页也换过来了，且都用紧凑标题栏", () =>
   assert.match(screens, /shopHead\("购物车"\)/);
   assert.match(screens, /shopHead\("我的"\)/);
   // mobile-ui-layout.md §1：普通子页面不许用 30px 大标题
+  // ⚠️原来这条禁的是 Head——那是 v57.x 的实情（那时 Head 自己是 30px 大标题）。
+  //   v61.27 起 Head 本身就是紧凑栏，v64.90 这一条换了过来；淘宝那身浅灰从调用点传进去。
   const i = screens.indexOf("  const cartView = ");
   const seg = screens.slice(i, screens.indexOf("  // ---------- 商品详情", i));
-  assert.doesNotMatch(seg, /h\(Head, \{/, "又退回 Head 那块大标题了");
   const head = screens.slice(screens.indexOf("  const shopHead = (zh, right) =>"), screens.indexOf("  const cartView = "));
-  assert.match(head, /paddingTop: safeTop\(12\)/, "顶栏得自己吃安全区");
-  assert.equal((head.match(/width: 40, height: 40/g) || []).length, 2, "左右操作位要等宽，标题才真居中");
+  assert.match(head, /h\(Head, \{ zh, onBack, bg: MSHOP\.card, ink: MSHOP\.ink, subInk: MSHOP\.dim, lineInk: MSHOP\.line/, "顶栏没走共用 Head");
+  assert.doesNotMatch(head, /paddingTop: safeTop\(12\)/, "又自己手写一条顶栏了");
   // 购物车缩略图和商品流用同一套品类色，一眼认得出是同一件东西
   assert.match(seg, /const c = shopTone\(it, ci\)/);
   // 结算条和底栏用橙

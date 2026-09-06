@@ -136,7 +136,7 @@ test("换掉的那些说的是这一栏在干嘛，不是把英文译回来", ()
 test("上面一行就是中文标题的，英文直接删掉，不是改文案", () => {
   // 「撤掉东西要删除，不是在它后面说 xxx 是错的」
   assert.ok(!src.includes('"IMPORT"'), "导卡那行 IMPORT 还在");
-  assert.match(src, /fontSize: 17, color: t\.ink \} \}, "导入角色卡"\)\),/, "IMPORT 该整行删掉");
+  assert.match(src, /h\(Head, \{ zh: "导入角色卡", bg: "transparent", onBack: onClose \}\)/, "IMPORT 该整行删掉");
   assert.ok(!src.includes('"NEW LORE"') && !src.includes('"EDIT LORE"'));
   // v64.24：这一处从半窗改成整页，那行 22px 大字也跟着换成了公共 Head
   // （mobile-ui-layout §1）。要钉的还是同一件事——中文标题在，英文没了。

@@ -138,12 +138,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, zh),
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, v));
   return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK(t.accent || t.tint) },
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 44 } },
-        h("button", { onClick: onClose, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "text-center min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "导入角色卡")),
-        h("div"))),
+    h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
         "整篇粘进来就行。认得出酒馆卡的 JSON（v1/v2，连世界书一起收成记忆种子），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。"),
@@ -394,14 +389,10 @@ function Cast({
     // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
     // ⚠️顶栏别再自己刷一档 t.bg：桌面铺在外壳上，这一条刷了平色就在顶上压出一条没盖住的带子
     //（.claude/rules/mobile-ui-layout.md §3.5）。
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "76px 1fr 76px", minHeight: 44 } },
-        h("button", { onClick: onBack, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "text-center min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "人格档案馆")),
-        h("div", { className: "flex items-center justify-end gap-1" },
-          onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
-          h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))))),
+    h(Head, { zh: "人格档案馆", bg: "transparent", onBack,
+      right: h("div", { className: "flex items-center", style: { gap: 4 } },
+        onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
+        h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       characters.length === 0
         ? h(Empty, { text: "档案馆里还没有人", sub: "点右上角 + 立第一份卷宗" })
@@ -577,12 +568,9 @@ function CastForm({
     h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: "或直接填 voice_id（含克隆音色）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
   return h("div", { className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line, background: "rgba(255,255,255,.32)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 72px", minHeight: 44 } },
-        h("button", { onClick: onBack, className: "flex items-center active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "text-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, initial ? "编辑档案" : "新建档案")),
-        h("button", { onClick: save, className: "justify-self-end active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档"))),
+    h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
+      bg: "rgba(255,255,255,.32)", barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
+      right: h("button", { onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       // 抬头这张跟列表里那张卷宗卡说同一种话：书脊、装订孔、纸纹、贴上去的照片
       h("section", { style: { position: "relative", margin: "18px 0 16px", borderRadius: 17, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 12px 26px -10px rgba(46,38,29,.2), inset 0 1px 0 rgba(255,255,255,.9)" } },
@@ -1118,15 +1106,10 @@ function Ties({
   // 那块板子摊在同一张桌子上（v62.83）：原来板子合格、桌子是米白
   return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：这一页的正文就是那块板子，高度全给它
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center px-1" },
-        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } },
-          (boardId === "me" ? me : nameOf(boardId)) + " 的关系"),
-        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
-          nBoard ? nBoard + " 段 · 点线上的牌子看整句" : "还没有关系")),
-      h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } },
-        characters.length > 0 ? h("button", { onClick: openNew, className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) : null)),
+    h(Head, { zh: (boardId === "me" ? me : nameOf(boardId)) + " 的关系",
+      sub: nBoard ? nBoard + " 段 · 点线上的牌子看整句" : "还没有关系",
+      bg: "transparent", noLine: true, onBack,
+      right: characters.length > 0 ? h("button", { onClick: openNew, className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null }),
     faceStrip,
     characters.length === 0
       ? h("div", { className: "flex-1 px-6" }, h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }))
@@ -1492,10 +1475,8 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
   return h("div", { className: "h-full flex flex-col", style: binderSkin(t) },
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "世界书"),
-      h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } }, h(IPlus, { size: 20, color: t.ink }))),
+    h(Head, { zh: "世界书", bg: "transparent", onBack,
+      right: h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
       // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
       // 只留一句说清这本书怎么用，和两个真的数
@@ -2291,15 +2272,13 @@ function Forum({
   //   头像左半边和返回键都不见了）。里头该修的照修，但这一道得先拦住整页跑偏。
   return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
     // 紧凑居中顶栏：左右等宽，论坛不再是普通列表左上角的一行大字。
-    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: (inSub || nav !== "home") ? "1px solid " + FORUM_SKIN.line : "none", background: "rgba(244,247,240,.92)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "72px 1fr 72px", minHeight: 40 } },
-        h("button", { onClick: backFn || onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-start", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: FORUM_SKIN.ink })),
-        h("div", { className: "min-w-0 text-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
-          (!inSub && nav === "home") ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: FORUM_SKIN.fog, marginTop: 2 } }, "街坊的告示板") : null),
-        h("div", { className: "flex items-center justify-end", style: { gap: 4 } },
-          (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
-          rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null))),
+    h(Head, { zh: title, sub: (!inSub && nav === "home") ? "街坊的告示板" : "",
+      onBack: backFn || onBack, ink: FORUM_SKIN.ink, subInk: FORUM_SKIN.fog, lineInk: FORUM_SKIN.line,
+      noLine: !(inSub || nav !== "home"),
+      bg: "rgba(244,247,240,.92)", barStyle: { backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" },
+      right: h("div", { className: "flex items-center", style: { gap: 4 } },
+        (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
+        rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null) }),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...FORUM_BOARDS, "关注", "收藏"].map(b => {
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
@@ -2529,10 +2508,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
             h("button", { onClick: () => doGen(true), disabled: busy, className: "w-full mt-4 mb-2 py-3 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, letterSpacing: "0.1em", color: t.fog } }, busy ? "加载中…" : "继续看 ↓"))));
 
   // ---------- 购物车 ----------
-  const shopHead = (zh, right) => h("div", { className: "shrink-0 px-4 pb-2.5 flex items-center", style: { paddingTop: safeTop(12), background: MSHOP.card, borderBottom: "1px solid " + MSHOP.line } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: MSHOP.ink })),
-    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 15.5, fontWeight: 600, color: MSHOP.ink } }, zh),
-    h("div", { className: "flex items-center justify-end", style: { width: 40, height: 40 } }, right || null));
+  const shopHead = (zh, right) => h(Head, { zh, onBack, bg: MSHOP.card, ink: MSHOP.ink, subInk: MSHOP.dim, lineInk: MSHOP.line, right: right || null });
   const cartView = h("div", { className: "flex-1 flex flex-col min-h-0" },
     shopHead("购物车"),
     h("div", { className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
@@ -2856,9 +2832,7 @@ function KinshipBill({ card, character, onBack, onRaise }) {
   // 卡摊在同一张桌子上（v62.83）：卡面早就合格了，桌子还是米白，
   // 而顶栏自己刷的是【另一档平色 t.bg2】——顶上压出一条带子，比没铺还显眼
   return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
-    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, (c.name || "") + " 的亲属卡")),
+    h(Head, { zh: (c.name || "") + " 的亲属卡", bg: "transparent", onBack }),
     h("div", { className: "flex-1 overflow-y-auto" },
       // 卡面
       h("div", { className: "m-5" },
@@ -3716,12 +3690,10 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
   // 情书这一叠底下垫的是【航空信封那圈斜条边】：一道道细斜纹，跟横格的日记本、
   // 竖格的字据一眼分得开。顶栏透明让它透上来（.claude/rules/mobile-ui-layout.md §3.5）。
   return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
-    h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(10), minHeight: 52, borderBottom: "1px solid " + t.line } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { width: 32 } }),   // 右边有两颗键，这儿垫一格，标题才真在正中
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我们的情书"),
-      h("button", { onClick: () => setCompose(true), "aria-label": "自己写一封", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 19, color: t.ink })),
-      h("button", { onClick: () => setCfgOpen(true), "aria-label": "情书设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(GConfig, { size: 18, color: t.ink }))),
+    h(Head, { zh: "我们的情书", bg: "transparent", onBack,
+      right: h("div", { className: "flex items-center" },
+        h("button", { onClick: () => setCompose(true), "aria-label": "自己写一封", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 19, color: t.ink })),
+        h("button", { onClick: () => setCfgOpen(true), "aria-label": "情书设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(GConfig, { size: 18, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { overscrollBehavior: "contain" } },
       h("button", { onClick: () => onGen(partner), disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { margin: "8px 0 16px", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: t.tint } }, gen ? partner.name + " 提笔中…" : "让 " + partner.name + " 写一封（距上封 ≥ 3 天）"),
       mine.length === 0 && !gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有情书。让 TA 写一封，或点右上角 ＋ 自己写一封给 TA。") : null,
@@ -4675,12 +4647,12 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: coverBg } },
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: veil, pointerEvents: "none" } }),
       // 顶栏浮在封面上，不跟着滚（返回键任何时候都够得着）
-      h("div", { className: "shrink-0 flex items-center", style: { position: "relative", zIndex: 2, padding: "0 6px", paddingTop: safeTop(4), height: "calc(" + ST + " + 48px)" } },
-        h("button", { onClick: () => setView(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#fff" })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.5)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, "我和 " + partner.name),
-        onSetCoupleImg
+      h(Head, { zh: "我和 " + partner.name, bg: "transparent", noLine: true, ink: "#fff",
+        inkShadow: "0 1px 6px rgba(0,0,0,.5)", onBack: () => setView(null),
+        barStyle: { position: "relative", zIndex: 2, paddingBottom: 0, height: "calc(" + ST + " + 48px)" },
+        right: onSetCoupleImg
           ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
-          : h("div", { style: { width: 40 } })),
+          : null }),
       h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
         // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
         h("div", { style: { position: "relative", height: 150 } },
@@ -5170,14 +5142,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   };
   return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "corridor") },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：原来那个 30px 大标题 + US/COUPLE 占掉小半屏
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center px-1" },
-        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "情侣"),
-        entries.length ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
-          entries.length + " 段 · 最久的走了 " + maxDays + " 天") : null),
-      h("div", { className: "flex items-center justify-end", style: { minWidth: 40 } },
-        characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50" }, h(IHeart, { size: 19, color: t.ink })) : null)),
+    h(Head, { zh: "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
+      bg: "transparent", noLine: true, onBack,
+      right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
@@ -10233,13 +10200,9 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
   const title = isMe ? (entry.title || "") : (entry.titleZh || entry.titleEn || "");
   const sub = (!isMe && entry.titleZh && entry.titleEn) ? entry.titleEn : "";
   return h("div", { className: "h-full flex flex-col", style: pageSkin(paper, t, { corner: false }) },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, char ? (char.remark || char.name) : "日记"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, isMe ? "我的手记" : "他写的")),
-      h("div", { className: "flex items-center justify-end", style: { width: 40 } },
-        h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50" }, h(ITrash, { size: 17, color: t.fog })))),
+    h(Head, { zh: char ? (char.remark || char.name) : "日记", sub: isMe ? "我的手记" : "他写的",
+      bg: "transparent", noLine: true, onBack,
+      right: h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(ITrash, { size: 17, color: t.fog })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-16" },
       h("div", { className: "flex items-baseline", style: { gap: 9, marginTop: 10 } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: t.ink, lineHeight: 1.15 } }, dateStr),
@@ -10308,14 +10271,11 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";
   return h("div", { className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "日记"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "")),
-      h("div", { className: "flex items-center justify-end", style: { gap: 12, width: 68 } },
+    h(Head, { zh: "日记", sub: characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "",
+      bg: "transparent", noLine: true, onBack,
+      right: h("div", { className: "flex items-center", style: { gap: 12 } },
         h("button", { onClick: () => char.isMe ? onCompose() : onEditStyle(char.id), "aria-label": char.isMe ? "写一篇" : "改文风", className: "active:opacity-50" }, h(IPencil, { size: 17, color: t.ink })),
-        h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog })))),
+        h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog }))) }),
     h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-4", style: { position: "relative" } },
       h("button", { onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: "clamp(280px, calc(100vh - 362px), 350px)" } },
         h("div", { style: Object.assign({}, pageSkin(paper, t, { base: t.bg2, corner: false, strength: .85 }), {
@@ -10396,12 +10356,8 @@ function MyDiaryCompose({ onBack, onSave }) {
   // v64.00：写日记这一页原来是平色米白——一页纸上写字，纸却没有纹理。
   // lined（信纸横线）就是给这种页面预备的那一格。
   return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("lined", t, { base: t.bg2, corner: false, strength: .7 }) : { background: t.bg2 }) },
-    h("div", { className: "shrink-0 flex items-center justify-between px-6 pb-2", style: { paddingTop: safeTop(20) } },
-      h("button", { onClick: onBack, className: "flex items-center gap-2 active:opacity-50" },
-        h(IArrow, { size: 19, color: t.ink }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "返回")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "写日记"),
-      h("button", { onClick: () => onSave({ title, body, location: loc, weather, coords, timeStr: fmtClockShort(now) }), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 15, color: t.accent } }, "保存")),
+    h(Head, { zh: "写日记", bg: "transparent", noLine: true, onBack,
+      right: h("button", { onClick: () => onSave({ title, body, location: loc, weather, coords, timeStr: fmtClockShort(now) }), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 15, color: t.accent, padding: "8px 4px" } }, "保存") }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-16" },
       h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "标题（选填）", style: { background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: F_DISPLAY, fontStyle: "italic", fontWeight: 500, fontSize: 34, lineHeight: 1.1, color: t.ink, marginTop: 14 } }),
       h("div", { className: "mt-6 px-4 pt-1 pb-2", style: { border: `1px solid ${t.line}`, borderRadius: 4, position: "relative" } },
@@ -11869,13 +11825,8 @@ function CarryAll(props) {
     // 就成了一条条色带。分栏靠小标题和那条渐隐的横线，不靠换底色。
     style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, word: "CARRY" })
   },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
-      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
-        h("button", { onClick: () => onGenAll(char), disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
+    h(Head, { zh: "随身物", sub: char.name, bg: "transparent", noLine: true, onBack,
+      right: h("button", { onClick: () => onGenAll(char), disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IRefresh, { size: 18, color: t.ink })) }),
     // 一排小标签：点哪个跳哪个（跟下面的分节标题是同一套锚点）
     // ── 分区条不是一排药丸（tabs-not-plain-pills）───────────────────────
     //   这一页整块是【布】，那这几个分区就该是【缝在布上的布标】：
@@ -12230,13 +12181,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
     // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
     // 顶栏自己不上色，让外层那层底透上来。
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, sec.zh),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
-      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
-        !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
+    h(Head, { zh: sec.zh, sub: char.name, bg: "transparent", noLine: true, onBack,
+      right: !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IRefresh, { size: 18, color: t.ink })) : null }),
     // 底色在最外层（见上），这里透明就好
     h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
     // 详情。随身物整块共用【同一扇居中的柜门】（她 2026-08-29 拿真机截图点名：
@@ -12266,12 +12212,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
       + "linear-gradient(152deg,rgba(74,58,40,.32) 0%,rgba(74,58,40,.54) 46%,rgba(74,58,40,.38) 100%)"
   };
   if (inBox) return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
-        null),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
       h("div", {
         className: "flex-1 min-h-0 relative",
@@ -12367,14 +12308,9 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   };
   return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: () => setInBox(true), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
-          busyKey === "__all__" ? "正在一栏一栏翻…" : char.name)),
-      h("div", { className: "flex items-center justify-center gap-1", style: { width: 40, height: 40 } },
-        h("button", { onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
+    h(Head, { zh: "随身物", sub: busyKey === "__all__" ? "正在一栏一栏翻…" : char.name,
+      bg: "transparent", noLine: true, onBack: () => setInBox(true),
+      right: h("button", { onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IRefresh, { size: 18, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-5" },
       // 柜身：木框裹着一摞抽屉，和详情那扇柜门是同一套木色
       h("div", {
@@ -12513,10 +12449,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
   const pull = n => { const made = onPull(partner, n); if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); } };
   return h("div", { className: "h-full flex flex-col", style: foilSkin(t) },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "抽卡"),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "抽卡", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       // 点数 + 两个抽法。跟谁攒的点数就抽谁的卡——这一份只属于你和 TA
       h("div", { style: { borderRadius: 20, border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)", padding: "16px 15px" } },
@@ -12577,10 +12510,7 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
     backgroundImage: "repeating-linear-gradient(102deg,rgba(140,116,74,.035) 0 2px,transparent 2px 16px),"
       + "radial-gradient(120% 80% at 50% -10%,rgba(255,250,238,.75),transparent 60%)",
     boxShadow: "inset 0 0 46px rgba(96,72,40,.26), inset 0 2px 0 rgba(255,255,255,.35)" } },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#5d4c31" })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#5d4c31" } }, "抽屉"),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "抽屉", bg: "transparent", noLine: true, ink: "#5d4c31", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       // 抽屉里侧那张标签：贴在衬纸上，不是一张圆角卡
       h("div", { style: { position: "relative", background: "#fbf5e6", padding: "14px 15px 13px",
@@ -12675,10 +12605,7 @@ function CoupleFirstsBook({ partner, items, onBack }) {
     return s && ts > s ? "第 " + (Math.floor((ts - s) / 86400000) + 1) + " 天" : "";
   };
   return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "第一次们"),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: "第一次们", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       h("div", { style: { borderRadius: 20, border: "1px solid #dfd7ca", background: "#f4f0e8", padding: "15px 15px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#5e4c38" } }, rows.length ? "走过 " + rows.length + " 个第一次" : "还没有第一次"),
@@ -12742,10 +12669,8 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
   const n = groups.reduce((a, g) => a + (g.sets || []).length, 0);
   const submit = () => { if (onAdd(occ, name, note)) { setOcc(""); setName(""); setNote(""); setOpenAdd(false); } };
   return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我的衣柜"),
-      h("button", { onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 40, height: 40, marginRight: -8, fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+")),
+    h(Head, { zh: "我的衣柜", bg: "transparent", noLine: true, onBack,
+      right: h("button", { onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 36, height: 38, fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+") }),
     // 一根挂衣杆：光有木纹只是块木头，杆才说明这是柜子里头
     h("div", { "aria-hidden": "true", className: "shrink-0", style: { height: 13, margin: "0 14px 2px", position: "relative" } },
       h("span", { style: { position: "absolute", left: 0, right: 0, top: 3, height: 5, borderRadius: 999,
@@ -12807,10 +12732,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const hisSets = closetGroups(charCloset && charCloset.outfit);
   const rows = (shots || []).filter(x => x.charId === partner.id);
   return h("div", { className: "h-full flex flex-col", style: cycSkin(t) },
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: () => big ? setBig(null) : onBack(), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, big ? "" : "照相馆"),
-      h("div", { style: { width: 40, height: 40 } })),
+    h(Head, { zh: big ? "" : "照相馆", bg: "transparent", noLine: true, onBack: () => big ? setBig(null) : onBack() }),
     big
       ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
           h(AlbumPhoto, { photo: big }),
@@ -12955,11 +12877,8 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
   const name = partner.remark || partner.name;
   React.useEffect(function () { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [data && (data.turns || []).length, busy]);
   const send = () => { const v = typing.trim(); if (!v || busy) return; setTyping(""); onSay(v); };
-  const head = h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: MK_INK })),
-    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: MK_INK } }, "和好间"),
-    h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
-      data ? h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM } }, "过去了") : null));
+  const head = h(Head, { zh: "和好间", bg: "transparent", noLine: true, ink: MK_INK, onBack,
+    right: data ? h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM, padding: "8px 4px" } }, "过去了") : null });
   if (!data) {
     return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
@@ -13035,10 +12954,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
   if (!line) {
     // ── 馆里那一列 ──
     return h("div", { className: "h-full flex flex-col", style: { background: "#141220" } },
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK } }, "另一种我们"),
-        h("div", { style: { width: 40, height: 40 } })),
+      h(Head, { zh: "另一种我们", bg: "transparent", noLine: true, ink: IF_INK, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "16px 15px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8 } },

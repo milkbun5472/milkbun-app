@@ -17,7 +17,7 @@ const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
 const HEAD = comp.slice(comp.indexOf("function Head({"), comp.indexOf("function AvatarPicker({"));
 
 test("Head 收得下这个挂钩，而且挂在【标题】上", () => {
-  assert.match(HEAD, /\n\s*, onTitleTap\n\}\) \{/, "Head 收不了 onTitleTap");
+  assert.match(HEAD, /\n\s*, onTitleTap\n/, "Head 收不了 onTitleTap");
   // 必须落在渲染 zh 的那个 div 上——落在副标题那一行就等于没修（副标题正是会消失的那个）
   const titleDiv = HEAD.slice(HEAD.indexOf("onClick: onTitleTap"), HEAD.indexOf("}, zh)"));
   assert.ok(titleDiv.length > 0 && titleDiv.length < 500, "onTitleTap 没挂在标题那个 div 上");

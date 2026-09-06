@@ -14,7 +14,7 @@ const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const scr = read("screens.js"), man = read("assistant-manual.js"), app = read("app.js");
 
 test("看得见的字都换了", () => {
-  assert.match(scr, /fontSize: 16, color: IF_INK \} \}, "另一种我们"\)/, "页面标题没改");
+  assert.match(scr, /h\(Head, \{ zh: "另一种我们", bg: "transparent", noLine: true, ink: IF_INK/, "页面标题没改");
   assert.match(scr, /letterSpacing: "\.16em", color: "rgba\(169,156,203,\.66\)" \} \}, "另一种我们"\)/, "墙上那一格的眉标没改");
   assert.match(scr, /"删掉这一种？"/);
   assert.match(scr, /"还没有想过另一种。"/);
