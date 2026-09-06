@@ -52,7 +52,9 @@ test("那一层是个气泡，长在他下一句会出现的地方", () => {
   assert.match(bub, /\[0, 1, 2\]\.map/, "点数不是三颗");
   assert.match(bub, /animate-pulse/, "点不会动");
   assert.match(bub, /animationDelay: i \* 0\.15/, "三颗一起跳，那是一坨不是省略号");
-  assert.match(bub, /skinAlpha\(BUBBLE_SKIN\.charBg/, "气泡底色要跟他那一侧的台词气泡一致");
+  // v64.43 起两处都走 callBubble(false)（通话皮肤跟不跟气泡走由那一个开关说了算）——
+  // 要的还是同一件事：这个气泡的底必须和他那一侧的台词气泡【同一个来源】
+  assert.match(bub, /callBubble\(false\)\.background/, "气泡底色要跟他那一侧的台词气泡一致");
   assert.match(bub, /role: "status", "aria-live": "polite"/, "读屏读不到");
 });
 

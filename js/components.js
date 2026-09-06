@@ -120,6 +120,21 @@ function applyChatLook(next) {
 }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
+// 「打电话也用这套皮肤」那一行。开关本身不进 x_bubbleSkin（那份是发成 CSS 的，
+// 通话屏走的是内联样式），所以点一下就落盘、当场生效，不用等「保存皮肤」。
+function CallFollowSkinRow() {
+  const t = useTheme();
+  const [on, setOn] = useState(() => callSkinOn());
+  const flip = () => { const v = !on; setOn(v); callSkinSet(v); };
+  return h("div", { className: "flex items-center justify-between", style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + t.line, gap: 12 } },
+    h("div", { style: { flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "打电话也用这套皮肤"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+        "开：通话屏的底和台词跟着这套气泡的颜色走（底仍然是暗的，只是被染了色）。关：回到原来那两片灰蓝。")),
+    h("button", { onClick: flip, className: "shrink-0 active:opacity-70", "aria-pressed": on ? "true" : "false", "aria-label": "打电话也用这套皮肤",
+      style: { width: 44, height: 26, borderRadius: 999, background: on ? (t.accent || "#8a6d3b") : t.line, position: "relative", transition: "background .15s" } },
+      h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } })));
+}
 // 预设皮肤那一排按钮：两处共用（设置→气泡皮肤、单聊 ••• 里的聊天设置），
 // 一处画、两处用——各写一份迟早有一处漏掉新加的皮肤。
 function BubbleSkinPresets({ onPick, note }) {
@@ -240,6 +255,53 @@ if (typeof document !== "undefined") {
 }
 // 给皮肤底色追加两位透明度（如 "eb"≈92%）：只有六位 #hex 能拼，渐变/rgba 原样返回
 function skinAlpha(c, a) { return (typeof c === "string" && c[0] === "#" && c.length === 7) ? c + a : c; }
+// ── 通话界面跟着气泡皮肤走（她 2026-09-06：「电话聊天的皮肤可以选择跟聊天气泡
+//    皮肤挂钩吧」）─────────────────────────────────────────────────────────
+// 原来通话屏的底是写死的两段深色渐变，气泡是「皮肤色 + 写死的 #16330a / #fff」——
+// 她在设置里换了一套皮肤，打个电话又回到那两片灰蓝，两处像两个 app。
+//
+// ⚠️底【永远是暗的】，只是被皮肤染了色。通话屏上还有一堆
+//   rgba(255,255,255,…) 的小字（时长、旁白、正在说…），底一旦被调亮就全瞎了。
+//   所以这里只做「往黑里压」的一档，不做「跟着皮肤变亮」。
+// ⚠️字色不许写死（tabs-not-plain-pills 那条第 2 点）：皮肤没指定字色时按底色的
+//   亮度自己选黑或白——原来那个写死的 #16330a 遇上深色皮肤就是黑底黑字。
+function callSkinOn() { try { return localStorage.getItem("x_callFollowSkin") !== "0"; } catch (e) { return true; } }
+function callSkinSet(on) { try { localStorage.setItem("x_callFollowSkin", on ? "1" : "0"); } catch (e) {} }
+// 皮肤那几栏可以是一整段渐变，抠出里面第一个色号当基准（抠不出就返回空）
+function skinFirstHex(v) {
+  const m = String(v == null ? "" : v).match(/#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})/);
+  if (!m) return "";
+  let f = m[0].slice(1);
+  if (f.length === 3) f = f.split("").map(c => c + c).join("");
+  return "#" + f.toLowerCase();
+}
+function skinLum(v) {
+  const hex = skinFirstHex(v); if (!hex) return 1;
+  const c = (typeof skinRGB === "function") ? skinRGB(hex) : [236, 232, 225];
+  return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+}
+// 这块底上该用黑字还是白字。给了字色就听她的，没给才自己判。
+function skinInkOn(bg, given) { return given ? given : (skinLum(bg) > 0.6 ? "#1d1a16" : "#ffffff"); }
+// 通话屏的底：跟着皮肤染色的深色渐变；关了开关或皮肤里抠不出色号就退回原来那两段
+function callBackdrop(isVideo) {
+  const fall = isVideo ? "linear-gradient(180deg,#2a2a2e,#111114)" : "linear-gradient(180deg,#3a4a52,#1c2429)";
+  if (!callSkinOn()) return fall;
+  const base = BUBBLE_SKIN.charBg || BUBBLE_SKIN.myBg;
+  // ⚠️压暗一律借 core.js 那一份 skinShade（负数=往黑里压）——这儿再写一个
+  //   一模一样的，就是「一层写在两处」，skin-shade-global 那道闸拦的正是它。
+  const hex = skinFirstHex(base);
+  if (!hex || typeof skinShade !== "function") return fall;
+  return "linear-gradient(180deg," + skinShade(hex, isVideo ? -0.80 : -0.70) + "," + skinShade(hex, isVideo ? -0.91 : -0.86) + ")";
+}
+// 通话里那两个气泡。跟着皮肤走的时候他那边也上真皮肤色（原来是 24 的透明度，
+// 等于「几乎看不出换过皮肤」）；不跟的时候一模一样照旧。
+function callBubble(isMe) {
+  const S = BUBBLE_SKIN;
+  if (!callSkinOn()) return { background: isMe ? skinAlpha(S.myBg, "eb") : skinAlpha(S.charBg, "24"), color: isMe ? "#16330a" : "#fff" };
+  const bg = isMe ? S.myBg : S.charBg;
+  return { background: skinAlpha(bg, "f2"), color: skinInkOn(bg, isMe ? S.myText : S.charText) };
+}
+
 // OOC 有两种历史形态：普通 OOC 气泡，以及单聊里保留旧视觉的 SYSTEM RESPONSE。
 // components.js 不能依赖 engine.js 的顶层 helper 是否被浏览器挂到 window；在渲染层自己认全，
 // 否则单聊回复会出现“看得见删除键/分支，实际判断不到这是一条 OOC”的脆弱行为。
@@ -8137,10 +8199,16 @@ function CallScreen({
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
-      background: isVideo ? "linear-gradient(180deg,#2a2a2e,#111114)" : "linear-gradient(180deg,#3a4a52,#1c2429)",
+      background: callBackdrop(isVideo),
       paddingTop: "env(safe-area-inset-top)"
     }
-  }, bgUrl ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+    // ⚠️这层画面必须【压在正文底下】（她 2026-09-06：「视频画画会把聊天框和聊天
+    //   记录盖住」）。它是 absolute 的，而下面那串台词和输入栏是普通的 in-flow 块——
+    //   同一个层叠上下文里，定位过的元素一律画在没定位的块【上面】，
+    //   所以图一出来就把整段对话糊掉了，只剩那几个自带 zIndex 的按钮还看得见。
+    //   z-index:-1 才是真的往后退一层：它画在父节点自己的底色之上、正文之下。
+    //   （外面那层有 z-[70] 和背景，是个层叠上下文，所以 -1 不会掉出这一屏。）
+  }, bgUrl ? h("div", { style: { position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none" } },
       h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(10,10,12,.58) 0,rgba(10,10,12,.42) 30%,rgba(10,10,12,.74) 100%)" } })) : null, onMinimize && h("button", {
     onClick: onMinimize,
@@ -8232,8 +8300,8 @@ function CallScreen({
         fontSize: 13.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
-        background: isU ? skinAlpha(BUBBLE_SKIN.myBg, "eb") : skinAlpha(BUBBLE_SKIN.charBg, "24"),
-        color: isU ? "#16330a" : "#fff"
+        background: callBubble(isU).background,
+        color: callBubble(isU).color
       }
     }, m.content), canT ? h("button", {
       onClick: () => tp.toggle(i, m.content, spk.voiceId),
@@ -8254,7 +8322,7 @@ function CallScreen({
       h("div", {
         role: "status", "aria-live": "polite",
         "aria-label": (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说",
-        style: { padding: "10px 14px", borderRadius: 14, background: skinAlpha(BUBBLE_SKIN.charBg, "24") }
+        style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
       }, h("div", { className: "flex gap-1" }, [0, 1, 2].map(i => h("span", {
         key: i,
         className: "w-1.5 h-1.5 rounded-full animate-pulse",

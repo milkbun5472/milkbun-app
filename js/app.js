@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.41";
+const APP_VERSION = "v64.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2712,13 +2712,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const wishPlanOf = wishId => (promisesRef.current || []).find(x => x && x.wishId === wishId) || null;
   // 到期他会自己提起——走的是已有那条约回链，不是新机制
-  const setPactDue = (memId, charId, about, dueTs) => {
+  // via：到那天他【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
+  // "video" 打视频（她 2026-09-06：「约好了打电话没做」）。
+  const PACT_VIA = { chat: "发消息", voice: "语音电话", video: "视频电话" };
+  const setPactDue = (memId, charId, about, dueTs, via) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
+    const v = PACT_VIA[via] ? via : "chat";
     setPromises(p => {
-      const n = [...p.filter(x => x.memId !== memId), { id: "pk_" + Date.now(), charId, about: String(about || "").slice(0, 60), dueTs, memId }];
+      const n = [...p.filter(x => x.memId !== memId), { id: "pk_" + Date.now(), charId, about: String(about || "").slice(0, 60), dueTs, memId, via: v }];
       promisesRef.current = n; saveJSON("x_promises", n); return n;
     });
-    toast("到那天他会自己提起");
+    toast(v === "chat" ? "到那天他会自己提起" : "到那天他会给你打" + PACT_VIA[v]);
   };
   const addMemEntry = e => {
     let entry = {
@@ -4808,6 +4812,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           drop();
           dongnianFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让动念紧跟着再来一条
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
+          // 约的是【打电话】：直接把电话打过来，不先花一次调用去生成一段文字
+          //（她 2026-09-06：「约好了打电话没做」）。接了才进通话、那时才调模型；
+          //  不接就是一条未接来电——放着不接本来就该是免费的。
+          if (pm.via === "voice" || pm.via === "video") {
+            ringFromChar(c, pm.via, pm.dueTs, late);
+            return;
+          }
           // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
           replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
             backdateTs: pm.dueTs < Date.now() - 60000 ? pm.dueTs : 0 });
@@ -11399,6 +11410,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const ringDecline = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "declined"); };
   // 没人接:只标记,不弹任何东西——「没接」这件事本来就该是安静的,回执留在聊天里
   const ringMiss = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "missed"); };
+  // 他自己把电话打过来（约定到点、以后别的地方也能用）。**这一路一次模型都不调**：
+  // 响铃只是往聊天里落一张邀请卡再浮一条。接了才进通话，那时才开始花钱。
+  // ⚠️迟到太久就不响了：她可能几个小时没开 app，这时候突然响起来像是刚打的。
+  //   补一条【那个时刻的未接来电】更诚实——他当时确实找过你，你没接到。
+  const RING_LATE_MAX_MIN = 20;
+  const ringFromChar = (char, mode, whenTs, lateMin) => {
+    if (!char) return;
+    const m = mode === "video" ? "video" : "voice";
+    const late = Number(lateMin) || 0;
+    const missed = late > RING_LATE_MAX_MIN;
+    const inv = { role: "assistant", kind: "callinvite", mode: m,
+      content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
+      ts: (missed && whenTs) ? whenTs : Date.now(), read: false };
+    if (missed) inv.answered = "missed";
+    pChat(char.id, p => [...p, inv]);
+    if (!missed) setRinging({ cid: char.id, m: inv, name: char.name, char: char });
+  };
   // 他要挂电话:只在这通电话上立个牌子。CallScreen 看见了才真的挂——
   // 时长归它数,而且他最后那句得在屏幕上留一会儿,不能话音未落就黑屏。
   // ---- 视频通话的画面(v60.33 她点名)----

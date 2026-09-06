@@ -3885,6 +3885,9 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const [day, setDay] = useState("");
   const [dueFor, setDueFor] = useState(null);      // 正在给哪一条挑日子
   const [dueVal, setDueVal] = useState("");
+  // 到那天他【怎么来】（她 2026-09-06：「约好了打电话没做」）。
+  // 原来只有一种：发消息。约好打电话的那些到点只能等来一条文字，那不叫打电话。
+  const [dueVia, setDueVia] = useState("chat");
   const open = (pacts && pacts.open) || [], due = (pacts && pacts.due) || [];
   const dueOf = memId => due.find(x => x.memId === memId);
   const leftOf = ts => { const n = Math.ceil((ts - Date.now()) / 86400000); return n > 0 ? "还有 " + n + " 天" : n === 0 ? "就是今天" : "已经过了 " + (-n) + " 天"; };
@@ -3928,20 +3931,40 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
           h("div", { className: "flex items-start", style: { gap: 12 } },
             h("div", { className: "flex-1 min-w-0", style: { paddingRight: 8 } },
               h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.85, color: PINK2 } }, m.text),
-              d ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: passed ? "#b06a5a" : "#8a7a5c", marginTop: 7 } }, leftOf(d.dueTs)) : null),
+              d ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: passed ? "#b06a5a" : "#8a7a5c", marginTop: 7 } },
+                leftOf(d.dueTs) + " · " + (d.via === "voice" ? "他会打给你" : d.via === "video" ? "他会视频找你" : "他会来找你说")) : null),
             // 挂历页本身就是「挑个日子」那颗按钮：没挑过是空白的一页
-            h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); }, className: "shrink-0 active:opacity-75",
+            h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); setDueVia((d && d.via) || "chat"); }, className: "shrink-0 active:opacity-75",
               style: { width: 64, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 2px" } },
               h(CalPage, { w: 44, dim: !d || passed,
                 month: dd ? dd.getMonth() + 1 : undefined, day: dd ? dd.getDate() : undefined,
                 head: dd ? undefined : "　", body: dd ? undefined : "？" }),
               h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: PFOG, marginTop: 4 } }, d ? (picking ? "换一天" : "改日子") : "挑个日子"))),
-          picking ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
-            h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
-            h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal)); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
-              style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 16px", minHeight: 44 } }, "就这天"),
-            d ? h("button", { onClick: () => { onSetDue(m.id, m.text, 0); setDueFor(null); }, className: "shrink-0 active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 4px" } }, "不催了") : null) : null,
+          picking ? h("div", { style: { marginTop: 10 } },
+            // 「怎么来」：三枚小印。选中那枚是【盖下去的朱印】——实底、白字、微歪、
+            // 带一点压痕；没选的只是描在纸上的一个框。形状/底/字色/歪不歪四样都变，
+            // 不是靠填个色区分（tabs-not-plain-pills）。
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 9 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginRight: 2 } }, "到那天他"),
+              ["chat", "voice", "video"].map(k => {
+                const on = dueVia === k;
+                return h("button", { key: k, onClick: () => setDueVia(k), "aria-pressed": on ? "true" : "false",
+                  className: "active:opacity-75",
+                  style: { fontFamily: on ? F_DISPLAY : F_BODY, fontSize: on ? 13 : 12, minHeight: 40, padding: "0 12px",
+                    borderRadius: 3, transform: on ? "rotate(-3deg)" : "none",
+                    background: on ? "#a83c30" : "transparent", color: on ? "#fff5f0" : PFOG,
+                    border: on ? "1.5px solid #8c2f25" : "1px solid " + PLINE2,
+                    boxShadow: on ? "0 2px 5px rgba(120,40,30,.24)" : "none" } },
+                  k === "chat" ? "来找你说" : k === "voice" ? "打给你" : "视频找你");
+              })),
+            h("div", { className: "flex items-center", style: { gap: 8 } },
+              h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
+              h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal), dueVia); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
+                style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 16px", minHeight: 44 } }, "就这天"),
+              d ? h("button", { onClick: () => { onSetDue(m.id, m.text, 0); setDueFor(null); }, className: "shrink-0 active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 4px" } }, "不催了") : null),
+            dueVia === "chat" ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7, lineHeight: 1.6 } },
+              "到那天电话会直接响。接了才进通话（那一步才调模型）；没接就是一条未接来电，不花钱。")) : null,
           // 办到了＝盖一枚朱印；作罢是一句小字，不跟它抢分量
           h("div", { className: "flex items-center justify-between", style: { marginTop: 10, borderTop: "1px solid rgba(140,115,70,.16)", paddingTop: 8 } },
             h("button", { onClick: () => onClose(m.id), className: "active:opacity-60",
@@ -4451,7 +4474,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "pacts") {
     return h(CouplePacts, { partner, pacts: couplePactsOf ? couplePactsOf(partner.id) : null,
-      onClose: onClosePact, onSetDue: (mid, about, ts) => onSetPactDue(mid, partner.id, about, ts),
+      onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, partner.id, about, ts, via),
       onAdd: (txt, ts) => onAddPact(partner.id, txt, ts), onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "wishes") {
@@ -7849,6 +7872,10 @@ function BubbleSkinConfig({ toast }) {
       h(BubbleSkinPresets, { onPick: (k, next) => { setS(Object.assign({}, next)); toast && toast("换成整套皮肤了"); } })),
     // 那一排字段和试衣镜搬去 components.js 的 BubbleSkinFields（单聊里「只给 TA 换气泡」也要用同一份）
     h(BubbleSkinFields, { s: s, set: set }),
+    // 通话屏跟不跟这套皮肤走（她 2026-09-06：「电话聊天的皮肤可以选择跟聊天气泡
+    // 皮肤挂钩吧」）。它不进 x_bubbleSkin 那份草稿——那份是发成 CSS 的，
+    // 通话屏是内联样式，混在一起两边都说不清；单存一个开关，点一下当场生效。
+    h(CallFollowSkinRow, null),
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
       h("button", { onClick: save, className: "flex-1 active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.bg2, background: t.ink, borderRadius: 10, padding: "11px 0" } }, "保存皮肤"),
       h("button", { onClick: reset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "0 16px" } }, "恢复默认"))));

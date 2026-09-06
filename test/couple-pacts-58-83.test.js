@@ -55,11 +55,11 @@ test("料是从两样已有的东西接来的，没有第三个存储", () => {
 });
 
 test("给一条约定挑日子＝往约回里塞一条，到期那条现成的链会让他自己提起", () => {
-  assert.match(pacts, /\{ id: "pk_" \+ Date\.now\(\), charId, about: String\(about \|\| ""\)\.slice\(0, 60\), dueTs, memId \}/, "没写进约回,挑了日子也没人会提");
+  assert.match(pacts, /\{ id: "pk_" \+ Date\.now\(\), charId, about: String\(about \|\| ""\)\.slice\(0, 60\), dueTs, memId, via: v \}/, "没写进约回,挑了日子也没人会提");
   assert.match(pacts, /saveJSON\("x_promises", n\)/, "没存盘");
   // memId 是两边的绳子：了结的时候要靠它把那条约回一起摘掉
   assert.match(pacts, /p\.filter\(x => x\.memId !== memId\)/, "改日子/不催了没先摘掉旧的,会攒出好几条");
-  const due = grab(app, "  const setPactDue = (memId, charId, about, dueTs) => {", "  const addMemEntry = e => {");
+  const due = grab(app, "  const setPactDue = (memId, charId, about, dueTs, via) => {", "  const addMemEntry = e => {");
   assert.match(due, /if \(!dueTs\) \{[\s\S]{0,180}toast\("不催了"\); return; \}/, "取消日子那一路没写");
 });
 
