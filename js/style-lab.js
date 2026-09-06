@@ -350,13 +350,13 @@
     // 打样台也铺一张纸（v62.73 审美审计：这一页整个是 t.bg 平色）
     const benchPaper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .5 }) : { background: t.bg };
     return h("div", { style: Object.assign({ position: "relative", height: "100%", display: "flex", flexDirection: "column" }, benchPaper) },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: "transparent" } },
-        // 返回键：原来是一个 19px 的「←」字符，可点区只有那几个像素（mobile-ui-layout §1）
-        h("button", { onClick: props.onBack, "aria-label": "返回", className: "flex items-center justify-center active:opacity-60",
-          style: { background: "none", border: "none", width: 40, height: 40, marginLeft: -8, flexShrink: 0 } },
-          h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
-            h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "文风预设台")),
+      // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1：「那条紧凑栏就是 Head，别再自己写一条」）。
+      // ⚠️v65.09 才换过来。之前这一页自己手写了一条，于是它身上【一个 data-wk 挂点都没有】：
+      //   她让秋秋给文风台写主题 CSS，[data-wk="head"]/headink/headdim 那几条全落空，
+      //   看上去像「秋秋写的应用不出来」，其实是这一页没有那几个挂点可抓。
+      //   换成 Head＝顶栏那三个挂点当场就有了，紧凑栏那条规矩也一起合规。
+      // bg 传 transparent：底纹铺在外壳（benchPaper）上，顶栏透上来（同 §3.5）。
+      h(Head, { zh: "文风预设台", onBack: props.onBack, bg: "transparent" }),
       // ── 两栏＝叠在台上的两张样张（v62.68）──────────────────────────
       // 审美审计 2026-09-04：这两个 tab 是填色药丸，只靠色差区分——
       // 换个 app 照样成立（tabs-not-plain-pills）。

@@ -520,6 +520,29 @@
   // 于是自己发明了 `.theme-stylelab [data-page="stylelab"]`，写完一条都不生效。
   // ⚠️钩子清单只有 ThemeStudio 那一份（WK_COMMON + WK_SCOPED），这儿不另抄（抄了迟早对不上）。
   //   专有那几组是一张表，来第三组第四组也不用改这儿——照着表念就是了。
+  // 这一页【实测】有哪些挂点——直接扫 DOM（v65.09）。
+  // ⚠️上面那两份清单说的是「共用组件上挂了什么」，可有些页面自己手写了顶栏和控件，
+  //   那几个挂点在它身上压根不存在。她 2026-09-06 就是这么撞上的：让秋秋给文风台写
+  //   主题 CSS，[data-wk="head"]/headink/headdim/field/input 一条都没落地，
+  //   看上去像「秋秋写的应用不出来」。清单不实测就是一张会骗人的地图。
+  // ⚠️扫的是【她此刻正开着的那一页】。整屏打开秋秋时，DOM 就是秋秋自己那一页，
+  //   说了反而是错的——那种时候什么都不说。
+  function wkHere() {
+    try {
+      if (typeof document === "undefined") return "";
+      const page = document.documentElement.getAttribute("data-lisa-screen") || "";
+      if (!page || page === "assistant") return "";
+      const seen = {};
+      document.querySelectorAll("[data-wk]").forEach(function (el) {
+        const k = el.getAttribute("data-wk"); if (k) seen[k] = (seen[k] || 0) + 1;
+      });
+      const names = Object.keys(seen).sort();
+      if (!names.length) return "";
+      return "  【她此刻开着的这一页（" + page + "）上，实测真有的挂点】" + names.join("、") + "\n"
+        + "  ⚠️没出现在这一行里的，这一页就是没有——给它写规则一条都不会生效。\n"
+        + "  这一页要整个换个样子，走 pagecolor（那一栏不靠挂点，每一页都成立）。\n";
+    } catch (e) { return ""; }
+  }
   function themeCssNote() {
     const ts = TS(); if (!ts || !ts.WK_COMMON) return "";
     const fmt = function (arr) { return (arr || []).map(function (h) { return "    [data-wk=\"" + h[0] + "\"] " + h[1]; }).join("\n"); };
@@ -530,8 +553,10 @@
       + "  ① 这个 App 的样式几乎全是【内联 style】，行内赢过普通规则——**每一条声明都要带 !important**，不带就等于没写。\n"
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
       + "  ③ 能稳稳抓住的就是下面这些钩子，**别去猜别的类名**（这个 App 没有语义 class，只有 Tailwind 工具类）。\n"
-      + "  【每一页都有】\n" + fmt(ts.WK_COMMON) + "\n"
+      + "  ⚠️图标是 SVG：要给它上色得写 **stroke**（少数实心的写 fill），color 管不到它。\n"
+      + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
+      + wkHere()
       + "  ⚠️页面正文里那些卡片、按钮、列表**没有单独的钩子**，CSS 抓不住它们。\n"
       + "  它们的颜色全是从这一页的那几支色里取的，所以【整页换调子、换卡片底色、换字色】要走 pagecolor 那一栏\n"
       + "  （每一页都能改，不需要钩子）；上面这些钩子管的是顶栏、半窗、空状态、头像、开关、输入框这类共用件。\n"

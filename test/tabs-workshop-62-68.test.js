@@ -15,8 +15,14 @@ test("文风台：两栏是叠在打样台上的两张样张", () => {
   assert.match(SL, /zIndex: on \? 2 : 1/);
   assert.match(SL, /borderBottom: on \? "1px solid " \+ t\.bg2 : "1px solid " \+ t\.line/);
   assert.doesNotMatch(SL, /style: S\.chip\(tab === "build"\)/, "又用回通用药丸了");
-  // 返回键补了 40px 可点区（原来是一个 19px 的「←」字符）
-  assert.match(SL, /"aria-label": "返回"[\s\S]{0,200}width: 40, height: 40/);
+  // 返回键：v65.09 起整条顶栏走共用的 Head，可点区归它管（46×34，比原来那条还宽）。
+  // 换过去的理由不是好看：这一页原来一个 data-wk 挂点都没有，她让秋秋写的主题 CSS
+  // 一条都落不下（施工规则/mobile-ui-layout.md §1「那条紧凑栏就是 Head」）。
+  assert.match(SL, /h\(Head, \{ zh: "文风预设台", onBack: props\.onBack/);
+  const COMP = nocom(fs.readFileSync("js/components.js", "utf8"));
+  const head = COMP.slice(COMP.indexOf("function Head({"), COMP.indexOf("function Sheet({"));
+  assert.match(head, /const SIDE = 46;/, "共用顶栏的可点区变了，文风台跟着变");
+  assert.match(head, /style: \{ width: SIDE, height: 34 \}/, "返回键的可点区不够手感");
 });
 
 test("主题工坊：三栏是三个抽屉的抽屉面", () => {
