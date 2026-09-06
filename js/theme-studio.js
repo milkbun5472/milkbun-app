@@ -307,6 +307,28 @@
     return Number(m[2]) < SKIN_VER ? { name: m[1], from: Number(m[2]), to: SKIN_VER } : null;
   };
   const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS };
+  // ── 页面 CSS 真正抓得住的那几个点（v64.82）────────────────────────────
+  // ⚠️这个 App 的样式【几乎全是内联 style】（每个组件从 useTheme() 拿 t.bg / t.ink
+  //   自己写在 style 里）。行内样式赢过普通 CSS 规则——所以一条不带 !important 的
+  //   规则，写得再对也一点效果都没有。
+  // ⚠️而且只有【聊天页】埋了语义钩子（data-wk），别的页一个都没有：
+  //   在那些页上写 CSS，除非用通用选择器硬压，否则改不动任何东西。
+  // 秋秋（js/assistant.js）要照这份说给模型听——它原来什么都不知道，
+  //   于是自己发明了 `.theme-xxx [data-page="xxx"]` 这种选择器，写完一点不生效
+  //   （她 2026-09-06：「秋秋这个能改 css 是假的，应用了也不改」）。
+  const WK_HOOKS = Object.freeze([
+    ["chat", "聊天页整块背景"], ["body", "正文区背景"],
+    ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
+    ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
+    ["row", "一整行消息（含头像）"], ["avatar", "头像"],
+    ["bubble", "气泡本体（data-me=\"1\" 是她的）"], ["msg", "一条消息（同样有 data-me）"],
+    ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
+    ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
+    ["card", "气泡里的卡片（照片、转发、语音）"],
+    ["composer", "底部输入栏整条"], ["send", "发送键"]
+  ]);
+  // 有钩子的页面（其余页面只能靠通用选择器，很容易改坏）
+  const WK_PAGES = Object.freeze(["thread", "gthread"]);
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
   const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };
@@ -432,7 +454,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

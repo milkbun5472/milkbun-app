@@ -53,7 +53,12 @@ test("她点名的那两个真 app 现在改得了图标了", () => {
   // dock 消息那格 key 是 messages 不是 chat（以前对不上，换了图标从来没生效过）
   const dock = comp.slice(comp.indexOf("  const dock = [{"), comp.indexOf("  const clearLP = function"));
   assert.match(dock, /key: "messages"/);
-  assert.doesNotMatch(ts, /\["chat",/, "那个对不上的 chat 又回来了");
+  // ⚠️v64.82 收窄：原来这一句扫的是【整个 theme-studio.js】，于是同一个文件里
+  //   新加一张跟图标无关的表（WK_HOOKS，第一项恰好也叫 chat）就把它判红了。
+  //   要钉的是「图标名单里没有那个对不上的 chat」——那就只在图标名单那一段里查。
+  const iconSeg = ts.slice(ts.indexOf("const appIconList"), ts.indexOf("const CHAT_SKINS"));
+  assert.ok(iconSeg.length > 200, "抠不出图标名单那一段");
+  assert.doesNotMatch(iconSeg, /\["chat",/, "那个对不上的 chat 又回来了");
 });
 
 test("「应用前预览」整块删掉了（撤东西是删掉，不是留着）", () => {
