@@ -377,7 +377,15 @@
       + "\n· 还是那样的 → 填 null。**没变就是没变，不必为了交差改字**。"
       + "\n· 空着的那几块 → 如果这段时间你心里已经有了，就写下来。"
       + NOT_PROFILE(uName)
-      + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。";
+      + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。"
+      // ⚠️这一段是 v64.40 补的。这一问最可能的正确答案就是【什么都没变】，
+      //   而「什么都没变」用一句话说出来比填一份全 null 的 JSON 自然得多——
+      //   于是他很可能直接答「这十块我看了一遍，暂时没什么要改的」，一个大括号都没有，
+      //   extractJSON 当然解析不出来，界面上就成了「没解析出卡」。
+      //   （她 2026-09-06 连报三轮不行，原话正是这一句。）
+      //   所以必须把【没变也要输出 JSON】这件事单独说死，不能只说「只输出 JSON」。
+      + "\n⚠️就算十块一块都没变，也【必须】把上面那份 JSON 原样输出（十个值全是 null）——不许改成一句话回答「没什么要改的」。"
+      + "\n⚠️JSON 之外不要写任何字：不写开场白、不写解释、不写注释（连 // 也不行）、末尾不留多余逗号。";
   }
   // 落地：复看写进来的和平时那个字段走同一个 apply（原文一样的会被 apply 挡掉，不算改）
   function review(charId, data) {
