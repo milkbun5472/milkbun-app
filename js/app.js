@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.61";
+const APP_VERSION = "v64.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16016,11 +16016,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 还是 TA 在聊天里切的歌，只要放的是这张唱片上的，针位就跟着走。
   useEffect(() => {
     const sid = player.songId;
-    if (!sid || String(sid).indexOf("sgd_") !== 0) return;
-    const all = coupleDiscRef.current || {};
-    const cid = Object.keys(all).find(k => ((all[k] || {}).songs || []).some(x => x.id === sid));
-    if (!cid || (all[cid] || {}).lastId === sid) return;
-    saveCoupleDisc(pp => Object.assign({}, pp, { [cid]: Object.assign({}, pp[cid] || {}, { lastId: sid }) }));
+    if (!sid) return;
+    if (String(sid).indexOf("sgd_") === 0) {
+      const all = coupleDiscRef.current || {};
+      const cid = Object.keys(all).find(k => ((all[k] || {}).songs || []).some(x => x.id === sid));
+      if (!cid || (all[cid] || {}).lastId === sid) return;
+      saveCoupleDisc(pp => Object.assign({}, pp, { [cid]: Object.assign({}, pp[cid] || {}, { lastId: sid }) }));
+      return;
+    }
+    // 查手机那张歌单的针位（v64.62）：跟唱片同一条道理——不记的话每次进他手机
+    // 都从第一首开始，后面的永远轮不到。放的是不是他那张，问单子本身。
+    const pls = (listenRef.current || {}).playlists || [];
+    const hit = pls.find(x => x && x.charId && (x.songs || []).some(y => y && y.id === sid));
+    if (!hit || hit.lastId === sid) return;
+    saveListen(pp => ({ ...pp, playlists: (pp.playlists || []).map(x => x === hit || (x && x.charId === hit.charId) ? { ...x, lastId: sid } : x) }));
   }, [player.songId]);
   // 下一次该放哪一首：上次那首的下一首；针位丢了或那首被删了就从头
   const discNextId = cid => {
@@ -16041,26 +16050,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   于是进一趟情侣空间，她自己那首歌就没了，连悬浮播放器一起消失。
   //   现在进门前先把【她那首歌 + 队列 + 放到哪儿了 + 当时是不是真在放】记下来，
   //   出门原样还回去。进来前本来就没在放的，出门停着才对，不许凭空给她开一首。
-  const discPrevRef = useRef(null);
-  const discEnter = cid => {
-    if (discSpinning()) return;              // 已经在转就别打断它
-    if (!discSongsOf(cid).length) return;
+  // ── 「进这一层就落针、出去就收针」：两处共用（情侣唱片 / 查手机）──────────
+  // 她 2026-09-06：「查手机也改成和情侣空间一样点进去就会播放吧」。
+  // ⚠️整套礼数只留这一份。各写一份的话，第二处必然漏掉「暂借要还」那一半——
+  //   而那一半正是她 2026-09-02 亲自抓出来的（「出来音乐会停，但我原来的悬浮
+  //   播放器也跟着没了」）。isMine 是唯一的差异：怎么认出【现在响的是这一层的歌】。
+  const roomMusicRef = useRef(null);
+  const roomMusicEnter = (isMine, play) => {
+    if (isMine()) return;                     // 已经在放这一层的歌了，别打断
     const prevId = playerSongIdRef.current;
     const el = audioElRef.current;
     // ⚠️静音保活那首也要还：它占着 iOS 的音频会话，被顺手停掉＝后台保活断了。
     //   它本来就是「像歌一样播的一段静音」，playSong(KEEPALIVE_ID) 走的是同一条路。
-    discPrevRef.current = (prevId && resolveSong(prevId)) ? {
+    roomMusicRef.current = (prevId && resolveSong(prevId)) ? {
       id: prevId,
       queue: (((listenRef.current || {}).nowQueue) || []).slice(),
       t: (el && el.currentTime) || 0,
       playing: !!(el && !el.paused)
     } : null;
-    discPlay(cid, discNextId(cid));           // 接着上次那首往下放
+    play();
   };
-  const discLeave = async () => {
-    if (!discSpinning()) { discPrevRef.current = null; return; }  // 唱片压根没落针：她自己的歌照放，别动
-    const prev = discPrevRef.current;
-    discPrevRef.current = null;
+  const roomMusicLeave = async isMine => {
+    if (!isMine()) { roomMusicRef.current = null; return; }  // 这一层压根没落针：她自己的歌照放，别动
+    const prev = roomMusicRef.current;
+    roomMusicRef.current = null;
     // 进来前本来就没在放 → 停干净（她说的「出来音乐会停，这个确实要这样」）
     if (!prev || !resolveSong(prev.id)) { stopPlayer(); return; }
     // 有得还就直接换回去，不先 stopPlayer——那会让播放器闪一下没影
@@ -16070,6 +16083,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (prev.t > 1) { try { el2.currentTime = prev.t; } catch (e) {} }   // 还回原来那个位置
     if (!prev.playing) { el2.pause(); setPlayer(p => ({ ...p, playing: false })); } // 原来是暂停的就还它一个暂停
   };
+  const discEnter = cid => {
+    if (!discSongsOf(cid).length) return;
+    roomMusicEnter(discSpinning, () => discPlay(cid, discNextId(cid)));  // 接着上次那首往下放
+  };
+  const discLeave = () => roomMusicLeave(discSpinning);
+  // ── 查手机：进了谁的手机就放他那张歌单 ──────────────────────────────────
+  // 认「现在响的是不是他这张」不能像唱片那样看 id 前缀（手机歌单用的是普通的
+  // sg_）——只能问这首在不在他那张单子里。
+  const phonePlaylistOf = cid => ((listenRef.current || {}).playlists || []).find(x => x && x.charId === cid) || null;
+  const phoneMusicMine = cid => () => {
+    const cur = playerSongIdRef.current;
+    if (!cur) return false;
+    const pl = phonePlaylistOf(cid);
+    return !!(pl && (pl.songs || []).some(x => x && x.id === cur));
+  };
+  // 下次进来从哪一首起：上次听到那首的【下一首】。
+  // ⚠️不是从头——唱片那边正因为写死第一首，她进出十次就把第一首听了十遍
+  //   （她 2026-09-02：「后面的永远没办法轮到」）。同一个坑不踩第二次。
+  const phoneMusicNextId = cid => {
+    const pl = phonePlaylistOf(cid);
+    const ss = (pl && pl.songs) || [];
+    if (!ss.length) return null;
+    const k = ss.findIndex(x => x && x.id === (pl.lastId || ""));
+    return ss[k < 0 ? 0 : (k + 1) % ss.length].id;
+  };
+  const phoneMusicEnter = cid => {
+    const pl = phonePlaylistOf(cid);
+    const ss = (pl && pl.songs) || [];
+    if (!ss.length) return;
+    const from = phoneMusicNextId(cid);
+    roomMusicEnter(phoneMusicMine(cid), () => playSong(from, ss.map(x => x.id)));
+  };
+  const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──
@@ -17733,6 +17779,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },
+    onPhoneMusicEnter: phoneMusicEnter,
+    onPhoneMusicLeave: phoneMusicLeave,
     onPeek: forwardPhonePeekToChat
   });else if (screen === "mycloset") body = h(MyCloset, {
     profile: profile,

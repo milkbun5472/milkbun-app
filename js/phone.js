@@ -1188,8 +1188,14 @@ function T(s) { return PHONE_VIEW_TA === "他" ? s : phoneTa(s, PHONE_VIEW_TA); 
 function phoneLastAllLabel(ts) {
   const t = Number(ts) || 0;
   if (!t) return "还没全刷过";
-  const d = new Date(t), now = Date.now();
-  const days = Math.floor((now - t) / 86400000);
+  const d = new Date(t);
+  // ⚠️「今天／昨天」比的是【日历上的那一天】，不是过了多少小时（她 2026-09-06：
+  //   「明明是昨天晚上刷的还是显示今天刚刷」）。中午 12:01 看昨晚 20:42 刷的那次，
+  //   按小时算才过了 15 小时 → 判成「今天」，屏幕上就写着「今天 20:42 刷过」
+  //   ——一个还没到的时刻。翻页的时刻必须是【午夜】（跟 core.js 的 homeDayNo 同一条）。
+  // ⚠️用 round 不用 floor：夏令时那两天差的是 23 或 25 小时，floor 会少算一天。
+  const day0 = x => { const y = new Date(x); y.setHours(0, 0, 0, 0); return y.getTime(); };
+  const days = Math.round((day0(Date.now()) - day0(t)) / 86400000);
   const hm = (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
   if (days <= 0) return "今天 " + hm + " 刷过";
   if (days === 1) return "昨天 " + hm + " 刷过";
@@ -5517,6 +5523,8 @@ function PhoneCarry({
   onGenPlaylist,
   playlistBusyId,
   onPlaySong,
+  onPhoneMusicEnter,
+  onPhoneMusicLeave,
   calendarFor,
   vitalsFor,
   monthStatsFor,
@@ -5588,6 +5596,18 @@ function PhoneCarry({
   const isAllRun = String(busyKey || "").indexOf("__all__") === 0;
   const char = characters.find(c => c.id === selId) || characters[0];
   phoneViewTa(char);   // 同上：列表页的标签也跟着选中的这位走
+  // 进了谁的手机就放他那张歌单，退出去还回她原来在听的（她 2026-09-06：
+  // 「查手机也改成和情侣空间一样点进去就会播放吧」）。落针/收针那套礼数全在
+  // app.js 的 roomMusicEnter/Leave 里（和情侣唱片共用一份），这儿只负责喊人。
+  // ⚠️只在【真进了某个人的手机】时落针：还在通讯录那一屏不算——那是名单，不是他的手机。
+  // ⚠️这个 effect 必须待在所有 return 上面（这一份文件里已经因为这条摔过两次：
+  //   列表页少调一次 hook，从列表点进某人手机那一下 React 直接抛 #310 整页白）。
+  const inPhoneOf = !inList && char ? char.id : null;
+  useEffect(() => {
+    if (!inPhoneOf || !onPhoneMusicEnter) return;
+    onPhoneMusicEnter(inPhoneOf);
+    return () => { if (onPhoneMusicLeave) onPhoneMusicLeave(inPhoneOf); };
+  }, [inPhoneOf]);
   const look = char ? (phoneLooks[char.id] || {}) : {};
   const patchLook = patch => {
     if (!char) return;

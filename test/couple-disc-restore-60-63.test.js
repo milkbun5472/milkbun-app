@@ -11,18 +11,21 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 // discLeave 又只会 stopPlayer——借完不还，连她原来那首一起端走了。
 
 // —— 把 discEnter / discLeave 抠出来【真跑】：光看代码看不出还得对不对 ——
-const i = app.indexOf("  const discPrevRef = useRef(null);");
+// v64.62：这套礼数抽成了 roomMusicEnter/Leave，情侣唱片和查手机共用一份。
+// 抠的还是同一段（现在从共用那份的第一行起），跑的还是 discEnter/discLeave。
+const i = app.indexOf("  const roomMusicRef = useRef(null);");
 const j = app.indexOf("  const addNeteaseResult =");
-assert.ok(i > 0 && j > i, "抠不出 discEnter/discLeave");
+assert.ok(i > 0 && j > i, "抠不出 roomMusicEnter/Leave");
 const body = app.slice(i, j);
 
 const mk = state => {
   const log = [];
   const el = { currentTime: state.t || 0, paused: !state.playing, pause() { this.paused = true; log.push("pause"); } };
-  const nowRef = { current: state.now }, listenRef = { current: { nowQueue: state.queue || [] } };
+  const nowRef = { current: state.now };
+  const listenRef = { current: { nowQueue: state.queue || [], playlists: state.playlists || [] } };
   const fn = new Function("useRef", "playerSongIdRef", "audioElRef", "listenRef", "KEEPALIVE_ID",
     "resolveSong", "discSpinning", "discSongsOf", "discNextId", "discPlay", "stopPlayer", "playSong", "setPlayer",
-    body + "\nreturn { discEnter, discLeave };")(
+    body + "\nreturn { discEnter, discLeave, phoneMusicEnter, phoneMusicLeave };")(
       v => ({ current: v }), nowRef, { current: el }, listenRef, "KEEPALIVE",
       id => (id === "KEEPALIVE" || (state.library || []).includes(id)) ? { id } : null,
       () => String(nowRef.current || "").indexOf("sgd_") === 0,
@@ -80,4 +83,35 @@ test("唱片本来就在转 → 不重新记一次针位（否则会把唱片自
   const m = await trip({ now: "sgd_9", queue: [], t: 5, playing: true, library: ["sgd_9"] });
   assert.ok(!/discPlay/.test(m.log.join(" ")), "已经在转就别打断它");
   assert.equal(m.now(), null, "走的时候还是只带走自己");
+});
+
+// ── 查手机那一半走的是同一份礼数（v64.62，她 2026-09-06 点名要的）──────────
+// 光断言「两处都调了 roomMusic*」不够：得真跑一遍，看它借完还不还得回来。
+const phoneTrip = async state => {
+  const m = mk(state);
+  m.phoneMusicEnter("c1");
+  await m.phoneMusicLeave("c1");
+  return m;
+};
+const PL = [{ charId: "c1", lastId: "sg_p1", songs: [{ id: "sg_p1" }, { id: "sg_p2" }] }];
+
+test("进他手机放他那张，出来把她原来那首原样还回去", async () => {
+  const m = await phoneTrip({ now: "sg_A", queue: ["sg_A", "sg_B"], t: 40, playing: true,
+    library: ["sg_A", "sg_B", "sg_p1", "sg_p2"], playlists: PL });
+  // 落针放的是【上次那首的下一首】，不是从头
+  assert.match(m.log.join(" "), /playSong:sg_p2\|\["sg_p1","sg_p2"\]/, "没接着上次那首往下放");
+  assert.equal(m.now(), "sg_A", "她那首歌没还回来");
+  assert.equal(m.el.currentTime, 40, "得接着原来那个位置");
+});
+
+test("进他手机前什么都没放 → 出来就该安静", async () => {
+  const m = await phoneTrip({ now: null, queue: [], t: 0, playing: false, library: ["sg_p1", "sg_p2"], playlists: PL });
+  assert.match(m.log.join(" "), /stopPlayer/);
+  assert.equal(m.now(), null);
+});
+
+test("他没有歌单就什么都不动——不许把她正在听的停掉", async () => {
+  const m = await phoneTrip({ now: "sg_A", queue: ["sg_A"], t: 9, playing: true, library: ["sg_A"], playlists: [] });
+  assert.equal(m.now(), "sg_A", "他没歌单，她那首却被动了");
+  assert.ok(!/stopPlayer|playSong/.test(m.log.join(" ")), "他没歌单还去碰播放器了：" + m.log.join(" "));
 });

@@ -124,24 +124,36 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   // ⚠️冻的是【有没有这道闸】，不是「!el.paused 这几个字出现过没有」：
   //   v60.63 起 discEnter 也读 !el.paused，但那是记「她原来那首是不是真在放」
   //   （好在离开时原样还回去），跟要不要落针没关系。逐字冻字符串会误伤到它。
+  // v64.62：礼数抽成了共用的 roomMusicEnter（情侣唱片 / 查手机两处用），
+  // 于是那两道闸分在两处：「这对没有唱片」留在 discEnter，「已经在转」变成
+  // 共用那份里的 isMine()。要冻的还是同一件事——**不许有第三道**。
   const guards = m[0].match(/if \(.*?\) return;/g) || [];
-  assert.deepEqual(guards, ["if (discSpinning()) return;", "if (!discSongsOf(cid).length) return;"],
-    "discEnter 只许有这两道闸：已经在转 / 这对没有唱片——别再加「播放器忙就不落针」");
+  assert.deepEqual(guards, ["if (!discSongsOf(cid).length) return;"],
+    "discEnter 只许有这一道闸：这对没有唱片——别再加「播放器忙就不落针」");
+  const shared = appSrc.match(/const roomMusicEnter = \(isMine, play\) => \{[\s\S]*?\n  \};/);
+  assert.ok(shared, "找不到共用那份 roomMusicEnter");
+  assert.deepEqual(shared[0].match(/if \(.*?\) return;/g) || [], ["if (isMine()) return;"],
+    "共用那份里多了一道闸——「播放器忙就不落针」那一版会让唱片永远轮不到");
   // 而且是【接着上次那首】，不是永远从第一首（她 2026-09-02：后面的永远轮不到）
   assert.match(m[0], /discPlay\(cid, discNextId\(cid\)\)/);
   const nx = appSrc.match(/const discNextId = cid => \{[\s\S]*?\n  \};/);
   assert.ok(nx, "找不到 discNextId");
   assert.match(nx[0], /\(k \+ 1\) % ss\.length/);
-  // 针位不能只在离开时记（App 被杀/直接切走都不会走 discLeave）：挂在换歌上
-  assert.match(appSrc, /if \(!sid \|\| String\(sid\)\.indexOf\("sgd_"\) !== 0\) return;/);
+  // 针位不能只在离开时记（App 被杀/直接切走都不会走 discLeave）：挂在换歌上。
+  // v64.62 起同一个 effect 还顺手记查手机那张歌单的针位，所以唱片这一支
+  // 从「不是 sgd_ 就直接 return」变成「不是 sgd_ 就往下走另一支」。
+  assert.match(appSrc, /if \(String\(sid\)\.indexOf\("sgd_"\) === 0\) \{/);
   assert.match(appSrc, /lastId: sid/);
   // 「离开只收自己的针」——冻的是这件事，不是那一行长什么样。
   // v60.63 起 discLeave 还要把她进来之前那首还回去（她报：出来自己的悬浮播放器也没了），
   // 所以它不再是一行；但「唱片没落针就一个音符都别动她的」这条没变。
-  const dl = appSrc.match(/const discLeave = async \(\) => \{[\s\S]*?\n  \};/);
-  assert.ok(dl, "找不到 discLeave");
-  assert.match(dl[0], /if \(!discSpinning\(\)\) \{ discPrevRef\.current = null; return; \}/,
-    "唱片没落针就该原样退出，别去动她自己在放的歌");
+  // v64.62：这一半也搬进共用那份了（discLeave 现在就是一行转发）。
+  assert.match(appSrc, /const discLeave = \(\) => roomMusicLeave\(discSpinning\);/,
+    "discLeave 没走共用那份");
+  const rl = appSrc.match(/const roomMusicLeave = async isMine => \{[\s\S]*?\n  \};/);
+  assert.ok(rl, "找不到共用那份 roomMusicLeave");
+  assert.match(rl[0], /if \(!isMine\(\)\) \{ roomMusicRef\.current = null; return; \}/,
+    "这一层没落针就该原样退出，别去动她自己在放的歌");
 });
 
 
