@@ -959,6 +959,18 @@ function glassLabelInk(onWallpaper, t) {
 // 自带图的 app 图标（不是线稿那一套，是一张真的画）。
 // 主屏那一格是 62×62 的玻璃，图按 cover 铺满、圆角 16——跟她自己换的图标同一个落法。
 const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.png" };
+// 名片的出厂预设（她 2026-09-06 照她自己那张定的）。
+// ⚠️每次调用都返回一份新的：直接导出一个常量对象的话，App 里一改就把这份
+//   「出厂快照」也改了，下次「恢复默认」拿到的是被改过的那份。
+const QIU_AVATAR = "img/qiu-avatar.png";
+function HOME_CARD_PRESET() {
+  return {
+    name: "秋秋",
+    sign: "Somewhere between real life and everything else.",
+    tags: ["Autumn", "Quill", "Daydream"],
+    avatar: QIU_AVATAR
+  };
+}
 // ⚠️「这个 app 该显示哪张图」只许有这一个答案（她 2026-09-03 报：
 //   「他在文件夹里文件夹小图显示不出来换上的，还是原来的丑鸟」）。
 //   同一个形状今天犯了两次：先是文件夹预览不认【她自己换的图标】，
@@ -4223,7 +4235,13 @@ function Home({
   // ⚠️她那三页里还有 d_ 开头的装饰（她自己画/传的那些）——那是她的数据，
   //   不能进默认布局，所以只搬结构不搬装饰。
   const DEFAULT_LAYOUT = [
-    ["w_card", "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
+    // ⚠️名片底下那一排空格【不是凑数】（她自己那份布局里也正是这四个 sp_）：
+    //   名片是唯一一个不钉高度的组件（HOME_FREE_HEIGHT），可它按格算只占 4×1，
+    //   于是它真实的高度会伸进下一行，把日历和文件夹压在身底下
+    //   （她 2026-09-06 的截图：卡的下半截被日历盖住了）。
+    //   垫一整行空格 = 她说的「第一页这些得往下移一格」。
+    ["w_card", "sp_card_0", "sp_card_1", "sp_card_2", "sp_card_3",
+      "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
     ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "w_recent", "w_muyu", "w_wheel"]

@@ -60,12 +60,16 @@ test("默认布局里挨着的两个图标，色相至少差 40", () => {
   const pages = defaultLayout().concat([dockKeys()]);
   const near = [];
   pages.forEach(keys => {
-    const apps = keys.filter(k => !/^w_/.test(k));   // 组件不上色，不占格位算相邻
+    // 组件不上色，不占格位算相邻；空格【占格位但没有颜色】——
+    // 它要留在队列里（不然它后面那些的左右上下全算错），只是不参与撞色比较。
+    const apps = keys.filter(k => !/^w_/.test(k));
+    const hued = k => !/^sp_/.test(k);
     apps.forEach((k, n) => {
+      if (!hued(k)) return;
       const nb = [];
       if (n % 4 !== 3 && apps[n + 1]) nb.push(apps[n + 1]);  // 右边（4 列制，第 4 列没有右邻）
       if (apps[n + 4]) nb.push(apps[n + 4]);                  // 下面
-      nb.forEach(o => {
+      nb.filter(hued).forEach(o => {
         const g = hueGap(appTone(k).hue, appTone(o).hue);
         if (g < 40) near.push(k + "/" + o + " 只差 " + g);
       });

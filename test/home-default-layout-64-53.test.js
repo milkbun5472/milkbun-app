@@ -39,7 +39,8 @@ test("默认文件夹里不许有【这个版本根本没有】的 key", () => {
   const dead = [];
   Object.keys(FOLDERS).forEach(fid => (FOLDERS[fid].keys || []).forEach(k => { if (!REG[k]) dead.push(fid + "/" + k); }));
   assert.deepEqual(dead, [], "默认文件夹里有死 key：" + dead.join(" "));
-  const deadLoose = flat.filter(k => String(k).slice(0, 2) !== "f_" && !REG[k]);
+  // sp_ 是空格（真占一格的「洞」），不是 REG 里的东西——它合法
+  const deadLoose = flat.filter(k => String(k).slice(0, 2) !== "f_" && !/^sp_/.test(k) && !REG[k]);
   assert.deepEqual(deadLoose, [], "默认页面上有死 key：" + deadLoose.join(" "));
 });
 
@@ -58,6 +59,12 @@ test("她那三页的形状还在：组件当主角、app 收进文件夹", () =
   assert.equal(LAYOUT.length, 3, "她自己就是三页（后面几页只有她的装饰，不进默认）");
   // 第一页最少：她那页只有名片、日历和三个「翻他」的文件夹，一个散着的 app 都没有
   const looseApps = p => p.filter(k => REG[k] && REG[k].kind === "app");
+  // 名片底下必须垫一整行空格：它不钉高度、按格只算 4×1，不垫的话真实高度会
+  // 伸进下一行，把日历和文件夹压在身底下（她 2026-09-06 的截图）
+  const pad = LAYOUT[0].filter(k => /^sp_/.test(k));
+  assert.equal(pad.length, 4, "名片底下那一行空格不是 4 个（垫不满一行就等于没垫）");
+  assert.equal(LAYOUT[0][0], "w_card", "名片不在第一页头一格");
+  assert.ok(/^sp_/.test(LAYOUT[0][1]), "空格没紧跟在名片后面，垫到别处去了");
   assert.deepEqual(looseApps(LAYOUT[0]), [], "第一页散出了 app——她那一页是空着给组件的");
   assert.ok(LAYOUT[0].filter(k => String(k).slice(0, 2) === "f_").length >= 3, "第一页的文件夹少了");
   // 装饰是她自己的数据，不许进默认

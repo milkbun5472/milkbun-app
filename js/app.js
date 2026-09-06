@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.58";
+const APP_VERSION = "v64.60";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1231,7 +1231,13 @@ function App() {
     setGreetLog(loadJSON("x_greetLog", {}));
     setAppNotif(loadJSON("x_appNotif", { moments: 0, forum: 0, whisper: 0 }));
     setProfile(loadJSON("x_profile", {}));
-    setHomeCard(loadJSON("x_homeCard", { name: "", sign: "", tags: [] }));
+    // 名片的出厂预设（她 2026-09-06：「名片预设改一下就用我那张名片的签名和 tag，
+    // 名字从 lisa 改成秋秋，默认图像塞秋秋那张胖鸟 png」）。
+    // 原来是三个空值——新装的人第一眼看到的是「点此设置昵称／点铅笔写一句签名」，
+    // 那不是一张名片，是三个待办。给它一张【已经填好的】，她要改再改。
+    // ⚠️头像走 c.avatar 这条（名片头像和聊天头像早就分开了）：塞进 profile 会连
+    //   聊天头像一起改掉。图是仓库里现成的那张（assistant 那只已经在用它）。
+    setHomeCard(loadJSON("x_homeCard", HOME_CARD_PRESET()));
     // 世界书：加载结构化词条；老用户只有整团 blob（x_worldbook）就一次性迁成一条「常驻·全局」词条
     let _lore = loadJSON("x_loreEntries", null);
     if (!Array.isArray(_lore)) {
