@@ -5206,7 +5206,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onSetAutoComment, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -5479,13 +5479,14 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: nowNote ? t.sub : t.fog, marginTop: 3, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
           partner ? (nowNote ? "TA 说：" + nowNote : "TA 就在旁边听着这首") : "点一下，挑个人一起听")),
       h("span", { "aria-hidden": "true", style: { flexShrink: 0, color: t.fog, transform: pickWho ? "rotate(90deg)" : "none", transition: "transform .15s" } }, ic("next", t.fog, 14))),
-    pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null,
-    partner ? h("div", { className: "flex items-center justify-between", style: { borderTop: "1px solid " + t.line, padding: "10px 14px", gap: 10 } },
-      h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "让 " + partner.name + " 在聊天里聊这首歌"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "开：TA 会在私聊里自然聊你俩在听的歌、也能帮你切歌（消耗一次回复）")),
-      h("button", { onClick: () => onSetAutoComment(!data.autoComment), className: "shrink-0 active:opacity-70", "aria-pressed": data.autoComment ? "true" : "false", style: { width: 44, height: 26, borderRadius: 999, background: data.autoComment ? (t.accent || "#8a6d3b") : t.line, position: "relative", transition: "background .15s" } },
-        h("div", { style: { position: "absolute", top: 3, left: data.autoComment ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } }))) : null);
+    // ⚠️这儿原来还有一行开关「让 TA 在聊天里聊这首歌」——撤掉了（她 2026-09-06：
+    //   「一起听这一句不会在偷偷调用吧，能不能不要了」）。它确实在偷偷调用：
+    //   开着的时候只要【换一首歌】而她正好在那个人的私聊里，就自动发一次
+    //   proactive 回复——自动连播、点下一首、随便挑一首，每一次都是一刀，
+    //   而她按次计费。放歌这个动作本身不该花钱。
+    //   他还是知道你俩在听什么（那一层是白送的，不花钱）：她问起来接得住，
+    //   只是不会自己开口了。
+    pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric

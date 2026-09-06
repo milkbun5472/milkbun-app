@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.37";
+const APP_VERSION = "v64.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4172,7 +4172,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) {
         const cur = resolveSong(player.songId);
         if (cur) {
-          lines.push("【你正和 " + uName + " 一起听】《" + cur.title + "》" + (cur.artist ? " - " + cur.artist : "") + (player.playing ? "（正放着）" : "（暂停中）") + "。" + (L.autoComment ? "你可以自然聊聊这首歌、跟着哼、说喜不喜欢、想起什么、或想换首歌——别报歌单、别客服腔。" : "如果 " + uName + " 问起你在听什么/这首歌，你清楚就是这首，能自然接住、说说感受，别装不知道。"));
+          lines.push("【你正和 " + uName + " 一起听】《" + cur.title + "》" + (cur.artist ? " - " + cur.artist : "") + (player.playing ? "（正放着）" : "（暂停中）") + "。" + "如果 " + uName + " 问起你在听什么/这首歌，你清楚就是这首，能自然接住、说说感受，别装不知道。");
           // 歌词注入（v48.87 她要）：抓到的话让你真"听得懂"这首歌，能接歌词、跟唱、被某句戳到；别整段背出来、自然引用一两句就好
           const lyr = cur.neteaseId && songLyricsRef.current[cur.neteaseId];
           if (lyr && lyr.trim()) lines.push("【这首歌的歌词（你听得到、记得住，聊到时可自然接一两句/被某句打动，别整首背出来）】\n" + lyr.trim());
@@ -15710,8 +15710,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const renamePlaylist = (id, name) => { const nm = (name || "").trim(); if (nm) saveListen(p => ({ ...p, playlists: (p.playlists || []).map(x => x.id === id ? { ...x, name: nm } : x) })); };
   const addToPlaylist = (plId, song) => { if (!song) return; saveListen(p => ({ ...p, playlists: (p.playlists || []).map(pl => pl.id === plId ? ((pl.songs || []).some(s => (song.neteaseId && s.neteaseId === song.neteaseId) || s.id === song.id) ? pl : { ...pl, songs: [...(pl.songs || []), cloneSong(song)] }) : pl) })); toast("已加入歌单"); };
   const removeFromPlaylist = (plId, songId) => saveListen(p => ({ ...p, playlists: (p.playlists || []).map(pl => pl.id === plId ? { ...pl, songs: (pl.songs || []).filter(s => s.id !== songId) } : pl) }));
-  // 开关：让一起听的角色在聊天界面自行评论正在听的歌（关=不主动提，省 api）
-  const setListenAutoComment = v => saveListen(p => ({ ...p, autoComment: !!v }));
   // 接受角色的「一起听」邀请：设为一起听对象 + 有指定歌就找/搜来放 + 跳到播放器
   const acceptListenInvite = async (charId, songTitle) => {
     setListenPartner(charId);
@@ -15726,20 +15724,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
     goListen();
   };
-  // 自动感知音乐（item 6）：开了"让 TA 聊歌"且正在看该角色私聊时，换歌会让 TA 自动就着新歌说一句（消耗一次回复；关掉开关就不动 api）
-  const lastAutoSongRef = useRef(null);
-  useEffect(() => {
-    const L = listenRef.current || {};
-    if (!L.autoComment || !player.songId) { lastAutoSongRef.current = player.songId; return; }
-    if (player.songId === lastAutoSongRef.current) return;
-    const prev = lastAutoSongRef.current;
-    lastAutoSongRef.current = player.songId;
-    if (prev == null) return; // 首次加载不触发
-    if (screen === "thread" && activeChar && activeChar.id === L.partnerId) {
-      const cid = activeChar.id;
-      setTimeout(() => { if (!laneBusy("c:" + cid)) replyNow(cid, null, null, { proactive: true }); }, 900);
-    }
-  }, [player.songId]);
+  // ⚠️这儿原来有一段【换一首歌就自动替他说一句】（autoComment）——整段撤掉了
+  //   （她 2026-09-06：「一起听这一句不会在偷偷调用吧，能不能不要了」）。
+  //   它的触发条件是「歌变了 + 她正好在那个人的私聊里」，而歌会自动连播——
+  //   于是一晚上放二十首＝二十次 proactive 回复，她按次计费，全程没有任何一处
+  //   要她点头。**放歌这个动作本身不该花钱。**
+  //   他仍然知道你俩在听什么（buildBundle 里那一行是白送的），她问起来接得住，
+  //   只是不会自己开口了。
   // 网易云外链：贴链接/分享文案/裸ID → 抠 id，用官方 outchain iframe 播放（无需登陆；VIP/版权歌可能放不了）
   const addNeteaseSong = (input, title, artist) => {
     const nid = parseNeteaseId(input);
@@ -18180,7 +18171,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onRemoveFromPlaylist: removeFromPlaylist,
     onRenameSong: renameSong,
     onGenCharPlaylist: genCharPlaylist,
-    onSetAutoComment: setListenAutoComment,
     player: player,
     onTogglePlay: togglePlay,
     onStep: stepSong,
