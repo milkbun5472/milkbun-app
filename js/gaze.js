@@ -289,13 +289,20 @@
     if (Date.now() - newest < REVIEW_DAYS * 86400000) return false;
     if ((Number(box.mute) || 0) < REVIEW_MUTE) return false;     // 他还在正常答，就别插手
     if ((Number(box.reviewN) || 0) >= REVIEW_MAX) return false;
+    // 上一次复看的结论就是「没什么要改的」→ 那是答案，不是失败，再等满一轮天数
+    if (Date.now() - (Number(box.reviewOkAt) || 0) < REVIEW_DAYS * 86400000) return false;
     return Date.now() - (Number(box.reviewAt) || 0) >= REVIEW_GAP;
   }
   // 先记标记再打调用（照「先记游标再刷」）：抖一下不该把这轮机会静悄悄烧掉，所以记的是次数不是布尔。
-  function markReview(charId) {
+  // ⚠️manual=她自己按下面那颗「让他再看一遍这十块」：**不占自动预算**（v64.35）。
+  //   原来手动和自动共用 reviewN，于是她手动重试几次就把自动那三次额度按光了——
+  //   她 2026-09-06 那张截图上写着「自动复看过 4 次」，而上限是 3，多出来的那一次
+  //   就是她自己按的。预算防的是「代码偷偷花钱」，不是防她自己要。
+  //   （reviewAt 照记：那是防连点的冷却，两条路都该有。）
+  function markReview(charId, manual) {
     const d = load(); const box = boxOf(d, charId);
-    box.reviewN = (Number(box.reviewN) || 0) + 1;
-    box.reviewAt = Date.now(); box.reviewErr = "";
+    if (!manual) box.reviewN = (Number(box.reviewN) || 0) + 1;
+    box.reviewAt = Date.now(); box.reviewErr = ""; box.reviewErrRaw = "";
     d[charId] = box; persist(d, charId);
     return true;
   }
@@ -306,25 +313,56 @@
   function plainWhy(msg) {
     const m = String(msg || "");
     if (!m) return "这一次没成";
+    // ⚠️engine 那份诊断（callDiag）自己就下了结论，得【先认它】：
+    //   它的原话是「…＝上游直接打回来了（拦截／格式／配额），**不是超时**」——
+    //   里头带着「超时」两个字。先跑下面那条 /超时/ 的话，
+    //   一句明说「不是超时」的诊断会被判成超时（我第一版就是这么写反的，测试当场逮到）。
+    if (/上游直接打回来/.test(m)) return "上游把这次请求打回来了";
+    if (/等到一半才断/.test(m)) return "等太久，超时了";
     if (/解析|JSON|parse/i.test(m)) return "模型没按格式答";
     if (/超时|timeout|abort/i.test(m)) return "等太久，超时了";
     if (/401|403|unauthor|密钥|api key|apikey/i.test(m)) return "这条线路没配好";
     if (/429|rate.?limit|限流|too many/i.test(m)) return "被限流了";
     if (/fetch|network|网络|连接|ECONN|ENOTFOUND/i.test(m)) return "网没连上";
     if (/余额|quota|insufficient|billing/i.test(m)) return "额度不够了";
+    // engine 抛的那句「模型返回为空（停止原因：…）〔…等了 N 秒＝上游直接打回来了…〕」
+    // 原来一条都匹配不到，全落进兜底那句「这一次没成」——她 2026-09-06 看到的就是它。
+    if (/返回为空|没有返回正文/.test(m)) return "模型一个字都没吐出来";
     // 已经是人话的那几句（「一块也没写出来」「一块都没改」）原样留着
     if (/[一二三四五六七八九十百]|块|写|改|答/.test(m) && !/[A-Za-z]{4}/.test(m)) return m;
     return "这一次没成";
   }
+  // ⚠️人话那一句是给她看的，可【原文不能扔】（v64.35）。
+  //   她 2026-09-06 报「还是不行」，界面上只有一句「这一次没成」——
+  //   那正是 plainWhy 认不出来时的兜底，于是她和我都不知道到底是什么坏了。
+  //   而 engine 那边其实已经把话说得很清楚了（callDiag：哪个模型、提示词多大、
+  //   输出上限多少、等了几秒、是上游直接打回来还是超时）——全被这一句吞掉了。
+  //   所以原文另存一份，界面上收在「为什么」后面，点开才看。
   function markReviewFail(charId, why) {
     const d = load(); const box = boxOf(d, charId);
     box.reviewErr = plainWhy(why).slice(0, 60);
+    box.reviewErrRaw = String(why || "").slice(0, 400);
+    box.reviewOkAt = 0;
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  // 「复看了一遍，他觉得没什么要改的」——这是个【正常结局，不是失败】（v64.35）。
+  // 提示词里白纸黑字写着「没变就是没变，不必为了交差改字」，模型照做了，
+  // 代码这一道却把它记成一次失败：三次之后「试满了，往后不再自动试」，
+  // 而界面上写的是「都没成」。她看到的于是是「坏了」，其实是「他真没什么要改的」。
+  // ⚠️不能只是不记失败就完事：那样十分钟后又会自动再问一次，一路烧到上限。
+  //   所以记 reviewOkAt，下面 reviewDue 按它重新等满 REVIEW_DAYS 天。
+  function markReviewNoChange(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.reviewOkAt = Date.now(); box.reviewErr = ""; box.reviewErrRaw = "";
+    box.reviewN = 0;                     // 不是失败，预算还回去
     d[charId] = box; persist(d, charId);
     return true;
   }
   const reviewState = charId => {
     const box = boxOf(load(), charId);
-    return { tries: Number(box.reviewN) || 0, max: REVIEW_MAX, last: Number(box.reviewAt) || 0, err: box.reviewErr || "", mute: Number(box.mute) || 0 };
+    return { tries: Number(box.reviewN) || 0, max: REVIEW_MAX, last: Number(box.reviewAt) || 0,
+      err: box.reviewErr || "", raw: box.reviewErrRaw || "", okAt: Number(box.reviewOkAt) || 0, mute: Number(box.mute) || 0 };
   };
   const muteCount = charId => Number(boxOf(load(), charId).mute) || 0;
   // 复看这一次问的不是「你对她怎么看」（那是建卡），是「这十块里哪几块已经不对了」。
@@ -403,7 +441,7 @@
     const d = load(); const box = boxOf(d, charId);
     box.autoSeedN = autoSeedTries(box) + 1;
     box.autoSeed = Date.now();
-    box.autoSeedErr = "";
+    box.autoSeedErr = ""; box.autoSeedErrRaw = "";
     d[charId] = box; persist(d, charId);
     return true;
   }
@@ -411,12 +449,14 @@
   function markAutoSeedFail(charId, why) {
     const d = load(); const box = boxOf(d, charId);
     box.autoSeedErr = plainWhy(why).slice(0, 60);
+    box.autoSeedErrRaw = String(why || "").slice(0, 400);   // 同上：人话给她看，原文留着查
     d[charId] = box; persist(d, charId);
     return true;
   }
   const autoSeedState = charId => {
     const box = boxOf(load(), charId);
-    return { tries: autoSeedTries(box), max: AUTOSEED_MAX, last: Number(box.autoSeed) || 0, err: box.autoSeedErr || "", refuse: Number(box.refuse) || 0 };
+    return { tries: autoSeedTries(box), max: AUTOSEED_MAX, last: Number(box.autoSeed) || 0,
+      err: box.autoSeedErr || "", raw: box.autoSeedErrRaw || "", refuse: Number(box.refuse) || 0 };
   };
   const refuseCount = charId => Number(boxOf(load(), charId).refuse) || 0;
 
@@ -464,6 +504,7 @@
     const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
     const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
     const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
+    const [whyOpen, setWhyOpen] = useState(false); // 复看败因的原文，点开才看
     const box = boxOf(load(), charId);
     const who = ta === "她" || ta === "TA" ? ta : "他";
     const say = s => who === "他" ? s : String(s || "").replace(/他/g, who);
@@ -543,11 +584,22 @@
       hasAny(charId) ? (function () {
         var mu = muteCount(charId), rv = reviewState(charId), lines = [];
         if (mu >= 3) lines.push(say("他") + "被点名复看 " + mu + " 轮没答话");
-        if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次" + (rv.err ? "，都没成（" + plainWhy(rv.err) + "）" : "")
+        // ⚠️「复看过、他觉得没什么要改的」是【答案】，不是失败（v64.35）。
+        //   原来这一句不分青红皂白写「都没成」，她看到的于是是「坏了」。
+        if (rv.okAt) lines.push("替" + say("他") + "复看过一遍，" + say("他") + "觉得没什么要改的");
+        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次" + (rv.err ? "，都没成（" + rv.err + "）" : "")
           + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
         if (!lines.length) return null;
         return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
-          lines.map(function (x, i) { return h("div", { key: i }, x); }));
+          lines.map(function (x, i) { return h("div", { key: i }, x); }),
+          // 真败因收在这儿：那句人话是给她看的，可原文不能扔——
+          // engine 已经把话说得很清楚了（哪个模型、提示词多大、输出上限多少、
+          // 等了几秒、是上游打回来还是超时），点开才看，平时不占地方。
+          rv.raw ? h("div", null,
+            h("button", { onClick: function () { setWhyOpen(!whyOpen); },
+              style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+              whyOpen ? "收起原话" : "到底哪儿没成"),
+            whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
       })() : null,
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
@@ -555,12 +607,17 @@
         // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
           var st = autoSeedState(charId), lines = [];
-          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy(st.err || "没写出内容") + "）"
+          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + (st.err || plainWhy("没写出内容")) + "）"
             + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
           if (st.refuse) lines.push(say("他") + "被点名问过 " + st.refuse + " 轮,每次都答「认识得还不够」");
           if (!lines.length) return null;
           return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
-            lines.map(function (x, i) { return h("div", { key: i }, x); }));
+            lines.map(function (x, i) { return h("div", { key: i }, x); }),
+            st.raw ? h("div", null,
+              h("button", { onClick: function () { setWhyOpen(!whyOpen); },
+                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+                whyOpen ? "收起原话" : "到底哪儿没成"),
+              whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
         })(),
         onSeed ? h("button", { onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
@@ -597,6 +654,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, reviewState, reviewSpec, review, muteCount };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount };
   window.GazePage = GazePage;
 })();
