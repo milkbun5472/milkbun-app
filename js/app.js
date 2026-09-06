@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.90";
+const APP_VERSION = "v64.91";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11889,12 +11889,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 视频里模型常把动作糊进说话气泡（一大坨）。把一条 say 拆成有序片段：
       // （……）括号内=动作，单独成 act 条；括号外=说话，再按换行拆成多条气泡。
+      // ⚠️v64.90（她 2026-09-06：「还有格式会掉」）补了三件，都是实测出来的漏法：
+      //   ① 上限 60 太小：一句动作描写两个分句就过 60，整段配不上、原样糊在气泡里；
+      //   ② 括号会【落单】——模型把动作断在两个 say 元素里，前一条只有「（」、
+      //      后一条只有「）」。原来两条都当说话，界面上就冒出一个孤零零的右括号
+      //      （她截图顶上那一行就是）。现在：落单的右括号，它【前面】的是动作、后面的是话；
+      //      落单的左括号，它【后面】的全是动作。
+      //   ③ 剩下的孤零零括号字符本身是格式残渣，不是她要读的内容，直接抹掉。
+      // ⚠️模型压根不打括号的那种（动作和话糊成一句），代码认不出来——那一半只能靠
+      //   提示词把「say 里只放能念出口的话」说死，见下面 sys 里那一句。
       const splitSayLine = str => {
         const out = [];
         const s = String(str || "");
-        const re = /[（(]([^（）()]{1,60})[）)]/g;
+        const re = /[（(]([^（）()]{1,120})[）)]/g;
         let last = 0, mm;
-        const pushSpeech = seg => { stripName(seg).split(/\n+/).map(x => x.trim()).filter(Boolean).forEach(x => out.push({ speech: x })); };
+        const clean = x => x.replace(/[（()）]/g, "").trim();
+        const pushSpeech = seg => {
+          String(seg || "").split(/\n+/).forEach(part => {
+            const t = part.trim();
+            if (!t) return;
+            // 落单的右括号：前半是动作的尾巴，后半才是话
+            const rp = t.search(/[）)]/), lp = t.search(/[（(]/);
+            if (rp >= 0 && (lp < 0 || lp > rp)) {
+              const a = clean(t.slice(0, rp)); if (a) out.push({ act: a });
+              const rest = stripName(t.slice(rp + 1)); if (clean(rest)) out.push({ speech: clean(rest) });
+              return;
+            }
+            // 落单的左括号：后面全是动作
+            if (lp >= 0) {
+              const head = stripName(t.slice(0, lp)); if (clean(head)) out.push({ speech: clean(head) });
+              const a = clean(t.slice(lp + 1)); if (a) out.push({ act: a });
+              return;
+            }
+            const sp = stripName(t); if (sp) out.push({ speech: sp });
+          });
+        };
         while ((mm = re.exec(s))) { pushSpeech(s.slice(last, mm.index)); const a = mm[1].trim(); if (a) out.push({ act: a }); last = re.lastIndex; }
         pushSpeech(s.slice(last));
         return out;
@@ -11924,7 +11953,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
         if (typeof primeQueryVec === "function") await primeQueryVec(callQuery);
         const sys = buildBundle(ctxFor(char, { chat: true, queryText: callQuery })) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
-          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + ",\"hangup\":null}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
+          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + ",\"hangup\":null}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
