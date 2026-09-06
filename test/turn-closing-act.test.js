@@ -36,7 +36,7 @@ test("它是引导不是保证——代码里得写着这句，别下次有人�
   assert.match(why, /思考链是模型自己的/);
 });
 
-// 只加在单聊线上：差异要显式、要写理由（.claude/rules/four-surfaces-same-context.md）
+// 只加在单聊线上：差异要显式、要写理由（施工规则/four-surfaces-same-context.md）
 test("只加在单聊线上，理由写在代码里", () => {
   assert.equal((app.match(/_turnClosing/g) || []).length, 2, "只该有一处定义 + 一处拼接");
   const i = app.indexOf("const _turnClosing =");

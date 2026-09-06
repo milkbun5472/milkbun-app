@@ -44,7 +44,7 @@
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
   // 反八股那一整套（去人机味／角色卡准则／线下叙事准则／叙事反陈词滥调／语气年龄锚）。
   // v61.48 之前这儿只有 AC+NAC 两条——梦是连续叙事正文，该吃的是 narrativeCore 那一份，
-  // 跟穿书、小剧场同一套（.claude/rules/four-surfaces-same-context.md）。
+  // 跟穿书、小剧场同一套（施工规则/four-surfaces-same-context.md）。
   // ⚠️禁烟这一层：narrativeCore 里已经带了（v63.100 挪进去的），所以这儿不再单push一遍。
   //   但 narrativeCore 不在的那条兜底路（AC()+NAC()）拿不到，得自己补上——
   //   兜底路少一层规矩，就是「换个入口就什么都没有」那个形状。

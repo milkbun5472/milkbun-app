@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const dwell = R("dwell.js"), comp = R("components.js");
 
@@ -205,7 +207,7 @@ test("情侣卡：名字与粉色大号天数同排，轮换点在右下", () =>
   assert.match(body, /position: "absolute", top: 10, right: 12/, "右上未读红点被误挪走了");
 });
 
-// 她 2026-08-30：「这俩细节框再修修，默认不要这种半窗」→ .claude/rules/no-half-sheet.md
+// 她 2026-08-30：「这俩细节框再修修，默认不要这种半窗」→ 施工规则/no-half-sheet.md
 test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
   assert.equal(dwell.indexOf("h(Sheet"), -1, "去处里还留着半窗：内容被压到下半屏，说明一句都放不下");
   ["view === \"place\" && open && zone", "view === \"place\" && open && item"].forEach(k =>
@@ -232,7 +234,7 @@ test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
 });
 
 test("规矩写下来了，而且写的是【默认整页】", () => {
-  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "no-half-sheet.md"), "utf8");
+  const rule = ruleText("no-half-sheet");
   assert.match(rule, /默认用整页/, "没把默认说清楚");
   assert.match(rule, /h\(Sheet/, "没指出代码里对应的是哪个东西，下一个人对不上号");
   assert.match(rule, /需要同时看见它下面那一层吗/, "没给判据，只有结论的话照样会有人再写一个半窗");
@@ -242,7 +244,7 @@ test("规矩写下来了，而且写的是【默认整页】", () => {
 // 她 2026-09-01：「这些页面没有图片背景了嘤，就我还是想要能直接从图片里点击进去看，
 // 但是不要照片上挂悬浮胶囊＋连线＋幽灵英文」。
 test("图是每一层的地皮：内页也要把上一层那张图糊开压暗当底衬", () => {
-  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "no-half-sheet.md"), "utf8");
+  const rule = ruleText("no-half-sheet");
   assert.match(rule, /上一层如果有图，就把那张图糊开压暗当底衬/, "这条规矩本来就写着，别把它也删了");
   const i = dwell.indexOf("const backdrop = function (p) {");
   assert.ok(i > 0, "内页又变回一张跟上一层无关的白纸了——进了屋反而看不见屋");

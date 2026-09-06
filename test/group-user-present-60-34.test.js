@@ -25,7 +25,7 @@ test("给的是可判定的那把尺子，不是一句「要照顾用户」", ()
 });
 
 test("不许在这条里塞具体的示范台词", () => {
-  // .claude/rules/prompt-no-content-samples.md：给了例句，每个角色都会照抄那一句
+  // 施工规则/prompt-no-content-samples.md：给了例句，每个角色都会照抄那一句
   assert.ok(!/如「|比如「|例如「/.test(rule), "举了例句，那一句会被所有人照抄");
 });
 

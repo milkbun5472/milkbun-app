@@ -5,10 +5,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const fic = fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8");
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/four-surfaces-same-context.md"), "utf8");
+const rule = ruleText("four-surfaces-same-context");
 
 // 穿书那条链抠出来真跑（parseJSONLoose 照 engine.js 里真的那两个函数来）
 const F = (() => {

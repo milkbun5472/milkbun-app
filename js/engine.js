@@ -1107,7 +1107,7 @@ function extractJSON(raw) {
 //   那次只修了查手机那一处（phoneBondBlock），buildBundle 本身没跟上。这次补的是同一处的另一半。
 // ⚠️放在 engine.js 而不是 app.js：这样所有走 buildBundle 的入口（单聊线上/线下、
 //   通话、穿书、匿名箱）一起白得，不用一处处 push——一条条 push 的层换个入口就一条都没有，
-//   而且不留任何能 grep 的痕迹（.claude/rules/four-surfaces-same-context.md）。
+//   而且不留任何能 grep 的痕迹（施工规则/four-surfaces-same-context.md）。
 // ⚠️只说事实和分寸，不写台词：写「你应该说…」模型会照着念。
 const ROMANTIC_REL = /恋人|情侣|对象|男友|男朋友|女友|女朋友|爱人|伴侣|未婚|老公|老婆|夫妻|配偶|CP/i;
 // ⚠️反向闸：光看正词会把【前男友】判成现任（它里头就含「男友」），
@@ -1498,7 +1498,7 @@ const MOOD_TURN_RULE = `【实时心情·每轮重判】mood.label 必须是非�
 // ⚠️v60.12 她 2026-09-02 抓到第三条原来是这么写的：「你本来就爱操心、爱指挥、
 //   爱做饭盯着她吃完，那都照写」——「这句会把所有人都变成这个样吧」。她是对的：
 //   这条规则通篇在禁模板，只有这一处给了【允许写什么】的具体样子，
-//   于是它成了整段里唯一可复制的东西（见 .claude/rules/prompt-no-content-samples.md：
+//   于是它成了整段里唯一可复制的东西（见 施工规则/prompt-no-content-samples.md：
 //   「写得越好的例子，被抄得越狠」）。爱操心爱做饭对某些角色根本不成立。
 //   改成【维度＋判据】：关心的方式因人而异，用只有你会用的那一种。
 // 他懂不懂这门话（她 2026-09-05：「我记得我加过他人设不知道的东西不能装知道的指令，
@@ -1802,7 +1802,7 @@ const SCHED_TENSE_RULE = `【时态·很重要】每段的 title 写「在做什
 //   schemaHint 里写着「起床，晨间咖啡 / 家里卧室、厨房 / 洗漱、准备睡 / 卧室」，
 //   指令里还列着「医学生＝查房、程序员＝跑数据、老师＝备课、别硬编办公室活」。
 //   模型照抄格式的时候，把那个【世界】一起抄了过去
-//   （.claude/rules/prompt-no-content-samples.md：给了例子就会被逐字照抄，
+//   （施工规则/prompt-no-content-samples.md：给了例子就会被逐字照抄，
 //    而且「schemaHint 里的占位值要写成说明，不要写成样例内容」这条当时就点过名）。
 //   所以现在：示范一律换成判据，另外把「先认准他属于哪个世界」这一条独立说清。
 const SCHED_WORLD_RULE = `【先认准他属于哪个世界，再排这一天】
@@ -4598,13 +4598,13 @@ function translatableLang(text) {
 // 它的消息区 absolute inset-0 铺满整屏、顶栏 absolute top:0 浮在上面自己吃掉刘海，
 // 全程没有那条空带。
 // ⚠️主屏是唯一的例外，仍旧留着根节点那条空带：它和 Home 的 height:100vh 是配好的一对，
-//   动了就散架（v56.58 亲测，见 .claude/rules/home-screen-layout.md）。
+//   动了就散架（v56.58 亲测，见 施工规则/home-screen-layout.md）。
 function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(px) || 0) + "px)"; }
 // 底部输入栏的下内边距。她 2026-08-28：「线下的输入框比线上高一截」——
 // 三条输入栏的高度本来只差这一个值：线上吃 0.4 条安全区，单聊线下吃【满】一条再加 4px
 // （iPhone 上 34px 的安全区，两者差二十多像素），群线下是 0.4 条加 4px。
 // 别的都一样（px-3 py-2.5、输入框 px-4 py-2.5、按钮 40×40），所以统一成一个常量，
-// 免得以后又各自漂走。⚠️主屏那条空带不归这里管，见 .claude/rules/home-screen-layout.md。
+// 免得以后又各自漂走。⚠️主屏那条空带不归这里管，见 施工规则/home-screen-layout.md。
 const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4)";
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
 // 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
@@ -4642,7 +4642,7 @@ function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }
 // 提示词那一半：单聊说「这个角色」，群里点名说是谁——两处用同一段字，
-// 免得又变成「这一层只写在一处」（.claude/rules/four-surfaces-same-context.md）。
+// 免得又变成「这一层只写在一处」（施工规则/four-surfaces-same-context.md）。
 function bilingualRule(who) {
   const w = who ? "\u300c" + who + "\u300d" : "\u8fd9\u4e2a\u89d2\u8272";
   return "\u3010\u53cc\u8bed\u3011" + w + "\u5f00\u7740\u300c\u5916\u8bed\u6d88\u606f\u81ea\u5e26\u4e2d\u8bd1\u300d\uff1a\u51e1\u662f TA \u8fd9\u4e00\u6761\u8bf4\u7684\u3010\u4e0d\u662f\u4e2d\u6587\u3011\uff0c\u5c31\u628a\u8fd9\u4e00\u6761\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d"

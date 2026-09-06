@@ -9,9 +9,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const src = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/mobile-ui-layout.md"), "utf8");
+const rule = ruleText("mobile-ui-layout");
 const i = src.indexOf("  // ── 底：封面就是这一页");
 assert.ok(i > 0, "抠不出那层底");
 const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));

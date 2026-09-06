@@ -35,7 +35,7 @@ test("要的是【落差】，不是让他复述一遍她写的", () => {
   assert.match(rec, /【她记下的】" \+ String\(pick\.text\)/, "不给他看她那版,就没有「两个版本」可言了");
   const ui = grab(scr, "function CoupleRecall({", "// 情侣空间·我们说好的");
   assert.match(ui, /"你记下的"/); assert.match(ui, /partner\.name \+ " 记得的"/);
-  assert.ok(!/h\(Sheet/.test(ui), "用了半窗——见 .claude/rules/no-half-sheet.md");
+  assert.ok(!/h\(Sheet/.test(ui), "用了半窗——见 施工规则/no-half-sheet.md");
 });
 
 // ── b 他趁你不在动过这里 ──────────────────────────────────────────────────

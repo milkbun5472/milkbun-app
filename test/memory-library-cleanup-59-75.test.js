@@ -13,7 +13,7 @@ test("记忆库使用紧凑安全区顶栏，日常只露整理图标与新增",
   //   这一条写于 v59.75，那时 Head 自己还是「30px 大标题」，所以这一页只能手写一条紧凑栏，
   //   断言也就冻住了 `paddingTop: safeTop(10)` 和「不许用 Head」。
   //   v61.27 之后 Head 本身就是那条紧凑栏、自己吃安全区，
-  //   .claude/rules/mobile-ui-layout.md §1 明写「别再自己写一条」——
+  //   施工规则/mobile-ui-layout.md §1 明写「别再自己写一条」——
   //   于是这条断言从「守着紧凑栏」变成了「拦着不许合规」。
   //   要守的东西一个字没变：**顶栏是紧凑的、日常只露整理和新增两颗键**。
   assert.match(memory, /h\(Head, \{\n?\s*zh: "记忆库", bg: "transparent", onBack: onBack,/, "顶栏没用公共 Head");

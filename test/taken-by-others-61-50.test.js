@@ -48,7 +48,7 @@ test("说的是事实和分寸，不是台词", () => {
   assert.match(s, /主动找 Lisa[^。]*【都可以】/, "把主动本身给禁了，那等于换了个人");
   assert.match(s, /不许说成告白、暧昧或情话/);
   assert.match(s, /不是按「谁主动找谁谁就有意思」走/, "没点破那个先验，等于没治到病根");
-  // 不给台词（.claude/rules/prompt-no-content-samples.md）
+  // 不给台词（施工规则/prompt-no-content-samples.md）
   assert.doesNotMatch(s, /比如|例如|你可以说|你应该说/, "塞了台词进去，模型会照着念");
 });
 

@@ -1,7 +1,7 @@
 // 同人文 feed 里的一篇不再是一张框（她 2026-09-03：「每一篇文显示的样式也改改吧，
 // 现在还是一个个框」）。上面那排书脊已经把一版做成「抽出来翻开的一本」，
 // 翻开一本书底下就该是这一本的【目录页】：编号 → 篇名 → 引导点 → 字数（页码那一格）。
-// 判据同 .claude/rules/tabs-not-plain-pills.md：换个 app 还成立的形状＝没设计。
+// 判据同 施工规则/tabs-not-plain-pills.md：换个 app 还成立的形状＝没设计。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

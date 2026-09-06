@@ -8,7 +8,7 @@ const app = read("app.js"), comp = read("components.js"), eng = read("engine.js"
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const SRC = fs.readdirSync(JSDIR).filter(f => f.endsWith(".js")).map(f => [f, read(f)]);
 
-// v56.58 把这套拆了，主屏当场散架（.claude/rules/home-screen-layout.md）。这几条是那次的封条。
+// v56.58 把这套拆了，主屏当场散架（施工规则/home-screen-layout.md）。这几条是那次的封条。
 test("100vh 那一套原封不动——这是底部白边的最终解法", () => {
   assert.match(html, /html, body, #root \{ height: 100vh;/, "壳子的 100vh 没了");
   assert.match(html, /html, body \{ width: 100%; height: 100vh; overflow: hidden;/);

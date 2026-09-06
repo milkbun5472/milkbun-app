@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
@@ -28,7 +30,7 @@ test("分栏不再是一份通用电商品类词典", () => {
 // 她 2026-09-02：「maxtoken 开到 65535，那个反正开了也不代表用得到那么多」——
 // 这条得写进规矩里，不然下次有人照那张「阶梯表」把它压回 20000。
 test("「上限是天花板不是花销」这条写进规矩了", () => {
-  const rule = fs.readFileSync(path.join(root, ".claude/rules/max-tokens-floor.md"), "utf8");
+  const rule = ruleText("max-tokens-floor");
   assert.match(rule, /上限是【天花板】，不是【花销】/);
   assert.match(rule, /maxtoken 开到 65535/, "她的原话要留着");
   assert.match(rule, /别拿上面那张表去往下压它/);
@@ -40,7 +42,7 @@ test("刷信息流那一处不许再叫模型去抄别人，占位值也不许�
   const g = app.slice(i, app.indexOf("const WISH_CAP", i));
   const live = g.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(live.indexOf("类似淘宝") < 0, "直接叫它抄别人");
-  // .claude/rules/prompt-no-content-samples.md：schemaHint 里写样例内容＝被逐字照抄
+  // 施工规则/prompt-no-content-samples.md：schemaHint 里写样例内容＝被逐字照抄
   assert.ok(live.indexOf("川味经典红油抄手") < 0 && live.indexOf("地道成都风味") < 0);
   assert.match(g, /\\"name\\":\\"具体商品名\\"/, "占位值要写成说明");
   assert.match(g, /cat === "forhim" \?/, "给他买那一栏得知道自己是在替别人挑");

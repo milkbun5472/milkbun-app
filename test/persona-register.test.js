@@ -23,7 +23,7 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   assert.match(engine, /if \(opts\.register !== false\) parts\.push\(PERSONA_REGISTER_ANCHOR\);/, "叙事底座");
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 单人通话走 buildBundle、从叙事底座那一路吃到锚；群通话原来什么都没有，现在直接注入。
-  // 见 .claude/rules/four-surfaces-same-context.md。
+  // 见 施工规则/four-surfaces-same-context.md。
   // ⚠️数的是【代码里的引用】，不是注释里提到的名字：v63.63 在旁边写了一段注释
   //   解释这一条为什么是那些层的落点，一提它名字这条断言就红——它测的是接线，
   //   不是「谁提过它」。剥掉整行注释再数。

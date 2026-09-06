@@ -36,7 +36,7 @@ test("schema 里不许有样例内容，更不许是过去时", () => {
   const bad = ["扫了遍报错日志", "洗漱后睡了"];
   bad.forEach(x => assert.ok(!app.includes(x), "这个过去时样例还在：" + x));
   // v64.14：占位值从【样例内容】改成了【说明】——样例会连着那个世界一起被抄走
-  //（王爷搬进公寓那次；.claude/rules/prompt-no-content-samples.md）。
+  //（王爷搬进公寓那次；施工规则/prompt-no-content-samples.md）。
   // 时态改由 SCHED_TENSE_RULE 明写，不再靠一句中性样例暗示（见下一条）。
   assert.ok(!app.includes('\\"title\\":\\"洗漱、准备睡\\"'), "又用样例内容当占位值了");
   assert.match(app, /写的是【要做什么】，不是【做完了】/, "那句时态的尺子丢了");

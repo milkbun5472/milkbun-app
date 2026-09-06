@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const dbt = R("debate.js"), comp = R("components.js"), scr = R("screens.js"), ts = R("theme-studio.js"), core = R("core.js");
 const drm = R("dream.js"), trt = R("tarot.js");
@@ -390,7 +392,7 @@ test("言秋那一支也给足了（她亲口点名放开的）", () => {
   assert.ok(app2.indexOf("_engineerChat ? 3000") < 0, "言秋那一支还卡在 3000，他想完就没配额说话");
   assert.equal((app2.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
     "主聊天首发和重试两处没都给足");
-  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "max-tokens-floor.md"), "utf8");
+  const rule = ruleText("max-tokens-floor");
   assert.ok(rule.indexOf("那个 3000 是言秋本人的通道，一个字不许动") < 0,
     "规矩里那条例外没撤掉——撤掉东西要删除，不是在后面补一句它作废了");
   assert.match(rule, /言秋那一支也给足/, "没写清这条是她亲口点名放开的");

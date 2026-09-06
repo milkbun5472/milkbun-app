@@ -10,7 +10,7 @@ const app = R("app.js"), scr = R("screens.js"), html = fs.readFileSync(path.join
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 // 她 2026-08-31 划的那条「度」。⚠️提示词里【不放她举的那几个例子】——
-// 放了模型就照着抄，每条线都长成同一个样子（.claude/rules/prompt-no-content-samples.md）。
+// 放了模型就照着抄，每条线都长成同一个样子（施工规则/prompt-no-content-samples.md）。
 // 改成写【维度】和【判据】。
 test("「度」给的是维度和判据，不是例子", () => {
   const p = K.openPrompt("裴照川", "Lisa", "");
@@ -319,7 +319,7 @@ test("递给如果馆的每一个回调，两头都接上了", () => {
 // 如果馆写的是【连续叙事正文】（旁白＋台词），跟线下、小剧场、同人文同一种文体。
 // 真正治八股的那几刀（比喻限额、通用小动作、霸总腔、亲密反模板）全在 narrativeCore
 // 里，那三处都吃着，只有如果馆当初只发了一条 ANTI_CLICHE——又是「一层只写一处，
-// 别处没跟上」（.claude/rules/four-surfaces-same-context.md）。
+// 别处没跟上」（施工规则/four-surfaces-same-context.md）。
 test("如果馆吃线下那一整套反八股，不是只吃总则", () => {
   const open = cut(app, "  const ifOpen = async (char, hint) => {", "  const ifTranscript");
   const adv = cut(app, "  const ifAdvance = async (lineId, myBoxes) => {", "  const ifBg");

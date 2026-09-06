@@ -122,7 +122,7 @@ test("定论那一栏新加的 truth 写进了推演任务，而且要求两句�
   assert.match(spec.instruction, /truth 不是把 text 换个说法再讲一遍/, "没挡住「把原话复述一遍」这个最容易犯的错");
   assert.match(spec.instruction, /没有落差就说明这一条写坏了/, "没给判据");
   assert.match(spec.schemaHint, /"truth":"这句话底下真正的意思"/, "schemaHint 里没有 truth，或者写成了样例内容");
-  // .claude/rules/prompt-no-content-samples.md：占位值只能是说明，不能是可照抄的内容
+  // 施工规则/prompt-no-content-samples.md：占位值只能是说明，不能是可照抄的内容
   ["嘴上是硬的、底下是软的"].forEach(s =>
     assert.ok(spec.schemaHint.indexOf(s) < 0, "schemaHint 里塞了可照抄的内容示范"));
 });

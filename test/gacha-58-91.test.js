@@ -142,7 +142,7 @@ test("两个入口都在给点数", () => {
   assert.match(app, /gachaEarn\(offlineChar\.id, "offline"\); offlineSend\(/, "线下没给");
 });
 
-// .claude/rules/no-half-sheet.md：新界面一律整页
+// 施工规则/no-half-sheet.md：新界面一律整页
 test("整页，不是半窗；标题栏是紧凑那种", () => {
   const ui = scr.slice(scr.indexOf("function Gacha({"));
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");

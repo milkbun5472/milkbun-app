@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const FLOOR = 8000;
 // trpg.js 是言秋的，不碰。
@@ -91,7 +93,7 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
 });
 
 test("规矩写下来了，而且写清了为什么省不到钱", () => {
-  const rule = fs.readFileSync(path.join(root, ".claude", "rules", "max-tokens-floor.md"), "utf8");
+  const rule = ruleText("max-tokens-floor");
   assert.match(rule, /思考预算是从 `maxTokens` 里扣的/, "没写清机制，下一个人还会当成浪费调回去");
   assert.match(rule, /反而多花一次调用/, "没写清「省不到钱」这一层");
   assert.match(rule, /不许低于 8000/);

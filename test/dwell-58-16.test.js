@@ -38,7 +38,7 @@ test("prompt 短：只给判据，不替模型写作文", () => {
   ["一句氛围", "4~5 个区域", "每个区域 3 件东西", "唯一的判据"].forEach(k =>
     assert.ok(sp.instruction.indexOf(k) > 0, "少了这一段：" + k));
   // 判据是「能反过来说出他这个人的一件事」，反面只给判据、不举例子
-  //（举了例子模型就照着那个句式抄，见 .claude/rules/prompt-no-content-samples.md）
+  //（举了例子模型就照着那个句式抄，见 施工规则/prompt-no-content-samples.md）
   assert.match(sp.instruction, /每一件都要能反过来说出他这个人的一件事/);
   assert.match(sp.instruction, /换个角色照样成立的就是写坏了/);
   // 三层：叫法 / 一句话 / 他自己的想法

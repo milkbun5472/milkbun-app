@@ -1,13 +1,15 @@
 // 心上的架构第一刀（她 2026-09-03 拿来参考文档后同意的四条里的两条）：
 //   ① 节律别套二十四节气——接到这个 app 自己的【周】节律上
-//   ④ 几栏各是什么层，按她自己那两问分（.claude/rules/phone-data-layers.md）
+//   ④ 几栏各是什么层，按她自己那两问分（施工规则/phone-data-layers.md）
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const src = fs.readFileSync(path.join(root, "js/heart.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/phone-data-layers.md"), "utf8");
+const rule = ruleText("phone-data-layers");
 // 跑真引擎
 const HeartKit = (() => {
   const g = {}; global.window = g;

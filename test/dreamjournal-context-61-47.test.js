@@ -5,6 +5,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const dj = fs.readFileSync("js/dreamjournal.js", "utf8");
 const app = fs.readFileSync("js/app.js", "utf8");
 const code = dj.split("\n").map(l => l.split("//")[0]).join("\n");
@@ -44,7 +46,7 @@ test("梦签单独一栏，而且真显示出来了", () => {
 });
 
 test("这条规矩自己也得改：名单从七处变八处", () => {
-  const rule = fs.readFileSync(".claude/rules/four-surfaces-same-context.md", "utf8");
+  const rule = ruleText("four-surfaces-same-context");
   assert.match(rule, /名单是【八处】/);
   assert.match(rule, /解梦馆是第八处/);
   assert.match(rule, /\| v61\.47 \| \*\*解梦馆也不在这张名单上\*\*/);

@@ -36,7 +36,7 @@ test("三件套要被点名，而且给一把可判定的尺子", () => {
   // ⚠️这一条原来是拿三个具体例子（爱操心／爱指挥／爱做饭盯着她吃完）说明「什么可以写」，
   //   她 2026-09-02：「这句会把所有人都变成这个样吧」。整段都在禁模板，
   //   只有这一处给了正面样子，于是它成了段里唯一可复制的东西
-  //   （.claude/rules/prompt-no-content-samples.md：「写得越好的例子，被抄得越狠」）。
+  //   （施工规则/prompt-no-content-samples.md：「写得越好的例子，被抄得越狠」）。
   //   所以这里冻的是【它给的是判据不是样子】，不是那三个词。
   // ⚠️v64.84 那句「禁的是【模板】不是关心：你人设里本来就有的那一面，该怎么关心还怎么关心」
   //   整句删了。她 2026-09-06：「有些人设也确实不会关心吧」——那句预设了每个人都有
@@ -65,7 +65,7 @@ test("这条刀四处都挂上了", () => {
   const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
-  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   assert.equal((codeOnly(engine).match(/STOCK_REPLY_BAN/g) || []).length +
                (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 3,
     "1 处定义 + buildBundle + groupBans（三处群共用；注释不算）");

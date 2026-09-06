@@ -6,10 +6,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/no-half-sheet.md"), "utf8");
+const rule = ruleText("no-half-sheet");
 const cut = (from, to, what) => {
   const i = comp.indexOf(from); assert.ok(i > 0, "抠不出" + what);
   const j = comp.indexOf(to, i); assert.ok(j > i, "抠不出" + what + "的结尾");

@@ -1,7 +1,7 @@
 // 禁烟得在【每一处】（她 2026-09-05：「这个禁烟好像没带到梦境，还在抽。
 // 然后你看看还有哪儿没禁烟的」）。
 //
-// 病根和 .claude/rules/four-surfaces-same-context.md 里那一串一模一样：
+// 病根和 施工规则/four-surfaces-same-context.md 里那一串一模一样：
 // 这一层原来只挂在 buildBundle 和 groupBans 上，于是【凡是自己拼 sys 的地方一律没有】——
 // 梦、小剧场的开场、周刊、擂台、塔罗、一起读、一起学、番茄钟、记账、备忘、印象卡，
 // 一处都没收到。她撞上的是 TA 们每晚那场梦（dreamjournal 的 dreamGenSys）。

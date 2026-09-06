@@ -58,7 +58,7 @@ test("当前场次持久化，记录实际专注与正常收桌原因", () => {
 });
 
 test("准备页和记录页复用标准 Head，正文只有一个主滚动区", () => {
-  // v61.40：标题不留英文（.claude/rules/no-english-titles.md），记录页也改了名
+  // v61.40：标题不留英文（施工规则/no-english-titles.md），记录页也改了名
   assert.match(src, /h\(Head, \{ zh: "番茄钟", onBack: props\.onBack/);
   assert.match(src, /h\(Head, \{ zh: "坐过的那些", onBack: \(\) => setView\("setup"\)/);
   assert.match(src, /flex-1 min-h-0 overflow-y-auto px-6/);

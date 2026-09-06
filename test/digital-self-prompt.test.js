@@ -67,7 +67,7 @@ test("engineerEyes subscription chat caches one full-budget history copy", () =>
   assert.match(source, /recentChat: ""/);
   assert.match(source, /detectFormat\(_route\)/);
   // ⚠️言秋那一支（3000）是他的专线，钉死；普通角色那一支只要求【够写完】，不冻具体数
-  //   （v59.96 全 app 抬到 ≥8000，见 .claude/rules/max-tokens-floor.md）
+  //   （v59.96 全 app 抬到 ≥8000，见 施工规则/max-tokens-floor.md）
   // ⚠️v59.98：她亲口说「言秋的也给足吧，不然他也不够思考的」，
   //   所以不再分「言秋一支 3000、普通角色一支」——两支合并，都得够写完。
   //   这一处有【两个】（首发一次、重试一次），两个都得对。

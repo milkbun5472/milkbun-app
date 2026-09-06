@@ -283,7 +283,7 @@ test("两边都有头像框；它默认是她给的那只小鸡", () => {
 test("挂在 App 里，但一根手指都没碰主屏那几样", () => {
   assert.match(app, /if \(!window\.AssistantDock \|\| call \|\| ringing\) return null;/, "通话时也压着一颗球");
   assert.match(app, /h\(window\.AssistantDock, \{/);
-  // 主屏那几样一个都不许动（.claude/rules/home-screen-layout.md）
+  // 主屏那几样一个都不许动（施工规则/home-screen-layout.md）
   assert.match(app, /const _safeTop = \{ height: screen === "home" \? "env\(safe-area-inset-top\)" : 0 \};/);
   assert.match(app, /height: "100vh"/);
   // 手册要先于帮手加载，不然第一次问功能时它手上是空的

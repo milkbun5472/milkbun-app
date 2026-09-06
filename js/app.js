@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.07";
+const APP_VERSION = "v65.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2431,7 +2431,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
   //（她 2026-08-27：顾暮在两个群里几乎同时给了两套说法，一边说六点半到家、一边另说一套）。
   // 只取【TA 自己刚说过的原话】——不是别人的话，所以不构成隐私泄露，别的成员也拿不到这一段。
-  // ⚠️封闭群只进不出：闭群里说过的话绝不外流到别处（.claude/rules/four-surfaces-same-context.md）。
+  // ⚠️封闭群只进不出：闭群里说过的话绝不外流到别处（施工规则/four-surfaces-same-context.md）。
   const CROSS_SAID_WINDOW_MS = 90 * 60000;
   const crossChannelSaid = (charId, exceptGroupId) => {
     try {
@@ -3459,7 +3459,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 这一段是发给模型的（八处一样喂）。
   // ⚠️写的是【判据和分寸】，不是台词示范——给了例句模型就照抄，每个角色被吵醒都说同一句
-  //   （.claude/rules/prompt-no-content-samples.md）。
+  //   （施工规则/prompt-no-content-samples.md）。
   // ⚠️最后一条是防摆烂的：不写死的话，模型会直接「我睡了明天说」把人打发走。
   const SLEEP_TONE = {
     drowsy: "【此刻你快睡了】你那边已经是该睡的点，你多半已经躺下、灯关了。\n"
@@ -3480,7 +3480,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 日程是一天一份的，昨晚 23:40 睡下、end 记到 24:00，今天这份里没人接着——
   // 于是从 0 点到今天第一项之间，schedCurrentSeqIdx 一个都选不中，返回 -1。
   // 日历那边 v56.47 已经用 schedSleepCarry 把这一截画出来了，状态这几处一直没跟上
-  //（.claude/rules/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
+  //（施工规则/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
   // charAwakeState 早就按「今天第一项之前＝还没醒」判 asleep，这里跟它同一个假设。
   const schedCarryNowFor = char => {
     try {
@@ -4205,7 +4205,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 隔了夜就不再主动提：一场梦值得说的那一下就在醒来那天。过了那天它只剩余味，
         // 再挑起来说就成了「翻旧账」——而且十有八九会顺口说成「昨晚」。
         // ⚠️这三支写成三句各自说完的话，不在「主动提」后面挂「不过隔了一天就别」
-        //   （.claude/rules/no-yes-unless.md）。
+        //   （施工规则/no-yes-unless.md）。
         if (days >= 1) return head
           + "\n这场梦是过去的事了。**别主动提起、别复述梦的内容**——只是让那点余味留在你今天说话的温度和分寸里。"
           + "她要是自己说起，你再接，而且说清那是哪天的梦，别说成昨晚。";
@@ -4313,7 +4313,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她问「他们在帖子里回复过的东西呢？怎么喂不会太多内容分散模型注意力失去活人感」。
     // 砍它的理由只有一条：论坛回声十轮里九轮用不上，常驻就是每轮白占 token 和注意力。
     // 判据是【这一轮用不用得上】——这和「总量太大」是两回事，
-    // 该给的层仍然要给足（见 .claude/rules/four-surfaces-same-context.md）。
+    // 该给的层仍然要给足（见 施工规则/four-surfaces-same-context.md）。
     //
     // 四条改动：
     //   ① 按需触发，不再常驻（她拍板）
@@ -6135,7 +6135,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
-    // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：此刻心情与好感度，
+    // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
     // 单聊经 buildBundle 一直有，群线下以前一层都没有。它们是【这个人此刻是谁】、
     // 不是【你们之间发生过什么】，所以封闭群照给。
     memberMood: (() => {
@@ -7246,7 +7246,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _carveWord = (() => {
         if (!_canCarve) return "";
         const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
-        // ⚠️说清判据和维度，不给内容示范（.claude/rules/prompt-no-content-samples.md）：
+        // ⚠️说清判据和维度，不给内容示范（施工规则/prompt-no-content-samples.md）：
         //   写一句「比如……」进去，模型会把那一句当模板，每次刻的理由都长一个样。
         return "刻＝【送】不是【推荐】：只有这一轮真有一首非送给 " + uName + " 不可的歌才刻。"
           + "note 是刻在 B 面的一句话，写清【为什么是这一首、给这个人】——不是夸这首歌本身好听。一轮最多一首。"
@@ -7303,7 +7303,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
       // ── 他刚看见的那张照片（她 2026-08-31）─────────────────────────
-      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
       //   单聊线下 ✅ v58.100 补上（走 oCtx.photoSeenSpec 挂进 OFFLINE_PROTOCOL_V2
       //     的输出形状，跟 gazeSpec 同一个落法）。判据、冷却、落地全和这里共用一份。
@@ -7320,7 +7320,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       // ── 替她记一笔 / 记备忘（她 2026-08-30）────────────────────────
-      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
       //   单聊线下 ❌ 还没接——线下走的是 OFFLINE_PROTOCOL_V2 那套叙事输出，
       //     没有这套能力字段的口子，要单开一条。【这是欠的，不是有理由不给】。
@@ -7328,7 +7328,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //     三个人各记一条就是三条重复账。要给的话得先定「群里由谁记」。
       // ⚠️【按需开放】：只有她这一轮真的开口让人记，才把这两个字段发下去。
       // 理由和论坛回声那条一样——十轮里九轮用不上的层，不该每轮都占着 prompt
-      // （.claude/rules/four-surfaces-same-context.md 里唯一允许砍层的那条判据）。
+      // （施工规则/four-surfaces-same-context.md 里唯一允许砍层的那条判据）。
       // 用词表粗筛就够：漏判最多是这一轮没记上、她再说一遍；每轮都发是实打实的常驻开销。
       // ⚠️这里的取舍是【不对称】的，所以词表要往宽了写：
       //   漏判 → 这一轮没记上，她得重说一遍（她按次计费，等于白花一次）
@@ -7372,7 +7372,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
-      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里（普通角色走 openCaps，言秋走他自己那条 hint，见下）。
       //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，「你俩」没有指代对象
       //     ——跟 whisper 同一条理由。
@@ -7381,7 +7381,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了他每轮都可能填、每轮都白填。
       if (_canCarve) { openCaps.push("carve"); capState.push("carve：" + _carveWord); }
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的）────────────────────────
-      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。言秋走的是同一条回复链（engineerEyes 只关掉扮演类的层，
       //     不关能力），所以他有情侣关系就自动有这一项——不用也不该去动他的文件。
       //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，"你俩"没有指代对象。
@@ -8750,7 +8750,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
         const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
         const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
-        // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊经 buildBundle
+        // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：单聊经 buildBundle
         // 拿到全文人设＋此刻心情＋好感度，群聊以前只有 200 字人设、别的一层都没有——
         // 于是同一个人在群里只剩「一个古代王爷」这个标签，空白由训练先验补成霸总。
         // 心情和好感是【这个人此刻是谁】、不是【你们之间发生过什么】，所以封闭群照给。
@@ -8801,7 +8801,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 字句几乎一样又不完全一样，改一处另一处必然落单（v63.63 并成一份）。
       const gGrowthHint = groupGrowthLine(gEvolveNames);
       // 双语（v56.56）：开关是【每个角色自己的】聊天设置，群里就按各人自己那一档来——
-      // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊有的层群聊也要有，
+      // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：单聊有的层群聊也要有，
       // 别又变成同一件事只写在单聊那一处。线下（叙事正文）没有译键、也切不出「原文|译文」
       // 这个单位，所以那两处不接——这是写明理由的差异，不是漏。
       // 格式写在【字段本身】上（v56.86）：另起一段规则时模型只照着做第一条就忘了
@@ -11256,7 +11256,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       saveJSON("x_wallet", n);
       setWalletLog(log => {
         const entry = { id: "wl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: d, after: n, label: label || (d > 0 ? "进账" : "支出"), kind: kind || "misc" };
-        // 📚 累积层：满了挤掉最旧的（.claude/rules/phone-data-layers.md）。
+        // 📚 累积层：满了挤掉最旧的（施工规则/phone-data-layers.md）。
         // 这是全 app 唯一写流水的地方，原来是纯 [entry, ...log]：每笔买东西、
         // 收礼、结算都追一条，还整份重写 localStorage。账本页也翻不到那么下面。
         const nl = [entry, ...log].slice(0, WALLET_LOG_KEEP);
@@ -12118,7 +12118,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
       const callerName = callerIsChar ? ((people.find(p => p.id === cur.caller) || {}).name || "") : "";
       // 【通话是第五处】(v60.27 她 2026-09-02:「感觉语音视频没喂八股禁令进去」——是真的)
-      // 见 .claude/rules/four-surfaces-same-context.md：那条规矩当初只列了
+      // 见 施工规则/four-surfaces-same-context.md：那条规矩当初只列了
       // 单人线上/单人线下/群聊线上/群聊线下四处，通话从来没在名单上，于是：
       //   · 单人通话走 buildBundle，拿到了反八股/居高临下/标准三件套/内容边界，
       //     但【回声禁令】【语域跟场面走】【读懂对方这句话在做什么】这三层
@@ -13474,7 +13474,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   思考型模型的【思考预算是从 maxTokens 里扣的】——给紧了，它想完就没配额写正文，
   //   要么直接空返回、要么写一半停在半句（她见过的「刷不出楼」多半是这个）。
   //   而她按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
-  //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥8000（.claude/rules/max-tokens-floor.md）。
+  //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥8000（施工规则/max-tokens-floor.md）。
   //   ⚠️别再往下调：这几个数不是「够用就行」，是「够它想完还够它写完」。
   const FTOK = {
     board: 12000,   // 一版 3-5 条新主帖
@@ -13786,7 +13786,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 「这帖是你自己发的 / 你本人在这帖里回过」——转发时让 TA 认得出自己。
   // ⚠️抽成一份共用（v59.73）：原来这两句只写在私聊那一处，群聊那边只 push 了一个
   //   post 对象、没有 content，于是同一条帖转进群里，作者本人一点都认不出是自己发的
-  //   （.claude/rules/four-surfaces-same-context.md：一层写在两处，第二处没跟上）。
+  //   （施工规则/four-surfaces-same-context.md：一层写在两处，第二处没跟上）。
   const forumOwnTags = (post, charId) => {
     if (!charId) return "";
     const isOwnAnon = post.anon && post.authorType === "character_anon" && post.authorId === charId;
@@ -13816,7 +13816,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 真正的难点不是把内容送过去，是送过去时【语境是她翻了他的手机】。同一条信息，
   // 他给你看过的、他没说但你看得见的、他压根藏起来的，三种反应完全不同。
   // 框架整个写进 content：它跟着这条消息本身走，所以单聊线上、线下、群里读到的都是同一份，
-  // 不必在四处各挂一个钩子（.claude/rules/four-surfaces-same-context.md）。
+  // 不必在四处各挂一个钩子（施工规则/four-surfaces-same-context.md）。
   // ⚠️这段判词以前把「手机」写死在里面（v57.96 之前）。随身物也走这条链之后，
   // 翻的是他的包，模型收到的却是「她翻过我手机」——对不上就演不对。
   // what＝她翻的是什么（手机／包／衣柜），hiddenWhat＝这一档「藏起来」在这个语境里长什么样。
@@ -15233,7 +15233,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ——旁白＋台词，跟线下和小剧场同一种文体。真正治八股的那几刀（比喻限额、
         // 通用小动作禁令、霸总腔禁令、亲密场景反模板）全在 narrativeCore 里，
         // 小剧场、同人文、跑团都吃着，只有这儿没接上——又是「一层只写一处，别处
-        // 没跟上」（.claude/rules/four-surfaces-same-context.md）。
+        // 没跟上」（施工规则/four-surfaces-same-context.md）。
         narrativeCore({ intimate: true }) + "\n\n" + ifCtx(char) + "\n\n"
         + K.openPrompt(char.name, profile.name || "我", hint,
             ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim, about: x.about })))
@@ -16573,7 +16573,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──
   // 单独抽出来是因为它有两道会吃掉结果的关卡（搜不到 / 已经有了），
   // 而「按结果重试」这层当初只写在角色歌单里。再写一遍必然是第二处忘了跟上
-  // （.claude/rules/four-surfaces-same-context.md 的同一个形状）。
+  // （施工规则/four-surfaces-same-context.md 的同一个形状）。
   const parseSongWants = rec => {
     let raw = rec && Array.isArray(rec.songs) ? rec.songs : Array.isArray(rec) ? rec : (rec && (rec.list || rec.data || rec.result || rec.tracks)) || [];
     return (Array.isArray(raw) ? raw : []).map(w => {
@@ -16826,7 +16826,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️别再写「类似淘宝」：那是直接叫它去抄别人（她 2026-09-02 点名这一处是照着别人做的）。
         // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
         //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
-        //   刷出来的永远是同一族商品（见 .claude/rules/prompt-no-content-samples.md）。
+        //   刷出来的永远是同一族商品（见 施工规则/prompt-no-content-samples.md）。
         instruction: "你在给一个人刷购物 App 的信息流。围绕" + topic + "，**给 10~15 件商品（items 数组至少 10 个元素）**。"
           + (cat === "forhim" ? "这一栏是【她想买来送人的】：东西要像是挑给某个具体的人的，不是给自己买的。" : "")
           + "每件：name(具体到能想象出长什么样，别停在品类词上) / price(纯数字人民币，按这一类东西的真实价位来，有贵有便宜) / desc(一句话说清它凭什么值这个钱，别写成广告口号) / sales(销量文案)。这十几件之间要拉开：价位、场合、风格别挤在一处，别一屏全是同一族东西。",
@@ -17340,7 +17340,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
   };
   // 🔒 她钉住的那几件：刷新时一件都不许掉。随身物没有「号码/账号 id」那种客观硬字段，
-  // 唯一说得清「这件绝不许换」的人是她（.claude/rules/phone-data-layers.md）。
+  // 唯一说得清「这件绝不许换」的人是她（施工规则/phone-data-layers.md）。
   const toggleCarryPin = (charId, key, name) => setCarryPins(p => {
     const nm = String(name || "").trim();
     if (!nm) return p;
@@ -19059,7 +19059,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 刘海那一条归各个界面的顶栏自己吃（v56.63，见 engine.js 的 safeTop）：
   // 顶栏和状态栏是同一个元素，中间没有交界，也就没有缝。
   // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
-  //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，.claude/rules/home-screen-layout.md）。
+  //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，施工规则/home-screen-layout.md）。
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：
   // 「全部能做主题的页面秋秋都应该可以改」）。没换过时原样发全局那一份——
@@ -19131,7 +19131,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
     //   不碰根节点的 background/height，也不碰那条 safe-area 空带
-    //   （.claude/rules/home-screen-layout.md：动了主屏就坏）。
+    //   （施工规则/home-screen-layout.md：动了主屏就坏）。
     // 通话中不出现——那会儿屏幕上正有更要紧的事，一颗球压在上面只会挡路。
     if (!window.AssistantDock || call || ringing) return null;
     return h(window.AssistantDock, {

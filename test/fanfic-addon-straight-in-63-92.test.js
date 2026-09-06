@@ -58,7 +58,7 @@ test("原文第一段立刻摆上，不等骨架那一枪", () => {
 });
 
 test("作者页那个字数是真的——章节存的那一栏叫 content", () => {
-  // ⚠️.claude/rules/stub-from-the-writer.md：照着【写存档的那段】认字段名。
+  // ⚠️施工规则/stub-from-the-writer.md：照着【写存档的那段】认字段名。
   const w = fic.match(/chapters: \[\{ content: x\.body, endHook: x\.endHook/);
   assert.ok(w, "写入方改了字段名，读的那头得跟上");
   assert.doesNotMatch(fic, /words \+= String\(\(c && c\.body\) \|\| ""\)\.length/, "又在数一个不存在的栏");

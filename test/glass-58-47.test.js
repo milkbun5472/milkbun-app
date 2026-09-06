@@ -99,7 +99,7 @@ test("铺了壁纸时字翻成白的，四处都翻", () => {
   assert.match(comp, /pi === page \? \(wallpaper \? "rgba\(255,255,255,0\.95\)"/, "页码点没跟着翻");
 });
 
-// .claude/rules/home-screen-layout.md：主屏的骨架一个都不许动，这次只动上色
+// 施工规则/home-screen-layout.md：主屏的骨架一个都不许动，这次只动上色
 test("主屏骨架没被这次改玻璃碰到", () => {
   // v58.48 起 Home 只剩一支（没壁纸那块底搬去了根节点，两支合并成一支）
   assert.equal((comp.match(/height: "100vh"/g) || []).length, 1);

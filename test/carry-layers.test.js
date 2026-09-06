@@ -172,7 +172,7 @@ test("护理那一栏删了，旧版随身物那套死代码也删了", () => {
 });
 
 // ── UI（她 2026-08-29「页面略丑，先做衣柜」）──────────────────
-// 铁律 .claude/rules/mobile-ui-layout.md §1：普通子页面用紧凑标题栏。
+// 铁律 施工规则/mobile-ui-layout.md §1：普通子页面用紧凑标题栏。
 // ⚠️这条原来写的是「禁止用 Head」——那是 v57.x 的实情：那时 Head 自己就是
 //   30px 大标题。v61.27 起 Head 本身【就是】那条紧凑栏，于是这句禁令反过来了：
 //   现在必须走 Head，安全区、返回键、居中标题、右侧等宽位全归它管
@@ -281,7 +281,7 @@ test("详情页把这件衣服本身画进去，底色也取自它自己", () =>
   const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
   assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
-  // v61.42 起眉标不留英文（.claude/rules/no-english-titles.md）；钉的是【那一栏说的是什么】，不是那串英文
+  // v61.42 起眉标不留英文（施工规则/no-english-titles.md）；钉的是【那一栏说的是什么】，不是那串英文
   assert.match(seg, /label\("什么场合穿", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
   assert.match(seg, /label\("什么料子", tone\.word\)/, "东西那一路的 eyebrow 是材质");
   // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍

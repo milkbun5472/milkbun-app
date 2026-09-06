@@ -71,7 +71,7 @@ test("私密那一档单独钉住占有欲宣言那条路", () => {
 });
 
 // 判据是【描述失败长什么样】，不是【给一句范文】——给了范文模型就照着抄
-// （见 .claude/rules/prompt-no-content-samples.md）
+// （见 施工规则/prompt-no-content-samples.md）
 test("立判据的时候没顺手塞一句范文进去", () => {
   const ins = spec(null);
   const qBlock = ins.slice(ins.indexOf("【quote 是这份报告里最容易写成八股的一栏"),

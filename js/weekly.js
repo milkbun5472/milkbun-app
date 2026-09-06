@@ -71,7 +71,7 @@
   // ⚠️不给他名字：NAME_GUARD 明写「只能用本周出场人物里那几个真名」，
   //   多一个名字就是多一个会被写进正文的名字。他署名就是「本刊记者」。
   // ⚠️这里只写【他怎么问】，不写任何示例问题——示例问题会被逐字抄到每个角色头上
-  //   （.claude/rules/prompt-no-content-samples.md）。
+  //   （施工规则/prompt-no-content-samples.md）。
   // 括号动作：中英文圆括号都认；太长的不算动作（那多半是正文里的插话），原样当正文
   const ACT_RE = /（[^（）]{1,24}）|\([^()]{1,24}\)/g;
   // 把一段回答切成【正文 / 括号动作】交替的几段，渲染时两种各给一套字
@@ -582,7 +582,7 @@
   //   v59.96 全 app 扫额度时我只认 `maxTokens: 数字` 这个写法，把这里六处漏了
   //   （采访、语录、来信、小报、头版都卡在 6000 以下）。这里兜一道底线：
   //   思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额写正文。
-  //   见 .claude/rules/max-tokens-floor.md。
+  //   见 施工规则/max-tokens-floor.md。
   async function genJSON(active, sys, userContent, maxTokens) {
     const tok = Math.max(8000, Number(maxTokens) || 0);
     const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok });

@@ -9,12 +9,12 @@ const engine = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
 // v62.39（她 2026-09-04：「接进群聊吧宝宝，八处不一起喂吗」）
 //
 // A 的情绪底色原来只挂在【单聊线上那两条任务串】上。按
-// .claude/rules/four-surfaces-same-context.md 那条判据，那是「靠调用点一条条 push 的」
+// 施工规则/four-surfaces-same-context.md 那条判据，那是「靠调用点一条条 push 的」
 // 那一类：换个入口就一个字都没有，而且不留任何能 grep 的痕迹。
 // 所以它挪进了 buildBundle（白送给单聊线上/线下、通话、匿名信箱、解梦馆），
 // 群聊那两处不走 bundle，各自按人喂。
 //
-// ⚠️这份测试的桩是照着【写的那一头】钉的（.claude/rules/stub-from-the-writer.md）：
+// ⚠️这份测试的桩是照着【写的那一头】钉的（施工规则/stub-from-the-writer.md）：
 // 断言直接匹配 ctxFor 里那个字面量和 memberDesc 里那个拼接，
 // 哪天有人改了字段名，读的那头当场红。
 

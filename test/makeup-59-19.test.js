@@ -81,7 +81,7 @@ test("四条线都接上了：格子、路由、主线上下文、回流", () =>
   // 没事时不该跟别的一样重：不折、不上底、不抬起
   assert.match(tile, /const lit = !!\(mkSig\.on \|\| mkCur\);/);
   assert.match(tile, /background: lit \? "linear-gradient\(180deg,#fcefe9/, "没事时它也占着一整块");
-  // ② 整页，不是半窗（.claude/rules/no-half-sheet.md）
+  // ② 整页，不是半窗（施工规则/no-half-sheet.md）
   const room = cut(scr, "function MakeupRoom({", "\n}\n");
   assert.match(room, /className: "h-full flex flex-col"/, "没按整页做");
   assert.ok(room.indexOf("h(Sheet") < 0, "用了半窗");

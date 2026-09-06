@@ -112,7 +112,7 @@
   }
   // 把 x_worlds 摊成一串可以看天气的地方。
   // ⚠️字段名照【写 x_worlds 那段代码】抄（app.js 的 genWorld：{id,name,regions:[{name,terrain}]}），
-  //   不是照这儿以为的样子编（.claude/rules/stub-from-the-writer.md）。
+  //   不是照这儿以为的样子编（施工规则/stub-from-the-writer.md）。
   function placesOf(worlds) {
     const out = [];
     (Array.isArray(worlds) ? worlds : []).forEach(function (w) {

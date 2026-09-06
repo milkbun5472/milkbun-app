@@ -61,7 +61,7 @@
   }
 
   // ── 生成：一个地方一次调用 ──────────────────────────────
-  // 提示词只给【判据】，不给内容示范（.claude/rules/prompt-no-content-samples.md）。
+  // 提示词只给【判据】，不给内容示范（施工规则/prompt-no-content-samples.md）。
   // 判据压到一条：每一件都要能反过来说出他这个人的一件事。
   function placeSpec(char, hintName, known) {
     const nm = char.name;

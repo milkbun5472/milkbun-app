@@ -69,7 +69,7 @@ test("能主动私信一个网友，他在私信里得还是吧里那个人", ()
 
 // 审计发现：同一条帖转进群里，作者本人一点都认不出是自己发的
 test("转发到群聊也带上「这帖是你自己发的」，跟私聊同一份", () => {
-  // .claude/rules/four-surfaces-same-context.md：一层写在两处，第二处没跟上
+  // 施工规则/four-surfaces-same-context.md：一层写在两处，第二处没跟上
   assert.match(ap, /const forumOwnTags = \(post, charId\) => \{/, "识别标签没抽成一份共用的");
   assert.match(ap, /const forumShareText = \(post, tags\) =>/, "转发正文没抽成一份共用的");
   const fg = cut(ap, "const forwardPostToGroup = (post, groupId)", "\n  // ficshare");

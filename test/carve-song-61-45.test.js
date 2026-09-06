@@ -52,7 +52,7 @@ test("两支共用同一份文案，不许各写一份", () => {
 });
 
 test("提示词里给判据不给内容示范", () => {
-  // .claude/rules/prompt-no-content-samples.md：写一句「比如……」进去，
+  // 施工规则/prompt-no-content-samples.md：写一句「比如……」进去，
   // 模型会把那句当模板，每次刻的理由都长一个样。
   const w = noComment(app.slice(app.indexOf("const _carveWord = "), app.indexOf("const digitalCarveHint = ")));
   assert.match(w, /不是夸这首歌本身好听/, "没说清 note 要写什么维度");

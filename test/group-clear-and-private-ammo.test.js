@@ -83,7 +83,7 @@ test("私聊背景是背景不是弹药——这条规则本身要存在", () =>
   assert.match(rule, /话题【自己走到那儿】/, "允许自然聊到，只禁主动端上台面");
 });
 
-// 四处一样喂（.claude/rules/four-surfaces-same-context.md）：
+// 四处一样喂（施工规则/four-surfaces-same-context.md）：
 // 群线上有两条私聊入口（互通群走 interop、封闭群走 preJoin），群线下走 memberRecent。
 // 三处都要挂，漏一处就是那一处又回到「可以说＝值得说」。
 test("三处群私聊围栏都挂上了这条刀", () => {

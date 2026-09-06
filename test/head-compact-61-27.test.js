@@ -1,6 +1,6 @@
 // 她 2026-09-03：「你又忘了把头上那一大块游戏去掉，你怎么老是忘」
 //
-// 病根不是记性：.claude/rules/mobile-ui-layout.md §1 早就写着「普通子页面用紧凑标题栏，
+// 病根不是记性：施工规则/mobile-ui-layout.md §1 早就写着「普通子页面用紧凑标题栏，
 // 禁止 30–40px 大标题」，可我一直在【一页一页地】改它——穿书那次单独写了一条紧凑栏，
 // 小游戏那次又想着「Head 是公共的，别动」。于是每来一页就得重新想起来一次。
 // Head 自己就是那个违规的东西，六十多处都在用它：改它一处，六十多页一起合规。
@@ -8,9 +8,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/mobile-ui-layout.md"), "utf8");
+const rule = ruleText("mobile-ui-layout");
 const HEAD = comp.slice(comp.indexOf("function Head({"), comp.indexOf("function AvatarPicker({"));
 
 test("Head 就是那条紧凑标题栏，不再是 30px 大标题", () => {
@@ -79,7 +81,7 @@ test("外壳自己有底纹时，顶栏让得出去", () => {
 // 自己摆了一块 34px 斜体大标题 + safeTop(24) 的留白，占掉近三分之一屏。
 // 改好它容易，问题是【没有任何一条测试拦得住下一页再这么写】：Head 改对了，
 // 绕开 Head 的那些页一条都不受影响，而且不会留下任何可以 grep 的痕迹
-//（.claude/rules/four-surfaces-same-context.md 的那条判据）。所以这条改成扫全库。
+//（施工规则/four-surfaces-same-context.md 的那条判据）。所以这条改成扫全库。
 test("没有哪一页绕开 Head 自己摆一块大标题", () => {
   const JSDIR = path.join(root, "js");
   const bad = [];

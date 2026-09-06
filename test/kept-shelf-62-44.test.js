@@ -24,13 +24,13 @@ test("时光胶囊里一个 emoji 都不许剩", () => {
   });
   assert.deepEqual(inUI, [], "界面文案里还留着这些字符当图标：" + inUI.join(""));
   assert.ok(bad.length < 40, "注释里也塞太多符号了");
-  // 顺带：英文标题也清掉（.claude/rules/no-english-titles.md）
+  // 顺带：英文标题也清掉（施工规则/no-english-titles.md）
   assert.doesNotMatch(cap, /en: "(Capsule|Seal)"/, "英文眉标还留着");
 });
 
 test("胶囊的三种状态是三种形状，不是三种颜色", () => {
   // 封＝印是整的；启＝印裂了一道；已拆＝印掰成两半。色弱和阳光下只剩形状可依
-  //（.claude/rules/tabs-not-plain-pills.md 那两条不许牺牲的之一）。
+  //（施工规则/tabs-not-plain-pills.md 那两条不许牺牲的之一）。
   assert.match(cap, /const waxSeal = kind => kind === "done"/);
   assert.match(cap, /kind === "due" \? "启" : "封"/, "印上刻的字没了");
   assert.match(cap, /borderRadius: "15px 2px 2px 15px"|borderRadius: "13px 2px 2px 13px"/, "掰成两半那枚不见了");
@@ -63,7 +63,7 @@ test("说好的每条是一张字据，日子挂在旁边", () => {
   // 做到了＝盖一枚朱印，不是一个文字链
   assert.match(c, /fontFamily: F_DISPLAY, fontSize: 17 \} \}, "践"\)/, "那枚朱印没了");
   assert.match(c, /transform: "rotate\(-7deg\)"/, "印是正的——盖章不会盖得那么正");
-  // 底纹铺外壳、顶栏透上来（.claude/rules/mobile-ui-layout.md §3.5）
+  // 底纹铺外壳、顶栏透上来（施工规则/mobile-ui-layout.md §3.5）
   assert.match(c, /h\("div", \{ className: "h-full flex flex-col", style: \{ background: t\.bg,/);
   assert.match(c, /repeating-linear-gradient\(90deg,rgba\(140,115,70,\.05\)/, "契纸的竖格没了");
   assert.match(c, /h\(Head, \{ zh: "我们说好的", en: partner\.name, onBack: onBack, bg: "transparent" \}\)/);

@@ -2,13 +2,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
 const view = ph.slice(ph.indexOf("function TallyView({"), ph.indexOf("// 时间线视图"));
 const tabs = view.slice(view.indexOf("TALLY_TABS.map(x => h(\"button\""), view.indexOf("h(\"div\", { className: \"flex-1 min-h-0 overflow-y-auto px-5\""));
 
 // 她 2026-09-01：「这几个 tab 药丸形状还是有点普通。以后这些 tab 尽量不要只是这种
-// 基础款，之前留下来的我们慢慢改。」→ .claude/rules/tabs-not-plain-pills.md
+// 基础款，之前留下来的我们慢慢改。」→ 施工规则/tabs-not-plain-pills.md
 test("账本的五栏是账簿的索引标签，不是一排药丸", () => {
   assert.ok(tabs.indexOf("borderRadius: 99") < 0, "还是药丸");
   assert.match(tabs, /borderRadius: "9px 9px 0 0"/, "不是上圆下方的索引标签");
@@ -51,7 +53,7 @@ test("界面上那句「这本账不记钱」撤了", () => {
 });
 
 test("规矩写下来了，放任何施工的都能看到", () => {
-  const rule = fs.readFileSync(path.join(root, ".claude", "rules", "tabs-not-plain-pills.md"), "utf8");
+  const rule = ruleText("tabs-not-plain-pills");
   assert.match(rule, /这一组 tab 原样搬到另一个 app 里，还成立吗/, "没给判据");
   assert.match(rule, /新写的一律不许直接摆一排药丸/, "没说新写的怎么办");
   assert.match(rule, /改到哪一处、哪一处顺手换掉/, "没说旧的怎么办");

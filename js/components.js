@@ -479,7 +479,7 @@ function Spinner({
 // 紧凑标题栏（v61.27 把它从「30px 大标题 + 一行英文小字」改过来的）
 //
 // 她 2026-09-03：「你又忘了把头上那一大块游戏去掉，你怎么老是忘」——
-// 而 .claude/rules/mobile-ui-layout.md §1 早就写着：
+// 而 施工规则/mobile-ui-layout.md §1 早就写着：
 //   「普通子页面使用紧凑标题栏：返回键、居中小标题、右侧等宽操作位。
 //     禁止再放 30–40px 大标题和大块上下留白。」
 //
@@ -573,7 +573,7 @@ function Head({
   // ⚠️她 2026-09-03 立：**标题里所有英文都去掉，只留中文——除非这一处压根没写中文。**
   //   所以有 zh 的时候，纯拉丁的 en 一律不发（那一行「FOCUS DESK」「MOMENTS」谁都看得懂，
   //   但谁也不需要）。en 里写的是中文时照旧当副标题用——好些地方是拿 en 当 sub 使的。
-  //   改在这一处＝六十多页一起合规；各页自己删迟早漏（见 .claude/rules/no-english-titles.md）。
+  //   改在这一处＝六十多页一起合规；各页自己删迟早漏（见 施工规则/no-english-titles.md）。
   const enCJK = /[一-鿿]/.test(String(en || ""));
   const line = sub || ((zh && !enCJK) ? "" : (en || "")) || "";
   const cjk = /[一-鿿]/.test(String(line));
@@ -927,7 +927,7 @@ function Slider({
     }
   });
 }
-// ⚠️和 Head 同一条（.claude/rules/no-english-titles.md）：有中文主名时，
+// ⚠️和 Head 同一条（施工规则/no-english-titles.md）：有中文主名时，
 //   纯拉丁的 en 一律不发。这一个组件几十处在用，改这儿就一起合规了。
 //   en 里写的是中文时照旧当副名——判断看的是这串字里有没有汉字，不是它写在哪个字段里。
 // ── 设置里那一行档位：一把刻度尺，不是一排药丸（tabs-not-plain-pills）──────
@@ -1369,7 +1369,7 @@ function WeatherTagRail({ places, value, onPick }) {
 // 世界里的那几处：从选中那块牌子底下垂下来的一串小木签。
 // ⚠️故意跟上面那排【不是同一个形状】：上面是穿绳的吊牌，这里是签——
 //   两排长得一样的话，看着就是两排 tab，分级也就白分了
-//   （.claude/rules/tabs-not-plain-pills.md）。
+//   （施工规则/tabs-not-plain-pills.md）。
 function WeatherSubRail({ places, value, onPick }) {
   const t = useTheme();
   if (!places || places.length < 2) return null;
@@ -1448,7 +1448,7 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   //   Sheet 是 absolute inset-0，主屏又是横向分页的，所以它锚到的是那一页的格子容器，
   //   不是屏幕：她 2026-09-03 报「翻回上一页才会看到一个半屏的玩意还关不掉」——
   //   半窗掉在上一页上，关闭用的那块背景也跟着错位，点不到。
-  //   照 .claude/rules/no-half-sheet.md 改成【整页】：这一层的内容
+  //   照 施工规则/no-half-sheet.md 改成【整页】：这一层的内容
   //   （24 小时横条 + 7 天列表）根本不需要同时看见底下那一层，本来就该是整页。
   //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
   const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
@@ -2242,7 +2242,7 @@ function periodMap(period) {
 // ── 月事本（她 2026-09-05：「经期记录这块是不是可以多点能记的，参考别的经期记录软件，
 //    还有还是个半窗也要改」）──────────────────────────────────────────────
 //
-// ⚠️原来是个半窗，里头只有两个数字输入 + 两个按钮。按 .claude/rules/no-half-sheet.md
+// ⚠️原来是个半窗，里头只有两个数字输入 + 两个按钮。按 施工规则/no-half-sheet.md
 //   那句判据问一遍：这一层的内容需要同时看见底下那张月历吗？——不需要。所以整页。
 //   而且它现在装的东西比原来多得多，半窗那半屏根本放不下。
 //
@@ -2693,7 +2693,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
 
   const visSet = per.visibleTo || [];
   const toggleVis = id => onSavePeriod({ visibleTo: visSet.includes(id) ? visSet.filter(x => x !== id) : [...visSet, id] });
-  // ⚠️经期这一层【整页】，不再是半窗（.claude/rules/no-half-sheet.md）：
+  // ⚠️经期这一层【整页】，不再是半窗（施工规则/no-half-sheet.md）：
   //   判据那一句问下来——这一层需要同时看见底下那张月历吗？不需要。
   //   何况它现在装的东西比原来多得多，半屏根本放不下。
   if (pSet) return h(PeriodBook, {
@@ -5624,7 +5624,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
   return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
-    //   整屏高，主屏直接毁（.claude/rules/home-screen-layout.md）。用 flex:1。
+    //   整屏高，主屏直接毁（施工规则/home-screen-layout.md）。用 flex:1。
     h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "10px 14px 9px" } },
       // 眉批去掉之后这两颗键没了自己那一行。放右上角会把头像往中间挤（她 2026-09-03
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
@@ -10378,7 +10378,7 @@ function TransferComposeSheet({
 // 刷新键刷的是随机数,「当前位置 / Current」按下去发出去的字面就是「当前位置 / Current」。
 // 现在只留真东西:你写的那个地名,和你之前发过的几个。
 //
-// ⚠️为什么这一层还留半窗(见 .claude/rules/no-half-sheet.md):
+// ⚠️为什么这一层还留半窗(见 施工规则/no-half-sheet.md):
 //   它是「选一下就走」的那一种,而且下面那一层【正是它要发进去的那个聊天】——
 //   正好踩中那条规矩里半窗仅有的两种合格形状之一。
 function GeoStampSheet({ recent, onClose, onSend }) {
@@ -10543,7 +10543,7 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
 // 【分栏是真撞了】原来五栏：实时心情 / 对你的好感度 / 穿着 / 动作 / 内心想法——
 // 跟她截图里那个参考一字不差。光改名字不算改：那五栏本身就是「状态面板」这个
 // 通用形状，一排一模一样的圆角卡竖着摞，换个 app 照样成立
-//（.claude/rules/tabs-not-plain-pills.md 那条判据）。
+//（施工规则/tabs-not-plain-pills.md 那条判据）。
 //
 // 【改成三栏，按「一帧」来分】这张卡答的是「此刻他是什么样」：
 //   ① 此刻 —— 心情长在抬头那一行上，不单独占一张卡
@@ -10553,7 +10553,7 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
 //   ④ 分数只有一个，就别做成一排进度条：一条 0-100 的刻度，墨点站在当下的位置
 //
 // 【形状】屏幕正中的一个框，不是半窗。
-// ⚠️ .claude/rules/no-half-sheet.md 说默认整页，但那条针对的是「从底下掀起来、
+// ⚠️ 施工规则/no-half-sheet.md 说默认整页，但那条针对的是「从底下掀起来、
 //   上半屏糊着上一层」的半窗。这张卡是【贴在某一轮对话上的一帧】，看得见底下
 //   那层聊天是它成立的前提，而且内容就三段——正中一个框才是它该有的形状。
 //   这是她 2026-09-01 直接点的。
@@ -13926,7 +13926,7 @@ function ChatSettings({
     { key: "danger", char: "清", title: "拉黑与清空", tint: "#a8564a",
       state: () => iBlocked ? "已拉黑 " + cNm : "未拉黑 · 也可以清空这段记录" }
   ];
-  // ⚠️v61.79 从【半窗】改成【整页】（.claude/rules/no-half-sheet.md）：
+  // ⚠️v61.79 从【半窗】改成【整页】（施工规则/no-half-sheet.md）：
   //   分类页收起来只有四五行，半窗就缩成小半屏、上面糊着上一层的聊天，
   //   看着像没加载完——那正是那条规矩点名的样子。这一层也压根不需要
   //   同时看见底下那一层。顶栏用公共的 Head（mobile-ui-layout.md §1）。

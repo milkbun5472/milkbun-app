@@ -82,7 +82,7 @@ test("提示词单聊说「这个角色」，群里点名说是谁", () => {
   });
 });
 
-// ——接线：新加的一层不许只写在一处（.claude/rules/four-surfaces-same-context.md）
+// ——接线：新加的一层不许只写在一处（施工规则/four-surfaces-same-context.md）
 const noComment = src => src.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const appCode = noComment(app), compCode = noComment(comp);
 

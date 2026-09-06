@@ -69,7 +69,7 @@ test("三段话说的是【分寸】，不是台词——给了例句每个角�
   assert.deepEqual(Object.keys(TONE).sort(), ["asleep", "drowsy", "waking"]);
   Object.entries(TONE).forEach(([k, v]) => {
     assert.ok(v.length > 60, k + " 太短了，说不清分寸");
-    // 台词示范一律不许有（.claude/rules/prompt-no-content-samples.md）
+    // 台词示范一律不许有（施工规则/prompt-no-content-samples.md）
     assert.ok(!/[「『][^」』]{0,30}[…。？！~][」』]/.test(v), k + " 里塞了台词示范，模型会照抄：" + v);
   });
   // 睡着那一段必须写清【不许拿这个当借口不回】——不写死的话模型会摆烂
@@ -80,7 +80,7 @@ test("三段话说的是【分寸】，不是台词——给了例句每个角�
   assert.match(TONE.drowsy, /把困写进反应里/);
 });
 
-// ── 八处一样喂（.claude/rules/four-surfaces-same-context.md）──────────────
+// ── 八处一样喂（施工规则/four-surfaces-same-context.md）──────────────
 test("单聊线上/线下·通话·匿名信箱·解梦馆：走 bundle，一次全有", () => {
   assert.match(app, /sleepTone: sleepToneOf\(char\)/, "bundle 里没接");
   assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.sleepTone && ctx\.sleepTone\.trim\(\)\) parts\.push\(ctx\.sleepTone\.trim\(\)\);/,

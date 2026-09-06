@@ -1,7 +1,7 @@
 // 她 2026-09-03：「小游戏的界面还是有点普通无聊」。
 //
 // 原来这一屏是一列一模一样的圆角卡：emoji + 名字 + 一句说明。
-// 判据（.claude/rules/tabs-not-plain-pills.md）：原样搬到另一个 app 里还成立吗？
+// 判据（施工规则/tabs-not-plain-pills.md）：原样搬到另一个 app 里还成立吗？
 // 成立——那就是一张设置页的功能列表。而 emoji 是最省事也最不说明问题的图。
 // 先问「这个 app 在现实里是什么」：一架桌游盒。每一盒的封面画的就是那副游戏本身。
 const test = require("node:test");

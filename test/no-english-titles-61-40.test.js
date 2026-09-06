@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const comp = fs.readFileSync("js/components.js", "utf8");
 
 test("有中文标题时，纯拉丁的副标题一律不发", () => {
@@ -22,7 +24,7 @@ test("en 里写的是中文时照旧当副标题——判断看的是有没有�
 });
 
 test("这条规矩写进了规则目录，不然下一个人不知道", () => {
-  const rule = fs.readFileSync(".claude/rules/no-english-titles.md", "utf8");
+  const rule = ruleText("no-english-titles");
   assert.match(rule, /标题不留英文/);
   assert.match(rule, /这一处压根没有中文/);
   // 别硬翻：眉标该说的是这一栏在干嘛

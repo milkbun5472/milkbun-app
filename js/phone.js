@@ -689,7 +689,7 @@ function phoneAgo(x, nowTs) {
 // ⚠️模型会把 schemaHint 里的占位说明【原样抄进数据】。
 // 她 2026-09-01 截图里「想吃清单」有三条的「什么时候会想起它」是灰的——那不是空，
 // 那就是 schemaHint 里 "when":"什么时候会想起它" 被逐字抄了回来，还把上一轮真写的
-// 那句盖掉了。这跟 .claude/rules/prompt-no-content-samples.md 是同一件事的另一半：
+// 那句盖掉了。这跟 施工规则/prompt-no-content-samples.md 是同一件事的另一半：
 // 占位值写成【说明】仍然挡不住照抄，**规则降概率，代码才保证**。
 // 做法不挑字段、不写死名单：把这个 app 自己那份 schemaHint 里所有字符串叶子收集起来，
 // 生成结果里凡是跟其中一条【一模一样】的字符串，一律当成没写。
@@ -2044,7 +2044,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   } },
     h(Head, { zh: "时间线", bg: "transparent", noLine: true, onBack }),
     // ── 两格＝这条轴的两头（v59.66）────────────────────────────────
-    // 她 2026-09-01：「把时间线的也弄了吧」→ .claude/rules/tabs-not-plain-pills.md。
+    // 她 2026-09-01：「把时间线的也弄了吧」→ 施工规则/tabs-not-plain-pills.md。
     // v59.60 只改了一半：位置有意义了（各站一头、中间钉着现在），形状还是两颗药丸。
     // 现在【那一格就是那半条轴】：标签在外头，轨从标签一路铺到中间那个「现在」。
     // 选中的那半轨加粗、上墨、外头钉一根端点；没选的还是发丝一样细。
@@ -2689,7 +2689,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
-  // （.claude/rules/mobile-ui-layout.md §2）
+  // （施工规则/mobile-ui-layout.md §2）
   const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   // ── 一张照片（v62.60 重做）─────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：白底 + 圆角 20 的缩略图 +
@@ -2837,7 +2837,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const total = shelves.reduce((n, sh) => n + (Array.isArray(sh.books) ? sh.books.length : 0), 0);
   const marked = shelves.reduce((n, sh) => n + (Array.isArray(sh.books) ? sh.books.filter(b => b && String(b.quote || "").trim()).length : 0), 0);
   const archive = (d && typeof d.archive === "object" && d.archive) || {};
-  // 详情返回要回到原来的位置（.claude/rules/mobile-ui-layout.md §3）
+  // 详情返回要回到原来的位置（施工规则/mobile-ui-layout.md §3）
   const openBook = (b, sh, i) => {
     returnScroll.current = { top: scrollRef.current ? scrollRef.current.scrollTop : 0, pending: false };
     setBook({ ...b, _shelf: sh.name || "", _no: i + 1 });
@@ -2978,7 +2978,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       className: "w-full active:opacity-60",
       style: { marginTop: 18, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + READ_LINE, color: READ_INK }
     }, T("转发给 TA · 他会知道你翻了手机")) : null);
-  // 内页底栏：高度以主聊天输入栏为标尺（.claude/rules/mobile-ui-layout.md §2）——
+  // 内页底栏：高度以主聊天输入栏为标尺（施工规则/mobile-ui-layout.md §2）——
   // 只吃 0.4 条底部安全区，不许再 + Npx，也不给 minHeight 垫高
   const nav = h("div", {
     className: "shrink-0 grid grid-cols-2",
@@ -4246,7 +4246,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // ── 一条笔记：整页（v59.58）───────────────────────────────────────────
   // 她 2026-09-01：「小红书现在是半屏，帮我弄成点开是全屏样式吧」。
   // 原来是从底下掀起来的半窗（justify-end + maxHeight 84%）——
-  // 见 .claude/rules/no-half-sheet.md：**默认不要半窗**。
+  // 见 施工规则/no-half-sheet.md：**默认不要半窗**。
   // 判据是「这一层的内容，需要同时看见它下面那一层吗？」——一条笔记不需要，
   // 它有正文、标签、点赞、还有一颗转发按钮，半窗先扣掉一半屏幕纯属白扣。
   // 整页照【去处】那两页的做法：顶栏 shrink-0、正文 flex-1 min-h-0 overflow-y-auto，
@@ -5075,7 +5075,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // ─────────────────────────────────────────────────────────────
 // 她 2026-09-01：「歌单 ui 现在也还是普普通通的」。
 // 原来是【一排小方图 + 歌名 + 歌手】——任何音乐 app 都长这样，
-// 按 .claude/rules/tabs-not-plain-pills.md 那条判据（换个 app 照样成立就是写坏了）
+// 按 施工规则/tabs-not-plain-pills.md 那条判据（换个 app 照样成立就是写坏了）
 // 就是没设计。而且那排 34px 的灰方块正是「哪个音乐 app 都有」的那一样东西。
 // 这一页真正独有的是 note：**他为什么循环这一首**。所以照【碟的曲目单】来做：
 // 顶上一张真的碟（纹路是程序画的，不烧生图额度），底下曲目一行行，
@@ -5189,7 +5189,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack }) {
               fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.accent, marginTop: 7,
               paddingLeft: 9, borderLeft: "2px solid " + t.accent, opacity: .92, wordBreak: "break-word"
             } }, note) : null,
-            // 点开就在原地摊开，不掀半窗（.claude/rules/no-half-sheet.md）。
+            // 点开就在原地摊开，不掀半窗（施工规则/no-half-sheet.md）。
             // 一首歌要说的就这两个动作，为它另开一层页面反而更重。
             on ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 11 } },
               onPlay ? act("放这首", () => onPlay(s2)) : null,
@@ -5623,7 +5623,7 @@ function PhoneCarry({
     // 这一页正中摆的是一块「手机屏」——手机是摆在【桌上】的，所以外壳该是张桌子，
     // 不是一片米白（顶栏跟着透上来，不然顶上横一条没盖住的带子）
     return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
-      // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1），不再顶一块 30px 大标题
+      // 紧凑标题栏（施工规则/mobile-ui-layout.md §1），不再顶一块 30px 大标题
       h(Head, { zh: "查手机",
         bg: "transparent",
         noLine: true,
@@ -6262,7 +6262,7 @@ function PhoneCarry({
 //
 // ⚠️她 2026-09-05 报过一模一样的病，那次是行程：「资料丢了重新找回来，王爷就变成
 //   在公寓里了」。当时给行程写了 SCHED_WORLD_RULE（engine.js），查手机没跟上——
-//   .claude/rules/four-surfaces-same-context.md 那条老病，而查手机压根没在那张名单上。
+//   施工规则/four-surfaces-same-context.md 那条老病，而查手机压根没在那张名单上。
 //
 // ⚠️查手机比别处更容易滑回去，因为【这个界面本身就是中文的】：微信、朋友圈、小红书、
 //   仿 bilibili，连渲染层的钱都写死了 ¥。模型看见一屏中文 app，就默认这人在国内。
@@ -6748,7 +6748,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   };
   // 取材层 + 时间窗 + 不许复读：三样都拼在 instruction 上。
   // 拼在这里而不是各 app 的 instruction 里，是为了【四处一样喂】——
-  // 新加一个 app 时不必记得手动补，漏不掉（.claude/rules/four-surfaces-same-context.md）。
+  // 新加一个 app 时不必记得手动补，漏不掉（施工规则/four-surfaces-same-context.md）。
   const angle = PHONE_ANGLE[key] ? "\n\n" + PHONE_ANGLE[key] : "";
   // 输出天花板统一给满（同 StylePresets.OUT_CEILING / trpg 的 TOK_MAX）。
   // max_tokens 是【天花板】不是预付款：她按次计费，给大了不多花一分钱，给小了才要命——

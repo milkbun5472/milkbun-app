@@ -52,7 +52,7 @@
 
   // 三屏共用的那层底（v62.44）：时光胶囊是【埋下去】的东西，所以底纹是一层层压下去的沉积。
   // 铺在最外那个 h-full 外壳上、Head 传 transparent 让它透上来，顶上才不会横一道没盖住的带子
-  //（.claude/rules/mobile-ui-layout.md §3.5）。也不跟着滚——内容在动，底不该动。
+  //（施工规则/mobile-ui-layout.md §3.5）。也不跟着滚——内容在动，底不该动。
   const STRATA = "repeating-linear-gradient(180deg,rgba(120,95,55,.055) 0 1px,rgba(0,0,0,0) 1px 11px),"
     + "repeating-linear-gradient(180deg,rgba(120,95,55,.03) 0 1px,rgba(0,0,0,0) 1px 37px)";
   function CapsuleApp(props) {

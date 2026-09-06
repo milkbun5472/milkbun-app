@@ -7,6 +7,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const app = fs.readFileSync("js/app.js", "utf8");
 
 const grab = (from, to) => {
@@ -43,7 +45,7 @@ test("树洞的语域要单独点明：对陌生人和对熟人不是一个分�
 });
 
 test("这条规矩自己也得改：匿名信箱得在名单上", () => {
-  const rule = fs.readFileSync(".claude/rules/four-surfaces-same-context.md", "utf8");
+  const rule = ruleText("four-surfaces-same-context");
   // ⚠️别钉那个总数：每补一处它就变一次（v61.47 已经变成八处了）。
   // 要钉的是【这一处在不在名单上】，不是名单有多长。
   assert.match(rule, /名单是【[一二三四五六七八九十]+处】[^\n]*匿名信箱/);

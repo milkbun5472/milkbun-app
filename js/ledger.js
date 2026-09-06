@@ -796,7 +796,7 @@
     // 选中那张直接长进底下那一页里——那一页就是你正在写的这一栏。
     const seg = (val, labelZh) => bookTab(type === val, labelZh, () => { setType(val); setCat(null); }, val === "income" ? INC : EXP);
 
-    // 整页，不用半窗（.claude/rules/no-half-sheet.md）：金额、币种、十几个分类、
+    // 整页，不用半窗（施工规则/no-half-sheet.md）：金额、币种、十几个分类、
     // 日期、备注——半窗里正文只剩几行，而这一层压根不需要同时看见底下那一层。
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
       h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },

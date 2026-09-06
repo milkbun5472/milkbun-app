@@ -229,7 +229,7 @@ test("顶栏写的是「书架 / 阅读档案」，不是角色名", () => {
 });
 
 test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () => {
-  // .claude/rules/mobile-ui-layout.md §2
+  // 施工规则/mobile-ui-layout.md §2
   const navs = SRC.match(/const nav = h\("div", \{[\s\S]{0,400}?\}\s*\}/g) || [];
   assert.ok(navs.length >= 2, "阅读和相册各该有一条内页底栏");
   navs.forEach(n => {
@@ -676,7 +676,7 @@ test("小红书「我的」按参考稿来，并且有草稿箱", () => {
   assert.match(spec.schemaHint, /"xhsId"/);
 });
 
-test("提示词里不许再塞具体的内容示范（.claude/rules/prompt-no-content-samples.md）", () => {
+test("提示词里不许再塞具体的内容示范（施工规则/prompt-no-content-samples.md）", () => {
   // 她 2026-08-29：「现在模型都在抄格式了，以后提示词都不要塞特定格式的」
   // 写得越好的例子被抄得越狠——它就是那一栏里唯一可复制的东西。
   const P = loadPhone();

@@ -52,7 +52,7 @@
   //                           briefs:[{ts,type,target,note}], avoid:[{topic,level,ts}], echoPending } }
   // entry = { id, text, root, source:'echo'|'spark'|'vine', parentId?, weight, touches, lastTouch, born,
   //           tracks:[{ts,text}], status:'active'|'ash'|'graduated'|'withered', poem?, gradTs?, witherTs? }
-  // ── 这几栏各是什么层（照 .claude/rules/phone-data-layers.md 那两问分）──────
+  // ── 这几栏各是什么层（照 施工规则/phone-data-layers.md 那两问分）──────
   //   ⚠️那份外面的参考文档把这些一律叫「source_type 枚举」，平铺成一张表。
   //   我们有自己的分层法，判据是那两问：
   //     ① 这一栏变了，是「他变了」还是「系统忘了」？
@@ -239,7 +239,7 @@
   // P2 · 三节奏的后两拍：盘一盘（小校准）+ 回头看（一季自述）
   // ============================================================
   // ⚠️【这几个数必须是 7 的整数倍】——她自己的规矩，写在
-  //   .claude/rules/phone-data-layers.md 里（那儿定的是就诊间隔 14 天）：
+  //   施工规则/phone-data-layers.md 里（那儿定的是就诊间隔 14 天）：
   //     「它要跟【每周自动刷一次】那条链对齐，每隔一次周刷正好能带上一条。
   //       不是整周的话会跟周次错开——某几周赶得上、某几周赶不上，看着像随机。」
   //
@@ -470,7 +470,7 @@
     return ev.sort((a, x) => x.ts - a.ts);
   }
 
-  // ⚠️v61.63 从【半窗】改成【整页】（.claude/rules/no-half-sheet.md）：
+  // ⚠️v61.63 从【半窗】改成【整页】（施工规则/no-half-sheet.md）：
   //   这一页装着念想列表 + 长出来的自我 + 他这一路 + 旁人纸条 + 不想碰的 + 一季自述 +
   //   历年独白——没有一样是三行能说完的，正是那条规矩点名不许用半窗的情形。
   //   半窗的代价是固定的：不管里面装多少，先扣掉一半屏幕。

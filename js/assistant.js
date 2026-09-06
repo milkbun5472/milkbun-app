@@ -1189,7 +1189,7 @@
   // ============================================================
   // 小悬浮屏
   //
-  // ⚠️这一层为什么可以不是整页（.claude/rules/no-half-sheet.md）：
+  // ⚠️这一层为什么可以不是整页（施工规则/no-half-sheet.md）：
   //   那条规矩的判据是「这一层的内容，需要同时看见它下面那一层吗？」——
   //   这里的答案是【需要】，而且是全部的意义所在：她要一边看着某个功能一边问、
   //   一边让它改。整页会把要研究的那个东西整个盖掉，那就等于没有这个功能。
@@ -1209,7 +1209,7 @@
     return (typeof window !== "undefined" && window.innerHeight) || 800;
   };
   // 底部留白也跟主聊天输入栏同一把尺子（COMPOSER_PAD_BOTTOM，0.4 条安全区），
-  // 不自己拍一个数（.claude/rules/mobile-ui-layout.md §2）。
+  // 不自己拍一个数（施工规则/mobile-ui-layout.md §2）。
   let _sbCache = null;
   const safeBottom = () => {
     if (_sbCache != null) return _sbCache;

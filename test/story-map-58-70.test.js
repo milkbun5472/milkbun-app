@@ -79,7 +79,7 @@ test("重画：站在没了的地点上的人掉下来，还在的照旧", () =>
 // ── 界面铁律 ──────────────────────────────────────────────────────────────
 test("地点页是整页，不是半窗", () => {
   const np = grab(map, "    const nodePage = sel ?", "    return h(\"div\", { className: \"flex-1 flex flex-col\"");
-  assert.ok(!/h\(Sheet/.test(np), "地点页用了半窗——见 .claude/rules/no-half-sheet.md");
+  assert.ok(!/h\(Sheet/.test(np), "地点页用了半窗——见 施工规则/no-half-sheet.md");
   // ⚠️口径改了（v64.03）：整页那几项搬进了共用的 mapSubSkin（三层子页共用一份底，
   //   本来是三行一模一样的平色）。钉的意图没变，只是问它有没有用那一份。
   assert.match(np, /style: mapSubSkin\(t\)/, "没走那份共用的整页底");
@@ -89,7 +89,7 @@ test("地点页是整页，不是半窗", () => {
 
 test("好友地图这一页用紧凑标题栏，不用 40px 大标题", () => {
   const cm = grab(map, "  function CharMap({", "    const t = useTheme();", 400) + grab(map, "    return h(\"div\", { className: \"h-full flex flex-col\" },", "      (mode || \"real\") === \"story\"", 2000);
-  assert.ok(!/h\(Head,/.test(cm), "又用回了大标题 Head——见 .claude/rules/mobile-ui-layout.md §1");
+  assert.ok(!/h\(Head,/.test(cm), "又用回了大标题 Head——见 施工规则/mobile-ui-layout.md §1");
   assert.match(cm, /paddingTop: safeTop\(10\)/, "顶栏没自己吃安全区");
   assert.match(cm, /fontSize: 16/, "标题不是紧凑那一档");
 });

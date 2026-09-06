@@ -45,7 +45,7 @@ test("架空天气的形状必须和真实天气一样，天气详情页才不�
 });
 
 test("x_worlds 摊成地方时，字段名照写它那段代码抄", () => {
-  // .claude/rules/stub-from-the-writer.md：桩照【写存档的那段】写。
+  // 施工规则/stub-from-the-writer.md：桩照【写存档的那段】写。
   // app.js 的 genWorld 存的是 {id,name,regions:[{name,terrain,nodes}]}
   assert.match(app, /const next = \{ id: wid, name: nm, brief: bf, prompt: brief, regions/);
   const ps = W.placesOf([{ id: "w1", name: "雾泽", regions: [{ name: "北岭", terrain: "山地" }] }]);

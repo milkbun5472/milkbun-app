@@ -8,7 +8,7 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 const book = comp.slice(comp.indexOf("function PeriodBook({"), comp.indexOf("// ── 日历（v56.31 重做）"));
 
 test("经期那一层是【整页】，不再是半窗", () => {
-  // .claude/rules/no-half-sheet.md：这一层需要同时看见底下那张月历吗？不需要 → 整页。
+  // 施工规则/no-half-sheet.md：这一层需要同时看见底下那张月历吗？不需要 → 整页。
   assert.match(comp, /if \(pSet\) return h\(PeriodBook, \{/, "还没换成整页");
   assert.doesNotMatch(comp, /pSet && h\(Sheet/, "半窗那份还留着（撤东西要删干净）");
   assert.match(book, /className: "h-full flex flex-col"/);

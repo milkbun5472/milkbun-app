@@ -64,7 +64,7 @@ test("拍出来的同时上合照墙", () => {
   assert.match(app, /\.slice\(0, STUDIO_CAP\)/, "照相馆没有上限");
 });
 
-// .claude/rules/no-half-sheet.md / mobile-ui-layout.md
+// 施工规则/no-half-sheet.md / mobile-ui-layout.md
 test("整页，紧凑标题栏，正门在情侣空间", () => {
   // ⚠️切到 IF 线那一段之前为止：原来一路切到文件末尾，把别的组件也圈进来了
   const ui = scr.slice(scr.indexOf("function PhotoStudio({"), scr.indexOf("\nconst IF_INK"));

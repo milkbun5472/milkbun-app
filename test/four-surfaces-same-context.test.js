@@ -2,10 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/four-surfaces-same-context.md"), "utf8");
+const rule = ruleText("four-surfaces-same-context");
 
 // 她 2026-08-24 立的规矩：单人线上 / 单人线下 / 群聊线上 / 群聊线下，
 // 喂给模型的东西默认必须一样；差异必须是显式的、写着理由的。
@@ -53,7 +55,7 @@ test("四处旧的固定截断一个都不许留着", () => {
   // v56.03 起每处群人设都多一条 NPC 分支（配角走 NPC_PERSONA_CAP 小额度）
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
-  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   // v60.31：群通话也分出了配角那一支（配角不吃「此刻」那几层），所以是 5 处
   assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 5,
     "线上群（真角色+配角） + 投票 + 群通话（真角色+配角）");

@@ -141,7 +141,7 @@ test("头像和数字都是【定死的】，不是每次进来重摇一次", ()
   // ⚠️篇数和字数必须是真的（从她的文现算），不许也拿 hash 编
   assert.match(st, /works: mine\.length/);
   // ⚠️v63.92 修：这条原来跟代码一起错——章节存的那一栏叫 content，不叫 body，
-  //   于是「字」这一栏一直是 0，还没有任何报错（.claude/rules/stub-from-the-writer.md）。
+  //   于是「字」这一栏一直是 0，还没有任何报错（施工规则/stub-from-the-writer.md）。
   //   现在钉在【写存档的那一处】上：写的人哪天改了字段名，这条当场红。
   assert.match(st, /words \+= ficWords\(f\);/);
   assert.match(fan, /chapters: \[\{ content: x\.body, endHook: x\.endHook/, "写入方改了字段名");

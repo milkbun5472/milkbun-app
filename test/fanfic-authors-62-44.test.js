@@ -15,7 +15,7 @@ test("作者是单独一份名册，清空版块清不掉她们", () => {
 });
 
 test("名册按笔名认人，同一个笔名不许攒出两条", () => {
-  // .claude/rules/phone-data-layers.md：名册的身份是名字
+  // 施工规则/phone-data-layers.md：名册的身份是名字
   assert.match(fic, /const i = list\.findIndex\(function \(x\) \{ return authorName\(x\) === nm; \}\)/);
   // 空值不许抹掉旧值：已有的简介不被后来那份空的盖掉
   assert.match(fic, /bio: cur\.bio \|\| String\(a\.bio \|\| ""\)/);

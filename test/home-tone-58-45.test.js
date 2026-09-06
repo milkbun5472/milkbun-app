@@ -97,7 +97,7 @@ test("换过图标的 app 不上色", () => {
   assert.match(seg, /!customSrc/, "上色时没排除她自己换的图标");
 });
 
-// .claude/rules/home-screen-layout.md：主屏的尺寸一个都不许动，这次只动颜色
+// 施工规则/home-screen-layout.md：主屏的尺寸一个都不许动，这次只动颜色
 test("主屏的骨架没被这次改色碰到", () => {
   // v58.48 起 Home 只剩一支（底搬到根节点，两支合并），根节点那一处在 app.js
   assert.equal((comp.match(/height: "100vh"/g) || []).length, 1, "Home 的 100vh 变了");

@@ -3,9 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const GB = require("./_group-bans.js");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const rule = fs.readFileSync(path.join(root, ".claude/rules/four-surfaces-same-context.md"), "utf8");
+const rule = ruleText("four-surfaces-same-context");
 const send = app.slice(app.indexOf("const callSend"), app.indexOf("const endCall"));
 const one = send.slice(send.indexOf("if (people.length <= 1)"), send.indexOf("// 群通话"));
 const grp = send.slice(send.indexOf("// 群通话"));

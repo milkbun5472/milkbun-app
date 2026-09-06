@@ -83,7 +83,7 @@
   // 正面示例（v47.74 立，v61.23 改写）：纯禁词清单压不住（否定指令模型不敏感，
   // 「埋进颈窝」照样出现），所以保留「烂模板 → 换成什么」的对照。
   // ⚠️但 ✓ 那半边原来写的是【四句写好的成句】（旧毛衣的线头、够了两次没拿稳、
-  // 摸烟又缩回手）——照 .claude/rules/prompt-no-content-samples.md，
+  // 摸烟又缩回手）——照 施工规则/prompt-no-content-samples.md，
   // 例子写得越好被抄得越狠，它是那一栏里唯一可复制的东西，于是每篇都长成同一个样子。
   // 判据：这句被逐字照抄是对的还是错的？「够了两次都没拿稳」被照抄就是灾难。
   // 所以 ✓ 这半边一律换成【要满足什么】，不给可以直接搬走的句子。
@@ -171,7 +171,7 @@
     return FIC_PAPERS.find(function (p) { return p.id === want; }) || FIC_PAPERS[0];
   }
   // 纸的小样。⚠️示范用「A × B」这种【格式示范】，不写「裴照川 × 我」——
-  // 那是【内容示范】，跟 .claude/rules/prompt-no-content-samples.md 说的是同一件事：
+  // 那是【内容示范】，跟 施工规则/prompt-no-content-samples.md 说的是同一件事：
   // 判据「这个例子被逐字照抄是对的还是错的」在界面上也成立，
   // 小样是用来看纸和墨的，不是用来看谁和谁的。
   function PaperSwatch(props) {
@@ -283,7 +283,7 @@
   // ============================================================
   // ⚠️它【不跟着「清空本版」走】：文是会被清的，人不是。清掉一版的文之后
   //   那几位太太还在，她们写过的旧篇没了而已——这正是「固定 NPC」的意思。
-  // ⚠️名册按【笔名】认人（.claude/rules/phone-data-layers.md 里那条）：
+  // ⚠️名册按【笔名】认人（施工规则/phone-data-layers.md 里那条）：
   //   同一个笔名再出现一次，还是同一个人，不许攒出两条。
   // ⚠️产出统计【不另存计数器】：从 fics 现算。存一份的话，文被清掉、被删、
   //   被改笔名，那个数就永远对不回来了（只进不出的老毛病）。
@@ -335,7 +335,7 @@
   }
   // 一位太太的【嗓子】：她是谁、什么路数、最护着哪一点。
   // ⚠️出文（genBatch）和续写（genNextChapter）共用这一份——各写一份的话
-  //   迟早只改一处（.claude/rules/four-surfaces-same-context.md 那条老病）。
+  //   迟早只改一处（施工规则/four-surfaces-same-context.md 那条老病）。
   //   她 2026-09-06 问的就是这个：「生成文有作者是有参考她的文风和雷点的吧？续写也要」。
   function authorVoiceLines(by) {
     if (!by) return "";
@@ -389,7 +389,7 @@
     saveJSON(K_TABS, (Array.isArray(list) ? list : []).filter(function (t) { return t && !seedIds.has(t.id) && !retiredId(t.id); }));
   }
   function loadFics() { return loadJSON(K_FICS, []); }
-  // 📚 累积层：满了挤掉最旧的（.claude/rules/phone-data-layers.md）。
+  // 📚 累积层：满了挤掉最旧的（施工规则/phone-data-layers.md）。
   // 每篇都带全文，不封顶的话几个月下来就是一座数据坟场。
   // 受保护的（收藏/自己写的/点过赞/在追的）一律不算进额度。
   const FIC_KEEP = 150;
@@ -469,7 +469,7 @@
   // ---- 组生成 prompt --------------------------------------------------
   // cpChars: 已解析对象数组（0/1/2 个，元素可能是 meChar，带 isMe）
   // 人设每人封顶 6000 字——和跑团那条链同一个额度
-  // （.claude/rules/four-surfaces-same-context.md 里写死的那个数）。
+  // （施工规则/four-surfaces-same-context.md 里写死的那个数）。
   // 原来这里一个上限都没有：两个人设 4500+ 的角色配上一份长文风，
   // 光 system 就先去掉一两万字，正文反而被模型自己的输出上限挤短。
   const FIC_PERSONA_CAP = 6000;
@@ -612,7 +612,7 @@
 
   // ---- 请一批新作者进来（一枪，落库）--------------------------------
   // ⚠️只写【判据】不给例子：给了例子，四位太太会长成同一个句式
-  //   （.claude/rules/prompt-no-content-samples.md）。
+  //   （施工规则/prompt-no-content-samples.md）。
   async function genAuthors(active, n, tabs, cpChars, userName, have) {
     const cnt = Math.max(1, Math.min(8, n || 4));
     const has = (have || []).map(function (a) { return authorName(a); }).filter(Boolean);
@@ -861,7 +861,7 @@
   // ============================================================
   const K_RP = "x_fanfic_rp"; // 存档数组
   function loadRP() { return loadJSON(K_RP, []); }
-  // 📚 累积层：存档留最近 30 局（.claude/rules/phone-data-layers.md）。
+  // 📚 累积层：存档留最近 30 局（施工规则/phone-data-layers.md）。
   // 每局带整份 transcript，不封顶就是又一座坟场。
   const RP_KEEP = 30;
   function saveRP(list) {
@@ -896,7 +896,7 @@
   //   存档里写着 know，删了它们那几局的 system 会当场变一副样子——撤掉一道选择不该
   //   反过来改掉正在玩的局。新局一律不带这一栏（等于 blank，一个字都不发）。
   // 你带着什么进去。⚠️「带着现实的记忆」不是去翻主线记忆库——同人文是平行时空沙盒
-  // （.claude/rules/four-surfaces-same-context.md 里那条合法差异），这一档只是给这场戏
+  // （施工规则/four-surfaces-same-context.md 里那条合法差异），这一档只是给这场戏
   // 一个前提：你记得，这个世界里的他不记得。落差本身就是戏，不需要真去读记忆。
   const RP_KNOWS = [
     { key: "blank", label: "空手进去", short: "空手", desc: "你对这个故事一无所知，跟里面的人一样两眼一抹黑，只能边走边猜。" },
@@ -1025,7 +1025,7 @@
     // 穿书 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
     const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
     // ⚠️穿书是【第六处】（她 2026-09-03：「穿书这块是不是没有喂禁八股那一堆，一堆八股」）。
-    //   .claude/rules/four-surfaces-same-context.md 那张名单点了五处：
+    //   施工规则/four-surfaces-same-context.md 那张名单点了五处：
     //   单聊线上／单聊线下／群线上／群线下／通话——穿书压根没在上面，
     //   于是「六处都接上了」每次都是真的，穿书每次都漏。跟 v60.27 通话那次一模一样的形状。
     //   narrativeCore 白得了去人机味／角色卡准则／叙事反陈词滥调／亲密反模板／语气年龄锚，
@@ -1053,7 +1053,7 @@
     if (style && style.trim()) parts.push("【文风】\n" + style.trim());
     // ⚠️世界书：这个参数一路从 RPApp 传到这儿，然后【从没被引用过】——
     // 声明了但没人用，比压根没写更坏，看代码以为已经在发了
-    // （.claude/rules/four-surfaces-same-context.md v55.95 那条）。
+    // （施工规则/four-surfaces-same-context.md v55.95 那条）。
     // 同一个模块里 genBatch 一直在发，只有穿书这条链漏了。
     if (worldbook && worldbook.trim()) {
       if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
@@ -1720,7 +1720,7 @@
       + "@media(prefers-reduced-motion:reduce){.fic-open-book,.fic-open-book::after{animation:none!important}}");
   }
 
-  // ---------- 世界观分版：书架上那一排书脊（.claude/rules/tabs-not-plain-pills.md）----------
+  // ---------- 世界观分版：书架上那一排书脊（施工规则/tabs-not-plain-pills.md）----------
   // 原来是一排圆角药丸——任何 app 都能用的那一种，等于没设计。
   // 这个 app 现实里是【一架子同人本】：一版就是一本，所以分版就长成书脊。
   //
@@ -1872,7 +1872,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, on ? "收起 ▾" : "展开 ▸")),
         on ? h.apply(null, [ "div", { style: { padding: "2px 13px 13px" } } ].concat(body)) : null);
     }
-    // ⚠️整页，不是半窗（.claude/rules/no-half-sheet.md）。
+    // ⚠️整页，不是半窗（施工规则/no-half-sheet.md）。
     //   这一层要填的是四格设置，压根不需要同时看见底下那一屏 feed；
     //   而半窗的代价是固定的——不管里面装多少，先扣掉一半屏幕。
     //   （v64.63 之前它是半窗，一屏装不下、也看不出自己填到哪儿了。）
@@ -2549,7 +2549,7 @@
       try {
         // 两边使用完全相同的场景与篇幅；唯一变量是实验文风。
         // 思考型模型会把内部思考也计入 maxTokens；1400 曾导致正文只剩几十字。
-        // 与正式长文一样给足（v59.96 起是 14000，见 .claude/rules/max-tokens-floor.md）；
+        // 与正式长文一样给足（v59.96 起是 14000，见 施工规则/max-tokens-floor.md）；
         // 她按次计费，在这里省预算省不到钱，只会换来一次写半截再重来。
         const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
         const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
@@ -2801,7 +2801,7 @@
   }
 
   // 书脊：这一版书被你改成什么样，一眼看得见
-  // ⚠️不是一排药丸也不是一排 tab（.claude/rules/tabs-not-plain-pills.md）：
+  // ⚠️不是一排药丸也不是一排 tab（施工规则/tabs-not-plain-pills.md）：
   // 它在现实里就是【一本书的脊背】——两端的堵头、中间那根装订线、压在线上的几枚页签。
   // 照原样走过去的那一页在脊上是一枚实心墨点，被拦下的那一页是一道划开的口子。
   // 状态不只靠颜色分：实心 / 空心虚线 / 划一道，形状各不相同（色弱和阳光下只剩形状可依）。
@@ -3274,7 +3274,7 @@
     mine.forEach(function (f) {
       // ⚠️章节存的那一栏叫 content（见 genBatch 落库那段），不是 body。
       //   照着读的那头编字段名，这个数会一直是 0 而且不报任何错
-      //   （.claude/rules/stub-from-the-writer.md）。这儿直接用现成的 ficWords。
+      //   （施工规则/stub-from-the-writer.md）。这儿直接用现成的 ficWords。
       words += ficWords(f);
       kudos += (f.stats || ficHeat(f.id)).kudos;
     });
@@ -3424,7 +3424,7 @@
     // ⚠️底栏只吃 0.4 条底部安全区（COMPOSER_PAD_BOTTOM，engine.js）——
     // 和主聊天输入栏、购物底栏同一把尺子。这里原来吃的是【整条】
     // env(safe-area-inset-bottom)，在刘海机上比别处高出一截，
-    // 正是 .claude/rules/mobile-ui-layout.md §2 点名不许干的事。
+    // 正是 施工规则/mobile-ui-layout.md §2 点名不许干的事。
     // 图标 21 / 字号 10 / gap-0.5 也一并对齐购物那条底栏。
     return h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + t.line, background: t.bg, paddingBottom: COMPOSER_PAD_BOTTOM } },
       items.map(function (it) {
@@ -3657,7 +3657,7 @@
       inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); },
         // ⚠️这两条原来【一条都没传】：收尾那段代码写着 if (props.onShelveFic)，
         //   一路声明、一路转发、最后没人给——于是「这一版放回书架」从上线起一次都没发生过，
-        //   而且不报任何错（.claude/rules/four-surfaces-same-context.md v55.95 那个形状：
+        //   而且不报任何错（施工规则/four-surfaces-same-context.md v55.95 那个形状：
         //   声明了但没人引用，比压根没写更坏，看代码以为已经在发了）。
         onShelveFic: function (f) { persistFics([f].concat(loadFics())); },
         // 她续的那一章追加进【原篇】：只往末尾加，前面的段落一个下标都不许动
@@ -3692,7 +3692,7 @@
         return f.tabId === (curTab && curTab.id) && !f.onShelf;
       }).sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
       inner = h("div", { className: "flex-1 min-h-0 flex flex-col" },
-        // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：原先那块 30px 大标题
+        // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）：原先那块 30px 大标题
         // ＋「FANFIC」副标，一屏先被吃掉五分之一，正文卡片只剩两张半。
         h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
           h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),

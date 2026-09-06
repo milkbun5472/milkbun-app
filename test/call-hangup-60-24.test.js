@@ -17,7 +17,7 @@ test("单人通话的协议里有 hangup 这一栏，而且写清了什么时候
   assert.match(callSend, /这通电话【你也可以自己挂】/);
   assert.match(callSend, /绝大多数回合填 null/, "没有门槛，它会每轮都想挂");
   assert.match(callSend, /别拿它当省事的出口/);
-  // ⚠️给的是【判据和维度】，不是几句示范台词（.claude/rules/prompt-no-content-samples.md）
+  // ⚠️给的是【判据和维度】，不是几句示范台词（施工规则/prompt-no-content-samples.md）
   assert.ok(!/如「|比如「/.test(callSend.slice(callSend.indexOf("hangup 挂断"), callSend.indexOf("hangup 挂断") + 400)),
     "别在这一栏里举例句——那一句会被每个角色照抄");
 });

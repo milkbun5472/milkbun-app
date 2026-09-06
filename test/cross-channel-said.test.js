@@ -53,7 +53,7 @@ test("只取 TA 自己说的，别人的话一个字都不带", () => {
   ["别人说的", "她说的"].forEach(x => assert.ok(!got.includes(x), x + " 不该出现"));
 });
 
-// 封闭群只进不出（.claude/rules/four-surfaces-same-context.md）
+// 封闭群只进不出（施工规则/four-surfaces-same-context.md）
 test("封闭群里说过的话绝不外流", () => {
   const settings = { g1: { memoryInterop: false }, g2: { memoryInterop: true } };
   assert.equal(drive({ ...base, settings, except: "g2" }), "", "闭群的话漏出来了");

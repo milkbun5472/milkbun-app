@@ -6,7 +6,7 @@ const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8")
 const view = ph.slice(ph.indexOf("function PlazaView("), ph.indexOf("\n// =====", ph.indexOf("function PlazaView(")));
 
 // 她 2026-09-01：「小红书现在是半屏，帮我弄成点开是全屏样式吧」。
-// 见 .claude/rules/no-half-sheet.md：默认不要半窗。判据是「这一层的内容，
+// 见 施工规则/no-half-sheet.md：默认不要半窗。判据是「这一层的内容，
 // 需要同时看见它下面那一层吗？」——一条笔记不需要。
 test("点开一条笔记是整页，不是从底下掀起来的半窗", () => {
   assert.ok(view.indexOf('flex flex-col justify-end') < 0, "半窗还在（从底下掀起来的那种）");

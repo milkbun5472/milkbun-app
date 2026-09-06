@@ -22,7 +22,7 @@ test("桌子只画一次，同族四处共用同一张", () => {
 
 test("铺了桌子的那几页，顶栏不许再自己刷一档平色", () => {
   // 铺在外壳上、顶栏还刷平色的话，顶上就横着一条没盖住的带子
-  //（.claude/rules/mobile-ui-layout.md §3.5）。亲属卡原来刷的还是【另一档】t.bg2，比没铺更显眼。
+  //（施工规则/mobile-ui-layout.md §3.5）。亲属卡原来刷的还是【另一档】t.bg2，比没铺更显眼。
   const cast = src.slice(src.indexOf("function Cast({"), src.indexOf("\nfunction ", src.indexOf("function Cast({") + 10));
   assert.match(cast, /style: DESK\(t\.accent \|\| t\.tint\)/, "档案馆列表没铺桌子");
   // ⚠️这里【不能】写 DESK(accent)：accent 是 characters.map 回调里的局部变量，

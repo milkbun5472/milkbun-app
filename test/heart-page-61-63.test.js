@@ -79,7 +79,7 @@ test("资料卡那条老路留着（挪主入口不等于把旧入口拆了）",
 });
 
 test("档案馆卡上的眉标不留英文", () => {
-  // .claude/rules/no-english-titles.md：纯英文眉标一律换成中文，除非这一处压根没有中文。
+  // 施工规则/no-english-titles.md：纯英文眉标一律换成中文，除非这一处压根没有中文。
   // 这一页的眉标不走 Head（Head 那一处已经统一挡掉了），是卡片自己摆的小字，得单独看。
   const CAST = screens.slice(screens.indexOf("function Cast({"), screens.indexOf("function Cast({") + 9000);
   // 全大写的拉丁串就是那种装饰眉标（TIMEZONE / BIRTHDAY / PERSONA / DOSSIER / CATALOGUE）

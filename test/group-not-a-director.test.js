@@ -79,7 +79,7 @@ test("这条刀群线上群线下都挂上了", () => {
   assert.ok(GB.allGroupsHave("GROUP_IN_CHARACTER"), "三处群都要有");
 
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
-  // 那之前这一层在通话里一处都没有，见 .claude/rules/four-surfaces-same-context.md。
+  // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   assert.equal((engine.match(/GROUP_IN_CHARACTER/g) || []).length +
                (app.match(/GROUP_IN_CHARACTER/g) || []).length, 2,
     "1 处定义 + groupBans；散回三处各拼一遍就说明 bundle 又被绕开了");

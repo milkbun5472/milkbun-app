@@ -55,7 +55,7 @@ test("账本不记钱——钱包简报不发给它", () => {
 });
 
 test("提示词里没有可照抄的内容示范，只有判据和维度", () => {
-  // .claude/rules/prompt-no-content-samples.md：写得越好的例子被抄得越狠
+  // 施工规则/prompt-no-content-samples.md：写得越好的例子被抄得越狠
   const spec = P0.phoneProbeSpec("tally", char, [], "", []);
   ["秒撤回", "情侣空间", "炙羊肉", "酥酪", "御膳房", "台阶", "选秀", "王府", "无可估量", "连城之璧"]
     .forEach(b => {

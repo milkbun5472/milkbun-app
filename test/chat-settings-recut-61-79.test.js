@@ -99,7 +99,7 @@ test("挪过位置的那几节留在新家（附理由，别再挪回去）", ()
 });
 
 test("标题里不留英文（连 LineField 那一处一起）", () => {
-  // .claude/rules/no-english-titles.md。这一页原来顶着一行 CHAT CONFIG，
+  // 施工规则/no-english-titles.md。这一页原来顶着一行 CHAT CONFIG，
   // 「备注名 / Remark」「拍一拍签名 / Nudge」也各挂一条。
   assert.doesNotMatch(CS, /"CHAT CONFIG"/, "CHAT CONFIG 又回来了");
   // LineField 跟 Head 同一条：有中文主名时纯拉丁的 en 不发。改这一个组件，几十处一起合规

@@ -9,7 +9,7 @@ const tl = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏�
 const bar = tl.slice(tl.indexOf("两格＝这条轴的两头"), tl.indexOf("// 只看新增"));
 const mv = ph.slice(ph.indexOf("function MusicView("), ph.indexOf("function renderPhoneModule("));
 
-// 她 2026-09-01：「把时间线的也弄了吧」→ .claude/rules/tabs-not-plain-pills.md
+// 她 2026-09-01：「把时间线的也弄了吧」→ 施工规则/tabs-not-plain-pills.md
 // v59.60 只改了一半：位置有意义了，形状还是两颗药丸。
 test("时间线那两格不再是药丸，它们就是那半条轴", () => {
   assert.ok(bar.indexOf("borderRadius: 99") < 0, "还是药丸");
@@ -67,7 +67,7 @@ test("他为什么循环这一首是正文，不是灰色附注", () => {
 });
 
 test("点开就在原地摊开，不掀半窗", () => {
-  // .claude/rules/no-half-sheet.md：改到哪一处，哪一处顺手换掉
+  // 施工规则/no-half-sheet.md：改到哪一处，哪一处顺手换掉
   assert.ok(mv.indexOf("setSheet") < 0, "还在掀半窗");
   assert.match(mv, /"aria-expanded": on \? "true" : "false"/, "读屏读不出这一首是摊开的");
   const open = JSON.stringify(loadPhone({ 0: "a" }).MusicView({

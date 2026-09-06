@@ -140,7 +140,7 @@ test("token 直接填，且内部那两道天花板跟着抬起来", () => {
 });
 
 // ── prompt 体检 ──
-test("提示词里不许塞具体的内容示范（.claude/rules/prompt-no-content-samples.md）", () => {
+test("提示词里不许塞具体的内容示范（施工规则/prompt-no-content-samples.md）", () => {
   // 判据：这个例子被逐字照抄，是对的还是错的？
   // 「破镜重圆」被抄＝每篇都挂这个标签；「前未婚夫妻」被抄＝每篇都是这个关系。
   assert.doesNotMatch(fic, /如『破镜重圆』/, "tags 那行还塞着四个现成标签");

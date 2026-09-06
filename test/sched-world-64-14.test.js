@@ -5,7 +5,7 @@
 //   · schemaHint 的占位值写着「起床，晨间咖啡 / 家里卧室、厨房 / 洗漱、准备睡 / 卧室」；
 //   · 指令里还列着「医学生＝查房、程序员＝跑数据、老师＝备课、别硬编办公室活」。
 //   模型照抄格式的时候，把那个【世界】一起抄了过去。
-//   .claude/rules/prompt-no-content-samples.md 当时就点过这一条：
+//   施工规则/prompt-no-content-samples.md 当时就点过这一条：
 //   「schemaHint 里的占位值要写成【说明】，不要写成【样例内容】——那一份也会被照抄」。
 const test = require("node:test");
 const assert = require("node:assert/strict");

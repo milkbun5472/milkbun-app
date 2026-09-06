@@ -79,6 +79,6 @@ test("和心愿单是两回事，别混", () => {
   assert.match(c, /不是你手打的愿望（那是愿望板）/, "界面上没跟她讲清两者的区别");
   assert.doesNotMatch(c, /心愿单/, "还在指一个界面上已经没有的名字");
   assert.match(c, /到期他会自己提起|到那天他会自己提起|到那天他会主动来找你/, "没说清挑日子会发生什么");
-  assert.ok(!/h\(Sheet/.test(c), "用了半窗——见 .claude/rules/no-half-sheet.md");
+  assert.ok(!/h\(Sheet/.test(c), "用了半窗——见 施工规则/no-half-sheet.md");
   assert.match(app, /couplePactsOf: pactsFor,/, "props 没递下去");
 });

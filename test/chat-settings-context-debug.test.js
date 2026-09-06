@@ -34,7 +34,7 @@ test("全局与角色内诊断共用只读 bundle 构建", () => {
   assert.match(app, /getBundle: inspectBundleFor/);
 });
 
-// v61.79 起这一页不是弹层了（.claude/rules/no-half-sheet.md：收起来只剩四五行，
+// v61.79 起这一页不是弹层了（施工规则/no-half-sheet.md：收起来只剩四五行，
 // 半窗就缩成小半屏、上面糊着聊天，看着像没加载完）。回顶那件事还得做，
 // 只是从 Sheet 的 scrollKey 换成这一页自己那个滚动容器。
 test("角色设置切换子页时回到顶部，不把真实召回顶出屏幕", () => {

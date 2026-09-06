@@ -91,6 +91,6 @@ test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不�
   assert.match(card, /padding: "10px 14px 9px"/);
   assert.match(card, /width: 19, height: 19, borderRadius: 999/, "两颗小键没缩");
   assert.match(card, /bottom: 7, right: 24\.5, gap: 9/, "两颗键没对齐到头像正下方");
-  // ⚠️主屏铁律：里面这层不许写 height:100%（.claude/rules/home-screen-layout.md）
+  // ⚠️主屏铁律：里面这层不许写 height:100%（施工规则/home-screen-layout.md）
   assert.doesNotMatch(card, /height: "100%"/);
 });

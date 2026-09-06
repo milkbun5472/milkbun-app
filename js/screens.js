@@ -388,7 +388,7 @@ function Cast({
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
     // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
     // ⚠️顶栏别再自己刷一档 t.bg：桌面铺在外壳上，这一条刷了平色就在顶上压出一条没盖住的带子
-    //（.claude/rules/mobile-ui-layout.md §3.5）。
+    //（施工规则/mobile-ui-layout.md §3.5）。
     h(Head, { zh: "人格档案馆", bg: "transparent", onBack,
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
         onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
@@ -3489,7 +3489,7 @@ function LetterFontPick({ value, onPick, withAuto }) {
       f.label); }));
 }
 
-// 情书设置：整页（.claude/rules/no-half-sheet.md）——纸样和字体加起来快三十个，
+// 情书设置：整页（施工规则/no-half-sheet.md）——纸样和字体加起来快三十个，
 // 半窗里挤成两行滑不动；何况这一页不需要同时看见底下那一层。
 function CoupleLetterSettings({ partner, cfg, onSave, onBack }) {
   const t = useTheme();
@@ -3688,7 +3688,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
   // 先扣掉六七十像素去说这一页叫什么，而这一页叫什么，进来的人本来就知道。
   // 底纹铺在【外壳】上（v62.44，她 2026-09-04：「收着的这些除了交换日记背景也都没做」）。
   // 情书这一叠底下垫的是【航空信封那圈斜条边】：一道道细斜纹，跟横格的日记本、
-  // 竖格的字据一眼分得开。顶栏透明让它透上来（.claude/rules/mobile-ui-layout.md §3.5）。
+  // 竖格的字据一眼分得开。顶栏透明让它透上来（施工规则/mobile-ui-layout.md §3.5）。
   return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
     h(Head, { zh: "我们的情书", bg: "transparent", onBack,
       right: h("div", { className: "flex items-center" },
@@ -7281,7 +7281,7 @@ function Config(props) {
   //   「现在 toy 取消隐藏的条件是啥」。现在挂在标题本身上：这一页只要还有标题，
   //   入口就还在，不会再被别的规矩顺手删掉。
   // 外壳＝工程格纸：细格 8px，每五格一道重线。铺在【最外那层】、Head 传 transparent
-  // 让它透上来（.claude/rules/mobile-ui-layout.md §3.5）；也不跟着滚。
+  // 让它透上来（施工规则/mobile-ui-layout.md §3.5）；也不跟着滚。
   // ⚠️t.ink 在深色/自定义主题下未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
   const _hex6 = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
   const sheet = !_hex6 ? { background: t.bg } : { background: t.bg, backgroundImage: [
@@ -9653,7 +9653,7 @@ function MemoryLib({
   ].join(",") };
   return h("div", {
     className: "h-full flex flex-col", style: boxSkin
-  // 顶栏改用公共 Head（.claude/rules/mobile-ui-layout.md §1「别再自己写一条」），
+  // 顶栏改用公共 Head（施工规则/mobile-ui-layout.md §1「别再自己写一条」），
   // 并传 bg:"transparent" 让盒底透上来——原来这一条自己刷 t.bg，顶上横着一道没盖住的带子。
   // ⚠️「MEMORY INDEX」那行英文眉标一并撤掉（no-english-titles）：换的时候没有硬翻，
   //   副标题改说这一盒里此刻真有几张——那才是这一栏在干嘛。
@@ -11628,7 +11628,7 @@ function clothFigure(o) {
           style: { position: "absolute", top: Math.round(26 * k), left: 0, right: 0, textAlign: "center", fontSize: Math.round(10 * k), lineHeight: 1, color: c.onDark ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.4)" }
         }, "◆") : null)));
 }
-// ── 随身物的四层（照查手机那套落，见 .claude/rules/phone-data-layers.md）──────
+// ── 随身物的四层（照查手机那套落，见 施工规则/phone-data-layers.md）──────
 // 判据一：这一栏变了，是「他变了」还是「系统忘了」？
 // 随身物比手机更该稳：你身上带着的东西本来就是几个月不动的，
 // 刷一次全换掉＝换了个人（她 2026-08-29 点名的病）。所以这里【没有 ♻️ 层】：
@@ -11812,7 +11812,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
   }).join("");
   return {
     // 四栏一起出，token 得给够：分开写是四次调用，合起来一次就得抵四次的量
-    // （v59.96 起单栏那条是 12000/14000，见 .claude/rules/max-tokens-floor.md）
+    // （v59.96 起单栏那条是 12000/14000，见 施工规则/max-tokens-floor.md）
     maxTokens: 24000,
     schemaHint: "{\"bag\":{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]},"
       + "\"pocket\":{\"items\":[...同上]},\"trinket\":{\"items\":[...同上]},"
@@ -11922,7 +11922,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   const pinSet = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
   const isPinned = it => pinSet.has(carryItemKey(it));
   // 钉住＝这件东西不许被下一次刷新换掉。随身物没有「号码/账号 id」那种客观硬字段，
-  // 唯一说得清「这件绝不许换」的人是她（.claude/rules/phone-data-layers.md 的 🔒 层）。
+  // 唯一说得清「这件绝不许换」的人是她（施工规则/phone-data-layers.md 的 🔒 层）。
   const pinDot = it => isPinned(it) ? h("span", { title: "钉住了，刷新不会换掉", style: { fontSize: 11, color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
   let content;
   if (isGifts) {
@@ -12188,7 +12188,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
               h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 4 } },
                 head,
                 h("div", { className: "flex-1 min-w-0", style: { paddingTop: isCloth ? 10 : 2 } },
-                  // 眉标不留英文（.claude/rules/no-english-titles.md，她 2026-09-03 立）
+                  // 眉标不留英文（施工规则/no-english-titles.md，她 2026-09-03 立）
                   isCloth ? label("什么场合穿", sheet._occ) : label("什么料子", tone.word),
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, isCloth ? outfitLabel(sheet, sheet._occ) : sheet.name),
                   sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, sheet.note) : null)),
@@ -12219,7 +12219,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     style: pageSkin(sec.closet || sec.zip || sectionKey === "pocket" ? "cloth" : "paper", t,
       { tint: CARRY_TINT[sectionKey], word: sec.en })
   },
-    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
+    // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
     // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
     // 顶栏自己不上色，让外层那层底透上来。
     h(Head, { zh: sec.zh, sub: char.name, bg: "transparent", noLine: true, onBack,
@@ -12348,7 +12348,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
     return n ? n + " 件" : "";
   };
   return h("div", { className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
-    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
+    // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）
     h(Head, { zh: "随身物", sub: busyKey === "__all__" ? "正在一栏一栏翻…" : char.name,
       bg: "transparent", noLine: true, onBack: () => setInBox(true),
       right: h("button", { onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IRefresh, { size: 18, color: t.ink })) }),
@@ -12436,7 +12436,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
 // 形状是她定的：**抽是抽，兑是兑**。抽卡永远 0 次调用——抽到的是一张兑换券，
 // 点了兑换才真的发生。票根永不删（「票根永远留痕有时间戳是什么时候抽到的（r sr ssr都留）」）：
 // 兑换只是给卡盖个戳，卡本身连同抽到的时间戳一直留在册子里。
-// 整页，不用半窗（.claude/rules/no-half-sheet.md）。
+// 整页，不用半窗（施工规则/no-half-sheet.md）。
 const GACHA_SKIN = {
   R:   { zh: "R",   bg: "#f1f2f5", bd: "#dcdfe6", ink: "#6b7280", tag: "#8b93a1" },
   SR:  { zh: "SR",  bg: "#f4eefb", bd: "#e0d0f2", ink: "#7c5aa6", tag: "#9a78c4" },
@@ -12489,7 +12489,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
   const lk = (luck || {})[partner.id] || { pulls: 0, sinceSSR: 0 };
   const pull = n => { const made = onPull(partner, n); if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); } };
   return h("div", { className: "h-full flex flex-col", style: foilSkin(t) },
-    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
+    // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）
     h(Head, { zh: "抽卡", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       // 点数 + 两个抽法。跟谁攒的点数就抽谁的卡——这一份只属于你和 TA
@@ -12698,7 +12698,7 @@ function StudioPicker({ zh, groups, value, onPick, tint }) {
 // 用关键词生成几套，再加上可以自己填」。
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
-// 整页，不用半窗（.claude/rules/no-half-sheet.md）。
+// 整页，不用半窗（施工规则/no-half-sheet.md）。
 function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
   const t = useTheme();
   const groups = closetGroups(data);
@@ -12906,7 +12906,7 @@ function IfEndPick({ onPick, onClose }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub)))));
 }
-// 和好间（v59.19）。整页，不用半窗（.claude/rules/no-half-sheet.md）。
+// 和好间（v59.19）。整页，不用半窗（施工规则/no-half-sheet.md）。
 // ⚠️这一页只做两件事：摆出【他没说出口的那一半】，和让她递一句过去。
 // 别把聊天记录再列一遍——那是「同一份数据换个地方摆第二遍」，她刚因为这个
 // 撤掉了外卖那栏「写给陌生人」。

@@ -106,7 +106,7 @@ test("正文按段落排，不是一整块 pre-wrap", () => {
 
 test("两页都换了紧凑标题栏（mobile-ui-layout §1）", () => {
   // 列表页原先是 30px「同人文」＋「FANFIC」副标，一屏先被吃掉五分之一
-  assert.match(fic, /\/\/ 紧凑标题栏（\.claude\/rules\/mobile-ui-layout\.md §1）/);
+  assert.match(fic, /\/\/ 紧凑标题栏（施工规则\/mobile-ui-layout\.md §1）/);
   assert.equal((fic.match(/paddingTop: safeTop\(10\)/g) || []).length, 2, "列表页和阅读页各一个");
   // 阅读页原先大标题写的是「阅读」，作品名反而排在下面
   assert.doesNotMatch(fic, /zh: "阅读", en: props\.tab\.name/);

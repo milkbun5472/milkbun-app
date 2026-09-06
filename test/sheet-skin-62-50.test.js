@@ -5,8 +5,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+// 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
+const { ruleText } = require("./_rules.js");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "utf8");
-const rule = fs.readFileSync(path.join(__dirname, "..", ".claude/rules/no-half-sheet.md"), "utf8");
+const rule = ruleText("no-half-sheet");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 const sheet = cut(comp, "function Sheet({", "function useKbLift()");
 

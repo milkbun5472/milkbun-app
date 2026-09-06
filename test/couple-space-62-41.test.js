@@ -39,7 +39,7 @@ test("只发生一次的纪念日按存下来的年份算，不再拿建档日�
 });
 
 test("年份这一层写的和读的对得上，日历那一份也跟着走", () => {
-  // 照 .claude/rules/stub-from-the-writer.md：先钉写的那一头
+  // 照 施工规则/stub-from-the-writer.md：先钉写的那一头
   assert.match(app, /const addAnniv = \(char, name, month, day, yearlyRepeat, linkCalendar, year\) => \{/);
   assert.match(app, /if \(yr\) rec\.year = yr;/, "年份没存进去");
   // ⚠️日历那一份原来硬写今年：填了 2027 也会被记进今年的格子。
@@ -78,7 +78,7 @@ test("交换日记是一本本子，不是一张纸", () => {
   assert.match(page, /padding: isMe \? "12px 15px 15px 28px" : "12px 28px 15px 15px"/, "正文没给装订边让位");
   // 写字那一页：输入框不许自己再上一层底和边框，字要落在这一页的格子上
   assert.match(page, /background: "transparent", border: "none", padding: 0,\s*\n?\s*fontFamily: "'Noto Serif SC',serif"/);
-  // 底纹铺在【外壳】上、Head 透上来（.claude/rules/mobile-ui-layout.md §3.5）
+  // 底纹铺在【外壳】上、Head 透上来（施工规则/mobile-ui-layout.md §3.5）
   assert.match(page, /h\("div", \{ className: "h-full flex flex-col", style: \{ background: t\.bg,/);
   assert.match(page, /h\(Head, \{ zh: "交换日记", en: partner\.name, onBack, bg: "transparent" \}\)/);
   assert.match(page, /className: "flex-1 min-h-0 overflow-y-auto/);
