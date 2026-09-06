@@ -5528,7 +5528,6 @@ function PhoneCarry({
   onDelAnonRecord,
   archives,
   autoOn,
-  onToggleAuto,
   weekAt,
   lastAll,
   onPeek,
@@ -5652,18 +5651,18 @@ function PhoneCarry({
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } },
                     weekAt && weekAt.id === c.id ? "正在刷新……" : phoneLastAllLabel((lastAll || {})[c.id])))),
-              // 每周自动刷的开关。默认关——她按次计费，默认开会吓人。
-              // ⚠️必须和那一行并排、不能套在里面：按钮不许嵌按钮。
-              // 放在这儿而不是设置里：开关和「这是谁的手机」得在同一个地方看得见。
-              onToggleAuto ? h("button", {
-                onClick: () => onToggleAuto(c.id),
-                className: "active:opacity-60 shrink-0",
-                "aria-label": "每周自动刷新 " + (c.remark || c.name),
+              // ⚠️这儿【只标不开】（她 2026-09-06：「不应该那里有按钮，设置里面都已经开了一次了」）。
+              // 原来这是个开关，和 设置·自动刷新 里那一份是【同一个总闸的两个手柄】：
+              // 一个东西两处能拧，她在设置里开过之后，这一行看着还像没开、顺手一点就变成了
+              // 「开了又关」——而每周刷新一开就是十几次调用，她按次计费。
+              // 一个开关只留一处（设置里那处是统一的、和别的自动刷新排在一起）；
+              // 这儿保留一枚不能点的标，好让「这是谁的手机」和「他开着每周刷新」还在同一屏上。
+              (autoOn || {})[c.id] ? h("span", {
+                className: "shrink-0",
+                title: "每周自动刷新已开（在 设置 · 自动刷新 里改）",
                 style: {
                   fontFamily: F_BODY, fontSize: 10.5, padding: "4px 10px", borderRadius: 99,
-                  background: (autoOn || {})[c.id] ? t.ink : "transparent",
-                  color: (autoOn || {})[c.id] ? t.bg : t.fog,
-                  border: "1px solid " + ((autoOn || {})[c.id] ? t.ink : t.line)
+                  background: t.ink, color: t.bg
                 }
               }, "每周") : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "\u203a")))))));

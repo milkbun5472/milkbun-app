@@ -23,9 +23,13 @@ test("靠周次游标防重复，不靠闹钟", () => {
 
 test("默认全关，一个一个角色自己开", () => {
   assert.match(app, /useState\(\{ on: \{\}, done: \{\} \}\)/, "默认不该是开的——她按次计费");
-  assert.match(app, /const phoneAutoToggle = charId =>/);
-  assert.match(phone, /autoOn,\n  onToggleAuto,/, "开关没传进查手机界面");
-  assert.match(phone, /onToggleAuto\(c\.id\)/, "通讯录那一行上没有开关");
+  assert.match(app, /liveChars\.map\(c => \[c\.id, autoRefreshOn\("phone", c\.id\)\]\)/, "开着没开着传不进查手机");
+  // 开关只留在 设置 · 自动刷新 那一处（她 2026-09-06：「不应该那里有按钮，
+  // 设置里面都已经开了一次了」）。同一个总闸两个手柄＝她在设置里开过之后，
+  // 在通讯录那一行顺手一点就是关掉，而每周刷新一开就是十几次调用。
+  assert.equal(phone.indexOf("onToggleAuto"), -1, "查手机那边又长出了第二个开关");
+  assert.equal(app.indexOf("phoneAutoToggle"), -1, "撤掉的开关没删干净");
+  assert.match(phone, /title: "每周自动刷新已开（在 设置 · 自动刷新 里改）"/, "那一行上看不出他开着每周刷新");
 });
 
 // 她 2026-08-31：「查手机我是想要和周刊那样一次性连续调用刷完阿屿的马上接下一个」。

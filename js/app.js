@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.29";
+const APP_VERSION = "v64.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10447,10 +10447,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setPhoneWeekAt(null);
     }
   };
-  const phoneAutoToggle = charId => {
-    const nextOn = !autoRefreshOn("phone", charId);
-    setAutoRefreshChar("phone", charId, nextOn);
-  };
+  // 每周自动刷新的开关只留在 设置 · 自动刷新 那一处（她 2026-09-06）。
+  // 查手机那一行原来也能拧，同一个总闸两个手柄——她在设置里开过之后，
+  // 在这边顺手一点就是关掉，而开一次就是十几次调用。
   // 钱包那份读过来，发给花钱的那几个 app（购物/外卖）。只读不写。
   // 不接的话，一个月俸微薄的小官照样下单六百八十文的袍子——两边说的不是同一个人。
   const phoneMoneyFor = char => {
@@ -17511,7 +17510,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     autoOn: Object.fromEntries(liveChars.map(c => [c.id, autoRefreshOn("phone", c.id)])),
     lastAll: phoneLastAll,
     weekAt: phoneWeekAt,
-    onToggleAuto: phoneAutoToggle,
     onDrawPhoto: drawKeptPhoto,
     drawingPhoto: gen.phoneShot || "",
     onGenPlaylist: genCharPlaylist,

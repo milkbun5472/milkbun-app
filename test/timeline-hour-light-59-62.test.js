@@ -85,12 +85,21 @@ test("线走完最后一条还往下走一小截，收在一个空心点上", ()
 
 // 深色主题里 t.ink 是近白色：选中态压死 #fff 就是白底白字。
 test("选中的那颗药丸不许写死 #fff", () => {
-  // 时间线那两格 v59.66 已经不是药丸了（改成轴的两头），这儿只剩这两颗
-  ['mode === "keep"', "(autoOn || {})[c.id]"].forEach(cond => {
+  // 时间线那两格 v59.66 已经不是药丸了（改成轴的两头）；通讯录那颗「每周」
+  // v64.30 也不再是开关（改成一枚不能点的标，开关只留在 设置 · 自动刷新）。
+  ['mode === "keep"'].forEach(cond => {
     const i = ph.indexOf(cond + " ? t.ink : \"transparent\"");
     assert.ok(i > 0, "找不到 " + cond + " 那颗药丸");
     assert.ok(ph.slice(i, i + 220).indexOf('"#fff"') < 0, cond + " 那颗药丸在深色主题里是白底白字");
   });
+  // 通讯录那枚「每周」标：底和字都走主题，深色下才不会白底白字
+  {
+    const i = ph.indexOf('title: "每周自动刷新已开（在 设置 · 自动刷新 里改）"');
+    assert.ok(i > 0, "找不到那枚「每周」标");
+    const seg = ph.slice(i, i + 260);
+    assert.ok(seg.indexOf('"#fff"') < 0, "那枚标写死了 #fff");
+    assert.match(seg, /background: t\.ink, color: t\.bg/, "那枚标的颜色没走主题");
+  }
   // 轴上那两格也一样：颜色一律走主题，不许压死一个白
   const bar = view.slice(view.indexOf("两格＝这条轴的两头"), view.indexOf("// 只看新增"));
   assert.ok(bar.indexOf('"#fff"') < 0, "轴上那两格写死了 #fff");

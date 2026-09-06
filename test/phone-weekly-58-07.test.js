@@ -49,7 +49,7 @@ test("周次游标按自然日走：有无夏令时都不撞周，也不改变�
 
 test("连着刷完这一周欠的，每个人都是成没成都先记账", () => {
   const i = app.indexOf("  const phoneWeeklySweep = async () => {");
-  const seg = app.slice(i, app.indexOf("  const phoneAutoToggle = charId =>"));
+  const seg = app.slice(i, app.indexOf("  const phoneMoneyFor = char =>"));
   assert.match(seg, /for \(const due of pending\) \{/, "还是只补一个");
   assert.match(seg, /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "游标比对没了就会每次唤起都刷");
   // 记账必须在循环【里面】、每个人各记各的：整轮跑完才一起记的话，
@@ -99,5 +99,5 @@ test("主 app 的朋友圈走的是聊天轮数，跟查手机的每周刷新是
   assert.match(seg, /n\.forum >= 50 \|\| Date\.now\(\) - \(n\.lastForumTs \|\| Date\.now\(\)\) >= 3 \* 86400000/, "论坛按轮数或满三天");
   // 这一支跟 phoneAuto 没有任何关系
   assert.equal(seg.indexOf("phoneAuto"), -1, "两个系统串味了");
-  assert.equal(app.slice(app.indexOf("  const phoneWeeklySweep"), app.indexOf("  const phoneAutoToggle")).indexOf("tickAmbient"), -1);
+  assert.equal(app.slice(app.indexOf("  const phoneWeeklySweep"), app.indexOf("  const phoneMoneyFor")).indexOf("tickAmbient"), -1);
 });

@@ -15,8 +15,9 @@ test("通讯录那行小字报的是上次全刷，不是开关状态", () => {
   assert.ok(row.indexOf("每周自动刷一次") < 0 && row.indexOf("翻翻 Ta 的手机") < 0, "旧文案还在——那说的是开关，不是刷没刷");
   // 正在刷的那位仍然优先显示「正在刷新……」：活的状态盖过历史
   assert.match(row, /weekAt && weekAt\.id === c\.id \? "正在刷新……"/, "正在刷的那位看不出来了");
-  // 开关本身还在（那一行右边的「每周」按钮），只是不再挤在小字里
-  assert.match(ph, /aria-label": "每周自动刷新 "/, "把开关一起删掉了");
+  // 那一行右边只剩一枚不能点的标（开关在 设置 · 自动刷新 那一处，她 2026-09-06）
+  assert.match(ph, /title: "每周自动刷新已开（在 设置 · 自动刷新 里改）"/, "开着没开着看不出来了");
+  assert.equal(ph.indexOf('aria-label": "每周自动刷新 "'), -1, "那一行上又长出了第二个开关");
   assert.match(app, /lastAll: phoneLastAll,/, "没传下去");
 });
 
