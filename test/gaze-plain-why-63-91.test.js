@@ -65,15 +65,17 @@ test("界面那两行说人话，而且说清还试不试", () => {
 // 这一枪一次要写十块，窄上限里还要扣掉思考预算——想完就没配额写正文＝空返回，
 // 界面上就是那句「模型没按格式答」。她 2026-09-05 亲口点名这一处开满。
 test("建卡和复看那两枪开满 65535", () => {
+  // v64.47：这两枪都改走 gazeCall 了（被线路拦下来时会去掉聊天记录再打一次），
+  // 于是 maxTokens 从两个调用点搬进了那一处——要钉的还是同一件事，钉的地方换了。
   const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  // 「规则降概率，代码才保证」在这一层的落法");
-  assert.match(seed, /window\.Gaze\.seedSpec\(uN\)[\s\S]{0,120}maxTokens: 65535/);
+  assert.match(seed, /await gazeCall\(p, window\.Gaze\.seedSpec\(uN\), user, userSlim\)/);
   const rev = cut(app, "  const reviewGazeFor = async (char, manual)", "  const maybeAutoReviewGaze");
-  assert.match(rev, /window\.Gaze\.reviewSpec\(uN, char\.id\)[\s\S]{0,120}maxTokens: 65535/);
+  assert.match(rev, /await gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), user, userSlim\)/);
   // ⚠️上限是【天花板】不是【花销】：给宽了一分钱也不多花，给窄了才会写到一半停住、
   //   重来一次——那才是真多花了一次（max-tokens-floor.md「上限是天花板」那一节）。
-  //   ⚠️别列黑名单：列几个数就漏几个数。判的是「这两处除了 65535 没有别的 maxTokens」。
-  [["建卡", seed], ["复看", rev]].forEach(([zh, seg]) => {
-    const all = [...seg.matchAll(/maxTokens:\s*(\d+)/g)].map(m => m[1]);
-    assert.deepEqual([...new Set(all)], ["65535"], zh + "那一枪的 maxTokens 被往下压了：" + all.join(","));
-  });
+  //   ⚠️别列黑名单：列几个数就漏几个数。判的是「这一处除了 65535 没有别的 maxTokens」。
+  //   ⚠️两次调用（full 和 slim）都得是 65535——缩的是【料】，不是【写多少】。
+  const call = cut(app, "  const gazeCall = async (p, sys, full, slim)", "  const reviewGazeFor = async");
+  const all = [...call.matchAll(/maxTokens:\s*(\d+)/g)].map(m => m[1]);
+  assert.deepEqual(all, ["65535", "65535"], "那两枪的 maxTokens 被往下压了：" + all.join(","));
 });

@@ -261,3 +261,58 @@ test("⑤ 被线路拦下来时，卡上那句话说的是【被拦】，不是�
   G.markReviewFail("c1", "线路报错（不是模型写的正文）：empty response from Gemini API");
   assert.equal(G.reviewState("c1").err, "这条线路此刻没跑起来");
 });
+
+// ── v64.47：她第五轮补了一句，把「换条线路」这条路也堵死了 ─────────────
+//   **「我现在后台活和普通的都是用同一个 api 模型，其他都没事」**
+// 也就是说：同一个模型，别的调用全过，只有建卡/复看这两枪被拦。
+// 那就跟线路无关了，是这一枪的提示词本身。
+//
+// 可它有三块料（人设 / 长期记忆 / 几十条聊天），光看是看不出哪一块踩线的。
+// 所以让它自己试出来：被拦之后【去掉最大那块（聊天记录）】再打一次。
+//   成了  → 是聊天内容踩的线，而且卡照样写出来了（她要的东西到手）
+//   还被拦 → 不在聊天里，那句报错直接把这个结论写在卡上
+// ⚠️只在【确认是被内容拦】时才重试，只重一次：她按次计费，失败不许翻倍。
+const APP = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+test("⑥ 认得出「被拦」的那把尺子，她两个站子的说法都盖得住", () => {
+  const line = APP.slice(APP.indexOf("const gazeBlocked = e =>"), APP.indexOf("const gazeCall = async"));
+  const re = new Function("return " + line.slice(line.indexOf("e =>"), line.lastIndexOf(";")))();
+  // 她 2026-09-06 亲手发来的两种原话
+  assert.ok(re({ message: "The prompt could not be submitted. The prompt contains sensitive words…" }));
+  assert.ok(re({ message: "empty response from Gemini API" }));
+  assert.ok(re({ message: "线路报错（不是模型写的正文）：The prompt was blocked by safety settings" }));
+  // ⚠️别的坏法不许触发重试——那是白花一次钱
+  assert.equal(re({ message: "Failed to fetch" }), false);
+  assert.equal(re({ message: "429 Too Many Requests" }), false);
+  assert.equal(re({ message: "没解析出卡。他这回答的是：{…" }), false);
+  assert.equal(re(null), false);
+});
+
+test("⑥ 只缩一次、只在被拦时缩；两枪都接上了", () => {
+  const call = APP.slice(APP.indexOf("const gazeCall = async"), APP.indexOf("const reviewGazeFor = async"));
+  assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也去重试＝白花一次钱");
+  // 正好两次 callAI：一次 full 一次 slim，不许再多
+  assert.equal((call.match(/await callAI\(/g) || []).length, 2, "重试次数变了");
+  assert.match(call, /去掉聊天记录再试一次【还是被拦】/, "两次都被拦时那句结论没写出来");
+  // 两枪都得走它，别只改一处
+  assert.equal((APP.match(/await gazeCall\(p, window\.Gaze\.(seedSpec|reviewSpec)/g) || []).length, 2);
+});
+
+test("⑥ slim 那一份只去掉聊天记录，人设和记忆照旧带着", () => {
+  const slims = APP.match(/const userSlim = head \+ "[^"]*";/g) || [];
+  assert.equal(slims.length, 2, "建卡和复看各要一份");
+  slims.forEach(x => assert.match(x, /这一段这次没带上来，就凭你记得的写/));
+  // head 里那三样一样都不能少——slim 是【缩】，不是【换一道题】
+  const heads = APP.match(/const head = "【你的人设】[^;]*;/g) || [];
+  assert.equal(heads.length, 2);
+  heads.forEach(x => { ["【你的人设】", "好感度", "【长期记忆】"].forEach(k => assert.ok(x.includes(k), "slim 把 " + k + " 也砍了")); });
+});
+
+test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  G.markReviewFail("c1", "这条线路把提示词拦了；去掉聊天记录再试一次【还是被拦】——所以踩线的不是聊天内容，是这道题本身、或者人设／长期记忆里的字。\n原话：The prompt could not be submitted…");
+  assert.equal(G.reviewState("c1").err, "去掉聊天记录也还是被拦，不是聊天内容的事");
+  // ⚠️它必须排在那句更笼统的前面，否则会被先答掉
+  const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
+  assert.ok(why.indexOf("去掉聊天记录也还是被拦") < why.indexOf("这条线路把提示词拦了（内容政策）"), "顺序反了，这句永远轮不到");
+});

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.48";
+const APP_VERSION = "v64.49";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -620,14 +620,17 @@ function App() {
     try {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
-      const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
+      // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
+      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const user = head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
+      const userSlim = head + "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
       //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
       //   模型写多少就是多少，给宽了一分钱也多花不到；给窄了才会写到一半停住、
       //   然后重来一次，那才是真多花了一次。这一枪一次要写十块，正是最容易被窄上限截断的那种。
       //   （唯一要留神的是有些上游对 max_tokens 有自己的硬上限，超了会秒失败打回来——
       //     真遇到某条线路一按就失败，先看是不是这个数被上游拒了，不是提示词的问题。）
-      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
+      const raw = await gazeCall(p, window.Gaze.seedSpec(uN), user, userSlim);
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
@@ -674,6 +677,27 @@ function App() {
   // 「又想了一遍」都没有——他两个字段都不填，而不填在代码这一道原来没有任何代价。
   // 条件全在 Gaze.reviewDue 里（卡有内容 + 最新一块也 14 天没动 + 他确实被点名却连着不吭声），
   // 带次数上限和冷却：修不好就停手，绝不变成每天一次的自动调用（她按次计费）。
+  // ── 被线路拦下来时，自己缩一次再试（v64.47）─────────────────────────────
+  // 她 2026-09-06：**后台线路和聊天线路是同一个模型，而别的调用全过、只有这两枪被拦。**
+  // 那就跟线路无关了，是这一枪的提示词本身。可它有三块料（人设 / 长期记忆 / 几十条聊天），
+  // 光看是看不出哪一块踩线的——所以让它自己试出来：被拦之后【去掉最大那块（聊天记录）】
+  // 再打一次。成了＝是聊天内容踩的线，卡照样写出来；还被拦＝不在聊天里，
+  // 那句报错会明说，下一步就知道往哪儿找。
+  // ⚠️只在【确认是被内容拦】时才重试，而且只重一次：她按次计费，失败不许翻倍。
+  const gazeBlocked = e => /not be submitted|prohibited use|sensitive words|was blocked|safety|empty response from/i
+    .test(String((e && e.message) || e || ""));
+  // full=带聊天记录那一份，slim=去掉聊天记录那一份
+  const gazeCall = async (p, sys, full, slim) => {
+    try { return await callAI(p, sys, [{ role: "user", content: full }], { maxTokens: 65535, timeout: 150000 }); }
+    catch (e) {
+      if (!gazeBlocked(e)) throw e;
+      try { return await callAI(p, sys, [{ role: "user", content: slim }], { maxTokens: 65535, timeout: 150000 }); }
+      catch (e2) {
+        throw new Error("这条线路把提示词拦了；去掉聊天记录再试一次【还是被拦】——"
+          + "所以踩线的不是聊天内容，是这道题本身、或者人设／长期记忆里的字。\n原话：" + ((e2 && e2.message) || e2));
+      }
+    }
+  };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
   // manual=她自己在状态卡底下按了「让他再看一遍这十块」。
   // ⚠️手动那一次不占自动预算（v64.35）：预算防的是「代码偷偷花钱」，不是防她自己要。
@@ -687,9 +711,12 @@ function App() {
     try {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
-      const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
+      // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
+      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const user = head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
+      const userSlim = head + "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
       // 开满，同上（她 2026-09-05 点名）
-      const raw = await callAI(p, window.Gaze.reviewSpec(uN, char.id), [{ role: "user", content: user }], { maxTokens: 65535, timeout: 150000 });
+      const raw = await gazeCall(p, window.Gaze.reviewSpec(uN, char.id), user, userSlim);
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
