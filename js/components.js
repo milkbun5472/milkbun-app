@@ -13636,6 +13636,9 @@ function ChatSettings({
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: "0 0 auto" } }, c.toFixed(2)));
       }));
   };
+  // 端不端着看【A 那份傲娇】：动念自己那份永远到不了闸口，见下面那段注释。
+  const PRIDE_BLOCK = (window.DongnianEmotionA && window.DongnianEmotionA.prideBlock) || .5;
+  const aPride = Number((aShadowPanel && aShadowPanel.state && aShadowPanel.state.emotion && aShadowPanel.state.emotion.current && aShadowPanel.state.emotion.current.pride) || 0);
   const renderDongnianGauge = () => h("div", { style: { marginTop: 12, padding: "12px", borderRadius: 12, border: "1px dashed " + t.line } }, (() => {
     // ⚠️跟你没聊过、但在群里已经攒着思念的，这里也得看得见——
     //   早退的话那几根条会跟着一起消失（她跟这个人没私聊正是最需要看的时候）。
@@ -13663,10 +13666,14 @@ function ChatSettings({
           dnNumsOpen ? "收起 ▾" : "看数字 ▸")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
         "想到条子过了第一道线，TA 就开始找机会开口；过了第二道就忍不住了。你回一句话它就归零重新攒；关着 app 的时候也照样在攒。"
-        + (dongnianState.pride >= 0.5 ? "\n此刻 TA 还端着——想找你但拉不下脸，会先去找点事做。" : "")),
+        // ⚠️读的是【A 算出来的傲娇】，不是动念自己那份（v64.69）。动念那份初值 -1、
+        //   稳态最高 0.3，防御漂移那一支写着「1.0＝永不」——它永远到不了 0.5，
+        //   所以这句话从写下来那天起一次都没出现过。她 2026-09-06 一眼看穿：
+        //   「如果它永远 0 那怎么可能端着」。
+        + (aPride >= PRIDE_BLOCK ? "\n此刻 TA 还端着——想找你但拉不下脸，会先去找点事做。" : "")),
       dnNumsOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
         "此刻 " + c.toFixed(3) + "；开口线 0.35，忍不住线 0.50。关着 app 的时间一次最多补 12 小时。"
-        + (dongnianState.pride >= 0.5 ? "　傲娇 " + Number(dongnianState.pride).toFixed(2) + "。" : "")) : null,
+        + (aPride >= PRIDE_BLOCK ? "　傲娇 " + aPride.toFixed(2) + "（过了 " + PRIDE_BLOCK + " 就先不开口）。" : "")) : null,
       renderDongnianElsewhere());
   })());
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },

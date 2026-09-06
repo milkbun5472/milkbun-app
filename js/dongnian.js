@@ -16,6 +16,10 @@
 // 全文用 IIFE 包住，只把 createDongnian 挂到 window，别泄漏 clamp/defaultPromptContext 等常见名
 // ============================================================
 ;(function () {
+// 「拉不下脸」那道闸的高度。⚠️只有这一份：动念自己的 prideBlock 用它，
+//   app.js 那边「傲娇挡一挡、这一轮先不开口」也读它（挂在 DongnianEmotionA.prideBlock 上）。
+//   两处各写一个 0.5 的话，哪天调了一处另一处就悄悄不同步了。
+const PRIDE_BLOCK = .5;
 /**
  * 创建一个动念引擎实例。
  *
@@ -115,7 +119,7 @@ function createDongnian(opts) {
     observation:     0.20,
     considerContact: 0.35,
     forceContact:    0.50,
-    prideBlock:      0.50,
+    prideBlock:      PRIDE_BLOCK,
     valenceActivity:   -1.0,   // valence 低于此值时触发自我调节（-1.0=永不）
     arousalAgitation:   0.7,   // arousal 高于此值时也触发自我调节（躁动难坐）
   }, opts.thresholds);
@@ -793,10 +797,17 @@ const A_MOOD_RULES = Object.freeze([
   ["warmth_short",/(?:^|[\s、，,;/·])温(?:$|[\s、，,;/·])/,{warmth:.12,valence:.06}],
   ["social_exposed",/(?:被看透|被看穿|说中心事|戳破心事)/,{anxiety:.06,warmth:.04}],
   // 姿态/表达方式不是情绪：只把「识别成功」记进诊断，不借机篡改任何轴。
-  ["posture_neutral",/(?:嘴硬|掌控|走神|忙碌|上工|兑付|哭笑不得|不为所动|审视|坦白)/,{}],
+  ["posture_neutral",/(?:掌控|走神|忙碌|上工|兑付|哭笑不得|不为所动|审视)/,{}],
   ["task_posture_neutral",/(?:反诉|郑重|干脆|落地|开炉|监工|上岗|对症|开方|现货|交付|交差|收工|办妥|兑现|验收|开工|施工|排查|复盘|拍板|定案|成交|发货|出炉|查岗|值守|守夜|守岗|待命|复命|回执)/,{}],
   ["calm",/(?:平静|平和|平稳|淡定|从容|安定|安宁|安稳|稳妥|落定|踏实|释然|专注|认真|好奇|若有所思|沉思|克制|忍着|谨慎)/,{}],
   ["cold",/(?:冷酷|冷淡|冷漠|疏冷)/,{warmth:-.14,valence:-.06}],
+  // 傲娇（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）。
+  // ⚠️原来「嘴硬」「逞强」被判成 posture_neutral（识别成功但一个数都不动），
+  //   于是 pride 这条轴【从上线起就恒等于 0】——而它自己就是那道「拉不下脸」的闸。
+  //   嘴硬按定义就是傲娇：心里想、嘴上不认。这不是姿态，这就是那条轴本身。
+  ["proud_guarded",/(?:嘴硬|逞强|端着|绷着|拉不下脸|抹不开面子|死撑|硬撑|不肯服软|不肯认|嘴上不认|矜持|傲娇|口是心非)/,{pride:.18,warmth:-.04}],
+  // 反过来那一头：卸下防备。pride 是 [-1,1] 的双向轴，只会涨不会落的话它迟早卡在顶上。
+  ["guard_down",/(?:服软|示弱|坦白|老实交代|放下防备|卸下防备|认了|松口(?!气)|不装了)/,{pride:-.16,warmth:.06}],
   // 从真实未识别名单里补的整词（v64.67，她 2026-09-06 把五个角色的诊断台截给我）
   ["awkward_stuck",/(?:别扭|拧巴|不是滋味|意难平)/,{valence:-.10,anger:.06,anxiety:.05}],
   ["relieved",/(?:放下心|放心|宽心|宽慰|松口气|松了口气|安下心)/,{anxiety:-.12,valence:.08}],
@@ -1073,7 +1084,7 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,prideBlock:PRIDE_BLOCK,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createDongnian = createDongnian; window.DongnianEmotionA=DongnianEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createDongnian,DongnianEmotionA};

@@ -143,9 +143,12 @@ test("既有真实未命中词受控归轴，姿态词只识别不推数字", ()
   assert.ok(awkward.delta.anxiety>0);
   const jealous=A.moodEvidence("酸溜溜的");
   assert.ok(jealous.delta.hurt>0&&jealous.delta.valence<0);
-  const posture=A.moodEvidence("嘴硬又想掌控");
+  // ⚠️v64.69 改口径：「嘴硬」不再算姿态，它就是傲娇本身（她 2026-09-06：
+  //   「如果它永远 0 那怎么可能端着」）。剩下的真姿态照旧一个数都不动。
+  const posture=A.moodEvidence("走神又想掌控");
   assert.equal(posture.matched,true);
   assert.deepEqual(posture.delta,{});
+  assert.ok(A.moodEvidence("嘴硬又想掌控").delta.pride>0,"嘴硬该推傲娇了");
 });
 
 test("v5 覆盖第三轮影子审计高频未命中，复合标签按词片机械命中", () => {
@@ -303,4 +306,58 @@ test("发给模型的那句话用的就是这套名字", () => {
   ["委屈", "火气", "疲惫"].forEach(zh => assert.ok(text.includes(zh), "没用统一的名字：" + text));
   // 老那套一个都不许再出现在发出去的正文里
   ["柔软", "受伤", "愤怒", "想靠近", "防御感", "唤醒"].forEach(old => assert.ok(!text.includes(old), "还在用老名字：" + old));
+});
+
+// ── 傲娇那条轴（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）──────
+// ⚠️原来「嘴硬」「逞强」被判成 posture_neutral（识别成功但一个数都不动），
+//   于是 pride 从上线起恒等于 0。而它自己就是那道「拉不下脸、先不开口」的闸——
+//   闸的判据永远为假，那句「此刻 TA 还端着」从写下来那天起一次都没出现过。
+test("嘴硬就是傲娇本身，不是「姿态、不动数值」", () => {
+  ["嘴硬", "逞强", "端着", "拉不下脸", "口是心非", "矜持"].forEach(w => {
+    const m = A.moodEvidence(w);
+    assert.ok(m.delta.pride > 0, w + " 推不动傲娇");
+  });
+  // 反过来那一头必须也有：pride 是 [-1,1] 的双向轴，只涨不落迟早卡在顶上
+  ["服软", "示弱", "坦白", "不装了"].forEach(w => {
+    assert.ok(A.moodEvidence(w).delta.pride < 0, w + " 该把防备卸下来");
+  });
+  // 真姿态照旧一个数都不动
+  ["掌控", "走神", "忙碌", "审视"].forEach(w => assert.deepEqual(A.moodEvidence(w).delta, {}, w));
+  // ⚠️「松口气」是松弛不是服软——别被「松口」那条吃掉
+  assert.deepEqual(A.moodEvidence("松口气").rules, ["relieved"]);
+});
+
+test("嘴硬几次之后，傲娇真的上得了台面", () => {
+  let st = A.createState("c", T0);
+  for (let n = 1; n <= 3; n++) st = A.applyEvent(st, { moodLabel: "嘴硬" }, T0 + n * 1000).state;
+  assert.ok(st.emotion.current.pride > 0.3, "三次嘴硬才 " + st.emotion.current.pride);
+  assert.match(A.displayProjection(st).text, /傲娇偏高/);
+  // 会落回去：不落的话他就永远不找你了
+  const cooled = A.regress(st, 240, T0 + 240 * 60000);
+  assert.ok(cooled.emotion.current.pride < st.emotion.current.pride, "傲娇不会自己消");
+});
+
+test("「拉不下脸」那道闸：一个高度，两处读同一份", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+  assert.equal(A.prideBlock, .5);
+  // 动念自己那道闸也读它，不许再写一个字面量
+  assert.match(R("js/dongnian.js"), /prideBlock:\s+PRIDE_BLOCK,/, "动念那道闸没读同一份");
+  // 主动开口那条链读的是【A 的傲娇】——动念自己那份初值 -1、稳态最高 0.3，到不了闸口
+  assert.match(R("js/app.js"), /if \(aPrideOf\(cid\) >= \(window\.DongnianEmotionA \? window\.DongnianEmotionA\.prideBlock : \.5\)\)/,
+    "主动开口那条链没接上傲娇");
+  assert.match(R("js/app.js"), /aPrideRef\.current\[charId\] = Number\(/, "算完没镜像一份");
+  assert.match(R("js/app.js"), /aPrideRef\.current\[c\.id\] = Number\(st\.emotion\.current\.pride/, "开机没补——第一轮那道闸会是开的");
+  // 界面那句也读 A 的，不再读动念那份
+  const comp = R("js/components.js");
+  assert.match(comp, /const aPride = Number\(\(aShadowPanel && aShadowPanel\.state/);
+  assert.ok(!/dongnianState\.pride/.test(comp), "还在读动念那份永远不动的 pride");
+});
+
+test("端着的时候不开口，但思念真的很重照旧开口", () => {
+  const src = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "..", "js/app.js"), "utf8");
+  const i = src.indexOf("if (aPrideOf(cid) >=");
+  const seg = src.slice(i, i + 420);
+  assert.match(seg, /t\.action === "contact" && t\.forced/, "没留那条缝：想念太重时也该开口");
+  assert.match(seg, /if \(!forced\) continue;/);
 });

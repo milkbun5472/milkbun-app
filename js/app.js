@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.68";
+const APP_VERSION = "v64.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1465,6 +1465,7 @@ function App() {
   // 所以每轮算完顺手在内存里留一份现成的句子，让 buildBundle 那头能同步拿到——
   // 跟 gazeText 走同一个形状（那份也是同步从本地取的）。开机补一次，免得第一轮是空的。
   const aMoodRef = useRef({});
+  const aPrideRef = useRef({});   // 傲娇的同步镜像（v64.69），动念那条链读它
   // 急停：诊断台那颗回滚键写的是 E 的 emergencyOff，按下去 A 和 E 一起停。
   // 提到组件这一层，是因为单聊和群聊两处都要问它——各写一份迟早只改一处。
   const innerLifeOnFor = charId => {
@@ -1473,6 +1474,12 @@ function App() {
   // 三道闸都收在这一处：急停、言秋（他不是被扮演的角色）、还没算出来。
   // 收在一处是因为要它的地方有三个（单聊 ctxFor、群线上 memberDesc、群线下 memberAMood）——
   // 各写一份就是「一层写在三处，第三处没跟上」。
+  // 此刻端着到什么程度（-1~1）。急停按下 / 言秋 / 还没算出来 → 0（＝不挡）。
+  const aPrideOf = charId => {
+    if (!charId || !innerLifeOnFor(charId)) return 0;
+    if (settingsFor(charId).engineerEyes) return 0;
+    return Number((aPrideRef.current || {})[charId] || 0);
+  };
   const aMoodTextOf = charId => {
     if (!charId || !innerLifeOnFor(charId)) return "";
     if (settingsFor(charId).engineerEyes) return "";
@@ -1490,6 +1497,9 @@ function App() {
             const st = await window.InnerLifeAShadow.get(owner, c.id);
             const pj = st ? window.DongnianEmotionA.displayProjection(st) : null;
             if (pj && pj.text) aMoodRef.current[c.id] = pj.text;
+            // 傲娇也一起补（v64.69）：不补的话开机后第一轮那道闸永远是开的——
+            // 「一层写在两处，第二处没跟上」的又一个落点，而且它悄无声息。
+            if (st && st.emotion && st.emotion.current) aPrideRef.current[c.id] = Number(st.emotion.current.pride || 0);
           } catch (e) {}
         }
       } catch (e) {}
@@ -1510,6 +1520,9 @@ function App() {
           const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
           const projection = window.DongnianEmotionA.displayProjection(saved);
           aMoodRef.current[charId] = (projection && projection.text) || "";   // 同步镜像，供 ctxFor 取
+          // 傲娇也镜像一份（v64.69）：动念那条链要用它决定「这一轮拉不下脸，先不开口」。
+          // ⚠️A 在算傲娇、动念在用傲娇，两边从来没接上过——所以那道闸从上线起一次都没关过。
+          aPrideRef.current[charId] = Number((saved.emotion && saved.emotion.current && saved.emotion.current.pride) || 0);
           await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodViaMorpheme: result.audit.moodViaMorpheme, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
           if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
         } catch (e) {}
@@ -5085,6 +5098,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
+          }
+          // 傲娇挡一挡（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）。
+          // ⚠️动念自己那道 prideBlock 是【真闸】——过了线他会去「找点事做」而不是找你。
+          //   可它读的是动念自己那份 pride：初值 -1、稳态最高 0.3，防御漂移那一支又写着
+          //   「1.0＝永不」，所以那道闸从上线起一次都没关过。现在改读【A 算出来的傲娇】
+          //   （嘴硬/逞强/端着 才推得动它），门槛还是同一个数。
+          // ⚠️留一条缝：思念真的很重（forced）照旧开口——那正是「想念太重，维持冷漠太累」。
+          if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) {
+            const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
+            if (!forced) continue;   // 拉不下脸，这一轮先不开口；等它自己落下来
           }
           dongnianFiredRef.current[cid] = Date.now();      // 闸先占住：防同一秒被别的路重复认领
           let jwStyle = "";
