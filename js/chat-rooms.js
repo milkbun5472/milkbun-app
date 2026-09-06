@@ -8,25 +8,27 @@
   const STORAGE_KEY = "x_chatRooms_v1";
   const SUMMARY_KEY = "x_chatRoomSummaries_v1";
   const MAIN_ID = "main";
+  // 这几栏的字是给她看的，不是给工程师看的：说的是「他进这扇门带着什么」，
+  // 不是「cognition 权限位」。key 一个都没动。
   const GROUPS = {
     cognition: [
-      ["formalMemory", "正式记忆", "可读取这个人的正式记忆与共同经历"],
-      ["innerLife", "关系与内在状态", "可读取关系、情绪与人格成长"],
-      ["mainDelta", "主房近况", "侧房回来时补看主聊天后来发生的事"],
-      ["schedule", "现实时间与行程", "可感知现实钟、角色当地时间与当前行程"],
-      ["otherScenes", "群聊与线下", "可参考共同群聊和线下相处留下的事实"]
+      ["formalMemory", "你们一起经历过的事", "他记得你们的正式记忆和共同经历"],
+      ["innerLife", "你们处到哪一步了", "他带着现在的关系、心情和他这个人长出来的样子"],
+      ["mainDelta", "主聊天后来发生的", "回到这间房时，先补看主聊天这段时间的事"],
+      ["schedule", "今天几号、他此刻在干嘛", "他知道现实时间、他那边的时间和今天的行程"],
+      ["otherScenes", "群里和见面时发生的", "他记得共同群聊和线下相处留下的事"]
     ],
     actions: [
-      ["study", "一起学", "允许在本房自然提议一起学"],
-      ["games", "小游戏", "允许在本房自然提议玩小游戏"]
+      ["study", "他可以拉你一起学", "允许他在这间房自然提议一起学"],
+      ["games", "他可以拉你玩点什么", "允许他在这间房自然提议玩小游戏"]
     ],
     writeback: [
-      ["roomHistory", "保留本房聊天", "始终保留这间房自己的完整时间线"],
-      ["memoryCandidate", "进入记忆候选", "重要内容可进入候选箱，仍需现有记忆闸判断"],
-      ["sharedState", "影响共同状态", "允许这间房更新关系、情绪、动作等共享状态"],
-      ["stateMood", "其中·改写心情", "关掉后这间房不改主线的实时心情（需先开「影响共同状态」）"],
-      ["stateGaze", "其中·改写印象卡", "关掉后这间房不改「Ta 眼里」（需先开「影响共同状态」）"],
-      ["mainSummary", "给主房留交接", "离开侧房后，给主房一份可追溯的房间摘要"]
+      ["roomHistory", "这里说过的话留在这里", "这间房永远留着自己完整的聊天记录"],
+      ["memoryCandidate", "这里的事可以进记忆", "重要的能进候选箱，仍要过现有那道记忆闸"],
+      ["sharedState", "这里的事算数", "允许这间房改动你们共同的关系、情绪和状态"],
+      ["stateMood", "其中·能改他的心情", "关掉后这间房不动主线的实时心情（需先开「这里的事算数」）"],
+      ["stateGaze", "其中·能改「Ta 眼里」", "关掉后这间房不动那张印象卡（需先开「这里的事算数」）"],
+      ["mainSummary", "出门时给主聊天捎一句", "离开这间房后，给主聊天留一份说得清的交接"]
     ]
   };
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
@@ -37,6 +39,21 @@
     alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" }
   };
 
+  // 进门先给一句话，别一上来就是十个开关。说的是这两件事：
+  // 他在这儿记不记得你们，和这儿发生的事出不出得了这道门。
+  function doorLine(room) {
+    const r = room || {}, c = r.cognition || {}, w = r.writeback || {};
+    if (r.main) return "他在这儿是完整的他，说过的都算数。";
+    const brings = c.formalMemory && c.innerLife ? "他记得你们的全部"
+      : c.formalMemory ? "他记得你们经历过的事，但没带着现在的心情"
+      : c.innerLife ? "他带着现在的心情，但想不起具体经历过什么"
+      : "他在这儿不记得你们的过去";
+    const takes = w.sharedState && w.memoryCandidate ? "这儿说的话会跟着他走出门"
+      : w.memoryCandidate ? "这儿的事能记进去，但不动你们现在的状态"
+      : w.sharedState ? "这儿的事会改你们现在的状态，但不进记忆"
+      : "这儿的事他也带不出去";
+    return brings + "，" + takes + "。";
+  }
   const clone = obj => JSON.parse(JSON.stringify(obj));
   const id = () => "room_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
   const mainRoom = personId => ({ id: MAIN_ID, personId: String(personId), createdAt: 0, updatedAt: Date.now(), ...clone(PRESETS.everyday), actions: bools(GROUPS.actions, false), name: "主聊天", main: true, preset: "everyday" });
@@ -193,5 +210,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
+  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
 });

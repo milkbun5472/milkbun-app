@@ -78,8 +78,9 @@ test("长篇如果默认隔离，但认知与写回权限可以自由混搭", ()
   assert.match(app, /const _roomSharesState = !room \|\| !!\(room\.writeback && room\.writeback\.sharedState\)/);
   assert.match(app, /const _roomMayRemember = !room \|\| !!\(room\.writeback && room\.writeback\.memoryCandidate\)/);
   assert.match(weekly, /!room\.main && room\.writeback && room\.writeback\.mainSummary/);
-  assert.match(components, /认知、同步和写回权限可以任意混搭/);
-  assert.match(components, /默认隔离 · 权限可混搭/);
+  // v65.00 换成她的说法：不再叫「认知/写回权限」，叫「他带什么进门 / 这儿的事出不出门」。
+  assert.match(components, /他带什么进门、这儿的事出不出门都能任意混搭/);
+  assert.match(components, /什么都没带进来 · 可以一条条放行/);
   assert.doesNotMatch(components, /!draft\.scenario && group\("cognition"/);
   assert.doesNotMatch(components, /!draft\.scenario && group\("writeback"/);
 });
