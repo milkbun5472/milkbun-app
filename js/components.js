@@ -13494,8 +13494,6 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
 }
 window.ChatRoomSheet = ChatRoomSheet;
 
-// 十条读数的中文名（跟 js/screens.js 的 A 诊断台同一套说法——两处各译一份迟早对不上）
-const AXIS_ZH_MINI = { connection: "思念", pride: "傲娇", valence: "愉悦", arousal: "唤醒", immersion: "沉浸", hurt: "委屈", anger: "火气", anxiety: "不安", warmth: "暖意", fatigue: "疲惫" };
 function ChatSettings({
   character,
   settings,
@@ -13916,7 +13914,7 @@ function ChatSettings({
         style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent", border: "none", padding: "6px 0", minHeight: 36 } },
         temperNumsOpen ? "把数字收起来 ▾" : "看数字 ▸"),
       temperNumsOpen ? h("div", null,
-        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 2 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 8px" } }, (AXIS_ZH_MINI[key] || key) + " " + Number(value).toFixed(2)))),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 2 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 8px" } }, (((window.DongnianEmotionA && window.DongnianEmotionA.displayLabels) || {})[key] || key) + " " + Number(value).toFixed(2)))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.6 } },
           "攒了 " + Number(aShadowPanel.report && aShadowPanel.report.sampleCount || 0) + " 次 · 没认出来的心情 " + Number(aShadowPanel.report && aShadowPanel.report.unmatchedMoodCount || 0) + " 次 · 到顶被压回来 " + Number(aShadowPanel.report && aShadowPanel.report.clippedCount || 0) + " 次")) : null),
     aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },

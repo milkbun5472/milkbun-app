@@ -73,10 +73,11 @@ test("那几个数默认收着，点一下才看得见", () => {
   assert.match(source, /temperNumsOpen \? "把数字收起来 ▾" : "看数字 ▸"/);
   assert.match(source, /dnNumsOpen \? "收起 ▾" : "看数字 ▸"/);
   // 收起来的时候那一串键名不许露出来
-  assert.match(source, /temperNumsOpen \? h\("div", null,[\s\S]{0,400}AXIS_ZH_MINI/);
+  // v64.68：轴名不再在这儿抄一份，改成引用 dongnian 那唯一一份（见 inner-life-a-emotion-core）
+  assert.match(source, /temperNumsOpen \? h\("div", null,[\s\S]{0,500}DongnianEmotionA\.displayLabels/);
   assert.match(source, /dnNumsOpen \? h\("div"[\s\S]{0,200}"此刻 " \+ c\.toFixed\(3\)/);
-  // 英文键名要翻成中文（no-english-titles 那条的同一件事）
-  assert.match(source, /const AXIS_ZH_MINI = \{ connection: "思念"/);
+  // 英文键名要翻成中文（no-english-titles 那条的同一件事），名字取自全 app 唯一那一份
+  assert.ok(!source.includes("AXIS_ZH_MINI"), "那份抄来的轴名表该删了");
   assert.ok(!/mood 未命中|封顶触发|tokens"/.test(PAGE), "工程词还留在这一页上");
 });
 

@@ -9185,7 +9185,10 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
   const t = useTheme();
   const [rows, setRows] = useState(null);
   const [gateTick, setGateTick] = useState(0);
-  const AXIS_ZH = { connection: "思念", pride: "傲娇", valence: "愉悦", arousal: "唤醒", immersion: "沉浸", hurt: "委屈", anger: "火气", anxiety: "不安", warmth: "暖意", fatigue: "疲惫" };
+  // ⚠️名字只有 dongnian.js 那一份（A_DISPLAY_LABELS）。这儿再抄一遍的话，
+  //   界面和发给他的那句话迟早对不上——v64.68 之前就是这样：这儿写「暖意」，
+  //   发出去的是「柔软」。拿不到就退回英文键名，别自作主张补一套。
+  const AXIS_ZH = (window.DongnianEmotionA && window.DongnianEmotionA.displayLabels) || {};
   const load = async () => {
     setRows(null);
     try {

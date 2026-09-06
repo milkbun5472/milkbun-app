@@ -275,3 +275,32 @@ test("这一栏一路接到诊断台上，没有半路断掉（v55.95 那个形�
   assert.match(R("js/inner-life-a-shadow.js"), /morphemeMoodCount:rows\.filter\(x=>x\.moodViaMorpheme\)\.length/, "报表没算");
   assert.match(R("js/screens.js"), /line\("其中靠拆字接住", String\(r\.morphemeMoodCount \|\| 0\)\)/, "诊断台没显示");
 });
+
+// ── 十条轴的中文名：全 app 只有一份（v64.68，她 2026-09-06 拍板）──────────
+// 原来三处各写一份，说法还不一样：发给模型的是「柔软/受伤/愤怒/想靠近/防御感」，
+// 界面上写的是「暖意/委屈/火气/思念/傲娇」。她在诊断台读「暖意 0.39」，
+// 他收到的是「柔软偏高」——同一个数、两个名字。
+test("轴名只有 dongnian 那一份，别处一律引用它", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+  assert.deepEqual(A.displayLabels, {
+    connection: "思念", pride: "傲娇", valence: "愉悦", arousal: "激动", immersion: "沉浸",
+    hurt: "委屈", anger: "火气", anxiety: "不安", warmth: "暖意", fatigue: "疲惫"
+  });
+  // ⚠️别处不许再出现【第二份表】：判据是「有没有人又把十条轴的名字铺开写一遍」
+  ["js/screens.js", "js/components.js", "js/app.js", "js/engine.js"].forEach(f => {
+    const src = R(f).split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+    assert.ok(!/connection:\s*"[^"]+",\s*pride:\s*"/.test(src), f + " 里又抄了一份轴名表");
+  });
+  assert.match(R("js/screens.js"), /window\.DongnianEmotionA\.displayLabels/, "诊断台没引用那一份");
+  assert.match(R("js/components.js"), /window\.DongnianEmotionA\.displayLabels/, "脾气页没引用那一份");
+});
+
+test("发给模型的那句话用的就是这套名字", () => {
+  let st = A.createState("c", T0);
+  ["难过", "生气", "累"].forEach((w, i) => { st = A.applyEvent(st, { moodLabel: w }, T0 + (i + 1) * 1000).state; });
+  const text = A.displayProjection(st).text;
+  ["委屈", "火气", "疲惫"].forEach(zh => assert.ok(text.includes(zh), "没用统一的名字：" + text));
+  // 老那套一个都不许再出现在发出去的正文里
+  ["柔软", "受伤", "愤怒", "想靠近", "防御感", "唤醒"].forEach(old => assert.ok(!text.includes(old), "还在用老名字：" + old));
+});

@@ -1001,7 +1001,12 @@ function regressEmotionA(rawState,minutesValue,nowValue) {
   }catch(_){return rawState;}
 }
 
-const A_DISPLAY_LABELS=Object.freeze({connection:"想靠近",pride:"防御感",valence:"愉悦",arousal:"激动",immersion:"沉浸",hurt:"受伤",anger:"愤怒",anxiety:"不安",warmth:"柔软",fatigue:"疲惫"});
+// 十条轴的中文名。⚠️【全 app 只有这一份】（v64.68，她 2026-09-06 拍板统一）。
+// 原来是三处各写一份，而且说法不一样：发给模型的是「柔软/受伤/愤怒/想靠近/防御感」，
+// 界面上写的是「暖意/委屈/火气/思念/傲娇」——她在诊断台读「暖意 0.39」，
+// 他收到的是「柔软偏高」。同一个数、两个名字。
+// 统一到【她天天读的那套】，只有 arousal 从「唤醒」换成「激动」——唤醒是直译，读着像闹钟。
+const A_DISPLAY_LABELS=Object.freeze({connection:"思念",pride:"傲娇",valence:"愉悦",arousal:"激动",immersion:"沉浸",hurt:"委屈",anger:"火气",anxiety:"不安",warmth:"暖意",fatigue:"疲惫"});
 function displayProjectionA(rawState,options){
   try{
     const emotion=rawState&&rawState.emotion,base=emotion&&emotion.baseline,current=emotion&&emotion.current;
@@ -1068,7 +1073,7 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const DongnianEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createDongnian = createDongnian; window.DongnianEmotionA=DongnianEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createDongnian,DongnianEmotionA};
