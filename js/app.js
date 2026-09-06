@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.99";
+const APP_VERSION = "v65.00";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -972,6 +972,12 @@ function App() {
   const [toastMsg, setToastMsg] = useState(null);
   const [appConfirm, setAppConfirm] = useState(null);
   const [appPrompt, setAppPrompt] = useState(null);   // 借这一层填一行字（v64.88）
+  // 预览台（v65.00）：她在主题工作台点「去这一页看看」→ 跳到【真页面】，屏幕上浮一条回程条。
+  // ⚠️v62.02 删掉过一版 iframe 假预览，理由写在 theme-studio-ui.js 里：那一版跟真页面
+  //   共享的只有挂点名字，底色、层级、字体、组件全是另写的，预览里对的东西上机不对。
+  //   所以这一版【不另画一份预览】——它就是把她送到那一页上，改完再送回来。
+  const [themePeek, setThemePeek] = useState(null);   // { page, zh } 或 null
+  const [configPage, setConfigPage] = useState("");   // 设置页要落在哪一栏（回程条用）
   const [loaded, setLoaded] = useState(false);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const toast = (m, ms) => {
@@ -993,6 +999,39 @@ function App() {
     window.__appPromptOpen = open;
     return () => { if (window.__appPromptOpen === open) delete window.__appPromptOpen; };
   }, []);
+  // 预览台的落点：把 App 送到某一页去。别处（主题工作台）拿不到 setScreen，
+  // 走这一层。返回空串＝去成了；返回一句话＝没去成，那句话直接说给她听。
+  // ⚠️有几页光 setScreen 是站不住的（要先有人/有群），这儿替它挑一个默认的；
+  //   一个都没有就照实说，不许静悄悄什么都不发生。
+  useEffect(() => {
+    const go = key => {
+      const k = String(key || "");
+      if (!k || k === "all") return "「全 App」不是某一页，随便挑一页看就行";
+      if (typeof SCREEN_ZH !== "undefined" && !SCREEN_ZH[k]) return "没有这一页";
+      if (k === "thread" || k === "contact" || k === "castForm" || k === "momprofile" || k === "kincard") {
+        const c = activeChar || (characters || [])[0];
+        if (!c) return "这一页得有个角色才看得见——先去人格档案馆建一个";
+        setActiveChar(c);
+      }
+      if (k === "gthread") {
+        const g0 = activeGroup || (groups || [])[0];
+        if (!g0) return "这一页得有个群才看得见——先去消息里建一个";
+        setActiveGroup(g0);
+      }
+      setScreen(k);
+      return "";
+    };
+    window.__goScreen = go;
+    return () => { if (window.__goScreen === go) delete window.__goScreen; };
+  }, [activeChar, activeGroup, characters, groups]);
+  // 预览台开关：工作台按下「去这一页看看」时挂上，回程条按下时摘掉。
+  useEffect(() => {
+    const open = info => setThemePeek(info && info.page ? { page: String(info.page), zh: String(info.zh || info.page) } : null);
+    window.__themePeekOpen = open;
+    return () => { if (window.__themePeekOpen === open) delete window.__themePeekOpen; };
+  }, []);
+  // 她自己从那一页走开了，回程条就该收起来——不然它会在别的页上说「正在预览 · 日记」
+  useEffect(() => { if (themePeek && screen !== themePeek.page) setThemePeek(null); }, [screen, themePeek]);
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(i);
@@ -18784,6 +18823,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       saveJSON(SCHED_WEEK_MARK_KEY, cur);
     }
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
+    // 预览台回来时直接落在主题工作台那一栏，不用她再翻一次（v65.00）
+    initialPage: configPage,
+    onLandedPage: () => setConfigPage(""),
     apiProfiles: apiProfiles,
     activeId: activeId,
     offlineApiId: offlineApiId,
@@ -19315,6 +19357,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     multiline: appPrompt.multiline, maxLength: appPrompt.maxLength,
     onCancel: () => setAppPrompt(null),
     onOk: v => { const fn = appPrompt.onOk; setAppPrompt(null); setTimeout(() => { try { const r = fn(v); if (r && typeof r.catch === "function") r.catch(e => toast("没成：" + ((e && e.message) || "再试一次"), 5000)); } catch (e) { toast("没成：" + ((e && e.message) || "再试一次"), 5000); } }, 0); }
+  }), themePeek && h(ThemePeekBar, {
+    zh: themePeek.zh,
+    onBack: () => { setThemePeek(null); setConfigPage("themeStudio"); setScreen("config"); }
   }), /*#__PURE__*/React.createElement(Toast, {
     msg: toastMsg
   })));

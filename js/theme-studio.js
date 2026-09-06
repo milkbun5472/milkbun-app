@@ -435,11 +435,19 @@
     st.textContent = css; active = n; emit(); return n;
   };
   const cancelPreview = () => { clearTimeout(timer); timer = 0; const base = previewBase; previewBase = null; if (base) apply(base); };
-  const preview = p => {
+  // ms 不传就是 30 秒（工作台里那颗「先预览 30 秒」）。
+  // 预览台那一路要传更长的：她是【跳到真页面上去看】，30 秒不够走一圈；
+  // 那一路屏幕上一直浮着「回去改」，撤销的口子不靠这个计时器兜。
+  const preview = (p, ms) => {
+    const span = Number(ms) > 0 ? Number(ms) : PREVIEW_MS;
     if (!previewBase) previewBase = load(); clearTimeout(timer); apply(p);
-    timer = setTimeout(cancelPreview, PREVIEW_MS); return PREVIEW_MS;
+    timer = setTimeout(cancelPreview, span); return span;
   };
   const commit = p => { clearTimeout(timer); timer = 0; const n = save(p || active); previewBase = null; return apply(n); };
+  // 此刻【屏幕上真正生效的】那一份。预览期间它就是那份草稿（apply 会把 active 换掉）。
+  // ⚠️预览台那一路必须靠它：她跳出去看一眼再回来，工作台是重新挂载的，
+  //   要是照旧 load()，读回来的是【存档里那份】——她刚写的 CSS 当场没了。
+  const current = () => active;
   const iconRef = key => (active.icons || {})[key] || "";
   // 当前整套里这个 app 那张图的路径；没选整套、或这套没画这个 app，就是空串
   const packIcon = key => packIconSrc(active.iconPack, key);
@@ -463,7 +471,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

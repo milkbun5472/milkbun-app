@@ -1,10 +1,16 @@
 (function (g) {
   "use strict";
+  // 预览台跳出去再回来时，落回她刚才那一栏、那一页（v65.00）。
+  // ⚠️不进存档：它只是「上一秒在哪儿」，关掉 app 就该忘掉。
+  let lastSpot = null;
   function ThemeStudioConfig({ toast, theme, wallpaper, onSaveTheme, onSaveWallpaper }) {
     const t = useTheme(), studio = g.ThemeStudio;
-    const [draft, setDraft] = useState(() => studio.load());
+    // ⚠️正在预览时读【屏幕上生效的那份】，不是存档里那份：预览台会带她跳到真页面上
+    //   看一眼，工作台是重新挂载的——照旧 load() 的话，她刚写的 CSS 当场没了（v65.00）。
+    const [draft, setDraft] = useState(() => (studio.isPreviewing() && studio.current) ? studio.current() : studio.load());
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
-    const [section, setSection] = useState("icons"), [page, setPage] = useState("home"), [previewing, setPreviewing] = useState(false);
+    const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
+    useEffect(() => { lastSpot = null; }, []);
     const iconFile = useRef(null), iconFiles = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
@@ -16,6 +22,29 @@
     const preview = () => { try { studio.preview(draft); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已临时预览；30 秒后自动撤销"); } catch (e) { toast("不能预览：" + e.message); } };
     const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); setPendingBase(null); setPendingWallpaper(undefined); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
     const cancel = () => { clearTimeout(previewTimer.current); studio.cancelPreview(); setPreviewing(false); toast("已撤销预览"); };
+    // ── 预览台（v65.00）：去这一页看看 ───────────────────────────────
+    // 她 2026-09-06：「设置页里也没有预览台，要跑出去看效果也很麻烦」。
+    // ⚠️不再自己画一份预览。v62.02 删掉的那版 iframe 假预览跟真页面共享的只有挂点名字，
+    //   底色、层级、字体、组件全是另写的——预览里对的东西上机不对，比没有预览更坏
+    //   （修过两轮还是对不上）。只有真页面才是诚实的预览，所以这一颗是【把她送过去】。
+    // 那一路给 5 分钟而不是 30 秒：她是走过去看一圈，30 秒不够；
+    // 撤销的口子不靠计时器兜——屏幕底下一直浮着那条「回去改」。
+    const PEEK_MS = 300000;
+    const peek = () => {
+      const go = typeof window !== "undefined" && window.__goScreen;
+      const bar = typeof window !== "undefined" && window.__themePeekOpen;
+      if (typeof go !== "function" || typeof bar !== "function") { toast("预览台还没准备好，请再点一次"); return; }
+      let why = "";
+      try { studio.preview(draft, PEEK_MS); } catch (e) { toast("不能预览：" + e.message); return; }
+      why = go(page);
+      if (why) { studio.cancelPreview(); toast(why); return; }
+      clearTimeout(previewTimer.current);
+      previewTimer.current = setTimeout(() => setPreviewing(false), PEEK_MS + 50);
+      setPreviewing(true);
+      lastSpot = { section: "css", page: page };
+      bar({ page: page, zh: pageZh(page) });
+    };
+    const pageZh = k => { const row = (studio.PAGES || []).find(x => x[0] === k); return row ? String(row[1]).replace(/（.*$/, "") : k; };
     const chooseIcon = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
       try { const ref = await imgToVault(await resizeImageFile(f, 512, .9)); patchDraft({ icons: { ...draft.icons, [pickKey]: ref } }); toast("图标已放入草稿，点预览看看"); }
@@ -127,7 +156,12 @@
         h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } }),
         h("input", { ref: iconFiles, type: "file", accept: "image/*", multiple: true, onChange: chooseIcons, style: { display: "none" } })),
       section === "css" && h("div", null,
-        h("select", { value: page, onChange: e => setPage(e.target.value), style: { width: "100%", padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, marginBottom: 10 } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
+        h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 10 } },
+          h("select", { value: page, onChange: e => setPage(e.target.value), style: { flex: 1, minWidth: 0, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
+          h("button", { onClick: peek, disabled: page === "all", className: "shrink-0 active:opacity-70 disabled:opacity-35",
+            style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, "去这一页看看")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
+          page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
         // ── 内置预设 + 这一页自己的 5 个槽位（v61.05，她 2026-09-03 要的）──

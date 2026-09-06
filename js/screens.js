@@ -7144,7 +7144,9 @@ function AutoRefreshConfig(props) {
 
 function Config(props) {
   const t = useTheme();
-  const [page, setPage] = useState("home");
+  // initialPage：预览台按「回去改」回来时直接落在主题工作台那一栏（v65.00）
+  const [page, setPage] = useState(() => props.initialPage || "home");
+  useEffect(() => { if (props.initialPage) { setPage(props.initialPage); props.onLandedPage && props.onLandedPage(); } }, [props.initialPage]);
   const scrollRef = React.useRef(null);
   React.useEffect(() => {
     // 首页与子页共用这一只滚动容器；换页必须回页首，不能把首页的滚动位置
@@ -7270,7 +7272,7 @@ function Config(props) {
       page === "look" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "色", tint: "#8a6d9c", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
         h(ConfigTile, { icon: "泡", tint: "#4f8391", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
-        h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio"), wide: true })),
+        h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包；改完能直接跳到那一页看", onClick: () => setPage("themeStudio"), wide: true })),
       page === "write" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "稿", tint: "#8a7a4f", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
         h(ConfigTile, { icon: "问", tint: "#a3617c", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa"), wide: true })),

@@ -29,7 +29,7 @@ test("离开主题台不再撤销预览——那个按钮的用处就是出去�
   assert.match(ui, /useEffect\(\(\) => \(\) => \{ clearTimeout\(previewTimer\.current\); \}, \[\]\);/);
   assert.doesNotMatch(ui, /if \(studio\.isPreviewing\(\)\) studio\.cancelPreview\(\);/);
   // 30 秒到点自动撤销仍旧由 studio 自己那个计时器负责
-  assert.match(st, /timer = setTimeout\(cancelPreview, PREVIEW_MS\)/);
+  assert.match(st, /timer = setTimeout\(cancelPreview, span\)/);
 });
 
 // ④ 预览里的名字 + 颜色铺满整框

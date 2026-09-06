@@ -9,7 +9,7 @@ const screens = fs.readFileSync(require("node:path").join(__dirname, "../js/scre
 // 名字随她改，别把哪一页弄丢了。
 test("总设置页使用入口卡片和独立子页面", () => {
   assert.match(screens, /function ConfigTile\(/);
-  assert.match(screens, /const \[page, setPage\] = useState\("home"\)/);
+  assert.match(screens, /const \[page, setPage\] = useState\(\(\) => props\.initialPage \|\| "home"\)/);
   for (const title of ["创作小稿", "情侣问答", "外观与壁纸", "聊天气泡", "主题工作台"])
     assert.match(screens, new RegExp(title));
   // 首页每一行都得有一页接着，别指向空处

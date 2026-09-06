@@ -491,6 +491,28 @@ function Spinner({
 //
 // 版式：返回键 / 居中小标题（副标题跟在下面一行）/ 右侧等宽操作位。
 // 左右两边等宽，标题才真的居中——右边没东西时也留着那块空位。
+// 预览台的回程条（v65.00，她 2026-09-06：「设置页里也没有预览台，要跑出去看效果也很麻烦」）。
+// ⚠️它不是预览【窗】——底下那一整页就是真页面。v62.02 删掉的那版 iframe 假预览
+//   跟真页面共享的只有挂点名字，预览里对的东西上机不对，比没有预览更坏。
+//   所以这一层只做两件事：告诉她现在看的是预览，和把她送回去改。
+// 浮在底部（顶栏那一条是她正在看的东西，不许压住），只占一行高，点得着（44px）。
+function ThemePeekBar({ zh, onBack }) {
+  const t = useTheme();
+  return h("div", {
+    className: "fixed left-0 right-0 z-[200] flex items-center justify-center pointer-events-none",
+    style: { bottom: 0, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", paddingLeft: 14, paddingRight: 14 }
+  }, h("div", {
+    className: "flex items-center pointer-events-auto",
+    style: { gap: 12, maxWidth: "100%", background: t.ink, color: t.bg2, borderRadius: 999,
+      padding: "0 6px 0 16px", minHeight: 44, boxShadow: "0 10px 30px rgba(20,18,14,.34)", animation: "fadeUp .2s ease both" }
+  },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+      "正在预览 · " + zh),
+    // ⚠️字色写 t.ink 不写死色号：这颗键的底是 t.bg2，深色主题里那是深的
+    h("button", { onClick: onBack, className: "shrink-0 active:opacity-70",
+      style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, background: t.bg2,
+        border: "none", borderRadius: 999, padding: "0 15px", minHeight: 34 } }, "回去改")));
+}
 // 顶栏那个 ink 是浅色还是深色（决定副标题和分隔线该用白影还是黑影）。
 // ⚠️认不出来的一律当【浅色】：那正好是改这一处之前的老样子（深底白字），
 //   所以看不懂的颜色不会因为这次改动而变个样。
