@@ -58,12 +58,18 @@ test("三条生成路径都发时态和结束时刻规矩", () => {
 });
 
 test("三条路径落盘时都过 schedFillEnds", () => {
-  // 三条生成路径各一处 + charAwakeState 拿它判「此刻是不是睡着」（v56.51）
-  assert.equal((app.match(/schedFillEnds\(/g) || []).length, 4);
+  // ⚠️这里【不数出现次数】（v64.78 改的口径，跟 a-mood-eight-surfaces 那条同一个理由）：
+  //   原来写的是「正好 4 处」，于是 v64.78 给查手机日历加了一处【正确的】读取，
+  //   这条当场红——一条对的扩展不该判红。要钉的是「该有的地方都有」，
+  //   少一处才红，多接一处不该红。所以逐个点名。
   ["const genScheduleDay = async", "const genScheduleWeek = async", "const schedMaybeSelfRevise = async"].forEach(anchor => {
     const k = app.indexOf(anchor);
+    assert.ok(k > 0, "抠不出 " + anchor);
     assert.match(app.slice(k, k + 7000), /schedFillEnds\(/, anchor + " 落盘时没过 schedFillEnds");
   });
+  // charAwakeState 拿它判「此刻是不是睡着」（v56.51）
+  const a = app.indexOf("const charAwakeState = char =>");
+  assert.match(app.slice(a, a + 900), /schedFillEnds\(/, "charAwakeState 没过 schedFillEnds");
 });
 
 // 她 2026-08-26 订正了我算错的账：一次调用生成 7 天比 7 次调用便宜

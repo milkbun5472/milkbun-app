@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.77";
+const APP_VERSION = "v64.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13108,14 +13108,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
     });
     // ④ x_schedules[charId]：已经推演过的那几天，每一段行程占一条
+    // ⚠️done 不许写死 true（v64.78，她 2026-09-06 报「日程没过的日期也都 cross out 了」）。
+    //   行程是【提前推演】出来的：中午十二点半，明天早上七点那一段就已经在存档里了。
+    //   写死 true 的话它在日历上是划掉的——等于告诉她他明天的事已经做完了。
+    //   ⚠️按【他自己那边的钟】算：他可能在另一个时区（char.tz），拿设备时间判会整体错开。
     const plans = (schedulesRef.current || {})[char.id] || {};
+    const _todayK = typeof schedLocalDayKey === "function" ? schedLocalDayKey(char) : DK(new Date());
+    const _nowMin = typeof charLocalMin === "function" ? charLocalMin(char) : (new Date().getHours() * 60 + new Date().getMinutes());
+    const _mm = t => { const x = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return x ? (+x[1]) * 60 + (+x[2]) : null; };
     Object.keys(plans).sort().slice(-10).forEach(dk => {
       const p = plans[dk] || {};
-      (Array.isArray(p.seqs) ? p.seqs : []).forEach(sq => {
+      const seqs = (Array.isArray(p.seqs) && typeof schedFillEnds === "function") ? schedFillEnds(p.seqs) : (Array.isArray(p.seqs) ? p.seqs : []);
+      seqs.forEach(sq => {
         if (!sq || !S(sq.title)) return;
+        // 过去的日子整天算做完；今天这天看这一段【结束】了没有（没有 end 就退回开始时刻）。
+        const _end = _mm(sq.end) != null ? _mm(sq.end) : _mm(sq.time);
+        const _done = dk < _todayK ? true : (dk > _todayK ? false : (_end != null && _end <= _nowMin));
         items.push({
           title: S(sq.title).slice(0, 40), date: DK(dk), time: S(sq.time), kind: "行程",
-          done: true, postponed: 0, note: S(sq.location).slice(0, 120), who: ""
+          done: _done, postponed: 0, note: S(sq.location).slice(0, 120), who: ""
         });
       });
     });
