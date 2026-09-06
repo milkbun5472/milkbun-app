@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.61";
+const APP_VERSION = "v64.62";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -637,9 +637,11 @@ function App() {
       //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
       //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
       //   chat = 最近的聊天记录（第一级先去掉的就是它）
-      const base = "【你的人设】\n" + (char.persona || char.name)
-        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+      const bare = "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
+        + "\n\n【世界书】\n" + gazeLore
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
@@ -647,7 +649,11 @@ function App() {
       const levels = [
         { zh: "整份", sys: seedSys, text: head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)") },
         { zh: "去掉聊天记录", sys: seedSys, text: head + NO_CHAT },
-        { zh: "连长期记忆也去掉", sys: seedSys, text: base + NO_CHAT }
+        { zh: "连长期记忆也去掉", sys: seedSys, text: base + NO_CHAT },
+        // ⚠️最后一级把世界书也拿掉（v64.60）。它是她点名要的一层，所以放在最后——
+        //   前面每一级都还带着它；只有到了「再不试就彻底写不出来」这一步才舍。
+        //   走到这一级还成了，说明踩线的是世界书里的字；还被拦，就只剩人设和这道题。
+        { zh: "连世界书也不发", sys: seedSys, text: bare + NO_CHAT }
       ];
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
       //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
@@ -736,7 +742,15 @@ function App() {
     let last = null;
     for (let i = 0; i < levels.length; i++) {
       try {
-        const out = await callAI(p, levels[i].sys, [{ role: "user", content: levels[i].text }], { maxTokens: 65535, timeout: 150000 });
+        // ⚠️v64.60：料【全部放进 system】，user 只留一句「开始。」。
+        //   她 2026-09-06 一路缩到第四级还是被拦，剩下的只有人设＋世界书＋这十道题。
+        //   可主聊天天天带着同一份人设、同一个模型在跑，一次没被拦过——差在哪儿？
+        //   **主聊天把人设放在 system 里，这两枪一直是把人设当成 user 的正文发出去的。**
+        //   一大段「这个人是谁、她的什么、你们怎么样」作为【用户说的话】递上去，
+        //   跟同一段作为【给你的设定】摆在 system 里，输入过滤器读起来完全是两件事。
+        //   而这个 app 自己的一次性生成调用（周刊/朋友圈那几处）本来就是这么写的：
+        //   料全在 system，user 只有一句「开始。」——只有这两枪没跟上。
+        const out = await callAI(p, levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
         return out;
       } catch (e) {
@@ -745,7 +759,7 @@ function App() {
       }
     }
     throw new Error("这条线路把提示词拦了；" + levels.slice(1).map(l => l.zh).join("、") + " 都试过了，还是被拦——"
-      + "连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身。\n原话："
+      + "连世界书和这张卡自己的正文都没再发，剩下的只有【人设】本身和这十道题。\n原话："
       + ((last && last.message) || last));
   };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
@@ -778,9 +792,11 @@ function App() {
       //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
       //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
       //   chat = 最近的聊天记录（第一级先去掉的就是它）
-      const base = "【你的人设】\n" + (char.persona || char.name)
-        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+      const bare = "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
+        + "\n\n【世界书】\n" + gazeLore
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
@@ -795,7 +811,8 @@ function App() {
         { zh: "整份", sys: revSys, text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
         { zh: "去掉聊天记录", sys: revSys, text: head + NO_CHAT },
         { zh: "连长期记忆也去掉", sys: revSys, text: base + NO_CHAT },
-        { zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window.Gaze.seedSpec(uN), text: base + NO_CHAT }
+        { zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window.Gaze.seedSpec(uN), text: base + NO_CHAT },
+        { zh: "连世界书也不发", sys: window.Gaze.seedSpec(uN), text: bare + NO_CHAT }   // 同建卡，理由写在那一处
       ];
       // 开满，同上（她 2026-09-05 点名）
       const raw = await gazeCall(p, levels, zh => { if (manual) toast("被拦了，" + zh + "才写成的"); });
