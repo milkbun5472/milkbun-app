@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.66";
+const APP_VERSION = "v64.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1510,7 +1510,7 @@ function App() {
           const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
           const projection = window.DongnianEmotionA.displayProjection(saved);
           aMoodRef.current[charId] = (projection && projection.text) || "";   // 同步镜像，供 ctxFor 取
-          await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
+          await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, dictionaryVersion: result.audit.moodDictionaryVersion, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, moodViaMorpheme: result.audit.moodViaMorpheme, moodLabel: result.audit.moodLabel, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
           if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
         } catch (e) {}
       }, 0);

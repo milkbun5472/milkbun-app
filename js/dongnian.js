@@ -775,7 +775,7 @@ const A_AXES = Object.freeze({
 });
 const A_DEFAULT_BASELINE = Object.freeze({ connection:0,pride:0,valence:0,arousal:0,immersion:0,hurt:0,anger:0,anxiety:0,warmth:.35,fatigue:.25 });
 const A_REGRESS_PER_MIN = Object.freeze({ connection:0,pride:.003,valence:.005,arousal:.005,immersion:.010,hurt:.001,anger:.004,anxiety:.002,warmth:.0015,fatigue:.001 });
-const A_MOOD_DICTIONARY_VERSION = 7;
+const A_MOOD_DICTIONARY_VERSION = 8;
 const A_MOOD_RULES = Object.freeze([
   ["hurt",/(?:委屈|受伤|失落|难过|伤心|低落|沮丧|心碎|孤独|落寞|心酸|酸涩|惆怅|遗憾|被刺痛|愧疚|歉疚|憋屈|崩溃)/,{hurt:.18,valence:-.10,warmth:-.04}],
   ["anger",/(?:生气|愤怒|恼火|烦躁|火大|气恼|无语|厌烦|不悦|恼怒|烦闷|羞恼|心烦意乱|没好气|憋屈)/,{anger:.18,arousal:.12,valence:-.08}],
@@ -796,8 +796,74 @@ const A_MOOD_RULES = Object.freeze([
   ["posture_neutral",/(?:嘴硬|掌控|走神|忙碌|上工|兑付|哭笑不得|不为所动|审视|坦白)/,{}],
   ["task_posture_neutral",/(?:反诉|郑重|干脆|落地|开炉|监工|上岗|对症|开方|现货|交付|交差|收工|办妥|兑现|验收|开工|施工|排查|复盘|拍板|定案|成交|发货|出炉|查岗|值守|守夜|守岗|待命|复命|回执)/,{}],
   ["calm",/(?:平静|平和|平稳|淡定|从容|安定|安宁|安稳|稳妥|落定|踏实|释然|专注|认真|好奇|若有所思|沉思|克制|忍着|谨慎)/,{}],
-  ["cold",/(?:冷酷|冷淡|冷漠|疏冷)/,{warmth:-.14,valence:-.06}]
+  ["cold",/(?:冷酷|冷淡|冷漠|疏冷)/,{warmth:-.14,valence:-.06}],
+  // 从真实未识别名单里补的整词（v64.67，她 2026-09-06 把五个角色的诊断台截给我）
+  ["awkward_stuck",/(?:别扭|拧巴|不是滋味|意难平)/,{valence:-.10,anger:.06,anxiety:.05}],
+  ["relieved",/(?:放下心|放心|宽心|宽慰|松口气|松了口气|安下心)/,{anxiety:-.12,valence:.08}],
+  ["restless",/(?:坐不住|坐立不安|待不住|如坐针毡)/,{anxiety:.12,arousal:.10}],
+  ["worried_hanging",/(?:悬心|悬着|提心吊胆|放不下心|七上八下)/,{anxiety:.14,arousal:.05}],
+  ["flustered_warm",/(?:耳热|耳根发烫|面热|受用)/,{warmth:.10,arousal:.06,anxiety:.05}],
+  // 姿态，不是情绪：识别成功但一个数都不动（跟 posture_neutral 同一档）
+  ["give_up_posture",/(?:破罐子破摔|摆烂|随它去|爱谁谁)/,{}]
 ]);
+// ── 语素回退（v64.67）─────────────────────────────────────────────────
+// ⚠️为什么要有这一层：中文情绪词是【开放集合】。模型随手就造得出「挂心」「恼羞」
+//   「清爽」「悬着」，而整词枚举没有尽头——词典版本一路加到 7 就是证据，
+//   每加一次都得有个人去补。可【新造的词几乎不可能一个已知语素都不含】：
+//   挂心有挂、恼羞有恼和羞、依恋有恋、清爽有爽。所以整词没撞上时，
+//   把标签拆开按语素再撞一次，这一层不需要人再维护。
+// ⚠️它是【猜的】，所以：
+//   · 权重比整词小（.11 对 .18）——猜错了也别把人一次推很远；
+//   · 一个标签最多认 A_MOOD_MORPHEME_CAP 个语素，免得一句长话把十条轴全推一遍；
+//   · 前面两个字里带否定词（不/没/未/别/无）就跳过这一处（「不着急」不该算着急）。
+// ⚠️故意【不收】的几个高危字：气（松口气／叹气）、火（火锅）、心（心里／小心）、
+//   委（委托／委婉）、好（好像）——它们太常出现在非情绪的组合里。
+const A_MOOD_MORPHEME_CAP = 3;
+const A_MOOD_MORPHEMES = Object.freeze([
+  // 想着一个人
+  ["挂",{warmth:.11,connection:.05}],["惦",{warmth:.11,connection:.05}],
+  ["念",{warmth:.11,connection:.05}],["恋",{warmth:.11,connection:.05}],["牵",{warmth:.10,connection:.05}],
+  // 揪着
+  ["悬",{anxiety:.12,arousal:.05}],["急",{anxiety:.10,arousal:.10}],["躁",{anger:.08,arousal:.10}],
+  ["忐",{anxiety:.12}],["忑",{anxiety:.12}],["怵",{anxiety:.11}],["惴",{anxiety:.12}],
+  // 火
+  ["恼",{anger:.11,arousal:.06}],["怒",{anger:.11,arousal:.06}],["愠",{anger:.10}],
+  // 不痛快
+  ["闷",{valence:-.11}],["郁",{valence:-.11}],["怅",{valence:-.10,hurt:.06}],
+  ["沮",{valence:-.11}],["丧",{valence:-.11,fatigue:.05}],["憋",{valence:-.10,anger:.05}],
+  ["酸",{hurt:.08,valence:-.05}],["涩",{hurt:.08,valence:-.05}],
+  // 痛快
+  ["笑",{valence:.11,warmth:.04}],["爽",{valence:.11,arousal:.05}],["畅",{valence:.11}],
+  ["悦",{valence:.11}],["喜",{valence:.11}],["欢",{valence:.11}],["雀",{valence:.10,arousal:.06}],
+  // 松下来
+  ["松",{anxiety:-.10,valence:.08}],["宽",{anxiety:-.10}],["释",{anxiety:-.08,valence:.06}],
+  // 脸上挂不住
+  ["羞",{anxiety:.05,warmth:.04}],["臊",{anxiety:.05,warmth:.04}],["赧",{anxiety:.05,warmth:.04}],["窘",{anxiety:.06,valence:-.05}],
+  // 心疼
+  ["疼",{warmth:.08,hurt:.05}],["怜",{warmth:.09}],["宠",{warmth:.09}]
+]);
+// 前面两个字里有否定词就不算这一处（「不着急」「没什么好笑」不该被算成着急/好笑）
+const A_MOOD_NEGATORS = /[不没未别无]/;
+const A_MOOD_MORPHEME_AXIS_CAP = .14;
+// 命中处【前面三个字】里有否定词＝这句在说「没有」，整词那层和语素那层都要挡。
+// ⚠️三个字是量出来的，不是拍的：两个字挡不住「未觉得累」「没什么好笑的」（否定词
+//   隔着一个「觉得」「什么」）；四个字开始会误伤「没睡好，有点累」那种——
+//   前半句在说没睡好，后半句那个累是真的。
+const A_MOOD_NEG_WINDOW = 3;
+function aMoodNegated(text, index) { return A_MOOD_NEGATORS.test(text.slice(Math.max(0, index - A_MOOD_NEG_WINDOW), index)); }
+function aMoodMorphemeHits(text, negSpans) {
+  const spans = Array.isArray(negSpans) ? negSpans : [];
+  const inNegSpan = i => spans.some(([a,b]) => i >= a && i < b);
+  const hits = [];
+  A_MOOD_MORPHEMES.forEach(([seg,part])=>{
+    let i = text.indexOf(seg);
+    while (i >= 0) {
+      if (!aMoodNegated(text, i) && !inNegSpan(i)) { hits.push([seg,part]); return; }
+      i = text.indexOf(seg, i + 1);
+    }
+  });
+  return hits.slice(0, A_MOOD_MORPHEME_CAP);
+}
 const aClone = value => JSON.parse(JSON.stringify(value));
 const aFinite = (value,fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const aClampAxis = (key,value) => clamp(aFinite(value,A_DEFAULT_BASELINE[key]),A_AXES[key][0],A_AXES[key][1]);
@@ -881,8 +947,22 @@ function migrateDesireDriveA(rawState,driveShadow,nowValue) {
 
 function moodEvidenceA(label) {
   const text=String(label==null?"":label).trim(), delta={},rules=[];
-  A_MOOD_RULES.forEach(([name,re,part])=>{ if(re.test(text)){rules.push(name);Object.entries(part).forEach(([k,v])=>{delta[k]=(delta[k]||0)+v;});} });
-  return {label:text.slice(0,40),matched:rules.length>0,rules,delta};
+  // 被否定挡掉的那几段原文位置：拆字那一层要绕开它们。
+  // ⚠️「没什么好笑的」整词「好笑」被挡住了，再从里面拆出一个「笑」来顶上，
+  //   等于绕过自己刚立的那道闸。但只挡【那一段里面】的字——
+  //   「没生气，只是有点闷」的闷在外面，它是真的。
+  const negSpans=[];
+  A_MOOD_RULES.forEach(([name,re,part])=>{ const m=re.exec(text); if(!m)return; if(aMoodNegated(text,m.index)){negSpans.push([m.index,m.index+m[0].length]);return;} rules.push(name);Object.entries(part).forEach(([k,v])=>{delta[k]=(delta[k]||0)+v;}); });
+  // ⚠️整词【没撞上】才拆字：整词永远优先，语素只是兜底，不许两层叠加把人推两倍。
+  if(!rules.length&&text){
+    const mDelta={};
+    aMoodMorphemeHits(text,negSpans).forEach(([seg,part])=>{ rules.push("morpheme:"+seg); Object.entries(part).forEach(([k,v])=>{mDelta[k]=(mDelta[k]||0)+v;}); });
+    // ⚠️猜出来的那一层，单条轴不许比【整词命中】还重（整词主轴是 .18）。
+    //   「惦念」会同时撞上惦和念，两个 .11 加起来 .22 就越过去了——那不合理：
+    //   两个语素只是同一件事说了两遍，不是情绪强了一倍。
+    Object.entries(mDelta).forEach(([k,v])=>{ delta[k]=(delta[k]||0)+Math.max(-A_MOOD_MORPHEME_AXIS_CAP,Math.min(A_MOOD_MORPHEME_AXIS_CAP,v)); });
+  }
+  return {label:text.slice(0,40),matched:rules.length>0,rules,delta,viaMorpheme:rules.length>0&&rules.every(r=>r.indexOf("morpheme:")===0)};
 }
 
 function capEmotionDeltasA(sources,perAxisValue,totalValue) {
@@ -909,7 +989,7 @@ function applyEmotionAEvent(rawState,event,nowValue) {
       after[k]=aClampAxis(k,cur+move);
     });
     const at=aFinite(nowValue,Date.now()); state.emotion.current=after;state.emotion.lastMoodLabel=mood.label;state.emotion.lastEventTs=at;state.updatedTs=at;state.revision=aFinite(state.revision,1)+1;
-    return {state,audit:{sources,summed:capped.summed,applied:Object.fromEntries(Object.keys(after).filter(k=>after[k]!==before[k]).map(k=>[k,after[k]-before[k]])),clippedAxis:capped.clippedAxis,scaledTotal:capped.scaledTotal,totalScale:capped.scale,moodMatched:mood.matched,moodLabel:mood.label,moodRules:mood.rules,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION}};
+    return {state,audit:{sources,summed:capped.summed,applied:Object.fromEntries(Object.keys(after).filter(k=>after[k]!==before[k]).map(k=>[k,after[k]-before[k]])),clippedAxis:capped.clippedAxis,scaledTotal:capped.scaledTotal,totalScale:capped.scale,moodMatched:mood.matched,moodViaMorpheme:!!mood.viaMorpheme,moodLabel:mood.label,moodRules:mood.rules,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION}};
   }catch(_){return {state:rawState,audit:{error:"emotion_event_failed",moodMatched:false,moodLabel:"",moodRules:[],moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION}};}
 }
 
