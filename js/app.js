@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.03";
+const APP_VERSION = "v65.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5705,17 +5705,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     startLane("c:" + scopeKey);
     try {
-      const oCtx = ctxFor(char);
+      let oCtx = ctxFor(char);
       if (sideRoom) {
-        const rc = sideRoom.cognition || {};
         const roomTimeAware = roomTimeAwareFor(sideRoom, charId);
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || []) : "";
         oCtx.timeAware = roomTimeAware;
-        if (!roomTimeAware) { oCtx.schedNow = ""; oCtx.geo = null; }
-        else { oCtx.schedNow = schedNowFor(char); oCtx.geo = prefs.geoAware ? geo : null; }
-        if (!rc.formalMemory) { oCtx.memory = ""; oCtx.memLib = []; oCtx.ccContinuity = ""; oCtx.yanqiuWall = ""; }
-        if (!rc.innerLife) { oCtx.moodLabel = null; oCtx.moodNote = ""; oCtx.aMood = ""; oCtx.gazeText = ""; oCtx.personaGrown = ""; oCtx.personaEvolve = false; }
-        if (!rc.otherScenes) { oCtx.offlineNow = ""; oCtx.groupEcho = ""; oCtx.groupOfflineEcho = ""; oCtx.forumEcho = ""; oCtx.forumPmLog = ""; oCtx.momentLog = ""; }
+        if (roomTimeAware) { oCtx.schedNow = schedNowFor(char); oCtx.geo = prefs.geoAware ? geo : null; }
+        // ⚠️这儿原来是【线上那张黑名单的第二份手抄件】，两处一字不差、也一起漏那 23 栏。
+        //   现在两处都走 ChatRooms.gateCtx 那一张白名单（one-public-mechanism.md）。
+        oCtx = window.ChatRooms.gateCtx(oCtx, roomTimeAware ? { ...sideRoom, cognition: { ...(sideRoom.cognition || {}), schedule: true } } : sideRoom);
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
@@ -6788,6 +6786,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   } : c));
 
   // ---- summary check ----
+  // 房内自留的滚动浓缩（v65.04）。跟 maybeSummarize 同一个浓缩器（summarizeChatBlock），
+  // 只是落点不同：写进这间房自己的 selfDigest，由 ChatRooms.prompt 只喂回这间房。
+  // 走后台便宜池——她按次计费，这一枪每 50 条才一次。
+  const roomSumBusyRef = useRef({});
+  const maybeSummarizeRoom = async (char, room) => {
+    if (!char || !room || room.main || !window.ChatRooms) return;
+    const key = window.ChatRooms.chatKey(char.id, room.id);
+    if (roomSumBusyRef.current[key]) return;
+    const due = window.ChatRooms.digestDue(room, chatsRef.current[key] || []);
+    if (!due) return;
+    const p = bgApiFor(char.id) || active;
+    if (!p) return;
+    roomSumBusyRef.current[key] = true;
+    try {
+      const toSum = due.slice.filter(m => !isOocMsg(m) && contextAllowsMessage(m));
+      if (!toSum.length) return;
+      const block = await summarizeChatBlock(p, ctxFor(char), toSum);
+      if (!block || !block.trim()) return;
+      // ⚠️落盘前重新读一遍这间房：浓缩跑了好几十秒，她可能中途改过开关或改过名字
+      const cur = window.ChatRooms.get(char.id, room.id) || room;
+      window.ChatRooms.save(char.id, {
+        ...cur,
+        selfDigest: window.ChatRooms.digestMerge(cur.selfDigest, block.trim()),
+        selfSummedCount: due.upto
+      });
+      // ⚠️不用通知界面重画：房记录每轮都是从 ChatRooms 现读的（跟别处 save 一样），
+      //   下一轮自然就带上这份浓缩了。
+    } catch (e) {/* 浓缩失败下次再攒够了再说，不打扰她 */ }
+    finally { roomSumBusyRef.current[key] = false; }
+  };
   const maybeSummarize = async charId => {
     const s = settingsFor(charId);
     const msgs = (chats[charId] || []).filter(m => !m.recalled);
@@ -7005,16 +7033,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 剩下这条（openai 方言，订阅桥就是）才是重复的那个。
       const _roomCtx = ctxFor(char, { chat: true, thinOnline: !_singleHistoryLayout });
       if (room && room.id !== "main") _roomCtx.recentChat = "";
+      // ⚠️这里原来是一张【手抄的黑名单】：ctxFor 造 41 栏，它只点名擦掉 18 栏，
+      //   剩下 23 栏默认放行——好感度、生理期、情侣档案那七栏、纪念日、他送过什么…
+      //   她 2026-09-06 在一间「不带出门」的房里看见「我们开了情侣空间 3 天」就是这么漏的。
+      //   现在归 ChatRooms.CTX_GATE 那张白名单管：没登记的默认挡住，新加一栏不登记会红。
+      let _gated = _roomCtx;
       if (room && room.cognition) {
-        const rc = room.cognition;
         _roomCtx.timeAware = roomClockOn;
-        if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
-        if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.aMood = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
-        if (!roomClockOn) { _roomCtx.schedNow = ""; _roomCtx.geo = null; }
-        else { _roomCtx.schedNow = schedNowFor(char); _roomCtx.geo = prefs.geoAware ? geo : null; }
-        if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.forumPmLog = ""; _roomCtx.momentLog = ""; }
+        if (roomClockOn) { _roomCtx.schedNow = schedNowFor(char); _roomCtx.geo = prefs.geoAware ? geo : null; }
+        _gated = window.ChatRooms.gateCtx(_roomCtx, roomClockOn ? { ...room, cognition: { ...room.cognition, schedule: true } } : room);
       }
-      const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
+      const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._gated, recentChat: "" } : _gated);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_singleHistoryLayout) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");
@@ -8322,6 +8351,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setTimeout(() => maybeSummarize(charId), 100);
         setTimeout(() => maybeAutoExtract(charId), 300);
       }
+      // ⚠️房里那份浓缩【不看 memoryCandidate】：它只存在这间房里、只喂这间房，
+      //   不进长期记忆、不进记忆库、不出门，所以「不带出门」一个字都没破。
+      //   而且 maybeSummarize(charId) 浓缩的是【主聊天】那一份，房间那条线它根本不看——
+      //   所以哪怕这间房允许进记忆，它自己前面说过的话也照样需要这一份
+      //   （她 2026-09-06：「过了上限就只能丢了对吗」——原来是的）。
+      if (room && !room.main) setTimeout(() => maybeSummarizeRoom(char, room), 200);
       // P0-2 冷却的 turn 计数：只在该角色完成一次正常回复后 +1（后台/预览/touch:false 不计）
       try { if (!opts.proactive && delivered) window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
       if (delivered && eLiveProjection && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.commitLiveProjection) {

@@ -40,7 +40,10 @@ test("这条线喂回聊天，跟线上线下一起算同一段关系", () => {
   assert.match(en, /!ctx\.notRoleplay && ctx\.forumPmLog/, "数字生命也发了扮演类的块");
   // 跟别的面同口径：精简写作路要清掉
   assert.match(en, /momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "",/, "精简写作路没清掉它");
-  assert.match(ap, /_roomCtx\.forumEcho = ""; _roomCtx\.forumPmLog = "";/, "分身/房间那个认知开关没管它");
+  // ⚠️v65.04 起这几栏归 ChatRooms.CTX_GATE 那张【白名单】管，不再是各处手抄的黑名单
+  //   （黑名单只点名擦 18 栏，剩下 23 栏默认漏出去——她 2026-09-06 撞见的那条就是这么漏的）。
+  const CR2 = require("../js/chat-rooms.js");
+  assert.ok(CR2.CTX_GATE.otherScenes.includes("forumPmLog"), "分身/房间那个认知开关没管它");
 });
 
 // 那一整个玩法建立在「他知道两边是同一个人、她不知道」上面

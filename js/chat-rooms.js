@@ -31,6 +31,65 @@
       ["mainSummary", "出门时给主聊天捎一句", "离开这间房后，给主聊天留一份说得清的交接"]
     ]
   };
+  // ── 这间房里，上下文的哪几栏成立（v65.04）─────────────────────────
+  // 她 2026-09-06 报：一间「不带出门」的房里，他还知道「我们开了情侣空间 3 天」。
+  //
+  // ⚠️病根不是漏了 coupleStatus 这一条，是那道闸原来写成了**手抄的黑名单**：
+  //   ctxFor 造 41 栏，闸只点名擦掉 18 栏，**剩下 23 栏默认放行**——
+  //   好感度、生理期、情侣档案那七栏、纪念日、他送过什么、一起听过什么，全在里头。
+  //   而且黑名单的错法是看不见的：以后 ctxFor 每加一栏，隔离房就自动多漏一条，
+  //   不报错、不红任何测试（stub-from-the-writer.md 那条「过滤等于没有」）。
+  //
+  // 所以改成**白名单**：每一栏都得在下面登记归谁管，没登记的**默认挡住**。
+  //   加错方向至少是「少给了」——她看得见；黑名单加错方向是「私事漏出去了」，看不见。
+  // ⚠️test/room-ctx-gate 钉着「ctxFor 造的每一栏都必须在这张表里」，漏登记就红。
+  const CTX_GATE = {
+    // 永远给：这几栏说的是【他是谁】和【怎么说话】，不是你们之间发生过什么
+    always: [
+      "chars",        // 在场都有谁（指代解析要用）
+      "notRoleplay",  // 是不是言秋那种不被扮演的
+      "directives",   // 这一轮的提示词指令
+      "homeCity",     // 他自己住哪儿——属于他这个人
+      "worldbook",    // 世界书是【世界的设定】，不是你俩的过去
+      "recentChat"    // 房间自己那份（调用点已经按房换过了）
+    ],
+    // 你们一起经历过的事
+    formalMemory: [
+      "memory", "memLib", "ccContinuity", "yanqiuWall",
+      "coupleArchive",  // 情侣空间那七栏：称呼、梗、小仪式、安慰说明书、边界、喜欢清单、第一次们
+      "giftLog", "usedLog", "carryLog", "listenLog",
+      "dreamKeep",      // 从梦里带出来的东西——她和 Ta 两个人之间的
+      "capsuleWait",    // 埋着的时光胶囊
+      "financeNote", "ownWalletNote", "memoNote"   // 主线里攒出来的他的日常账目/备忘
+    ],
+    // 你们处到哪一步了
+    innerLife: [
+      "moodLabel", "moodNote", "aMood", "gazeText", "personaGrown", "personaEvolve",
+      "affinity",       // 好感度
+      "coupleStatus",   // 是不是恋人、在一起多少天 ← 她这次看见的就是它
+      "dateNote",       // 生日与纪念日
+      "periodNote",     // 生理期——这一栏尤其不该漏
+      "onMe",           // 她今天带着谁的东西出门
+      "wishLog"         // 她在购物里点了「想要」的那些
+    ],
+    // 今天几号、他此刻在干嘛
+    schedule: ["schedNow", "geo", "timeAware", "sleepTone"],
+    // 群里和见面时发生的
+    otherScenes: ["offlineNow", "groupEcho", "groupOfflineEcho", "forumEcho", "forumPmLog", "momentLog", "dreamEcho"]
+  };
+  // 清空成什么，按这一栏原来是什么类型来：数组→[]、字符串→""、真假→false、其余→null。
+  // 逐栏写一遍 empty 值就是又一张要同步的表（加一栏忘一栏），所以照类型来。
+  const emptyLike = v => Array.isArray(v) ? [] : typeof v === "string" ? "" : typeof v === "boolean" ? false : null;
+  // 按这间房的 cognition 把上下文过一遍。主房和没有 cognition 的原样放行。
+  function gateCtx(ctx, room) {
+    if (!ctx || !room || room.main || !room.cognition) return ctx;
+    const rc = room.cognition, out = { ...ctx };
+    Object.keys(CTX_GATE).forEach(group => {
+      if (group === "always" || rc[group]) return;
+      CTX_GATE[group].forEach(k => { if (k in out) out[k] = emptyLike(out[k]); });
+    });
+    return out;
+  }
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
   const PRESETS = {
     everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
@@ -54,6 +113,27 @@
       : "这儿的事他也带不出去";
     return brings + "，" + takes + "。";
   }
+  // 攒够这么多条就浓缩一次，末尾这些条留着不动（照线下那一版的数，不另拍一个）
+  const ROOM_SUM_THRESH = 50, ROOM_SUM_BUFFER = 15, ROOM_DIGEST_CAP = 4000;
+  // 这间房该浓缩了吗：返回要浓缩的那一段，不够就 null
+  function digestDue(room, msgs) {
+    if (!room || room.main) return null;
+    const list = (msgs || []).filter(m => m && !m.recalled && m.content);
+    const from = Math.max(0, Number(room.selfSummedCount || 0));
+    if (list.length - from < ROOM_SUM_THRESH) return null;
+    const slice = list.slice(from, list.length - ROOM_SUM_BUFFER);
+    return slice.length ? { slice, upto: list.length - ROOM_SUM_BUFFER } : null;
+  }
+  // 把新浓缩的一段接到房里那一份后面。⚠️满仓时【整段整段地掉】，
+  // 不许按字数拦腰砍——照 maybeSummarize 那一版（砍出来的开头是半句话，看着像坏了）。
+  function digestMerge(prev, seg) {
+    const merged = String(prev || "").trim() ? String(prev).trim() + "\n\n" + seg : seg;
+    if (merged.length <= ROOM_DIGEST_CAP) return merged;
+    const segs = merged.split("\n\n");
+    while (segs.length > 1 && segs.join("\n\n").length > ROOM_DIGEST_CAP) segs.shift();
+    const out = segs.join("\n\n");
+    return out.length > ROOM_DIGEST_CAP ? out.slice(out.length - ROOM_DIGEST_CAP) : out;
+  }
   const clone = obj => JSON.parse(JSON.stringify(obj));
   const id = () => "room_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
   const mainRoom = personId => ({ id: MAIN_ID, personId: String(personId), createdAt: 0, updatedAt: Date.now(), ...clone(PRESETS.everyday), actions: bools(GROUPS.actions, false), name: "主聊天", main: true, preset: "everyday" });
@@ -72,6 +152,12 @@
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),
       summaryFrame: String(src.summaryFrame || "我们刚刚在另一间房里经历了这些："),
+      // 房内自留的浓缩（v65.04）：她 2026-09-06 问「过了上限就只能丢了对吗，因为不能进记忆库」。
+      // 是的——记忆那条路被 memoryCandidate 关着，掉出窗口的就再也回不来了。
+      // 这一份【只存在这间房里、只喂这间房】：不进长期记忆、不进记忆库、不出门，
+      // 所以「不带出门」一个字都没破——它从来就没打算出门。
+      selfDigest: String(src.selfDigest || "").slice(0, ROOM_DIGEST_CAP),
+      selfSummedCount: Math.max(0, Number(src.selfSummedCount || 0)),
       // 交接是拼进 system 的、每轮都发，而且不过 ChatContextWindow 的秤——
       // 摘要一条能到两三千字，六条比整个历史窗口预算还大（她 2026-08-28 让查的冲突①）。
       carryCount: Math.max(1, Math.min(6, Number(src.carryCount || 4))),
@@ -187,6 +273,8 @@
       }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
+    // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。
+    if (room.selfDigest) lines.push("【这间房前面发生过的｜是这条线自己的往事，不是别处的记忆】\n" + room.selfDigest);
     lines.push(c.schedule
       ? "【时间边界】本房已开启现实时间与行程，可按角色当地时间、现实钟和当前行程自然回应；若它与本房限定设定冲突，以本房设定为准。"
       : "【时间边界】本房未开启现实时间与行程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
@@ -210,5 +298,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
+  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
 });

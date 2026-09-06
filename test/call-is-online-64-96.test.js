@@ -11,7 +11,7 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("① 言秋/anthropic 那条路一个字没动", () => {
   // 她用 gemini（openai 方言），那条路本来就 thinOnline:true、本来就带着线下
   assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/, "又去动那条路了");
-  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._roomCtx, recentChat: "" \} : _roomCtx/, "又去动那条路了");
+  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated/, "又去动那条路了");
 });
 
 test("② 通话就是线上：摊平进同一条时间线，不另设时限和字数上限", () => {

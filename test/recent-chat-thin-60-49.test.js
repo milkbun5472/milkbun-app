@@ -55,7 +55,7 @@ test("只在【历史会另发一遍】那条路上瘦身，别的调用方照�
   assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/);
   assert.match(app, /const thinOnline = !!\(ctxOpts && ctxOpts\.thinOnline\);/);
   // anthropic 那条路本来就整块清空，别改成瘦身版（那会白留一块没用的标记）
-  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._roomCtx, recentChat: "" \} : _roomCtx/);
+  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated/);
 });
 
 test("⚠️不许顺手动『system 从【当前真实时间】劈两半』那条切法", () => {

@@ -74,8 +74,12 @@ test("配角没有情绪底色：群里两处都把 npc 挡住了", () => {
 });
 
 test("侧房认知开关关掉时，A 跟心情/印象卡一起被清空", () => {
-  const hits = app.match(/if \(!rc\.innerLife\) \{[^\n]*aMood = ""[^\n]*\}/g) || [];
-  assert.equal(hits.length, 2, "两条侧房路径里有一条没清 aMood");
+  // ⚠️v65.04 起这几栏归 ChatRooms.CTX_GATE 那张【白名单】管，不再是各处手抄的黑名单
+  //   （黑名单只点名擦 18 栏，剩下 23 栏默认漏出去——她 2026-09-06 撞见的那条就是这么漏的）。
+  const CR = require("../js/chat-rooms.js");
+  assert.ok(CR.CTX_GATE.innerLife.includes("aMood"), "A 没跟心情/印象卡登记在同一档");
+  ["moodLabel", "moodNote", "gazeText"].forEach(k => assert.ok(CR.CTX_GATE.innerLife.includes(k), k + " 不在同一档了"));
+  assert.equal((app.match(/ChatRooms\.gateCtx\(/g) || []).length, 2, "两条侧房路径里有一条没过这道闸");
 });
 
 test("旧的那套接线已经删干净，不是留在原地打个叉", () => {
