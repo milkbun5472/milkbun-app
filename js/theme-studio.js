@@ -323,7 +323,10 @@
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"],
-    ["avatar", "头像（全 App 每一颗）"]
+    ["avatar", "头像（全 App 每一颗）"],
+    ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
+    ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"],
+    ["input", "单行输入框"], ["textarea", "多行输入框"], ["slider", "滑杆"]
   ]);
   // 底下这几组是【某几页专有】的（气泡、输入栏、主屏那些格子，别处没有）。
   // ⚠️一张表，一行一组【叫什么 · 哪几页 · 有哪些挂点】。第二组进来的时候
@@ -358,6 +361,48 @@
       ])
     })
   ]);
+  // ── 这一页单独换几支色（v65.06）────────────────────────────────────
+  // 她 2026-09-06：「全部能做主题的页面秋秋都应该可以改」。
+  // ⚠️挂点（data-wk）救不了这件事：全 App 九十来页的卡片、按钮、列表都是
+  //   各页自己内联写的，没有共用组件——一页一页去挂是挂不完的，也正是
+  //   mobile-ui-layout.md 说的「补法不该是一页一页补」。
+  //   但它们的颜色【全都是从 useTheme() 那一份 token 里取的】，而 token 只在
+  //   ThemeContext.Provider 那一处发出去。所以换个法子：不改 CSS，改那一页拿到的 token。
+  //   一处改，那一页所有东西跟着变——不需要任何挂点，也就每一页都成立。
+  const TOKENS = Object.freeze([
+    ["bg", "这一页的底色"], ["bg2", "卡片和面板的底色"],
+    ["ink", "主要文字"], ["sub", "次要文字"], ["fog", "更淡的小字"],
+    ["line", "分隔线与描边"], ["accent", "强调色（那一抹红）"], ["tint", "点缀色（那一抹蓝）"]
+  ]);
+  const TOKEN_KEYS = Object.freeze(TOKENS.map(x => x[0]));
+  // 颜色只收这几种写法：它最后是被当成【行内样式的值】用的，不许夹带别的声明。
+  const okColor = v => /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(v || "").trim())
+    || /^(rgb|rgba|hsl|hsla)\([0-9.,%\s/]+\)$/i.test(String(v || "").trim())
+    || /^[a-z]{3,20}$/i.test(String(v || "").trim());
+  const cleanTokens = obj => {
+    const out = {};
+    Object.keys(obj || {}).forEach(k => {
+      if (TOKEN_KEYS.indexOf(k) < 0) return;
+      const v = String(obj[k] || "").trim();
+      if (v && okColor(v)) out[k] = v;
+    });
+    return out;
+  };
+  // ⚠️问的是【此刻正生效的那一份】(active)，不是存档里那份：
+  //   「先预览 30 秒」改的就是 active，读存档的话预览时这一页的颜色纹丝不动。
+  const tokensFor = page => cleanTokens(((current() || {}).pageTokens || {})[page]);
+  // ⚠️没有覆盖时【原样把 base 还回去】：换个对象身份会让整棵树白重渲染一遍。
+  //   有覆盖时也按 (页 + 那几支色 + base) 记一份，免得每次渲染都新造一个。
+  let tfKey = "", tfVal = null;
+  const themeFor = (page, base) => {
+    const t = tokensFor(page);
+    const keys = Object.keys(t);
+    if (!keys.length) return base;
+    const key = String(page) + "|" + JSON.stringify(t) + "|" + JSON.stringify(base || {});
+    if (key === tfKey && tfVal) return tfVal;
+    tfKey = key; tfVal = { ...(base || {}), ...t };
+    return tfVal;
+  };
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
   const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };
@@ -392,11 +437,13 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, globalCSS: "", pageCSS: {}, updatedAt: 0 });
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
     const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, pageCSS: { ...(x.pageCSS || {}) } };
+    const pageTokens = {};
+    Object.keys(x.pageTokens || {}).forEach(k => { const c = cleanTokens(x.pageTokens[k]); if (Object.keys(c).length) pageTokens[k] = c; });
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
@@ -491,7 +538,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

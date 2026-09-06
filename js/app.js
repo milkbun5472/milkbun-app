@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.05";
+const APP_VERSION = "v65.06";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -541,6 +541,15 @@ function App() {
     loreVecTimer.current = setTimeout(() => { if (typeof ensureLoreVecs === "function") ensureLoreVecs(loreRef.current).catch(() => {}); }, 4000);
   };
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  // 主题工作台改完要当场看见（v65.06）：它改的那份【这一页单独换的几支色】
+  // 是在渲染时问 ThemeStudio 要的，所以这儿得跟着它的广播重画一次。
+  // ⚠️只加了一个计数器，没动主题本身，也没动任何布局（home-screen-layout.md）。
+  const [, bumpThemeTick] = useState(0);
+  useEffect(() => {
+    const fn = () => bumpThemeTick(x => x + 1);
+    window.addEventListener("lisa-theme-change", fn);
+    return () => window.removeEventListener("lisa-theme-change", fn);
+  }, []);
   const [wallpaper, setWallpaper] = useState("");
   // 壁纸上压的那一层：面纱浓度 + 背景虚化（她 2026-09-03 要的）。
   // 她发的那两张参考图之所以压得住图标，就是照片上都有一层很淡的白纱；
@@ -19021,8 +19030,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
   //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，.claude/rules/home-screen-layout.md）。
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
+  // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：
+  // 「全部能做主题的页面秋秋都应该可以改」）。没换过时原样发全局那一份——
+  // ⚠️连对象身份都不变，不然整棵树每次渲染都要白重画一遍。
+  const _pageTheme = (window.ThemeStudio && window.ThemeStudio.themeFor)
+    ? window.ThemeStudio.themeFor(screen, theme) : theme;
   return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
-    value: theme
+    value: _pageTheme
   }, /*#__PURE__*/React.createElement("div", {
     // ⚠️只加了一个【属性】，样式、几何、层级一个字都没动（home-screen-layout.md
     //   管的是布局，这一行不碰布局）。加它是为了让页面 CSS 能抓住「这一页的底」——

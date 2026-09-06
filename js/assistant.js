@@ -243,6 +243,10 @@
   // ---- 它能改的东西：白名单。不在这张表里的一律不许碰 ----
   // 每一项都要说清「怎么读」「怎么写」「界面上叫什么」，写入口集中在这里，
   // 免得以后加能力时到处散着改，哪天漏个校验就真把她的数据写坏了。
+  // 页名对不对，只问 ThemeStudio.PAGES 那一份（它自己是从 core.js 的页名单派生的）
+  const knownPage = (ts, id) => (ts.PAGES || []).some(x => x[0] === id);
+  const badPage = (ts, id) => "没有「" + id + "」这一页。能改的是："
+    + (ts.PAGES || []).filter(x => x[0] !== "all").map(x => x[0]).join("、");
   const TARGETS = {
     style: {
       zh: "文风预设",
@@ -301,6 +305,9 @@
       },
       write: (id, patch, ctx) => {
         const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
+        // ⚠️页名写错了要当场红：不校验的话它会静静存进一个谁也读不到的键，
+        //   界面上还报「改好了」——那正是她说的「能改 css 是假的」。
+        if (id !== "global" && !knownPage(ts, id)) throw new Error(badPage(ts, id));
         const bad = ts.unsafeReason(patch.text); if (bad) throw new Error(bad);
         const p = ts.load();
         const next = id === "global"
@@ -336,6 +343,38 @@
         if (!clean) throw new Error("这份里没有一栏是能用的");
         ctx.onPatchBubble(id, clean);
         return 1;
+      }
+    },
+    // 某一页整页换调子（v65.06，她 2026-09-06：「全部能做主题的页面秋秋都应该可以改」）。
+    // ⚠️为什么这件事不走 CSS：各页正文里的卡片、按钮、列表都是各页自己内联写的、
+    //   没有挂点，CSS 抓不住它们；而它们的颜色全是从同一份 token 里取的。
+    //   所以「把这一页换个调子」走这一栏，一个挂点都不需要，每一页都成立。
+    // ⚠️洗那一道用 ThemeStudio.cleanTokens，别在这儿另写一份白名单。
+    pagecolor: {
+      zh: "某一页的配色",
+      read: () => {
+        const ts = TS(); if (!ts) return [];
+        const cur = (ts.current() || {}).pageTokens || {};
+        return (ts.PAGES || []).filter(x => x[0] !== "all")
+          .map(x => ({ id: x[0], name: x[1], text: JSON.stringify(cur[x[0]] || {}) }));
+      },
+      write: (id, patch) => {
+        const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
+        if (!knownPage(ts, id)) throw new Error(badPage(ts, id));
+        let obj = null;
+        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        if (!obj || typeof obj !== "object") throw new Error("这一条不是一份能读的 JSON");
+        const p = ts.load(), cur = { ...((p.pageTokens || {})[id] || {}) };
+        // 给了空值＝把那一支还给全局（不然「改回原样」这件事没法说）
+        Object.keys(obj).forEach(k => { const v = obj[k]; if (v === "" || v == null) delete cur[k]; else cur[k] = v; });
+        const clean = ts.cleanTokens(cur);
+        if (!Object.keys(clean).length && !Object.keys((p.pageTokens || {})[id] || {}).length) {
+          throw new Error("这份里没有一支能用的颜色。只收这几支：" + (ts.TOKEN_KEYS || []).join("、") + "；值要写成 #色号");
+        }
+        const all = { ...(p.pageTokens || {}) };
+        if (Object.keys(clean).length) all[id] = clean; else delete all[id];
+        ts.commit({ ...p, pageTokens: all });
+        return Object.keys(clean).length || 1;
       }
     },
     memory: {
@@ -493,10 +532,12 @@
       + "  ③ 能稳稳抓住的就是下面这些钩子，**别去猜别的类名**（这个 App 没有语义 class，只有 Tailwind 工具类）。\n"
       + "  【每一页都有】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
-      + "  ⚠️页面正文里那些卡片、按钮、列表**没有单独的钩子**：换底色、换字色、换顶栏、换半窗、换空状态\n"
-      + "  这些都做得到；要精确改某一张卡片的长相就做不到——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
+      + "  ⚠️页面正文里那些卡片、按钮、列表**没有单独的钩子**，CSS 抓不住它们。\n"
+      + "  它们的颜色全是从这一页的那几支色里取的，所以【整页换调子、换卡片底色、换字色】要走 pagecolor 那一栏\n"
+      + "  （每一页都能改，不需要钩子）；上面这些钩子管的是顶栏、半窗、空状态、头像、开关、输入框这类共用件。\n"
+      + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -545,6 +586,7 @@
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
+      + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
       + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
       + "myBorder／charBorder（形如 1px solid #hex）、shadow（形如 0 2px 8px rgba(...)）、chatBg（聊天页底色）、"
@@ -741,6 +783,8 @@
       if (p.target === "memory") throw new Error("记忆库是往里加的，不能改一小段");
       // 气泡那一栏是 JSON：在里头替换一小段，出来多半不再是合法 JSON
       if (p.target === "bubble") throw new Error("气泡这一栏要整份给，不能改一小段");
+      // 配色那一栏同理：它是一份 JSON，在里头替换一小段，出来多半不再是合法 JSON
+      if (p.target === "pagecolor") throw new Error("配色这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);

@@ -36,7 +36,8 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
   const src = ["js/components.js", "js/screens.js", "js/phone.js", "js/dwell.js", "js/fanfic.js", "js/app.js"]
     .map(f => { try { return R(f); } catch (e) { return ""; } }).join("\n");
   // ⚠️只认【后面跟着一句中文说明】的那种行，别把 pages 里的 ["thread","gthread"] 也捞进来
-  const blk = studio.slice(studio.indexOf("const WK_COMMON"), studio.indexOf("const SLOT_KEY"));
+  // ⚠️收在 TOKENS 之前：那张表长得一模一样（["bg","这一页的底色"]），但它是【八支色】不是挂点
+  const blk = studio.slice(studio.indexOf("const WK_COMMON"), studio.indexOf("const TOKENS = Object.freeze(["));
   const names = [...blk.matchAll(/\["([a-z]+)", "[^"]*[\u4e00-\u9fa5]/g)].map(m => m[1]);
   assert.ok(names.length >= 30, "抠出来的钩子太少：" + names.length);
   assert.ok(!names.includes("thread") && !names.includes("gthread"), "把页名当成钩子捞进来了");

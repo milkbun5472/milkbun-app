@@ -162,6 +162,41 @@
             style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, "去这一页看看")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
           page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
+        // ── 这一页单独换几支色（v65.06）────────────────────────────────
+        // 挂点只挂得住共用组件，而各页正文里的卡片、按钮、列表都是自己内联写的——
+        // 一页一页去挂挂不完。但它们的颜色全从同一份 token 里取，所以给这一页
+        // 单独换几支色，那一页所有东西一起跟着变，一个挂点都不需要。
+        page !== "all" && (function () {
+          const cur = (draft.pageTokens || {})[page] || {};
+          const put = (k, v) => {
+            const one = { ...cur }; if (v) one[k] = v; else delete one[k];
+            const all = { ...(draft.pageTokens || {}) };
+            if (Object.keys(one).length) all[page] = one; else delete all[page];
+            patchDraft({ pageTokens: all });
+          };
+          const hexish = v => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : "#ffffff";
+          return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 3 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "这一页单独换几支色"),
+              Object.keys(cur).length ? h("button", { onClick: () => { const all = { ...(draft.pageTokens || {}) }; delete all[page]; patchDraft({ pageTokens: all }); },
+                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "全部还原") : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginBottom: 9 } },
+              "这一页的卡片、按钮、列表都是从这几支色里取的颜色。想整页换个调子，改这儿比写 CSS 管用——CSS 抓不住那些没挂点的东西，这个不用挂点。"),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
+              (studio.TOKENS || []).map(function (tk) {
+                const k = tk[0], on = !!cur[k], val = on ? cur[k] : (t[k] || "#ffffff");
+                return h("label", { key: k, className: "flex items-center", style: { gap: 8, minHeight: 44, padding: "6px 9px", borderRadius: 11,
+                    border: "1px solid " + (on ? t.ink : t.line), background: t.bg } },
+                  h("span", { style: { width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: val, border: "1px solid " + t.line, position: "relative", overflow: "hidden" } },
+                    h("input", { type: "color", value: hexish(val), onChange: e => put(k, e.target.value),
+                      style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, border: "none", padding: 0 } })),
+                  h("span", { style: { minWidth: 0, flex: 1 } },
+                    h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, tk[1]),
+                    h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 9.5, color: t.fog } }, on ? val : "跟随全局")),
+                  on ? h("button", { onClick: e => { e.preventDefault(); put(k, ""); }, className: "shrink-0 active:opacity-70",
+                    style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还原") : null);
+              })));
+        })(),
         h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
         // ── 这一页抓得住的挂点（v65.05）────────────────────────────────

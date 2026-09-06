@@ -881,6 +881,8 @@ function Toggle({
   const t = useTheme();
   return /*#__PURE__*/React.createElement("button", {
     onClick: () => onChange(!on),
+    "data-wk": "toggle",
+    "data-on": on ? "1" : "0",
     style: {
       width: 46,
       height: 27,
@@ -890,6 +892,7 @@ function Toggle({
       transition: "background .2s"
     }
   }, /*#__PURE__*/React.createElement("span", {
+    "data-wk": "toggleknob",
     style: {
       position: "absolute",
       top: 3,
@@ -918,6 +921,7 @@ function Slider({
     value: value,
     onChange: e => onChange(parseFloat(e.target.value)),
     className: "w-full",
+    "data-wk": "slider",
     style: {
       accentColor: t.ink
     }
@@ -959,12 +963,14 @@ function LineField({
   const enCJK = /[一-鿿]/.test(String(en || ""));
   const side = (zh && !enCJK) ? "" : (en || "");
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "field",
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline gap-2"
   }, /*#__PURE__*/React.createElement("span", {
+    "data-wk": "fieldlabel",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 14,
@@ -978,6 +984,7 @@ function LineField({
       color: t.fog
     }
   }, "/ ", side) : null), right), children, /*#__PURE__*/React.createElement("div", {
+    "data-wk": "fieldline",
     className: "mt-3 h-px w-full",
     style: {
       background: t.line
@@ -987,6 +994,7 @@ function LineField({
 function LineInput(props) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("input", {
+    "data-wk": "input",
     ...props,
     className: "w-full bg-transparent outline-none",
     style: {
@@ -1000,6 +1008,7 @@ function LineInput(props) {
 function LineArea(props) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("textarea", {
+    "data-wk": "textarea",
     ...props,
     className: "w-full bg-transparent outline-none resize-none",
     style: {
