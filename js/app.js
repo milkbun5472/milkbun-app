@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.37";
+const APP_VERSION = "v64.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -654,11 +654,14 @@ function App() {
   // 条件全在 Gaze.reviewDue 里（卡有内容 + 最新一块也 14 天没动 + 他确实被点名却连着不吭声），
   // 带次数上限和冷却：修不好就停手，绝不变成每天一次的自动调用（她按次计费）。
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
-  const reviewGazeFor = async char => {
+  // manual=她自己在状态卡底下按了「让他再看一遍这十块」。
+  // ⚠️手动那一次不占自动预算（v64.35）：预算防的是「代码偷偷花钱」，不是防她自己要。
+  //   原来两条路共用 reviewN，她手动重试几次就把自动那三次按光了。
+  const reviewGazeFor = async (char, manual) => {
     if (gazeReviewBusy || !window.Gaze || !window.Gaze.reviewSpec) return;
     const p = apiFor(char.id);
     if (!p) return;
-    if (window.Gaze.markReview) window.Gaze.markReview(char.id);   // 先记游标再刷
+    if (window.Gaze.markReview) window.Gaze.markReview(char.id, manual);   // 先记游标再刷
     setGazeReviewBusy(true);
     try {
       const uN = profile.name || "用户";
@@ -669,8 +672,11 @@ function App() {
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.review(char.id, parsed);
-      // 一块都没改也可能是【真的没变】——所以不弹失败，只把败因留在卡里给她看
-      if (!n && window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, "复看了一遍,一块都没改");
+      // ⚠️一块都没改【不是失败】（v64.35）：提示词里白纸黑字写着「没变就是没变，
+      //   不必为了交差改字」，模型照做了，代码这一道原来把它记成一次失败——
+      //   三次之后「试满了，往后不再自动试」，而界面上写的是「都没成」。
+      //   她看到的于是是「坏了」，其实是「他真没什么要改的」。
+      if (!n && window.Gaze.markReviewNoChange) window.Gaze.markReviewNoChange(char.id);
     } catch (e) {
       if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成");
     } finally { setGazeReviewBusy(false); }
@@ -18484,7 +18490,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
       // 卡冻住的时候她得有个按得动的东西——自动那一路要等 14 天 + 12 轮沉默才动
-      onGazeReview: () => { if (!apiFor(scc.id)) return toast("请先配置 API"); reviewGazeFor(scc); },
+      onGazeReview: () => { if (!apiFor(scc.id)) return toast("请先配置 API"); reviewGazeFor(scc, true); },
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });

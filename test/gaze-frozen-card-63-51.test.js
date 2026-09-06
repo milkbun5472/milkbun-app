@@ -179,7 +179,9 @@ test("复看写进来的走同一个 apply：原样抄回来不算改，真改�
 
 // ── 接线 ────────────────────────────────────────────────────
 test("接线：先记标记再打调用；线上线下都接上，跟建卡那一路挂在同一处", () => {
-  assert.match(appCode, /if \(window\.Gaze\.markReview\) window\.Gaze\.markReview\(char\.id\)/);
+  // v64.35 多了第二个参数 manual：她自己按的那一次【不占自动预算】
+  //（截图上「自动复看过 4 次」而上限是 3，多出来那次就是她自己按的）。
+  assert.match(appCode, /if \(window\.Gaze\.markReview\) window\.Gaze\.markReview\(char\.id, manual\)/);
   assert.match(app, /先记游标再刷/, "为什么先记标记，写在代码里");
   // 两条补救路必须挂在一起：分开挂迟早只改一处（这个仓库的老毛病）
   assert.match(appCode, /try \{ maybeAutoSeedGaze\(char\); \} catch \(e\) \{\}\n\s*try \{ maybeAutoReviewGaze\(char\); \} catch \(e\) \{\}/);
@@ -199,7 +201,8 @@ test("她盯着一张冻住的卡时得有个按得动的东西", () => {
   assert.match(gaze, /hasAny\(charId\) && onReview \? h\("button"/, "有内容的卡上没有复看按钮");
   assert.match(components, /onGazeReview, gazeReviewBusy/, "状态卡没把这条线传下去");
   assert.match(components, /onReview: onGazeReview, reviewBusy: gazeReviewBusy/);
-  assert.match(app, /onGazeReview: \(\) => \{ if \(!apiFor\(scc\.id\)\) return toast\("请先配置 API"\); reviewGazeFor\(scc\); \}/);
+  // v64.35：手动这颗传 manual=true，别再跟自动共用那三次预算
+  assert.match(app, /onGazeReview: \(\) => \{ if \(!apiFor\(scc\.id\)\) return toast\("请先配置 API"\); reviewGazeFor\(scc, true\); \}/);
 });
 
 test("卡有内容却长期不动时，这一页得把实话说出来", () => {

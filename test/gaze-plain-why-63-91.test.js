@@ -24,7 +24,13 @@ test("异常原文一律翻成人话，翻不出来的就说「这一次没成�
   assert.equal(plainWhy(undefined), "这一次没成");
   // 已经是人话的那几句原样留着
   assert.equal(plainWhy("他一块也没写出来"), "他一块也没写出来");
+  // ⚠️这一句 v64.35 起【不再进这条路】：「一块都没改」是正常结局，
+  //   走 markReviewNoChange，不再被记成一次失败。plainWhy 认它的能力留着不碍事。
   assert.equal(plainWhy("复看了一遍,一块都没改"), "复看了一遍,一块都没改");
+  // engine 那句诊断自带结论，得先认它——它原话里带着「不是超时」三个字，
+  // 排在 /超时/ 后面就会被判反（v64.35 写反过一次，测试当场逮到）。
+  assert.equal(plainWhy("〔m｜等了 1.2 秒＝上游直接打回来了（拦截／格式／配额），不是超时〕"), "上游把这次请求打回来了");
+  assert.equal(plainWhy("〔m｜等了 150 秒＝等到一半才断，像超时或冷启动〕"), "等太久，超时了");
 });
 
 test("存进去之前就翻好——存原文的话这句在界面上会一直是机器话", () => {
@@ -32,9 +38,15 @@ test("存进去之前就翻好——存原文的话这句在界面上会一直�
   assert.match(rf, /box\.reviewErr = plainWhy\(why\)\.slice\(0, 60\);/);
   const sf = cut(gaze, "  function markAutoSeedFail(charId, why)", "  const autoSeedState =");
   assert.match(sf, /box\.autoSeedErr = plainWhy\(why\)\.slice\(0, 60\);/);
-  // 两处都不许再直接存 e.message
-  assert.doesNotMatch(rf, /String\(why \|\| /);
-  assert.doesNotMatch(sf, /String\(why \|\| /);
+  // 两处【显示的那一栏】都不许直接存 e.message
+  assert.doesNotMatch(rf, /box\.reviewErr = String\(why/);
+  assert.doesNotMatch(sf, /box\.autoSeedErr = String\(why/);
+  // ⚠️v64.35 起原文【另存一份】：人话给她看，原文点开才看。
+  //   她 2026-09-06 报「还是不行」，界面上只有一句「这一次没成」——
+  //   那正是翻不出来时的兜底，于是她和我都不知道到底什么坏了。
+  //   翻好了再存这条没变；变的是「翻不出来的那部分不能连原文一起扔」。
+  assert.match(rf, /box\.reviewErrRaw = String\(why \|\| ""\)\.slice\(0, 400\);/);
+  assert.match(sf, /box\.autoSeedErrRaw = String\(why \|\| ""\)\.slice\(0, 400\);/);
 });
 
 test("界面那两行说人话，而且说清还试不试", () => {
@@ -43,7 +55,11 @@ test("界面那两行说人话，而且说清还试不试", () => {
   assert.doesNotMatch(gaze, /st\.tries \+ "\/" \+ st\.max/);
   assert.match(gaze, /rv\.tries >= rv\.max \? "；试满了，往后不再自动试" : ""/, "试满了不说，她会一直等一个不会来的东西");
   assert.match(gaze, /st\.tries >= st\.max \? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""/, "空卡那一支还得告诉她能自己按");
-  assert.match(gaze, /"，都没成（" \+ plainWhy\(rv\.err\) \+ "）"/);
+  // v64.35：rv.err 存进去的时候就已经是人话了（markReviewFail 里翻好），
+  // 这儿再翻一次是白翻——而且「没变」那一支现在根本不走这一句了。
+  assert.match(gaze, /"，都没成（" \+ rv\.err \+ "）"/);
+  // 「他复看过一遍、觉得没什么要改的」是【答案】，不是失败，不许再说成「都没成」
+  assert.match(gaze, /if \(rv\.okAt\) lines\.push\("替" \+ say\("他"\) \+ "复看过一遍，"/);
 });
 
 // 这一枪一次要写十块，窄上限里还要扣掉思考预算——想完就没配额写正文＝空返回，
@@ -51,7 +67,7 @@ test("界面那两行说人话，而且说清还试不试", () => {
 test("建卡和复看那两枪开满 65535", () => {
   const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  // 「规则降概率，代码才保证」在这一层的落法");
   assert.match(seed, /window\.Gaze\.seedSpec\(uN\)[\s\S]{0,120}maxTokens: 65535/);
-  const rev = cut(app, "  const reviewGazeFor = async char", "  const maybeAutoReviewGaze");
+  const rev = cut(app, "  const reviewGazeFor = async (char, manual)", "  const maybeAutoReviewGaze");
   assert.match(rev, /window\.Gaze\.reviewSpec\(uN, char\.id\)[\s\S]{0,120}maxTokens: 65535/);
   // ⚠️上限是【天花板】不是【花销】：给宽了一分钱也不多花，给窄了才会写到一半停住、
   //   重来一次——那才是真多花了一次（max-tokens-floor.md「上限是天花板」那一节）。
