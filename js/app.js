@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.82";
+const APP_VERSION = "v64.83";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4043,7 +4043,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ? "\n【这一手刚才别处已经有人出过了】最近半小时里，另一个角色已经对她用过【主动提出替她把这件事办了／教她／帮她看】这一招。"
         + "同一件事上一屋子人抢着出同一手，那就说明这是【这种场合的通用反应】，不是你的。\n"
         + "· 你要是压根不会那门东西，就别揽——直说不懂，或者干脆聊点别的。\n"
-        + "· 你要是真会，也换个进法：先问她卡在哪、先笑她一句、先说你这边的事，或者给一样只有你给得出的实在东西。"
+        + "· 你要是真会，也换个进法：从你自己的口气和路子进，别跟刚才那位撞同一手。\n"
+        + "⚠️这不是让你【换一种关心】：接不接由你这个人决定。冷淡的、正忙的、觉得这不关你事的，"
+        + "不接才是你——别为了不撞手而硬挤出另一句体贴。"
       : "";
   };
   const crossSamenessHint = charId => {

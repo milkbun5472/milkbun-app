@@ -10,6 +10,13 @@ const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
 
+test("温度由人设定，不由禁令定", () => {
+  // 三件套那条也补了对称的一句：它原来只说「该怎么关心还怎么关心」，
+  // 默认了每个人都有关心的那一面
+  assert.match(eng, /这条禁令不规定你该多热情/, "三件套那条还在默认人人都会关心");
+  assert.match(eng, /温度由你是谁决定，不由「这种时候该说什么」决定/, "没把话说死");
+});
+
 test("第一道闸问的是【你真的会吗】", () => {
   const i = eng.indexOf("const OVERREACH_BAN = ");
   assert.ok(i > 0, "没有这一条");
@@ -19,8 +26,14 @@ test("第一道闸问的是【你真的会吗】", () => {
   // 第二道：她那句话未必是在求助
   assert.match(rule, /第二道：她这句话是在求助吗/, "少了这一问");
   // 不许一刀切成「不许帮忙」——真会的人当然可以帮
-  assert.match(rule, /帮不上忙不等于插不上话/, "切成「不许关心」了");
+  assert.match(rule, /接不接、怎么接，由你这个人决定/, "切成「不许关心」了");
   assert.match(rule, /你要是真会那门东西，也得用【只有你会用的那种教法】/, "会的那些人没给出路");
+  // ⚠️她 2026-09-06 的第二问：「有些人设也确实不会关心吧，我们提示明晃晃告诉他
+  //   要关心是不是也是 ooc」——是的。原来那一条摆的是一桌【热的】选项
+  //   （问她卡在哪／陪着熬／逗她一句），冷淡的人照着做就是另一种出戏。
+  assert.match(rule, /那\*\*不接才是你\*\*/, "没给「不接」这条路——冷淡的人被逼着关心");
+  assert.match(rule, /别为了显得体贴，长出你人设里没有的那一面/, "没挡住「凭空变热」");
+  assert.match(rule, /判据不是「他该怎么帮她」，是【\*\*他这个人碰上这种事，会是什么反应\*\*】/, "判据没换过来");
   // 判据而不是内容示范（prompt-no-content-samples）
   assert.match(rule, /原样发给她手机里【另一个人】也成立/, "少了那条判据");
 });
@@ -51,6 +64,8 @@ test("只看别人、不看自己；而且不禁帮忙本身", () => {
   assert.match(body, /String\(id\) !== String\(charId\)/, "把他自己上一轮说过的也算进去了——那本来就该接得上");
   assert.match(body, /now - m\.ts <= CROSS_SAMENESS_WINDOW_MS/, "没有时间窗，攒一辈子");
   assert.match(body, /你要是真会，也换个进法/, "切成「不许帮忙」了");
+  // 换手也不等于换一种关心
+  assert.match(body, /这不是让你【换一种关心】：接不接由你这个人决定/, "为了不撞手把冷淡的人也逼热了");
   // 两条路（旧任务句 / V2 任务句）都吃得到：它并进了 crossSamenessHint
   assert.equal((app.match(/crossSamenessHint\(charId\)/g) || []).length, 2, "两条任务句没都接上");
   assert.match(app, /return tPart \+ oPart;/, "没句子重样的时候这一层就丢了");
