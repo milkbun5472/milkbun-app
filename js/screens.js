@@ -9215,8 +9215,10 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
     !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "还没有任何角色的情绪影子数据") :
     rows.list.map(({ char, st, r }) => { const ready=window.InnerLifePromotionGate?window.InnerLifePromotionGate.evaluateA(r):null; return h("div", { key: char.id, style: { marginBottom: 14 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 4 } }, char.remark || char.name),
+      // ⚠️只列【算数的那几条】（DongnianEmotionA.projectedAxes）：思念被撤掉了，
+      //   动念那根进度条才是权威——两个都叫思念、数还不一样，看的人只会更糊涂。
       st && st.emotion && st.emotion.current ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 5 } },
-        Object.entries(st.emotion.current).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
+        Object.entries(st.emotion.current).filter(([k]) => ((window.DongnianEmotionA && window.DongnianEmotionA.projectedAxes) || Object.keys(st.emotion.current)).indexOf(k) >= 0).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "无状态（引擎还没为 TA 演算过）"),
       line("投影采样 / mood未匹配 / 被钳制", (r.sampleCount || 0) + " / " + (r.unmatchedMoodCount || 0) + " / " + (r.clippedCount || 0)),
       // v64.67：整词没撞上、靠拆字接住的次数。这一栏是【那一层到底在不在干活】的唯一证据——

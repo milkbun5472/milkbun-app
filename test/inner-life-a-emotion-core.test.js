@@ -390,9 +390,11 @@ test("投进去了 ≠ 心里没波澜：专注那一批推得动沉浸", () => 
   assert.match(A.displayProjection(st).text, /沉浸偏高/);
 });
 
-test("十条轴现在没有一条是 mood 永远推不动的", () => {
+test("算数的那几条轴，没有一条是 mood 永远推不动的", () => {
   // ⚠️这条是【总账】：谁哪天再把某条轴的词全塞进一个 delta 为 {} 的规则里，这里当场红。
-  const dead = Object.keys(A.axes).filter(k => {
+  // ⚠️v64.71 起只查 projectedAxes：connection 被有意撤掉了（动念那份才是权威），
+  //   它推不动是【对的】，不该在这儿报警。
+  const dead = A.projectedAxes.filter(k => {
     for (const w of ["温柔","开心","难过","生气","紧张","累","激动","嘴硬","服软","专注","走神","挂心","惦念"]) {
       const d = A.moodEvidence(w).delta;
       if (d[k] !== undefined && d[k] !== 0) return false;
@@ -400,4 +402,38 @@ test("十条轴现在没有一条是 mood 永远推不动的", () => {
     return true;
   });
   assert.deepEqual(dead, [], "这几条轴 mood 推不动：" + dead.join("、"));
+});
+
+// ── 思念只留一份（v64.71，她 2026-09-06「动吧宝宝」）────────────────────────
+// ⚠️跟傲娇当初一样的重名：A 有一份 connection、动念也有一份，两个都叫「思念」、
+//   数还不一样。区别是这次【动念那份才是权威】——它驱动真实行为、界面上有那根
+//   进度条、她回一句话就归零重来；A 那份没有任何人读。所以撤的是 A 那一份。
+test("A 的思念不再投影、不再显示、也不再被写", () => {
+  assert.deepEqual(A.projectedAxes, ["pride", "valence", "arousal", "immersion", "hurt", "anger", "anxiety", "warmth", "fatigue"]);
+  assert.ok(!A.projectedAxes.includes("connection"));
+  // 就算它高得离谱也不许出现在发给他的那句话里
+  let st = A.createState("c", T0);
+  st.emotion.current.connection = 0.9;
+  st = A.applyEvent(st, { moodLabel: "挂心" }, T0 + 1).state;
+  const text = A.displayProjection(st).text;
+  assert.ok(!text.includes("思念"), "撤掉的轴还在投影里：" + text);
+  assert.match(text, /暖意偏高/, "该有的那条别顺手删掉了");
+  // 也别再往它上面写：算了没人读＝白算（v55.95 那条的反面）
+  assert.equal(A.moodEvidence("挂心").delta.connection, undefined);
+  assert.equal(A.moodEvidence("惦念").delta.connection, undefined);
+  // ⚠️字段本身要留着：老存档里有，删了就是让人凭空少一栏
+  assert.ok("connection" in A.createState("c", T0).emotion.current);
+  assert.ok("connection" in A.axes, "轴的定义还在，只是不参与投影");
+});
+
+test("「哪几条轴算数」也只有一份定义，面板引用它", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+  assert.match(R("js/screens.js"), /window\.DongnianEmotionA\.projectedAxes/, "诊断台没引用");
+  assert.match(R("js/components.js"), /window\.DongnianEmotionA\.projectedAxes/, "脾气页没引用");
+  // 别处不许再铺一份轴名清单
+  ["js/screens.js", "js/components.js"].forEach(f => {
+    const src = R(f).split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+    assert.ok(!/"pride",\s*"valence"/.test(src), f + " 里又抄了一份轴清单");
+  });
 });

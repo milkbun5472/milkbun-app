@@ -842,8 +842,8 @@ const A_MOOD_RULES = Object.freeze([
 const A_MOOD_MORPHEME_CAP = 3;
 const A_MOOD_MORPHEMES = Object.freeze([
   // 想着一个人
-  ["挂",{warmth:.11,connection:.05}],["惦",{warmth:.11,connection:.05}],
-  ["念",{warmth:.11,connection:.05}],["恋",{warmth:.11,connection:.05}],["牵",{warmth:.10,connection:.05}],
+  ["挂",{warmth:.11}],["惦",{warmth:.11}],
+  ["念",{warmth:.11}],["恋",{warmth:.11}],["牵",{warmth:.10}],
   // 揪着
   ["悬",{anxiety:.12,arousal:.05}],["急",{anxiety:.10,arousal:.10}],["躁",{anger:.08,arousal:.10}],
   ["忐",{anxiety:.12}],["忑",{anxiety:.12}],["怵",{anxiety:.11}],["惴",{anxiety:.12}],
@@ -1027,13 +1027,19 @@ function regressEmotionA(rawState,minutesValue,nowValue) {
 // 界面上写的是「暖意/委屈/火气/思念/傲娇」——她在诊断台读「暖意 0.39」，
 // 他收到的是「柔软偏高」。同一个数、两个名字。
 // 统一到【她天天读的那套】，只有 arousal 从「唤醒」换成「激动」——唤醒是直译，读着像闹钟。
+// 【哪几条轴算数】——全 app 只有这一份（v64.71，她 2026-09-06 拍板撤掉 A 的思念）。
+// ⚠️connection 不在里面：思念有【两份】，动念那一份才是权威——它驱动真实行为、
+//   界面上有那根进度条、她回一句话它就归零重来。A 这一份没有任何人读，
+//   却会显示成第二个「思念 0.xx」和投影里的「思念偏高」，跟那根条对不上。
+//   字段本身留着（老存档里有），只是不再写、不再读、不再显示。
+const A_PROJECTED_AXES=Object.freeze(["pride","valence","arousal","immersion","hurt","anger","anxiety","warmth","fatigue"]);
 const A_DISPLAY_LABELS=Object.freeze({connection:"思念",pride:"傲娇",valence:"愉悦",arousal:"激动",immersion:"沉浸",hurt:"委屈",anger:"火气",anxiety:"不安",warmth:"暖意",fatigue:"疲惫"});
 function displayProjectionA(rawState,options){
   try{
     const emotion=rawState&&rawState.emotion,base=emotion&&emotion.baseline,current=emotion&&emotion.current;
     if(!base||!current)return {items:[],bottomLine:"",text:"",tokenEstimate:0};
     const threshold=Math.max(.02,aFinite(options&&options.threshold,.08)),maxItems=Math.max(1,Math.min(4,Math.round(aFinite(options&&options.maxItems,4))));
-    const ranked=Object.keys(A_AXES).map(key=>{
+    const ranked=A_PROJECTED_AXES.map(key=>{
       const span=A_AXES[key][1]-A_AXES[key][0],delta=aFinite(current[key],base[key])-aFinite(base[key],A_DEFAULT_BASELINE[key]);
       return {key,label:A_DISPLAY_LABELS[key],delta,score:Math.abs(delta)/span};
     }).filter(x=>x.score>=threshold).sort((a,b)=>b.score-a.score||a.key.localeCompare(b.key)).slice(0,maxItems);
@@ -1094,7 +1100,7 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,prideBlock:PRIDE_BLOCK,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,projectedAxes:A_PROJECTED_AXES,prideBlock:PRIDE_BLOCK,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createDongnian = createDongnian; window.DongnianEmotionA=DongnianEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createDongnian,DongnianEmotionA};
