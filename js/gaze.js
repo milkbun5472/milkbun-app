@@ -322,6 +322,9 @@
     // 「The prompt could not be submitted. The prompt contains sensitive words…」。
     // ⚠️这句得排在「线路报错」前面：它更具体，说的是【为什么】被拦，
     //   而「线路报错」只说了「没跑起来」——换条线路是对的做法，但不知道换的理由。
+    // 缩过一次还是被拦（v64.47）：这一句最要紧——它排除了「聊天内容踩线」这个最大嫌疑，
+    // 所以得排在下面那句更笼统的前面，不然会被它先答掉。
+    if (/去掉聊天记录再试一次【还是被拦】/.test(m)) return "去掉聊天记录也还是被拦，不是聊天内容的事";
     if (/not be submitted|prohibited use|sensitive words|was blocked|safety|内容政策/i.test(m)) return "这条线路把提示词拦了（内容政策）";
     if (/线路报错/.test(m)) return "这条线路此刻没跑起来";
     if (/上游直接打回来/.test(m)) return "上游把这次请求打回来了";

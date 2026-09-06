@@ -191,9 +191,10 @@ test("接线：先记标记再打调用；线上线下都接上，跟建卡那�
   assert.match(fn, /char\.npc/);
   assert.match(fn, /engineerEyes/);
   // maxTokens 给足（max-tokens-floor：一整份卡是「一屏名单」那一档）
-  const call = app.slice(app.indexOf("const reviewGazeFor"), app.indexOf("const maybeAutoReviewGaze"));
-  // v63.91 开满（她亲口点名）：上限是天花板不是花销，给宽了一分钱也不多花
-  assert.match(call, /maxTokens: 65535/);
+  // v64.47：这一枪改走 gazeCall 了，那个数搬进了那一处（见 gaze-plain-why-63-91）。
+  assert.match(app.slice(app.indexOf("const reviewGazeFor"), app.indexOf("const maybeAutoReviewGaze")),
+    /await gazeCall\(p, window\.Gaze\.reviewSpec/);
+  assert.match(app.slice(app.indexOf("const gazeCall = async")), /maxTokens: 65535/);
 });
 
 test("她盯着一张冻住的卡时得有个按得动的东西", () => {
