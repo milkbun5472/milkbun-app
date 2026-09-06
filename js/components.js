@@ -3310,7 +3310,12 @@ function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (r
 //      （home-rows-58-19 当场红）——位置排对了，人却看不见。
 //   她自己那台机器上这几项都显式存过，所以这儿不动她。要连尺寸一起换的话，
 //   得把每页的容量一起重排，那是另一件事。
-const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "wide", w_memo: "wide", w_recent: "large" };
+// ⚠️w_music 是 4×2（她 2026-09-06 亲口点名：「一起听的默认尺寸改成 4x2」）——
+//   这一条是【她推翻自己上一次的决定】，不是漏改：v61.87 定的是「情侣空间和一起听
+//   默认就是一条 4×1，不占两行」，现在一起听单独放开，情侣空间那条照旧。
+//   剩下几个仍然照 v61.87：她那份 x_homeWidgetSizes 整份搬过来的话，
+//   默认第三页会排到【滑到底也够不着】的行数（home-rows-58-19 当场红）。
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
 // 组件比它占的格子矮时，多出来的那块空白靠哪儿（她 2026-09-05：

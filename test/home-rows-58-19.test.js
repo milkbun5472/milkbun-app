@@ -36,12 +36,29 @@ function makeHome(layout, folders) {
 // 不然 rowsOf 算错的时候两边一起错，测试等于没测。
 // 列数、每项的跨度都照 renderItem 里 gridColumn/gridRow 那一行的规则来。
 const COLS = 4;
+// ⚠️出厂尺寸也得算进来（stub-from-the-writer）：原来这儿一律把「别的组件」当 4×1，
+//   于是 HOME_SIZE_DEFAULT 里那几个被放大的（一起听 4×2、字条夹 4×2）在这条
+//   「排不排得下」的闸面前是隐形的——改大了也永远不红，等于这条闸没在看真东西。
+//   仍然是【独立算一遍】：自己读那两张表，不去调 app 里的 homeItemSpan。
+const SIZE_DEFAULT = (() => {
+  const m = comp.match(/const HOME_SIZE_DEFAULT = \{[^}]*\};/);
+  assert.ok(m, "抠不出 HOME_SIZE_DEFAULT");
+  return new Function(m[0] + "\nreturn HOME_SIZE_DEFAULT;")();
+})();
+const SIZE_PRESETS = (() => {
+  const i = comp.indexOf("const HOME_SIZE_PRESETS = [");
+  return new Function(comp.slice(i, comp.indexOf("function homeWidgetPresetStyle")) + "\nreturn HOME_SIZE_PRESETS;")();
+})();
 function spanOfIndependently(REG, key) {
   if (/^sp_/.test(key)) return [1, 1];
   if (key.slice(0, 2) === "f_") return [1, 1];
   const it = REG[key];
   if (!it) return null;
   if (it.kind !== "widget") return [1, 1];
+  if (SIZE_DEFAULT[key]) {
+    const p = SIZE_PRESETS.find(x => x.id === SIZE_DEFAULT[key]);
+    if (p && p.cols && p.rows) return [p.cols, p.rows];
+  }
   if (it.which === "cal") return [3, 3];
   if (it.which === "map" || it.which === "muyu" || it.which === "wheel") return [2, 2];
   if (it.which === "weather" || it.which === "ledger") return [2, 1];
@@ -83,7 +100,9 @@ const reach = (L, fr) => {
 };
 
 // 组件全在一页上：24 格是够的，但排出来是 7 行——第 7 行在 overflow-hidden 底下，看不见也点不到
-const WIDGETS_7ROWS = ["w_map", "w_us", "w_muyu", "w_card", "w_wheel", "w_music"];
+// ⚠️v64.61 起一起听出厂就是 4×2，拿它当样本会让总格数超过 24（那样这条就变成
+//   「按格数也卡得住」，测不出「只按格数卡不住」这件事）。换成还是 4×1 的备忘录。
+const WIDGETS_7ROWS = ["w_map", "w_us", "w_muyu", "w_card", "w_wheel", "w_memo"];
 
 test("这组组件确实会排出超过 6 行（不然这条测试是空转的）", () => {
   const { REG } = makeHome({ 0: [] }, {});
