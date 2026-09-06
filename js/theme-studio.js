@@ -316,6 +316,15 @@
   // 秋秋（js/assistant.js）要照这份说给模型听——它原来什么都不知道，
   //   于是自己发明了 `.theme-xxx [data-page="xxx"]` 这种选择器，写完一点不生效
   //   （她 2026-09-06：「秋秋这个能改 css 是假的，应用了也不改」）。
+  // 全 App 每一页都有的那几个（挂在共用组件上，所以九十来页一起有）
+  const WK_COMMON = Object.freeze([
+    ["app", "这一页的底（最外那层）"],
+    ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"],
+    ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
+    ["empty", "空状态那一块（还没有内容时）"],
+    ["sheet", "从底下掀起来的半窗"],
+    ["avatar", "头像（全 App 每一颗）"]
+  ]);
   const WK_HOOKS = Object.freeze([
     ["chat", "聊天页整块背景"], ["body", "正文区背景"],
     ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
@@ -327,7 +336,7 @@
     ["card", "气泡里的卡片（照片、转发、语音）"],
     ["composer", "底部输入栏整条"], ["send", "发送键"]
   ]);
-  // 有钩子的页面（其余页面只能靠通用选择器，很容易改坏）
+  // 底下这几个是【聊天页专有】的（气泡、输入栏这些别处没有）
   const WK_PAGES = Object.freeze(["thread", "gthread"]);
   const SLOT_KEY = "x_themeCssSlots";
   const SLOT_MAX = 5;
@@ -454,7 +463,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_HOOKS, WK_PAGES, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

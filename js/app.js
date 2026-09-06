@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.86";
+const APP_VERSION = "v64.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18806,6 +18806,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
     value: theme
   }, /*#__PURE__*/React.createElement("div", {
+    // ⚠️只加了一个【属性】，样式、几何、层级一个字都没动（home-screen-layout.md
+    //   管的是布局，这一行不碰布局）。加它是为了让页面 CSS 能抓住「这一页的底」——
+    //   页面 CSS 本来就被限定在 html[data-lisa-screen="<页>"] 里，不会外溢到别页。
+    "data-wk": "app",
     className: "w-full flex flex-col relative overflow-hidden",
     style: {
       // 主屏时把底铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 一路遮到顶，无白边。

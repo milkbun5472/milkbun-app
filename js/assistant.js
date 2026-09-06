@@ -482,15 +482,16 @@
   // ⚠️钩子清单只有 ThemeStudio.WK_HOOKS 那一份，这儿不另抄（抄了迟早对不上）。
   function themeCssNote() {
     const ts = TS(); if (!ts || !ts.WK_HOOKS) return "";
-    const hooks = ts.WK_HOOKS.map(function (h) { return "    [data-wk=\"" + h[0] + "\"] " + h[1]; }).join("\n");
+    const fmt = function (arr) { return (arr || []).map(function (h) { return "    [data-wk=\"" + h[0] + "\"] " + h[1]; }).join("\n"); };
     const pgs = (ts.WK_PAGES || []).join(" / ");
     return "  ⚠️写 CSS 之前必须知道这三件事，不然写出来【一条都不会生效】：\n"
       + "  ① 这个 App 的样式几乎全是【内联 style】，行内赢过普通规则——**每一条声明都要带 !important**，不带就等于没写。\n"
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
-      + "  ③ 只有聊天页（" + pgs + "）埋了语义钩子，能稳稳抓住：\n" + hooks + "\n"
-      + "  **别的页面一个钩子都没有**：那些页只能靠通用选择器硬压，很容易连带改坏别处。\n"
-      + "  所以她要改的那一页不在上面这几页里时，**先说实话**——告诉她这一页目前没有可挂的钩子、改不动颜色，\n"
-      + "  问她要不要改【聊天页】或【全 App】，或者用别的办法（换主题、换纸、换气泡）。**不许硬出一份改不动的 CSS 糊弄过去。**\n";
+      + "  ③ 能稳稳抓住的就是下面这些钩子，**别去猜别的类名**（这个 App 没有语义 class，只有 Tailwind 工具类）。\n"
+      + "  【每一页都有】\n" + fmt(ts.WK_COMMON) + "\n"
+      + "  【只有聊天页（" + pgs + "）才有】\n" + fmt(ts.WK_HOOKS) + "\n"
+      + "  ⚠️页面正文里那些卡片、按钮、列表**没有单独的钩子**：换底色、换字色、换顶栏、换半窗、换空状态\n"
+      + "  这些都做得到；要精确改某一张卡片的长相就做不到——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
   const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
 

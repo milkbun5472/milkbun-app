@@ -401,6 +401,7 @@ function Eyebrow({
 }) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "eyebrow",
     style: {
       fontFamily: "'Archivo',sans-serif",
       letterSpacing: "0.2em",
@@ -434,6 +435,7 @@ function Empty({
 }) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "empty",
     className: "flex flex-col items-center justify-center text-center px-12 py-20 gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -520,7 +522,11 @@ function Head({
   const line = sub || ((zh && !enCJK) ? "" : (en || "")) || "";
   const cjk = /[一-鿿]/.test(String(line));
   const SIDE = 46;
+  // ⚠️挂点长在【组件自己】身上（同 Avatar 那条）：Head 一处挂上，九十来页的顶栏
+  //   一起变得能被页面 CSS 抓住。一页一页去补是补不完的，补完也会漏下一页。
+  //   （她 2026-09-06：「既然做了那就得让他是真的」——原来全 app 只有聊天页有挂点。）
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "head",
     className: "shrink-0 flex items-center",
     style: {
       // ⚠️默认铺 t.bg；页面外壳自己有底纹时传 bg:"transparent" 让它透上来。
@@ -536,10 +542,11 @@ function Head({
     className: "shrink-0 flex items-center",
     style: { width: SIDE }
   }, onBack ? /*#__PURE__*/React.createElement("button", {
+    "data-wk": "headink",
     onClick: onBack,
     className: "active:opacity-50 flex items-center justify-center",
     style: { width: SIDE, height: 34 }
-  }, /*#__PURE__*/React.createElement(IArrow, { size: 18, color: INK })) : null), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(IArrow, { size: 18, color: INK, wk: "headink" })) : null), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0",
     style: { textAlign: "center" }
   }, /*#__PURE__*/React.createElement("div", {
@@ -547,6 +554,7 @@ function Head({
     //   于是那个入口跟着一起没了（她 2026-09-04：「现在 header 没了。。。」）。
     //   入口不能靠一个【会被别的规矩顺手删掉的东西】托着；挂在标题上就不会再丢：
     //   这一页只要还有标题，入口就还在。传了才挂，长相一个像素都不变。
+    "data-wk": "headink",
     onClick: onTitleTap || undefined,
     style: {
       fontFamily: F_DISPLAY,
@@ -559,6 +567,7 @@ function Head({
       whiteSpace: "nowrap"
     }
   }, zh), line ? /*#__PURE__*/React.createElement("div", {
+    "data-wk": "headdim",
     style: {
       fontFamily: F_BODY,
       fontSize: 9.5,
@@ -572,6 +581,7 @@ function Head({
       whiteSpace: "nowrap"
     }
   }, line) : null), /*#__PURE__*/React.createElement("div", {
+    "data-wk": "headink",
     className: "shrink-0 flex items-center justify-end",
     // ⚠️右边用 minWidth 不用 width：没东西时它和左边等宽、标题正居中；
     //   真放了两个按钮（人格档案馆那种「导入 ＋」）就让它撑开，
@@ -675,6 +685,7 @@ function Sheet({
     },
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
+    "data-wk": "sheet",
     ref: scrollRef,
     onClick: e => e.stopPropagation(),
     className: "w-full p-6 pb-9",

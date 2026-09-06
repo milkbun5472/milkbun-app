@@ -96,7 +96,9 @@ test("Head 多了一个 ink 口子：页面自带底色时顶栏的字跟着走"
   const head = comp.slice(i, i + 2200);
   assert.match(head, /const INK = ink \|\| t\.ink;/);
   assert.match(head, /const LINE = ink \? "rgba\(255,255,255,\.14\)" : t\.line;/);
-  assert.match(head, /React\.createElement\(IArrow, \{ size: 18, color: INK \}\)/);
+  // ⚠️v64.86 起返回箭头多带一个 wk: "headink"（让页面 CSS 抓得住它的描边），
+  //   所以这里不再钉死大括号里只有那两项——要钉的是「颜色跟着 INK 走」，不是那一行的长相。
+  assert.match(head, /React\.createElement\(IArrow, \{ size: 18, color: INK[^}]*\}\)/);
 });
 
 test("标签里不留 emoji（跟情侣空间那次同一条）", () => {
