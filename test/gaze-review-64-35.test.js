@@ -287,24 +287,11 @@ test("⑥ 认得出「被拦」的那把尺子，她两个站子的说法都盖�
   assert.equal(re(null), false);
 });
 
-test("⑥ 只缩一次、只在被拦时缩；两枪都接上了", () => {
-  const call = APP.slice(APP.indexOf("const gazeCall = async"), APP.indexOf("const reviewGazeFor = async"));
-  assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也去重试＝白花一次钱");
-  // 正好两次 callAI：一次 full 一次 slim，不许再多
-  assert.equal((call.match(/await callAI\(/g) || []).length, 2, "重试次数变了");
-  assert.match(call, /去掉聊天记录再试一次【还是被拦】/, "两次都被拦时那句结论没写出来");
-  // 两枪都得走它，别只改一处
+// ⑥ 原来那两条钉的是【只缩一级】那一版的形状（user / userSlim / head）。
+// v64.55 换成三级阶梯之后它们说的已经不是现在这套了——整条删掉，
+// 现在的形状由 ⑨ 那几条钉着（撤掉东西要删除，不留着说它错了）。
+test("⑥ 两枪都走同一个 gazeCall，别只改一处", () => {
   assert.equal((APP.match(/await gazeCall\(p, window\.Gaze\.(seedSpec|reviewSpec)/g) || []).length, 2);
-});
-
-test("⑥ slim 那一份只去掉聊天记录，人设和记忆照旧带着", () => {
-  const slims = APP.match(/const userSlim = head \+ "[^"]*";/g) || [];
-  assert.equal(slims.length, 2, "建卡和复看各要一份");
-  slims.forEach(x => assert.match(x, /这一段这次没带上来，就凭你记得的写/));
-  // head 里那三样一样都不能少——slim 是【缩】，不是【换一道题】
-  const heads = APP.match(/const head = "【你的人设】[^;]*;/g) || [];
-  assert.equal(heads.length, 2);
-  heads.forEach(x => { ["【你的人设】", "好感度", "【长期记忆】"].forEach(k => assert.ok(x.includes(k), "slim 把 " + k + " 也砍了")); });
 });
 
 test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
@@ -332,10 +319,11 @@ test("⑦ 建卡和复看都从那扇公共门拿世界书", () => {
     "有一枪没接上世界书，或者没走那扇公共门");
   // 空的时候不发一个空栏目
   assert.equal((app.match(/\(gazeLore \? "\\n\\n【世界书】\\n" \+ gazeLore : ""\)/g) || []).length, 2);
-  // ⚠️它在 head 里＝full 和 slim 两份都带着。缩料时不许把她要的这一层缩掉。
-  const heads = app.match(/const head = "【你的人设】[\s\S]{0,400}?;\n/g) || [];
-  assert.equal(heads.length, 2);
-  heads.forEach(h => assert.ok(h.includes("【世界书】"), "head 里没有世界书，slim 那一份就吃不到"));
+  // ⚠️v64.55 起它在 base 里＝三级全都带着。缩料时不许把她要的这一层缩掉。
+  //（那一条钉在 ⑨ 里，这儿只确认它确实落在 base 上、而不是只挂在最全那一级。）
+  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  assert.equal(bases.length, 2);
+  bases.forEach(b => assert.ok(b.includes("【世界书】"), "世界书没落在 base 上，缩到后面几级就吃不到"));
 });
 
 test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () => {
@@ -412,4 +400,64 @@ test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）"
   // 那句人话得是 gaze 翻好的那一份，不是把异常原文摆到她眼前
   assert.match(rev, /window\.Gaze\.plainWhy/);
   assert.match(SRC, /muteCount, plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");
+});
+
+// ── v64.55：她 2026-09-06 试了一圈之后报的规律 ──────────────────────────
+//   「就是被拦出了 toast 说聊天记录，试了别人也是这样。我试了好几个只有两个能过。
+//     感觉我没说过 18+ 的话的人都能过，除了图里这位。但是我也没跟他说过」
+//
+// ⚠️**有角色能过，就说明这十道题的问法本身不是主因**——否则谁都过不去。
+//   踩线的是每个角色自己带的料。这是一条很硬的排除，别再往提示词措辞上想。
+//
+// 而上一版只缩一级（去掉聊天记录），剩下的料里【长期记忆】正是聊天浓缩出来的：
+// 聊天里的东西它照样带着，所以只缩聊天记录等于没缩干净。改成一级一级往下缩。
+// ⚠️封顶三级、只在确认被内容拦时才往下走、成一级立刻停：她按次计费，
+//   一次失败最多变三次，不许无限试。
+test("⑨ 三级阶梯：缩的顺序是【聊天 → 记忆】，人设和世界书缩到最后也留着", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const arrs = app.match(/const levels = \[[\s\S]*?\];/g) || [];
+  assert.equal(arrs.length, 2, "建卡和复看各要一份");
+  arrs.forEach(a => {
+    assert.equal((a.match(/zh: "/g) || []).length, 3, "级数变了——封顶就是三级");
+    assert.ok(a.indexOf('zh: "整份"') < a.indexOf('zh: "去掉聊天记录"'), "顺序反了：得从最全的开始");
+    assert.ok(a.indexOf('zh: "去掉聊天记录"') < a.indexOf('zh: "连长期记忆也去掉"'), "记忆得在聊天之后才缩");
+    // 最后一级用 base：人设 + 世界书 + 好感度，一样都不少
+    assert.match(a, /zh: "连长期记忆也去掉", text: base \+ NO_CHAT/);
+  });
+  // base 里必须有世界书——她要的就是这一层，缩到最后也不许缩掉它
+  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  assert.equal(bases.length, 2);
+  bases.forEach(b => {
+    assert.ok(b.includes("【世界书】"), "缩到最后把世界书也缩掉了");
+    assert.ok(!b.includes("【长期记忆】"), "记忆还留在 base 里，那第三级就没缩到东西");
+  });
+  // 记忆单独一段，第二级才连它一起去掉
+  assert.equal((app.match(/const mem = "\\n\\n【长期记忆】/g) || []).length, 2);
+});
+
+test("⑨ 成一级就停；只有被拦才往下走；封顶就是级数", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
+  assert.match(call, /for \(let i = 0; i < levels\.length; i\+\+\)/, "不是按级数封顶了");
+  assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也往下缩＝白花钱");
+  assert.equal((call.match(/await callAI\(/g) || []).length, 1, "一层循环里只该有一处调用");
+  assert.match(call, /if \(i && onFallback\) onFallback\(levels\[i\]\.zh\)/, "不是第一级成的，得让她知道这份是凭什么写的");
+  // 三级都没成时那句结论
+  assert.match(call, /都试过了，还是被拦——/);
+  assert.match(call, /剩下的只有【人设】或【这张卡自己的正文】/);
+});
+
+test("⑨ 那句结论翻成人话，而且排在更笼统那句前面", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  G.markReviewFail("c1", "这条线路把提示词拦了；去掉聊天记录、连长期记忆也去掉 都试过了，还是被拦——剩下的只有【人设】或【这张卡自己的正文】。");
+  assert.equal(G.reviewState("c1").err, "聊天记录和长期记忆都去掉了还是被拦，剩下人设或这张卡本身");
+  const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
+  assert.ok(why.indexOf("聊天记录和长期记忆都去掉了") < why.indexOf("去掉聊天记录也还是被拦"), "顺序反了，这句永远轮不到");
+});
+
+test("⑨ 降级只在她按了键时才吭声（auto 那一路不打扰她）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /gazeCall\(p, window\.Gaze\.seedSpec\(uN\), levels, zh => \{ if \(!auto\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
+  assert.match(app, /gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), levels, zh => \{ if \(manual\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
 });
