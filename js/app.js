@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.58";
+const APP_VERSION = "v64.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -643,10 +643,11 @@ function App() {
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
+      const seedSys = window.Gaze.seedSpec(uN);
       const levels = [
-        { zh: "整份", text: head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)") },
-        { zh: "去掉聊天记录", text: head + NO_CHAT },
-        { zh: "连长期记忆也去掉", text: base + NO_CHAT }
+        { zh: "整份", sys: seedSys, text: head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)") },
+        { zh: "去掉聊天记录", sys: seedSys, text: head + NO_CHAT },
+        { zh: "连长期记忆也去掉", sys: seedSys, text: base + NO_CHAT }
       ];
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
       //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
@@ -654,7 +655,7 @@ function App() {
       //   然后重来一次，那才是真多花了一次。这一枪一次要写十块，正是最容易被窄上限截断的那种。
       //   （唯一要留神的是有些上游对 max_tokens 有自己的硬上限，超了会秒失败打回来——
       //     真遇到某条线路一按就失败，先看是不是这个数被上游拒了，不是提示词的问题。）
-      const raw = await gazeCall(p, window.Gaze.seedSpec(uN), levels, zh => { if (!auto) toast("被拦了，" + zh + "才写成的"); });
+      const raw = await gazeCall(p, levels, zh => { if (!auto) toast("被拦了，" + zh + "才写成的"); });
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
@@ -727,11 +728,15 @@ function App() {
   //   聊天里的东西它照样带着，所以只缩聊天记录等于没缩干净。
   // ⚠️封顶三级，而且【只在确认被内容拦时才往下走】：她按次计费，
   //   一次失败最多变三次，不许无限试。成一级就立刻返回，不再往下缩。
-  const gazeCall = async (p, sys, levels, onFallback) => {
+  // ⚠️v64.57：每一级自己带 sys。前三版这里只缩 user 那半（聊天、记忆），
+  //   而【复看那份 system 会把这张卡现在写的十块正文原样摆回去】——它一次都没缩到。
+  //   她 2026-09-06 的观察正好指着这儿：「写过 10 版的人都失败、都卡在 16-20 天前，
+  //   剩下新人让他们写是可以过的」——新人走的是建卡，那份提示词里没有卡的正文。
+  const gazeCall = async (p, levels, onFallback) => {
     let last = null;
     for (let i = 0; i < levels.length; i++) {
       try {
-        const out = await callAI(p, sys, [{ role: "user", content: levels[i].text }], { maxTokens: 65535, timeout: 150000 });
+        const out = await callAI(p, levels[i].sys, [{ role: "user", content: levels[i].text }], { maxTokens: 65535, timeout: 150000 });
         if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
         return out;
       } catch (e) {
@@ -740,7 +745,7 @@ function App() {
       }
     }
     throw new Error("这条线路把提示词拦了；" + levels.slice(1).map(l => l.zh).join("、") + " 都试过了，还是被拦——"
-      + "所以踩线的既不是聊天内容、也不是长期记忆，剩下的只有【人设】或【这张卡自己的正文】。\n原话："
+      + "连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身。\n原话："
       + ((last && last.message) || last));
   };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
@@ -779,13 +784,21 @@ function App() {
       const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
+      const revSys = window.Gaze.reviewSpec(uN, char.id);
+      // ⚠️第四级换的是 system 那一半：不把这张卡现在写的十块正文摆回去，
+      //   改用建卡那份问法【整份重写】。她 2026-09-06 的观察指着这儿：
+      //   「写过 10 版的人都失败、都卡在 16-20 天前，新人建卡可以过」——
+      //   新人走的正是这一份，它里头没有卡的正文。
+      //   ⚠️重写回来的还是交给 Gaze.review 落地：apply 遇到一模一样的原文会返回 false，
+      //   所以「没变的那几块他照原样写回来」天然不算改动，不会污染时间戳。
       const levels = [
-        { zh: "整份", text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
-        { zh: "去掉聊天记录", text: head + NO_CHAT },
-        { zh: "连长期记忆也去掉", text: base + NO_CHAT }
+        { zh: "整份", sys: revSys, text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
+        { zh: "去掉聊天记录", sys: revSys, text: head + NO_CHAT },
+        { zh: "连长期记忆也去掉", sys: revSys, text: base + NO_CHAT },
+        { zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window.Gaze.seedSpec(uN), text: base + NO_CHAT }
       ];
       // 开满，同上（她 2026-09-05 点名）
-      const raw = await gazeCall(p, window.Gaze.reviewSpec(uN, char.id), levels, zh => { if (manual) toast("被拦了，" + zh + "才写成的"); });
+      const raw = await gazeCall(p, levels, zh => { if (manual) toast("被拦了，" + zh + "才写成的"); });
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，

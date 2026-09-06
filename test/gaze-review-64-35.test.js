@@ -291,7 +291,8 @@ test("⑥ 认得出「被拦」的那把尺子，她两个站子的说法都盖�
 // v64.55 换成三级阶梯之后它们说的已经不是现在这套了——整条删掉，
 // 现在的形状由 ⑨ 那几条钉着（撤掉东西要删除，不留着说它错了）。
 test("⑥ 两枪都走同一个 gazeCall，别只改一处", () => {
-  assert.equal((APP.match(/await gazeCall\(p, window\.Gaze\.(seedSpec|reviewSpec)/g) || []).length, 2);
+  // v64.57：sys 挪进 levels 之后签名变成 gazeCall(p, levels, onFallback)
+  assert.equal((APP.match(/await gazeCall\(p, levels, zh =>/g) || []).length, 2);
 });
 
 test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
@@ -413,16 +414,17 @@ test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）"
 // 聊天里的东西它照样带着，所以只缩聊天记录等于没缩干净。改成一级一级往下缩。
 // ⚠️封顶三级、只在确认被内容拦时才往下走、成一级立刻停：她按次计费，
 //   一次失败最多变三次，不许无限试。
-test("⑨ 三级阶梯：缩的顺序是【聊天 → 记忆】，人设和世界书缩到最后也留着", () => {
+test("⑨ 阶梯的顺序：先缩聊天、再缩记忆；人设和世界书缩到最后也留着", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const arrs = app.match(/const levels = \[[\s\S]*?\];/g) || [];
   assert.equal(arrs.length, 2, "建卡和复看各要一份");
+  // 级数各是几级由 ⑪ 钉（建卡 3、复看 4）；这儿只管【前三级的顺序】
   arrs.forEach(a => {
-    assert.equal((a.match(/zh: "/g) || []).length, 3, "级数变了——封顶就是三级");
     assert.ok(a.indexOf('zh: "整份"') < a.indexOf('zh: "去掉聊天记录"'), "顺序反了：得从最全的开始");
     assert.ok(a.indexOf('zh: "去掉聊天记录"') < a.indexOf('zh: "连长期记忆也去掉"'), "记忆得在聊天之后才缩");
     // 最后一级用 base：人设 + 世界书 + 好感度，一样都不少
-    assert.match(a, /zh: "连长期记忆也去掉", text: base \+ NO_CHAT/);
+    // v64.57：每一级自己带 sys 了，所以这儿连 sys 一起认
+    assert.match(a, /zh: "连长期记忆也去掉", sys: \w+, text: base \+ NO_CHAT/);
   });
   // base 里必须有世界书——她要的就是这一层，缩到最后也不许缩掉它
   const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
@@ -441,10 +443,12 @@ test("⑨ 成一级就停；只有被拦才往下走；封顶就是级数", () =
   assert.match(call, /for \(let i = 0; i < levels\.length; i\+\+\)/, "不是按级数封顶了");
   assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也往下缩＝白花钱");
   assert.equal((call.match(/await callAI\(/g) || []).length, 1, "一层循环里只该有一处调用");
+  assert.match(call, /levels\[i\]\.sys/, "sys 不按级取，system 那半就永远缩不掉（v64.57 的病根）");
   assert.match(call, /if \(i && onFallback\) onFallback\(levels\[i\]\.zh\)/, "不是第一级成的，得让她知道这份是凭什么写的");
   // 三级都没成时那句结论
   assert.match(call, /都试过了，还是被拦——/);
-  assert.match(call, /剩下的只有【人设】或【这张卡自己的正文】/);
+  // v64.57：第四级连卡的正文都不摆回去了，所以那句结论也收窄了
+  assert.match(call, /连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身/);
 });
 
 test("⑨ 那句结论翻成人话，而且排在更笼统那句前面", () => {
@@ -458,8 +462,8 @@ test("⑨ 那句结论翻成人话，而且排在更笼统那句前面", () => {
 
 test("⑨ 降级只在她按了键时才吭声（auto 那一路不打扰她）", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(app, /gazeCall\(p, window\.Gaze\.seedSpec\(uN\), levels, zh => \{ if \(!auto\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
-  assert.match(app, /gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), levels, zh => \{ if \(manual\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
+  assert.match(app, /gazeCall\(p, levels, zh => \{ if \(!auto\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
+  assert.match(app, /gazeCall\(p, levels, zh => \{ if \(manual\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
 });
 
 // ── v64.56：她贴了沈屿白的整份人设过来 ────────────────────────────────
@@ -531,4 +535,70 @@ test("⑩ 他用哪一套说法答回来都认，抄说明回来都不算写", (
   assert.equal(g.apply("c9", "me", "soft", "什么事会让她一下子不好受"), false);
   assert.equal(g.apply("c9", "us", "elephant", "我假装没注意的事"), false);
   assert.equal(g.apply("c9", "us", "elephant", "她其实还在等我回答那句话。"), true, "真写的一句被误挡了");
+});
+
+// ── v64.57：她 2026-09-06 给出的那条决定性观察 ────────────────────────
+//   「一开始做这块的时候是好的，第一次让他们写一次也是可以的。
+//     除了有没有说过 18+ 以外我能想到唯一的区别是刚出版那会我有没有让他写 10 版了。
+//     **写了的人都失败了，都卡在 16-20 天前。剩下新人让他们写是可以过的**」
+//
+// 新人走的是【建卡】，写过的人走的是【复看】——两份提示词只差一样东西：
+// **复看那份会把这张卡现在写的十块正文原样摆回去给他看**（reviewSpec 的 rows）。
+// 而前三级缩的全是 user 那半（聊天、记忆），**卡的正文在 system 那半，一次都没缩到**。
+// 「卡在 16-20 天前」＝那正是这些卡最后一次写成的日子；此后每次复看都被拦。
+//
+// ⚠️所以阶梯得能缩 system，不只是 user。第四级换成建卡那份问法（整份重写）——
+//   它就是新人能过的那一份。
+// ⚠️重写回来的照旧交给 Gaze.review 落地：apply 遇到一模一样的原文返回 false，
+//   所以「没变的那几块他照原样写回来」天然不算改动，不会污染时间戳。
+test("⑪ 每一级自己带 sys：复看的第四级换成建卡那份问法", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
+  assert.match(call, /const gazeCall = async \(p, levels, onFallback\)/, "sys 还是整条阶梯共用一份");
+  assert.match(call, /await callAI\(p, levels\[i\]\.sys, /, "没按级取 sys，那 system 那半永远缩不掉");
+
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const arr = rev.slice(rev.indexOf("const levels = ["), rev.indexOf("];", rev.indexOf("const levels = [")));
+  assert.equal((arr.match(/zh: "/g) || []).length, 4, "复看是四级");
+  // 前三级还是复看那份问法（要「逐块比对」就得看得见旧的）
+  assert.equal((arr.match(/sys: revSys/g) || []).length, 3);
+  // 第四级：不摆正文，改用建卡那份
+  assert.match(arr, /zh: "不把这张卡现在写的摆回去（改成整份重写）", sys: window\.Gaze\.seedSpec\(uN\)/);
+  // 建卡那一路本来就没有卡的正文，所以还是三级
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  const arr2 = seed.slice(seed.indexOf("const levels = ["), seed.indexOf("];", seed.indexOf("const levels = [")));
+  assert.equal((arr2.match(/zh: "/g) || []).length, 3);
+  assert.equal((arr2.match(/sys: seedSys/g) || []).length, 3, "建卡三级都该是同一份问法");
+});
+
+test("⑪ 病因确认：复看那份【真的】把卡的正文摆了回去，建卡那份没有", () => {
+  const { G, store } = boot();
+  store.x_gaze = JSON.stringify({ c1: { seeded: true, hist: [], blocks: {
+    "me.soft": { text: "她送我键盘那次的样子。", ts: Date.now() - 18 * 86400000 } } } });
+  assert.match(G.reviewSpec("Lisa", "c1"), /她送我键盘那次的样子。/, "复看没摆正文，那这条推断就站不住");
+  assert.equal(G.seedSpec("Lisa").includes("她送我键盘那次的样子。"), false, "建卡那份不该有卡的正文");
+  // 「卡在 16-20 天前」——那个天数也是从卡里算出来的，一并确认这一份真读了卡
+  assert.match(G.reviewSpec("Lisa", "c1"), /最近一次改动已经是 18 天前/);
+});
+
+test("⑪ 整份重写回来，没变的那几块不算改动", () => {
+  const { G, store } = boot();
+  const old = "她送我键盘那次的样子。";
+  store.x_gaze = JSON.stringify({ c1: { seeded: true, hist: [], blocks: {
+    "me.soft": { text: old, ts: Date.now() - 18 * 86400000 } } } });
+  // 第四级是整份重写：他会把没变的那几块照原样写回来
+  const n = G.review("c1", { me: { soft: old, person: "她比我以为的更能扛。" }, us: {} });
+  assert.equal(n, 1, "照原样写回来的那一块被当成改动了——时间戳会被污染，红点也会乱亮");
+  const box = JSON.parse(store.x_gaze).c1;
+  assert.equal(box.blocks["me.soft"].text, old);
+  assert.equal(box.blocks["me.person"].text, "她比我以为的更能扛。");
+});
+
+test("⑪ 四级都被拦时那句结论：只剩人设本身", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  G.markReviewFail("c1", "这条线路把提示词拦了；去掉聊天记录、连长期记忆也去掉、不把这张卡现在写的摆回去（改成整份重写） 都试过了，还是被拦——连这张卡自己的正文都没再摆回去，剩下的只有【人设】本身。");
+  assert.equal(G.reviewState("c1").err, "连这张卡的正文都不发了还是被拦，只剩人设本身");
+  const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
+  assert.ok(why.indexOf("连这张卡的正文都不发了") < why.indexOf("聊天记录和长期记忆都去掉了"), "顺序反了，这句永远轮不到");
 });
