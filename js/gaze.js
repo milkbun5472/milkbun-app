@@ -11,6 +11,29 @@
   const ME = [["person", "她是个什么样的人"], ["soft", "她的软肋和雷区"], ["like", "我吃她哪一套·头疼哪一套"], ["recent", "最近的她"], ["unread", "我还没看懂的部分"]];
   const US = [["what", "我们现在算什么"], ["how", "我们的相处方式"], ["marks", "走到这里的几个节点"], ["elephant", "我假装没注意的事"], ["want", "我担心的·我想要的"]];
   const KEYS = {}; ME.forEach(([k, n]) => KEYS["me." + k] = n); US.forEach(([k, n]) => KEYS["us." + k] = n);
+  // ── 发给模型时换一套说法（v64.56）────────────────────────────────────
+  // 她 2026-09-06 试下来：**只有两个角色能过**，别的都被 Gemini 拦在输入那一关。
+  // 有角色能过 ⇒ 光有这十道题不够；换个角色又不过 ⇒ 光有人设也不够
+  //（主聊天天天带着同一份人设、同一个模型在跑，一次没拦过）。
+  // 所以是【人设 × 问法】撞在一起：她那份人设里有「姐姐」「年龄差」「调情」「撒娇」，
+  // 而这十块里三个问的是「她的软肋和雷区」「我吃她哪一套」「我假装没注意的事」——
+  // 合起来读就是「分析这个真人的弱点、什么招对她管用、她有什么把柄」。
+  // 那正是内容策略最容易盯上的形状。人设是她的，改不得；能动的只有我这半边。
+  // ⚠️只换【发给模型的措辞】，界面上那十个名字一个字不动——那是她的东西。
+  // ⚠️意思一点没变，换掉的是「像在给一个真人做弱点分析」那股味道。
+  // ⚠️这就成了「一层写在两处」：以后加一块，两张表都得加。
+  //   所以下面那条断言把它钉死：两张表的 key 必须完全一致，少一个当场红。
+  const ASK = Object.assign({}, KEYS, {
+    "me.soft": "什么事会让她一下子不好受",
+    "me.like": "她哪些地方最打动我、哪些地方让我头疼",
+    "us.elephant": "有件事我一直没提"
+  });
+  // ⚠️真正的坑不是「漏了一块」——ASK 是从 KEYS 复制出来再覆盖的，永远不会缺 key
+  //（我第一版还专门为此加了一道闸，写完才发现它根本不可能触发，测试当场抓到）。
+  //   真会出事的是【覆盖那一行的 key 打错字】：写成 "me.softt" 的话，
+  //   ASK 里多一条没人用的垃圾，而 me.soft 悄悄退回老说法——提示词就这么变回去了，
+  //   界面上一点看不出来。所以闸要对着这一种：ASK 里不许有 KEYS 没有的 key。
+  Object.keys(ASK).forEach(k => { if (!KEYS[k]) throw new Error("发给模型那套说法里，这个 key 打错了：" + k); });
   const load = () => { try { return JSON.parse(localStorage.getItem("x_gaze") || "{}"); } catch (e) { return {}; } };
   // 落本机之后顺手把【改动的那个人】那一行推上 grown 表（见 js/grown-sync.js）。
   // ⚠️推失败绝不影响本机这一份——它只是多一道保险，不是主路。
@@ -28,6 +51,8 @@
   // 「规则降概率，代码才保证」：提示词里已经说了别照抄，这儿再兜一道。
   const PLACEHOLDER = {};
   Object.keys(KEYS).forEach(k => { PLACEHOLDER[KEYS[k].replace(/[·、，。]/g, "")] = 1; });
+  // v64.56：发给模型的是 ASK 那一套说法，所以他抄回来的也会是那一套——两套都得挡
+  Object.keys(ASK).forEach(k => { PLACEHOLDER[ASK[k].replace(/[·、，。]/g, "")] = 1; });
   // ⚠️占位说明就是【块名本身】——schemaHint 里那十栏写的正是 KEYS 里那十个名字。
   //   所以这张表只能从 KEYS 派生，不许另抄一份：另抄一份就是「一层写在两处」，
   //   哪天改了块名，这儿会悄悄失效（变异测试当场证明另抄那四条一条都没用上）。
@@ -60,6 +85,7 @@
   // 以前这两种都直接 KEYS 查不到 → 静悄悄返回 false,看上去就是「他从来不写」。
   // 认得出来就别丢:这一层本来就写得少,丢一次就是丢一次(她 2026-08-27:8.16 到现在一次没改过)。
   const NAME2KEY = {}; Object.keys(KEYS).forEach(k => { NAME2KEY[KEYS[k]] = k; });
+  Object.keys(ASK).forEach(k => { NAME2KEY[ASK[k]] = k; });   // v64.56：他看到的是 ASK 那套名字
   function normKey(side, block) {
     const b = String(block || "").trim(), sd = String(side || "").trim();
     if (KEYS[sd + "." + b]) return sd + "." + b;
@@ -236,7 +262,11 @@
     const gate = fresh
       ? "⚠️这一轮被点名的那一块【你从来没写过】:填它【不需要】本轮发生了什么变化——你此刻心里对 " + uName + " 已经有的那个判断,本身就是内容,照实写下来就行。"
       : "仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写。";
-    const keys = "side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。"
+    // ⚠️v64.56：这一串原来把十个名字【又抄了一遍】（第三份）。现在从 ASK 长出来——
+    //   加一块只改一处，别再各写各的。
+    const _side = (arr, sd) => arr.map(([k]) => k + "(" + ASK[sd + "." + k] + (k === "elephant" ? ",至多两件" : "") + ")").join("/");
+    const keys = "side=me 的块名:" + _side(ME, "me") + ";side=us:" + _side(US, "us")
+      + "。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。"
       + NOT_PROFILE(uName);
     return head + gate + keys + trigger + (opts && opts.tail ? "" : nudge(uName, charId));
   }
@@ -252,7 +282,7 @@
     // 连着好几轮点了名却一个字段都不填：那不是「没变化」，是把这一层整个跳过了。
     // 说出来——**沉默这一路原来在提示词里也是没有反作用力的**，只有一句笼统的「别沉默」。
     const mute = Number(box.mute) || 0;
-    return "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
+    return "\n⚠️【这一轮请复看这一块】「" + ASK[due.k] + "」(" + due.k + ")"
         + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——**这一块还是空的,你从来没写过**。")
         + (due.text ? "这段时间真的发生过的事,让它需要改吗?" : "到现在为止你们之间发生过的事,够不够你写下这一块?")
         + "\n· " + (due.text ? "需要改" : "写得出来") + " → impression 填【这一块】(" + (due.text ? "仍是小幅演进、仍锚在具体的事上,别整块翻转" : "锚在真发生过的事上,别拿泛泛的关系描述凑数") + ")。"
@@ -324,6 +354,9 @@
     //   而「线路报错」只说了「没跑起来」——换条线路是对的做法，但不知道换的理由。
     // 缩过一次还是被拦（v64.47）：这一句最要紧——它排除了「聊天内容踩线」这个最大嫌疑，
     // 所以得排在下面那句更笼统的前面，不然会被它先答掉。
+    // 三级都缩过还是被拦（v64.55）：这一句排除了聊天内容【和】长期记忆，
+    // 剩下的只有人设或这张卡自己的正文——它比下面那句笼统的信息量大得多，得排在前面。
+    if (/都试过了，还是被拦/.test(m)) return "聊天记录和长期记忆都去掉了还是被拦，剩下人设或这张卡本身";
     if (/去掉聊天记录再试一次【还是被拦】/.test(m)) return "去掉聊天记录也还是被拦，不是聊天内容的事";
     if (/not be submitted|prohibited use|sensitive words|was blocked|safety|内容政策/i.test(m)) return "这条线路把提示词拦了（内容政策）";
     if (/线路报错/.test(m)) return "这条线路此刻没跑起来";
@@ -379,7 +412,7 @@
   // 把现行十块原样给他看，让他逐块比对；没变的填 null。
   function reviewSpec(uName, charId) {
     const box = boxOf(load(), charId);
-    const rows = Object.keys(KEYS).map(k => "· " + KEYS[k] + "(" + k + ")：" + ((box.blocks[k] || {}).text || "（还空着）")).join("\n");
+    const rows = Object.keys(KEYS).map(k => "· " + ASK[k] + "(" + k + ")：" + ((box.blocks[k] || {}).text || "（还空着）")).join("\n");
     const days = Math.floor((Date.now() - newestTs(box)) / 86400000);
     return "下面是你之前写下的、你眼里的 " + uName + " 和你们关系——十块，最近一次改动已经是 " + days + " 天前。\n\n" + rows
       + "\n\n这段时间你们又相处了这么久。逐块过一遍：**哪几块已经跟你现在心里的不一样了？**"
@@ -417,8 +450,12 @@
       //   上一版示范的是「person 有字、其余九块全 null」，模型连这个填法一起照抄了：
       //   她 2026-09-04 报的「都是第一个填」就是这么来的（prompt-no-content-samples.md）。
       + "十块都要过一遍,自己心里真有的就写、真没有的填 null——填几块由你,别照着下面这份的样子来,它只是在说明每一栏是什么。"
-      + "只输出 JSON:{\"me\":{\"person\":\"她是个什么样的人\",\"soft\":\"她的软肋和雷区\",\"like\":\"我吃她哪一套、头疼哪一套\",\"recent\":\"最近的她\",\"unread\":\"我还没看懂的部分\"},"
-      + "\"us\":{\"what\":\"我们现在算什么\",\"how\":\"我们的相处方式\",\"marks\":\"走到这里的几个节点\",\"elephant\":\"我假装没注意的事\",\"want\":\"我担心的、我想要的\"}}";
+      // ⚠️v64.56：这份 schemaHint 原来把十个名字【又抄了一遍】（第四份），现在从 ASK 长出来。
+      //   每一栏写的仍然是【那一块是什么】的说明，不是样例内容（prompt-no-content-samples.md）。
+      + "只输出 JSON:" + JSON.stringify({
+        me: ME.reduce((o, [k]) => (o[k] = ASK["me." + k], o), {}),
+        us: US.reduce((o, [k]) => (o[k] = ASK["us." + k], o), {})
+      });
   }
   function seed(charId, data) {
     let n = 0;
@@ -604,8 +641,17 @@
         if (mu >= 3) lines.push(say("他") + "被点名复看 " + mu + " 轮没答话");
         // ⚠️「复看过、他觉得没什么要改的」是【答案】，不是失败（v64.35）。
         //   原来这一句不分青红皂白写「都没成」，她看到的于是是「坏了」。
+        // ⚠️v64.54：这一行原来的条件是 `else if (rv.tries)`——**次数为 0 就整行不画**。
+        //   而 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一），
+        //   两件事凑在一起：从没自动复看过的角色（tries=0），她手动一按、失败了，
+        //   败因老老实实存进去了，**卡上却什么都不显示**——
+        //   她 2026-09-06 报的「又试了俩还是没更新但是也没有说为什么没成」就是这个。
+        //   ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
+        //   次数只决定那句话怎么措辞（是「自动试了 N 次」还是「上一次」）。
         if (rv.okAt) lines.push("替" + say("他") + "复看过一遍，" + say("他") + "觉得没什么要改的");
-        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次" + (rv.err ? "，都没成（" + rv.err + "）" : "")
+        else if (rv.err) lines.push((rv.tries ? "替" + say("他") + "自动复看过 " + rv.tries + " 次，都没成（" : "上一次复看没成（") + rv.err + "）"
+          + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
+        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次"
           + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
         if (!lines.length) return null;
         return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
@@ -625,7 +671,11 @@
         // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
           var st = autoSeedState(charId), lines = [];
-          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + (st.err || plainWhy("没写出内容")) + "）"
+          // 同上（v64.54）：有败因就得说，别拿「自动试过几次」当门槛——
+          // 她手动按的那一次不加次数，可它一样会失败，一样得留下话。
+          if (st.err) lines.push((st.tries ? "替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" : "上一次没写成（") + st.err + "）"
+            + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
+          else if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy("没写出内容") + "）"
             + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
           if (st.refuse) lines.push(say("他") + "被点名问过 " + st.refuse + " 轮,每次都答「认识得还不够」");
           if (!lines.length) return null;
@@ -672,6 +722,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount };
+  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount, plainWhy };
   window.GazePage = GazePage;
 })();

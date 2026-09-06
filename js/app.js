@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.57";
+const APP_VERSION = "v64.58";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -621,16 +621,40 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
-      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
-      const user = head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
-      const userSlim = head + "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
+      // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
+      // 我世界书里有让它不要那么敏感的提示」）。
+      // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
+      //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
+      //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
+      // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
+      //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
+      //   这是写着理由的差异，不是漏。
+      // ⚠️full 和 slim 两份都带着它——它正是她要的那一层，缩料时不许把它缩掉。
+      const gazeLore = (typeof loreForContext === "function" ? loreForContext("chat", char.id, recent) : "");
+      // ⚠️拆成三段是为了【一级一级缩】（v64.55）：
+      //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
+      //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
+      //   chat = 最近的聊天记录（第一级先去掉的就是它）
+      const base = "【你的人设】\n" + (char.persona || char.name)
+        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const head = base + mem;
+      const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
+      const levels = [
+        { zh: "整份", text: head + "\n\n【最近聊天】\n" + (recent || "(还没聊过)") },
+        { zh: "去掉聊天记录", text: head + NO_CHAT },
+        { zh: "连长期记忆也去掉", text: base + NO_CHAT }
+      ];
       // ⚠️开满（她 2026-09-05 亲口点名：「直接 65535 那个 max」）。
       //   max-tokens-floor.md 那条说得清楚：**上限是【天花板】，不是【花销】**——
       //   模型写多少就是多少，给宽了一分钱也多花不到；给窄了才会写到一半停住、
       //   然后重来一次，那才是真多花了一次。这一枪一次要写十块，正是最容易被窄上限截断的那种。
       //   （唯一要留神的是有些上游对 max_tokens 有自己的硬上限，超了会秒失败打回来——
       //     真遇到某条线路一按就失败，先看是不是这个数被上游拒了，不是提示词的问题。）
-      const raw = await gazeCall(p, window.Gaze.seedSpec(uN), user, userSlim);
+      const raw = await gazeCall(p, window.Gaze.seedSpec(uN), levels, zh => { if (!auto) toast("被拦了，" + zh + "才写成的"); });
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
@@ -649,14 +673,22 @@ function App() {
       // 跟着这个角色的性别走(她 2026-09-01)——别处早有 charTa 这张表,不要再各写一份判断
       const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
       if (n) toast(auto ? char.name + "写下了" + _ta + "眼里的你" : _ta + "写下了 " + n + " 块");
-      else if (!auto) toast(_ta + "暂时没写出什么");
-      // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白
-      else if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, _ta + "一块也没写出来");
+      else {
+        // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白。
+        // ⚠️v64.54：手动那一路原来【只弹一句 toast】、卡上一个字不留。toast 两秒就没了，
+        //   她回头看卡就是「没更新，也没说为什么」。两条路都得往卡上写。
+        //   （markAutoSeedFail 只写败因、不加次数，所以手动失败不会烧掉自动那三次额度。）
+        if (!auto) toast(_ta + "暂时没写出什么");
+        if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, _ta + "一块也没写出来");
+      }
     } catch (e) {
       // auto 这一路不弹 toast(她没按过任何按钮,不该被打断),但败因必须写进卡里,
       // 否则「试过三次都没成」在界面上跟「还没聊够」长得一模一样。
-      if (auto) { if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成"); }
-      else toast("建卡失败:" + (e.message || "重试"));
+      // ⚠️v64.54：败因【两条路都写进卡里】。原来手动那一路只 toast，
+      //   于是她按完看不到任何解释——「没更新也没说为什么」。
+      //   auto 照旧不弹 toast（她没按过任何按钮，不该被打断）。
+      if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成");
+      if (!auto) toast("建卡失败:" + (e.message || "重试"));
     } finally { setGazeSeedBusy(false); }
   };
   // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,
@@ -687,16 +719,29 @@ function App() {
   const gazeBlocked = e => /not be submitted|prohibited use|sensitive words|was blocked|safety|empty response from/i
     .test(String((e && e.message) || e || ""));
   // full=带聊天记录那一份，slim=去掉聊天记录那一份
-  const gazeCall = async (p, sys, full, slim) => {
-    try { return await callAI(p, sys, [{ role: "user", content: full }], { maxTokens: 65535, timeout: 150000 }); }
-    catch (e) {
-      if (!gazeBlocked(e)) throw e;
-      try { return await callAI(p, sys, [{ role: "user", content: slim }], { maxTokens: 65535, timeout: 150000 }); }
-      catch (e2) {
-        throw new Error("这条线路把提示词拦了；去掉聊天记录再试一次【还是被拦】——"
-          + "所以踩线的不是聊天内容，是这道题本身、或者人设／长期记忆里的字。\n原话：" + ((e2 && e2.message) || e2));
+  // levels = 一级一级往下缩，[{zh:"这一级去掉了什么", text:"整段 user"}]，从最全的开始。
+  // v64.55：原来只缩一级（去掉聊天记录）。她 2026-09-06 试下来
+  //   「只有两个能过」「没说过 18+ 的都能过，除了江识」——
+  //   ⚠️**有角色能过，就说明这十道题的问法本身不是主因**，踩线的是每个角色自己带的料。
+  //   而缩一级之后剩下的料里，【长期记忆】正是聊天浓缩出来的：
+  //   聊天里的东西它照样带着，所以只缩聊天记录等于没缩干净。
+  // ⚠️封顶三级，而且【只在确认被内容拦时才往下走】：她按次计费，
+  //   一次失败最多变三次，不许无限试。成一级就立刻返回，不再往下缩。
+  const gazeCall = async (p, sys, levels, onFallback) => {
+    let last = null;
+    for (let i = 0; i < levels.length; i++) {
+      try {
+        const out = await callAI(p, sys, [{ role: "user", content: levels[i].text }], { maxTokens: 65535, timeout: 150000 });
+        if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
+        return out;
+      } catch (e) {
+        if (!gazeBlocked(e)) throw e;
+        last = e;
       }
     }
+    throw new Error("这条线路把提示词拦了；" + levels.slice(1).map(l => l.zh).join("、") + " 都试过了，还是被拦——"
+      + "所以踩线的既不是聊天内容、也不是长期记忆，剩下的只有【人设】或【这张卡自己的正文】。\n原话："
+      + ((last && last.message) || last));
   };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
   // manual=她自己在状态卡底下按了「让他再看一遍这十块」。
@@ -712,11 +757,35 @@ function App() {
       const uN = profile.name || "用户";
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
-      const head = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
-      const user = head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)");
-      const userSlim = head + "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
+      // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
+      // 我世界书里有让它不要那么敏感的提示」）。
+      // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
+      //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
+      //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
+      // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
+      //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
+      //   这是写着理由的差异，不是漏。
+      // ⚠️full 和 slim 两份都带着它——它正是她要的那一层，缩料时不许把它缩掉。
+      const gazeLore = (typeof loreForContext === "function" ? loreForContext("chat", char.id, recent) : "");
+      // ⚠️拆成三段是为了【一级一级缩】（v64.55）：
+      //   base = 人设 + 世界书 + 好感度（缩到最后也留着——没有它就不是这个人了）
+      //   mem  = 长期记忆（它是聊天浓缩出来的，所以第二级要连它一起去掉）
+      //   chat = 最近的聊天记录（第一级先去掉的就是它）
+      const base = "【你的人设】\n" + (char.persona || char.name)
+        + (gazeLore ? "\n\n【世界书】\n" + gazeLore : "")
+        + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100";
+      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const head = base + mem;
+      const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
+      const levels = [
+        { zh: "整份", text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
+        { zh: "去掉聊天记录", text: head + NO_CHAT },
+        { zh: "连长期记忆也去掉", text: base + NO_CHAT }
+      ];
       // 开满，同上（她 2026-09-05 点名）
-      const raw = await gazeCall(p, window.Gaze.reviewSpec(uN, char.id), user, userSlim);
+      const raw = await gazeCall(p, window.Gaze.reviewSpec(uN, char.id), levels, zh => { if (manual) toast("被拦了，" + zh + "才写成的"); });
       // ⚠️parseJSONLoose，不是裸的 extractJSON（v64.40）。
       //   engine 里那个加固版自己的注释就写着「任何『拿模型返回当 JSON 用』的地方
       //   都该走它，别再各写各的」——主聊天、群聊、小剧场、跑团、同人文都走了，
@@ -739,6 +808,8 @@ function App() {
       if (!n && window.Gaze.markReviewNoChange) window.Gaze.markReviewNoChange(char.id);
     } catch (e) {
       if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成");
+      // 她亲手按的那一次，按下去总该立刻有回音；卡上那一行照旧留着话（v64.54）
+      if (manual) toast("复看没成：" + (window.Gaze.plainWhy ? window.Gaze.plainWhy(e.message || "") : "看卡上那一行"));
     } finally { setGazeReviewBusy(false); }
   };
   const maybeAutoReviewGaze = char => {

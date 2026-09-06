@@ -57,7 +57,11 @@ test("界面那两行说人话，而且说清还试不试", () => {
   assert.match(gaze, /st\.tries >= st\.max \? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""/, "空卡那一支还得告诉她能自己按");
   // v64.35：rv.err 存进去的时候就已经是人话了（markReviewFail 里翻好），
   // 这儿再翻一次是白翻——而且「没变」那一支现在根本不走这一句了。
-  assert.match(gaze, /"，都没成（" \+ rv\.err \+ "）"/);
+  // v64.54：措辞按【自动试过几次】分两种，条件换成【有没有败因】——
+  //   原来写的是 else if (rv.tries)，于是从没自动试过的角色（tries=0）
+  //   手动失败之后卡上一个字都没有（她 2026-09-06 报的就是这个）。
+  assert.match(gaze, /" 次，都没成（" : "上一次复看没成（"\) \+ rv\.err \+ "）"/);
+  assert.match(gaze, /else if \(rv\.err\) lines\.push/, "又拿次数当门槛了");
   // 「他复看过一遍、觉得没什么要改的」是【答案】，不是失败，不许再说成「都没成」
   assert.match(gaze, /if \(rv\.okAt\) lines\.push\("替" \+ say\("他"\) \+ "复看过一遍，"/);
 });
@@ -68,14 +72,17 @@ test("建卡和复看那两枪开满 65535", () => {
   // v64.47：这两枪都改走 gazeCall 了（被线路拦下来时会去掉聊天记录再打一次），
   // 于是 maxTokens 从两个调用点搬进了那一处——要钉的还是同一件事，钉的地方换了。
   const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  // 「规则降概率，代码才保证」在这一层的落法");
-  assert.match(seed, /await gazeCall\(p, window\.Gaze\.seedSpec\(uN\), user, userSlim\)/);
+  // v64.55：改成三级阶梯，第三个参数从 (user, userSlim) 换成 levels 数组
+  assert.match(seed, /await gazeCall\(p, window\.Gaze\.seedSpec\(uN\), levels, /);
   const rev = cut(app, "  const reviewGazeFor = async (char, manual)", "  const maybeAutoReviewGaze");
-  assert.match(rev, /await gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), user, userSlim\)/);
+  assert.match(rev, /await gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), levels, /);
   // ⚠️上限是【天花板】不是【花销】：给宽了一分钱也不多花，给窄了才会写到一半停住、
   //   重来一次——那才是真多花了一次（max-tokens-floor.md「上限是天花板」那一节）。
   //   ⚠️别列黑名单：列几个数就漏几个数。判的是「这一处除了 65535 没有别的 maxTokens」。
   //   ⚠️两次调用（full 和 slim）都得是 65535——缩的是【料】，不是【写多少】。
-  const call = cut(app, "  const gazeCall = async (p, sys, full, slim)", "  const reviewGazeFor = async");
+  // ⚠️三级阶梯是【一层循环里一处调用】，所以这儿只该有一个 65535——
+  //   缩的是【料】，不是【写多少】：每一级都拿同一个上限。
+  const call = cut(app, "  const gazeCall = async (p, sys, levels, onFallback)", "  const [gazeReviewBusy");
   const all = [...call.matchAll(/maxTokens:\s*(\d+)/g)].map(m => m[1]);
-  assert.deepEqual(all, ["65535", "65535"], "那两枪的 maxTokens 被往下压了：" + all.join(","));
+  assert.deepEqual(all, ["65535"], "那两枪的 maxTokens 被往下压了：" + all.join(","));
 });

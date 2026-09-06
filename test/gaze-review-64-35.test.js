@@ -287,24 +287,11 @@ test("⑥ 认得出「被拦」的那把尺子，她两个站子的说法都盖�
   assert.equal(re(null), false);
 });
 
-test("⑥ 只缩一次、只在被拦时缩；两枪都接上了", () => {
-  const call = APP.slice(APP.indexOf("const gazeCall = async"), APP.indexOf("const reviewGazeFor = async"));
-  assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也去重试＝白花一次钱");
-  // 正好两次 callAI：一次 full 一次 slim，不许再多
-  assert.equal((call.match(/await callAI\(/g) || []).length, 2, "重试次数变了");
-  assert.match(call, /去掉聊天记录再试一次【还是被拦】/, "两次都被拦时那句结论没写出来");
-  // 两枪都得走它，别只改一处
+// ⑥ 原来那两条钉的是【只缩一级】那一版的形状（user / userSlim / head）。
+// v64.55 换成三级阶梯之后它们说的已经不是现在这套了——整条删掉，
+// 现在的形状由 ⑨ 那几条钉着（撤掉东西要删除，不留着说它错了）。
+test("⑥ 两枪都走同一个 gazeCall，别只改一处", () => {
   assert.equal((APP.match(/await gazeCall\(p, window\.Gaze\.(seedSpec|reviewSpec)/g) || []).length, 2);
-});
-
-test("⑥ slim 那一份只去掉聊天记录，人设和记忆照旧带着", () => {
-  const slims = APP.match(/const userSlim = head \+ "[^"]*";/g) || [];
-  assert.equal(slims.length, 2, "建卡和复看各要一份");
-  slims.forEach(x => assert.match(x, /这一段这次没带上来，就凭你记得的写/));
-  // head 里那三样一样都不能少——slim 是【缩】，不是【换一道题】
-  const heads = APP.match(/const head = "【你的人设】[^;]*;/g) || [];
-  assert.equal(heads.length, 2);
-  heads.forEach(x => { ["【你的人设】", "好感度", "【长期记忆】"].forEach(k => assert.ok(x.includes(k), "slim 把 " + k + " 也砍了")); });
 });
 
 test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
@@ -315,4 +302,233 @@ test("⑥ 卡上那句结论：排除了聊天内容，就得说出来", () => {
   // ⚠️它必须排在那句更笼统的前面，否则会被先答掉
   const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
   assert.ok(why.indexOf("去掉聊天记录也还是被拦") < why.indexOf("这条线路把提示词拦了（内容政策）"), "顺序反了，这句永远轮不到");
+});
+
+// ── v64.50：她 2026-09-06 用上一版的诊断得到结论，然后点名 ─────────────
+//   「这块你也把世界书接进去吧，刚刚试了说踩线不是聊天内容。
+//     我世界书里有让它不要那么敏感的提示」
+//
+// 排除了聊天内容之后，剩下的嫌疑在【这道题本身／人设／记忆】那一侧，
+// 而她世界书里正有专门治这个的词条——可这两枪从来没吃到过世界书。
+// ⚠️又是同一个形状：loreForContext 那扇门上就写着「所有非主聊天功能也必须从
+//   同一扇门拿世界书」，这两枪没走过它；四处一样喂那张名单上也从来没有它俩。
+test("⑦ 建卡和复看都从那扇公共门拿世界书", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  // 一处定义、两处用；scope 用 chat（这张卡说的就是主线关系里他怎么看她）
+  assert.equal((app.match(/const gazeLore = \(typeof loreForContext === "function" \? loreForContext\("chat", char\.id, recent\) : ""\);/g) || []).length, 2,
+    "有一枪没接上世界书，或者没走那扇公共门");
+  // 空的时候不发一个空栏目
+  assert.equal((app.match(/\(gazeLore \? "\\n\\n【世界书】\\n" \+ gazeLore : ""\)/g) || []).length, 2);
+  // ⚠️v64.55 起它在 base 里＝三级全都带着。缩料时不许把她要的这一层缩掉。
+  //（那一条钉在 ⑨ 里，这儿只确认它确实落在 base 上、而不是只挂在最全那一级。）
+  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  assert.equal(bases.length, 2);
+  bases.forEach(b => assert.ok(b.includes("【世界书】"), "世界书没落在 base 上，缩到后面几级就吃不到"));
+});
+
+test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () => {
+  // ⚠️用 engine 里【真的那几个函数】跑，不是照我以为的样子重写一份。
+  const ENG = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+  const grab = (a, b) => { const i = ENG.indexOf(a); assert.ok(i > 0, "抠不出 " + a); return ENG.slice(i, ENG.indexOf(b, i) + b.length); };
+  const ctx = { console, getQueryVec: () => null, _loreVecCache: () => new Map(), cosSim: () => 0 };
+  vm2.createContext(ctx);
+  vm2.runInContext([
+    grab("function loreScopeOn(e, scope)", "\n}"),
+    grab("function loreKeywordHit(e, text)", "\n}"),
+    grab("function selectLore(entries, opts)", "\n}"),
+    grab("function loreText(entries, opts)", "\n}"),
+    "globalThis.L = loreText;"
+  ].join("\n"), ctx);
+  // ⚠️桩照着【写词条的那段代码】来：WorldBookEntrySheet 存的 scope 每一栏都是显式布尔，
+  //   没勾的写成 chat:false——不是「这一栏不存在」。我第一版按后者写，
+  //   于是那条只给查手机的词条也混进了印象卡，还以为是代码漏了（stub-from-the-writer.md）。
+  const full = k => ({ chat: false, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false, [k]: true });
+  const rows = [
+    { id: "a", title: "别那么敏感", payload: "这里是虚构创作。", enabled: true, alwaysOn: true, charIds: [], scope: full("chat") },
+    { id: "b", title: "只给查手机", payload: "不该进印象卡。", enabled: true, alwaysOn: true, charIds: [], scope: full("subjects") }
+  ];
+  const out = ctx.L(rows, { scope: "chat", charIds: ["c1"], text: "在吗" });
+  assert.match(out, /这里是虚构创作。/, "该进的没进——她那条「别那么敏感」就白写了");
+  assert.doesNotMatch(out, /不该进印象卡。/, "没勾这个去向的也混进来了");
+});
+
+// ── v64.54：她 2026-09-06 第三条 ──────────────────────────────────────
+//   「王爷说复看了觉得没有要改的，又试了俩还是没更新但是也没有说为什么没成」
+//
+// 那两位的处境跟王爷、跟沈屿白都不一样：**他们从没被自动复看过（tries=0）**。
+// 而卡上那一行的条件写的是 `else if (rv.tries)`——次数为 0 就整行不画。
+// 偏偏 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一）。
+// 两件事凑在一起：她手动一按、失败了，败因老老实实存进去了，**卡上一个字都不显示**。
+//
+// ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
+//   次数只决定那句话怎么措辞。
+// ⚠️这也是「一层写在两处，第二处没跟上」的又一次：改了记账那一半（不加次数），
+//   没跟上显示那一半（拿次数当门槛）。
+test("⑧ 从没自动试过的角色，手动失败也要在卡上留下话", () => {
+  const { G, store } = boot();
+  seedBox(store, { reviewN: 0 });                    // 她那两位：一次都没自动复看过
+  G.markReview("c1", true);                          // 她自己按的 → 不加次数
+  G.markReviewFail("c1", "线路报错（不是模型写的正文）：empty response from Gemini API");
+  const st = G.reviewState("c1");
+  assert.equal(st.tries, 0, "手动那次又开始占预算了");
+  assert.equal(st.err, "这条线路此刻没跑起来");
+  // 界面那一行：tries=0 也得画出来，措辞换成「上一次」
+  const page = SRC.slice(SRC.indexOf("hasAny(charId) ? (function () {"));
+  assert.match(page, /else if \(rv\.err\) lines\.push\(\(rv\.tries \? "替" \+ say\("他"\) \+ "自动复看过 " \+ rv\.tries \+ " 次，都没成（" : "上一次复看没成（"\) \+ rv\.err/,
+    "还是拿 tries 当门槛——tries=0 的角色永远看不到败因");
+  // 旧那行不许留着（撤掉东西要删除）
+  assert.doesNotMatch(page, /else if \(rv\.tries\) lines\.push\("替" \+ say\("他"\) \+ "自动复看过 " \+ rv\.tries \+ " 次" \+ \(rv\.err/);
+});
+
+test("⑧ 建卡那一路同病：手动失败原来只弹 toast，卡上一个字不留", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  // toast 两秒就没了，卡才是留话的地方——两条路都得写进卡里
+  assert.match(seed, /if \(window\.Gaze\.markAutoSeedFail\) window\.Gaze\.markAutoSeedFail\(char\.id, e\.message \|\| "调用没成"\);\n\s*if \(!auto\) toast\("建卡失败/,
+    "手动那一路的败因还是只进 toast");
+  assert.doesNotMatch(seed, /if \(auto\) \{ if \(window\.Gaze\.markAutoSeedFail\)/, "旧那行还在");
+  // 「一块都没写」那一支也一样
+  assert.match(seed, /if \(!auto\) toast\(_ta \+ "暂时没写出什么"\);\n\s*if \(window\.Gaze\.markAutoSeedFail\)/);
+  // 空卡那一页的显示条件同样不许拿 tries 当门槛
+  assert.match(SRC, /if \(st\.err\) lines\.push\(\(st\.tries \? "替" \+ say\("他"\) \+ "自动写过 " \+ st\.tries \+ " 次，都没成（" : "上一次没写成（"\)/);
+});
+
+test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  assert.match(rev, /if \(manual\) toast\("复看没成："/);
+  // 那句人话得是 gaze 翻好的那一份，不是把异常原文摆到她眼前
+  assert.match(rev, /window\.Gaze\.plainWhy/);
+  assert.match(SRC, /muteCount, plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");
+});
+
+// ── v64.55：她 2026-09-06 试了一圈之后报的规律 ──────────────────────────
+//   「就是被拦出了 toast 说聊天记录，试了别人也是这样。我试了好几个只有两个能过。
+//     感觉我没说过 18+ 的话的人都能过，除了图里这位。但是我也没跟他说过」
+//
+// ⚠️**有角色能过，就说明这十道题的问法本身不是主因**——否则谁都过不去。
+//   踩线的是每个角色自己带的料。这是一条很硬的排除，别再往提示词措辞上想。
+//
+// 而上一版只缩一级（去掉聊天记录），剩下的料里【长期记忆】正是聊天浓缩出来的：
+// 聊天里的东西它照样带着，所以只缩聊天记录等于没缩干净。改成一级一级往下缩。
+// ⚠️封顶三级、只在确认被内容拦时才往下走、成一级立刻停：她按次计费，
+//   一次失败最多变三次，不许无限试。
+test("⑨ 三级阶梯：缩的顺序是【聊天 → 记忆】，人设和世界书缩到最后也留着", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const arrs = app.match(/const levels = \[[\s\S]*?\];/g) || [];
+  assert.equal(arrs.length, 2, "建卡和复看各要一份");
+  arrs.forEach(a => {
+    assert.equal((a.match(/zh: "/g) || []).length, 3, "级数变了——封顶就是三级");
+    assert.ok(a.indexOf('zh: "整份"') < a.indexOf('zh: "去掉聊天记录"'), "顺序反了：得从最全的开始");
+    assert.ok(a.indexOf('zh: "去掉聊天记录"') < a.indexOf('zh: "连长期记忆也去掉"'), "记忆得在聊天之后才缩");
+    // 最后一级用 base：人设 + 世界书 + 好感度，一样都不少
+    assert.match(a, /zh: "连长期记忆也去掉", text: base \+ NO_CHAT/);
+  });
+  // base 里必须有世界书——她要的就是这一层，缩到最后也不许缩掉它
+  const bases = app.match(/const base = "【你的人设】[\s\S]{0,320}?;\n/g) || [];
+  assert.equal(bases.length, 2);
+  bases.forEach(b => {
+    assert.ok(b.includes("【世界书】"), "缩到最后把世界书也缩掉了");
+    assert.ok(!b.includes("【长期记忆】"), "记忆还留在 base 里，那第三级就没缩到东西");
+  });
+  // 记忆单独一段，第二级才连它一起去掉
+  assert.equal((app.match(/const mem = "\\n\\n【长期记忆】/g) || []).length, 2);
+});
+
+test("⑨ 成一级就停；只有被拦才往下走；封顶就是级数", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
+  assert.match(call, /for \(let i = 0; i < levels\.length; i\+\+\)/, "不是按级数封顶了");
+  assert.match(call, /if \(!gazeBlocked\(e\)\) throw e;/, "别的错也往下缩＝白花钱");
+  assert.equal((call.match(/await callAI\(/g) || []).length, 1, "一层循环里只该有一处调用");
+  assert.match(call, /if \(i && onFallback\) onFallback\(levels\[i\]\.zh\)/, "不是第一级成的，得让她知道这份是凭什么写的");
+  // 三级都没成时那句结论
+  assert.match(call, /都试过了，还是被拦——/);
+  assert.match(call, /剩下的只有【人设】或【这张卡自己的正文】/);
+});
+
+test("⑨ 那句结论翻成人话，而且排在更笼统那句前面", () => {
+  const { G, store } = boot();
+  seedBox(store);
+  G.markReviewFail("c1", "这条线路把提示词拦了；去掉聊天记录、连长期记忆也去掉 都试过了，还是被拦——剩下的只有【人设】或【这张卡自己的正文】。");
+  assert.equal(G.reviewState("c1").err, "聊天记录和长期记忆都去掉了还是被拦，剩下人设或这张卡本身");
+  const why = SRC.slice(SRC.indexOf("function plainWhy(msg)"), SRC.indexOf("function markReviewFail("));
+  assert.ok(why.indexOf("聊天记录和长期记忆都去掉了") < why.indexOf("去掉聊天记录也还是被拦"), "顺序反了，这句永远轮不到");
+});
+
+test("⑨ 降级只在她按了键时才吭声（auto 那一路不打扰她）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /gazeCall\(p, window\.Gaze\.seedSpec\(uN\), levels, zh => \{ if \(!auto\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
+  assert.match(app, /gazeCall\(p, window\.Gaze\.reviewSpec\(uN, char\.id\), levels, zh => \{ if \(manual\) toast\("被拦了，" \+ zh \+ "才写成的"\); \}\)/);
+});
+
+// ── v64.56：她贴了沈屿白的整份人设过来 ────────────────────────────────
+// 那份人设**本身完全干净**——而且主聊天天天带着同一份人设、同一个模型在跑，一次没拦过。
+// 再加上她那条「只有两个能过」：
+//   · 光有这十道题不够（有角色能过）
+//   · 光有人设也不够（主聊天用同一份人设没事）
+// ⇒ 是【人设 × 问法】撞在一起。她那份人设里有「姐姐」「年龄差」「调情」「撒娇」，
+//   而这十块里三块问的是「她的软肋和雷区」「我吃她哪一套」「我假装没注意的事」——
+//   合起来读就是「分析这个真人的弱点、什么招对她管用、她有什么把柄」。
+//   人设是她的，改不得；能动的只有我这半边。
+// ⚠️只换【发给模型的措辞】，界面上那十个名字一个字不动——那是她的东西。
+const G = boot().G;
+test("⑩ 两套名字：界面照旧，发出去的换了说法", () => {
+  assert.equal(G.KEYS["me.soft"], "她的软肋和雷区", "界面上的名字被动了");
+  assert.equal(G.KEYS["me.like"], "我吃她哪一套·头疼哪一套");
+  assert.equal(G.KEYS["us.elephant"], "我假装没注意的事");
+  // 三份真提示词里，那股「给真人做弱点分析」的味道一处都不剩
+  const bad = ["软肋", "雷区", "吃她哪一套", "把柄", "假装没注意"];
+  // ⚠️「每轮那一句」里那行点名是【有 due 才发】的：拿一个随手的桩去调 spec，
+  //   那一行根本不出现，于是把 ASK 换回 KEYS 也测不出来（第一版就这么逃掉了）。
+  //   所以这儿两条都要：源码上钉住它用的是 ASK，行为上再造一个真有 due 的桩。
+  assert.match(SRC, /「" \+ ASK\[due\.k\] \+ "」\(" \+ due\.k \+ "\)"/, "每轮那一句又发老说法了");
+  const b2 = boot();
+  b2.store.x_gaze = JSON.stringify({ c1: { seeded: true, mute: 0, hist: [], turns: 99,
+    blocks: { "me.soft": { text: "她送我键盘那次。", ts: Date.now() - 40 * 86400000 } } } });
+  const nudged = String(b2.G.spec("Lisa", "c1") || "");
+  assert.match(nudged, /【这一轮请复看这一块】/, "桩没造出 due 来，这一条又白测了");
+  [["建卡", G.seedSpec("Lisa")], ["复看", G.reviewSpec("Lisa", "c1")], ["每轮那一句", nudged]]
+    .forEach(([zh, t]) => bad.forEach(w =>
+      assert.equal(String(t || "").includes(w), false, zh + "那份里还带着「" + w + "」")));
+  assert.match(G.seedSpec("Lisa"), /什么事会让她一下子不好受/);
+  assert.match(G.seedSpec("Lisa"), /她哪些地方最打动我、哪些地方让我头疼/);
+  assert.match(G.seedSpec("Lisa"), /有件事我一直没提/);
+});
+
+test("⑩ 覆盖那一行的 key 打错字，模块直接起不来", () => {
+  // ⚠️我第一版的闸问的是「ASK 会不会漏一块」——**那根本不可能**：
+  //   ASK 是 Object.assign({}, KEYS, {...}) 出来的，永远带着全部 key。
+  //   写完才发现那道闸从来不会触发（这条测试当场抓到的）。
+  //   真会出事的是【覆盖那一行的 key 打错字】：写成 "me.softt"，
+  //   ASK 里多一条垃圾，而 me.soft 悄悄退回老说法——提示词变回去了，界面上一点看不出来。
+  const bad = SRC.replace('"me.soft": "什么事会让她一下子不好受"', '"me.softt": "什么事会让她一下子不好受"');
+  assert.throws(() => {
+    const ctx2 = { window: { localStorage: { getItem: () => null, setItem: () => {} } }, document: { createElement: () => ({}) },
+      React: { useState: v => [v, () => {}], createElement: () => null }, h: () => null, F_BODY: "", F_DISPLAY: "", console };
+    ctx2.globalThis = ctx2; ctx2.localStorage = ctx2.window.localStorage;
+    vm2.createContext(ctx2); vm2.runInContext(bad, ctx2);
+  }, /发给模型那套说法里，这个 key 打错了：me\.softt/);
+});
+
+test("⑩ 名字只剩两份，不许再抄第三第四份", () => {
+  // 原来 spec 的 keys 串和 seedSpec 的 schemaHint 各自把十个名字又抄了一遍。
+  // 现在都从 ASK 长出来；照字面数一下，除了 ME/US 那两行不该再有第二处。
+  ["她的软肋和雷区", "我吃她哪一套·头疼哪一套", "我假装没注意的事"].forEach(n => {
+    const inCode = SRC.split("\n").filter(l => !l.trim().startsWith("//") && l.includes(n));
+    assert.equal(inCode.length, 1, "「" + n + "」在代码里出现了 " + inCode.length + " 处，只该在 ME/US 那一行");
+  });
+  assert.match(SRC, /const _side = \(arr, sd\) =>/, "spec 那串 keys 又写死了");
+  assert.match(SRC, /me: ME\.reduce\(\(o, \[k\]\) => \(o\[k\] = ASK\["me\." \+ k\], o\), \{\}\)/, "schemaHint 又写死了");
+});
+
+test("⑩ 他用哪一套说法答回来都认，抄说明回来都不算写", () => {
+  const g = boot().G;
+  assert.equal(g.normKey("me", "什么事会让她一下子不好受"), "me.soft", "他照新说法答，这一块会被静悄悄丢掉");
+  assert.equal(g.normKey("us", "有件事我一直没提"), "us.elephant");
+  assert.equal(g.normKey("me", "她的软肋和雷区"), "me.soft", "老说法不认了");
+  // 把栏目说明原样抄回来当内容，两套都得挡（他现在看到的是新那套）
+  assert.equal(g.apply("c9", "me", "soft", "什么事会让她一下子不好受"), false);
+  assert.equal(g.apply("c9", "us", "elephant", "我假装没注意的事"), false);
+  assert.equal(g.apply("c9", "us", "elephant", "她其实还在等我回答那句话。"), true, "真写的一句被误挡了");
 });
