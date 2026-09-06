@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v64.53";
+const APP_VERSION = "v64.54";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -663,14 +663,22 @@ function App() {
       // 跟着这个角色的性别走(她 2026-09-01)——别处早有 charTa 这张表,不要再各写一份判断
       const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
       if (n) toast(auto ? char.name + "写下了" + _ta + "眼里的你" : _ta + "写下了 " + n + " 块");
-      else if (!auto) toast(_ta + "暂时没写出什么");
-      // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白
-      else if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, _ta + "一块也没写出来");
+      else {
+        // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白。
+        // ⚠️v64.54：手动那一路原来【只弹一句 toast】、卡上一个字不留。toast 两秒就没了，
+        //   她回头看卡就是「没更新，也没说为什么」。两条路都得往卡上写。
+        //   （markAutoSeedFail 只写败因、不加次数，所以手动失败不会烧掉自动那三次额度。）
+        if (!auto) toast(_ta + "暂时没写出什么");
+        if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, _ta + "一块也没写出来");
+      }
     } catch (e) {
       // auto 这一路不弹 toast(她没按过任何按钮,不该被打断),但败因必须写进卡里,
       // 否则「试过三次都没成」在界面上跟「还没聊够」长得一模一样。
-      if (auto) { if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成"); }
-      else toast("建卡失败:" + (e.message || "重试"));
+      // ⚠️v64.54：败因【两条路都写进卡里】。原来手动那一路只 toast，
+      //   于是她按完看不到任何解释——「没更新也没说为什么」。
+      //   auto 照旧不弹 toast（她没按过任何按钮，不该被打断）。
+      if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成");
+      if (!auto) toast("建卡失败:" + (e.message || "重试"));
     } finally { setGazeSeedBusy(false); }
   };
   // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,
@@ -767,6 +775,8 @@ function App() {
       if (!n && window.Gaze.markReviewNoChange) window.Gaze.markReviewNoChange(char.id);
     } catch (e) {
       if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成");
+      // 她亲手按的那一次，按下去总该立刻有回音；卡上那一行照旧留着话（v64.54）
+      if (manual) toast("复看没成：" + (window.Gaze.plainWhy ? window.Gaze.plainWhy(e.message || "") : "看卡上那一行"));
     } finally { setGazeReviewBusy(false); }
   };
   const maybeAutoReviewGaze = char => {

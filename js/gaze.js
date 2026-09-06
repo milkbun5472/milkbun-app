@@ -604,8 +604,17 @@
         if (mu >= 3) lines.push(say("他") + "被点名复看 " + mu + " 轮没答话");
         // ⚠️「复看过、他觉得没什么要改的」是【答案】，不是失败（v64.35）。
         //   原来这一句不分青红皂白写「都没成」，她看到的于是是「坏了」。
+        // ⚠️v64.54：这一行原来的条件是 `else if (rv.tries)`——**次数为 0 就整行不画**。
+        //   而 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一），
+        //   两件事凑在一起：从没自动复看过的角色（tries=0），她手动一按、失败了，
+        //   败因老老实实存进去了，**卡上却什么都不显示**——
+        //   她 2026-09-06 报的「又试了俩还是没更新但是也没有说为什么没成」就是这个。
+        //   ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
+        //   次数只决定那句话怎么措辞（是「自动试了 N 次」还是「上一次」）。
         if (rv.okAt) lines.push("替" + say("他") + "复看过一遍，" + say("他") + "觉得没什么要改的");
-        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次" + (rv.err ? "，都没成（" + rv.err + "）" : "")
+        else if (rv.err) lines.push((rv.tries ? "替" + say("他") + "自动复看过 " + rv.tries + " 次，都没成（" : "上一次复看没成（") + rv.err + "）"
+          + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
+        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次"
           + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
         if (!lines.length) return null;
         return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
@@ -625,7 +634,11 @@
         // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
           var st = autoSeedState(charId), lines = [];
-          if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + (st.err || plainWhy("没写出内容")) + "）"
+          // 同上（v64.54）：有败因就得说，别拿「自动试过几次」当门槛——
+          // 她手动按的那一次不加次数，可它一样会失败，一样得留下话。
+          if (st.err) lines.push((st.tries ? "替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" : "上一次没写成（") + st.err + "）"
+            + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
+          else if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy("没写出内容") + "）"
             + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
           if (st.refuse) lines.push(say("他") + "被点名问过 " + st.refuse + " 轮,每次都答「认识得还不够」");
           if (!lines.length) return null;
@@ -672,6 +685,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount, plainWhy };
   window.GazePage = GazePage;
 })();

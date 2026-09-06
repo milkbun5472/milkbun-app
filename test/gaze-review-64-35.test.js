@@ -363,3 +363,53 @@ test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () =
   assert.match(out, /这里是虚构创作。/, "该进的没进——她那条「别那么敏感」就白写了");
   assert.doesNotMatch(out, /不该进印象卡。/, "没勾这个去向的也混进来了");
 });
+
+// ── v64.54：她 2026-09-06 第三条 ──────────────────────────────────────
+//   「王爷说复看了觉得没有要改的，又试了俩还是没更新但是也没有说为什么没成」
+//
+// 那两位的处境跟王爷、跟沈屿白都不一样：**他们从没被自动复看过（tries=0）**。
+// 而卡上那一行的条件写的是 `else if (rv.tries)`——次数为 0 就整行不画。
+// 偏偏 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一）。
+// 两件事凑在一起：她手动一按、失败了，败因老老实实存进去了，**卡上一个字都不显示**。
+//
+// ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
+//   次数只决定那句话怎么措辞。
+// ⚠️这也是「一层写在两处，第二处没跟上」的又一次：改了记账那一半（不加次数），
+//   没跟上显示那一半（拿次数当门槛）。
+test("⑧ 从没自动试过的角色，手动失败也要在卡上留下话", () => {
+  const { G, store } = boot();
+  seedBox(store, { reviewN: 0 });                    // 她那两位：一次都没自动复看过
+  G.markReview("c1", true);                          // 她自己按的 → 不加次数
+  G.markReviewFail("c1", "线路报错（不是模型写的正文）：empty response from Gemini API");
+  const st = G.reviewState("c1");
+  assert.equal(st.tries, 0, "手动那次又开始占预算了");
+  assert.equal(st.err, "这条线路此刻没跑起来");
+  // 界面那一行：tries=0 也得画出来，措辞换成「上一次」
+  const page = SRC.slice(SRC.indexOf("hasAny(charId) ? (function () {"));
+  assert.match(page, /else if \(rv\.err\) lines\.push\(\(rv\.tries \? "替" \+ say\("他"\) \+ "自动复看过 " \+ rv\.tries \+ " 次，都没成（" : "上一次复看没成（"\) \+ rv\.err/,
+    "还是拿 tries 当门槛——tries=0 的角色永远看不到败因");
+  // 旧那行不许留着（撤掉东西要删除）
+  assert.doesNotMatch(page, /else if \(rv\.tries\) lines\.push\("替" \+ say\("他"\) \+ "自动复看过 " \+ rv\.tries \+ " 次" \+ \(rv\.err/);
+});
+
+test("⑧ 建卡那一路同病：手动失败原来只弹 toast，卡上一个字不留", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
+  // toast 两秒就没了，卡才是留话的地方——两条路都得写进卡里
+  assert.match(seed, /if \(window\.Gaze\.markAutoSeedFail\) window\.Gaze\.markAutoSeedFail\(char\.id, e\.message \|\| "调用没成"\);\n\s*if \(!auto\) toast\("建卡失败/,
+    "手动那一路的败因还是只进 toast");
+  assert.doesNotMatch(seed, /if \(auto\) \{ if \(window\.Gaze\.markAutoSeedFail\)/, "旧那行还在");
+  // 「一块都没写」那一支也一样
+  assert.match(seed, /if \(!auto\) toast\(_ta \+ "暂时没写出什么"\);\n\s*if \(window\.Gaze\.markAutoSeedFail\)/);
+  // 空卡那一页的显示条件同样不许拿 tries 当门槛
+  assert.match(SRC, /if \(st\.err\) lines\.push\(\(st\.tries \? "替" \+ say\("他"\) \+ "自动写过 " \+ st\.tries \+ " 次，都没成（" : "上一次没写成（"\)/);
+});
+
+test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  assert.match(rev, /if \(manual\) toast\("复看没成："/);
+  // 那句人话得是 gaze 翻好的那一份，不是把异常原文摆到她眼前
+  assert.match(rev, /window\.Gaze\.plainWhy/);
+  assert.match(SRC, /muteCount, plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");
+});
