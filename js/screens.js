@@ -9565,14 +9565,21 @@ function MemoryLib({
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const refineSrcCount = e => { const batch = refineBatchOf(e); return batch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === batch).length : 0; };
   // 可精炼旧记忆数（和 app.js isRefinable 同判定）：已了结/非置顶/情绪弱(a≤2)/放了 60+ 天/未归档；按当前筛选范围算
-  const inScope = e => filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter);
+  // ⚠️「没绑角色＝所有角色可见」是有意的规则，但它没有【入口】：她没法一眼看出
+  //   哪几条正在被所有人看见。她 2026-09-06 查出「陆衍手机里全是沈屿白的信息」，
+  //   实测下来漏进去的正是这一类（绑给沈屿白的那条一个字都没漏）。
+  //   所以多一格筛子：__open__ 只看没绑角色的那些。
+  const isOpenToAll = e => !e.charIds || e.charIds.length === 0;
+  const inScope = e => filter === "all" ? true
+    : filter === "__open__" ? isOpenToAll(e)
+    : (isOpenToAll(e) || e.charIds.includes(filter));
   const refinableCount = (entries || []).filter(e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= 60 * 86400000 && inScope(e); }).length;
   const archived = (entries || []).filter(e => e && e.archived && inScope(e)).slice().sort((a, b) => (b.archivedTs || 0) - (a.archivedTs || 0));
   const superseded = (entries || []).filter(e => e && (e.surfaceState || "active") === "superseded" && inScope(e)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const qlc = q.trim().toLowerCase();
   const list = (entries || []).filter(e => !e.archived && (e.surfaceState || "active") === "active"
     && (statusFilter === "all" || (statusFilter === "open" && e.open) || (statusFilter === "pinned" && e.pinned))
-    && (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter))
+    && inScope(e)
     && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0))
     .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   const activeTotal = (entries || []).filter(e => e && !e.archived && (e.surfaceState || "active") === "active" && inScope(e)).length;
@@ -9792,7 +9799,7 @@ function MemoryLib({
     // 换人不摆一行下划线文字：这个 app 认人靠【脸】，跟关系网那条脸条同一套语汇。
     // 「所有人」那一格摞着几张小脸，一眼看得出它是「全部」而不是某个人。
     characters.length ? h("div", { className: "flex items-end overflow-x-auto", style: { gap: 9, paddingBottom: 12 } },
-      [["all", null]].concat(characters.map(c => [c.id, c])).map(([id, c]) => {
+      [["all", null]].concat(characters.map(c => [c.id, c])).concat([["__open__", null]]).map(([id, c]) => {
         const on = filter === id;
         const sz = on ? 38 : 28;
         return h("button", { key: id, onClick: () => setFilter(id), className: "shrink-0 active:opacity-70",
@@ -9800,7 +9807,11 @@ function MemoryLib({
           h("div", { style: { width: sz, height: sz, borderRadius: 10, overflow: "hidden", margin: "0 auto", position: "relative",
             opacity: on ? 1 : 0.45, filter: on ? "none" : "grayscale(0.7)",
             boxShadow: on ? "0 2px 8px rgba(0,0,0,.18)" : "none", transition: "all .16s" } },
-            id === "all"
+            id === "__open__"
+              // 「所有角色可见」那一格：一张没有脸的空牌，一眼看得出它不是某个人
+              ? h("div", { style: { width: "100%", height: "100%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: Math.round(sz * 0.42), color: t.fog } }, "?")
+              : id === "all"
               ? (() => {
                   // 「所有人」＝几张脸摞在一起：居中、依次错开、后面的压在前面底下
                   const few = characters.slice(0, 3);
@@ -9814,10 +9825,12 @@ function MemoryLib({
                 })()
               : h(Avatar, { character: c, size: sz, radius: 0 })),
           on ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-            id === "all" ? "所有人" : (c.remark || c.name)) : null);
+            id === "all" ? "所有人" : id === "__open__" ? "没绑角色" : (c.remark || c.name)) : null);
       })) : null,
     h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "这一摞 " + list.length + " 张"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+        "这一摞 " + list.length + " 张"
+        + (filter === "__open__" ? " · 这些每个角色都看得见，包括跟这件事没关系的那些" : "")),
       correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
     list.length === 0 && h(Empty, {
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
