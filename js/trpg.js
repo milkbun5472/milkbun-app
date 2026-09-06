@@ -1217,6 +1217,12 @@
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
   const TOK_MAX = 65535;
+  // 暗线那句的长度上限。原来是 44 —— 而模型要的是「一句话的秘密目标」,
+  // 中文一句话四五十字太常见了,于是每一条都在半句上被切断
+  //(她 2026-09-06 截图:「必须在此行中查明当年先辈全军覆没的真正死因,并亲手」,
+  //  正好第 44 个字)。她当时以为是 maxTokens 不够,其实这一支全用 TOK_MAX=65535,
+  //  一刀都没差 —— 截断在【前端这把尺子】上,不在模型那头。
+  const MYLINE_MAX = 120;
 
   // ---- 出图的安全过滤(纯函数) ----
   // 图像接口要的是【画面上看得见什么】,不是小说正文;敏感句直接进 prompt 会被
@@ -1448,7 +1454,7 @@
         gauge,
         outfits,
         sideSeeds: seeds,
-        mylineOptions: (Array.isArray(p.myline) ? p.myline : []).map(x => String(x || "").trim().slice(0, 44)).filter(Boolean).slice(0, 3),
+        mylineOptions: (Array.isArray(p.myline) ? p.myline : []).map(x => String(x || "").trim().slice(0, MYLINE_MAX)).filter(Boolean).slice(0, 3),
         dossier: { truth: d0.truth || String(p.truth || ""), twist: d0.twist || String(p.twist || ""), secrets: d0.secrets || String(p.secrets || ""), endgame: d0.endgame || String(p.endgame || ""), mates: mates }
       };
     };
@@ -2381,7 +2387,7 @@
             h("button", { onClick: () => setDraft(dd => Object.assign({}, dd, { myline: "" })), style: S.btn(!draft.myline) }, "不要暗线")),
           h("div", { style: { display: "flex", gap: 6 } },
             h("input", { value: mylineTxt, onChange: e => setMylineTxt(e.target.value), placeholder: "或者自己写一条秘密目标…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } }),
-            h("button", { onClick: () => { const v = mylineTxt.trim(); if (!v) return; setMylineTxt(""); setDraft(dd => Object.assign({}, dd, { myline: v.slice(0, 44) })); }, style: S.btn(false) }, "用这条")),
+            h("button", { onClick: () => { const v = mylineTxt.trim(); if (!v) return; setMylineTxt(""); setDraft(dd => Object.assign({}, dd, { myline: v.slice(0, MYLINE_MAX) })); }, style: S.btn(false) }, "用这条")),
           draft.myline ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a6d3b", marginTop: 4 } }, "✦ 已选暗线:" + draft.myline) : null),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开团"),
