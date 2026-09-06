@@ -8179,6 +8179,21 @@ function CallScreen({
   //   （她 2026-09-02：「从视频界面按缩小键页面会崩」）。
   //   仓库里已经吃过一次同样的亏，见 test/translate-detect.test.js 那条。
   const bgUrl = useIdbImgUrl(bg);
+  // ── 有画面时，字得自己站得住（她 2026-09-06：「视频画画会把聊天框和聊天记录
+  //    盖住」，追问后确认是【台词和通话框】看不见）─────────────────────────
+  // 不是被盖住——层序是对的（无头浏览器里量过，台词和输入栏都在图上面）。
+  // 是【被冲白了】：这一屏除了气泡，名字、时长、旁白、说话人、输入框全是
+  // 白字 + 一层很淡的全屏暗罩，照片一亮就什么都读不出来。
+  // 全屏罩再调暗＝把他的脸也一起压没，那是为了读字牺牲掉这个功能本身。
+  // 所以改成【谁要被读，谁自己带底】：
+  //   · 飘在照片上的白字各自带一道暗影（一行 textShadow，任何照片上都立得住）
+  //   · 顶上那块和输入栏各压一层自己的暗底（只有它们那一条，中间脸那块不动）
+  const onPhoto = !!bgUrl;
+  const litText = onPhoto ? { textShadow: "0 1px 3px rgba(8,8,10,.92),0 0 12px rgba(8,8,10,.5)" } : null;
+  const litPlate = (from, to) => onPhoto ? {
+    background: "linear-gradient(180deg,rgba(10,11,14," + from + ") 0,rgba(10,11,14," + to + ") 100%)",
+    backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)"
+  } : null;
   if (minimized) {
     const onTS = e => { const r = e.currentTarget.getBoundingClientRect(); const tt = e.touches[0]; dragRef.current = { dragging: true, moved: false, grabX: tt.clientX - r.left, grabY: tt.clientY - r.top }; };
     const onTM = e => { if (!dragRef.current.dragging) return; const tt = e.touches[0]; dragRef.current.moved = true; const w = window.innerWidth, hh = window.innerHeight; setPos({ x: Math.max(4, Math.min(w - 150, tt.clientX - dragRef.current.grabX)), y: Math.max(40, Math.min(hh - 60, tt.clientY - dragRef.current.grabY)) }); };
@@ -8229,21 +8244,22 @@ function CallScreen({
       : h(CGlyph, { k: "picture", size: 14, color: "#fff" }),
     h("span", null, bgBusy ? "在拍" : bg ? "换一张" : "看看画面")) : null,
   h("div", {
-    className: "shrink-0 pt-10 pb-3 flex flex-col items-center"
+    className: "shrink-0 pt-10 pb-3 flex flex-col items-center",
+    style: Object.assign({}, litPlate(".62", "0"))
   }, h("div", {
     className: "px-6 text-center",
-    style: {
+    style: Object.assign({
       fontFamily: F_DISPLAY,
       fontSize: 22,
       color: "#fff"
-    }
+    }, litText)
   }, title), h("div", {
-    style: {
+    style: Object.assign({
       fontFamily: F_BODY,
       fontSize: 13,
-      color: "rgba(255,255,255,0.6)",
+      color: onPhoto ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.6)",
       marginTop: 4
-    }
+    }, litText)
   }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss)), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
@@ -8280,7 +8296,7 @@ function CallScreen({
   }, recent.map((m, i) => {
     const isU = m.role === "user";
     if (m.act) return h("div", { key: i, className: "flex justify-center py-0.5" }, h("div", {
-      style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }
+      style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isGroup && m.senderName ? m.senderName + " " : "") + "（" + m.content + "）"));
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
     const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
@@ -8290,7 +8306,7 @@ function CallScreen({
       key: i,
       className: "flex flex-col " + (isU ? "items-end" : "items-start")
     }, !isU && isGroup && m.senderName && h("span", {
-      style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }
+      style: Object.assign({ fontFamily: F_BODY, fontSize: 10, color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
     }, m.senderName), h("div", { className: "flex items-center gap-1.5", style: { maxWidth: "88%" } }, h("div", {
       style: {
         maxWidth: canT ? "100%" : "78vw",
@@ -8313,11 +8329,11 @@ function CallScreen({
     // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离他的话隔着大半屏，
     // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,0.55)" } },
+      h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
         (bye.name || "对方") + "挂断了")),
     !bye && sending && h("div", { key: "typing", className: "flex flex-col items-start" },
       !isGroup ? null : h("span", {
-        style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }
+        style: Object.assign({ fontFamily: F_BODY, fontSize: 10, color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
       }, "对方"),
       h("div", {
         role: "status", "aria-live": "polite",
@@ -8333,9 +8349,9 @@ function CallScreen({
     style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
   }, "🎙 " + liveSt), h("div", {
     className: "shrink-0 flex items-center gap-2 px-4 py-3",
-    style: {
+    style: Object.assign({
       paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)"
-    }
+    }, litPlate("0", ".78"))
   }, canLive && h("button", {
     onClick: () => live ? lvStop() : lvStart(),
     className: "shrink-0 flex items-center justify-center",
