@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.22";
+const APP_VERSION = "v65.23";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -575,7 +575,6 @@ function App() {
   const [activeChar, setActiveChar] = useState(null);
   const [activeRoomId, setActiveRoomId] = useState("main");
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
-  const [roomFork, setRoomFork] = useState(null);
   const [studyEntry, setStudyEntry] = useState(null);
   const [gameEntry, setGameEntry] = useState(null);
   useEffect(() => { setActiveRoomId("main"); setChatRoomsOpen(false); }, [activeChar && activeChar.id]);
@@ -2095,6 +2094,16 @@ function App() {
       toast("摘要失败：" + (e && e.message ? e.message : "请重试"));
       return null;
     }
+  };
+  const createChatRoomFromStart = async draft => {
+    if (!window.ChatRooms) return false;
+    const result = await window.ChatRooms.commitStart(draft, async (key, rows) => {
+      const stored = await commitJSONDurable(key, rows);
+      return stored.durable && stored.live;
+    });
+    if (!result) return false;
+    setChats(p => { const next = { ...p, [result.key]: result.messages }; chatsRef.current = next; return next; });
+    return result.room;
   };
   // ---- 聊天云归档：本地只留最近 N 条，更早的存云端（一条不丢 + 省本地空间）----
   // 每个角色本地保留的最近条数。v61.78 从 200 抬到 1000：聊天早就住在 IndexedDB 了，
@@ -7731,7 +7740,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
-      if (window.ChatRooms) parsed = window.ChatRooms.gateForkActions(parsed, room);
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -8521,15 +8529,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const isSideRoom = !!(window.ChatRooms && window.ChatRooms.isSideKey(threadKey));
     const msgs = chats[threadKey] || [];
     const m = msgs[idx];
-    if (act === "fork") {
-      const Kit = window.ChatRooms;
-      if (!Kit || !activeChar) return;
-      const sourceRoom = Kit.get(activeChar.id, isSideRoom ? threadKey.split("::room::")[1] : "main");
-      const draft = Kit.prepareFork(activeChar.id, sourceRoom, msgs, idx);
-      if (draft) setRoomFork(draft);
-      else toast("这条消息暂时不能分岔");
-      return;
-    }
     if (act === "fav") { addFavorite(activeChar.id, m); return; }
     if (act === "copy") {
       navigator.clipboard && navigator.clipboard.writeText(m.content);
@@ -12031,8 +12030,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   const markCallBye = (byId, byName, reason) => setCall(c => (c && !c.bye) ? { ...c, bye: { id: byId, name: byName || "", reason: String(reason || "").slice(0, 120) } } : c);
-  const startCall = (participants, mode, groupId, caller, room) => {
-    if (window.ChatRooms && !window.ChatRooms.supportsCalls(room)) { toast("分岔房暂不支持通话，可以发语音消息继续聊"); return; }
+  const startCall = (participants, mode, groupId, caller) => {
     const people = (participants || []).filter(Boolean);
     if (!people.length) return;
     // caller="me"（用户拨的）或某 charId（该角色主动打来、用户接听）——用于在通话里告诉角色是谁打的，别搞反
@@ -18024,8 +18022,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
-    onStartCall: m => startCall([activeChar], m, null, "me", window.ChatRooms && window.ChatRooms.get(activeChar.id, activeRoomId)),
-    onCallBack: m => startCall([activeChar], m.mode, null, "me", window.ChatRooms && window.ChatRooms.get(activeChar.id, activeRoomId)),
+    onStartCall: m => startCall([activeChar], m, null, "me"),
+    onCallBack: m => startCall([activeChar], m.mode, null, "me"),
     onAskCouple: cid => askCoupleInvite(activeChar.id, cid),
     askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
@@ -19220,23 +19218,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     init: editMsg.content,
     onCancel: () => setEditMsg(null),
     onSave: nv => { editMsg.onSave(nv); setEditMsg(null); }
-  }), roomFork && window.RoomForkPage ? h(window.RoomForkPage, {
-    draft: roomFork,
-    onClose: () => setRoomFork(null),
-    onCreate: async draft => {
-      const result = await window.ChatRooms.commitFork(draft, async (key, rows) => {
-        const stored = await commitJSONDurable(key, rows);
-        return stored.durable && stored.live;
-      });
-      if (!result) return false;
-      setChats(p => { const next = { ...p, [result.key]: result.messages }; chatsRef.current = next; return next; });
-      setActiveRoomId(result.room.id); setChatRoomsOpen(false); setRoomFork(null);
-      toast("已走进「" + result.room.name + "」");
-      return true;
-    }
-  }) : null, chatRoomsOpen && activeChar && window.ChatRoomSheet ? h(window.ChatRoomSheet, {
+  }), chatRoomsOpen && activeChar && window.ChatRoomSheet ? h(window.ChatRoomSheet, {
     character: activeChar,
     activeRoomId,
+    sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
+    onCreateRoom: createChatRoomFromStart,
     onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
     onClose: () => setChatRoomsOpen(false)
@@ -19262,6 +19248,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }).filter(Boolean).sort((a, b) => b.connection - a.connection);
     })(),
     activeRoomId: activeRoomId,
+    sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
+    onCreateRoom: createChatRoomFromStart,
     onSelectRoom: (roomId, close) => {
       setActiveRoomId(roomId || "main");
       if (close) setChatSettingsOpen(false);

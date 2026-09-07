@@ -7257,7 +7257,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) && (window.ChatRooms.supportsCalls(room) || !["voice", "video", "calllog"].includes(key)) : true);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) : true);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -8137,7 +8137,7 @@ function ChatThread({
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
-    items: menuItemsForKind(messages[menu], canSpeakMsg(messages[menu]), !!window.ChatRooms),
+    items: menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])),
     onClose: () => setMenu(null),
     onAction: act => {
       if (act === "multi") {
@@ -10550,21 +10550,19 @@ function EmoteBubble({ url, keyword, max }) {
 // 每条左边一枚字形，撤回单独落在最后一组、用强调色。
 // speak = 她 2026-09-02 要的「气泡转语音」：不是语音条也能听。
 const MSG_MENU = {
-  fork: ["从这里分一间房", "redo"],
   copy: ["复制", "copy"], fav: ["收藏", "bookmark"], quote: ["引用", "quote"],
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
   multi: ["多选", "checklist"], recall: ["撤回", "undo"]
 };
 // 一组一个数组；空组会被丢掉，所以不用担心某一档一条都不剩时留下一道空隔断
-function menuItemsForKind(m, canSpeak, canFork) {
+function menuItemsForKind(m, canSpeak) {
   const k = m && m.kind;
   const textLike = !k || k === "photo" || k === "location";
-  const fork = canFork && window.ChatRooms && window.ChatRooms.visibleText(m) ? ["fork"] : [];
   const listen = canSpeak ? ["speak"] : [];
-  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen, fork), ["multi", "recall"]];
+  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
-  if (k === "voice") return [["copy", "fav", "quote"], fork, ["multi", "recall"]];
-  return [[  "fav"], listen.concat(fork), ["multi", "recall"]];
+  if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall"]];
+  return [[  "fav"], listen, ["multi", "recall"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。
 function MsgEditSheet({ init, onCancel, onSave }) {
@@ -13555,48 +13553,22 @@ function RoomResume({ room, messages, character }) {
     lines.length ? lines.map((line, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" } },
       (line.role === "narration" ? "旁白" : line.role === "user" ? "你" : character.remark || character.name) + "：" + line.text))
       : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "还没在这里说过话"),
-    room.fork && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, "从「" + room.fork.sourceRoomName + "」分岔 · 留下 " + room.fork.seedCount + " 条聊天"));
+    (room.startFrom || room.fork) && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } },
+      "进门时从「" + (room.startFrom || room.fork).sourceRoomName + "」带来 " + (room.startFrom || room.fork).seedCount + " 条聊天"));
 }
-function RoomForkPage({ draft, onClose, onCreate }) {
-  const t = useTheme(), [name, setName] = useState(draft.room.name), [scenario, setScenario] = useState(draft.room.scenario || "");
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const saving = useRef(false);
-  const create = async () => {
-    if (saving.current || !name.trim()) return;
-    saving.current = true; setBusy(true); setError("");
-    try {
-      const ok = await onCreate({ ...draft, room: { ...draft.room, name: name.trim(), scenario: scenario.trim() } });
-      if (!ok) setError("这次没存好，请再试一次。分岔内容还留在这里。");
-    } catch (_) { setError("这次没存好，请再试一次。分岔内容还留在这里。"); }
-    finally { saving.current = false; setBusy(false); }
-  };
-  const field = { width: "100%", boxSizing: "border-box", padding: "12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16, lineHeight: 1.6 };
-  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "从这里分一间房", onBack: busy ? undefined : onClose }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 20px", overflowWrap: "anywhere" } },
-      h(Eyebrow, null, "这句话之后，走另一条路"),
-      h("blockquote", { style: { margin: "10px 0 18px", padding: "12px 14px", borderLeft: "3px solid " + t.tint, background: t.bg2, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.sub } }, draft.room.fork.anchorText),
-      h("label", { style: { display: "block", color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "房间名字",
-        h("input", { value: name, maxLength: 24, disabled: busy, onChange: e => setName(e.target.value), style: { ...field, marginTop: 7, marginBottom: 18 } })),
-      h("label", { style: { display: "block", color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "这次，想让什么不同？",
-        h("textarea", { value: scenario, maxLength: 3000, rows: 5, disabled: busy, onChange: e => setScenario(e.target.value), placeholder: "可以留空，进房后接着说；也可以写下这条支线的限定设定。", style: { ...field, marginTop: 7, resize: "vertical" } })),
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.fog } }, "带入当前已载入、截至这句话的 " + draft.messages.length + " 条聊天文字（包含这句）。更早未载入的记录、原房摘要和现在的记忆、关系、心情不带入。需要更早的聊天，可以返回加载后再分岔。"),
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "沿用当前角色底稿，按留下的聊天继续相处。这间房默认不跟进主线，也不把这里的事写回主线。分岔房暂不支持语音／视频通话。"),
-      error && h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 13 } }, error)),
-    h("div", { className: "shrink-0", style: { padding: "8px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line } },
-      h("button", { onClick: create, disabled: busy || !name.trim(), className: "w-full active:opacity-70", style: { marginBottom: 8, minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: busy || !name.trim() ? .5 : 1 } }, busy ? "正在留好这段聊天…" : "开门，继续这条线")));
-}
-window.RoomForkPage = RoomForkPage;
-function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize, embedded }) {
+function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onSelect, onClose, onSummarize, embedded }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
   const [editingId, setEditingId] = useState(activeRoomId || "main");
   const [draft, setDraft] = useState(() => Kit ? Kit.get(character.id, activeRoomId || "main") : null);
   const [creating, setCreating] = useState(false);
+  const [startMode, setStartMode] = useState("blank");
+  const [startIndex, setStartIndex] = useState(null);
+  const [createBusy, setCreateBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
-  const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); };
+  const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
   // ⚠️两个毛病一起修：
   //   ① 删除键埋在长表单最底下——现在门上就有一颗 ✕，她按下决定的那一刻手就在那儿。
@@ -13631,7 +13603,25 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   };
   const add = preset => {
     const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
-    setDraft(d); setEditingId(d.id); setCreating(true);
+    setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
+  };
+  const sourceRows = Array.isArray(sourceMessages) ? sourceMessages : [];
+  const startChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text).slice(-16);
+  const chooseStartMode = mode => {
+    setStartMode(mode);
+    if (mode === "until" && startIndex == null && startChoices.length) setStartIndex(startChoices[startChoices.length - 1].index);
+  };
+  const enterNewRoom = async () => {
+    if (createBusy || !onCreateRoom) return;
+    const sourceRoom = Kit.get(character.id, activeRoomId || "main");
+    const prepared = Kit.prepareStart(character.id, draft, sourceRoom, sourceRows, startMode, startIndex);
+    if (!prepared) return window.__toast && window.__toast(startMode === "until" ? "先选一句作为起点" : "这次没准备好，再试一下");
+    setCreateBusy(true);
+    try {
+      const saved = await onCreateRoom(prepared);
+      if (!saved) return window.__toast && window.__toast("这次没存好，房间还没创建");
+      setRooms(Kit.list(character.id)); setDraft(saved); setCreating(false); onSelect(saved.id, true);
+    } finally { setCreateBusy(false); }
   };
   const summaryPresets = [
     ["我们刚刚在另一间房里经历了这些：", "共同经历"],
@@ -13714,8 +13704,26 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "本房限定设定 · 每轮最后提醒 TA"),
         h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 4, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
         h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, "留空就是普通房间；长篇如果默认什么都不带进来，建好后可以一条条放行。")),
+      h("div", { style: { marginTop: 11 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "进门时，先放哪段聊天"),
+        h("div", { className: "grid grid-cols-3", style: { gap: 6, marginTop: 7 } }, [
+          ["blank", "空白开始"], ["recent", "最近聊天"], ["until", "挑一句接起"]
+        ].map(([mode, label]) => h("button", { key: mode, onClick: () => chooseStartMode(mode),
+          disabled: mode !== "blank" && !startChoices.length,
+          style: { padding: "8px 4px", borderRadius: 10, border: "1px solid " + (startMode === mode ? t.ink : t.line),
+            background: startMode === mode ? t.ink : "transparent", color: startMode === mode ? t.bg2 : t.sub,
+            opacity: mode !== "blank" && !startChoices.length ? .4 : 1, fontFamily: F_BODY, fontSize: 10.5 } }, label))),
+        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.55 } },
+          startMode === "blank" ? "房里不放旧消息，从第一句重新开始。" : startMode === "recent"
+            ? "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。"
+            : "选中的这句和它之前已载入的聊天会成为新房开场；这句之后的内容不带入。"),
+        startMode === "until" && h("div", { style: { maxHeight: 190, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
+          startChoices.map(({ m, index, text }) => h("button", { key: (m.id || "m") + "_" + index, onClick: () => setStartIndex(index),
+            className: "w-full text-left", style: { display: "block", padding: "8px 10px", borderBottom: "1px solid " + t.line,
+              background: startIndex === index ? t.bg : "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5 } },
+            (m.role === "narration" || m.kind === "narration" ? "旁白" : m.role === "user" ? "你" : character.remark || character.name) + "：" + text.replace(/\s+/g, " ").slice(0, 72))))),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
-        h("button", { disabled: draft.preset === "alternate" && !String(draft.scenario || "").trim(), onClick: () => { const saved = save(); if (saved) onSelect(saved.id, true); }, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: draft.preset === "alternate" && !String(draft.scenario || "").trim() ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, "开门进去"),
+        h("button", { disabled: createBusy || (draft.preset === "alternate" && !String(draft.scenario || "").trim()) || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (draft.preset === "alternate" && !String(draft.scenario || "").trim()) || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
     h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。"));
   const editor = h("div", { style: { minWidth: 0 } },
@@ -13850,6 +13858,8 @@ function ChatSettings({
   dongnianState,
   dongnianElsewhere,
   activeRoomId,
+  sourceMessages,
+  onCreateRoom,
   onSelectRoom,
   onSummarizeRoom,
   renderContextDebug
@@ -14156,6 +14166,8 @@ function ChatSettings({
     embedded: true,
     character,
     activeRoomId: activeRoomId || "main",
+    sourceMessages,
+    onCreateRoom,
     onSelect: (roomId, close) => onSelectRoom && onSelectRoom(roomId, close),
     onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")
