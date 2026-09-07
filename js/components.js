@@ -7426,6 +7426,7 @@ function ChatThread({
     }
   }, (window.RecentWidget ? h(window.RecentWidget.UnreadBack, { count: unreadOther || 0, onBack: onBack }) : /*#__PURE__*/React.createElement("button", {
     onClick: onBack,
+    "data-wk": "chatback",
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IArrow, {
     size: 19,
@@ -7464,6 +7465,7 @@ function ChatThread({
     }
   }, (chatMode === "narr" ? "旁白" : chatMode === "ooc" ? "出戏" : "说话") + " · 轻触切换"))), /*#__PURE__*/React.createElement("button", {
     onClick: onOpenSettings,
+    "data-wk": "chatmore",
     className: "active:opacity-50"
   }, /*#__PURE__*/React.createElement(IDots, {
     size: 20,
@@ -7777,6 +7779,7 @@ function ChatThread({
         minWidth: 0
       }
     }, m.replyTo && h("div", {
+      "data-wk": "quote",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -7948,6 +7951,7 @@ function ChatThread({
     }
   }, h("button", {
     onClick: () => setPanelOpen(v => !v),
+    "data-wk": "chatplus",
     className: "active:opacity-60 shrink-0 flex items-center justify-center",
     style: {
       width: 32,
@@ -7959,6 +7963,7 @@ function ChatThread({
     size: 22,
     color: t.fog
   })), /*#__PURE__*/React.createElement("input", {
+    "data-wk": "chatinput",
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
@@ -8000,6 +8005,7 @@ function ChatThread({
     }
   }, PANEL.map(([k, zh, glyph]) => h("button", {
     key: k,
+    "data-wk": "chattool", "data-chat-tool": k,
     onClick: () => onPanelTap(k),
     className: "flex flex-col items-center gap-1.5 active:opacity-60"
   }, h("div", {
@@ -9056,15 +9062,15 @@ function TransText({ text, isU, zhReady }) {
   const fg = isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink);
   const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
   const tap = e => { e.stopPropagation(); setOpen(v => !v); };
-  return h("span", null,
+  return h("span", { "data-wk": "translation" },
     h("span", { onClick: tap, style: { cursor: "pointer" } }, text),
     h("span", {
-      onClick: tap, className: "active:opacity-60",
+      "data-wk": "translatebutton", onClick: tap, className: "active:opacity-60",
       style: { display: "inline-block", marginLeft: 6, verticalAlign: "middle", cursor: "pointer",
         fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", lineHeight: 1.6,
         padding: "0 5px", borderRadius: 5, border: "1px solid " + fg, opacity: 0.42, color: fg }
     }, open ? "收起" : "译"),
-    open && h("span", { style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
+    open && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
       h("span", { style: { display: "block", fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1 } },
         busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
@@ -9139,9 +9145,9 @@ function VoiceMsg({ m, isU, speaker }) {
   const line = isU ? "rgba(0,0,0,0.13)" : t.line;
   // ⚠️没有 minWidth：宽度由内容(播放键+这条自己的波形+时长)自己撑出来，
   //   于是「多长」这件事在列表里一眼看得见——一秒的就是一小截。
-  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
+  return h("div", { "data-wk": "voice", onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
     h("style", null, "@keyframes vm-bar{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1.25)}}"),
-    h("div", { className: "flex items-center gap-2.5 px-3.5", style: { minHeight: 42, paddingTop: 8, paddingBottom: 8 } },
+    h("div", { "data-wk": "voicebar", className: "flex items-center gap-2.5 px-3.5", style: { minHeight: 42, paddingTop: 8, paddingBottom: 8 } },
       canTts ? h("button", {
         onClick: playTts, className: "active:opacity-60 shrink-0",
         style: { width: 27, height: 27, borderRadius: 999, border: "none", background: fg, display: "flex", alignItems: "center", justifyContent: "center" }
@@ -10020,6 +10026,7 @@ function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const lit = sending ? t.accent : t.ink;
   const Leaf = typeof window !== "undefined" ? window.GYanqiuLeaf : null;
   return h("button", {
+    "data-wk": "chatreply",
     onClick: onClick, disabled: disabled, title: title,
     className: "active:opacity-60 disabled:opacity-40 shrink-0 flex items-center justify-center",
     style: { width: 40, height: 40, background: "transparent", border: "none", padding: 0 }
@@ -10169,6 +10176,7 @@ function TransferCard({
       marginTop: 4
     }
   }, m.note || "转账")), h("div", {
+    "data-wk": "transferribbon",
     style: {
       fontFamily: F_BODY,
       fontSize: 9.5,
@@ -12278,6 +12286,7 @@ function GroupThread({
     }
   }, h("button", {
     onClick: onBack,
+    "data-wk": "chatback",
     className: "active:opacity-50"
   }, h(IArrow, {
     size: 19,
@@ -12325,6 +12334,7 @@ function GroupThread({
     }) : null) : null,
   h("button", {
     onClick: () => setSheet("settings"),
+    "data-wk": "chatmore",
     className: "active:opacity-50"
   }, h(GConfig, {
     size: 20,
@@ -12551,6 +12561,7 @@ function GroupThread({
         marginLeft: 2
       }
     }, m.senderName), m.replyTo && h("div", {
+      "data-wk": "quote",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -12627,6 +12638,7 @@ function GroupThread({
     }
   }, PANEL.map(([k, zh, glyph]) => h("button", {
     key: k,
+    "data-wk": "chattool", "data-chat-tool": k,
     onClick: () => onPanelTap(k),
     className: "flex flex-col items-center gap-1.5 active:opacity-60"
   }, h("div", {
@@ -12678,6 +12690,7 @@ function GroupThread({
     }
   }, h("button", {
     onClick: () => setPanel(v => !v),
+    "data-wk": "chatplus",
     className: "active:opacity-60 shrink-0 flex items-center justify-center",
     style: {
       width: 32,
@@ -12689,6 +12702,7 @@ function GroupThread({
     size: 22,
     color: t.fog
   })), h("input", {
+    "data-wk": "chatinput",
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),

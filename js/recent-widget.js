@@ -217,10 +217,11 @@
   function UnreadBack(props) {
     const t = useTheme();
     const n = Math.max(0, props.count || 0);
-    if (!n) return h("button", { onClick: props.onBack, className: "active:opacity-50", style: { padding: "9px 6px" , marginLeft: -6 }, "aria-label": "返回" },
+    if (!n) return h("button", { "data-wk": "chatback", onClick: props.onBack, className: "active:opacity-50", style: { padding: "9px 6px" , marginLeft: -6 }, "aria-label": "返回" },
       h(IArrow, { size: 19, color: t.ink, wk: "headink" }));
     const txt = n > 99 ? "99+" : String(n);
     return h("button", {
+      "data-wk": "chatback",
       onClick: props.onBack,
       className: "active:opacity-50 flex items-center",
       style: { gap: 2, marginLeft: -6, padding: "9px 5px 9px 3px" },   // 连 padding 算够 40px 高，别缩成一颗小圈

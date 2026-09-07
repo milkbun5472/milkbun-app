@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.21";
+const APP_VERSION = "v65.22";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19485,7 +19485,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
 // 挂载前先把图片仓库 hydrate 进内存缓存（iv_ 键→objectURL），首帧头像/壁纸就能直接显示、不闪空。
 // hydrate 只是读一遍 IndexedDB，几毫秒；失败也照常挂载（resolveImg 对未命中的 iv_ 返回空、落首字母兜底）。
 (function () {
-  const mount = () => ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+  const mount = () => {
+    // ThemeStudio 可能早于 IndexedDB 图片仓库先跑；hydrate 完再编一次，CSS 里的 iv_ 图片才有真实地址。
+    try { if (window.ThemeStudio) window.ThemeStudio.apply(window.ThemeStudio.current()); } catch (_) {}
+    ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+  };
   // 挂载前先灌好图库 + 文字库(同人文迁 IDB)镜像，首帧就能同步读到；失败也照常挂载(loadJSON 会回落 localStorage)。
   const hyd = [];
   if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());

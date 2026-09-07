@@ -236,7 +236,8 @@
   // 气泡那一份摆给她看的样子：只摆它能改的那几栏，一行一栏。
   // 摆整份 JSON 的话，改前改后并排一比，满屏都是没动过的空栏。
   const BUB_ZH = { myBg: "我的气泡底色", charBg: "TA 的气泡底色", myText: "我的字色", charText: "TA 的字色",
-    myBorder: "我的描边", charBorder: "TA 的描边", shadow: "投影", chatBg: "聊天页底色", radius: "圆角" };
+    myBorder: "我的描边", charBorder: "TA 的描边", shadow: "投影", chatBg: "聊天页底色", radius: "圆角",
+    mySticker: "我的气泡贴纸", charSticker: "TA 的气泡贴纸", stickerSize: "贴纸大小" };
   const bubbleText = b => Object.keys(BUB_ZH).filter(k => b[k] !== "" && b[k] != null)
     .map(k => BUB_ZH[k] + "：" + b[k]).join("\n") || "（都空着）";
 
@@ -622,7 +623,8 @@
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
       + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
       + "myBorder／charBorder（形如 1px solid #hex）、shadow（形如 0 2px 8px rgba(...)）、chatBg（聊天页底色）、"
-      + "radius（0-30 的整数）。**只填这些栏，不许自造新栏，也不许填贴纸。**\n"
+      + "radius（0-30 的整数）、mySticker／charSticker（只能逐字复用现状快照里已有的 iv_ 图片门牌，空字符串＝拆掉）、"
+      + "stickerSize（32-72 的整数）。**只填这些栏，不许自造新栏；贴纸门牌不许编。**\n"
       + "  · 她只说了一处（如「我的气泡」）就【只填那一栏】，没提到的一栏都别写——写了就是把她原来的盖掉。\n"
       + "  · 她说的是一种气氛而不是一个颜色时，你要自己定这套配色：先想清楚**那个气氛在她眼里是什么样的光**，"
       + "再让底色、字色、圆角、投影一起往那个方向走——四栏各说各的，出来就是一套四不像。\n"

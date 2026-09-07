@@ -344,7 +344,12 @@
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
         ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
         ["card", "气泡里的卡片（照片、转发、语音）"],
-        ["composer", "底部输入栏整条"], ["send", "发送键"]
+        ["quote", "消息引用块"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
+        ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
+        ["transferribbon", "转账卡右侧绶带"],
+        ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["chatmore", "右上角更多/设置键"],
+        ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
+        ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"]
       ])
     }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
@@ -485,6 +490,15 @@
     }
     return out;
   };
+  // CSS 里也只保存 iv_ 门牌。真正喂给浏览器前，从图片保险箱换成当次启动的 object URL。
+  const cssImageRefs = css => [...String(css || "").matchAll(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g)].map(m => m[2]);
+  const resolveCSSImages = css => String(css || "").replace(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g, function (_, q, ref) {
+    const src = typeof g.resolveImg === "function" ? g.resolveImg(ref) : "";
+    if (!src) throw new Error("图片保险箱里找不到 " + ref);
+    return 'url("' + String(src).replace(/["\\\n\r]/g, "") + '")';
+  });
+  const remapCSSImages = (css, map) => String(css || "").replace(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g,
+    (_, q, ref) => 'url("' + (map[ref] || ref) + '")');
   const compile = p => {
     p = normalize(p); const blocks = [];
     const bad = unsafeReason(p.globalCSS); if (bad) throw new Error(bad);
@@ -493,7 +507,7 @@
       if (!css || page === "all") return;
       blocks.push("/* " + page + " */\n" + scopeCSS(css, 'html[data-lisa-screen="' + page.replace(/[^a-zA-Z0-9_-]/g, "") + '"]'));
     });
-    return blocks.join("\n");
+    return resolveCSSImages(blocks.join("\n"));
   };
   let active = load(), previewBase = null, timer = 0;
   const safeMode = () => {
@@ -528,7 +542,8 @@
   const iconBare = () => !!active.iconBare;
   const exportPackage = async extras => {
     const profile = normalize(extras && extras.profile || load()), assets = {};
-    const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper].filter(x => /^iv_/.test(x)))];
+    const cssRefs = cssImageRefs(profile.globalCSS).concat(...Object.values(profile.pageCSS || {}).map(cssImageRefs));
+    const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper, ...cssRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -542,9 +557,11 @@
     const map = {};
     for (const [oldRef, data] of Object.entries(pkg.assets || {})) { try { map[oldRef] = await g.imgToVault(data); } catch (_) {} }
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
+    p.globalCSS = remapCSSImages(p.globalCSS, map);
+    Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

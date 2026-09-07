@@ -11,7 +11,7 @@
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
-    const iconFile = useRef(null), iconFiles = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
+    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -109,6 +109,18 @@
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
     const setCSS = v => page === "all" ? patchDraft({ globalCSS: v }) : patchDraft({ pageCSS: { ...draft.pageCSS, [page]: v } });
+    const chooseCssImage = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      try {
+        const ref = await imgToVault(await resizeImageFile(f, 1600, .92));
+        const token = 'url("' + ref + '")', el = cssEditor.current;
+        const a = el && Number.isFinite(el.selectionStart) ? el.selectionStart : css.length;
+        const b = el && Number.isFinite(el.selectionEnd) ? el.selectionEnd : a;
+        setCSS(css.slice(0, a) + token + css.slice(b));
+        requestAnimationFrame(() => { if (cssEditor.current) { cssEditor.current.focus(); cssEditor.current.setSelectionRange(a + token.length, a + token.length); } });
+        toast("图片已进保险箱，引用写进编辑框了");
+      } catch (err) { toast("图片读取失败：" + (err.message || err)); }
+    };
     // ⚠️这个跟预览无关，别跟着一起删：身上挂着气泡皮肤时，那张 style 带 !important
     //   又排在主题 CSS 后面，直接灌内置 CSS 会像是一个字都没生效（v61.05 她要的顺序）。
     const clearSkin = () => { try { if (typeof applyBubblePreset === "function") applyBubblePreset("default"); localStorage.setItem("x_bubbleSkinPreset", ""); } catch (_) {} };
@@ -205,7 +217,11 @@
                     style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还原") : null);
               })));
         })(),
-        h("textarea", { value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
+        h("textarea", { ref: cssEditor, value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
+        h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.55, color: t.fog } }, "光标放到 background-image 后面，再选一张图；这里只存保险箱门牌，导出主题包会把原图一起带走。"),
+          h("button", { onClick: () => cssImageFile.current && cssImageFile.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "7px 11px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5 } }, "插入图库图片"),
+          h("input", { ref: cssImageFile, type: "file", accept: "image/*", onChange: chooseCssImage, style: { display: "none" } })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
         // ── 这一页抓得住的挂点（v65.05）────────────────────────────────
         // 她在这儿手写 CSS，界面上却从没说过【能抓住什么】——只能猜类名，

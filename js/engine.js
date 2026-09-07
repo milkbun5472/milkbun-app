@@ -6236,7 +6236,7 @@ function isOocMsg(m) { return !!(m && (m.kind === "ooc" || (m.turnId && String(m
 //   所以这一道自己拦死：分号、@、反斜杠、url( 一律判为不合法，整条丢掉（不是截断，
 //   截断会留下半截值，画出来更怪）。
 const BUBBLE_AI_KEYS = ["myBg", "charBg", "myText", "charText", "myBorder", "charBorder", "shadow", "chatBg"];
-// 贴纸不给它填：那要一个真实存在的图片地址，模型只会编一个链接出来，落地就是个裂图。
+const BUBBLE_AI_STICKER_KEYS = ["mySticker", "charSticker"];
 const bubbleAiValueOk = v => {
   const s = String(v == null ? "" : v).trim();
   if (!s || s.length > 160) return false;
@@ -6246,6 +6246,13 @@ function sanitizeBubblePatch(obj) {
   if (!obj || typeof obj !== "object") return null;
   const out = {};
   BUBBLE_AI_KEYS.forEach(k => { if (obj[k] != null && bubbleAiValueOk(obj[k])) out[k] = String(obj[k]).trim(); });
+  // 贴纸只认图片保险箱里真实存在的 iv_ 门牌；空字符串表示拆掉。
+  BUBBLE_AI_STICKER_KEYS.forEach(k => {
+    if (obj[k] == null) return;
+    const ref = String(obj[k]).trim();
+    if (!ref) out[k] = "";
+    else if (/^iv_[A-Za-z0-9_-]+$/.test(ref) && typeof resolveImg === "function" && resolveImg(ref)) out[k] = ref;
+  });
   const num = (k, lo, hi) => {
     const n = Number(obj[k]);
     if (Number.isFinite(n)) out[k] = Math.max(lo, Math.min(hi, Math.round(n)));
