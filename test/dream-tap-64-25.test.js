@@ -36,14 +36,14 @@ test("那两颗最小的键：找TA解成了真的一颗键，删也垫开了", 
   assert.equal(src.indexOf('style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }'), -1, "旧的裸样式还在");
 });
 
-test("纸卡上的字色不跟主题走", () => {
+test("纸卡保留独立底稿，页面覆盖可同时换纸和墨", () => {
   // 这张纸在任何主题下都是同一张浅纸（paperCard 写死 #f4efe4）。
   // t.tint / t.fog 在深色主题里是【给夜色用的浅色】，落在浅纸上会淡到看不见。
-  assert.match(src, /const paperCard = \(extra\) => Object\.assign\(\{ background: "#f4efe4"/);
-  assert.match(src, /const PINK = "#6f6796", PSUB = "#8b8276";/);
+  assert.match(src, /const paperCard = \(extra\) => Object\.assign\(\{ background: pageColor\("dreamjournal", "bg2", "#f4efe4"\)/);
+  assert.match(src, /const PINK = pageColor\("dreamjournal", "tint", "#6f6796"\), PSUB = pageColor\("dreamjournal", "sub", "#8b8276"\);/);
   // 这一页别处早就在用这两个色，不是新调的
   assert.ok((src.match(/#6f6796/g) || []).length >= 3, "PINK 不是从这一页现成的色里来的");
-  assert.ok(src.includes('color: "#8b8276"'), "PSUB 不是从这一页现成的色里来的");
+  assert.ok(src.includes('pageColor("dreamjournal", "ink", "#8b8276")'), "PSUB 不是从这一页现成的色里来的");
 });
 
 test("三条书签：形状照旧（选中的长），可点的那个框一直是 46", () => {

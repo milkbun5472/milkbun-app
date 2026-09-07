@@ -200,10 +200,10 @@
   // 纸 → 主题。⚠️只覆盖【看得见的那几个色】，别的原样继承她自己的主题，
   // 免得换张纸把她在主题工作台调过的东西一起顶掉。
   function ficPaperTheme(base, paper) {
-    return Object.assign({}, base || DEFAULT_THEME, {
+    return pagePalette("fanfic", Object.assign({}, base || DEFAULT_THEME, {
       bg: paper.bg, bg2: paper.bg2, ink: paper.ink, sub: paper.sub,
       fog: paper.fog, line: paper.line, accent: paper.accent, tint: paper.tint
-    });
+    }));
   }
   function clampPerFic(v) {
     const n = Math.round(Number(v));

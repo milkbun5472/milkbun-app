@@ -18,25 +18,27 @@
   // 现在页面本身是一张账簿纸：淡横格 + 左边那两道红色分栏线（一粗一细）。
   // 这个底换到别的功能上立刻不成立——只有记账才画分栏线。
   const PAPER = "#f2ece0";                       // 账簿纸
-  const RULE = "rgba(60,54,40,.075)";            // 横格
-  const REDL = "rgba(178,74,58,.34)";            // 红色分栏线
-  const PAPER_BG = {
+  const paperBg = () => {
+    const PAPER = pageColor("ledger", "bg", "#f2ece0");
+    const RULE = pageColor("ledger", "line", "rgba(60,54,40,.075)");
+    const REDL = pageColor("ledger", "tint", "rgba(178,74,58,.34)");
+    return {
     backgroundColor: PAPER,
     backgroundImage:
       "linear-gradient(90deg,transparent 0 44px," + REDL + " 44px 45.2px,transparent 45.2px 48px," + REDL.replace(".34", ".18") + " 48px 49px,transparent 49px)," +
       "repeating-linear-gradient(180deg,transparent 0 31px," + RULE + " 31px 32px)"
-  };
+  }; };
   // 账簿边上伸出来的索引标签（跟查手机账本同一个形状，见 tabs-not-plain-pills.md）：
   // 选中那张满高、纸色，直接长进底下那一页里；没选的往下缩一截、压在后面。
   const bookTab = (on, label, onClick, tint) => h("button", { onClick, className: "flex-1 active:opacity-85",
     style: { minHeight: 44, marginTop: on ? 0 : 5, padding: on ? "12px 0 14px" : "9px 0 11px",
-      borderRadius: "10px 10px 0 0", border: "1px solid rgba(60,54,40,.16)", borderBottom: "none",
-      background: on ? PAPER : "rgba(60,54,40,.06)", color: on ? (tint || "#33322c") : "rgba(60,54,40,.45)",
+      borderRadius: "10px 10px 0 0", border: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), borderBottom: "none",
+      background: on ? pageColor("ledger", "bg", PAPER) : "rgba(60,54,40,.06)", color: on ? (tint || pageColor("ledger", "ink", "#33322c")) : pageColor("ledger", "sub", "rgba(60,54,40,.45)"),
       fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, position: "relative", zIndex: on ? 2 : 1,
       boxShadow: on ? "0 -2px 7px rgba(60,54,40,.06)" : "none" } }, label);
   // 整页壳：顶栏（返回 + 居中小标题 + 右侧等宽位）+ 正文，一律铺账簿纸
-  const bookPage = (title, onBack, right, body, footer) => h("div", Object.assign({ className: "h-full flex flex-col" }, { style: Object.assign({}, PAPER_BG) }),
-    h(Head, { zh: title, onBack: onBack, ink: "#33322c", bg: "transparent", lineInk: "rgba(60,54,40,.12)",
+  const bookPage = (title, onBack, right, body, footer) => h("div", Object.assign({ className: "h-full flex flex-col" }, { style: Object.assign({}, paperBg()) }),
+    h(Head, { zh: title, onBack: onBack, ink: pageColor("ledger", "ink", "#33322c"), bg: "transparent", lineInk: pageColor("ledger", "line", "rgba(60,54,40,.12)"),
       right: right || null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overscrollBehavior: "contain" } }, body),
     footer || null);
@@ -322,7 +324,7 @@
       for (const f of props.fields) { if (f.required && !String(vals[f.key] || "").trim()) { return; } }
       props.onSubmit(vals);
     };
-    return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: props.onCancel },
+    return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: pageColor("ledger", "bg2", "rgba(20,19,15,0.5)"), backdropFilter: "blur(3px)", padding: 24 }, onClick: props.onCancel },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 16, textAlign: "center" } }, props.title),
         (props.fields || []).map(f => h("div", { key: f.key, style: { marginBottom: 12 } },
@@ -331,7 +333,7 @@
             style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: f.locked ? t.fog : t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", outline: "none" } }))),
         h("div", { className: "flex gap-3", style: { marginTop: 6 } },
           h("button", { onClick: props.onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
-          h("button", { onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, padding: "12px 0", borderRadius: 12, border: "none" } }, props.submitLabel || "保存"))));
+          h("button", { onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: pageColor("ledger", "accent", ACCENT), padding: "12px 0", borderRadius: 12, border: "none" } }, props.submitLabel || "保存"))));
   }
 
   // ============================================================
@@ -449,13 +451,13 @@
     } else {
       // 钱包式落地页
       // 顶栏也从那块 30px「记账 / LEDGER」大标题换成紧凑标题栏（mobile-ui-layout §1）
-      body = h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h(Head, { zh: "记账", onBack: props.onBack, ink: "#33322c", bg: "transparent", noLine: true,
-          right: h("button", { onClick: () => setShowSet(true), "aria-label": "记账设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(GConfig, { size: 19, color: "#33322c" })) }),
+      body = h("div", { className: "h-full flex flex-col", style: Object.assign({}, paperBg()) },
+        h(Head, { zh: "记账", onBack: props.onBack, ink: pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
+          right: h("button", { onClick: () => setShowSet(true), "aria-label": "记账设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(GConfig, { size: 19, color: pageColor("ledger", "ink", "#33322c") })) }),
         h(WalletHome, { data, curs, characters: props.characters, onOpenCur: code => setView("cur:" + code), visibleCount: (data.settings.visibleTo || []).length, onManageVisible: () => setShowSet(true) }),
-        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", background: "linear-gradient(to top, " + PAPER + " 60%, transparent)" } },
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", background: "linear-gradient(to top, " + pageColor("ledger", "bg", PAPER) + " 60%, transparent)" } },
           h("button", { onClick: () => setAddState({}), className: "w-full active:opacity-85",
-            style: { background: ACCENT, color: "#fff", border: "none", borderRadius: 999, padding: "15px 0", fontFamily: F_BODY, fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 } },
+            style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "15px 0", fontFamily: F_BODY, fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 } },
             h(IPlus, { size: 18, color: "#fff" }), "记一笔")));
     }
 
@@ -490,7 +492,7 @@
     const mk = thisMonthKey(), lmk = shiftMonth(mk, -1);
 
     // 本月有账的排前面
-    const cards = curs.map((cur, i) => ({ cur, s: summarize(data.txns, cur.code, mk), last: summarize(data.txns, cur.code, lmk), has: data.txns.some(x => x.currency === cur.code), color: CUR_COLORS[i % CUR_COLORS.length] }))
+    const cards = curs.map((cur, i) => ({ cur, s: summarize(data.txns, cur.code, mk), last: summarize(data.txns, cur.code, lmk), has: data.txns.some(x => x.currency === cur.code), color: pageColor("ledger", "bg2", CUR_COLORS[i % CUR_COLORS.length]) }))
       .sort((a, b) => (b.has ? 1 : 0) - (a.has ? 1 : 0));
 
     const deltaLine = (s, last, cur) => {
@@ -526,7 +528,7 @@
             mrec.comments.map((cm, i) => {
               const ch = charOf(cm.charId);
               return h("div", { key: i, style: { display: "flex", gap: 9 } },
-                ch ? h(Avatar, { character: ch, size: 30, radius: 9 }) : h("div", { style: { width: 30, height: 30, borderRadius: 9, background: "#c2bdb1", flexShrink: 0 } }),
+                ch ? h(Avatar, { character: ch, size: 30, radius: 9 }) : h("div", { style: { width: 30, height: 30, borderRadius: 9, background: pageColor("ledger", "bg2", "#c2bdb1"), flexShrink: 0 } }),
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 2 } }, cm.charName + " 的月度盘点"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.55 } }, cm.text)));
@@ -535,7 +537,7 @@
         cards.map(({ cur, s, last, color }) => {
           const isOpen = open === cur.code;
           const maxCat = s.catList.length ? s.catList[0].amount : 1;
-          return h("div", { key: cur.code, style: { background: color, borderRadius: 20, overflow: "hidden", color: "#f6f4ef", boxShadow: isOpen ? "0 10px 30px rgba(0,0,0,0.18)" : "0 3px 10px rgba(0,0,0,0.08)", transition: "box-shadow .2s" } },
+          return h("div", { key: cur.code, style: { background: color, borderRadius: 20, overflow: "hidden", color: pageColor("ledger", "ink", "#f6f4ef"), boxShadow: isOpen ? "0 10px 30px rgba(0,0,0,0.18)" : "0 3px 10px rgba(0,0,0,0.08)", transition: "box-shadow .2s" } },
             // 卡片正面（点击抽出/收回）
             h("button", { onClick: () => setOpen(o => o === cur.code ? null : cur.code), className: "w-full text-left active:opacity-95",
               style: { padding: "17px 18px 15px", border: "none", background: "transparent", color: "inherit", display: "block" } },
@@ -557,18 +559,18 @@
                 h("span", null, isOpen ? "收起 ▲" : "展开 ▼"))),
             // 抽出的富汇总
             isOpen ? h("div", { style: { padding: "4px 18px 18px" } },
-              h("div", { style: { height: 1, background: "rgba(255,255,255,0.18)", margin: "2px 0 14px" } }),
+              h("div", { style: { height: 1, background: pageColor("ledger", "bg2", "rgba(255,255,255,0.18)"), margin: "2px 0 14px" } }),
               s.catList.length
                 ? h("div", { style: { display: "flex", flexDirection: "column", gap: 9, marginBottom: 4 } },
                     s.catList.slice(0, 5).map(c => h("div", { key: c.name },
                       h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12, marginBottom: 4 } },
                         h("span", null, (c.emoji ? c.emoji + " " : "") + c.name),
                         h("span", { style: { opacity: 0.9 } }, fmtAmt(c.amount, cur) + " · " + Math.round(c.amount / (s.exp || 1) * 100) + "%")),
-                      h("div", { style: { height: 5, borderRadius: 5, background: "rgba(255,255,255,0.2)", overflow: "hidden" } },
-                        h("div", { style: { height: "100%", width: Math.max(4, c.amount / maxCat * 100) + "%", background: "rgba(255,255,255,0.85)", borderRadius: 5 } })))))
+                      h("div", { style: { height: 5, borderRadius: 5, background: pageColor("ledger", "bg2", "rgba(255,255,255,0.2)"), overflow: "hidden" } },
+                        h("div", { style: { height: "100%", width: Math.max(4, c.amount / maxCat * 100) + "%", background: pageColor("ledger", "bg2", "rgba(255,255,255,0.85)"), borderRadius: 5 } })))))
                 : h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: 0.75, padding: "6px 0 12px" } }, "这个月还没有支出"),
               h("button", { onClick: () => props.onOpenCur(cur.code), className: "w-full active:opacity-80",
-                style: { marginTop: 14, background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13, fontWeight: 600 } },
+                style: { marginTop: 14, background: pageColor("ledger", "bg2", "rgba(255,255,255,0.16)"), color: pageColor("ledger", "ink", "#fff"), border: "none", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13, fontWeight: 600 } },
                 "查看流水 & 按月对比 ›")) : null);
         })),
       props.visibleCount
@@ -593,9 +595,9 @@
     const navBtn = (label, delta) => h("button", { onClick: () => setMk(m => shiftMonth(m, delta)), className: "active:opacity-50",
       style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog, width: 40, textAlign: "center", lineHeight: 1, background: "transparent", border: "none" } }, label);
 
-    return h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-      h(Head, { zh: cur.label, sub: code, onBack: props.onBack, ink: "#33322c",
-        subInk: "rgba(60,54,40,.45)", bg: "transparent", noLine: true }),
+    return h("div", { className: "h-full flex flex-col", style: Object.assign({}, paperBg()) },
+      h(Head, { zh: cur.label, sub: code, onBack: props.onBack, ink: pageColor("ledger", "ink", "#33322c"),
+        subInk: pageColor("ledger", "sub", "rgba(60,54,40,.45)"), bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { overscrollBehavior: "contain" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 16 } },
           navBtn("‹", -1),
@@ -614,7 +616,7 @@
                 h("span", null, (c.emoji ? c.emoji + " " : "") + c.name),
                 h("span", null, fmtAmt(c.amount, cur) + "  ·  " + Math.round(c.amount / (s.exp || 1) * 100) + "%")),
               h("div", { style: { height: 6, borderRadius: 6, background: t.line, overflow: "hidden" } },
-                h("div", { style: { height: "100%", width: Math.max(3, c.amount / maxCat * 100) + "%", background: ACCENT, borderRadius: 6 } })))))) : null,
+                h("div", { style: { height: "100%", width: Math.max(3, c.amount / maxCat * 100) + "%", background: pageColor("ledger", "accent", ACCENT), borderRadius: 6 } })))))) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, letterSpacing: "0.05em" } }, "流水 · " + monthTxns.length + " 笔"),
         monthTxns.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
           monthTxns.map(x => h(TxnRow, { key: x.id, txn: x, cur, onClick: () => props.onOpenTxn(x.id) })))
@@ -649,11 +651,11 @@
     const comments = txn.comments || [];
     const charById = id => (props.characters || []).find(c => c.id === id);
 
-    return h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-      h(Head, { zh: isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: "#33322c", bg: "transparent", noLine: true,
+    return h("div", { className: "h-full flex flex-col", style: Object.assign({}, paperBg()) },
+      h(Head, { zh: isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
         right: h("div", { className: "flex items-center" },
-          h("button", { onClick: props.onEdit, "aria-label": "改这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(IPencil, { size: 17, color: "#33322c" })),
-          h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(ITrash, { size: 18, color: "rgba(60,54,40,.5)" }))) }),
+          h("button", { onClick: props.onEdit, "aria-label": "改这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(IPencil, { size: 17, color: pageColor("ledger", "ink", "#33322c") })),
+          h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(ITrash, { size: 18, color: pageColor("ledger", "ink", "rgba(60,54,40,.5)") }))) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: { overscrollBehavior: "contain" } },
         h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "22px 20px", textAlign: "center", marginBottom: 22 } },
           h("div", { style: { fontSize: 30, marginBottom: 8 } }, txn.catEmoji || (isInc ? "💰" : "💸")),
@@ -666,7 +668,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: "0.05em" } }, "角色批注" + (comments.length ? " · " + comments.length : "")),
           (props.characters && props.characters.length)
             ? h("button", { onClick: () => setPick(true), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: ACCENT, border: "none", borderRadius: 999, padding: "6px 14px" } },
+                style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: pageColor("ledger", "accent", ACCENT), border: "none", borderRadius: 999, padding: "6px 14px" } },
                 comments.length ? "再让 TA 们说说" : "让角色批注")
             : null),
         comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
@@ -674,7 +676,7 @@
             const ch = charById(cm.charId);
             return h("div", { key: i, style: { display: "flex", gap: 10 } },
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 })
-                 : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: "#c2bdb1", flexShrink: 0 } }),
+                 : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: pageColor("ledger", "bg2", "#c2bdb1"), flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 } }, cm.charName,
                   cm.auto ? h("span", { style: { fontSize: 9.5, color: GOLD, border: "1px solid " + GOLD + "55", borderRadius: 999, padding: "1px 7px" } },
@@ -720,12 +722,12 @@
       } catch (e) { props.toast && props.toast("生成失败，重试一下"); setBusy(false); }
     };
 
-    return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, background: "rgba(20,18,15,0.4)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }, onClick: props.onClose },
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, background: pageColor("ledger", "bg2", "rgba(20,18,15,0.4)"), display: "flex", flexDirection: "column", justifyContent: "flex-end" }, onClick: props.onClose },
       h("div", { onClick: e => e.stopPropagation(), style: { background: t.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "20px 20px calc(env(safe-area-inset-bottom, 0px) + 20px)", maxHeight: "78%", display: "flex", flexDirection: "column", marginBottom: lift || 0, transition: "margin-bottom .18s ease" } },
         h("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 4 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "让谁看看这笔账"),
           (!busy && chars.length > 1) ? h("button", { onClick: toggleAll, className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 12, color: allOn ? t.sub : ACCENT, background: "transparent", border: "none", flexShrink: 0, paddingTop: 3 } }, allOn ? "取消全选" : "全选") : null),
+            style: { fontFamily: F_BODY, fontSize: 12, color: allOn ? t.sub : pageColor("ledger", "accent", ACCENT), background: "transparent", border: "none", flexShrink: 0, paddingTop: 3 } }, allOn ? "取消全选" : "全选") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 16, lineHeight: 1.5 } }, "可多选，一次生成全部——省一次 API。TA 们会按各自人设和此刻心情说一句。"),
         busy
           ? h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "TA 们正在看你的账本…")
@@ -734,14 +736,14 @@
                 chars.map(c => {
                   const on = sel.includes(c.id); const md = moodOf(c.id);
                   return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-80 text-left",
-                    style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 12, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line) } },
+                    style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 12, background: on ? pageColor("ledger", "accent", ACCENT) : t.bg2, border: "1px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line) } },
                     h(Avatar, { character: c, size: 32, radius: 9 }),
                     h("div", { style: { minWidth: 0, flex: 1 } },
                       h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
                       md ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? "rgba(255,255,255,0.75)" : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, md) : null));
                 })),
               h("button", { onClick: run, disabled: !sel.length, className: "w-full active:opacity-85",
-                style: { background: sel.length ? ACCENT : t.line, color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
+                style: { background: sel.length ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
                 sel.length ? "生成批注（" + sel.length + " 人）" : "选一个或几个角色"))));
   }
 
@@ -790,18 +792,18 @@
     // 整页，不用半窗（施工规则/no-half-sheet.md）：金额、币种、十几个分类、
     // 日期、备注——半窗里正文只剩几行，而这一层压根不需要同时看见底下那一层。
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: "#33322c", bg: "transparent", noLine: true,
+      h("div", { className: "h-full flex flex-col", style: Object.assign({}, paperBg()) },
+        h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } }, seg("expense", "支出"), seg("income", "收入")),
-        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 20px", borderTop: "1px solid rgba(60,54,40,.16)", marginTop: -1 } },
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 20px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink } }, cur ? cur.symbol : ""),
             h("input", { value: amount, onChange: e => setAmount(e.target.value.replace(/[^0-9.]/g, "")), inputMode: "decimal", placeholder: "0",
               style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 34, color: t.ink, background: "transparent", border: "none", borderBottom: "1.5px solid " + t.line, outline: "none", padding: "2px 0" } })),
           h("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 20 } },
             curs.map(c => h("button", { key: c.code, onClick: () => setCode(c.code), className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12.5, color: code === c.code ? "#fff" : t.sub, background: code === c.code ? ACCENT : t.bg2, border: "1px solid " + (code === c.code ? ACCENT : t.line), borderRadius: 999, padding: "6px 13px" } },
+              style: { fontFamily: F_BODY, fontSize: 12.5, color: code === c.code ? "#fff" : t.sub, background: code === c.code ? pageColor("ledger", "accent", ACCENT) : t.bg2, border: "1px solid " + (code === c.code ? pageColor("ledger", "accent", ACCENT) : t.line), borderRadius: 999, padding: "6px 13px" } },
               c.label + " " + c.code)),
             h("button", { onClick: () => setDialog({ kind: "cur" }), className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 999, padding: "6px 13px" } }, "＋币种")),
@@ -809,7 +811,7 @@
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9, marginBottom: 20 } },
             catList.map(c => { const on = cat && cat.name === c.name;
               return h("button", { key: c.name, onClick: () => setCat(c), className: "active:opacity-70",
-                style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "11px 0", borderRadius: 12, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line) } },
+                style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "11px 0", borderRadius: 12, background: on ? pageColor("ledger", "accent", ACCENT) : t.bg2, border: "1px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line) } },
                 h("span", { style: { fontSize: 20 } }, c.emoji || "•"),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? "#fff" : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" } }, c.name)); }),
             h("button", { onClick: () => setDialog({ kind: "cat" }), className: "active:opacity-70",
@@ -821,9 +823,9 @@
               style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", outline: "none" } })),
           h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可留空）", maxLength: 60,
             style: { width: "100%", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", outline: "none", marginBottom: 18 } })),
-        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid rgba(60,54,40,.12)", marginBottom: lift || 0, transition: "margin-bottom .18s ease" } },
+        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)"), marginBottom: lift || 0, transition: "margin-bottom .18s ease" } },
           h("button", { onClick: save, disabled: !canSave, className: "w-full active:opacity-85",
-            style: { background: canSave ? ACCENT : "rgba(60,54,40,.18)", color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 15, fontWeight: 600 } },
+            style: { background: canSave ? pageColor("ledger", "accent", ACCENT) : "rgba(60,54,40,.18)", color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 15, fontWeight: 600 } },
             edit ? "保存修改" : "记好了"))),
       dialog && dialog.kind === "cat" ? h(FieldDialog, { title: "新分类", submitLabel: "添加",
         fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "emoji", label: "Emoji（可留空）", placeholder: "☕", maxLength: 4 }],
@@ -881,19 +883,19 @@
     const addCat = () => setDialog({ kind: "addcat" });
     const submitAddCat = vals => { const name = (vals.name || "").trim(); if (!name) return; if (cats.some(c => c.name === name)) { setDialog(null); return; } props.onPersist(d => { d.settings.cats[catType] = d.settings.cats[catType].concat([{ name, emoji: (vals.emoji || "").trim() }]); }); setDialog(null); };
 
-    const tabBtn = (k, label) => bookTab(tab === k, label, () => setTab(k), ACCENT);
+    const tabBtn = (k, label) => bookTab(tab === k, label, () => setTab(k), pageColor("ledger", "accent", ACCENT));
 
     const rowStyle = { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
     const iconBtn = (Icon, onClick, color) => h("button", { onClick, className: "active:opacity-50", style: { background: "transparent", border: "none", padding: 4 } }, h(Icon, { size: 16, color: color || t.fog }));
 
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h(Head, { zh: "记账设置", onBack: props.onClose, ink: "#33322c", bg: "transparent", noLine: true,
+      h("div", { className: "h-full flex flex-col", style: Object.assign({}, paperBg()) },
+        h(Head, { zh: "记账设置", onBack: props.onClose, ink: pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
           tabBtn("visible", "谁能看到"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
-        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid rgba(60,54,40,.16)", marginTop: -1 } },
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           // ---- 可见性 ----
           tab === "visible" ? h(Fragment, null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "被选中的角色在聊天里能自然感知你本月的真实收支和几笔大开销，按人设关心或调侃你。只是让 TA 知道，不碰任何余额。"),
@@ -901,7 +903,7 @@
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full active:opacity-80", style: { ...rowStyle, marginBottom: 8 } },
                 h(Avatar, { character: c, size: 36, radius: 10 }),
                 h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
-                h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? ACCENT : t.line), background: on ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null));
+                h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line), background: on ? pageColor("ledger", "accent", ACCENT) : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null));
             }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) : null,
           // ---- 币种管理 ----
           tab === "cur" ? h(Fragment, null,
@@ -923,9 +925,9 @@
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
             h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加分类")) : null),
         // 底部主按钮（可见性 tab 才需要保存；管理 tab 即时生效，给「完成」）
-        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid rgba(60,54,40,.12)" } },
+        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
           h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, className: "w-full active:opacity-85",
-            style: { background: ACCENT, color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
+            style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
             tab === "visible" ? "保存" : "完成"))),
       // 弹窗们
       dialog && dialog.kind === "addcur" ? h(FieldDialog, { title: "新币种", submitLabel: "添加", fields: [{ key: "label", label: "名称", placeholder: "如 日元", required: true }, { key: "code", label: "三字母代码", placeholder: "JPY", maxLength: 4, required: true }, { key: "symbol", label: "符号（可留空）", placeholder: "¥", maxLength: 3 }], onSubmit: submitAddCur, onCancel: () => setDialog(null) }) : null,

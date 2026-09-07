@@ -139,8 +139,8 @@ test("十种媒体腔与四个编辑部页面都有独立纸张、字体与结�
     assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?titleFace:[\\s\\S]*?bodyFace:"), id + " 标题和正文必须有独立字族");
     assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?tint:[\\s\\S]*?pale:"), id + " 内页必须有结构色块");
   });
-  assert.match(w, /const SECTION_LOOK = \{/);
-  const sectionSeg = w.slice(w.indexOf("const SECTION_LOOK = {"), w.indexOf("function pageLook"));
+  assert.match(w, /const SECTION_LOOK_BASE = \{/);
+  const sectionSeg = w.slice(w.indexOf("const SECTION_LOOK_BASE = {"), w.indexOf("function pageLook"));
   ["cover", "desk", "letters", "interview"].forEach(id => {
     assert.match(sectionSeg, new RegExp(id + ": \\{[^\\n]*tint:[^\\n]*pale:"), id + " 页面要有独立结构色");
   });
@@ -158,7 +158,7 @@ test("来信、资料室与采访目录都改成编辑网格而非旧卡片列�
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
   assert.match(issue, /来信 " \+ String\(i \+ 1\)\.padStart/, "来信要有刊物编号");
   assert.match(issue, /"事实 \/ 原话"/, "资料室要有竖版边栏");
-  assert.match(issue, /borderTop: "5px solid " \+ SECTION_LOOK\.interview\.tint/, "采访人物索引要用编辑部横梁");
+  assert.match(issue, /borderTop: "5px solid " \+ sectionLooks\(\)\.interview\.tint/, "采访人物索引要用编辑部横梁");
   assert.doesNotMatch(issue, /boxShadow: on \? "0 2px 8px/, "采访索引不能继续是浮起的圆角卡片");
 });
 
@@ -178,7 +178,7 @@ test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在�
   const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function WeeklyToolsSheet"));
   // v65.14：安全区归共用 Head 自己吃（组件里那一处 safeTop(8)），周刊这边只传版面色
   assert.match(w, /function WeeklyHead[\s\S]{0,600}return h\(Head, \{ zh: props\.zh \|\| "周刊"/, "周刊内页没走共用顶栏");
-  assert.match(w, /ink: L\.ink, subInk: L\.muted, lineInk: L\.tint \+ "22", bg: L\.paper/, "版面那几档色没传进去");
+  assert.match(w, /ink: L\.ink, subInk: L\.muted, lineInk: pageColor\("weekly", "line", paletteAlpha\(L\.tint, "22"\)\), bg: L\.paper/, "版面那几档色没传进去");
   assert.doesNotMatch(w, /h\(Head, \{ zh: "周刊"/, "周刊主页不能再套通用大标题 Head");
   assert.match(issue, /className: "flex-1 min-h-0 overflow-y-auto"/, "周刊正文要是唯一全屏滚动层");
   assert.match(issue, /sub \? h\(WeeklyHead/, "只有内页才显示紧凑顶栏，封面不能再被米色标题块截断");

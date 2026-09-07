@@ -24,6 +24,29 @@ const DEFAULT_THEME = {
 };
 const ThemeContext = createContext(DEFAULT_THEME);
 const useTheme = () => useContext(ThemeContext);
+// 自带材质的页面也在渲染时取当前 pagecolor；别在模块加载时冻结预览颜色。
+// aliases 把旧版面的纸色/墨色名称接到八支公共色，不改变它们原来的底稿。
+function pagePalette(page, base, aliases = {}) {
+  const studio = typeof window !== "undefined" && window.ThemeStudio;
+  if (!studio || !studio.tokensFor) return base;
+  const tokens = studio.tokensFor(page);
+  if (!Object.keys(tokens).length) return base;
+  const out = { ...base };
+  Object.keys(base).forEach(key => {
+    const token = aliases[key] || key;
+    if (Object.prototype.hasOwnProperty.call(tokens, token)) out[key] = tokens[token];
+  });
+  return out;
+}
+
+// 一处只有一支底稿色时，仍走同一个覆盖入口。
+const pageColor = (page, key, base) => pagePalette(page, { [key]: base })[key];
+// 透明度既支持旧六位色号，也支持工作台允许的 rgb/hsl/命名颜色。
+function paletteAlpha(color, alpha) {
+  const text = String(color || "");
+  return /^#[0-9a-f]{6}$/i.test(text) ? text + alpha
+    : "color-mix(in srgb, " + text + " " + (parseInt(alpha, 16) / 255 * 100) + "%, transparent)";
+}
 const AV_COLORS = ["#c25a4a", "#5a6357", "#4f5a63", "#7a6a5a", "#6d5a78", "#33322e"];
 const F_DISPLAY = "'Fraunces',serif";
 const F_BODY = "'Archivo','Noto Serif SC',system-ui,sans-serif";

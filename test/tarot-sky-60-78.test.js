@@ -54,15 +54,15 @@ test("点得着：星芒才十几像素，热区得是一整片天", () => {
 });
 
 test("历史那一截也不再一条一个框", () => {
-  assert.match(src, /borderBottom: "1px solid " \+ SKY_LINE, cursor: "pointer"/, "一条就是一行，靠发丝线分开");
+  assert.match(src, /borderBottom: "1px solid " \+ N.line, cursor: "pointer"/, "一条就是一行，靠发丝线分开");
   assert.equal(codeOnly.indexOf('background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 14px"'), -1, "旧的框还在");
 });
 
 test("类型筛选不是一排药丸：形状、明暗、底下那道线一起变", () => {
   const chip = src.slice(src.indexOf("const chip = (k, label, cnt)"), src.indexOf("return h(\"div\", null,\n            // 搜索框"));
   assert.equal(chip.indexOf("borderRadius: 999"), -1, "又摆回药丸了（tabs-not-plain-pills）");
-  assert.match(chip, /borderBottom: "1\.5px solid " \+ \(on \? GOLD : "transparent"\)/, "选中要有一道金线");
-  assert.match(chip, /on \? h\("path", \{ d: sparkle\(6, 6, 5\.6\), fill: GOLD \}\)\n\s*: h\("circle"/, "选中是一颗亮星，没选是一个暗点——形状要不一样");
+  assert.match(chip, /borderBottom: "1\.5px solid " \+ \(on \? N.tint : "transparent"\)/, "选中要有一道金线");
+  assert.match(chip, /on \? h\("path", \{ d: sparkle\(6, 6, 5\.6\), fill: N.tint \}\)\n\s*: h\("circle"/, "选中是一颗亮星，没选是一个暗点——形状要不一样");
   assert.match(chip, /width: on \? 12 : 8/, "大小也要不一样，不能只靠颜色");
 });
 
@@ -82,13 +82,13 @@ test("落地页不再顶着那一大块标题：紧凑标题栏，返回键压�
   //（施工规则/no-yes-unless.md）。v65.14 起 NightHead 就是【包了一层夜色参数的 Head】：
   //   长相照旧写在天上，但顶栏那几个挂点跟着白得，主题 CSS 抓得住这一页了。
   assert.match(landing, /h\(NightHead, \{ title: "塔罗", onBack: props\.onBack \}\)/, "落地页要用那条共用的紧凑标题栏");
-  assert.match(src, /const NightHead = \(\{ title, onBack, right \}\) => h\(Head, \{/, "NightHead 又自己手写了一条");
+  assert.match(src, /const NightHead = \(\{ title, onBack, right \}\) => \{ const N = nightNow\(\); return h\(Head, \{/, "NightHead 又自己手写了一条");
   // 三处（落地/入座/结果）共用同一条，别一层写在三处
   assert.equal((src.match(/h\(Head, \{/g) || []).length, 1, "Head 只该在 NightHead 那一处出现");
   assert.ok((src.match(/h\(NightHead, \{/g) || []).length >= 5, "落地/入座/选牌/生成中/结果，每一页都得走这一条");
   // 安全区归 Head 自己吃了（组件里那一处 safeTop(8)），塔罗这边不再另写一份；
   // 这一页要的是【夜色那档字色 + 透明底 + 不画分隔线】，那三样得传进去
-  assert.match(src, /ink: SKY_INK, bg: "transparent", noLine: true/, "夜色那几样没传给顶栏");
+  assert.match(src, /ink: N.ink, bg: "transparent", noLine: true/, "夜色那几样没传给顶栏");
   // 返回键的箭头也归 Head 画（它按 ink 上色），所以夜色那一档由上面那个 ink 一起管
   // 可点区和「右边留等宽操作位」也都归 Head 那一处管（46 宽 / 34 高、右侧 minWidth: SIDE）。
   // ⚠️所以这两条钉到共用组件上去——钉在塔罗自己身上的话，改了 Head 这儿也不会红。
@@ -117,9 +117,9 @@ test("天上的字是天上的颜色——纸上那套一个都不许漏进来",
   // 漏一个 t.ink 就是深色底上写深色字（tabs-not-plain-pills 第 2 条那个坑）
   assert.deepEqual([...new Set(landing.match(/\bt\.[a-zA-Z0-9]+/g) || [])], [],
     "落地页里还留着纸上那套颜色变量");
-  assert.match(landing, /color: SKY_INK/);
-  assert.match(landing, /color: SKY_DIM/);
-  assert.match(landing, /borderBottom: "1px solid " \+ SKY_LINE/);
+  assert.match(landing, /color: N.ink/);
+  assert.match(landing, /color: N.sub/);
+  assert.match(landing, /borderBottom: "1px solid " \+ N.line/);
 });
 
 test("一卦都没算过时，底下不留一屏空白", () => {
@@ -169,7 +169,7 @@ test("牌义搬到牌背上：翻开之后再点一下就翻过去，而且能�
   assert.match(src, /\? \{ flex: "1 1 100%", width: "100%", maxWidth: "100%" \}/);
   assert.match(src, /aspectRatio: \(meaning && faceUp !== false\) \? "auto" : "2\/3\.4"/, "摊开那面不锁长宽比，长多少长多高");
   // 同一段话不许读两遍：下面那份逐张解读只剩名头和补牌
-  assert.equal(src.indexOf('fontSize: 14, lineHeight: 1.8, color: SKY_INK, whiteSpace: "pre-wrap" } }, r.text)'), -1,
+  assert.equal(src.indexOf('fontSize: 14, lineHeight: 1.8, color: N.ink, whiteSpace: "pre-wrap" } }, r.text)'), -1,
     "下面那份又把分析重复了一遍");
   assert.match(src, /点一张牌翻过去，背面写的就是这一张的分析 · 可以同时翻好几张/);
 });
@@ -191,7 +191,7 @@ test("牌阵分组不是一排药丸：每一组用它自己的摊牌形状当�
     assert.ok(glyph.indexOf(g + ": [[") >= 0, g + " 这一组没有自己的形状"));
   const row = src.slice(src.indexOf("Object.keys(SPREAD_GROUPS)"), src.indexOf("!m.daily ? h(\"div\", { style: { display: \"grid\""));
   assert.equal(row.indexOf("borderRadius: 999"), -1, "又摆回药丸了");
-  assert.match(row, /borderBottom: "1\.5px solid " \+ \(on \? GOLD : "transparent"\)/, "选中要有一道金线");
+  assert.match(row, /borderBottom: "1\.5px solid " \+ \(on \? N.tint : "transparent"\)/, "选中要有一道金线");
   assert.match(row, /r: on \? 1\.5 : 1\.05/, "选中那几点要变大——不能只靠颜色");
-  assert.match(row, /fill: on \? GOLD : SKY_MUTE/);
+  assert.match(row, /fill: on \? N.tint : N.fog/);
 });

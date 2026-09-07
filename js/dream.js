@@ -36,8 +36,7 @@
     sub: "rgba(232,230,240,.70)", fog: "rgba(232,230,240,.42)",
     line: "rgba(232,230,240,.14)", tint: "#a99ac9", accent: "#a99ac9"
   };
-  const nightNow = () => (typeof window !== "undefined" && window.ThemeStudio && window.ThemeStudio.themeFor)
-    ? window.ThemeStudio.themeFor("dream", NIGHT_BASE) : NIGHT_BASE;
+  const nightNow = () => pagePalette("dream", NIGHT_BASE);
   // 雾紫在夜里做【字】太暗，读不出来；做【填色】正好。所以分成两支：
   // ACCENT 只用来填按钮和药丸，ACC_LIT 用来写字和画线。
   const ACC_LIT = "#a99ac9";

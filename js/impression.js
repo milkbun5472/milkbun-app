@@ -361,8 +361,8 @@
     // 月度印象在现实里是【一本按月贴的剪影相册】——所以列表不是网格，是相册内页：
     // 深色卡纸台面上贴着一张张相纸，四角用相角压住，每张微微歪一点（人手贴的从来不齐），
     // 底下手写月份。空的那格是还没贴上去的相角位，不是一个虚线按钮。
-    const MOUNT = "rgba(28,24,20,.90)";          // 卡纸台面（相册内页那块深色底）
-    const PAPER = "#f3ece0";                     // 相纸白边
+    const MOUNT = pageColor("impression", "bg", "rgba(28,24,20,.90)");          // 卡纸台面（相册内页那块深色底）
+    const PAPER = pageColor("impression", "bg2", "#f3ece0");                     // 相纸白边
     // 每张歪的角度由序号定死：随机的话每次重画都在动，像页面在抖
     const tilt = i => [-1.6, 1.1, -0.7, 1.8, -1.2, .6][i % 6];
     // 相角：压在相片四角上的那个三角形纸角。⚠️别用「转 45 度的方块」——那样四个角
@@ -383,13 +383,13 @@
       padding: opts.edge == null ? 6 : opts.edge, boxShadow: "0 7px 18px rgba(0,0,0,.38)",
       transform: "rotate(" + (opts.deg || 0) + "deg)" }, opts.style || {}) },
       h("div", { style: { position: "relative", width: "100%", aspectRatio: opts.ratio || "3 / 4",
-        overflow: "hidden", background: "rgba(20,17,14,.30)" } }, inner, corners(opts.corner || 18)));
+        overflow: "hidden", background: pageColor("impression", "bg2", "rgba(20,17,14,.30)") } }, inner, corners(opts.corner || 18)));
     // 相册内页：深色卡纸 + 一点点纸纹（两道极淡的斜光，不是纯色块）
     // 底已经由 S.wrap 一路铺到顶了，这儿只管留白
     const pageStyle = { flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px" };
-    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: "rgba(243,236,224,.92)",
+    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: pageColor("impression", "ink", "rgba(243,236,224,.92)"),
       letterSpacing: ".04em" };
-    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.45)", lineHeight: 1.85 };
+    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.45)"), lineHeight: 1.85 };
 
     const S = {
       // ⚠️台面要一直铺到最顶上（她 2026-09-03：「这背景没延伸到顶部啊」）：
@@ -399,14 +399,14 @@
         background: MOUNT + " linear-gradient(146deg,rgba(255,255,255,.055),transparent 42%,rgba(0,0,0,.16))",
         backgroundBlendMode: "overlay" },
       btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : "rgba(243,236,224,.34)"),
-        background: on ? t.accent : "transparent", color: on ? "#fff" : "rgba(243,236,224,.9)", fontFamily: F_BODY, fontSize: 12 })
+        background: on ? t.accent : "transparent", color: on ? "#fff" : pageColor("impression", "ink", "rgba(243,236,224,.9)"), fontFamily: F_BODY, fontSize: 12 })
     };
     // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：
     // 手写那条身上一个 data-wk 挂点都没有，「月度印象」这一页的主题 CSS 抓不到顶栏；
     // 返回键原来是一个 19px 的「←」字符，可点区只有那几个像素，Head 里是 46×34。
     // 夜色底是这一页自己的，所以字色和分隔线照旧从这儿传进去。
     const header = (title, right) => h(Head, { zh: title, onBack: back, right: right,
-      ink: "rgba(243,236,224,.95)", lineInk: "rgba(243,236,224,.13)", bg: "transparent" });
+      ink: pageColor("impression", "ink", "rgba(243,236,224,.95)"), lineInk: pageColor("impression", "line", "rgba(243,236,224,.13)"), bg: "transparent" });
     function back() {
       if (cardId) return setCardId(null);
       if (curChar) return setCurChar(null);
@@ -551,12 +551,12 @@
             padding: 9, boxShadow: "0 16px 40px rgba(0,0,0,.42)", transform: "rotate(-.5deg)" } },
             // 胶带：斜贴在上边缘，压住相纸和台面的交界——这就是它在册子上的贴法
             h("div", { style: { position: "absolute", top: -13, left: "50%", width: 104, height: 26,
-              transform: "translateX(-58%) rotate(-3.4deg)", background: "rgba(226,214,186,.62)",
+              transform: "translateX(-58%) rotate(-3.4deg)", background: pageColor("impression", "bg2", "rgba(226,214,186,.62)"),
               borderLeft: "1px dashed rgba(255,255,255,.5)", borderRight: "1px dashed rgba(255,255,255,.5)",
               boxShadow: "0 2px 6px rgba(0,0,0,.22)", pointerEvents: "none" } }),
-            h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: "rgba(20,17,14,.24)" } },
+            h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: pageColor("impression", "bg2", "rgba(20,17,14,.24)") } },
               e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
-                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: "rgba(243,236,224,.6)", textAlign: "center", padding: 20 } }, "还没有剪影"),
+                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: pageColor("impression", "fog", "rgba(243,236,224,.6)"), textAlign: "center", padding: 20 } }, "还没有剪影"),
               // 这张也压四个相角，和珍藏册那一页是同一本册子里的东西（v61.22）
               corners(22),
               // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
@@ -564,9 +564,9 @@
                 (e.tags || []).slice(0, 3).map((tag, i) => {
                   const onLeft = i === 1;
                   const dot = h("div", { key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
-                  const line = h("div", { key: "l", style: { width: 20, height: 1, background: "rgba(255,255,255,.85)", flexShrink: 0 } });
-                  const chip = h("div", { key: "c", style: { background: "rgba(97,84,56,.86)", border: "1px solid rgba(246,239,226,.55)",
-                    color: "#f6efe2", padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+                  const line = h("div", { key: "l", style: { width: 20, height: 1, background: pageColor("impression", "bg2", "rgba(255,255,255,.85)"), flexShrink: 0 } });
+                  const chip = h("div", { key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
+                    color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
                     letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
                   return h("div", { key: i, style: { position: "absolute", top: [24, 49, 74][i] + "%", [onLeft ? "left" : "right"]: "5%",
                     display: "flex", alignItems: "center", gap: 7 } },
@@ -579,15 +579,15 @@
               // 窄机上宁可字距收窄，也不许换行——所以右边这句字号和字距都压了一档。
               h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8,
                 paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: "rgba(64,54,42,.86)", letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: "rgba(120,100,72,.55)", textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, "印象变了哪儿")),
-              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "rgba(43,36,28,.95)", textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, "印象变了哪儿")),
+              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: "rgba(120,100,72,.5)" } }, "“"),
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: "rgba(43,36,28,.95)", textAlign: "center", padding: "0 6px" } }, e.quote),
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: "rgba(120,100,72,.5)", textAlign: "right" } }, "”")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(94,79,58,.8)", textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
           h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
@@ -613,10 +613,10 @@
         h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4",
           border: "1px dashed rgba(243,236,224,.30)", display: "flex", alignItems: "center", justifyContent: "center",
           textAlign: "center", padding: 12, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8,
-          color: "rgba(243,236,224,.62)" } },
+          color: pageColor("impression", "fog", "rgba(243,236,224,.62)") } },
           busy ? "在写…" : "贴上 " + M.monthLabel(openMonth) + "的那一张",
           corners(15)),
-        h("div", { style: Object.assign({}, handLabel, { marginTop: 8, color: "rgba(243,236,224,.55)" }) },
+        h("div", { style: Object.assign({}, handLabel, { marginTop: 8, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") }) },
           M.monthLabel(openMonth)));
       return h("div", { style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
@@ -630,10 +630,10 @@
               plate({ deg: tilt(i), corner: 15 },
                 e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
                   : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: F_BODY, fontSize: 11, color: "rgba(243,236,224,.55)" } }, "只有字")),
+                      fontFamily: F_BODY, fontSize: 11, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") } }, "只有字")),
               h("div", { style: Object.assign({}, handLabel, { marginTop: 9 }) }, M.monthLabel(e.monthKey)),
               // 三个词写成相片底下那行铅笔小字，不是一排药丸
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(243,236,224,.55)", marginTop: 2,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.55)"), marginTop: 2,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 (e.tags || []).slice(0, 3).join(" · ") || e.title || ""))),
             emptySlot),
@@ -659,7 +659,7 @@
     // ---- 头像墙：一摞一摞的相片，谁的厚就是谁攒得多 ----
     return h("div", { style: S.wrap }, header("月度印象"),
       h("div", { style: pageStyle },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(243,236,224,.62)", lineHeight: 1.9, marginBottom: 20 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
           "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句他亲口说的话。"),
         (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
           (props.characters || []).map((c, i) => {
@@ -684,10 +684,10 @@
                     avatarOf(c, 44)))),
               h("div", { style: Object.assign({}, handLabel, { marginTop: 10, fontSize: 12, overflow: "hidden",
                 textOverflow: "ellipsis", whiteSpace: "nowrap" }) }, c.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(243,236,224,.5)", marginTop: 1 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: pageColor("impression", "fog", "rgba(243,236,224,.5)"), marginTop: 1 } },
                 n ? n + " 个月" : "还没有"));
           }))
-          : h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: "rgba(243,236,224,.6)" } }, "还没有角色。")));
+          : h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: pageColor("impression", "fog", "rgba(243,236,224,.6)") } }, "还没有角色。")));
   }
   window.ImpressionApp = ImpressionApp;
 })();

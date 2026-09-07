@@ -11,7 +11,7 @@ const F = (() => {
   const rgb = core.slice(core.indexOf("function skinRGB(hex)"), core.indexOf("// 299/587/114"));
   const dark = core.slice(core.indexOf("function skinIsDark(hex)"), core.indexOf("// 纹理表"));
   return new Function("const DEFAULT_THEME={bg:'#ece8e1',bg2:'#f6f4ef',ink:'#1b1a17',sub:'#4b493f',fog:'#96938a',line:'#ddd8cd',accent:'#c25a4a',tint:'#3f6d8c'};"
-    + rgb + dark + seg + "\nreturn { FIC_PAPERS, ficPaper, ficPaperTheme, skinIsDark };")();
+    + core.slice(core.indexOf("function pagePalette("), core.indexOf("const AV_COLORS")) + rgb + dark + seg + "\nreturn { FIC_PAPERS, ficPaper, ficPaperTheme, skinIsDark };")();
 })();
 const KEYS = ["bg", "bg2", "ink", "sub", "fog", "line", "accent", "tint"];
 

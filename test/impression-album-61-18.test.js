@@ -67,7 +67,7 @@ test("单张卡片也压相角，和珍藏册是同一本册子里的东西", ()
 
 test("单张卡片是一张贴着胶带的旧相纸，不是一块白圆角", () => {
   const i = src.indexOf("if (cardId && curChar)");
-  const card = src.slice(i, i + 4200);
+  const card = src.slice(i, src.indexOf("if (curChar)", i));
   assert.ok(card.indexOf("background: t.bg2") < 0, "又退回主题白底了");
   assert.ok(card.indexOf("background: PAPER") >= 0, "卡片没用相纸色");
   assert.ok(card.indexOf("radial-gradient") >= 0, "相纸没泛旧，还是死白一块");

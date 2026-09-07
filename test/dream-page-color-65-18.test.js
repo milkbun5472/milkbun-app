@@ -17,8 +17,7 @@ const dream = R("js/dream.js"), studio = R("js/theme-studio.js"), asst = R("js/a
 
 test("梦境那套夜色变成【底稿】：真正发下去的那份过一道 themeFor", () => {
   assert.match(dream, /const NIGHT_BASE = \{/, "底稿那份没了");
-  assert.match(dream, /const nightNow = \(\) => \(typeof window !== "undefined" && window\.ThemeStudio && window\.ThemeStudio\.themeFor\)\s*\n\s*\? window\.ThemeStudio\.themeFor\("dream", NIGHT_BASE\) : NIGHT_BASE;/,
-    "没接到主题上（或者接的不是 dream 这一页）");
+  assert.match(dream, /const nightNow = \(\) => pagePalette\("dream", NIGHT_BASE\);/);
   // ⚠️每一处都得【现取】：在模块加载时算一次的话，她改完主题这一页不会跟着变
   assert.ok(!/const t = NIGHT;/.test(dream), "还有地方把那套夜色当常量拿");
   assert.equal((dream.match(/nightNow\(\)/g) || []).length, 6, "六处（四个组件 + 页底 + 定义）都要现取");
@@ -29,7 +28,7 @@ test("梦境那套夜色变成【底稿】：真正发下去的那份过一道 t
 
 test("自己写死配色的那几页记在一张表里，而且只有一份", () => {
   assert.match(studio, /const OWN_PALETTE = Object\.freeze\(\{/);
-  ["tarot", "ledger", "weekly", "fanfic", "dreamjournal", "impression", "map"].forEach(k =>
+  ["map"].forEach(k =>
     assert.match(studio, new RegExp("\\n    " + k + ": \""), "表里少了 " + k));
   // 梦境已经接上了，不该还在表里
   assert.ok(!/\n    dream: "/.test(studio), "梦境已经接上主题了，还留在表里就会被白白拒掉");

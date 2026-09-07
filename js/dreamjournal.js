@@ -248,7 +248,7 @@
     //   铺在滚动区上的话，顶栏那一条还是平色，顶上横着一道没盖住的带子。
     const NIGHT = "#20233250";
     const nightBg = {
-      background: "#1e2130",
+      background: pageColor("dreamjournal", "bg", "#1e2130"),
       backgroundImage:
         // 几粒星尘：位置写死（随机的话每次重画都在动）
         "radial-gradient(1.2px 1.2px at 12% 14%, rgba(255,255,255,.5), transparent 60%),"
@@ -259,12 +259,12 @@
         + "radial-gradient(1px 1px at 64% 84%, rgba(255,255,255,.3), transparent 60%),"
         // 月亮那侧的一团淡光
         + "radial-gradient(70% 42% at 82% -6%, rgba(154,150,200,.30), transparent 70%),"
-        + "linear-gradient(168deg,#232739,#1b1e2b 62%,#171a26)"
+        + "linear-gradient(168deg," + pageColor("dreamjournal", "bg", "#232739") + "," + pageColor("dreamjournal", "bg", "#1b1e2b") + " 62%," + pageColor("dreamjournal", "bg", "#171a26") + ")"
     };
-    // 夜色上的字色（不跟主题走：这一页自己带底，跟着主题变会瞎）
-    const NINK = "#efe9e0", NSUB = "rgba(239,233,224,.72)", NFOG = "rgba(239,233,224,.45)", NLINE = "rgba(239,233,224,.16)";
+    // 夜色字是底稿；页面换色时与底色一起覆盖
+    const NINK = pageColor("dreamjournal", "ink", "#efe9e0"), NSUB = pageColor("dreamjournal", "sub", "rgba(239,233,224,.72)"), NFOG = pageColor("dreamjournal", "fog", "rgba(239,233,224,.45)"), NLINE = pageColor("dreamjournal", "line", "rgba(239,233,224,.16)");
     // 梦＝压在夜色上的一张浅纸条
-    const paperCard = (extra) => Object.assign({ background: "#f4efe4", borderRadius: 3,
+    const paperCard = (extra) => Object.assign({ background: pageColor("dreamjournal", "bg2", "#f4efe4"), borderRadius: 3,
       boxShadow: "0 8px 20px rgba(8,10,20,.42)", padding: "12px 14px", marginBottom: 10 }, extra || {});
     // 纸条上那几个小动作（找TA解 / 删 / 展开 / 推门进这场梦 / 选谁来解）——
     // 她 2026-09-06：「解梦馆那个找ta解按了没反应」「有时候可以有时候又点不到」。
@@ -276,11 +276,8 @@
     const tap = (extra) => Object.assign({ fontFamily: F_BODY, fontSize: 11.5,
       minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center",
       background: "transparent", border: "none", padding: "0 10px" }, extra || {});
-    // 纸卡上的字色不跟主题走（这张纸在任何主题下都是同一张浅纸）——
-    // 这两处原来写的是 t.tint / t.fog：深色主题里那两个色本来就是【给夜色用的浅色】，
-    // 落在浅纸上会淡到几乎看不见。改用这一页自己那套纸上色（#6f6796 / #8b8276），
-    // 跟底下「解法」那一块和「推门进这场梦」是同一套，不是新调的。
-    const PINK = "#6f6796", PSUB = "#8b8276";
+    // 纸卡默认使用原来的纸上墨色；pagecolor 与纸色一起覆盖。
+    const PINK = pageColor("dreamjournal", "tint", "#6f6796"), PSUB = pageColor("dreamjournal", "sub", "#8b8276");
     // 分栏＝这本梦簿书口上伸出来的三条布书签（不是一排药丸，tabs-not-plain-pills.md）
     const ribbon = (k, label) => {
       const on = view === k;
@@ -292,7 +289,7 @@
         //   没选中的带子只是垂得短一截，往下那 10px 仍然点得着。
         h("div", { style: { position: "absolute", left: 6, right: 6, top: 0, bottom: on ? 0 : 10,
           transition: "bottom .16s ease",
-          background: on ? "linear-gradient(#8d84b8,#6f6796)" : "rgba(239,233,224,.20)",
+          background: on ? pageColor("dreamjournal", "accent", "linear-gradient(#8d84b8,#6f6796)") : "rgba(239,233,224,.20)",
           clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)",
           boxShadow: on ? "0 5px 12px rgba(10,10,25,.4)" : "none" } }),
         h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 12,
@@ -320,14 +317,14 @@
           return h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: NSUB, lineHeight: 1.7, marginBottom: 12 } },
               "解梦的人在末尾写给你的那一句。攒着看，比一条一条翻回去有意思。"),
-            signs.map((x, i) => h("div", { key: i, style: { position: "relative", background: "#f4efe4",
+            signs.map((x, i) => h("div", { key: i, style: { position: "relative", background: pageColor("dreamjournal", "bg2", "#f4efe4"),
               border: "none", borderRadius: 3, padding: "13px 14px 12px", marginBottom: 10,
               transform: "rotate(" + [-0.8, 0.6, -0.4, 0.9][i % 4] + "deg)", boxShadow: "0 4px 12px rgba(60,50,70,.08)" } },
               // 签头上那个小孔和挂绳
               h("div", { "aria-hidden": "true", style: { position: "absolute", left: 13, top: 8, width: 5, height: 5,
                 borderRadius: 999, background: t.line } }),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: "#2c2822", lineHeight: 1.5, paddingLeft: 12 } }, "「" + x.sign + "」"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8b8276", marginTop: 7, paddingLeft: 12 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.5, paddingLeft: 12 } }, "「" + x.sign + "」"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("dreamjournal", "ink", "#8b8276"), marginTop: 7, paddingLeft: 12 } },
                 x.name + " · " + x.day + (x.dream ? "　为「" + x.dream.replace(/\s+/g, " ").slice(0, 14) + "…」写的" : "")))));
         })() :
         view === "theirs" ? h(React.Fragment, null,
@@ -337,20 +334,20 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: NFOG, marginBottom: 7 } }, g.night + " 夜"),
             g.items.map((d, di) => h("div", { key: d.key, style: paperCard({ marginBottom: 9, transform: "rotate(" + [0.4, -0.5, 0.3][di % 3] + "deg)" }) },
               h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#2c2822" } }, nameOf(d.charId)),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8b8276" } }, d.recurOf ? "又做了一次" : d.status === "queued" ? "未醒的梦" : d.status === "no_dream" ? "无梦之夜" : (d.tone || "有梦"))),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pageColor("dreamjournal", "ink", "#2c2822") } }, nameOf(d.charId)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("dreamjournal", "ink", "#8b8276") } }, d.recurOf ? "又做了一次" : d.status === "queued" ? "未醒的梦" : d.status === "no_dream" ? "无梦之夜" : (d.tone || "有梦"))),
               // 合龙（v62.99）：这场梦是 TA 昨晚真做的，可以从梦境 app 闯进去——
               // 进去过的写一行结果；没进过的给一扇门。无梦之夜没有门。
               (d.status === "queued" || d.status === "generated") ? (d.entered && d.entered.outcome
-                ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#6f6796", marginBottom: 6 } },
+                ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: pageColor("dreamjournal", "ink", "#6f6796"), marginBottom: 6 } },
                     "你进去过这场梦：" + ({ fulfilled: "走到了梦核", broken: "半路碎了", left: "自己醒了" })[d.entered.outcome] || "去过")
                 : (props.onEnterDream ? h("button", { onClick: () => props.onEnterDream(d), className: "active:opacity-70",
-                    style: tap({ color: PINK, border: "1px solid rgba(111,103,150,.45)", borderRadius: "14px 14px 3px 3px", padding: "0 13px", marginBottom: 8, background: "rgba(111,103,150,.07)" }) },
+                    style: tap({ color: PINK, border: "1px solid rgba(111,103,150,.45)", borderRadius: "14px 14px 3px 3px", padding: "0 13px", marginBottom: 8, background: pageColor("dreamjournal", "bg2", "rgba(111,103,150,.07)") }) },
                     "推门进这场梦") : null)) : null,
               d.status === "queued" ? h("button", { onClick: () => generate(d), disabled: !!genBusy, className: "w-full py-2 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, genBusy === d.key ? "梦正在成形…" : "轻轻推醒这场梦") : null,
               d.status === "no_dream" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, ({ calm_night: "那晚心里太平静，一夜无梦。", no_material: "那天没说上什么话，梦没有材料。" })[d.reason] || "一夜无梦。") : null,
               d.status === "generated" ? h(React.Fragment, null,
-                h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: "#2c2822", lineHeight: 1.8, whiteSpace: "pre-wrap" },
+                h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.8, whiteSpace: "pre-wrap" },
                   openId === d.key ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, d.narrative),
                 // 展开＝她真的读了这场梦（她 2026-09-04：「看了他们的梦之后发给他们进上下文
                 // 记得这件事，但是不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
@@ -373,7 +370,7 @@
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
             h(Eyebrow, null, "刚醒？趁没蒸发"),
             h(DictateButton, { onText: v => setText(x => (x ? x + " " : "") + v), toast: props.toast })),
-          h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 3, placeholder: "梦到什么都行——一个画面、一种颜色、一句醒来还记得的话。残渣也是梦。", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#2c2822", background: "rgba(255,255,255,.55)", border: "1px solid rgba(120,100,70,.2)", resize: "none" } }),
+          h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 3, placeholder: "梦到什么都行——一个画面、一种颜色、一句醒来还记得的话。残渣也是梦。", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: pageColor("dreamjournal", "ink", "#2c2822"), background: pageColor("dreamjournal", "bg2", "rgba(255,255,255,.55)"), border: "1px solid rgba(120,100,70,.2)", resize: "none" } }),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
             h("button", { onClick: () => addEntry("dream"), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "记完整的梦"),
             h("button", { onClick: () => addEntry("fragment"), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "只有残渣"),
@@ -388,12 +385,12 @@
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: (KIND[e.kind] || KIND.dream)[1], padding: "1px 8px", borderRadius: 999 } }, (KIND[e.kind] || KIND.dream)[0]),
               h("div", { className: "flex", style: { gap: 10 } },
                 h("button", { onClick: () => setPickFor(pickFor === e.id ? null : e.id), disabled: !!busyId, className: "active:opacity-60 disabled:opacity-40",
-                  style: tap({ color: PINK, padding: "0 13px", borderRadius: 999, border: "1px solid rgba(111,103,150,.45)", background: "rgba(111,103,150,.08)" }) },
+                  style: tap({ color: PINK, padding: "0 13px", borderRadius: 999, border: "1px solid rgba(111,103,150,.45)", background: pageColor("dreamjournal", "bg2", "rgba(111,103,150,.08)") }) },
                   busyId === e.id ? "解梦中…" : "找TA解"),
                 h("button", { onClick: () => requestAppConfirm("删掉这条梦？", "解读也会一起消失。", () => commit(loadLog().filter(x => x.id !== e.id)), "删除"), className: "active:opacity-60",
                   style: tap({ color: PSUB }) }, "删"))),
             // 正文：收起来时只露两行（她 2026-09-04：「一条很容易变很长翻好久才到下一条」）
-            e.text ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: "#2c2822", lineHeight: 1.75, whiteSpace: "pre-wrap" },
+            e.text ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.75, whiteSpace: "pre-wrap" },
               openId === e.id ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, e.text) : null,
             // 展开/收起：解法有几条也写在这一行上，收着的时候看得出这条底下还有东西
             (e.text && e.text.length > 40) || (e.interpretations || []).length
@@ -403,14 +400,14 @@
               : null,
             pickFor === e.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, chars.map(c =>
               h("button", { key: c.id, onClick: () => interpret(e, c), className: "active:opacity-70",
-                style: tap({ padding: "0 15px", borderRadius: 999, border: "1px solid rgba(111,103,150,.32)", color: "#2c2822", background: "rgba(255,255,255,.62)" }) }, c.remark || c.name))) : null,
-            openId === e.id ? (e.interpretations || []).map((it, i) => h("div", { key: i, style: { marginTop: 9, background: "rgba(111,103,150,.10)", borderRadius: 2, padding: "9px 11px", borderLeft: "3px solid #6f6796" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7b7286", marginBottom: 4 } }, it.name + " 的解法"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#2c2822", lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text),
+                style: tap({ padding: "0 15px", borderRadius: 999, border: "1px solid rgba(111,103,150,.32)", color: pageColor("dreamjournal", "ink", "#2c2822"), background: pageColor("dreamjournal", "bg2", "rgba(255,255,255,.62)") }) }, c.remark || c.name))) : null,
+            openId === e.id ? (e.interpretations || []).map((it, i) => h("div", { key: i, style: { marginTop: 9, background: pageColor("dreamjournal", "bg2", "rgba(111,103,150,.10)"), borderRadius: 2, padding: "9px 11px", borderLeft: "3px solid #6f6796" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("dreamjournal", "ink", "#7b7286"), marginBottom: 4 } }, it.name + " 的解法"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text),
               // 梦签：单独一行，像从解梦正文里撕下来的那一条（v61.47 起单独一个字段；
               // 旧记录没有这一栏，不显示就是了）
               it.sign ? h("div", { style: { marginTop: 9, paddingTop: 8, borderTop: "1px dashed rgba(111,103,150,.35)",
-                fontFamily: F_DISPLAY, fontSize: 13.5, color: "#5d5588", letterSpacing: ".02em" } }, "「" + it.sign + "」") : null)) : null))))),
+                fontFamily: F_DISPLAY, fontSize: 13.5, color: pageColor("dreamjournal", "ink", "#5d5588"), letterSpacing: ".02em" } }, "「" + it.sign + "」") : null)) : null))))),
       )
     );
   }

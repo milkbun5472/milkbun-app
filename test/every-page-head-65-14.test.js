@@ -51,7 +51,7 @@ test("换成共用 Head 的那几页，是真的换了", () => {
     ["js/dwell.js", /h\(Head, \{ zh: title, sub: sub, onBack: back, right: right, bg: "transparent", noLine: true \}\)/, "去处"],
     ["js/dwell.js", /h\(Head, \{ zh: title, sub: sub, onBack: back, ink: OVER_INK/, "去处压在图上那一条"],
     ["js/study.js", /return h\(Head, \{\s*\n\s*zh: props\.zh, en: props\.en \|\| skin\.label,/, "一起学"],
-    ["js/tarot.js", /const NightHead = \(\{ title, onBack, right \}\) => h\(Head, \{/, "塔罗"],
+    ["js/tarot.js", /const NightHead = \(\{ title, onBack, right \}\) => \{ const N = nightNow\(\); return h\(Head, \{/, "塔罗"],
     ["js/fanfic.js", /h\(Head, \{ zh: f\.title, sub: props\.tab\.name, onBack: props\.onBack/, "同人文·读一篇"],
     ["js/fanfic.js", /h\(Head, \{ zh: view === "shelf" \? "书架" : "同人文"/, "同人文·书架"],
     ["js/weekly.js", /return h\(Head, \{ zh: props\.zh \|\| "周刊", en: props\.en, onBack: props\.onBack/, "周刊内页"],
