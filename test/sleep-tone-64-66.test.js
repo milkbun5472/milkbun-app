@@ -90,16 +90,16 @@ test("单聊线上/线下·通话·匿名信箱·解梦馆：走 bundle，一次
 test("群线上 / 群线下 / 群通话：三处各按人喂，不许合成一块共享注入", () => {
   // 群线上：memberDesc 那一串里
   // ⚠️v64.72 起 zSeg 后面又多了 hcSeg（他住在哪儿），所以别钉死「紧跟着就是 return」
-  assert.match(app, /const zSeg = sleepToneOf\(c\)/);
+  assert.match(app, /sleep: sleepToneOf\(c\)/);
   assert.match(app, /groupPersonaText\(c\.persona, gPersonaCap\)[^;]*\+ zSeg/,
     "群线上的 memberDesc 没拼进去");
   // 群线下：memberSleep 一人一份 → engine 按 c.id 取
-  assert.match(app, /memberSleep: \(\(\) => \{[\s\S]{0,320}sleepToneOf\(c\)/, "群线下没算");
+  assert.match(app, /memberSleep: backgroundMap\("sleep"\)/, "群线下没算");
   assert.match(eng, /ctx\.memberSleep && ctx\.memberSleep\[c\.id\]/, "群线下 engine 没按人取");
   // 群通话
   const gc = cut(app, "const memberDesc = people.map(c => {\n          if (c.npc) return \"【\" + c.name + \"】\" + groupPersonaText(c.persona, NPC_PERSONA_CAP);", "}).join(\"\\n\\n\");");
-  assert.match(gc, /sleepToneOf\(c\)/, "群通话没喂——电话尤其要有，半夜接起来的人不该精神饱满");
-  assert.match(gc, /\+ zSeg/);
+  assert.match(gc, /groupNowSegs\(c,/, "群通话没接公共背景");
+  assert.match(gc, /\+ n\.zSeg/);
 });
 
 test("主动来找你 和 聊天回复 用同一把尺子", () => {

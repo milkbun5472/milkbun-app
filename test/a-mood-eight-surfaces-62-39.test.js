@@ -39,13 +39,13 @@ test("ctxFor 把它填进去了，三道闸收在同一处", () => {
   //   次数一变，一条正确的扩展就会把测试判红。所以逐个点名要它的地方——
   //   少一处才红，多接一处不该红。
   assert.match(app, /^\s*aMood: aMoodTextOf\(char\.id\),$/m, "单聊那一处没了");
-  assert.match(app, /const t = aMoodTextOf\(id\);/, "群线下那一处没了");
-  assert.match(app, /const aSeg = aMoodTextOf\(c\.id\)\n/, "群线上那一处没了");
-  assert.match(app, /const aSeg = aMoodTextOf\(c\.id\) \? "\\n〔此刻的情绪底色/, "群通话那一处没了");
+  assert.match(app, /memberAMood: backgroundMap\("aMood"\)/, "群线下没接公共读取");
+  assert.match(app, /aMood: aMoodTextOf\(c\.id\)/, "公共读取没接情绪底色");
+  assert.match(app, /groupBackgroundSegments\(c, groupBackgroundFor\(c\)/, "群线上/通话没接公共拼接");
 });
 
 test("群线上：每位成员自己那一段里带上，且真的拼进了 memberDesc", () => {
-  const seg = app.match(/const aSeg = aMoodTextOf\(c\.id\)[\s\S]{0,300}?: "";/);
+  const seg = engine.match(/aSeg: b\.aMood[^\n]+/);
   assert.ok(seg, "群线上没有 aSeg");
   assert.match(seg[0], /〔此刻的情绪底色·只作内在背景〕/);
   assert.match(seg[0], /别复述、别把「偏高\/偏低」这种说法带进话里/);
@@ -57,20 +57,21 @@ test("群线上：每位成员自己那一段里带上，且真的拼进了 memb
 
 test("群线下：app 那头写、engine 那头读，字段名对得上", () => {
   // 照 stub-from-the-writer：先钉写的那一头。
-  assert.match(app, /memberAMood: \(\(\) => \{[\s\S]{0,400}?const t = aMoodTextOf\(id\);/,
+  assert.match(app, /memberAMood: backgroundMap\("aMood"\)/,
     "app 没往 ctx 里放 memberAMood");
   assert.match(engine, /ctx\.memberAMood && ctx\.memberAMood\[c\.id\]/,
     "engine 的 memberDesc 没读 memberAMood——写了没人读，等于没写");
-  assert.match(engine, /ctx\.memberAMood\[c\.id\] \+ "（只影响语气分寸，别复述/);
+  assert.match(engine, /b\.aMood \+ "（只影响语气分寸，别复述/);
 });
 
 test("配角没有情绪底色：群里两处都把 npc 挡住了", () => {
   // 群线上是 c.npc 提前 return（配角那一段根本走不到 aSeg）
   assert.match(app, /if \(c\.npc\) \{[\s\S]{0,300}?NPC_PERSONA_CAP/);
   // 群线下是 memberAMood 自己挡
-  const blk = app.match(/memberAMood: \(\(\) => \{[\s\S]{0,400}?\}\)\(\),/);
+  const blk = app.match(/const groupBackgroundFor = c => \{[\s\S]*?\n  \};/);
   assert.ok(blk);
-  assert.match(blk[0], /\.npc\) return;/, "群线下没挡住配角");
+  assert.match(blk[0], /c\.npc\) return \{\};/, "公共读取没挡住配角");
+  assert.match(app, /groupMembers\(group\)\.filter\(c => !c\.npc\)/);
 });
 
 test("侧房认知开关关掉时，A 跟心情/印象卡一起被清空", () => {

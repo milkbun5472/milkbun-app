@@ -32,15 +32,16 @@ test("带围栏：是背景不是剧本", () => {
 test("四处都接上了，一处都没落下", () => {
   assert.match(app, /coupleArchive: coupleArchiveFor\(char\.id\)/, "单聊两处（ctxFor）没接");
   assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.coupleArchive\) parts\.push\(coupleArchiveBlock\(ctx\.coupleArchive, uName\)\);/, "buildBundle 里没发出去");
-  assert.match(app, /memberCoupleArchive: \(\(\) => \{/, "群聊线下那一份没算");
-  assert.match(eng, /ctx\.memberCoupleArchive\[c\.id\]\) \? "\\n〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕\\n" \+ coupleArchiveBlock/, "群聊线下没发，或者没带隐私围栏");
-  assert.match(app, /const caSeg = \(\(\) => \{ const a = coupleArchiveFor\(c\.id\);/, "群聊线上没算");
+  assert.match(app, /memberCoupleArchive: backgroundMap\("archive"\)/, "群聊线下那一份没算");
+  assert.match(eng, /archive: ctx\.memberCoupleArchive && ctx\.memberCoupleArchive\[c\.id\]/);
+  assert.match(eng, /\+ bg\.caSeg/);
+  assert.match(app, /archive: coupleArchiveFor\(c\.id\)/, "公共读取没算");
   assert.match(app, /\+ cpSeg \+ caSeg \+/, "群聊线上算了但没拼进那位成员那一段");
 });
 
 // 群里这是【这位成员的私事】：别的成员不知道他俩私下怎么称呼彼此
 test("群里两处都带隐私围栏，落在他自己那一段里", () => {
-  const online = app.slice(app.indexOf("const caSeg = (() =>"), app.indexOf("const caSeg = (() =>") + 400);
+  const online = eng.slice(eng.indexOf("caSeg: b.archive"), eng.indexOf("caSeg: b.archive") + 400);
   assert.match(online, /只有 " \+ c\.name \+ " 本人知道，别的成员并不知情/, "群聊线上没围栏——等于把私下的称呼端上台面");
 });
 

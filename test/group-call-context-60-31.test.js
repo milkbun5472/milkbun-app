@@ -14,7 +14,7 @@ test("每人那一段【此刻】跟群聊共用一份，不是各写各的", ()
   assert.match(app, /const groupNowSegs = \(c, opts\) => \{/);
   assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/, "群聊那一处");
   assert.match(gc, /const n = groupNowSegs\(c, \{ interop: gcInterop \}\);/, "群通话那一处");
-  assert.match(gc, /n\.live \+ n\.mdSeg \+ n\.afSeg \+ n\.ageSeg \+ n\.sbSeg \+ n\.cpSeg/, "取了却没拼进去");
+  for (const field of ["live", "mdSeg", "afSeg", "ageSeg", "sbSeg", "cpSeg"]) assert.ok(gc.includes("+ n." + field), field + " 取了却没拼进去");
 });
 
 test("电话里也得知道现在几点", () => {

@@ -36,12 +36,12 @@ test("ctxFor 从地图上钉的那个点取城市——照写它那段代码的�
 
 test("群里三处也按人喂——同一个群里的人可能压根不在一个国家", () => {
   // 群线上 / 群通话：拼进各自的 memberDesc
-  const hits = app.match(/const hcSeg = \(c\.home && c\.home\.city\)/g) || [];
-  assert.equal(hits.length, 2, "群线上和群通话各要一份，现在 " + hits.length + " 份");
+  const hits = engine.match(/hcSeg: b\.home/g) || [];
+  assert.equal(hits.length, 1, "群居住地拼接只能有一份");
   assert.match(app, /\+ aSeg \+ zSeg \+ hcSeg \+ ageSeg/, "群线上没拼进 memberDesc");
-  assert.match(app, /\+ aSeg \+ zSeg \+ hcSeg \+ n\.ageSeg/, "群通话没拼进 memberDesc");
+  assert.match(app, /\+ n\.aSeg \+ n\.zSeg \+ n\.hcSeg \+ n\.ageSeg/, "群通话没拼进 memberDesc");
   // 群线下：一人一份的 map，engine 按 c.id 取
-  assert.match(app, /memberHome: \(\(\) => \{[\s\S]{0,300}c\.home\.city/, "群线下没算");
+  assert.match(app, /memberHome: backgroundMap\("home"\)/, "群线下没算");
   assert.match(engine, /ctx\.memberHome && ctx\.memberHome\[c\.id\]/, "群线下 engine 没按人取");
 });
 

@@ -37,6 +37,7 @@
 | `js/auto-gate.js` 的 `ApiMeter` | 记账只数在 `callAI` 那**一处**：全库所有调用都从那儿过 |
 | `js/components.js` 的 `Head` | 九十来页的顶栏（v64.90 / v64.95 把 screens.js 和 phone.js 里手写的那五十多条搬了过来）|
 | `js/components.js` 的 `requestAppConfirm` / `requestAppPrompt` | 全库十几处原生 confirm/prompt |
+| `js/app.js` 的 `groupBackgroundFor` + `js/engine.js` 的 `groupBackgroundSegments` | 群文字 / 群通话 / 群线下的成长、情绪底色、睡眠、居住地、随身物、情侣档案；读取与拼接各只有一份，线下叙事措辞用显式选项保留 |
 | `js/auto-refresh-policy.js` 的 `FEATURES` | 那十二项自动刷新的名字——`AutoGate.labelOf` 直接问它要，不另存一份 |
 
 ⚠️名字也算规则：`AutoGate.labelOf()` 没有自己写一张「diary→日记」的表，

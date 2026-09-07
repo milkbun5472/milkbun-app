@@ -35,8 +35,8 @@ const mk = (...names) => ({ items: names.map(n => ({ name: n, note: "x", thought
 test("随身物真的进了上下文，四处都进（四处一样喂）", () => {
   assert.match(app, /carryLog: \(typeof carryContextText === "function"/, "单聊那条没接");
   assert.match(engine, /ctx\.carryLog && ctx\.carryLog\.trim\(\)\) parts\.push\("【你身上带着的东西 \/ 你的衣柜】/, "buildBundle 里没发");
-  assert.match(app, /const cySeg = \(\(\) => \{/, "线上群聊没接");
-  assert.match(app, /memberCarry: \(\(\) => \{/, "群线下没接");
+  assert.match(app, /groupBackgroundSegments\(c, groupBackgroundFor\(c\)/, "线上群聊没接");
+  assert.match(app, /memberCarry: backgroundMap\("carry"\)/, "群线下没接");
   assert.match(engine, /ctx\.memberCarry && ctx\.memberCarry\[c\.id\]/, "群线下那一段没读");
   // 言秋不发：扮演类的层一律不给他（合法差异）
   assert.match(app, /!settingsFor\(char\.id\)\.engineerEyes\)\s*\n?\s*\? carryContextText/, "言秋那条线没排除");

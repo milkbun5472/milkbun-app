@@ -5049,6 +5049,25 @@ function groupPersonaBudget(memberCount) {
   const n = Math.max(1, Number(memberCount) || 1);
   return Math.min(GROUP_PERSONA_EACH_MAX, Math.max(1500, Math.floor(GROUP_PERSONA_BUDGET / n)));
 }
+// 群文字、群通话、群线下的六层背景只在这里拼接。
+// 线下成长段保留原有叙事措辞；档案始终带本人隐私围栏，NPC 一律空段。
+function groupBackgroundSegments(c, background, uName, opts) {
+  const empty = { grownSeg: "", aSeg: "", zSeg: "", hcSeg: "", cySeg: "", caSeg: "" };
+  if (!c || c.npc) return empty;
+  const b = background || {};
+  const grownNote = opts && opts.narrative
+    ? "这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述"
+    : "经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述";
+  return {
+    grownSeg: b.grown ? "\n〔" + c.name + " 长出来的自我（" + grownNote + "）〕\n" + b.grown : "",
+    aSeg: b.aMood ? "\n〔此刻的情绪底色·只作内在背景〕" + b.aMood + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "",
+    zSeg: b.sleep ? "\n〔" + String(b.sleep).replace(/\n/g, "\n　") + "〕" : "",
+    hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
+    cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
+    caSeg: b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : ""
+  };
+}
+
 function groupPersonaText(persona, budget) {
   const t = String(persona == null ? "" : persona).trim();
   if (!t) return "（暂无设定）";
@@ -5685,28 +5704,37 @@ async function generateOfflineGroup(p, ctx, session) {
   const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
   // NPC 是只在群里出场的配角：没有心情、好感、印象卡、长出来的自我、年龄、行程、
   // 情侣状态——那些都是「这个主角色是谁」的层。（她 2026-08-25 拍板，同群线上）
-  const memberDesc = members.map(c => c.npc
+  const memberDesc = members.map(c => {
+    const bg = groupBackgroundSegments(c, {
+      grown: ctx.memberGrown && ctx.memberGrown[c.id],
+      aMood: ctx.memberAMood && ctx.memberAMood[c.id],
+      sleep: ctx.memberSleep && ctx.memberSleep[c.id],
+      home: ctx.memberHome && ctx.memberHome[c.id],
+      carry: ctx.memberCarry && ctx.memberCarry[c.id],
+      archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id]
+    }, userName, { narrative: true });
+    return c.npc
     ? "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
       + ((ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
     : "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
-    + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")
+    + bg.grownSeg
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
     + ((ctx.memberAff && ctx.memberAff[c.id] != null) ? "\n〔对 " + userName + " 的好感〕" + ctx.memberAff[c.id] + "/100" : "")
-    + ((ctx.memberAMood && ctx.memberAMood[c.id]) ? "\n〔此刻的情绪底色·只作内在背景〕" + ctx.memberAMood[c.id] + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "")
+    + bg.aSeg
     // 睡没睡（v64.66）：一人一份，别合成一块共享注入——同一个群里有人在上班、有人那边是凌晨三点
-    + ((ctx.memberSleep && ctx.memberSleep[c.id]) ? "\n〔" + String(ctx.memberSleep[c.id]).replace(/\n/g, "\n　") + "〕" : "")
+    + bg.zSeg
     // 他住在哪儿（v64.72）：一人一份，别合成一块——同一个群里的人可能压根不在一个国家
-    + ((ctx.memberHome && ctx.memberHome[c.id]) ? "\n〔你自己住在" + ctx.memberHome[c.id] + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "")
+    + bg.hcSeg
     // 「四处一样喂」第二轮（她 2026-08-25「还是很霸总」）：年龄／此刻在做什么／和用户的关系状态，
     // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
     + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")
     + ((ctx.memberSched && ctx.memberSched[c.id]) ? "\n〔今天此刻在做什么〕" + ctx.memberSched[c.id] + "（自然渗进状态，别报行程表）" : "")
-    + ((ctx.memberCarry && ctx.memberCarry[c.id]) ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + ctx.memberCarry[c.id] : "")
+    + bg.cySeg
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
     + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
-    + ((ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(ctx.memberCoupleArchive[c.id], userName) : "")
-  ).join("\n\n");
+    + bg.caSeg
+  }).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
   const memberExampleText = members.map(c => offlineStyleExamplesBlock(ctx.memberStyleExamples && ctx.memberStyleExamples[c.id], c.name, 1)).filter(Boolean).slice(0, 4).join("");
   // B（v50.79）：群线下里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余成员照旧贴合原卡。

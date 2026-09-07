@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.35";
+const APP_VERSION = "v65.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6153,22 +6153,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const qtext = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-6).map(m => m.content || "").join("\n") : "";
     return splitGroupMemories(memLibRef.current, group.memberIds || [], qtext, { limit, touch: false });
   };
+  // 三条群路共用六层背景的读取；NPC 不拥有主角色的私有背景。
+  const groupBackgroundFor = c => {
+    if (!c || c.npc) return {};
+    const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
+    return {
+      grown: String(grown || "").trim(),
+      aMood: aMoodTextOf(c.id),
+      sleep: sleepToneOf(c),
+      home: (c.home && c.home.city) ? String(c.home.city).trim().slice(0, 40) : "",
+      carry: typeof carryContextText === "function"
+        ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
+      archive: coupleArchiveFor(c.id)
+    };
+  };
   const ctxForGroupOffline = group => {
   const memSplit = groupOfflineMemSplit(group);
+  const backgrounds = groupMembers(group).filter(c => !c.npc).map(c => [c.id, groupBackgroundFor(c)]);
+  const backgroundMap = field => Object.fromEntries(backgrounds.filter(([, b]) => b[field]).map(([id, b]) => [id, b[field]]));
   return ({
     members: groupMembers(group),
     profile,
     rels,
     chars: characters,
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
-    memberGrown: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        const g = (window.HeartKit && desiresRef.current[id]) ? window.HeartKit.personaText(desiresRef.current[id]) : "";
-        if (g && g.trim()) m[id] = g.trim();
-      });
-      return m;
-    })(),
+    memberGrown: backgroundMap("grown"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
     // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
@@ -6195,35 +6204,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     // A 情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：跟心情/好感同一档，
     // 是【这个人此刻是谁】，所以封闭群也照给。急停按下 aMoodTextOf 自己返空，整条不发。
-    memberAMood: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有情绪底色
-        const t = aMoodTextOf(id);
-        if (t) m[id] = t;
-      });
-      return m;
-    })(),
+    memberAMood: backgroundMap("aMood"),
     // 他住在哪儿（v64.72）：一人一份——同一个群里的人可能压根不在一个国家。
-    memberHome: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        const c = characters.find(x => x.id === id);
-        if (c && c.home && c.home.city) m[id] = String(c.home.city).trim().slice(0, 40);
-      });
-      return m;
-    })(),
+    memberHome: backgroundMap("home"),
     // 睡没睡（v64.66）：跟 memberAMood 同一个形状——一人一份，各按各的作息。
-    memberSleep: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;
-        const t = sleepToneOf(c);
-        if (t) m[id] = t;
-      });
-      return m;
-    })(),
+    memberSleep: backgroundMap("sleep"),
     // 配角的主人名字：群线下的 memberDesc 用它标一行「这是 X 身边的人」
     npcOwnerName: (() => {
       const m = {};
@@ -6250,16 +6235,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     wishLog: (wishRef.current || []).length
       ? (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、") : "",
     // 随身物（四处一样喂）：和线上群聊同一份、同一个额度
-    memberCarry: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有随身物
-        const txt = (typeof carryContextText === "function")
-          ? carryContextText((carryRef.current || {})[id], (carryPinsRef.current || {})[id], { cap: 260 }) : "";
-        if (txt) m[id] = txt;
-      });
-      return m;
-    })(),
+    memberCarry: backgroundMap("carry"),
     memberSched: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
@@ -6283,16 +6259,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     // 【我们的档案】跟情侣状态同一档：也是这位成员的私事，落在他自己那一段里、
     // 带同一道隐私围栏。四处一样喂——单聊有的这一层，群里两处也要有。
-    memberCoupleArchive: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;
-        const a = coupleArchiveFor(id);
-        if (a) m[id] = a;
-      });
-      return m;
-    })(),
+    memberCoupleArchive: backgroundMap("archive"),
     // 印象卡跟长期记忆同一档（从私下往来长出来的＝「发生过什么」），只在开了记忆互通时给
     memberGaze: (() => {
       const m = {};
@@ -8773,19 +8740,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
       const memberDesc = members.map(c => {
-        const ph = (phones || {})[c.id] || {};
         // 原来读 phones[].music（查手机单独生成的那份），现在音乐接的是「一起听」
         // 里归到他名下的真歌单——她点得动、也是同一份，不会两边对不上。
         const _pl = (listenRef.current.playlists || []).find(x => x.charId === c.id);
         const _pls = (_pl && _pl.songs) || [];
         const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
-        const st = statesRef.current[c.id] || {};
-        void st;
         const _now = groupNowSegs(c, { interop: gs.memoryInterop });
         const live = _now.live;
-        // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
-        const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
-        const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
+        const { grownSeg, aSeg, zSeg, hcSeg, cySeg, caSeg } = _now;
         // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：单聊经 buildBundle
         // 拿到全文人设＋此刻心情＋好感度，群聊以前只有 200 字人设、别的一层都没有——
         // 于是同一个人在群里只剩「一个古代王爷」这个标签，空白由训练先验补成霸总。
@@ -8796,8 +8758,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const ageSeg = _now.ageSeg;
         // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
         const cpSeg = _now.cpSeg;
-        // 【我们的档案】跟情侣状态同一档：这位成员的私事，走同一道隐私围栏（四处一样喂）
-        const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, userName(profile)) : ""; })();
         const sbSeg = _now.sbSeg;
         // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
         // 也不吃印象卡、长出来的自我、年龄、行程、情侣状态——那些都是
@@ -8813,22 +8773,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        // 随身物（四处一样喂）：他身上带着什么、衣柜里挂着什么。群里比单聊更省着给——
-        // 一人一份摊开会撑爆上下文，而她按次计费。
-        const cySeg = (() => {
-          const txt = (typeof carryContextText === "function")
-            ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "";
-          return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : "";
-        })();
-        // A 情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：跟心情/好感同一档，
-        // 是【这个人此刻是谁】，所以封闭群也照给。急停按下就整条不发。
-        const aSeg = aMoodTextOf(c.id)
-          ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id)
-            + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
-        // 睡没睡（v64.66）：群里更要按人给——同一个群里有人在上班、有人那边是凌晨三点。
-        const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
-        // 他住在哪儿（v64.72）：群里更要按人给——同一个群里的人可能压根不在一个国家
-        const hcSeg = (c.home && c.home.city) ? "\n〔你自己住在" + String(c.home.city).trim().slice(0, 40) + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "";
         return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
@@ -11944,6 +11888,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
   const groupNowSegs = (c, opts) => {
+    if (!c || c.npc) return {};
     const o = opts || {};
     const st = statesRef.current[c.id] || {};
     const fw = freshLiveStateValue(st, "wearing"), fa = freshLiveStateValue(st, "action");
@@ -11951,6 +11896,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
       : { label: (moods[c.id] || {}).label || "", note: "" };
     return {
+      ...groupBackgroundSegments(c, groupBackgroundFor(c), userName(profile)),
       live: o.interop && (fw || fa) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [fw && "穿着=" + fw, fa && "上一动作=" + fa].filter(Boolean).join("；") : "",
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
@@ -12274,17 +12220,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const memberDesc = people.map(c => {
           if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
           const n = groupNowSegs(c, { interop: gcInterop });
-          // 缺的五层补齐（v62.42，审计 P2）：长出来的自我 / A 情绪底色 / 随身物 / 我们的档案——
-          // 群线上 8041 早都有，群通话是「第三处不走 bundle 的」，之前没喂（v55.87「换个入口换个人」）。
-          const grown = (window.HeartKit && desiresRef.current[c.id]) ? window.HeartKit.personaText(desiresRef.current[c.id]) : "";
-          const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
-          const aSeg = aMoodTextOf(c.id) ? "\n〔此刻的情绪底色·只作内在背景〕" + aMoodTextOf(c.id) + "（只影响语气分寸，别复述、别把「偏高/偏低」这种说法带进话里）" : "";
-          // 睡没睡（v64.66）：电话尤其要有——半夜三点接起来的人不该精神饱满
-          const zSeg = sleepToneOf(c) ? "\n〔" + sleepToneOf(c).replace(/\n/g, "\n　") + "〕" : "";
-          const hcSeg = (c.home && c.home.city) ? "\n〔你自己住在" + String(c.home.city).trim().slice(0, 40) + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "";
-          const cySeg = (() => { const txt = (typeof carryContextText === "function") ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : ""; return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : ""; })();
-          const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, userName(profile)) : ""; })();
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + grownSeg + n.mdSeg + n.afSeg + aSeg + zSeg + hcSeg + n.ageSeg + n.sbSeg + cySeg + n.cpSeg + caSeg;
+          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：

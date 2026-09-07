@@ -14,10 +14,8 @@ test("群通话：记忆走 splitGroupMemories 分流，不再只按 people[0] �
 
 test("群通话：五层补齐（长出来的自我/A情绪/随身物/我们的档案/印象卡）+ 用户人设块", () => {
   const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const raw = await callAI(active, sys, hist, { maxTokens: 10400 })"));
-  assert.match(seg, /HeartKit\.personaText/);
-  assert.match(seg, /aMoodTextOf\(c\.id\)/);
-  assert.match(seg, /carryContextText/);
-  assert.match(seg, /coupleArchiveBlock/);
+  assert.match(seg, /groupNowSegs\(c,/);
+  for (const field of ["grownSeg", "aSeg", "cySeg", "caSeg"]) assert.ok(seg.includes("+ n." + field), field + " 未拼进通话");
   assert.match(seg, /window\.Gaze/);
   assert.match(seg, /【和大家通话的人/);
 });
