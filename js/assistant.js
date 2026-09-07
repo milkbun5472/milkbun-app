@@ -1041,9 +1041,9 @@
       flex: 1, padding: "11px", borderRadius: 12, border: "none",
       background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } }, label);
     return h("div", { style: { height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, flexShrink: 0 } },
-        h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
-        h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "设置")),
+      // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条一个挂点都没有，
+      // 返回键还是个「←」字符、可点区只有那几个像素（Head 里是 46×34）。
+      h(Head, { zh: "设置", onBack: props.onBack }),
       h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) * 0.4 + 24px)" } },
         // 头像 + 名字
         h("div", { style: row },

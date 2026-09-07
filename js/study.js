@@ -718,20 +718,21 @@
     nv1: { accent: "#5d7685", soft: "#e2eaed", label: "三人课堂", code: "03" }
   };
   function studyModeSkin(mode) { return STUDY_MODE_SKIN[mode] || STUDY_MODE_SKIN.teach; }
+  // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 才换过来：
+  // 手写那条身上一个 data-wk 挂点都没有，「一起学」这一页的主题 CSS 因此抓不到顶栏。
+  // ⚠️「有中文标题就不发那行英文副题」那道闸不用在这儿再写一遍——Head 里就有同一道
+  //   （判据同样是「这串字里有没有汉字」），各写一份迟早只改一处。
+  // 桌面那张纸是这一页自己的底，所以底色和分隔线照旧从这儿传进去。
   function StudyHead(props) {
     const skin = studyModeSkin(props.mode);
-    return h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10), background: "rgba(251,248,239,.92)", borderBottom: "1px solid " + STUDY_SKIN.line, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 40 } },
-        h("button", { onClick: props.onBack, "aria-label": "返回", className: "flex items-center justify-start active:opacity-50", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: STUDY_SKIN.ink })),
-        h("div", { className: "min-w-0 text-center" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: STUDY_SKIN.ink } }, props.zh),
-          // ⚠️有中文标题时不发这一行英文副题（no-english-titles）。
-          //   这一处跟公共 Head 里那道闸是同一件事：判据看的是【这串字里有没有汉字】，
-          //   写中文的照旧当副标题用——好几处是拿 en 当 sub 使的。
-          (/[一-鿿]/.test(String(props.en || "")) || !props.zh)
-            ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: skin.accent, marginTop: 1 } }, String(props.en || skin.label))
-            : null),
-        h("div", { className: "flex items-center justify-end", style: { minWidth: 40, minHeight: 40 } }, props.right || h(GStudy, { size: 18, color: skin.accent }))));
+    return h(Head, {
+      zh: props.zh, en: props.en || skin.label,
+      onBack: props.onBack,
+      right: props.right || h(GStudy, { size: 18, color: skin.accent }),
+      ink: STUDY_SKIN.ink, subInk: skin.accent, lineInk: STUDY_SKIN.line,
+      bg: "rgba(251,248,239,.92)",
+      barStyle: { backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
+    });
   }
   function StudyHoles() {
     return h("div", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 12, bottom: 12, display: "flex", flexDirection: "column", justifyContent: "space-around" } },

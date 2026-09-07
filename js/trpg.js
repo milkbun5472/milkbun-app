@@ -2278,8 +2278,6 @@
     // 这一层是真数据驱动的:camp.time.part 就是守密人报的时辰,不是随便挑个滤镜。
     const deskBg = trpgDeskBg(camp && camp.time ? camp.time.part : "");
     const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: deskBg, display: "flex", flexDirection: "column" },
-      top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line, background: "rgba(255,255,255,.30)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
-      h1: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
       // 桌面有纹理,透明按钮会糊进去——不填色的那种也得垫一层纸才看得出是个键
       btn: fill => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "rgba(255,255,255,.62)", color: fill ? t.bg2 : t.ink, boxShadow: fill ? "0 2px 8px rgba(30,28,24,.22)" : "0 1px 2px rgba(46,38,29,.06)" }),
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: "rgba(255,255,255,.58)", border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(46,38,29,.05), 0 8px 18px -10px rgba(46,38,29,.18)" },
@@ -2315,9 +2313,13 @@
       if (view === "create") { setDraft(null); setView("list"); return; }
       props.onBack();
     };
-    const header = (title, right) => h("div", { style: S.top },
-      h("button", { onClick: back, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
-      h("div", { style: S.h1 }, title), right || null);
+    // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：
+    // 手写那条身上一个 data-wk 挂点都没有，「跑团」这一页的主题 CSS 抓不到顶栏；
+    // 返回键原来是个「←」字符、可点区只有那十几个像素，Head 里是 46×34。
+    // 桌面那层磨砂照旧从 barStyle 传进去。
+    const header = (title, right) => h(Head, { zh: title, onBack: back, right: right,
+      lineInk: t.line, bg: "rgba(255,255,255,.30)",
+      barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } });
 
     // 检定仪式浮层:她亲手按「掷」;结果落定后停一拍自动收
     const ceremonyLayer = ceremony && (() => {
@@ -2860,13 +2862,13 @@
         const zoomBtn = (label, fn) => h("button", { onClick: fn, style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }, label);
         // 舆图跟这一桌是同一张桌子：底也该是同一张（v64.03）。
         // ⚠️原来这一层写死 t.bg——桌面那层纹理在别处铺得好好的，一开舆图就掉回平色。
-        //   而顶栏 S.top 是【为了压在桌面上】才做成半透白的，落到平色上就更不对了。
+        //   而顶栏那层半透白是【为了压在桌面上】才做的，落到平色上就更不对了。
         //   deskBg 是同一个 TrpgApp 闭包里那一份，跟着时辰走，不另算一遍。
         return h("div", { style: { position: "fixed", inset: 0, zIndex: 130, background: deskBg, display: "flex", flexDirection: "column" } },
-          h("div", { style: S.top },
-            h("button", { onClick: () => { setMapOpen(false); setSelNode(null); }, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
-            h("div", { style: S.h1 }, "舆图 · " + camp.title),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "队伍在「" + (camp.pos || camp.place) + "」")),
+          h(Head, { zh: "舆图 · " + camp.title, lineInk: t.line, bg: "rgba(255,255,255,.30)",
+            barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
+            onBack: () => { setMapOpen(false); setSelNode(null); },
+            right: h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "队伍在「" + (camp.pos || camp.place) + "」") }),
           h("div", { style: { flex: 1, minHeight: 0, position: "relative", padding: "10px 10px 0" } },
             h("div", { style: { position: "absolute", right: 18, top: 18, zIndex: 2, display: "flex", flexDirection: "column", gap: 6 } },
               zoomBtn("＋", () => setMapVB(v => clampVB(Object.assign({}, v || vb, { k: Math.min(6, (v || vb).k * 1.4) })))),

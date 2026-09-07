@@ -107,10 +107,15 @@ test("正文按段落排，不是一整块 pre-wrap", () => {
 test("两页都换了紧凑标题栏（mobile-ui-layout §1）", () => {
   // 列表页原先是 30px「同人文」＋「FANFIC」副标，一屏先被吃掉五分之一
   assert.match(fic, /\/\/ 紧凑标题栏（施工规则\/mobile-ui-layout\.md §1）/);
-  assert.equal((fic.match(/paddingTop: safeTop\(10\)/g) || []).length, 2, "列表页和阅读页各一个");
-  // 阅读页原先大标题写的是「阅读」，作品名反而排在下面
-  assert.doesNotMatch(fic, /zh: "阅读", en: props\.tab\.name/);
-  assert.doesNotMatch(fic, /zh: view === "shelf" \? "书架" : "同人文"/);
+  // v65.14：这两条不再手写，直接走共用 Head——挂点跟着白得（原来这一页顶栏一个都没有）
+  assert.match(fic, /h\(Head, \{ zh: view === "shelf" \? "书架" : "同人文"/, "列表页那条");
+  assert.match(fic, /h\(Head, \{ zh: f\.title, sub: props\.tab\.name/, "阅读页那条");
+  assert.ok(!/paddingTop: safeTop\(10\)/.test(fic), "还剩着手写的顶栏");
+  // ⚠️这两条原来写的是【不许用 Head】——那是 v61.27 之前的事：那时 Head 自己是
+  //   30px 大标题，一屏先被吃掉五分之一。它早就是紧凑栏了，理由过期，所以删掉重写
+  //   （施工规则/no-yes-unless.md：说错了就删，不许在后面挂「不过现在……」）。
+  // 阅读页的大标题得是【作品名】，不是「阅读」两个字（作品名反而排在下面那种）。
+  assert.ok(!/zh: "阅读"/.test(fic), "阅读页的标题又变回「阅读」了");
 });
 
 // ── 功能（她 2026-08-30：「你再看看同人文有什么可以加的功能」）──

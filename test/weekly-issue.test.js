@@ -176,7 +176,9 @@ test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在�
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
   const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function WeeklyToolsSheet"));
-  assert.match(w, /function WeeklyHead[\s\S]*?paddingTop: safeTop\(10\)/, "紧凑顶栏必须自己吃安全区");
+  // v65.14：安全区归共用 Head 自己吃（组件里那一处 safeTop(8)），周刊这边只传版面色
+  assert.match(w, /function WeeklyHead[\s\S]{0,600}return h\(Head, \{ zh: props\.zh \|\| "周刊"/, "周刊内页没走共用顶栏");
+  assert.match(w, /ink: L\.ink, subInk: L\.muted, lineInk: L\.tint \+ "22", bg: L\.paper/, "版面那几档色没传进去");
   assert.doesNotMatch(w, /h\(Head, \{ zh: "周刊"/, "周刊主页不能再套通用大标题 Head");
   assert.match(issue, /className: "flex-1 min-h-0 overflow-y-auto"/, "周刊正文要是唯一全屏滚动层");
   assert.match(issue, /sub \? h\(WeeklyHead/, "只有内页才显示紧凑顶栏，封面不能再被米色标题块截断");

@@ -2452,7 +2452,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
   const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
-  const innerHead = (title, sub, back) => h("div", { className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10, flexShrink: 0 } },
+  // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
+  //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
+  //   挂点还是要有——只加属性，长相一个像素没动。
+  const innerHead = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10, flexShrink: 0 } },
     // 本尊那根细尖角照旧，但它得是画出来的，而且要有 40px 可点区
     // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
@@ -2470,14 +2473,14 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   const searchBox = h("div", { className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
     h("span", { style: { fontFamily: F_BODY, fontSize: 13.5 } }, "搜索"));
-  const searchHead = h("div", { className: "shrink-0 flex items-center gap-2 px-3 pb-2", style: { paddingTop: safeTop(9), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
+  const searchHead = h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-2 px-3 pb-2", style: { paddingTop: safeTop(9), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
     h("button", { onClick: onBack, className: "shrink-0 active:opacity-50", style: { width: 34, height: 42, fontSize: 29, lineHeight: 1, color: "#222" }, "aria-label": "返回" }, "‹"),
     searchBox,
     h("button", { onClick: onRefresh, disabled: refreshing, className: "shrink-0 active:opacity-50 disabled:opacity-35", style: { width: 34, height: 42, display: "flex", alignItems: "center", justifyContent: "center" }, "aria-label": "刷新微信" }, h(IRefresh, { size: 18, color: "#333" })));
-  const contactsHead = h("div", { className: "shrink-0", style: { paddingTop: safeTop(10), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
+  const contactsHead = h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(10), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
     h("div", { className: "flex items-center px-3", style: { height: 43 } }, h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: 29, lineHeight: 1 }, "aria-label": "返回" }, "‹"), h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700 } }, "通讯录")),
     h("div", { className: "px-3 pb-3" }, searchBox));
-  const plainHead = h("div", { className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(12), minHeight: 54, background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
+  const plainHead = h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(12), minHeight: 54, background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
     h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: 29, lineHeight: 1 }, "aria-label": "返回" }, "‹"),
     h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700 } }, tab === "moments" ? "朋友圈" : "我"));
   const topBar = tab === "chats" ? searchHead : tab === "contacts" ? contactsHead : plainHead;
@@ -2684,7 +2687,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
     it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
-  const chrome = (title, sub, back) => h("div", { className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56, background: "rgba(255,255,255,.97)", borderBottom: "1px solid #e5e5ea" } },
+  const chrome = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56, background: "rgba(255,255,255,.97)", borderBottom: "1px solid #e5e5ea" } },
     h("button", { onClick: back || onBack, "aria-label": "返回", className: "active:opacity-50", style: { width: 36, fontSize: 29, lineHeight: 1, color: "#111" } }, "‹"),
     h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
@@ -4107,7 +4110,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e3e5e7", color: "#61666d" }
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
-  const head = h("div", { className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
+  const head = h("div", { "data-wk": "head", className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IArrow, { size: 18, color: BILI_INK })),
       h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
@@ -4355,7 +4358,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   // 顶栏照小红书：返回 · 居中的频道 tab（首页那页才有）· 刷新
   const chans = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
-  const topBar = h("div", { className: "shrink-0 flex items-center px-2 pb-1.5", style: { paddingTop: safeTop(10), background: "#fff" } },
+  const topBar = h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-2 pb-1.5", style: { paddingTop: safeTop(10), background: "#fff" } },
     h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: PLAZA_INK })),
     tab === "feed"
       ? h("div", { className: "flex-1 min-w-0 flex gap-3 overflow-x-auto justify-center", style: { scrollbarWidth: "none" } }, chans.map((c, i) => h("button", {
@@ -4797,7 +4800,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const total = 12000 + phoneStableHash(open.title || "") % 880000;
     const shown = total.toLocaleString("en-US");
     return h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
-      h("div", { className: "shrink-0", style: { paddingTop: safeTop(8), borderBottom: "1px solid #ececf0" } },
+      h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(8), borderBottom: "1px solid #ececf0" } },
         h("div", { className: "flex items-start px-3 pb-3", style: { gap: 6 } },
           h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 40, height: 40, marginTop: -4 } }, h(IArrow, { size: 19, color: BR_INK })),
           h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, open.title || ""))),
@@ -4856,7 +4859,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BR_BG } },
-    h("div", { className: "shrink-0", style: { paddingTop: safeTop(10) } },
+    h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(10) } },
       h("div", { className: "flex items-center px-3 pb-2", style: { gap: 9 } },
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: BR_INK })),
         // 地址栏：真浏览器的样子
@@ -6147,6 +6150,7 @@ function PhoneCarry({
       backgroundSize: "cover", backgroundPosition: "center"
     } : { background: phonePaper(char && char.id, look) }
   }, h("div", {
+    "data-wk": "head",
     className: "shrink-0 px-4 pb-2 flex items-center",
     style: { paddingTop: safeTop(20) }
   }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50 flex items-center", style: { width: 34, height: 36 }, "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),

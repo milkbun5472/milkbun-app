@@ -2438,8 +2438,11 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
   const doGen = (append) => onGen(cat, search, append);
 
   // ---------- 顶栏（搜索 + 刷新）----------
-  const topBar = h("div", { className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: MSHOP.card } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: MSHOP.ink })),
+  // ⚠️这一条【不换成公共 Head】，理由写在这儿：它扮的是淘宝那条搜索栏（橙描边＋橙搜索钮），
+  //   换成紧凑标题栏就把这一页最认得出的东西拆了（界面装修工单里那句「判据在这一处是
+  //   反过来的」——它模仿的正是别的 app）。但挂点要有：只加属性，长相一个像素没动。
+  const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: MSHOP.card } },
+    h("button", { onClick: onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: MSHOP.ink, wk: "headink" })),
     // 搜索条：橙色描边＋右端一颗橙色搜索钮，这是淘宝那条最认得出来的东西
     h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + MSHOP.orange, borderRadius: 999, paddingLeft: 12, paddingRight: 3 } },
       h(ISearch, { size: 14, color: MSHOP.orange }),
@@ -2447,6 +2450,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
         value: search, onChange: e => setSearch(e.target.value),
         onKeyDown: e => { if (e.key === "Enter") doGen(false); },
         placeholder: "搜索宝贝…",
+        "data-wk": "input",
         className: "flex-1 bg-transparent outline-none",
         style: { fontFamily: F_BODY, fontSize: 13, color: MSHOP.ink, marginLeft: 7, minWidth: 0 }
       }),
@@ -3583,9 +3587,11 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: inkA(0.42) } }, dt.getFullYear())));
       return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
         // 顶栏：透明浮在纸上，只有返回键和一行极轻的落款；右侧等宽占位（mobile-ui-layout §1）
-        h("div", { className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
-          h("button", { onClick: () => { setOpen(null); setReply(""); }, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink })),
-          h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, mineL ? "寄给 " + partner.name : partner.name + " 寄来"),
+        // ⚠️信纸这两页【不换成公共 Head】：顶上那行不是标题，是信的落款（「寄给 X」／
+        //   「X 寄来」），轻到几乎看不见才对。挂点只加属性，长相一个像素没动。
+        h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
+          h("button", { onClick: () => { setOpen(null); setReply(""); }, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink, wk: "headink" })),
+          h("div", { "data-wk": "headdim", className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, mineL ? "寄给 " + partner.name : partner.name + " 寄来"),
           h("div", { style: { width: 40 } })),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 30px", overscrollBehavior: "contain" } },
           h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 16 } },
@@ -3666,9 +3672,9 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(transparent 0 6px," + line + " 6px 7px)" } }),
       cPaper === key ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0, borderLeft: "9px solid transparent", borderBottom: "9px solid " + ink } }) : null);
     return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
-      h("div", { className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
-        h("button", { onClick: () => setCompose(false), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, "写给 " + partner.name),
+      h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
+        h("button", { onClick: () => setCompose(false), "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink, wk: "headink" })),
+        h("div", { "data-wk": "headdim", className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, "写给 " + partner.name),
         h("button", { onClick: doCompose, disabled: !cBody.trim(), className: "active:opacity-60 disabled:opacity-30 flex items-center justify-center", style: { minWidth: 52, height: 40, fontFamily: F_DISPLAY, fontSize: 14, color: pp.ink } }, "寄出")),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 24px", overscrollBehavior: "contain" } },
         h("input", { value: cTitle, onChange: e => setCTitle(e.target.value), placeholder: "标题（选填）", style: { width: "100%", outline: "none", background: "transparent", fontFamily: F_DISPLAY, fontSize: 24, color: pp.ink, paddingTop: 6, paddingBottom: 10 } }),
@@ -13074,8 +13080,9 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
     // 但至少看着像个场景，不像没加载完。
     bg ? null : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(130% 68% at 50% 4%,rgba(141,118,201,.3),rgba(90,70,140,.1) 46%,rgba(141,118,201,0) 74%)" } }),
     h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(14,12,22,.55),rgba(14,12,22,.92))" } }),
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { position: "relative", paddingTop: safeTop(10) } },
-      h("button", { onClick: () => setOpenId(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK })),
+    // ⚠️这一条压在场景图上，字色是夜色那一档——不换 Head，只加属性
+    h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-4 pb-2", style: { position: "relative", paddingTop: safeTop(10) } },
+      h("button", { onClick: () => setOpenId(null), "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK, wk: "headink" })),
       h("div", { className: "flex-1 min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.premise),
@@ -13155,7 +13162,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
     // 侧栏：翻已经过去的那些拍
     side ? h("div", { onClick: () => setSide(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 20 } },
       h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "78%", background: "#15121e", borderLeft: "1px solid " + IF_LINE } },
-        h("div", { className: "shrink-0 px-4", style: { paddingTop: safeTop(12), paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
+        h("div", { "data-wk": "head", className: "shrink-0 px-4", style: { paddingTop: safeTop(12), paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
           h("div", { className: "flex items-center justify-between" },
             h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.title),
             h("button", { onClick: () => setSide(false), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: IF_DIM, marginLeft: 10 } }, "收起")),

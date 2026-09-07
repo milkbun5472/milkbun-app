@@ -36,10 +36,8 @@
       boxShadow: on ? "0 -2px 7px rgba(60,54,40,.06)" : "none" } }, label);
   // 整页壳：顶栏（返回 + 居中小标题 + 右侧等宽位）+ 正文，一律铺账簿纸
   const bookPage = (title, onBack, right, body, footer) => h("div", Object.assign({ className: "h-full flex flex-col" }, { style: Object.assign({}, PAPER_BG) }),
-    h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50, borderBottom: "1px solid rgba(60,54,40,.12)" } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, title),
-      right || h("div", { style: { width: 40 } })),
+    h(Head, { zh: title, onBack: onBack, ink: "#33322c", bg: "transparent", lineInk: "rgba(60,54,40,.12)",
+      right: right || null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overscrollBehavior: "contain" } }, body),
     footer || null);
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
@@ -452,10 +450,8 @@
       // 钱包式落地页
       // 顶栏也从那块 30px「记账 / LEDGER」大标题换成紧凑标题栏（mobile-ui-layout §1）
       body = h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50 } },
-          h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-          h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, "记账"),
-          h("button", { onClick: () => setShowSet(true), "aria-label": "记账设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(GConfig, { size: 19, color: "#33322c" }))),
+        h(Head, { zh: "记账", onBack: props.onBack, ink: "#33322c", bg: "transparent", noLine: true,
+          right: h("button", { onClick: () => setShowSet(true), "aria-label": "记账设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(GConfig, { size: 19, color: "#33322c" })) }),
         h(WalletHome, { data, curs, characters: props.characters, onOpenCur: code => setView("cur:" + code), visibleCount: (data.settings.visibleTo || []).length, onManageVisible: () => setShowSet(true) }),
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", background: "linear-gradient(to top, " + PAPER + " 60%, transparent)" } },
           h("button", { onClick: () => setAddState({}), className: "w-full active:opacity-85",
@@ -598,12 +594,8 @@
       style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog, width: 40, textAlign: "center", lineHeight: 1, background: "transparent", border: "none" } }, label);
 
     return h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-      h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50 } },
-        h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-        h("div", { className: "flex-1 min-w-0 text-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, cur.label),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: "rgba(60,54,40,.45)" } }, code)),
-        h("div", { style: { width: 40 } })),
+      h(Head, { zh: cur.label, sub: code, onBack: props.onBack, ink: "#33322c",
+        subInk: "rgba(60,54,40,.45)", bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { overscrollBehavior: "contain" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 16 } },
           navBtn("‹", -1),
@@ -658,11 +650,10 @@
     const charById = id => (props.characters || []).find(c => c.id === id);
 
     return h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-      h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50 } },
-        h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, isInc ? "这笔进账" : "这笔账"),
-        h("button", { onClick: props.onEdit, "aria-label": "改这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(IPencil, { size: 17, color: "#33322c" })),
-        h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(ITrash, { size: 18, color: "rgba(60,54,40,.5)" }))),
+      h(Head, { zh: isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: "#33322c", bg: "transparent", noLine: true,
+        right: h("div", { className: "flex items-center" },
+          h("button", { onClick: props.onEdit, "aria-label": "改这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(IPencil, { size: 17, color: "#33322c" })),
+          h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 40 } }, h(ITrash, { size: 18, color: "rgba(60,54,40,.5)" }))) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: { overscrollBehavior: "contain" } },
         h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "22px 20px", textAlign: "center", marginBottom: 22 } },
           h("div", { style: { fontSize: 30, marginBottom: 8 } }, txn.catEmoji || (isInc ? "💰" : "💸")),
@@ -800,10 +791,8 @@
     // 日期、备注——半窗里正文只剩几行，而这一层压根不需要同时看见底下那一层。
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
       h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50 } },
-          h("button", { onClick: props.onClose, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-          h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, edit ? "改这一笔" : "记一笔"),
-          h("div", { style: { width: 40 } })),
+        h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: "#33322c", bg: "transparent", noLine: true,
+          right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } }, seg("expense", "支出"), seg("income", "收入")),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 20px", borderTop: "1px solid rgba(60,54,40,.16)", marginTop: -1 } },
           h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 } },
@@ -900,10 +889,8 @@
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
       h("div", { className: "h-full flex flex-col", style: Object.assign({}, PAPER_BG) },
-        h("div", { className: "shrink-0 flex items-center", style: { padding: "0 6px", paddingTop: safeTop(8), minHeight: 50 } },
-          h("button", { onClick: props.onClose, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#33322c" })),
-          h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#33322c" } }, "记账设置"),
-          h("div", { style: { width: 40 } })),
+        h(Head, { zh: "记账设置", onBack: props.onClose, ink: "#33322c", bg: "transparent", noLine: true,
+          right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
           tabBtn("visible", "谁能看到"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid rgba(60,54,40,.16)", marginTop: -1 } },

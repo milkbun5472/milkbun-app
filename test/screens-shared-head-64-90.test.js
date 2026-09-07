@@ -110,8 +110,14 @@ test("剩下的手写顶栏只有这四条，而且每条都有理由", () => {
     "手写顶栏还剩 " + hand.length + " 条（该是 " + OK.length + " 条）。\n" +
     "多了＝有新写的没走 Head；少了＝上面那四条里有一条被换掉了，把它从名单里删掉。\n" +
     "行号：" + hand.join(", "));
+  // ⚠️v65.14：这四条都挂上了 data-wk（只加属性，长相一个像素没动）——
+  //   「不换 Head」是形状上的决定，不等于【抓不住】。页面 CSS 要抓得住每一页。
+  //   ⚠️挂点这一头是【五条】：上面那四条 + IF 线侧栏那一条（它没有返回键，
+  //   所以不在上面按 IArrow 数出来的那张单子里，但它一样是一条顶栏）。
+  const withHook = (screens.match(/"data-wk": "head"/g) || []).length;
+  assert.equal(withHook, 5, "这几条手写顶栏得都挂着 data-wk=head，现在只有 " + withHook + " 条");
   // 那四条各自的记号，换掉哪一条这里就红
-  assert.match(screens, /const topBar = h\("div", \{ className: "shrink-0 px-3 pb-2\.5 flex items-center gap-2"/, "淘宝搜索条");
+  assert.match(screens, /const topBar = h\("div", \{ "data-wk": "head", className: "shrink-0 px-3 pb-2\.5 flex items-center gap-2"/, "淘宝搜索条");
   assert.equal((screens.match(/letterSpacing: 2, color: inkA\(0\.42\)/g) || []).length, 2, "两页信纸的落款");
   assert.match(screens, /fontSize: 10, color: IF_DIM, marginTop: 1[\s\S]{0,120}line\.premise/, "IF 线那三层顶栏");
 });

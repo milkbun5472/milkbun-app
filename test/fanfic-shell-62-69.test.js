@@ -13,7 +13,9 @@ const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 test("每一个 Head 都让底透上来，一个都不许漏", () => {
   // 漏一处，那一页顶上就横着一条没盖住的平色带——这正是「一层写在十一处」的形状
   const all = (NOC.match(/h\(Head, \{/g) || []).length;
-  const clear = (NOC.match(/h\(Head, \{ bg: "transparent",/g) || []).length;
+  // ⚠️v65.14 又多了两处 Head（列表页和阅读页的顶栏从手写换过来的），
+  //   它们的 bg 写在参数中间而不是第一个——认「有没有 bg: transparent」，别认位置。
+  const clear = (NOC.match(/h\(Head, \{[^)]*bg: "transparent"/g) || []).length;
   assert.equal(clear, all, "有 " + (all - clear) + " 处 Head 还顶着平色带");
   // v63.92 少了一处：加笔那一屏（选身份/记忆/落点）整个撤掉了
   assert.ok(all >= 10, "Head 的处数比预期少，说明有人又自己写了一条顶栏");

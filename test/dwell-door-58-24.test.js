@@ -225,11 +225,11 @@ test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
     assert.match(pages[k], /backdrop\(open\)/, k + "：没把上一层那张图糊开压暗当底衬");
   });
   // 顶栏是 overBar 出的，在这两页之前就定义好了，得单独看
+  // v65.14：这一条不再手写，走共用 Head（刘海、不被挤扁、返回键的可点区都归它管），
+  // 只把【压在图上】那几样从这儿传进去：字色、副题色、那层压暗的渐变、不画分隔线。
   const bar = dwell.slice(dwell.indexOf("const overBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const overBar = function")));
-  assert.match(bar, /shrink-0 flex items-center px-4/, "顶栏会被正文挤扁");
-  assert.match(bar, /safeTop\(10\)/, "顶栏没让开刘海");
-  // 顶栏也压在图上：自己刷一层不透明底色的话，那一条就把底衬盖死了
-  assert.match(bar, /background: "linear-gradient\(180deg,rgba\(8,11,13,\.86\),rgba\(8,11,13,\.28\)\)"/,
+  assert.match(bar, /h\(Head, \{ zh: title, sub: sub, onBack: back, ink: OVER_INK, subInk: OVER_SUB, noLine: true/, "没走共用顶栏");
+  assert.match(bar, /bg: "linear-gradient\(180deg,rgba\(8,11,13,\.86\),rgba\(8,11,13,\.28\)\)"/,
     "顶栏自己刷了一层不透明底，底衬在那一条上被盖死");
 });
 

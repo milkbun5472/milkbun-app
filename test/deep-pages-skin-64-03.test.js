@@ -34,8 +34,9 @@ test("跑团的舆图跟这一桌是同一张桌子", () => {
   assert.ok(!/zIndex: 130, background: t\.bg,/.test(code));
   // ⚠️deskBg 得是同一个闭包里那一份（跟着时辰走），不许另算一遍
   assert.equal((code.match(/const deskBg = trpgDeskBg\(/g) || []).length, 1, "deskBg 又被算了第二份");
-  // 顶栏 S.top 是【为了压在桌面上】才做成半透白的：桌面没了它就不成立
-  assert.match(code, /background: "rgba\(255,255,255,\.30\)", backdropFilter: "blur\(10px\)"/);
+  // 顶栏那层半透白是【为了压在桌面上】才做的：桌面没了它就不成立。
+  // v65.14 顶栏换成了共用 Head，这层半透白改成从 bg / barStyle 传进去。
+  assert.match(code, /bg: "rgba\(255,255,255,\.30\)",\s*\n?\s*barStyle: \{ backdropFilter: "blur\(10px\)"/);
 });
 
 test("一起读的讨论页铺纸——不是站在书架前，是就着摊开那一页说话", () => {

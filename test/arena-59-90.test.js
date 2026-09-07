@@ -332,10 +332,10 @@ test("擂台顶栏自己吃刘海，返回键还要点得着", () => {
   // 注释里要留着病因（那句话里就有 pt-4），所以只看活着的代码
   const hdr = dbt.slice(i, dbt.indexOf("stage),", i)).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(hdr.indexOf("pt-4") < 0, "顶栏又只写了 pt-4，在刘海屏上让不开");
-  assert.match(hdr, /className: "flex items-center justify-between px-4 pb-2", style: \{ paddingTop: safeTop\(10\) \}/,
-    "顶栏没用公共 safeTop 吃刘海（mobile-ui-layout §1）");
+  assert.match(hdr, /"data-wk": "head", className: "flex items-center justify-between px-4 pb-2", style: \{ paddingTop: safeTop\(10\) \}/,
+    "顶栏没用公共 safeTop 吃刘海（mobile-ui-layout §1），或者没挂点（页面 CSS 抓不到它）");
   // ⚠️返回键得有 40×40 的可点区：一个 19px 的图标点不着
-  assert.match(hdr, /"aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: \{ width: 40, height: 40, marginLeft: -8 \}/,
+  assert.match(hdr, /"aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: \{ width: 40, height: 40, marginLeft: -8 \}/,
     "返回键还是一个光秃秃的 19px 图标");
 });
 

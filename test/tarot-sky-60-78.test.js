@@ -77,16 +77,26 @@ const landing = (() => {
 })();
 
 test("落地页不再顶着那一大块标题：紧凑标题栏，返回键压在星星上", () => {
-  // 公共 Head 是 30px 大标题 + 一整块留白（mobile-ui-layout 第 1 条明说子页面不许这样）
-  assert.equal(landing.indexOf('h(Head, { zh: "塔罗"'), -1, "又把那一大块标题装回去了");
+  // ⚠️这里原来写的是「整个塔罗都不该用公共 Head，因为它是 30px 大标题」——
+  //   那是 v61.27 之前的 Head。它早就是紧凑栏了，理由过期，所以删掉重写
+  //（施工规则/no-yes-unless.md）。v65.14 起 NightHead 就是【包了一层夜色参数的 Head】：
+  //   长相照旧写在天上，但顶栏那几个挂点跟着白得，主题 CSS 抓得住这一页了。
   assert.match(landing, /h\(NightHead, \{ title: "塔罗", onBack: props\.onBack \}\)/, "落地页要用那条共用的紧凑标题栏");
+  assert.match(src, /const NightHead = \(\{ title, onBack, right \}\) => h\(Head, \{/, "NightHead 又自己手写了一条");
   // 三处（落地/入座/结果）共用同一条，别一层写在三处
-  assert.equal((src.match(/h\(Head, \{/g) || []).length, 0, "整个塔罗都不该再用那条 30px 大标题的公共 Head");
+  assert.equal((src.match(/h\(Head, \{/g) || []).length, 1, "Head 只该在 NightHead 那一处出现");
   assert.ok((src.match(/h\(NightHead, \{/g) || []).length >= 5, "落地/入座/选牌/生成中/结果，每一页都得走这一条");
-  assert.match(src, /const NightHead = \(\{ title, onBack, right \}\)[\s\S]{0,700}paddingTop: safeTop\(6\)/, "顶栏自己吃安全区");
-  assert.match(src, /const NightHead[\s\S]{0,700}h\(IArrow, \{ size: 19, color: SKY_INK \}\)/, "返回键得是天上的浅色");
-  assert.match(src, /const NightHead[\s\S]{0,700}width: 44, height: 44/, "返回键的可点区域不许缩水");
-  assert.match(src, /const NightHead[\s\S]{0,900}width: 44, flexShrink: 0/, "右边要留等宽操作位，标题才真的居中");
+  // 安全区归 Head 自己吃了（组件里那一处 safeTop(8)），塔罗这边不再另写一份；
+  // 这一页要的是【夜色那档字色 + 透明底 + 不画分隔线】，那三样得传进去
+  assert.match(src, /ink: SKY_INK, bg: "transparent", noLine: true/, "夜色那几样没传给顶栏");
+  // 返回键的箭头也归 Head 画（它按 ink 上色），所以夜色那一档由上面那个 ink 一起管
+  // 可点区和「右边留等宽操作位」也都归 Head 那一处管（46 宽 / 34 高、右侧 minWidth: SIDE）。
+  // ⚠️所以这两条钉到共用组件上去——钉在塔罗自己身上的话，改了 Head 这儿也不会红。
+  const comp = fs.readFileSync("js/components.js", "utf8");
+  const head = comp.slice(comp.indexOf("function Head({"), comp.indexOf("function AvatarPicker("));
+  assert.match(head, /const SIDE = 46;/, "共用顶栏的可点区变了，塔罗跟着变");
+  assert.match(head, /style: \{ width: SIDE, height: 34 \}/, "返回键的可点区域不许缩水");
+  assert.match(head, /style: \{ minWidth: SIDE, paddingRight: 8 \}/, "右边要留等宽操作位，标题才真的居中");
   // v60.78 起整个塔罗都在夜里，入座页与结果页也走同一条（见上一条断言）
 });
 

@@ -243,24 +243,21 @@
       else if (view === "who") { setOpening(false); setView("door"); }
       else props.onBack && props.onBack();
     }
+    // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1：「那条紧凑栏就是 Head，别再自己写一条」）。
+    // ⚠️v65.14 才换过来。手写那条身上【一个 data-wk 挂点都没有】，于是给「去处」写的
+    //   主题 CSS 抓不到顶栏——她 2026-09-06 在文风台撞见的是同一个病。
+    // bg 透明：底纹铺在外壳上，顶栏透上来（同 §3.5）；这一条本来就没有分隔线，所以 noLine。
     const topBar = function (title, sub, right) {
-      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, title),
-          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, sub) : null),
-        h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } }, right || null));
+      return h(Head, { zh: title, sub: sub, onBack: back, right: right, bg: "transparent", noLine: true });
     };
 
     // 区域页和物件页仍是【整页】，不是半窗。顶栏和正文沿用移动端统一骨架。
     // 顶栏也压在图上：内页不再是一张与上一层无关的白纸，所以顶栏不能再自带底色
+    // 压在图上的那一条也走 Head：字色和那层压暗的渐变照旧从这儿传进去
+    //（Head 的 ink / subInk / bg 就是为这种页开的口子）。
     const overBar = function (title, sub) {
-      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10), background: "linear-gradient(180deg,rgba(8,11,13,.86),rgba(8,11,13,.28))" } },
-        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: OVER_INK })),
-        h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: OVER_INK, lineHeight: 1.15 } }, title),
-          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, marginTop: 1 } }, sub) : null),
-        h("div", { style: { width: 40, height: 40, flexShrink: 0 } }));
+      return h(Head, { zh: title, sub: sub, onBack: back, ink: OVER_INK, subInk: OVER_SUB, noLine: true,
+        bg: "linear-gradient(180deg,rgba(8,11,13,.86),rgba(8,11,13,.28))" });
     };
     const srcOf = function (p) { return p && p.img ? (typeof resolveImg === "function" ? resolveImg(p.img) : p.img) : ""; };
     // 真·全屏看图（她 2026-09-01：「去掉了全屏观看」）。

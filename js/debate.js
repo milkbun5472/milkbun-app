@@ -746,9 +746,11 @@
         //   这一条原来只写了 pt-4＝16px，在刘海屏上根本让不开——返回键和右边那两颗牌
         //   直接压在时钟和电量上（她 2026-09-01 截图：「这个返回键又太上了」）。
         //   ⚠️返回键还要有 40×40 的可点区：一个 19px 的图标点不着（§1 那套紧凑标题栏的标尺）。
-        h("div", { className: "flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-          h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-          h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
+        // ⚠️这一条【不换成公共 Head】：它没有标题，右边那几枚是「第几回合／已收台」这种
+        //   赛况牌——换成标题栏就把赛况挤没了。挂点只加属性，长相一个像素没动。
+        h("div", { "data-wk": "head", className: "flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+          h("button", { onClick: props.onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink, wk: "headink" })),
+          h("div", { "data-wk": "headdim", style: { display: "flex", alignItems: "center", gap: 7 } },
             hasSomething ? h("button", { onClick: function () { setShareOpen(true); }, className: "active:opacity-60",
               style: { fontFamily: F_BODY, fontSize: 11, minHeight: 26, color: t.sub, border: "1px solid " + t.line, borderRadius: 7, padding: "3px 9px" } }, "分享") : null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint, padding: "3px 9px", borderRadius: 4 } }, s.mode === "free" ? "随便吵" : "讲道理"),

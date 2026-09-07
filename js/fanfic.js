@@ -2156,17 +2156,15 @@
     };
     // 阅读页的皮肤压到六成：这一页要读几千字，纹理不能跟正文抢。
     return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { strength: .6 }) },
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-        h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.2 } }, f.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, props.tab.name)),
-        h("div", { className: "flex items-center justify-end shrink-0", style: { gap: 10, minWidth: 56 } },
+      // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条身上一个挂点都没有，
+      // 「同人文」这一页的主题 CSS 因此抓不到顶栏。纸底铺在外壳上，所以 bg 传 transparent。
+      h(Head, { zh: f.title, sub: props.tab.name, onBack: props.onBack, bg: "transparent", noLine: true,
+        right: h("div", { className: "flex items-center justify-end shrink-0", style: { gap: 10 } },
           // 换这一篇的纸。⚠️只改这一篇，别的篇和默认那张都不动。
           h("button", { onClick: function () { setPaperOpen(true); }, className: "active:opacity-60", "aria-label": "换书页",
             style: { width: 20, height: 20, borderRadius: 5, background: _paper.bg, border: "1.5px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { width: 8, height: 1.5, background: _paper.ink, borderRadius: 1 } })),
-          h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog } }, f.onShelf ? "★" : "☆"))),
+          h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog } }, f.onShelf ? "★" : "☆")) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-start", style: { gap: 9 } },
           h("div", { style: { width: 3.5, alignSelf: "stretch", borderRadius: 2, background: _hasMe ? t.accent : t.line, marginTop: 5 } }),
@@ -3722,17 +3720,15 @@
       inner = h("div", { className: "flex-1 min-h-0 flex flex-col" },
         // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）：原先那块 30px 大标题
         // ＋「FANFIC」副标，一屏先被吃掉五分之一，正文卡片只剩两张半。
-        h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-          h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-          h("div", { className: "flex-1 min-w-0 text-center" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, view === "shelf" ? "书架" : "同人文"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: t.fog, marginTop: 2 } }, view === "shelf" ? "收进来的那些" : "别人都在写什么")),
-          h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } },
+        h(Head, { zh: view === "shelf" ? "书架" : "同人文",
+          sub: view === "shelf" ? "收进来的那些" : "别人都在写什么",
+          onBack: props.onBack, bg: "transparent", noLine: true,
+          right: h("div", { className: "flex items-center justify-end", style: { gap: 10 } },
             view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "导出")
               : view === "feed" ? h(React.Fragment, null,
                   h("button", { onClick: clearTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "清空"),
                   h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置" }, h(GConfig, { size: 19, color: t.ink })))
-              : null)),
+              : null) }),
         view === "feed" ? h(TabBar, {
           tabs: tabs, activeId: activeTab, onPick: setActiveTab,
           onAdd: function () { setTabSheet({}); }, onEdit: function (tb) { setTabSheet(tb); }

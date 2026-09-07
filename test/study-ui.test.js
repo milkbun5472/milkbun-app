@@ -26,9 +26,14 @@ test("一起学整套界面是一册活页学习夹，不再是通用白卡", ()
 
 test("一起学所有内页共用紧凑安全顶栏与聊天同尺底栏", () => {
   assert.match(ui, /function StudyHead\(props\)/);
-  assert.match(ui, /paddingTop: safeTop\(10\)/);
-  assert.match(ui, /gridTemplateColumns: "52px 1fr 52px"/);
-  assert.doesNotMatch(ui, /h\(Head,/, "还有页面掉回通用顶栏");
+  // ⚠️v65.14：StudyHead 不再自己搭一条，它就是【包了一层桌面纸参数的共用 Head】。
+  //   原来那句「不许出现 h(Head," 是 v61.27 之前的事（那时 Head 是 30px 大标题），
+  //   理由过期，删掉重写（施工规则/no-yes-unless.md）：安全区、可点区、居中都归 Head 管，
+  //   这一页只传自己的纸色/墨色/线色，顶栏那几个挂点也跟着白得。
+  assert.match(ui, /return h\(Head, \{/, "一起学又自己写了一条顶栏");
+  assert.match(ui, /ink: STUDY_SKIN\.ink, subInk: skin\.accent, lineInk: STUDY_SKIN\.line/, "桌面那几档色没传进去");
+  assert.match(ui, /bg: "rgba\(251,248,239,\.92\)"/);
+  assert.equal((ui.match(/h\(Head, \{/g) || []).length, 1, "Head 只该在 StudyHead 那一处出现（别处又各写各的）");
   assert.match(ui, /function StudyFooter\(props\)/);
   assert.match(ui, /paddingBottom: COMPOSER_PAD_BOTTOM/);
   assert.doesNotMatch(ui, /calc\(env\(safe-area-inset-bottom\) \+/, "底栏又把安全区整条重复垫高了");

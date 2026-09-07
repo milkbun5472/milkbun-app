@@ -9,8 +9,12 @@ const SRC = fs.readFileSync("js/weekly.js", "utf8");
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("顶栏那一条也装上同一道闸：有中文标题就不发英文副题", () => {
-  // 整份周刊的内页共用这条 WeeklyHead，改这一处＝十几页一起合规
-  assert.match(NOC, /\(props\.en && \(\/\[一-鿿\]\/\.test\(String\(props\.en\)\) \|\| !props\.zh\)\)/);
+  // ⚠️v65.14：WeeklyHead 不再自己搭一条，它就是【包了一层版面参数的共用 Head】，
+  //   那道闸也就跟着共用了（Head 里那一处）。周刊这边再抄一份就是同一层写在两处。
+  assert.match(NOC, /return h\(Head, \{ zh: props\.zh \|\| "周刊", en: props\.en, onBack: props\.onBack/);
+  assert.ok(!/\[一-鿿\]/.test(NOC), "weekly.js 里又抄了一份那道闸");
+  const comp = fs.readFileSync("js/components.js", "utf8");
+  assert.match(comp, /const enCJK = \/\[一-鿿\]\/\.test\(String\(en \|\| ""\)\);/, "闸本身不在 Head 里了");
 });
 
 test("正文里那一堆英文眉标全换成中文", () => {

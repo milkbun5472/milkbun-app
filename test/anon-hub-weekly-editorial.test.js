@@ -19,8 +19,10 @@ test("匿名问答成为全局 app，旧档案沿用且聊天加号不再藏入�
 
 test("匿名问答遵守移动端安全区、单滚动容器与返回位置恢复", () => {
   const hub = components.slice(components.indexOf("function AnonHub"), components.indexOf("function AnonBox"));
-  assert.match(hub, /paddingTop: "env\(safe-area-inset-top\)"/);
-  assert.match(hub, /height: 62/);
+  // v65.14：顶栏换成共用 Head，刘海归它自己吃——外壳那条 paddingTop 一起撤了
+  //（mobile-ui-layout.md §1：页面外壳不许另垫一条状态栏空带，垫两次就是垫了两次）。
+  assert.ok(!/paddingTop: "env\(safe-area-inset-top\)"/.test(hub), "外壳又垫了一条状态栏空带");
+  assert.match(hub, /h\(Head, \{ zh: "匿名问答", onBack: onBack, ink: A\.ink, lineInk: A\.line, bg: "transparent" \}\)/);
   assert.match(hub, /flex-1 min-h-0 overflow-y-auto/);
   assert.match(hub, /x_anonHubScroll/);
   assert.match(hub, /onScroll:/);

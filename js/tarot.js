@@ -167,14 +167,12 @@
   const SKY_MUTE = "rgba(239,233,220,.38)";        // 天上最轻的那一档字
   const SKY_PANEL = "rgba(255,255,255,.05)";       // 天上的浅色面（原来纸上的 bg2）
   // 塔罗这一整个 app 都在夜里：落地页、入座页、结果页共用这一条紧凑标题栏。
-  // 公共 Head 是 30px 大标题 + 一整块留白，仓库铁律里子页面本来就不该那样
-  //（mobile-ui-layout 第 1 条）；这儿再往前一步——标题写在天上。
-  const NightHead = ({ title, onBack, right }) => h("div", { className: "shrink-0 flex items-center",
-    style: { paddingTop: safeTop(6), paddingLeft: 8, paddingRight: 8, paddingBottom: 2 } },
-    h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 44 } },
-      h(IArrow, { size: 19, color: SKY_INK })),
-    h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 16.5, color: SKY_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
-    h("div", { style: { width: 44, flexShrink: 0, display: "flex", justifyContent: "flex-end" } }, right || null));
+  // ⚠️注释里原来写着「公共 Head 是 30px 大标题，所以这儿自己写一条」——那是 v61.27
+  //   之前的 Head。它早就是紧凑栏了，理由过期了，这一条也就没有存在的必要
+  //（施工规则/mobile-ui-layout.md §1）。v65.14 换回共用的：字色传夜里那档，
+  //   底透明让天透上来，分隔线撤掉——长相照旧写在天上，但挂点有了。
+  const NightHead = ({ title, onBack, right }) => h(Head, {
+    zh: title, onBack: onBack, right: right, ink: SKY_INK, bg: "transparent", noLine: true });
   // 每一页都是同一片天：底色 + 会滚那一层的碎星贴图，三处共用这两个盒子
   const nightPage = { background: NIGHT };
   const nightBody = { backgroundImage: null, backgroundSize: "360px 420px", backgroundRepeat: "repeat" };

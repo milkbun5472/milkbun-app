@@ -20,7 +20,10 @@ test("周刊入口、合订本和工具台是三种可辨认的整页空间", ()
 test("本期工具是安全区内的完整页面，不再从底部弹出半屏", () => {
   const tools = weekly.slice(weekly.indexOf("function WeeklyToolsSheet"), weekly.indexOf("// 版块详情里的"));
   assert.match(tools, /position: "absolute", inset: 0/);
-  assert.match(tools, /paddingTop: safeTop\(10\)/);
+  // v65.14：这一条也走共用 Head 了（安全区归它吃），顺带撤了「EDITOR'S DESK」那行英文眉标
+  assert.match(tools, /h\(Head, \{ zh: panelTitle, ink: L\.ink/);
+  // ⚠️查的是【发出去的那个字符串】（带引号），不是注释里提到它的那一句
+  assert.ok(!/"EDITOR'S DESK"/.test(tools), "那行英文眉标又装回去了");
   assert.match(tools, /className: "flex-1 min-h-0 overflow-y-auto"/);
   assert.doesNotMatch(tools, /maxHeight: "72%"/);
   assert.doesNotMatch(tools, /alignItems: "flex-end"/);

@@ -2712,11 +2712,14 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       typeof pageSkin === "function" ? pageSkin("paper", t, { base: t.bg2, strength: 1.2 }) : { background: t.bg2 }) },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(16) } },
-      h("button", { onClick: mode === "day" ? () => setMode("month") : onBack, className: "flex items-center gap-1.5 active:opacity-50 -ml-1", style: { padding: "4px 6px" } },
+    // ⚠️这一条【不换成公共 Head】：它没有居中标题，返回键和「2026年」是长在一起的
+    //   一颗——按一下退回月视图、再按一下才出去。换成标题栏就把这个层级拆了。
+    //   挂点还是要有：只加属性，长相一个像素没动。
+    h("div", { "data-wk": "head", className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(16) } },
+      h("button", { onClick: mode === "day" ? () => setMode("month") : onBack, "data-wk": "headink", className: "flex items-center gap-1.5 active:opacity-50 -ml-1", style: { padding: "4px 6px" } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog, lineHeight: 1 } }, "‹"),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, mode === "day" ? (ym.m + 1) + "月" : ym.y + "年")),
-      h("div", { className: "flex items-center gap-3" },
+      h("div", { "data-wk": "headink", className: "flex items-center gap-3" },
         view === "mine" && h("button", { onClick: () => setPSet(true), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "经期"),
         h("button", { onClick: () => { setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); setMode("month"); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "今天"))),
     personRow,
@@ -8708,12 +8711,12 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
     const records = d.records || [];
     return { char, d, records, latest: records[0] || null };
   });
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg(), paddingTop: "env(safe-area-inset-top)" } },
-    h("div", { className: "shrink-0 px-5 flex items-center justify-between", style: { height: 62, borderBottom: `1px solid ${A.line}` } },
-      h("button", { onClick: onBack, className: "active:opacity-50", "aria-label": "返回" }, h(IArrow, { size: 19, color: A.ink })),
-      h("div", { style: { textAlign: "center" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: A.ink } }, "匿名问答")),
-      h("div", { style: { width: 19 } })),
+  // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：手写那条身上
+  // 一个 data-wk 挂点都没有，「匿名问答」这一页的主题 CSS 抓不到顶栏。
+  // ⚠️外壳那条 paddingTop: env(safe-area-inset-top) 也一起撤掉——同一条规矩：
+  //   刘海归顶栏自己吃，页面外壳不许另垫一条状态栏空带；两边都垫就是垫了两次。
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
+    h(Head, { zh: "匿名问答", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
     h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 12 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "11px 13px", borderRadius: 14, background: A.card, border: `1px solid ${A.line}` } },
@@ -11255,7 +11258,7 @@ function OfflineMode({
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
@@ -11936,7 +11939,7 @@ function GroupOfflineMode({
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),

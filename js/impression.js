@@ -401,10 +401,12 @@
       btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : "rgba(243,236,224,.34)"),
         background: on ? t.accent : "transparent", color: on ? "#fff" : "rgba(243,236,224,.9)", fontFamily: F_BODY, fontSize: 12 })
     };
-    const header = (title, right) => h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10,
-      padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid rgba(243,236,224,.13)" } },
-      h("button", { onClick: back, style: { background: "none", border: "none", color: "rgba(243,236,224,.92)", fontSize: 19, padding: "2px 6px" } }, "←"),
-      h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: "rgba(243,236,224,.95)" } }, title), right || null);
+    // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：
+    // 手写那条身上一个 data-wk 挂点都没有，「月度印象」这一页的主题 CSS 抓不到顶栏；
+    // 返回键原来是一个 19px 的「←」字符，可点区只有那几个像素，Head 里是 46×34。
+    // 夜色底是这一页自己的，所以字色和分隔线照旧从这儿传进去。
+    const header = (title, right) => h(Head, { zh: title, onBack: back, right: right,
+      ink: "rgba(243,236,224,.95)", lineInk: "rgba(243,236,224,.13)", bg: "transparent" });
     function back() {
       if (cardId) return setCardId(null);
       if (curChar) return setCurChar(null);

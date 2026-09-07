@@ -89,9 +89,12 @@ test("地点页是整页，不是半窗", () => {
 
 test("好友地图这一页用紧凑标题栏，不用 40px 大标题", () => {
   const cm = grab(map, "  function CharMap({", "    const t = useTheme();", 400) + grab(map, "    return h(\"div\", { className: \"h-full flex flex-col\" },", "      (mode || \"real\") === \"story\"", 2000);
-  assert.ok(!/h\(Head,/.test(cm), "又用回了大标题 Head——见 施工规则/mobile-ui-layout.md §1");
-  assert.match(cm, /paddingTop: safeTop\(10\)/, "顶栏没自己吃安全区");
-  assert.match(cm, /fontSize: 16/, "标题不是紧凑那一档");
+  // ⚠️原来这一条写的是「不许用 Head」——那是 v61.27 之前的 Head（30px 大标题）。
+  //   它早就是紧凑栏了，理由过期，删掉重写：v65.14 起这一页【就该用】共用 Head，
+  //   顶栏那几个挂点跟着白得（原来这一页的主题 CSS 抓不到顶栏）。
+  assert.match(cm, /h\(Head, \{ zh: "好友地图", onBack: onBack, noLine: true/, "好友地图没走共用顶栏");
+  // 安全区归 Head 自己吃了（组件里那一处 safeTop(8)），这一页不再另写一份
+  // 字号也归 Head 那一处管（15.5）——各页各写一份的话，改标尺就得改九十遍
 });
 
 // ── 画出来的东西读得清 ────────────────────────────────────────────────────

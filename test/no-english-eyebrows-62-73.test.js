@@ -10,11 +10,14 @@ const fs = require("node:fs");
 const R = f => fs.readFileSync("js/" + f, "utf8");
 const nocom = x => x.split("\n").map(l => l.split("//")[0]).join("\n");
 
-test("一起学：自己那条顶栏也有同一道闸", () => {
+test("一起学：顶栏走共用 Head，那道闸也就跟着共用了", () => {
   const st = nocom(R("study.js"));
-  // 判据看的是【这串字里有没有汉字】，不是它写在哪个字段里——
-  // 好几处是拿 en 当 sub 使的，一刀切会把中文副标题也误伤掉。
-  assert.match(st, /\(\/\[一-鿿\]\/\.test\(String\(props\.en \|\| ""\)\) \|\| !props\.zh\)/);
+  // ⚠️原来这一页自己手写顶栏，于是「有中文标题就不发纯拉丁的 en」那道闸也自己抄了一份。
+  //   v65.14 换成共用 Head 之后，闸只剩 Head 里那一处——这儿改成钉「真的走了 Head」，
+  //   闸本身由 no-english-titles 那份测试盯着（一层规则只该住在一个地方）。
+  assert.match(st, /return h\(Head, \{/, "一起学又自己写了一条顶栏");
+  assert.match(st, /en: props\.en \|\| skin\.label/, "英文副题那一档没交给 Head 判");
+  assert.ok(!/\[一-鿿\]/.test(st), "study.js 里又抄了一份那道闸");
   assert.doesNotMatch(st, /"QUIZ CARD · "/);
   assert.doesNotMatch(st, /"COURSE FILE · "/);
   assert.match(st, /"小测 · "/);

@@ -1204,21 +1204,16 @@
   function pageBackground(L) {
     return { backgroundColor: L.paper, backgroundImage: "radial-gradient(rgba(42,35,29,.028) .55px,transparent .72px),radial-gradient(circle at 82% 7%,rgba(255,255,255,.42),transparent 34%)", backgroundSize: "6px 6px,auto", color: L.ink };
   }
-  // 周刊也按查手机/聊天详情的规矩使用紧凑顶栏。旧的通用 Head 会再摆一行
-  // 30px 大标题，白白吞掉约四分之一屏；刊名应由版面自己说，顶栏只负责导航。
+  // 周刊所有内页共用的这一条顶栏，v65.14 换成公共 Head（施工规则/mobile-ui-layout.md §1）。
+  // ⚠️注释里原来写着「旧的通用 Head 会再摆一行 30px 大标题」——那是 v61.27 之前的 Head，
+  //   它早就是紧凑栏了，理由过期。手写这一条的代价是：整份周刊十几页身上
+  //   【一个 data-wk 挂点都没有】，主题 CSS 抓不到顶栏。
+  // ⚠️「有中文标题就不发纯拉丁的 en」那道闸也不用在这儿再写一遍——Head 里就有同一道。
+  // 每一栏各自的纸色/墨色/线色照旧从这儿传进去。
   function WeeklyHead(props) {
     const L = props.look || SECTION_LOOK.contents;
-    return h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(10), minHeight: 54, background: L.paper, borderBottom: "1px solid " + L.tint + "22", color: L.ink } },
-      h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: L.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.2, color: L.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.zh || "周刊"),
-        // ⚠️跟公共 Head 里那道闸同一件事（no-english-titles）：有中文标题时，
-        //   纯拉丁的 en 一律不发。判据看的是【这串字里有没有汉字】——
-        //   写中文的照旧当副标题用，一刀切会把中文副题也误伤掉。
-        //   这一处是整份周刊所有内页共用的顶栏，改这里＝十几页一起合规。
-        (props.en && (/[一-鿿]/.test(String(props.en)) || !props.zh))
-          ? h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: L.muted } }, props.en) : null),
-      h("div", { style: { width: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" } }, props.right || null));
+    return h(Head, { zh: props.zh || "周刊", en: props.en, onBack: props.onBack, right: props.right,
+      ink: L.ink, subInk: L.muted, lineInk: L.tint + "22", bg: L.paper });
   }
   function Masthead(props) {
     const t = useTheme();
@@ -1295,8 +1290,10 @@
     const coverInk = "#232019";
     const progressTrack = "rgba(35,32,25,.14)";
     return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "100vh", padding: "0 20px 40px" }, ck.style) },
-      h("div", { className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
-        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk })),
+      // ⚠️封面这一条【不换成 Head】：它是刊头（期号＋工具），不是标题栏，
+      //   换过去就把封面拆了。挂点还是要有——只加属性，长相一个像素没动。
+      h("div", { "data-wk": "head", className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
+        h("button", { onClick: props.onBack, "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk, wk: "headink" })),
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".1em", color: sub } }, "第 " + (props.num || "—")),
           h("button", { onClick: props.onTools, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -10, color: coverInk, fontFamily: "Arial,sans-serif", fontSize: 27, fontWeight: 300, lineHeight: 1 }, "aria-label": "周刊工具" }, "+"))),
@@ -1392,12 +1389,11 @@
     }
     return h("div", { "data-weekly-space": "tools", style: Object.assign({ position: "absolute", inset: 0, zIndex: 50, color: L.ink, overflow: "hidden" }, pageBackground(L)) },
       h("div", { className: "h-full flex flex-col" },
-        h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(10), minHeight: 54, borderBottom: "1px solid " + L.tint + "30" } },
-          mode !== "menu" ? h("button", { onClick: function () { props.onMode("menu"); }, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: L.ink })) : h("div", { style: { width: 40 } }),
-          h("div", { className: "flex-1 text-center" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, panelTitle),
-            h("div", { style: { marginTop: 2, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: L.muted } }, "EDITOR'S DESK")),
-          h("button", { onClick: props.onClose, className: "active:opacity-50", style: { width: 40, height: 40, fontFamily: F_BODY, fontSize: 12, color: L.muted } }, "关闭")),
+        // 工具面板那一条也走 Head。顺带撤掉「EDITOR'S DESK」那行英文眉标
+        //（施工规则/no-english-titles.md：删掉之后这一页照样说得明白，那它就是装饰）。
+        h(Head, { zh: panelTitle, ink: L.ink, subInk: L.muted, lineInk: L.tint + "30", bg: "transparent",
+          onBack: mode !== "menu" ? function () { props.onMode("menu"); } : null,
+          right: h("button", { onClick: props.onClose, className: "active:opacity-50", style: { minWidth: 44, minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: L.muted } }, "关闭") }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "24px 22px calc(env(safe-area-inset-bottom) + 28px)" } },
           h("div", { style: { borderTop: "6px solid " + L.tint, borderBottom: "1px solid " + L.tint, padding: "16px 0 13px", marginBottom: 24 } },
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".26em", color: L.muted } }, "ISSUE WORKROOM · PROOF / ARCHIVE / REPAIR"),

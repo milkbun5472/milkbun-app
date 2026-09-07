@@ -872,15 +872,14 @@ function mapSubSkin(t) {
     const cityList = CITY_NAMES.filter(function (n) { return !q.trim() || n.indexOf(q.trim()) >= 0; });
     const selChar = sel ? (characters || []).find(function (c) { return c.id === sel; }) : null;
     return h("div", { className: "h-full flex flex-col" },
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { background: t.bg, paddingTop: safeTop(10) } },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8, fontSize: 19, color: t.ink } }, "←"),
-        h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "好友地图")),
-        h("div", { className: "flex shrink-0", style: { gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: 2 } },
+      // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条一个挂点都没有，
+      // 「好友地图」这一页的主题 CSS 抓不到顶栏；返回键原来还是个 19px 的「←」字符。
+      h(Head, { zh: "好友地图", onBack: onBack, noLine: true,
+        right: h("div", { className: "flex shrink-0", style: { gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: 2 } },
           [["real", "现实"], ["story", "架空"]].map(function (m) {
             const on = (mode || "real") === m[0];
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, m[1]);
-          }))),
+          })) }),
       (mode || "real") === "story"
         ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onAddNode: onAddNode, onGenNodes: onGenNodes })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
