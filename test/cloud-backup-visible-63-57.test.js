@@ -163,8 +163,8 @@ test("pushState 说得出三件事：上次什么时候、算不算过期、这�
 
 test("真出事了要挂在她每天开得最多的那一页上，而且划不走", () => {
   const seg = slice(components, "// ── 备份坏了要看得见", "h(\"div\", { className: \"flex-1 min-h-0\"");
-  assert.match(seg, /st\.never \|\| st\.overdue \|\| st\.blocked/, "没出事也挂着就成了摆设");
-  assert.match(seg, /if \(!st \|\| !\(/, "云同步没开着也挂，那是吓唬人");
+  assert.match(seg, /st\.needsAttention/, "没读公共状态");
+  assert.match(seg, /if \(!st \|\| !st\.needsAttention\)/, "云同步没开着也挂，那是吓唬人");
   assert.match(seg, /className: "shrink-0"/, "横幅会跟着列表滚走");
   assert.match(seg, /导出全部数据/, "只报警不说怎么办");
   assert.match(app, /onOpenSettings: \(\) => setScreen\("config"\)/, "横幅点不动");
@@ -172,8 +172,8 @@ test("真出事了要挂在她每天开得最多的那一页上，而且划不�
 
 test("云同步那一页不许再只写一句没有证据的「已开启自动同步」", () => {
   const seg = slice(screens, "const st = (window.Cloud && window.Cloud.pushState)", "const inner = user");
-  assert.match(seg, /上次成功备份：/);
-  assert.match(seg, /st\.never \|\| st\.overdue \|\| st\.blocked/);
+  assert.match(seg, /st \? st\.detail : ""/);
+  assert.match(seg, /st\.needsAttention/);
   const panel = slice(screens, 'h("div", { key: "pushstate"', 'key: "push"');
   assert.match(panel, /这一次没备份：" \+ st\.why/);
 });

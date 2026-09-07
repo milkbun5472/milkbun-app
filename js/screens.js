@@ -7292,15 +7292,9 @@ function Config(props) {
         const all = Object.keys(f).length;
         return all ? (on + " / " + all + " 项开着") : "自动内容与主动社交"; } },
     { key: "data", char: "存", title: "我的东西存在哪", tint: "#477f88",
-      // ⚠️这一行原来读的是 `cloud_synced_at`——**全库没有任何一处写过这个键**
-      //   （写的那头在 js/cloud.js，叫 cloud_pushed_at）。于是「云同步开着 · 上次 X」
-      //   从上线起一次都没出现过，永远走 `? :` 的另一半，看着完全正常：
-      //   JS 读一个不存在的键是 undefined，不是错误（stub-from-the-writer.md）。
-      //   现在不再自己拼键名，问 Cloud 要——键名是它的，别在两处各写一份。
       state: () => { const st = (window.Cloud && window.Cloud.pushState) ? window.Cloud.pushState() : null;
         if (!st || !window.Cloud.ready()) return "备份、导出、迁移与清理";
-        if (st.never) return "还没有备份过";
-        return (st.overdue || st.blocked ? "⚠️ 上次备份 " : "云同步开着 · 上次 ") + String(st.at).slice(0, 10); } },
+        return st.summary; } },
     { key: "write", char: "写", title: "他们写出来的东西", tint: "#d97c86",
       state: () => { const q = props.coupleQACustom || {};
         const n = Object.keys(q).reduce((a, k) => a + ((q[k] || []).length || 0), 0);
@@ -8263,19 +8257,9 @@ function CloudSync({ toast, onExport }) {
     }
   };
 
-  // ⚠️这一段原来只有一句「已开启自动同步：数据改动会自动备份到云端」——
-  //   一句**没有任何证据的断言**。9/3 那次自动上云连败九天，这里一个字都没变过：
-  //   「一直在备份」和「九天没备份成」在这一页上长得一模一样。
-  //   现在把实话摆出来：上次成功是什么时候、这一次为什么没成。
   const st = (window.Cloud && window.Cloud.pushState) ? window.Cloud.pushState() : null;
-  const bad = !!(st && (st.never || st.overdue || st.blocked));
-  const agoText = (function () {
-    if (!st) return "";
-    if (st.never) return "这台设备还没有成功备份过";
-    const d = Math.floor(st.ageMs / 86400000), hh = Math.floor(st.ageMs / 3600000);
-    const ago = d >= 1 ? d + " 天前" : (hh >= 1 ? hh + " 小时前" : "刚刚");
-    return "上次成功备份：" + String(st.at).replace("T", " ").slice(0, 16) + "（" + ago + "）";
-  })();
+  const bad = !!(st && st.needsAttention);
+  const agoText = st ? st.detail : "";
   // ── 会让数据消失的按钮，前面必须先摆「导出一份」（never-say-delete-first.md）──
   // 那条规矩原话是「任何会让数据消失的指令，前面必须先带一句『先导出一份文件备份』」，
   // 立的时候只立在【对人说话】上，没立在【按钮】上——而这两个按钮做的正是那两件事：

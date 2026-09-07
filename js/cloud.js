@@ -51,6 +51,22 @@
     upsert: "云端拒绝了这次写入"
   };
   const pushWhy = b => (b && (PUSH_WHY[b.reason] || b.reason)) || "";
+  // 三个备份入口共用状态分类、时间口径和文字，页面只负责展示。
+  const pushStatusText = st => {
+    const needsAttention = !!(st.never || st.overdue || st.blocked);
+    const days = Math.floor(st.ageMs / 86400000), hours = Math.floor(st.ageMs / 3600000);
+    const ago = days >= 1 ? days + " 天前" : hours >= 1 ? hours + " 小时前" : "刚刚";
+    return {
+      needsAttention,
+      headline: st.never ? "这台设备还没有成功备份过"
+        : st.overdue ? "已经 " + days + " 天没有成功备份了"
+        : st.blocked ? "这次备份未成功" : "最近备份正常",
+      summary: st.never ? "还没有备份过"
+        : (needsAttention ? "⚠️ 上次备份 " : "云同步开着 · 上次 ") + String(st.at).slice(0, 10),
+      detail: st.never ? "这台设备还没有成功备份过"
+        : "上次成功备份：" + String(st.at).replace("T", " ").slice(0, 16) + "（" + ago + "）"
+    };
+  };
   // 这几种是【我们主动拦下的】：这台机器的状态不对，推上去会伤到数据。值得当场打断她。
   // 其余（upsert 失败 / 超时 / 查不到云端）多半只是网络，记账就够，交给常驻横幅。
   const LOUD_BLOCK = { txt_vault: 1, stale: 1, apply_partial: 1, apply_threw: 1 };
@@ -1347,13 +1363,7 @@
       try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
     },
 
-    // ---- 备份状态：给界面用（2026-09-05 审计意见 #1）------------------
-    // ⚠️病灶不是「少一行字」，是【读的那头和写的那头字段名不一样】：
-    //   写的是 cloud_pushed_at（本文件 MARK），而 js/screens.js 那一行读的是
-    //   cloud_synced_at ——全库没有任何一处写过这个键。于是那句
-    //   「云同步开着 · 上次 X」从上线起一次都没出现过，永远走 `? :` 的另一半，
-    //   看着完全正常。JS 读一个不存在的键是 undefined，不是错误（stub-from-the-writer）。
-    //   所以这里开一个方法出去，界面别再自己拼键名——那正是「一层写在两处」。
+    // 备份状态与显示文字统一从真实成功戳和失败记录生成。
     lastPushedAt() { try { return localStorage.getItem(MARK) || ""; } catch (e) { return ""; } },
     pushState() {
       const at = this.lastPushedAt();
@@ -1362,7 +1372,8 @@
       let saved = null;
       try { saved = JSON.parse(localStorage.getItem(PUSH_ERR) || "null"); } catch (e) {}
       const blocked = this.pushBlocked || saved || null;
-      return { at, ageMs, never: !parsed, overdue: !(ageMs < PUSH_WARN_MS), blocked, why: blocked ? pushWhy(blocked) : "" };
+      const state = { at, ageMs, never: !parsed, overdue: !(ageMs < PUSH_WARN_MS), blocked, why: blocked ? pushWhy(blocked) : "" };
+      return { ...state, ...pushStatusText(state) };
     },
 
     async staleness(userId) {
