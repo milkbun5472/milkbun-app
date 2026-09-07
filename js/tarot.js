@@ -276,7 +276,7 @@
   // 返回 {reads:[{pos,text}], summary, charThought}
   // ============================================================
   async function readSpread(active, ctx) {
-    const { mode, cards, spread, charName, charPersona, uName, question, relText, band, voiceRef, mood, worldbook } = ctx;
+    const { mode, cards, spread, charName, charPersona, uName, question, questionOwner, relText, band, voiceRef, mood, worldbook } = ctx;
     const cardList = cards.map((c, i) => {
       const ref = cardReference(c);
       return (i + 1) + "、【" + spread[i] + "】" + cardLabel(c) + "\n本地牌义锚点：" + ref.keywords + "；" + ref.text;
@@ -284,7 +284,9 @@
     let voice, view, thoughtAsk;
     if (mode === "reading") {
       voice = "你就是「" + charName + "」本人，正坐在 " + uName + " 对面替 Ta 摊牌解读。全程用第一人称、你自己的口吻和性格说话，像真的在跟 " + uName + " 讲，别当中立的解牌机器。你对 " + uName + " 的态度（" + (band || "说不清的距离") + "）会自然渗进你怎么解、语气软还是硬、点到为止还是掏心窝。";
-      view = "这是 " + uName + " 问的事：「" + (question || "我最近该注意什么") + "」。顺着这个问题解。";
+      view = questionOwner === "character"
+        ? "这是你（" + charName + "）自己挑来问牌的事：「" + (question || "我最近最该留意什么") + "」。问题中的第一人称指你，不指 " + uName + "；逐张解读、短收束和占卜师综合总结都要把问题与判断归给你，别说成是 " + uName + " 在问。"
+        : "这是 " + uName + " 问的事：「" + (question || "我最近该注意什么") + "」。问题中的第一人称指 " + uName + "；顺着这个问题解。";
       thoughtAsk = "charThought：抛开解牌的口吻，说一句你（" + charName + "）此刻【私心里】对这几张牌的真实反应（第一人称，如替 Ta 捏把汗／松口气／不是滋味／想多留 Ta 一会儿）。";
     } else if (mode === "relation") {
       voice = "你是替 " + uName + " 与「" + charName + "」摊牌的占者，声音安静、有点神秘，不代入角色本人。";
@@ -678,7 +680,7 @@
           const out = await readSpread(props.active, {
             mode: props.modeKey, cards: cards, spread: spread,
             charName: c.name, charPersona: c.persona || "", uName: uName,
-            question: deal.finalQuestion, relText: relText,
+            question: deal.finalQuestion, questionOwner: questionOwner, relText: relText,
             band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
             voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbookFor ? props.worldbookFor(c.id, [deal.finalQuestion, cards.map(function (x) { return x.name; }).join("、")].filter(Boolean).join("\n")) : props.worldbook
           });

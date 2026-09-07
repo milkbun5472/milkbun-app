@@ -86,6 +86,14 @@ test("角色可自己选问题，给角色算卦前允许接受犹豫或拒绝",
   assert.match(tarot, /让 Ta 自己问/);
 });
 
+test("角色自己问牌时，逐张解读与最终小结都保留提问者归属", () => {
+  assert.match(tarot, /question: deal\.finalQuestion, questionOwner: questionOwner/);
+  assert.match(tarot, /const \{ mode, cards, spread, charName, charPersona, uName, question, questionOwner,/);
+  assert.match(tarot, /questionOwner === "character"/);
+  assert.match(tarot, /问题中的第一人称指你，不指/);
+  assert.match(tarot, /逐张解读、短收束和占卜师综合总结都要把问题与判断归给你/);
+});
+
 test("桌边追问单独留在塔罗存档，不直写正式记忆或主聊天", () => {
   assert.match(tarot, /async function continueAtTable/);
   assert.match(tarot, /小桌边继续聊/);
