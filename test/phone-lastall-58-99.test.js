@@ -4,7 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), ph = R("phone.js"), scr = R("screens.js");
-const L = new Function("T", ph.slice(ph.indexOf("function phoneLastAllLabel(ts) {"), ph.indexOf("function phoneSearch(")) + "\nreturn phoneLastAllLabel;")(x => x);
+let clock = new Date(2026, 8, 7, 12, 0).getTime();
+class ClockDate extends Date { static now() { return clock; } }
+const L = new Function("T", "Date", ph.slice(ph.indexOf("function phoneLastAllLabel(ts) {"), ph.indexOf("function phoneSearch(")) + "\nreturn phoneLastAllLabel;")(x => x, ClockDate);
 const DAY = 86400000;
 
 // 她 2026-08-31：「查手机还是看不出来哪些刷了哪些没刷，你把每周自动刷一次那个小字
@@ -22,11 +24,20 @@ test("通讯录那行小字报的是上次全刷，不是开关状态", () => {
 });
 
 test("时间怎么说话：今天/昨天/几天前/日期", () => {
-  const now = Date.now();
+  const now = clock;
   assert.match(L(now - 3600000), /^今天 \d\d:\d\d 刷过$/);
   assert.match(L(now - 26 * 3600000), /^昨天 \d\d:\d\d 刷过$/);
   assert.equal(L(now - 3 * DAY), "3 天前刷过");
   assert.match(L(now - 40 * DAY), /^\d+月\d+日刷过$/);
+});
+
+test("跨午夜按日历翻页，不把昨晚误算今天", () => {
+  const original = clock;
+  try {
+    clock = new Date(2026, 8, 8, 0, 5).getTime();
+    assert.equal(L(new Date(2026, 8, 7, 23, 55).getTime()), "昨天 23:55 刷过");
+    assert.equal(L(new Date(2026, 8, 8, 0, 1).getTime()), "今天 00:01 刷过");
+  } finally { clock = original; }
 });
 
 // 宁可说不知道，也别报一个假的时刻

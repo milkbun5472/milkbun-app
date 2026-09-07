@@ -57,10 +57,13 @@
   // 在途请求的硬超时。supabase 的 builder 是 thenable，Promise.race 吃得下；
   // 超时之后那条请求还挂在那儿，但**我们这一侧一定会往下走**——要治的正是
   // 「既不成功也不失败」把 pushInFlight 永远钉住那个病。
-  const withTimeout = (p, ms) => Promise.race([
-    Promise.resolve(p),
-    new Promise((_, rej) => setTimeout(() => rej(new Error("push_timeout")), ms))
-  ]);
+  const withTimeout = (p, ms) => {
+    let timer;
+    return Promise.race([
+      Promise.resolve(p),
+      new Promise((_, rej) => { timer = setTimeout(() => rej(new Error("push_timeout")), ms); })
+    ]).finally(() => clearTimeout(timer));
+  };
   const loreNonEmpty = function (raw) {
     if (raw == null) return false;
     try { const a = JSON.parse(raw); return Array.isArray(a) && a.length > 0; } catch (e) { return false; }
@@ -1443,9 +1446,7 @@
             client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }),
             PUSH_TIMEOUT_MS);
           if (error) { block("upsert", { detail: String(error.message || error) }); return; }
-          localStorage.setItem(MARK, ts);
-          this.pushBlocked = null; staleAnnounced = "";
-          try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
+          this.markSynced(ts);
         } catch (e) {
           // 离线、超时、任何没预料到的错：一样要留痕。静默正是 9/3 的第一道哑火。
           block(String((e && e.message) || e) === "push_timeout" ? "timeout" : "upsert",
@@ -1483,9 +1484,7 @@
           return { applied: false };
         }
         await this.apply(row.data);
-        localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
-        this.pushBlocked = null; staleAnnounced = "";   // 已经跟云端同龄了，闸门解除
-        try { localStorage.removeItem(PUSH_ERR); } catch (e) {}
+        this.markSynced(row.updated_at);
         return { applied: true };
       } catch (e) {
         return { applied: false };

@@ -90,7 +90,7 @@ test("在途 upsert 有硬超时，不然这个标签页会从此再也不备份
   // pushInFlight 永不 resolve 时，后续每次 autoPush 都在开头 return pushInFlight
   assert.match(autoPush, /await withTimeout\(\n?\s*client\.from\("saves"\)\.upsert/);
   assert.match(cloud, /const PUSH_TIMEOUT_MS = 45000;/);
-  assert.match(cloud, /const withTimeout = \(p, ms\) => Promise\.race\(\[/);
+  assert.match(cloud, /return Promise\.race\(\[/);
   assert.match(cloud, /rej\(new Error\("push_timeout"\)\)/);
   assert.match(autoPush, /=== "push_timeout" \? "timeout"/, "超时没被认出来，界面上会说成「云端拒绝」");
 });
@@ -101,8 +101,8 @@ test("每一种没备份成都留一笔，catch 不许再是空的", () => {
   assert.match(autoPush, /block\(String\(\(e && e\.message\) \|\| e\) === "push_timeout"/);
   assert.match(cloud, /const PUSH_ERR = "cloud_push_err_v1";/);
   // 成功那一路要把痕迹擦掉，否则界面永远红着
-  assert.match(autoPush, /localStorage\.setItem\(MARK, ts\);/);
-  assert.match(autoPush, /removeItem\(PUSH_ERR\)/);
+  assert.match(autoPush, /this\.markSynced\(ts\);/);
+  assert.match(slice(cloud, "markSynced(updatedAt)", "lastPushedAt()"), /removeItem\(PUSH_ERR\)/);
   // 理由 → 人话只写一份，toast 和界面共用
   assert.match(cloud, /const PUSH_WHY = \{/);
   assert.equal((cloud.match(/PUSH_WHY\[b\.reason\]/g) || []).length, 1, "人话表被抄成了两份");
