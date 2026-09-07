@@ -453,9 +453,23 @@
   // 原来只认 ★收藏 和自己写的，于是点了♡＝已经表过态、读到第 5 章＝正在追，
   // 两种都照删，x_fanfic_read 里还剩一条指向不存在的文的孤儿记录。
   // 判据：她对这篇【做过任何一个动作】，就不许背着她删掉。
+  // 加笔正在用的那几篇也不许被清掉——一局加笔手里没有原文就是一局空壳
+  // （只存下标不存原文，见 startSession 那段注释）。
+  // ⚠️这一条写在【这儿】，不在加笔那边另立一条：留不留一篇文的规矩只此一处。
+  // 一次清理要问一百多篇，每篇都去 loadRP 解一遍全 transcript 太贵，所以缓一份；
+  // saveRP 是唯一的写入方，由它清缓存。
+  let _rpFicIds = null;
+  function rpFicIdSet() {
+    if (_rpFicIds) return _rpFicIds;
+    const set = new Set();
+    loadRP().forEach(function (x) { if (x && x.ficId) set.add(String(x.ficId)); });
+    _rpFicIds = set;
+    return set;
+  }
   function protectedFic(f) {
     if (!f) return false;
     if (f.onShelf === true || f.source === "user" || f.liked === true) return true;
+    if (rpFicIdSet().has(String(f.id))) return true;
     const r = loadRead()[f.id];
     return !!(r && r.chap > 0);   // 只翻到第一章不算追，翻过页才算
   }
@@ -865,6 +879,7 @@
   // 每局带整份 transcript，不封顶就是又一座坟场。
   const RP_KEEP = 30;
   function saveRP(list) {
+    _rpFicIds = null;              // 名单变了，清理闸那份缓存跟着作废
     const a = Array.isArray(list) ? list : [];
     saveJSON(K_RP, a.length <= RP_KEEP ? a
       : a.slice().sort(function (x, y) {
@@ -2725,7 +2740,6 @@
     const [view, setView] = useState("list"); // list | pick | thread
     const [sessions, setSessions] = useState(function () { return window.Fanfic.loadRP(); });
     const [openId, setOpenId] = useState(null);
-    const shelf = (props.fics || []).filter(function (f) { return window.Fanfic.protectedFic(f); });
     // 从作者主页点「加笔」带着一篇进来：直接开一局进去读，别让她再翻一遍列表
     useEffect(function () {
       if (!props.startFicId) return;
@@ -2766,16 +2780,27 @@
     }
 
     // 选文
+    // ⚠️这一屏原来只列【收藏进书架】的（shelf），而作者主页上每一篇都有「加笔」按钮，
+    //   点了直接就开局——同一件事两套门槛，她 2026-09-07 撞上的就是这个。
+    //   门槛本来也不该在这儿：`protectedFic` 是【清理闸】（这篇文留不留），
+    //   借它当加笔的准入条件是拿另一层的规矩当自己的规矩。真正要防的「开着局
+    //   原文被清掉」已经由 protectedFic 认加笔会话解决了，所以这儿一律放行。
     if (view === "pick") {
+      const pickable = (props.fics || []).slice().sort(function (a, b) {
+        // 收藏／自己写的排前面（多半就是想加笔的那几篇），其余按新旧
+        const pa = window.Fanfic.protectedFic(a) ? 1 : 0, pb = window.Fanfic.protectedFic(b) ? 1 : 0;
+        return pb - pa || (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+      });
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { bg: "transparent", zh: "挑一篇下笔", sub: "只有收藏进书架的才能加笔", onBack: function () { setView("list"); } }),
+        h(Head, { bg: "transparent", zh: "挑一篇下笔", sub: "在她写好的文上动笔", onBack: function () { setView("list"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿进【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
-          shelf.length ? shelf.map(function (f) {
+          pickable.length ? pickable.map(function (f) {
             return h("button", { key: f.id, onClick: function () { startSession(f); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, f.title),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName)));
-          }) : h(Empty, { text: "书架空空", sub: "先去收藏几篇再来穿" })));
+              h("div", { className: "flex items-center", style: { gap: 6 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
+                f.onShelf ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "在书架") : null),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName) + " · " + rpAuthorName(f)));
+          }) : h(Empty, { text: "还没有文", sub: "先去 feed 生成几篇" })));
     }
 
     // 存档列表
@@ -2783,7 +2808,10 @@
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { bg: "transparent", zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "挑一篇收藏的同人文，进去读**她真正写下的那些字**。要动手就【点住其中一句】——从那句起，她写的就作废了，换成你改出来的。⚠️作者本人就在旁边：你每动一笔，她都会在故事里伸一手（有人把剧情往回拽，好让后面的原文还接得上；有人觉得你改得有意思，连着后面几段也不要了），然后在页边写一句。她是哪一路，请她进作者名册的时候就定下来了。顶上那条「原稿剩余」是这篇文还剩几成是她写的。收尾时这一版会当成一篇文放回书架。"),
+        // 她 2026-09-07：「加笔里灰字的解释太啰嗦了」。原来这儿是一整段说明书
+        // （怎么动手＋作者会怎么反应＋原稿剩余是什么＋收尾去哪儿），全在进门口挡着。
+        // 那几件事在里面都看得见，不用在门口先讲一遍。
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "点住原文里的一句，从那句起就归你写；作者在旁边接招。"),
         sorted.length ? sorted.map(function (s) {
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
