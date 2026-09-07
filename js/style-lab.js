@@ -117,7 +117,6 @@
 
     const assembled = cur ? SP.textFor(cur, null, { uName: (props.profile && props.profile.name) || "你" }) : "";
     const S = {
-      chip: on => ({ minHeight: 40, padding: "9px 13px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 }),
       h2: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 3 },
       hint: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 },
       card: { background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 11 },
@@ -128,6 +127,23 @@
       tool: { minHeight: 40, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 }
     };
 
+    // 一块版长什么样，只画在这一处：搭预设那一排和测试台「印哪几块」共用。
+    // ⚠️各画一份的话，哪天改版边的颜色就得记得改两处（施工规则/one-public-mechanism.md）。
+    const plate = (o) => h("button", { key: o.key, onClick: o.onClick, "aria-pressed": o.on ? "true" : "false",
+      className: "active:opacity-80",
+      style: {
+        display: "flex", alignItems: "stretch", minHeight: 44, padding: 0,
+        borderRadius: "3px 5px 5px 3px",
+        border: "1px solid " + (o.on ? t.ink : t.line),
+        background: o.on ? t.bg2 : "rgba(127,127,127,.05)",
+        transform: o.on ? "translateY(1px)" : "none",
+        boxShadow: o.on ? "inset 0 2px 6px -5px rgba(0,0,0,.6)" : "0 3px 8px -7px rgba(0,0,0,.5)"
+      } },
+      h("span", { style: { width: 5, flexShrink: 0, borderRadius: "3px 0 0 3px", background: o.on ? (o.edge || t.accent) : t.line } }),
+      h("span", { style: { padding: "6px 12px 6px 10px", textAlign: "left" } },
+        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5, color: o.on ? t.ink : t.sub } }, o.name),
+        o.sub ? h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 10, color: t.fog, marginTop: 1 } }, o.sub) : null));
+
     // ---- 搭预设 ----
     const buildTab = h("div", { style: { padding: "14px 14px 28px" } },
       // ── 台边搁着的那几块版（v65.10）───────────────────────────────
@@ -137,24 +153,8 @@
       //   （施工规则/tabs-not-plain-pills.md）。选中态同时变【底色、位置、版边、投影】，
       //   不只靠一个色差；整块可点区 44 高。
       presets.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 } },
-        presets.map(p => {
-          const on = p.id === curId;
-          const n = (p.mods || []).length + (String(p.free || "").trim() ? 1 : 0);
-          return h("button", { key: p.id, onClick: () => setCurId(p.id), "aria-pressed": on ? "true" : "false",
-            className: "active:opacity-80",
-            style: {
-              display: "flex", alignItems: "stretch", minHeight: 44, padding: 0,
-              borderRadius: "3px 5px 5px 3px",
-              border: "1px solid " + (on ? t.ink : t.line),
-              background: on ? t.bg2 : "rgba(127,127,127,.05)",
-              transform: on ? "translateY(1px)" : "none",
-              boxShadow: on ? "inset 0 2px 6px -5px rgba(0,0,0,.6)" : "0 3px 8px -7px rgba(0,0,0,.5)"
-            } },
-            h("span", { style: { width: 5, flexShrink: 0, borderRadius: "3px 0 0 3px", background: on ? t.accent : t.line } }),
-            h("span", { style: { padding: "6px 12px 6px 10px", textAlign: "left" } },
-              h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5, color: on ? t.ink : t.sub } }, p.name),
-              h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 10, color: t.fog, marginTop: 1 } }, n + " 块")));
-        })) : null,
+        presets.map(p => plate({ key: p.id, on: p.id === curId, onClick: () => setCurId(p.id), name: p.name,
+          sub: ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)) + " 块" }))) : null,
       // 台边的小工具：跟「版」分开摆，不混进同一排里——它们不是版，是家伙什
       h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, paddingTop: 9, borderTop: "1px dashed " + t.line } },
         [["＋ 新建", () => addPreset()],
@@ -269,8 +269,13 @@
             h("div", { style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "手写 ／ 导入" + (String(cur.free || "").trim() ? " · " + cnt(cur.free) + " 字" : "")),
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "整段贴进来就行，不用拆。你从酒馆搬的那种一整篇的文风放这儿最合适。"),
-              h("textarea", { value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
-                placeholder: "粘贴一整篇文风说明…", style: Object.assign({}, S.input, { lineHeight: 1.7, resize: "vertical" }) }),
+              // 手写那一段是【一张稿子】，不是一个通用输入框：左边留出页边、竖一道红线
+              h("div", { style: { position: "relative", border: "1px solid " + t.line, borderRadius: 3, background: t.bg2, overflow: "hidden" } },
+                h("span", { "aria-hidden": "true", style: { position: "absolute", left: 22, top: 0, bottom: 0, width: 1, background: "rgba(194,90,74,.30)" } }),
+                h("textarea", { value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
+                  placeholder: "粘贴一整篇文风说明…",
+                  style: { width: "100%", border: "none", outline: "none", background: "transparent", resize: "vertical",
+                    padding: "10px 11px 10px 30px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink } })),
               /^\s*[{\[]/.test(cur.free || "")
                 ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
                     h("span", { style: Object.assign({}, S.hint, { color: t.tint, flex: 1 }) }, "这一坨看着是模块包，不该整段躺在这儿"),
@@ -281,10 +286,26 @@
                         } catch (err) { alert("拆不开：" + (err && err.message || "内容读不出来")); }
                       }, style: { padding: "6px 12px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "拆成模块"))
                 : null,
-              h("div", { style: { display: "flex", gap: 7, marginTop: 8, alignItems: "center" } },
-                h("span", { style: S.hint }, "放在模块的"),
-                h("button", { onClick: () => patchCur({ freePos: "before" }), style: S.chip(cur.freePos === "before") }, "前面"),
-                h("button", { onClick: () => patchCur({ freePos: "after" }), style: S.chip(cur.freePos !== "before") }, "后面"))),
+              // 稿子排在字条前面还是后面：这是【位置】问题，所以画成位置本身，不是两颗药丸。
+              // 一张纸＋三根字条，谁在左谁在前——不用读字也看得懂哪个是哪个。
+              (function () {
+                const paper = h("span", { key: "p", style: { width: 15, height: 11, flexShrink: 0, borderRadius: 1,
+                  background: t.bg2, border: "1px solid " + t.ink, borderLeft: "2px solid " + t.accent } });
+                const slugs = h("span", { key: "s", style: { display: "flex", gap: 2 } },
+                  [0, 1, 2].map(i => h("span", { key: i, style: { width: 4, height: 11, borderRadius: 1, background: t.ink, opacity: .75 } })));
+                const one = (val, label) => {
+                  const on = val === "before" ? cur.freePos === "before" : cur.freePos !== "before";
+                  return h("button", { key: val, onClick: () => patchCur({ freePos: val }), "aria-pressed": on ? "true" : "false",
+                    style: { minHeight: 44, padding: "7px 10px", borderRadius: 4, border: "1px solid " + (on ? t.ink : t.line),
+                      background: on ? t.bg2 : "transparent", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 } },
+                    h("span", { style: { display: "flex", alignItems: "center", gap: 4, opacity: on ? 1 : .45 } },
+                      val === "before" ? [paper, slugs] : [slugs, paper]),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.ink : t.fog } }, label));
+                };
+                return h("div", { style: { display: "flex", gap: 7, marginTop: 9, alignItems: "center" } },
+                  h("span", { style: Object.assign({}, S.hint, { marginRight: 1 }) }, "这张稿排在"),
+                  one("before", "字条前面"), one("after", "字条后面"));
+              })()),
 
             // 预览
             h("div", { style: { marginBottom: 16 } },
@@ -292,8 +313,16 @@
                 h("div", { style: S.h2 }, "组装出来长这样"),
                 h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog } }, cnt(assembled) + " 字"),
                 h("button", { onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
-              h("div", { style: Object.assign({}, S.card, { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap", maxHeight: showFull ? "none" : 150, overflow: "hidden" }) },
-                assembled || "（空的——勾几条模块，或者贴一段进去）")),
+              // 样张：一张印出来的纸。收起时下缘【褪下去】而不是被硬切一刀——
+              // 硬切看着像内容没加载完，褪下去才读得出「后面还有」。
+              h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
+                  padding: "11px 12px", maxHeight: showFull ? "none" : 150, overflow: "hidden" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
+                  assembled || "（空的——挑几根字条，或者贴一段进去）"),
+                !showFull && assembled
+                  ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 34,
+                      background: "linear-gradient(180deg, rgba(255,255,255,0) 0%, " + t.bg2 + " 92%)" } })
+                  : null)),
 
             h("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
               h("button", { onClick: dupPreset, style: S.tapGhost(t.tint) }, "复制一份"),
@@ -349,17 +378,49 @@
       h("div", { style: Object.assign({}, S.hint, { marginBottom: 14, lineHeight: 1.8 }) },
         "同一个人设、同一个场景、只有预设不同——这样比出来的差别才真的是预设的差别。\n剧本是固定的，别改，改了就没法比。"),
 
+      // 谁来写：一排名牌。选中那张往下压、上墨边——不是一颗填色药丸。
+      // 有头像就带着头像：这一屏比的是「同一个人写出来的两版」，人得是认得出的那个人。
       h("div", { style: { marginBottom: 13 } },
         h("div", { style: S.h2 }, "谁来写"),
-        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 } },
-          chars.map(c => h("button", { key: c.id, onClick: () => setTChar(c.id), style: S.chip(c.id === tChar) }, c.name)))),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 6 } },
+          chars.map(c => {
+            const on = c.id === tChar;
+            return h("button", { key: c.id, onClick: () => setTChar(c.id), "aria-pressed": on ? "true" : "false",
+              style: { display: "flex", alignItems: "center", gap: 7, minHeight: 44, padding: "5px 11px 5px 6px",
+                borderRadius: 3, border: "1px solid " + (on ? t.ink : t.line),
+                background: on ? t.bg2 : "transparent",
+                transform: on ? "translateY(1px)" : "none",
+                boxShadow: on ? "inset 0 2px 6px -5px rgba(0,0,0,.6)" : "none" } },
+              h(Avatar, { character: c, size: 26, radius: 3 }),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: on ? t.ink : t.sub } }, c.name));
+          }))),
 
       h("div", { style: { marginBottom: 13 } },
         h("div", { style: S.h2 }, "哪一场"),
-        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 6px" } },
-          SP.TEST_SCENES.map(s => h("button", { key: s.id, onClick: () => setTScene(s.id), style: S.chip(s.id === tScene) }, s.name))),
-        h("div", { style: Object.assign({}, S.card, S.hint, { lineHeight: 1.7 }) },
-          (SP.TEST_SCENES.find(s => s.id === tScene) || {}).setting + "\n你：" + (SP.TEST_SCENES.find(s => s.id === tScene) || {}).user)),
+        // 场景是【剧本上的一折】，所以这里就是一本薄剧本：一折一行，翻到哪一折，
+        // 哪一折就摊开——底下直接接着那一折的场面和她的第一句。
+        // ⚠️不做成一排标签：四折的名字排不进一行，一换行「选中那张接着底下那页」
+        //   就断了（标签在第一行、页在第二行下面），形状当场不成立。
+        h("div", { style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden",
+            background: t.bg2, marginTop: 6 } },
+          SP.TEST_SCENES.map((sc, i) => {
+            const on = sc.id === tScene;
+            return h("div", { key: sc.id, style: { borderTop: i ? "1px solid " + t.line : "none" } },
+              h("button", { onClick: () => setTScene(sc.id), "aria-pressed": on ? "true" : "false",
+                style: { width: "100%", minHeight: 44, textAlign: "left", padding: "0 12px 0 0",
+                  background: on ? "transparent" : "rgba(127,127,127,.045)",
+                  display: "flex", alignItems: "center", gap: 9 } },
+                // 折号：翻到的那一折，号码那一格上墨
+                h("span", { style: { width: 26, alignSelf: "stretch", flexShrink: 0, display: "flex",
+                    alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 10.5,
+                    background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+                    borderRight: "1px solid " + t.line } }, String(i + 1)),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: on ? t.ink : t.fog } }, sc.name)),
+              on
+                ? h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.75, padding: "2px 12px 11px 35px", whiteSpace: "pre-wrap" }) },
+                    sc.setting + "\n你：" + sc.user)
+                : null);
+          }))),
 
       h("div", { style: { marginBottom: 13 } },
         h("div", { style: S.h2 }, "跑哪几份 · 可多选"),
@@ -367,15 +428,20 @@
           "勾几份就连着跑几次，结果并排堆在下面。「对照组」是完全不吃预设，用来做基线。"
           + "每份【只调一次 API】，不偷偷补写。"
           + (tPicks.length > 1 ? "这一把 " + tPicks.length + " 份 = " + tPicks.length + " 次调用。" : "")),
-        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
-          [h("button", { key: "__base", onClick: () => togglePick(""), style: S.chip(tPicks.indexOf("") >= 0) }, "对照组")]
-            .concat(presets.map(p => h("button", { key: p.id, onClick: () => togglePick(p.id), style: S.chip(tPicks.indexOf(p.id) >= 0) }, p.name))))),
+        // 印哪几块版——跟搭预设那一排是同一种东西，所以长同一个样（plate 一处画）。
+        // 「对照组」是【空版】：什么都不印，用来跟别的版比。
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+          [plate({ key: "__base", on: tPicks.indexOf("") >= 0, onClick: () => togglePick(""), name: "对照组", sub: "空版 · 不吃预设", edge: t.fog })]
+            .concat(presets.map(p => plate({ key: p.id, on: tPicks.indexOf(p.id) >= 0, onClick: () => togglePick(p.id), name: p.name,
+              sub: ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)) + " 块" }))))),
 
       h("div", { style: { marginBottom: 16 } },
         h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
           h("div", { style: S.h2 }, "最低字数"),
           h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.tint } }, tMin ? String(tMin) : "不限")),
-        h("input", { type: "range", min: 0, max: 3000, step: 100, value: tMin, onChange: e => setTMin(Number(e.target.value)), style: { width: "100%" } })),
+        // 走共用的 Slider：一处写好，全 app 一个样，也白得那个 data-wk="slider" 挂点
+        // （施工规则/one-public-mechanism.md）。原来这儿自己写了一个裸 input[type=range]。
+        h(Slider, { value: tMin, min: 0, max: 3000, step: 100, onChange: v => setTMin(Number(v)) })),
 
       // 这条线路能不能流式，决定了它有没有 60 秒的天花板——花钱之前就该看见，
       // 而不是等三次试写全挂了才知道（她 2026-08-24）。
@@ -392,8 +458,11 @@
             + "· 先将就：最低字数调到 800 上下，一次调用能在 60 秒内写完。"));
       })(),
       h("button", { onClick: doRun, disabled: !!busy,
-        style: { width: "100%", padding: "12px", borderRadius: 9, border: "none", background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, marginBottom: 18 } },
-        busy ? "在写 " + busy + "…" : "试写"),
+        style: { width: "100%", minHeight: 48, padding: "13px", borderRadius: 3, border: "none",
+          background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14,
+          letterSpacing: ".04em", marginBottom: 18,
+          boxShadow: busy ? "none" : "0 4px 10px -8px rgba(0,0,0,.8)" } },
+        busy ? "在写 " + busy + "…" : "印一张"),
 
       runs.length
         ? h("div", null,
@@ -401,19 +470,34 @@
               h("div", { style: S.h2 }, "结果 · 最近 " + runs.length + " 次"),
               h("button", { onClick: () => { if (armed !== "__runs") { setArmed("__runs"); return; } setArmed(""); setRuns(SP.clearRuns()); },
                 style: Object.assign({}, S.tapGhost(armed === "__runs" ? t.accent : t.fog), { marginLeft: "auto" }) }, armed === "__runs" ? "真清空？再点一下" : "清空")),
-            h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } },
-              runs.map(r => h("div", { key: r.id, style: S.card },
-                h("div", { style: { display: "flex", alignItems: "baseline", gap: 7, marginBottom: 6 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink } }, r.presetName),
-                  h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5 }) }, r.charName + " · " + r.sceneName),
-                  h("span", { style: { marginLeft: "auto", fontFamily: "monospace", fontSize: 10.5, color: r.err || (r.want && r.chars < r.want) ? t.accent : t.fog } },
-                    r.err ? "失败" : r.chars + " 字" + (r.want ? " / " + r.want : ""))),
-                (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginBottom: 5, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
-                r.err
-                  ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
-                  : h("div", null,
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap", maxHeight: openRun[r.id] ? "none" : 132, overflow: "hidden" } }, r.text),
-                      h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })), style: Object.assign({}, S.tapGhost(t.tint), { border: "none", marginTop: 3, paddingLeft: 0 }) }, openRun[r.id] ? "收起" : "全文"))))))
+            // 每一次试写＝一张打样纸：正文印在纸上，纸脚那一条印着这张是谁、哪一场、多少字。
+            // 印坏的那张纸脚整条上红——一眼挑得出来，不用去读小字。
+            h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
+              runs.map(r => {
+                const bad = !!r.err, thin = !bad && r.want && r.chars < r.want;
+                return h("div", { key: r.id, style: { background: t.bg2, border: "1px solid " + (bad ? t.accent : t.line),
+                    borderRadius: 3, overflow: "hidden", boxShadow: "0 3px 9px -8px rgba(0,0,0,.7)" } },
+                  h("div", { style: { padding: "11px 12px 10px" } },
+                    (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginBottom: 6, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
+                    bad
+                      ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
+                      : h("div", { style: { position: "relative", maxHeight: openRun[r.id] ? "none" : 132, overflow: "hidden" } },
+                          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap" } }, r.text),
+                          !openRun[r.id]
+                            ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 30,
+                                background: "linear-gradient(180deg, rgba(255,255,255,0) 0%, " + t.bg2 + " 92%)" } })
+                            : null)),
+                  // 纸脚
+                  h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 6px 0 12px",
+                      borderTop: "1px solid " + (bad ? t.accent : t.line),
+                      background: bad ? "rgba(194,90,74,.10)" : "rgba(127,127,127,.05)" } },
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: bad ? t.accent : t.ink } }, r.presetName),
+                    h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5, flex: 1, minWidth: 0 }) }, r.charName + " · " + r.sceneName),
+                    h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: bad || thin ? t.accent : t.fog } },
+                      bad ? "印坏了" : r.chars + " 字" + (r.want ? " / " + r.want : "")),
+                    bad ? null : h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })),
+                      style: Object.assign({}, S.tapIcon(t.tint), { fontSize: 11.5, minWidth: 52 }) }, openRun[r.id] ? "收起" : "全文")));
+              })))
         : null);
 
     // 打样台也铺一张纸（v62.73 审美审计：这一页整个是 t.bg 平色）

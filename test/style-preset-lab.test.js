@@ -370,7 +370,10 @@ test("不设下限就只调一次，不平白多花一次钱", async () => {
 test("结果卡片要显示拿到几字 / 要几字，以及补写实况", () => {
   assert.ok(lab.indexOf('r.chars + " 字" + (r.want ? " / " + r.want : "")') > 0);
   assert.ok(lab.indexOf("(r.notes || []).join(") > 0);
-  assert.ok(lab.indexOf("r.err || (r.want && r.chars < r.want) ? t.accent : t.fog") > 0, "没达标要标红");
+  // v65.11：结果那一条改成【打样纸的纸脚】，红标那一层拆成两个名字（印坏了 / 字不够）
+  assert.ok(lab.indexOf("const bad = !!r.err, thin = !bad && r.want && r.chars < r.want;") > 0, "没分清印坏了和字不够");
+  assert.ok(lab.indexOf("color: bad || thin ? t.accent : t.fog") > 0, "没达标要标红");
+  assert.ok(lab.indexOf('bad ? "印坏了"') > 0, "印坏了那张要一眼挑得出来");
 });
 
 // —— 「又 load failed 了」（她 2026-08-23）——

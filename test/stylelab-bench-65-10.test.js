@@ -12,12 +12,17 @@ const path = require("node:path");
 const SL = fs.readFileSync(path.resolve(__dirname, "..", "js/style-lab.js"), "utf8");
 
 test("预设＝台边那几块版：压下去的那块上了墨，不是一颗填色药丸", () => {
+  // ⚠️「一块版」只画在一处（plate），搭预设那一排和测试台「印哪几块」共用——
+  //   各画一份的话改一处永远漏另一处（施工规则/one-public-mechanism.md）。
+  const p = SL.slice(SL.indexOf("const plate = (o) =>"), SL.indexOf("// ---- 搭预设 ----"));
+  assert.ok(p.length > 300, "抠不出那一块版");
   // 选中态同时变【底色、位置、版边、投影】，不只靠一个色差
-  assert.match(SL, /background: on \? t\.bg2 : "rgba\(127,127,127,\.05\)"/);
-  assert.match(SL, /transform: on \? "translateY\(1px\)" : "none"/, "压下去那一下没了");
-  assert.match(SL, /borderRadius: "3px 0 0 3px", background: on \? t\.accent : t\.line/, "版边那道墨没了");
-  assert.match(SL, /boxShadow: on \? "inset 0 2px 6px -5px/, "压进台面的那层内影没了");
-  assert.match(SL, /minHeight: 44/, "整块版的可点区不够");
+  assert.match(p, /background: o\.on \? t\.bg2 : "rgba\(127,127,127,\.05\)"/);
+  assert.match(p, /transform: o\.on \? "translateY\(1px\)" : "none"/, "压下去那一下没了");
+  assert.match(p, /borderRadius: "3px 0 0 3px", background: o\.on \? \(o\.edge \|\| t\.accent\) : t\.line/, "版边那道墨没了");
+  assert.match(p, /boxShadow: o\.on \? "inset 0 2px 6px -5px/, "压进台面的那层内影没了");
+  assert.match(p, /minHeight: 44/, "整块版的可点区不够");
+  assert.match(SL, /presets\.map\(p => plate\(\{ key: p\.id, on: p\.id === curId/, "预设那一排没用它");
   // 药丸那一套彻底删掉，不是留着不用（撤掉东西要删除）
   assert.ok(!/dash: \{ padding: "6px 12px", borderRadius: 999/.test(SL), "虚线药丸还留在那儿");
   assert.ok(!/style: S\.dash/.test(SL), "还有人在用虚线药丸");
@@ -65,5 +70,7 @@ test("模块库＝字盘：拉开的那一格上墨，挑中的字条是实心�
 
 test("点得着：这一页自己的按钮不许低于 40（padding 算进去）", () => {
   assert.match(SL, /tapIcon: color => \(\{ minWidth: 40, minHeight: 40/);
-  assert.match(SL, /chip: on => \(\{ minHeight: 40, padding: "9px 13px"/);
+  // v65.11：药丸那一套（S.chip）也删干净了——测试台那三处各自长成了自己的东西
+  assert.ok(!/chip: on =>/.test(SL), "通用药丸还留在那儿");
+  assert.ok(!/S\.chip/.test(SL), "还有人在用通用药丸");
 });
