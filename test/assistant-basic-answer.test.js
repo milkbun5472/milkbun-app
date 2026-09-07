@@ -5,11 +5,12 @@ const vm = require("node:vm");
 
 const src = fs.readFileSync("js/assistant.js", "utf8");
 
-test("秋秋可以回答基础问题，但没有因此扩张写入权限", () => {
-  assert.match(src, /解释常识和概念、语言表达、简单计算、生活办法、轻量计划/);
-  assert.match(src, /回答普通问题不会给你新增任何写入权限/);
-  assert.match(src, /普通问答生成 patch/);
-  assert.match(src, /这条限制只管 App 功能，不限制上面的普通基础问答/);
+test("秋秋可以回答 App 基础问题，但没有变成生活百科或扩张写入权限", () => {
+  assert.match(src, /它整体是做什么的、某个页面或概念是什么意思、不同玩法有什么区别/);
+  assert.match(src, /她现在有哪些角色和文风、眼前页面与现状快照里能确认的设置是什么/);
+  assert.match(src, /仍然只负责这个 App，不回答与它无关的百科、新闻或生活问题/);
+  assert.match(src, /基础问答不会给你新增任何写入权限/);
+  assert.match(src, /纯问答生成 patch/);
 });
 
 test("模型直接返回普通正文时保住答案，不再误报没听懂", () => {
@@ -37,6 +38,7 @@ test("真跑一遍：线路回普通正文也能成为秋秋的回复", async ()
   assert.deepEqual(Array.from(result.patches), []);
 });
 
-test("秋秋首页把基础问答能力说出来", () => {
-  assert.match(src, /普通常识、词句意思、简单计算和生活小问题，我也能直接答/);
+test("秋秋首页把 App 基础问答能力说出来", () => {
+  assert.match(src, /这个 App 整体是做什么的、某一页或一个概念是什么意思、不同玩法有什么区别/);
+  assert.match(src, /现在有哪些角色、文风和设置/);
 });
