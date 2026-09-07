@@ -64,7 +64,8 @@ test("记的是【服务端写的】那个，不是你填的那个", () => {
 });
 
 test("设置里看得见「你填的 → 它实际给的」，对不上要标出来", () => {
-  const api = grab(scr, "function ApiConfig({", "\nfunction ", 20000);
+  // 上限只是防止 indexOf 抓到很远的一处；v65.16「保存 ≠ 设为主用」之后这个函数长了一点
+  const api = grab(scr, "function ApiConfig({", "\nfunction ", 24000);
   assert.match(api, /localStorage\.getItem\("x_apiServed"/, "设置页没去读");
   assert.match(api, /"它实际给的："/, "看不见服务端给的是哪个");
   assert.match(api, /served\.verdict === "diff" \? "#a4442e"/, "对不上的时候没标出来");

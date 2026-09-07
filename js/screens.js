@@ -6533,26 +6533,42 @@ function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [store, setStore] = useState(() => (typeof loadImgApiProfiles === "function" ? loadImgApiProfiles() : { activeId: "legacy", profiles: [Object.assign({ id: "legacy", name: "图像站 1" }, typeof loadImgApi === "function" ? loadImgApi() : {})] }));
   const [editing, setEditing] = useState(false);
-  const c = store.profiles.find(p => p.id === store.activeId) || store.profiles[0];
+  // ⚠️编辑哪一张 和 主用哪一张，是两件事（她 2026-09-07：「我可能只是想保存个备用的，
+  //   但是一旦保存就把它变成主用的」）。原来编辑器只认 store.activeId，所以点「编辑」
+  //   必须先 switchSite——【编辑即切换】，想改备用的就一定会把主用的换掉。
+  //   现在编辑器认 editId，主用还是 activeId，两条各走各的。
+  const [editId, setEditId] = useState(null);
+  const c = store.profiles.find(p => p.id === editId) || store.profiles.find(p => p.id === store.activeId) || store.profiles[0];
   const persist = next => { const clean = typeof saveImgApiProfiles === "function" ? saveImgApiProfiles(next) : next; setStore(clean); return clean; };
   const set = patch => {
-    const profiles = store.profiles.map((p, i) => p.id === store.activeId ? Object.assign({}, p, patch, { name: String((patch && patch.name) != null ? patch.name : p.name).trim() || ("图像站 " + (i + 1)) }) : p);
+    const profiles = store.profiles.map((p, i) => p.id === c.id ? Object.assign({}, p, patch, { name: String((patch && patch.name) != null ? patch.name : p.name).trim() || ("图像站 " + (i + 1)) }) : p);
     persist(Object.assign({}, store, { profiles }));
   };
-  const switchSite = id => { persist(Object.assign({}, store, { activeId: id })); setModels([]); setTestRes(null); toast && toast("已切换图像站"); };
+  const openSite = id => { setEditId(id); setModels([]); setTestRes(null); setEditing(true); };
+  const switchSite = id => { persist(Object.assign({}, store, { activeId: id })); toast && toast("这一站现在是主用的了"); };
   const addSite = (copy, source) => {
     const n = store.profiles.length + 1;
     const id = "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
     const from = source || c;
     const base = copy ? Object.assign({}, from) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
     const profile = Object.assign({}, base, { id, name: copy ? ((from.name || "图像站") + " · 副本") : ("图像站 " + n) });
-    persist({ version: 2, activeId: id, profiles: store.profiles.concat(profile) }); setModels([]); setTestRes(null); setEditing(true);
-    toast && toast(copy ? "已复制并切到新站点" : "已新增图像站");
+    // ⚠️新增和复制【不抢主用】：多半就是来存一个备用的。只有本来一个主用都没有时才顶上。
+    const hasActive = store.profiles.some(p => p.id === store.activeId);
+    persist({ version: 2, activeId: hasActive ? store.activeId : id, profiles: store.profiles.concat(profile) });
+    setEditId(id); setModels([]); setTestRes(null); setEditing(true);
+    toast && toast(copy ? "副本建好了，还没设成主用" : "新站点建好了，还没设成主用");
   };
   const removeSite = id => {
     if (store.profiles.length <= 1) { toast && toast("至少保留一个图像站"); return; }
     const target = store.profiles.find(p => p.id === (id || store.activeId)) || c;
-    requestAppConfirm("删除图像站「" + (target.name || "未命名") + "」？", "只删本站配置。", () => { const profiles = store.profiles.filter(p => p.id !== target.id); const saved = persist({ version: 2, activeId: profiles[0].id, profiles }); if ((saved.profiles || []).some(p => p.id === target.id)) return toast && toast("这次没删成功，原图像站还在"); setModels([]); setTestRes(null); toast && toast("已删除并切到另一个图像站"); }, "删除");
+    requestAppConfirm("删除图像站「" + (target.name || "未命名") + "」？", "只删本站配置。", () => { const profiles = store.profiles.filter(p => p.id !== target.id);
+      // 删的不是主用那一站就别动主用（原来一律改成 profiles[0]，等于顺手换掉主用）
+      const nextActive = store.activeId === target.id ? profiles[0].id : store.activeId;
+      const saved = persist({ version: 2, activeId: nextActive, profiles });
+      if ((saved.profiles || []).some(p => p.id === target.id)) return toast && toast("这次没删成功，原图像站还在");
+      if (editId === target.id) { setEditId(null); setEditing(false); }
+      setModels([]); setTestRes(null);
+      toast && toast(store.activeId === target.id ? "已删除，主用换成了另一站" : "已删除"); }, "删除");
   };
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
@@ -6613,16 +6629,30 @@ function ImageApiConfig({ toast }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "图像站点"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "已保存 " + store.profiles.length + " 条 · 点卡片单独编辑")),
       h("button", { onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p =>
-      h("div", { key: p.id, onClick: () => { switchSite(p.id); setEditing(true); }, className: "active:opacity-75", style: { minHeight: 120, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p => {
+      const main = p.id === store.activeId;
+      return h("div", { key: p.id, onClick: () => openSite(p.id), className: "active:opacity-75", style: { minHeight: 132, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: (main ? "1.5px solid " + t.ink : "1px solid " + t.line), display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        // 主用是一颗单选章，编辑是另一件事——这两件事不许再合成一个动作
+        main
+          ? h("div", { style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 10, color: t.bg2, background: t.ink, borderRadius: 999, padding: "3px 9px" } }, "现在用的是这一站")
+          : h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, className: "active:opacity-60", style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 10.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", background: "transparent" } }, "设为主用"),
         h("div", { className: "flex", style: { gap: 9, marginTop: "auto", paddingTop: 9 } },
-          h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); openSite(p.id); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
           h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
-          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null)))));
+          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null));
+    })));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
-    h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 12 } }, "← 返回图像站点"),
+    h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 12 } },
+      h("button", { onClick: () => { setEditing(false); setEditId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "← 返回图像站点"),
+      h("span", { style: { flex: 1 } }),
+      // 改这一站【不会】把它变成主用；要用它就在这儿明说一句
+      c.id === store.activeId
+        ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "4px 10px" } }, "现在用的就是这一站")
+        : h("button", { onClick: () => switchSite(c.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", background: "transparent" } }, "设为主用")),
+    c.id === store.activeId ? null : h("div", { style: { marginBottom: 10, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
+      "改这一站是随手存的，不会动到主用那一站。想换成它，点上面「设为主用」。"),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
@@ -7533,7 +7563,10 @@ function ApiConfig({
           h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, "编辑"),
           h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
           list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
-          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null)))),
+          // 主用是一颗单选章，不是「谁最后被保存过」——那两件事以前是同一个动作
+          p.id === activeId
+            ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "2px 8px" } }, "主用中")
+            : h("button", { onClick: e => { e.stopPropagation(); onSave(list, p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
     routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
     routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。", bgApiId, onSetBgApi, "跟随主模型"),
     h(McpConfig, { toast: toast }));
@@ -7726,8 +7759,13 @@ function ApiConfig({
   /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {
+    // ⚠️保存 ≠ 设为主用（她 2026-09-07：「我可能只是想保存个备用的，但是一旦保存
+    //   就把它变成主用的，得再回去重新保存一遍主要的」）。
+    //   原来这颗按钮写着「保存并设为线上主 API」，第二个参数直接把 activeId 换成了 curId。
+    //   现在它只存这一条；主用还是原来那条（一条主用都没有时才由它顶上）。
     onClick: async () => {
-      await onSave(list, curId);
+      await onSave(list, list.some(p => p.id === activeId) ? activeId : curId);
+      toast && toast(activeId === curId ? "存好了（这条就是主用的）" : "存好了 · 主用还是原来那条");
     },
     className: "flex-1 py-3",
     style: {
@@ -7738,7 +7776,12 @@ function ApiConfig({
       color: t.bg2,
       borderRadius: 6
     }
-  }, "保存并设为线上主 API"), list.length > 1 && /*#__PURE__*/React.createElement("button", {
+  }, "保存"), curId !== activeId && /*#__PURE__*/React.createElement("button", {
+    // 要拿这条当主用，是另外一句话——所以它是另外一颗按钮
+    onClick: async () => { await onSave(list, curId); toast && toast("这条现在是线上主 API 了"); },
+    className: "py-3 px-4",
+    style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.ink, borderRadius: 6 }
+  }, "设为主用"), list.length > 1 && /*#__PURE__*/React.createElement("button", {
     onClick: removeCur,
     className: "py-3 px-5",
     style: {
