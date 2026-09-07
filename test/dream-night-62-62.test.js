@@ -11,11 +11,14 @@ const SRC = fs.readFileSync("js/dream.js", "utf8");
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("三页都进夜色，而且用的是 core.js 现成的那张 night 皮", () => {
-  assert.match(NOC, /pageSkin\("night", NIGHT, \{ base: DREAM_NIGHT/);
+  // ⚠️v65.18：那套夜色变成了【底稿】(NIGHT_BASE)，真正发下去的那份从 nightNow() 过一道
+  //   themeFor("dream", …)——她在主题工作台里给梦境换几支色，整页跟着变
+  //（她 2026-09-07：「我让秋秋改梦境变白还是没有变化」）。
+  assert.match(NOC, /pageSkin\("night", N, \{ base: N\.bg/);
   // 三处外壳都要铺；漏一处那一页就还是米白的
   assert.equal((NOC.match(/style: dreamPage\(\)/g) || []).length, 3, "有一页没铺夜色");
   // 顶栏透上来 + 顶栏的字跟着进夜（Head 的 bg/ink 口子）
-  assert.equal((NOC.match(/bg: "transparent", ink: NIGHT\.ink/g) || []).length, 3);
+  assert.equal((NOC.match(/bg: "transparent", ink: t\.ink/g) || []).length, 3);
 });
 
 test("星点压到 .55：满强度是点阵，不是夜空", () => {
@@ -25,7 +28,8 @@ test("星点压到 .55：满强度是点阵，不是夜空", () => {
 
 test("三个组件的取色都换成夜里那一套，不再拿她的主题色", () => {
   // ⚠️不重写结构，只换取色的那个 t（跟 v62.61 歌单同一个手法）
-  assert.equal((NOC.match(/const t = NIGHT;/g) || []).length, 3, "有组件还在用 useTheme()");
+  assert.equal((NOC.match(/const t = nightNow\(\);/g) || []).length, 3, "有组件还在用 useTheme()");
+  assert.ok(!/const t = NIGHT_BASE;/.test(NOC), "有组件把底稿直接当成色，她改了主题这一页不会跟着变");
   assert.doesNotMatch(NOC, /const t = useTheme\(\);/);
   // 雾紫在夜里做字太暗，所以分成两支：ACCENT 只填色，ACC_LIT 写字画线
   assert.match(NOC, /const ACC_LIT = "#a99ac9";/);

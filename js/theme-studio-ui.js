@@ -167,6 +167,14 @@
         // 一页一页去挂挂不完。但它们的颜色全从同一份 token 里取，所以给这一页
         // 单独换几支色，那一页所有东西一起跟着变，一个挂点都不需要。
         page !== "all" && (function () {
+          // ⚠️自己写死一套配色的那几页：这儿要说明白「改了也不会变」，别让她白改一遍
+          //   （她 2026-09-07：「我让秋秋改梦境变白还是没有变化」）。名单只有 ThemeStudio 那一份。
+          const own = (studio.OWN_PALETTE || {})[page];
+          if (own) return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: "rgba(194,90,74,.07)" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 3 } }, "这一页换不了色"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog } },
+              "它的颜色不是从主题里取的（" + own + "），所以在这儿换几支色一点变化都不会有。"
+              + "要让它能换，得先把这一页接到主题上——那是一次施工。上面的页面 CSS 照旧能改它的顶栏、半窗这些共用件。"));
           const cur = (draft.pageTokens || {})[page] || {};
           const put = (k, v) => {
             const one = { ...cur }; if (v) one[k] = v; else delete one[k];

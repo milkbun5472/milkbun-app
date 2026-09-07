@@ -361,6 +361,11 @@
       write: (id, patch) => {
         const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
         if (!knownPage(ts, id)) throw new Error(badPage(ts, id));
+        // ⚠️自己写死一套配色的那几页：改这几支色它一点变化都不会有——
+        //   当场拒掉，别报「改好了」（她 2026-09-07 撞上的正是这种假成功）。
+        const own = (ts.OWN_PALETTE || {})[id];
+        if (own) throw new Error("「" + id + "」这一页的颜色不是从主题里取的（" + own
+          + "），给它换这几支色不会有任何变化。跟她说实话：这一页要能换色，得先把它接到主题上——那是一次施工，不是一条改动稿。");
         let obj = null;
         try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
         if (!obj || typeof obj !== "object") throw new Error("这一条不是一份能读的 JSON");
@@ -558,8 +563,10 @@
       + scoped + "\n"
       + wkHere()
       + "  ⚠️页面正文里那些卡片、按钮、列表**没有单独的钩子**，CSS 抓不住它们。\n"
-      + "  它们的颜色全是从这一页的那几支色里取的，所以【整页换调子、换卡片底色、换字色】要走 pagecolor 那一栏\n"
-      + "  （每一页都能改，不需要钩子）；上面这些钩子管的是顶栏、半窗、空状态、头像、开关、输入框这类共用件。\n"
+      + "  它们的颜色多半是从这一页的那几支色里取的，所以【整页换调子、换卡片底色、换字色】要走 pagecolor 那一栏\n"
+      + "  （不需要钩子）；上面这些钩子管的是顶栏、半窗、空状态、头像、开关、输入框这类共用件。\n"
+      + "  ⚠️有几页整页是自己那套材质写死的（夜空、账簿纸、卡纸台面…），它们不问主题要颜色——\n"
+      + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
   const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';

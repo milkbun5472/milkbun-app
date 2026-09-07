@@ -391,6 +391,24 @@
   // ⚠️问的是【此刻正生效的那一份】(active)，不是存档里那份：
   //   「先预览 30 秒」改的就是 active，读存档的话预览时这一页的颜色纹丝不动。
   const tokensFor = page => cleanTokens(((current() || {}).pageTokens || {})[page]);
+  // ── 自己写死一套配色的那几页（v65.18）──────────────────────────────
+  // 「这一页单独换几支色」改的是【这一页从主题里取的那几支】。绝大多数页都是这么取的，
+  // 所以改完整页跟着变。但有几页整页是自己那套材质写死的（夜空、账簿纸、卡纸台面…），
+  // 它们压根不问主题要颜色——给这几页换色【一点变化都不会有】。
+  // 她 2026-09-07 就是这么撞上的：「我让秋秋改梦境变白还是没有变化」。
+  // ⚠️所以这张表要在【两处】用同一份：秋秋写 pagecolor 时当场拒掉并说清楚，
+  //   她自己在工作台里挑到这几页时也看得见——不许有一处偷偷「成功」了。
+  // ⚠️这是一张【会缩短的表】：把哪一页接到主题上（照 js/dream.js 那条路：
+  //   把写死的那套当底稿，真正发下去的那份过一道 themeFor），就把它从这儿删掉。
+  const OWN_PALETTE = Object.freeze({
+    tarot: "整页是那片夜空",
+    ledger: "整页是账簿纸",
+    weekly: "每一栏各有各的版面色",
+    fanfic: "每一篇自己挑的那张书页",
+    dreamjournal: "整页是夜里的解梦馆",
+    impression: "整页是相册的卡纸台面",
+    map: "那块底是地图本身（它就该是地图的颜色）"
+  });
   // ⚠️没有覆盖时【原样把 base 还回去】：换个对象身份会让整棵树白重渲染一遍。
   //   有覆盖时也按 (页 + 那几支色 + base) 记一份，免得每次渲染都新造一个。
   let tfKey = "", tfVal = null;
@@ -538,7 +556,7 @@
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

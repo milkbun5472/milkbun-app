@@ -25,21 +25,32 @@
   // ⚠️不重写结构，只把取色的那个 t 换掉（跟 v62.61 歌单同一个手法）——
   //   幕、选项、回档、结局块本来的排布是对的，动它们纯属把好东西改坏。
   const DREAM_NIGHT = "#161a24";
-  const NIGHT = {
+  // ⚠️这一页【自己写死了一套夜色】，不走 useTheme——所以主题工作台里「这一页单独换
+  //   几支色」原来够不着它（她 2026-09-07：「我让秋秋改梦境变白还是没有变化」）。
+  //   现在这套夜色只是【底稿】：真正发下去的那一份从 themeFor("dream", …) 过一道，
+  //   她没换过就原样是这片夜，换过就按她换的来。
+  //   ⚠️取的时候要现取（nightNow()），不能在模块加载时算一次——她改完主题，
+  //   App 会跟着 lisa-theme-change 重画，重画时才拿得到新的那一份。
+  const NIGHT_BASE = {
     bg: DREAM_NIGHT, bg2: "rgba(232,230,240,.055)", ink: "#e8e6f0",
     sub: "rgba(232,230,240,.70)", fog: "rgba(232,230,240,.42)",
     line: "rgba(232,230,240,.14)", tint: "#a99ac9", accent: "#a99ac9"
   };
+  const nightNow = () => (typeof window !== "undefined" && window.ThemeStudio && window.ThemeStudio.themeFor)
+    ? window.ThemeStudio.themeFor("dream", NIGHT_BASE) : NIGHT_BASE;
   // 雾紫在夜里做【字】太暗，读不出来；做【填色】正好。所以分成两支：
   // ACCENT 只用来填按钮和药丸，ACC_LIT 用来写字和画线。
   const ACC_LIT = "#a99ac9";
   const GOOD_LIT = "#7fc0a0";    // 抵达（原 #4f8a6a 在夜里发黑）
   const BAD_LIT = "#d98a8a";     // 梦碎（原 #a24a4a 同理）
-  const dreamPage = () => (typeof pageSkin === "function")
+  const dreamPage = () => {
+    const N = nightNow();
     // strength 压到 .55：满强度时那两层星点是【等距的点阵】，看着像织物纹理不像夜空，
     // 而且 17px / 29px 两层还会打出摩尔纹。压下去之后它退成「远处有几点光」。
-    ? pageSkin("night", NIGHT, { base: DREAM_NIGHT, tint: "169,154,201", corner: true, strength: .55 })
-    : { background: DREAM_NIGHT };
+    return (typeof pageSkin === "function")
+      ? pageSkin("night", N, { base: N.bg, tint: (typeof skinRGB === "function" ? skinRGB(N.tint).join(",") : "169,154,201"), corner: true, strength: .55 })
+      : { background: N.bg };
+  };
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
   // 反八股那一整套（去人机味／角色卡准则／线下叙事准则／叙事反陈词滥调／语气年龄锚）。
@@ -404,7 +415,7 @@
   // 主组件
   // ============================================================
   function Dream(props) {
-    const t = NIGHT;
+    const t = nightNow();
     const [saves, setSaves] = useState(loadSaves);
     const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
     const lpTimer = useRef(null), lpFired = useRef(false);
@@ -473,7 +484,7 @@
 
     // 落地页
     return h("div", { className: "h-full flex flex-col", style: dreamPage() },
-      h(Head, { zh: "梦境", onBack: props.onBack, bg: "transparent", ink: NIGHT.ink }),
+      h(Head, { zh: "梦境", onBack: props.onBack, bg: "transparent", ink: t.ink }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         // 「编织一场梦」＝推开一扇门。上圆下方的那个轮廓就是门洞，
         // 虚线圆角按钮是任何 app 的「新建」，跟梦没有关系。
@@ -539,7 +550,7 @@
   // 发起设置：选 1 个角色 + 3 个关键词
   // ============================================================
   function Setup(props) {
-    const t = NIGHT;
+    const t = nightNow();
     const [charId, setCharId] = useState("");
     const [guestIds, setGuestIds] = useState([]);       // 客串角色（最多 2）
     const [injectChat, setInjectChat] = useState(true); // 是否注入最近聊天记录
@@ -589,7 +600,7 @@
     const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
 
     return h("div", { className: "h-full flex flex-col", style: dreamPage() },
-      h(Head, { zh: "编织一场梦", onBack: props.onCancel, bg: "transparent", ink: NIGHT.ink }),
+      h(Head, { zh: "编织一场梦", onBack: props.onCancel, bg: "transparent", ink: t.ink }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         h("div", { style: label }, "进谁的梦"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 } },
@@ -633,7 +644,7 @@
   // ============================================================
   // 梦里落在你手里的那件东西（v63.05）：抵达 / 直面两种结局底下都有；「带出梦去」进她的物品
   function KeepsakeCard(props) {
-    const t = NIGHT, k = props.keepsake; if (!k || !k.name) return null;
+    const t = nightNow(), k = props.keepsake; if (!k || !k.name) return null;
     return h("div", { style: { marginTop: 14, padding: "12px 14px", borderRadius: 12, border: "1px dashed rgba(169,154,201,.45)", background: "rgba(169,154,201,.07)" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, k.name),
@@ -645,7 +656,7 @@
   }
 
   function DreamView(props) {
-    const t = NIGHT;
+    const t = nightNow();
     const s = props.session;
     // 带出梦去：进她的物品，标着从谁的梦里来；梦这边记一笔「已带出」
     const keep = () => {
@@ -824,7 +835,7 @@
             : null) : null;
 
     return h("div", { className: "h-full flex flex-col", style: dreamPage() },
-      h(Head, { zh: s.charName + " 的梦", onBack: props.onBack, right: wakeBtn, bg: "transparent", ink: NIGHT.ink }),
+      h(Head, { zh: s.charName + " 的梦", onBack: props.onBack, right: wakeBtn, bg: "transparent", ink: t.ink }),
       // 梦境流（flex-1 撑满剩余高度，底部控制区是同级 shrink-0，滚动能到底不被盖）
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-5", style: { paddingBottom: 24 } },
         s.recur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginBottom: 14, paddingBottom: 10, borderBottom: "1px dashed " + t.line } },

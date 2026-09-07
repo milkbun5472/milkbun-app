@@ -31,7 +31,7 @@ test("八支色是一张表，秋秋和界面都问它要", () => {
   // 这八支必须真的是 useTheme() 那份 token 的栏（不然改了也没人取）
   const def = R("js/core.js").slice(R("js/core.js").indexOf("const DEFAULT_THEME = {"));
   T.TOKEN_KEYS.forEach(k => assert.ok(new RegExp("\\n  " + k + ": \"").test(def), "DEFAULT_THEME 里没有 " + k));
-  assert.match(studio, /CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, okColor, cleanTokens, tokensFor, themeFor,/,
+  assert.match(studio, /CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor,/,
     "没导出去，秋秋和界面都拿不到");
 });
 
@@ -101,7 +101,7 @@ test("秋秋被明确告知：抓不住的那些改颜色走 pagecolor，别硬�
   const note = asst.slice(asst.indexOf("function themeCssNote"), asst.indexOf("const SHAPE"));
   assert.match(note, /没有单独的钩子/);
   assert.match(note, /要走 pagecolor 那一栏/);
-  assert.match(note, /每一页都能改，不需要钩子/);
+  assert.match(note, /不需要钩子/);
   assert.match(note, /先说实话/);
 });
 
