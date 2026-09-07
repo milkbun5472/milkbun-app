@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.33";
+const APP_VERSION = "v65.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6116,7 +6116,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const surfaces = opts.surfaces || ["online", "offline"]; // 可只取某个场景（群线上已单独有单聊私聊，那里只补 offline 免重复）
     const sinceHours = opts.sinceHours != null ? opts.sinceHours : (memCfgRef.current.crossHours || 72);
     const sinceMs = sinceHours ? Date.now() - sinceHours * 3600000 : 0;
-    const char = offlineCharacterFor(scopeKey);
+    const char = offlineCharacterFor(charId);
     const cName = char ? char.name : "TA";
     const uName = (profile && profile.name) || "用户";
     const beats = [];
