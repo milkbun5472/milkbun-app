@@ -844,6 +844,8 @@
     const m = MODES[s.mode] || {};
     const [fwd, setFwd] = useState(false);
     const [forwarded, setForwarded] = useState(false);
+    const [tableFwd, setTableFwd] = useState(false);
+    const [tableForwarded, setTableForwarded] = useState(!!s.tableForwardedAt);
     const [followups, setFollowups] = useState(Array.isArray(s.followups) ? s.followups : []);
     const [followText, setFollowText] = useState("");
     const [followBusy, setFollowBusy] = useState(false);
@@ -917,6 +919,16 @@
         await props.onForwardToChat(s);
         setForwarded(true);
       } finally { setFwd(false); }
+    };
+    const doForwardTable = async () => {
+      if (tableFwd || tableForwarded || !followups.length || !props.onForwardToChat) return;
+      setTableFwd(true);
+      try {
+        await props.onForwardToChat({ ...s, followups: followups }, { table: true });
+        const updated = { ...s, followups: followups, tableForwardedAt: Date.now() };
+        setTableForwarded(true);
+        props.onUpdate && props.onUpdate(updated);
+      } finally { setTableFwd(false); }
     };
     const sendFollowup = async () => {
       const text = followText.trim();
@@ -1018,7 +1030,13 @@
             h("textarea", { value: followText, onChange: e => setFollowText(e.target.value), rows: 2, placeholder: "再问一句，或只是和 Ta 聊聊这副牌…", disabled: followBusy,
               style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + N.line, background: N.bg2, color: N.ink, padding: "9px 10px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5 } }),
             h("button", { onClick: sendFollowup, disabled: followBusy || !followText.trim(), className: "active:opacity-70",
-              style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? N.fog : N.accent, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说"))) : null,
+              style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? N.fog : N.accent, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说")),
+          followups.length && props.onForwardToChat ? h("button", {
+            onClick: doForwardTable, disabled: tableFwd || tableForwarded, className: "w-full active:opacity-80",
+            style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
+              color: tableForwarded ? N.tint : "#fff", background: tableForwarded ? "rgba(184,145,80,.12)" : (tableFwd ? N.fog : N.accent),
+              border: tableForwarded ? "1px solid rgba(184,145,80,.3)" : "1px solid transparent", borderRadius: 11, padding: "10px 0" }
+          }, tableFwd ? "正在带回聊天…" : (tableForwarded ? "✓ 已带回与 " + s.charName + " 的聊天" : "把小桌对话带回与 " + s.charName + " 的聊天")) : null) : null,
         null));
   }
 

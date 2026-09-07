@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.29";
+const APP_VERSION = "v65.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14004,9 +14004,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // content 里带了「这篇是写你的」标记 + 关系网本来就在 bundle 里，正常回复时 TA 演得出来。
   };
   // 塔罗「给角色算一卦」转发给对应角色：把这一卦发进 Ta 的私聊，让 Ta 读后反应
-  const forwardTarotToChat = async (session) => {
+  const forwardTarotToChat = async (session, options) => {
     const toChar = characters.find(c => c.id === session.charId);
     if (!toChar) { toast("找不到这个角色"); return; }
+    if (options && options.table) {
+      const tableLines = (session.followups || []).filter(x => x && x.content && (x.role === "user" || x.role === "assistant"));
+      if (!tableLines.length) { toast("小桌边还没有可以带回去的对话"); return; }
+      const movedAt = Date.now();
+      const intro = { role: "system", kind: "tarottable", content: "你们把刚才在塔罗店小桌边围绕这副牌说的话带回了聊天。", ts: movedAt, read: false };
+      const moved = tableLines.map((x, i) => ({
+        role: x.role, kind: "tarottable", content: String(x.content),
+        ts: Number(x.ts) || movedAt + i + 1, read: false
+      }));
+      pChat(toChar.id, p => [...p, intro, ...moved]);
+      toast("已把小桌对话带回与 " + (toChar.remark || toChar.name) + " 的聊天");
+      return;
+    }
     const cardsTxt = (session.cards || []).map((c, i) => ((session.spread || [])[i] ? session.spread[i] + "：" : "") + c.name + (c.rev ? "（逆位）" : "（正位）")).join("；");
     const readTxt = (session.reads || []).map(r => (r.pos ? r.pos + "—" : "") + r.text).join("\n");
     const summary = session.summary || "";

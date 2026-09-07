@@ -94,13 +94,13 @@ test("角色自己问牌时，逐张解读与最终小结都保留提问者归�
   assert.match(tarot, /逐张解读、短收束和占卜师综合总结都要把问题与判断归给你/);
 });
 
-test("桌边追问单独留在塔罗存档，不直写正式记忆或主聊天", () => {
+test("桌边追问先留在塔罗存档，用户点带回后才进入对应私聊", () => {
   assert.match(tarot, /async function continueAtTable/);
   assert.match(tarot, /小桌边继续聊/);
   assert.match(tarot, /followups: done/);
-  const follow = tarot.slice(tarot.indexOf("async function continueAtTable"));
-  assert.doesNotMatch(follow, /addMemEntry\(/);
-  assert.doesNotMatch(follow, /saveJSON\("x_chat:/);
+  assert.match(tarot, /把小桌对话带回与/);
+  assert.match(tarot, /onForwardToChat\(\{ \.\.\.s, followups: followups \}, \{ table: true \}\)/);
+  assert.match(tarot, /tableForwardedAt: Date\.now\(\)/);
 });
 
 test("给角色算一卦的转发按钮在牌面前可见，并明确回执", () => {
