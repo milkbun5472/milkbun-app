@@ -8,7 +8,7 @@ const start = src.indexOf("function MemoryLib(");
 const end = src.indexOf("function MemCfgSheet(", start);
 const memory = src.slice(start, end);
 
-test("记忆库使用紧凑安全区顶栏，日常只露整理图标与新增", () => {
+test("记忆库使用紧凑安全区顶栏，齿轮直达召回与上下文设置", () => {
   // ⚠️v62.71 改的是【判据的口径】，不是放宽：
   //   这一条写于 v59.75，那时 Head 自己还是「30px 大标题」，所以这一页只能手写一条紧凑栏，
   //   断言也就冻住了 `paddingTop: safeTop(10)` 和「不许用 Head」。
@@ -22,28 +22,26 @@ test("记忆库使用紧凑安全区顶栏，日常只露整理图标与新增",
   assert.doesNotMatch(memory, /"MEMORY INDEX"|"INDEX \/ "/, "英文眉标还在");
   assert.match(memory, /sub: activeTotal \? "在册 " \+ activeTotal \+ " 张" : null/);
   assert.match(memory, /"这一摞 " \+ list\.length \+ " 张"/);
-  // 日常只露这两颗：整理与维护、新增
-  assert.match(memory, /setManageOpen\(true\)/);
-  assert.match(memory, /aria-label": "整理与维护"/);
+  // 齿轮不再先打开工具目录，一下就进召回设置。
+  assert.match(memory, /onClick: \(\) => setCfgOpen\(true\), "aria-label": "召回与上下文设置"/);
+  assert.doesNotMatch(memory, /onClick: \(\) => \{ setManageOpen\(true\); setDiagOpen\(false\); \}/);
   assert.match(memory, /h\(GConfig/);
   assert.match(memory, /aria-label": "新增记忆"/);
 });
 
-test("导入、手动抽取、旧库补评与月度精炼都收进整理区，能力没有删除", () => {
-  assert.match(memory, /"整理与维护"/);
-  assert.match(memory, /"导入长文"/);
-  assert.match(memory, /"从当前对话提取"/);
-  assert.match(memory, /"导入旧长期记忆"/);
-  assert.match(memory, /"补旧记忆情绪 · "/);
-  assert.match(memory, /"旧版月度精炼 · "/);
-});
-
-test("整理工具进底部弹层，工程仪表再藏一层，主档案只有一个滚动容器", () => {
-  assert.match(memory, /manageOpen \? h\(Sheet/);
-  assert.match(memory, /setDiagOpen\(v => !v\)/);
+test("旧整理工具目录不再渲染，主档案仍只有一个滚动容器", () => {
+  assert.match(memory, /false && manageOpen \? h\(Sheet/);
   assert.match(memory, /h\(EventShelfSection/);
   assert.match(memory, /placeholder: "搜一句话、标签或记得这件事的人"/);
   assert.match(memory, /className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10"/);
+});
+
+test("召回设置半窗只留召回与上下文参数", () => {
+  const cfg = src.slice(src.indexOf("function MemCfgSheet("), src.indexOf("function MemEntrySheet("));
+  assert.match(cfg, /"自动抽取"/);
+  assert.match(cfg, /"每轮召回条数 \(top-k\)"/);
+  assert.match(cfg, /false && onPurgeWithered \? h\("div"/);
+  assert.match(cfg, /false && h\("div", \{ style: \{ marginTop: 14/);
 });
 
 test("档案索引保留角色与状态双层筛选，并把状态与来源收进卡片层级", () => {

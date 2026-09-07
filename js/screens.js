@@ -9710,7 +9710,7 @@ function MemoryLib({
     zh: "记忆库", bg: "transparent", onBack: onBack,
     sub: activeTotal ? "在册 " + activeTotal + " 张" : null,
     right: h("div", { className: "flex items-center", style: { gap: 2, marginRight: -6 } },
-      h("button", { onClick: () => { setManageOpen(true); setDiagOpen(false); }, "aria-label": "整理与维护", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40, position: "relative" } },
+      h("button", { onClick: () => setCfgOpen(true), "aria-label": "召回与上下文设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40, position: "relative" } },
         h(GConfig, { size: 18, color: t.sub }),
         corrections.length ? h("span", { style: { position: "absolute", top: 6, right: 5, width: 6, height: 6, borderRadius: 999, background: t.accent, boxShadow: "0 0 0 2px " + t.bg } }) : null),
       h("button", { onClick: () => setEditing("new"), "aria-label": "新增记忆", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 20, color: t.ink })))
@@ -9725,7 +9725,7 @@ function MemoryLib({
   routinePreview ? h(MemoryDuplicatePreviewSheet, { mode: "routine", groups: routinePreview.groups || [], stats: routinePreview.stats || {}, onConfirm: onArchiveRoutineGroups, onClose: () => setRoutinePreview(null) }) : null,
   repairConflictOpen ? h(MemoryRepairConflictSheet,{entries,onList:onListRepairConflicts,onDecide:onDecideRepairConflict,onClose:()=>setRepairConflictOpen(false)}) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null,
-  manageOpen ? h(Sheet, { onClose: () => { setManageOpen(false); setDiagOpen(false); }, tall: true, scrollKey: diagOpen ? "diagnostics" : "manage" },
+  false && manageOpen ? h(Sheet, { onClose: () => { setManageOpen(false); setDiagOpen(false); }, tall: true, scrollKey: diagOpen ? "diagnostics" : "manage" },
   h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 12 } },
     h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, "整理记忆库"),
@@ -10025,7 +10025,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     slider("跨情境每段字符预算", c.crossBudget != null ? c.crossBudget : 800, 200, 3000, 100, " 字", v => set({ crossBudget: v }), "上面那些跨情境的近况，每一段最多带这么多字。按次收费尽管拉大——衔接更全、输出不额外收费；想省再调小。"),
     h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"),
     // 清理落灰记忆（v48.41 #4）：库越攒越大，一键删掉久无人问津的低情绪旧事——约定/心事/置顶都留着
-    onPurgeWithered ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed " + t.line } },
+    false && onPurgeWithered ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "清理落灰记忆"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "删掉 120 天没被想起、几乎没被召回过、也没什么情绪的静态旧事。你的未了约定/心事、置顶的、有情绪的都【不会】被清。"),
       witheredCount > 0
@@ -10035,7 +10035,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
                 h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
             : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
-    h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
+    false && h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "未了结开环"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } },
         "当前还有 " + openTotal + " 条开环。时间过去、想起变少或情绪缓和都不算解决；绝不按年龄批量降级。"),
