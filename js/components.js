@@ -1245,7 +1245,7 @@ function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
 // 日历 CALENDAR —— 首页组件 + 全屏月历（世界/角色多视角、AI 生成、事件编辑）
 // ============================================================
 const CAL_DOW = ["日", "一", "二", "三", "四", "五", "六"];
-function calKey(y, m, d) { return y + "-" + (m + 1) + "-" + d; } // m 0-based
+function calKey(y, m, d) { return window.ScheduleClock.formatDayParts(y, m, d, true); }
 function calCells(year, month) {
   const first = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
@@ -2194,8 +2194,8 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
 }
 // 全屏月历
 // 经期预测
-function pKeyDate(k) { const a = String(k).split("-").map(Number); return new Date(a[0], a[1] - 1, a[2]); }
-function pDK(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function pKeyDate(k) { return window.ScheduleClock.parseDayKey(k); }
+function pDK(d) { return window.ScheduleClock.deviceDayKey(d, true); }
 const PERIOD_COLORS = { period: "#c25a4a", fertile: "#a98bbf", ov: "#7a5aa0", safe: "#7faf7a" };
 const PERIOD_LABELS = { period: "经期", fertile: "排卵期", ov: "排卵日", safe: "安全期" };
 // 把 period 归一成 [{start,end}]（end 可为 null=还没记录结束）。兼容旧的 starts 数组。
@@ -2433,7 +2433,7 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
 //   · x_calEvents ——— 手填的日程（带时刻、可跨天，也画成块）
 //   · x_calendar ———— 无时刻的全天事件（三视角 + 可见名单，画在顶部全天条）
 //   另加节日/生日/备忘录提醒，也走全天条。
-function calPadKey(y, m0, d) { return y + "-" + String(m0 + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"); }
+function calPadKey(y, m0, d) { return window.ScheduleClock.formatDayParts(y, m0, d); }
 function calMinOf(t) { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; }
 function calHM(min) { return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0"); }
 const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", meal: "#f6cdd6", rest: "#c2e6df", sleep: "#d8d5e8", social: "#c5e6c2", out: "#ffe0b8" };

@@ -38,6 +38,7 @@
 | `js/components.js` 的 `Head` | 九十来页的顶栏（v64.90 / v64.95 把 screens.js 和 phone.js 里手写的那五十多条搬了过来）|
 | `js/components.js` 的 `requestAppConfirm` / `requestAppPrompt` | 全库十几处原生 confirm/prompt |
 | `js/app.js` 的 `groupBackgroundFor` + `js/engine.js` 的 `groupBackgroundSegments` | 群文字 / 群通话 / 群线下的成长、情绪底色、睡眠、居住地、随身物、情侣档案；读取与拼接各只有一份，线下叙事措辞用显式选项保留 |
+| `js/schedule-clock.js` 的 `ScheduleClock` | 日历、经期、行程的日期格式/解析/日位移；旧桶用 `legacy` 参数保留不补零键，各业务入口只转交参数，不保留第二套算法 |
 | `js/auto-refresh-policy.js` 的 `FEATURES` | 那十二项自动刷新的名字——`AutoGate.labelOf` 直接问它要，不另存一份 |
 
 ⚠️名字也算规则：`AutoGate.labelOf()` 没有自己写一张「diary→日记」的表，

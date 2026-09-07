@@ -30,7 +30,7 @@ function harness() {
   };
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
-  ["core.js", "engine.js", "components.js"].forEach(f => vm.runInContext(fs.readFileSync(R(f), "utf8"), ctx, { filename: f }));
+  ["core.js", "engine.js", "schedule-clock.js", "components.js"].forEach(f => vm.runInContext(fs.readFileSync(R(f), "utf8"), ctx, { filename: f }));
   return { ctx, setOverrides: o => { OV = o || {}; } };
 }
 const TODAY = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();

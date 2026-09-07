@@ -4,6 +4,14 @@
   if (root) root.ScheduleClock = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const pad2 = n => String(n).padStart(2, "0");
+  // m0 从 0 起算。日历/经期旧桶保留不补零的键；行程和事件日期使用补零键。
+  const formatDayParts = (year, m0, day, legacy) => year + "-"
+    + (legacy ? m0 + 1 : pad2(m0 + 1)) + "-" + (legacy ? day : pad2(day));
+  const deviceDayKey = (date, legacy) => formatDayParts(date.getFullYear(), date.getMonth(), date.getDate(), legacy);
+  const parseDayKey = key => {
+    const parts = String(key).split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  };
   const offsetMinutes = (char, deviceOffsetMinutes) => {
     const raw = char && char.tz;
     if (raw !== undefined && raw !== null && String(raw).trim() !== "") {
@@ -15,7 +23,7 @@
   const localDate = (char, nowMs, deviceOffsetMinutes) => new Date((Number(nowMs) || Date.now()) + offsetMinutes(char, deviceOffsetMinutes) * 60000);
   const dayKey = (char, nowMs, deviceOffsetMinutes) => {
     const d = localDate(char, nowMs, deviceOffsetMinutes);
-    return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate());
+    return formatDayParts(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   };
   const localMinute = (char, nowMs, deviceOffsetMinutes) => {
     const d = localDate(char, nowMs, deviceOffsetMinutes);
@@ -25,7 +33,7 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ""));
     if (!m) return key;
     const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + Number(days || 0)));
-    return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate());
+    return formatDayParts(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   };
   const currentSeqIdx = (seqs, minute) => {
     let idx = -1, previous = -1, dayOffset = 0;
@@ -42,5 +50,5 @@
     });
     return idx;
   };
-  return { offsetMinutes, dayKey, localMinute, shiftDayKey, currentSeqIdx };
+  return { formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, shiftDayKey, currentSeqIdx };
 });

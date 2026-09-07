@@ -1281,10 +1281,10 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
 // ============================================================
 // 行程 Lifestyle —— 仿日记大图 + swipe 换角色 + 周 timeline + 每日时间线（偏差红框/碎碎念回看）
 // ============================================================
-function schedDayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-function schedLocalDayKey(char, at) { return window.ScheduleClock ? window.ScheduleClock.dayKey(char, at || Date.now(), -new Date().getTimezoneOffset()) : schedDayKey(new Date(at || Date.now())); }
-function schedShiftDayKey(key, days) { return window.ScheduleClock ? window.ScheduleClock.shiftDayKey(key, days) : schedDayKey(new Date(schedParseKey(key).getTime() + Number(days || 0) * 86400000)); }
-function schedParseKey(k) { const a = String(k).split("-").map(Number); return new Date(a[0], a[1] - 1, a[2]); }
+function schedDayKey(d) { return window.ScheduleClock.deviceDayKey(d); }
+function schedLocalDayKey(char, at) { return window.ScheduleClock.dayKey(char, at || Date.now(), -new Date().getTimezoneOffset()); }
+function schedShiftDayKey(key, days) { return window.ScheduleClock.shiftDayKey(key, days); }
+function schedParseKey(k) { return window.ScheduleClock.parseDayKey(k); }
 const SCHED_DOW_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 function schedDateParts(k) {
   const d = schedParseKey(k), dow = d.getDay();
