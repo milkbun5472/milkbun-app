@@ -46,7 +46,9 @@
   const CTX_GATE = {
     // 永远给：这几栏说的是【他是谁】和【怎么说话】，不是你们之间发生过什么
     always: [
+      "char",         // 当前说话的人本身；生成引擎直接读 ctx.char.name，绝不能被认知闸清掉
       "chars",        // 在场都有谁（指代解析要用）
+      "profile",      // 对方是谁；房间可以隔离经历，不能把正在和谁说话也抹掉
       "notRoleplay",  // 是不是言秋那种不被扮演的
       "directives",   // 这一轮的提示词指令
       "homeCity",     // 他自己住哪儿——属于他这个人
@@ -64,6 +66,7 @@
     ],
     // 你们处到哪一步了
     innerLife: [
+      "rels",         // 有方向的关系网；关掉时给空表，不能给 null 把引擎撞断
       "moodLabel", "moodNote", "aMood", "gazeText", "personaGrown", "personaEvolve",
       "affinity",       // 好感度
       "coupleStatus",   // 是不是恋人、在一起多少天 ← 她这次看见的就是它
@@ -79,7 +82,9 @@
   };
   // 清空成什么，按这一栏原来是什么类型来：数组→[]、字符串→""、真假→false、其余→null。
   // 逐栏写一遍 empty 值就是又一张要同步的表（加一栏忘一栏），所以照类型来。
-  const emptyLike = v => Array.isArray(v) ? [] : typeof v === "string" ? "" : typeof v === "boolean" ? false : null;
+  const emptyLike = v => Array.isArray(v) ? []
+    : v && typeof v === "object" ? {}
+    : typeof v === "string" ? "" : typeof v === "boolean" ? false : null;
   // 按这间房的 cognition 把上下文过一遍。主房和没有 cognition 的原样放行。
   function gateCtx(ctx, room) {
     if (!ctx || !room || room.main || !room.cognition) return ctx;

@@ -27,7 +27,9 @@ function ctxForKeys() {
   while (j < lines.length && !/^  const \w/.test(lines[j])) j++;
   const keys = [];
   for (let n = i; n < j; n++) {
-    const m = /^    ([A-Za-z_$][\w$]*):/.exec(lines[n]);
+    // `char,` / `profile,` 这种对象简写也是字段。旧测试只认带冒号的，正好漏掉
+    // 两个生成引擎必需项，白名单把它们清成 null 后线上线下一起在 char.name 崩掉。
+    const m = /^    ([A-Za-z_$][\w$]*)(?::|,\s*$)/.exec(lines[n]);
     if (m) keys.push(m[1]);
   }
   return [...new Set(keys)];
@@ -40,7 +42,7 @@ test("ctxFor 造的每一栏都得在白名单里登记（漏登记＝隔离房�
     "这几栏没在 js/chat-rooms.js 的 CTX_GATE 里登记，隔离房会照样把它们发出去：\n  " + missing.join("、") +
     "\n登记时想一句：这一栏说的是【他是谁】(always)，还是【你们经历过什么】/【处到哪一步】/【今天他什么情况】/【别处发生的】？");
   // 反过来也钉：表里不许留 ctxFor 早就没有的死名字
-  const dead = [...all].filter(k => !new RegExp("[\\s{,]" + k + ":").test(app));
+  const dead = [...all].filter(k => !new RegExp("[\\s{,]" + k + "(?:\\s*:|\\s*,)").test(app));
   assert.deepEqual(dead, [], "白名单里这几个名字 ctxFor 已经不造了：" + dead.join("、"));
 });
 
@@ -82,6 +84,16 @@ test("真跑一遍：一间「不带出门」的房里，这些栏必须是空�
   assert.deepEqual(out.chars, ctx.chars);
   assert.equal(out.worldbook, ctx.worldbook);
   assert.equal(out.homeCity, "温尼伯");
+});
+
+test("真跑一遍：隔离房仍保留生成引擎的身份骨架，关系网只清成空表", () => {
+  const room = CR.normalize({ id: "r_engine", name: "不带出门", ...CR.PRESETS.isolated }, "7");
+  const char = { id: 7, name: "陆衍", persona: "寡言" };
+  const profile = { name: "Lisa" };
+  const out = CR.gateCtx({ char, profile, chars: [char], rels: { "7->me": { label: "恋人" } } }, room);
+  assert.equal(out.char, char, "ctx.char 被清掉会让线上线下同时在 char.name 崩掉");
+  assert.equal(out.profile, profile, "房里不能连正在和谁说话都忘掉");
+  assert.deepEqual(out.rels, {}, "关掉内在关系时应给引擎可读取的空表，不是 null");
 });
 
 test("主房和开着那一档的房，一栏都不许少", () => {
