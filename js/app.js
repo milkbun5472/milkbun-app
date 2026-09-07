@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.26";
+const APP_VERSION = "v65.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5509,6 +5509,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }, [offlines]);
   const offlinePersonId = scopeKey => window.ChatRooms ? window.ChatRooms.personFromKey(scopeKey) : String(scopeKey);
   const offlineIsRoom = scopeKey => !!(window.ChatRooms && window.ChatRooms.isSideKey(scopeKey));
+  // 侧房键会把 personId 串进 "person::room::roomId"，读回来一定是字符串；
+  // 老存档里角色 id 可能还是数字。单人线下所有入口都从这里找人，别再各自严格比较。
+  const offlineCharacterFor = scopeKey => {
+    const want = offlinePersonId(scopeKey);
+    return characters.find(c => c && String(c.id) === String(want))
+      || (offlineChar && String(offlineChar.id) === String(want) ? offlineChar : null);
+  };
   const offlineRoomFor = scopeKey => {
     if (!offlineIsRoom(scopeKey) || !window.ChatRooms) return null;
     const personId = offlinePersonId(scopeKey), roomId = String(scopeKey).split("::room::")[1];
@@ -5550,7 +5557,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
     const charId = offlinePersonId(scopeKey);
     if (!offlineApiFor(charId) || offSumBusyRef.current[charId]) return;
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
     if (!char) return;
     const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
@@ -5722,7 +5729,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 「在哪、在干嘛、穿什么」正好就是一格照片需要的全部，不必再花一次调用去问模型。
   const offlineShotNow = async (scopeKey, kind) => {
     const charId = offlinePersonId(scopeKey);
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
     if (!char) return;
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
     if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
@@ -5734,7 +5741,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const genOfflineFrom = async (scopeKey, workSess) => {
     const charId = offlinePersonId(scopeKey);
     const sideRoom = offlineRoomFor(scopeKey);
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
+    if (!char) { toast("没找到这间房对应的角色，请退出线下后重新进入"); return; }
     if (!offlineApiFor(charId)) {
       toast("请先到设置配置 API");
       return;
@@ -5967,7 +5975,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const offlineOOC = async (scopeKey, text) => {
     const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey);
     if (laneBusy("c:" + scopeKey) || !text || !text.trim()) return;
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
+    if (!char) { toast("没找到这间房对应的角色，请退出线下后重新进入"); return; }
     const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) { toast("先开一场线下"); return; }
     pushOffMsg(scopeKey, { id: "u_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
@@ -6050,7 +6059,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const endOffline = async scopeKey => {
     const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey), sideRoomData = offlineRoomFor(scopeKey);
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
     const sess = (offlinesRef.current[scopeKey] || []).find(s => !s.endTs);
     if (!sess) {
       setOfflineChar(null);
@@ -6107,7 +6116,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const surfaces = opts.surfaces || ["online", "offline"]; // 可只取某个场景（群线上已单独有单聊私聊，那里只补 offline 免重复）
     const sinceHours = opts.sinceHours != null ? opts.sinceHours : (memCfgRef.current.crossHours || 72);
     const sinceMs = sinceHours ? Date.now() - sinceHours * 3600000 : 0;
-    const char = characters.find(c => c.id === charId);
+    const char = offlineCharacterFor(scopeKey);
     const cName = char ? char.name : "TA";
     const uName = (profile && profile.name) || "用户";
     const beats = [];
