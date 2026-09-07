@@ -84,10 +84,12 @@
   function gateCtx(ctx, room) {
     if (!ctx || !room || room.main || !room.cognition) return ctx;
     const rc = room.cognition, out = { ...ctx };
+    // roomPrompt 是线下调用点在 ctxFor 之后追加的本房边界，不是主线背景。
+    const allowed = new Set(CTX_GATE.always.concat(["roomPrompt"]));
     Object.keys(CTX_GATE).forEach(group => {
-      if (group === "always" || rc[group]) return;
-      CTX_GATE[group].forEach(k => { if (k in out) out[k] = emptyLike(out[k]); });
+      if (rc[group]) CTX_GATE[group].forEach(k => allowed.add(k));
     });
+    Object.keys(out).forEach(k => { if (!allowed.has(k)) out[k] = emptyLike(out[k]); });
     return out;
   }
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
@@ -106,7 +108,7 @@
     const brings = c.formalMemory && c.innerLife ? "他记得你们的全部"
       : c.formalMemory ? "他记得你们经历过的事，但没带着现在的心情"
       : c.innerLife ? "他带着现在的心情，但想不起具体经历过什么"
-      : "他在这儿不记得你们的过去";
+      : r.fork ? "他接着分岔前留下的聊天" : "他在这儿不记得你们的过去";
     const takes = w.sharedState && w.memoryCandidate ? "这儿说的话会跟着他走出门"
       : w.memoryCandidate ? "这儿的事能记进去，但不动你们现在的状态"
       : w.sharedState ? "这儿的事会改你们现在的状态，但不进记忆"
@@ -201,6 +203,57 @@
     const p = PRESETS[preset] || PRESETS.everyday;
     return save(personId, normalize({ id: id(), name: name || p.label, preset: preset || "everyday", ...clone(p), createdAt: Date.now() }, personId));
   }
+  // 分支与房门预览共用可见原文规则；卡片只留下文字，不复制可执行的邀请/交易。
+  function visibleText(m) {
+    if (!m || m.recalled || m.pending || !["user", "assistant", "narration"].includes(m.role)) return "";
+    if (["system", "silence"].includes(m.kind)) return "";
+    if (typeof ChatContextFilter !== "undefined" && ChatContextFilter.isExcluded(m)) return "";
+    return String(m.content || m.desc || m.keyword || m.place || "").trim();
+  }
+  function resumeLines(messages) {
+    return (Array.isArray(messages) ? messages : []).filter(m => visibleText(m)).slice(-2).map(m => ({
+      role: m.kind === "narration" ? "narration" : m.role, text: visibleText(m).replace(/\s+/g, " ").slice(0, 100)
+    }));
+  }
+  // 这里只冻结已载入且截至选中消息的原文。当前记忆、滚动摘要与心情没有历史快照，不能倒灌。
+  // 入口仅在单人线上；单人线下沿用同一房间的 gateCtx 和 prompt。
+  // 通话仍只认识主线，分岔房通过 supportsCalls 收起入口，不进入那条链。
+  // 群聊、穿书、匿名信箱、解梦馆没有同一条消息时间线，不提供这个分岔入口。
+  function prepareFork(personId, sourceRoom, messages, index) {
+    if (!sourceRoom || String(sourceRoom.personId) !== String(personId) || !Array.isArray(messages) ||
+        !Number.isInteger(index) || index < 0 || index >= messages.length || !visibleText(messages[index])) return null;
+    const roomId = id(), anchor = messages[index];
+    const rows = messages.slice(0, index + 1).filter(m => visibleText(m)).map((m, i) => ({
+      id: roomId + "_seed_" + i, role: m.role, content: visibleText(m), ts: Number(m.ts || 0),
+      ...(m.kind === "narration" || m.kind === "ooc" ? { kind: m.kind } : {}),
+      read: true, forkSeed: true
+    }));
+    const room = normalize({ id: roomId, name: "另一种可能", preset: "isolated", ...clone(PRESETS.isolated),
+      scenario: sourceRoom.scenario || "", createdAt: Date.now(),
+      fork: { sourceRoomId: sourceRoom.id, sourceRoomName: sourceRoom.name, messageId: anchor.id || null,
+        anchorTs: Number(anchor.ts || 0), anchorText: visibleText(anchor).slice(0, 300), seedCount: rows.length }
+    }, personId);
+    return { room, messages: rows };
+  }
+  function supportsCalls(room) { return !(room && room.fork); }
+  function gateForkActions(parsed, room) {
+    if (!room || !room.fork) return parsed;
+    // 这些执行链仍以角色为单位写主线，分岔房暂不授权。
+    const out = { ...parsed };
+    ["call", "block", "toGroup", "listenInvite", "songSwitch"].forEach(k => { out[k] = null; });
+    return out;
+  }
+  async function commitFork(draft, writeHistory) {
+    if (!draft || !draft.room || !draft.room.fork || typeof writeHistory !== "function") return null;
+    const room = draft.room, key = chatKey(room.personId, room.id);
+    // 不覆盖已经创建的房间；失败重试仍使用同一个草稿 id。
+    if (list(room.personId).some(r => r.id === room.id)) return null;
+    try {
+      if (!await writeHistory("x_chat:" + key, draft.messages)) return null;
+      const saved = save(room.personId, room);
+      return saved ? { room: saved, key, messages: draft.messages } : null;
+    } catch (_) { return null; }
+  }
   function remove(personId, roomId) {
     if (!roomId || roomId === MAIN_ID) return false;
     const all = read(); all[personId] = (all[personId] || []).filter(r => r.id !== roomId); return !!write(all);
@@ -289,6 +342,7 @@
       }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
+    if (room.fork) lines.push("【分岔起点】本房接着从「" + room.fork.sourceRoomName + "」保留的聊天原文继续。关系与经历以这些原文和本房后续对话为依据；未知的过去保持未知。分岔后的原房结局不属于本房经历。原房的卡片只作为历史文字，不代表本房已执行活动或交易。");
     // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。
     if (room.selfDigest) lines.push("【这间房前面发生过的｜是这条线自己的往事，不是别处的记忆】\n" + room.selfDigest);
     lines.push(c.schedule
@@ -314,5 +368,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
+  return { supportsCalls, gateForkActions, visibleText, resumeLines, prepareFork, commitFork, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
 });
