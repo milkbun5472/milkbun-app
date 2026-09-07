@@ -29,14 +29,14 @@ test("群线上抽取要跟另外三处一样的节拍和防漏", () => {
   assert.match(fn, /cnt % interval !== 0/, "按 extractInterval 的节拍");
   assert.match(fn, /if \(mark && newCount < 4\) return;/, "书签防重复抽");
   assert.match(fn, /Math\.min\(120, Math\.max\(24, newCount \+ 4\)\)/, "窗口随话量放大、封顶 120");
-  // 归属：配角没有自己的记忆库
-  assert.match(fn, /const owners = memOwners\(ids\);/);
-  assert.match(fn, /if \(!owners\.length\) return;/, "整条只关于配角就不写");
-  assert.match(fn, /knownBy: knownBy/, "在场的都算知道，配角下次才记得");
-  assert.match(fn, /groupId: group\.id/);
-  // 批量直写不经过 addMemEntry，闸要自己过
-  assert.match(fn, /window\.OpenLoopGate/);
-  assert.match(fn, /isDupMem\(txt, owners/);
+  assert.match(fn, /saveExtractedGroupMemories\(group, members, items, gTags\(group\)\)/);
+  const shared = app.slice(app.indexOf("  const saveExtractedGroupMemories ="), app.indexOf("  const memExtractCtrGOffRef"));
+  assert.match(shared, /const owners = memOwners\(ids\);/);
+  assert.match(shared, /if \(!owners\.length\) return;/);
+  assert.match(shared, /knownBy: knownBy/);
+  assert.match(shared, /groupId: group\.id/);
+  assert.match(shared, /window\.OpenLoopGate/);
+  assert.match(shared, /isDupMem\(txt, owners/);
 });
 
 // 「看看我的向量记忆库是不是还是好的」——我看不到她手机上的数据，

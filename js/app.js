@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.38";
+const APP_VERSION = "v65.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6377,14 +6377,41 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }
   };
-  // 群线下多发言人自动抽取（v50.64，她 2026-07-24 点名收尾）：和单聊线下 maybeAutoExtractOffline 对齐，
-  //   但用群专用 extractGroupMemories 一次抽出离散点、每点按 who 归属到正确的成员（不误记到一个人头上）。
-  //   与滚动总结并行、各抽各的粒度；只互通群进全局记忆库（记忆分区）。走 bg 池省额度。
+  // 群线上与线下共用候选落库：归属、证据、去重和开环资格只维护一处。
+  const saveExtractedGroupMemories = (group, members, items, tags) => {
+    if (!gsFor(group.id).memoryInterop) return;
+    const memberIds = (group.memberIds || []).slice();
+    const nameToId = {}; members.forEach(m => { nameToId[String(m.name || "").trim()] = m.id; });
+    const now = Date.now();
+    const added = [], batchSeen = [];
+    (items || []).filter(it => it && it.text).forEach((it, i) => {
+      let ids = (Array.isArray(it.who) ? it.who : []).map(n => nameToId[String(n).trim()]).filter(Boolean);
+      ids = [...new Set(ids)];
+      if (!ids.length) ids = memberIds.slice();     // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
+      // 相关成员可包含配角；记忆归属只给真角色。
+      const knownBy = ids.slice();
+      const owners = memOwners(ids);
+      if (!owners.length) return;                   // 整条只关于配角 → 没有归属人，不写
+      const txt = String(it.text).trim();
+      const evidenceMessageIds = Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [];
+      const duplicateMeta = { ts: now, evidenceMessageIds };
+      if (isDupMem(txt, owners, null, duplicateMeta) || isDupMem(txt, owners, batchSeen, duplicateMeta)) return;
+      let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(tags),
+        charIds: owners, knownBy: knownBy, ts: now, source: "auto", groupId: group.id,
+        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds };
+      // 批量直写不经过 addMemEntry，开环资格闸要在这儿自己过一遍
+      if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
+      batchSeen.push(entry); added.push(entry);
+    });
+    if (added.length) saveMemLib([...added, ...pruneSubsumed(memLibRef.current, added)]);
+  };
+
+  // 群线下按当前场次抽取，只有互通群写入全局记忆库。
   const memExtractCtrGOffRef = useRef({});
   const memExtractMarkGOffRef = useRef({});
   const maybeAutoExtractGroupOffline = async groupId => {
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !active) return;
+    if (!cfg.autoExtract || !bgActiveRef.current) return;
     if (!gsFor(groupId).memoryInterop) return; // 记忆分区：不互通群不往全局记忆库抽
     const group = groups.find(g => g.id === groupId); if (!group) return;
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs);
@@ -6402,7 +6429,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const nameToId = {}; members.forEach(m => { nameToId[String(m.name || "").trim()] = m.id; });
     try {
       const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
@@ -6422,22 +6448,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           toast("已自动了结 " + applied.closed + " 条完成的约定/心事（旧记录仍保留）");
         }
       }
-      const now = Date.now();
-      const added = [], batchSeen = [];
-      (items || []).filter(it => it && it.text).forEach((it, i) => {
-        let ids = (Array.isArray(it.who) ? it.who : []).map(n => nameToId[String(n).trim()]).filter(Boolean);
-        ids = [...new Set(ids)];
-        if (!ids.length) ids = memberIds.slice(); // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
-        const txt = String(it.text).trim();
-        const evidenceMessageIds = Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [];
-        const duplicateMeta = { ts: now, evidenceMessageIds };
-        if (isDupMem(txt, ids, null, duplicateMeta) || isDupMem(txt, ids, batchSeen, duplicateMeta)) return;
-        let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds };
-        // 群线下是批量直写，不经过 addMemEntry；必须在这里同样过开环资格闸。
-        if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
-        batchSeen.push(entry); added.push(entry);
-      });
-      if (added.length) saveMemLib([...added, ...pruneSubsumed(memLibRef.current, added)]);
+      saveExtractedGroupMemories(group, members, items, ["线下", "群聊"]);
       memExtractMarkGOffRef.current[groupId] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
@@ -9597,11 +9608,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     updateGroup(groupId, { memberIds: remain });
     groupSysLine(groupId, (actor ? actor.name : "你") + "把" + (who ? who.name : "某人") + "移出了群聊");
   };
-  // 群聊自动总结进记忆库（阈值触发，仿单聊 maybeSummarize）
-  // ⭐群线上自动抽取（她 2026-08-25：「单聊不是有那个几轮就自动抽取吗？」）。
-  // 单聊线上、单聊线下、群线下三处都有 maybeAutoExtract*，只有【群线上】没有——
-  // 它一直只挂着 maybeSummarizeGroup，而那个要攒够 150 条才动一次。
-  // 于是她在群里聊了一会儿，记忆库里什么都没有：不是坏了，是这一处压根没接。
+  // 群线上按聊天窗口抽取，节拍与线下分别计数。
   const memExtractCtrGRef = useRef({});
   const memExtractMarkGRef = useRef({});
   const maybeAutoExtractGroup = async groupId => {
@@ -9622,35 +9629,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const nameToId = {}; members.forEach(m => { nameToId[String(m.name || "").trim()] = m.id; });
     try {
       const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, { members, profile, rels, chars: characters }, win, members,
         { existing: existing, openList: openEntries.map(e => e.text) });
-      const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it) : it);
-      const now = Date.now();
-      const added = [], batchSeen = [];
-      (items || []).filter(it => it && it.text).forEach((it, i) => {
-        let ids = (Array.isArray(it.who) ? it.who : []).map(n => nameToId[String(n).trim()]).filter(Boolean);
-        ids = [...new Set(ids)];
-        if (!ids.length) ids = memberIds.slice();     // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
-        // 在场的都算「知道这件事」（含配角）；但归属只给真角色——配角没有自己的记忆库
-        const knownBy = ids.slice();
-        const owners = memOwners(ids);
-        if (!owners.length) return;                   // 整条只关于配角 → 没有归属人，不写
-        const txt = String(it.text).trim();
-        const evidenceMessageIds = Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [];
-        const duplicateMeta = { ts: now, evidenceMessageIds };
-        if (isDupMem(txt, owners, null, duplicateMeta) || isDupMem(txt, owners, batchSeen, duplicateMeta)) return;
-        let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(gTags(group)),
-          charIds: owners, knownBy: knownBy, ts: now, source: "auto", groupId: group.id,
-          v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open };
-        // 批量直写不经过 addMemEntry，开环资格闸要在这儿自己过一遍
-        if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
-        batchSeen.push(entry); added.push(entry);
-      });
-      if (added.length) saveMemLib([...added, ...pruneSubsumed(memLibRef.current, added)]);
+      const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, win) : it);
+      saveExtractedGroupMemories(group, members, items, gTags(group));
       memExtractMarkGRef.current[groupId] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };

@@ -18,7 +18,12 @@ test("设置页明确告诉用户 open 只能凭真实解决，而非时间降�
 });
 
 test("群线下批量直写也必须经过统一开环资格闸", () => {
-  assert.match(app, /群线下是批量直写[\s\S]{0,180}OpenLoopGate\.normalize\(entry\)/);
+  const start = app.indexOf("  const saveExtractedGroupMemories =");
+  const shared = app.slice(start, app.indexOf("\n  };", start));
+  assert.match(shared, /OpenLoopGate\.normalize\(entry\)/);
+  const offStart = app.indexOf("  const maybeAutoExtractGroupOffline =");
+  const offline = app.slice(offStart, app.indexOf("\n  };", offStart));
+  assert.match(offline, /saveExtractedGroupMemories\(group, members, items,/);
 });
 
 test("私聊正式抽取与旧记忆补评估都不能绕过开环资格闸", () => {

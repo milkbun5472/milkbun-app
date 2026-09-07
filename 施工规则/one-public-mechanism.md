@@ -40,6 +40,7 @@
 | `js/app.js` 的 `groupBackgroundFor` + `js/engine.js` 的 `groupBackgroundSegments` | 群文字 / 群通话 / 群线下的成长、情绪底色、睡眠、居住地、随身物、情侣档案；读取与拼接各只有一份，线下叙事措辞用显式选项保留 |
 | `js/schedule-clock.js` 的 `ScheduleClock` | 日历、经期、行程的日期格式/解析/日位移；旧桶用 `legacy` 参数保留不补零键，各业务入口只转交参数，不保留第二套算法 |
 | `js/cloud.js` 的 `pushState()` | 设置首页、云同步详情、聊天横幅共用 `needsAttention`、`summary`、`detail`、`headline`；页面不另算成功时间与告警等级 |
+| `js/app.js` 的 `saveExtractedGroupMemories` | 群线上 / 群线下的候选落库：NPC 归属过滤、knownBy、群来源、证据 ID、去重和开环资格；调用方只保留消息窗口、抽取节拍与场景标签 |
 | `js/auto-refresh-policy.js` 的 `FEATURES` | 那十二项自动刷新的名字——`AutoGate.labelOf` 直接问它要，不另存一份 |
 
 ⚠️名字也算规则：`AutoGate.labelOf()` 没有自己写一张「diary→日记」的表，
