@@ -156,17 +156,32 @@
         presets.map(p => plate({ key: p.id, on: p.id === curId, onClick: () => setCurId(p.id), name: p.name,
           sub: ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)) + " 块" }))) : null,
       // 台边的小工具：跟「版」分开摆，不混进同一排里——它们不是版，是家伙什
-      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, paddingTop: 9, borderTop: "1px dashed " + t.line } },
+      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14,
+          paddingTop: presets.length ? 9 : 0, borderTop: presets.length ? "1px dashed " + t.line : "none" } },
         [["＋ 新建", () => addPreset()],
          ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
          ["粘贴模块包", pasteBundle],
          ["搬旧文风", importOldStyle]].map(pair => h("button", { key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
         h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
 
+      // 空台：台上一个空版位（虚线的），底下三步。原来是一整段灰字糊在那儿——
+      // 这是她点开这一页看见的第一屏，得让人一眼知道该先按哪个。
       !cur
-        ? h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.9 }) },
-            "还没有预设。\n\n「＋新建」从模块搭一条；「⇧导入文件」把你写好的整篇文风塞进来；\n「搬旧文风」把线下那边已有的自定义文风搬过来（原来那条不动）。\n\n" +
-            "搭好之后，去线下／小剧场／同人文的设置里打开「吃入文风预设」并选中它。不打开＝三处行为和以前完全一样。")
+        ? h("div", null,
+            h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center",
+                minHeight: 88, borderRadius: "3px 5px 5px 3px", border: "1px dashed " + t.line,
+                background: "rgba(127,127,127,.04)", marginBottom: 14 } },
+              h("span", { style: Object.assign({}, S.hint, { fontSize: 12.5 }) }, "台上还没有版")),
+            h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } },
+              [["1", "先从上面挑一样起手：「＋新建」从字条搭一块，「⇧导入文件」把你写好的整篇塞进来，「搬旧文风」把线下那边已有的搬过来（原来那条不动）。"],
+               ["2", "在字盘里挑几根字条，它们会按顺序卡进槽里——越往下模型看得越重。"],
+               ["3", "去线下／小剧场／同人文的设置里打开「吃入文风预设」并选中它。不打开＝三处行为和以前完全一样。"]]
+                .map(function (row) {
+                  return h("div", { key: row[0], style: { display: "flex", gap: 9, alignItems: "flex-start" } },
+                    h("span", { style: { width: 18, height: 18, flexShrink: 0, borderRadius: 2, background: t.ink, color: t.bg2,
+                      fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, row[0]),
+                    h("span", { style: Object.assign({}, S.hint, { flex: 1, lineHeight: 1.75 }) }, row[1]));
+                })))
         : h("div", null,
             h("input", { value: cur.name, onChange: e => patchCur({ name: e.target.value }), placeholder: "预设名字", style: Object.assign({}, S.input, { marginBottom: 14 }) }),
 
@@ -324,12 +339,14 @@
                       background: "linear-gradient(180deg, rgba(255,255,255,0) 0%, " + t.bg2 + " 92%)" } })
                   : null)),
 
-            h("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
-              h("button", { onClick: dupPreset, style: S.tapGhost(t.tint) }, "复制一份"),
-              h("button", { onClick: delPreset, style: Object.assign({}, S.tapGhost(t.accent), armed === cur.id ? { background: t.accent, color: "#fff", borderColor: t.accent } : null) },
-                armed === cur.id ? "真删？再点一下" : "删掉这条"),
+            // 台脚那几颗跟台边的家伙什长一个样（都是工具，不是版）
+            h("div", { style: { display: "flex", gap: 6, alignItems: "center", paddingTop: 9, borderTop: "1px dashed " + t.line } },
+              h("button", { onClick: dupPreset, style: Object.assign({}, S.tool, { color: t.tint }) }, "复制一份"),
+              h("button", { onClick: delPreset, style: Object.assign({}, S.tool, { color: t.accent },
+                armed === cur.id ? { background: t.accent, color: "#fff", borderColor: t.accent } : null) },
+                armed === cur.id ? "真删？再点一下" : "删掉这块版"),
               armed === cur.id
-                ? h("button", { onClick: () => setArmed(""), style: S.tapGhost(t.fog) }, "算了")
+                ? h("button", { onClick: () => setArmed(""), style: Object.assign({}, S.tool, { color: t.fog }) }, "算了")
                 : null)));
 
     // ---- 测试台 ----
@@ -469,7 +486,7 @@
             h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
               h("div", { style: S.h2 }, "结果 · 最近 " + runs.length + " 次"),
               h("button", { onClick: () => { if (armed !== "__runs") { setArmed("__runs"); return; } setArmed(""); setRuns(SP.clearRuns()); },
-                style: Object.assign({}, S.tapGhost(armed === "__runs" ? t.accent : t.fog), { marginLeft: "auto" }) }, armed === "__runs" ? "真清空？再点一下" : "清空")),
+                style: Object.assign({}, S.tool, { color: armed === "__runs" ? t.accent : t.fog, marginLeft: "auto" }) }, armed === "__runs" ? "真清空？再点一下" : "清空")),
             // 每一次试写＝一张打样纸：正文印在纸上，纸脚那一条印着这张是谁、哪一场、多少字。
             // 印坏的那张纸脚整条上红——一眼挑得出来，不用去读小字。
             h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },

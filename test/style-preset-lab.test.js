@@ -313,8 +313,9 @@ test("预设台里不许再用 confirm 做删除确认", () => {
 
 test("删除改成点两下：先问一句，再点才真删，还能反悔", () => {
   assert.ok(lab.indexOf('const [armed, setArmed] = useState("")') > 0);
-  assert.ok(lab.indexOf('armed === cur.id ? "真删？再点一下" : "删掉这条"') > 0);
-  assert.ok(lab.indexOf('h("button", { onClick: () => setArmed(""), style: S.tapGhost(t.fog) }, "算了")') > 0);
+  // v65.13：这几颗归了台脚的家伙什（方角小工具，不是药丸），删的东西也改叫「一块版」
+  assert.ok(lab.indexOf('armed === cur.id ? "真删？再点一下" : "删掉这块版"') > 0);
+  assert.ok(lab.indexOf('h("button", { onClick: () => setArmed(""), style: Object.assign({}, S.tool, { color: t.fog }) }, "算了")') > 0);
   const fn = lab.slice(lab.indexOf("const delPreset"), lab.indexOf("const toggleMod"));
   assert.ok(fn.indexOf("if (armed !== cur.id) { setArmed(cur.id); return; }") > 0, "第一下只上膛");
   assert.ok(fn.indexOf('setArmed(""); commit(next)') > 0, "删完要卸膛，否则下一条一点就没");
