@@ -13556,7 +13556,7 @@ function RoomResume({ room, messages, character }) {
     (room.startFrom || room.fork) && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } },
       "进门时从「" + (room.startFrom || room.fork).sourceRoomName + "」带来 " + (room.startFrom || room.fork).seedCount + " 条聊天"));
 }
-function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onSelect, onClose, onSummarize, embedded }) {
+function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
@@ -13567,6 +13567,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const [startIndex, setStartIndex] = useState(null);
   const [createBusy, setCreateBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -13585,6 +13586,22 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       if (String(activeRoomId || "main") === String(room.id)) onSelect("main", false);
       window.__toast && window.__toast("删掉了「" + (room.name || "这间房") + "」，已回到主聊天");
     }, "删掉");
+  };
+  const clearRoom = room => {
+    if (!room || room.main || !onClearRoom || clearBusy) return;
+    const start = room.startFrom || room.fork;
+    const note = start
+      ? "进门以后新增的线上与线下记录会清掉；进门时带来的 " + Number(start.seedCount || 0) + " 条聊天和开场方式会保留。"
+      : "这间房的线上与线下记录会全部清空；房间名字、设定和开关会保留。";
+    requestAppConfirm("清除「" + (room.name || "这间房") + "」的聊天记录？", note, async () => {
+      setClearBusy(true);
+      try {
+        const saved = await onClearRoom(room);
+        if (!saved) return window.__toast && window.__toast("这次没清除成功，原记录还在");
+        setRooms(Kit.list(character.id)); setDraft(saved);
+        window.__toast && window.__toast(start ? "已清除进门后的记录，开场还在" : "已清空这间房的记录");
+      } finally { setClearBusy(false); }
+    }, "清除");
   };
   const patch = p => setDraft(d => ({ ...d, ...p }));
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
@@ -13630,7 +13647,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     ["这是只属于我们这间房的一段侧章：", "秘密侧章"]
   ];
   const roomMsgs = !draft.main ? loadJSON("x_chat:" + Kit.chatKey(character.id, draft.id), []) : [];
-  const unsummarized = roomMsgs.filter(m => m && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+  const unsummarized = roomMsgs.filter(m => m && !m.forkSeed && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const roomMeta = r => r.main
     ? { label: "日常主线", note: "平时想到什么就聊什么", tint: t.tint }
     : r.scenario
@@ -13645,7 +13662,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const rowsFor = r => r.main
     ? (loadJSON("x_chat:" + character.id, []) || [])
     : (loadJSON("x_chat:" + Kit.chatKey(character.id, r.id), []) || []);
-  const pendingFor = r => rowsFor(r).filter(m => m && Number(m.ts || 0) > Number(r.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+  const pendingFor = r => rowsFor(r).filter(m => m && !m.forkSeed && Number(m.ts || 0) > Number(r.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const resumeFor = r => h(RoomResume, { room: r, messages: rowsFor(r), character });
   const bridgeLabelFor = r => {
     const c = r.cognition || {}, w = r.writeback || {}, bits = [];
@@ -13772,6 +13789,13 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "尚未整理 " + unsummarized.length + " 条"),
         h("button", { disabled: summaryBusy || !unsummarized.length, onClick: async () => { if (!onSummarize || summaryBusy) return; setSummaryBusy(true); try { const saved = await onSummarize(draft, draft.summaryFrame || ""); if (saved) { setDraft(saved); setRooms(Kit.list(character.id)); } } finally { setSummaryBusy(false); } }, style: { padding: "8px 11px", borderRadius: 10, background: t.ink, color: t.bg2, opacity: summaryBusy || !unsummarized.length ? .45 : 1, fontFamily: F_BODY, fontSize: 11.5 } }, summaryBusy ? "整理中…" : "摘要并带回")
       )),
+    !draft.main && !creating && h("div", { style: { marginTop: 18, padding: "13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+      h(Eyebrow, null, "清除聊天记录"),
+      h("div", { style: { margin: "6px 0 10px", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
+        (draft.startFrom || draft.fork)
+          ? "清掉进门以后新增的线上与线下记录；进门时带来的聊天和开场方式会保留。"
+          : "清空这间房的线上与线下记录；房间、设定和开关会保留。"),
+      h("button", { disabled: !!clearBusy, onClick: () => clearRoom(draft), style: { width: "100%", padding: "10px 12px", borderRadius: 11, border: "1px solid " + t.accent, color: t.accent, opacity: clearBusy ? .45 : 1, fontFamily: F_BODY, fontSize: 12 } }, clearBusy ? "正在清除…" : "清除这间房的记录")),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
       h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); if (!saved) return window.__toast && window.__toast("这次没保存成功，原房间还在"); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
       !draft.main && !creating && h("button", { onClick: () => removeRoom(draft), style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
@@ -13860,6 +13884,7 @@ function ChatSettings({
   activeRoomId,
   sourceMessages,
   onCreateRoom,
+  onClearRoom,
   onSelectRoom,
   onSummarizeRoom,
   renderContextDebug
@@ -14168,6 +14193,7 @@ function ChatSettings({
     activeRoomId: activeRoomId || "main",
     sourceMessages,
     onCreateRoom,
+    onClearRoom,
     onSelect: (roomId, close) => onSelectRoom && onSelectRoom(roomId, close),
     onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")

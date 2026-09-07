@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.23";
+const APP_VERSION = "v65.24";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2073,7 +2073,7 @@ function App() {
     if (!window.ChatRooms || !character || !room || room.main) return null;
     const key = window.ChatRooms.chatKey(character.id, room.id);
     const all = chatsRef.current[key] || loadJSON("x_chat:" + key, []);
-    const fresh = all.filter(m => m && Number(m.ts || 0) > Number(room.summaryCursorTs || 0)
+    const fresh = all.filter(m => m && !m.forkSeed && Number(m.ts || 0) > Number(room.summaryCursorTs || 0)
       && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
     if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
     const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
@@ -2104,6 +2104,23 @@ function App() {
     if (!result) return false;
     setChats(p => { const next = { ...p, [result.key]: result.messages }; chatsRef.current = next; return next; });
     return result.room;
+  };
+  const clearChatRoomRecords = async room => {
+    if (!window.ChatRooms || !room || room.main) return null;
+    const key = window.ChatRooms.chatKey(room.personId, room.id);
+    const before = chatsRef.current[key] || loadJSON("x_chat:" + key, []);
+    const kept = window.ChatRooms.messagesAfterClear(room, before);
+    const chatStored = await commitJSONDurable("x_chat:" + key, kept);
+    if (!(chatStored.durable && chatStored.live)) return null;
+    const offlineStored = await commitJSONDurable("x_offline:" + key, []);
+    if (!(offlineStored.durable && offlineStored.live)) return null;
+    setChats(prev => { const next = { ...prev, [key]: kept }; chatsRef.current = next; return next; });
+    setOfflines(prev => { const next = { ...prev, [key]: [] }; offlinesRef.current = next; return next; });
+    offlineTsRef.current = { ...offlineTsRef.current, [key]: 0 };
+    setRoomStates(prev => { const next = { ...prev }; delete next[key]; roomStatesRef.current = next; saveJSON("x_roomStates", next); return next; });
+    setRoomStateHist(prev => { const next = { ...prev }; delete next[key]; roomStateHistRef.current = next; saveJSON("x_roomStateHist", next); return next; });
+    const reset = window.ChatRooms.resetAfterClear(room, kept);
+    return window.ChatRooms.save(room.personId, reset);
   };
   // ---- 聊天云归档：本地只留最近 N 条，更早的存云端（一条不丢 + 省本地空间）----
   // 每个角色本地保留的最近条数。v61.78 从 200 抬到 1000：聊天早就住在 IndexedDB 了，
@@ -19223,6 +19240,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     activeRoomId,
     sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onCreateRoom: createChatRoomFromStart,
+    onClearRoom: clearChatRoomRecords,
     onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
     onClose: () => setChatRoomsOpen(false)
@@ -19250,6 +19268,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     activeRoomId: activeRoomId,
     sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onCreateRoom: createChatRoomFromStart,
+    onClearRoom: clearChatRoomRecords,
     onSelectRoom: (roomId, close) => {
       setActiveRoomId(roomId || "main");
       if (close) setChatSettingsOpen(false);

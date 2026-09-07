@@ -120,7 +120,8 @@
   // 这间房该浓缩了吗：返回要浓缩的那一段，不够就 null
   function digestDue(room, msgs) {
     if (!room || room.main) return null;
-    const list = (msgs || []).filter(m => m && !m.recalled && m.content);
+    // 进门时复制来的原话只是开场，不是这间房后来新发生的内容。
+    const list = (msgs || []).filter(m => m && !m.forkSeed && !m.recalled && m.content);
     const from = Math.max(0, Number(room.selfSummedCount || 0));
     if (list.length - from < ROOM_SUM_THRESH) return null;
     const slice = list.slice(from, list.length - ROOM_SUM_BUFFER);
@@ -234,12 +235,24 @@
       read: true, forkSeed: true
     }));
     const anchor = mode === "until" ? messages[index] : picked[picked.length - 1];
-    const prepared = normalize({ ...room, startFrom: mode === "blank" ? null : {
+    const seedCursorTs = rows.reduce((max, m) => Math.max(max, Number(m.ts || 0)), 0);
+    const prepared = normalize({ ...room, summaryCursorTs: seedCursorTs, startFrom: mode === "blank" ? null : {
       mode, sourceRoomId: sourceRoom.id, sourceRoomName: sourceRoom.name,
       messageId: anchor && anchor.id || null, anchorTs: Number(anchor && anchor.ts || 0),
       anchorText: anchor ? visibleText(anchor).slice(0, 300) : "", seedCount: rows.length
     } }, personId);
     return { room: prepared, messages: rows };
+  }
+  // 清房只擦掉进门以后新长出来的记录；带入/挑句形成的开场原文留在门内。
+  function messagesAfterClear(room, messages) {
+    if (!room || room.main) return Array.isArray(messages) ? messages : [];
+    const hasOpening = !!(room.startFrom || room.fork);
+    return hasOpening ? (Array.isArray(messages) ? messages : []).filter(m => m && m.forkSeed) : [];
+  }
+  function resetAfterClear(room, keptMessages) {
+    if (!room || room.main) return room;
+    const cursor = (Array.isArray(keptMessages) ? keptMessages : []).reduce((max, m) => Math.max(max, Number(m && m.ts || 0)), 0);
+    return normalize({ ...room, selfDigest: "", selfSummedCount: 0, summaryCursorTs: cursor }, room.personId);
   }
   async function commitStart(draft, writeHistory) {
     if (!draft || !draft.room || typeof writeHistory !== "function") return null;
@@ -367,5 +380,5 @@
     if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
     return "\n\n" + lines.join("\n");
   }
-  return { visibleText, resumeLines, prepareStart, commitStart, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
+  return { visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
 });
