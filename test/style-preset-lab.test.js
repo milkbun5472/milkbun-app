@@ -322,7 +322,9 @@ test("删除改成点两下：先问一句，再点才真删，还能反悔", ()
 
 test("小字按钮都给够热区，别再是一条 15px 高的字", () => {
   assert.ok(lab.indexOf("tapGhost: color => ({ minHeight: 40") > 0);
-  assert.ok(lab.indexOf("tapIcon: color => ({ minWidth: 38, minHeight: 38") > 0);
+  // v65.10 抬到 40：tabs-not-plain-pills.md §2 那条「可点区别低于 40px」是这一页的地板，
+  // 38 是当初随手写的，量出来就是差那 2px（排字槽里的 ↑↓× 三颗全在这个数上）。
+  assert.ok(lab.indexOf("tapIcon: color => ({ minWidth: 40, minHeight: 40") > 0);
   // 原来那几个 padding:0 / padding:"0 4px" 的写法不许留着
   assert.ok(lab.indexOf('fontSize: 14, padding: "0 4px"') < 0);
   assert.ok(lab.indexOf('color: t.accent }, "删掉这条")') < 0);

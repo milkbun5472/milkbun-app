@@ -117,25 +117,50 @@
 
     const assembled = cur ? SP.textFor(cur, null, { uName: (props.profile && props.profile.name) || "你" }) : "";
     const S = {
-      chip: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 }),
-      dash: { padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: 12.5 },
+      chip: on => ({ minHeight: 40, padding: "9px 13px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 }),
       h2: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 3 },
       hint: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 },
       card: { background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 11 },
       tapGhost: color => ({ minHeight: 40, padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: color, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1 }),
-      tapIcon: color => ({ minWidth: 38, minHeight: 38, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: color, fontSize: 15, padding: 0 }),
-      input: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" }
+      tapIcon: color => ({ minWidth: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: color, fontSize: 15, padding: 0 }),
+      input: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" },
+      // 台边的家伙什：方角、小、不抢版的位置（跟「一块版」长得不一样才分得开）
+      tool: { minHeight: 40, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 }
     };
 
     // ---- 搭预设 ----
     const buildTab = h("div", { style: { padding: "14px 14px 28px" } },
-      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 } },
-        presets.map(p => h("button", { key: p.id, onClick: () => setCurId(p.id), style: S.chip(p.id === curId) },
-          p.name + " · " + ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)))),
-        h("button", { key: "__add", onClick: () => addPreset(), style: S.dash }, "＋ 新建"),
-        h("button", { key: "__imp", onClick: () => fileRef.current && fileRef.current.click(), style: S.dash }, "⇧ 导入"),
-        h("button", { key: "__paste", onClick: pasteBundle, style: S.dash }, "粘贴模块包"),
-        h("button", { key: "__old", onClick: importOldStyle, style: S.dash }, "搬旧文风"),
+      // ── 台边搁着的那几块版（v65.10）───────────────────────────────
+      // 一条预设在现实里就是【排好的一块版】：选中那块压在台面上——纸色、往下沉一格、
+      // 左边那道版边上了墨；没选的还搁在架子上，抬着、暗一档、版边是灰的。
+      // ⚠️原来这里是一排填色药丸：药丸搬到哪个 app 都成立，等于没设计
+      //   （施工规则/tabs-not-plain-pills.md）。选中态同时变【底色、位置、版边、投影】，
+      //   不只靠一个色差；整块可点区 44 高。
+      presets.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 } },
+        presets.map(p => {
+          const on = p.id === curId;
+          const n = (p.mods || []).length + (String(p.free || "").trim() ? 1 : 0);
+          return h("button", { key: p.id, onClick: () => setCurId(p.id), "aria-pressed": on ? "true" : "false",
+            className: "active:opacity-80",
+            style: {
+              display: "flex", alignItems: "stretch", minHeight: 44, padding: 0,
+              borderRadius: "3px 5px 5px 3px",
+              border: "1px solid " + (on ? t.ink : t.line),
+              background: on ? t.bg2 : "rgba(127,127,127,.05)",
+              transform: on ? "translateY(1px)" : "none",
+              boxShadow: on ? "inset 0 2px 6px -5px rgba(0,0,0,.6)" : "0 3px 8px -7px rgba(0,0,0,.5)"
+            } },
+            h("span", { style: { width: 5, flexShrink: 0, borderRadius: "3px 0 0 3px", background: on ? t.accent : t.line } }),
+            h("span", { style: { padding: "6px 12px 6px 10px", textAlign: "left" } },
+              h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5, color: on ? t.ink : t.sub } }, p.name),
+              h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 10, color: t.fog, marginTop: 1 } }, n + " 块")));
+        })) : null,
+      // 台边的小工具：跟「版」分开摆，不混进同一排里——它们不是版，是家伙什
+      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, paddingTop: 9, borderTop: "1px dashed " + t.line } },
+        [["＋ 新建", () => addPreset()],
+         ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
+         ["粘贴模块包", pasteBundle],
+         ["搬旧文风", importOldStyle]].map(pair => h("button", { key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
         h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
 
       !cur
@@ -145,56 +170,100 @@
         : h("div", null,
             h("input", { value: cur.name, onChange: e => patchCur({ name: e.target.value }), placeholder: "预设名字", style: Object.assign({}, S.input, { marginBottom: 14 }) }),
 
-            // 已选：顺序就是喂进去的顺序
+            // ── 已选＝排字槽（v65.10）────────────────────────────────
+            // 顺序就是喂进去的顺序，所以它现实里是【一条排字槽】：几根字条挨着卡在槽里，
+            // 左边那道墨色轨从头连到尾，号码印在轨上；槽底那一行写着「往下越重」，
+            // 因为「重」这件事是有方向的，写在标题底下就看不出方向。
+            // ⚠️原来是几张一模一样的圆角灰卡片，中间还留着缝——搬到哪个 app 都成立。
             h("div", { style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "已选 · 按这个顺序喂进去"),
-              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "越靠后的模型看得越重。所以把最容易被违反的那条放最后。"),
-              (cur.mods || []).length === 0
-                ? h("div", { style: Object.assign({}, S.card, S.hint) }, "一条都没勾。下面按分类勾。")
-                : h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-                    (cur.mods || []).map((id, i) => {
+              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "把最容易被违反的那条放最后。"),
+              h("div", { style: { border: "1px solid " + t.line, borderRadius: 4, overflow: "hidden", background: t.bg } },
+                (cur.mods || []).length === 0
+                  ? h("div", { style: { display: "flex", alignItems: "stretch", minHeight: 46 } },
+                      h("span", { style: { width: 26, flexShrink: 0, background: t.line } }),
+                      h("span", { style: Object.assign({ flex: 1, display: "flex", alignItems: "center", padding: "10px 12px",
+                        margin: 6, border: "1px dashed " + t.line, borderRadius: 3 }, S.hint) }, "槽是空的。下面按分类勾，勾上的会卡进这里。"))
+                  : h("div", null, (cur.mods || []).map((id, i) => {
                       const m = SP.moduleById(id);
-                      return h("div", { key: id, style: Object.assign({ display: "flex", alignItems: "center", gap: 8 }, S.card) },
-                        h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, width: 16 } }, String(i + 1)),
-                        h("div", { style: { flex: 1 } },
-                          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
-                          m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
-                        h("button", { onClick: () => moveMod(id, -1), style: S.tapIcon(t.fog) }, "↑"),
-                        h("button", { onClick: () => moveMod(id, 1), style: S.tapIcon(t.fog) }, "↓"),
-                        h("button", { onClick: () => toggleMod(id), style: S.tapIcon(t.accent) }, "×"));
-                    }))),
+                      return h("div", { key: id, style: { display: "flex", alignItems: "stretch",
+                        borderTop: i ? "1px solid " + t.line : "none" } },
+                        // 轨：一根从头连到尾的墨条，号码印在它上面
+                        h("span", { style: { width: 26, flexShrink: 0, background: t.ink, color: t.bg2,
+                          fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, String(i + 1)),
+                        h("div", { style: { flex: 1, minWidth: 0, padding: "9px 4px 9px 11px", display: "flex", alignItems: "center", gap: 6 } },
+                          h("div", { style: { flex: 1, minWidth: 0 } },
+                            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
+                            m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
+                          h("button", { onClick: () => moveMod(id, -1), "aria-label": "往前挪一格", style: S.tapIcon(t.fog) }, "↑"),
+                          h("button", { onClick: () => moveMod(id, 1), "aria-label": "往后挪一格", style: S.tapIcon(t.fog) }, "↓"),
+                          h("button", { onClick: () => toggleMod(id), "aria-label": "从槽里取出来", style: S.tapIcon(t.accent) }, "×")));
+                    })),
+                // 槽底那一行：方向感在这儿，不在标题里
+                (cur.mods || []).length > 1
+                  ? h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 6px",
+                      borderTop: "1px solid " + t.line, background: "rgba(127,127,127,.05)" } },
+                      h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.fog } }, "↓"),
+                      h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5 }) }, "越往下，模型看得越重"))
+                  : null)),
 
-            // 模块库
+            // ── 模块库＝字盘（v65.10）──────────────────────────────────
+            // 一格一格拉开，里面躺着一根根字条。挑中的那根【上了墨】——左端那个字面
+            // 是实心的墨块，没挑的是空白的一格；上了墨的还往右让开一道压痕，
+            // 因为它已经卡进上面那条槽里了。
+            // ⚠️原来是「○ / ✓」加一圈圆角灰卡：那是任何 app 都能用的复选框
+            //   （施工规则/tabs-not-plain-pills.md 那句判据对这一栏同样成立）。
             h("div", { style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "模块库"),
-              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点分类展开。勾上就进上面的「已选」，再去调顺序。"),
-              SP.allCats().map(c => h("div", { key: c.id, style: { marginBottom: 6 } },
-                h("button", { onClick: () => setOpenCat(o => Object.assign({}, o, { [c.id]: !o[c.id] })),
-                  style: { width: "100%", textAlign: "left", padding: "9px 11px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, display: "flex", alignItems: "center", gap: 8 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, c.zh),
-                  h("span", { style: Object.assign({}, S.hint, { flex: 1 }) }, c.hint),
-                  h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog } },
-                    c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length + "/" + c.mods.length),
-                  h("span", { style: { color: t.fog, fontSize: 12 } }, openCat[c.id] ? "▾" : "▸")),
-                openCat[c.id]
-                  ? h("div", { style: { padding: "6px 0 2px 6px", display: "flex", flexDirection: "column", gap: 5 } },
-                      // 「删」是独立按钮、不是套在模块按钮里的 span——按钮套按钮在 iOS 上点谁很看运气
-                      c.mods.map(m => {
-                        const on = (cur.mods || []).indexOf(m.id) >= 0;
-                        return h("div", { key: m.id, style: { display: "flex", alignItems: "stretch", gap: 4 } },
-                          h("button", { onClick: () => toggleMod(m.id),
-                            style: { flex: 1, textAlign: "left", padding: "10px 10px", borderRadius: 8, border: "1px solid " + (on ? t.tint : t.line), background: on ? (t.bg2 || "transparent") : "transparent", display: "flex", gap: 9, alignItems: "flex-start" } },
-                            h("span", { style: { fontSize: 12, color: on ? t.tint : t.fog, lineHeight: 1.5 } }, on ? "✓" : "○"),
-                            h("span", { style: { flex: 1 } },
-                              h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
-                              h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
-                          m.user ? h("button", { onClick: () => {
-                              if (armed !== m.id) { setArmed(m.id); return; }
-                              SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
-                            style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 8, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
-                            armed === m.id ? "真删" : "删") : null);
-                      }))
-                  : null))),
+              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点一格拉开。挑中的字条会卡进上面那条槽里，再去那儿调顺序。"),
+              SP.allCats().map(c => {
+                const open = !!openCat[c.id];
+                const picked = c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length;
+                return h("div", { key: c.id, style: { marginBottom: open ? 10 : 6 } },
+                  h("button", { onClick: () => setOpenCat(o => Object.assign({}, o, { [c.id]: !o[c.id] })),
+                    "aria-expanded": open ? "true" : "false",
+                    style: { width: "100%", minHeight: 44, textAlign: "left", padding: "0 11px 0 0",
+                      borderRadius: open ? "6px 6px 0 0" : 6,
+                      border: "1px solid " + t.line, borderBottom: open ? "none" : "1px solid " + t.line,
+                      background: open ? t.bg2 : "rgba(127,127,127,.05)",
+                      display: "flex", alignItems: "center", gap: 8 } },
+                    // 格口：字盘那一格上的指槽。拉开了它就上墨，一眼看出开的是哪一格
+                    h("span", { style: { width: 11, alignSelf: "stretch", flexShrink: 0,
+                      background: open ? t.accent : "transparent", borderRight: "1px solid " + t.line,
+                      borderRadius: open ? "5px 0 0 0" : "5px 0 0 5px" } }),
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, c.zh),
+                    h("span", { style: Object.assign({}, S.hint, { flex: 1, minWidth: 0 }) }, c.hint),
+                    h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: picked ? t.ink : t.fog,
+                      border: "1px solid " + (picked ? t.ink : t.line), borderRadius: 3, padding: "1px 4px" } },
+                      picked + "/" + c.mods.length)),
+                  open
+                    ? h("div", { style: { border: "1px solid " + t.line, borderTop: "none", borderRadius: "0 0 6px 6px",
+                        background: t.bg, padding: "7px 8px 8px", display: "flex", flexDirection: "column", gap: 5 } },
+                        // 「删」是独立按钮、不是套在模块按钮里的 span——按钮套按钮在 iOS 上点谁很看运气
+                        c.mods.map(m => {
+                          const on = (cur.mods || []).indexOf(m.id) >= 0;
+                          return h("div", { key: m.id, style: { display: "flex", alignItems: "stretch", gap: 4 } },
+                            h("button", { onClick: () => toggleMod(m.id), "aria-pressed": on ? "true" : "false",
+                              style: { flex: 1, minWidth: 0, minHeight: 44, textAlign: "left", padding: "9px 10px 9px 8px",
+                                borderRadius: 3, border: "1px solid " + (on ? t.ink : t.line),
+                                background: on ? t.bg2 : "transparent",
+                                marginLeft: on ? 6 : 0,
+                                boxShadow: on ? "inset 3px 0 0 " + t.ink : "none",
+                                display: "flex", gap: 9, alignItems: "flex-start" } },
+                              // 字面：上了墨是实心墨块，没上是空白的一格
+                              h("span", { style: { width: 15, height: 15, marginTop: 1, flexShrink: 0, borderRadius: 2,
+                                background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+                              h("span", { style: { flex: 1, minWidth: 0 } },
+                                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
+                                h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
+                            m.user ? h("button", { onClick: () => {
+                                if (armed !== m.id) { setArmed(m.id); return; }
+                                SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
+                              style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 3, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
+                              armed === m.id ? "真删" : "删") : null);
+                        }))
+                    : null);
+              })),
 
             // 手写 / 导入
             h("div", { style: { marginBottom: 16 } },
