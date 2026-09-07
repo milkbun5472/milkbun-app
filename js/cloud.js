@@ -463,12 +463,17 @@
       const user = await this.getUser();
       if (!user) throw new Error("未登录");
       const saveData = await this.collectForSave(user.id);
+      // ⚠️手动备份也要盖 MARK（她 2026-09-07 报「toast 说成功、横幅还警告 5 小时前」）：
+      //   成功戳原来只有 autoPush 在写，这条手动路推完不留痕，pushState 只能拿旧账说话。
+      //   同一层写在两处的老病：写库和写戳必须同进退。
+      const ts = new Date().toISOString();
       const { error } = await client.from("saves").upsert({
         user_id: user.id,
         data: saveData,
-        updated_at: new Date().toISOString(),
+        updated_at: ts,
       });
       if (error) throw error;
+      this.markSynced(ts);
     },
 
     // 从云端拉回该用户存档，返回 { data, updated_at } 或 null（云端没有）
