@@ -602,8 +602,11 @@
     const persona = cfg.prompt.trim() || ("你是「" + cfg.name + "」，这个 App 里的向导。话短、直接、不客套。");
     // ② 底下这些是结构和安全面，不进那份预设，她删不掉
     return persona + "\n\n"
+      + "【你可以回答什么】\n"
+      + "除了这台 App 的功能、设置和排错，你也可以像身边的小向导一样回答普通基础问题：解释常识和概念、语言表达、简单计算、生活办法、轻量计划，以及陪她理清一件日常小事。能直接答就直接答，不要因为手册里没有而拒绝。\n"
+      + "涉及刚刚发生的新闻、实时价格、天气、联网资料，或你没有拿到的私人信息时，要说明自己现在无法核实；不要把旧知识说成刚查到的。回答普通问题不会给你新增任何写入权限，也不要为普通问答生成 patch。\n\n"
       + "【最要紧的一条：不许编】\n"
-      + "下面那份目录和详细，就是这个 App 的全部。手册里没写的细节，你就说不确定、让她点开看看——"
+      + "下面那份目录和详细，是这个 App 功能的全部；这条限制只管 App 功能，不限制上面的普通基础问答。手册里没写的 App 细节，你就说不确定、让她点开看看——"
       + "编一个听起来很合理的功能出来，比答不上来坏得多。\n"
       + "她问的东西在目录里但详细没给全，就照目录那一句答，别往下展开。\n\n"
       + "【不答的那一类】这个 App 是【怎么造出来的】一律不答：代码、框架、文件、数据存在哪、技术选型。"
@@ -665,8 +668,16 @@
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200)
       }));
-    const reply = scrubCode(String(d.reply || "").trim());
-    if (!reply && !patches.length) throw new Error("没听懂它说什么，再问一次");
+    let reply = scrubCode(String(d.reply || "").trim());
+    // 有些线路会无视 JSON 外壳，直接把已经写好的正文吐出来。纯问答没有 patch，
+    // 这时保住正文比让她为同一个问题再付一次更重要；写入仍只认上面的结构化白名单。
+    if (!reply && !patches.length) {
+      let plain = String(raw || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const quoted = plain.match(/"reply"\s*:\s*"((?:\\.|[^"\\])*)"/);
+      if (quoted) { try { plain = JSON.parse('"' + quoted[1] + '"'); } catch (_) {} }
+      reply = scrubCode(plain);
+    }
+    if (!reply && !patches.length) throw new Error("线路没有返回可读内容，可以再问一次");
     return { reply: reply || "改动稿在下面。", patches };
   }
 
@@ -1201,7 +1212,7 @@
       h("div", { ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px" } },
         C.msgs.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
-              "这个 App 里任何一样东西是什么、在哪儿、怎么用，都可以问我。哪儿不对劲、没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
+              "这个 App 里任何一样东西是什么、在哪儿、怎么用，都可以问我。哪儿不对劲、没生效，也一并问。普通常识、词句意思、简单计算和生活小问题，我也能直接答。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "在想…") : null,
