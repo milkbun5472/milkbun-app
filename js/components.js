@@ -7058,6 +7058,72 @@ function OfflineLogCard({ m, t, sel }) {
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
+// ── 照片：一张卡，四处共用（她 2026-09-07）─────────────────────────────
+// 她原话：「群聊线上线下我发假图片，都改成一样的好看的卡吧，点开可以看到描述，
+// 然后加一个可以实际保存他们发的照片到手机的功能」。
+//
+// 原来 kind:"photo" 在【单聊线上 / 单聊线下 / 群聊线上 / 群聊线下】各画各的，
+// 而且有图那一支和没图那一支还各画一遍——六种长相：
+//   · 单聊线上·有图 → 图 + 配文条；没图 → 40px 灰方块 + 「[图片]」，连描述都不显示
+//   · 单聊线下（OffCard，群线下也走它）→ 有图一种画法；没图当普通正文，点不开
+//   · 群聊线上 → 灰方块 + 描述全文摊在气泡里，压根点不开
+// 「点开看描述」这件事三处有一处、两处没有——一层写在四处，落单是必然的。
+// 所以只留这一张卡和这一个查看层，四处都调它。
+//
+// 没有真图的那一张不再是灰方块：照片在现实里是【一张相纸】，所以它就长成相纸——
+// 白边、里面一块相面（描述压在上面）、底下一行手写位。跟有图那一张同一副骨架，
+// 一眼看过去是同一种东西，区别只是相面里是像素还是字。
+function photoCaption(m) { return String((m && (m.desc || m.caption)) || "").trim(); }
+function PhotoCard({ m, mine, onOpen, max }) {
+  const t = useTheme();
+  const cap = photoCaption(m);
+  const W = Number(max) || 260;
+  const paper = {
+    display: "block", width: "100%", maxWidth: W, textAlign: "left",
+    background: "#fdfaf4", borderRadius: 10, padding: 6, paddingBottom: 8,
+    border: "1px solid rgba(35,31,27,.10)", boxShadow: "0 6px 16px rgba(35,31,27,.13)"
+  };
+  const face = m.imageRef
+    ? h("img", { src: resolveImg(m.imageRef), alt: cap || "照片",
+        style: { display: "block", width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 4, background: "#e9e3d8", boxShadow: "inset 0 0 0 1px rgba(35,31,27,.10)" } })
+    // 相面：没有像素的时候，这里放的就是她写的那句话——那才是这张照片的内容
+    : h("div", { style: { position: "relative", borderRadius: 4, minHeight: 104, padding: "13px 12px 12px",
+        display: "flex", flexDirection: "column", justifyContent: "flex-end",
+        background: "linear-gradient(160deg,#efe8dc,#ddd4c4 58%,#c9bfad)",
+        boxShadow: "inset 0 0 22px rgba(90,78,60,.16), inset 0 0 0 1px rgba(35,31,27,.10)" } },
+        h("div", { style: { position: "absolute", right: 11, top: 10, opacity: .42 } }, h(PGlyph, { k: "album", size: 17, color: "#4b4238" })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#463f35",
+          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+          cap || "一张照片"));
+  return h("button", { onClick: onOpen, className: "active:opacity-85", style: paper },
+    face,
+    // 相纸底下那一行：有图时是配文，没图时是「点开看这张」——两种都在同一个位置
+    h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, padding: "6px 3px 0" } },
+      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
+}
+// 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
+// ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
+//   别在这儿再写一条下载逻辑。
+function PhotoSheet({ m, onClose, toast }) {
+  const t = useTheme();
+  const cap = photoCaption(m);
+  return h(Sheet, { onClose: onClose, tall: true },
+    h(Eyebrow, { style: { marginBottom: 10 } }, "照片"),
+    m.imageRef
+      ? h("div", null,
+          h("img", { src: resolveImg(m.imageRef), alt: cap || "照片", style: { width: "100%", maxHeight: "64vh", objectFit: "contain", borderRadius: 12, display: "block", background: t.bg } }),
+          cap ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, cap) : null,
+          h("button", { onClick: function () {
+              if (!window.saveImgOriginal) return toast && toast("这台设备存不了图");
+              window.saveImgOriginal(m.imageRef, "照片").then(function (ok) { if (toast) toast(ok ? "已经存下来了" : "这张取不到原图"); });
+            }, className: "active:opacity-70",
+            style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
+      : h("div", null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）")));
+}
 function ChatThread({
   unreadOther,
   onOpenUs,
@@ -7626,18 +7692,18 @@ function ChatThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
       }, h(SelfieBubble, { m: m })));
-    if (m.kind === "photo" && m.imageRef) {
+    // 照片：有图没图都走公共那一张卡（PhotoCard）。
+    // ⚠️原来这儿只接「有图」那一支，没图的会掉进下面的通用气泡里，
+    //   变成一个 40px 灰方块 + 「[图片]」——描述看不见、也点不开。
+    if (m.kind === "photo") {
       const mine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") },
         !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
-        h("button", {
-          onClick: selMode ? () => toggleSel(i) : () => setDescView(m),
+        h("div", {
           onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
           onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-          className: "active:opacity-80",
-          style: { display: "block", maxWidth: "72%", textAlign: "left", borderRadius: 14, overflow: "hidden", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
-        }, h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 260, maxHeight: 310, objectFit: "cover", background: t.bg2 } }),
-          m.desc ? h("div", { style: { padding: "7px 10px", background: mine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg, color: mine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink), fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5 } }, m.desc) : null),
+          style: { maxWidth: "72%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
+        }, h(PhotoCard, { m: m, mine: mine, onOpen: selMode ? () => toggleSel(i) : () => setDescView(m) })),
         mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     }
     // 他刻的那张唱片：跟别的卡一样挂在他那侧，点了去情侣空间的唱片架
@@ -7728,7 +7794,7 @@ function ChatThread({
       onMouseDown: selMode ? undefined : () => startPress(i),
       onMouseUp: endPress,
       onMouseLeave: endPress,
-      onClick: selMode ? () => toggleSel(i) : m.kind === "photo" ? () => setDescView(m.desc) : undefined,
+      onClick: selMode ? () => toggleSel(i) : undefined,
       "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
       style: {
         position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
@@ -7761,23 +7827,7 @@ function ChatThread({
       cx: 12,
       cy: 10,
       r: 2.4
-    })), m.place) : m.kind === "photo" ? h("span", {
-      className: "flex items-center gap-2"
-    }, h("div", {
-      style: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        background: "linear-gradient(135deg,#d8d3c8,#b3ada0)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }
-    }, h(PGlyph, {
-      k: "album",
-      size: 18,
-      color: "rgba(255,255,255,0.9)"
-    })), "[图片]") : m.kind === "transfer" ? h("span", {
+    })), m.place) : m.kind === "transfer" ? h("span", {
       className: "flex items-center gap-2.5"
     }, h("div", {
       style: {
@@ -8028,41 +8078,7 @@ function ChatThread({
             const body = m.content != null && String(m.content) !== "" ? String(m.content) : (m.kind ? "[" + m.kind + "]" : "");
             return h("div", { key: i, style: { display: "flex", justifyContent: mine ? "flex-end" : "flex-start" } },
               h("div", { style: { maxWidth: "82%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, body));
-          }))), descView && h(Sheet, {
-    onClose: () => setDescView(null),
-    tall: true
-  }, h(Eyebrow, {
-    style: {
-      marginBottom: 8
-    }
-  }, "照片"), !(typeof descView === "object" && descView.imageRef) && h("div", {
-    style: {
-      width: "100%",
-      height: 140,
-      borderRadius: 12,
-      background: "linear-gradient(135deg,#d8d3c8,#b3ada0)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12
-    }
-  }, h(PGlyph, {
-    k: "album",
-    size: 28,
-    color: "rgba(255,255,255,0.9)"
-  })), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 14,
-      lineHeight: 1.8,
-      color: t.ink,
-      whiteSpace: "pre-wrap"
-    }
-  }, typeof descView === "object" && descView.imageRef
-    ? h("div", null,
-        h("img", { src: resolveImg(descView.imageRef), style: { width: "100%", maxHeight: "68vh", objectFit: "contain", borderRadius: 12, display: "block" } }),
-        descView.desc ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink, whiteSpace: "pre-wrap" } }, descView.desc) : null)
-    : descView)), transferOpen && h(TransferComposeSheet, {
+          }))), descView && h(PhotoSheet, { m: typeof descView === "object" ? descView : { desc: descView }, toast: toast, onClose: () => setDescView(null) }), transferOpen && h(TransferComposeSheet, {
     cName: cName,
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),
@@ -11418,8 +11434,18 @@ function SelfieBubble({ m }) {
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: box },
       h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
-    zoom && h("div", { onClick: () => setZoom(false), className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.85)" } },
-      h("img", { src: shown, style: { maxWidth: "94%", maxHeight: "90%", borderRadius: 10 } })));
+    // 点开那一层：她 2026-09-07 要的「实际保存他们发的照片到手机」。
+    // ⚠️存图走公共那一条 window.saveImgOriginal（engine.js）——它认 img_ 键，
+    //   而自拍存的正是 "img_"+charId+"_"+sid（app.js 那处 idbImgPut）。别在这儿另写一条。
+    // ⚠️按钮自己要 stopPropagation：外面那层点哪儿都关，不拦住就是点了就关、存不成。
+    zoom && h("div", { onClick: () => setZoom(false), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,0.85)", gap: 16, padding: 16 } },
+      h("img", { src: shown, style: { maxWidth: "94%", maxHeight: "76%", borderRadius: 10 } }),
+      m.imgKey ? h("button", { onClick: e => {
+          e.stopPropagation();
+          if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图");
+          window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
+        }, className: "active:opacity-70",
+        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
   if (m.imgKey) return note("图加载中…还看不到就是没存住");
   return note("没拿到图");
@@ -11520,6 +11546,7 @@ function offCardSkin(t, accent) {
 function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
+  const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
   const tp = useTtsPlayer(); // 整段 beat 朗读（懒合成，最多 800 字）
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
   // 系统提示这一族全走 SysNote（v63.49）：线下和单聊、群聊同一个长相
@@ -11586,9 +11613,13 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),
-      editing ? editBox : (m.kind === "photo" && m.imageRef
-        ? h("div", null, h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 300, maxHeight: 360, objectFit: "cover", borderRadius: 12 } }), m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub, marginTop: 8 } }, m.desc) : null)
+      // 照片走公共那一张卡（PhotoCard）。线下这一屏单聊和群聊都走 OffCard，所以改这一处
+      // 两边一起对齐。⚠️原来【没有真图】的那一支压根没接：它掉进 offBody 当普通正文，
+      //   看着跟说话没区别，也点不开。
+      editing ? editBox : (m.kind === "photo"
+        ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
         : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint))),
+      photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       (!isUser && m.thought) && h("div", { className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
@@ -12106,6 +12137,7 @@ function GroupThread({
   const [chatMode, setChatMode] = useState("chat"); // chat | ooc
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
   const [menu, setMenu] = useState(null); // 长按弹出的消息下标
+  const [gPhotoView, setGPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
   const [fwdPick, setFwdPick] = useState(false);
@@ -12448,45 +12480,20 @@ function GroupThread({
       },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(SelfieBubble, { m: m })));
+    // 照片走公共那一张卡（PhotoCard）。原来这儿有图一种画法、没图一个灰方块＋
+    // 描述整段摊在气泡里，而且【压根点不开】——「点开看描述」四处只有一处有。
     if (m.kind === "photo") return h("div", {
       key: i,
       className: "flex justify-end py-1"
     }, h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      onClick: selMode ? () => toggleSel(i) : undefined,
       style: {
-        padding: m.imageRef ? 0 : "8px 10px",
-        background: BUBBLE_SKIN.myBg,
-        borderRadius: 14,
-        maxWidth: "72%",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+        maxWidth: "72%", borderRadius: 12,
         outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
         outlineOffset: 2
       }
-    }, m.imageRef ? h("div", null,
-      h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 260, maxHeight: 310, objectFit: "cover" } }),
-      m.desc ? h("div", { style: { padding: "7px 10px", fontFamily: F_BODY, fontSize: 13, color: "#16330a", lineHeight: 1.45 } }, m.desc) : null
-    ) : h("div", {
-      className: "flex items-center gap-2"
-    }, h("div", {
-      style: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        background: "linear-gradient(135deg,#d8d3c8,#b3ada0)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0
-      }
-    }, h(PGlyph, {
-      k: "album",
-      size: 20,
-      color: "rgba(255,255,255,0.9)"
-    })), h("span", {
-      style: { fontFamily: F_BODY, fontSize: 13, color: "#16330a", lineHeight: 1.4 }
-    }, m.desc || "照片"))));
+    }, h(PhotoCard, { m: m, mine: true, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
     const isU = m.role === "user";
     const c = m.senderId ? memberById(m.senderId) : null;
     const toGroupTime = value => {
@@ -12644,6 +12651,7 @@ function GroupThread({
     h("div", { className: "flex gap-3 items-center" },
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "删除"),
       h("button", { onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
+  gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),
   fwdPick && h(Sheet, { onClose: () => setFwdPick(false) },
     h(Eyebrow, { style: { marginBottom: 12 } }, "转发给谁"),
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
