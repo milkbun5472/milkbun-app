@@ -29,7 +29,7 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
 });
 
 test("组件库只给还在用的那几种装饰，退役的三种不再出现在挑选里", () => {
-  const library = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
+  const library = between('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleKey].kind === "decor" || REG[styleKey].kind === "widget"))) && (function () {', "// 主页名片");
   // v62.28 她 2026-09-04：「删吧宝宝」——信封／录音磁带／小物陈列盒退役。
   // 退役＝挑不到，不是抠掉：已经摆在桌面上的那几件还得画得出来，否则当场变白框。
   assert.match(library, /homeDecorPickable\(\)\.map/);
@@ -143,14 +143,13 @@ test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式
   assert.match(gestures, /kindOf\(key\) === "widget" \|\| kindOf\(key\) === "decor"/);
   assert.match(gestures, /openStylePanel\(key\)/);
   assert.match(gestures, /else pickUp\(\)/, "普通 App/文件夹的长按整理链不能被装饰面板劫持");
-  // ⚠️口径改了（v63.82）：长按【组件】还是那张半窗，长按【装饰】改成开整页。
-  //   所以这两支各钉各的。
-  const widgetSheet = between('REG[styleKey].kind !== "decor" && h(Sheet', "\n  (showDecorLibrary ||");
-  assert.match(widgetSheet, /整理位置/);
-  assert.match(widgetSheet, /尺寸与外观分开设置，不改组件原来的功能/);
-  assert.match(widgetSheet, /占格尺寸/);
-  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
-  assert.match(decorPage, /A\.isNew \? "放到桌面上" : "保存"/);
+  // ⚠️口径又改了（v65.08）：组件那张半窗撤了，长按组件和长按装饰进的是【同一页】。
+  //   她 2026-09-06：「普通组件没跟上还是用的旧版还缺了很多功能，你把组件的也连上去吧」。
+  assert.ok(comp.indexOf('REG[styleKey].kind !== "decor" && h(Sheet') < 0, "组件那张半窗又回来了");
+  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleKey].kind === "decor" || REG[styleKey].kind === "widget"))) && (function () {', "// 主页名片");
+  ["整理位置", "占格尺寸".slice(2), "在格子里靠哪儿"].forEach(x =>
+    assert.ok(decorPage.indexOf(x) > 0, "从半窗搬过来时漏了一栏：" + x));
+  assert.match(decorPage, /A\.isWidget \? "好了" : A\.isNew \? "放到桌面上" : "保存"/);
   assert.match(decorPage, /移除这件装饰/);
 });
 
@@ -159,7 +158,7 @@ test("装饰不是固定皮肤：内容、透明底、无边框、强调色和�
   const home = between("function Home({", "// 主页名片");
   // ⚠️口径改了（v63.82）：新建和重改现在是同一页，所以「两处都得有」变成「那一页里有，
   //   而且两边都从适配器取」——外观那一套控件全库只许出现一次（见 decor-one-editor）。
-  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "// 主页名片");
+  const decorPage = between('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleKey].kind === "decor" || REG[styleKey].kind === "widget"))) && (function () {', "// 主页名片");
 
   assert.match(materials, /id: "transparent", name: "透明底"/);
   assert.match(materials, /id: "none", name: "无边框"/);
@@ -181,9 +180,9 @@ test("装饰不是固定皮肤：内容、透明底、无边框、强调色和�
   // ⚠️口径改了（v63.72）：多传了一个【当前外观 id】。挑了「无框」之后，
   //   这一层那几行是无条件给 style.border 赋值的（borderMode 默认「细边」），
   //   不告诉它现在是无框的话，卡刚被撤掉、边框转头又被这一层画回来。
-  assert.match(home, /homeDecorMaterialStyle\(it\.decor, t, presetId\)/,
+  assert.match(home, /homeDecorMaterialStyle\(look, t, presetId\)/,
     "保存后的材质设置必须进入桌面渲染链");
-  assert.match(home, /it\.decor\.badge/);
+  assert.match(home, /if \(look\.badge\) \{/);   // v65.08：角标那一层组件也走同一条
   assert.match(comp, /function homeDecorHasDetail\(type\) \{\s*return type !== "photo";/,
     "除照片框外的小物都应能编辑正文与副文案");
 });

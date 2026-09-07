@@ -12,13 +12,15 @@ const cut = (from, to) => comp.slice(comp.indexOf(from), comp.indexOf(to, comp.i
 // ⚠️锚点和口径都改了（v63.82，她：「放了的装饰的重新设置页面还是乱。然后设置的时候
 //   没有选大小」）：这一页现在【新建和重改共用】，所以开头多了 styleKey 那一支，
 //   页内不再直接读 decorDraft*，一律走适配器 A.*。钉的仍是同一件事。
-const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "\n}\n// 主页名片");
+// v65.08：这一页又多收了【普通组件】那一档（她：「普通组件没跟上还是用的旧版还缺了很多
+//   功能，你把组件的也连上去吧」），所以锚点里多了 kind === "widget" 那一支。
+const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleKey].kind === "decor" || REG[styleKey].kind === "widget"))) && (function () {', "\n}\n// 主页名片");
 
 test("整页，不是半窗（no-half-sheet）", () => {
   assert.ok(bare(PAGE).indexOf("h(Sheet") < 0, "又掀回半窗了");
   assert.match(PAGE, /h\("div", \{ className: "absolute inset-0 z-50 flex flex-col"/);
   // 顶栏走公共的紧凑标题栏，别自己再写一条（mobile-ui-layout §1）
-  assert.match(PAGE, /h\(Head, \{ zh: A\.isNew \? "做一件装饰" : "改这件装饰"/);
+  assert.match(PAGE, /h\(Head, \{ zh: A\.isWidget \? "摆这个组件" : A\.isNew \? "做一件装饰" : "改这件装饰"/);
   assert.match(PAGE, /bg: "transparent"/, "底纹要从外壳透上来，不然顶上横一道平色带");
   // 正文一个主滚动容器，顶栏/预览/底栏都 shrink-0
   assert.match(PAGE, /className: "flex-1 min-h-0 overflow-y-auto"/);
@@ -30,12 +32,18 @@ test("一次只摊开一段，收起来还看得见自己选了什么", () => {
   assert.match(PAGE, /var section = function \(id, no, name, summary, body\)/);
   assert.match(PAGE, /setDecorStep\(open \? "" : id\)/, "点开着的那一段应该能收起来");
   // 三段各一次
-  ["section(\"what\", \"1\", \"是什么\"", "section(\"words\", \"2\", \"写什么\"", "section(\"look\", \"3\", \"什么样子\""]
+  // v65.08：组件那一档没有「是什么／写什么」（组件自己画自己的内容），所以段号跟着档走
+  ["section(\"what\", \"1\", \"是什么\"", "section(\"words\", \"2\", \"写什么\"",
+   "section(\"look\", A.isWidget ? \"1\" : \"3\", \"什么样子\""]
     .forEach(x => assert.ok(PAGE.indexOf(x) > 0, "少了一段：" + x));
+  assert.match(PAGE, /A\.isWidget \? null : section\("what"/, "组件档不该出现「是什么」");
+  assert.match(PAGE, /A\.isWidget \? null : section\("words"/, "组件档不该出现「写什么」");
+  // decorStep 初值是 "what"，组件档没有那一段——不折回来就会三段全收着，看着像坏了
+  assert.match(PAGE, /var step = A\.isWidget && \(decorStep === "what" \|\| decorStep === "words"\) \? "look" : decorStep;/);
   // ⚠️收起来还显示当前选的是什么——只收不显等于把东西藏了
   assert.match(PAGE, /marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, opacity: \.68/);
   assert.match(PAGE, /meta\.name \+ \(A\.type === "photo" && frameName \? " · " \+ frameName : ""\)/);
-  assert.match(PAGE, /presetName \+ " · 底" \+ groundName/);
+  assert.match(PAGE, /A\.isWidget \? presetName : presetName \+ " · 底" \+ groundName/);
   assert.match(PAGE, /\|\| "（还没写）"/);
 });
 

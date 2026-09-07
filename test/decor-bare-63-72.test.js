@@ -55,7 +55,7 @@ test("材质那一层不许把边框又画回来——这是最容易漏的一�
   assert.match(S.material({ accent: "#b65f57" }, T, "soft").border, /1px solid rgba\(182,95,87,0\.52\)/);
   assert.equal(S.material({ borderMode: "none" }, T, "soft").border, "none");
   // 调用点得把外观 id 传进来，不然这一层根本不知道现在是不是无框
-  assert.match(comp, /homeDecorMaterialStyle\(it\.decor, t, presetId\)/);
+  assert.match(comp, /homeDecorMaterialStyle\(look, t, presetId\)/);
 });
 
 test("装饰才给【无框】，组件不给；组件才给【原生】，装饰不给", () => {
@@ -63,8 +63,8 @@ test("装饰才给【无框】，组件不给；组件才给【原生】，装�
   const grid = comp.slice(comp.indexOf("function HomePresetGrid("), comp.indexOf("function HomeSizeGrid("));
   assert.match(grid, /if \(p\.id === "native"\) return !!allowNative;/);
   assert.match(grid, /if \(p\.id === "bare"\) return !allowNative;/);
-  // ⚠️口径改了（v63.82）：装饰的新建和重改合成了一页（allowNative: false），
-  //   剩下那张半窗只服务普通组件（allowNative: true）。两支各钉一次。
-  assert.match(comp, /h\(HomePresetGrid, \{ value: A\.preset, allowNative: false, onChange: A\.setPreset \}\)/, "装饰那一页");
-  assert.match(comp, /h\(HomePresetGrid, \{ value: widgetStyles\[styleKey\] \|\| "native", allowNative: true/, "组件那张半窗");
+  // ⚠️口径又改了（v65.08）：组件那张半窗撤了，两支合成同一页，
+  //   于是「给不给原生」变成同一处按档分流——各写一份的话，改一处另一处必然落单。
+  assert.match(comp, /h\(HomePresetGrid, \{ value: A\.preset, allowNative: !!A\.isWidget, onChange: A\.setPreset \}\)/);
+  assert.equal((comp.match(/h\(HomePresetGrid, \{/g) || []).length, 1, "版式格子又被抄了一份");
 });

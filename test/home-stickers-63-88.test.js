@@ -35,9 +35,9 @@ test("贴纸认的是【主屏那个 key】，所以组件和装饰是同一份"
 test("编辑器只此一份，两张面板都调它", () => {
   assert.equal((code.match(/function HomeStickerEditor\(/g) || []).length, 1, "编辑器写了不止一份");
   const calls = code.match(/h\(HomeStickerEditor, \{/g) || [];
-  assert.equal(calls.length, 2, "组件面板和装饰页各一处，实际 " + calls.length);
-  // 组件那一张：直接落 x_homeStickers
-  assert.match(code, /h\(HomeStickerEditor, \{ list: stickersOf\(styleKey\), busy: decorBusy,\s*onChange: function \(v\) \{ setStickersFor\(styleKey, v\); \}/);
+  assert.equal(calls.length, 1, "v65.08 起组件和装饰共用那一页，只该有一处，实际 " + calls.length);
+  // v65.08：组件那张半窗撤了，组件和装饰共用那一页那一处调用；
+  //   页里那一处 + 新建草稿那一处＝两处（各写一份的话，改一处另一处必然落单）。
   // 装饰那一页：走适配器（新建攒草稿、重改当场落档），跟尺寸/外观同一个形状
   assert.match(code, /stickers: isNew \? decorDraftStickers : stickersOf\(key\),/);
   assert.match(code, /setStickers: isNew \? setDecorDraftStickers : function \(v\) \{ setStickersFor\(key, v\); \}/);

@@ -10,11 +10,12 @@ const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 const bare = s => s.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
 const cut = (from, to) => comp.slice(comp.indexOf(from), comp.indexOf(to, comp.indexOf(from)));
-const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && REG[styleKey].kind === "decor")) && (function () {', "\n}\n// 主页名片");
+// v65.08：组件那张半窗也搬进这一页了，所以锚点里多了 kind === "widget"。
+const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleKey].kind === "decor" || REG[styleKey].kind === "widget"))) && (function () {', "\n}\n// 主页名片");
 
 test("新建和重改是同一页，不是两份代码", () => {
-  assert.match(comp, /\(showDecorLibrary \|\| \(styleKey && REG\[styleKey\] && REG\[styleKey\]\.kind === "decor"\)\) && \(function \(\) \{/);
-  assert.match(PAGE, /var A = decorAdapter\(showDecorLibrary \? "new" : "edit"\);/);
+  assert.match(comp, /\(showDecorLibrary \|\| \(styleKey && REG\[styleKey\] && \(REG\[styleKey\]\.kind === "decor" \|\| REG\[styleKey\]\.kind === "widget"\)\)\) && \(function \(\) \{/);
+  assert.match(PAGE, /var A = decorAdapter\(showDecorLibrary \? "new" : REG\[styleKey\]\.kind === "widget" \? "widget" : "edit"\);/);
   assert.match(PAGE, /A\.isNew \? "做一件装饰" : "改这件装饰"/);
   assert.match(PAGE, /A\.isNew \? "放到桌面上" : "保存"/);
   // 那一整套外观控件只许出现一次
@@ -23,17 +24,37 @@ test("新建和重改是同一页，不是两份代码", () => {
   assert.equal((bare(comp).match(/h\(HomePhotoSlotEditor/g) || []).length, 1, "照片槽位又被抄成了两份");
 });
 
-test("装饰不再走那张半窗；普通组件照旧走，而且只剩组件那几栏", () => {
-  assert.match(comp, /styleKey && REG\[styleKey\] && REG\[styleKey\]\.kind !== "decor" && h\(Sheet/);
-  const sheet = cut('REG[styleKey].kind !== "decor" && h(Sheet', "\n  (showDecorLibrary ||");
-  assert.ok(sheet.indexOf("HomeDecorAppearanceEditor") < 0, "半窗里还留着装饰那套控件");
-  assert.ok(sheet.indexOf("移除这件装饰") < 0);
-  assert.ok(sheet.indexOf("HomePhotoFrameGrid") < 0);
-  // 组件那几栏一样都不能少
-  ["占格尺寸", "在格子里靠哪儿", "外观样式", "整理位置"].forEach(x =>
-    assert.ok(sheet.indexOf(x) > 0, "组件那一支少了一栏：" + x));
-  // 组件才有「原生」那一款
-  assert.match(sheet, /allowNative: true/);
+// v65.08 反过来了：组件那张半窗撤了，它跟装饰走同一页。
+// 她 2026-09-06：「桌面装饰现在弄了一套 set up 样式的，但是普通组件没跟上还是用的旧版
+// 还缺了很多功能，你把组件的也连上去吧」——按 one-public-mechanism，
+// 不在半窗里补一份，把半窗【搬进】那一页。
+test("组件不再有自己那张半窗，跟装饰走同一页", () => {
+  assert.ok(comp.indexOf('REG[styleKey].kind !== "decor" && h(Sheet') < 0, "组件那张半窗又回来了");
+  // 半窗里原有的那几栏，一栏都不许丢
+  ["多大", "在格子里靠哪儿", "什么样子", "去整理位置", "贴什么"].forEach(x =>
+    assert.ok(PAGE.indexOf(x) > 0, "从半窗搬过来时漏了一栏：" + x));
+  // 组件才有「原生」那一款，装饰才有「无框」
+  assert.match(PAGE, /allowNative: !!A\.isWidget/);
+  assert.match(comp, /preset: widgetStyles\[key\] \|\| "native"/);
+  // 组件档里，装饰内容那一侧的三样一律不画（摆一个按了没反应的钮，比没有还糟）
+  assert.match(comp, /ground: null, setGround: null, align: "left", setAlign: null, mark: "", setMark: null/);
+  assert.match(comp, /gridTemplateColumns: onAlign \? "1fr 1\.25fr" : "1fr"/);
+});
+
+test("材质那一层组件也用得上，但只在她真调过之后才套", () => {
+  // 画法只有一份：组件和装饰同一个 homeDecorMaterialStyle
+  assert.equal((bare(comp).match(/homeDecorMaterialStyle\(/g) || []).length, 3, "材质又被抄了一份");
+  // ⚠️那个函数是无条件给 border 赋值的，喂空对象等于给全桌面每个组件凭空画一圈边
+  assert.match(comp, /\(it\.kind === "widget" && widgetLooks\[key\]\) \? lookOf\(key\) : null/);
+  assert.match(comp, /if \(it\.kind === "widget"\) delete presetStyle\.textAlign;/);
+  // 全是默认值就把这一栏删掉，别攒成坟场
+  assert.match(comp, /if \(empty\) delete n\[key\]; else n\[key\] = cur;/);
+});
+
+test("预览画的是真组件，不是另画一份", () => {
+  assert.match(comp, /function homeInnerOf\(it, key, homeSize, fixedH, span\) \{/);
+  assert.match(comp, /let inner = homeInnerOf\(it, key, homeSize, fixedH, span\);/);
+  assert.match(PAGE, /A\.isWidget \? homeInnerOf\(REG\[A\.key\], A\.key/);
 });
 
 test("适配器：新建读草稿，重改读已存的那一份", () => {
@@ -63,7 +84,7 @@ test("造装饰只此一处：预览、放上去、改完存，三处同一个 b
 });
 
 test("多大：新建那一页原来压根没有这一段", () => {
-  assert.match(PAGE, /section\("size", "4", "多大", sizeName,/);
+  assert.match(PAGE, /section\("size", A\.isWidget \? "2" : "4", "多大", sizeName,/);
   assert.match(PAGE, /h\(HomeSizeGrid, \{ value: A\.size \|\| "auto", onChange: A\.setSize \}\)/);
   assert.match(comp, /const \[decorDraftSize, setDecorDraftSize\] = useState\(""\)/);
   // 新建时多一颗「自动」——没挑过就按类型/相框推一个
@@ -85,9 +106,10 @@ test("竖着的那几款给一张高一点的台子，别把挂轴切掉半截",
 });
 
 test("四段收起来都写着自己现在是什么", () => {
-  ['section("what", "1", "是什么"', 'section("words", "2", "写什么"', 'section("look", "3", "什么样子"', 'section("size", "4", "多大"']
+  ['section("what", "1", "是什么"', 'section("words", "2", "写什么"',
+   'section("look", A.isWidget ? "1" : "3", "什么样子"', 'section("size", A.isWidget ? "2" : "4", "多大"']
     .forEach(x => assert.ok(PAGE.indexOf(x) > 0, "少了一段：" + x));
   assert.match(PAGE, /var sizeName = A\.size \? \(\(HOME_SIZE_PRESETS\.find/);
   assert.match(PAGE, /: "自动";/);
-  assert.match(PAGE, /presetName \+ " · 底" \+ groundName/);
+  assert.match(PAGE, /A\.isWidget \? presetName : presetName \+ " · 底" \+ groundName/);
 });

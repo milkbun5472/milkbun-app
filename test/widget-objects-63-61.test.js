@@ -231,9 +231,10 @@ test("组件比格子矮时不再被拉满，多出来的空白靠哪儿由她�
 });
 
 test("面板里那一栏：三档、选中态不只靠颜色", () => {
-  const panel = comp.slice(comp.indexOf('}, "在格子里靠哪儿"'), comp.indexOf('}, "外观样式"'));
+  // v65.08：这一栏从组件那张半窗搬进了公共那一页，成了 section("perch", …)
+  const panel = comp.slice(comp.indexOf('section("perch", "2·", "在格子里靠哪儿"'), comp.indexOf('section("stick"'));
   assert.match(panel, /HOME_ALIGNS\.map/);
-  assert.match(panel, /setWidgetAlign\(styleKey, a\.id\)/, "点了不存");
+  assert.match(panel, /setWidgetAlign\(A\.key, a\.id\)/, "点了不存");
   // 那三个小图里横条自己的位置就说明它站哪儿——不是三颗一样的色块
   assert.match(panel, /justifyContent: HOME_ALIGN_CSS\[a\.id\]/, "三个小图长得一样，只剩颜色能分");
   assert.match(comp, /const HOME_ALIGNS = \[\{ id: "top", zh: "靠上" \}, \{ id: "center", zh: "居中" \}, \{ id: "bottom", zh: "靠下" \}\];/);
@@ -316,6 +317,8 @@ test("对齐层只套给自己决定高度的组件——别的照旧是块级�
   assert.equal(/const HOME_SHRINK = \{([^}]*)\}/.exec(comp)[1].indexOf("w_card"), -1,
     "名片被登记成「自己决定高度」了，它会重新被 flex 压扁");
   // 面板里那一栏也只对这几个出现——摆一个按了没反应的钮比没有还糟
-  assert.match(comp, /HOME_SHRINK\[styleKey\] \? h\("div", \{[^}]*\}[^)]*\}, "在格子里靠哪儿"\) : null/, "面板那一栏的标题没跟着收口");
-  assert.match(comp, /HOME_SHRINK\[styleKey\] \? h\("div", \{ style: \{ display: "grid", gridTemplateColumns: "repeat\(3,minmax\(0,1fr\)\)", gap: 8 \} \},/, "面板那三个钮没跟着收口");
+  assert.match(comp, /\(A\.isWidget && HOME_SHRINK\[A\.key\]\) \? section\("perch", "2·", "在格子里靠哪儿"/, "面板那一栏没跟着收口");
+  // 标题和那三个钮现在是同一段（section 的头和体），收口只此一处——
+  // 分成两个判断的时候，正是「一层写在两处」最爱漏的那种形状。
+  assert.equal((comp.match(/HOME_ALIGNS\.map/g) || []).length, 1, "那三个钮又被抄了一份");
 });

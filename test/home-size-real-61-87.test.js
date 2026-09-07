@@ -30,7 +30,7 @@ test("N 行＝一个算得出的高度，不再由内容决定", () => {
 
 // v61.90 她：「能不能把长度固定了，不给他撑大」——改成一律钉死，只留名片一个例外
 test("组件高度一律钉死；只有名片按内容高（它的高度是一版版调出来的）", () => {
-  const seg = comp.slice(comp.indexOf("const fixedH ="), comp.indexOf("let inner;", comp.indexOf("const fixedH =")) + 40);
+  const seg = comp.slice(comp.indexOf("const fixedH ="), comp.indexOf("let inner = homeInnerOf(", comp.indexOf("const fixedH =")) + 40);
   assert.match(seg, /!HOME_FREE_HEIGHT\[key\] \? homeSpanHeight\(span\[1\], rowUnit\)/);
   assert.match(comp, /const HOME_FREE_HEIGHT = \{ w_card: true \};/);
   assert.match(comp, /height: fixedH \|\| undefined, overflow: fixedH \? "hidden" : undefined/, "钉了高度却没裁溢出，撑破的还是会顶下去");
