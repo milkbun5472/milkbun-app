@@ -2924,6 +2924,11 @@ const HOME_DECOR_TYPES = [
   { id: "ticket", glyph: "票", name: "票根夹", text: "今晚的入场券", detail: "留住一场值得记住的事" },
   { id: "letter", glyph: "✉", name: "信封", text: "给未来的一封信", detail: "慢一点拆开，也没关系。" },
   { id: "note", glyph: "✓", name: "便利贴", text: "今天要记得：", detail: "把重要的小事留在眼前" },
+  { id: "countdown", glyph: "−", name: "倒数日签", text: "等这一天", detail: "2026-12-31" },
+  { id: "anniversary", glyph: "+", name: "纪念日牌", text: "从那天开始", detail: "2026-01-01" },
+  { id: "rotate", glyph: "↻", name: "轮换字条", text: "今天留一句", detail: "每行写一句\n每天自动换一句" },
+  { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "打开一处", detail: "memo" },
+  { id: "spacer", glyph: "□", name: "留白占位", text: "", detail: "" },
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
   { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" },
   // 竖着的那两样（她 2026-09-05：「现在都是横的」）。它们不是把横的转 90 度——
@@ -3258,6 +3263,10 @@ function homeDecorMaterialStyle(item, t, preset) {
 }
 const HOME_PHOTO_FRAMES = [
   { id: "single", name: "单张", note: "一张照片完整铺开", need: 1 },
+  { id: "freeSide", name: "自由拼图 · 并排", note: "放入 1～6 张，自动等宽并排", need: 6 },
+  { id: "freeRows", name: "自由拼图 · 上下", note: "放入 1～6 张，自动分行铺开", need: 6 },
+  { id: "freeStack", name: "自由拼图 · 重叠", note: "放入 1～6 张，像散落照片一样叠放", need: 6 },
+  { id: "freeScatter", name: "自由拼图 · 错落", note: "放入 1～6 张，自动错位与倾斜", need: 6 },
   { id: "film3", name: "三格胶卷", note: "横向三连，适合长条", need: 3 },
   { id: "fan3", name: "V 形拍立得", note: "三张错落重叠", need: 3 },
   { id: "torn4", name: "撕页拼贴", note: "四张像从手账里撕下", need: 4 },
@@ -3291,6 +3300,8 @@ const HOME_PHOTO_FRAMES = [
   { id: "clipline3", name: "垂绳夹照", note: "三张照片用夹子挂在一根垂下来的绳上", need: 3 },
   { id: "tower4", name: "叠下来的一摞", note: "四张照片一张压一张往下叠", need: 4 }
 ];
+const HOME_PHOTO_FRAME_RETIRED = { locket2: 1, window4: 1, drawer4: 1, news4: 1, receipt2: 1 };
+function homePhotoFramePickable() { return HOME_PHOTO_FRAMES.filter(function (x) { return !HOME_PHOTO_FRAME_RETIRED[x.id]; }); }
 // 这几款骨架是竖的：摆进横格子里那几条齿孔、那根绳、那一摞就全不成立了。
 // 新建时直接给「竖块 2×3」，别让她建完再自己去改尺寸。
 const HOME_PHOTO_FRAMES_TALL = { filmV4: 1, clipline3: 1, tower4: 1 };
@@ -3312,6 +3323,11 @@ function defaultHomeItemSpan(it) {
     if (it.which === "letter" || it.which === "note" || it.which === "trinket") return [2, 2];
     if (it.which === "bookmark") return [1, 2];
     if (it.which === "scroll") return [2, 3];
+    if (it.which === "countdown") return [2, 1];
+    if (it.which === "anniversary") return [3, 1];
+    if (it.which === "rotate") return [3, 1];
+    if (it.which === "shortcut") return [2, 1];
+    if (it.which === "spacer") return [1, 1];
     return [2, 1];
   }
   if (it.which === "cal") return [3, 3];
@@ -3532,7 +3548,25 @@ function HomeDecorItem({ item, preset, now }) {
         src ? h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { "aria-label": "空照片位", style: { width: "100%", height: "100%" } }));
     };
     var body;
-    if (frame === "film3") {
+    if (frame.indexOf("free") === 0) {
+      var filled = srcs.map(function (src, i) { return { src: src, i: i }; }).filter(function (x) { return !!x.src; });
+      var show = filled.length ? filled : [{ src: "", i: 0 }];
+      var freePhoto = function (x, st) { return photo(x.src, x.i, Object.assign({ minWidth: 0, minHeight: 0, borderRadius: 4 }, st || {})); };
+      if (frame === "freeSide") {
+        body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, display: "grid", gridTemplateColumns: "repeat(" + show.length + ",minmax(0,1fr))", gap: 5, padding: 5, background: dark ? "#171614" : "#e8e0d5" } }, show.map(function (x) { return freePhoto(x); }));
+      } else if (frame === "freeRows") {
+        var cols = show.length === 1 ? 1 : show.length <= 4 ? 2 : 3;
+        body = h("div", { style: { width: "100%", height: "100%", minHeight: 120, display: "grid", gridTemplateColumns: "repeat(" + cols + ",minmax(0,1fr))", gridAutoRows: "minmax(0,1fr)", gap: 5, padding: 5, background: dark ? "#171614" : "#e8e0d5" } }, show.map(function (x) { return freePhoto(x); }));
+      } else {
+        var turns = [-7, 5, -3, 8, -5, 3];
+        body = h("div", { style: { width: "100%", height: "100%", minHeight: 140, position: "relative", overflow: "hidden", background: dark ? "#191715" : "rgba(238,231,219,.56)" } }, show.map(function (x, j) {
+          var n = show.length, w = n <= 2 ? 62 : n <= 4 ? 48 : 39;
+          var left = frame === "freeStack" ? 50 - w / 2 + (j - (n - 1) / 2) * 5 : 5 + (j % 3) * ((90 - w) / 2);
+          var top = frame === "freeStack" ? 14 + Math.abs(j - (n - 1) / 2) * 3 : 7 + Math.floor(j / 3) * 43 + (j % 2) * 5;
+          return freePhoto(x, { position: "absolute", left: left + "%", top: top + "%", width: w + "%", height: n <= 3 ? "72%" : "43%", transform: "rotate(" + turns[j % turns.length] + "deg)", border: "5px solid #fffdf8", borderBottomWidth: 11, boxShadow: "0 6px 14px rgba(34,28,22,.24)", zIndex: j + 1 });
+        }));
+      }
+    } else if (frame === "film3") {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 4, padding: "11px 5px", background: "repeating-linear-gradient(90deg,#161513 0 8px,#292724 8px 12px)", position: "relative" } },
         [0, 1, 2].map(function (i) { return photo(srcs[i], i, { border: "2px solid rgba(255,255,255,.82)", borderRadius: 1 }); }),
         h("div", { style: { position: "absolute", left: 4, right: 4, top: 3, height: 4, background: "repeating-linear-gradient(90deg,rgba(255,255,255,.75) 0 5px,transparent 5px 12px)" } }),
@@ -3776,6 +3810,30 @@ function HomeDecorItem({ item, preset, now }) {
   var meta = homeDecorMeta(item.type);
   var title = item.text || meta.text;
   var detail = item.detail || meta.detail;
+  if (item.type === "spacer") return h("div", { "aria-label": "留白占位", style: { width: "100%", height: "100%", minHeight: 54, background: "transparent" } });
+  if (item.type === "countdown" || item.type === "anniversary") {
+    var target = /^\d{4}-\d{2}-\d{2}$/.test(String(detail || "")) ? new Date(detail + "T12:00:00") : null;
+    var today = now instanceof Date ? now : new Date();
+    var days = target ? Math.round((target.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12).getTime()) / 86400000) : null;
+    var number = days == null ? "—" : item.type === "countdown" ? Math.max(0, days) : Math.max(0, -days);
+    var unit = item.type === "countdown" ? (days < 0 ? "已经到了" : "天后") : "天";
+    return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 62, padding: "8px 11px", color: ink, display: "flex", alignItems: "center", gap: 10, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)" }) },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, color: accent } }, number),
+      h("div", { style: { minWidth: 0 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 3 } }, unit + (target ? " · " + detail : " · 填一个日期"))));
+  }
+  if (item.type === "rotate") {
+    var lines = String(detail || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var dayNo = Math.floor((now instanceof Date ? now : new Date()).getTime() / 86400000);
+    var dailyLine = lines.length ? lines[dayNo % lines.length] : title;
+    return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 62, padding: "10px 13px", color: ink, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)", display: "flex", flexDirection: "column", justifyContent: "center" }) },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginBottom: 4 } }, title),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, dailyLine));
+  }
+  if (item.type === "shortcut") return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 58, padding: "10px 12px", color: ink, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", gap: 9 }) },
+    h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + accent, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 } }, "↗"),
+    h("div", { style: { minWidth: 0 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, "点一下打开")));
   if (item.type === "ticket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
       h("div", { style: onGnd({ flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" }) },
@@ -4590,7 +4648,9 @@ function Home({
       else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
       else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
       else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, worlds: worlds, onOpen: function () { return onOpenApp("map"); } }) : null);
-      else if (it.kind === "decor") inner = h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
+      else if (it.kind === "decor") inner = it.which === "shortcut"
+        ? h("button", { onClick: function () { if (!editMode) onOpenApp(it.decor.detail || "memo"); }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
+        : h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
     return inner;
   }
   function lookOf(key) { var v = widgetLooks[key]; return v && typeof v === "object" ? v : {}; }
@@ -5486,7 +5546,8 @@ function Home({
       // 否则预览里凭空多一圈边，放回桌面又没有——预览就骗人了。
       (A.isWidget && !widgetLooks[A.key]) ? null : homeDecorMaterialStyle(PV, t, A.preset));
     if (A.isWidget) delete pvShell.textAlign;
-    var frames = decorFrameAll ? HOME_PHOTO_FRAMES : HOME_PHOTO_FRAMES.slice(0, 8);
+    var pickableFrames = homePhotoFramePickable();
+    var frames = decorFrameAll ? pickableFrames : pickableFrames.slice(0, 8);
     var meta = homeDecorMeta(A.type);
     var frameName = (HOME_PHOTO_FRAMES.find(function (x) { return x.id === A.frame; }) || {}).name || "";
     var presetName = (HOME_WIDGET_PRESETS.find(function (x) { return x.id === A.preset; }) || {}).name || "";
@@ -5557,16 +5618,22 @@ function Home({
               // ⚠️二十来种一次全摊开就是一堵墙。默认露八种，想看全的自己点开。
               !decorFrameAll ? h("button", { onClick: function () { setDecorFrameAll(true); }, className: "w-full active:opacity-70",
                 style: { marginTop: 8, borderRadius: 12, padding: "9px 0", border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
-                "全部 " + HOME_PHOTO_FRAMES.length + " 种 ›") : null,
+                "全部 " + pickableFrames.length + " 种 ›") : null,
               h(HomePhotoSlotEditor, { value: A.photos, frame: A.frame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, A.target, slot); }, onClear: function (slot) { clearDecorPhoto(A.target, slot); } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "照片可以先不放。多格相框以后也是逐格补，不会要求一次选满。")) : null)),
-        A.isWidget ? null : section("words", "2", "写什么",
+        A.isWidget || A.type === "spacer" ? null : section("words", "2", "写什么",
           clip(A.type === "photo" ? A.text : (A.text || meta.text), 12) || "（还没写）",
           A.type === "photo"
             ? h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
+            : A.type === "shortcut" ? h("div", { style: { marginTop: 6 } },
+                h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "牌上显示的名字", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
+                h("select", { value: A.detail || "memo", onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
+                  Object.keys(REG).filter(function (k) { return REG[k] && REG[k].kind === "app" && !REG[k].soon; }).map(function (k) { return h("option", { key: k, value: k }, REG[k].zh); })))
             : h("div", { style: { marginTop: 6 } },
                 h("textarea", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + meta.name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
-                homeDecorHasDetail(A.type) ? h("textarea", { value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null)),
+                (A.type === "countdown" || A.type === "anniversary")
+                  ? h("input", { type: "date", value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: 12 } })
+                  : homeDecorHasDetail(A.type) ? h("textarea", { value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, rows: A.type === "rotate" ? 5 : 2, maxLength: 300, placeholder: A.type === "rotate" ? "每行写一句，每天自动换一行" : "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null)),
         section("look", A.isWidget ? "1" : "3", "什么样子", A.isWidget ? presetName : presetName + " · 底" + groundName,
           h("div", { style: { marginTop: 6 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "基础版式"),

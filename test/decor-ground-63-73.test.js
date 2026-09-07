@@ -58,8 +58,8 @@ test("底套在【每一款自己那张纸】上，不是套在根节点上", ()
   assert.match(comp, /所以下面每一款都在它自己那张「纸」上 Object\.assign 一次/);
   // 照片那一支换的是【板子】，根节点不带底
   assert.match(comp, /if \(gnd && body && body\.props\) body = React\.cloneElement\(body, \{ style: Object\.assign\(\{\}, body\.props\.style, gnd\) \}\);/);
-  // 书签／挂轴／便利贴／票根／日期签／字句卡各一处（票根两块板）
-  assert.equal((comp.match(/onGnd\(/g) || []).length, 7, "有一款的纸没接上，或者接重了");
+  // 新增的动态日期牌、轮换字条和快捷入口也各自把底套在自己的纸上。
+  assert.equal((comp.match(/onGnd\(/g) || []).length, 10, "有一款的纸没接上，或者接重了");
   const bm = cut('if (item.type === "bookmark")', 'if (item.type === "scroll")');
   assert.match(bm, /style: onGnd\(\{ width: "78%", maxWidth: 62/, "书签换的不是那张纸");
   const sc = cut('if (item.type === "scroll")', 'if (item.type === "letter")');

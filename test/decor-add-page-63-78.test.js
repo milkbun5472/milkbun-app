@@ -37,7 +37,7 @@ test("一次只摊开一段，收起来还看得见自己选了什么", () => {
    "section(\"look\", A.isWidget ? \"1\" : \"3\", \"什么样子\""]
     .forEach(x => assert.ok(PAGE.indexOf(x) > 0, "少了一段：" + x));
   assert.match(PAGE, /A\.isWidget \? null : section\("what"/, "组件档不该出现「是什么」");
-  assert.match(PAGE, /A\.isWidget \? null : section\("words"/, "组件档不该出现「写什么」");
+  assert.match(PAGE, /A\.isWidget \|\| A\.type === "spacer" \? null : section\("words"/, "组件和纯留白档不该出现「写什么」");
   // decorStep 初值是 "what"，组件档没有那一段——不折回来就会三段全收着，看着像坏了
   assert.match(PAGE, /var step = A\.isWidget && \(decorStep === "what" \|\| decorStep === "words"\) \? "look" : decorStep;/);
   // ⚠️收起来还显示当前选的是什么——只收不显等于把东西藏了
@@ -61,11 +61,12 @@ test("顶上钉一张实时预览，画的就是等会儿真放上去的那一�
   assert.match(PAGE, /width: tallOne \? 96 : 208/);
 });
 
-test("二十来种相框默认只露八种", () => {
+test("可选相框先过滤退役款，再默认只露八种", () => {
   assert.match(comp, /const \[decorFrameAll, setDecorFrameAll\] = useState\(false\)/);
-  assert.match(PAGE, /var frames = decorFrameAll \? HOME_PHOTO_FRAMES : HOME_PHOTO_FRAMES\.slice\(0, 8\);/);
+  assert.match(PAGE, /var pickableFrames = homePhotoFramePickable\(\);/);
+  assert.match(PAGE, /var frames = decorFrameAll \? pickableFrames : pickableFrames\.slice\(0, 8\);/);
   assert.match(PAGE, /h\(HomePhotoFrameGrid, \{ value: A\.frame, list: frames/);
-  assert.match(PAGE, /"全部 " \+ HOME_PHOTO_FRAMES\.length \+ " 种 ›"/);
+  assert.match(PAGE, /"全部 " \+ pickableFrames\.length \+ " 种 ›"/);
   assert.match(PAGE, /!decorFrameAll \?/, "展开之后那个按钮该自己走掉");
   // 网格自己要认这个子集；不传就照旧全画（别的调用点不受影响）
   const grid = cut("function HomePhotoFrameGrid(", "function HomePhotoSlotEditor(");
