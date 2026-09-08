@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.75";
+const APP_VERSION = "v65.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2291,36 +2291,27 @@ function App() {
     };
   });
   const setAff = (id, v) => setAffinities(p => {
+    const value = typeof v === "function" ? v(p[id] != null ? p[id] : baseAff(id)) : v;
+    if (typeof value !== "number" || !Number.isFinite(value)) return p;
     const n = {
       ...p,
-      [id]: Math.max(0, Math.min(100, Math.round(Number(v) * 1000) / 1000)) // 内部存 3 位小数，显示时取整
+      [id]: Math.max(0, Math.min(100, Math.round(value * 1000) / 1000)) // 内部存 3 位小数，显示时取整
     };
     saveJSON("x_affinities", n);
     return n;
   });
-  // 好感度缓慢增减：每次交互按心情随机加 0.005~0.1（存 3 位小数、显示取整）
-  const MOOD_POS = ["开心", "高兴", "愉快", "甜", "幸福", "满足", "兴奋", "期待", "喜欢", "心动", "温柔", "安心", "放松", "得意", "激动", "欣慰", "感动", "撒娇", "害羞", "雀跃", "窃喜", "欢喜", "暖"];
-  const MOOD_NEG = ["难过", "生气", "愤怒", "委屈", "失望", "伤心", "焦虑", "烦", "累", "孤独", "害怕", "嫉妒", "冷漠", "不安", "低落", "郁闷", "无语", "厌", "疲惫", "沮丧", "受伤", "崩溃"];
-  const moodFactor = label => {
-    const s = String(label || "");
-    if (MOOD_POS.some(w => s.includes(w))) return 1;
-    if (MOOD_NEG.some(w => s.includes(w))) return -0.7;
-    return 0.4;
+  // 关系变化按模型给出的幅度结算；0 不落盘，单次最多 ±1，心情独立更新。
+  const affinityStep = delta => {
+    if (typeof delta !== "number" || !Number.isFinite(delta)) return 0;
+    return Math.round(Math.max(-5, Math.min(5, delta)) * 0.2 * 1000) / 1000;
   };
-  const bumpAff = (charId, aiDelta, moodLabel) => {
-    const mf = moodFactor(moodLabel);
-    const mag = 0.005 + Math.random() * 0.095; // 0.005~0.1
-    let inc;
-    if (aiDelta > 0) inc = mag * (0.5 + 0.5 * Math.max(0, mf)); // 上升，心情越好升得越快
-    else if (aiDelta < 0) inc = -mag * (0.6 + 0.4 * Math.max(0, -mf)); // 下降，心情越差降得越多
-    else inc = mag * 0.25 * mf; // 中性：极缓慢随心情正负微调
-    inc = Math.round(inc * 1000) / 1000;
-    if (inc) setAff(charId, affOf(charId) + inc);
+  const bumpAff = (charId, aiDelta) => {
+    const inc = affinityStep(aiDelta);
+    if (inc) setAff(charId, current => current + inc);
   };
   // 基础好感：没手动设过时，按你和 TA 的关系推一个基线，而不是一律 50
   const REL_AFF = { 恋人: 80, 挚爱: 82, 爱人: 80, 暧昧: 70, 挚友: 74, 好友: 66, 朋友: 60, 家人: 72, 亲人: 70, 青梅竹马: 68, 兄妹: 62, 兄弟: 62, 姐妹: 62, 同事: 52, 上下级: 50, 师生: 55, 对手: 34, 宿敌: 28, 前任: 44, 陌生人: 42, 暗恋: 58 };
-  // ⚠️要能对【任意一份 rels】算，不能只对当前那一份：改关系那一刻要同时算「改之前」
-  //   和「改之后」的起点，才知道该不该把起点重新落一次（见 saveRel）。
+  // 改关系时对比编辑前后的两份关系，确认是否提高了设定起点。
   const baseAffIn = (relsMap, charId) => {
     const R = relsMap || {};
     const labels = [R["me->" + charId], R[charId + "->me"]].filter(Boolean).map(r => r.label || "");
@@ -2329,30 +2320,12 @@ function App() {
     return best != null ? best : 50;
   };
   const baseAff = charId => baseAffIn(rels, charId);
-  // 起点重新落一次的容差（她 2026-09-05 报的那个 bug）：
-  //   affOf 是「存过就用存的，没存过才问关系」。而【第一句话就会写一次好感】——
-  //   那一刻还没设关系，于是 50 被当成起点焊死进存档，之后再加「恋人」也没用了。
-  //   病根不是 80 没生效，是**起点和走过的路被压成了同一个数**。
-  //   修法：改关系的那一刻，两份 rels 都在手上，算得出「改之前的起点」和「改之后的起点」。
-  //   还没走远（离原起点不到这么多）就把它整段平移过去，走远了的一个字都不动——
-  //   那是真处出来的，不该被一次改关系抹掉。
-  const AFF_REBASE_DRIFT = 12;
-  // 纯函数，好单独验：起点从 before 挪到 after 时，存着的 cur 该变成多少（不该动就回 null）。
-  //   · cur == null    → 没写过，affOf 本来就会去问关系，不用管
-  //   · 走远了          → 一个字都不动（那是真处出来的，不该被一次改关系抹掉）
-  //   · 还没走远        → 整段平移：保住这几轮挣来的那一点点，起点换成新的
-  //   ⚠️**只往上挪，不往下挪**——这个不对称是故意的，因为两头的代价不对称：
-  //     · 往上不挪：她设了「恋人」却还是 51，正是她报的那个 bug；
-  //     · 往下挪：分手改成「前任」（起点 44），好感 90 会当场掉成 54——
-  //       那是一段真处出来的关系，一次改标签不该把它抹掉。
-  //     真要往下，让它自己在相处里掉，别用改关系一刀切。
-  //     （新角色压根没写过好感时不受影响：affOf 本来就直接问关系，设「对手」照样是 34。）
+  // 手动提高人设关系：补足新起点，已有的更高好感保留。降级标签不扣分。
+  // 聊天里的情侣邀请独立处理；不借接受邀请重置相处结果。旧存档不批量迁移。
   const affRebase = (before, after, cur) => {
-    if (cur == null || after <= before) return null;
-    const drift = cur - before;
-    if (Math.abs(drift) > AFF_REBASE_DRIFT) return null;
-    const next = Math.max(0, Math.min(100, after + drift));
-    return next === cur ? null : next;
+    if (cur == null || !Number.isFinite(cur) || !Number.isFinite(before) || !Number.isFinite(after) || after <= before) return null;
+    const next = Math.max(0, Math.min(100, after));
+    return cur >= next ? null : next;
   };
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
   const setMoodFor = (id, m) => setMoods(p => {
@@ -5781,7 +5754,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         (same, note) => pOffline(scopeKey, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
       if (res.photo && res.photo.scene) runOfflineShot({ char, scopeKey, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
-      if (!sideRoom && Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
+      if (!sideRoom && Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta);
       if (!sideRoom) tickAmbient(charId, {}); // 侧房不推动主时间线的人格/动态生态
       // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
       // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
@@ -6424,7 +6397,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 转头回单聊他还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
         const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
-        if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
+        if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta);
         if (!gOffSealed && !_bNpc && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
         if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
@@ -8197,7 +8170,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动态保底：每轮回复计数，很久没发就强制补一条（不影响本轮已自发的）
       if (!sideRoom && !opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });
       const affinityBefore = affOf(charId);
-      if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
+      if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta);
       // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
       try { if (!sideRoom && typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
@@ -9049,7 +9022,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
             const gAction = rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(rawGAction, spk && spk.name) : rawGAction;
             // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
-            if (spk && !spk.npc && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
+            if (spk && !spk.npc && Number.isFinite(aDelta)) bumpAff(spk.id, aDelta);
             if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
@@ -15112,7 +15085,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         tags: ["和好"], charIds: [charId], knownBy: [charId], source: "manual"
       });
       // 真的和好了才动好感，而且只动一点点——和好不是刷分
-      setAff(charId, Math.min(100, affOf(charId) + 1));
+      setAff(charId, current => current + 1);
       toast("记下了");
     } else toast("收起来了");
     const n = { ...makeupsRef.current }; delete n[charId]; makeupSave(n);
@@ -16855,7 +16828,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (i > 0) await new Promise(r => setTimeout(r, 400));
         pChat(charId, p => [...p, { role: "assistant", content: words[i], ts: Date.now(), read: false, turnId }]);
       }
-      if (typeof d.affinityDelta === "number") bumpAff(charId, d.affinityDelta, (moods[charId] || {}).label);
+      if (typeof d.affinityDelta === "number") bumpAff(charId, d.affinityDelta);
     } catch (e) {/* silent */}
   };
   // 送的东西值多少钱。模型在同一轮回复里就该给 price（不额外调一次模型）；

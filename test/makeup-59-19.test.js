@@ -95,7 +95,7 @@ test("四条线都接上了：格子、路由、主线上下文、回流", () =>
   // ④ 回流主线：和好本来就该算数，但只动一点点——不是刷分
   const close = cut(app, "  const makeupClose = (charId, how) => {", "\n  };");
   assert.match(close, /tags: \["和好"\]/, "过去了没写进记忆库");
-  assert.match(close, /affOf\(charId\) \+ 1\)/, "好感一点没动，或者动太多了");
+  assert.match(close, /setAff\(charId, current => current \+ 1\)/, "和好应在最新好感上加 1");
   assert.match(close, /how === "mem"/, "「先收起来」那一档也回流了，主线就该一个字都不知道");
   // ⑤ 存的那一份登记了 durable
   assert.match(eng, /"x_makeup"/, "没登记进 durable，攒多了会把 localStorage 写满");

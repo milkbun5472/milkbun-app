@@ -44,7 +44,7 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
 });
 
 test("① 没有心情、没有好感度", () => {
-  assert.match(app, /if \(spk && !spk\.npc && !isNaN\(aDelta\)\) bumpAff/, "群线上");
+  assert.match(app, /if \(spk && !spk\.npc && Number\.isFinite\(aDelta\)\) bumpAff/, "群线上");
   assert.match(app, /if \(spk && !spk\.npc && moodLabel\) setMoodFor/, "群线上");
   assert.match(app, /const _bNpc = .*\.npc;/, "群线下");
   // 上下文也别喂：配角没有心情/好感/印象卡/年龄/行程/情侣状态这些层
