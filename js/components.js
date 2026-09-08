@@ -10961,6 +10961,26 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("镜头", focus, setFocus, [{ v: "auto", t: "自己找" }, { v: "dialogue", t: "多说话" }, { v: "action", t: "多行动" }, { v: "atmosphere", t: "多氛围" }]),
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
+// 单人/群聊线下共用发送链；异步入库期间用同步锁挡住连点。
+function useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source, onSent }) {
+  const pending = useRef(false);
+  return async () => {
+    if (pending.current || !photoImg || sending || !onSendPhoto) return;
+    pending.current = true;
+    const desc = photoDesc.trim();
+    try {
+      const imageRef = await imgToVault(photoImg);
+      await rememberRealPhoto(imageRef, desc, source);
+      await onSendPhoto({ kind: "photo", imageRef, desc, content: desc ? "[照片] " + desc : "[照片]" });
+      onSent();
+    } catch (e) {
+      if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("照片没发出去，选好的照片还在，可以再试一次");
+    } finally {
+      pending.current = false;
+    }
+  };
+}
+
 // 单人/群聊线下共用文风草稿与持久化；每次调用的编辑状态独立。
 function useOfflineCustomStyles(t, styleKey, setStyleKey) {
   const [customStyles, setCustomStyles] = useState(() => loadJSON("x_offlineStyles", []));
@@ -11256,13 +11276,8 @@ function OfflineMode({
     setInput("");
     onReply(v);
   };
-  const sendPhoto = async () => {
-    if (!photoImg || sending || !onSendPhoto) return;
-    const imageRef = await imgToVault(photoImg);
-    await rememberRealPhoto(imageRef, photoDesc.trim(), "offline");
-    onSendPhoto({ kind: "photo", imageRef, desc: photoDesc.trim(), content: photoDesc.trim() ? "[照片] " + photoDesc.trim() : "[照片]" });
-    setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false);
-  };
+  const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "offline",
+    onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
   const saveNote = () => {
     if (note.trim()) onAddNote(note.trim());
     setNote("");
@@ -11802,13 +11817,8 @@ function GroupOfflineMode({
     setInput("");
     onReply(v);
   };
-  const sendPhoto = async () => {
-    if (!photoImg || sending || !onSendPhoto) return;
-    const imageRef = await imgToVault(photoImg);
-    await rememberRealPhoto(imageRef, photoDesc.trim(), "group-offline");
-    onSendPhoto({ kind: "photo", imageRef, desc: photoDesc.trim(), content: photoDesc.trim() ? "[照片] " + photoDesc.trim() : "[照片]" });
-    setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false);
-  };
+  const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "group-offline",
+    onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
   const saveNote = () => {
     if (note.trim()) onAddNote(note.trim());
     setNote("");

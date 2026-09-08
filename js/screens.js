@@ -9408,22 +9408,6 @@ function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }
         h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; requestAppConfirm((eventMode ? "收拢已勾选的 " : "软归档已勾选的 ") + picked.length + " 组？", "不会删除正文，可从已精炼归档区恢复。", () => { onConfirm(picked); onClose(); }, eventMode ? "收拢" : "归档"); }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
 }
 
-/* Replaced below: the first draft is retained only as review history.
-function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
-  const t=useTheme(),[rows,setRows]=useState(null),[busy,setBusy]=useState(null);
-  const load=()=>{setRows(null);Promise.resolve(onList()).then(x=>setRows(x||[])).catch(()=>setRows([]));};useEffect(load,[]);
-  const byId=new Map((entries||[]).filter(x=>x&&x.id).map(x=>[String(x.id),x]));
-  const labels={fulfilled:"已兑现",resolved:"已解决",abandoned:"明确放弃"};
-  const decide=(row,value)=>{if(busy)return;requestAppConfirm(value==="keep_open"?"保持这条未了？":"确认真实结局是「"+labels[value]+"」？",value==="keep_open"?"系统不会替你猜结局。":"原正文不会删除。",async()=>{setBusy(row.oldMemoryId);try{await onDecide(row,value);setRows(p=>(p||[]).filter(x=>x.oldMemoryId!==row.oldMemoryId));}finally{setBusy(null);}},"确认");};
-  return h(Sheet,{onClose},h(Eyebrow,null,"RepairGate · 结局冲突过目"),
-    h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"}},"旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
-    rows===null?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"}},"正在读取冲突…"):!rows.length?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"18px 0",textAlign:"center"}},"没有待处理的结局冲突"):rows.map(row=>{const mem=byId.get(String(row.oldMemoryId));return h("div",{key:row.oldMemoryId,style:{background:t.bg2,border:"1px solid "+t.line,borderRadius:12,padding:11,marginBottom:9}},
-      h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink,lineHeight:1.65}},mem?mem.text:"（这条记忆已不在本机镜像中）"),
-      h("div",{style:{fontFamily:F_BODY,fontSize:10.5,color:"#9f5149",margin:"6px 0"}},Object.entries(row.kinds||{}).map(([k,n])=>(labels[k]||k)+" ×"+n).join(" · ")),
-      h("div",{className:"flex flex-wrap",style:{gap:6}},h("button",{disabled:!!busy,onClick:()=>decide(row,"keep_open"),style:{border:"1px solid "+t.line,borderRadius:999,padding:"5px 9px",fontFamily:F_BODY,fontSize:10.5,color:t.sub}},"保持未了"),...["fulfilled","resolved","abandoned"].map(k=>h("button",{key:k,disabled:!!busy,onClick:()=>decide(row,k),style:{border:"1px solid "+t.tint,borderRadius:999,padding:"5px 9px",fontFamily:F_BODY,fontSize:10.5,color:t.tint}},labels[k])));})));
-}
-
-*/
 function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
   const t = useTheme(), [rows, setRows] = useState(null), [busy, setBusy] = useState(null);
   const load = () => { setRows(null); Promise.resolve(onList()).then(x => setRows(x || [])).catch(() => setRows([])); };
