@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.67";
+const APP_VERSION = "v65.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -708,9 +708,8 @@ function App() {
       if (!auto) toast("建卡失败:" + (e.message || "重试"));
     } finally { setGazeSeedBusy(false); }
   };
-  // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,
-  // 空卡真正被填满靠的是这一次专门的建卡调用(它一次写十块,没有别的字段跟它抢)。
-  // 聊够了还一块都没有才动,而且一个角色一辈子只这一次。
+  // 首次建卡是独立初始化：沿用既有消息门槛、失败上限与冷却。
+  // 已有内容便不自动建卡；失败不保证下一次能写成。
   // extra = 这一路自己那边的对话条数(线下的一场不在 chatsRef 里,只数线上会永远够不着门槛)
   const maybeAutoSeedGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.autoSeedDue) return;
@@ -720,12 +719,7 @@ function App() {
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
     seedGazeFor(char, true);
   };
-  // Ta 眼里·自动复看(v63.51)——「规则降概率，代码才保证」在这一层的第二次落法。
-  // 上面那一路证明过：这张卡真正被写出来靠的是【专门一次调用】，不是每轮那个跟三十个字段
-  // 抢注意力的按需字段。她 2026-09-05 报的就是后者失效：十块 19 天没动过，一块
-  // 「又想了一遍」都没有——他两个字段都不填，而不填在代码这一道原来没有任何代价。
-  // 条件全在 Gaze.reviewDue 里（卡有内容 + 最新一块也 14 天没动 + 他确实被点名却连着不吭声），
-  // 带次数上限和冷却：修不好就停手，绝不变成每天一次的自动调用（她按次计费）。
+  // Ta 眼里专门复看只走手动入口，聊天省略字段不触发额外调用。
   // ── 被线路拦下来时，自己缩一次再试（v64.47）─────────────────────────────
   // 她 2026-09-06：**后台线路和聊天线路是同一个模型，而别的调用全过、只有这两枪被拦。**
   // 那就跟线路无关了，是这一枪的提示词本身。可它有三块料（人设 / 长期记忆 / 几十条聊天），
@@ -846,12 +840,6 @@ function App() {
       // 她亲手按的那一次，按下去总该立刻有回音；卡上那一行照旧留着话（v64.54）
       if (manual) toast("复看没成：" + (window.Gaze.plainWhy ? window.Gaze.plainWhy(e.message || "") : "看卡上那一行"));
     } finally { setGazeReviewBusy(false); }
-  };
-  const maybeAutoReviewGaze = char => {
-    if (!char || char.npc || !window.Gaze || !window.Gaze.reviewDue) return;
-    if (settingsFor(char.id).engineerEyes) return;
-    if (!window.Gaze.reviewDue(char.id)) return;
-    reviewGazeFor(char);
   };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
@@ -5892,8 +5880,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (res.mood && res.mood.label) { setMoodFor(charId, { ...res.mood, ts: Date.now() }); _moodSkip(charId, true); }
         else _moodSkip(charId, false);
       }
-      // Ta 眼里：线下也写。判据和线上完全一样——写了就清零、没写就计一轮，
-      // 数出来才分得清「这阵子真没变化」和「它压根不写」。
+      // 线下使用同样的按需写入；省略不计漏答。
       if (!sideRoom && window.Gaze && !settingsFor(charId).engineerEyes) {
         let _offImpWrote = false;
         if (res.impression) { try { _offImpWrote = window.Gaze.applyParsed(charId, res.impression); } catch (e) {} }
@@ -5903,9 +5890,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             if (_offCk) _offImpWrote = window.Gaze.markChecked(charId, _offCk);
           } catch (e) {}
         }
-        if (!_offImpWrote) { try { window.Gaze.tick(charId); } catch (e) {} }
         try { maybeAutoSeedGaze(char, ((workSess && workSess.msgs) || []).length); } catch (e) {}
-        try { maybeAutoReviewGaze(char); } catch (e) {}   // 线下也接：两条补救路四处一样
       }
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
@@ -7492,7 +7477,6 @@ ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
-impressionChecked:"块名"=对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。两个都不填等于跳过。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
@@ -7551,12 +7535,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
-      // Ta 眼里·点名复看：**必须待在每轮任务串这一头**，不能留在上面的字段字典里。
-      // 线下那边 gazeSpecBlock 一直是拼在整份 system 的最后，线上却把它埋在
-      // 【能力字段字典】中段，后面还压着一千多字送礼/通话/撤回/转账/约回——
-      // 这个文件自己写过两遍「最响的那句话赢，尤其它还是最后一句」，而线上这一处
-      // 恰恰放在了最不响的位置。她 2026-09-05：「Ta 眼里还是不改啊看都不看的」，
-      // 截图里十块全是「19 天前写的」、一块「又想了一遍」都没有——他两个字段都没填。
+      // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + (!sideRoom ? crossSamenessHint(charId) : "") + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room);
@@ -7812,23 +7791,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         parsed.thought = guardedThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
-      // 印象卡:写了就清零、没写就计一轮。数出来才知道是「这阵子真没变化」还是
-      // 「它压根不写」——不数的话两者长得一模一样（她 2026-08-24）。
+      // 只记录明确交回的更新或复看结果；省略时保留原文。
       if (_roomCanWrite("gaze") && window.Gaze && !_s.engineerEyes) {
         let _impWrote = false;
         if (parsed.impression) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
-        // 「看过了，确实不用改」也是正经回答（v56.94）：记一次复看，这一块排到队尾，
-        // 下一轮点名轮到别的块。不这么记的话，没改＝没动过，同一块会被问到天荒地老。
+        // 兼容旧协议的明确复看回执，不要求每轮提交。
         if (!_impWrote && parsed.impressionChecked && window.Gaze.markChecked) {
           try {
             const _ck = window.Gaze.normKey("", String(parsed.impressionChecked));
             if (_ck) _impWrote = window.Gaze.markChecked(char.id, _ck);
           } catch (e) {}
         }
-        if (!_impWrote) { try { window.Gaze.tick(char.id); } catch (e) {} }
-        // 两条补救路挂在同一处：空卡走建卡，冻住的卡走复看。分开挂迟早只改一处。
+        // 首次建卡沿用独立的条数门槛；省略 impression 不触发复看调用。
         try { maybeAutoSeedGaze(char); } catch (e) {}
-        try { maybeAutoReviewGaze(char); } catch (e) {}
       }
       // mark user msg read
       pChat(chatKey, p => p.map(m => m.role === "user" ? {
@@ -8876,8 +8851,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
       const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
-      // Ta 眼里:群里发生的事也能改在场成员对用户的长期印象(极低频,同单聊契约)
-      const impressionField = window.Gaze ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"整块重写≤80字\"}（可选,仅当这轮真正改变了该成员对用户或他俩关系的长期认知才填,极少发生;第一人称亲笔、锚具体事、在旧认知上小幅演进）" : "";
+      // 互通群复用单聊更新标准；封闭群不写回。
+      const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
@@ -19204,7 +19179,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
-      // 卡冻住的时候她得有个按得动的东西——自动那一路要等 14 天 + 12 轮沉默才动
+      // 手动复看不等待聊天轮数或卡龄。
       onGazeReview: () => { if (!apiFor(scc.id)) return toast("请先配置 API"); reviewGazeFor(scc, true); },
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }

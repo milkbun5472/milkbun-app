@@ -7,13 +7,6 @@ const gaze = fs.readFileSync(path.join(root, "js/gaze.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 
-// 她 2026-08-24：「Ta 眼里那几条，第一次我直接让他们写入他们会写，
-// 不然都不会自动弄」。
-// 病根在协议字段说明里那句「绝大多数轮次省略」——它把「很少」写成了「别写」；
-// 加上「什么时候算真正改变了长期认知」没有可判定的标准，模型只能一直判「没有」。
-// 但这张卡本来就该是长期的，改成每轮必填会让它天天翻脸。所以是折中：
-// 平时照旧极少写，给出可判定的触发点，再加一只计数器——久没动过就点一句。
-
 const G = (() => {
   const store = {};
   const sb = {
@@ -25,188 +18,45 @@ const G = (() => {
   return sb.window.Gaze;
 })();
 
-test("「绝大多数轮次省略」不许再留着——那不是「很少」，是「别写」", () => {
-  const live = gaze.split("\n").filter(l => !/^\s*\/\//.test(l) && l.indexOf("绝大多数轮次省略") >= 0);
-  assert.deepEqual(live, []);
-  assert.match(gaze, /它把「很少」写成了「别写」/, "病因写在代码里");
-});
 
-test("给可判定的触发点，别让它自己去悟「什么算真正改变了长期认知」", () => {
-  const s = G.spec("阿棠", "c1");
-  assert.match(s, /满足其一就该写,不必等到惊天动地/);
-  assert.match(s, /以前不知道/);
-  assert.match(s, /推翻或修正/);
-  assert.match(s, /具体节点/);
-  // 但「一轮至多一块、小幅演进」这些护栏不许松
-  assert.match(s, /一轮至多一块/);
-  assert.match(s, /绝不因单日情绪整块翻转/);
+test("每轮都可以写小认识：空卡、部分卡、满卡不等待轮数",()=>{
+  G.apply("part","me","person","第一次认识");
+  G.seed("full",{me:{person:"a",soft:"b",like:"c",recent:"d",unread:"e"},us:{what:"f",how:"g",marks:"h",elephant:"i",want:"j"}});
+  for(const id of ["empty","part","full"]){
+    const p=G.spec("阿棠",id);
+    assert.match(p,/新的细节、对旧判断的小补充或修正都可以写/);
+    assert.match(p,/空块可写相处中已经形成的认识/);
+    assert.match(p,/没有新增或修正就省略 impression/);
+    assert.match(p,/不需要重大事件或关系变化/);
+    assert.doesNotMatch(p,/必须二选一|这一轮请复看这一块|极少发生|不许两个都省略/);
+    assert.ok(G.nudge("阿棠",id));
+  }
 });
-
-// v56.94 起不再笼统催「有没有哪块该改」——那句自己留着「照旧省略」的出口，
-// 模型每次都走它（她 8.16 到 8.27 一块没改过）。改成【点名问最老的那一块】，
-// 并给一个诚实的第三条路：看过了确实不用改，也要说出来。
-test("久没动过才点名，平时不啰嗦", () => {
-  // ⚠️v59.79 起点名的间隔看【卡填到什么程度】：空卡每轮、没写满每 6 轮、写满 25 轮。
-  // 这一条验的是【写满之后】那一档——平时不啰嗦。
-  G.seed("c1", {
-    me: { person: "她很怕麻烦别人", soft: "a", like: "b", recent: "c", unread: "d" },
-    us: { what: "e", how: "f", marks: "g", elephant: "h", want: "i" }
-  });
-  assert.equal(G.staleTurns("c1"), 0);
-  for (let i = 0; i < G.STALE_TURNS - 1; i++) G.tick("c1");
-  assert.ok(G.spec("阿棠", "c1").indexOf("这一轮请复看这一块") < 0, "还没到阈值就别念");
-  G.tick("c1");
-  const s = G.spec("阿棠", "c1");
-  assert.match(s, /【这一轮请复看这一块】/);
-  // 三条路都要写清：改、说不用改、什么都不填＝跳过
-  assert.match(s, /需要改 → impression 填【这一块】/);
-  assert.match(s, /impressionChecked/);
-  assert.match(s, /两个都不填=你把这一层整个跳过了/);
-  // 不许再留那个万能出口
-  assert.ok(!/照旧省略/.test(s), "「照旧省略」这条退路正是它一直走的那条");
+test("更新仍要求真实依据，保留旧认识，不制造内容",()=>{
+  const p=G.spec("阿棠");
+  assert.match(p,/每一句都得能落回某一次具体的对话/);
+  assert.match(p,/已有块保留仍成立的内容/);
+  assert.match(p,/不为填字段编事或随情绪翻转/);
+  assert.match(p,/不必换词刷新日期/);
+  assert.match(p,/一轮每位角色至多更新一块/);
 });
-
-test("写过一次就重新数", () => {
-  assert.equal(G.applyParsed("c1", { side: "me", block: "recent", text: "她这阵子在赶一个东西" }), true);
-  assert.equal(G.staleTurns("c1"), 0);
+test("四条写入路径共用轻量标准，保留隔离闸",()=>{
+  assert.match(app,/window\.Gaze\.spec\("对方", charId, \{ tail: true \}\)/);
+  assert.match(app,/oCtx\.gazeSpec = .*window\.Gaze\.spec\("对方", charId\)/);
+  assert.match(app,/window\.Gaze && gs\.memoryInterop \?/);
+  assert.match(app,/window\.Gaze\.updateRule\(userName\(profile\)\)/);
+  assert.match(engine,/window\.Gaze\.updateRule\(userName\)/);
+  assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
+  assert.match(app,/if \(!sideRoom && window\.Gaze && !settingsFor\(charId\)\.engineerEyes\)/);
+  assert.doesNotMatch(app,/Gaze\.tick\(|maybeAutoReviewGaze/);
+  assert.doesNotMatch(engine,/impression 与 impressionChecked 必须二选一/);
 });
-
-// ⚠️这一条原来写的是【空卡不催——那是建卡的事，不是更新的事】。那个假设是错的，
-// 而且错得很硬：staleTurns 对空卡永远返回 0 → 点名永远不出现 → 模型只看得到那句
-// 高门槛 → 一辈子不写 → 卡还是空的。**空 → 不催 → 还是空**，一个死锁。
-// 结果就是：没手动按过「建卡」的人，这一层一辈子是空的
-//（她 2026-09-01：「这个 Ta 眼里还是根本不填」）。撤掉就是删掉，换成反过来的那条。
-test("空卡最该催：一块都没有时每一轮都点名", () => {
-  assert.ok(G.spec("阿棠", "empty").indexOf("这一轮请复看这一块") > 0, "空卡第一轮就该点名");
-  assert.match(G.spec("阿棠", "empty"), /这一块还是空的,你从来没写过/, "没说清这块是空的还是要保留原样");
-  // 空块给的出口不是「看过了不用改」，那句话对一块从没写过的东西根本不成立
-  assert.match(G.spec("阿棠", "empty"), /认识得还不够,真写不出来/, "空块的出口措辞不对");
-  // 问法也要跟着变：空块问的是「够不够你写下这一块」，不是「让它需要改吗」
-  assert.match(G.spec("阿棠", "empty"), /够不够你写下这一块/, "对着一块空的还在问「需要改吗」");
-  // ⚠️staleTurns 不许再对空卡返回 0：那正是当初那个死锁的源头
-  for (let i = 0; i < 3; i++) G.tick("empty2");
-  assert.equal(G.staleTurns("empty2"), 3, "空卡的轮数又被抹成 0 了——死锁会从这儿长回来");
-  // 诚实答一次「写不出来」→ 队列要真的转，下一轮点的是别的块
-  const first = (G.spec("阿棠", "empty").match(/\((\w+\.\w+)\)/) || [])[1];
-  assert.ok(first, "点名里没写块名");
-  assert.ok(G.markChecked("empty", first));
-  const second = (G.spec("阿棠", "empty").match(/\((\w+\.\w+)\)/) || [])[1];
-  assert.notEqual(second, first, "答完还问同一块，队列没转");
+test("可选提醒仍接在单聊任务尾部，字段说明不会丢",()=>{
+  const task=app.slice(app.indexOf("const _normalTaskV2 = ("),app.indexOf("const _roomHint"));
+  assert.ok(task.indexOf("_gazeNudgeHint")>task.indexOf("_turnClosing"));
+  assert.match(G.spec("阿棠","part",{tail:true}),/impression:/);
+  assert.doesNotMatch(G.spec("阿棠","part",{tail:true}),/【Ta 眼里】/);
 });
-
-test("写了一部分就每 6 轮点一次，别让剩下九块等两百多轮", () => {
-  G.seed("part", { me: { person: "她比看上去能扛" }, us: {} });
-  assert.ok(G.spec("阿棠", "part").indexOf("这一轮请复看这一块") < 0, "刚写完就又催");
-  for (let i = 0; i < 6; i++) G.tick("part");
-  assert.ok(G.spec("阿棠", "part").indexOf("这一轮请复看这一块") > 0, "没写满时还在按 25 轮等");
-});
-
-test("「看过了不用改」不许买走整整 25 轮的安静", () => {
-  G.seed("full", {
-    me: { person: "a", soft: "b", like: "c", recent: "d", unread: "e" },
-    us: { what: "f", how: "g", marks: "h", elephant: "i", want: "j" }
-  });
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("full");
-  const k = (G.spec("阿棠", "full").match(/\((\w+\.\w+)\)/) || [])[1];
-  G.markChecked("full", k);
-  // 原来这一下把 turns 清成 0：一次白答买走 25 轮，十块轮一遍要 250 轮
-  assert.ok(G.staleTurns("full") >= G.STALE_TURNS - 10, "答一次「不用改」就把计数清光了");
-  for (let i = 0; i < 10; i++) G.tick("full");
-  assert.ok(G.spec("阿棠", "full").indexOf("这一轮请复看这一块") > 0, "答完之后要再等 25 轮才轮到下一块");
-});
-
-test("不传 charId 也不炸（群聊那份还在共用）", () => {
-  assert.equal(typeof G.spec("阿棠"), "string");
-  // ⚠️原来判的是「一个 ⚠️ 都不许有」——那只是个便宜的代理。v62.35 加了那条
-  // 「不许复述她的设定」的围栏（两路共用、无条件发），这条就假红了。
-  // 真要判的是【点名那一段不许出现】：没有 charId 就没有「这一轮请复看这一块」。
-  const noId = G.spec("阿棠");
-  assert.ok(noId.indexOf("【这一轮请复看这一块】") < 0, "没有 charId 却点了名——它根本不知道该点哪一块");
-  assert.ok(noId.indexOf("impressionChecked:") < 0, "没有 charId 却给了那个二选一的出口");
-  // 围栏那一句反过来【必须】在：群聊那一份也不许拿她的人设充数
-  assert.match(noId, /绝不许复述她的设定/, "群聊那一路没挂围栏");
-});
-
-test("接线：写了就清零，没写就计一轮", () => {
-  assert.match(app, /window\.Gaze\.spec\("对方", charId\)/);
-  assert.match(app, /_impWrote = window\.Gaze\.applyParsed\(char\.id, parsed\.impression\)/);
-  assert.match(app, /if \(!_impWrote\) \{ try \{ window\.Gaze\.tick\(char\.id\); \}/);
-  assert.match(app, /不数的话两者长得一模一样/, "分不清「真没变化」和「压根不写」，就只能干等");
-  // 言秋那条专线不参与；侧房还要过写回闸（v57.18：看不见印象卡的房不许整块重写它）
-  assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
-  // 线下那一路也要有同一套接线（v57.02），而且不受房间开关影响——线下不是房间
-  // ⚠️别冻整个条件：v60.15 起副本房不写印象卡（她要的「完全隔离不喂进人格成长」），
-  //   前面多了个 !sideRoom；要证的仍是【线下这一路接上了，且言秋不参与】
-  assert.match(app, /if \([\s\S]{0,20}window\.Gaze && !settingsFor\(charId\)\.engineerEyes\) \{/);
-  assert.match(app, /if \(!sideRoom && window\.Gaze && !settingsFor\(charId\)/, "副本房不该写进主线的印象卡");
-  assert.match(app, /window\.Gaze\.tick\(charId\)/);
-});
-
-// ===== v59.80：她 2026-09-01「不行,两轮了空卡完全不填嘤」=====
-// v59.79 修好的是【点名出不出现】(staleTurns 对空卡永远返回 0 的死锁)。
-// 点名确实出现了，卡还是空的——因为点名这一段【夹在三句「省略」中间】：
-//   ① 协议开头「没有真实变化或实际触发时，不要为了填字段制造内容」
-//   ② impression 自己的门槛「仅当本轮发生的事真正改变了长期认知时填写」
-//   ③ 紧跟其后「未发生、未改变的按需字段直接省略」——而且它是【最后一句】
-// 对一张全新的空卡，「有变化吗」的诚实答案就是没有，于是模型每轮都正确地省略。
-// 「最响的那句话赢，尤其它还是最后一句」——票数 3:1，点名必输。
-test("空块的门槛不许还是「本轮变了没有」——那一句对一块从没写过的东西永远不成立", () => {
-  const s = G.spec("阿棠", "v5980-empty");
-  assert.match(s, /这一轮请复看这一块/, "前提：空卡本来就该被点名");
-  assert.match(s, /【你从来没写过】/);
-  assert.match(s, /不需要】本轮发生了什么变化/, "空块还在拿「变了没有」当门槛");
-  assert.match(s, /此刻心里对 阿棠 已经有的那个判断/, "没告诉它空块的门槛是「现在心里有没有」");
-  // 写过的块仍然守着高门槛，别为了修空卡把整层松掉
-  G.seed("v5980-full", {
-    me: { person: "a", soft: "b", like: "c", recent: "d", unread: "e" },
-    us: { what: "f", how: "g", marks: "h", elephant: "i", want: "j" }
-  });
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("v5980-full");
-  const f = G.spec("阿棠", "v5980-full");
-  assert.match(f, /真正改变了你对 阿棠 或你们关系的某一块长期认知/, "写过的块把高门槛丢了");
-  assert.ok(f.indexOf("【你从来没写过】") < 0, "写过的块不该说自己没写过");
-});
-
-test("点名必须点名把那两句「省略」排除掉，否则它夹在中间必输", () => {
-  const s = G.spec("阿棠", "v5980-empty2");
-  assert.match(s, /不要为了填字段制造内容」和那句「未发生、未改变的按需字段直接省略」【都管不到这一条】/);
-  assert.match(s, /impression 与 impressionChecked 必须二选一,不许两个都省略/);
-  // 没点名的轮次不许出现这句——它只在被点名那一轮成立
-  assert.ok(G.spec("阿棠").indexOf("都管不到这一条") < 0, "没点名也在喊「不许省略」");
-});
-
-// ⚠️口径改了（v63.51，她 2026-09-05：「Ta 眼里还是不改啊看都不看的」）。
-// 旧口径只要求点名排在【同一份协议模板里】那句「直接省略」之后，那已经不够：
-// 排在它后面之后，点名后面还压着一千多字的【能力使用总则】【能力字段字典】
-// （送礼/通话/撤回/转账/约回），它照样不是最后一句。线下那边 gazeSpecBlock
-// 一直是拼在整份 system 的最尾巴上——线上从来没有对齐过。
-// 现在：协议模板里只留【字段说明】（spec 传 tail:true），点名那一段单独由
-// nudge() 拿出来，接在每轮任务串的末尾、_turnClosing 之前。
-test("点名那一段要在整份提示词的尾巴上，不许再埋回字段字典里", () => {
-  // 协议模板里只剩字段说明，点名不在里面
-  assert.match(app, /window\.Gaze\.spec\("对方", charId, \{ tail: true \}\)/, "线上协议还在整份 spec 里带着点名");
-  const proto = app.slice(app.indexOf("const _normalProtocolStable = `"), app.indexOf("【能力使用总则】"));
-  assert.ok(proto.indexOf("Gaze.nudge") < 0, "点名又被塞回协议模板中段了");
-  // 先收束聊天任务，再交本轮点名结果；后面不再把复看降格成可忽略的账。
-  assert.match(app, /const _gazeNudgeHint = \(roomReads\("innerLife"\) && window\.ChatRooms\.canWrite\(room, "gaze"\) && !_s\.engineerEyes && window\.Gaze && window\.Gaze\.nudge\) \? window\.Gaze\.nudge\("对方", charId\) : ""/);
-  const task = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint"));
-  const nudge = task.indexOf("_gazeNudgeHint");
-  const closing = task.indexOf("_turnClosing");
-  const dict = app.indexOf("【能力字段字典】");
-  assert.ok(closing > 0 && nudge > closing, "复看结果应在聊天收尾之后交回");
-  assert.ok(app.indexOf("_gazeNudgeHint = ") > dict, "点名又跑到字段字典前面去了");
-  // 线下那一路照旧整份 spec（它本来就拼在最后），别顺手把它也改坏
-  assert.match(app, /oCtx\.gazeSpec = .*window\.Gaze\.spec\("对方", charId\) : ""/);
-});
-
-test("线下那块的开场白，点了名就不许再说「用不上就整个省略」", () => {
-  assert.match(engine, /const _gazeNudged = !!\(ctx\.gazeSpec && ctx\.gazeSpec\.indexOf\("这一轮请复看这一块"\) >= 0\)/);
-  assert.match(engine, /_gazeNudged \? "。⚠️这一轮里点了名，impression 与 impressionChecked 必须二选一/);
-});
-
-// 「规则降概率，代码才保证」——上面全是规则，这一条才是保证。
-// 空卡最难自己长出来：每轮问一块，十块要十轮，中间走神几轮就又空回去。
-// 建卡那一路是【专门一次调用】，一次写十块，没有别的字段跟它抢，从来不会不写。
 test("聊够了还一块都没有，代码自己替他建一次卡；一个角色一辈子只这一次", () => {
   assert.equal(G.autoSeedDue("never"), true, "全空的卡该自动建一次");
   assert.equal(G.markAutoSeed("never"), true);
@@ -227,7 +77,7 @@ test("接线：先记标记再打调用；线上线下两路都接上，且都�
   // ⚠️断言要跳过注释行：v63.51 在这两行之间加了一句解释，原来那个「紧挨着下一行」的
   //   正则当场红——它测的是「接线在不在」，不是「中间有没有注释」。
   const appCode = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.match(appCode, /window\.Gaze\.tick\(char\.id\); \} catch \(e\) \{\} \}\n\s*try \{ maybeAutoSeedGaze\(char\); \}/);
+  assert.ok(appCode.includes("try { maybeAutoSeedGaze(char); }"));
   // 线下：这一场的对话不在 chatsRef 里，只数线上会永远够不着门槛
   assert.match(app, /maybeAutoSeedGaze\(char, \(\(workSess && workSess\.msgs\) \|\| \[\]\)\.length\)/);
   // 言秋和 NPC 不参与

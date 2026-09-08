@@ -1,20 +1,3 @@
-// Ta 眼里冻住那一路（她 2026-09-05：「Ta 眼里还是不改啊看都不看的」）。
-//
-// 截图给的是硬证据：顾朝那张卡，看得见的三块全写着「19 天前写的」，
-// **一块「又想了一遍 · 没改」都没有**。界面上那两句是这么来的：
-//   checks[k] > blocks[k].ts → 「又想了一遍 · 没改」（他填了 impressionChecked）
-//   否则                     → 「N 天前写的」
-// 所以他既没改（impression 没填）、也没答（impressionChecked 也没填）——
-// 走的是【两个字段都不填】那条路。
-//
-// 那条路原来在代码这一道**一点代价都没有**：只 tick 一下把 turns 加一。而 turns
-// 早就过了门槛，dueBlock 又只按「写过/复看过」排队 → 同一块被点名点到天荒地老，
-// 另外九块一次都轮不到，界面上还看不出他是「真没得改」还是「压根不理」。
-//
-// 三处一起补：
-//   排队 —— 沉默也算碰过（passAt），队伍转得动；位置用【序号】不是【时刻】
-//   位置 —— 点名那一段挪到整份提示词的尾巴上（线下一直如此，线上从来没对齐）
-//   保证 —— 卡长期冻住就补一次【专门的复看调用】，照建卡那一路的形状
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -24,10 +7,7 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), gaze = R("gaze.js"), components = R("components.js");
 const appCode = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
-// ⚠️时钟必须冻住。排队原来拿 Date.now() 当队列位置，测试里十次 markChecked
-//   本该落在同一毫秒、排成并列——可 JSON 反复读写慢到跨了毫秒，于是【坏的实现
-//   也能过】（变异测试当场证明：把序号改回时刻，这条断言一声不吭）。
-//   冻住时钟，并列才是真并列。
+// 固定时钟便于验证写入与复看的时间戳。
 function loadGaze() {
   const store = {};
   const clock = { t: 1757000000000 };
@@ -52,107 +32,45 @@ function ageCard(store, id, days) {
 function fullCard(G, id) {
   ["person", "soft", "like", "recent", "unread"].forEach((b, i) => G.apply(id, "me", b, "我" + b + i));
   ["what", "how", "marks", "elephant", "want"].forEach((b, i) => G.apply(id, "us", b, "我们" + b + i));
-  // ⚠️tick 是先问 dueNow 再把 turns 加一，所以要过门槛得多转两轮：
-  //   第 26、27 次 tick 才真的是【点了名却没答】那两轮。
-  for (let i = 0; i < G.STALE_TURNS + 2; i++) G.tick(id);
   return id;
 }
 
-test("他两个字段都不填时，代码这一道得留下痕迹——不然「没得改」和「不理」长得一样", () => {
-  const { G } = loadGaze();
-  const id = fullCard(G, "frozen1");
-  assert.ok(G.muteCount(id) > 0, "点了名却没答，一次都没数");
-  // 答了就断连击——哪怕答的是「不用改」
-  G.markChecked(id, G.dueBlock(id).k);
-  assert.equal(G.muteCount(id), 0, "他答了话，沉默连击还挂着");
-  // 真写了也断
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick(id);
-  assert.ok(G.muteCount(id) > 0);
-  G.apply(id, "me", "person", "换了个说法的新内容");
-  assert.equal(G.muteCount(id), 0, "他真改了一块，沉默连击还挂着");
-});
 
-test("一直沉默也得把队伍转下去——不然另外九块一次都轮不到", () => {
-  const { G } = loadGaze();
-  const id = fullCard(G, "frozen2");
-  const seen = new Set();
-  // 一路沉默：只 tick，不 apply 也不 markChecked
-  for (let i = 0; i < 120; i++) { seen.add(G.dueNow(id).k); G.tick(id); }
-  assert.equal(seen.size, Object.keys(G.KEYS).length, "一路沉默下来只点到 " + seen.size + " 块，队伍没转");
+test("省略不留漏答痕迹，也不伪造看过记录",()=>{
+  const {G,store}=loadGaze();const id=fullCard(G,"quiet");G.markSeen(id,"me.person");
+  const before=store.x_gaze;
+  for(let i=0;i<100;i++){G.spec("阿棠",id);G.nudge("阿棠",id);assert.equal(G.applyParsed(id,null),false);}
+  assert.equal(store.x_gaze,before);
+  assert.equal(G.checkedAt(id,"me.person"),0);
+  assert.equal(G.tick,undefined);
+  assert.equal(G.reviewDue,undefined);
+  assert.doesNotMatch(appCode,/maybeAutoReviewGaze|Gaze\\.tick/);
 });
-
-test("排队的位置是序号不是时刻——同一毫秒碰过的几块不许并列", () => {
-  const { G } = loadGaze();   // 时钟是冻住的：这十次复看全落在同一毫秒
-  const id = fullCard(G, "frozen3");
-  // 十块连着复看（测试里全在同一毫秒），队伍必须仍然一块一块往下走
-  const seen = new Set();
-  for (let i = 0; i < 12; i++) { const k = G.dueBlock(id).k; seen.add(k); G.markChecked(id, k); }
-  assert.equal(seen.size, Object.keys(G.KEYS).length, "同一毫秒里队伍卡住了，只轮到 " + seen.size + " 块");
-  assert.match(gaze, /const ORDER_BASE = 1e15/, "老存档没有 order 时要能退回按时刻排");
+test("任意块的小补充可立即写入，只影响当前角色当前块并保存历史",()=>{
+  const {G,store}=loadGaze();
+  fullCard(G,"one");fullCard(G,"two");
+  for(const key of Object.keys(G.KEYS)){
+    const before=JSON.parse(store.x_gaze);
+    const [side,block]=key.split(".");
+    const text=before.one.blocks[key].text+"，新增一条有依据的认识";
+    assert.equal(G.applyParsed("one",{side,block,text}),true);
+    const after=JSON.parse(store.x_gaze);
+    assert.equal(after.one.blocks[key].text,text);
+    assert.deepEqual(after.two,before.two);
+    for(const other of Object.keys(G.KEYS).filter(k=>k!==key))
+      assert.deepEqual(after.one.blocks[other],before.one.blocks[other]);
+    assert.equal(after.one.hist[0].old,before.one.blocks[key].text);
+  }
 });
-
-test("沉默转队只管排队，绝不许在界面上冒充「他又想了一遍」", () => {
-  const { G } = loadGaze();
-  const id = fullCard(G, "frozen4");
-  const k = G.dueNow(id).k;
-  for (let i = 0; i < 10; i++) G.tick(id);
-  assert.equal(G.checkedAt(id, k), 0, "他没答，checks 却被写了——界面会说他『又想了一遍』，那是假的");
-  // 界面读的就是 checks，不是 passAt
-  assert.match(gaze, /var ck = \(box\.checks \|\| \{\}\)\[fk\] \|\| 0;/);
-  assert.ok(gaze.indexOf("passAt") > 0 && !/passAt.*又想了一遍/.test(gaze));
+test("旧存档漏答计数不会再催写或触发收费复看",()=>{
+  const {G,store}=loadGaze();fullCard(G,"legacy");
+  const data=JSON.parse(store.x_gaze);
+  Object.assign(data.legacy,{mute:999,refuse:999,turns:999,skips:{"me.person":99}});
+  store.x_gaze=JSON.stringify(data);
+  assert.doesNotMatch(G.spec("阿棠","legacy"),/不许再跳过|点名|必须二选一/);
+  assert.equal(G.reviewDue,undefined);
+  assert.doesNotMatch(gaze,/lines.push.*被点名/);
 });
-
-test("点名那一段单拎出来，好让它待在整份提示词的最后", () => {
-  const { G } = loadGaze();
-  const id = fullCard(G, "frozen5");
-  const s = G.spec("阿棠", id);
-  const tailless = G.spec("阿棠", id, { tail: true });
-  assert.match(s, /这一轮请复看这一块/, "整份 spec 该照旧带着点名（线下走这一路）");
-  assert.ok(tailless.indexOf("这一轮请复看这一块") < 0, "tail:true 还带着点名，就没法挪到尾巴上");
-  assert.match(G.nudge("阿棠", id), /这一轮请复看这一块/);
-  // 字段说明两路一模一样，只差点名那一段——各写一份迟早只改一处
-  assert.equal(s.replace(G.nudge("阿棠", id), ""), tailless);
-});
-
-test("连着沉默要在提示词里说出来——沉默原来也没有反作用力", () => {
-  const { G } = loadGaze();
-  const id = fullCard(G, "frozen6");
-  assert.ok(G.nudge("阿棠", id).indexOf("轮被点名却两个字段都没填") < 0, "刚点第一次就开始数落他");
-  for (let i = 0; i < 6; i++) G.tick(id);
-  assert.match(G.nudge("阿棠", id), /连着 \d+ 轮被点名却两个字段都没填/);
-});
-
-// ── 代码那一道：卡冻住就补一次专门的复看调用 ─────────────────────
-test("卡冻住才动：有内容 + 很久没改 + 他确实被点名却不吭声，三条缺一不可", () => {
-  const { G } = loadGaze();
-  // 空卡不归这里管（那是建卡那一路）
-  for (let i = 0; i < 200; i++) G.tick("empty");
-  assert.equal(G.reviewDue("empty"), false, "空卡被复看那一路抢走了，建卡就永远轮不到");
-  // 刚写过的卡不动
-  const id = fullCard(G, "fresh");
-  for (let i = 0; i < 200; i++) G.tick(id);
-  assert.equal(G.reviewDue(id), false, "刚写过就要复看，那是白花她的钱");
-});
-
-test("十四天没动 + 连着不吭声 → 才补那一次；带上限和冷却，修不好就停手", () => {
-  const { G, store, clock } = loadGaze();
-  const id = fullCard(G, "old1");
-  assert.equal(G.reviewDue(id), false, "卡才刚写过就要复看，那是白花她的钱");
-  ageCard(store, id, 20);                            // 二十天没动过了
-  assert.equal(G.reviewDue(id), false, "光是久没改就动手了——他可能一直在正常答话");
-  for (let i = 0; i < 40; i++) G.tick(id);           // 而且他确实一直不吭声
-  assert.equal(G.reviewDue(id), true, "两条都成立了还不补那一次，这张卡就永远冻着");
-  assert.match(gaze, /const REVIEW_DAYS = 14/);
-  assert.match(gaze, /const REVIEW_MUTE = 12/);
-  assert.match(gaze, /const REVIEW_MAX = 3/);
-  // 上限：试满三次就不再试（她按次计费，修不好就停手）
-  ["a", "b", "c"].forEach(() => G.markReview(id));
-  assert.equal(G.reviewState(id).tries, 3);
-  assert.equal(G.reviewDue(id), false, "冷却里就该按住");
-  clock.t += 60 * 60000;                             // 冷却早过了，仍然不许再试
-  assert.equal(G.reviewDue(id), false, "试满三次还在试，那就成了每天一次的自动调用");
-});
-
 test("复看那一份问的是「哪几块已经不对了」，不是「你对她怎么看」", () => {
   const { G, store } = loadGaze();
   const id = fullCard(G, "old2");
@@ -181,23 +99,11 @@ test("复看写进来的走同一个 apply：原样抄回来不算改，真改�
 });
 
 // ── 接线 ────────────────────────────────────────────────────
-test("接线：先记标记再打调用；线上线下都接上，跟建卡那一路挂在同一处", () => {
-  // v64.35 多了第二个参数 manual：她自己按的那一次【不占自动预算】
-  //（截图上「自动复看过 4 次」而上限是 3，多出来那次就是她自己按的）。
-  assert.match(appCode, /if \(window\.Gaze\.markReview\) window\.Gaze\.markReview\(char\.id, manual\)/);
-  assert.match(app, /先记游标再刷/, "为什么先记标记，写在代码里");
-  // 两条补救路必须挂在一起：分开挂迟早只改一处（这个仓库的老毛病）
-  assert.match(appCode, /try \{ maybeAutoSeedGaze\(char\); \} catch \(e\) \{\}\n\s*try \{ maybeAutoReviewGaze\(char\); \} catch \(e\) \{\}/);
-  assert.match(appCode, /maybeAutoSeedGaze\(char, \(\(workSess && workSess\.msgs\) \|\| \[\]\)\.length\); \} catch \(e\) \{\}\n\s*try \{ maybeAutoReviewGaze\(char\); \}/);
-  // 言秋不塑形、NPC 不参与——跟建卡那一路同一套闸
-  const fn = app.slice(app.indexOf("const maybeAutoReviewGaze"), app.indexOf("const maybeAutoReviewGaze") + 400);
-  assert.match(fn, /char\.npc/);
-  assert.match(fn, /engineerEyes/);
-  // maxTokens 给足（max-tokens-floor：一整份卡是「一屏名单」那一档）
-  // v64.47：这一枪改走 gazeCall 了，那个数搬进了那一处（见 gaze-plain-why-63-91）。
-  assert.match(app.slice(app.indexOf("const reviewGazeFor"), app.indexOf("const maybeAutoReviewGaze")),
-    /await gazeCall\(p, levels, /);   // v64.57：sys 挪进 levels 了
-  assert.match(app.slice(app.indexOf("const gazeCall = async")), /maxTokens: 65535/);
+test("专门复看仍由手动入口发起，先记尝试再调用",()=>{
+  const fn=app.slice(app.indexOf("const reviewGazeFor"),app.indexOf("const [editMsg"));
+  assert.ok(fn.indexOf("Gaze.markReview")<fn.indexOf("await gazeCall"));
+  assert.match(fn,/Gaze.acceptReview/);
+  assert.doesNotMatch(appCode,/reviewGazeFor\\(char\\)/);
 });
 
 test("她盯着一张冻住的卡时得有个按得动的东西", () => {
@@ -209,13 +115,8 @@ test("她盯着一张冻住的卡时得有个按得动的东西", () => {
   assert.match(app, /onGazeReview: \(\) => \{ if \(!apiFor\(scc\.id\)\) return toast\("请先配置 API"\); reviewGazeFor\(scc, true\); \}/);
 });
 
-test("卡有内容却长期不动时，这一页得把实话说出来", () => {
-  // 原来这段诊断只挂在空卡那一支：卡有内容之后，「真没得改」和「被点名四十轮没答」
-  // 在这一页上长得一模一样——她只看得到十张「19 天前写的」。
-  const page = gaze.slice(gaze.indexOf("function GazePage"), gaze.indexOf("window.Gaze = {"));
-  assert.match(page, /hasAny\(charId\) \? \(function \(\) \{/);
-  assert.match(page, /被点名复看 " \+ mu \+ " 轮没答话/);
-  // v63.90：「2/3 次」是给我看的日志格式，她要的是「试满了没有」＋一句人话
-  assert.match(page, /自动复看过 " \+ rv\.tries \+ " 次"/);
-  assert.match(page, /rv\.tries >= rv\.max \? "；试满了，往后不再自动试" : ""/);
+test("卡片只显示明确的复看结果，不再显示漏答连击",()=>{
+  assert.doesNotMatch(gaze,/lines.push.*被点名/);
+  assert.match(gaze,/rv.okAt/);
+  assert.match(gaze,/rv.err/);
 });

@@ -71,12 +71,12 @@ test("界面那两行说人话，而且说清还试不试", () => {
 test("建卡和复看那两枪开满 65535", () => {
   // v64.47：这两枪都改走 gazeCall 了（被线路拦下来时会去掉聊天记录再打一次），
   // 于是 maxTokens 从两个调用点搬进了那一处——要钉的还是同一件事，钉的地方换了。
-  const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  // 「规则降概率，代码才保证」在这一层的落法");
+  const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  const maybeAutoSeedGaze");
   // v64.55：改成三级阶梯，第三个参数从 (user, userSlim) 换成 levels 数组
   // v64.57：sys 挪进 levels（复看的第四级要换成建卡那份问法），签名跟着变
   assert.match(seed, /await gazeCall\(p, levels, /);
   assert.match(seed, /const seedSys = window\.Gaze\.seedSpec\(uN\);/);
-  const rev = cut(app, "  const reviewGazeFor = async (char, manual)", "  const maybeAutoReviewGaze");
+  const rev = cut(app, "  const reviewGazeFor = async (char, manual)", "  const [editMsg");
   assert.match(rev, /await gazeCall\(p, levels, /);
   assert.match(rev, /const revSys = window\.Gaze\.reviewSpec\(uN, char\.id\);/);
   // ⚠️上限是【天花板】不是【花销】：给宽了一分钱也不多花，给窄了才会写到一半停住、

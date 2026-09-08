@@ -9,7 +9,7 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 // 她 2026-08-28：「线下也接了 Ta 眼中那一堆是吧？完全不写啊」。
 // 又是「这一层只写在一处」：线下【读】得到印象卡（buildBundle 会发 ctx.gazeText），
 // 但四处里只有单聊线上收到过【写】的指令，线下泡多久这张卡都不动。
-// 点名轮询的计数（Gaze.tick）同理，也只有线上在推。
+// 线上线下都允许省略；明确回执仍兼容。
 
 const singleOffline = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)[0];
 const groupOffline = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)[0];
@@ -27,13 +27,12 @@ test("单聊线下要把 impression / impressionChecked 带回来", () => {
   assert.match(singleOffline, /impressionChecked: cln\(parsed\.impressionChecked\)/);
 });
 
-test("单聊线下的写回判据和线上一字不差：写了就清零，没写就计一轮", () => {
-  const blk = app.slice(app.indexOf("// Ta 眼里：线下也写"), app.indexOf("// 线下也更新状态卡的动作/穿着"));
+test("单聊线下按需写入，省略不计漏答", () => {
+  const blk = app.slice(app.indexOf("// 线下使用同样的按需写入"), app.indexOf("// 线下也更新状态卡的动作/穿着"));
   assert.match(blk, /window\.Gaze && !settingsFor\(charId\)\.engineerEyes/, "言秋不塑形");
   assert.match(blk, /window\.Gaze\.applyParsed\(charId, res\.impression\)/);
   assert.match(blk, /window\.Gaze\.markChecked\(charId, _offCk\)/);
-  assert.match(blk, /if \(!_offImpWrote\) \{ try \{ window\.Gaze\.tick\(charId\); \} catch \(e\) \{\} \}/,
-    "没写也要计一轮，否则线下再久点名轮询都不会轮到下一块");
+  assert.doesNotMatch(blk, /Gaze\.tick|maybeAutoReviewGaze/);
 });
 
 test("群线下也接上，但闭群只进不出、配角没有印象卡", () => {

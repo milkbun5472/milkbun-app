@@ -80,33 +80,17 @@ test("败因要留下来，不然「试过三次都没成」跟「还没聊够�
   assert.equal(G.autoSeedState("c").err, "", "新一次开打时把上一次的败因清掉");
 });
 
-test("空卡上的「写不出来」要记连击，真写了一块就断", () => {
-  const { G } = fresh();
-  G.markChecked("c", "me.person");
-  G.markChecked("c", "me.soft");
-  assert.equal(G.refuseCount("c"), 2);
-  G.apply("c", "me", "recent", "她这两天睡得晚");
-  assert.equal(G.refuseCount("c"), 0, "他真写了 → 连击断");
+test("明确复看空块不累计拒答",()=>{
+  const {G,box}=fresh();
+  G.markChecked("c","me.person");
+  G.markChecked("c","me.soft");
+  assert.equal(G.refuseCount,undefined);
+  assert.doesNotMatch(G.spec("阿棠","c"),/不可能一块都没有|必须二选一/);
 });
 
-test("卡里已经有东西时，「看过了不用改」是正经回答，不该记成拒答", () => {
-  const { G } = fresh();
-  G.apply("c", "me", "person", "她说话前会先停半秒");
-  G.markChecked("c", "me.soft");
-  assert.equal(G.refuseCount("c"), 0);
-});
 
-test("连着拒了几轮之后，spec 要收掉那个免费出口，而且这句得垫在最后", () => {
-  const { G } = fresh();
-  const before = G.spec("她", "c");
-  assert.ok(before.indexOf("连着好几轮") < 0, "一开始不该催");
-  for (let i = 0; i < 3; i++) G.markChecked("c", "me.person");
-  const after = G.spec("她", "c");
-  const i = after.indexOf("连着好几轮");
-  assert.ok(i > 0, "连着拒了三轮之后必须收出口");
-  assert.ok(i > after.indexOf("都管不到这一条"), "最响的那句话赢，尤其它还是最后一句");
-  assert.ok(after.indexOf("任何一块") > 0, "要允许他换一块写，别死磕被点名的那块");
-});
+
+
 
 test("auto 那一路失败必须写进卡里——它不弹 toast，不记就等于没发生过", () => {
   const seg = app.slice(app.indexOf("const seedGazeFor"), app.indexOf("const maybeAutoSeedGaze"));
@@ -120,5 +104,5 @@ test("auto 那一路失败必须写进卡里——它不弹 toast，不记就等
 test("空卡那一页要照实说出它为什么空", () => {
   const seg = gazeSrc.slice(gazeSrc.indexOf("!hasAny(charId) ?"), gazeSrc.indexOf("defs.map("));
   assert.ok(seg.indexOf("autoSeedState") > 0, "要报自动建卡试了几次、为什么没成");
-  assert.ok(seg.indexOf("refuse") > 0, "要报他被问过几轮都说写不出来");
+  assert.ok(seg.indexOf("st.refuse") < 0, "不再显示旧漏答连击");
 });

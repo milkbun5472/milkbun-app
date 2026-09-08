@@ -95,23 +95,13 @@ test("改写即清已读——别靠时间戳，同一毫秒会失效", () => {
 // 她 2026-08-27：「那其他块岂不是永远没有改的机会了」——
 // 上一版给的「挑不出就写 recent」会让 recent 变成万能出口，另外九块照样冻着。
 // 改成按【最久没被碰过】轮询点名；写过或复看过都算碰过，碰完排到队尾。
-test("点名轮询：写过或看过都算碰过，下一轮换别的块", () => {
-  const { G } = loadGaze();
-  G.apply("c7", "me", "person", "起点");
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c7");
-  const first = G.dueBlock("c7").k;
-  assert.notEqual(first, "me.person", "刚写过的那块不该被点名");
-  // 说「看过了不用改」也算碰过 → 排到队尾
-  G.markChecked("c7", first);
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c7");
-  assert.notEqual(G.dueBlock("c7").k, first, "复看过还点同一块，就等于没轮转");
-  // 十块轮一圈，一块都不会被落下
-  const seen = new Set([first]);
-  for (let n = 0; n < 12; n++) {
-    const k = G.dueBlock("c7").k;
-    seen.add(k); G.markChecked("c7", k);
+test("任意块明确复看都能记录，不依赖排队",()=>{
+  const {G}=loadGaze();
+  for(const k of Object.keys(G.KEYS)){
+    assert.equal(G.markChecked("c7",k),true);
+    assert.ok(G.checkedAt("c7",k)>0);
   }
-  assert.equal(seen.size, Object.keys(G.KEYS).length, "轮一圈该把十块都点到");
+  assert.equal(G.markChecked("c7","wrong.key"),false);
 });
 
 test("复看不亮红点，但要在卡片上说一句「又想了一遍·没改」", () => {
@@ -129,7 +119,7 @@ test("app 侧真的把 impressionChecked 接住了", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(app, /parsed\.impressionChecked && window\.Gaze\.markChecked/, "没接");
   assert.match(app, /window\.Gaze\.normKey\("", String\(parsed\.impressionChecked\)\)/, "块名也要走容错");
-  assert.match(app, /impressionChecked:"块名"=对【本轮被点名复看的那一块】表态/, "字段字典里没写");
+  assert.doesNotMatch(app, /两个都不填等于跳过/);
 });
 
 // 以前块名写歪就静悄悄丢掉，看上去就是「他从来不写」

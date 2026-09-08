@@ -83,7 +83,7 @@ test("聊天明确交回相同原文算复看，不算改写或漏答",()=>{
   assert.equal(G.applyParsed('c1',{side:'me',block:'person',text:before.text}),true);
   assert.ok(G.checkedAt('c1','me.person')>before.ts);
   assert.equal(raw().hist.length,0);
-  assert.equal(raw().mute,0);
+  assert.equal(raw().mute,14, "旧计数保留但不再参与聊天策略");
 });
 test("专门复看混合改写和没变，逐块保留各自结果",()=>{
   const {G,store,raw}=boot();seedBox(store);
@@ -97,7 +97,6 @@ test("专门复看混合改写和没变，逐块保留各自结果",()=>{
 test("① 全 null＝他真没什么要改的，不是失败", () => {
   const { G, store, raw } = boot();
   seedBox(store);
-  assert.equal(G.reviewDue("c1"), true, "先得是该复看的状态，不然下面什么都没测到");
   G.markReview("c1");
   assert.equal(G.review("c1", ALL_NULL), 0);
   G.markReviewNoChange("c1");
@@ -110,13 +109,12 @@ test("① 全 null＝他真没什么要改的，不是失败", () => {
   //     真正要测的那道闸一个字都没测到（第一版就是这样：把闸拆了它照样绿）。
   const box = JSON.parse(store.x_gaze); box.c1.reviewAt = Date.now() - 60 * 60000;
   store.x_gaze = JSON.stringify(box);
-  assert.equal(G.reviewDue("c1"), false, "刚得到「没变」这个答案，过了冷却就又要再问一遍");
 });
 
-test("① 之二：「没变」等满一轮天数之后还能再复看", () => {
-  const { G, store } = boot();
-  seedBox(store, { reviewOkAt: Date.now() - 15 * DAY, reviewAt: Date.now() - 15 * DAY });
-  assert.equal(G.reviewDue("c1"), true, "过了 14 天还不肯再看一遍＝这一层永久停了");
+test("旧复看日期不会启动自动调用",()=>{
+  const {G,store}=boot();
+  seedBox(store,{reviewOkAt:Date.now()-15*DAY,reviewAt:Date.now()-15*DAY});
+  assert.equal(G.reviewDue,undefined);
 });
 
 test("② 手动那一次不占自动预算", () => {
@@ -124,7 +122,6 @@ test("② 手动那一次不占自动预算", () => {
   seedBox(store);
   G.markReview("c1", true); G.markReview("c1", true); G.markReview("c1", true);
   assert.equal(G.reviewState("c1").tries, 0, "她自己按的也被记进自动预算了");
-  assert.equal(G.reviewDue("c1"), false, "冷却没记上：连点会一次次真发调用");
   G.markReview("c1");
   assert.equal(G.reviewState("c1").tries, 1, "自动那一次得照记");
 });
@@ -243,7 +240,7 @@ test("④ 病根：JSON 字符串里一个真换行，裸 extractJSON 就整份�
 test("④ 建卡和复看两枪都换成加固版（别只修一处）", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
-  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   [["建卡", seed], ["复看", rev]].forEach(([zh, seg]) => {
     assert.match(seg, /parseJSONLoose\(raw\)/, zh + "那一枪还在用裸的 extractJSON");
     assert.doesNotMatch(seg, /const parsed = extractJSON\(raw\);/, zh + "还留着旧那行");
@@ -277,7 +274,7 @@ test("④ 提示词把「没变」也逼进 JSON 里", () => {
 test("⑤ 建卡和复看都改走后台线路优先（没配后台时行为不变）", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
-  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   [["建卡", seed], ["复看", rev]].forEach(([zh, seg]) => {
     assert.match(seg, /const p = bgActive \|\| apiFor\(char\.id\);/, zh + "还锁死在角色自己那条线路上");
     // ⚠️顺序不许反：后台线路是【逃生口】，反过来写就等于没接
@@ -435,11 +432,11 @@ test("⑧ 建卡那一路同病：手动失败原来只弹 toast，卡上一个�
 
 test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   assert.match(rev, /if \(manual\) toast\("复看没成："/);
   // 那句人话得是 gaze 翻好的那一份，不是把异常原文摆到她眼前
   assert.match(rev, /window\.Gaze\.plainWhy/);
-  assert.match(SRC, /muteCount, plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");
+  assert.match(SRC, /plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");
 });
 
 // ── v64.55：她 2026-09-06 试了一圈之后报的规律 ──────────────────────────
@@ -525,15 +522,12 @@ test("⑩ 两套名字：界面照旧，发出去的换了说法", () => {
   assert.equal(G.KEYS["us.elephant"], "我假装没注意的事");
   // 三份真提示词里，那股「给真人做弱点分析」的味道一处都不剩
   const bad = ["软肋", "雷区", "吃她哪一套", "把柄", "假装没注意"];
-  // ⚠️「每轮那一句」里那行点名是【有 due 才发】的：拿一个随手的桩去调 spec，
-  //   那一行根本不出现，于是把 ASK 换回 KEYS 也测不出来（第一版就这么逃掉了）。
-  //   所以这儿两条都要：源码上钉住它用的是 ASK，行为上再造一个真有 due 的桩。
-  assert.match(SRC, /「" \+ ASK\[due\.k\] \+ "」\(" \+ due\.k \+ "\)"/, "每轮那一句又发老说法了");
+  // 每轮字段名直接从 ASK 派生，不依赖排队。
   const b2 = boot();
   b2.store.x_gaze = JSON.stringify({ c1: { seeded: true, mute: 0, hist: [], turns: 99,
     blocks: { "me.soft": { text: "她送我键盘那次。", ts: Date.now() - 40 * 86400000 } } } });
   const nudged = String(b2.G.spec("Lisa", "c1") || "");
-  assert.match(nudged, /【这一轮请复看这一块】/, "桩没造出 due 来，这一条又白测了");
+  Object.values(G.ASK).forEach(name=>assert.ok(nudged.includes(name)));
   [["建卡", G.seedSpec("Lisa")], ["复看", G.reviewSpec("Lisa", "c1")], ["每轮那一句", nudged]]
     .forEach(([zh, t]) => bad.forEach(w =>
       assert.equal(String(t || "").includes(w), false, zh + "那份里还带着「" + w + "」")));
@@ -564,7 +558,7 @@ test("⑩ 名字只剩两份，不许再抄第三第四份", () => {
     const inCode = SRC.split("\n").filter(l => !l.trim().startsWith("//") && l.includes(n));
     assert.equal(inCode.length, 1, "「" + n + "」在代码里出现了 " + inCode.length + " 处，只该在 ME/US 那一行");
   });
-  assert.match(SRC, /const _side = \(arr, sd\) =>/, "spec 那串 keys 又写死了");
+  assert.match(SRC, /const side = \(arr, sd\) =>/, "spec 那串 keys 又写死了");
   assert.match(SRC, /me: ME\.reduce\(\(o, \[k\]\) => \(o\[k\] = ASK\["me\." \+ k\], o\), \{\}\)/, "schemaHint 又写死了");
 });
 
@@ -600,7 +594,7 @@ test("⑪ 每一级自己带 sys：复看的第四级换成建卡那份问法", 
   // v64.60：料全挪进 system 之后写法变成 levels[i].sys + "\n\n" + levels[i].text
   assert.match(call, /await callAI\(p, levels\[i\]\.sys \+ /, "没按级取 sys，那 system 那半永远缩不掉");
 
-  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   const arr = rev.slice(rev.indexOf("const levels = ["), rev.indexOf("];", rev.indexOf("const levels = [")));
   assert.equal((arr.match(/zh: "/g) || []).length, 5, "复看是五级（末级连世界书也不发）");
   // 前三级还是复看那份问法（要「逐块比对」就得看得见旧的）
@@ -676,7 +670,7 @@ test("⑬ 最后一级连世界书也不发（她要的那一层放在最后才�
   bases.forEach(b => assert.ok(b.includes("【世界书】")));
   // 级数：建卡 4、复看 5；最后一级都是 bare
   const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
-  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const maybeAutoReviewGaze"));
+  const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   const arr = t => t.slice(t.indexOf("const levels = ["), t.indexOf("];", t.indexOf("const levels = [")));
   assert.equal((arr(seed).match(/zh: "/g) || []).length, 4);
   assert.equal((arr(rev).match(/zh: "/g) || []).length, 5);
