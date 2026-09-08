@@ -10,6 +10,7 @@ function fixture() {
     { id: 'npc', name: '配角', persona: '配角人设', npc: true, ownerId: 'a' }
   ];
   const env = {
+    SCHEDULE_CONTEXT_RULE: new Function(engine.match(/^const SCHEDULE_CONTEXT_RULE = .*;$/m)[0] + ' return SCHEDULE_CONTEXT_RULE;')(),
     members, people: members, characters: members, phones: {}, groupId: 'g', profile: {},
     gs: { memoryInterop: true }, gcInterop: true, gPersonaCap: 6000, gCallCap: 6000, NPC_PERSONA_CAP: 900,
     userName: () => '读者', groupPersonaText: (p, cap) => p.slice(0, cap),

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.77";
+const APP_VERSION = "v65.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3397,8 +3397,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const w = hm && typeof weatherCached === "function" ? weatherCached(hm.lat, hm.lng) : null;
       if (w) {
         const sp = typeof wxSpecial === "function" ? wxSpecial(w) : null;
-        // 特殊天气（雨雪雷雾/极端温度）→ 加压：要在互动里真有反应，不许当没看见
-        out += "\n今天 Ta 那边的天气：" + weatherLine(w) + (sp ? "——今天" + sp + "，这对你有【实际影响】：出门计划可能改、穿着心情都被牵动，聊天/互动里要自然带出来（抱怨两句、说计划变了、想赖着不动、看雪的兴奋都行），别当没看见、也别播报腔" : "（可自然影响穿着、心情、要不要出门，别播报腔）");
+        // 天气只提供背景事实，表达规则随行程在共享上下文中提供。
+        out += "\n今天 Ta 那边的天气：" + weatherLine(w) + (sp ? "（" + sp + "）" : "");
       }
     } catch (e) {}
     // ── 接下来三天（v56.30，她 2026-08-26：「先试试喂接下来3天的行程」）──
@@ -11771,7 +11771,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
       cpSeg: (() => { const l = coupleLineFor(c.id, userName(profile)); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })(),
-      sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })()
+      sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };
   };
   // 这位成员最近和用户的单聊（带时间戳）。群聊和群通话共用同一份取法，

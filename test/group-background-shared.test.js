@@ -13,7 +13,9 @@ for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景
   const env = wire(fixture());
   if (surface === 'offline') env.userName = '读者';
   const text = evaluate(sections[surface], env, 'memberDesc');
-  assert.equal(createHash('sha256').update(text).digest('hex'), beforeHashes[surface]);
+  // 本轮只替换日程表达规则，其余成员背景仍与原快照逐字对照。
+  const comparable = text.split(env.SCHEDULE_CONTEXT_RULE).join('自然渗进语气和状态，别报行程表');
+  assert.equal(createHash('sha256').update(comparable).digest('hex'), beforeHashes[surface]);
   const a = text.slice(text.indexOf('【甲】'), text.indexOf('【乙】'));
   const b = text.slice(text.indexOf('【乙】'), text.indexOf('【配角】'));
   assert.match(a, /只有 甲 本人知道/);
