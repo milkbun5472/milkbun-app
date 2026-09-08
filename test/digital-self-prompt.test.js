@@ -94,9 +94,8 @@ test("engineerEyes chat carries a lean volatile baggage budget", () => {
 test("能力使用总则：正向许可回来了，且克制不许渗进语气", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
   assert.match(src, /【能力使用总则】/);
-  assert.match(src, /不是摆设/);
-  assert.match(src, /想到了就大方用/);
-  assert.match(src, /说明你把它们忘了，而不是你克制/);
-  assert.match(src, /唯一需要克制的是【字段】不是【话】/);
-  assert.match(src, /性格照常全开，别把任何克制渗进语气里/);
+  assert.match(src, /这些功能都可以日常使用/);
+  assert.match(src, /没有使用频率或轮数要求/);
+  assert.doesNotMatch(src, /说明你把它们忘了，而不是你克制/);
+  assert.match(src, /能力字段是否使用不限制表达的热情、篇幅或性格/);
 });

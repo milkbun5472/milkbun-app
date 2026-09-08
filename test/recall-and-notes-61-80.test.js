@@ -32,11 +32,9 @@ test("撤回的理由写的是【日常】那几种，不是只有「后悔、�
   // 真人撤回多半是打错字、发漏了、手滑发重、语气重了、发错人。
   const i = app.indexOf("【能力使用总则】");
   const g = app.slice(i, app.indexOf("【能力字段字典】", i));
-  const mundane = ["打错字", "发漏", "两遍", "说重", "不该发"];
-  const hit = mundane.filter(w => g.includes(w));
-  assert.ok(hit.length >= 4, "日常那几种理由只写到 " + hit.length + " 种：" + hit.join("/"));
-  assert.match(g, /不是唯一一种/, "没说清「后悔说漏嘴」只是其中一种");
-  assert.match(g, /撤完通常紧跟一条改好的/, "没说撤完通常还要补一条");
+  assert.match(g, /recall 可用于日常纠错或调整已发消息/);
+  assert.match(g, /不限于后悔、说漏嘴/);
+  assert.match(g, /需要补发时写入 word/);
 });
 
 test("群聊那份也一起改了（一层写在两处，第二处别再落下）", () => {
