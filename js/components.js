@@ -10967,6 +10967,95 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("镜头", focus, setFocus, [{ v: "auto", t: "自己找" }, { v: "dialogue", t: "多说话" }, { v: "action", t: "多行动" }, { v: "atmosphere", t: "多氛围" }]),
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
+// 单人/群聊线下共用文风草稿与持久化；每次调用的编辑状态独立。
+function useOfflineCustomStyles(t, styleKey, setStyleKey) {
+  const [customStyles, setCustomStyles] = useState(() => loadJSON("x_offlineStyles", []));
+  const [styleSheet, setStyleSheet] = useState(false);
+  const [custOpen, setCustOpen] = useState(false);
+  const [cName2, setCName2] = useState("");
+  const [cPrompt, setCPrompt] = useState("");
+  const [editingStyleKey, setEditingStyleKey] = useState("");   // 非空=正在改这条自定义文风，保存时原地覆盖
+  const styleFileRef = useRef(null);
+  const allStyles = [...OFFLINE_STYLES, ...customStyles];
+  const curStyle = allStyles.find(s => s.key === styleKey) || allStyles[0];
+  const saveCustomStyle = () => {
+    const nm = cName2.trim();
+    const pr = cPrompt.trim();
+    if (!nm || !pr) return;
+    const key = editingStyleKey || ("custom_" + Date.now());
+    const next = editingStyleKey
+      ? customStyles.map(x => x.key === editingStyleKey ? { ...x, name: nm, prompt: pr } : x)
+      : [...customStyles, { key, name: nm, prompt: pr, custom: true }];
+    if (!saveJSON("x_offlineStyles", next)) return toast("这次没保存成功，草稿还在");
+    setCustomStyles(next);
+    setStyleKey(key);
+    setEditingStyleKey("");
+    setCName2("");
+    setCPrompt("");
+    setStyleSheet(false);
+    setCustOpen(false);
+  };
+  const delCustomStyle = key => {
+    const next = customStyles.filter(s => s.key !== key);
+    if (!saveJSON("x_offlineStyles", next)) return toast && toast("这次没删成功，原预设还在");
+    setCustomStyles(next);
+    if (styleKey === key) setStyleKey("default");
+  };
+  // 保留预设 key，编辑后原地更新。
+  const editCustomStyle = (key, surface = "inline") => {
+    const cur = customStyles.find(x => x.key === key);
+    if (!cur) return;
+    setCName2(cur.name || "");
+    setCPrompt(cur.prompt || "");
+    setEditingStyleKey(key);
+    if (surface === "sheet") setStyleSheet(true);
+    else setCustOpen(true);
+  };
+  const importStyleFile = async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const prompt = await readOfflineStyleDocument(file);
+      if (!prompt) throw new Error("文件里没有读到文字");
+      const name = file.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入文风";
+      const key = "custom_" + Date.now();
+      const next = [...customStyles, { key, name, prompt, custom: true, imported: true }];
+      if (!saveJSON("x_offlineStyles", next)) throw new Error("保存失败，请重试");
+      setCustomStyles(next); setStyleKey(key);
+      toast("已导入文风 · " + name + "（" + prompt.length + " 字）");
+    } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
+  };
+  const styleImportControl = h("span", { className: "inline-flex" },
+    h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
+    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
+  return { customStyles, styleSheet, setStyleSheet, custOpen, setCustOpen, cName2, setCName2, cPrompt, setCPrompt, editingStyleKey, setEditingStyleKey, allStyles, curStyle, saveCustomStyle, delCustomStyle, editCustomStyle, styleImportControl, styleKey, setStyleKey };
+}
+function OfflineCustomStyleSection({ t, editor }) {
+  const { customStyles, custOpen, setCustOpen, cName2, setCName2, cPrompt, setCPrompt, editingStyleKey, setEditingStyleKey, allStyles, curStyle, saveCustomStyle, delCustomStyle, editCustomStyle, styleImportControl, styleKey, setStyleKey } = editor;
+  return h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 2 } }, "文风预设"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "剧情不同段落想换个笔调，随时切换，保存后下次演绎生效。"),
+    h("div", { className: "flex flex-wrap gap-2 mb-2" }, allStyles.map(s => h("button", {
+      key: s.key, onClick: () => { setStyleKey(s.key); setCustOpen(false); },
+      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (styleKey === s.key ? t.ink : t.line), background: styleKey === s.key ? t.ink : "transparent", color: styleKey === s.key ? t.bg2 : t.sub }
+    }, s.name)).concat([h("button", {
+      key: "__add", onClick: () => setCustOpen(v => !v),
+      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog }
+    }, "＋ 自定义"), styleImportControl])),
+    custOpen
+      ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
+          (editingStyleKey ? h("div", { className: "flex items-center gap-3 mb-2" },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "正在改「" + ((customStyles.find(x => x.key === editingStyleKey) || {}).name || "") + "」·保存后原地覆盖"),
+            h("button", { onClick: () => { setEditingStyleKey(""); setCName2(""); setCPrompt(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "取消")) : null),
+          h("input", { value: cName2, onChange: e => setCName2(e.target.value), placeholder: "预设名称，如 冷冽克制", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
+          h("textarea", { value: cPrompt, onChange: e => setCPrompt(e.target.value), rows: 3, placeholder: "写给 AI 的文风提示词，如：多用短句，冷色调意象，情绪藏在动作里…", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8, resize: "none" } }),
+          h("button", { onClick: saveCustomStyle, className: "w-full py-2.5", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"))
+      : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
+          h(OfflineStylePromptPreview, { style: curStyle, t }),
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
+}
 function OfflineMode({
   char,
   room,
@@ -11023,13 +11112,8 @@ function OfflineMode({
   const [readView, setReadView] = useState(null); // 回看往期
   const [modeOpen, setModeOpen] = useState(false); // 顶栏下拉：切回线上/线下
   const [pastOpen, setPastOpen] = useState(false); // 往期场次选择
-  const [customStyles, setCustomStyles] = useState(() => loadJSON("x_offlineStyles", []));
-  const [styleSheet, setStyleSheet] = useState(false); // 新建自定义预设
-  const [custOpen, setCustOpen] = useState(false);     // 设置里内联新建自定义文风
-  const [cName2, setCName2] = useState("");
-  const [cPrompt, setCPrompt] = useState("");
-  const [editingStyleKey, setEditingStyleKey] = useState("");   // 非空=正在改这条自定义文风，保存时原地覆盖
-  const styleFileRef = useRef(null);
+  const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
+  const { customStyles, styleSheet, setStyleSheet, cName2, setCName2, cPrompt, setCPrompt, editingStyleKey, setEditingStyleKey, allStyles, curStyle, saveCustomStyle, delCustomStyle, editCustomStyle, styleImportControl } = styleEditor;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sMax, setSMax] = useState(os.maxTokens || 4000);
@@ -11144,80 +11228,8 @@ function OfflineMode({
     exampleSection);
   const scroller = useRef(null);
   const past = (sessions || []).filter(s => s.endTs);
-  const allStyles = [...OFFLINE_STYLES, ...customStyles];
-  const curStyle = allStyles.find(s => s.key === styleKey) || allStyles[0];
-  const saveCustomStyle = () => {
-    const nm = cName2.trim();
-    const pr = cPrompt.trim();
-    if (!nm || !pr) return;
-    const key = editingStyleKey || ("custom_" + Date.now());
-    const next = editingStyleKey
-      ? customStyles.map(x => x.key === editingStyleKey ? { ...x, name: nm, prompt: pr } : x)
-      : [...customStyles, { key, name: nm, prompt: pr, custom: true }];
-    setCustomStyles(next);
-    saveJSON("x_offlineStyles", next);
-    setStyleKey(key);
-    setEditingStyleKey("");
-    setCName2("");
-    setCPrompt("");
-    setStyleSheet(false);
-    setCustOpen(false);
-  };
-  const delCustomStyle = key => {
-    const next = customStyles.filter(s => s.key !== key);
-    if (!saveJSON("x_offlineStyles", next)) return toast && toast("这次没删成功，原预设还在");
-    setCustomStyles(next);
-    if (styleKey === key) setStyleKey("default");
-  };
-  // 自定义文风以前只能删了重贴——她那份有四千字，删一次就得重来一遍（她 2026-08-22）。
-  // 装回输入框改，保存时按 key 原地覆盖，正在用的那局不用重选。
-  const editCustomStyle = key => {
-    const cur = customStyles.find(x => x.key === key);
-    if (!cur) return;
-    setCName2(cur.name || "");
-    setCPrompt(cur.prompt || "");
-    setEditingStyleKey(key);
-  };
-  const importStyleFile = async e => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const prompt = await readOfflineStyleDocument(file);
-      if (!prompt) throw new Error("文件里没有读到文字");
-      const name = file.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入文风";
-      const key = "custom_" + Date.now();
-      const next = [...customStyles, { key, name, prompt, custom: true, imported: true }];
-      setCustomStyles(next); saveJSON("x_offlineStyles", next); setStyleKey(key);
-      toast("已导入文风 · " + name + "（" + prompt.length + " 字）");
-    } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
-  };
-  const styleImportControl = h("span", { className: "inline-flex" },
-    h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
-    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
   // 设置弹层里的「文风预设」小节（进行中随时改）
-  const styleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 2 } }, "文风预设"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "剧情不同段落想换个笔调，随时切换，保存后下次演绎生效。"),
-    h("div", { className: "flex flex-wrap gap-2 mb-2" }, allStyles.map(s => h("button", {
-      key: s.key, onClick: () => { setStyleKey(s.key); setCustOpen(false); },
-      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (styleKey === s.key ? t.ink : t.line), background: styleKey === s.key ? t.ink : "transparent", color: styleKey === s.key ? t.bg2 : t.sub }
-    }, s.name)).concat([h("button", {
-      key: "__add", onClick: () => setCustOpen(v => !v),
-      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog }
-    }, "＋ 自定义"), styleImportControl])),
-    custOpen
-      ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
-          (editingStyleKey ? h("div", { className: "flex items-center gap-3 mb-2" },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "正在改「" + ((customStyles.find(x => x.key === editingStyleKey) || {}).name || "") + "」·保存后原地覆盖"),
-            h("button", { onClick: () => { setEditingStyleKey(""); setCName2(""); setCPrompt(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "取消")) : null),
-          h("input", { value: cName2, onChange: e => setCName2(e.target.value), placeholder: "预设名称，如 冷冽克制", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
-          h("textarea", { value: cPrompt, onChange: e => setCPrompt(e.target.value), rows: 3, placeholder: "写给 AI 的文风提示词，如：多用短句，冷色调意象，情绪藏在动作里…", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8, resize: "none" } }),
-          h("button", { onClick: saveCustomStyle, className: "w-full py-2.5", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"))
-      : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
+  const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
   const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "好吃片段库 · " + ((os.examples || []).length) + "/12"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, marginBottom: 10, lineHeight: 1.6 } }, "在角色写得特别对味的卡片上点 ✦ 收藏。生成时本地挑最多两段，只学声纹和节奏，不照抄旧剧情，也不额外调用模型。"),
@@ -11305,7 +11317,7 @@ function OfflineMode({
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key, "sheet"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
@@ -11764,90 +11776,13 @@ function GroupOfflineMode({
   const [readView, setReadView] = useState(null);
   const [modeOpen, setModeOpen] = useState(false); // 顶栏下拉：切回线上/往期
   const [pastOpen, setPastOpen] = useState(false); // 往期场次选择
-  const [customStyles, setCustomStyles] = useState(() => loadJSON("x_offlineStyles", []));
-  const [styleSheet, setStyleSheet] = useState(false);
-  const [custOpen, setCustOpen] = useState(false);
-  const [cName2, setCName2] = useState("");
-  const [cPrompt, setCPrompt] = useState("");
-  const [editingStyleKey, setEditingStyleKey] = useState("");   // 非空=正在改这条自定义文风，保存时原地覆盖
-  const styleFileRef = useRef(null);
+  const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
+  const { customStyles, styleSheet, setStyleSheet, cName2, setCName2, cPrompt, setCPrompt, editingStyleKey, setEditingStyleKey, allStyles, curStyle, saveCustomStyle, delCustomStyle, editCustomStyle, styleImportControl } = styleEditor;
   const scroller = useRef(null);
   const past = (sessions || []).filter(s => s.endTs);
-  const allStyles = [...OFFLINE_STYLES, ...customStyles];
-  const curStyle = allStyles.find(s => s.key === styleKey) || allStyles[0];
   const memberLine = members.map(c => c.name).join("、");
-  const saveCustomStyle = () => {
-    const nm = cName2.trim();
-    const pr = cPrompt.trim();
-    if (!nm || !pr) return;
-    const key = editingStyleKey || ("custom_" + Date.now());
-    const next = editingStyleKey
-      ? customStyles.map(x => x.key === editingStyleKey ? { ...x, name: nm, prompt: pr } : x)
-      : [...customStyles, { key, name: nm, prompt: pr, custom: true }];
-    setCustomStyles(next);
-    saveJSON("x_offlineStyles", next);
-    setStyleKey(key);
-    setEditingStyleKey("");
-    setCName2("");
-    setCPrompt("");
-    setStyleSheet(false);
-    setCustOpen(false);
-  };
-  const delCustomStyle = key => {
-    const next = customStyles.filter(s => s.key !== key);
-    if (!saveJSON("x_offlineStyles", next)) return toast && toast("这次没删成功，原预设还在");
-    setCustomStyles(next);
-    if (styleKey === key) setStyleKey("default");
-  };
-  // 自定义文风以前只能删了重贴——她那份有四千字，删一次就得重来一遍（她 2026-08-22）。
-  // 装回输入框改，保存时按 key 原地覆盖，正在用的那局不用重选。
-  const editCustomStyle = key => {
-    const cur = customStyles.find(x => x.key === key);
-    if (!cur) return;
-    setCName2(cur.name || "");
-    setCPrompt(cur.prompt || "");
-    setEditingStyleKey(key);
-  };
-  const importStyleFile = async e => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const prompt = await readOfflineStyleDocument(file);
-      if (!prompt) throw new Error("文件里没有读到文字");
-      const name = file.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入文风";
-      const key = "custom_" + Date.now();
-      const next = [...customStyles, { key, name, prompt, custom: true, imported: true }];
-      setCustomStyles(next); saveJSON("x_offlineStyles", next); setStyleKey(key);
-      toast("已导入文风 · " + name + "（" + prompt.length + " 字）");
-    } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
-  };
-  const styleImportControl = h("span", { className: "inline-flex" },
-    h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
-    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
   // 设置弹层里的「文风预设」小节（进行中随时改）
-  const styleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 2 } }, "文风预设"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "剧情不同段落想换个笔调，随时切换，保存后下次演绎生效。"),
-    h("div", { className: "flex flex-wrap gap-2 mb-2" }, allStyles.map(s => h("button", {
-      key: s.key, onClick: () => { setStyleKey(s.key); setCustOpen(false); },
-      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (styleKey === s.key ? t.ink : t.line), background: styleKey === s.key ? t.ink : "transparent", color: styleKey === s.key ? t.bg2 : t.sub }
-    }, s.name)).concat([h("button", {
-      key: "__add", onClick: () => setCustOpen(v => !v),
-      className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog }
-    }, "＋ 自定义"), styleImportControl])),
-    custOpen
-      ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
-          (editingStyleKey ? h("div", { className: "flex items-center gap-3 mb-2" },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "正在改「" + ((customStyles.find(x => x.key === editingStyleKey) || {}).name || "") + "」·保存后原地覆盖"),
-            h("button", { onClick: () => { setEditingStyleKey(""); setCName2(""); setCPrompt(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "取消")) : null),
-          h("input", { value: cName2, onChange: e => setCName2(e.target.value), placeholder: "预设名称，如 冷冽克制", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
-          h("textarea", { value: cPrompt, onChange: e => setCPrompt(e.target.value), rows: 3, placeholder: "写给 AI 的文风提示词，如：多用短句，冷色调意象，情绪藏在动作里…", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8, resize: "none" } }),
-          h("button", { onClick: saveCustomStyle, className: "w-full py-2.5", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"))
-      : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
+  const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
   useEffect(() => {
     if (activeSession && view === "setup") setView("live");
   }, [activeSession]);
@@ -11931,7 +11866,7 @@ function GroupOfflineMode({
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h(OfflineStylePromptPreview, { style: curStyle, t }),
-          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
+          curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key, "sheet"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
