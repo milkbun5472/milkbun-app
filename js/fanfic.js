@@ -5,7 +5,7 @@
 //   全部 x_ 前缀，自动跟随现有 saves 整包云同步。
 // 生成管线：system(反八股 + 角色卡准则 + 亲密反模板 + 同人文反陈词滥调)
 //   + 选中 CP 角色卡 + 当前 tab 世界观(world book) + 生成指令，
-//   一次批量出 N 篇；extractJSON/repairJSON 容错 + 自动重试（不动全局 callAI）。
+//   一次批量出 N 篇；共用 parseJSONLoose 容错，业务保留自动重试（不动全局 callAI）。
 // ============================================================
 (function () {
   const useState = React.useState, useEffect = React.useEffect;
@@ -651,8 +651,7 @@
       + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
       + "[{\"name\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\",\"temper\":\"\"}]";
     const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { maxTokens: 12000, timeout: 180000 });
-    let d = extractJSON(raw);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     const out = [];
     // 规则只降概率，代码这一道才保证：落库前把不该出现的配对整句删掉
@@ -707,8 +706,7 @@
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
-      let d = extractJSON(sp.clean);
-      if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(sp.clean)); } catch (e) {} }
+      const d = parseJSONLoose(sp.clean);
       if (Array.isArray(d)) return d;
       if (d && Array.isArray(d.items)) return d.items;
       if (d && d.title) return [d]; // 模型只吐了一篇对象
@@ -807,8 +805,7 @@
     async function once(extra) {
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }], { maxTokens: Math.min(FIC_TOKEN_MAX * 2, perFic + 10000), timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
-      let d = extractJSON(sp.clean);
-      if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(sp.clean)); } catch (e) {} }
+      const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(), cot: sp.cot, cotRequested: !!cotT };
       return salvageChapter(sp.clean, sp.cot);
     }
@@ -831,8 +828,7 @@
       "[{\"author\":\"读者马甲（同人圈网名，别用真名，别带@）\",\"content\":\"书评正文\",\"replies\":[{\"author\":\"另一读者马甲\",\"content\":\"楼中楼回复\",\"isAuthor\":false}]}]\n" +
       "**其中必须至少有一条**（某条书评本身、或某条楼中楼回复）是作者「" + authorName + "」本人下场回复读者的——署名就写「" + authorName + "」、把那条的 isAuthor 设为 true，像作者回评那样（道谢/回应读者的梗/害羞解释/回怼黑评，符合太太本人语气）。其余 replies 大多留空，只 1-2 条带楼中楼。语气各异别雷同。";
     const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { maxTokens: 11200 });
-    let d = extractJSON(raw);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     return arr.filter(function (x) { return x && x.content; }).slice(0, 10).map(function (x) {
       return {
@@ -861,8 +857,7 @@
       "[{\"author\":\"马甲\",\"content\":\"回复\",\"isAuthor\":false}]\n" +
       "**其中让作者「" + authorName + "」本人至少回一条**（那条 author 写「" + authorName + "」、isAuthor 设 true）。别都一个腔调，别客服腔。";
     const raw = await callAI(active, sys, [{ role: "user", content: "针对这条评论生成回复。" }], { maxTokens: 12000 });
-    let d = extractJSON(raw);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
+    const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     return arr.filter(function (x) { return x && x.content; }).slice(0, 5).map(function (x) {
       return { id: uid("rp"), author: String(x.author || "路人读者").slice(0, 20), isAuthor: !!x.isAuthor || String(x.author || "") === authorName, content: String(x.content).trim() };
@@ -1256,18 +1251,9 @@
       + (wantPull ? rpPullBlock(fic, session) + "\n" : "")
       + (wantNote ? rpAuthorBlock(fic, session) + "\n" : "");
   }
-  // ⚠️她 2026-09-03 报「格式会掉」，截图里正文直接从 `{"scene":"药片落在…` 开始。
-  //   病根有两层：
-  //   ① 解析走的是 extractJSON，它不管字符串里的【裸换行】——而 scene 是分段正文，
-  //      段与段之间必然有真换行，那在 JSON 里是非法的，于是每次都解析失败。
-  //      engine.js 里的 parseJSONLoose 正是为这个存在的（它会先 escapeJsonStringControls），
-  //      别处早就在用，只有这条链还在用光板的 extractJSON。
-  //   ② 解析失败之后的兜底是「整段当正文」——于是那一整串 JSON 原样糊到她眼前。
-  //      兜底不能是「原样端上去」，得先把 scene 那一段抠出来。
+  // 解析统一交给 engine；这里只约束互动叙事要对象，失败后由 rpSalvage 抢救 scene。
   function rpJSON(txt) {
-    if (typeof parseJSONLoose === "function") { const d = parseJSONLoose(txt); if (d && typeof d === "object") return d; }
-    let d = extractJSON(txt);
-    if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(txt)); } catch (e) {} }
+    const d = parseJSONLoose(txt);
     return (d && typeof d === "object") ? d : null;
   }
   // 最后一道：连 parseJSONLoose 都认不出来时，手工把 scene 那一段捞出来。

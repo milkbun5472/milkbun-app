@@ -19,13 +19,13 @@ const F = (() => {
   const b = fic.indexOf("\n  // 编个热度数字");
   assert.ok(a > 0 && b > a, "抠不出穿书引擎那一段");
   return new Function(
-    "const extractJSON=s=>{try{return JSON.parse(s)}catch(e){return null}};"
+    "parseJSONLoose", ""
     + "const ficPenName=id=>'笔名'+id; const ficHeat=s=>({kudos:1,hits:2});"
     + "const uid=p=>p+'_1'; let __reply=''; const callAI=async()=>__reply;"
     + "const __say=v=>{__reply=v};"
     + "const buildRPSystem=()=>''; const rpAnchorLine=()=>''; const rpStartLine=()=>'';"
     + fic.slice(a, b)
-    + "\nreturn {rpMessages,rpBeatsBlock,rpTurnShape,rpParseTurn,rpToFic,rpAuthorName,genRPStart,__say};")();
+    + "\nreturn {rpMessages,rpBeatsBlock,rpTurnShape,rpParseTurn,rpToFic,rpAuthorName,genRPStart,__say};")(require('./_model-json'));
 })();
 
 const beat = (id, label, state) => ({ id, label, page: label + "本来会发生", cue: "那个当口", state });

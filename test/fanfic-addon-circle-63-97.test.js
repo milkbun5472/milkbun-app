@@ -12,13 +12,13 @@ const F = (() => {
   const b = fic.indexOf("\n  // 编个热度数字");
   assert.ok(a > 0 && b > a, "抠不出穿书引擎那一段");
   return new Function(
-    "const extractJSON=s=>{try{return JSON.parse(s)}catch(e){return null}};"
+    "parseJSONLoose", ""
     + "const ficPenName=id=>'笔名'+id; const ficHeat=s=>({kudos:1,hits:2});"
     + "let __n=0; const uid=p=>p+'_'+(++__n); let __reply=''; const callAI=async()=>__reply;"
     + "const __say=v=>{__reply=v};"
     + "const buildRPSystem=()=>''; const rpAnchorLine=()=>''; const rpStartLine=()=>'';"
     + fic.slice(a, b)
-    + "\nreturn {genRPEnding,rpToFic,rpDevBand,rpAuthorBlock,rpPullBlock,__say};")();
+    + "\nreturn {genRPEnding,rpToFic,rpDevBand,rpPullBlock,rpAuthorBlock,__say};")(require('./_model-json'));
 })();
 
 // ── 偏离度：改的是【她怎么在场】，不是【还在不在场】 ──────────────

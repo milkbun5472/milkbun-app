@@ -78,7 +78,7 @@ test("scene 里的裸换行不再让整串 JSON 糊到她眼前", () => {
   assert.equal(r.text.split("\n\n").length, 3, "段落被压平了");
   assert.equal(r.hit, "b2"); assert.equal(r.dev, 41); assert.equal(r.note, "这句不是我写的");
   // 解析走的必须是 parseJSONLoose，不是光板的 extractJSON
-  assert.match(fic, /if \(typeof parseJSONLoose === "function"\) \{ const d = parseJSONLoose\(txt\); /);
+  assert.match(fic, /function rpJSON\(txt\) \{\s+const d = parseJSONLoose\(txt\);/);
 });
 
 // parseJSONLoose 挡不住的就这几种（裸换行和截断它自己能治，所以那两条不算数）——
