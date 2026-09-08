@@ -37,5 +37,5 @@ test("单人通话用电话本轮文本做向量召回并留下真实聊天收�
   assert.match(app, /const recallText = ctxOpts && typeof ctxOpts\.queryText === "string" \? ctxOpts\.queryText : recentChatText\(char\)/);
   assert.match(app, /const callQuery = withUser\.slice\(-12\)/);
   assert.match(app, /await primeQueryVec\(callQuery\)/);
-  assert.match(app, /ctxFor\(char, \{ chat: true, queryText: callQuery \}\)/);
+  assert.match(app, /roomContextFor\(char, cur\.chatKey \|\| char\.id, cur\.room, \{ chat: true, queryText: callQuery \}\)/);
 });

@@ -10,7 +10,7 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 
 test("① 言秋/anthropic 那条路一个字没动", () => {
   // 她用 gemini（openai 方言），那条路本来就 thinOnline:true、本来就带着线下
-  assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/, "又去动那条路了");
+  assert.match(app, /roomContextFor\(char, chatKey, room, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/, "房间入口必须透传历史缓存选项");
   assert.match(app, /_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated/, "又去动那条路了");
 });
 

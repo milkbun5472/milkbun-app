@@ -24,12 +24,12 @@ test("单人通话的协议里有 hangup 这一栏，而且写清了什么时候
 
 test("群通话里谁都能挂，挂了就不再往下念别人的台词", () => {
   assert.match(callSend, /【挂断】谁真的要结束这通电话/);
-  assert.match(callSend, /markCallBye\(spk\.id, spk\.name, String\(arr\[i\]\.hangup\)\); break;/,
+  assert.match(callSend, /markCallBye\(spk\.id, spk\.name, String\(arr\[i\]\.hangup\), cur\.sessionId\); break;/,
     "有人挂了还接着把后面几条念完，那这通电话就没挂成");
 });
 
 test("模型说要挂 → 只立牌子，不当场收线", () => {
-  assert.match(app, /const markCallBye = \(byId, byName, reason\) => setCall\(c => \(c && !c\.bye\)/,
+  assert.match(app, /const markCallBye = \(byId, byName, reason, sessionId\) => setCall\(c => \(c && !c\.bye && \(!sessionId \|\| c\.sessionId === sessionId\)\)/,
     "已经在挂了就别再盖一次");
   assert.match(callSend, /if \(d\.hangup && String\(d\.hangup\)\.toLowerCase\(\) !== "null"\) markCallBye/);
   // 时长只有 CallScreen 数着；App 这边当场 endCall 会把时长写成 0

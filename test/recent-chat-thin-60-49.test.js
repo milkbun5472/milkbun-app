@@ -52,7 +52,7 @@ test("线下那几行带着时刻——他要靠这个知道那场戏发生在�
 });
 
 test("只在【历史会另发一遍】那条路上瘦身，别的调用方照旧拿全文", () => {
-  assert.match(app, /ctxFor\(char, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/);
+  assert.match(app, /roomContextFor\(char, chatKey, room, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/);
   assert.match(app, /const thinOnline = !!\(ctxOpts && ctxOpts\.thinOnline\);/);
   // anthropic 那条路本来就整块清空，别改成瘦身版（那会白留一块没用的标记）
   assert.match(app, /_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated/);

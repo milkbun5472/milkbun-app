@@ -188,7 +188,7 @@ test("点名那一段要在整份提示词的尾巴上，不许再埋回字段�
   const proto = app.slice(app.indexOf("const _normalProtocolStable = `"), app.indexOf("【能力使用总则】"));
   assert.ok(proto.indexOf("Gaze.nudge") < 0, "点名又被塞回协议模板中段了");
   // 点名接在每轮任务串的尾巴上，而且在 _turnClosing 之前（那一句是这一轮的任务，得留在最后）
-  assert.match(app, /const _gazeNudgeHint = \(!_s\.engineerEyes && window\.Gaze && window\.Gaze\.nudge\) \? window\.Gaze\.nudge\("对方", charId\) : ""/);
+  assert.match(app, /const _gazeNudgeHint = \(roomReads\("innerLife"\) && window\.ChatRooms\.canWrite\(room, "gaze"\) && !_s\.engineerEyes && window\.Gaze && window\.Gaze\.nudge\) \? window\.Gaze\.nudge\("对方", charId\) : ""/);
   const task = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint"));
   const nudge = task.indexOf("_gazeNudgeHint");
   const closing = task.indexOf("_turnClosing");

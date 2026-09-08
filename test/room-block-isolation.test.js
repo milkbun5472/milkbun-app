@@ -17,7 +17,7 @@ function fixture(reply) {
     pChat:(k,fn)=>{chatsRef.current[k]=fn(chatsRef.current[k]||[])},
     toast:()=>{}, laneBusy:()=>false, startLane:k=>lanes.push(k), endLane:k=>lanes.push(k),
     apiFor:()=>({}), ctxFor:()=>({char:{id:'c1',name:'虚构甲'},recentChat:'主房私事',mem:'主房记忆'}),
-    roomTimeAwareFor:()=>false, contextAllowsMessage:()=>true,
+    roomTimeAwareFor:()=>false, contextAllowsMessage:()=>true, isOocMsg:m=>m.kind==='ooc'||String(m.turnId||'').startsWith('ooc_'), roomStatesRef:{current:{}}, loreForContext:()=>'', directives:{},
     buildBundle:ctx=>JSON.stringify(ctx), extractJSON:JSON.parse,
     callAI:async (api,sys)=>{systems.push(sys);return JSON.stringify(reply)},
     setTimeout:fn=>timers.push(fn), Date};

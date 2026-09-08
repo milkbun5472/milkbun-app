@@ -109,7 +109,8 @@ test("主房和开着那一档的房，一栏都不许少", () => {
 });
 
 test("app.js 那一处真的换成白名单了，黑名单删干净", () => {
-  assert.match(app, /_gated = window\.ChatRooms\.gateCtx\(_roomCtx,/, "调用点没换成公共那道闸");
+  assert.match(app, /_gated = roomContextFor\(char, chatKey, room,/, "调用点必须走公共房间上下文");
+  assert.match(app, /window\.ChatRooms\.gateCtx\(ctx,/, "公共入口必须过白名单");
   assert.match(app, /buildBundle\(_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated\)/, "过滤完的那份没被真正用上");
   // ⚠️线下那条路上原来还有【第二份一模一样的手抄件】，两处一起漏那 23 栏。
   //   两处都得走同一张白名单，不然改一处永远漏另一处（one-public-mechanism.md）。
