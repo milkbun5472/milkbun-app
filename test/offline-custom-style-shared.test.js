@@ -23,13 +23,15 @@ function fixture() {
     toast: message => notices.push(message), alert: message => notices.push(message),
     OFFLINE_STYLES: [{ key: "default", name: "默认", prompt: "" }],
     F_BODY: "body", F_DISPLAY: "display", OfflineStylePromptPreview: () => null,
-    requestAppConfirm: () => {}
+    React: { Fragment: 'fragment' }, requestAppConfirm: () => {}
   };
   vm.createContext(ctx); vm.runInContext(code, ctx);
   const t = { line: "#ccc", ink: "#111", bg: "#fff", bg2: "#eee", fog: "#888", sub: "#333", tint: "#555" };
   return {
     render() { cursor = 0; return ctx.useOfflineCustomStyles(t, selected, key => { selected = key; }); },
     section: editor => ctx.OfflineCustomStyleSection({ t, editor }),
+    setup: editor => ctx.OfflineSetupStyleSection({ t, editor }),
+    setupEditor: editor => ctx.OfflineSetupStyleEditor({ t, editor }),
     stored: () => stored, selected: () => selected, fail: () => { ok = false; }, notices
   };
 }
@@ -92,6 +94,23 @@ test("设置区保留原层级与编辑按钮回调", () => {
 });
 test("单人/群聊都绑定公共管理器，开局编辑明确打开弹层", () => {
   assert.equal((src.match(/const styleEditor = useOfflineCustomStyles\(t, styleKey, setStyleKey\);/g) || []).length, 2);
-  assert.equal((src.match(/editCustomStyle\(curStyle.key, "sheet"\)/g) || []).length, 2);
+  assert.equal((src.match(/editCustomStyle\(curStyle.key, "sheet"\)/g) || []).length, 1);
+  assert.equal((src.match(/h\(OfflineSetupStyleSection, /g) || []).length, 2);
   assert.equal((src.match(/const importStyleFile = async/g) || []).length, 1);
+});
+
+test("开局选择、自定义、编辑与保存沿用各自管理器", () => {
+  const f = fixture(), other = fixture(); let e = create(f);
+  const walk = n => !n || typeof n !== 'object' ? [] : [n, ...(n.children || []).flat(Infinity).flatMap(walk)];
+  const find = (tree, text) => walk(tree).find(n => n.type === 'button' && n.children.includes(text));
+  find(f.setup(e), '编辑此预设').props.onClick(); e = f.render();
+  assert.equal(e.styleSheet, true); assert.equal(other.render().styleSheet, false);
+  const editor = f.setupEditor(e), fields = walk(editor);
+  fields.find(n => n.type === 'input').props.onChange({ target: { value: '改名' } });
+  fields.find(n => n.type === 'textarea').props.onChange({ target: { value: '新正文' } });
+  find(f.setupEditor(f.render()), '保存并选用').props.onClick();
+  assert.equal(f.stored().length, 1); assert.equal(f.stored()[0].name, '改名');
+  assert.equal(f.stored()[0].prompt, '新正文'); assert.equal(other.stored().length, 0);
+  find(f.setup(f.render()), '＋ 自定义').props.onClick(); assert.equal(f.render().styleSheet, true);
+  assert.equal(f.setup(f.render()).type, 'fragment');
 });

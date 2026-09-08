@@ -8,8 +8,10 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "ut
 // 自定义文风以前只有「删除此预设」，没有编辑——她那份有四千字，删一次就得整份重贴。
 
 test("四个入口都有「编辑此预设」（单人/群 × 开局页/设置页）", () => {
-  assert.equal((comp.match(/编辑此预设/g) || []).length, 3);
-  assert.equal((comp.match(/删除此预设/g) || []).length, 3);
+  assert.equal((comp.match(/编辑此预设/g) || []).length, 2);
+  assert.equal((comp.match(/删除此预设/g) || []).length, 2);
+  assert.equal((comp.match(/h\(OfflineSetupStyleSection, /g) || []).length, 2);
+  assert.equal((comp.match(/h\(OfflineSetupStyleEditor, /g) || []).length, 2);
   assert.equal((comp.match(/h\(OfflineCustomStyleSection, \{ t, editor: styleEditor \}\)/g) || []).length, 2, "设置区复用同一组件");
   assert.equal((comp.match(/const editCustomStyle = /g) || []).length, 1, "编辑只维护公共一份");
 });
@@ -28,11 +30,11 @@ test("保存时按 key 原地覆盖，正在用的那局不用重选", () => {
 });
 
 test("编辑态要看得见，并且能取消", () => {
-  assert.equal((comp.match(/保存后原地覆盖/g) || []).length, 3);
+  assert.equal((comp.match(/保存后原地覆盖/g) || []).length, 2);
   assert.match(comp, /正在改「" \+ \(\(customStyles\.find\(x => x\.key === editingStyleKey\) \|\| \{\}\)\.name \|\| ""\) \+ "」/);
   assert.match(comp, /setEditingStyleKey\(""\); setCName2\(""\); setCPrompt\(""\); \}, className: "active:opacity-60"[^}]*\} \}, "取消"\)/);
 });
 
 test("删除改成要确认——四千字删错一次就没了", () => {
-  assert.equal((comp.match(/requestAppConfirm\("删掉「"[\s\S]{0,100}"内容不会留档。", \(\) => delCustomStyle\(curStyle\.key\), "删除"\)/g) || []).length, 3);
+  assert.equal((comp.match(/requestAppConfirm\("删掉「"[\s\S]{0,100}"内容不会留档。", \(\) => delCustomStyle\(curStyle\.key\), "删除"\)/g) || []).length, 2);
 });
