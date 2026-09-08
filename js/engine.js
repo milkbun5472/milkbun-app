@@ -596,6 +596,7 @@ function noteServedModel(profile, req, got) {
   } catch (e) {}
 }
 async function callAI(p, system, messages, opts) {
+  if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
   // 失败时她在手机上看不到 console，只能看气泡。把「这一次到底发了多大、等了多久」

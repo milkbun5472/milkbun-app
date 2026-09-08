@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.73";
+const APP_VERSION = "v65.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -571,7 +571,7 @@ function App() {
   const [activeId, setActiveId] = useState(null);
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
   const [modelFloatOn, setModelFloatOn] = useState(() => !!loadJSON("x_modelFloatOn", false));
-  const [bgApiId, setBgApiId] = useState(null); // 后台机械任务专用便宜 API；空=不运行 cheap_required，绝不偷用主池
+  const [bgApiId, setBgApiId] = useState(null); // 后台任务线路；未单独选择时跟随主模型
   const [activeChar, setActiveChar] = useState(null);
   const [activeRoomId, setActiveRoomId] = useState("main");
   const notificationRoomRef = useRef(null);
@@ -1442,8 +1442,8 @@ function App() {
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
   // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
   const offlineActive = (offlineApiId && apiProfiles.find(p => p.id === offlineApiId)) || active;
-  // cheap_required：未显式配置就保持空。自动任务跳过并保留游标，手动入口负责提示；绝不静默烧主池。
-  const bgActive = (bgApiId && apiProfiles.find(p => p.id === bgApiId)) || null;
+  // 和设置页同一契约：不选跟随主模型，选了走独立线路；失效的显式选择不偷偷换线路。
+  const bgActive = bgApiId ? (apiProfiles.find(p => p.id === bgApiId) || null) : (active || null);
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
 
   const aShadowOwnerId = async () => {
