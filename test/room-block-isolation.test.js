@@ -72,3 +72,30 @@ test('主房默认键兼容旧存档，UI各入口传房间键并复用40px头�
   const card=components.slice(components.indexOf('function UnblockReqCard('),components.indexOf('// 聊天 +面板的图标'));
   assert.match(card,/maxWidth: "100%"/);
 });
+test('拉黑期间的三种反应都写普通角色气泡，仅申请本身保留卡片',async()=>{
+  for (const mode of ['mutter','angry','appeal']) {
+    const f=fixture({mode,say:['第一句','第二句'],reason:'申请理由'});
+    await f.ops.blockedReaction('c1',f.key);
+    f.box.activeRoomId='main';
+    await f.flush();
+    const speech=f.box.chatsRef.current[f.key].filter(m=>['第一句','第二句'].includes(m.content));
+    assert.equal(speech.length,2);
+    for (const m of speech) {
+      assert.equal(m.role,'assistant'); assert.equal(m.kind,undefined); assert.equal(m.read,false);
+    }
+    assert.equal(f.box.chatsRef.current[f.key].filter(m=>m.kind==='unblock_req').length,mode==='appeal'?1:0);
+    assert.equal(f.box.chatsRef.current.c1.length,1);
+  }
+});
+test('接受和拒绝解除申请的说话都走普通气泡，决定仍留在申请卡上',async()=>{
+  for (const accept of [true,false]) {
+    const f=fixture({accept,say:['角色回应']});
+    await f.ops.sendMyUnblockReq('c1','申请',f.key);
+    f.box.activeRoomId='main'; await f.flush();
+    const rows=f.box.chatsRef.current[f.key];
+    assert.equal(rows.find(m=>m.kind==='unblock_req').status,accept?'accepted':'declined');
+    const speech=rows.find(m=>m.content==='角色回应');
+    assert.equal(speech.role,'assistant'); assert.equal(speech.kind,undefined); assert.equal(speech.read,false);
+    assert.equal(f.box.chatsRef.current.c1.length,1);
+  }
+});

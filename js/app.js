@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.60";
+const APP_VERSION = "v65.61";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9730,6 +9730,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!_hasAccept(d)) return { ok: false };
     return { ok: true, accept: _yesVal(d.accept), say: Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []), d: d };
   };
+  const queueUnblockSpeech = (chatKey, says, delay) => {
+    says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), delay + i * 650));
+  };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
   const blockedReaction = async (charId, chatKey = charId) => {
     if (laneBusy("c:" + chatKey) || !active) { if (!active) toast("请先配置 API"); return; }
@@ -9739,15 +9742,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      const tag = d.mode === "angry" ? char.name + "（气愤）：" : char.name + "（自言自语）：";
-      says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "system", kind: "system", content: tag + w, ts: Date.now() }]), 250 + i * 650));
+      queueUnblockSpeech(chatKey, says, 250);
       if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   // 我处理 TA 发来的解除申请
   const respondUnblockFromChar = (charId, cid, accept, chatKey = charId) => {
     pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
-    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: "……谢谢你愿意听我说。", ts: Date.now(), read: false }]), 300); }
+    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); queueUnblockSpeech(chatKey, ["……谢谢你愿意听我说。"], 300); }
     else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
@@ -9785,9 +9787,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const says = r.say;
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
-      says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => r.accept
-        ? [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]
-        : [...p, { role: "system", kind: "system", content: char.name + "：" + w, ts: Date.now() }]), 300 + i * 650));
+      queueUnblockSpeech(chatKey, says, 300);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   const clearChat = (charId, wipeMem) => {
