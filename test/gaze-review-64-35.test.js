@@ -57,6 +57,43 @@ const seedBox = (store, over) => {
 const ALL_NULL = { me: { person: null, soft: null, like: null, recent: null, unread: null },
                    us: { what: null, how: null, marks: null, elephant: null, want: null } };
 
+test("专门复看逐块写入看过时间，不改正文、不亮更新红点", () => {
+  const {G,store,raw}=boot();seedBox(store);
+  G.markSeen("c1","me.person");
+  const before=raw().blocks['me.person'];
+  assert.equal(G.acceptReview('c1',ALL_NULL),0);
+  assert.equal(raw().blocks['me.person'].text,before.text);
+  assert.equal(raw().blocks['me.person'].ts,before.ts);
+  assert.ok(G.checkedAt('c1','me.person')>before.ts);
+  assert.equal(Object.keys(raw().checks).length,10);
+  assert.equal(G.unseenCount('c1'),0);
+});
+test("答非所问、缺项和错类型不冒充看过，验收失败不部分落盘",()=>{
+  const {G,store,raw}=boot();seedBox(store);
+  for(const result of [{},{word:['fixture']},{me:{person:'新正文'},us:{}},{...ALL_NULL,me:{...ALL_NULL.me,soft:{text:'错误'}}}]){
+    const before=store.x_gaze;
+    assert.throws(()=>G.acceptReview('c1',result),/复看结果不完整/);
+    assert.equal(store.x_gaze,before);
+  }
+  assert.equal(raw().reviewOkAt,undefined);
+});
+test("聊天明确交回相同原文算复看，不算改写或漏答",()=>{
+  const {G,store,raw}=boot();seedBox(store);
+  const before=raw().blocks['me.person'];
+  assert.equal(G.applyParsed('c1',{side:'me',block:'person',text:before.text}),true);
+  assert.ok(G.checkedAt('c1','me.person')>before.ts);
+  assert.equal(raw().hist.length,0);
+  assert.equal(raw().mute,0);
+});
+test("专门复看混合改写和没变，逐块保留各自结果",()=>{
+  const {G,store,raw}=boot();seedBox(store);
+  const data={me:{...ALL_NULL.me,person:'新的有依据的印象'},us:{...ALL_NULL.us}};
+  assert.equal(G.acceptReview('c1',data),1);
+  assert.equal(raw().blocks['me.person'].text,data.me.person);
+  assert.equal(raw().hist.length,1);
+  assert.ok(G.checkedAt('c1','us.what'));
+});
+
 test("① 全 null＝他真没什么要改的，不是失败", () => {
   const { G, store, raw } = boot();
   seedBox(store);

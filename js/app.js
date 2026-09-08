@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.66";
+const APP_VERSION = "v65.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -840,12 +840,7 @@ function App() {
       //   一句只描述「我没看懂」的错误，是个死胡同：它不含任何能往下查的东西。
       //   ⚠️所以判据是：**报错里必须带着我没看懂的那个东西本身**，不然下一轮还是这样。
       if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
-      const n = window.Gaze.review(char.id, parsed);
-      // ⚠️一块都没改【不是失败】（v64.35）：提示词里白纸黑字写着「没变就是没变，
-      //   不必为了交差改字」，模型照做了，代码这一道原来把它记成一次失败——
-      //   三次之后「试满了，往后不再自动试」，而界面上写的是「都没成」。
-      //   她看到的于是是「坏了」，其实是「他真没什么要改的」。
-      if (!n && window.Gaze.markReviewNoChange) window.Gaze.markReviewNoChange(char.id);
+      window.Gaze.acceptReview(char.id, parsed);
     } catch (e) {
       if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成");
       // 她亲手按的那一次，按下去总该立刻有回音；卡上那一行照旧留着话（v64.54）
@@ -7552,7 +7547,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   看着像「模型在想事情」的输出，先问一句这是不是这个人本来就会做的，别急着禁。
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
-      const _turnClosing = "\n【收尾·这一轮真正要做的事】上面那些字段是回完话【顺手记的账】，不是这一轮的任务。"
+      const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
@@ -7563,7 +7558,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 恰恰放在了最不响的位置。她 2026-09-05：「Ta 眼里还是不改啊看都不看的」，
       // 截图里十块全是「19 天前写的」、一块「又想了一遍」都没有——他两个字段都没填。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + (!sideRoom ? crossSamenessHint(charId) : "") + _biTurnLine + _gazeNudgeHint + _turnClosing).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + (!sideRoom ? crossSamenessHint(charId) : "") + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)

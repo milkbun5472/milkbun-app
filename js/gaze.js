@@ -100,6 +100,8 @@
     if (!imp || typeof imp !== "object") return false;
     const k = normKey(imp.side, imp.block);
     if (!k) return false;
+    const old = boxOf(load(), charId).blocks[k];
+    if (typeof imp.text === "string" && old && old.text === imp.text.trim().slice(0, 400)) return markChecked(charId, k);
     return apply(charId, k.slice(0, k.indexOf(".")), k.slice(k.indexOf(".") + 1), imp.text);
   }
   // 距上次改写过了多少轮。她 2026-08-24：「第一次我直接让他们写入他们会写,不然都不会自动弄」
@@ -437,11 +439,30 @@
   // 落地：复看写进来的和平时那个字段走同一个 apply（原文一样的会被 apply 挡掉，不算改）
   function review(charId, data) {
     let n = 0;
-    ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => { if (g[b] && apply(charId, side, b, g[b])) n++; }); });
+    ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => {
+      const k = side + "." + b;
+      if (!KEYS[k]) return;
+      const old = boxOf(load(), charId).blocks[k];
+      if (g[b] === null || (typeof g[b] === "string" && old && old.text === g[b].trim().slice(0, 400))) markChecked(charId, k);
+      else if (typeof g[b] === "string" && apply(charId, side, b, g[b])) n++;
+    }); });
     const d = load(); const box = boxOf(d, charId);
     // 真写出来了 → 次数清零，下一次冻住时还能再来一回；一块都没写 → 留着次数，三次就停手
     if (n) { box.reviewN = 0; box.reviewErr = ""; }
     d[charId] = box; persist(d, charId);
+    return n;
+  }
+  // 专门复看必须逐块交回结果；空对象、聊天 JSON、缺项或错类型都不是“没变化”。
+  function acceptReview(charId, data) {
+    const valid = data && !Array.isArray(data) && Object.keys(KEYS).every(k => {
+      const [side, block] = k.split("."), group = data[side];
+      if (!group || Array.isArray(group) || !Object.prototype.hasOwnProperty.call(group, block)) return false;
+      const value = group[block];
+      return value === null || (typeof value === "string" && value.trim() && !PLACEHOLDER[value.replace(/[·、，。\s]/g, "")]);
+    });
+    if (!valid) throw new Error("复看结果不完整：需要十块各自的正文或 null，这次未记为看过");
+    const n = review(charId, data);
+    if (!n) markReviewNoChange(charId);
     return n;
   }
 
@@ -726,6 +747,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, muteCount, plainWhy };
+  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, dueNow, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, refuseCount, reviewDue, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, muteCount, plainWhy };
   window.GazePage = GazePage;
 })();

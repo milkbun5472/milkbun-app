@@ -187,13 +187,13 @@ test("点名那一段要在整份提示词的尾巴上，不许再埋回字段�
   assert.match(app, /window\.Gaze\.spec\("对方", charId, \{ tail: true \}\)/, "线上协议还在整份 spec 里带着点名");
   const proto = app.slice(app.indexOf("const _normalProtocolStable = `"), app.indexOf("【能力使用总则】"));
   assert.ok(proto.indexOf("Gaze.nudge") < 0, "点名又被塞回协议模板中段了");
-  // 点名接在每轮任务串的尾巴上，而且在 _turnClosing 之前（那一句是这一轮的任务，得留在最后）
+  // 先收束聊天任务，再交本轮点名结果；后面不再把复看降格成可忽略的账。
   assert.match(app, /const _gazeNudgeHint = \(roomReads\("innerLife"\) && window\.ChatRooms\.canWrite\(room, "gaze"\) && !_s\.engineerEyes && window\.Gaze && window\.Gaze\.nudge\) \? window\.Gaze\.nudge\("对方", charId\) : ""/);
   const task = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint"));
   const nudge = task.indexOf("_gazeNudgeHint");
   const closing = task.indexOf("_turnClosing");
   const dict = app.indexOf("【能力字段字典】");
-  assert.ok(nudge > 0 && closing > nudge, "点名没接在任务串尾巴上，或跑到 _turnClosing 后面去了");
+  assert.ok(closing > 0 && nudge > closing, "复看结果应在聊天收尾之后交回");
   assert.ok(app.indexOf("_gazeNudgeHint = ") > dict, "点名又跑到字段字典前面去了");
   // 线下那一路照旧整份 spec（它本来就拼在最后），别顺手把它也改坏
   assert.match(app, /oCtx\.gazeSpec = .*window\.Gaze\.spec\("对方", charId\) : ""/);
