@@ -5580,8 +5580,8 @@ function Home({
           h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, opacity: .68, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, summary)),
         open ? h("div", { style: { padding: "4px 13px 14px" } }, body) : null);
     };
-    return h("div", { className: "absolute inset-0 z-50 flex flex-col",
-      style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }) },
+    return ReactDOM.createPortal(h("div", { className: "flex flex-col", "data-home-decor-editor": true,
+      style: Object.assign({}, (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }), { position: "fixed", inset: 0, zIndex: 240, overflow: "hidden" }) },
       h(Head, { zh: A.isWidget ? "摆这个组件" : A.isNew ? "做一件装饰" : "改这件装饰",
         sub: A.isWidget ? homeWidgetName(REG[A.key]) + " · 改哪一样当场就落，不用按保存"
           : A.isNew ? "挑一样东西 · 写上字 · 定个样子" : meta.name + " · 改完记得保存",
@@ -5687,7 +5687,7 @@ function Home({
       // 按钮钉在底下：不用把整页滚到尽头才够得着
       h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line, background: t.bg2 } },
         h("button", { onClick: function () { if (A.isWidget) { setStyleKey(null); setDecorStep("what"); } else if (A.isNew) addDecoration(); else { saveStyleDecoration(); setStyleKey(null); setDecorStep("what"); } }, disabled: decorBusy, className: "w-full active:opacity-70", style: { borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } },
-          A.isWidget ? "好了" : A.isNew ? "放到桌面上" : "保存")));
+          A.isWidget ? "好了" : A.isNew ? "放到桌面上" : "保存"))), document.body);
   })())
 }
 // 主页名片（v60.84 再改）——她 2026-09-03 又发来一张别家的截图：

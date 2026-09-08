@@ -18,7 +18,9 @@ const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleK
 
 test("整页，不是半窗（no-half-sheet）", () => {
   assert.ok(bare(PAGE).indexOf("h(Sheet") < 0, "又掀回半窗了");
-  assert.match(PAGE, /h\("div", \{ className: "absolute inset-0 z-50 flex flex-col"/);
+  assert.match(PAGE, /ReactDOM\.createPortal\(h\("div", \{ className: "flex flex-col"/);
+  assert.match(PAGE, /position: "fixed", inset: 0, zIndex: 240, overflow: "hidden"/);
+  assert.match(PAGE, /document\.body\)/);
   // 顶栏走公共的紧凑标题栏，别自己再写一条（mobile-ui-layout §1）
   assert.match(PAGE, /h\(Head, \{ zh: A\.isWidget \? "摆这个组件" : A\.isNew \? "做一件装饰" : "改这件装饰"/);
   assert.match(PAGE, /bg: "transparent"/, "底纹要从外壳透上来，不然顶上横一道平色带");
