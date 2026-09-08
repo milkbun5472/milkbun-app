@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.50";
+const APP_VERSION = "v65.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8221,7 +8221,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
           if (hit) playSong(hit.id);
           else if (neteaseApi) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"他自己搜歌"，做靠谱）
-            try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(want) + "&limit=1&timestamp=" + Date.now()); const dd = await r.json(); const s = dd && dd.result && dd.result.songs && dd.result.songs[0]; if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
+            try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
           }
           else toast("没找到《" + want + "》这首歌");
         }
@@ -16338,7 +16338,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let hit = lib.find(s => s.title && (s.title === tt || s.title.includes(tt) || tt.includes(s.title)));
       if (hit) playSong(hit.id);
       else if (neteaseApi) {
-        try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(tt) + "&limit=1"); const d = await r.json(); const s = d && d.result && d.result.songs && d.result.songs[0]; if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); } catch (e) {}
+        try { const s = await neteaseSearchOne(tt, { cacheBust: false }); if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); } catch (e) {}
       }
     }
     goListen();
@@ -16408,8 +16408,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const discAdd = async (cid, query, note) => {
     if (!neteaseApi) { toast("先在一起听里配置网易云 API"); return false; }
     try {
-      const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(query) + "&limit=1&timestamp=" + Date.now());
-      const d = await r.json(); const sr = d && d.result && d.result.songs && d.result.songs[0];
+      const sr = await neteaseSearchOne(query, { throwOnError: true });
       if (!sr) { toast("云村没搜到这首"); return false; }
       const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: (sr.artists || sr.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (sr.album || sr.al || {}).picUrl || null, by: "me", note: String(note || "").trim(), ts: Date.now() };
       saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: [song, ...(cur.songs || []).filter(x => x.neteaseId !== song.neteaseId)].slice(0, 30) } }; });
@@ -16555,8 +16554,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
     }).filter(s2 => s2.title);
   };
-  const neteaseSearchOne = async kw => {
-    try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(kw) + "&limit=1&timestamp=" + Date.now()); const d = await r.json(); return (d && d.result && d.result.songs && d.result.songs[0]) || null; } catch (e) { return null; }
+  // 搜第一首共用一个请求入口；提示型调用显式抛错，批量候选默认跳过失败。
+  const neteaseSearchOne = async (kw, { throwOnError = false, cacheBust = true } = {}) => {
+    try {
+      const url = neteaseApi + "/search?keywords=" + encodeURIComponent(kw) + "&limit=1" + (cacheBust ? "&timestamp=" + Date.now() : "");
+      const r = await fetch(url);
+      const d = await r.json();
+      return (d && d.result && d.result.songs && d.result.songs[0]) || null;
+    } catch (e) { if (throwOnError) throw e; return null; }
   };
   // 按【最后真进去几首】重试，不是按【模型给了几个候选】——候选到入库中间还有两道漏斗
   const collectRealSongs = async ({ probeOnce, existingIds, mkId, target, cap, rounds }) => {
@@ -18684,8 +18689,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const found = [];
       for (const q of (queries || []).slice(0, 6)) {
         try {
-          const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(q) + "&limit=1&timestamp=" + Date.now());
-          const d = await r.json(); const s = d && d.result && d.result.songs && d.result.songs[0];
+          const s = await neteaseSearchOne(q);
           if (s) found.push({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl });
         } catch (e) { }
       }
