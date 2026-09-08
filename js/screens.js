@@ -7844,21 +7844,22 @@ function SenseConfig({
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink }
-  }, "锁屏通知"), h("div", {
+  }, "后台通知（试用）"), h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 }
-  }, "角色发来消息、动态时，若你切到别处或锁了屏，弹成真·系统通知。iOS 需先把网页用 Safari「添加到主屏」、以独立 App 打开再开启。")), h(Toggle, {
+  }, "切到别处后，单聊回复按气泡通知；系统暂停或关闭网页后不保证送达。iPhone 请先添加到主屏幕并从图标打开；Android、电脑需浏览器支持并允许通知。通知可能显示聊天内容。")), h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 } }, h(Toggle, {
     on: notifOn,
     onChange: v => {
       if (!window.Notify || !window.Notify.supported()) { toast && toast("此设备/浏览器不支持通知"); return; }
       if (v) {
         window.Notify.enable().then(perm => {
-          if (perm === "granted") { setNotifOn(true); toast && toast("锁屏通知已开启～切后台也能收到"); window.Notify.test(700); }
+          if (perm === "granted") { setNotifOn(true); toast && toast("已开启，可发一条消息后切后台试试"); window.Notify.test(700); }
           else if (perm === "denied") { setNotifOn(false); toast && toast("通知被拒了：去系统/浏览器设置里手动允许"); }
           else { setNotifOn(false); toast && toast("iOS 请先「添加到主屏」，以独立 App 打开再开"); }
-        });
+        }).catch(() => { setNotifOn(false); toast && toast("开启通知没成功，请检查浏览器权限后重试"); });
       } else { window.Notify.disable(); setNotifOn(false); toast && toast("已关闭锁屏通知"); }
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  }), notifOn ? h("button", { onClick: () => window.Notify && window.Notify.test(0),
+    style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: 12, minHeight: 40 } }, "测试通知") : null)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between py-4",
     style: {
       borderBottom: `1px solid ${t.line}`

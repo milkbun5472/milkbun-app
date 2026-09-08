@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.69";
+const APP_VERSION = "v65.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -574,10 +574,16 @@ function App() {
   const [bgApiId, setBgApiId] = useState(null); // 后台机械任务专用便宜 API；空=不运行 cheap_required，绝不偷用主池
   const [activeChar, setActiveChar] = useState(null);
   const [activeRoomId, setActiveRoomId] = useState("main");
+  const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
   const [studyEntry, setStudyEntry] = useState(null);
   const [gameEntry, setGameEntry] = useState(null);
-  useEffect(() => { setActiveRoomId("main"); setChatRoomsOpen(false); }, [activeChar && activeChar.id]);
+  useEffect(() => {
+    const pending = notificationRoomRef.current;
+    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
+    notificationRoomRef.current = null;
+    setChatRoomsOpen(false);
+  }, [activeChar && activeChar.id]);
   const [activeGroup, setActiveGroup] = useState(null);
   // 记录此刻在看的聊天，供未读红点判断
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
@@ -1399,12 +1405,26 @@ function App() {
   }, []);
   // 点锁屏通知回到 app：打开对应角色的私聊（index.html 的 SW 监听里会调这个）
   useEffect(() => {
-    window.__openFromNotif = (charId, screen) => {
+    window.__openFromNotif = (charId, screen, roomId) => {
       const c = charId && characters.find(x => x.id === charId);
-      if (c) { setActiveChar(c); clearUnread(c.id); setScreen("thread"); }
+      if (charId && !c) return; // 冷启动资料未到，待下次角色列表更新重试。
+      delete window.__pendingNotif;
+      if (c) {
+        const rid = roomId || "main";
+        const target = window.ChatRooms && window.ChatRooms.get(c.id, rid);
+        if (rid !== "main" && (!target || target.id !== rid)) { toast("通知对应的房间已不存在"); return; }
+        notificationRoomRef.current = { charId: c.id, roomId: rid };
+        setActiveChar(c); setActiveRoomId(rid); setChatRoomsOpen(false);
+        clearUnread(window.ChatRooms ? window.ChatRooms.chatKey(c.id, rid) : c.id);
+        setScreen("thread");
+      }
       else if (screen) setScreen(screen);
       else setScreen("messages");
     };
+    if (window.__pendingNotif) {
+      const d = window.__pendingNotif;
+      window.__openFromNotif(d.charId, d.screen, d.roomId);
+    }
     return () => { if (window.__openFromNotif) delete window.__openFromNotif; };
   }, [characters]);
   // 本地存储写满 → saveJSON 会调这个(engine.js)，弹警告防「悄悄丢数据」；20s 内只弹一次
@@ -7985,6 +8005,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _bd = Number(opts.backdateTs) || 0;
       const _tsOf = i => (_bd && _bd < Date.now() ? Math.min(Date.now() - 1000, _bd + i * 45000) : Date.now());
       const _takeReason = () => { const r = _reasonLeft; _reasonLeft = null; return r || {}; };
+      const notifyBubble = (body, bubbleId) => {
+        if (window.Notify) window.Notify.chatBubble({
+          title: char.name + " 发来消息", body, chatKey, turnId, bubbleId,
+          charId, roomId: room && !room.main ? room.id : "main"
+        });
+      };
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
@@ -7999,9 +8025,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ..._takeReason()
         }]);
         delivered = true;
+        notifyBubble(words[i], "word-" + i);
       }
-      // 切出去/锁屏时，把这条回复弹成锁屏通知（Notify 内部判是否开启 + 是否在前台）
-      if (words.length && window.Notify) window.Notify.push({ title: char.name + " 发来消息", body: words.join(" "), tag: "chat-" + charId, charId: charId });
       // TA 甩了一张表情：按关键词匹配可用表情，作为一条 emote 消息
       const emoteKw = parsed.emote && String(parsed.emote).toLowerCase() !== "null" ? String(parsed.emote).trim() : null;
       // parsed.emote（正规渠道）+ 从文字气泡里抽出来的表情，一并发出
@@ -8016,6 +8041,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             await new Promise(r => setTimeout(r, 420));
             pChat(chatKey, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
             delivered = true;
+            notifyBubble("[表情] " + match.keyword, "emote-" + (match.id || match.keyword));
           }
         }
       }
@@ -8029,6 +8055,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const vEmo = typeof raw === "object" && raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
         pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
         delivered = true;
+        notifyBubble("[语音] " + vt, "voice-" + i);
       }
       // TA 发来一张自拍（接了图像 API + 该角色填了外貌/参考照才有）：先占位「拍照中」，异步生成后替换成真图
       // 照片：新版 photo 对象 {kind,scene}；兼容旧版 selfie 字符串（=自拍）

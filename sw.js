@@ -81,16 +81,16 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   const d = event.data || {};
   if (d.type !== "SHOW_LOCAL_NOTIFICATION") return;
-  self.registration.showNotification(d.title || "ARCHIVE", {
+  event.waitUntil(self.registration.showNotification(d.title || "秋秋机", {
     body: d.body || "",
     icon: d.icon || "icon-192.png",
     badge: "icon-192.png",
     tag: d.tag || ("archive-" + Date.now()),
     renotify: !!d.tag,
-    data: { charId: d.charId || "", screen: d.screen || "" },
+    data: { charId: d.charId || "", screen: d.screen || "", roomId: d.roomId || "main" },
     vibrate: [80, 40, 80],
     requireInteraction: false,
-  });
+  }));
 });
 
 // ===== 远程推送（若将来接了推送服务器才会走到；纯前端用不到）=====
@@ -112,16 +112,19 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const charId = (event.notification.data && event.notification.data.charId) || "";
   const screen = (event.notification.data && event.notification.data.screen) || "";
+  const roomId = (event.notification.data && event.notification.data.roomId) || "main";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
         if (c.url.startsWith(self.registration.scope)) {
-          c.focus();
-          c.postMessage({ type: "OPEN_FROM_NOTIF", charId: charId, screen: screen });
-          return;
+          return c.focus().then(() => c.postMessage({ type: "OPEN_FROM_NOTIF", charId, screen, roomId }));
         }
       }
-      return self.clients.openWindow(self.registration.scope);
+      const url = new URL(self.registration.scope);
+      if (charId) url.searchParams.set("notifChar", charId);
+      if (screen) url.searchParams.set("notifScreen", screen);
+      url.searchParams.set("notifRoom", roomId);
+      return self.clients.openWindow(url.href);
     })
   );
 });
