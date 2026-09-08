@@ -5222,7 +5222,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -5230,6 +5230,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   //   曲目单那一行要用它——引用后面的 const 会 TDZ 白屏（这一页栽过两次了）。
   const hex6 = v => /^#[0-9a-f]{6}$/i.test(String(v || ""));
   const data = listen || {};
+  const gdMusic = musicProvider === "gd";
+  const canSearch = musicReady == null ? !!apiBase : musicReady;
+  const musicRead = path => onMusicRequest ? onMusicRequest(path) : MusicSource.request({ provider: musicProvider, base: apiBase, cookie }, path);
   const songs = data.songs || [];
   const playlists = data.playlists || [];
   const partner = (characters || []).find(c => c.id === data.partnerId) || null;
@@ -5263,7 +5266,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
   // v54.51 网易云化：连了账号就以「发现」(cloud)为落地页，正在放歌仍优先回播放页；
   // 没连账号退回本地曲库(home)。四 tab：推荐 / 播放 / 我的 / 曲库
-  const [nav, setNav] = useState(now ? "play" : (apiBase ? "cloud" : "home"));
+  const [nav, setNav] = useState(now ? "play" : (canSearch ? "cloud" : "home"));
   const [addTab, setAddTab] = useState("netease"); // netease | local（搜歌在「发现」，不在这儿）
   const [link, setLink] = useState("");
   const [title, setTitle] = useState("");
@@ -5335,13 +5338,13 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   };
   useEffect(() => {
     if (!showLyric || !now || lyrics[now.id] !== undefined) return;
-    if (now.source !== "netease" || !now.neteaseId || !apiBase) { setLyrics(p => ({ ...p, [now.id]: { lines: null } })); return; }
-    fetch(apiBase + "/lyric?id=" + now.neteaseId).then(r => r.json()).then(d => {
+    if (now.source !== "netease" || !now.neteaseId || !canSearch) { setLyrics(p => ({ ...p, [now.id]: { lines: null } })); return; }
+    musicRead("/lyric?id=" + encodeURIComponent(now.gdLyricId || now.neteaseId)).then(d => {
       const raw = d && d.lrc && d.lrc.lyric;
       const lines = raw ? parseLrc(raw).filter(l => l.text) : null;
       setLyrics(p => ({ ...p, [now.id]: { lines: (lines && lines.length) ? lines : null } }));
     }).catch(() => setLyrics(p => ({ ...p, [now.id]: { lines: null } })));
-  }, [showLyric, nowId]);
+  }, [showLyric, nowId, musicProvider]);
   const lyricLines = now && lyrics[now.id] !== undefined ? lyrics[now.id].lines : undefined;
   let lyricActive = -1;
   if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
@@ -5563,6 +5566,17 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
 
   // ============ 首页 tab（浏览 + 添加 + 设置）============
   const homeTab = h("div", { className: "px-6 pb-6" },
+    h("div", { style: { padding: "14px 0", borderBottom: "1px solid " + t.line } },
+      h("label", { htmlFor: "listen-music-provider", style: { display: "block", fontFamily: F_BODY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "音乐源"),
+      h("select", { id: "listen-music-provider", value: musicProvider, style: field, onChange: e => {
+        stopQrLogin();
+        setLyrics({});
+        setCv(p => ({ ...p, me: null, daily: null, pls: null, open: null, openSongs: null, results: null, likeIds: null, fm: null, recent: null, tops: null, busy: false }));
+        onSetMusicProvider(e.target.value);
+      } }, h("option", { value: "netease" }, "网易云 · 原接口"), h("option", { value: "gd" }, "GD 音乐台 · 免 Cookie 试用")),
+      gdMusic ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 8 } },
+        h("a", { href: "https://music.gdstudio.xyz", target: "_blank", rel: "noopener noreferrer", style: { color: t.tint } }, "来源：GD 音乐台（music.gdstudio.xyz）"),
+        "。仅限非商业学习试用，五分钟最多 50 次请求。不发送你的网易云 Cookie；原接口与账号设置保留。到「发现」搜歌。") : null),
     // ⚠️v62.81 撤掉了这儿的搜索条和旁边那颗上传钮（她 2026-09-05：「发现那里显示我的账号和搜索，
     //   但是明明设置这边也可以搜索了而且还是有两次；设置这边搜索框还有个意义不明的上传件，
     //   但是添加歌曲那边也有上传本地」）。搜索只住「发现」一处；传本地只住下面「添加歌曲 · 本地」一处。
@@ -5609,7 +5623,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
               h("div", { className: "flex items-center gap-2" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, lineHeight: 1.4 } }, "只存这台设备，不上传；清缓存会没"),
                 h("button", { onClick: addLoc, disabled: !localFile, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "7px 18px", borderRadius: 10, flexShrink: 0 } }, "添加"))),
-      h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 10 } },
+      !gdMusic && h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 10 } },
         apiEdit
           ? h("div", null,
               h("input", { value: apiInput, onChange: e => setApiInput(e.target.value), placeholder: "https://你的-netease-api.vercel.app", style: Object.assign({ marginBottom: 8 }, field) }),
@@ -5619,7 +5633,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                 h("button", { onClick: () => setApiEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
           : h("button", { onClick: () => { setApiInput(apiBase || ""); setApiEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: apiBase ? t.fog : t.tint } }, apiBase ? "已连搜索接口 · 改" : "配网易云搜索接口（自部署后填地址，就能搜歌名）")),
       // 可选：网易云账号 Cookie（放 VIP 歌用）——服务端注入的可不填
-      apiBase ? h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 10, paddingTop: 10 } },
+      !gdMusic && apiBase ? h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 10, paddingTop: 10 } },
         ckEdit
           ? h("div", null,
               h("textarea", { value: ckInput, onChange: e => setCkInput(e.target.value), rows: 3, placeholder: "粘贴网易云 Cookie（一般是 MUSIC_U=…；只想放免费歌可留空）", style: Object.assign({ marginBottom: 8, resize: "vertical", lineHeight: 1.4 }, field) }),
@@ -5672,9 +5686,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     h("button", { key: "b", onClick: () => playCloud(s, o.srcId), className: "flex-1 min-w-0 active:opacity-70", style: { textAlign: "left", minHeight: 40 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云")),
-    rowBtn("heart", (cv.likeIds && cv.likeIds.has(String(s.id))) ? "solid" : t.fog, () => likeSong(s), "红心"),
+    !gdMusic ? rowBtn("heart", (cv.likeIds && cv.likeIds.has(String(s.id))) ? "solid" : t.fog, () => likeSong(s), "红心") : null,
     rowBtn("plus", t.fog, () => onAddNeteaseResult(s), "收进咱家歌库"),
-    rowBtn("cloudplus", t.tint, () => openCvAdd(s), "加进网易云歌单"),
+    !gdMusic ? rowBtn("cloudplus", t.tint, () => openCvAdd(s), "加进网易云歌单") : null,
     o.removable ? rowBtn("minus", "#a4442e", () => removeFromRealPl(o.removable, s), "从这个网易云歌单移除") : null,
     o.trash ? rowBtn("trash", t.fog, () => trashFm(s), "不喜欢，少推这类") : null,
     h("button", { key: "p", onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: t.ink, marginLeft: 2 } }, ic("play", t.bg2, 14))
@@ -5752,7 +5766,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       : h("div", null,
           // 网易云账号区（v54.51）：把她真账号的「我喜欢的音乐」和自建歌单搬进「我的」，
           // 和网易云 App 的我的页一个样；点开跳到推荐页的歌单详情（写权限都在那边）
-          (apiBase && cookie) ? h("div", { style: { marginTop: 8 } },
+          (!gdMusic && apiBase && cookie) ? h("div", { style: { marginTop: 8 } },
             h("button", { onClick: () => { setNav("cloud"); openLikePl(); }, className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ padding: "11px 13px", textAlign: "left" }) },
               h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
@@ -5791,7 +5805,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             h("button", { onClick: () => setOpenPl("__fav__"), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-80 text-left" },
               h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#8a6d3b,#cfc0a0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (!gdMusic && apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, favs.length + " 首 · 咱家歌库的收藏"))),
             h("button", { onClick: () => favs.length && onPlaySong(favs[0].id, favs.map(s => s.id)), className: "shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 18))),
           // 创建歌单
@@ -5841,10 +5855,10 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 最近播放 / 我喜欢的音乐 / 歌单建·删·移歌。读全部实时拉她账号；写（红心、加/移歌、
   // 建/删歌单、FM 垃圾桶）全部真实写回网易云，App 里立刻能看到；播放顺手 scrobble
   // 进听歌记录，账号的「最近播放」和年度报告也会算上在这儿听的歌。
-  const nj = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "cookie=" + encodeURIComponent(cookie || "") + "&timestamp=" + Date.now()).then(r => r.json());
+  const nj = u => musicRead(u);
   const toRes = s => { const info = neteaseTrackInfo(s, { preferShort: true }); return { ...info, cover: info.cover || null }; };
   useEffect(() => {
-    if ((nav !== "cloud" && nav !== "mine") || !apiBase || !cookie || cv.me) return; // 「我的」也展示账号歌单，进哪个都拉一次
+    if ((nav !== "cloud" && nav !== "mine") || gdMusic || !apiBase || !cookie || cv.me) return; // 「我的」也展示账号歌单，进哪个都拉一次
     (async () => {
       setCv(p => ({ ...p, busy: true }));
       try {
@@ -5863,9 +5877,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     })();
   }, [nav, apiBase, cookie]);
   // 播放 + scrobble：登记听歌记录是唯一让"在这儿听"反映回她账号历史的通道，失败无声跳过
-  const playCloud = (s, srcId) => { onPlayResult(s); try { nj("/scrobble?id=" + s.id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
+  const playCloud = (s, srcId) => { onPlayResult(s); if (gdMusic) return; try { nj("/scrobble?id=" + s.id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
   // 「播放全部」走整列表连播：显式队列，不再逐首收库+单放第一首（那样队列会塌成单曲循环）
-  const playAllCloud = (list, srcId) => { if (!list || !list.length) return; onPlayResultList(list); try { nj("/scrobble?id=" + list[0].id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
+  const playAllCloud = (list, srcId) => { if (!list || !list.length) return; onPlayResultList(list); if (gdMusic) return; try { nj("/scrobble?id=" + list[0].id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
   const openCloudPl = async pl => {
     setCv(p => ({ ...p, open: pl, openSongs: null }));
     try {
@@ -6019,7 +6033,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             ? h("div", null,
                 h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
                 cv.results.length ? cv.results.map((s, i2) => cloudRow(s, { no: i2 + 1 })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
-            : !cookie ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
+            : (gdMusic || !cookie) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, gdMusic ? "GD 音乐台 · 网易云曲库试用。搜歌后可播放、收藏到本地歌单；不接账号日推和私人电台。" : "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
             : h("div", null,
                 h("div", { className: "flex gap-1.5 items-end", style: { marginTop: 4 } }, cvChip("rec", "今天给你的"), cvChip("top", "大家在听")),
                 // 架板：碟插在里头。两侧是架子的挡板（细竖线），底下一道厚轨——
@@ -6098,7 +6112,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       background: hex6(t.ink) ? t.ink + "14" : t.bg } },
       // 发现：有搜索接口就开（搜歌不要账号；账号只管日推/FM/榜单）。v62.81 前要连了账号才有这一格，
       // 于是没连账号的人只能在设置里搜——搜索因此长了第二份。
-      apiBase ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
+      canSearch ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
       navBtn("home", "设置", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },

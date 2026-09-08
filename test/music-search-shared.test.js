@@ -5,8 +5,10 @@ const vm = require('node:vm');
 const app = fs.readFileSync(require('node:path').join(__dirname, '../js/app.js'), 'utf8');
 const a = app.indexOf('  const neteaseSearchOne ='), b = app.indexOf('\n  };', a) + 5;
 function fixture(fetch) {
-  const ctx = { fetch, neteaseApi: 'https://music.invalid', Date: { now: () => 123 }, encodeURIComponent };
-  vm.createContext(ctx); vm.runInContext(app.slice(a, b) + '\nthis.search = neteaseSearchOne;', ctx);
+  const ctx = { musicProvider: 'netease', fetch: async (...args) => ({ ok: true, ...await fetch(...args) }), Date: { now: () => 123 }, encodeURIComponent, Map, URL };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../js/music-source.js'), 'utf8') + '\nconst musicRequest = (path, options) => MusicSource.request({ provider: "netease", base: "https://music.invalid" }, path, options);', ctx);
+  vm.runInContext(app.slice(a, b) + '\nthis.search = neteaseSearchOne;', ctx);
   return ctx.search;
 }
 test('五条业务链共用一个请求入口，错误策略显式保留', () => {

@@ -28,7 +28,7 @@ test("四个 tab 的名字对得上它们装的东西", () => {
     "「曲库」还叫曲库——里面全是接口/Cookie/登录，真正的曲库已经搬去「我的」了");
   // v62.81：发现只要有搜索接口就开——搜歌不要账号，账号只管日推/FM/榜单。
   // 原来要连了账号才有这一格，没连账号的人只能在设置里搜，搜索因此长了第二份。
-  assert.match(NAVBAR, /apiBase \? navBtn\("cloud", "发现"/, "发现那格又要账号才开了");
+  assert.match(NAVBAR, /canSearch \? navBtn\("cloud", "发现"/, "发现那格又要账号才开了");
   assert.doesNotMatch(NAVBAR, /\(apiBase && cookie\) \? navBtn\("cloud"/);
   // 判据写进代码里，下一个人加东西时不用再想一遍
   assert.match(NAVBAR, /这首歌已经是我的了吗/, "判据没写下来");
@@ -39,9 +39,9 @@ test("「我喜欢的音乐」只剩一份", () => {
   assert.doesNotMatch(CLOUD, /"我喜欢的音乐"/, "「发现」里还摆着它——那是她已经有的东西");
   // ⚠️别去数字符串出现几次：一处是【滤掉它】的那行代码，一处是没连账号时
   //   本地收藏才顶用这个名——那两者永远不会同时出现在屏幕上。要数就数【画出来的卡】。
-  const cards = (MINE.match(/fontSize: 16, color: t\.ink \} \}, ("我喜欢的音乐"|\(apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐")/g) || []).length;
+  const cards = (MINE.match(/fontSize: 16, color: t\.ink \} \}, ("我喜欢的音乐"|\(!gdMusic && apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐")/g) || []).length;
   assert.equal(cards, 2, "画出来的卡应该正好两张：网易云那张 + 本地那张（后者只在没连账号时才叫这个名）");
-  assert.match(MINE, /\(apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐"/,
+  assert.match(MINE, /\(!gdMusic && apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐"/,
     "连了账号时本地那张必须改叫「本地收藏」，否则屏幕上两张同名卡");
   // 账号自动建的那张同名歌单必须从列表里滤掉，否则大卡底下又是同一样东西
   assert.match(MINE, /p\.mine && p\.name !== "我喜欢的音乐"/, "歌单列表没把它滤掉");

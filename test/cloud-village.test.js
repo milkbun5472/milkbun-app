@@ -41,7 +41,7 @@ test("云村的写：每一条都真实写回她的网易云账号", () => {
 
 test("播放要 scrobble 进听歌记录，失败无声跳过不打断放歌", () => {
   assert.match(seg, /\/scrobble\?id=/);
-  assert.match(seg, /playCloud = \(s, srcId\) => \{ onPlayResult\(s\); try \{ nj\("\/scrobble/, "先放歌再登记");
+  assert.match(seg, /playCloud = \(s, srcId\) => \{ onPlayResult\(s\); if \(gdMusic\) return; try \{ nj\("\/scrobble/, "先放歌，只有原接口登记账号历史");
   assert.match(seg, /\.catch\(\(\) => \{\}\); \} catch \(e\) \{\}/, "scrobble 挂了不能影响播放");
   // 行内的播放入口都要走 playCloud，不再裸调 onPlayResult
   assert.doesNotMatch(seg.slice(seg.indexOf("const cloudRow")), /onClick: \(\) => onPlayResult\(s\)/);

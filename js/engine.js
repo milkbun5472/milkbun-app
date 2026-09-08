@@ -157,7 +157,7 @@ function recordIndexForDelete(rows, id, fallbackIndex) {
 function neteaseTrackInfo(s, { preferShort = false } = {}) {
   const artists = preferShort ? (s.ar || s.artists || []) : (s.artists || s.ar || []);
   const album = preferShort ? (s.al || s.album || {}) : (s.album || s.al || {});
-  return { id: s.id, name: s.name, artist: artists.map(a => a.name).filter(Boolean).join(" / "), cover: album.picUrl };
+  return { id: s.id, name: s.name, artist: artists.map(a => a.name).filter(Boolean).join(" / "), cover: album.picUrl, ...(s.gdPicId ? { gdPicId: s.gdPicId } : {}), ...(s.gdLyricId ? { gdLyricId: s.gdLyricId } : {}) };
 }
 // 检测这个 API 支不支持 embedding（向量记忆的前提）：真调一次 /embeddings，返回 { ok, dim, model, msg }
 // 只走 openai 兼容格式（中转站基本都是这个）；anthropic 原生没 embedding、gemini 端点不同——都提示换法

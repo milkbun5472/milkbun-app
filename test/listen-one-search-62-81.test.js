@@ -27,9 +27,9 @@ test("传本地只住「添加歌曲 · 本地」一处：搜索条旁边那颗�
 
 test("搜歌住在「发现」，而且不要账号：有接口就开", () => {
   assert.match(CLOUD, /placeholder: "搜网易云全库：歌名 \/ 歌手"/, "发现页的搜索框没了");
-  assert.match(LT, /useState\(now \? "play" : \(apiBase \? "cloud" : "home"\)\)/, "落地页还按账号切");
+  assert.match(LT, /useState\(now \? "play" : \(canSearch \? "cloud" : "home"\)\)/, "落地页还按账号切");
   // 没账号：只有搜索，账号那几段换一句指路
-  assert.match(CLOUD, /: !cookie \? h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 12, color: t\.fog/, "没账号时发现页没告诉她去哪儿连账号");
+  assert.match(CLOUD, /: \(gdMusic \|\| !cookie\) \? h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 12, color: t\.fog/, "GD 与未登录模式只展示搜索");
   assert.match(CLOUD, /先能搜。到「设置」里扫码连上网易云账号/);
 });
 

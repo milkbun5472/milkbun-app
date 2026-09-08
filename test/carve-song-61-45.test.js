@@ -20,7 +20,7 @@ const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const noComment = src => src.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("普通角色：情侣 + 配了云村接口才开这一项", () => {
-  assert.match(app, /const _canCarve = !sideRoom && !!\(isCouple && neteaseApi\);/,
+  assert.match(app, /const _canCarve = !sideRoom && !!\(isCouple && musicReady\);/,
     "闸不对：没有情侣关系不该有，没配云村接口也不该有（搜不到歌，开了每轮白填）");
   assert.match(app, /if \(_canCarve\) \{ openCaps\.push\("carve"\); capState\.push\("carve：" \+ _carveWord\); \}/);
   assert.match(app, /carve:\{"song":"歌名，可带歌手","note":"刻在B面的一句话"\}/, "词表里没有这一项");
