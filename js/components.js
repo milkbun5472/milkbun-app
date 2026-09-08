@@ -830,14 +830,15 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
 function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
   const t = useTheme();
-  return h("div", { className: "fixed inset-0 z-[220] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
+  // 设置页通过 portal 挂在 body 的 240 层；确认框也离开 App 堆叠上下文，盖在设置之上。
+  return ReactDOM.createPortal(h("div", { className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 300, background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 300, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginBottom: body ? 8 : 18, textAlign: "center" } }, title),
       body ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 18 } }, body) : null,
       h("div", { className: "flex gap-3" },
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, cancelLabel || "取消"),
         // ⚠️字色是 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色，白字压上去就是白底白字
-        h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, confirmLabel || "确定"))));
+        h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, confirmLabel || "确定")))), document.body);
 }
 // ⚠️居中不许再靠 -translate-x-1/2 -translate-y-1/2（她 2026-09-01：「这种黑框一直
 //   都是在屏幕右侧出现而不是中间」）。病根：这一层自己带着 animation:fadeUp，
