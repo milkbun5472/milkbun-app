@@ -1,0 +1,31 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const engine = fs.readFileSync('js/engine.js', 'utf8');
+const app = fs.readFileSync('js/app.js', 'utf8');
+test('公共反模板规则不指定从自己的活动开场', () => {
+  const match = engine.match(/const STOCK_REPLY_BAN = (`[\s\S]*?`);/);
+  assert.ok(match);
+  const rule = new Function('return ' + match[1])();
+  assert.doesNotMatch(rule, /先从那儿起|只顺嘴讲一句你这边正在发生的事/);
+  assert.match(rule, /不预设回应顺序/);
+  assert.match(rule, /自己的活动与心情提供背景，不指定开场或话题/);
+  assert.match(rule, /不需要为每句话制造独特性/);
+  assert.match(engine, /parts\.push\(STOCK_REPLY_BAN\)/);
+  assert.match(engine, /P\.push\(STOCK_REPLY_BAN\)/);
+});
+test('状态过期不等于没有存档：保留原TTL与相同值不续命机制', () => {
+  const ttl = app.match(/const LIVE_STATE_TTL = (\{[^;]+\});/)[1];
+  const start = app.indexOf('const sameStateValue =');
+  const end = app.indexOf('// 心声历史', start);
+  const {putLiveField, freshLiveStateValue} = new Function('const LIVE_STATE_TTL = '+ttl+';'+app.slice(start,end)+'; return {putLiveField,freshLiveStateValue};')();
+  const now=100*3600000, state={};
+  putLiveField(state, {}, 'wearing', '衬衣', now);
+  putLiveField(state, {}, 'action', '看书', now);
+  assert.equal(freshLiveStateValue(state,'wearing',now+18*3600000),'衬衣');
+  assert.equal(freshLiveStateValue(state,'wearing',now+18*3600000+1),'');
+  assert.equal(freshLiveStateValue(state,'action',now+46*60000),'');
+  assert.equal(state.wearing,'衬衣');
+  const patch={}; putLiveField(patch,state,'wearing','衬衣',now+19*3600000);
+  assert.equal(patch.wearingUpdatedAt,undefined);
+});
