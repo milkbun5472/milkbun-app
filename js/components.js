@@ -804,10 +804,11 @@ function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
 }
 // 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
 //   由调用点自己决定要不要拦——这一层不替它做主。
+const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210 });
 function appDialogPortal(content, onCancel) {
   return ReactDOM.createPortal(h("div", {
     className: "fixed inset-0 flex items-center justify-center",
-    style: { zIndex: 1200, background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 },
+    style: { zIndex: APP_OVERLAY_LAYERS.dialog, background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 },
     onClick: onCancel
   }, content), document.body);
 }
@@ -857,9 +858,9 @@ function Toast({
 }) {
   const t = useTheme();
   if (!msg) return null;
-  return h("div", {
-    className: "absolute inset-0 z-[60] flex items-center justify-center pointer-events-none",
-    style: { padding: 24 }
+  return ReactDOM.createPortal(h("div", {
+    className: "fixed inset-0 flex items-center justify-center pointer-events-none",
+    style: { padding: 24, zIndex: APP_OVERLAY_LAYERS.feedback, pointerEvents: "none" }
   }, h("div", {
     className: "px-4 py-2.5 rounded-2xl text-center",
     style: {
@@ -873,7 +874,7 @@ function Toast({
       whiteSpace: "pre-wrap",
       wordBreak: "break-word"
     }
-  }, msg));
+  }, msg)), document.body);
 }
 function Toggle({
   on,

@@ -109,7 +109,8 @@ const toast = cp.slice(cp.indexOf("function Toast({"), cp.indexOf("function Togg
 test("土司居中不许再靠 transform——它跟自己的 fadeUp 抢同一个属性", () => {
   assert.ok(toast.indexOf("-translate-x-1/2") < 0, "又用 transform 居中了，fadeUp 会把它盖掉");
   assert.ok(toast.indexOf("-translate-y-1/2") < 0, "又用 transform 居中了，fadeUp 会把它盖掉");
-  assert.match(toast, /className: "absolute inset-0 z-\[60\] flex items-center justify-center pointer-events-none"/, "居中没交给外面那层 flex");
+  assert.match(toast, /className: "fixed inset-0 flex items-center justify-center pointer-events-none"/, "居中仍交给外层 flex");
+  assert.match(toast, /zIndex: APP_OVERLAY_LAYERS.feedback/);
   // 动画仍在，只是从此只有它一个人用 transform
   assert.match(toast, /animation: "fadeUp \.2s ease both"/);
   // 外层铺满整屏，不许挡住底下的操作
