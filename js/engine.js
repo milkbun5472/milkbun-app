@@ -480,11 +480,14 @@ async function fetchT(url, options, ms) {
   }
 }
 
-// v52.69 线下 wire 诊断：只在用户手动开启时抓 fetch 前的最终 body。
+// 共用请求诊断：手动开启后抓单聊及既有线下入口的最终 body，不新增调用。
 // 不记录 headers / API key；图片正文替换成占位。仅驻 window 内存，刷新即清空。
 function captureWirePayload(fmt, url, body, opts, attempt) {
-  if (typeof window === "undefined" || !window.__offlineWireCaptureEnabled || !opts || opts.wireScope !== "offline") return;
+  if (typeof window === "undefined" || !window.__offlineWireCaptureEnabled || !opts || (opts.wireScope !== "offline" && opts.tag !== "聊天")) return;
   const scrub = (key, value) => {
+    if (/^(authorization|api[_-]?key|access[_-]?token|password|secret)$/i.test(key)) return "[credential omitted]";
+    if (/^(image_url|inlineData|inline_data|fileData|file_data)$/.test(key)) return "[image omitted]";
+    if (value && typeof value === "object" && value.type === "image") return { type: "image", omitted: true };
     if (key === "data" && typeof value === "string" && value.length > 200) return "[base64 image omitted · " + value.length + " chars]";
     if (typeof value === "string" && /^data:image\//i.test(value)) return "[data image omitted · " + value.length + " chars]";
     return value;
@@ -495,9 +498,11 @@ function captureWirePayload(fmt, url, body, opts, attempt) {
     id: "wire_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
     ts: Date.now(),
     format: fmt,
-    endpoint: String(url || "").replace(/[?&]key=[^&]*/gi, ""),
+    // 诊断不需要服务地址；自定义地址的路径/查询本身也可能含凭据。
+    endpoint: "[endpoint omitted]",
+    scope: opts.wireScope === "offline" ? "offline" : "chat",
     attempt: attempt || "primary",
-    meta: opts.wireMeta || null,
+    meta: opts.wireMeta ? JSON.parse(JSON.stringify(opts.wireMeta, scrub)) : null,
     body: clean
   };
   const rows = window.__offlineWireCaptures = window.__offlineWireCaptures || [];

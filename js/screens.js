@@ -6916,6 +6916,11 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     refreshWire();
   };
   const clearWire = () => { if (typeof window !== "undefined") window.__offlineWireCaptures = []; setWireRows([]); };
+  const exportWire = async row => {
+    try {
+      await saveTextFile("聊天请求-" + row.ts + ".json", JSON.stringify(row, null, 2), "application/json");
+    } catch (e) { if (e.name !== "AbortError") window.__toast && window.__toast("导出失败，请重试"); }
+  };
   const recallLaneLabel = lane => lane === "pinned" ? "置顶直入" : lane === "association" ? "联想专座" : lane === "main" ? "主召回" : "未过准入";
   const recallReasonLabel = reason => ({
     relevance_gate: "没有词面或足够语义证据",
@@ -7023,12 +7028,12 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     h(Eyebrow, { style: { marginBottom: 8 } }, compact ? "本轮注入 · " + ((((characters || [])[0] || {}).remark) || (((characters || [])[0] || {}).name) || "当前角色") : "上下文透视"),
     h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, compact ? "刚聊完就来这里看：上面是上一轮真正选中的记忆，下面是此刻重建的完整提示词预览。" : "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
-    !compact ? h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
+    h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
       h("div", { className: "flex items-center justify-between gap-2" },
         h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "线下 wire payload · 仅本机内存"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "抓取 fetch 前最终 body；不含密钥，图片会省略。刷新 App 即清空。")),
-        h("button", { onClick: toggleWire, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "6px 10px", borderRadius: 999, background: wireOn ? t.tint : "transparent", color: wireOn ? "#fff" : t.sub, border: "1px solid " + (wireOn ? t.tint : t.line) } }, wireOn ? "抓取中" : "开始抓取")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "本轮请求诊断 · 仅本机内存"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "手动开启后记录各角色单聊及线下的最近 8 次请求（含重试），不额外调用模型。省略请求地址、认证字段与图片；仍含私聊、人设和记忆，请勿公开。重开网页后自动关闭并清空。")),
+        h("button", { onClick: toggleWire, style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, padding: "6px 10px", borderRadius: 999, background: wireOn ? t.tint : "transparent", color: wireOn ? "#fff" : t.sub, border: "1px solid " + (wireOn ? t.tint : t.line) } }, wireOn ? "停止抓取" : "开始抓取")),
       h("div", { className: "flex gap-3", style: { marginTop: 8 } },
         h("button", { onClick: refreshWire, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "刷新记录"),
         h("button", { onClick: clearWire, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")),
@@ -7045,9 +7050,10 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
       wireRows.length ? h("div", { style: { marginTop: 8 } },
         wireRows.slice().reverse().map((r, i) => h("details", { key: r.id, style: { marginTop: 6, borderTop: i ? "1px solid " + t.line : "none", paddingTop: i ? 6 : 0 } },
           h("summary", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, cursor: "pointer" } },
-            new Date(r.ts).toLocaleTimeString() + " · " + r.format + " · " + (r.meta && r.meta.transitionBefore) + "→" + (r.meta && r.meta.transitionAfter) + " · calibration=" + !!(r.meta && r.meta.calibrationInjected)),
+            new Date(r.ts).toLocaleTimeString() + " · " + (r.scope === "chat" ? "单聊" : "线下") + " · " + r.format + " · " + (r.attempt || "primary")),
+          h("button", { onClick: () => exportWire(r), style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "10px 0" } }, "导出这次请求"),
           h("pre", { style: { marginTop: 6, padding: 8, borderRadius: 8, background: t.bg, maxHeight: 280, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", fontFamily: "monospace", fontSize: 9.5, lineHeight: 1.55, color: t.sub } }, JSON.stringify(r, null, 2)))))
-      : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "暂无记录。开启后正常生成线下回复，再回来点“刷新记录”。")) : null,
+      : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "暂无记录。开启后正常聊一轮，再回来点“刷新记录”，展开对应时间的记录导出。")),
     !compact ? h(RecallShadowPanel, null) : null,
     !lockedCharId ? h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
       h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))) : null,

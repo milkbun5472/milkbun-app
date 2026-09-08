@@ -19,10 +19,10 @@ test("每个角色的聊天设置都有就地上下文诊断入口", () => {
   assert.match(app, /lockedCharId: activeChar\.id/);
 });
 
-test("角色内诊断默认锁定本人并收起全局 wire 与影子总览", () => {
+test("角色内诊断默认锁定本人，开放请求诊断并收起影子总览", () => {
   assert.match(screens, /function CtxDebug\(\{ characters, getBundle, lockedCharId, compact \}\)/);
   assert.match(screens, /const initialCid = lockedCharId \|\| null/);
-  assert.match(screens, /!compact \? h\("div", \{ style: \{ border:/);
+  assert.match(screens, /本轮请求诊断 · 仅本机内存/);
   assert.match(screens, /!compact \? h\(RecallShadowPanel, null\) : null/);
   assert.match(screens, /!lockedCharId \? h\("div", \{ className: "flex gap-2 flex-wrap"/);
 });
