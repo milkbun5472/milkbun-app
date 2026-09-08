@@ -46,9 +46,9 @@ test("没开自拍能力的角色一个字都不多发", () => {
   assert.match(seg, /\n        : "";/, "canSelfie 为假时该是空串");
 });
 
-// 它和 STOCK_REPLY_BAN 是同一条判定的两个落点，别让人以为是两套道理
-test("和「标准男友三件套」同一条判定：换个人也成立就不是你说的", () => {
-  assert.match(eng, /把这条消息原样发给她手机里【另一个人】/, "老那条还在");
+test("照片依据实际理由，不做跨人物比较", () => {
   const i = eng.indexOf("const PHOTO_NO_EXCUSE = ");
-  assert.match(eng.slice(i, eng.indexOf("`;", i)), /原样发给她手机里另一个人也成立/, "新这条要挂到同一条判定上");
+  const rule = eng.slice(i, eng.indexOf("`;", i));
+  assert.match(rule, /没有实际理由时/);
+  assert.doesNotMatch(rule, /原样发给/);
 });

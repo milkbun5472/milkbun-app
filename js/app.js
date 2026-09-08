@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.72";
+const APP_VERSION = "v65.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4045,119 +4045,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return cur.title + (cur.location ? "，在 " + cur.location : "");
     } catch (e) { return ""; }
   };
-  // ⭐批发市场（她 2026-08-25）：同一句「打雷了／好吵」发给三个人，三份回复是同一套
-  // 三拍，「嫌吵就把降噪耳机戴上」两个人一字不差。
-  // 提示词层的禁令（STOCK_REPLY_BAN）能压低概率，但压不到零——这一整轮反复验证过：
-  // **规则降概率，代码才保证**。
-  // 这里给一把代码侧的尺子：把最近半小时里【别的角色】刚说过的短句收集起来，
-  // 当作「已经被证明是通用模板」的句子发给本轮，明令不许重样。
-  // 群聊没有这个问题、也不需要这一层：群里是一次调用写完所有人，模型天然看得见彼此，
-  // 自然会岔开；单聊是几次互不知情的独立调用，谁也不知道刚才别处已经这么答过了。
-  //
-  // ⚠️v64.79 重写（她 2026-09-06 报「陆衍提到了沈屿白的羽毛球」，两人不认识、无群、
-  //   也没在记忆库里）。原来这儿收的是【别人说过的任何一句】，可上面这行注释写的是
-  //   「已经被证明是通用模板」——**代码从来没验证过那个「已经被证明」**。
-  //   于是 6~40 字的私聊原话被原样搬进另一个人的提示词。原注释里还写着
-  //   「这不是把 A 的私聊漏给 B」：是。所以那句删掉了，不是留着说它错了。
-  //   （负面清单尤其漏得狠：跟模型说「别提这个」，它照样会想起这个。）
-  //
-  // 现在【真的验一遍】：同一句话在这半小时里被【两个以上不同的角色】说过，才算模板。
-  // ⚠️这一改把隐私堵死在结构上，不是靠又加一道过滤：沈屿白独有的事实，
-  //   陆衍不可能独立地也说一模一样的一句——所以它永远进不了这张单子。
-  //   反过来，真模板（「早点休息」「怎么了」）本来就会从好几个人嘴里同时冒出来。
-  // ⚠️代价是【第一次重样放过去】：要两个人说过才算数。那是对的——
-  //   一句话只出现过一次的时候，谁也没证据说它是模板。
-  const CROSS_SAMENESS_WINDOW_MS = 30 * 60000;
-  const CROSS_SAMENESS_MIN_SPEAKERS = 2;
-  // ⚠️chats 是按 chatKey 索引的，侧房的键是「charId::room::xxx」——
-  //   直接拿 id 跟 charId 比，他自己侧房里说过的话会被当成【别人】。
-  const _ownerOfChatKey = k => (window.ChatRooms && window.ChatRooms.personFromKey) ? String(window.ChatRooms.personFromKey(k)) : String(k);
-  // 收成 line -> 说过它的角色集合；够人数的才留下，保持最后说的排在后面。
-  const _byWhom = (store, pick, minLen, maxLen) => {
-    const now = Date.now(), m = new Map();
-    Object.keys(store || {}).forEach(k => {
-      const owner = _ownerOfChatKey(k);
-      (store[k] || []).forEach(row => {
-        const t = pick(row, now);
-        if (!t || t.length < minLen || t.length > maxLen) return;
-        if (!m.has(t)) m.set(t, new Set());
-        m.get(t).add(owner);
-      });
-    });
-    return m;
-  };
-  const crossSamenessBlocklist = charId => {
-    const me = String(charId);
-    const m = _byWhom(chatsRef.current, (msg, now) => {
-      if (!msg || msg.role !== "assistant" || msg.recalled || msg.kind) return "";
-      if (!msg.ts || now - msg.ts > CROSS_SAMENESS_WINDOW_MS) return "";
-      return String(msg.content || "").replace(/\s+/g, " ").trim();
-    }, 6, 40);   // 太短没信息、太长不是模板句
-    const out = [];
-    m.forEach((whom, t) => {
-      if (whom.size < CROSS_SAMENESS_MIN_SPEAKERS) return;   // 只有一个人说过＝还不是模板，是他自己的话
-      if (whom.size === CROSS_SAMENESS_MIN_SPEAKERS && whom.has(me)) return; // 除了我只剩一个人，那也没被证明
-      out.push(t);
-    });
-    return out.slice(-8);
-  };
-  // 心声那半（v56.91）：上面这张表只收气泡，心声一层都没管——于是同一个套路在
-  // 几个角色的心声里同时长出来（她 2026-08-27：封了「回去收拾你」，全员改成「回去捏你脸」）。
-  // 心声存在 stateHist 里，不在聊天记录里，所以得单独收一遍。
-  // ⚠️心声这半也照上面那条改（v64.79）：它原来同样是「别人的任何一句都收」，
-  //   而心声比气泡更私密——它是那个人没说出口的东西。
-  const crossThoughtBlocklist = charId => {
-    const me = String(charId);
-    const m = _byWhom(stateHistRef.current, (h, now) => {
-      if (!h || !h.thought) return "";
-      if (!h.ts || now - h.ts > CROSS_SAMENESS_WINDOW_MS) return "";
-      return String(h.thought).replace(/\s+/g, " ").trim();
-    }, 6, 60);
-    const out = [];
-    m.forEach((whom, t) => {
-      if (whom.size < CROSS_SAMENESS_MIN_SPEAKERS) return;
-      if (whom.size === CROSS_SAMENESS_MIN_SPEAKERS && whom.has(me)) return;
-      out.push(t);
-    });
-    return out.slice(-6);
-  };
-  // ⭐同一【手】也算重样（v64.82，她 2026-09-06：「为什么所有人我说考试不会
-  //    他们都要 offer 来帮忙看？？就算不会也要来」）。
-  // 上面那张单子比的是【逐字】，可这一族每个人措辞都不一样（我帮你看／发我／
-  // 明天陪你弄），逐字比对一条都抓不住——同一个动作换十种说法，还是同一个模板。
-  // 所以另收一张【招式】的单子：别的角色最近半小时里已经出过这一手了，就告诉这一位。
-  // ⚠️不禁「帮忙」本身——真会那门东西的人当然可以帮。禁的是【一屋子人同时出同一手】。
-  // ⚠️只看别人、不看自己：他自己上一轮说过的，本来就该接得上。
-  const OFFER_MOVE = /(帮你看|帮你弄|发(给)?我看|给我看看|发我|我教你|我来教|我陪你|陪你弄|我来弄|我来帮|要不要我帮|我给你讲|我给你补)/;
-  const crossOfferHint = charId => {
-    const now = Date.now(), all = chatsRef.current || {};
-    const hit = Object.keys(all).some(id => String(id) !== String(charId)
-      && (all[id] || []).some(m => m && m.role === "assistant" && !m.recalled && !m.kind
-        && m.ts && now - m.ts <= CROSS_SAMENESS_WINDOW_MS && OFFER_MOVE.test(String(m.content || ""))));
-    return hit
-      ? "\n【这一手刚才别处已经有人出过了】最近半小时里，另一个角色已经对她用过【主动提出替她把这件事办了／教她／帮她看】这一招。"
-        + "同一件事上一屋子人抢着出同一手，那就说明这是【这种场合的通用反应】，不是你的。\n"
-        + "· 你要是压根不会那门东西，就别揽——直说不懂，或者干脆聊点别的。\n"
-        + "· 你要是真会，就从你自己的口气和路子进，别跟刚才那位撞同一手。\n"
-        + "· **这不是让你换一种关心**：接不接看你是谁。冷淡的、正忙的、觉得这不关你事的，不接就是对的。"
-      : "";
-  };
-  const crossSamenessHint = charId => {
-    const lines = crossSamenessBlocklist(charId);
-    const tLines = crossThoughtBlocklist(charId);
-    const oPart = crossOfferHint(charId);
-    const tPart = tLines.length
-      ? "\n【心声也别和别处重样】最近半小时里，别的角色心里已经闪过这些念头了：\n"
-        + tLines.map(t => "· " + t).join("\n")
-        + "\n同一个套路在几个人心里同时出现，说明它是【这种时候的通用心声】，不是你的。换个说法说同一件事也算重样。"
-      : "";
-    if (!lines.length) return tPart + oPart;
-    return "\n【别和刚才别处出现过的话重样】下面这些句子，最近半小时里已经在别的对话里被说过了（谁说的不重要，别去猜、更别提起）：\n"
-      + lines.map(t => "· " + t).join("\n")
-      + "\n它们会重复出现，恰恰因为它们是【这种时候的通用模板】。本轮不许照搬，也不许换个说法说同一件事。"
-      + "你想到的第一句要是落在这张单子上，那多半不是你要说的话，重想一句真正属于你此刻的。"
-      + tPart + oPart;
-  };
   // ⭐NPC（她 2026-08-25）：只在群里出场的配角，没有单聊、没有心情好感、不进任何后台循环。
   // 它们和真角色存在同一个 characters 里——群聊、记忆库、印象卡、头像全是绕着这张表转的，
   // 另起一张表等于把这些全部重写一遍。区别只是【关掉几个开口】。
@@ -7507,7 +7394,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
-      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
+      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = sideRoom ? (roomStatesRef.current[chatKey] || {}) : (statesRef.current[charId] || {});
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
@@ -7557,7 +7444,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + (!sideRoom ? crossSamenessHint(charId) : "") + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)

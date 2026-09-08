@@ -80,5 +80,5 @@ test("禁模板那条里不许再给「允许写什么」的具体样子", () =>
   const rule = engine.slice(i, engine.indexOf("`;", i));
   assert.ok(!/爱操心|爱做饭|爱指挥/.test(rule),
     "整段都在禁模板，唯一那处「允许写什么」的例子会成为里面唯一可复制的东西");
-  assert.match(rule, /还是只有你会说的那一句/, "换成维度和判据");
+  assert.match(rule, /普通的附和、短答和常见表达可以自然出现/, "允许普通回应，不给可抄台词");
 });

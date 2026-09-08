@@ -14,7 +14,7 @@ const app = R("app.js"), eng = R("engine.js");
 const taskV2 = app.slice(app.indexOf("const _normalTaskV2 = ("), app.indexOf("const _roomHint")).trim();
 const endsWithClosing = () => {
   assert.match(taskV2, /\+ _turnClosing \+ _gazeNudgeHint\)\.replace\(\/用户\/g, uName\);$/, "聊天收尾后应交回复看结果");
-  assert.match(taskV2, /crossSamenessHint\(charId\)/, "禁用词表那一层掉了");
+  assert.doesNotMatch(taskV2, /crossSamenessHint/, "不再比较其他聊天");
   assert.match(taskV2, /_biTurnLine/, "双语那一层掉了");
 };
 

@@ -19,7 +19,7 @@ test("霸总【语气】禁令要单独站着，不许再埋在行程块里当�
   assert.match(rule, /听话/);
   assert.match(rule, /禁的是【现成模子】，不是强势的人物/, "不许把它写成『一律温柔』的新模板");
   // 判据要可判定，不能只是「别霸总」
-  assert.match(rule, /换成【另一个同样强势的角色】说，一个字都不用改也成立/);
+  assert.match(rule, /判断依据是当前人物、关系和处境/);
   // 行程块里那句从句必须不再是唯一载体：schedNow 为空时整段不 push，
   // 从前它就跟着一起消失了。
   const sched = engine.slice(engine.indexOf("今天的行程 / 此刻在做什么"), engine.indexOf("今天的行程 / 此刻在做什么") + 900);
