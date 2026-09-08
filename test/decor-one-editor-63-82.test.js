@@ -37,7 +37,8 @@ test("组件不再有自己那张半窗，跟装饰走同一页", () => {
   assert.match(PAGE, /allowNative: !!A\.isWidget/);
   assert.match(comp, /preset: widgetStyles\[key\] \|\| "native"/);
   // 组件档里，装饰内容那一侧的三样一律不画（摆一个按了没反应的钮，比没有还糟）
-  assert.match(comp, /ground: null, setGround: null, align: "left", setAlign: null, mark: "", setMark: null/);
+  assert.match(comp, /ground: L\.ground \|\| null, setGround: function \(v\) \{ setWidgetLook\(key, \{ ground: v \}\); \}/);
+  assert.match(comp, /align: "left", setAlign: null, mark: "", setMark: null/);
   assert.match(comp, /gridTemplateColumns: onAlign \? "1fr 1\.25fr" : "1fr"/);
 });
 
@@ -46,7 +47,7 @@ test("材质那一层组件也用得上，但只在她真调过之后才套", ()
   assert.equal((bare(comp).match(/homeDecorMaterialStyle\(/g) || []).length, 3, "材质又被抄了一份");
   // ⚠️那个函数是无条件给 border 赋值的，喂空对象等于给全桌面每个组件凭空画一圈边
   assert.match(comp, /\(it\.kind === "widget" && widgetLooks\[key\]\) \? lookOf\(key\) : null/);
-  assert.match(comp, /if \(it\.kind === "widget"\) delete presetStyle\.textAlign;/);
+  assert.match(comp, /if \(it\.kind === "widget"\) \{ delete presetStyle\.textAlign;/);
   // 全是默认值就把这一栏删掉，别攒成坟场
   assert.match(comp, /if \(empty\) delete n\[key\]; else n\[key\] = cur;/);
 });

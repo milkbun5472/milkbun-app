@@ -1153,7 +1153,8 @@ function GlassCard({
       border: "1px solid rgba(255,255,255," + (onWall ? "0.72" : "0.58") + ")",
       borderRadius: 22,
       boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
-      ...style
+      ...style,
+      ...(t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {})
     }
   }, children);
 }
@@ -3234,6 +3235,13 @@ function decorGroundStyle(item) {
   var col = typeof g === "string" ? g : g.color;
   return col ? { background: col, backgroundImage: "none" } : null;
 }
+function homeWidgetGroundTheme(t, ground) {
+  var color = typeof ground === "string" ? ground : ground && ground.color;
+  if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return t;
+  var dark = decorGroundDark({ ground: color });
+  return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color,
+    ink: dark ? "#fffaf1" : "#24231f", sub: dark ? "#e0dbd2" : "#55534e", fog: dark ? "#c5c0b8" : "#716e67" });
+}
 function normalizeHomeDecorTilt(value) {
   var n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -4139,6 +4147,9 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
           style: { width: 29, height: 29, borderRadius: 999, background: g.swatch || g.id, border: active ? "3px solid " + t.ink : "2px solid " + t.bg2,
             boxShadow: active ? "0 0 0 2px " + t.bg2 + ",0 0 0 3px " + t.ink : "0 0 0 1px " + t.line } });
       }),
+      h("label", { style: { position: "relative", width: 32, height: 32, borderRadius: 999, overflow: "hidden", background: gCol || t.accent, border: "1px solid " + t.line } },
+        h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(gCol) ? gCol : "#f3ece0", "aria-label": "自定义底色", onChange: function (e) { onGround({ color: e.target.value }); }, style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: .01 } }),
+        h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", pointerEvents: "none", textShadow: "0 1px 3px #333" } }, "+")),
       onGroundPhoto ? h("label", { style: { height: 29, borderRadius: 999, padding: "0 11px", display: "inline-flex", alignItems: "center",
           border: "1px solid " + (gImg ? t.ink : t.line), background: gImg ? t.ink : t.bg2, color: gImg ? t.bg2 : t.ink,
           fontFamily: F_BODY, fontSize: 10.5, opacity: busy ? .5 : 1 } },
@@ -4146,7 +4157,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
         h("input", { type: "file", accept: "image/*", style: { display: "none" }, disabled: !!busy,
           onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onGroundPhoto(f); } })) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } },
-      "换的只是这一件最外面那层底；齿孔、夹子、白边、轴杆这些照旧。"),
+      onGroundPhoto ? "换的只是这一件最外面那层底；齿孔、夹子、白边、轴杆这些照旧。" : "整张卡的底色，选「原样」恢复。"),
     h("div", { style: { height: 1, background: t.line, margin: "15px 0" } })) : null;
   return h("div", { style: { marginTop: 17, padding: 13, borderRadius: 17, background: t.bg, border: "1px solid " + t.line } },
     groundRow,
@@ -4653,7 +4664,7 @@ function Home({
       else if (it.kind === "decor") inner = it.which === "shortcut"
         ? h("button", { onClick: function () { if (!editMode) onOpenApp(it.decor.detail || "memo"); }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
         : h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
-    return inner;
+    return it.kind === "widget" ? h(ThemeContext.Provider, { value: homeWidgetGroundTheme(t, lookOf(key).ground) }, inner) : inner;
   }
   function lookOf(key) { var v = widgetLooks[key]; return v && typeof v === "object" ? v : {}; }
   function setWidgetLook(key, patch) {
@@ -4661,7 +4672,7 @@ function Home({
       var n = Object.assign({}, prev), cur = Object.assign({}, n[key] || {}, patch || {});
       // 全都是默认值就把这一栏删掉，别留一堆空壳攒成坟场（贴纸那一处同一个写法）
       var empty = (!cur.surface || cur.surface === "paper") && (!cur.borderMode || cur.borderMode === "line")
-        && !cur.accent && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
+        && !cur.accent && !cur.ground && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
       if (empty) delete n[key]; else n[key] = cur;
       saveJSON("x_homeWidgetLooks", n); return n;
     });
@@ -4811,10 +4822,8 @@ function Home({
         accent: L.accent || HOME_DECOR_ACCENTS[0], setAccent: function (v) { setWidgetLook(key, { accent: v }); },
         tilt: normalizeHomeDecorTilt(L.tilt), setTilt: function (v) { setWidgetLook(key, { tilt: v }); },
         badge: L.badge || "", setBadge: function (v) { setWidgetLook(key, { badge: v }); },
-        // 这三样是装饰内容那一侧的（底画在装饰自己那张图上、对齐管的是装饰的正文、
-        // 印字是印在装饰的图上）。组件没有这些，传 null 让编辑器整段不画——
-        // 摆一个按了没反应的钮，比没有还糟。
-        ground: null, setGround: null, align: "left", setAlign: null, mark: "", setMark: null,
+        ground: L.ground || null, setGround: function (v) { setWidgetLook(key, { ground: v }); },
+        align: "left", setAlign: null, mark: "", setMark: null,
         preset: widgetStyles[key] || "native", setPreset: function (id) { setWidgetPreset(key, id); },
         size: widgetSizes[key] || "auto", setSize: function (id) { setWidgetSize(key, id); }
       });
@@ -5345,7 +5354,7 @@ function Home({
       }, homeDecorMaterialStyle(look, t, presetId));
       // 文字对齐是装饰那一侧的事（装饰的正文是这一层画的）；组件自己画自己的字，
       // 在外壳上按一个 textAlign 只会把人家本来居中的字推到左边。
-      if (it.kind === "widget") delete presetStyle.textAlign;
+      if (it.kind === "widget") { delete presetStyle.textAlign; Object.assign(presetStyle, decorGroundStyle(look)); }
       if (look.badge) {
         inner = h("div", { style: { width: "100%", height: "100%", minWidth: 0, minHeight: 0, position: "relative" } },
           inner,
@@ -5547,7 +5556,7 @@ function Home({
       // 组件跟桌面上那一格用同一条闸：她没调过就不套这一层，
       // 否则预览里凭空多一圈边，放回桌面又没有——预览就骗人了。
       (A.isWidget && !widgetLooks[A.key]) ? null : homeDecorMaterialStyle(PV, t, A.preset));
-    if (A.isWidget) delete pvShell.textAlign;
+    if (A.isWidget) { delete pvShell.textAlign; Object.assign(pvShell, decorGroundStyle(PV)); }
     var pickableFrames = homePhotoFramePickable();
     var frames = decorFrameAll ? pickableFrames : pickableFrames.slice(0, 8);
     var meta = homeDecorMeta(A.type);
@@ -5645,7 +5654,7 @@ function Home({
             h(HomeDecorAppearanceEditor, {
               surface: A.surface, borderMode: A.borderMode, accent: A.accent,
               ground: A.ground, onGround: A.setGround,
-              onGroundPhoto: function (f) { takeDecorGround(f, A.target); },
+              onGroundPhoto: A.isWidget ? null : function (f) { takeDecorGround(f, A.target); },
               busy: decorBusy,
               align: A.align, badge: A.badge, mark: A.mark, tilt: A.tilt,
               onSurface: A.setSurface, onBorderMode: A.setBorderMode, onAccent: A.setAccent,
