@@ -1415,24 +1415,6 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
   const [query, setQuery] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const importRef = useRef(null), importLock = useRef(false);
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState("");
-  const importDocument = async e => {
-    const input = e.target, file = input.files && input.files[0];
-    input.value = "";
-    if (!file || importLock.current) return;
-    importLock.current = true; setImporting(true); setImportError("");
-    try {
-      if (!/\.(docx|txt)$/i.test(file.name || "")) throw new Error("请选择 .docx 或 .txt 文件");
-      if (file.size > 20 * 1024 * 1024) throw new Error("文件超过 20 MB，请拆小后导入");
-      const payload = await readOfflineStyleDocument(file);
-      if (!payload.trim()) throw new Error("文件里没有可导入的文字");
-      setEditing({ __new: true, charIds: [], title: file.name.replace(/\.(docx|txt)$/i, "").trim() || "导入设定", payload });
-    } catch (err) {
-      setImportError(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "文件"));
-    } finally { importLock.current = false; setImporting(false); }
-  };
   const list = entries || [];
   const enabledN = list.filter(e => e.enabled !== false && String(e.payload || "").trim()).length;
   const constantN = list.filter(e => e.enabled !== false && (e.alwaysOn || !String(e.keyword || "").trim())).length;
@@ -1501,10 +1483,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
       h("section", { style: { padding: "14px 0 13px", borderBottom: "1px solid " + t.line } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
           "一条设定要盖够章才送得出去：给谁看、什么时候翻出来、去哪几处，三样都对上才会进上下文。"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻"),
-        h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { marginTop: 10, minHeight: 40, padding: "8px 12px", border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, importing ? "正在读取…" : "导入文件 · DOCX / TXT"),
-        h("input", { ref: importRef, type: "file", accept: ".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importDocument }),
-        importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻")),
       // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
       h("section", { style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
         h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
@@ -1526,7 +1505,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
           h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条")))),
     editing && h(WorldBookEntryPage, {
-      entry: editing.__new ? { charIds: editing.charIds, title: editing.title || "", payload: editing.payload || "" } : editing, characters: characters, onClose: () => setEditing(null),
+      entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
@@ -1541,6 +1520,24 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     return base;
   });
   const [error, setError] = useState("");
+  const importRef = useRef(null), importLock = useRef(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const importDocument = async e => {
+    const input = e.target, file = input.files && input.files[0];
+    input.value = "";
+    if (!file || importLock.current) return;
+    importLock.current = true; setImporting(true); setImportError("");
+    try {
+      if (!/\.(docx|txt)$/i.test(file.name || "")) throw new Error("请选择 .docx 或 .txt 文件");
+      if (file.size > 20 * 1024 * 1024) throw new Error("文件超过 20 MB，请拆小后导入");
+      const payload = await readOfflineStyleDocument(file);
+      if (!payload.trim()) throw new Error("文件里没有可导入的文字");
+      setF(current => ({ ...current, title: file.name.replace(/\.(docx|txt)$/i, "").trim() || "导入设定", payload }));
+    } catch (err) {
+      setImportError(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "文件"));
+    } finally { importLock.current = false; setImporting(false); }
+  };
   const set = p => setF(x => Object.assign({}, x, p));
   const toggleChar = id => setF(x => { const has = (x.charIds || []).includes(id); return Object.assign({}, x, { charIds: has ? x.charIds.filter(i => i !== id) : [...(x.charIds || []), id] }); });
   const setScope = k => setF(x => Object.assign({}, x, { scope: Object.assign({ chat: true }, x.scope, { [k]: !(x.scope && x.scope[k]) }) }));
@@ -1566,8 +1563,10 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   // 底走 binderSkin —— 这一张就是从那本活页夹里抽出来的，材质得是同一张纸。
   return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
-      right: onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
+      right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
+    h("input", { ref: importRef, type: "file", accept: ".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
+    importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索，不改变模型权重"),
     h("input", { value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
     h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),

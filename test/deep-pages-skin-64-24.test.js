@@ -39,7 +39,8 @@ test("世界书词条编辑：半窗改成整页", () => {
   assert.match(page, /h\(Head, \{ zh: isNew \? "新建设定" : "编辑设定"[^\n]*bg: "transparent"/);
   assert.match(page, /className: "flex-1 min-h-0 overflow-y-auto px-5"/);
   // 删除键从原来那条自写标题栏挪进 Head 的右格，没丢
-  assert.match(page, /right: onDelete \? h\("button", \{ onClick: onDelete/);
+  assert.match(page, /right: isNew \? h\("button"/);
+  assert.match(page, /: onDelete \? h\("button", \{ onClick: onDelete/);
 });
 
 test("底换了，压在上面的那张汇总卡也得跟着换", () => {

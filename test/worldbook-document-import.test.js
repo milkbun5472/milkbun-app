@@ -3,15 +3,15 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
-const start = src.indexOf("  const importDocument = async e => {", src.indexOf("function WorldBook("));
+const start = src.indexOf("  const importDocument = async e => {", src.indexOf("function WorldBookEntryPage("));
 const end = src.indexOf("\n  };", start);
 assert.ok(start > 0 && end > start);
 const body = src.slice(start, end + 5);
-function fixture(reader = async file => file.text()) {
-  let draft = null, error = "", busy = false;
+function fixture(reader = async file => file.text(), initial = null) {
+  let draft = initial, error = "", busy = false;
   const lock = { current: false };
-  const run = new Function("importLock", "setImporting", "setImportError", "setEditing", "readOfflineStyleDocument",
-    body + "\nreturn importDocument;")(lock, x => { busy = x; }, x => { error = x; }, x => { draft = x; }, reader);
+  const run = new Function("importLock", "setImporting", "setImportError", "setF", "readOfflineStyleDocument",
+    body + "\nreturn importDocument;")(lock, x => { busy = x; }, x => { error = x; }, x => { draft = x(draft); }, reader);
   const input = file => ({ target: { files: file ? [file] : [], value: "selected" } });
   return { run, input, state: () => ({ draft, error, busy }) };
 }
@@ -22,7 +22,7 @@ test("TXT 与 DOCX 经公共解析器进入草稿，不自动保存", async () =
     const file = { name, size: 100 }, e = f.input(file);
     await f.run(e);
     assert.equal(parsed, file); assert.equal(e.target.value, "");
-    assert.deepEqual(f.state(), { draft: { __new: true, charIds: [], title: "城邦", payload: "第一段\n第二段" }, error: "", busy: false });
+    assert.deepEqual(f.state(), { draft: { title: "城邦", payload: "第一段\n第二段" }, error: "", busy: false });
     assert.doesNotMatch(body, /onSave\(|saveJSON\(/);
   }
 });
@@ -51,8 +51,24 @@ test("取消文件选择不改变草稿或状态", async () => {
   assert.deepEqual(f.state(), { draft: null, error: "", busy: false });
 });
 test("导入草稿完整传入现有编辑页，保留角色与去向确认", () => {
-  assert.match(src, /title: editing\.title \|\| "", payload: editing\.payload \|\| ""/);
+  assert.match(body, /setF\(current => \(\{ \.\.\.current, title:/);
   assert.match(src, /importError && h\("div", \{ role: "alert"/);
   assert.match(src, /onChange: importDocument/);
   assert.match(src, /scope: \{ chat: true, subjects: false/);
+});
+test("导入只更新标题正文，保留已经选择的角色、关键词与去向", async () => {
+  const initial = { charIds: ["c1"], scope: { chat: false, study: true }, keyword: "城邦", alwaysOn: false, category: "地点" };
+  const f = fixture(async () => "新正文", initial);
+  await f.run(f.input({ name: "新标题.txt" }));
+  assert.deepEqual(f.state().draft, { ...initial, title: "新标题", payload: "新正文" });
+});
+test("目录不摆导入入口，新建页通过公共顶栏右侧导入，旧词条仍能删除", () => {
+  const a = src.indexOf("function WorldBook("), b = src.indexOf("function WorldBookEntryPage(", a);
+  const list = src.slice(a,b), page = src.slice(b,src.indexOf("\nfunction ",b+1));
+  assert.doesNotMatch(list, /importDocument|importRef|导入文件/);
+  assert.match(page, /h\(Head, \{ zh: isNew \? "新建设定"/);
+  assert.match(page, /right: isNew \? h\("button"/);
+  assert.match(page, /importing \? "读取中" : "导入"/);
+  assert.match(page, /onDelete \? h\("button", \{ onClick: onDelete/);
+  assert.match(page, /minWidth: 40, minHeight: 40/);
 });
