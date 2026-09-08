@@ -78,6 +78,7 @@ test("可选相框先过滤退役款，再默认只露八种", () => {
 
 test("按钮钉在底下，不用把整页滚到尽头才够得着", () => {
   const foot = PAGE.slice(PAGE.indexOf("// 按钮钉在底下"));
+  assert.match(foot, /style: Object\.assign\(\{\}, typeof pageSkin === "function" \? pageSkin\("paper", t\)/, "保存栏连底部留白共用整页纸底");
   assert.match(foot, /paddingBottom: "calc\(env\(safe-area-inset-bottom\) \* 0\.4 \+ 14px\)"/,
     "底部安全区只吃 0.4 条（mobile-ui-layout §2）");
   // 新建按「放到桌面上」，重改按「保存」——同一颗键，两种活

@@ -5709,7 +5709,7 @@ function Home({
         A.isWidget ? h("button", { onClick: function () { setStyleKey(null); setDecorStep("look"); setEditMode(true); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "去整理位置")
           : !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
-      h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line, background: t.bg2 } },
+      h("div", { className: "shrink-0", style: Object.assign({}, typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }, { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line }) },
         h("button", { onClick: function () { if (A.isWidget) { setStyleKey(null); setDecorStep("what"); } else if (A.isNew) addDecoration(); else { saveStyleDecoration(); setStyleKey(null); setDecorStep("what"); } }, disabled: decorBusy, className: "w-full active:opacity-70", style: { borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } },
           A.isWidget ? "好了" : A.isNew ? "放到桌面上" : "保存"))), document.body);
   })())
