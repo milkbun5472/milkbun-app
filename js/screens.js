@@ -5842,7 +5842,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 建/删歌单、FM 垃圾桶）全部真实写回网易云，App 里立刻能看到；播放顺手 scrobble
   // 进听歌记录，账号的「最近播放」和年度报告也会算上在这儿听的歌。
   const nj = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "cookie=" + encodeURIComponent(cookie || "") + "&timestamp=" + Date.now()).then(r => r.json());
-  const toRes = s => ({ id: s.id, name: s.name, artist: ((s.ar || s.artists || []).map(a => a.name).filter(Boolean).join(" / ")), cover: ((s.al || s.album || {}).picUrl || null) });
+  const toRes = s => { const info = neteaseTrackInfo(s, { preferShort: true }); return { ...info, cover: info.cover || null }; };
   useEffect(() => {
     if ((nav !== "cloud" && nav !== "mine") || !apiBase || !cookie || cv.me) return; // 「我的」也展示账号歌单，进哪个都拉一次
     (async () => {

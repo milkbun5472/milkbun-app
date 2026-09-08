@@ -58,7 +58,7 @@ test("设置页是唱机背后那块板：直角、刻线、螺丝、槽", () =>
 test("发现那一页是新到架：碟朝前立着，封面真的画出来了", () => {
   const row = scr.slice(scr.indexOf("const cloudRow = (s, opts)"), scr.indexOf("const cvChip ="));
   // 封面一直在手里（toRes 带 cover），原来从来没画出来过
-  assert.match(scr, /const toRes = s => \(\{ id: s\.id, name: s\.name[\s\S]{0,120}?cover: \(\(s\.al \|\| s\.album \|\| \{\}\)\.picUrl \|\| null\)/);
+  assert.match(scr, /const toRes = s => \{ const info = neteaseTrackInfo\(s, \{ preferShort: true \}\); return \{ \.\.\.info, cover: info.cover \|\| null \}; \};/);
   assert.match(row, /width: 44, height: 44, borderRadius: 3/, "碟没有封面那一格");
   assert.match(row, /s\.cover \? null : ic\("note", t\.fog, 16\)/, "没封面的碟得有个退路，不能是白框");
   // 和「我的」那边的碟套同一个形状——全 app 一个形状
