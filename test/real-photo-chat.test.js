@@ -68,7 +68,8 @@ test("单人和群线下都能展示真图，并只临时附最近两张给模�
   // v57.79 起这个抽屉不只「给 Ta 看一张」，还能【当场拍一张】，所以标题改成了「照片」。
   // 别再冻标题那几个字——要守的是【两处线下都有这么一个能选图、能发出去的抽屉】。
   assert.equal((components.match(/photoOpen && sheet\("照片",/g) || []).length, 2, "单人线下和群线下各要有一个照片抽屉");
-  assert.equal((components.match(/onClick: sendPhoto, disabled: !photoImg \|\| sending/g) || []).length, 2, "两处都要有真正发出去的那个按钮");
+  assert.equal((components.match(/h\(OfflinePhotoPicker, /g) || []).length, 2, "两处都接公共照片表单");
+  assert.equal((components.match(/onClick: sendPhoto, disabled: !photoImg \|\| sending/g) || []).length, 1, "发送按钮实现只保留一份");
   assert.match(app, /const offImageDataUrls = \[\]/);
   assert.match(app, /const gOffImageDataUrls = \[\]/);
   assert.match(app, /filter\(m => m && m\.kind === "photo" && m\.imageRef\)\.slice\(-2\)/);
