@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
-const start = comp.indexOf("function MuyuWidget({ editMode })");
+const start = comp.indexOf("function MuyuWidget(");
 const end = comp.indexOf("// 情侣空间轮播组件", start);
 assert.ok(start > 0 && end > start, "抠不出木鱼组件");
 const muyu = comp.slice(start, end);

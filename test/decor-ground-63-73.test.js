@@ -120,5 +120,5 @@ test("底图走图库只存门牌——base64 塞进 x_ 键会把 5MB 池子撑�
   assert.match(f, /\{ imageRef: ref \}/);
   assert.match(f, /装饰是 x_ 键/, "为什么不能直接塞，写在代码里");
   // 收图失败要说一声，不能静默
-  assert.match(f, /toast\("这张图没能当上底"\)/);
+  assert.match(f, /toast\("这张图没能保存，请重新选一张"\)/);
 });

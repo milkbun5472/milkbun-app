@@ -1,6 +1,47 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const src=fs.readFileSync('js/components.js','utf8');
 const cut=(a,b)=>src.slice(src.indexOf(a),src.indexOf(b,src.indexOf(a)));
+const fn=n=>{const i=src.indexOf('function '+n+'(');return src.slice(i,src.indexOf('\n}',i)+2)};
+test('图片底到达真实卡片，贴合框裁掉外角',()=>{
+  const c={resolveImg:ref=>ref==='iv_fixture'?'data:image/png;base64,fixture':'',useOnWallpaper:()=>false,glassFill:()=>({background:'white'}),React:{createElement:(tag,props)=>({tag,props})}};
+  vm.createContext(c);vm.runInContext(fn('decorGroundStyle')+'\n'+fn('homeWidgetGroundTheme')+'\n'+fn('homeWidgetPresetStyle')+'\n'+cut('function GlassCard(', '// ============================================================\n// HOME'),c);
+  const base={ink:'#111111'};
+  const theme=c.homeWidgetGroundTheme(base,{imageRef:'iv_fixture'});c.useTheme=()=>theme;
+  const card=c.GlassCard({style:{background:'pink'}});
+  assert.match(card.props.style.backgroundImage,/data:image\/png/);
+  assert.equal(card.props.style.backgroundSize,'cover');
+  assert.equal(c.homeWidgetGroundTheme(base,{imageRef:'missing'}),base);
+  const fit=c.homeWidgetPresetStyle('fit',base,'widget');
+  assert.equal(fit.padding,0);assert.equal(fit.borderRadius,22);assert.equal(fit.overflow,'hidden');
+});
+test('敲击图片独立保存并能恢复木鱼，实际敲击仍写原计数',()=>{
+  let state={},saved;
+  const c={setWidgetLooks:fn=>state=fn(state),saveJSON:(key,value)=>{assert.equal(key,'x_homeWidgetLooks');saved=value},normalizeHomeDecorTilt:()=>0};
+  vm.createContext(c);vm.runInContext(cut('  function setWidgetLook(', '  function setWidgetPreset('),c);
+  c.setWidgetLook('muyu',{tapImageRef:'iv_fixture'});assert.equal(saved.muyu.tapImageRef,'iv_fixture');
+  c.setWidgetLook('muyu',{tapImageRef:null});assert.equal(saved.muyu,undefined);
+  let stored,idx=0;const values=[];
+  Object.assign(c,{useTheme:()=>({}),resolveImg:()=>'/fixture.png',useState:init=>{const i=idx++;values[i]=typeof init==='function'?init():init;return[values[i],v=>values[i]=typeof v==='function'?v(values[i]):v]},useRef:()=>({current:null}),useEffect:()=>{},localStorage:{getItem:()=>null,setItem:(key,value)=>{assert.equal(key,'x_muyu');stored=JSON.parse(value)}},setTimeout:()=>1,clearTimeout:()=>{},navigator:{},h:(tag,props,...children)=>({tag,props,children}),F_BODY:'serif',F_MONO:'monospace'});
+  c.F_DISPLAY='serif';vm.runInContext(fn('MuyuWidget'),c);
+  const tree=c.MuyuWidget({imageRef:'iv_fixture'});
+  const nodes=[];const walk=n=>{if(!n||typeof n!=='object')return;if(Array.isArray(n))return n.forEach(walk);nodes.push(n);walk(n.children)};walk(tree);
+  assert.equal(nodes.find(n=>n.tag==='img').props.src,'/fixture.png');
+  assert.equal(nodes.some(n=>n.tag==='svg'),false);
+  tree.props.onClick();tree.props.onClick();assert.equal(stored.total,2);
+  idx=0;const editing=c.MuyuWidget({editMode:true,imageRef:'iv_fixture'});editing.props.onClick();assert.equal(stored.total,2);
+  idx=0;nodes.length=0;walk(c.MuyuWidget({}));assert.ok(nodes.some(n=>n.tag==='svg'));
+  assert.match(src,/imageRef: lookOf\(key\)\.tapImageRef/);
+});
+test('上传共用入库路径，透明敲击图片不转 JPEG，失败不覆盖原设置',async()=>{
+  const busy=[],out=[],errors=[];
+  const c={setDecorBusy:v=>busy.push(v),resizeImageAlpha:async()=> 'alpha',resizeImageFile:async()=> 'jpeg',imgToVault:async data=>'iv_'+data,toast:v=>errors.push(v)};
+  vm.createContext(c);vm.runInContext(cut('  async function takeDecorGround(', '  // 贴纸的图走'),c);
+  await c.takeDecorGround({},'style',ref=>out.push(ref),true);
+  await c.takeDecorGround({},'style',ref=>out.push(ref));
+  assert.deepEqual(out,['iv_alpha','iv_jpeg']);
+  c.imgToVault=async()=>{throw Error('fixture')};await c.takeDecorGround({},'style',ref=>out.push(ref));
+  assert.equal(out.length,2);assert.equal(errors.length,1);assert.equal(busy.at(-1),false);
+});
 test('组件底色主题不改原主题，深浅字色与恢复原样',()=>{
   const c={};vm.createContext(c);
   vm.runInContext(cut('function decorGroundDark(', 'function normalizeHomeDecorTilt('),c);

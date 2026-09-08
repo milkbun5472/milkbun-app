@@ -1154,7 +1154,7 @@ function GlassCard({
       borderRadius: 22,
       boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
       ...style,
-      ...(t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {})
+      ...(t.homeWidgetGroundStyle || (t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {}))
     }
   }, children);
 }
@@ -1696,8 +1696,9 @@ function WheelWidget({ editMode, onReact }) {
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
 }
 // 电子木鱼小组件：点一下功德+1（纯本地零 API），飘 +1、右下角连击数（2 秒不敲就断）。点不进任何页面，只为敲。
-function MuyuWidget({ editMode }) {
+function MuyuWidget({ editMode, imageRef }) {
   const t = useTheme();
+  const customImage = imageRef && (typeof resolveImg === "function" ? resolveImg(imageRef) : imageRef);
   // 5 秒不敲就清零、功德重新积——她要的「过期作废」型木鱼（v47.73 从 5 分钟收紧到 5 秒，停手当场看着归零）
   const MUYU_IDLE = 5000;
   const [total, setTotal] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_muyu") || "{}"); return (v.last && Date.now() - v.last > MUYU_IDLE) ? 0 : (v.total || 0); } catch (e) { return 0; } });
@@ -1736,7 +1737,7 @@ function MuyuWidget({ editMode }) {
       // 木鱼底下垫的是【蒲团】，不是一块发白的玻璃碟（她 2026-09-05：「太普通了」）。
       // 原来那一层是 radial-gradient 的白晕——木鱼看着像贴在玻璃上的一枚贴纸，
       // 没有「它放在哪儿」这件事。换成绛色布垫：有绲边、有八道褶子往中间收。
-      h("svg", { width: 116, height: 60, viewBox: "0 0 116 60", "aria-hidden": true, style: { position: "absolute", left: 0, bottom: 2 } },
+      !customImage && h("svg", { width: 116, height: 60, viewBox: "0 0 116 60", "aria-hidden": true, style: { position: "absolute", left: 0, bottom: 2 } },
         h("defs", null, h("radialGradient", { id: "wkPuTuan", cx: ".5", cy: ".34", r: ".75" },
           h("stop", { stopColor: "#9d4f47" }), h("stop", { offset: ".62", stopColor: "#7e3b36" }), h("stop", { offset: "1", stopColor: "#5c2a27" }))),
         h("ellipse", { cx: 58, cy: 34, rx: 55, ry: 23, fill: "url(#wkPuTuan)" }),
@@ -1750,7 +1751,7 @@ function MuyuWidget({ editMode }) {
         h("ellipse", { cx: 58, cy: 31, rx: 12, ry: 5, fill: "rgba(40,18,16,.35)" })),
       pressed ? h("div", { style: { position: "absolute", width: 86, height: 68, borderRadius: "50%", border: "1px solid rgba(151,105,63,.35)", animation: "wk-muyu-ring .42s ease-out forwards" } }) : null,
       h("div", { style: { position: "relative", transform: pressed ? "translateY(3px) scale(.95)" : "translateY(0) scale(1)", transition: "transform .1s ease", filter: "drop-shadow(0 7px 7px rgba(62,40,22,.22))" } },
-        h("svg", { width: 94, height: 76, viewBox: "0 0 94 76", fill: "none", "aria-hidden": true },
+        customImage ? h("img", { src: customImage, alt: "自定义敲击图", draggable: false, style: { width: 110, height: 100, objectFit: "contain", display: "block", pointerEvents: "none" } }) : h("svg", { width: 94, height: 76, viewBox: "0 0 94 76", fill: "none", "aria-hidden": true },
           h("defs", null,
             h("linearGradient", { id: "muyuWood", x1: 17, y1: 10, x2: 77, y2: 68, gradientUnits: "userSpaceOnUse" },
               h("stop", { stopColor: "#d4a56f" }), h("stop", { offset: ".5", stopColor: "#a96f3f" }), h("stop", { offset: "1", stopColor: "#704524" })),
@@ -2881,9 +2882,10 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
       ini.id && h("button", { onClick: () => onDelete(ini.id), className: "w-full active:opacity-70", style: { marginTop: 16, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除这条日程")));
 }
 // 主屏装饰组件共用的外观预设。预设不只换颜色，也同时规定圆角、边框、材质与留白。
-// native 专门给旧组件保留原样；其余预设既能套旧组件，也能套新加的照片框/字句卡/日期签。
+// 原生与贴合用于组件，无框用于装饰，其余预设两边共用。
 const HOME_WIDGET_PRESETS = [
   { id: "native", name: "原生", note: "保持组件原来的样子", chip: "linear-gradient(135deg,#eee8df,#d9d0c4)" },
+  { id: "fit", name: "贴合", note: "贴合圆角，不留外沿", chip: "linear-gradient(135deg,#eee8df,#d9d0c4)" },
   { id: "soft", name: "雾面", note: "柔软玻璃与大圆角", chip: "linear-gradient(135deg,rgba(255,255,255,.94),rgba(225,218,209,.75))" },
   { id: "paper", name: "纸页", note: "暖纸、细线和轻阴影", chip: "linear-gradient(135deg,#fffaf0,#e8dcc8)" },
   { id: "polaroid", name: "拍立得", note: "白边与宽下沿", chip: "linear-gradient(135deg,#fff,#e7e3dc)" },
@@ -3237,6 +3239,12 @@ function decorGroundStyle(item) {
 }
 function homeWidgetGroundTheme(t, ground) {
   var color = typeof ground === "string" ? ground : ground && ground.color;
+  if (ground && ground.imageRef) {
+    var imageStyle = decorGroundStyle({ ground: ground });
+    if (!imageStyle) return t;
+    return Object.assign({}, t, { homeWidgetGroundStyle: Object.assign({ backgroundColor: "#292722" }, imageStyle),
+      ink: "#fffaf1", sub: "#e0dbd2", fog: "#d0cbc3" });
+  }
   if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return t;
   var dark = decorGroundDark({ ground: color });
   return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color,
@@ -3501,6 +3509,7 @@ function homeItemSpan(key, it, sizes) {
 function homeWidgetPresetStyle(id, t, kind) {
   if (!id || id === "native") return null;
   var base = { width: "100%", height: "100%", boxSizing: "border-box", position: "relative" };
+  if (id === "fit") return Object.assign(base, { padding: 0, borderRadius: 22, overflow: "hidden" });
   // 无框：卡的四样（底、边、影、内边距）一样都不画，圆角也不留。
   // ⚠️overflow 照旧 hidden：格子是按格算落位的，让装饰画到格子外面会盖住邻居。
   if (id === "bare") return Object.assign(base, { padding: 0, borderRadius: 0, overflow: "hidden",
@@ -3982,6 +3991,7 @@ function HomePresetGrid({ value, onChange, allowNative }) {
     // 装饰才有「无框」（组件去掉卡片多半只剩一堆浮着的字，那不是选项，是坏掉）。
     HOME_WIDGET_PRESETS.filter(function (p) {
       if (p.id === "native") return !!allowNative;
+      if (p.id === "fit") return !!allowNative;
       if (p.id === "bare") return !allowNative;
       return true;
     }).map(function (p) {
@@ -4656,7 +4666,7 @@ function Home({
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
       else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
       else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
-      else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
+      else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef });
       else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, characters: characters, worlds: worlds, onOpen: function () { return onOpenApp("map"); } });
       else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
       else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
@@ -4672,7 +4682,7 @@ function Home({
       var n = Object.assign({}, prev), cur = Object.assign({}, n[key] || {}, patch || {});
       // 全都是默认值就把这一栏删掉，别留一堆空壳攒成坟场（贴纸那一处同一个写法）
       var empty = (!cur.surface || cur.surface === "paper") && (!cur.borderMode || cur.borderMode === "line")
-        && !cur.accent && !cur.ground && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
+        && !cur.accent && !cur.ground && !cur.tapImageRef && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
       if (empty) delete n[key]; else n[key] = cur;
       saveJSON("x_homeWidgetLooks", n); return n;
     });
@@ -4737,15 +4747,16 @@ function Home({
   // 底图跟相框里那些照片走同一条工艺：缩图 → 进图库 → 只存 iv_ 门牌。
   // ⚠️别直接把 base64 塞进装饰对象：装饰是 x_ 键，会整份进 localStorage 那 5MB 池子，
   //   一张图就能把它撑爆，然后坏的是旁边的好感度和心情（审计 P1 那一条）。
-  async function takeDecorGround(file, target) {
+  async function takeDecorGround(file, target, onStored, preserveAlpha) {
     if (!file) return;
     setDecorBusy(true);
     try {
-      var data = typeof resizeImageFile === "function" ? await resizeImageFile(file, 900, .84) : "";
+      var data = preserveAlpha ? await resizeImageAlpha(file, 900) : typeof resizeImageFile === "function" ? await resizeImageFile(file, 900, .84) : "";
       var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
       if (!ref) throw new Error("empty");
-      (target === "style" ? setStyleDecorGround : setDecorDraftGround)({ imageRef: ref });
-    } catch (e) { if (typeof toast === "function") toast("这张图没能当上底"); }
+      if (onStored) onStored(ref);
+      else (target === "style" ? setStyleDecorGround : setDecorDraftGround)({ imageRef: ref });
+    } catch (e) { if (typeof toast === "function") toast("这张图没能保存，请重新选一张"); }
     setDecorBusy(false);
   }
   // 贴纸的图走【保透明】那条路：resizeImageFile 最后编码成 JPEG，透明的地方会变成黑块。
@@ -5651,10 +5662,14 @@ function Home({
             // 组件才给「原生」（保持它本来的样子），装饰才给「无框」——
             // 组件去掉卡片多半只剩一堆浮着的字，那不是选项，是坏掉。
             h(HomePresetGrid, { value: A.preset, allowNative: !!A.isWidget, onChange: A.setPreset }),
+            A.isWidget && A.type === "muyu" ? h("div", { style: { marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+              h("label", { style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, opacity: decorBusy ? .5 : 1 } }, "替换敲击物",
+                h("input", { type: "file", accept: "image/*", disabled: decorBusy, "aria-label": "替换敲击物图片", style: { display: "none" }, onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) takeDecorGround(f, A.target, function (ref) { setWidgetLook(A.key, { tapImageRef: ref }); }, true); } })),
+              lookOf(A.key).tapImageRef ? h("button", { onClick: function () { setWidgetLook(A.key, { tapImageRef: null }); }, disabled: decorBusy, style: { padding: 10, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "恢复木鱼") : null) : null,
             h(HomeDecorAppearanceEditor, {
               surface: A.surface, borderMode: A.borderMode, accent: A.accent,
               ground: A.ground, onGround: A.setGround,
-              onGroundPhoto: A.isWidget ? null : function (f) { takeDecorGround(f, A.target); },
+              onGroundPhoto: function (f) { takeDecorGround(f, A.target, A.isWidget ? function (ref) { A.setGround({ imageRef: ref }); } : null); },
               busy: decorBusy,
               align: A.align, badge: A.badge, mark: A.mark, tilt: A.tilt,
               onSurface: A.setSurface, onBorderMode: A.setBorderMode, onAccent: A.setAccent,
