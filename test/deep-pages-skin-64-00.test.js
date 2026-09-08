@@ -12,11 +12,10 @@ const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("线下那几层子页共用一份底，不是各写各的", () => {
-  // 单人线下和群线下是两份代码：往期回看 + 赴约设置，一共四处。
-  // 各写一份的话迟早只改一处——这个仓库最常犯的病。
+  // 两处赴约设置与公共往期详情都复用同一底纹。
   assert.match(code, /function offlineSubSkin\(t\) \{/);
-  assert.equal((code.match(/style: offlineSubSkin\(t\)/g) || []).length, 4,
-    "线下子页应当有四处都吃到这一份（单人往期/单人赴约/群往期/群赴约）");
+  assert.equal((code.match(/style: offlineSubSkin\(t\)/g) || []).length, 3);
+  assert.equal((code.match(/h\(OfflineSessionReader, /g) || []).length, 2, "两处往期都接公共详情");
   assert.ok(!/absolute inset-0 z-20 flex flex-col", style: \{ background: t\.bg, paddingTop/.test(code),
     "还有子页留着平色的老写法");
   const fn = code.slice(code.indexOf("function offlineSubSkin(t)"), code.indexOf("function SettingSection("));

@@ -10961,6 +10961,22 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("镜头", focus, setFocus, [{ v: "auto", t: "自己找" }, { v: "dialogue", t: "多说话" }, { v: "action", t: "多行动" }, { v: "atmosphere", t: "多氛围" }]),
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
+// 往期只读详情；群聊用显式参数保留导演便签与成员状态入口。
+function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
+      h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
+        h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
+        h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(session.startTs)),
+        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+      h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
+        session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
+        showNotes && (session.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
+          (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
+        ),
+        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, char, editable: false, onOpenState }))));
+}
+
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
 function OfflinePastSessions({ sessions, t, onSelect }) {
   const ended = (sessions || []).filter(s => s.endTs);
@@ -11313,16 +11329,7 @@ function OfflineMode({
   }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
-  if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
-      h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
-        h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
-        h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
-        onDelSession && h("button", { onClick: () => { const id = readView.id, idx = sessions.indexOf(readView); setReadView(null); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
-      h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
-        readView.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + readView.summary),
-        (readView.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, char: char, meProfile: profile, editable: false }))));
-  }
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp });
 
   // ---- setup ----
   if (view === "setup") {
@@ -11845,20 +11852,7 @@ function GroupOfflineMode({
   }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
-  if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
-      h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
-        h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
-        h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
-        onDelSession && h("button", { onClick: () => { const id = readView.id, idx = sessions.indexOf(readView); setReadView(null); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
-      h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
-        readView.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + readView.summary),
-        (readView.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
-          (readView.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
-        ),
-        (readView.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, editable: false, onOpenState: offOpenState }))));
-  }
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
 
   // ---- setup ----
   if (view === "setup") {

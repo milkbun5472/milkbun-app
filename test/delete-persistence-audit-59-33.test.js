@@ -36,7 +36,8 @@ test("单人和群线下整场删除按一条定位，并等 WAL 验真后才改
     assert.match(block, /if \(!wrote\.durable \|\| !wrote\.live\) return toast\(/, "写失败必须保留界面和原记录");
   }
   assert.equal((components.match(/onDelSession\(s\.id, sessions\.indexOf\(s\)\)/g) || []).length, 2);
-  assert.equal((components.match(/onDelSession\(id, idx\)/g) || []).length, 2);
+  assert.equal((components.match(/onDelSession\(id, idx\)/g) || []).length, 1, "详情删除共用一份实现");
+  assert.equal((components.match(/h\(OfflineSessionReader, /g) || []).length, 2);
 });
 
 test("小剧场图库删除会立墓碑，启动补档绕开墓碑", () => {
