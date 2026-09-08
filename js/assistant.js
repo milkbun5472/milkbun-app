@@ -1240,10 +1240,7 @@
   //   一边让它改。整页会把要研究的那个东西整个盖掉，那就等于没有这个功能。
   //   也不是半窗：半窗钉死在屏幕下半截，这个能拖到任何地方、让开你正在看的那块。
   // ============================================================
-  const DOCK_KEY = "x_assistDock";
   const BALL = 46;
-  const loadDock = () => { try { return JSON.parse(localStorage.getItem(DOCK_KEY) || "{}") || {}; } catch (e) { return {}; } };
-  const saveDock = d => { try { localStorage.setItem(DOCK_KEY, JSON.stringify(d)); } catch (e) {} };
 
   // ⚠️量屏高不许用 window.innerHeight（她 2026-09-03：「聊天框下面又太高了没有遵循规则」）。
   //   整个 app 的外壳写的是 height:100vh，而 iOS 独立 app 里 innerHeight 是【小视口】，
@@ -1273,14 +1270,28 @@
     const [open, setOpen] = useState(false);
     const [cfg, setCfg] = useState(A.loadCfg);
     const [input, setInput] = useState("");
-    const [pos, setPos] = useState(() => {
-      const d = loadDock();
-      return { x: Number.isFinite(d.x) ? d.x : -1, y: Number.isFinite(d.y) ? d.y : -1 };
-    });
+    // 点位只保留在本次前台使用中；不读取旧 x_assistDock，避免重开仍困在状态栏。
+    const [pos, setPos] = useState(() => ({ x: -1, y: -1 }));
     const C = useAssistChat(props, props.toast);
     const scroller = useRef(null);
     const dragRef = useRef(null);
     const movedRef = useRef(false);
+    useEffect(() => {
+      const resetDock = () => {
+        dragRef.current = null;
+        movedRef.current = false;
+        setPos({ x: -1, y: -1 });
+        setOpen(false);
+      };
+      const onVisible = () => { if (document.visibilityState === "visible") resetDock(); };
+      const onPageShow = e => { if (e.persisted) resetDock(); };
+      document.addEventListener("visibilitychange", onVisible);
+      window.addEventListener("pageshow", onPageShow);
+      return () => {
+        document.removeEventListener("visibilitychange", onVisible);
+        window.removeEventListener("pageshow", onPageShow);
+      };
+    }, []);
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy, open]);
     // 设置页里把小球关了/开了，这边要跟上（同一个存档，两处都在看）
     useEffect(() => {
@@ -1322,8 +1333,7 @@
       setPos({ x: d.px + dx, y: d.py + dy });
     };
     const endDrag = () => {
-      const d = dragRef.current; dragRef.current = null;
-      if (d && movedRef.current) { const now = at(); saveDock({ ...loadDock(), x: now.x, y: now.y }); }
+      dragRef.current = null;
     };
     const swallowIfDragged = () => { if (movedRef.current) { movedRef.current = false; return true; } return false; };
     const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };

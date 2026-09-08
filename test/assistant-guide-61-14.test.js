@@ -165,10 +165,11 @@ test("档案只许改白名单里那几栏，不是整张卡", () => {
 });
 
 // ── ④ 小悬浮屏 ────────────────────────────────────────────────
-test("小球能拖、位置记得住、夹得回屏内", () => {
+test("小球能拖、位置仅本轮保留、夹得回屏内", () => {
   const seg = src.slice(src.indexOf("function AssistantDock("));
   assert.match(seg, /onPointerDown: onDown/);
-  assert.match(seg, /saveDock\(\{ \.\.\.loadDock\(\), x: now\.x, y: now\.y \}\)/, "拖完不存位置，下次又回原处");
+  assert.doesNotMatch(seg, /saveDock\(|loadDock\(/, "重开不应恢复卡住的旧点位");
+  assert.match(seg, /setPos\(\{ x: d\.px \+ dx, y: d\.py \+ dy \}\)/, "前台仍可拖动");
   assert.match(seg, /Math\.max\(6, Math\.min\(x, vw\(\) - w - 6\)\)/, "不夹回屏内的话，拖出去就点不着了");
   assert.match(seg, /顶上这条就是把手/, "窗口本身拖不动");
 });
