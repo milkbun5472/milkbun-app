@@ -5458,18 +5458,10 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 6px" } }, "还没有歌单，点上面新建一个"))) : null;
 
   // ============ 播放 tab ============
-  // 这首歌要是 TA 歌单里的，把 TA 当时写的那句「为什么循环它」端上来——
-  // 查手机那张碟就是这么做的（曲名下面一行），这页原来一个字都没露。
-  const nowNote = (() => {
-    if (!partner || !now) return "";
-    const pl = playlists.find(x => x.charId === partner.id);
-    const hit = pl && (pl.songs || []).find(x => x.id === now.id || (x.neteaseId && now.neteaseId && x.neteaseId === now.neteaseId));
-    return String((hit && hit.note) || now.note || "").trim();
-  })();
   // ── 唱片封套＝「一起」这一块（v62.81）───────────────────────────────
   // 审美审计那句：这页里「网易云」是最大的，「一起」是最小的——页脚一排 30px、半透明 0.5 的头像。
   // v62.46 把 TA 做成后面那张碟露一牙，她还是觉得小。所以这回给「和谁听」一整张封套：
-  // 唱机边上摊开的那张纸袋，上面印着跟谁听、TA 为什么循环这一首、要不要让 TA 在聊天里聊它。
+  // 唱机边上摊开的那张纸袋，只显示跟谁听，不展示角色 quote。
   // 点封套翻开，里面是可以挑的人——封套本来就是打开来看的东西。
   const whoRow = h("div", { className: "flex items-end", style: { gap: 14, overflowX: "auto", padding: "12px 4px 4px" } },
     [null].concat(characters || []).map(c => {
@@ -5492,8 +5484,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         : h("div", { style: { width: 48, height: 48, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, ic("note", t.fog, 20)),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, partner ? "和 " + partner.name + " 一起听" : "自己听"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: nowNote ? t.sub : t.fog, marginTop: 3, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
-          partner ? (nowNote ? "TA 说：" + nowNote : "TA 就在旁边听着这首") : "点一下，挑个人一起听")),
+        !partner ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "点一下，挑个人一起听") : null),
       h("span", { "aria-hidden": "true", style: { flexShrink: 0, color: t.fog, transform: pickWho ? "rotate(90deg)" : "none", transition: "transform .15s" } }, ic("next", t.fog, 14))),
     // ⚠️这儿原来还有一行开关「让 TA 在聊天里聊这首歌」——撤掉了（她 2026-09-06：
     //   「一起听这一句不会在偷偷调用吧，能不能不要了」）。它确实在偷偷调用：

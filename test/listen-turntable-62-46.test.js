@@ -19,10 +19,8 @@ test("「一起」是一整张封套，不是碟后面露的一牙（v62.81）",
   assert.doesNotMatch(CODE, /marginLeft: partner \? 22 : 0/, "碟又为了给 TA 让位往右偏了");
   assert.match(CODE, /const sleeveCard = h\("div"/, "封套没了");
   assert.match(CODE, /partner \? "和 " \+ partner\.name \+ " 一起听" : "自己听"/, "封套上没写跟谁听");
-  // TA 为什么循环这一首：从 TA 的歌单里按这首歌找那句 note——查手机那张碟就是这么做的
-  assert.match(CODE, /const nowNote = /);
-  assert.match(CODE, /playlists\.find\(x => x\.charId === partner\.id\)/, "没去 TA 的歌单里找那句话");
-  assert.match(CODE, /"TA 说：" \+ nowNote/);
+  // 一起听只显示同听伙伴；歌单旧备注不在播放页冒充角色发言。
+  assert.doesNotMatch(CODE, /nowNote|TA 说：|TA 就在旁边听着这首/);
   // 挑人在封套里翻开，不再是页脚一排半透明小头像
   assert.match(CODE, /const whoRow = /);
   assert.match(CODE, /pickWho \? h\("div", \{ style: \{ borderTop: "1px dashed "/, "封套翻不开");
