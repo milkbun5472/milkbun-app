@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.76";
+const APP_VERSION = "v65.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6987,36 +6987,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
         + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
-      // 他自己前几次是怎么开口的——原样发回去。这一层是【代码这一道】：
-      // 提示词里那几条禁令只降概率，把原话摆到他面前才真挡得住重复。
+      // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
-        ? "\n\n【你前几次就是这么开口的，一句都不许再用】\n"
+        ? "\n\n【最近的主动开场】\n"
           + _openLines.map(x => "· " + x).join("\n")
-          + "\n⚠️不是换几个字就算新的：**同一个起手式**（同样先报备在哪、同样先问她作息、"
-          + "同样从今天干了什么讲起）也算重复。这一次换一个【别的东西】起头。"
+          + "\n避免机械复述已经说过的内容；按此刻的真实来意开口，不为避重编造新事件。"
         : "";
       const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
-          // ⚠️v59.28 重写。她 2026-09-01 发来四个角色的截图：主动开口全长成同一个骨架——
-          // ①「我在哪/刚做完什么」→②「顺带买了/带了什么」→③「你今天起床没有/吃没吃」。
-          // 病根就在这句话原来的写法里：它给了一张【清单】（此刻正在做的事、刚遇到的小事、
-          // 天气/饭点/行程…），而清单的头一项最省力，于是每个角色每次都挑它；
-          // 第三拍那个「问你起没起/吃没吃」更是换谁都成立的万能句。
-          // 跟如果馆那次一样：**清单要撤掉，换成判据 + 挡住那两个最省力的开口。**
+          // 新开场允许普通，具体事实仍须有来源与明确归属。
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。这是一段新的聊天开场。\n"
-            + "⚠️**这两种开口一律不许用**（它们换成任何一个角色、任何一天都成立，所以等于没开口）：\n"
-            + "① 报备行踪——「我在 X」「刚做完 Y」「我这边刚开完会」这类先交代自己在哪、在干嘛的；\n"
-            + "② 查岗式的关心——「你吃了吗」「你起床没有」「你睡了没」「你今天到底怎么样」这类问她作息饮食的。\n"
-            + "⚠️也不许把这两样拼起来当模板：先报备、再顺带买点什么、最后问她起没起——那正是最省力的那条路。\n"
-            + "【那该说什么】开口那一句必须是【只有你、只有今天才会说出口的】：一件具体发生过的事（谁说了什么、什么东西坏了、看见了什么），"
-            + "或者一个突然想起来的念头，或者你俩之间某件还没完的事。判据一句话：**这句话要是换个角色说出来也成立，就是没开口。**\n"
+            + "按你与当前收件人的关系和此刻来意开口，允许普通、简短，不必每次有新鲜事或独特表达。不要机械套用报备、关心、安排的固定流程。\n"
             + "**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
         : "";
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
-      const proactiveHintAll = proactiveHint + openerAvoid;
+      // 单聊主动的收件人固定是当前用户；群聊/线下保留各自场景，不在这里改路由。
+      const proactiveHintAll = proactiveHint + openerAvoid + (opts.proactive
+        ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
+        : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
       const dongnianHint = opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "";
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
