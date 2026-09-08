@@ -14,6 +14,26 @@ const G = (() => {
   return ctx;
 })();
 
+test("照片框空槽透出自定义底图，已有照片仍在底图前面", () => {
+  const h = (type, props, ...children) => ({type, props: props || {}, children});
+  const ctx = {h, useTheme:()=>({bg2:'#eee',ink:'#222',fog:'#777',accent:'#a44'}),
+    resolveImg:r=>'blob:'+r, HOME_PHOTO_FRAMES:[{id:'single',need:1}],
+    React:{cloneElement:(node,props)=>({...node,props:{...node.props,...props}})}};
+  vm.createContext(ctx);
+  vm.runInContext(['decorGroundDark','decorGroundStyle','homePhotoSlotCount','normalizeHomePhotoSlots','HomeDecorItem'].map(fn).join('\n'),ctx);
+  // imageRefs 和 ground.imageRef 分别来自 decorItemOf 与 takeDecorGround 的存档字段。
+  const item={type:'photo',frame:'single',imageRefs:[],ground:{imageRef:'iv_fixture'}};
+  const tree=ctx.HomeDecorItem({item,preset:'bare'});
+  const board=tree.children[0],slot=board.children[0];
+  assert.equal(board.props.style.backgroundImage,'url(blob:iv_fixture)');
+  assert.equal(slot.props.style.background,'transparent');
+  assert.equal(slot.children[0].props['aria-label'],'空照片位');
+  const filled=ctx.HomeDecorItem({item:{...item,imageRefs:['iv_photo']},preset:'bare'}).children[0].children[0];
+  assert.equal(filled.children[0].props.src,'blob:iv_photo');
+  const original=ctx.HomeDecorItem({item:{...item,ground:null},preset:'native'}).children[0].children[0];
+  assert.equal(original.props.style.background,'#eee');
+});
+
 test("底色盘里第一格是【原样】——不挑就是各款自己那张底", () => {
   const seg = cut("const HOME_DECOR_GROUNDS = [", "\n];");
   assert.match(seg, /\{ id: "", name: "原样"/);

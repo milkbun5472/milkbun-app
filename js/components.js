@@ -3554,7 +3554,7 @@ function HomeDecorItem({ item, preset, now }) {
     var srcs = normalizeHomePhotoSlots(refs, frame).map(function (ref) { return ref && typeof resolveImg === "function" ? resolveImg(ref) : ref; });
     var caption = item.caption || item.text || "";
     var photo = function (src, i, style) {
-      return h("div", { key: i, style: Object.assign({ overflow: "hidden", background: dark ? "#0d0d0c" : t.bg2 }, style || {}) },
+      return h("div", { key: i, style: Object.assign({ overflow: "hidden", background: dark ? "#0d0d0c" : t.bg2 }, style || {}, !src && gnd ? { background: "transparent" } : {}) },
         src ? h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { "aria-label": "空照片位", style: { width: "100%", height: "100%" } }));
     };
     var body;
