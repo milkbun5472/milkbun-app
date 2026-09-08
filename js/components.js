@@ -2139,6 +2139,22 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const elRef = useRef(null);
   const drag = useRef(null);
   const didDrag = useRef(false);
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem("x_miniFolded") === "1"; } catch (e) { return false; } });
+  const fold = value => { setFolded(value); try { localStorage.setItem("x_miniFolded", value ? "1" : "0"); } catch (e) {} };
+  React.useLayoutEffect(() => {
+    const fit = () => {
+      const el = elRef.current;
+      if (!el) return;
+      setPos(p => {
+        if (!p) return p;
+        const x = Math.max(6, Math.min(window.innerWidth - el.offsetWidth - 6, p.x));
+        const y = Math.max(44, Math.min(window.innerHeight - el.offsetHeight - 8, p.y));
+        return x === p.x && y === p.y ? p : {x, y};
+      });
+    };
+    fit(); window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [folded, !!song]);
   if (!song) return null;
   const cover = song.cover || null;
   const btnStop = (e, fn) => { e.stopPropagation(); fn(); };
@@ -2156,7 +2172,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   };
   const onUp = e => { if (drag.current && drag.current.moved) { didDrag.current = true; try { localStorage.setItem("x_miniPos", JSON.stringify(pos)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
-  const onClick = () => { if (!didDrag.current) onOpen(); };
+  const onClick = () => { if (!didDrag.current) { if (folded) fold(false); else onOpen(); } };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 };
   // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
   // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
@@ -2164,13 +2180,16 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   //   所以底板换成这个 app 的纸（跟着主题走，深色主题里它自己就深），
   //   黑只留在那张转着的碟上；字和图标改用 t.ink，不再写死 #fff
   //  （写死白字在浅色主题上就是白底白字——v59.62 抓到过一次）。
-  // ⚠️位置、拖动、层级一个都没动：那几样是修过很多次的（home-screen-layout.md 的教训）。
+  // 折叠只收控件，不操作音频；展开及窗口变窄时把已有点位约束回可见区域。
   const ink = t.ink || "#3a3430";
   const disc = 38, lab = Math.round(disc * 0.44);
-  return h("div", { ref: elRef, onClick: onClick, onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
+  return h("div", { ref: elRef, onClick: onClick, role: folded ? "button" : undefined, tabIndex: folded ? 0 : undefined,
+    "aria-label": folded ? "展开一起听播放器" : "一起听悬浮播放器",
+    onKeyDown: e => { if (folded && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fold(false); } },
+    onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
       background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: "6px 8px 6px 6px",
+      border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
       boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)" }, place) },
     // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
     // 38px 上再画一根臂只会糊成一团）
@@ -2183,7 +2202,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
         background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c9a06a,#8a6a45)",
         boxShadow: "0 0 0 1px rgba(255,255,255,.22)" } },
         h("div", { style: { width: 3, height: 3, borderRadius: 999, background: "#f7f1e5", boxShadow: "0 0 0 1px rgba(0,0,0,.35)" } }))),
-    h("div", { style: { minWidth: 0, maxWidth: 118 } },
+    !folded && h(React.Fragment, null, h("div", { style: { minWidth: 0, maxWidth: 118 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.title),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog || skinAlpha(ink, "8a"), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.artist || "")),
     h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onToggle), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 30, height: 30 } },
@@ -2192,9 +2211,12 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
       : h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("path", { d: "M8 5v14l11-7z", fill: ink }))),
     h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onNext), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 28, height: 30 } },
       h("svg", { width: 16, height: 16, viewBox: "0 0 24 24" }, h("path", { d: "M5 5v14l10-7z", fill: ink }), h("rect", { x: 15.6, y: 5, width: 2.4, height: 14, rx: 1, fill: ink }))),
+    h("button", { "aria-label": "收起一起听播放器", onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, () => fold(true)),
+      style: { width: 28, height: 30, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("svg", { width: 16, height: 16, viewBox: "0 0 24 24" }, h("path", { d: "M14 6l-6 6 6 6", fill: "none", stroke: ink, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }))),
     // 叉：立刻停播、收起悬浮
     onClose ? h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onClose), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 26, height: 30, marginRight: 2 } },
-      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24" }, h("path", { d: "M6 6l12 12M18 6L6 18", stroke: skinAlpha(ink, "9c"), strokeWidth: 2.2, strokeLinecap: "round" }))) : null);
+      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24" }, h("path", { d: "M6 6l12 12M18 6L6 18", stroke: skinAlpha(ink, "9c"), strokeWidth: 2.2, strokeLinecap: "round" }))) : null));
 }
 // 全屏月历
 // 经期预测

@@ -30,7 +30,7 @@ test("悬浮播放器必须低于半窗和全屏 app 壳", () => {
 
 test("播放器还是浮在普通界面之上——只是不再压全屏页", () => {
   assert.ok(Z > 0, "别把它压到正文底下去了");
-  const mini = comp.slice(comp.indexOf("function MiniPlayer("), comp.indexOf("function MiniPlayer(") + 2600);
+  const mini = comp.slice(comp.indexOf("function MiniPlayer("), comp.indexOf("// 全屏月历"));
   assert.match(mini, /position: "fixed", zIndex: MINI_PLAYER_Z/, "播放器没用这个常量");
   assert.match(mini, /localStorage\.setItem\("x_miniPos"/, "还能拖动换位置这件事没了");
 });
