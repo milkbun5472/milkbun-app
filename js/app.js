@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.81";
+const APP_VERSION = "v65.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7384,8 +7384,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "";
       const _wearRefreshHint = _wearRefreshGate.required
         ? "\n【本轮必须重新确认穿着】触发原因：" + _wearRefreshGate.reason + "。"
-          + (_wearBrief ? "当前行程是「" + (_wearBrief.time || "此刻") + " " + (_wearBrief.title || "") + (_wearBrief.location ? " · " + _wearBrief.location : "") + "」。" : "")
-          + "请在 wearing 写角色进入当前活动后实际穿着的一句话；不得照抄与新地点或新活动不相符的旧值。七点在家吃早餐可以仍穿睡衣，十点切到出门行程就必须重新判断并换成适合出门的衣服。只更新状态，不要为了交字段在 word 里表演换衣过程。"
+          + "依据已有上下文，在 wearing 确认此刻实际穿着；不沿用与当前处境冲突的旧值。只记录状态，不为填写字段在 word 中报备或表演换衣。"
         : "";
       const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。";
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
