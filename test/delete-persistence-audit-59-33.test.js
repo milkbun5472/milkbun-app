@@ -15,7 +15,8 @@ test("全 App 删除确认走自绘层，不依赖会被 iOS 吞掉的系统 con
   assert.match(app, /window\.__appConfirmOpen = open/);
   assert.match(app, /appConfirm && h\(ConfirmDialog/);
   assert.match(app, /const fn = appConfirm\.onCancel; setAppConfirm\(null\); if \(typeof fn === "function"\)/, "点取消必须通知发起方解锁");
-  assert.match(components, /fixed inset-0 z-\[220\]/, "确认层必须盖住小剧场大图等高层浮窗");
+  assert.match(components, /function appDialogPortal\(content, onCancel\)/, "确认和输入共用挂载层");
+  assert.equal((components.match(/return appDialogPortal\(/g) || []).length, 2);
 
   const audited = fs.readdirSync(path.join(__dirname, "..", "js"))
     .filter(name => name.endsWith(".js")).map(read).join("\n");
