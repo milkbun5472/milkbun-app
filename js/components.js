@@ -11107,6 +11107,19 @@ function OfflineCustomStyleSection({ t, editor }) {
           h(OfflineStylePromptPreview, { style: curStyle, t }),
           curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
 }
+// 开局页的往期卡片保留输入顺序；删除索引始终取自原会话数组。
+function OfflineSetupHistory({ sessions, t, fmtStamp, onSelect, onDelSession }) {
+  const past = (sessions || []).filter(s => s.endTs);
+  if (!past.length) return null;
+  return h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
+          past.map(s => h("div", { key: s.id, className: "mb-2 p-3 flex items-start gap-2", style: { background: t.bg2, borderRadius: 10, border: `1px solid ${t.line}` } },
+            h("button", { onClick: () => onSelect(s), className: "flex-1 text-left active:opacity-70" },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
+              h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
+            onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))));
+}
+
 function OfflineSetupStyleSection({ t, editor }) {
   const { allStyles, styleKey, setStyleKey, setStyleSheet, styleImportControl, curStyle, editCustomStyle, delCustomStyle } = editor;
   return h(React.Fragment, null,
@@ -11306,7 +11319,6 @@ function OfflineMode({
     styleSection,
     exampleSection);
   const scroller = useRef(null);
-  const past = (sessions || []).filter(s => s.endTs);
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
   const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
@@ -11373,13 +11385,7 @@ function OfflineMode({
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
-        past.length > 0 && h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
-          past.map(s => h("div", { key: s.id, className: "mb-2 p-3 flex items-start gap-2", style: { background: t.bg2, borderRadius: 10, border: `1px solid ${t.line}` } },
-            h("button", { onClick: () => setReadView(s), className: "flex-1 text-left active:opacity-70" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
-              h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
-            onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
+        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),
       styleSheet && sheet("自定义文风预设", h(OfflineSetupStyleEditor, { t, editor: styleEditor })));
   }
 
@@ -11817,7 +11823,6 @@ function GroupOfflineMode({
   const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
   const { customStyles, styleSheet, setStyleSheet, curStyle } = styleEditor;
   const scroller = useRef(null);
-  const past = (sessions || []).filter(s => s.endTs);
   const memberLine = members.map(c => c.name).join("、");
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
@@ -11878,13 +11883,7 @@ function GroupOfflineMode({
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
-        past.length > 0 && h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
-          past.map(s => h("div", { key: s.id, className: "mb-2 p-3 flex items-start gap-2", style: { background: t.bg2, borderRadius: 10, border: `1px solid ${t.line}` } },
-            h("button", { onClick: () => setReadView(s), className: "flex-1 text-left active:opacity-70" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
-              h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
-            onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))))),
+        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),
       styleSheet && sheet("自定义文风预设", h(OfflineSetupStyleEditor, { t, editor: styleEditor })));
   }
 
