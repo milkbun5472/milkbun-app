@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.51";
+const APP_VERSION = "v65.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8221,7 +8221,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
           if (hit) playSong(hit.id);
           else if (neteaseApi) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"他自己搜歌"，做靠谱）
-            try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
+            try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
           }
           else toast("没找到《" + want + "》这首歌");
         }
@@ -16338,7 +16338,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let hit = lib.find(s => s.title && (s.title === tt || s.title.includes(tt) || tt.includes(s.title)));
       if (hit) playSong(hit.id);
       else if (neteaseApi) {
-        try { const s = await neteaseSearchOne(tt, { cacheBust: false }); if (s) playSong(resultToSong({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl })); } catch (e) {}
+        try { const s = await neteaseSearchOne(tt, { cacheBust: false }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); } catch (e) {}
       }
     }
     goListen();
@@ -16410,7 +16410,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const sr = await neteaseSearchOne(query, { throwOnError: true });
       if (!sr) { toast("云村没搜到这首"); return false; }
-      const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: (sr.artists || sr.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (sr.album || sr.al || {}).picUrl || null, by: "me", note: String(note || "").trim(), ts: Date.now() };
+      const info = neteaseTrackInfo(sr);
+      const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: info.artist, cover: info.cover || null, by: "me", note: String(note || "").trim(), ts: Date.now() };
       saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: [song, ...(cur.songs || []).filter(x => x.neteaseId !== song.neteaseId)].slice(0, 30) } }; });
       // ⚠️返回【刻好的那一首】而不是 true：聊天里那张卡要显示云村搜到的真歌名和歌手，
       //   不能把模型写的那串搜索词原样贴上去（那多半是「歌名 歌手」拼一起的）。
@@ -16582,8 +16583,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!hit) { miss++; continue; }
         const nid = String(hit.id);
         if (added.some(a => a.neteaseId === nid) || have.has(nid)) { dup++; continue; }
-        const cover = ((hit.album || hit.al || {}).picUrl) || null;
-        const artist = (hit.artists || hit.ar || []).map(a => a.name).filter(Boolean).join(" / ") || (w.artist || "");
+        const info = neteaseTrackInfo(hit);
+        const cover = info.cover || null;
+        const artist = info.artist || (w.artist || "");
         added.push({ id: mkId(nid), source: "netease", neteaseId: nid, title: hit.name || w.title, artist, cover, note: w.note || "", ts: Date.now() });
       }
     }
@@ -18690,7 +18692,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       for (const q of (queries || []).slice(0, 6)) {
         try {
           const s = await neteaseSearchOne(q);
-          if (s) found.push({ id: s.id, name: s.name, artist: (s.artists || s.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (s.album || s.al || {}).picUrl });
+          if (s) found.push(neteaseTrackInfo(s));
         } catch (e) { }
       }
       if (!found.length) { toast("配乐一首都没搜到"); return false; }

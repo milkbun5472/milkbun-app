@@ -30,12 +30,21 @@ test("房间首页先问用途，不把权限矩阵当成创建流程", () => {
   assert.match(roomSheet, /和 " \+ \(character\.remark \|\| character\.name\) \+ " 的小房间/);
   assert.match(roomSheet, /慢慢聊这件事/);
   assert.match(roomSheet, /一起做件事/);
-  assert.match(roomSheet, /长篇如果/);
   assert.match(roomSheet, /不带出门/);
+  assert.match(roomSheet, /写下另一段设定，就会成为长篇如果/);
   assert.match(roomSheet, /进去继续/);
   assert.match(roomSheet, /新留一间/);
   assert.match(roomSheet, /把这 " \+ pending \+ " 条带回主线/);
   assert.match(roomSheet, /key === "writeback" && k === "roomHistory"/);
+});
+
+test("长篇如果不再与不带出门重复占两个创建入口", () => {
+  const choices = components.match(/const purposeChoices = \[[\s\S]*?\];/)?.[0] || "";
+  assert.match(choices, /\["isolated", "不带出门"/);
+  assert.doesNotMatch(choices, /\["alternate", "长篇如果"/);
+  assert.match(components, /留空就是普通的不带出门；写下另一段年龄、处境或关系，保存后会显示为长篇如果/);
+  assert.match(components, /: r\.scenario\s*\? \{ label: "长篇如果"/, "写了设定的房间仍应自动显示成长篇如果");
+  assert.equal(Rooms.PRESETS.alternate.label, "长篇如果", "旧长篇房仍需兼容，不能把已有房间弄丢");
 });
 
 test("本房限定设定放在醒目位置，且压在每轮房间提示词最后", () => {

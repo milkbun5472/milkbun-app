@@ -13671,7 +13671,10 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     if (draft.id === saved.id) setDraft(saved);
     window.__toast && window.__toast("下一轮会先补看主聊天的新近况");
   };
-  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["alternate", "长篇如果", "和另一段年龄、处境或关系里的 TA 一直聊下去"], ["isolated", "不带出门", "只在这里成立，不进入记忆也不改主线"]];
+  // 「长篇如果」和「不带出门」原本四组开关逐项相同，唯一差别只是前者强制填写
+  // 本房限定设定。并列两扇一模一样的门只会让人以为底下还有隐藏差异；现在合成一扇：
+  // 不写设定＝普通隔离房，写了设定＝长篇如果。旧 alternate 房仍由 normalize 兼容。
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"]];
   if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
@@ -13709,7 +13712,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { marginTop: 9, padding: "10px 11px", borderRadius: 12, border: "1px solid #c99aa5", background: "rgba(201,154,165,.10)" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "本房限定设定 · 每轮最后提醒 TA"),
         h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 4, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
-        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, "留空就是普通房间；长篇如果默认什么都不带进来，建好后可以一条条放行。")),
+        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, "留空就是普通的不带出门；写下另一段年龄、处境或关系，保存后会显示为长篇如果。两种都默认不接主线，建好后仍可一条条放行。")),
       h("div", { style: { marginTop: 11 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "进门时，先放哪段聊天"),
         h("div", { className: "grid grid-cols-3", style: { gap: 6, marginTop: 7 } }, [
@@ -13729,7 +13732,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
               background: startIndex === index ? t.bg : "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5 } },
             (m.role === "narration" || m.kind === "narration" ? "旁白" : m.role === "user" ? "你" : character.remark || character.name) + "：" + text.replace(/\s+/g, " ").slice(0, 72))))),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
-        h("button", { disabled: createBusy || (draft.preset === "alternate" && !String(draft.scenario || "").trim()) || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (draft.preset === "alternate" && !String(draft.scenario || "").trim()) || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
+        h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
     h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。"));
   const editor = h("div", { style: { minWidth: 0 } },
