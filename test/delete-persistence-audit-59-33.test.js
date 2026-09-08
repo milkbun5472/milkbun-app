@@ -30,7 +30,7 @@ test("单人和群线下整场删除按一条定位，并等 WAL 验真后才改
   const group = app.slice(app.indexOf("const groupOfflineDelSession"), app.indexOf("const openGroupOffline"));
   for (const block of [single, group]) {
     assert.match(block, /requestAppConfirm/);
-    assert.match(block, /Number\.isInteger\(fallbackIndex\)/, "老记录缺 id 时要有当前下标兜底");
+    assert.match(block, /recordIndexForDelete\(before, sessId, fallbackIndex\)/, "整场删除走公共定位");
     assert.match(block, /filter\(\(_, i\) => i !== idx\)/, "重复或缺失 id 也只能删点中的一条");
     assert.match(block, /await commitJSONDurable\(/, "没等保险仓验真就改界面，刷新仍可能复活");
     assert.match(block, /if \(!wrote\.durable \|\| !wrote\.live\) return toast\(/, "写失败必须保留界面和原记录");

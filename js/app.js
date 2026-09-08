@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.53";
+const APP_VERSION = "v65.54";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5997,8 +5997,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const offlineDelSession = (scopeKey, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
     const before = offlinesRef.current[scopeKey] || loadJSON("x_offline:" + scopeKey, []);
-    let idx = before.findIndex(s => sessId != null && s && s.id === sessId);
-    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < before.length) idx = fallbackIndex;
+    const idx = recordIndexForDelete(before, sessId, fallbackIndex);
     if (idx < 0) return toast("没找到这条线下记录");
     const next = before.filter((_, i) => i !== idx);
     const wrote = await commitJSONDurable("x_offline:" + scopeKey, next);
@@ -6016,8 +6015,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }));
   const offlineDelMsg = (scopeKey, msgId, fallbackIndex) => pOffline(scopeKey, list => list.map(s => {
     if (s.endTs) return s;
-    let idx = s.msgs.findIndex(m => msgId != null && m.id === msgId);
-    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < s.msgs.length) idx = fallbackIndex;
+    const idx = recordIndexForDelete(s.msgs, msgId, fallbackIndex);
     if (idx < 0) return s;
     const next = s.msgs.filter((_, i) => i !== idx);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "delete", charId: offlinePersonId(scopeKey), before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
@@ -6326,8 +6324,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); const group = groups.find(g => String(g.id) === String(groupId)); if (group) observeSomaticGroup(group, msg, "group_offline", "physical"); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const groupOfflineDelSession = (groupId, sessId, fallbackIndex) => requestAppConfirm("删除这条线下记录？", "删了不可恢复。", async () => {
     const before = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
-    let idx = before.findIndex(s => sessId != null && s && s.id === sessId);
-    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < before.length) idx = fallbackIndex;
+    const idx = recordIndexForDelete(before, sessId, fallbackIndex);
     if (idx < 0) return toast("没找到这条线下记录");
     const next = before.filter((_, i) => i !== idx);
     const wrote = await commitJSONDurable("x_goffline:" + groupId, next);
@@ -6616,8 +6613,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const groupOfflineEditMsg = (groupId, msgId, text) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m) } : s));
   const groupOfflineDelMsg = (groupId, msgId, fallbackIndex) => pGOffline(groupId, list => list.map(s => {
     if (s.endTs) return s;
-    let idx = s.msgs.findIndex(m => msgId != null && m.id === msgId);
-    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < s.msgs.length) idx = fallbackIndex;
+    const idx = recordIndexForDelete(s.msgs, msgId, fallbackIndex);
     return idx < 0 ? s : { ...s, msgs: s.msgs.filter((_, i) => i !== idx) };
   }));
   const groupOfflineRerollMsg = async (groupId, msgId) => {

@@ -147,6 +147,12 @@ async function fetchModelList(p) {
   }
   return (d.data || []).map(m => m.id).sort();
 }
+// 先核对原索引与 ID，避免重复 ID 命中第一条；过期索引不能删除不相干记录。
+function recordIndexForDelete(rows, id, fallbackIndex) {
+  const validIndex = Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < rows.length;
+  if (validIndex && (id == null || (rows[fallbackIndex] && rows[fallbackIndex].id === id))) return fallbackIndex;
+  return rows.findIndex(row => id != null && row && row.id === id);
+}
 // 网易云两种曲目格式共用映射；各调用处显式保留原字段优先级。
 function neteaseTrackInfo(s, { preferShort = false } = {}) {
   const artists = preferShort ? (s.ar || s.artists || []) : (s.artists || s.ar || []);
