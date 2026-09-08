@@ -29,9 +29,10 @@ function drive(opts) {
     return app.slice(i, app.indexOf("\n    };", i) + 6);
   })();
   const G = "g1";
-  const T0 = Date.UTC(2026, 7, 27, 2, 0, 0);   // 真实时间轴，别从 0 起（会假装每个人的认领冷却都没过）
+  // 产品的 borrowDay 用本地日期；日内模拟从本地零点起，跨午夜另测。
+  const T0 = opts.startTs == null ? new Date(2026, 7, 27, 0, 0, 0).getTime() : opts.startTs;
   let NOW = T0;
-  const store = {}, calls = [];
+  const store = {}, calls = [], borrowEvents = [];
   const gs = { memoryInterop: true, autoChat: autoChat, autoChatMin: minutes, autoChatRounds: rounds, autoChatMaxMsg: maxMsg, autoChatResetHours: 24 };
   const chat = [{ role: "user", ts: T0 }];      // 她先说了一句 → 开一张新额度卡
   const goff = opts.groupOffline || [];        // 这个群有没有一场【还在进行】的线下（v58.80）
@@ -51,7 +52,13 @@ function drive(opts) {
     autoChatCycleRef: { current: store },
     autoChatRoundsRef: { current: {} },
     autoChatMsgsRef: { current: {} },
-    writeAutoChatCycle: (gid, c) => (store[gid] = c),
+    writeAutoChatCycle: (gid, c) => {
+      const prev = store[gid] || {};
+      if (c.borrowUsed > 0 && (c.borrowDay !== prev.borrowDay || c.borrowUsed > (prev.borrowUsed || 0))) {
+        borrowEvents.push({ day: c.borrowDay, used: c.borrowUsed, at: NOW });
+      }
+      return (store[gid] = c);
+    },
     resetAutoChatCycle: (gid, ts, k) => (store[gid] = { rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!k, lastUserTs: Number(ts) || 0 }),
     replyGroup: (gid, o) => calls.push({ at: NOW, ...o }),
     AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
@@ -95,6 +102,7 @@ function drive(opts) {
   }
   const out = calls.map(c => ({ minute: (c.at - T0) / 60000, budget: c.msgBudget }));
   out.card = store[G] || {};   // 跑完之后那张额度卡长什么样（借了几次、冷却还在不在）
+  out.borrowEvents = borrowEvents;
   return out;
 }
 
@@ -238,7 +246,7 @@ test("再翻回黑色，接着把剩下那两轮聊完（额度卡没被清掉�
 // 病因不是提示词（replyGroup 早有「你们此刻正在一场群线下」那一段，也真拼进了
 // system），是守卫盯错了东西：它盯【线下浮层开着】，可下拉「回线上群」只是
 // setOfflineGroup(null) 收浮层，那一场并没有结束——浮层一收，自发聊立刻放行。
-const T0 = Date.UTC(2026, 7, 27, 2, 0, 0);
+const T0 = new Date(2026, 7, 27, 0, 0, 0).getTime();
 test("群线下还在演，同一个群的线上一句都不许自发（哪怕浮层已经收起来了）", () => {
   const live = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
     groupOffline: [{ id: "s1", startTs: T0 - 600000, msgs: [{ role: "user", ts: T0 - 600000 }] }] });
@@ -290,6 +298,17 @@ test("一天最多借两次，第三次说什么都不放", () => {
   const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 20 });
   assert.equal(got.card.borrowUsed, 2, "日闸没兜住，借了 " + got.card.borrowUsed + " 次");
   assert.equal(got.length, 13, "5 + 4 + 4 = 13，实际 " + got.length);
+});
+
+test("跨本地午夜重新计日额度，但仍保留三小时间隔", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true, hours: 20,
+    startTs: new Date(2026, 7, 27, 23, 0, 0).getTime() });
+  assert.equal(got.length, 17, "跨天共借三次，每次四轮，加五轮正经额度");
+  assert.deepEqual(got.borrowEvents.map(x => x.used), [1, 1, 2]);
+  assert.equal(new Set(got.borrowEvents.map(x => x.day)).size, 2);
+  for (let i = 1; i < got.borrowEvents.length; i++) {
+    assert.ok(got.borrowEvents[i].at - got.borrowEvents[i - 1].at >= 3 * 3600000);
+  }
 });
 
 test("换一张新额度卡：借来的那一段作废，但今天借过几次要留着", () => {

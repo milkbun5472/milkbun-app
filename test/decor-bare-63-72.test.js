@@ -13,11 +13,21 @@ const fn = name => { const i = comp.indexOf("function " + name + "("); return co
 const S = (() => {
   const ctx = {};
   vm.createContext(ctx);
+  vm.runInContext(comp.match(/const GLASS_BLUR = [^;]+;/)[0], ctx);
   vm.runInContext(["normalizeHomeDecorTilt", "homeDecorRgba", "homeDecorMaterialStyle", "homeWidgetPresetStyle"].map(fn).join("\n")
     + "\nthis.material = homeDecorMaterialStyle; this.preset = homeWidgetPresetStyle;", ctx);
   return ctx;
 })();
 const T = { ink: "#2b2721", line: "#e3ddd3", bg2: "#fffdf8" };
+
+test("自选玻璃材质复用公共折光配方，透明底与无框不受影响", () => {
+  const glass = S.material({ surface: "glass" }, T, "soft");
+  const blur = vm.runInContext("GLASS_BLUR", S);
+  assert.equal(glass.backdropFilter, blur);
+  assert.equal(glass.WebkitBackdropFilter, blur);
+  assert.equal(S.material({ surface: "transparent" }, T, "soft").backdropFilter, "none");
+  assert.equal(S.material({ surface: "glass" }, T, "bare").backdropFilter, undefined);
+});
 
 test("外观里多一款【无框】", () => {
   const i0 = comp.indexOf("const HOME_WIDGET_PRESETS = [");

@@ -1695,7 +1695,6 @@ function splitLongBubble(s, allowComma) {
 // 一句话：x_calendar = 那天有什么事；x_calEvents = 几点到几点做什么。
 const CAL_EVENT_ICONS = ["📌", "💼", "📚", "💻", "🏃", "🏋️", "🍽️", "☕", "🎬", "🎮", "🎵", "🛒", "🛍️", "✈️", "🏥", "📞", "😴", "❤️", "🎂", "🎨", "🧹", "🐾"];
 const CAL_EVENT_COLORS = ["#bcd7f0", "#c5e6c2", "#f7dcbb", "#f6cdd6", "#dbcdf0", "#c2e6df", "#e6e2da", "#eed6f0"];
-function calEvDayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function calEvParseDay(k) { const a = String(k || "").split("-").map(Number); return (a.length === 3 && a[0]) ? new Date(a[0], a[1] - 1, a[2]) : null; }
 function calEvMin(t) { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; }
 // 自动配色：同一个事件永远同一个颜色（按 id 哈希），她不选颜色时用
@@ -3305,14 +3304,6 @@ function loadImgApi() {
   const store = loadImgApiProfiles();
   return Object.assign({}, IMG_API_DEFAULTS, store.profiles.find(p => p.id === store.activeId) || store.profiles[0]);
 }
-function saveImgApi(c) {
-  const store = loadImgApiProfiles();
-  const i = Math.max(0, store.profiles.findIndex(p => p.id === store.activeId));
-  store.profiles[i] = normalizeImgApiProfile(Object.assign({}, store.profiles[i], c || {}), i);
-  store.activeId = store.profiles[i].id;
-  saveImgApiProfiles(store);
-  return Object.assign({}, store.profiles[i]);
-}
 function imgApiReady(a) { a = a || loadImgApi(); return !!(a.enabled && a.baseUrl && a.apiKey); }
 // 聊天态穿着是短期现场事实，不是角色永久服装。照片端也必须遵守同一保鲜期，
 // 否则正文已换装，生图仍可能把几天前的衣服当成最高优先级事实。
@@ -3729,46 +3720,6 @@ function buildAvatarPrompt(char, opts) {
   if (hasRef) parts.push("参考图只决定【这是谁】。机位、头的朝向、表情、取景一律按【头像】这个用途重新决定，不许沿用参考图里的角度。");
   parts.push(anime ? "精致的二次元动画插画风格，干净的线条和上色。" : "真实照片质感：真实皮肤纹理与毛孔、自然光、浅景深，不要磨皮成塑料、不要 AI 精修感、不是 3D 渲染。");
   parts.push("正方形构图，居中，缩到很小也还认得出是谁。");
-  return parts.join("");
-}
-// 有人物参考照时，任务不是「读一大本角色卡重新设计一个符合描述的人」，而是
-// 「编辑参考图里的这个人，让同一个人出现在新场景」。长版 buildPhotoPrompt 里的
-// 外貌、人设、体型、职业和摄影约束会与像素身份争注意力：上游即使收到了 image，
-// 也可能只保留“古装男性”这一类别而重画一张脸（v54.94 裴照川马场实测）。
-// 这份 reference-first prompt 只保留编辑所需的场景、衣着和构图；脸只由参考图决定。
-function buildReferencePhotoPrompt(char, sceneDesc, st, opts) {
-  opts = opts || {};
-  const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
-  const cast = Array.isArray(opts.cast) ? opts.cast.filter(x => x && x.refPhoto) : [];
-  const me = opts.me || null;
-  const refsN = cast.length || (kind === "duo" ? 2 : 1);
-  const cName = String((char && char.name) || "人物");
-  const style = ["realistic", "reference", "anime"].includes(char && char.photoStyle) ? char.photoStyle : "realistic";
-  const wearing = String((char && char.photoOutfit) || freshPhotoWearing(st) || "").trim();
-  const accessories = String((char && char.photoAccessories) || "").trim();
-  const parts = [];
-  parts.push("这是一次基于所附参考图的图片编辑，不是重新选角或重新设计人物。画面中的人物必须仍是参考图里的同一个人；逐像素级保留其独有的脸型、五官比例、眼形眼距、鼻唇轮廓、下颌、肤色、年龄感、发际线和可识别身份。不要生成相似类型、替身、演员或另一张更符合文字描述的脸。若场景要求与身份保真冲突，优先保住参考人物身份。");
-  if (refsN > 1) {
-    const names = cast.length ? cast.map(x => String(x.name || "人物")) : [cName, String((me && me.name) || "对方")];
-    parts.push("共有" + refsN + "张人物参考图，按上传顺序分别对应：" + names.join("、") + "。每个人只沿用自己那张脸，不得交换、融合或平均化。");
-  }
-  if (opts.contRef && Number(opts.contRefIndex) > 0) {
-    parts.push("第" + Number(opts.contRefIndex) + "张图只用于承接上一张照片的场景、衣着和光线，不是新的人脸参考。人物身份仍只由前面对应的人物参考图决定；不得把连续性图片中的脸混入、平均或替换参考人物的脸。");
-  }
-  if (style === "anime") parts.push("保持参考人物的二维动画／插画身份与原有角色设计，不要真人化或改成3D。");
-  else if (style === "reference") parts.push("保持第一张参考图原有的视觉媒介与画风，只改变场景、姿势和必要衣着。");
-  else parts.push("输出自然写实照片；保留参考人物本人，不做换脸式美化，不改变脸部骨相。");
-  if (wearing) parts.push(cName + "此刻穿着：" + wearing + "。只改变衣着，不改变身体和脸。");
-  else parts.push("衣着沿用参考图中可见的时代与人物气质，并按新场景做最少量、自然的调整；不要为了换装重画头脸。");
-  if (accessories) parts.push("保留随身配饰：" + accessories + "。");
-  if (sceneDesc && String(sceneDesc).trim()) parts.push("新场景与动作：" + String(sceneDesc).trim() + "。");
-  // 参考图只锁人不锁镜头（同 buildPhotoPrompt 那条，她 2026-08-25）。
-  // ⚠️这个函数目前还没有调用方；先把这一句放好，接线的那天不该重新掉进同一个坑。
-  parts.push("参考图只决定【这是谁】。机位、头的朝向、视线方向、表情、姿势和取景范围按本次场景重新决定，不许沿用参考图里的角度——参考图那个仰头或低头是那张照片的信息，不是这个人的固有姿态。");
-  if (kind === "self") parts.push("【硬性构图·必须是本人自拍】本人手持手机、使用前置摄像头在一臂距离内拍摄，画面须有明确自然的自拍透视，取近景或中近景，脸清楚可辨且画面只有本人。不得改成别人拍摄、三脚架肖像、影视剧照或宣传人像。");
-  else if (kind === "other") parts.push("构图为别人拍摄的自然生活照，不是自拍；人物的脸清楚可辨。");
-  else parts.push(opts.cinematic ? "构图为第三人称场景剧照，不是自拍；所有参考人物的脸都清楚可辨。" : "构图为自然合照；所有参考人物的脸都清楚可辨。");
-  parts.push("真实自然的光线和皮肤纹理；手若入镜须解剖正确。不要文字、水印、logo或额外人物。");
   return parts.join("");
 }
 // 生成一张自拍，返回 { blob, dataUrl } 或 { blob:null, url }。有参考照只走 images/edits，

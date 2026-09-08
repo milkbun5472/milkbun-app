@@ -13,7 +13,10 @@ const app = R("app.js"), scr = R("screens.js"), cmp = R("components.js");
 // 那几个纯函数真跑一遍：写死的 #16330a / #fff 正是「深色主题白底白字」那条
 // 老规矩要挡的东西，光看正则挡不住算错的取色。
 function skinFns(BUBBLE_SKIN, on) {
-  const seg = cmp.slice(cmp.indexOf("function callSkinOn()"), cmp.indexOf("// OOC 有两种历史形态"));
+  const start = cmp.indexOf("function callSkinOn()");
+  const end = cmp.indexOf("function SysNote", start);
+  assert.ok(start >= 0 && end > start);
+  const seg = cmp.slice(start, end);
   const ctx = {
     BUBBLE_SKIN, localStorage: { getItem: () => (on ? "1" : "0"), setItem() {} },
     skinRGB: hex => { const f = String(hex).replace("#", ""); return [0, 2, 4].map(i => parseInt(f.slice(i, i + 2), 16)); },

@@ -204,13 +204,6 @@ const GTies = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.c
 }), /*#__PURE__*/React.createElement("path", {
   d: "M7.6 7.5L11 16M16.2 9L13 16M8 6.2h7.7"
 }));
-const GLife = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
-  cx: "12",
-  cy: "12",
-  r: "9"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M12 7v5l3 2"
-}));
 const GPhone = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("rect", {
   x: "6",
   y: "2.5",
@@ -297,9 +290,8 @@ const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
 }), /*#__PURE__*/React.createElement("path", {
   d: "M15.5 21l4-4 1.5 1.5-4 4-2 .5.5-2z"
 }));
-// 同人文底 nav 用：书架（三本书）、穿越（拱门/传送门）
+// 同人文底 nav 用：书架（三本书）
 const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("path", { d: "M15.5 6.2l4.4 1.2-3.8 13.6-4.4-1.2" }), h("path", { d: "M4 20h16" }));
-const IPortal = p => h(Svg, p, h("path", { d: "M5 21V8a7 4 0 0114 0v13" }), h("path", { d: "M9 21v-9a3 2.2 0 016 0v9" }));
 // 加笔：一支笔尖压在纸上（同人文底栏中间那一枚）
 const IQuill = p => h(Svg, p,
   h("path", { d: "M4 20.5c1.2-4.6 3.4-8.2 6.6-11.4" }),
@@ -327,9 +319,6 @@ const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4
 const GRescue = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("circle", { cx: 12, cy: 12, r: 3.2 }), h("path", { d: "M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" }));
 const GDuty = p => h(Svg, p, h("rect", { x: 4, y: 4.5, width: 16, height: 6, rx: 1.6 }), h("rect", { x: 4, y: 13.5, width: 16, height: 6, rx: 1.6 }), h("circle", { cx: 7.2, cy: 7.5, r: .8 }), h("circle", { cx: 7.2, cy: 16.5, r: .8 }), h("path", { d: "M10 7.5h6.5M10 16.5h6.5" }));
 const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circle", { cx: 12, cy: 4.8, r: 2.1 }), h("circle", { cx: 5.7, cy: 15.8, r: 2.1 }), h("circle", { cx: 18.3, cy: 15.8, r: 2.1 }), h("path", { d: "M10.2 7.1l.8 1.9M7.8 14.3l1.9-1M16.2 14.3l-1.9-1" }));
-// 备忘录：便签清单（板身 + 顶夹 + 两行勾选）
-// 时光胶囊：沙漏
-const GCapsule = p => h(Svg, p, h("path", { d: "M7 3.5h10M7 20.5h10" }), h("path", { d: "M8.2 3.5v2.2c0 2.6 2.3 3.9 3.8 5.3 1.5-1.4 3.8-2.7 3.8-5.3V3.5M8.2 20.5v-2.2c0-2.6 2.3-3.9 3.8-5.3 1.5 1.4 3.8 2.7 3.8 5.3v2.2" }), h("path", { d: "M10.4 18.6h3.2" }));
 
 // 天气：一套线条画的天象（她 2026-09-04：「一起换了吧」——主屏上最后几个 emoji）。
 // kind 由 wmoKind(code) 给：sun / partly / cloud / fog / storm / snow / rain。

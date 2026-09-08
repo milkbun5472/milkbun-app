@@ -93,7 +93,7 @@ test("健康走草药那一族，一屏只有一处是赭色的", () => {
   // 六色彩虹是仪表盘的样子，撤掉
   ["#b9a7dd", "#8fb8dd", "#e59aa8", "#8ccbc0", "#eef0f3"].forEach(c =>
     assert.ok(ph.indexOf(c) < 0, "还剩着仪表盘那套彩虹色 " + c));
-  ["HEALTH_BODY", "HEALTH_LINE", "HEALTH_SOFT"].forEach(k =>
+  ["HEALTH_BODY", "HEALTH_LINE"].forEach(k =>
     assert.match(ph, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量"));
 });
 

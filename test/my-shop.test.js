@@ -146,7 +146,10 @@ test("我的物品按【怎么来的】归组", () => {
   const i = screens.indexOf('h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
   assert.ok(i > 0, "找不到我的物品");
   const seg = screens.slice(i, screens.indexOf("  // ---------- 商品详情", i));
-  assert.match(seg, /const k = it\.fromCharId \|\| "__me"/, "没按来源分组");
+  assert.match(seg, /const dreamy = it\.source === "dream";/);
+  assert.match(seg, /const k = dreamy \? "__dream:" \+ \(it\.dreamCharId \|\| ""\) : \(it\.fromCharId \|\| "__me"\);/, "梦中物品、角色礼物、自己购买必须分别归组");
+  const dream = R("dream.js");
+  assert.match(dream, /fromCharId: null, dreamCharId: s\.charId, dreamNote: k\.note \|\| "", source: "dream"/, "梦中物品字段以写入方为准");
   assert.match(seg, /groups\.sort\(\(a, b\) => \(a\.key === "__me" \? 1 : 0\)/, "自己买的该排最后——别人送的才是要一眼看见的");
   assert.match(seg, /送的" : "自己买的"/);
   assert.match(seg, /const c = shopTone\(it, i\)/, "没有品类色");

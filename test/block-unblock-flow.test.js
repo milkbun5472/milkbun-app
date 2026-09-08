@@ -6,6 +6,10 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
+const unblockStart = app.indexOf("const sendMyUnblockReq =");
+const unblockEnd = app.indexOf("const clearChat =", unblockStart);
+assert.ok(unblockStart >= 0 && unblockEnd > unblockStart, "解除申请函数边界缺失");
+const unblock = app.slice(unblockStart, unblockEnd);
 
 // 她 2026-08-20 报的四件事
 test("群红包要有头像和发的人是谁", () => {
@@ -32,7 +36,7 @@ test("拉黑时要把原因和时刻存下来，判定才有尺子", () => {
 });
 
 test("解除判定要拿到证据：原因、隔了多久、第几次、之前说过什么", () => {
-  const seg = app.slice(app.indexOf("const sendMyUnblockReq"), app.indexOf("const clearChat"));
+  const seg = unblock;
   assert.match(seg, /const tries = Number\(bk\.tries \|\| 0\) \+ 1;/);
   assert.match(seg, /const pastPleas =/);
   assert.match(seg, /m\.kind === "unblock_req" && m\.from === "me" && m\.plea/);
@@ -44,7 +48,7 @@ test("解除判定要拿到证据：原因、隔了多久、第几次、之前�
 });
 
 test("判定标准：按性格、看有没有说到点子上，但明确不许太难", () => {
-  const seg = app.slice(app.indexOf("const sendMyUnblockReq"), app.indexOf("const clearChat"));
+  const seg = unblock;
   assert.match(seg, /按【你自己的性格】决定接不接受/);
   assert.match(seg, /有没有真的碰到【你当初生气的那件事】/);
   assert.match(seg, /和上几次几乎一样地再说一遍，不该管用/);

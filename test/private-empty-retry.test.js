@@ -12,5 +12,5 @@ test("私聊只为空正文静默补试一次，不吞隐藏思考", () => {
 });
 
 test("两次仍失败时显示系统行，不冒充角色气泡", () => {
-  assert.match(app, /kind: "system",\n\s*content: "（发送失败："/);
+  assert.match(app, /kind: "system",\s*contextExcluded: true,\s*systemFailure: true,\s*content: "（发送失败："/);
 });

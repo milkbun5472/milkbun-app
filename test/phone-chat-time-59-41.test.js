@@ -37,7 +37,11 @@ test("会话列表的时刻是现算的，而且一屏一种写法", () => {
   assert.equal(K.phoneChatWhen({ time: "周一" }), "周一");
   assert.equal(K.phoneChatWhen(null), "");
   // 两处会话列表都要用它，漏一处就还是两种写法并排
-  assert.equal((ph.match(/phoneChatWhen\(c\)/g) || []).length, 3, "有一处会话列表还在直接显示模型写回来的那句（桌面组件那一处最容易漏）");
+  const start = ph.indexOf("function WeChatViewFull(");
+  const end = ph.indexOf("\nfunction ", start + 1);
+  assert.ok(start >= 0 && end > start);
+  assert.match(ph.slice(start, end), /phoneChatWhen\(c\)/, "微信会话列表没有现算时刻");
+  assert.match(ph.slice(end), /phoneChatWhen\(c\)/, "桌面组件没有现算时刻");
   assert.ok(ph.indexOf('} }, c.time || "")') < 0, "还有地方原样显示存着的那句时间");
 });
 

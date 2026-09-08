@@ -30,10 +30,11 @@ test("三款竖着的照片样式都在，格数对得上", () => {
   assert.match(seg, /\{ id: "filmV4", name: "竖胶卷".*need: 4 \}/);
   assert.match(seg, /\{ id: "clipline3", name: "垂绳夹照".*need: 3 \}/);
   assert.match(seg, /\{ id: "tower4", name: "叠下来的一摞".*need: 4 \}/);
-  // ⚠️口径改了（v63.78）：那一页现在默认只露八种、点「全部 N 种」才摊开，
-  //   所以网格是 `(list || HOME_PHOTO_FRAMES)`。钉的仍是「这一份就是全部来源」。
+  // 默认显示八种可新建样式，展开显示全部可新建样式；退休样式仍供旧存档渲染。
   assert.match(comp, /\(list \|\| HOME_PHOTO_FRAMES\)\.map\(function \(p\)/);
-  assert.match(comp, /"全部 " \+ HOME_PHOTO_FRAMES\.length \+ " 种 ›"/, "摊开全部的口子没了，新加的几种永远选不到");
+  assert.match(comp, /var pickableFrames = homePhotoFramePickable\(\);/);
+  assert.match(comp, /var frames = decorFrameAll \? pickableFrames : pickableFrames\.slice\(0, 8\);/);
+  assert.match(comp, /"全部 " \+ pickableFrames\.length \+ " 种 ›"/, "展开数量必须与实际可选列表相同");
 });
 
 test("新建时自动挑竖格子——摆进横格子里这三种骨架就不成立了", () => {

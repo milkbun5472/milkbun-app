@@ -63,11 +63,10 @@ test("连贯参考图那条原样保留，两条要并存", () => {
   assert.match(p, /参考图只锁人，不锁镜头/, "人物参考照那条");
 });
 
-// buildReferencePhotoPrompt 目前还没有调用方（Codex 在做）。先把同款一句放好，
-// 接线的那天不该重新掉进同一个坑。
-test("还没接线的那份也先放好同款一句", () => {
-  const build = grab("buildReferencePhotoPrompt");
+test("退役提示词不再保留，实际管线仍允许重定机位", () => {
+  assert.doesNotMatch(engine, /function buildReferencePhotoPrompt\(/);
+  const build = grab("buildPhotoPrompt");
   const p = build({ name: "沈屿白", refPhoto: "iv_abc" }, "在实验室", {}, { kind: "self" });
-  assert.match(p, /参考图只决定【这是谁】/);
-  assert.match(p, /不许沿用参考图里的角度/);
+  assert.match(p, /参考图只锁人，不锁镜头/);
+  assert.match(p, /不许沿用参考照里的那一套/);
 });

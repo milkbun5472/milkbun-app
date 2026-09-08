@@ -28,8 +28,7 @@ test("查手机那块底衬起了名字，不再是一行看不出用意的裸�
   const fb = phone.match(/const FULL_BLEED_KEYS = \[([^\]]*)\]/);
   assert.ok(fb, "full-bleed 名单没了");
   // ⚠️只在 PHONE_APPS 那个数组里数：整份文件里 `key: "..."` 有一百多处
-  const arr = phone.slice(phone.indexOf("const PHONE_APPS = ["), phone.indexOf("\n];", phone.indexOf("const PHONE_APPS = [")));
-  const keys = [...arr.matchAll(/key: "([a-z]+)"/g)].map(m => m[1]);
+  const keys = require("./helpers/phone-render.js").loadPhone().PHONE_APPS.map(app => app.key);
   assert.equal(keys.length, 20, "内层 app 数目变了，得重新逐个看一遍");
   const listed = fb[1].match(/"[a-z]+"/g).map(s => s.replace(/"/g, ""));
   assert.deepEqual(keys.filter(k => listed.indexOf(k) < 0), [], "有内层 app 不在 full-bleed 名单里，那块底衬会整片露出来");

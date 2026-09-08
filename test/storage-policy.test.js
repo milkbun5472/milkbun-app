@@ -36,7 +36,7 @@ assert.match(app, /window\.__txtMirror\.forEach\(\(v, k\) => offlineKeys\.add\(k
 assert.match(app, /await idbTxtClear\(\)/);
 assert.match(cloud, /storedJSONText\("x_memLib"\)/);
 assert.match(cloud, /!\(tableMemoryMode\(\) && k === "x_memLib"\)/);
-assert.match(cloud, /if \(tableMemoryMode\(\) && k === "x_memLib"\) return/);
+assert.match(cloud, /for \(const \[k, v0\] of Object\.entries\(data \|\| \{\}\)\) \{[\s\S]*?if \(tableMemoryMode\(\) && k === "x_memLib"\) continue;/);
 assert.match(cloud, /await idbTxtApplySnapshot\(data \|\| \{\}/);
 assert.match(cloud, /await this\.apply\(row\.data\)/);
 

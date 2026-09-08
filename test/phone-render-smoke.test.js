@@ -121,9 +121,10 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
         L.id + " 的小组件引用了不存在的 " + w.key);
     }));
   });
-  // 兜底布局也要覆盖全
-  const fb = P.PHONE_DOCK_KEYS.concat(...P.PHONE_DESKTOP_PAGES);
-  keys.forEach(k => assert.ok(fb.indexOf(k) >= 0, "兜底布局里找不到 " + k));
+  // 实际选择器在角色字段缺省时仍须返回完整布局，不测没人调用的旧兜底数组。
+  const fallback = P.phoneDesktopLayout({});
+  const fb = fallback.dock.concat(...fallback.pages, ...fallback.widgets.map(page => page.map(w => w.key)));
+  keys.forEach(k => assert.ok(fb.indexOf(k) >= 0, "默认选择的布局里找不到 " + k));
 });
 
 test("新加的这几个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {

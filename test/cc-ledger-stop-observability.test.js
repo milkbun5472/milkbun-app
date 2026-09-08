@@ -30,8 +30,15 @@ test("未知 hook 失败记 ignored_unexpected 并产生报警票", () => {
   assert.equal(out.alerts.at(-1).source, "cc-ledger-stop");
 });
 
-test("outbox 每轮有明确多投上限，不再只处理 index 0", () => {
+test("Stop hook 不再补投 outbox，独立推手负责确认后移票", () => {
   const source = fs.readFileSync(hook, "utf8");
-  assert.match(source, /attempted >= 3/);
-  assert.doesNotMatch(source, /if \(index > 0\)/);
+  const flush = source.match(/async function flushOutbox\(\) \{([^}]*)\}/);
+  assert.ok(flush, "找不到 outbox 的 Stop hook 入口");
+  assert.equal(flush[1].replace(/\/\*[\s\S]*?\*\//g, "").trim(), "", "Stop hook 不能恢复网络补投");
+  const push = fs.readFileSync(path.join(__dirname, "../scripts/cc-ledger-push.mjs"), "utf8");
+  assert.match(push, /body: lines\.join\("\\n"\) \+ "\\n"/, "推手发送完整批次，不只发送首票");
+  const confirmed = push.indexOf("if (!r.ok) throw");
+  const remove = push.indexOf('writeFileSync(OUTBOX + ".tmp", rest)');
+  assert.ok(confirmed > 0 && remove > confirmed, "确认收下之后才能移除本地票");
+  assert.match(push, /const rest = now\.startsWith\(raw\) \? now\.slice\(raw\.length\) : now;/, "投递期间新增的票必须留下");
 });

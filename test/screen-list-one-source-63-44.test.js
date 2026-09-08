@@ -88,9 +88,7 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
   const apps = MAN.byId("phone_apps"), rooms = MAN.byId("couple_rooms");
   assert.ok(apps && rooms, "两条子页面词条少了一条");
   // 二十个 app 一个都不许漏——照 phone.js 里【真的那份名单】核，不是照我记的
-  const phone = R("phone.js");
-  const seg = phone.slice(phone.indexOf("const PHONE_APPS = ["), phone.indexOf("const PHONE_DESKTOP_PAGES"));
-  const names = [...new Set((seg.match(/zh: "[^"]+"/g) || []).map(x => x.slice(5, -1)))];
+  const names = require("./helpers/phone-render.js").loadPhone().PHONE_APPS.map(app => app.zh);
   assert.ok(names.length >= 20, "查手机的 app 名单抓少了：" + names.length);
   // ⚠️必须落在 what（那句「它是什么」）里，不是「在 kw 里出现过就算」——
   //   只在检索词里有的话，翻是翻得到，翻出来的那段却没说它是干嘛的

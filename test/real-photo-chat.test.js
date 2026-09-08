@@ -113,7 +113,17 @@ test("合照必须说明哪张参考图是谁，且锁脸前置", () => {
   assert.match(eng, /第一张参考图是「" \+ cName \+ "」本人，第二张参考图是「" \+ uName \+ "」本人/);
   assert.match(eng, /两张脸绝不许互换、混合或平均化/);
   const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
-  assert.match(th, /faceLock \+ buildPhotoPrompt/, "小剧场的锁脸必须在整段 prompt 最前面");
+  assert.match(th, /buildPhotoPrompt\(b\.styledChar, sceneDesc, null, \{ kind: b\.duo \? "duo" : "other", me: b\.me, cinematic: true \}\)/, "封面要走共用锁脸管线");
+  assert.match(th, /buildPhotoPrompt\(styledChar, sceneDesc, null, \{ kind: duo \? "duo" : "other"/, "剧照要走共用锁脸管线");
+  const start = eng.indexOf("function buildPhotoPrompt(char, sceneDesc, st, opts) {");
+  const end = eng.indexOf("function buildScenePrompt(", start);
+  assert.ok(start >= 0 && end > start);
+  const build = new Function('const freshPhotoWearing=()=>"";const freshLiveStateValue=()=>"";const charAge=()=>25;\n' + eng.slice(start, end) + '\nreturn buildPhotoPrompt;')();
+  const prompt = build({ name: "角色甲", refPhoto: "iv_actor" }, "庭院合照", null,
+    { kind: "duo", cinematic: true, me: { name: "用户乙", refPhoto: "iv_user" } });
+  assert.ok(prompt.startsWith("【首要任务：人物身份】"), "真正送出的提示词必须身份前置");
+  assert.match(prompt, /第一张参考图是「角色甲」本人，第二张参考图是「用户乙」本人/);
+  assert.match(prompt, /两张脸绝不许互换、混合或平均化/);
   assert.doesNotMatch(th, /sceneDesc = faceLock/, "锁脸不能再埋回 sceneDesc 里");
 });
 

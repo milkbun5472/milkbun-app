@@ -7069,21 +7069,6 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
         }));
     })() : null));
 }
-function ConfigFold({ title, sub, open, onToggle, children, danger }) {
-  const t = useTheme();
-  return h("section", { style: { borderBottom: "1px solid " + t.line } },
-    h("button", {
-      onClick: onToggle,
-      className: "w-full active:opacity-60",
-      style: { padding: "15px 2px", textAlign: "left" }
-    },
-      h("div", { className: "flex items-center justify-between", style: { gap: 12 } },
-        h("div", { style: { minWidth: 0 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: danger ? t.accent : t.ink } }, title),
-          sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, open ? "收起 －" : "展开 ＋"))),
-    open ? h("div", { style: { paddingBottom: 18 } }, children) : null);
-}
 
 // ── 设置这一整块：一张登记表（v62.48，审美审计还债③）────────────────
 // 审计判词：设置首页和它底下二十二个子页共用一个【没有 style 的外壳】，

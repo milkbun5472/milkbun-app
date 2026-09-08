@@ -38,6 +38,10 @@ test("实时私聊窗口：给，但照这个群自己的设置给", () => {
 
 test("配角照旧不吃这些层", () => {
   assert.match(gc, /if \(c\.npc\) return "【" \+ c\.name \+ "】" \+ groupPersonaText\(c\.persona, NPC_PERSONA_CAP\);/);
-  assert.match(gc, /people\.filter\(c => !c\.npc\)\.map\(c => \{\n\s*const lines = memberPrivLines/,
-    "配角没有和用户的私聊，别给他开一段");
+  assert.match(gc, /const gcMembers = people\.filter\(c => !c\.npc\);/);
+  const start = gc.indexOf("const gcPriv = gcMembers.map(c => {");
+  const end = gc.indexOf("const gcPrivBlock =", start);
+  assert.ok(start >= 0 && end > start, "私有段必须只遍历去掉配角的名册");
+  assert.match(gc.slice(start, end), /const lines = gcInterop \? memberPrivLines\(c, gcPrivN\) : "";/,
+    "配角没有私聊，封闭群也不能读实时私聊");
 });

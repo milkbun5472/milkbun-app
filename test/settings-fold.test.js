@@ -72,7 +72,10 @@ test("数据页把空间、照片、云同步、备份和危险操作分别做�
 });
 
 test("上下文诊断直接进入透视内容，不再套第二层折叠", () => {
-  const ctx = screens.slice(screens.indexOf("function CtxDebug"), screens.indexOf("function ConfigFold"));
+  const start = screens.indexOf("function CtxDebug");
+  const end = screens.indexOf("\nfunction ", start + 1);
+  assert.ok(start >= 0 && end > start);
+  const ctx = screens.slice(start, end);
   assert.doesNotMatch(ctx, /setFolded/);
   assert.match(ctx, /上下文透视/);
 });

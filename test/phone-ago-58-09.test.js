@@ -51,7 +51,11 @@ test("朋友圈的昨天与几天前按自然日算，不被夏令时的一小�
 });
 
 test("朋友圈那一栏真的用上了它", () => {
-  assert.match(phone, /phoneAgo\(m\) \|\| m\.time \|\| ""/, "朋友圈还在直接显示存着的那句话");
+  const start = phone.indexOf("function WeChatViewFull(");
+  const end = phone.indexOf("const momentCard =", start);
+  assert.ok(start > 0 && end > start, "现用全屏朋友圈入口缺失");
+  const moment = phone.slice(end, phone.indexOf("body = h(", end));
+  assert.match(moment, /phoneAgo\(m\) \|\| m\.time \|\| ""/, "现用朋友圈还在直接显示存着的那句话");
   assert.doesNotMatch(phone, /marginTop: 7 \} \}, m\.time \|\| ""\)/, "旧写法还在");
 });
 

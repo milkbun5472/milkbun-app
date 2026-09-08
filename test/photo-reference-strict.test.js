@@ -29,7 +29,7 @@ test("设置页诚实区分参考请求成功与同脸验证", () => {
   assert.match(screens, /上传一张脸，测试高保真参考能力/);
   assert.match(screens, /单次测试参考图/);
   assert.match(screens, /singleShot: true/);
-  assert.match(screens, /attemptMs: 120000/);
+  assert.match(screens, /attemptMs: 180000, budgetMs: 190000/);
   assert.match(screens, /参考图上传字段（每个站单独保存）/);
   assert.match(screens, /value: "bracket".*image\[\]/s);
   assert.match(screens, /最终是不是同一个人仍要看测试图确认/);
@@ -42,10 +42,10 @@ test("单次参考图诊断不会自动换字段或提示词连射", () => {
   assert.match(engine, /a\.refFieldMode === "bracket" \? "bracket"/);
 });
 
-test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重设计提示", () => {
-  assert.match(engine, /function buildReferencePhotoPrompt/);
-  assert.match(engine, /不是重新选角或重新设计人物/);
-  assert.match(engine, /连续性图片中的脸混入、平均或替换/);
+test("聊天与小剧场共用经典锁脸管线，IF 人设不借用主线职业", () => {
+  // 5930f605 / d90ec13a 已将实测锁脸的经典管线转正；不再测试无人调用的旧提示词。
+  assert.match(app, /const prompt = buildPhotoPrompt\(char, sceneForPhoto, st, photoOpts\)/);
+  assert.match(app, /const prompt = buildPhotoPrompt\(spk, gPhotoScene, st, gPhotoOpts\)/);
   assert.match(app, /generateSelfieImage\(prompt, refs\.length \? refs : null/);
   assert.match(app, /generateSelfieImage\(prompt, refs\.length \? refs : null, \{ minimalPrompt: gMinimal \}\)/);
   assert.doesNotMatch(theater, /buildReferencePhotoPrompt/);
@@ -53,14 +53,19 @@ test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重�
   assert.match(theater, /const ifVisualPersona = \[l\.world \|\| l\.setting, l\.charRole\]/);
   assert.match(theater, /const ifVisualPersona = \[line\.world \|\| line\.setting, line\.charRole\]/);
   assert.doesNotMatch(theater, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/);
-  assert.match(theater, /只改变服装、道具、场景与气质,绝不改变这张脸/);
+  assert.match(engine, /可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸/);
+  assert.match(engine, /若它与前面的人物参考图冲突,一律以人物参考图为准/);
 });
 
 test("照片类型在审核降级后仍保持：自拍是自拍，抓拍仍允许抓拍", () => {
   assert.match(engine, /【必须是本人自拍】本人手持手机、用前置摄像头在一臂距离内拍摄/);
   assert.match(engine, /一张由别人拍摄的自然生活照，不是自拍/);
-  assert.match(engine, /【硬性构图·必须是本人自拍】本人手持手机、使用前置摄像头/);
-  assert.match(engine, /构图为别人拍摄的自然生活照，不是自拍/);
+  const start = engine.indexOf("function buildPhotoPrompt(");
+  const end = engine.indexOf("\nfunction ", start + 1);
+  assert.ok(start >= 0 && end > start);
+  const prompt = engine.slice(start, end);
+  assert.match(prompt, /【第一人称自拍】手臂伸出去、前置摄像头拍的自拍构图/);
+  assert.match(prompt, /【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角/);
 });
 
 test("人物与用户合照参考图使用高分辨率保存", () => {

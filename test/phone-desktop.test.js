@@ -6,7 +6,7 @@ const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
 
 test("查手机桌面是全屏双页、可横滑并保留底部 Dock", () => {
-  assert.match(src, /const PHONE_DESKTOP_PAGES = \[/);
+  assert.match(src, /const PHONE_DESKTOP_LAYOUTS = \[/);
   assert.match(src, /scrollSnapType: "x mandatory"/);
   assert.match(src, /scrollSnapAlign: "start"/);
   assert.match(src, /layout\.dock\.map/);
@@ -23,15 +23,17 @@ test("20 个 App 一个都没在桌面上丢入口", () => {
   // v57.73 加了账本：他心里给这段关系记的那本账（不记钱，钱在钱包）
   // v57.77 加了邮件：他对外那一面（正式腔和私下说话的落差）
   // 匿名信箱接回主 App 的 x_anon 真数据，不另造一份问答。
-  const block = src.match(/const PHONE_APPS = \[([\s\S]*?)\n\];/)[1];
-  const declared = [...new Set([...block.matchAll(/key: "([a-z]+)"/g)].map(m => m[1]))];
+  const { loadPhone } = require("./helpers/phone-render.js");
+  const P = loadPhone();
+  const declared = P.PHONE_APPS.map(app => app.key);
   assert.deepEqual(declared.sort(), ["album", "browser", "calendar", "calls", "clipboard", "forum", "health",
     "liked", "music", "notes", "reading", "shopping", "takeout", "wechat"]
     .concat(["bili", "latenight", "timeline", "tally", "mail", "anon"]).sort());
 
-  const dock = src.match(/const PHONE_DOCK_KEYS = \[([^\]]+)\]/)[1];
-  const pages = src.match(/const PHONE_DESKTOP_PAGES = \[([\s\S]*?)\n\];/)[1];
-  declared.forEach(key => assert.ok((dock + pages).includes('"' + key + '"'), key + " 没有桌面入口"));
+  for (const layout of P.PHONE_DESKTOP_LAYOUTS) {
+    const keys = layout.dock.concat(...layout.pages, ...layout.widgets.map(page => page.map(w => w.key)));
+    declared.forEach(key => assert.ok(keys.includes(key), layout.id + " 中 " + key + " 没有桌面入口"));
+  }
 });
 
 test("桌面组件复用现有数据，不新增模型生成项目", () => {

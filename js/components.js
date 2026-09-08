@@ -302,12 +302,6 @@ function callBubble(isMe) {
   return { background: skinAlpha(bg, "f2"), color: skinInkOn(bg, isMe ? S.myText : S.charText) };
 }
 
-// OOC 有两种历史形态：普通 OOC 气泡，以及单聊里保留旧视觉的 SYSTEM RESPONSE。
-// components.js 不能依赖 engine.js 的顶层 helper 是否被浏览器挂到 window；在渲染层自己认全，
-// 否则单聊回复会出现“看得见删除键/分支，实际判断不到这是一条 OOC”的脆弱行为。
-function isOocRecord(m) {
-  return !!(m && (m.kind === "ooc" || (m.turnId && String(m.turnId).indexOf("ooc_") === 0)));
-}
 // ── 系统提示这一族，只有这一个长相（v63.49，她 2026-09-05）────────────────
 // 她原话：「群聊和单聊的所有系统提示包括 ooc 改成同一个样式，并且可以点 ❌ 从屏幕删掉」。
 // 在这之前是五处各写各的：单聊 system 是一整块居中的斜体大字（发送失败那种能占半屏），
@@ -3255,7 +3249,7 @@ function homeDecorMaterialStyle(item, t, preset) {
   if (preset === "bare") return style;
   if (surface === "transparent") Object.assign(style, { background: "transparent", boxShadow: "none", backdropFilter: "none", WebkitBackdropFilter: "none" });
   if (surface === "tint") Object.assign(style, { background: "linear-gradient(145deg," + homeDecorRgba(accent, .19) + "," + homeDecorRgba(accent, .07) + ")", boxShadow: "0 8px 22px " + homeDecorRgba(accent, .12) });
-  if (surface === "glass") Object.assign(style, { background: "rgba(255,255,255,.32)", boxShadow: "0 9px 26px rgba(40,34,28,.10)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" });
+  if (surface === "glass") Object.assign(style, { background: "rgba(255,255,255,.32)", boxShadow: "0 9px 26px rgba(40,34,28,.10)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR });
   if (borderMode === "none") style.border = "none";
   else if (borderMode === "dashed") style.border = "1px dashed " + homeDecorRgba(accent, .78);
   else style.border = "1px solid " + homeDecorRgba(accent, .52);

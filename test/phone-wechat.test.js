@@ -77,9 +77,14 @@ test("同一对成员的多个两人旁观房只保留最近一条", () => {
 });
 
 test("联系人固定补入 Lisa，公众号文章可点开查看感想", () => {
-  assert.match(phone, /const contacts = \[\{ name: meName/);
-  assert.match(phone, /最近读过的公众号文章/);
-  assert.match(phone, /看完想了什么/);
+  const start = phone.indexOf("function WeChatViewFull(");
+  const end = phone.indexOf("\nfunction ", start + 1);
+  assert.ok(start >= 0 && end > start);
+  const view = phone.slice(start, end);
+  assert.match(view, /const contacts = \[\{ \.\.\.userContact, name: meName/);
+  assert.match(view, /onClick: \(\) => setArticle\(a\)/);
+  assert.match(view, /article\.summary/);
+  assert.match(view, /article\.thought/);
 });
 
 test("真实聊天显示头像、十二轮上下文，并在微信内全屏打开", () => {

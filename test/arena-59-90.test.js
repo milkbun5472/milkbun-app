@@ -262,7 +262,10 @@ test("字数：人设不许再按固定字数砍，照群聊那套按在场人�
   assert.equal((dbt.match(/worldbook\.trim\(\)\.slice\(0, 6000\)/g) || []).length, 2, "世界书还在砍到几百字");
   assert.match(dbt, /\(m\.role === "user" \? uName : charName\) \+ "：" \+ String\(m\.content\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 400\)/, "注入的那几句聊天还砍在 80 字");
   // 塔罗和同人文那两处反应也放开（上一版点名剩下的）
-  const tarot = app.slice(app.indexOf("const forwardTarotToChat = async (session) => {"), app.indexOf("const forwardFicToGroup"));
+  const tarotStart = app.indexOf("const forwardTarotToChat = async (");
+  const tarotEnd = app.indexOf("const forwardFicToGroup", tarotStart);
+  assert.ok(tarotStart >= 0 && tarotEnd > tarotStart, "塔罗转发函数边界缺失");
+  const tarot = app.slice(tarotStart, tarotEnd);
   assert.match(tarot, /maxTokens: 8000 \}\);/, "塔罗那条反应还卡在 900");
   assert.match(app, /schemaHint: "\{\\"say\\":\[\\"气泡1\\"\]\}", maxTokens: 8000/, "同人文新章那条反应还卡在 700");
 });

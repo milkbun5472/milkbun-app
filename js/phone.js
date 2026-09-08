@@ -96,12 +96,6 @@ const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 跟「忘了装修」长得一模一样，而 last-flat-shells 那道闸拦的正是后者。
 function phoneAppBg(t) { return { background: t.bg }; }
 const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
-// 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
-const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
-const PHONE_DESKTOP_PAGES = [
-  ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail", "anon"]
-];
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
 //   clock  一只走针的表      frame  从他相册里挑一张当相框      saying 把他写过的一句话放大
 const PHONE_DECOR = ["clock", "frame", "saying"];
@@ -1358,19 +1352,6 @@ const PHONE_ICON_PRESETS = [
   { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
   { key: "glass", name: "透明玻璃", sub: "让壁纸透出来" }
 ];
-const parseMins = s => {
-  s = String(s || "");
-  let m = 0;
-  const hm = s.match(/(\d+)\s*(小时|时|h)/i),
-    mm = s.match(/(\d+)\s*(分|min|m)/i);
-  if (hm) m += parseInt(hm[1]) * 60;
-  if (mm) m += parseInt(mm[1]);
-  if (!hm && !mm) {
-    const n = s.match(/\d+/);
-    if (n) m = parseInt(n[0]);
-  }
-  return m;
-};
 const fmtMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
@@ -2314,110 +2295,7 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
     }, T("解锁 · 进他的桌面"))));
 }
 
-// 点开某条看细节的通用 sheet 内容（在事件里构造，需显式传 t）
-const DetailSheet = (title, body, t, foot) => h("div", null, h(Eyebrow, {
-  style: {
-    marginBottom: 8
-  }
-}, title), h("div", {
-  style: {
-    fontFamily: F_BODY,
-    fontSize: 14,
-    lineHeight: 1.8,
-    color: t.ink,
-    whiteSpace: "pre-wrap"
-  }
-}, body || "（无内容）"), foot || null);
-const RecSheet = (it, t, foot) => h("div", null, h(Eyebrow, {
-  style: {
-    marginBottom: 8
-  }
-}, it.name), h("div", {
-  style: {
-    fontFamily: F_BODY,
-    fontSize: 14,
-    lineHeight: 1.8,
-    color: t.ink,
-    whiteSpace: "pre-wrap"
-  }
-}, it.transcript || "（无转录）"), it.thought && h("div", {
-  style: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTop: `1px solid ${t.line}`
-  }
-}, h(Eyebrow, {
-  style: {
-    marginBottom: 6
-  }
-}, "TA 的想法"), h("div", {
-  style: {
-    fontFamily: F_BODY,
-    fontSize: 13,
-    lineHeight: 1.7,
-    color: t.sub,
-    fontStyle: "italic"
-  }
-}, it.thought)), foot || null);
-const WeChatThread = (c, char, t) => h("div", null, h(Eyebrow, {
-  style: {
-    marginBottom: 12
-  }
-}, c.name), h("div", {
-  className: "space-y-2"
-}, (c.messages || []).map((m, i) => {
-  const self = m.from === char.name || m.from === "我" || m.from === "本人";
-  return h("div", {
-    key: i,
-    className: "flex " + (self ? "justify-end" : "justify-start")
-  }, h("div", {
-    style: {
-      maxWidth: "76%",
-      padding: "8px 12px",
-      borderRadius: 14,
-      fontFamily: F_BODY,
-      fontSize: 13.5,
-      lineHeight: 1.5,
-      background: self ? "#95d16f" : "#fff",
-      color: self ? "#16330a" : t.ink,
-      border: self ? "none" : `1px solid ${t.line}`
-    }
-  }, m.text));
-})));
 
-function WeChatView({ d, char, t, setSheet, profile }) {
-  const [tab, setTab] = useState("chats");
-  const arr = a => Array.isArray(a) ? a : [];
-  const actual = arr(d.actualChats), generated = arr(d.chats);
-  const meName = userName(profile);
-  const chatRow = (c, i, real) => h("button", {
-    key: (real ? "r" : "g") + i + (c.id || c.name || ""),
-    onClick: () => c.messages && c.messages.length && setSheet(WeChatThread(c, char, t)),
-    className: "w-full text-left py-3 flex items-center gap-3 active:opacity-60",
-    style: { borderTop: `1px solid ${t.line}` }
-  }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 43, radius: c.type === "group" ? 13 : 999 }), h("div", { className: "flex-1 min-w-0" },
-    h("div", { className: "flex items-baseline justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, phoneChatWhen(c))),
-    h("div", { className: "flex items-center gap-1.5", style: { marginTop: 2 } }, real && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9, color: t.tint, padding: "1px 5px", borderRadius: 999, background: t.bg2 } }, "真实"), h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || ""))));
-  const contactRow = (c, i) => h("button", {
-    key: "c" + i + (c.name || ""),
-    onClick: () => setSheet(h("div", null, h("div", { className: "flex items-center gap-3 mb-5" }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 58, radius: 16 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3 } }, c.name))), h(Eyebrow, { style: { marginBottom: 7 } }, "TA 眼里的这个人"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.sub } }, c.intro || "没有留下更多介绍。"))),
-    className: "w-full text-left py-3 flex items-center gap-3 active:opacity-60", style: { borderTop: `1px solid ${t.line}` }
-  }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 42, radius: 12 }), h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.intro || c.name)));
-  const moments = arr(d.moments), accounts = arr(d.me && d.me.accounts);
-  let body;
-  if (tab === "chats") body = h("div", null,
-    actual.length ? h("div", null, h(Eyebrow, { style: { margin: "4px 0 8px" } }, "手机里已有的聊天 · " + actual.length), actual.map((c, i) => chatRow(c, i, true))) : null,
-    h(Eyebrow, { style: { margin: actual.length ? "20px 0 8px" : "4px 0 8px" } }, "其他会话 · " + generated.length), generated.map((c, i) => chatRow(c, i, false)));
-  else if (tab === "contacts") {
-    const contacts = [{ name: meName, remark: meName, intro: "置顶联系人。你们真实的关系与共同经历，以主聊天和记忆为准。" }, ...arr(d.contacts)];
-    body = h("div", null, h(Eyebrow, { style: { margin: "4px 0 8px" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
-  } else if (tab === "moments") body = h("div", { className: "space-y-5" }, moments.map((m, i) => h("div", { key: "m" + i, className: "flex gap-3 pb-5", style: { borderBottom: `1px solid ${t.line}` } }, h(Avatar, { character: { name: m.author, color: strColor(m.author) }, size: 40, radius: 11 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.tint } }, m.author), h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: t.ink, marginTop: 5 } }, m.content), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, phoneAgo(m) || m.time || ""), arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, background: t.bg2, padding: "7px 9px", marginTop: 8, borderRadius: "9px 9px 0 0" } }, "♡ " + arr(m.likes).join("、")) : null, arr(m.comments).length ? h("div", { style: { background: t.bg2, padding: "5px 9px 8px", borderRadius: arr(m.likes).length ? "0 0 9px 9px" : 9 } }, arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 11.8, lineHeight: 1.55, color: t.sub } }, h("b", { style: { color: t.tint } }, (x.from || "朋友") + "："), x.text))) : null))));
-  else body = h("div", null, h("div", { className: "flex items-center gap-4 py-4" }, h(Avatar, { character: char, size: 68, radius: 17 }), h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: t.ink } }, char.remark || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.fog, marginTop: 5 } }, d.me && d.me.signature || "还没有写朋友圈签名。"))), h("button", {
-    onClick: () => setSheet(h("div", null, h(Eyebrow, { style: { marginBottom: 14 } }, "最近读过的公众号文章"), accounts.map((a, i) => h("div", { key: i, className: "pb-5 mb-5", style: { borderBottom: `1px solid ${t.line}` } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.5, color: t.ink } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [a.source, a.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 10 } }, a.summary), h(Eyebrow, { style: { marginTop: 14, marginBottom: 5 } }, char.name + " 看完想了什么"), h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink, fontStyle: "italic" } }, a.thought))))), className: "w-full mt-5 p-4 flex items-center justify-between text-left active:opacity-60", style: { borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg2 }
-  }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, "最近读过 " + accounts.length + " 篇 · 点开看感想")), h(IChevR, { size: 16, color: t.fog })));
-  const tabs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
-  return h("div", { style: { animation: "fadeUp .3s ease both", paddingBottom: 64 } }, body, h("div", { className: "grid grid-cols-4", style: { position: "sticky", bottom: -16, zIndex: 5, margin: "24px -24px -16px", padding: "10px 8px calc(10px + env(safe-area-inset-bottom))", background: "rgba(248,247,243,.96)", backdropFilter: "blur(16px)", borderTop: `1px solid ${t.line}` } }, tabs.map(([k, label]) => h("button", { key: k, onClick: () => setTab(k), className: "py-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: tab === k ? t.tint : t.fog, fontWeight: tab === k ? 700 : 400 } }, label))));
-}
 
 function WechatNavIcon({ kind, active }) {
   const color = active ? "#07c160" : "#777";
@@ -2494,7 +2372,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#526786" } }, m.author),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: "#222", marginTop: 5 } }, m.content),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#999", marginTop: 7 } }, m.time),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#999", marginTop: 7 } }, phoneAgo(m) || m.time || ""),
         h("div", { style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 11.8, lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), x.text)))));
@@ -3755,7 +3633,6 @@ const HEALTH_INK = "#25302a";      // 墨绿黑
 const HEALTH_DIM = "#8d9689";      // 灰绿
 const HEALTH_BODY = "#4a5548";     // 正文
 const HEALTH_LINE = "#e2e7dd";     // 分隔线
-const HEALTH_SOFT = "#f5f7f1";     // 卡里再嵌一块的底
 const HEALTH_GROUPS = [
   { key: "body", zh: "体征", glyph: "health" },
   { key: "mind", zh: "心神", glyph: "liked" },

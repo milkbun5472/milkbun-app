@@ -78,7 +78,8 @@ test("界面：红点在她点进去之前就看得见，展开信纸就算看�
 
 test("界面：一个总入口能看全部历史，单块历史不再只给 6 条", () => {
   const gaze = fs.readFileSync(path.join(__dirname, "..", "js", "gaze.js"), "utf8");
-  assert.match(gaze, /他从前都怎么写的 · 共 " \+ revs\.length \+ " 版/, "没有总入口");
+  assert.match(gaze, /onClick: \(\) => setAllOpen\(true\)/, "总入口必须打开全部历史");
+  assert.match(gaze, /say\("他从前都怎么写的"\) \+ " · 共 " \+ revs\.length \+ " 版/, "没有总入口");
   assert.ok(!/filter\(x => x\.k === openK\)\.slice\(0, 6\)/.test(gaze), "单块历史还卡在 6 条");
   assert.match(gaze, /改过 " \+ box\.hist\.filter\(x => x\.k === openK\)\.length \+ " 次/, "没写改过几次");
 });

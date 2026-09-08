@@ -85,8 +85,9 @@ test("兜底那级也必须用软化后的措辞——否则软化等于白做",
 });
 
 test("prompt 覆盖串下去了，而且没把 API 的字段名改坏", () => {
-  assert.match(engine, /const attemptWith = async \(blobs, refMode, pOverride, msOverride\)/);
-  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride\) => \{\n    const promptText = pOverride \|\| prompt;/);
+  assert.match(engine, /const attemptWith = async \(blobs, refMode, pOverride, msOverride, legacyShape\)/);
+  assert.match(engine, /await attempt\(true, false, refMode, pOverride, msOverride, legacyShape\)/);
+  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride, legacyShape\) => \{\n    const promptText = pOverride \|\| prompt;/);
   // ⚠️两个出口的【键名】必须还是 prompt，值才是 promptText——
   // 改这儿时用正则一不小心会把简写属性 { prompt } 改成 { promptText }，那会让无参考照出图全废
   assert.match(engine, /fd\.append\("prompt", promptText\)/);
@@ -244,13 +245,17 @@ test("整条阶梯有总时间预算，每一级都要先问一句还来不来�
   assert.match(engine, /if \(!canRetry\(\)\) break;   \/\/ 人多时这圈自己就能转好几分钟/);
 });
 
-test("重试级的单次超时压到 70 秒，不跟首次一样等 3 分钟", () => {
+test("重试级的 70 秒上限真实传到请求定时器", () => {
   assert.match(engine, /const RETRY_MS = 70000;/);
   assert.match(engine, /attemptWith\(refBlobs, "first", soft, RETRY_MS\)/);
   assert.match(engine, /attemptWith\(refBlobs, "first", opts\.minimalPrompt, RETRY_MS\)/);
   // 超时参数要真的串到发请求那一层
-  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride\)/);
-  assert.match(engine, /setTimeout\(\(\) => ctrl\.abort\(\), msOverride \|\| 180000\)/);
+  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride, legacyShape\)/);
+  assert.match(engine, /const capMs = Math\.min\(Number\(msOverride \|\| 130000\), 300000\);/);
+  assert.match(engine, /setTimeout\(\(\) => ctrl\.abort\(\), capMs\)/);
+  const cap = engine.match(/const capMs = ([^;]+);/);
+  assert.ok(cap);
+  assert.equal(new Function("msOverride", "return " + cap[1])(70000), 70000);
 });
 
 test("预算用光时给一句能看懂的失败，而不是继续干等", () => {
