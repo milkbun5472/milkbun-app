@@ -89,5 +89,5 @@ test("解除拉黑：同一个病，同一把刀", () => {
   assert.match(fn, /if \(!r\.ok\) \{ toast\([^)]*\); return; \}/, "读不出来要原样留在 pending");
   // 读不出来时也不许把这次算进 tries（那会让她少一次机会）
   const bad = fn.indexOf("if (!r.ok)");
-  assert.ok(bad > 0 && fn.indexOf("setBlockFor(charId, { tries: tries })") > bad);
+  assert.ok(bad > 0 && fn.indexOf("setBlockFor(chatKey, { tries: tries })") > bad);
 });

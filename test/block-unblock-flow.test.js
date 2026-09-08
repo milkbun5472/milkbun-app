@@ -32,7 +32,7 @@ test("自发轮不许把「用户没说话」演成被冷落", () => {
 });
 
 test("拉黑时要把原因和时刻存下来，判定才有尺子", () => {
-  assert.match(app, /setBlockFor\(charId, \{ theyBlocked: true, reason: String\(parsed\.blockreason \|\| ""\)\.trim\(\), blockedTs: Date\.now\(\), tries: 0 \}\)/);
+  assert.match(app, /setBlockFor\(chatKey, \{ theyBlocked: true, reason: String\(parsed\.blockreason \|\| ""\)\.trim\(\), blockedTs: Date\.now\(\), tries: 0 \}\)/);
 });
 
 test("解除判定要拿到证据：原因、隔了多久、第几次、之前说过什么", () => {
@@ -44,7 +44,7 @@ test("解除判定要拿到证据：原因、隔了多久、第几次、之前�
   assert.match(seg, /【你当初为什么拉黑】/);
   assert.match(seg, /【这是 TA 第 " \+ tries \+ " 次来求你】/);
   // 被拒也要记次数，否则永远停在第一次
-  assert.match(seg, /setBlockFor\(charId, \{ tries: tries \}\); toast\("TA 拒绝了/);
+  assert.match(seg, /setBlockFor\(chatKey, \{ tries: tries \}\); toast\("TA 拒绝了/);
 });
 
 test("判定标准：按性格、看有没有说到点子上，但明确不许太难", () => {

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.58";
+const APP_VERSION = "v65.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6894,7 +6894,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ---- single chat ----
   // 只把用户消息放进对话，不触发 AI（可连发多条）
   const pushUser = (charId, text, chatKey) => {
-    const b = blocksRef.current[charId] || {};
+    const b = blocksRef.current[chatKey || charId] || {};
     pChat(chatKey || charId, p => [...p, {
       role: "user",
       content: text,
@@ -6908,7 +6908,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const patChar = (charId, chatKey) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
-    const b = blocksRef.current[charId] || {};
+    const b = blocksRef.current[chatKey || charId] || {};
     pChat(chatKey || charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
   };
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
@@ -8188,7 +8188,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.block === true) {
         // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
         // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
-        setBlockFor(charId, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
+        setBlockFor(chatKey, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
         pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
         delivered = true;
       }
@@ -9661,14 +9661,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = { ...p };
     if (merged.iBlocked || merged.theyBlocked) n[charId] = merged; else delete n[charId];
     saveJSON("x_blocks", n);
+    blocksRef.current = n;
     return n;
   });
-  const toggleBlock = charId => {
-    const cur = blocksRef.current[charId] || {};
-    if (cur.iBlocked) { setBlockFor(charId, { iBlocked: false }); toast("已解除拉黑"); }
+  const blockChatKey = charId => window.ChatRooms ? window.ChatRooms.chatKey(charId, activeRoomId) : charId;
+  const blockBundleFor = (char, chatKey) => {
+    const rooms = window.ChatRooms;
+    if (!rooms || !rooms.isSideKey(chatKey)) return buildBundle(ctxFor(char));
+    const room = rooms.get(char.id, String(chatKey).split("::room::")[1]);
+    if (!room || room.id === "main") throw new Error("这间房间已不存在");
+    const ctx = ctxFor(char, { chat: true });
+    ctx.recentChat = (chatsRef.current[chatKey] || []).filter(contextAllowsMessage).slice(-20)
+      .map(m => (m.role === "user" ? profile.name || "我" : char.name) + "：" + (m.content || "")).join("\n");
+    const clockOn = roomTimeAwareFor(room, char.id);
+    ctx.timeAware = clockOn;
+    const gated = rooms.gateCtx(ctx, clockOn ? { ...room, cognition: { ...room.cognition, schedule: true } } : room);
+    return buildBundle(gated) + "\n" + rooms.prompt(room, chatsRef.current[char.id] || []);
+  };
+  const toggleBlock = (charId, chatKey = charId) => {
+    const cur = blocksRef.current[chatKey] || {};
+    if (cur.iBlocked) { setBlockFor(chatKey, { iBlocked: false }); toast("已解除拉黑"); }
     else {
-      setBlockFor(charId, { iBlocked: true });
-      pChat(charId, p => [...p, { role: "system", kind: "system", content: "你拉黑了 TA", ts: Date.now() }]);
+      setBlockFor(chatKey, { iBlocked: true });
+      pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "你拉黑了 TA", ts: Date.now() }]);
       toast("已拉黑");
     }
   };
@@ -9695,41 +9710,42 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return { ok: true, accept: _yesVal(d.accept), say: Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []), d: d };
   };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
-  const blockedReaction = async charId => {
-    if (laneBusy("c:" + charId) || !active) { if (!active) toast("请先配置 API"); return; }
+  const blockedReaction = async (charId, chatKey = charId) => {
+    if (laneBusy("c:" + chatKey) || !active) { if (!active) toast("请先配置 API"); return; }
     const char = characters.find(c => c.id === charId); if (!char) return;
-    startLane("c:" + charId);
+    startLane("c:" + chatKey);
     try {
-      const raw = await callAI(apiFor(charId), buildBundle(ctxFor(char)) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 8500 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       const tag = d.mode === "angry" ? char.name + "（气愤）：" : char.name + "（自言自语）：";
-      says.forEach((w, i) => setTimeout(() => pChat(charId, p => [...p, { role: "system", kind: "system", content: tag + w, ts: Date.now() }]), 250 + i * 650));
-      if (d.mode === "appeal") setTimeout(() => pChat(charId, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
-    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + charId); }
+      says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "system", kind: "system", content: tag + w, ts: Date.now() }]), 250 + i * 650));
+      if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
+    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   // 我处理 TA 发来的解除申请
-  const respondUnblockFromChar = (charId, cid, accept) => {
-    pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
-    if (accept) { setBlockFor(charId, { iBlocked: false }); toast("已和好，解除拉黑"); setTimeout(() => pChat(charId, p => [...p, { role: "assistant", content: "……谢谢你愿意听我说。", ts: Date.now(), read: false }]), 300); }
-    else { toast("已拒绝"); setTimeout(() => blockedReaction(charId), 400); }
+  const respondUnblockFromChar = (charId, cid, accept, chatKey = charId) => {
+    pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
+    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: "……谢谢你愿意听我说。", ts: Date.now(), read: false }]), 300); }
+    else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
-  const sendMyUnblockReq = async (charId, pleaText) => {
+  const sendMyUnblockReq = async (charId, pleaText, chatKey = charId) => {
     const char = characters.find(c => c.id === charId); if (!char) return;
     if (!active) { toast("请先配置 API"); return; }
+    if (laneBusy("c:" + chatKey)) return;
     const cid = "ubm_" + Date.now();
-    const bk = blocksRef.current[charId] || {};
+    const bk = blocksRef.current[chatKey] || {};
     const tries = Number(bk.tries || 0) + 1;
     // 之前求过几次、都说了什么：一模一样地再求一遍不该管用，换个说法、说到点子上才该管用
-    const pastPleas = (chatsRef.current[charId] || [])
+    const pastPleas = (chatsRef.current[chatKey] || [])
       .filter(m => m && m.kind === "unblock_req" && m.from === "me" && m.plea)
       .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
-    pChat(charId, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
-    startLane("c:" + charId);
+    pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    startLane("c:" + chatKey);
     try {
-      const r = await askYesNo(apiFor(char.id), buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const r = await askYesNo(apiFor(char.id), blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
         + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "")
@@ -9741,17 +9757,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
         + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
         + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
-        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 8800 });
+        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
       // 读不出来就把申请留在 pending，别记这一次 tries，也别当成他拒绝了
       if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
-      pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
+      pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
-      if (r.accept) { setBlockFor(charId, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
-      else { setBlockFor(charId, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
-      says.forEach((w, i) => setTimeout(() => pChat(charId, p => r.accept
+      if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
+      else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
+      says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => r.accept
         ? [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]
         : [...p, { role: "system", kind: "system", content: char.name + "：" + w, ts: Date.now() }]), 300 + i * 650));
-    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + charId); }
+    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   const clearChat = (charId, wipeMem) => {
     pChat(charId, () => []);
@@ -17961,16 +17977,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("messages"),
     onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
     onReply: extraText => {
-      const b = blocks[activeChar.id] || {};
-      if (b.iBlocked) return blockedReaction(activeChar.id);
+      const b = blocks[blockChatKey(activeChar.id)] || {};
+      if (b.iBlocked) return blockedReaction(activeChar.id, blockChatKey(activeChar.id));
       if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
       const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
-    block: blocks[activeChar.id] || null,
-    onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea),
-    onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept),
+    block: blocks[blockChatKey(activeChar.id)] || null,
+    onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
+    onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
     profile: profile,
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
@@ -19279,8 +19295,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("已清空记忆");
     },
     onClearChat: wipeMem => clearChat(activeChar.id, wipeMem),
-    iBlocked: !!(blocks[activeChar.id] && blocks[activeChar.id].iBlocked),
-    onToggleBlock: () => toggleBlock(activeChar.id),
+    iBlocked: !!(blocks[blockChatKey(activeChar.id)] && blocks[blockChatKey(activeChar.id)].iBlocked),
+    onToggleBlock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     memLibCount: memLib.filter(e => !e.charIds || e.charIds.length === 0 || e.charIds.includes(activeChar.id)).length,
     onOpenMemLib: () => {
       setChatSettingsOpen(false);
