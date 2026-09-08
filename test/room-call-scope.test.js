@@ -8,7 +8,6 @@ const cut = (a,b) => { const start=src.indexOf(a),end=src.indexOf(b,start); asse
 function setup(overrides={}) {
   const room=Rooms.normalize({id:'r1',...Rooms.PRESETS.isolated,scenario:'测试房间设定',...overrides},'c1');
   const key=Rooms.chatKey('c1','r1'), writes=[], requests=[], stateWrites=[], memories=[], thoughts=[];
-  let id=0;
   const box={window:{ChatRooms:{...Rooms,get:()=>room}},Date,console,
     profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],
     callRef:{current:null}, chatsRef:{current:{c1:[{role:'user',content:'主房私事',ts:1}],[key]:[{role:'user',content:'房内对话',ts:2}]}},
@@ -16,7 +15,7 @@ function setup(overrides={}) {
     ctxFor:(char,opts)=>({char,profile:{name:'测试用户'},recentChat:'主房私事',memory:'主房记忆',moodLabel:'主房心情',timeAware:true}),
     roomTimeAwareFor:()=>false,contextAllowsMessage:()=>true,loreForContext:(scope,ids,text)=>text,
     buildBundle:ctx=>JSON.stringify(ctx), userName:p=>p.name,
-    setCall:v=>{box.callRef.current=typeof v==='function'?v(box.callRef.current):v},uid:p=>p+'_'+(++id),
+    setCall:v=>{box.callRef.current=typeof v==='function'?v(box.callRef.current):v},
     toast:()=>{},laneBusy:()=>false,startLane:()=>{},endLane:()=>{},active:{},apiFor:()=>({}),
     settingsFor:()=>({}), ECHO_QUESTION_BAN:'',REGISTER_FOLLOWS_SCENE:'',
     noteTidalUser:()=>stateWrites.push('tidal'),setStateFor:()=>stateWrites.push('state'),pushStateHist:()=>{},setMoodFor:()=>stateWrites.push('mood'),
@@ -35,6 +34,19 @@ function setup(overrides={}) {
     '\nthis.ops={startCall,callSend,endCall,roomContextFor,oocReply};',box);
   return {box,room,key,writes,requests,stateWrites,memories,thoughts};
 }
+test('无伪造编号函数：主房、侧房和群聊均能启动语音视频，连续拨号分开会话',()=>{
+  const f=setup(), ids=new Set();
+  assert.equal('uid' in f.box,false);
+  for(const mode of ['voice','video']) for(const lane of ['main','side','group']) {
+    f.box.ops.startCall(f.box.characters,mode,lane==='group'?'g1':null,'me',lane==='side'?f.key:'c1');
+    const call=f.box.callRef.current;
+    assert.equal(call.mode,mode);assert.match(call.sessionId,/^call_\w+_\w+$/);
+    assert.equal(call.chatKey,lane==='group'?null:lane==='side'?f.key:'c1');
+    assert.equal(call.room ? call.room.id : null,lane==='side'?'r1':null);
+    ids.add(call.sessionId);
+  }
+  assert.equal(ids.size,6);
+});
 test('语音/视频都保留房间：实跑通话上下文、状态、挂断摘要与记忆闸',async()=>{
   for(const mode of ['voice','video']){
     const f=setup(); f.box.ops.startCall(f.box.characters,mode,null,'me',f.key);
