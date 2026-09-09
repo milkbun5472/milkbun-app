@@ -2598,7 +2598,7 @@ function buildBundle(ctx, opts) {
     const _tzSet = char && char.tz != null && String(char.tz).trim() !== "" && !isNaN(parseFloat(char.tz));
     parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）"
       + (_tzSet ? "" : "\n⚠️这只是 " + uName + " 此刻在哪，**不是在说你离得远**：你没有设过任何异地/异国的设定，"
-        + "默认你和 " + uName + " 就在同一座城市，能约、能上门、能过去陪。**绝不许据此推断成异地恋或异国恋**"
+        + "**绝不许据此推断成异地恋或异国恋**"
         + "——你住哪、离多远，只由你的人设说了算；人设里没写，就按同城来。"));
   }
   // 他自己住在哪儿（v64.72，她 2026-09-06 报查手机「都变回 general 的国内了」）。
