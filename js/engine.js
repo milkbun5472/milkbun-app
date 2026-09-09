@@ -3700,66 +3700,47 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
 function buildScenePrompt(char, sceneDesc, opts) {
   opts = opts || {};
   char = char || {};
+  // opts.body=true 就是【有身体、没有脸】那一档（她 2026-09-09：「我要他拍手」）：
+  // 同一份说明书，只换那道铁律。原来它是第二个 builder，画风和世界观整段抄了一遍——
+  // 她当场问「一定要新出一个搞一个新 prompt 吗」，对，不该。合并了。
+  const body = !!opts.body;
   const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
   const parts = [];
   // ⚠️这一条必须排在最前面：它是这次生成的【题目】，不是补充说明。
-  parts.push("生成一张【纯空景图】：画面里【一个人都没有】。");
+  parts.push(body
+    ? "生成一张【不露脸的局部照片】：画面里【不出现任何人的脸和头】。"
+    : "生成一张【纯空景图】：画面里【一个人都没有】。");
   if (photoStyle === "anime") {
-    parts.push("画风是【二次元动画背景美术】：清晰的线稿与赛璐璐/柔和插画上色，像动画里的一张背景板。不要真人化、不要摄影质感、不要 3D/CG。");
+    parts.push("画风是【二次元动画" + (body ? "作画" : "背景美术") + "】：清晰的线稿与赛璐璐/柔和插画上色" + (body ? "" : "，像动画里的一张背景板") + "。不要真人化、不要摄影质感、不要 3D/CG。");
   } else if (photoStyle === "reference") {
-    parts.push("画风沿用这个角色一贯的视觉媒介：他的图若是二次元就画成二次元背景美术，若是写实照片就画成自然写实的实景照。不要中途换媒介。");
+    parts.push("画风沿用这个角色一贯的视觉媒介：他的图若是二次元就画成二次元" + (body ? "" : "背景美术") + "，若是写实照片就画成自然写实的" + (body ? "实拍照" : "实景照") + "。不要中途换媒介。");
   } else {
-    parts.push("画风是【自然写实的实景照片】：真实的环境光和自然投影、镜头的浅景深与轻微噪点。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
+    parts.push("画风是【自然写实的" + (body ? "实拍照片" : "实景照片") + "】：真实的环境光和自然投影、镜头的浅景深与轻微噪点。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
   }
-  // ⭐无人这件事要用【正反两面 + 中英双写】说死。图像模型对 no person / empty
-  // 这类英文否定词最敏感，而单靠中文一句「不要有人」压不住二十条人物指令的惯性——
-  // 现在人物指令一条都不发了，这里再钉一次，是为了挡住场景描述里自带的人味
-  //（「他醒来后」这种句子本身就在暗示画面里有个人）。
-  parts.push("【无人铁律·最高优先】no people, no person, no human, no figure, no silhouette, no crowd, no hands, no body parts, empty unpopulated scene——"
-    + "画面里不许出现任何人、人影、剪影、背影、手、身体的任何部分，也不许出现照片里的人、画像里的人、雕像或人形。"
-    + "**场景描述里就算提到了某个人，那也只是在说这地方为什么是这样，不是让你把他画进去。**"
-    + "只画【那个地方本身】：建筑、器物、光、天气、留下的痕迹。");
+  // ⭐这一句要用【正反两面 + 中英双写】说死。图像模型对英文否定词最敏感，
+  // 而「拍一个人的手」「他醒来后」这类句子本身就在把整个人往画面里拽。
+  if (body) {
+    parts.push("【不露脸铁律·最高优先】no face, no head, no facial features, faceless, cropped above the wrist/shoulder——"
+      + "画面里不许出现脸、头、五官、正脸或侧脸，也不许出现镜子/屏幕/相框里映出的脸。"
+      + "**允许而且应该出现身体的那一小部分**（手、手指、手腕、肩背、背影的一角），"
+      + "但镜头只框到那一部分，人的头部在画面之外。");
+  } else {
+    parts.push("【无人铁律·最高优先】no people, no person, no human, no figure, no silhouette, no crowd, no hands, no body parts, empty unpopulated scene——"
+      + "画面里不许出现任何人、人影、剪影、背影、手、身体的任何部分，也不许出现照片里的人、画像里的人、雕像或人形。"
+      + "**场景描述里就算提到了某个人，那也只是在说这地方为什么是这样，不是让你把他画进去。**"
+      + "只画【那个地方本身】：建筑、器物、光、天气、留下的痕迹。");
+  }
   const era = String(char.persona || "").trim().slice(0, 500);
-  if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的建筑、器物、材质、光源、street furniture 都要跟它同一个年代和地域，"
+  if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的建筑、器物、材质、光源、"
+    + (body ? "衣料" : "street furniture") + "都要跟它同一个年代和地域，"
     + "绝不许混进不属于这个世界的东西（古代场景里不许有电灯、汽车、玻璃幕墙、柏油路、现代招牌）：" + era + "。");
-  if (sceneDesc && String(sceneDesc).trim()) parts.push("【画这个地方】" + String(sceneDesc).trim() + "。");
+  if (sceneDesc && String(sceneDesc).trim()) parts.push((body ? "【画的就是这个】" : "【画这个地方】") + String(sceneDesc).trim() + "。");
   // 竖屏背景板：正文对话框压在下半屏，所以画面的分量要往上走、中下留得住字
-  if (opts.forText !== false) parts.push("【这是一张要压字的背景板】竖构图；主要的景物和视觉重心放在画面上半部分，"
+  // ⚠️只有空景那一档会被拿去当背景板；局部照是聊天里发的一张图，不压字。
+  if (!body && opts.forText !== false) parts.push("【这是一张要压字的背景板】竖构图；主要的景物和视觉重心放在画面上半部分，"
     + "画面中下部保持相对空、暗、少细节，好让文字压上去还读得清。整体偏安静，不要满构图、不要高对比的杂乱花纹。");
+  if (body) parts.push("这是一张随手拍的生活照，构图就框着那一小部分和它周围的东西，自然、不摆拍。");
   parts.push("画面干净，不要任何文字/水印/logo/相框/贴纸边框。");
-  return parts.join("");
-}
-
-// 「有身体、没有脸」那一张（她 2026-09-09：「但是我要他拍手就不行了」）。
-// 现成那两条路一条都不能用：
-//   · buildPhotoPrompt 是【把这个人画对】的说明书（身份锁、参考照、五官），必给脸；
-//   · buildScenePrompt 的无人铁律里明写着 no hands, no body parts，会拒绝画那只手。
-// 所以另起第三条：留住画风和世界观（跟空景那份同一套理由），
-// 把「不出现脸」当成这次生成的【题目】写在最前面。
-// ⚠️一张参考照都不喂：参考照是一张脸，喂了它就会想办法把脸放进画面。
-function buildPartPrompt(char, sceneDesc) {
-  char = char || {};
-  const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
-  const parts = [];
-  parts.push("生成一张【不露脸的局部照片】：画面里【不出现任何人的脸和头】。");
-  if (photoStyle === "anime") {
-    parts.push("画风是【二次元动画作画】：清晰线稿与赛璐璐/柔和插画上色。不要真人化、不要摄影质感、不要 3D/CG。");
-  } else if (photoStyle === "reference") {
-    parts.push("画风沿用这个角色一贯的视觉媒介：他的图若是二次元就画成二次元，若是写实照片就画成自然写实的实拍照。不要中途换媒介。");
-  } else {
-    parts.push("画风是【自然写实的实拍照片】：真实的环境光和自然投影、镜头的浅景深与轻微噪点。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
-  }
-  // ⭐「没有脸」要用正反两面 + 中英双写钉死：图像模型对英文否定词最敏感，
-  //   而「拍一个人的手」这句话本身就在把整个人往画面里拽。
-  parts.push("【不露脸铁律·最高优先】no face, no head, no facial features, faceless, cropped above the wrist/shoulder——"
-    + "画面里不许出现脸、头、五官、正脸或侧脸，也不许出现镜子/屏幕/相框里映出的脸。"
-    + "**允许而且应该出现身体的那一小部分**（手、手指、手腕、肩背、背影的一角），"
-    + "但镜头只框到那一部分，人的头部在画面之外。");
-  const era = String(char.persona || "").trim().slice(0, 500);
-  if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的器物、材质、光源、衣料都要跟它同一个年代和地域，"
-    + "绝不许混进不属于这个世界的东西：" + era + "。");
-  if (sceneDesc && String(sceneDesc).trim()) parts.push("【画的就是这个】" + String(sceneDesc).trim() + "。");
-  parts.push("这是一张随手拍的生活照，构图就框着那一小部分和它周围的东西，自然、不摆拍。画面干净，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
 
