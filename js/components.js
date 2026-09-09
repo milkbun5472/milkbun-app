@@ -8713,7 +8713,7 @@ function CallScreen({
         background: callBubble(isU).background,
         color: callBubble(isU).color
       }
-    }, m.content), canT ? h("button", {
+    }, h(TransText, { text: m.content, isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
       onClick: () => tp.toggle(i, m.content, spk.voiceId),
       className: "active:opacity-60 shrink-0",
       style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
@@ -9148,7 +9148,7 @@ function pinToBottom(el, ms) {
 // 有它就不再跑免费接口——那东西把「傘さすか迷うレベルで湿気すごい」翻成
 // 「您可能会迷失在雨伞中」；说这句话的人自己译，根本不是一个水平。
 // 译键的位置和展开样式一个字不改：她 2026-08-26 说了「我喜欢在旁边可以按翻译」。
-function TransText({ text, isU, zhReady }) {
+function TransText({ text, isU, zhReady, ink }) {
   const t = useTheme();
   const _lang = typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
@@ -9171,7 +9171,7 @@ function TransText({ text, isU, zhReady }) {
   };
   useEffect(() => { if (open && lang) run(); }, [open, lang]);
   if (!lang) return text;
-  const fg = isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink);
+  const fg = ink || (isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink));
   const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
   const tap = e => { e.stopPropagation(); setOpen(v => !v); };
   return h("span", { "data-wk": "translation" },
@@ -9412,7 +9412,7 @@ function CallEndPill({ m, chars, onBg }) {
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
             l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
-            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content,
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
@@ -9465,7 +9465,7 @@ function CallLogSheet({ calls, chars, onClose }) {
                 ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
                 : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
                     l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, fmtHM(l.ts)) : null,
-                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content,
+                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
                     l.role !== "user" ? h(TtsDot, { k: key + "_" + j, text: l.content, spk: spkOf(l), tp }) : null)),
               m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
         })));
@@ -14363,7 +14363,7 @@ function ChatSettings({
     dispRow("外语消息自带中译", bilingual, setBilingual),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，点气泡旁边的「译」直接展开——"
-      + "不再走免费翻译接口。说这句话的人自己译，语气和上下文都对得上。中文消息不受影响。")),
+      + "语音、视频通话也适用，译文随通话记录保留，朗读只读原文。已有中译不再请求翻译，中文消息不受影响。")),
     // ── 只管这个人的两层（她 2026-09-04：「全局是 line 我给 a 选微信应该覆盖它」）──
     // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。
     // ⚠️两格都必须留【跟随全局】那一档：没有它就退不回去，改一次就永远脱离全局了。

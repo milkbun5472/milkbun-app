@@ -111,11 +111,11 @@ test("开关按角色存得住", () => {
 
 // 她 2026-08-26：「我喜欢在旁边可以按翻译，不要放长按里面」——位置和交互一个字不许改
 test("自带中译走的还是气泡旁边那个译键，不另起一套 UI", () => {
-  assert.ok(/function TransText\(\{ text, isU, zhReady \}\)/.test(compCode), "TransText 没接自带中译");
+  assert.ok(/function TransText\(\{ text, isU, zhReady, ink \}\)/.test(compCode), "TransText 没接自带中译");
   assert.ok(/zhReady \|\| \(cached && cached\.zh\)/.test(compCode), "有现成中译时该直接用");
   assert.ok(/zhReady \? \(_lang \|\| "外语"\)/.test(compCode), "探不出语种时也得给译键");
   const hits = compCode.match(/zhReady: m\.zh/g) || [];
-  assert.equal(hits.length, 2, "单聊和群聊两个气泡都要把 m.zh 递进去，现在只有 " + hits.length + " 处");
+  assert.equal(hits.length, 3, "单聊、群聊和通话气泡都要把 m.zh 递进去");
 });
 
 test("自带中译不再去调免费接口", () => {

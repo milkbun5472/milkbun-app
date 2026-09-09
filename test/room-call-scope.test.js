@@ -28,12 +28,38 @@ function setup(overrides={}) {
     callAI:async (api,sys)=>{requests.push(sys);return JSON.stringify({say:['测试回应'],thought:'房内心声',mood:'房内新心情',wearing:'测试衣服',summary:'房间通话摘要',open:['测试约定']})}
   };
   vm.createContext(box);
+  const engine = fs.readFileSync('js/engine.js', 'utf8');
+  vm.runInContext(engine.slice(engine.indexOf('function splitBilingual('), engine.indexOf('const TRANS_CACHE_KEY')), box);
   vm.runInContext(cut('  const roomHistoryText =','  const blockBundleFor =') +
     cut('  const addDirective =','  // 规矩不该只有') + cut('  const oocReply =','  // v61.80 撤走了 reactToMyRecall') +
     cut('  const markCallBye =','  // 随机坐标（位置 stamp 用）')+
     '\nthis.ops={startCall,callSend,endCall,roomContextFor,oocReply};',box);
   return {box,room,key,writes,requests,stateWrites,memories,thoughts};
 }
+test('双语语音流式和视频全文实际落泡、对账、归档均保留译文且不朗读中文',async()=>{
+  for (const mode of ['voice','video']) {
+    const f=setup(), spoken=[];
+    f.box.settingsFor=()=>({bilingual:true});
+    f.box.characters[0].voiceId='voice-test';
+    f.box.ttsSpeak=async text=>{spoken.push(text)};
+    f.box.callAI=async (api,sys,hist,opts)=>{
+      assert.match(sys,/通话字幕格式/);
+      const raw=JSON.stringify({say:['Hello | 你好','Good evening | 晚上好'],action:'微笑'});
+      if(opts.onDelta) for(const ch of raw) opts.onDelta(ch);
+      return raw;
+    };
+    f.box.ops.startCall(f.box.characters,mode,null,'me',f.key);
+    await f.box.ops.callSend('你好');
+    const lines=f.box.callRef.current.msgs.filter(m=>m.role==='char'&&!m.act);
+    assert.equal(lines.length,2);
+    assert.deepEqual(Array.from(lines,m=>[m.content,m.zh]),[['Hello','你好'],['Good evening','晚上好']]);
+    assert.ok(spoken.every(text=>!/[你好晚上]/.test(text)));
+    f.box.callAI=async()=>JSON.stringify({summary:'摘要'});
+    f.box.ops.endCall(30);
+    const log=f.box.chatsRef.current[f.key].find(m=>m.kind==='callend').log;
+    assert.equal(log.find(m=>m.content==='Hello').zh,'你好');
+  }
+});
 test('无伪造编号函数：主房、侧房和群聊均能启动语音视频，连续拨号分开会话',()=>{
   const f=setup(), ids=new Set();
   assert.equal('uid' in f.box,false);

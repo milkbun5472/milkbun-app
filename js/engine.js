@@ -4604,6 +4604,22 @@ function splitBilingual(text) {
 function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }
+// 通话先拆字幕，再拆动作，避免中文括号被误认成视频动作；流式与全文对账共用。
+function callBilingualLines(text, enabled, splitLine) {
+  const bi = enabled ? splitBilingual(text) : null;
+  const lines = splitLine(bi ? bi.text : text);
+  if (bi) {
+    const spoken = lines.filter(line => line.speech);
+    if (spoken.length) spoken[spoken.length - 1].zh = bi.zh;
+  }
+  return lines;
+}
+function callBilingualRule(people, settingsFor) {
+  const enabled = people.filter(p => !p.npc && (settingsFor(p.id) || {}).bilingual && !(settingsFor(p.id) || {}).engineerEyes);
+  if (!enabled.length) return "";
+  return "\n" + enabled.map(p => bilingualRule(p.name)).join("\n")
+    + "\n【通话字幕格式】双语格式用于 say 数组的各条台词或 text 字段；竖线左侧才是念出口的台词，右侧中文仅供显示，不朗读。action 与状态字段不加双语分隔。";
+}
 // 提示词那一半：单聊说「这个角色」，群里点名说是谁——两处用同一段字，
 // 免得又变成「这一层只写在一处」（施工规则/four-surfaces-same-context.md）。
 function bilingualRule(who) {

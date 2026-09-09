@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.84";
+const APP_VERSION = "v65.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11974,6 +11974,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       const uName = userName(profile);
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
+      const callBiHint = callBilingualRule(people, settingsFor);
+      const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine);
       const callerName = callerIsChar ? ((people.find(p => p.id === cur.caller) || {}).name || "") : "";
       // 【通话是第五处】(v60.27 她 2026-09-02:「感觉语音视频没喂八股禁令进去」——是真的)
       // 见 施工规则/four-surfaces-same-context.md：那条规矩当初只列了
@@ -12008,11 +12010,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
         let streamedLines = 0;
         const pushSayNow = sy => {
-          const ls = splitSayLine(stripName(sy) || "");
+          const ls = callLines(stripName(sy) || "", char);
           for (const ln of ls) {
             if (ln.act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: ln.act });
             else {
-              pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech });
+              pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech, zh: ln.zh });
               // v56.70 首句提速：气泡落地瞬间就预热 TTS 合成（ttsSpeak 自带缓存），
               // 播放循环轮到它时直接缓存命中——首句等待从「合成+播放」缩到只剩「播放」
               try { if (char.voiceId && typeof ttsSpeak === "function") ttsSpeak(ln.speech, char.voiceId).catch(() => {}); } catch (e) {}
@@ -12051,7 +12053,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
           };
         })();
-        const callSystem = sys + roomPromptFor(char.id, cur.room);
+        const callSystem = sys + roomPromptFor(char.id, cur.room) + callBiHint;
         const raw = await callAI(apiFor(char.id), callSystem, hist, { maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
@@ -12060,11 +12062,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (isVideo && d.action) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: String(d.action).replace(/[（）()]/g, "").trim() });
         // 把每条 say 里夹带的动作/多句摊平成有序气泡（动作单独居中、说话各自成条）
         // 流式轮已实时落过 streamedLines 条——这里只补对账后多出来的尾巴（通常为 0）
-        const lines = says.reduce((acc, sy) => acc.concat(splitSayLine(sy)), []);
+        const lines = says.reduce((acc, sy) => acc.concat(callLines(sy, char)), []);
         for (let i = streamedLines; i < lines.length; i++) {
           if (i > streamedLines) await new Promise(r => setTimeout(r, 550));
           if (lines[i].act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: lines[i].act });
-          else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: lines[i].speech });
+          else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: lines[i].speech, zh: lines[i].zh });
         }
         // 他自己要挂(v60.24 她点名)：这里只【立个牌子】，真正挂断由 CallScreen 做——
         // 通话时长只有它数着(secRef)，而且最后那句得留一会儿让她看完/听完。
@@ -12133,15 +12135,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const sys = groupBans({ echo: true })
           + gcGrowth
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在他自己那一条上带上 mood（此刻中文心情词）和 thought（他心里那一句，第一人称、他自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys, hist, { maxTokens: 10400 });
+        const raw = await callAI(active, sys + callBiHint, hist, { maxTokens: 65535 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
             const spk = people.find(c => c.name === arr[i].name) || people[0];
             if (i > 0) await new Promise(r => setTimeout(r, 500));
             if (isVideo && arr[i].action) pushMsg({ role: "char", act: true, senderId: spk.id, senderName: spk.name, content: String(arr[i].action).replace(/[（）()]/g, "").trim() });
-            const gl = splitSayLine(arr[i].text);
-            for (const ln of gl) pushMsg(ln.act ? { role: "char", act: true, senderId: spk.id, senderName: spk.name, content: ln.act } : { role: "char", senderId: spk.id, senderName: spk.name, content: ln.speech });
+            const gl = callLines(arr[i].text, spk);
+            for (const ln of gl) pushMsg(ln.act ? { role: "char", act: true, senderId: spk.id, senderName: spk.name, content: ln.act } : { role: "char", senderId: spk.id, senderName: spk.name, content: ln.speech, zh: ln.zh });
             // 状态卡：跟群线上同一个出口（那边也是一人一条各写各的）
             if (spk && !spk.npc) callPutState(spk.id, arr[i], "gcall_" + Date.now() + "_" + i);
             if (arr[i].hangup && String(arr[i].hangup).toLowerCase() !== "null") { markCallBye(spk.id, spk.name, String(arr[i].hangup), cur.sessionId); break; }
@@ -12164,7 +12166,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const label = (cur.mode === "video" ? "视频通话" : "语音通话") + (byName ? " · " + byName + "挂断了 · 时长 " : " 已结束 · 时长 ") + dur;
       const callId = "call_" + Date.now();
       // 整通转录存进气泡（点开可回看）；act=视频里的动作行
-      const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ts: m.ts || null }));
+      const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }));
       // 这一通里拍过的画面跟着通话记录留下来（她：「结束了要留在聊天不能没了」）
       const shots = (cur.shots || []).filter(Boolean);
       const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, log };
