@@ -17,21 +17,26 @@ test("那条死代码不许再留着——它长得像已经生效了", () => {
     "声明了却没人用的提示串比没有更坏：看代码以为已经在发了");
 });
 
-test("心情规则要没有逃生口（心声那条能一直有效就是因为这个）", () => {
+test("心情每轮如实记录，不用变化次数或平淡词语考核", () => {
   const i = engine.indexOf("const MOOD_TURN_RULE");
   assert.ok(i > 0);
   const rule = engine.slice(i, engine.indexOf("`;", i));
   assert.match(rule, /必须是非空的中文短词，不许 null、空串或省略/, "跟心声同款：必填、非空");
-  // 旧稿那句「没有真实变化才保持原词」就是逃生口：上一行刚告诉它此刻心情是X，
-  // 照抄永远是最省事的选择。
-  assert.doesNotMatch(rule, /没有真实变化才保持原词/);
-  assert.match(rule, /是起点不是答案/);
-  assert.match(rule, /连着三四轮一模一样，基本就说明是在照抄/, "要给可判定的自检");
-  // 心情不该只被「她说了什么」推动，否则她不说话就永远不动
-  assert.match(rule, /此刻几点、你正在做什么、身体累不累/);
-  assert.match(rule, /就算对方什么都没说/);
-  // 别让它退回万能词
-  assert.match(rule, /别写「平静」「还行」这种什么都没说的挡箭牌/);
+  assert.match(rule, /当前交流与自身处境/);
+  assert.match(rule, /没有变化就写回同一个词，连续相同没有轮数限制/);
+  assert.match(rule, /普通、平淡的心情同样有效/);
+  assert.doesNotMatch(rule, /三四轮|挡箭牌|心情也已经不是刚才那个/);
+  assert.match(rule, /不要求为更新读数制造/);
+});
+
+test("普通单聊实际发送的动作协议允许事实未变时原样填写", () => {
+  const start = app.indexOf('const _normalProtocolStable =');
+  const protocol = app.slice(start, app.indexOf('// 数字生命不是', start));
+  assert.match(protocol, /action: string，每轮回复完成后如实填写/);
+  assert.match(protocol, /当前事实未变且原表述仍准确时，可以原样填写/);
+  assert.match(protocol, /事实变化时再更新/);
+  assert.doesNotMatch(protocol, /必须根据此刻重新表述/);
+  assert.match(app, /_s\.engineerEyes \? "" : _normalProtocolStable/);
 });
 
 test("四处都要真的拼进去，不能再只是声明", () => {
