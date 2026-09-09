@@ -7708,10 +7708,17 @@ function ChatThread({
         ...plate()
       }
     }, m.content));
+    // 居中那一行：她自己写的旁白，和他每轮那一格动作（who:"char"）。
+    // ⚠️她 2026-09-09：「他的居中不要那个叉，然后可以编辑重roll刷掉之类的
+    //   而不完全只是像系统的字」——所以他那一行【长按出菜单】，跟气泡一个待遇；
+    //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
     if (m.kind === "narration" || m.role === "narration") return h("div", {
       key: i,
       "data-wk": "narr",
       "data-me": m.who === "char" ? "0" : "1",
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined,
       className: "flex items-start justify-center gap-2 my-3 px-6"
     }, h("span", {
       "data-wk": "narrink",
@@ -7720,10 +7727,10 @@ function ChatThread({
         fontSize: 12.5,
         fontStyle: "italic",
         lineHeight: 1.7,
-        color: t.fog,
+        color: selMode && selIds.includes(i) ? t.ink : t.fog,
         ...plate("5px 12px")
       }
-    }, m.content), onDeleteMessages ? h("button", {
+    }, m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
@@ -8106,7 +8113,7 @@ function ChatThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : actDesc ? "发一条消息…（括号＝动作）" : "发一条消息…",
+    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "发一条消息…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
@@ -10900,6 +10907,14 @@ function menuItemsForKind(m, canSpeak) {
   const k = m && m.kind;
   const textLike = !k || k === "photo" || k === "location";
   const listen = canSpeak ? ["speak"] : [];
+  // 居中那一行也是消息，不是系统字（她 2026-09-09）：他那一格动作能编辑、能重 Roll
+  //   （跟同一轮的气泡带同一个 turnId，重 Roll 会退到这一轮的头一泡）；
+  //   她自己写的旁白没什么可 roll 的，只给编辑。两边都不给「引用」——引用一行动作没有意义。
+  if (k === "narration" || (m && m.role === "narration")) {
+    return m && m.who === "char"
+      ? [["copy", "fav"], ["edit", "reroll"], ["multi", "recall"]]
+      : [["copy", "fav"], ["edit"], ["multi", "recall"]];
+  }
   if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
   if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall"]];
@@ -14760,7 +14775,7 @@ function ChatSettings({
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描（括号里那一行）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
-        "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格也会摆到聊天中间显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。你自己想写动作：整条用括号包住发出去就行。")),
+        "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格会摆在 TA 这一轮气泡的前面、居中显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。那一行长按能编辑、能重 Roll，跟气泡一个待遇。你自己想写动作，照常在消息里用括号写就行，它留在你的气泡里。")),
     h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
       h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"

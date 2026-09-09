@@ -37,10 +37,15 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
   assert.match(comp.slice(i, i + 400), /: \{\};/, "没壁纸时要返回空对象");
   // ⚠️逐个渲染分支各切一小段来问：recalled/silence 排在 transfer 【后面】，
   //   拿 transfer 当切片终点会把它俩漏在外头（第一版就这么假红了一次）。
-  const near = (anchor, span) => {
+  // ⚠️切到【下一支开头】为止，不许用固定字数：
+  //   窗口开小了，这一支多加两行（v66.00 给旁白那一支挂了长按）就假红；
+  //   窗口开大了，会把下一支的 plate 算进来，这一支丢了也发现不了——两头都错。
+  const near = anchor => {
     const k = comp.indexOf(anchor, i);
     assert.ok(k > 0, "找不到这一支：" + anchor);
-    return comp.slice(k, k + (span || 700));
+    const nx = comp.indexOf("\n    if (m.", k + anchor.length);
+    assert.ok(nx > k, "找不到下一支的开头：" + anchor);
+    return comp.slice(k, nx);
   };
   [['if (m.kind === "pat")', "拍一拍"],
    ['if (m.kind === "narration" || m.role === "narration")', "旁白"],

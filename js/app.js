@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.99";
+const APP_VERSION = "v66.00";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1645,29 +1645,6 @@ function App() {
   const patchChatSetting = (id, patch) => {
     if (!id || !patch) return;
     setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), ...patch } }; saveJSON("x_chatSettings", n); return n; });
-  };
-  // 括号大法：整条被【一对】括号从头包到尾的消息，就是一个动作，不是说出口的话。
-  // ⚠️必须是【从头那个括号一路配到末尾】才算：「（笑）行吧（叹气）」前半截就闭合了，
-  //   那是普通一句话里带了括号，不许整条当动作吞掉。
-  const actInner = text => {
-    const s = String(text == null ? "" : text).trim();
-    if (!/^[（(]/.test(s) || !/[）)]$/.test(s)) return null;
-    let d = 0;
-    for (let i = 0; i < s.length; i++) {
-      const c = s[i];
-      if (c === "（" || c === "(") d++;
-      else if (c === "）" || c === ")") { d--; if (d === 0 && i !== s.length - 1) return null; }
-    }
-    if (d !== 0) return null;
-    return s.slice(1, -1).trim() || null;
-  };
-  // 她发出去的那一条长什么样。⚠️她这边有两个入口（直接发 / 带着输入框的字让 TA 回复），
-  //   判据和落法只许写在这一处——各写一份的话，改一处另一处永远落单。
-  const asUserLine = (charId, text) => {
-    const act = actDescFor(charId) ? actInner(text) : null;
-    return act
-      ? { role: "narration", kind: "narration", content: act, ts: Date.now(), read: true }
-      : { role: "user", content: text, ts: Date.now(), read: false };
   };
   // 秋秋改这个聊天窗的气泡时的写入口（她 2026-09-05：「让秋秋在这个人的悬浮屏里
   // 可以直接改动」）。落进的是【这个人自己的气泡】那一层，跟她手动细调同一个出口——
@@ -6821,9 +6798,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 只把用户消息放进对话，不触发 AI（可连发多条）
   const pushUser = (charId, text, chatKey) => {
     const b = blocksRef.current[chatKey || charId] || {};
-    const m = asUserLine(charId, text);
-    if (m.role === "user") m.blocked = !!(b.iBlocked || b.theyBlocked);
-    pChat(chatKey || charId, p => [...p, m]);
+    pChat(chatKey || charId, p => [...p, {
+      role: "user",
+      content: text,
+      blocked: !!(b.iBlocked || b.theyBlocked),
+      ts: Date.now(),
+      read: false
+    }]);
   };
   // 拍一拍：只追加那行灰字、【不自动触发回复】（省 API 钱）。角色下次回复时会在历史里看到"被拍过"，
   // 由模型【按人设决定要不要 cue】——爱闹的会提/回拍，高冷正忙的可以当没看见。她 2026-07-12 拍板要这个行为。
@@ -6874,7 +6855,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const char = characters.find(c => c.id === charId);
     let base = chatsRef.current[chatKey] || [];
     if (extraText != null && extraText !== "") {
-      const um = asUserLine(charId, extraText);
+      const um = {
+        role: "user",
+        content: extraText,
+        ts: Date.now(),
+        read: false
+      };
       pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
@@ -7494,9 +7480,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          // ⚠️动描开着时它有了第二种身份：那是【她此刻做的动作】，不是无主的场景。
-          //   说成「无说话人」他会当背景板，不知道那是她伸手、她起身。
-          const nc = stp + (_actDesc ? "【" + uName + "此刻做的动作／她那边的动静｜不是 Ta 说出口的话】\n" : "【无说话人的场景旁白｜不是" + uName + "说的话】\n") + m.content +
+          const nc = stp + "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content +
             "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
@@ -7918,6 +7902,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           charId, roomId: room && !room.main ? room.id : "main"
         });
       };
+      // 动描（她 2026-09-09：「我们状态卡里已经有动作了，是不是可以不要求他们重写，
+      // 而是开关就把动作那一块搬到屏幕中间也显示一次」「然后动作放气泡前面」）。
+      // ⚠️他那边【没有任何新指令】：action 本来就每轮都填，这里只是把它也摆进聊天里。
+      // ⚠️摆在气泡【前面】：先看见他在干嘛，再看见他说什么——反过来读着像事后补一句注解。
+      // ⚠️「没变就别刷屏」这道闸写在【代码】里，不写在提示词里：提示词只降概率，代码才保证。
+      //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
+      //   刷新、换设备都还是同一个答案。
+      const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
+      if (_actDesc && onlineAction && String(onlineAction).trim()) {
+        const _line = String(onlineAction).trim();
+        const _rows = chatsRef.current[chatKey] || [];
+        let _prevAct = "";
+        for (let i = _rows.length - 1; i >= 0; i--) {
+          const m = _rows[i];
+          if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
+        }
+        if (_line !== _prevAct) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Math.max(0, _tsOf(0) - 1), turnId }]);
+      }
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
@@ -8241,7 +8243,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } else if (!_s.engineerEyes && parsed.wearing && String(parsed.wearing).trim() && _wearScheduleKey) {
         st.wearingScheduleKey = _wearScheduleKey;
       }
-      const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
       putLiveField(st, _live0, "action", onlineAction, stateNow);
       // 普通角色的 action 是一张「此刻」快照：模型本轮重新确认了，即使事实仍相同也要刷新时效；
       // 若本轮漏填，则宁可清空待下轮重建，也不能把已经过时的旧动作无限展示下去。
@@ -8249,22 +8250,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!_s.engineerEyes) {
         if (onlineAction && String(onlineAction).trim()) st.actionUpdatedAt = stateNow;
         else { st.action = null; st.actionUpdatedAt = 0; }
-      }
-      // 动描（她 2026-09-09：「我们状态卡里已经有动作了，是不是可以不要求他们重写，
-      // 而是开关就把动作那一块搬到屏幕中间也显示一次」）——就是这一处。
-      // ⚠️他那边【没有任何新指令】：action 本来就每轮都填，这里只是把它也摆进聊天里。
-      // ⚠️「没变就别刷屏」这道闸写在【代码】里，不写在提示词里：
-      //   提示词只降概率，代码才保证。上一条摆出来的动作原样存在聊天记录里，
-      //   拿它当上一次的值比——不另存一份游标，刷新、换设备都还是同一个答案。
-      if (_actDesc && onlineAction && String(onlineAction).trim()) {
-        const _line = String(onlineAction).trim();
-        const _rows = chatsRef.current[chatKey] || [];
-        let _prevAct = "";
-        for (let i = _rows.length - 1; i >= 0; i--) {
-          const m = _rows[i];
-          if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
-        }
-        if (_line !== _prevAct) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Date.now(), turnId }]);
       }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
       // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替他编一套,
@@ -8481,7 +8466,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       toast("已存入记忆库");
     } else if (act === "reroll") {
-      if (m.role !== "assistant") {
+      // 他那一行动作（who:"char" 的 narration）跟同一轮的气泡带着同一个 turnId，
+      // truncateChatBranch 会顺着 turnId 一路退到这一轮的头一泡——所以从它重 Roll
+      // 就是重 Roll 这一整轮，不会只剩半截。她 2026-09-09：「可以编辑重roll刷掉之类的
+      // 而不完全只是像系统的字」。
+      if (m.role !== "assistant" && m.who !== "char") {
         toast("只能重Roll角色的消息");
         return;
       }

@@ -17,6 +17,12 @@
 // ⚠️她第二次纠正：「我们状态卡里已经有动作了，是不是可以不要求他们重写，而是开关
 //   就把动作那一块搬到屏幕中间也显示一次」——对。于是他那一侧【不再有任何写动作的
 //   指令】，动作那一行直接来自每轮本来就填的 action；「没变就别刷屏」写在代码里。
+// ⚠️她第三次纠正：「我自己聊天气泡带括号 比如这样 （笑着）你真可爱。这个笑着保留在
+//   聊天里而不是变成上面一段居中」「他的居中不要那个叉，然后可以编辑重roll刷掉之类的
+//   而不完全只是像系统的字」「然后动作放气泡前面」——于是：
+//   · 她的括号【一律留在气泡里】，那条「整条括号→居中行」的路整个撤掉；
+//   · 他那一行长按出菜单（编辑/重 Roll/撤回），不再是一颗 ✕；
+//   · 那一行摆在这一轮气泡【前面】。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -78,11 +84,9 @@ test("他那一侧不再有写动作的指令：动作直接来自每轮本来�
   assert.ok(!/actLineRule\(/.test(app));
   const rule = grab(eng, "userActLineRule");
   // 只剩他【读】那一侧的两句
-  assert.match(rule, /整条被一对括号从头包到尾的，是 Ta 此刻做的动作/, "他会把她的括号当台词回");
-  assert.match(rule, /【你自己不用写这种括号】/, "没拦住他跟着学，动作就会有两个来源");
-  assert.match(rule, /你每轮照常填的 action 会原样显示给 Ta 看/);
-  // 他那边的括号分支要撤掉：动作只从 action 那一格来
-  assert.ok(!/const _act = _actDesc \? actInner\(words\[i\]\)/.test(app), "他那边还留着括号分支");
+  assert.match(rule, /是她此刻的动作或神态，不是她说出口的话/, "他会把她的括号当台词回");
+  assert.match(rule, /【你自己不用写括号】/, "没拦住他跟着学，动作就会有两个来源");
+  assert.match(rule, /你每轮照常填的 action 会原样显示给她看/);
   // 生成协议里那两句是这一版的地基：没有它们，action 会每轮换个说法刷屏
   assert.match(app, /当前事实未变且原表述仍准确时，可以原样填写/);
   assert.match(app, /无需为了交字段换措辞、制造动作/);
@@ -97,44 +101,44 @@ test("动作那一行只在真变了的时候摆一次，而且这道闸在代�
   assert.match(blk, /m\.who === "char" && \(m\.role === "narration" \|\| m\.kind === "narration"\)/);
   assert.match(blk, /if \(_line !== _prevAct\) pChat\(chatKey/, "没比就写＝每轮刷一行，两天就腻了");
   assert.match(blk, /who: "char"/);
-  // 摆在【状态落库那一段】而不是气泡循环里：他说完话、发完东西之后才看到他在干嘛
-  assert.ok(app.indexOf("if (_actDesc && onlineAction") > app.indexOf("for (let i = 0; i < words.length; i++)"));
+  // 她 2026-09-09：「然后动作放气泡前面」——先看见他在干嘛，再看见他说什么
+  assert.ok(app.indexOf("if (_actDesc && onlineAction") < app.indexOf("for (let i = 0; i < words.length; i++)"),
+    "动作那一行又跑到气泡后面去了");
+  assert.match(blk, /ts: Math\.max\(0, _tsOf\(0\) - 1\)/, "时间戳没排在头一泡前面，排序一变又会掉到后面");
+  // ⚠️normalizeAction 只算一次：算两遍就是同一个形状写在两处
+  assert.equal((app.match(/normalizeAction\(parsed\.action/g) || []).length, 1);
 });
 
-test("括号大法两种坏法都试过：该吞的吞、不该吞的一条都不许吞", () => {
-  const src = app.match(/const actInner = text => \{[\s\S]*?\n  \};/);
-  assert.ok(src, "actInner 没了");
-  const actInner = new Function("return " + src[0].replace(/^const actInner = /, "").replace(/;$/, ""))();
-  // 该当动作的
-  assert.equal(actInner("（把外套扔在沙发上）"), "把外套扔在沙发上");
-  assert.equal(actInner("  (puts the bowl down)  "), "puts the bowl down", "半角括号也算");
-  assert.equal(actInner("（他说「（小声）」）"), "他说「（小声）」", "嵌套的还是一条动作");
-  // ⚠️不该当动作的：前半截就闭合了，那是一句话里带了括号
-  assert.equal(actInner("（笑）行吧（叹气）"), null, "这条被整条吞成动作了，她那句话就没了");
-  assert.equal(actInner("在呢"), null);
-  assert.equal(actInner("（）"), null, "空括号不该变成一条空旁白");
-  assert.equal(actInner("（没关上"), null);
-  assert.equal(actInner(""), null);
-  assert.equal(actInner(null), null);
+test("她自己打的括号一律留在气泡里，那条改道整个撤掉了", () => {
+  // 她 2026-09-09：「（笑着）你真可爱。这个笑着保留在聊天里而不是变成上面一段居中」
+  // ⚠️是【删掉】那条路，不是在它后面补一句「其实不该改道」
+  assert.ok(!/actInner/.test(app), "「整条括号→居中行」那个判据还留着");
+  assert.ok(!/asUserLine/.test(app), "她那两个入口还绕着改道那一层走");
+  // 两个入口都回到普通 user 消息，一个字都不动
+  assert.match(app, /const pushUser = \(charId, text, chatKey\) => \{[\s\S]{0,260}?role: "user",\n\s*content: text,/);
+  assert.match(app, /if \(extraText != null && extraText !== ""\) \{\n\s*const um = \{\n\s*role: "user",\n\s*content: extraText,/);
+  // 模型那一侧也得跟着改口：括号是【消息里的一小截】，不再是「整条包住」
+  const rule = grab(eng, "userActLineRule");
+  assert.match(rule, /她消息里用括号括起来的那一小截/);
+  assert.ok(!/整条被一对括号/.test(rule), "还在说「整条包住」，跟她实际打的字对不上了");
 });
 
-test("她那边两个入口共用一个出口，关着的时候还是普通消息", () => {
-  // 直接发 / 带着输入框的字让 TA 回复——两处都得走 asUserLine
-  assert.match(app, /const m = asUserLine\(charId, text\);/, "pushUser 没走公共那份");
-  assert.match(app, /const um = asUserLine\(charId, extraText\);/, "replyNow 那处没走公共那份");
-  assert.match(app, /const asUserLine = \(charId, text\) => \{/, "公共那份没了");
-  assert.equal((app.match(/asUserLine\(/g) || []).length, 2, "asUserLine 只该有那两处调用");
-  // 判据挂在开关上：关着就永远是普通 user 消息
-  assert.match(app, /const act = actDescFor\(charId\) \? actInner\(text\) : null;/);
-  assert.match(app, /\? \{ role: "narration", kind: "narration", content: act, ts: Date\.now\(\), read: true \}/);
+test("他那一行是【消息】不是系统字：长按有菜单、没有那颗叉", () => {
+  // 她 2026-09-09：「他的居中不要那个叉，然后可以编辑重roll刷掉之类的」
+  const i = comp.indexOf('"data-wk": "narr"');
+  const row = comp.slice(i, i + 1400);
+  assert.match(row, /onTouchStart: selMode \? undefined : \(\) => startPress\(i\)/, "他那一行长按不出菜单");
+  assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "他那一行还挂着那颗 ✕");
+  // 菜单里真的有编辑和重 Roll
+  assert.match(comp, /\? \[\["copy", "fav"\], \["edit", "reroll"\], \["multi", "recall"\]\]/);
+  // 重 Roll 那道门要放他这一行过（原来只认 role==="assistant"）
+  assert.match(app, /if \(m\.role !== "assistant" && m\.who !== "char"\) \{/, "他那一行点重 Roll 会被拦下");
 });
 
 test("他那边落成同一种消息，只多一个 who 标明是他做的", () => {
   // ⚠️他的动作绝不能被当成【她的旁白】喂回去，不然他以为那是她做的
   assert.match(app, /if \(\(m\.role === "narration" \|\| m\.kind === "narration"\) && m\.who !== "char"\) \{/);
   assert.match(app, /（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）/);
-  // 开着的时候，她的那几条要说清是【她做的动作】，不是无主的场景
-  assert.match(app, /_actDesc \? "【" \+ uName \+ "此刻做的动作／她那边的动静｜不是 Ta 说出口的话】/);
 });
 
 test("两个开关各住各的地方，旁白那行有挂点", () => {
@@ -161,7 +165,6 @@ test("两个开关各住各的地方，旁白那行有挂点", () => {
   assert.match(comp, /"data-wk": "narrink",/);
   assert.match(studio, /\["narr", "居中那行旁白／动作/);
   assert.match(studio, /\["sameroom", "顶栏那个「同处一室」键/);
-  // 输入框那行提示得能一眼读完（原来那句在 390 宽的屏上被截掉了半截）
-  const ph = comp.match(/actDesc \? "(发一条消息[^"]*)"/);
-  assert.ok(ph && ph[1].length <= 16, "输入框提示太长，手机上会被截断：" + (ph && ph[1]));
+  // 她的括号不再改道之后，输入框那句特别提示也就没有存在的理由了
+  assert.ok(!/括号＝动作/.test(comp), "输入框还挂着那句提示，但那条路已经撤了");
 });
