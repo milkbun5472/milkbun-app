@@ -2556,8 +2556,10 @@ function buildBundle(ctx, opts) {
     const _age = charAgeNow(char, Date.now());
     // 农历生日的角色（王爷这类）在提示词里也该看见今年的公历日子，否则他没法跟现实对上
     const _bd = String((char && char.birthday) || "").trim();
-    const _both = _bd && typeof birthdayBothLabel === "function" ? birthdayBothLabel(_bd) : "";
-    if (_both && parseLunarBirthday(_bd)) parts.push("【你的生日】" + _both + "（你按农历过生日；换算成公历是今年的这一天）。");
+    // ⚠️原来这一行挂着 `&& parseLunarBirthday(_bd)`：公历生日的角色一个字都收不到。
+    //   现在两种都发，写法收在 birthdayLine 一处（群聊那一份也问它要）。
+    const _bl = typeof birthdayLine === "function" ? birthdayLine(char) : "";
+    if (_bl) parts.push("【你的生日】" + _bl + "。这是你自己的生日，被问起时你当然答得上来。");
     // ⚠️手填的岁数不是算出来的：还照原样说「按你的生日和今天算出来的」，
     //   在【只填了岁数、生日空着】的角色身上就是一句假话（String(undefined) 还会印出 "undefined"）。
     const _pinned = !!String((char && char.age) || "").trim();
@@ -6248,6 +6250,28 @@ function birthdayBothLabel(birthday, year) {
   if (!md) return "";
   const l = solarToLunar(new Date(y, md.mo - 1, md.d));
   return l ? "公历 " + md.mo + " 月 " + md.d + " 日 · 今年农历 " + (l.isLeap ? "闰" : "") + LUNAR_MON_LABEL[l.m] + lunarDayLabel(l.d) : "";
+}
+// 喂给模型的那一句「你的生日是哪天」——只此一份（她 2026-09-09：「角色生日是不是
+// 真的喂进去聊天了。感觉他们还是不太知道呢」）。
+//
+// 查下来是真没喂：这一行原来两处各写各的，而且【两处都挂着同一个农历守卫】——
+//   · buildBundle：`if (_both && parseLunarBirthday(_bd))` 才 push
+//   · 群聊 ageLineFor：`if (both && parseLunarBirthday(bd))` 才 push
+// 于是【公历生日的角色，生日这件事从来没进过提示词】。它唯一露脸的机会是年龄那句的
+// 括号（「按你的生日 1998-03-04 和今天算出来的」），而手填过岁数的角色连那个括号都没有。
+// 农历那一支能过，是因为当初这行本来就是为农历角色补的——补的时候顺手把守卫也留下了。
+//
+// ⚠️这一行只说【是哪天】，不说【还有几天】：它落在 buildBundle 的缓存切点
+//   （【当前真实时间】）【之前】，跟人设一起被缓住。写进「还有 N 天」就是每天作废整面稳定墙。
+//   「快到了／今天就是」归 dateNote 管，那一块在切点之后，本来就每轮重算。
+function birthdayLine(char) {
+  const bd = String((char && char.birthday) || "").trim();
+  if (!bd) return "";
+  const both = birthdayBothLabel(bd);
+  if (!both) return "";
+  return parseLunarBirthday(bd)
+    ? both + "（你按农历过生日；换算成公历是今年的这一天）"
+    : both;
 }
 // 生日写了年份时，把【出生那天】的公历日期显示出来。
 // ⚠️腊月/冬月的生日在公历上已经是第二年了：农历2001年腊月廿三＝公历 2002-02-04。

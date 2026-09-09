@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.03";
+const APP_VERSION = "v66.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4026,10 +4026,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   要的第三种：生日未知但年龄能填）在这儿被整条挡掉，那个数一路到不了模型手上。
     if (!bd && age == null) return "";
     const pinned = !!(char && String(char.age || "").trim());
-    const both = bd && typeof birthdayBothLabel === "function" ? birthdayBothLabel(bd) : "";
     const bits = [];
     if (age != null) bits.push(age + " 岁");
-    if (both && typeof parseLunarBirthday === "function" && parseLunarBirthday(bd)) bits.push("生日 " + both);
+    // ⚠️这里原来是 `if (both && parseLunarBirthday(bd))`——公历生日的角色，群聊里
+    //   一个字都收不到（单聊那一处是同一个守卫、同一个漏）。写法收在 birthdayLine 一处。
+    const both = typeof birthdayLine === "function" ? birthdayLine(char) : "";
+    if (both) bits.push("生日 " + both);
     if (!bits.length) return "";
     // 手填的那个数不是「按今天现算」的——话得说对，不然模型会以为它每年会变
     return bits.join("，") + (pinned ? "（她手填的岁数，以这个为准）" : "（按今天现算；人设里写死的岁数是旧数字，以这个为准）");

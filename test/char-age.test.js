@@ -183,7 +183,15 @@ test("农历写了年份也能算年龄", () => {
 test("界面三处都接上了", () => {
   assert.match(screens, /birthdayBothLabel\(birthday\)/, "编辑档案");
   assert.match(comp, /birthdayBothLabel\(bd\)/, "联系人页");
-  assert.match(engine, /parts\.push\("【你的生日】" \+ _both/, "提示词——农历角色得知道今年公历哪天");
+  // v65.20：这一行原来挂着 `&& parseLunarBirthday(_bd)`——只有农历角色发得出去，
+  // 公历生日的角色一个字都收不到（她 2026-09-09：「感觉他们还是不太知道呢」）。
+  // 现在两种都发，写法收在 engine 的 birthdayLine 一处，群聊那一份也问它要。
+  assert.match(engine, /parts\.push\("【你的生日】" \+ _bl/, "提示词——生日没喂进去");
+  assert.match(engine, /function birthdayLine\(char\)/);
+  // 注释里留着这句是为了讲清病因，所以只看它还在不在真的 push 上
+  assert.ok(!/if \(_both && parseLunarBirthday\(_bd\)\) parts\.push/.test(engine), "农历那道守卫还在，公历生日照旧发不出去");
+  assert.ok(!/both && typeof parseLunarBirthday === "function" && parseLunarBirthday\(bd\)/.test(app), "群聊那一份还挂着农历守卫");
+  assert.match(app, /const both = typeof birthdayLine === "function" \? birthdayLine\(char\) : "";/, "群聊没问 birthdayLine 要");
   assert.match(screens, /3-15 \/ 1998-3-15 \/ 腊月廿三 \/ 农历八月十五/, "输入框要示范农历写法");
 });
 
