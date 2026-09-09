@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.96";
+const APP_VERSION = "v65.97";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1618,10 +1618,16 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
-  // ── 同处一室（她 2026-09-09：「我和他们在线上明明一起吃饭但是他们总是说为什么在对面还要发消息」）──
-  // 不开线下、但你俩此刻真的面对面。开着的时候做两件事：告诉他【人已经在一起了】，
-  // 并解禁【整条用括号包住】的那一小行动作（双方都用同一个写法）。
-  // ⚠️开关按人存，不按房间存：换小房间不该把「你俩在一起」这件事丢掉。
+  // ── 动描 / 同处一室（她 2026-09-09）──────────────────────────────────
+  // ⚠️这是【两件事】，各有各的开关。第一版把它们焊成了一个，她当场纠正：
+  //   「我只是举个例子不一定非要同处一室的时候，就是我俩分开的时候要他动描自己
+  //     在干啥也行。就只是不想我俩在一起的时候他觉得我跟他面对面手机聊天而已」
+  //   · 动描（actDesc）—— 他回消息能不能带一行括号动作。分不分开都成立；
+  //     分开时写的正是「他那边在干嘛」，那本来就是她要的「不像两个悬空的人在对话」。
+  //     它是【设一次就不动】的，所以住在聊天设置里，不占顶栏。
+  //   · 同处一室（sameRoom）—— 他知不知道你俩此刻面对面。这是【在场】不是【动作】，
+  //     一天要开关好几回（「我们一起在家就可以开，等他出门我再关」），所以在顶栏。
+  // ⚠️两个都按人存、不按房间存：换小房间不该把这两件事丢掉。
   //
   // ⚠️八处名单（施工规则/four-surfaces-same-context.md）在这一层上的落法，
   //   差异是【显式的】，不是忘了：
@@ -1634,6 +1640,7 @@ function App() {
   //     此刻在一起，群里有好几个人，那句话在群里根本不成立。
   //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
+  const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
   // 这个聊天窗的一个开关：一个出口，别到处各写一份 setChatSettings。
   const patchChatSetting = (id, patch) => {
     if (!id || !patch) return;
@@ -1657,7 +1664,7 @@ function App() {
   // 她发出去的那一条长什么样。⚠️她这边有两个入口（直接发 / 带着输入框的字让 TA 回复），
   //   判据和落法只许写在这一处——各写一份的话，改一处另一处永远落单。
   const asUserLine = (charId, text) => {
-    const act = sameRoomFor(charId) ? actInner(text) : null;
+    const act = actDescFor(charId) ? actInner(text) : null;
     return act
       ? { role: "narration", kind: "narration", content: act, ts: Date.now(), read: true }
       : { role: "user", content: text, ts: Date.now(), read: false };
@@ -7458,9 +7465,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，用手机和 " + uName + " 一对一聊天。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
-      // 同处一室开着才解禁括号动描；关着的时候这一段一个字都不发，线上还是纯打字。
-      const _sameRoom = !_s.engineerEyes && sameRoomFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_sameRoom ? "\n\n" + samePlaceActRule(uName) : "");
+      // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
+      // ⚠️它不看同处一室：分开的时候写「他那边在干嘛」同样成立。
+      const _actDesc = !_s.engineerEyes && actDescFor(charId);
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + actLineRule(uName) : "");
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       const g = [];
       for (const m of promptHistory) {
@@ -7486,9 +7494,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          // ⚠️同处一室开着时它有了第二种身份：那是【她此刻做的动作】，不是无主的场景。
+          // ⚠️动描开着时它有了第二种身份：那是【她此刻做的动作】，不是无主的场景。
           //   说成「无说话人」他会当背景板，不知道那是她伸手、她起身。
-          const nc = stp + (_sameRoom ? "【" + uName + "此刻做的动作／她那边的动静｜不是 Ta 说出口的话】\n" : "【无说话人的场景旁白｜不是" + uName + "说的话】\n") + m.content +
+          const nc = stp + (_actDesc ? "【" + uName + "此刻做的动作／她那边的动静｜不是 Ta 说出口的话】\n" : "【无说话人的场景旁白｜不是" + uName + "说的话】\n") + m.content +
             "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
@@ -7917,7 +7925,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 同处一室开着时，整条被括号包住的那一条是【他做的动作】，不是他发出去的消息：
         // 落成跟她自己写的旁白一模一样的一条（居中小斜体），只多一个 who 标明是他做的。
         // ⚠️判据和她那边共用 actInner，不另写一份。
-        const _act = _sameRoom ? actInner(words[i]) : null;
+        const _act = _actDesc ? actInner(words[i]) : null;
         if (_act) {
           pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _act, ts: _tsOf(i), turnId }]);
           delivered = true;
@@ -17995,6 +18003,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("messages"),
     onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
     sameRoom: sameRoomFor(activeChar.id),
+    actDesc: actDescFor(activeChar.id),
     onToggleSameRoom: () => {
       const on = !sameRoomFor(activeChar.id);
       patchChatSetting(activeChar.id, { sameRoom: on });

@@ -7241,6 +7241,7 @@ function ChatThread({
   onOpenUs,
   sameRoom,
   onToggleSameRoom,
+  actDesc,
   character,
   characters,
   groups,
@@ -7583,14 +7584,15 @@ function ChatThread({
     "data-wk": "sameroom",
     "data-on": sameRoom ? "1" : "0",
     className: "active:opacity-60 shrink-0",
+    // ⚠️她 2026-09-09：「键太显眼了」。原来是一颗描边药丸，压在顶栏上比名字还抢眼。
+    //   它要的只是【一眼看得见开着没有】，不是让人先看到它——所以退成跟名字底下
+    //   那行「说话 · 轻触切换」同一档小字：关着是灰的，开着才上强调色、前面点一点。
     style: {
       fontFamily: F_BODY,
-      fontSize: 10.5,
-      lineHeight: 1,
-      padding: "5px 8px",
-      borderRadius: 999,
+      fontSize: 10,
+      lineHeight: 1.3,
+      padding: "6px 2px",
       whiteSpace: "nowrap",
-      border: "1px solid " + (sameRoom ? t.accent : t.line),
       color: sameRoom ? t.accent : t.fog,
       background: "transparent"
     }
@@ -8104,7 +8106,7 @@ function ChatThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : sameRoom ? "发一条消息…（括号＝动作）" : "发一条消息…",
+    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : actDesc ? "发一条消息…（括号＝动作）" : "发一条消息…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
@@ -14190,6 +14192,8 @@ function ChatSettings({
   const [bilingual, setBilingual] = useState(!!settings.bilingual);
   const [proactive, setProactive] = useState(!!settings.proactive);
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
+  // 动描（她 2026-09-09）：设一次就不动的那种，所以住这儿、不占顶栏。
+  const [actDesc, setActDesc] = useState(!!settings.actDesc);
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
   const [wipeMemToo, setWipeMemToo] = useState(false);
@@ -14369,7 +14373,8 @@ function ChatSettings({
         + (timeAwareMode === "on" ? "开" : timeAwareMode === "off" ? "关" : "跟随全局") },
     { key: "look", char: "窗", title: "这个聊天窗", tint: "#9b7bc4",
       state: () => "已读 " + onOff(showRead) + " · 时间戳 " + onOff(showTime)
-        + " · 点进来先" + (defaultOffline ? "线下" : "线上") + (chatBg ? " · 有背景图" : "") },
+        + " · 点进来先" + (defaultOffline ? "线下" : "线上") + " · 动描 " + onOff(actDesc)
+        + (chatBg ? " · 有背景图" : "") },
     { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
       state: () => (roomNow && roomNow.name) || "主线" },
     { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
@@ -14442,6 +14447,7 @@ function ChatSettings({
       webSearch,
       toyEnabled,
       defaultOffline,
+      actDesc,
       timeAwareMode
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
@@ -14749,7 +14755,14 @@ function ChatSettings({
     className: "pt-3"
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
-  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
+  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))),
+  show("look", { title: "线上带不带动作", ...sec("actdesc") }, h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描（括号里那一行）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
+        "开着之后 TA 回消息时可以顺手写一行自己在干嘛（在楼下等电梯、手上正忙），显示成居中的一行小字，不是 TA 发给你的话。你也一样：整条用括号包住发出去就是一个动作。说话仍然是一条一句的气泡，不会变成线下那种长段。处境没变化时 TA 一条都不写。")),
+    h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
+      h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"
