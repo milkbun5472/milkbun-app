@@ -9,9 +9,9 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
-test("App 显示、核心资源和 PWA 启动地址使用同一发布版本", () => {
+test("App 与 PWA 同版，改过的资源统一校验指纹", () => {
   const version = app.match(/APP_VERSION\s*=\s*"v([^"]+)"/)[1];
-  assert.match(html, new RegExp("engine\\.js\\?v=" + version.replace(".", "\\.")));
+  require("node:child_process").execFileSync(process.execPath, ["scripts/check-version.mjs"], { cwd: root });
   assert.match(html, new RegExp("app\\.js\\?v=" + version.replace(".", "\\.")));
   assert.match(html, new RegExp("manifest\\.json\\?v=" + version.replace(".", "\\.")));
   assert.equal(manifest.start_url, "./index.html?launch=" + version);

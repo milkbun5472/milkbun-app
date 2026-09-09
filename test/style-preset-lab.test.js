@@ -171,10 +171,10 @@ test("同人文是勾进它自己的多选，不另造开关", () => {
   assert.ok(fanfic.indexOf("presetOn") < 0, "同人文不该有第二套开关");
 });
 
-test("版本指纹一致，两个新文件都挂上了", () => {
-  const v = /APP_VERSION = "v([\d.]+)"/.exec(app)[1];
+test("文风资源带指纹且加载顺序正确", () => {
+
   ["style-presets", "style-lab"].forEach(f => {
-    assert.ok(index.indexOf('js/' + f + '.js?v=' + v) > 0, f + " 的 ?v= 没跟上 " + v);
+    assert.ok(index.includes("js/" + f + ".js?v="), f + " 缺少缓存指纹");
   });
   const bump = R("scripts/bump-version.mjs");
   ["style-presets", "style-lab"].forEach(f =>

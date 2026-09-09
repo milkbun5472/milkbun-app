@@ -21,11 +21,11 @@ test("每个被 index.html 引用的 js 都带 ?v= 指纹", () => {
   refs.forEach(m => assert.ok(m[2], "js/" + m[1] + ".js 没有 ?v= 指纹，浏览器会一直吃缓存"));
 });
 
-test("查手机那一套的指纹跟得上主版本，不再落在后面", () => {
+test("查手机脚本保留有效指纹，改动时由下方统一检查", () => {
   const app = stamp("app");
   assert.ok(app, "app.js 没有指纹");
-  // phone.js 从此跟着主版本走（已进 bump 脚本的 CORE）
-  assert.equal(stamp("phone"), app, "phone.js 的指纹落后于 app.js —— 这正是 v57.61 崩的原因");
+  // 未改文件可复用旧缓存；是否该升级由 changed-set 测试统一判断。
+  assert.ok(stamp("phone"), "phone.js 必须带指纹");
 });
 
 test("bump 脚本会给「改了但不在 CORE 里」的模块也换指纹", () => {

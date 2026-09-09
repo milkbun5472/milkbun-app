@@ -10,6 +10,9 @@
   // 演戏那几拍走 narrativeCore，白得；但【搭台】这几枪（开场正文、新处境）自己拼 sys，
   //   开场那 5-9 句正文也是正文——他完全可能在开场第一句就点上。
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 搭台共用人物与文风底座；不带演出用的第一人称、镜头规则或主线资料。
+  const settingStyle = () => [CB(), ANTI_CLICHE, CHARCARD_RULE,
+    "【设定写法】身份与世界用清楚的事实说明，开场用可观察的动作、对话与环境推进。不要用强度副词叠加性格标签，不替读者宣布人物多么聪明、冷静、精准或危险；这些特质只有人设支持时才通过具体表现成立。人物可以迟疑、热情、笨拙或平常，不统一写成掌控局面的强者。每句话提供新的处境信息，不用抽象评语、隐喻堆砌或悬念口号充数。规则不改变本次 JSON 字段与叙述人称。"].join("\n\n") + "\n\n";
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   // 图标:两片小幕布 + 星(挂进 REG 的 window.GTheater)
   window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
@@ -209,14 +212,14 @@
   // 客户端的真随机压得住语料先验,模型自称的"随机挑一个"压不住。
   const POOL_GENRE = ["校园", "现代都市职场", "江湖武侠", "古代宫廷", "赛博朋克", "末世废土", "西幻大陆", "蒸汽朋克", "太空歌剧", "神话志怪", "民国", "西部拓荒", "远洋航船", "乡镇小城", "医院", "法庭律所", "演艺圈", "职业体育", "餐饮后厨", "考古学界", "监狱", "秘密结社", "赛车机械", "剧团马戏班"];
   const POOL_BOND = ["上下级", "宿敌", "旧友重逢", "债主与欠债人", "被迫合作的同谋", "师徒", "同行竞争者", "照顾者与被照顾者", "被同一件事困住的陌生人", "分开多年的前任", "猎人与猎物", "房东与租客", "医生与病人", "对簿公堂的两造", "台前与幕后的搭档"];
-  const POOL_TENSION = ["一段没清算干净的旧账", "一个谁都不肯先说破的秘密", "两个人立场天然对立", "一个没兑现的承诺", "一场势均力敌、谁也不肯认输的较劲", "共同守着一件不能外传的事", "一个从头到尾的误会,双方都以为自己才是吃亏的那个", "一次谁也不占便宜的交易", "共同照看着某个第三者(人、动物或一件东西)", "一段被硬生生打断、没能收尾的关系", "悬殊的身份差距", "一个共同的敌人逼着两人搭伙", "刚刚开始建立、还很脆弱的信任", "一句说出口就会改变一切、所以谁都没说的话"];
+  const POOL_TENSION = ["期待不同", "配合默契", "信息差", "习惯差异", "共同兴趣", "信任变化", "职责交集", "立场分歧", "相处距离变化", "共同计划"];
   const POOL_TONE = ["冷硬克制", "温暖有余味", "荒诞喜剧", "悬疑压抑", "怅然若失", "热血莽撞", "暧昧拉扯", "松弛的日常感", "苦中作乐", "锋利互怼"];
-  const POOL_GATE = ["承认一种他一直否认的感情", "放弃一个他赖以生存的身份", "亲手毁掉他最在意的东西", "当众站到某一边去", "放走一个他本该处理掉的人", "答应一件违背他原则的事", "说出一个他发誓不说的名字", "第一次向人开口求助", "收下他一直拒绝的东西", "把一个人留下来"];
+  const POOL_GATE = ["表达意愿", "协商安排", "接受帮助", "共同完成事务", "作出承诺", "分享信息", "调整相处方式", "处理分歧"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const pick3 = a => { const s = []; while (s.length < 3) { const x = pick(a); if (s.indexOf(x) < 0) s.push(x); } return s; };
-  // 情境骰子:同一套身份世界要开出【不同的故事】时用。收藏基线开新局、重开此线都掷它,
+  // 情境骰子:同一套身份世界要开出【不同的故事】时用。收藏基线开新局时掷它,
   // 否则模型只会把上一次那个时刻换个说法复述一遍——身份留住了,故事却是同一个。
-  const POOL_SITU = ["其中一方失去了记忆", "一场政变或剧变掀翻了原有秩序", "多年以后重逢,两人的位置对调了", "一方病倒或重伤,只能依赖另一方", "两人被困在同一个地方出不去", "一方的秘密被第三方当众揭穿", "一方来求另一方办一件绝不该开口的事", "一笔旧账被翻出来当众清算", "一个外来者闯入,打破了两人之间的平衡", "两人被迫以另一重身份共事", "一方失势落魄,另一方成了唯一的去处", "一件本该早就毁掉的东西重新出现"];
+  const POOL_SITU = ["日常安排发生变化", "共同事务进入新阶段", "双方掌握的信息不同", "相处场合发生变化", "原有计划遇到意外", "出现新的合作机会", "对同一件事产生不同期待", "旧事有了新的进展"];
   // world(长期为真)+ hook(此刻)拼成整段情境;老存档只有 setting,拼接要能容忍空值
   const joinScene = (world, hook) => [String(world || "").trim(), String(hook || "").trim()].filter(Boolean).join("\n");
 
@@ -281,15 +284,12 @@
     // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让他喂你吃排骨」
     // 「让他同意你帮他换衬衫」「让他相信你只是在晨跑」这类日常小动作,却一点不轻——
     // 因为重量来自处境。我原先写死的「禁止事务级小目标」是错的,一刀切掉了整类好目标。
-    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】——让他答应、让他承认、让他松口、让他交出、让他做出那个选择;由 " + uName + " 在戏里想办法促成,他跨过那道坎才算达成。绝不许写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。"
-      + "\n【门槛的重量来自处境,不来自动作大小】目标完全可以是一件日常小事:让他喂你一口菜、让他答应替你/让你替他换掉湿掉的衣服、让他收下你硬塞的东西、让他把手里的活交给你、让他哭出来、让他说出刚才为什么不吭声。动作本身很小,但放在此刻这个处境、这两个人的关系里,他要跨过去并不容易——那就是好目标。不要为了显得有分量,就把每个目标都写成生死抉择或惊天秘密。"
-      + "\n【目标必须具体、可判定】写成一句能一眼看出「到底发生了没有」的事(喂了/没喂、说了/没说、答应了/没答应、哭了/没哭),不要写「让他敞开心扉」「化解两人的隔阂」这种没法判定的抽象状态。"
-      + "\n【只定门槛,不定路径】写清他要跨过哪一类坎,但不预设他为什么跨、真相是什么、必须被怎样说动——解法要不止一种。";
+    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
     // 难度档:目标重量 + 演出时他有多难撬
     const DIFF = {
-      easy: { name: "轻松", goal: "目标就写日常尺度的小事:喂一口菜、收下你硬塞的东西、答应陪你走一段、把手里的活交给你。小不等于没门槛——他此刻仍要克服点什么才做得出来。", play: "他对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
+      easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "他对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
       normal: { name: "标准", goal: "", play: "" },
-      hard: { name: "硬核", goal: "目标门槛要重:他有充分理由死守,达成应当很难、需要多轮真正的攻坚(仍可以是一个小动作,但那个动作对此刻的他等于缴械)。", play: "他会【真实地抵抗】目标方向:回避、装傻、转移话题、反将一军;只有被真正说动、戳中要害或无路可退时才让步,绝不因为对方坚持了两句就松口。" }
+      hard: { name: "硬核", goal: "目标有充分的人物与处境依据，角色有强烈理由拒绝，需要多轮实质推进；困难来自动机与条件，不靠夸大叙述。", play: "他会【真实地抵抗】目标方向:回避、装傻、转移话题、反将一军;只有被真正说动、戳中要害或无路可退时才让步,绝不因为对方坚持了两句就松口。" }
     };
     const diffOf = l => DIFF[(l && l.difficulty) || "normal"] || DIFF.normal;
     // 滚动摘要(防长线失忆):超过 48 条后,把最老的部分浓缩进 line.summary,只留近 32 条逐句喂
@@ -355,11 +355,11 @@
     const completeSetting = async (partial, raw, need, hint) => {
       const lack = need.filter(k => !String((partial && partial[k]) || "").trim());
       if (!lack.length) return partial;
-      const sys = "下面这份 JSON 因为长度被截断,缺了几个字段。请【只补这几个键】,和已经写好的部分严丝合缝地接上,其余一个字都不要重复。\n"
+      const sys = settingStyle() + "下面这份 JSON 因为长度被截断,缺了几个字段。请【只补这几个键】,和已经写好的部分严丝合缝地接上,其余一个字都不要重复。\n"
         + (hint || "") + "\n只输出 JSON:{" + lack.map(k => "\"" + k + "\":\"…\"").join(",") + "}";
       let fix = null;
       try {
-        fix = parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: "【已经写好的部分】\n" + String(raw || "").slice(0, 6000) }], { maxTokens: 9600, timeout: 90000 }), lack);
+        fix = parseSettingPayload(await callAI(props.active, sys + "\n\n【已经写好的部分】\n" + String(raw || "").slice(0, 6000), [{ role: "user", content: "补齐缺项。" }], { maxTokens: 65535, timeout: 90000 }), lack);
       } catch (e) { return partial; }
       if (!fix) return partial;
       const out = Object.assign({}, partial || {});
@@ -367,25 +367,25 @@
       return out;
     };
     // ---- 生成:if 线设定 ----
-    const SHAPE_SETTING = "{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 长期背负的冲突或赌注(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"charOutfit\":\"Ta 在这条线里穿什么:一句话,具体到能照着画(材质/形制/颜色/关键配件),必须符合这个世界的时代与身份\",\"userOutfit\":\"" + uName + " 在这条线里穿什么:同样一句话、同样具体\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\",\"opening\":\"开场正文\"}";
+    const SHAPE_SETTING = "{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 的长期生活处境与诉求(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"charOutfit\":\"Ta 在这条线里穿什么:一句话,具体到能照着画(材质/形制/颜色/关键配件),必须符合这个世界的时代与身份\",\"userOutfit\":\"" + uName + " 在这条线里穿什么:同样一句话、同样具体\",\"goal\":\"本轮目标:一句话,写清角色需要做出的可判定行为\",\"opening\":\"开场正文\"}";
     const genSetting = async () => {
       const char = props.characters.find(c => c.id === pickChar);
       if (!char) return props.toast("先选一个角色");
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = CB() + "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,严格按 user 消息里给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】(关键词为空时,它的性质由取景框指定,不许另选);两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。张力不必都是阴谋、亏欠或对立——共犯般的默契、没说破的心动、荒唐的误会、势均力敌的较劲同样能把两个人牢牢绑住。\ngoal 是这条张力上的一个节点。" + GOAL_RULE + "\n【禁用默认套路】「一方走投无路,另一方手里正好握着唯一能救他/她的物件或情报,交出即自毁」——这是上面这套约束最省力的解,已经被用烂了;雨夜、暗室、追兵在门外、身上带着伤同样是默认布景。你想到的第一个点子如果长这样,推翻重想。\n【基调决定味道,不决定重量】取景框给的基调只管这条线读起来是什么气味(冷硬/温暖/荒诞/暧昧…),不影响目标的分量:温暖或喜剧的线同样要有一个真正难跨的门槛(比如让他承认这些年其实一直是他在依赖你),不许因为基调轻松就把目标写软。\n【代价不必是生死】身败名裂、失去位置、背叛另一个人、承认自己错了或需要人——社会性、关系性、自尊上的代价一样重。不要每条线都写成命悬一线。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;而「他明天一早就要走」「你正拿着文件堵在他面前」这类只属于今天这一刻的处境,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
+        const sys = settingStyle() + "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、理解与判断习惯;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域。关键词为空时,严格按下方给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,按其性格机制和说话方式行事,不许洗白、软化或让他偷偷还是好人。\n先确定两人为何在这个世界里有交集，以及各自此刻关心什么；身份、关系与事件应互相支持。关键词为空时按取景框的关系维度展开，具体内容由本次人物与世界决定。\ngoal 是当前互动中可推进的一件事。" + GOAL_RULE + "\n基调决定场景的情绪与节奏，难度决定目标阻力。轻松与日常可以自然成立，不要求所有关系都有秘密、对立、牺牲或不可逆代价。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;只属于今天这一刻的事件和状态,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个正在进行、可以接话或行动的具体时刻。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代可知的身份处境，把场景推进到那个时刻，留出自然接话或行动的空间，不代写 Ta 的内心;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
         // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
-        const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,四项全部照办,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
+        const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
         const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 12800, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
         p = await completeSetting(p, raw, ["charRole", "goal", "opening"].concat(p.setting ? [] : ["world"]),
-          "goal:" + GOAL_RULE + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),张力悬在半空收尾,绝不替 " + uName + " 做决定。");
+          "goal:" + GOAL_RULE + "\n难度:" + DIFF[diff].goal + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),留出自然接话或行动的空间,绝不替 " + uName + " 做决定。");
         const lack = [["charRole", "角色新身份"], ["world", "世界观"], ["goal", "本轮目标"]]
           .filter(([k]) => k !== "world" ? !String(p[k] || "").trim() : !String(p.world || p.setting || "").trim())
           .map(([, label]) => label);
@@ -398,9 +398,9 @@
     // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
     // 基线存的是「他是龙族监督官、你是人类书记官」,不是「他行囊打包好了、你堵在他面前」。
     // 不明说这一点的话,模型会把上次那个时刻原样复述一遍,新局和重开就没有区别了。
-    const newSituation = (fixedWorld, avoid) => "\n【这一局的处境必须是全新的】上面的身份与世界原样保留,但【此刻正在发生什么】要另起一个:换时间点(几个月后/多年后)、换事件、换两人相遇的理由都行,幅度要大到一眼看得出是另一个故事。举例——同样是这两个身份,可以是其中一方失忆了被另一方捡到,可以是一场政变让强势的一方反过来求人,可以是多年后位置对调重逢。\n【禁止】复述或微调以往开过的局:同一个时刻换个说法、同一个场景挪个地点、同一件事往前往后挪一天,都算重复。"
+    const newSituation = (fixedWorld, avoid) => "\n【新处境】保留固定身份、世界与长期关系，改变当前事件、相遇缘由或时间条件，让这局与旧局有实质区别。新事件须符合原世界和人物，不强制剧变，不把相同事件换地点当成新局。"
       + (avoid ? "\n【已经开过的局(务必避开)】" + avoid : "")
-      + "\n【本局情境骰子】从这三个里挑一个最有戏的当作新处境的起点:" + pick3(POOL_SITU).join(" / ");
+      + "\n【本局情境维度】选择最符合人物、基调与难度的一项展开:" + pick3(POOL_SITU).join(" / ");
     const SHAPE_PRESET = "{\"hook\":\"新的当下处境\",\"charOutfit\":\"Ta 这一局穿什么(具体到能照着画)\",\"userOutfit\":\"" + uName + " 这一局穿什么\",\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
     const genFromPreset = async ps => {
       const char = props.characters.find(c => c.id === ps.charId);
@@ -409,16 +409,16 @@
       setPickChar(ps.charId); setBusy(true);
       try {
         const past = lines.filter(l => l.presetId === ps.id).slice(0, 6).map(l => String(l.hook || l.setting || "").slice(0, 50)).join(";");
-        const sys = CB() + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系一个字不许改,但要生成一个【全新的当下处境】以及配套的开场与本轮目标。"
+        const sys = settingStyle() + DIFF[diff].goal + "\n" + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系保持不变,生成一个【全新的当下处境】以及配套的开场与本轮目标。"
           + newSituation(true, past)
-          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
+          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、可以回应的时刻,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 12000, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
         p = await completeSetting(p, raw, ["hook", "goal", "opening"],
-          "goal:" + GOAL_RULE + "\nhook 是这一局专属的当下处境(1-3句)。opening 是第二人称『你』写给 " + uName + " 的开场正文(5-9句),悬着收尾。");
+          "goal:" + GOAL_RULE + "\n难度:" + DIFF[diff].goal + "\nhook 是这一局专属的当下处境(1-3句)。opening 是第二人称『你』写给 " + uName + " 的开场正文(5-9句),留出回应空间。");
         if (!p.goal) throw new Error("开局缺了「本轮目标」,再试一次");
         const world = ps.world || ps.setting;
         setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
@@ -552,13 +552,13 @@
       try {
         const recent = allMsgs(line).slice(-8).map(m => (m.role === "user" ? uName : charOf(line).name) + ":" + m.content).join("\n").slice(-1800);
         const cur = line.rounds[line.rounds.length - 1];
-        const sys = (mode === "redo"
+        const sys = settingStyle() + diffOf(line).goal + "\n" + (mode === "redo"
           ? "为一场进行中的 if 线小剧场【重新想当前这一轮的目标】(替换旧目标『" + cur.goal + "』,方向要和它不同)。"
-          : "为一场进行中的 if 线小剧场想【下一轮目标】:顺着已发生的剧情,把两人之间的张力再拧深一档;若上一轮以失败告终,新目标应从失败的后果里长出来(挽回/付代价/换一条路)。")
+          : "为一场进行中的 if 线小剧场想【下一轮目标】:顺着已发生的剧情,根据人物当前意图提出可推进的新目标，不强制升级冲突；若上一轮失败，承接已经发生的后果。")
           + "" + GOAL_RULE + "不重复已经达成过的目标。只输出 JSON:{\"goal\":\"一句话目标\"}";
         const user = "【设定】" + line.setting + "\n【角色身份】" + line.charRole + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         // 思考型模型的思考也从 maxTokens 里扣,给窄了 JSON 会被写一半截断
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10000, timeout: 120000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 120000 });
         const p = parseSettingPayload(raw, ["goal"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\"}", ["goal"]);
         if (!p || !p.goal) throw new Error("目标没生成出来" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : mode === "redo"
@@ -578,9 +578,9 @@
       setBusy(true);
       try {
         const char = charOf(line);
-        const sys = CB() + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个必须做选择的时刻,悬着收尾。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
+        const sys = settingStyle() + diffOf(line).goal + "\n" + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个可以回应的具体时刻。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0,

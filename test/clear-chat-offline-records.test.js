@@ -16,8 +16,7 @@ test("clear chat deletes direct offline sessions without summarizing or touching
   assert.match(clearChat, /已清除线上与线下记录/);
   assert.match(components, /线上私聊与全部单人线下记录/);
   assert.match(components, /群线下是共享记录，不会从这里删除/);
-  const version = app.match(/APP_VERSION = "v([^"]+)"/)?.[1];
-  assert.match(index, new RegExp(`js/components\\.js\\?v=${version.replace(/\./g, "\\.")}`));
+  assert.match(index, /js\/components\.js\?v=[\d.]+/); // 改动指纹由 app-cache-version 统一校验
 });
 
 test("clear chat starts without the character's old realtime mood or state", () => {

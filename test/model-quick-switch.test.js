@@ -15,7 +15,5 @@ test("optional assistive model switch persists online and offline routes separat
   assert.match(app, /角色专线仍由 apiFor\/offlineApiFor 优先/);
   assert.match(screens, /模型快速切换浮窗/);
   assert.match(screens, /角色专线不受影响/);
-  const version = app.match(/APP_VERSION = "v([^"]+)"/)?.[1];
-  assert.ok(version);
-  assert.match(index, new RegExp(`js/screens\\.js\\?v=${version.replace(/\./g, "\\.")}`));
+  assert.match(index, /js\/screens\.js\?v=[\d.]+/); // 改动指纹由 app-cache-version 统一校验
 });

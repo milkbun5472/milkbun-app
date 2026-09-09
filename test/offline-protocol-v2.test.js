@@ -123,7 +123,7 @@ test("取景骰子必须覆盖张力性质与基调，且题材只掷一个", ()
   assert.match(th, /const POOL_TONE = \[/, "基调要入骰");
   assert.match(th, /题材:" \+ pick\(POOL_GENRE\)/, "题材单掷,不给三选一的逃跑余地");
   assert.doesNotMatch(th, /pick3\(POOL_GENRE\)/, "旧的三选一必须已移除");
-  assert.match(th, /【基调决定味道,不决定重量】/, "基调不得被读成可以把目标写软");
+  assert.match(th, /基调决定场景的情绪与节奏，难度决定目标阻力/, "基调与难度分别落实，不把轻松场景强制写成重冲突");
   assert.doesNotMatch(th, /一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债/,
     "写死的阴谋味张力配方必须已解绑");
 });
@@ -134,8 +134,8 @@ test("取景骰子必须覆盖张力性质与基调，且题材只掷一个", ()
 test("目标契约共用一份，且允许日常尺度", () => {
   const th = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
   assert.match(th, /const GOAL_RULE = /, "四处生成必须共用一份目标契约");
-  assert.equal((th.match(/【门槛的重量来自处境,不来自动作大小】/g) || []).length, 1);
-  assert.match(th, /【目标必须具体、可判定】/, "小目标更要可判定，否则达成判断会飘");
+  assert.match(th, /目标的阻力取决于所选难度、人物立场和眼前处境/);
+  assert.match(th, /可观察、可判定是否发生的行为/, "小目标更要可判定，否则达成判断会飘");
   // 该短语只允许留在注释里（记录为什么废掉），不许再出现在任何提示词字符串中
   const banLines = th.split("\n").filter(l => l.includes("禁止事务级小目标"));
   assert.equal(banLines.length, 1, "一刀切的禁令只该剩注释那一处");
