@@ -8589,9 +8589,11 @@ function CallScreen({
     return () => clearInterval(i);
   }, []);
   const list = msgs || [];
+  const followCallTail = useRef(true);
+  const callScrollTop = useRef(0);
   useEffect(() => {
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [list.length, sending]);
+    if (ref.current) ref.current.scrollTop = followCallTail.current ? ref.current.scrollHeight : callScrollTop.current;
+  }, [list.length, sending, minimized]);
   const mmss = String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
   const isVideo = mode === "video";
   const people = participants || [];
@@ -8605,12 +8607,13 @@ function CallScreen({
   const send = () => {
     if (!input.trim() || sending) return;
     stopCallAudio(); recResume();
+    followCallTail.current = true;
     onSend(input.trim());
     setInput("");
   };
   const avatarNode = (c, size) => { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return av ? h("img", { src: av, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]); };
   // —— PiP 小屏：悬浮在其它界面上，点一下回全屏，可拖动；计时/消息不中断 ——
-  const recent = list.slice(-16);
+  const recent = list;
   // ⚠️这两个必须排在【所有提前 return 之前】：下面 minimized 那一支会早退，
   //   hook 写在它后面＝按缩小键那一下少调一个 hook，React 当场崩
   //   （她 2026-09-02：「从视频界面按缩小键页面会崩」）。
@@ -8670,6 +8673,13 @@ function CallScreen({
     className: "absolute active:opacity-60 flex items-center justify-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", left: 16, zIndex: 5, width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.14)" }
   }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M6 9l6 6 6-6" }))),
+  bg ? h("button", {
+    onClick: () => saveCallPhoto(bg),
+    "aria-label": "保存通话照片",
+    className: "absolute active:opacity-60",
+    style: { top: "calc(env(safe-area-inset-top) + 14px)", right: onShot ? 112 : 16, zIndex: 5,
+      height: 34, padding: "0 10px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.14)", fontFamily: F_BODY, fontSize: 11.5, color: "#fff" }
+  }, "保存照片") : null,
   onShot ? h("button", {
     onClick: () => !bgBusy && onShot(),
     disabled: bgBusy,
@@ -8734,6 +8744,8 @@ function CallScreen({
     }
   }, (c.name || "?")[0])))), h("div", {
     ref: ref,
+    "data-call-history": true,
+    onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
     className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2"
   }, recent.map((m, i) => {
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
@@ -9578,6 +9590,13 @@ function CallEndPill({ m, chars, onBg }) {
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
 // 通话里拍过的那一张：卡上是缩略图，点开看整张
+async function saveCallPhoto(imgKey) {
+  try {
+    if (!window.saveImgOriginal) { toast("这台设备存不了图"); return; }
+    const ok = await window.saveImgOriginal(imgKey, "通话照片");
+    toast(ok ? "已经存下来了" : "没有保存，可再试一次");
+  } catch (e) { toast("照片没保存成功，请再试一次"); }
+}
 function CallShotThumb({ imgKey }) {
   const t = useTheme();
   const [zoom, setZoom] = useState(false);
@@ -9593,7 +9612,9 @@ function CallShotThumb({ imgKey }) {
       h("div", {
         onClick: () => setZoom(false),
         style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(12,11,9,.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
-      }, h("img", { src: url, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } })),
+      }, h("img", { src: url, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
+      h("button", { "aria-label": "保存通话照片", onClick: e => { e.stopPropagation(); saveCallPhoto(imgKey); },
+        style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 14px)", right: 16, padding: "10px 16px", borderRadius: 999, border: "none", background: "#fff", color: "#222", fontFamily: F_BODY } }, "保存照片")),
       document.body));
 }
 // 通话记录中心（+面板入口）：这个聊天里所有语音/视频通话按时间列出，点一通回看整通转录——不用回聊天里翻楼
@@ -12278,6 +12299,7 @@ function GroupThread({
   onSaveSettings,
   onOpenMemberState,
   onStartPoll,
+  onGenVotes,
   onVote,
   onSendRedPacket,
   onClaim,
@@ -12604,6 +12626,7 @@ function GroupThread({
       key: i,
       poll: m,
       meName: meName,
+      onGenVotes: onGenVotes ? () => onGenVotes(m.pollId) : undefined,
       onVote: opt => onVote(i, opt)
     });
     // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
@@ -13096,6 +13119,7 @@ function GroupThread({
 function PollCard({
   poll,
   meName,
+  onGenVotes,
   onVote
 }) {
   const t = useTheme();
@@ -13165,7 +13189,10 @@ function PollCard({
         color: t.fog
       }
     }, n + (poll.anon ? "" : (o.voters.length ? " · " + o.voters.join("、") : "")))));
-  })));
+  })), poll.voteError ? h("details", { className: "mx-3 mb-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, overflowWrap: "anywhere" } },
+    h("summary", null, "成员投票没完成 · 查看原因"), h("div", { style: { whiteSpace: "pre-wrap", marginTop: 6 } }, poll.voteError)) : null,
+    onGenVotes ? h("button", { onClick: onGenVotes, className: "mx-3 mb-3 px-3 py-2 rounded-lg active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line } }, "请成员投票 / 重试") : null);
 }
 function RedPacketCard({
   rp,

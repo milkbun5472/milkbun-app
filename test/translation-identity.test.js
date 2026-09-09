@@ -5,7 +5,7 @@ const src=fs.readFileSync('js/components.js','utf8');
 const start=src.indexOf('recent.map((m, i) => {');
 const render=src.slice(start,src.indexOf('\n  }),',start)+5);
 const h=(tag,props,...children)=>({tag,props,children});
-const rows=new Function('h','TransText','F_BODY','list',`const recent=list.slice(-16),people=[],isGroup=false,primary=null,onPhoto=false,autoZh=false,litText={},tp={play:null},callBubble=()=>({background:'#abc',color:'#222'});return ${render};`);
+const rows=new Function('h','TransText','F_BODY','list',`const recent=list,people=[],isGroup=false,primary=null,onPhoto=false,autoZh=false,litText={},tp={play:null},callBubble=()=>({background:'#abc',color:'#222'});return ${render};`);
 test('通话窗口16→17→40条：同一条key稳定，新消息不继承旧位置',()=>{
  // 消息形状钉在真实通话写入方；无需假造不存在的消息id。
  const app=fs.readFileSync('js/app.js','utf8');
@@ -13,9 +13,10 @@ test('通话窗口16→17→40条：同一条key稳定，新消息不继承旧�
  const list=Array.from({length:40},(_,i)=>({role:i%2?'user':'char',content:'message '+i,ts:i}));
  const a=rows(h,()=>{},'sans',list.slice(0,16));
  const b=rows(h,()=>{},'sans',list.slice(0,17));
- assert.equal(a[1].props.key,b[0].props.key);
- assert.ok(!a.some(x=>x.props.key===b[15].props.key));
- assert.deepEqual(rows(h,()=>{},'sans',list).map(x=>x.props.key),Array.from({length:16},(_,i)=>i+24));
+ assert.match(src,/const recent = list;/);
+ assert.equal(a[1].props.key,b[1].props.key);
+ assert.ok(!a.some(x=>x.props.key===b[16].props.key));
+ assert.deepEqual(rows(h,()=>{},'sans',list).map(x=>x.props.key),Array.from({length:40},(_,i)=>i));
  assert.match(render,/tp.toggle\(messageKey,/);
 });
 test('公共翻译的状态实例跟原文、说话方、自带译文绑定，主题不重置',()=>{

@@ -28,13 +28,13 @@ test("CallScreen 的 hook 全部排在提前 return 之前", () => {
 // 送进去的只有【这通电话里说过的话】——群里五分钟前发生的事一个字都看不到。
 test("群通话看得见这通电话之前群里刚聊过什么", () => {
   const gc = app.slice(app.indexOf("// 群通话：多角色你一言我一语"), app.indexOf("} catch (e) {\n      toast(\"通话回复失败"));
-  assert.match(gc, /const gcChat = cur\.groupId \? \(groupChatsRef\.current\[cur\.groupId\] \|\| \[\]\) : \[\]/);
-  assert.match(gc, /slice\(-12\)/, "给多少条要写死，别一路把整个群聊塞进去（她按次计费）");
+  assert.match(gc, /const gcChat = cur\.groupId \? groupContextRows\(cur\.groupId\) : \[\]/);
+  assert.match(app, /Number\(gsFor\(groupId\).ctxN\)/, "跟随群设置，不另写死 12 条");
   assert.match(gc, /fmtStampAI\(m\.ts\)/, "不带时间戳就分不出「刚才」和「很久以前」");
   assert.match(gc, /【这通电话之前，群里刚聊过这些】/);
   assert.match(gc, /这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。/);
   assert.match(gc, /\+ gcHistBlock \+ gcTime \+ gcPrivBlock/, "算出来了却没拼进 sys");
-  assert.ok(!/m\.recalled/.test(gc) === false, "撤回的不该还念出来");
+  assert.match(app.slice(app.indexOf('const groupContextRows ='),app.indexOf('const groupPollText =')), /!m\.recalled/, "撤回的不该还念出来");
 });
 
 test("群聊记录那一行怎么写，群聊和群通话共用一份", () => {

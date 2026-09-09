@@ -20,7 +20,7 @@ const render=src.slice(start,src.indexOf('\n  }),',start)+5);
    translatableLang:()=> '日文',transCacheGet:()=>null,
    translateLongToZh:text=>new Promise(resolve=>{window.pending={text,resolve}})});
   (0,eval)(trans);
-  window.renderRows=new Function('list',`const recent=list.slice(-16),people=[],isGroup=false,primary=null,onPhoto=false,litText={},tp={play:null},callBubble=()=>({background:'#a8c7df',color:'#222'});return ${render};`);
+  window.renderRows=new Function('list',`const recent=list,people=[],isGroup=false,primary=null,onPhoto=false,litText={},tp={play:null},callBubble=()=>({background:'#a8c7df',color:'#222'});return ${render};`);
   window.messages=Array.from({length:16},(_,i)=>({role:'char',content:'Japanese '+i,zh:'中文 '+i,ts:i}));
   window.paint=()=>ReactDOM.render(h('div',{},renderRows(messages)),document.getElementById('root'));
   paint();

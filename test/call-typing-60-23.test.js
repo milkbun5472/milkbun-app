@@ -61,5 +61,6 @@ test("那一层是个气泡，长在他下一句会出现的地方", () => {
 test("自动滚到底要把这一层算进去，不然气泡冒出来看不见", () => {
   const i = comp.indexOf("function CallScreen(");
   const body = comp.slice(i, comp.indexOf("// 懒 TTS 小播放器", i));
-  assert.match(body, /\}, \[list\.length, sending\]\)/);
+  assert.match(body, /\}, \[list\.length, sending, minimized\]\)/);
+  assert.match(body, /followCallTail.current \? ref.current.scrollHeight : callScrollTop.current/);
 });

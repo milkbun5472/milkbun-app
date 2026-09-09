@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 const src = fs.readFileSync(path.join(root, 'js/components.js'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const startCallBody = app.slice(app.indexOf('  const startCall = ') + '  const startCall = '.length, app.indexOf('\n  const callSend = ')).trim().replace(/;$/, '');
-const fn = name => { const i = src.indexOf('function ' + name + '('); return src.slice(i, src.indexOf('\n}\n', i) + 3); };
+const fn = name => { const i = src.indexOf('function ' + name + '('); return src.slice(src.slice(i-6,i)==='async '?i-6:i, src.indexOf('\n}\n', i) + 3); };
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
@@ -195,7 +195,60 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
       assert.equal(await page.evaluate(() => requests[0].voice),'vb');
       await page.evaluate(() => pending.shift()());
       await page.waitForFunction(() => sources.length===1);
+      // 全通转录：超过旧 16 条窗口，上翻不丢记录，新回复不拽回底部，缩小返回保留位置。
+      await page.addScriptTag({ content: fn('saveCallPhoto') + '\n' + fn('CallShotThumb') });
+      await page.evaluate(() => {
+        setCallAutoVoice(false);
+        document.getElementById('settings').style.display='none';
+        window.photoSaves=[]; window.toast=()=>{}; window.saveImgOriginal=async(key,name)=>{photoSaves.push({key,name});return true};
+        draw({ msgs:Array.from({length:60},(_,i)=>({role:'char',senderId:i%2?'a':'b',act:i%3===0,content:'完整通话记录 '+i,ts:i})), bg:'img_call_fixture', onShot:()=>{}, audioSession:null });
+      });
+      await page.waitForFunction(() => document.querySelector('[data-call-history]')?.textContent.includes('完整通话记录 59'));
+      assert.ok(await page.locator('[data-call-history]').textContent().then(t=>t.includes('完整通话记录 0')));
+      await page.locator('[data-call-history]').evaluate(el=>{el.scrollTop=120;el.dispatchEvent(new Event('scroll',{bubbles:true}))});
+      await page.waitForTimeout(30);
+      const top=await page.locator('[data-call-history]').evaluate(el=>el.scrollTop);
+      await page.evaluate(()=>draw({msgs:[...props.msgs,{role:'char',senderId:'b',content:'完整通话记录 60'}]}));
+      await page.waitForTimeout(30);
+      assert.equal(await page.locator('[data-call-history]').evaluate(el=>el.scrollTop),top);
+      await page.evaluate(()=>draw({minimized:true}));
+      await page.waitForFunction(()=>!document.querySelector('[data-call-history]'));
+      await page.evaluate(()=>draw({minimized:false}));
+      await page.waitForFunction(()=>!!document.querySelector('[data-call-history]'));
+      assert.equal(await page.locator('[data-call-history]').evaluate(el=>el.scrollTop),top);
+      await page.getByRole('button',{name:'保存通话照片'}).click();
+      assert.deepEqual(await page.evaluate(()=>photoSaves),[{key:'img_call_fixture',name:'通话照片'}]);
+      const photoButton=await page.getByRole('button',{name:'保存通话照片'}).boundingBox();
+      assert.ok(photoButton.x>=0 && photoButton.x+photoButton.width<=width);
+      if(width===320 && mode==='video') await page.screenshot({path:'/tmp/lisa-group-call-history.png'});
+      // 挂断后的缩略图查看器也调用同一原图保存出口。
+      await page.evaluate(()=>{
+        rootRender.unmount();rootRender=ReactDOM.createRoot(document.getElementById('root'));
+        window.Fragment=React.Fragment;
+        window.useIdbImgUrl=()=> 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        rootRender.render(h(CallShotThumb,{imgKey:'img_call_archived'}));
+      });
+      await page.getByAltText('这通电话里的画面').click();
+      await page.getByRole('button',{name:'保存通话照片'}).click();
+      assert.equal(await page.evaluate(()=>photoSaves[1].key),'img_call_archived');
       await page.evaluate(() => rootRender.unmount());
+      await page.addScriptTag({ content: fn('PollCard') });
+      await page.evaluate(()=>{
+        rootRender=ReactDOM.createRoot(document.getElementById('root'));
+        window.skinAlpha=(c)=>c || '#ddd';window.voteRetries=0;
+        // startPoll 的写入形状：options[].text/voters，pollId/anon/by/title。
+        window.testPoll={kind:'poll',pollId:'pl_fixture',title:'群里的选择',by:'用户',anon:false,options:[{text:'选项一',voters:[]},{text:'选项二',voters:[]}],voteError:'测试失败详情'};
+        window.paintPoll=()=>rootRender.render(h(PollCard,{poll:testPoll,meName:'用户',onGenVotes:()=>voteRetries++,onVote:i=>{testPoll={...testPoll,options:testPoll.options.map((o,j)=>({...o,voters:i===j?['用户']:[]}))};paintPoll()}}));
+        paintPoll();
+      });
+      await page.getByRole('button',{name:'选项二 0'}).click();
+      await page.getByRole('button',{name:/选项二 ✓ 1/}).waitFor();
+      await page.getByRole('button',{name:'请成员投票 / 重试'}).click();
+      assert.equal(await page.evaluate(()=>voteRetries),1);
+      await page.locator('summary').click();
+      assert.ok(await page.getByText('测试失败详情',{exact:true}).isVisible());
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      await page.evaluate(()=>rootRender.unmount());
       assert.deepEqual(errors, []);
       console.log('PASS', width, mode, 'queue/cancel/unmount/translation/layout');
       await ctx.close();

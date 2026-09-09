@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.92";
+const APP_VERSION = "v65.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8557,7 +8557,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, userName(profile), 50) : [];
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
-      const _graw = gchat.filter(m => m.kind !== "ooc" && contextAllowsMessage(m)).slice(-(gs.ctxN || 30));
+      const _graw = groupContextRows(groupId);
       const fmtGLine = groupHistLine;
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
@@ -8692,6 +8692,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const nMin = Math.min(Math.min(3, members.length), nMax);
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
       const gEmotes = emotesForGroup(group.memberIds);
+      const gPolls = _graw.filter(m => m.kind === "poll");
+      const gPollHint = gPolls.length ? "\n【投票操作】上文投票卡列出了编号与选项。成员要投票或改票，在自己的发言对象中增加 pollVote:{\"pollId\":\"对应投票编号\",\"choice\":从0起的选项序号}；-1 为撤回自己的票。只说投了不会改变票数，text 必须与 choice 一致。匿名投票不在 text 里透露自己的选择。" : "";
       const gEmoteHint = gEmotes.length ? "\n【表情包】每个成员各自延续已经形成的聊天习惯：本来爱发的人可以常发或兴头上连发，本来很少发或从不发的人不要因为列表可用、也不要模仿别的成员或历史表情突然开始发；不存在全群统一频率。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致），否则省略。" : "";
       // 群自拍：只有配了图像API且成员填了外貌/参考照才开放（按需注入，平时零 token）
       const gSelfieMembers = (typeof imgApiReady === "function" && imgApiReady()) ? members.filter(c => (c.appearance || c.refPhoto) && !photoCooldownState(gchat, c.id).cooling) : [];
@@ -8765,7 +8767,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；想送的人填 gift 就真送到，但绝不是每轮都该送，也别几个人抢着送。别把这张单子念出来。）\n"
           + (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
         : "";
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -8904,6 +8906,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
           checkAutoCall();
+          if (item.pollVote && gPolls.some(p => p.pollId === item.pollVote.pollId)) {
+            const poll = groupPoll(groupId, item.pollVote.pollId);
+            const choice = groupPollChoice(item.pollVote.choice, poll);
+            if (choice !== null) castVote(groupId, poll.pollId, choice, spk.name);
+          }
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
@@ -9172,12 +9179,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
   };
   // ---- 群投票 ----
+  const pollVoteBusyRef = useRef(new Set());
   const startPoll = (groupId, title, options, anon) => {
     const by = gsFor(groupId).spectate ? "旁白" : profile.name || "我";
+    const pollId = "pl_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     pushGroupRich(groupId, {
       role: "user",
       kind: "poll",
-      pollId: "pl_" + Date.now(),
+      pollId,
       title: title,
       anon: !!anon,
       by: by,
@@ -9190,17 +9199,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("投票已发起");
     // 发起后角色陆陆续续自动投票（无需手动按）
     setTimeout(() => {
-      const gc = groupChatsRef.current[groupId] || [];
-      const idx = gc.map((m, i) => m.kind === "poll" ? i : -1).filter(i => i >= 0).pop();
-      if (idx != null && idx >= 0) genPollVotes(groupId, idx);
+      genPollVotes(groupId, pollId);
     }, 900);
   };
-  const castVote = (groupId, msgIdx, optIdx, voter) => {
-    pGChat(groupId, p => p.map((m, i) => {
-      if (i !== msgIdx || m.kind !== "poll") return m;
+  const groupPoll = (groupId, target) => {
+    const rows = groupChatsRef.current[groupId] || [];
+    const poll = typeof target === "number" ? rows[target] : rows.find(m => m.pollId === target);
+    return poll && poll.kind === "poll" && !poll.recalled ? poll : null;
+  };
+  const castVote = (groupId, target, optIdx, voter) => {
+    const poll = groupPoll(groupId, target);
+    const choice = groupPollChoice(optIdx, poll);
+    if (choice === null || !voter) return;
+    pGChat(groupId, p => p.map(m => {
+      if (m.pollId !== poll.pollId || m.kind !== "poll") return m;
       const options = m.options.map((o, oi) => ({
         ...o,
-        voters: o.voters.filter(v => v !== voter).concat(oi === optIdx ? [voter] : [])
+        voters: (o.voters || []).filter(v => v !== voter).concat(oi === choice ? [voter] : [])
       }));
       return {
         ...m,
@@ -9208,37 +9223,55 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
     }));
   };
+  const groupPollChoice = (value, poll) => {
+    const n = typeof value === "string" && /^-?\d+$/.test(value.trim()) ? Number(value) : value;
+    return poll && Number.isInteger(n) && n >= -1 && n < poll.options.length ? n : null;
+  };
   // 角色陆续投票 + 可能的评论/cue（后台进行，不锁输入）
-  const genPollVotes = async (groupId, msgIdx) => {
-    if (!active) return;
+  const genPollVotes = async (groupId, target) => {
+    if (!active) { toast("先配置聊天 API，成员才能投票"); return; }
     const group = groups.find(g => g.id === groupId);
-    const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const poll = (groupChatsRef.current[groupId] || [])[msgIdx];
+    if (!group) return;
+    const members = groupMembers(group);
+    const poll = groupPoll(groupId, target);
     if (!poll || poll.kind !== "poll") return;
+    const jobKey = groupId + ":" + poll.pollId;
+    if (pollVoteBusyRef.current.has(jobKey)) { toast("成员正在看这张投票"); return; }
+    pollVoteBusyRef.current.add(jobKey);
+    pGChat(groupId, rows => rows.map(m => m.pollId === poll.pollId ? { ...m, voteError: null } : m));
     try {
-      const memberDesc = members.map(c => {
-        const md = moods[c.id] && moods[c.id].label ? "，此刻心情：" + moods[c.id].label : "";
-        const af = "，对用户好感 " + Math.round(affOf(c.id)) + "/100";
-        return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + md + af;
-      }).join("\n");
+      const hist = groupContextRows(groupId).map(groupHistLine).join("\n");
       const gsp = gsFor(groupId);
-      const hist = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.content || ""))).join("\n");
-      const system = "群里发起了投票：「" + poll.title + "」。选项：" + poll.options.map((o, i) => i + ". " + o.text).join("；") + "。\n**每个成员投什么，必须由 TA 的人设、价值观、当前所处的上下文、此刻心情、跟发起人/其他成员的关系来决定——绝对不要随机乱投、也不要为了均衡而分散**。有的成员会按性格明显偏向某个选项，有的会犹豫、跟风、或按人设弃权（choice 填 -1，比如不感兴趣、故意不掺和、闹别扭）。**say（顺口说的那句话）必须和 TA 投的 choice 一致**（别嘴上说 A 却投 B）；不是每个人都要 say。如果有人弃权，别的成员可能会 cue 他「你怎么不投」。\n【成员（含此刻心情与好感，据此判断投向）】\n" + memberDesc + (hist ? "\n【近期群聊上下文（投票就发生在这些对话之后，投向要贴合语境）】\n" + hist : "") + "\n【输出】只输出 JSON 数组，按发生先后：[{\"name\":\"成员名\",\"choice\":选项序号(0起，弃权 -1),\"say\":\"（可选）和 choice 一致的一句话\"}]";
+      const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
+      const memberDesc = members.map(c => {
+        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
+        const now = groupNowSegs(c, { interop: gsp.memoryInterop });
+        const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
+        return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
+          + (privateText ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + privateText : "");
+      }).join("\n");
+      const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始投票，按上面的规则决定每个人投什么。"
       }], {
-        maxTokens: 8800
+        maxTokens: 65535
       });
-      const arr = extractJSON(raw);
-      if (!Array.isArray(arr)) return;
-      // 陆陆续续：每个动作间隔一会儿
+      const arr = parseJSONLoose(raw);
+      if (!Array.isArray(arr)) throw new Error("投票回应未解析：" + String(raw || "").slice(0, 320));
+      // 陆陆续续：每个动作间隔一会儿。同一成员只消费一次决定。
+      const voted = new Set();
       for (const v of arr) {
+        if (!v || typeof v !== "object") continue;
         const spk = members.find(c => c.name === v.name);
-        if (!spk) continue;
+        if (!spk || voted.has(spk.id)) continue;
+        const choice = groupPollChoice(v.choice, poll);
+        if (choice === null) continue;
         await new Promise(r => setTimeout(r, 600 + Math.random() * 700));
-        if (typeof v.choice === "number" && v.choice >= 0 && v.choice < poll.options.length) castVote(groupId, msgIdx, v.choice, spk.name);
-        if (v.say && String(v.say).trim()) pGChat(groupId, p => [...p, {
+        if (!groupPoll(groupId, poll.pollId)) return;
+        voted.add(spk.id);
+        castVote(groupId, poll.pollId, choice, spk.name);
+        if (!poll.anon && v.say && String(v.say).trim()) pGChat(groupId, p => [...p, {
           role: "assistant",
           senderId: spk.id,
           senderName: spk.name,
@@ -9246,7 +9279,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ts: Date.now()
         }]);
       }
-    } catch (e) {/* 静默 */}
+      if (!voted.size) throw new Error("未收到有效的成员选票：" + String(raw || "").slice(0, 320));
+    } catch (e) {
+      console.warn("[群投票]", e);
+      pGChat(groupId, rows => rows.map(m => m.pollId === poll.pollId ? { ...m, voteError: String(e && e.message || e).slice(0, 1000) } : m));
+      toast("成员投票没完成，可点卡片下方重试");
+    }
+    finally { pollVoteBusyRef.current.delete(jobKey); }
   };
   // ---- 群红包 ----
   // 我发红包
@@ -11760,11 +11799,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }]));
     toast(accept ? nm + " 收下了转账" : nm + " 退回了转账");
   };
+  // 群线上、通话前情和投票都尊重同一档上下文设置；过滤后再计条数。
+  const groupContextRows = groupId => (groupChatsRef.current[groupId] || [])
+    .filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m))
+    .slice(-Math.max(1, Number(gsFor(groupId).ctxN) || 30));
+  const groupPollText = poll => "[投票 " + poll.pollId + "] " + poll.title + "（" + (poll.anon ? "匿名" : "记名") + "）\n"
+    + (poll.options || []).map((o, i) => i + ". " + o.text + "｜" + (o.voters || []).length + "票"
+      + (!poll.anon && (o.voters || []).length ? "：" + o.voters.join("、") : "")).join("\n");
   // 群聊记录里的一行长什么样（v60.37 抽出来共用）。
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // 他五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+  const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -12143,8 +12189,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 送进去的 hist 只有【这通电话里说过的话】——群里刚发生的事一个字都看不到。
         // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」——
         // 他五分钟前就在群里说过「到家了，抹茶放桌上」。
-        const gcChat = cur.groupId ? (groupChatsRef.current[cur.groupId] || []) : [];
-        const gcRecent = gcChat.filter(m => m && !m.recalled && m.kind !== "ooc").slice(-12)
+        const gcChat = cur.groupId ? groupContextRows(cur.groupId) : [];
+        const gcRecent = gcChat
           .map(m => { const line = groupHistLine(m); return line && line.trim() ? "[" + fmtStampAI(m.ts) + "] " + line : ""; })
           .filter(Boolean).join("\n");
         const gcHistBlock = gcRecent ? "\n\n【这通电话之前，群里刚聊过这些】\n" + gcRecent + "\n⚠️这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。" : "";
