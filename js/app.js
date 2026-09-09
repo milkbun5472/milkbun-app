@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.91";
+const APP_VERSION = "v65.92";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -865,6 +865,8 @@ function App() {
   const disarmToy = () => { setToyArmed(false); setToyArmedFor(null); try { if (typeof toyStop === "function") toyStop(); } catch (e) {} };
   const [call, setCall] = useState(null); // {participants:[char], mode:"voice"|"video", groupId, msgs:[]}
   const callRef = useRef(null);
+  const groupAutoCallEpochRef = useRef({});
+  const groupCallActive = gid => !!(callRef.current && callRef.current.groupId === gid);
   const [offlineChar, setOfflineChar] = useState(null);
   const [offlineRoomId, setOfflineRoomId] = useState("main");
   const [offlines, setOfflines] = useState({}); // main charId 或 room chatKey -> [session,...] newest-first
@@ -4741,6 +4743,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const gid = group.id;
         const gs = gsFor(gid);
         if (!gs.memoryInterop || gs.autoChat === false) continue;
+        if (groupCallActive(gid)) continue; // 通话缩小仍算通话，不另起线上自发轮
         if (laneBusy("g:" + gid)) continue;
         // ⚠️「线下正在进行」不等于「线下浮层开着」（她 2026-08-31 报）：
         // 下拉「回线上群」那一下只是 setOfflineGroup(null) 收浮层，那一场【并没有结束】。
@@ -8516,6 +8519,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
+    if (rgOpts.auto && groupCallActive(groupId)) return;
+    const callEpoch = groupAutoCallEpochRef.current[groupId] || 0;
+    const autoCancelled = () => !!rgOpts.auto && (groupCallActive(groupId) || (groupAutoCallEpochRef.current[groupId] || 0) !== callEpoch);
+    const checkAutoCall = () => { if (autoCancelled()) throw new Error("群通话已接管自发聊天"); };
     if (laneBusy("g:" + groupId)) return;
     // 黑色回复键 / 让他们继续：立即开一张全新额度卡，且这一段起聊不等动念。
     // lastUserTs 必须一起记上她【最后那句话】的时间——否则下一次巡检会把它当成
@@ -8816,13 +8823,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (_gWantWeb && window.MCP && window.MCP.enabled().length) {
         try { _gMcpT = await window.MCP.listTools(); } catch (e2) { console.warn("[mcp] 列工具失败：", e2); }
       }
+      checkAutoCall();
       const raw = await callAI(active, system, [{
         role: "user",
         content: userContent,
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
       }], {
-        // token 随人数放宽：人多一轮更长，别被 3000 截断（封顶 10000）
-        maxTokens: Math.min(24000, 11200 + members.length * 900),
+        // 多人回复给足思考与正文预算。
+        maxTokens: 65535,
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
         timeout: 180000,
         webSearch: _gWantWeb,
@@ -8831,6 +8839,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         wantReasoning: _gWantReason,
         meta: _gReasonMeta
       });
+      checkAutoCall();
       if (_gWantReason && !_gReasonMeta.reasoning && typeof reasoningFromBody === "function") {
         const _gFromBody = reasoningFromBody(raw);
         if (_gFromBody) { _gReasonMeta.reasoning = _gFromBody; _gReasonMeta.from = "正文 <thinking>"; }
@@ -8894,6 +8903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
+          checkAutoCall();
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
@@ -8927,6 +8937,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             for (let j = 0; j < gBubbles.length; j++) {
               if (j > 0) await new Promise(r => setTimeout(r, 620));
+              checkAutoCall();
               const reveal = () => pGChat(groupId, p => [...p, {
                 role: "assistant",
                 senderId: spk.id,
@@ -8975,6 +8986,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady() && (spk.appearance || spk.refPhoto)) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
+            checkAutoCall();
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now(), turnId: gTurnId }]);
             (async () => {
               try {
@@ -9052,6 +9064,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const dmTurn = "gdm_" + Date.now();
             for (let di = 0; di < gDmList.length; di++) {
               await new Promise(r => setTimeout(r, di === 0 ? 500 : 420)); // 节奏同单聊
+              checkAutoCall();
               pChat(spk.id, p => [...p, { role: "assistant", content: gDmList[di], ts: Date.now(), read: false, fromGroup: groupId, turnId: dmTurn }]);
             }
           }
@@ -9059,6 +9072,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const gcm = item.call && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
+            checkAutoCall();
             {
               const inv = { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId: gTurnId };
               pGChat(groupId, p => [...p, inv]);
@@ -9072,6 +9086,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const mt = emoteMatch(av, ekw);
             if (mt) {
               await new Promise(r => setTimeout(r, 300));
+              checkAutoCall();
               pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "emote", url: mt.url, keyword: mt.keyword, content: "[表情] " + mt.keyword, ts: Date.now(), turnId: gTurnId }]);
             }
           }
@@ -9085,6 +9100,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // DOMException 之类的报错只给一句没头没尾的话（比如 iOS 上那句 "The string did not
       // match the expected pattern."），光看文案根本不知道是哪一步、哪个 API 抛的。
       // 把【错误类型】和【当时走到哪一步】一起带出来，下次一眼能定位。
+      if (autoCancelled()) return;
       const kind = e && e.name && e.name !== "Error" ? "[" + e.name + "] " : "";
       pGChat(groupId, p => [...p, {
         role: "assistant",
@@ -9096,8 +9112,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }]);
     } finally {
       endLane("g:" + groupId);
-      maybeSummarizeGroup(groupId);
-      setTimeout(() => maybeAutoExtractGroup(groupId), 260);   // 和另外三处对齐：每几轮抽一次离散记忆
+      if (!autoCancelled()) {
+        maybeSummarizeGroup(groupId);
+        setTimeout(() => { if (!autoCancelled()) maybeAutoExtractGroup(groupId); }, 260);
+      }
     }
   };
   // 群聊 OOC：跳出所有角色直接问模型；不进角色扮演上下文
@@ -11876,6 +11894,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const room = !groupId && window.ChatRooms.isSideKey(key) ? window.ChatRooms.get(people[0].id, String(key).split("::room::")[1]) : null;
     if (room && room.main) { toast("这间房间已不存在"); return; }
     const audioSession = callAutoVoice() ? prepareCallAudio() : null;
+    if (groupId) groupAutoCallEpochRef.current[groupId] = (groupAutoCallEpochRef.current[groupId] || 0) + 1;
     const next = { sessionId: "call_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2), participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", chatKey: key, room, msgs: [], startTs: Date.now() };
     next.audioSession = audioSession;
     callRef.current = next; setCall(next);

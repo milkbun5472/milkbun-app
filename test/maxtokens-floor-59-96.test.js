@@ -68,7 +68,8 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   const rd = fs.readFileSync(path.join(root, "js", "read.js"), "utf8");
   const scr = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
   assert.match(app, /maxTokens: Math\.min\(20000, 8500 \+ batch\.length \* 60\)/);
-  assert.match(app, /maxTokens: Math\.min\(24000, 11200 \+ members\.length \* 900\)/);
+  const groupReply = app.slice(app.indexOf('const replyGroup ='), app.indexOf('const oocGroup ='));
+  assert.match(groupReply, /maxTokens: 65535/);
   assert.match(eng, /maxTokens: Math\.min\(20000, 8800 \+ \(entries \|\| \[\]\)\.length \* 40\)/);
   // ⚠️同人文这两处别冻公式的【长相】。规矩只说了「不许往下调」，
   // 而冻住字面量的话，往上抬也会红——v60.97 穿书那一次正是这样：

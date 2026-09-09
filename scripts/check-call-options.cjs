@@ -164,8 +164,8 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
           rootRender.unmount(); rootRender = ReactDOM.createRoot(document.getElementById('root'));
           requests = []; pending = []; sources = []; saved.x_callAutoVoice = true;
           window.ChatRooms = { isSideKey: () => false };
-          window.startFixture = new Function('callRef', 'setCall', 'toast', 'return (' + startCallBody + ');')(
-            { current: null }, call => draw({ ...call, bye: null, minimized: false }), () => {});
+          window.startFixture = new Function('callRef', 'setCall', 'toast', 'groupAutoCallEpochRef', 'return (' + startCallBody + ');')(
+            { current: null }, call => draw({ ...call, bye: null, minimized: false }), () => {}, {current:{}});
           const button = document.createElement('button'); button.id = 'start-real'; button.textContent = '拨打或接听';
           button.onclick = () => { startFixture([{ id: 'a', name: '甲', voiceId: 'va' }], props.mode, null, caller); button.remove(); };
           document.getElementById('settings').appendChild(button);
@@ -180,6 +180,21 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
         assert.equal(await page.evaluate(() => activeSounds), 1);
         await page.evaluate(() => sources[0].stop());
       }
+      // 群视频：系统 resume 一直 pending 时必须有提示；触碰恢复后首句不能被游标吞掉。
+      await page.evaluate(() => {
+        rootRender.unmount(); rootRender = ReactDOM.createRoot(document.getElementById('root'));
+        requests=[]; pending=[]; sources=[];
+        draw({participants:[{id:'a',name:'甲',voiceId:'va'},{id:'b',name:'乙',voiceId:'vb'}],
+          audioSession:{ctx:new AudioContext(),ready:new Promise(()=>{})},msgs:[],bye:null});
+      });
+      await page.waitForFunction(() => document.querySelector('[data-call-audio-status]')?.textContent.includes('声音等待系统许可'));
+      await page.evaluate(() => draw({msgs:[{ts:Date.now(),role:'char',senderId:'b',content:'Waiting first line'}]}));
+      assert.equal(await page.evaluate(() => requests.length),0);
+      await page.locator('[data-call-audio-status]').click();
+      await page.waitForFunction(() => requests.length===1);
+      assert.equal(await page.evaluate(() => requests[0].voice),'vb');
+      await page.evaluate(() => pending.shift()());
+      await page.waitForFunction(() => sources.length===1);
       await page.evaluate(() => rootRender.unmount());
       assert.deepEqual(errors, []);
       console.log('PASS', width, mode, 'queue/cancel/unmount/translation/layout');

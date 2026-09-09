@@ -17,7 +17,7 @@ test("四处都要有「每几轮抽一次」，不能只有三处", () => {
    "maybeAutoExtractGroupOffline(group.id)", "maybeAutoExtractGroup(groupId)"]
     .forEach(call => assert.ok(code.indexOf(call) > 0, "没接上：" + call));
   // 群线上要挂在 replyGroup 的 finally 里，和总结并排
-  assert.match(app, /maybeSummarizeGroup\(groupId\);\n\s*setTimeout\(\(\) => maybeAutoExtractGroup\(groupId\), 260\);/);
+  assert.match(app, /maybeSummarizeGroup\(groupId\);\n\s*setTimeout\(\(\) => \{ if \(!autoCancelled\(\)\) maybeAutoExtractGroup\(groupId\); \}, 260\);/);
 });
 
 test("群线上抽取要跟另外三处一样的节拍和防漏", () => {

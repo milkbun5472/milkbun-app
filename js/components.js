@@ -8488,13 +8488,17 @@ function CallScreen({
     // 拨打/接听时已经在用户手势内 resume。这里仅接收结果，不重置游标漏掉首句。
     const session = first && audioSession ? audioSession : prepareCallAudio(lv.current.ttsCtx);
     lv.current.ttsCtx = session.ctx;
+    setAudioStatus("正在启用声音…");
+    // Safari 的 resume 可能一直 pending；不能让整条队列无提示地等下去。
+    const watchdog = setTimeout(() => { if (!dead && audioRef.current.mounted && !audioRef.current.enabled) setAudioStatus("声音等待系统许可，轻触通话页面重试"); }, 2500);
     Promise.resolve(session.ready).then(error => {
+      clearTimeout(watchdog);
       if (dead || !audioRef.current.mounted) return;
       const ok = !error && lv.current.ttsCtx && lv.current.ttsCtx.state === "running";
       setAudioReady(!!ok);
       setAudioStatus(ok ? "" : "声音未启用，轻触通话页面重试");
     });
-    return () => { dead = true; };
+    return () => { dead = true; clearTimeout(watchdog); };
   }, [autoVoice]);
   const lvStart = async () => {
     try {
@@ -8545,19 +8549,23 @@ function CallScreen({
     if (st.speaking) return; // 播报锁：防多气泡齐唱
     st.speaking = true;
     (async () => {
-      let paused = false;
+      let paused = false, skipped = "";
       while (valid() && st.played < msgsRef.current.length) {
         const m = msgsRef.current[st.played++];
         if (!m || m.role === "user" || m.act || !m.content) continue;
         const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : ((participants || []).length === 1 ? primary : null);
-        if (!spk2 || !spk2.voiceId || !ttsReady()) continue;
+        if (!spk2 || !spk2.voiceId || !ttsReady()) {
+          skipped = !spk2 ? "未找到这句的说话人" : !spk2.voiceId ? (spk2.remark || spk2.name || "对方") + "尚未配置音色" : "语音线路未启用";
+          continue;
+        }
         tp.stop();
         if (!paused) { paused = true; recPause(); } // 说话前闭耳，防自问自答
-        st.busy++; setAudioStatus("对方说话中…");
+        st.busy++; setAudioStatus("正在准备语音…");
         // 不预取未轮到的收费语音，关闭开关后不再启动下一次合成。
         try {
           const blob = await ttsSpeak(m.content, spk2.voiceId);
           if (!valid()) break;
+          setAudioStatus("正在解码语音…");
           const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
           if (!valid()) break;
           if (st.ttsCtx.state !== "running") throw new Error("声音已暂停");
@@ -8567,12 +8575,13 @@ function CallScreen({
             const safety = setTimeout(res, abuf.duration * 1000 + 3000);
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
+            setAudioStatus("对方说话中…");
           });
-        } catch (e) { if (valid()) { setAudioStatus("播报暂停，请重新启用连续播报"); audioRef.current.enabled = false; setAudioReady(false); } break; }
+        } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
         finally { if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
       }
       if (audioRef.current.epoch === epoch) st.speaking = false;
-      if (audioRef.current.epoch === epoch && st.session === session) { if (valid()) setAudioStatus(""); if (paused) setTimeout(() => { if (audioRef.current.epoch === epoch && st.session === session) recResume(); }, 300); }
+      if (audioRef.current.epoch === epoch && st.session === session) { if (valid()) setAudioStatus(skipped); if (paused) setTimeout(() => { if (audioRef.current.epoch === epoch && st.session === session) recResume(); }, 300); }
     })();
   }, [autoVoice, audioReady, !!bye, (msgs || []).length, tp.play]);
   useEffect(() => {
@@ -8692,8 +8701,8 @@ function CallScreen({
       marginTop: 4
     }, litText)
   }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss),
-    audioStatus && h("div", { role: "status", style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
-      audioStatus)), h("div", {
+    h("div", { role: "status", "data-call-audio-status": true, style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
+      audioStatus || (autoVoice ? (audioReady ? "连续播报已开启 · 等待新台词" : "声音未启用，轻触页面重试") : "连续播报未开启 · 可在聊天设置中打开"))), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci,

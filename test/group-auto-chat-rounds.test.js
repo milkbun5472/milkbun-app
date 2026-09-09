@@ -41,6 +41,7 @@ function drive(opts) {
     characters: [{ id: "c1", name: "顾朝" }, { id: "c2", name: "顾暮" }],
     gsFor: () => gs,
     laneBusy: () => false,
+    groupCallActive: () => !!opts.inCall,
     offlineGroup: null,
     contextAllowsMessage: () => true,
     groupChatsRef: { current: { [G]: chat } },
@@ -106,6 +107,9 @@ function drive(opts) {
   return out;
 }
 
+test("群语音/视频进行中（包括缩小）不启动自发轮", () => {
+  assert.equal(drive({minutes:1, rounds:5, maxMsg:50, kicked:true, inCall:true}).length, 0);
+});
 test("拿她的设置真跑一遍：5 轮一轮不少", () => {
   const got = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
   assert.equal(got.length, 5, "轮数上限 5，实际只发了 " + got.length + " 轮");
