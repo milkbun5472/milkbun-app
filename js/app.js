@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.98";
+const APP_VERSION = "v65.99";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7468,7 +7468,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「他那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + actLineRule(uName) : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + userActLineRule(uName) : "");
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       const g = [];
       for (const m of promptHistory) {
@@ -7922,16 +7922,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
-        // 同处一室开着时，整条被括号包住的那一条是【他做的动作】，不是他发出去的消息：
-        // 落成跟她自己写的旁白一模一样的一条（居中小斜体），只多一个 who 标明是他做的。
-        // ⚠️判据和她那边共用 actInner，不另写一份。
-        const _act = _actDesc ? actInner(words[i]) : null;
-        if (_act) {
-          pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _act, ts: _tsOf(i), turnId }]);
-          delivered = true;
-          notifyBubble(_act, "act-" + i);
-          continue;
-        }
         pChat(chatKey, p => [...p, {
           role: "assistant",
           content: words[i],
@@ -8259,6 +8249,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!_s.engineerEyes) {
         if (onlineAction && String(onlineAction).trim()) st.actionUpdatedAt = stateNow;
         else { st.action = null; st.actionUpdatedAt = 0; }
+      }
+      // 动描（她 2026-09-09：「我们状态卡里已经有动作了，是不是可以不要求他们重写，
+      // 而是开关就把动作那一块搬到屏幕中间也显示一次」）——就是这一处。
+      // ⚠️他那边【没有任何新指令】：action 本来就每轮都填，这里只是把它也摆进聊天里。
+      // ⚠️「没变就别刷屏」这道闸写在【代码】里，不写在提示词里：
+      //   提示词只降概率，代码才保证。上一条摆出来的动作原样存在聊天记录里，
+      //   拿它当上一次的值比——不另存一份游标，刷新、换设备都还是同一个答案。
+      if (_actDesc && onlineAction && String(onlineAction).trim()) {
+        const _line = String(onlineAction).trim();
+        const _rows = chatsRef.current[chatKey] || [];
+        let _prevAct = "";
+        for (let i = _rows.length - 1; i >= 0; i--) {
+          const m = _rows[i];
+          if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
+        }
+        if (_line !== _prevAct) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Date.now(), turnId }]);
       }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
       // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替他编一套,
@@ -19316,6 +19322,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
+            actDesc: !!s.actDesc,
+            // 顺路捎的（同一行、同一个病）：webSearch 从来就没被接住过，
+            // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
+            // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
+            webSearch: !!s.webSearch,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit"
           }
         };

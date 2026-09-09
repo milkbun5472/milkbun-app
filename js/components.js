@@ -14760,7 +14760,7 @@ function ChatSettings({
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描（括号里那一行）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
-        "开着之后 TA 回消息时可以顺手写一行自己在干嘛（在楼下等电梯、手上正忙），显示成居中的一行小字，不是 TA 发给你的话。你也一样：整条用括号包住发出去就是一个动作。说话仍然是一条一句的气泡，不会变成线下那种长段。处境没变化时 TA 一条都不写。")),
+        "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格也会摆到聊天中间显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。你自己想写动作：整条用括号包住发出去就行。")),
     h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
       h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"

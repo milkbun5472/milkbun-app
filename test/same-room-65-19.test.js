@@ -13,6 +13,10 @@
 //   时候，就是我俩分开的时候要他动描自己在干啥也行」。所以拆成两个：
 //   · 动描（actDesc）—— 设一次就不动，住聊天设置里，跟在不在一起【无关】；
 //   · 同处一室（sameRoom）—— 一天开关好几回，住顶栏，只管【在场】那一层。
+//
+// ⚠️她第二次纠正：「我们状态卡里已经有动作了，是不是可以不要求他们重写，而是开关
+//   就把动作那一块搬到屏幕中间也显示一次」——对。于是他那一侧【不再有任何写动作的
+//   指令】，动作那一行直接来自每轮本来就填的 action；「没变就别刷屏」写在代码里。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -60,29 +64,41 @@ test("动描和同处一室是两件事，各挂各的开关", () => {
   // ⚠️动描【不许】再看同处一室：她分开的时候也要他写自己在干嘛
   assert.match(app, /const _actDesc = !_s\.engineerEyes && actDescFor\(charId\);/);
   assert.ok(!/_sameRoom/.test(app), "动描那条路上还留着同处一室的判断，两件事又焊回去了");
-  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ actLineRule\(uName\) : ""\)/,
-    "动描规则没挂在动描开关上，或者挤进了那三层中间");
+  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ userActLineRule\(uName\) : ""\)/,
+    "动描那一段没挂在动描开关上，或者挤进了那三层中间");
   // 在场那一层反过来只认同处一室，不认动描
   assert.match(app, /offlineNow: \(sameRoomFor\(char\.id\)/);
   // 那三层的顺序不许被这一条打断（别处一堆测试盯着这条链）
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/);
 });
 
-test("动描规则该有的闸一个都不少，而且不塞内容示范", () => {
-  const rule = grab(eng, "actLineRule");
-  assert.match(rule, /一轮至多一条/, "没有频率闸——他会每句话前面都配一个动作");
-  assert.match(rule, /只在【处境真的变了】的时候写/);
-  // ⚠️措辞不许假定「你俩在一个屋里」：分开时它写的是「他那边在干嘛」
-  assert.match(rule, /你此刻手上在做的事、或者你那边的动静/);
-  assert.ok(!/同处一室|面对面/.test(rule), "动描规则里混进了「在一起」的前提，分开时就说不通了");
-  assert.match(rule, /只写你自己这一侧/, "少了对方主权：他会替她写动作");
-  assert.match(rule, /心里怎么想仍然只走 thought/, "没挡住心理活动往括号里跑");
-  assert.match(rule, /不等于改写成散文/, "没挡住它长成线下长文");
-  // 她发来的那几条括号是【动作】不是台词，得说清楚
-  assert.match(rule, /整条被括号包住的那几条，是 Ta 此刻做的动作/);
-  // 施工规则/prompt-no-content-samples.md：留格式示范、删内容示范
-  assert.match(rule, /形如「（……）」/, "格式示范没了");
-  assert.ok(!/（把碗端/.test(rule), "又把内容示范塞回去了——模型会逐字照抄那个动作");
+test("他那一侧不再有写动作的指令：动作直接来自每轮本来就填的 action", () => {
+  // 那一整条「怎么写括号」的规则要【删掉】，不是留在那儿再补一句「其实不用写」
+  assert.ok(!/function actLineRule\(/.test(eng), "旧的写作指令还留着，等于两套动作来源并存");
+  assert.ok(!/actLineRule\(/.test(app));
+  const rule = grab(eng, "userActLineRule");
+  // 只剩他【读】那一侧的两句
+  assert.match(rule, /整条被一对括号从头包到尾的，是 Ta 此刻做的动作/, "他会把她的括号当台词回");
+  assert.match(rule, /【你自己不用写这种括号】/, "没拦住他跟着学，动作就会有两个来源");
+  assert.match(rule, /你每轮照常填的 action 会原样显示给 Ta 看/);
+  // 他那边的括号分支要撤掉：动作只从 action 那一格来
+  assert.ok(!/const _act = _actDesc \? actInner\(words\[i\]\)/.test(app), "他那边还留着括号分支");
+  // 生成协议里那两句是这一版的地基：没有它们，action 会每轮换个说法刷屏
+  assert.match(app, /当前事实未变且原表述仍准确时，可以原样填写/);
+  assert.match(app, /无需为了交字段换措辞、制造动作/);
+});
+
+test("动作那一行只在真变了的时候摆一次，而且这道闸在代码里", () => {
+  const i = app.indexOf("if (_actDesc && onlineAction");
+  assert.ok(i > 0, "动作那一行没接上");
+  const blk = app.slice(i, i + 900);
+  // 上一次摆出来的那条就存在聊天记录里，拿它比——不另存一份游标
+  assert.match(blk, /const _rows = chatsRef\.current\[chatKey\] \|\| \[\];/);
+  assert.match(blk, /m\.who === "char" && \(m\.role === "narration" \|\| m\.kind === "narration"\)/);
+  assert.match(blk, /if \(_line !== _prevAct\) pChat\(chatKey/, "没比就写＝每轮刷一行，两天就腻了");
+  assert.match(blk, /who: "char"/);
+  // 摆在【状态落库那一段】而不是气泡循环里：他说完话、发完东西之后才看到他在干嘛
+  assert.ok(app.indexOf("if (_actDesc && onlineAction") > app.indexOf("for (let i = 0; i < words.length; i++)"));
 });
 
 test("括号大法两种坏法都试过：该吞的吞、不该吞的一条都不许吞", () => {
@@ -114,8 +130,6 @@ test("她那边两个入口共用一个出口，关着的时候还是普通消�
 });
 
 test("他那边落成同一种消息，只多一个 who 标明是他做的", () => {
-  assert.match(app, /const _act = _actDesc \? actInner\(words\[i\]\) : null;/, "他那边另写了一套判据");
-  assert.match(app, /role: "narration", kind: "narration", who: "char", content: _act/);
   // ⚠️他的动作绝不能被当成【她的旁白】喂回去，不然他以为那是她做的
   assert.match(app, /if \(\(m\.role === "narration" \|\| m\.kind === "narration"\) && m\.who !== "char"\) \{/);
   assert.match(app, /（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）/);
@@ -139,7 +153,9 @@ test("两个开关各住各的地方，旁白那行有挂点", () => {
   assert.match(comp, /const \[actDesc, setActDesc\] = useState\(!!settings\.actDesc\);/);
   assert.match(comp, /show\("look", \{ title: "线上带不带动作", \.\.\.sec\("actdesc"\) \}/);
   assert.match(comp, /" · 动描 " \+ onOff\(actDesc\)/, "「窗」那一类的摘要里看不到它开没开");
-  assert.match(comp, /\n      defaultOffline,\n      actDesc,\n/, "动描没存进去，关掉 app 就丢了");
+  assert.match(comp, /\n      defaultOffline,\n      actDesc,\n/, "设置页没把它交出来");
+  assert.match(app, /defaultOffline: !!s\.defaultOffline,\n\s*actDesc: !!s\.actDesc,/,
+    "她 2026-09-09 报的「保存不了」就是这儿：存档那头逐项手抄，漏一项就悄悄丢");
   // 居中那行旁白/动作要能被主题台抓住，两边分得开
   assert.match(comp, /"data-wk": "narr",\s*\n\s*"data-me": m\.who === "char" \? "0" : "1",/);
   assert.match(comp, /"data-wk": "narrink",/);
