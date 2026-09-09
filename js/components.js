@@ -8688,16 +8688,18 @@ function CallScreen({
     ref: ref,
     className: "flex-1 overflow-y-auto px-5 py-3 space-y-2"
   }, recent.map((m, i) => {
+    // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
+    const messageKey = list.length - recent.length + i;
     const isU = m.role === "user";
-    if (m.act) return h("div", { key: i, className: "flex justify-center py-0.5" }, h("div", {
+    if (m.act) return h("div", { key: messageKey, className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isGroup && m.senderName ? m.senderName + " " : "") + "（" + m.content + "）"));
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
     const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
     const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
-    const meP = tp.play && tp.play.k === i;
+    const meP = tp.play && tp.play.k === messageKey;
     return h("div", {
-      key: i,
+      key: messageKey,
       className: "flex flex-col " + (isU ? "items-end" : "items-start")
     }, !isU && isGroup && m.senderName && h("span", {
       style: Object.assign({ fontFamily: F_BODY, fontSize: 10, color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
@@ -8714,7 +8716,7 @@ function CallScreen({
         color: callBubble(isU).color
       }
     }, h(TransText, { text: m.content, isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
-      onClick: () => tp.toggle(i, m.content, spk.voiceId),
+      onClick: () => tp.toggle(messageKey, m.content, spk.voiceId),
       className: "active:opacity-60 shrink-0",
       style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
     }, meP ? (tp.play.st === "gen" ? "…" : "⏸") : "▶") : null));
@@ -9149,6 +9151,11 @@ function pinToBottom(el, ms) {
 // 「您可能会迷失在雨伞中」；说这句话的人自己译，根本不是一个水平。
 // 译键的位置和展开样式一个字不改：她 2026-08-26 说了「我喜欢在旁边可以按翻译」。
 function TransText({ text, isU, zhReady, ink }) {
+  // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
+  // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink });
+}
+function TransTextState({ text, isU, zhReady, ink }) {
   const t = useTheme();
   const _lang = typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准

@@ -119,7 +119,7 @@ test("自带中译走的还是气泡旁边那个译键，不另起一套 UI", ()
 });
 
 test("自带中译不再去调免费接口", () => {
-  const i = compCode.indexOf("function TransText(");
+  const i = compCode.indexOf("function TransTextState(");
   const seg = compCode.slice(i, compCode.indexOf("\n}\n", i));
   assert.ok(/lang && !zhReady && typeof transCacheGet/.test(seg), "有自带中译时不该再查翻译缓存");
   assert.ok(/if \(zh \|\| busy\) return;/.test(seg), "run 得在已有译文时直接返回");
