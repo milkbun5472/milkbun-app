@@ -3406,17 +3406,24 @@ const PHOTO_VIEW_ZH = "随手拍";
 //   宁可漏判（她再说一句「拍风景」就好），也绝不误判——
 //   把一张真自拍降成空景，脸没了她还得重拍，比现在这个 bug 更难受。
 // ⚠️只往一个方向纠：self/other/duo → view。反过来绝对不做。
+const PHOTO_PART_ZH = "局部";
 const SCENE_ONLY_WORDS = /风景|景色|空镜|窗景|街景|夜景|全景|远景|无人|没有人|不要有人|没有人物|没有出镜|不出镜/;
 const SCENE_PERSON_WORDS = /[我你她]|TA|Ta|自拍|合照|入镜|出镜|镜头前|脸|笑|表情|眼神|手里|头发|侧脸|背影|半身|全身|穿着|坐着|站着|躺着|靠在|怀里|肩上/;
-function looksLikeNoOneScene(scene, name) {
+// 「有身体、没有脸」那一类：她让他拍手、拍背影（2026-09-09 第三张截图）。
+// ⚠️这一类【两条现成的路都不对】：buildPhotoPrompt 是「把这个人画对」，会给脸；
+//   buildScenePrompt 的无人铁律里明写着 no hands, no body parts，会拒绝画那只手。
+// ⚠️只认【把局部当主体】的词，不认「手里端着」「手机」——那些是自拍里顺带提到的。
+const PART_WORDS = /手指|指节|手腕|掌心|手心|手背|双手|两只手|十指|指尖|背影|侧影|剪影|后颈|肩膀|脚踝|局部特写|只拍手|拍手/;
+const PART_FACE_WORDS = /脸|笑|表情|眼神|眼睛|自拍|回眸|半身|全身|正面照/;
+// 这段 scene 该不该躲开那张脸——返回 ""（照旧画人）／"view"（一个人都没有）／"part"（有身体没有脸）
+function noFaceKindFor(scene, name) {
   const raw = String(scene || "");
-  if (!raw.trim()) return false;
-  if (!SCENE_ONLY_WORDS.test(raw)) return false;
-  // 「其他」里那个他不算人
-  const s = raw.replace(/其他/g, "");
-  if (SCENE_PERSON_WORDS.test(s) || /他/.test(s)) return false;
-  if (name && String(name).trim() && s.indexOf(String(name).trim()) >= 0) return false;
-  return true;
+  if (!raw.trim()) return "";
+  const s = raw.replace(/其他/g, "");   // 「其他」里那个他不算人
+  const named = !!(name && String(name).trim() && s.indexOf(String(name).trim()) >= 0);
+  if (SCENE_ONLY_WORDS.test(raw) && !SCENE_PERSON_WORDS.test(s) && !/他/.test(s) && !named) return "view";
+  if (PART_WORDS.test(raw) && !PART_FACE_WORDS.test(s)) return "part";
+  return "";
 }
 // ---- 图上云：本机 → 原生壳 → VPS，三层（她 2026-09-06 数据丢了图也没了）----
 // 像素从来没进过云（saves 那一行只有 x_ 文本），所以本机一没图就真没了。
@@ -3720,6 +3727,39 @@ function buildScenePrompt(char, sceneDesc, opts) {
   if (opts.forText !== false) parts.push("【这是一张要压字的背景板】竖构图；主要的景物和视觉重心放在画面上半部分，"
     + "画面中下部保持相对空、暗、少细节，好让文字压上去还读得清。整体偏安静，不要满构图、不要高对比的杂乱花纹。");
   parts.push("画面干净，不要任何文字/水印/logo/相框/贴纸边框。");
+  return parts.join("");
+}
+
+// 「有身体、没有脸」那一张（她 2026-09-09：「但是我要他拍手就不行了」）。
+// 现成那两条路一条都不能用：
+//   · buildPhotoPrompt 是【把这个人画对】的说明书（身份锁、参考照、五官），必给脸；
+//   · buildScenePrompt 的无人铁律里明写着 no hands, no body parts，会拒绝画那只手。
+// 所以另起第三条：留住画风和世界观（跟空景那份同一套理由），
+// 把「不出现脸」当成这次生成的【题目】写在最前面。
+// ⚠️一张参考照都不喂：参考照是一张脸，喂了它就会想办法把脸放进画面。
+function buildPartPrompt(char, sceneDesc) {
+  char = char || {};
+  const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
+  const parts = [];
+  parts.push("生成一张【不露脸的局部照片】：画面里【不出现任何人的脸和头】。");
+  if (photoStyle === "anime") {
+    parts.push("画风是【二次元动画作画】：清晰线稿与赛璐璐/柔和插画上色。不要真人化、不要摄影质感、不要 3D/CG。");
+  } else if (photoStyle === "reference") {
+    parts.push("画风沿用这个角色一贯的视觉媒介：他的图若是二次元就画成二次元，若是写实照片就画成自然写实的实拍照。不要中途换媒介。");
+  } else {
+    parts.push("画风是【自然写实的实拍照片】：真实的环境光和自然投影、镜头的浅景深与轻微噪点。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
+  }
+  // ⭐「没有脸」要用正反两面 + 中英双写钉死：图像模型对英文否定词最敏感，
+  //   而「拍一个人的手」这句话本身就在把整个人往画面里拽。
+  parts.push("【不露脸铁律·最高优先】no face, no head, no facial features, faceless, cropped above the wrist/shoulder——"
+    + "画面里不许出现脸、头、五官、正脸或侧脸，也不许出现镜子/屏幕/相框里映出的脸。"
+    + "**允许而且应该出现身体的那一小部分**（手、手指、手腕、肩背、背影的一角），"
+    + "但镜头只框到那一部分，人的头部在画面之外。");
+  const era = String(char.persona || "").trim().slice(0, 500);
+  if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的器物、材质、光源、衣料都要跟它同一个年代和地域，"
+    + "绝不许混进不属于这个世界的东西：" + era + "。");
+  if (sceneDesc && String(sceneDesc).trim()) parts.push("【画的就是这个】" + String(sceneDesc).trim() + "。");
+  parts.push("这是一张随手拍的生活照，构图就框着那一小部分和它周围的东西，自然、不摆拍。画面干净，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
 

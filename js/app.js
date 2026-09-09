@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.08";
+const APP_VERSION = "v66.09";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7139,9 +7139,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const canSelfie = canSelfieBase && !photoCooldown.cooling;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
       const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
-      const _kinds = (canFace ? ["self", "other"] : []).concat(canDuo ? ["duo"] : []).concat(["view"]);
+      const _kinds = (canFace ? ["self", "other"] : []).concat(canDuo ? ["duo"] : []).concat(["view", "part"]);
       const photoHint = canSelfie
-        ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。想发就填 photo 对象：{\"kind\":\"" + _kinds.join("｜") + "\",\"scene\":\"这张照片拍到了什么（你在哪、在干嘛、表情、光线氛围，一句话；别描写长相——长相已知）\"}。" + (canFace ? "**self**=你自己拿手机拍的第一人称自拍（有你的脸）；**other**=别人给你拍的照片（第三人称，可站可坐可走可回眸、半身全身带环境都行，姿势构图更多样，别老是怼脸自拍）——别人在场时/想给 Ta 看更完整的你时用；" : "") + "**view**=【画面里没有人】的那种照片：窗外的天、桌上的猫、刚做好的一碗面、路上看见的东西、你正在看的书页——真人聊天里大半的图本来就是这种，不是每张都得有脸。想让 Ta 看的是【那个东西/那个地方】而不是你自己时就用它；scene 里只写那个东西和光线氛围，别写你自己在画面里。" + (canDuo ? "**duo**=你和 " + uName + " 的合照（画面里有你俩两个人，会拿你俩各自的参考照把两张脸都锁住）——你俩见面/依偎/约会/想留合影时用，**哪怕 Ta 没明说要合照，只要情境是你俩在一起，你也可以主动发一张我俩的合照**，你清楚这照片里另一个人就是 " + uName + "。" : "") + "\n⚠️**kind 只回答一个问题：这张图里【有没有你】。** 画面里没有你——拍的是吃的、桌上的东西、窗外、屋子、你正在看的东西、或者 " + uName + " 让你「生成一张……」而那段描述里根本没有人——**一律填 view，绝不许填 self**。只有画面里真的有你，才在" + (canFace ? "self／other" : "") + (canDuo ? "／duo" : "") + "里挑。**填错了会硬把你的脸画进一张本来没有人的图里。**" + "不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**\n" + PHOTO_NO_EXCUSE
+        ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。想发就填 photo 对象：{\"kind\":\"" + _kinds.join("｜") + "\",\"scene\":\"这张照片拍到了什么（你在哪、在干嘛、表情、光线氛围，一句话；别描写长相——长相已知）\"}。" + (canFace ? "**self**=你自己拿手机拍的第一人称自拍（有你的脸）；**other**=别人给你拍的照片（第三人称，可站可坐可走可回眸、半身全身带环境都行，姿势构图更多样，别老是怼脸自拍）——别人在场时/想给 Ta 看更完整的你时用；" : "") + "**view**=【画面里没有人】的那种照片：窗外的天、桌上的猫、刚做好的一碗面、路上看见的东西、你正在看的书页——真人聊天里大半的图本来就是这种，不是每张都得有脸。想让 Ta 看的是【那个东西/那个地方】而不是你自己时就用它；scene 里只写那个东西和光线氛围，别写你自己在画面里。" + (canDuo ? "**duo**=你和 " + uName + " 的合照（画面里有你俩两个人，会拿你俩各自的参考照把两张脸都锁住）——你俩见面/依偎/约会/想留合影时用，**哪怕 Ta 没明说要合照，只要情境是你俩在一起，你也可以主动发一张我俩的合照**，你清楚这照片里另一个人就是 " + uName + "。" : "") + "\n⚠️**kind 只回答一个问题：这张图里【有没有你】。** 画面里没有你——拍的是吃的、桌上的东西、窗外、屋子、你正在看的东西、或者 " + uName + " 让你「生成一张……」而那段描述里根本没有人——**一律填 view，绝不许填 self**。只有画面里真的有你，才在" + (canFace ? "self／other" : "") + (canDuo ? "／duo" : "") + "里挑。**填错了会硬把你的脸画进一张本来没有人的图里。**"
+          + "\n**part**=【有身体、没有脸】的那种：只拍手、手指、背影、肩背这类局部——Ta 让你「拍拍你的手」「给我看看你的背影」时用它，画面里不会出现你的脸。" + "不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**\n" + PHOTO_NO_EXCUSE
         : "";
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
@@ -7532,7 +7533,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "voice" ? "（这条你是用语音说的）" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
-              : "【你在这里已经实际发出一张" + (m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
+              : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]" : (m.content || ""));
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
             role: "assistant",
@@ -7989,7 +7990,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
-        photoKind = ["self", "other", "duo", "view"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
+        photoKind = ["self", "other", "duo", "view", "part"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
       } else if (parsed.selfie && String(parsed.selfie).toLowerCase() !== "null") {
         photoScene = String(parsed.selfie).trim(); photoKind = "self";
       }
@@ -8012,15 +8013,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && profile && profile.refPhoto)) photoKind = "other";
-      // ⚠️代码兜底（她 2026-09-09 连着两张截图，提示词改了两版都没治住）：
-      //   描述里【正面说了这是一张景】而且【一个人的影子都没提】，那就按没有人的拍，
-      //   不听它填的 kind——它两次都在气泡里说「纯风景」，然后 kind 填 self。
-      if (photoKind !== "view" && typeof looksLikeNoOneScene === "function"
-          && looksLikeNoOneScene(photoScene, char && (char.name || char.remark))) photoKind = "view";
+      // ⚠️代码兜底（她 2026-09-09 三张截图，提示词改了两版都没治住）：
+      //   它每次都在气泡里说清了要拍什么（「纯风景」「把键盘挪开随手拍一张」），
+      //   然后 kind 照样填 self。所以这一格【不听它的】，看 scene 自己说了什么：
+      //   正面说了是景又一个人都没提 → view；把手/背影当主体又没提脸 → part。
+      if (photoKind !== "view" && photoKind !== "part" && typeof noFaceKindFor === "function") {
+        const _nf = noFaceKindFor(photoScene, char && (char.name || char.remark));
+        if (_nf) photoKind = _nf;
+      }
       // ⚠️没有外貌也没有参考照时，【拍人】那三种照旧不放行（没脸可锁，画出来是另一个人）；
       //   view 不受这一条管——它画的本来就是东西和地方。
       if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
-          && (photoKind === "view" || char.appearance || char.refPhoto)) {
+          && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto)) {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
         pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
@@ -8040,21 +8044,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
             // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
             // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
-            const isView = photoKind === "view";
-            const refs = isView ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
-            const contBlobKey = !isView && refs.length === 0 && prevShot ? prevShot.imgKey : null;
+            const isView = photoKind === "view", isPart = photoKind === "part";
+            const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
+            const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
+            const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
             if (contBlobKey) refs.push(contBlobKey);
             const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
             const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
             // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
-            const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+            const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : isPart ? buildPartPrompt(char, photoScene) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
             // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
             // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
             // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
             // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
             // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
-            const minimalPrompt = isView ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
-            const out = await generateSelfieImage(prompt, refs.length ? refs : null, isView ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+            const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
+            const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
             // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
             if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
             if (out.blob) {
@@ -8803,7 +8808,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：他缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【他自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句他自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
-      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"" + (gFaceMembers.length ? ["self", "other"] : []).concat(gDuoMembers.length ? ["duo"] : []).concat(gGroupShotOk ? ["group"] : []).concat(["view"]).join("｜") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：" + (gFaceMembers.length ? "**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" : "") + "**view**=【画面里没有人】的那种照片：窗外的天、桌上的猫、刚上的一盘菜、路上看见的东西——群里发的图大半本来就是这种，不是每张都得有脸；scene 里只写那个东西和光线氛围，别写人。" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + (gGroupShotOk ? "**group**=【多人合照】画面里是在场几个人一起拍的合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；一个人在场时不许用。" : "") + "\n⚠️**kind 只回答一个问题：这张图里【有没有那个成员本人】。** 画面里没有人——拍的是吃的、桌上的东西、窗外、屋子——**一律填 view，绝不许填 self**；只有画面里真的有 TA，才在别的几种里挑。**填错了会硬把 TA 的脸画进一张本来没有人的图里。**一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
+      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"" + (gFaceMembers.length ? ["self", "other"] : []).concat(gDuoMembers.length ? ["duo"] : []).concat(gGroupShotOk ? ["group"] : []).concat(["view", "part"]).join("｜") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：" + (gFaceMembers.length ? "**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" : "") + "**view**=【画面里没有人】的那种照片：窗外的天、桌上的猫、刚上的一盘菜、路上看见的东西——群里发的图大半本来就是这种，不是每张都得有脸；scene 里只写那个东西和光线氛围，别写人。" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + (gGroupShotOk ? "**group**=【多人合照】画面里是在场几个人一起拍的合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；一个人在场时不许用。" : "") + "\n⚠️**kind 只回答一个问题：这张图里【有没有那个成员本人】。** 画面里没有人——拍的是吃的、桌上的东西、窗外、屋子——**一律填 view，绝不许填 self**；只有画面里真的有 TA，才在别的几种里挑。**填错了会硬把 TA 的脸画进一张本来没有人的图里。**\n**part**=【有身体、没有脸】的那种：只拍手、手指、背影、肩背这类局部，画面里不会出现 TA 的脸。一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
@@ -9085,7 +9090,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           let gPhotoKind = null, gPhotoScene = null;
           if (item.photo && typeof item.photo === "object") {
             gPhotoScene = String(item.photo.scene || item.photo.desc || "").trim();
-            gPhotoKind = ["self", "other", "duo", "group", "view"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
+            gPhotoKind = ["self", "other", "duo", "group", "view", "part"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
           } else if (item.selfie && String(item.selfie).toLowerCase() !== "null") {
             gPhotoScene = String(item.selfie).trim(); gPhotoKind = "self";
           }
@@ -9094,8 +9099,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && profile && profile.refPhoto)) gPhotoKind = "other";
           // 同一道闸（判据只写在 engine 那一处，群这边不另写一份）
-          if (gPhotoKind !== "view" && typeof looksLikeNoOneScene === "function"
-              && looksLikeNoOneScene(gPhotoScene, spk && (spk.name || spk.remark))) gPhotoKind = "view";
+          if (gPhotoKind !== "view" && gPhotoKind !== "part" && typeof noFaceKindFor === "function") {
+            const _gnf = noFaceKindFor(gPhotoScene, spk && (spk.name || spk.remark));
+            if (_gnf) gPhotoKind = _gnf;
+          }
           // 群合照（v53.85）：点名单＝在场【有参考照】的成员 + 用户，拍照的那位排第一。
           // 顺序就是参考图顺序，两边必须一一对齐——错位了脸就串（duo 当初的老毛病）。
           // 上限 4 人：再多脸就开始糊，也更容易被上游审核拦。
@@ -9114,7 +9121,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           }
           // view 不受「有脸可锁」那一条管——它画的本来就是东西和地方（跟单聊同一条）
           if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
-              && (gPhotoKind === "view" || spk.appearance || spk.refPhoto)) {
+              && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto)) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
             checkAutoCall();
@@ -9124,15 +9131,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 const st = states[spk.id] || {};
                 const me = { name: (profile && profile.name) || "对方", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
                 // view＝画面里没有人：走空景那条路，一张参考照都不喂（喂了它就会把脸画进去）
-                const gIsView = gPhotoKind === "view";
-                const refs = gIsView ? []
+                const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";
+                const gNoFace = gIsView || gIsPart;
+                const refs = gNoFace ? []
                   : gCast ? gCast.map(x => x.refPhoto)
                   : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
                   : [spk.refPhoto].filter(Boolean);
                 const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: closetTextFor(spk.id) };
-                const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
-                const gMinimal = gIsView ? null : buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
-                const out = await generateSelfieImage(prompt, refs.length ? refs : null, gIsView ? {} : { minimalPrompt: gMinimal });
+                const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildPartPrompt(spk, gPhotoScene) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
+                const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
+                const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
                 if (out.blob) {
                   const key = "img_" + spk.id + "_" + gsid;
                   await idbImgPut(key, out.blob);
@@ -11937,7 +11945,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // 他五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
   const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，

@@ -65,7 +65,7 @@ test("群聊调用点：名单顺序＝参考图顺序，拍照的排第一，�
   assert.match(seg, /roster\.push\(\{[\s\S]*?__me/, "用户排在最后");
   assert.match(seg, /if \(roster\.length >= 2\) gCast = roster; else gPhotoKind = "other";/, "凑不齐两人退回单人照");
   // 参考图必须由同一份名单生成，不能各排各的
-  assert.match(app, /const refs = gIsView \? \[\]\s*\n\s*: gCast \? gCast\.map\(x => x\.refPhoto\)/);
+  assert.match(app, /const refs = gNoFace \? \[\]\s*\n\s*: gCast \? gCast\.map\(x => x\.refPhoto\)/);
 });
 
 test("凑不够人就不把 group 这个选项给模型", () => {

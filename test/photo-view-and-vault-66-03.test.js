@@ -46,7 +46,7 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   assert.match(app, /const canSelfieBase = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,
     "拍东西还卡在「必须有脸」上");
   // 提示词里那几种 kind 按【有没有脸可锁】给，view 永远在
-  assert.match(app, /const _kinds = \(canFace \? \["self", "other"\] : \[\]\)\.concat\(canDuo \? \["duo"\] : \[\]\)\.concat\(\["view"\]\);/);
+  assert.match(app, /const _kinds = \(canFace \? \["self", "other"\] : \[\]\)\.concat\(canDuo \? \["duo"\] : \[\]\)\.concat\(\["view", "part"\]\);/);
   assert.match(app, /\*\*view\*\*=【画面里没有人】的那种照片/);
   // ⚠️光在末尾多列一种是不够的（她 2026-09-09 截图：整段描述里根本没有人，
   //   kind 还是填了 self，脸被硬画进那张酸辣粉里）。得把【判据】说死：
@@ -57,17 +57,18 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   // 群聊那一头也要有同一条判据
   assert.match(app, /kind 只回答一个问题：这张图里【有没有那个成员本人】/);
   assert.match(app, /填错了会硬把 TA 的脸画进一张本来没有人的图里/);
-  assert.match(app, /\["self", "other", "duo", "view"\]\.includes/);
+  assert.match(app, /\["self", "other", "duo", "view", "part"\]\.includes/);
   // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
-  assert.match(app, /&& \(photoKind === "view" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
+  assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
 });
 
 // 提示词那条路她试了两版都没治住：他在气泡里自己说「刚出炉的纯风景」，
 // kind 照旧填 self，脸被硬画进去。所以这一道闸落在代码里。
 test("说了是风景又没提到人，就按没有人的拍，不听它填的 kind", () => {
-  const src = eng.slice(eng.indexOf("const SCENE_ONLY_WORDS"), eng.indexOf("\n// ---- 图上云"));
+  const src = eng.slice(eng.indexOf("const PHOTO_PART_ZH"), eng.indexOf("\n// ---- 图上云"));
   assert.ok(src.length > 300, "那道闸没了");
-  const looksLikeNoOneScene = new Function(src + "\nreturn looksLikeNoOneScene;")();
+  const nf = new Function(src + "\nreturn noFaceKindFor;")();
+  const looksLikeNoOneScene = (sc, nm) => nf(sc, nm) === "view";
 
   // 她那两张截图里的原文，一张都不许再画出脸
   assert.equal(looksLikeNoOneScene("一张温暖色调的吉卜力风格插画：傍晚下着小雨的温尼伯街景，温馨的公寓客厅里，暖黄色台灯亮着，柔软的布艺沙发旁摆着一小盆开得正好的太阳花，茶几上放着两碗冒着热气的酸辣粉，整间屋子透着安静又柔软的暖意", "沈屿白"), true);
@@ -84,22 +85,49 @@ test("说了是风景又没提到人，就按没有人的拍，不听它填的 k
   assert.equal(looksLikeNoOneScene("窗外的街景，其他什么都没有", "沈屿白"), true);
 
   // 只往一个方向纠，而且单聊群聊共用同一处判据
-  assert.match(app, /if \(photoKind !== "view" && typeof looksLikeNoOneScene === "function"/);
-  assert.match(app, /if \(gPhotoKind !== "view" && typeof looksLikeNoOneScene === "function"/);
-  assert.equal((eng.match(/function looksLikeNoOneScene/g) || []).length, 1);
-  assert.ok(!/= "self";?\s*\/\/ *反过来/.test(app));
+  assert.match(app, /if \(photoKind !== "view" && photoKind !== "part" && typeof noFaceKindFor === "function"\)/);
+  assert.match(app, /if \(gPhotoKind !== "view" && gPhotoKind !== "part" && typeof noFaceKindFor === "function"\)/);
+  assert.equal((eng.match(/function noFaceKindFor/g) || []).length, 1);
+});
+
+test("拍手/背影：有身体没有脸，走它自己那条路", () => {
+  // 她 2026-09-09 第三张截图：「实验室桌面上，放在机械键盘旁边的一只年轻男生的手，
+  // 手指干净清瘦，指节清晰」——kind 又填了 self，脸又被画进去。
+  // ⚠️这一类【现成两条路都不对】：buildPhotoPrompt 必给脸；
+  //   buildScenePrompt 的无人铁律里明写 no hands, no body parts，会拒绝画那只手。
+  const src = eng.slice(eng.indexOf("const PHOTO_PART_ZH"), eng.indexOf("\n// ---- 图上云"));
+  const nf = new Function(src + "\nreturn noFaceKindFor;")();
+  assert.equal(nf("实验室有些凌乱的桌面上，放在机械键盘旁边的一只年轻男生的手，手指干净清瘦，指节清晰，背景里还有跑着代码的电脑屏幕一角", "沈屿白"), "part");
+  assert.equal(nf("他的背影，站在雨里", "沈屿白"), "part");
+  assert.equal(nf("一只手搭在窗台上，指节清晰", "沈屿白"), "part");
+  // ⚠️「手里端着」「手机」不算把局部当主体——那是自拍里顺带提到的
+  assert.equal(nf("我在咖啡店靠窗坐着，手里端着咖啡", "沈屿白"), "");
+  assert.equal(nf("靠在沙发上，手机举高一点拍的", "沈屿白"), "");
+  // 提了脸/笑就不是局部照
+  assert.equal(nf("手指绕着杯子，笑得有点傻", "沈屿白"), "");
+
+  // 第三条路真的存在，而且【不出现脸】是它的题目、不是尾巴上一句补充
+  const bp = eng.slice(eng.indexOf("function buildPartPrompt("), eng.indexOf("// ==== 自动头像"));
+  assert.match(bp, /生成一张【不露脸的局部照片】：画面里【不出现任何人的脸和头】。/);
+  assert.ok(bp.indexOf("生成一张【不露脸的局部照片】") < bp.indexOf("画风是"), "题目要排在最前面");
+  assert.match(bp, /no face, no head, no facial features/, "中英双写钉一次，图像模型认英文否定词");
+  assert.match(bp, /\*\*允许而且应该出现身体的那一小部分\*\*/, "不写这句它会连手一起拒绝画");
+  // 走 buildScenePrompt 是错的：那份禁的正是手和身体
+  assert.match(eng, /no people, no person, no human, no figure, no silhouette, no crowd, no hands, no body parts/);
+  assert.match(app, /isPart \? buildPartPrompt\(char, photoScene\) :/);
+  assert.match(app, /gIsPart \? buildPartPrompt\(spk, gPhotoScene\) :/);
 });
 
 test("view 走空景那条路，一张参考照都不喂", () => {
-  assert.match(app, /const isView = photoKind === "view";/);
-  assert.match(app, /const refs = isView \? \[\] :/, "view 还在喂参考照，它会想办法把脸画进去");
+  assert.match(app, /const isView = photoKind === "view", isPart = photoKind === "part";/);
+  assert.match(app, /const refs = noFace \? \[\] :/, "不露脸那两种还在喂参考照，它会想办法把脸画进去");
   assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false \}\)/);
   // ⚠️forText 必须显式关掉：空景那份默认是【要压字的背景板】（中下留空），
   //   聊天里发的图不是背景板
   assert.match(eng, /if \(opts\.forText !== false\) parts\.push\("【这是一张要压字的背景板】/);
   // 备用稿是「把这个人画对」的稿子，view 拿它重试等于把人画回来
-  assert.match(app, /const minimalPrompt = isView \? null :/);
-  assert.match(app, /const contBlobKey = !isView && refs\.length === 0 && prevShot/,
+  assert.match(app, /const minimalPrompt = noFace \? null :/);
+  assert.match(app, /const contBlobKey = !noFace && refs\.length === 0 && prevShot/,
     "view 还会把上一张自拍当连贯参考塞进去");
 });
 
@@ -108,9 +136,9 @@ test("群聊同一套，不许只做单聊那一半", () => {
   assert.match(app, /const gFaceMembers = gSelfieMembers\.filter\(c => c\.appearance \|\| c\.refPhoto\);/);
   assert.match(app, /const gDuoMembers = \(profile && profile\.refPhoto\) \? gFaceMembers\.filter/,
     "合照名单要从【有脸的】里挑，不是从全员里挑");
-  assert.match(app, /\["self", "other", "duo", "group", "view"\]\.includes/);
-  assert.match(app, /&& \(gPhotoKind === "view" \|\| spk\.appearance \|\| spk\.refPhoto\)\) \{/);
-  assert.match(app, /const gIsView = gPhotoKind === "view";/);
+  assert.match(app, /\["self", "other", "duo", "group", "view", "part"\]\.includes/);
+  assert.match(app, /&& \(gPhotoKind === "view" \|\| gPhotoKind === "part" \|\| spk\.appearance \|\| spk\.refPhoto\)\) \{/);
+  assert.match(app, /const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";/);
   assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\)/);
 });
 
@@ -119,8 +147,10 @@ test("「没有人的那种照片」叫什么只写在一处", () => {
   // else 分支会把 view 叫成「自拍」——每一处都得认得它，而那个词只许有一份
   assert.match(eng, /const PHOTO_VIEW_ZH = "随手拍";/);
   assert.equal((eng.match(/PHOTO_VIEW_ZH = /g) || []).length, 1);
+  assert.match(eng, /const PHOTO_PART_ZH = "局部";/);
   assert.match(app, /m\.photoKind === "view" \? PHOTO_VIEW_ZH \+ "（画面里没有人，拍的是东西\/地方）"/, "单聊历史里它还叫自拍");
   assert.match(app, /m\.photoKind === "view" \? PHOTO_VIEW_ZH \+ "（画面里没有人）"/, "群聊历史里它还叫自拍");
-  assert.match(comp, /m\.photoKind === "view" \? PHOTO_VIEW_ZH : m\.photoKind === "group" \? "合影"/, "拍失败时它还叫自拍");
-  assert.match(comp, /m\.photoKind === "view" \? " · " \+ PHOTO_VIEW_ZH/, "群图注脚里它还叫自拍");
+  assert.match(app, /m\.photoKind === "part" \? PHOTO_PART_ZH \+ "（只拍了手\/背影这类局部，没露脸）"/);
+  assert.match(comp, /m\.photoKind === "part" \? PHOTO_PART_ZH : m\.photoKind === "view" \? PHOTO_VIEW_ZH/, "拍失败时它还叫自拍");
+  assert.match(comp, /m\.photoKind === "part" \? " · " \+ PHOTO_PART_ZH : m\.photoKind === "view" \? " · " \+ PHOTO_VIEW_ZH/, "群图注脚里它还叫自拍");
 });

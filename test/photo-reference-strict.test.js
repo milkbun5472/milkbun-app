@@ -44,10 +44,10 @@ test("单次参考图诊断不会自动换字段或提示词连射", () => {
 
 test("聊天与小剧场共用经典锁脸管线，IF 人设不借用主线职业", () => {
   // 5930f605 / d90ec13a 已将实测锁脸的经典管线转正；不再测试无人调用的旧提示词。
-  assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false \}\) : buildPhotoPrompt\(char, sceneForPhoto, st, photoOpts\)/);
-  assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\) : buildPhotoPrompt\(spk, gPhotoScene, st, gPhotoOpts\)/);
+  assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false \}\) : isPart \? buildPartPrompt\(char, photoScene\) : buildPhotoPrompt\(char, sceneForPhoto, st, photoOpts\)/);
+  assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\) : gIsPart \? buildPartPrompt\(spk, gPhotoScene\) : buildPhotoPrompt\(spk, gPhotoScene, st, gPhotoOpts\)/);
   assert.match(app, /generateSelfieImage\(prompt, refs\.length \? refs : null/);
-  assert.match(app, /generateSelfieImage\(prompt, refs\.length \? refs : null, gIsView \? \{\} : \{ minimalPrompt: gMinimal \}\)/);
+  assert.match(app, /generateSelfieImage\(prompt, refs\.length \? refs : null, gNoFace \? \{\} : \{ minimalPrompt: gMinimal \}\)/);
   assert.doesNotMatch(theater, /buildReferencePhotoPrompt/);
   assert.match(theater, /buildPhotoPrompt/);
   assert.match(theater, /const ifVisualPersona = \[l\.world \|\| l\.setting, l\.charRole\]/);
