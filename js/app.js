@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.12";
+const APP_VERSION = "v66.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7291,10 +7291,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "。刻＝【送】不是【推荐】：只有这一轮真有一首非送不可才刻，note 写清为什么是这一首给这个人，"
           + "不是夸这首歌本身好听。一轮最多一首。");
       }
+      // ⚠️一起听那两句也是从被删的旧基线里救回来的（她 2026-09-09 点名要）：
+      //   · 正在一起听那半边（listenHint）：原来 capState 只给了歌单，**怎么用没说**
+      //     （「下一首/上一首」怎么填、别频繁乱切）；歌单本身它自己带着，别再单推一份。
+      //   · 还没一起听那半边（inviteHint）：原来 openCaps 里只有一个名字 listenInvite，
+      //     **连 {song, say} 长什么样都没发过**——他得猜这个对象的形状，猜不中就等于没这功能。
       if (isListenPartner) {
         openCaps.push("songSwitch");
-        if (libSongs.length) capState.push("songSwitch 可选歌曲：" + libSongs.slice(0, 30).map(s => s.title).join(" / "));
-      } else openCaps.push("listenInvite");
+        capState.push(listenHint.trim());
+      } else {
+        openCaps.push("listenInvite");
+        capState.push(inviteHint.trim());
+      }
       // ⚠️⚠️这一条必须挂在【Protocol v2】上（她 2026-09-09 连着四张截图都没治住，
       //   查到最后是这个）：v66.03~66.10 我把 view/part/none/face 全写进了 photoHint，
       //   而 photoHint 只出现在 _normalTaskFull 里——旁边就写着「暂留作 A/B 回滚基线，

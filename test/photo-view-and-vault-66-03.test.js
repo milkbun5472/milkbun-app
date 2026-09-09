@@ -192,3 +192,20 @@ test("「没有人的那种照片」叫什么只写在一处", () => {
   assert.match(comp, /m\.photoKind === "part" \? PHOTO_PART_ZH : m\.photoKind === "view" \? PHOTO_VIEW_ZH/, "拍失败时它还叫自拍");
   assert.match(comp, /m\.photoKind === "part" \? " · " \+ PHOTO_PART_ZH : m\.photoKind === "view" \? " · " \+ PHOTO_VIEW_ZH/, "群图注脚里它还叫自拍");
 });
+
+// 她 2026-09-09：「Listen hint Invite hint 是啥都是一起听的吗？那加回来吧」——是，
+// 一件事的两半。它俩跟着那条不再发送的 A/B 基线一起假活着，v66.13 接回真正在跑的
+// capState。⚠️邀请那半边尤其要命：原来 openCaps 里只有一个名字 listenInvite，
+// 连 {song, say} 长什么样都没发过——他得猜这个对象的形状。
+test("一起听那两半都接回真正在跑的那条协议", () => {
+  const i = app.indexOf("      if (isListenPartner) {");
+  assert.ok(i > 0, "找不到一起听那道岔口");
+  const seg = app.slice(i, i + 700);
+  assert.match(seg, /openCaps\.push\("songSwitch"\);\s*\n\s*capState\.push\(listenHint\.trim\(\)\);/, "正在一起听那半边没接");
+  assert.match(seg, /openCaps\.push\("listenInvite"\);\s*\n\s*capState\.push\(inviteHint\.trim\(\)\);/, "邀请那半边没接");
+  // 字段形状真的在里头（这正是原来漏掉的东西）
+  assert.match(app, /listenInvite 填 \{\\"song\\":/, "邀请那一格的字段形状还是没发出去");
+  assert.match(app, /把 songSwitch 填成要放的那首歌名/, "切歌怎么用还是没说");
+  // 歌单别推两份：listenHint 自己带着
+  assert.ok(!/capState\.push\("songSwitch 可选歌曲/.test(app), "歌单又被单独推了一份");
+});
