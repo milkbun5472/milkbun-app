@@ -70,7 +70,7 @@ test("群聊调用点：名单顺序＝参考图顺序，拍照的排第一，�
 
 test("凑不够人就不把 group 这个选项给模型", () => {
   assert.match(app, /const gGroupShotOk = members\.filter\(c => c && c\.refPhoto\)\.length \+ \(\(profile && profile\.refPhoto\) \? 1 : 0\) >= 2/);
-  assert.match(app, /\.concat\(gGroupShotOk \? \["group"\] : \[\]\)/);
+  assert.match(app, /group: gGroupShotOk \}\)/, "group 那一档没按【凑不凑得够人】给出去");
   assert.match(app, /一个人在场时不许用/);
 });
 

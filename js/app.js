@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.10";
+const APP_VERSION = "v66.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7139,16 +7139,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const canSelfie = canSelfieBase && !photoCooldown.cooling;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
       const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
-      const _kinds = (canFace ? ["self", "other"] : []).concat(canDuo ? ["duo"] : []).concat(["none"]);
+      // ⚠️这一段只被 _normalTaskFull 用到，而那一段是【不再发送的 A/B 回滚基线】。
+      //   字段说明一律走 photoCapLine 那一份——两边各写一份正是这次栽跟头的原因：
+      //   我在这儿改了三版 view/part/none/face，模型一个字都没收到。
       const photoHint = canSelfie
-        ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。想发就填 photo 对象：{\"kind\":\"" + _kinds.join("｜") + "\",\"face\":true 或 false,\"scene\":\"这张照片拍到了什么（在哪、在干嘛、光线氛围，一句话；别描写长相——长相已知）\"}。\n"
-          + "**kind＝画面里是谁**：" + (canFace ? "**self**=你自己拿手机拍的第一人称自拍；**other**=别人给你拍的（第三人称，可站可坐可走可回眸、半身全身带环境都行，姿势构图更多样，别老是怼脸自拍）；" : "") + (canDuo ? "**duo**=你和 " + uName + " 的合照（画面里有你俩两个人，会拿你俩各自的参考照把两张脸都锁住）——你俩见面/依偎/约会/想留合影时用，**哪怕 Ta 没明说要合照，只要情境是你俩在一起，你也可以主动发一张我俩的合照**，你清楚这照片里另一个人就是 " + uName + "。" : "") + "**none**=画面里【一个人都没有】：窗外的天、桌上的猫、刚做好的一碗面、你正在看的书页——真人聊天里大半的图本来就是这种。\n"
-          + "**face＝这张图里看不看得见你的脸**，是非题，必填：\n"
-          + "· 拍的是你的手、手指、背影、肩背、只露半个身子，或者你背对着镜子——**face 填 false**，画面里不会出现你的脸；\n"
-          + "· 脸在画面里（哪怕只是侧脸、半张脸）——face 填 true；\n"
-          + "· kind 填 none 时 face 一律 false。\n"
-          + "⚠️**别拿 kind 回答脸的事**：一只手的照片当然也是「你自己的照片」，kind 填 self 没错，但那时候 face 必须是 false。**填错了会硬把你的脸画进一张本来看不见脸的图里。**\n"
-          + "不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**\n" + PHOTO_NO_EXCUSE
+        ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。\n"
+          + photoCapLine(uName, { face: canFace, duo: canDuo })
+          + "\n不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**\n" + PHOTO_NO_EXCUSE
         : "";
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
@@ -7310,9 +7307,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("songSwitch");
         if (libSongs.length) capState.push("songSwitch 可选歌曲：" + libSongs.slice(0, 30).map(s => s.title).join(" / "));
       } else openCaps.push("listenInvite");
+      // ⚠️⚠️这一条必须挂在【Protocol v2】上（她 2026-09-09 连着四张截图都没治住，
+      //   查到最后是这个）：v66.03~66.10 我把 view/part/none/face 全写进了 photoHint，
+      //   而 photoHint 只出现在 _normalTaskFull 里——旁边就写着「暂留作 A/B 回滚基线，
+      //   **但不再发送给普通角色**」。三版提示词一个字都没发出去，模型手上永远只有
+      //   下面这一行 self/other/duo。跟 v58.98 photoSeen 踩的是同一个坑，
+      //   那条测试就叫「挂在真正在跑的那条协议上，不是那条死路」。
       if (canSelfie) {
         openCaps.push("photo");
-        capState.push("photo.kind 可用：self（自拍）、other（他人拍摄）" + (canDuo ? "、duo（你和 " + uName + " 的合照）" : "") + "；scene 只写画面，不能在 word 里用文字假装发图");
+        capState.push(photoCapLine(uName, { face: canFace, duo: canDuo }));
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
@@ -8820,11 +8823,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：他缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【他自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句他自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
-      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"" + (gFaceMembers.length ? ["self", "other"] : []).concat(gDuoMembers.length ? ["duo"] : []).concat(gGroupShotOk ? ["group"] : []).concat(["none"]).join("｜") + "\",\"face\":true 或 false,\"scene\":\"这张照片拍到了什么（在哪、在干嘛、光线氛围；别描写长相——长相已知）\"}。"
-        + "\n**kind＝画面里是谁**：" + (gFaceMembers.length ? "**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" : "") + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + (gGroupShotOk ? "**group**=【多人合照】画面里是在场几个人一起拍的合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；一个人在场时不许用。" : "") + "**none**=画面里【一个人都没有】：窗外、桌上的东西、刚上的菜。"
-        + "\n**face＝这张图里看不看得见 TA 的脸**，是非题，必填：拍的是手/手指/背影/肩背/只露半个身子 → face 填 false；脸在画面里（哪怕只是侧脸）→ true；kind 填 none 时一律 false。"
-        + "\n⚠️**别拿 kind 回答脸的事**：一只手的照片当然也是 TA 自己的照片，kind 填 self 没错，但那时候 face 必须是 false。**填错了会硬把 TA 的脸画进一张本来看不见脸的图里。**\n"
-        + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
+      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象。\n"
+        + photoCapLine(gUName, { face: !!gFaceMembers.length, duo: !!gDuoMembers.length, group: gGroupShotOk }).replace(/你的脸/g, "TA 的脸").replace(/你自己的照片/g, "TA 自己的照片").replace(/你的手/g, "TA 的手").replace(/看不看得见你/g, "看不看得见 TA")
+        + (gDuoMembers.length ? "\n合照仅限这几位有参考照的成员可发：" + gDuoMembers.map(c => c.name).join("、") + "。" : "")
+        + (gGroupShotOk ? "\ngroup 是多人合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；**一个人在场时不许用**。" : "")
+        + "\n一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，

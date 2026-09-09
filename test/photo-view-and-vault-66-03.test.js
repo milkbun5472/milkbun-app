@@ -40,25 +40,41 @@ test("生图那条链每一处存图都走了会上云的那两扇门", () => {
   assert.match(R("js/trpg.js"), /imgToVault\(durl\)/);
 });
 
+// ⚠️她 2026-09-09 连着四张截图，前三版全没生效。查到最后不是判据的问题：
+//    v66.03~66.10 我把 view/part/none/face 全写进了 photoHint，
+//    而 photoHint 只出现在 _normalTaskFull 里——旁边就写着「暂留作 A/B 回滚基线，
+//    但不再发送给普通角色」。三版提示词一个字都没发出去。
+//    跟 v58.98 photoSeen 栽的是同一个坑，那条测试就叫
+//    「挂在真正在跑的那条协议上，不是那条死路」。这一条替发照片也钉一次。
+test("发照片那一格挂在真正在跑的那条协议上，不是那条死路", () => {
+  // 真正在跑的是 Protocol v2：openCaps + capState
+  assert.match(app, /openCaps\.push\("photo"\);\n\s*capState\.push\(photoCapLine\(uName, \{ face: canFace, duo: canDuo \}\)\);/,
+    "字段说明没进 capState——那模型手上永远只有 self/other/duo");
+  // ⚠️那条死路上不许再留第二份说法
+  const dead = app.slice(app.indexOf("      const _normalTaskFull = ("), app.indexOf("      // 旧 _normalTaskFull 暂留作"));
+  assert.ok(dead.indexOf("photoHint") >= 0, "基线结构变了，这条测试得重看");
+  assert.equal((app.match(/photoCapLine\(/g) || []).length, 3,
+    "字段说明该只有一份：photoCapLine 定义在 engine，单聊 capState、群 hint、那条死路各引一次");
+  assert.ok(!/kind＝画面里是谁/.test(app), "app.js 里又手抄了一份字段说明");
+  assert.match(eng, /function photoCapLine\(uName, o\)/);
+  assert.match(eng, /face＝这张图里看不看得见你的脸/);
+  assert.match(eng, /别拿 kind 回答脸的事/);
+  // 群那一头也是同一份（只换人称）
+  assert.match(app, /photoCapLine\(gUName, \{ face: !!gFaceMembers\.length, duo: !!gDuoMembers\.length, group: gGroupShotOk \}\)/);
+});
+
 test("聊天发图不再必须有脸：多一种【画面里没有人】的", () => {
   // 门槛拆成两条：拍人要有脸可锁，拍照不用
   assert.match(app, /const canFace = \(char\.appearance \|\| char\.refPhoto\);/);
   assert.match(app, /const canSelfieBase = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,
     "拍东西还卡在「必须有脸」上");
   // 提示词里那几种 kind 按【有没有脸可锁】给，view 永远在
-  assert.match(app, /const _kinds = \(canFace \? \["self", "other"\] : \[\]\)\.concat\(canDuo \? \["duo"\] : \[\]\)\.concat\(\["none"\]\);/);
-  assert.match(app, /\*\*none\*\*=画面里【一个人都没有】/);
+  assert.match(eng, /none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）/);
   // ⚠️她 2026-09-09 连着三张截图都是同一个错，最后她问对了：
   //   「不能把原来的 prompt 改成除非明确说了是有人的才用 self 吗」——
   //   kind 问的是【我在发什么】（一只手的照片说成 self 从他的角度不算错），
   //   拍板的那一格得换成一个关于【画面】的是非题。
-  assert.match(app, /\\"face\\":true 或 false/, "单聊没问那道是非题");
-  assert.match(app, /\*\*face＝这张图里看不看得见你的脸\*\*/);
-  assert.match(app, /别拿 kind 回答脸的事/);
-  assert.match(app, /kind 填 none 时 face 一律 false/);
-  // 群聊那一头同一套
-  assert.match(app, /\*\*face＝这张图里看不看得见 TA 的脸\*\*/, "群聊没问那道是非题");
-  assert.match(app, /\*\*kind＝画面里是谁\*\*/);
+  assert.match(eng, /kind 填 none 时一律 false/);
   assert.match(app, /\["self", "other", "duo", "view", "part", "none"\]\.includes/);
   // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
   assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
@@ -109,6 +125,12 @@ test("拍手/背影：有身体没有脸，走它自己那条路", () => {
   assert.equal(nf("实验室有些凌乱的桌面上，放在机械键盘旁边的一只年轻男生的手，手指干净清瘦，指节清晰，背景里还有跑着代码的电脑屏幕一角", "沈屿白"), "part");
   assert.equal(nf("他的背影，站在雨里", "沈屿白"), "part");
   assert.equal(nf("一只手搭在窗台上，指节清晰", "沈屿白"), "part");
+  // ⚠️第四张截图漏在这儿：上一版只有 手指/指节，「右手」不在名单里
+  assert.equal(nf("实验室桌面上，一只修长干净的男生右手随意搭在黑色机械键盘上，旁边散落着实验用的数据线和门禁卡，背景是亮着代码的电脑屏幕", "沈屿白"), "part");
+  assert.equal(nf("胳膊搭在栏杆上", "沈屿白"), "part");
+  // 裸的「手」不许收：手机/手里/手边/随手全会中招
+  assert.equal(nf("随手拍的，笑得有点傻", "沈屿白"), "");
+  assert.ok(!/\|手\||\/手\|/.test(eng.match(/const PART_WORDS = [^;]+;/)[0]), "PART_WORDS 里混进了裸的「手」");
   // ⚠️「手里端着」「手机」不算把局部当主体——那是自拍里顺带提到的
   assert.equal(nf("我在咖啡店靠窗坐着，手里端着咖啡", "沈屿白"), "");
   assert.equal(nf("靠在沙发上，手机举高一点拍的", "沈屿白"), "");
