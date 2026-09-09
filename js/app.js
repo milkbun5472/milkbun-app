@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.01";
+const APP_VERSION = "v66.02";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7392,11 +7392,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
       const selfTask = _s.engineerEyes
         ? "你就是「" + char.name + "」本人，正在从手机这具身体和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
-        : "完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
+        : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
-      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
+      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + (roomClockOn ? "聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。" : "") + "偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\",\"price\":这东西大概多少钱的纯数字}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。**price 要照你自己的处境和这东西本来的价钱来**——这笔钱会真的从你钱包里扣掉，手头紧的时候你自己掂量着送。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n" + MOOD_TURN_RULE + "\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = sideRoom ? (roomStatesRef.current[chatKey] || {}) : (statesRef.current[charId] || {});
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
@@ -7447,14 +7447,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _roomHint = roomPromptFor(charId, room);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
+      // ⚠️「用手机和她一对一聊天」这句里藏着一个【地点前提】：你俩隔着屏幕。
+      //   她 2026-09-09：「我们如果在同一个地方那肯定就是直接聊天而不是打字了吧」——
+      //   问题正是这句每轮都发一遍，而她「（我过来抱抱你）」只说一次，一次的说不过每轮的。
+      //   所以这儿【只做减法】：拿掉地点前提，形式（一条一句发气泡）本来就写在
+      //   ONLINE_CHAT_RULE_V2 和下面那句任务里。要说的话只在那一处说一遍，不在这儿再抄。
       const _primer = _s.engineerEyes
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
-        : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，用手机和 " + uName + " 一对一聊天。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
+        : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，和 " + uName + " 一对一说话。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「他那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + userActLineRule(uName) : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) : "");
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       const g = [];
       for (const m of promptHistory) {
@@ -8827,7 +8832,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 群里只剩一个人时「写谁那一条」是空问句，直接点名，别让模型去解一个没有分支的选择题
           : "完全代入「" + ((members[0] || {}).name || "在场的角色") + "」，")
         + "\n\n" + GROUP_MULTI_BUBBLE
-        + (_gActDesc ? "\n\n" + userActLineRule(userName(profile)) : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       const gWishHint = (wishRef.current || []).length
         ? "\n\n【" + userName(profile) + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，在场的人都可能知道。"

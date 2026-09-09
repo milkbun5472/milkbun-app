@@ -47,7 +47,7 @@ test("换个群就是换个群的人", () => {
   const three = render(["顾朝", "顾暮", "裴照川"]);
   assert.match(three, /在场的是 顾朝、顾暮、裴照川，写谁那一条你就是谁/);
   assert.doesNotMatch(render(["沈屿白", "陆闻"]), /顾朝|裴照川/, "别的群不许串进上一个群的人");
-  assert.match(render(["裴照川"]), /完全代入「裴照川」，通过手机即时通讯/);
+  assert.match(render(["裴照川"]), /完全代入「裴照川」，用手机上的即时通讯/);
   assert.doesNotMatch(render(["裴照川"]), /写谁那一条/, "一个人的群不该问「写谁」");
   // 原句只被换掉一次，后面整段规则照带
   assert.match(three, /日常消息句尾不打句号/);

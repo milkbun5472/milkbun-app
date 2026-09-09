@@ -54,6 +54,25 @@ test("「你俩此刻面对面」那句禁令只有一份，两个来源共用",
   assert.match(eng, /function samePlacePresence\(uName\)[\s\S]{0,400}?\+ FACING_BAN \+/);
 });
 
+test("常驻指令里那个「你俩隔着屏幕」的前提摘掉了", () => {
+  // 她 2026-09-09：「我们如果在同一个地方那肯定就是直接聊天而不是打字了吧」
+  //   「常驻那个摘掉」——病根是这句每轮都发一遍，而她「（我过来抱抱你）」只说一次；
+  //   一次的说不过每轮的。所以那三处只做减法，要说的话只在 ONLINE_CHAT_RULE_V2 说一遍。
+  assert.ok(!/用手机即时通讯和用户聊天/.test(app), "任务那两句还在断言你俩隔着屏幕");
+  assert.ok(!/用手机和 " \+ uName \+ " 一对一聊天/.test(app), "总纲那句还在断言你俩隔着屏幕");
+  assert.match(app, /【聊天总纲】你就是上面的「" \+ char\.name \+ "」本人，和 " \+ uName \+ " 一对一说话。/);
+  assert.equal((app.match(/完全代入「" \+ char\.name \+ "」和用户说话。/g) || []).length, 2,
+    "任务那句有两份（selfTask 和 _normalTaskFull），得一起改——漏一处它照旧每轮断言两地");
+  // 前提交还给上下文，这句话只许有一份，单聊群聊共用
+  const one = eng.match(/【你俩此刻在不在一个地方，看上下文，别默认隔着老远】/g) || [];
+  assert.equal(one.length, 1);
+  assert.match(eng, /const ONLINE_CHAT_RULE_V2 = `[\s\S]{0,600}?【你俩此刻在不在一个地方/,
+    "这句得住在两边共用的那一份里，不然群聊吃不到");
+  // 「都在对面了还发什么消息」那句禁令现在跟开关无关了，只许留在常驻这一份里
+  assert.equal((eng.match(/都在对面了还发什么消息/g) || []).length, 1, "这句禁令又变成两份了");
+  assert.ok(!/都在对面了还发什么消息/.test(grab(eng, "samePlacePresence")), "开关那一支还留着一份");
+});
+
 test("在场那一层走 offlineNow 同一个口子；真开着线下时不说两遍", () => {
   assert.match(app, /offlineNow: \(sameRoomFor\(char\.id\) && !offlineTogetherNow\(char\.id\)/,
     "同处一室没接进 ctxFor 那一个口子");
@@ -70,7 +89,7 @@ test("动描和同处一室是两件事，各挂各的开关", () => {
   // ⚠️动描【不许】再看同处一室：她分开的时候也要他写自己在干嘛
   assert.match(app, /const _actDesc = !_s\.engineerEyes && actDescFor\(charId\);/);
   assert.ok(!/_sameRoom/.test(app), "动描那条路上还留着同处一室的判断，两件事又焊回去了");
-  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ userActLineRule\(uName\) : ""\)/,
+  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) : ""\)/,
     "动描那一段没挂在动描开关上，或者挤进了那三层中间");
   // 在场那一层反过来只认同处一室，不认动描
   assert.match(app, /offlineNow: \(sameRoomFor\(char\.id\)/);
@@ -82,11 +101,12 @@ test("他那一侧不再有写动作的指令：动作直接来自每轮本来�
   // 那一整条「怎么写括号」的规则要【删掉】，不是留在那儿再补一句「其实不用写」
   assert.ok(!/function actLineRule\(/.test(eng), "旧的写作指令还留着，等于两套动作来源并存");
   assert.ok(!/actLineRule\(/.test(app));
-  const rule = grab(eng, "userActLineRule");
-  // 只剩他【读】那一侧的两句
-  assert.match(rule, /是她此刻的动作或神态，不是她说出口的话/, "他会把她的括号当台词回");
+  const rule = grab(eng, "ownActNoBracketRule");
+  // 只剩 app 自己才知道的那半句。她 2026-09-09：「rp 情境下模型应该都知道括号大法吧」——
+  // 所以解释「她的括号是什么」那半句删了，语义交还给模型
   assert.match(rule, /【你自己不用写括号】/, "没拦住他跟着学，动作就会有两个来源");
-  assert.match(rule, /你每轮照常填的 action 会原样显示给她看/);
+  assert.match(rule, /你每轮照常填的 action 会原样显示给/);
+  assert.ok(!/是她此刻的动作或神态/.test(rule), "又把解释括号那半句加回去了");
   // 生成协议里那两句是这一版的地基：没有它们，action 会每轮换个说法刷屏
   assert.match(app, /当前事实未变且原表述仍准确时，可以原样填写/);
   assert.match(app, /无需为了交字段换措辞、制造动作/);
@@ -117,10 +137,8 @@ test("她自己打的括号一律留在气泡里，那条改道整个撤掉了",
   // 两个入口都回到普通 user 消息，一个字都不动
   assert.match(app, /const pushUser = \(charId, text, chatKey\) => \{[\s\S]{0,260}?role: "user",\n\s*content: text,/);
   assert.match(app, /if \(extraText != null && extraText !== ""\) \{\n\s*const um = \{\n\s*role: "user",\n\s*content: extraText,/);
-  // 模型那一侧也得跟着改口：括号是【消息里的一小截】，不再是「整条包住」
-  const rule = grab(eng, "userActLineRule");
-  assert.match(rule, /她消息里用括号括起来的那一小截/);
-  assert.ok(!/整条被一对括号/.test(rule), "还在说「整条包住」，跟她实际打的字对不上了");
+  // 提示词里也不该再有「整条被一对括号包住」那种说法
+  assert.ok(!/整条被一对括号/.test(eng), "还在说「整条包住」，跟她实际打的字对不上了");
 });
 
 test("他那一行是【消息】不是系统字：长按有菜单、没有那颗叉", () => {
