@@ -8498,7 +8498,7 @@ function CallScreen({
   // 开麦与被系统暂停后的恢复也走拨打/接听共用的解锁器，不申请额外麦克风权限。
   const unlockCallAudio = async (resetCursor = true) => {
     const st = lv.current, epoch = audioRef.current.epoch;
-    const session = prepareCallAudio(st.ttsCtx); st.ttsCtx = session.ctx;
+    const session = prepareCallAudio(st.ttsCtx, liveRef.current ? "play-and-record" : "playback"); st.ttsCtx = session.ctx;
     const error = await session.ready;
     if (!audioRef.current.mounted || epoch !== audioRef.current.epoch) return false;
     if (error || !st.ttsCtx || st.ttsCtx.state !== "running") throw new Error("声音未启用，请再点一次");
@@ -8508,10 +8508,10 @@ function CallScreen({
   useEffect(() => {
     let dead = false;
     const first = !audioInitialized.current; audioInitialized.current = true;
-    if (!autoVoice) { audioRef.current.enabled = false; stopCallAudio(); setAudioReady(false); recResume(); return; }
+    if (!autoVoice) { audioRef.current.enabled = false; stopCallAudio(); setAudioReady(false); routeCallAudio(lv.current.ttsCtx, liveRef.current ? "play-and-record" : null); recResume(); return; }
     if (!first) stopCallAudio();
     // 拨打/接听时已经在用户手势内 resume。这里仅接收结果，不重置游标漏掉首句。
-    const session = first && audioSession ? audioSession : prepareCallAudio(lv.current.ttsCtx);
+    const session = first && audioSession ? audioSession : prepareCallAudio(lv.current.ttsCtx, liveRef.current ? "play-and-record" : "playback");
     lv.current.ttsCtx = session.ctx;
     setAudioStatus("正在启用声音…");
     // Safari 的 resume 可能一直 pending；不能让整条队列无提示地等下去。
@@ -8532,6 +8532,7 @@ function CallScreen({
       st.turn = 0; st.lastFinal = ""; st.lastFinalAt = 0; st.pre = []; st.preSamples = 0;
       stopCallAudio();
       if (!await unlockCallAudio()) return;
+      routeCallAudio(st.ttsCtx, "play-and-record");
       let mode = "";
       st.recAlive = false; st.recDead = false;
       if (recStart()) {
@@ -8550,7 +8551,7 @@ function CallScreen({
       else if (typeof voiceEarsReady === "function" && voiceEarsReady()) { await workletStart(); mode = "书房识别"; }
       else throw new Error("这台浏览器不支持语音识别，且没配书房耳朵");
       setLive(true); setLiveSt("听着呢（" + mode + "）");
-    } catch (e) { setLiveSt("开不了麦：" + (e && e.message || e)); }
+    } catch (e) { routeCallAudio(lv.current.ttsCtx, autoVoice && audioRef.current.mounted ? "playback" : null); setLiveSt("开不了麦：" + (e && e.message || e)); }
   };
   const lvStop = () => {
     const st = lv.current;
@@ -8562,6 +8563,7 @@ function CallScreen({
     try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
     try { st.src && st.src.stop(); } catch (e) {}
     st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.busy = 0; st.speaking = false;
+    routeCallAudio(st.ttsCtx, audioRef.current.mounted && autoVoice && !bye ? "playback" : null);
     setLive(false); setLiveSt("");
   };
   useEffect(() => () => { audioRef.current.mounted = false; audioRef.current.enabled = false; lvStop(); try { lv.current.ttsCtx && lv.current.ttsCtx.close(); } catch (e) {} }, []);
@@ -9287,12 +9289,31 @@ function setCallAutoVoice(value) {
 function useCallAutoVoice() {
   return useOnlineDisplayPreference(callAutoVoice, ["x_callAutoVoice"], "archive-call-playback", setCallAutoVoice);
 }
-// 必须从拨打/接听的同步点击栈调用，先 resume + 静音帧，再交给通话组件管理生命周期。
-function prepareCallAudio(existing) {
+// iOS 的默认 ambient 会被静音键静音，即使 AudioContext 仍是 running。
+// 单/群语音与视频共用媒体路由；按 context 持有，旧通话卸载不能重置新通话。
+function routeCallAudio(owner, mode) {
+  if (!owner) return;
+  try {
+    const session = navigator.audioSession;
+    if (!session) return; // 不支持 Audio Session API 的浏览器保留原有播放路径。
+    const state = routeCallAudio.state || (routeCallAudio.state = { owners: new Map(), previous: null, last: null });
+    if (mode) {
+      if (!state.owners.size) state.previous = session.type;
+      state.owners.delete(owner); state.owners.set(owner, mode);
+    } else state.owners.delete(owner);
+    const modes = Array.from(state.owners.values());
+    const next = modes.includes("play-and-record") ? "play-and-record" : modes.length ? "playback" : state.previous;
+    if (next != null && (modes.length || session.type === state.last)) { session.type = next; state.last = next; }
+    if (!modes.length) { state.previous = null; state.last = null; }
+  } catch (e) {} // 部分 WebView 暴露只读/不完整 API，不应因此阻断手动播放。
+}
+// 必须从拨打/接听的同步点击栈调用，先选媒体通道 + resume + 静音帧。
+function prepareCallAudio(existing, mode = "playback") {
   let ctx = existing;
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!ctx || ctx.state === "closed") ctx = new AC();
+    routeCallAudio(ctx, mode);
     const resumed = ctx.resume();
     const source = ctx.createBufferSource();
     source.buffer = ctx.createBuffer(1, 1, 22050); source.connect(ctx.destination); source.start(0);

@@ -24,6 +24,7 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
         ['Svg', 'IPulse', 'ISend', 'CGlyph'].forEach(n => window[n] = () => h('svg', { width: 18, height: 18 }));
         window.saved = {}; window.loadJSON = (k, d) => saved[k] ?? d; window.saveJSON = (k, v) => { saved[k] = v; return true; };
         window.requests = []; window.pending = []; window.sources = []; window.overlap = false; window.activeSounds = 0; window.translations = [];
+        Object.defineProperty(navigator, 'audioSession', { configurable: true, value: { type: 'ambient' } });
         window.Audio = class {
           play() { if (this.src && !this.active) { this.active = true; activeSounds++; if (activeSounds > 1) overlap = true; } return Promise.resolve(); }
           pause() { if (this.active) { this.active = false; activeSounds--; } }
@@ -37,13 +38,13 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
           createBuffer() { return { silent: true }; }
           async decodeAudioData() { return { duration: 30 }; }
           createBufferSource() {
-            const s = { connect() {}, start() { if (s.buffer.silent) return; s.started = true; activeSounds++; if (activeSounds > 1) overlap = true; sources.push(s); },
+            const s = { connect() {}, start() { if (s.buffer.silent) return; if (!['playback', 'play-and-record'].includes(navigator.audioSession.type)) throw new Error('静音键会屏蔽 ambient 通道'); s.started = true; activeSounds++; if (activeSounds > 1) overlap = true; sources.push(s); },
               stop() { if (s.started && !s.done) { s.done = true; activeSounds--; if (s.onended) s.onended(); } } };
             return s;
           }
         };
       });
-      await page.addScriptTag({ content: ['onlineTranslationAuto', 'setOnlineTranslationAuto', 'useOnlineDisplayPreference', 'useOnlineTranslationAuto', 'callAutoVoice', 'setCallAutoVoice', 'useCallAutoVoice', 'prepareCallAudio', 'OnlineMediaSettings', 'OnlineTranslationControl', 'useTtsPlayer', 'TransText', 'TransTextState', 'CallScreen'].map(fn).join('\n') });
+      await page.addScriptTag({ content: ['onlineTranslationAuto', 'setOnlineTranslationAuto', 'useOnlineDisplayPreference', 'useOnlineTranslationAuto', 'callAutoVoice', 'setCallAutoVoice', 'useCallAutoVoice', 'routeCallAudio', 'prepareCallAudio', 'OnlineMediaSettings', 'OnlineTranslationControl', 'useTtsPlayer', 'TransText', 'TransTextState', 'CallScreen'].map(fn).join('\n') });
       await page.evaluate(mode => {
         window.props = { mode, participants: [{ id: 'a', name: '甲', voiceId: 'va' }, { id: 'b', name: '乙', voiceId: 'vb' }, { id: 'c', name: '无音色' }],
           msgs: [{ role: 'char', senderId: 'a', content: 'History', zh: '旧消息' }], sending: false,
@@ -81,6 +82,7 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
       await page.evaluate(() => pending.shift()());
       await page.waitForTimeout(50);
       assert.equal(await page.evaluate(() => sources.length), 1);
+      assert.equal(await page.evaluate(() => navigator.audioSession.type), 'ambient');
       await page.getByRole('button', { name: '连续播报：关' }).click();
       await page.evaluate(() => draw({ msgs: [...props.msgs, { role: 'char', senderId: 'b', content: 'Third' }] }));
       await page.waitForFunction(() => requests.length === 3);
@@ -101,6 +103,7 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
       assert.equal(await page.evaluate(() => sources.length), 2);
       assert.equal(await page.evaluate(() => overlap), false);
       assert.equal(await page.evaluate(() => saved.x_callAutoVoice), true);
+      assert.equal(await page.evaluate(() => navigator.audioSession.type), 'ambient');
       // 记住偏好后重新拨打：同步点击中预热上下文，进入通话后不用再点播报按钮。
       await page.evaluate(() => {
         window.SpeechRecognition = class { start() { if (this.onaudiostart) this.onaudiostart(); } stop() {} };
@@ -114,6 +117,7 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
       assert.equal(await page.locator('#root [data-online-media-settings], #root [data-call-options]').count(), 0);
       await page.getByRole('button', { name: '开启麦克风' }).click();
       await page.getByRole('button', { name: '关闭麦克风' }).waitFor();
+      assert.equal(await page.evaluate(() => navigator.audioSession.type), 'play-and-record');
       await page.getByRole('button', { name: '连续播报：开' }).waitFor();
       assert.equal(await page.evaluate(() => requests.length), 4);
       await page.getByRole('button', { name: '连续播报：开' }).click();
