@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.07";
+const APP_VERSION = "v66.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8012,6 +8012,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && profile && profile.refPhoto)) photoKind = "other";
+      // ⚠️代码兜底（她 2026-09-09 连着两张截图，提示词改了两版都没治住）：
+      //   描述里【正面说了这是一张景】而且【一个人的影子都没提】，那就按没有人的拍，
+      //   不听它填的 kind——它两次都在气泡里说「纯风景」，然后 kind 填 self。
+      if (photoKind !== "view" && typeof looksLikeNoOneScene === "function"
+          && looksLikeNoOneScene(photoScene, char && (char.name || char.remark))) photoKind = "view";
       // ⚠️没有外貌也没有参考照时，【拍人】那三种照旧不放行（没脸可锁，画出来是另一个人）；
       //   view 不受这一条管——它画的本来就是东西和地方。
       if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
@@ -9088,6 +9093,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (photoCooldownState(gchat, spk.id).cooling) { gPhotoKind = null; gPhotoScene = null; }
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && profile && profile.refPhoto)) gPhotoKind = "other";
+          // 同一道闸（判据只写在 engine 那一处，群这边不另写一份）
+          if (gPhotoKind !== "view" && typeof looksLikeNoOneScene === "function"
+              && looksLikeNoOneScene(gPhotoScene, spk && (spk.name || spk.remark))) gPhotoKind = "view";
           // 群合照（v53.85）：点名单＝在场【有参考照】的成员 + 用户，拍照的那位排第一。
           // 顺序就是参考图顺序，两边必须一一对齐——错位了脸就串（duo 当初的老毛病）。
           // 上限 4 人：再多脸就开始糊，也更容易被上游审核拦。

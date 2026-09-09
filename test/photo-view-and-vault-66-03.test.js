@@ -62,6 +62,34 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   assert.match(app, /&& \(photoKind === "view" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
 });
 
+// 提示词那条路她试了两版都没治住：他在气泡里自己说「刚出炉的纯风景」，
+// kind 照旧填 self，脸被硬画进去。所以这一道闸落在代码里。
+test("说了是风景又没提到人，就按没有人的拍，不听它填的 kind", () => {
+  const src = eng.slice(eng.indexOf("const SCENE_ONLY_WORDS"), eng.indexOf("\n// ---- 图上云"));
+  assert.ok(src.length > 300, "那道闸没了");
+  const looksLikeNoOneScene = new Function(src + "\nreturn looksLikeNoOneScene;")();
+
+  // 她那两张截图里的原文，一张都不许再画出脸
+  assert.equal(looksLikeNoOneScene("一张温暖色调的吉卜力风格插画：傍晚下着小雨的温尼伯街景，温馨的公寓客厅里，暖黄色台灯亮着，柔软的布艺沙发旁摆着一小盆开得正好的太阳花，茶几上放着两碗冒着热气的酸辣粉，整间屋子透着安静又柔软的暖意", "沈屿白"), true);
+  assert.equal(looksLikeNoOneScene("吉卜力动画风格的雨天窗边风景，窗外是雾气蒙蒙的街道和细雨，窗台上放着一盆盛开的明亮太阳花，木质桌面上放着两杯冒着热气的咖啡，室内光线温暖柔和", "沈屿白"), true);
+
+  // ⚠️另一头更要紧：真自拍绝不许被降成空景（脸没了她还得重拍，比现在这个 bug 更难受）
+  assert.equal(looksLikeNoOneScene("我在咖啡店靠窗坐着，手里端着咖啡", "沈屿白"), false);
+  assert.equal(looksLikeNoOneScene("窗边的风景很好，我坐在这儿发呆", "沈屿白"), false, "提了人就不算");
+  assert.equal(looksLikeNoOneScene("沈屿白站在雨里的街景", "沈屿白"), false, "名字出现了就不算");
+  assert.equal(looksLikeNoOneScene("刚拍的，笑得有点傻", "沈屿白"), false);
+  assert.equal(looksLikeNoOneScene("楼下便利店，刚买完关东煮", "沈屿白"), false, "没正面说是景就不许动");
+  assert.equal(looksLikeNoOneScene("", "沈屿白"), false);
+  // 「其他」里那个他不是人
+  assert.equal(looksLikeNoOneScene("窗外的街景，其他什么都没有", "沈屿白"), true);
+
+  // 只往一个方向纠，而且单聊群聊共用同一处判据
+  assert.match(app, /if \(photoKind !== "view" && typeof looksLikeNoOneScene === "function"/);
+  assert.match(app, /if \(gPhotoKind !== "view" && typeof looksLikeNoOneScene === "function"/);
+  assert.equal((eng.match(/function looksLikeNoOneScene/g) || []).length, 1);
+  assert.ok(!/= "self";?\s*\/\/ *反过来/.test(app));
+});
+
 test("view 走空景那条路，一张参考照都不喂", () => {
   assert.match(app, /const isView = photoKind === "view";/);
   assert.match(app, /const refs = isView \? \[\] :/, "view 还在喂参考照，它会想办法把脸画进去");

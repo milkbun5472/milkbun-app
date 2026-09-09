@@ -3395,6 +3395,29 @@ async function nativeMediaKeys(bucket) { try { const a = await nativeMediaCall("
 // 「duo→合照／other→别人拍的／else→自拍」的判断链全库有六处，
 // 各写一个词的话，改一处另外五处永远落单（而且 else 分支会把它叫成「自拍」）。
 const PHOTO_VIEW_ZH = "随手拍";
+// 「这段 scene 说的是一张【没有人】的图吗」——她 2026-09-09 连着两张截图：
+//   一张配文「傍晚下小雨的温尼伯街景……茶几上放着两碗酸辣粉」，
+//   一张他自己在气泡里说「刚出炉的纯风景」「吉卜力风的温尼伯雨天窗景」，
+//   两次 kind 都填了 self，于是脸被硬画进本来没有人的图里。
+// 提示词那条路试了两版都没治住，所以这一道闸落在【代码】里：规则降概率，代码才保证。
+//
+// ⚠️它是一道很【窄】的闸，不是判断句子里有没有人：
+//   必须【正面说了这是一张景】而且【一个人的影子都没提】才算。
+//   宁可漏判（她再说一句「拍风景」就好），也绝不误判——
+//   把一张真自拍降成空景，脸没了她还得重拍，比现在这个 bug 更难受。
+// ⚠️只往一个方向纠：self/other/duo → view。反过来绝对不做。
+const SCENE_ONLY_WORDS = /风景|景色|空镜|窗景|街景|夜景|全景|远景|无人|没有人|不要有人|没有人物|没有出镜|不出镜/;
+const SCENE_PERSON_WORDS = /[我你她]|TA|Ta|自拍|合照|入镜|出镜|镜头前|脸|笑|表情|眼神|手里|头发|侧脸|背影|半身|全身|穿着|坐着|站着|躺着|靠在|怀里|肩上/;
+function looksLikeNoOneScene(scene, name) {
+  const raw = String(scene || "");
+  if (!raw.trim()) return false;
+  if (!SCENE_ONLY_WORDS.test(raw)) return false;
+  // 「其他」里那个他不算人
+  const s = raw.replace(/其他/g, "");
+  if (SCENE_PERSON_WORDS.test(s) || /他/.test(s)) return false;
+  if (name && String(name).trim() && s.indexOf(String(name).trim()) >= 0) return false;
+  return true;
+}
 // ---- 图上云：本机 → 原生壳 → VPS，三层（她 2026-09-06 数据丢了图也没了）----
 // 像素从来没进过云（saves 那一行只有 x_ 文本），所以本机一没图就真没了。
 // 现在每张图写进本机之后再进一条【上传队列】，队列里的名字慢慢往 VPS 上送；
