@@ -6261,17 +6261,19 @@ function birthdayBothLabel(birthday, year) {
 // 括号（「按你的生日 1998-03-04 和今天算出来的」），而手填过岁数的角色连那个括号都没有。
 // 农历那一支能过，是因为当初这行本来就是为农历角色补的——补的时候顺手把守卫也留下了。
 //
-// ⚠️这一行只说【是哪天】，不说【还有几天】：它落在 buildBundle 的缓存切点
-//   （【当前真实时间】）【之前】，跟人设一起被缓住。写进「还有 N 天」就是每天作废整面稳定墙。
-//   「快到了／今天就是」归 dateNote 管，那一块在切点之后，本来就每轮重算。
-function birthdayLine(char) {
+// 这一行连【今天离它还有几天】一起说：一个人当然随时知道自己生日快到了没有，
+// 不该等到 dateNote 那个 5 天窗口才想起来。
+// ⚠️天数走 daysUntilBirthday，跟 dateNote 那两句同一个函数——两处都在说生日，
+//   算法各写一份的话迟早对不上（dateNote 管的是【今天该怎么表现】，这儿管的是【事实】）。
+function birthdayLine(char, now) {
   const bd = String((char && char.birthday) || "").trim();
   if (!bd) return "";
   const both = birthdayBothLabel(bd);
   if (!both) return "";
-  return parseLunarBirthday(bd)
-    ? both + "（你按农历过生日；换算成公历是今年的这一天）"
-    : both;
+  const lunar = parseLunarBirthday(bd) ? "（你按农历过生日；换算成公历是今年的这一天）" : "";
+  const du = daysUntilBirthday(bd, now || new Date());
+  const when = du == null ? "" : du === 0 ? " · 就是今天" : " · 今天离它还有 " + du + " 天";
+  return both + lunar + when;
 }
 // 生日写了年份时，把【出生那天】的公历日期显示出来。
 // ⚠️腊月/冬月的生日在公历上已经是第二年了：农历2001年腊月廿三＝公历 2002-02-04。

@@ -187,7 +187,7 @@ test("界面三处都接上了", () => {
   // 公历生日的角色一个字都收不到（她 2026-09-09：「感觉他们还是不太知道呢」）。
   // 现在两种都发，写法收在 engine 的 birthdayLine 一处，群聊那一份也问它要。
   assert.match(engine, /parts\.push\("【你的生日】" \+ _bl/, "提示词——生日没喂进去");
-  assert.match(engine, /function birthdayLine\(char\)/);
+  assert.match(engine, /function birthdayLine\(char, now\)/);
   // 注释里留着这句是为了讲清病因，所以只看它还在不在真的 push 上
   assert.ok(!/if \(_both && parseLunarBirthday\(_bd\)\) parts\.push/.test(engine), "农历那道守卫还在，公历生日照旧发不出去");
   assert.ok(!/both && typeof parseLunarBirthday === "function" && parseLunarBirthday\(bd\)/.test(app), "群聊那一份还挂着农历守卫");

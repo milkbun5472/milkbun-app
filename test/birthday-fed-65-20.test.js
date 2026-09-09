@@ -36,15 +36,17 @@ test("这一行只此一份，两处都问它要", () => {
     "群聊那一份还挂着农历守卫");
 });
 
-// ⚠️这一行落在 buildBundle 的缓存切点（【当前真实时间】）【之前】，跟人设一起被缓住。
-// 写进「还有 N 天」就是每天作废整面稳定墙——「快到了／今天就是」归 dateNote，那块在切点之后。
-test("生日这一行只说是哪天，不说还有几天", () => {
-  // 切点就是 timeBlock 拼进去那一下（它头一行就是【当前真实时间】）
-  const i = engine.indexOf('parts.push("【你的生日】"');
-  const j = engine.indexOf("if (timeBlock.length) parts.push(...timeBlock);");
-  assert.ok(i > 0 && j > i, "生日那一行跑到缓存切点后面去了？");
-  assert.ok(F.birthdayLine({ birthday: "1998-03-04" }).indexOf("天") < 0, "写进了会天天变的东西");
-  // 「快到了／今天就是」照旧归 dateNote
+// 她 2026-09-09 纠了我一句：「按次计费不在乎缓存」。
+// 我原来把「还有几天」挡在外面，理由是这一行落在缓存切点之前、写进天数会天天作废缓存——
+// 那个理由在她这儿不成立：她按【次】付钱，缓不缓住一分钱也省不到。所以天数直接写进去。
+test("这一行连今天离生日还有几天一起说", () => {
+  const md = (d => (d.getMonth() + 1) + "-" + d.getDate())(new Date());
+  assert.match(F.birthdayLine({ birthday: md }), /就是今天/);
+  assert.match(F.birthdayLine({ birthday: "1998-03-04" }, new Date("2026-09-09T12:00:00")), /今天离它还有 \d+ 天/);
+  // ⚠️天数走 daysUntilBirthday，跟 dateNote 那两句同一个函数——各写一份迟早对不上
+  const fn = engine.slice(engine.indexOf("function birthdayLine(char, now)"), engine.indexOf("\n// 生日写了年份时"));
+  assert.match(fn, /daysUntilBirthday\(bd, now \|\| new Date\(\)\)/);
+  // dateNote 那两句管的是【今天该怎么表现】，还在
   assert.match(app, /const cdu = daysUntilBirthday\(char && char\.birthday, today\)/);
   assert.match(app, /🎂 今天是你自己的生日/);
 });
