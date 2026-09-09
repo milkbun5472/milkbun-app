@@ -72,8 +72,11 @@ test("通话小结那一行：CallEndPill 拿不到 dsp，得把「有没有壁�
 
 test("群聊也有背景图，旁白同样要垫", () => {
   const g = comp.slice(comp.indexOf("const gChatBg = settings && settings.chatBg"));
-  const narr = g.slice(g.indexOf('m.role === "narration" || m.kind === "narration"'));
-  assert.match(narr.slice(0, 700), /gChatBg \? \{ background: "rgba\(255,255,255,0\.62\)"/);
+  // ⚠️同上：切到【下一支开头】为止，不许用固定字数（v66.01 群旁白那一支加了长按和署名）
+  const nb = g.indexOf('m.role === "narration" || m.kind === "narration"');
+  const narr = g.slice(nb, g.indexOf("\n    if (m.", nb + 40));
+  assert.ok(narr.length > 200 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
+  assert.match(narr, /gChatBg \? \{ background: "rgba\(255,255,255,0\.62\)"/);
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
   assert.match(g, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });

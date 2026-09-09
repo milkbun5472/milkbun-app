@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.00";
+const APP_VERSION = "v66.01";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8795,7 +8795,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；通常 1~3 条，真有话要说才更多。**绝不要把整段塞进一条**。\n"
         + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
       const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
-      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
+      // 动描（她 2026-09-09：「群聊也接上动作吧」）。按群存，跟单聊那个开关同名同义。
+      const _gActDesc = !!gs.actDesc;
+      // ⚠️action 原来只挂在【记忆互通】上。群里开了动描却没开互通的话，模型压根不会被
+      //   要求填这一格——开关点了却什么都不出现，正是「说改好了其实没变」那一类。
+      //   所以这一格【两个来源都算】：互通要它写状态卡，动描要它摆那一行。
+      const gActionField = ",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"";
+      const thoughtField = gs.memoryInterop
+        ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
+        : (_gActDesc ? gActionField : "");
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
@@ -8818,7 +8826,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ? "完全代入你正在写的那一位（在场的是 " + members.map(c => c.name).join("、") + "，写谁那一条你就是谁），"
           // 群里只剩一个人时「写谁那一条」是空问句，直接点名，别让模型去解一个没有分支的选择题
           : "完全代入「" + ((members[0] || {}).name || "在场的角色") + "」，")
-        + "\n\n" + GROUP_MULTI_BUBBLE;
+        + "\n\n" + GROUP_MULTI_BUBBLE
+        + (_gActDesc ? "\n\n" + userActLineRule(userName(profile)) : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       const gWishHint = (wishRef.current || []).length
         ? "\n\n【" + userName(profile) + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，在场的人都可能知道。"
@@ -8960,6 +8969,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见他刚说的
           const gTurnId = "gt_" + Date.now() + "_" + i;
+          // 这一条发言的人此刻在做什么。⚠️只算一次：动描那一行和状态卡写回共用这一个值，
+          //   而且它【不看记忆互通】——互通管的是写不写状态卡，不是显不显示。
+          const _rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
+          const gActionNow = (_rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(_rawGAction, spk && spk.name) : _rawGAction) || "";
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
@@ -9000,6 +9013,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+            // 动描：这一条发言的人此刻在做什么，摆在他这几泡【前面】。
+            // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
+            //   一轮里 A 变了、B 没变，只该出 A 那一行。她 2026-09-09：
+            //   「如果一轮他们变了两次也都放进来比如第一句第三句变了那就是那俩气泡上有动作」。
+            // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
+            if (_gActDesc && gActionNow && spk) {
+              const _grows = groupChatsRef.current[groupId] || [];
+              let _gprevAct = "";
+              for (let k = _grows.length - 1; k >= 0; k--) {
+                const mm = _grows[k];
+                if (mm && mm.who === "char" && String(mm.senderId) === String(spk.id) && (mm.role === "narration" || mm.kind === "narration")) { _gprevAct = String(mm.content || "").trim(); break; }
+              }
+              if (gActionNow !== _gprevAct) pGChat(groupId, p => [...p, {
+                role: "narration", kind: "narration", who: "char",
+                senderId: spk.id, senderName: spk.name, content: gActionNow,
+                mid: "gm_" + Date.now() + "_" + i + "_act", ts: Date.now(), turnId: gTurnId
+              }]);
+            }
             for (let j = 0; j < gBubbles.length; j++) {
               if (j > 0) await new Promise(r => setTimeout(r, 620));
               checkAutoCall();
@@ -9084,8 +9115,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
             const aDelta = typeof item.affinityDelta === "number" ? item.affinityDelta : Number(item.affinityDelta);
             const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
-            const rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
-            const gAction = rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(rawGAction, spk && spk.name) : rawGAction;
+            const gAction = gActionNow;
             // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
             if (spk && !spk.npc && Number.isFinite(aDelta)) bumpAff(spk.id, aDelta);
             if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
@@ -9219,7 +9249,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } else if (act === "edit") {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
-      if (m.role !== "assistant") { toast("只能重Roll成员的消息"); return; }
+      if (m.role !== "assistant" && m.who !== "char") { toast("只能重Roll成员的消息"); return; }
       // 新版同一成员拆泡共享 turnId：从这一组的首泡起删，避免半条旧回答残留。
       let start = idx;
       if (m.turnId) while (start > 0 && msgs[start - 1] && msgs[start - 1].turnId === m.turnId) start--;
@@ -11868,7 +11898,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // 他五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+  const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，

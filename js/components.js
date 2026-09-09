@@ -12662,21 +12662,31 @@ function GroupThread({
     if (m.kind === "offlinelog") return h("div", {
       key: i, className: "my-3 mx-6"
     }, h(OfflineLogCard, { m: m, t: t }));
+    // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
+    // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
+    //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
     if (m.role === "narration" || m.kind === "narration") return h("div", {
       key: i,
+      "data-wk": "narr",
+      "data-me": m.who === "char" ? "0" : "1",
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined,
       className: "flex justify-center items-start gap-2 py-1"
     }, h("span", {
+      "data-wk": "narrink",
       style: {
         fontFamily: F_BODY,
         fontSize: 12,
         fontStyle: "italic",
-        color: t.fog,
+        color: selMode && selIds.includes(i) ? t.ink : t.fog,
         textAlign: "center",
         maxWidth: "82%",
         lineHeight: 1.5
         , ...(gChatBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
       }
-    }, "— " + m.content + " —"), onDeleteMessages ? h("button", {
+    }, m.who === "char" ? (m.senderName || "TA") + " " + m.content : "— " + m.content + " —"),
+      (onDeleteMessages && m.who !== "char") ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "0 2px" },
@@ -13392,6 +13402,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [autoChatMaxMsg, setAutoChatMaxMsg] = useState(gs.autoChatMaxMsg || 50);
   const [autoChatResetHours, setAutoChatResetHours] = useState(gs.autoChatResetHours || 24);
   const [gDefaultOffline, setGDefaultOffline] = useState(!!gs.defaultOffline);
+  // 动描（她 2026-09-09：「群聊也接上动作吧」）：按群存，跟单聊那个开关同名同义。
+  const [gActDesc, setGActDesc] = useState(!!gs.actDesc);
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
@@ -13441,7 +13453,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, name: gName }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
     // 群名（改完点右上角的勾才生效，和别的设置一样）
     h("div", { className: "pt-4" },
@@ -13488,6 +13500,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
     interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
+    row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在他这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
 
     // 记忆库
     h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },

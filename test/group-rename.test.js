@@ -14,7 +14,11 @@ test("群设置页要有群名输入框，并且真的传出去", () => {
   const sheet = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("function NewGroupSheet("));
   assert.match(sheet, /const \[gName, setGName\] = useState\(\(group && group\.name\) \|\| ""\)/);
   assert.match(sheet, /placeholder: "群名称"/);
-  assert.match(sheet, /defaultOffline: gDefaultOffline, name: gName \}\)/, "存的时候要把 name 一起带上");
+  // ⚠️别钉「跟哪一项挨着」——中间插一项设置就假红（v66.01 加了 actDesc 时踩过）。
+  //   要钉的是【那一次 onSave 调用里带了 name】。
+  const call = sheet.slice(sheet.indexOf("onSave({"), sheet.indexOf("); onClose();", sheet.indexOf("onSave({")));
+  assert.ok(call.length > 100, "找不到那次 onSave 调用");
+  assert.match(call, /name: gName\b/, "存的时候要把 name 一起带上");
   assert.match(sheet, /maxLength: 24/);
 });
 

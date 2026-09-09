@@ -141,6 +141,42 @@ test("他那边落成同一种消息，只多一个 who 标明是他做的", () 
   assert.match(app, /（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）/);
 });
 
+test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不出", () => {
+  // 她 2026-09-09：「群聊也接上动作吧。刚好如果一轮他们变了两次也都放进来
+  // 比如第一句第三句变了那就是那俩气泡上有动作」
+  assert.match(app, /const _gActDesc = !!gs\.actDesc;/);
+  // ⚠️action 那一格原来只挂在【记忆互通】上：群里开了动描没开互通，模型压根不会填它，
+  //   开关点了什么都不出现——正是「说改好了其实没变」那一类
+  assert.match(app, /const gActionField = ",\\"action\\"/);
+  assert.match(app, /: \(_gActDesc \? gActionField : ""\);/, "动描开着时没把 action 加进群协议");
+  // 显示不看记忆互通：那是写不写状态卡的事
+  assert.match(app, /const gActionNow = \(_rawGAction && window\.ThoughtVoiceGuard/);
+  assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");
+  assert.equal((app.match(/normalizeAction\(_rawGAction/g) || []).length, 1);
+  // 比的是【这个人自己上一次】，不是全群最后一条——不然 A 变了 B 没变会一起漏或一起出
+  const i = app.indexOf("if (_gActDesc && gActionNow && spk)");
+  assert.ok(i > 0, "群里那一行没接上");
+  const blk = app.slice(i, i + 1100);
+  assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "拿全群最后一条比，两个人的动作会互相盖掉");
+  assert.match(blk, /if \(gActionNow !== _gprevAct\) pGChat\(groupId/);
+  assert.match(blk, /senderId: spk\.id, senderName: spk\.name/, "群里不写是谁做的，三个人就认不出来了");
+  // 摆在这一条发言的气泡【前面】
+  assert.ok(i < app.indexOf("for (let j = 0; j < gBubbles.length; j++)"));
+  // 喂回去的时候不许被当成她写的旁白
+  assert.match(app, /\(m\.role === "narration" && m\.who === "char"\) \? "【" \+ \(m\.senderName \|\| "某人"\) \+ " 当时正在做的｜不是 Ta 说出口的话】"/);
+  // 群里那一行也能重 Roll
+  assert.match(app, /if \(m\.role !== "assistant" && m\.who !== "char"\) \{ toast\("只能重Roll成员的消息"\)/);
+  // 群渲染：跟单聊同一个待遇，且写出是谁做的
+  const j = comp.indexOf('"data-wk": "narr"', comp.indexOf('"data-wk": "narr"') + 10);
+  const row = comp.slice(j - 400, j + 1400);
+  assert.match(row, /m\.who === "char" \? \(m\.senderName \|\| "TA"\) \+ " " \+ m\.content/);
+  assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "群里那一行还挂着 ✕");
+  // 群设置里那个开关（群设置是整份 patch 存的，不像单聊那头逐项手抄）
+  assert.match(comp, /const \[gActDesc, setGActDesc\] = useState\(!!gs\.actDesc\);/);
+  assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName \}\);/);
+  assert.match(comp, /row\("动描（居中那一行）"/);
+});
+
 test("两个开关各住各的地方，旁白那行有挂点", () => {
   // 存在 x_chatSettings 那一档里（跟别的每人设置同一处）
   assert.match(app, /const patchChatSetting = \(id, patch\) => \{[\s\S]{0,200}?saveJSON\("x_chatSettings", n\)/);
