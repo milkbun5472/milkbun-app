@@ -8324,7 +8324,6 @@ function CallScreen({
   // 手动回听与自动队列共用 ttsSpeak 缓存，互相接管时先停止旧播放。
   const tp = useTtsPlayer();
   const [autoVoice, setAutoVoice] = useState(() => loadJSON("x_callAutoVoice", false) === true);
-  const [autoZh, setAutoZh] = useState(() => loadJSON("x_callAutoZh", false) === true);
   const [audioReady, setAudioReady] = useState(false);
   const [audioStatus, setAudioStatus] = useState("");
   const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
@@ -8693,9 +8692,7 @@ function CallScreen({
         "aria-pressed": autoVoice && audioReady,
         style: { color: "#fff", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: "7px 9px", fontSize: 11 } },
         autoVoice ? (audioReady ? "连续播报：开" : "连续播报：点此启用") : "连续播报：关"),
-      h("button", { type: "button", onClick: () => { const next = !autoZh; setAutoZh(next); saveJSON("x_callAutoZh", next); }, "aria-pressed": autoZh,
-        style: { color: "#fff", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: "7px 9px", fontSize: 11 } },
-        autoZh ? "译文：直接显示" : "译文：点击显示")),
+      h(OnlineTranslationControl, { compact: true })),
     h("div", { role: "status", style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
       audioStatus || "播报需配置音色与语音线路，会使用额度；缺少译文时自动翻译可能调用翻译线路")), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
@@ -8758,7 +8755,7 @@ function CallScreen({
         background: callBubble(isU).background,
         color: callBubble(isU).color
       }
-    }, h(TransText, { text: m.content, isU, zhReady: m.zh, autoShow: autoZh, ink: callBubble(isU).color })), canT ? h("button", {
+    }, h(TransText, { text: m.content, isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
       disabled: !!bye,
       "aria-label": meP ? "停止这句" : "播放这句",
       onClick: () => {
@@ -9205,7 +9202,51 @@ function pinToBottom(el, ms) {
 // 有它就不再跑免费接口——那东西把「傘さすか迷うレベルで湿気すごい」翻成
 // 「您可能会迷失在雨伞中」；说这句话的人自己译，根本不是一个水平。
 // 译键的位置和展开样式一个字不改：她 2026-08-26 说了「我喜欢在旁边可以按翻译」。
-function TransText({ text, isU, zhReady, ink, autoShow = false }) {
+// 所有线上译文只读这一个偏好；旧通话设置只作未设置新版时的兼容读取，不再写回。
+function onlineTranslationAuto() {
+  const value = loadJSON("x_onlineAutoZh", null);
+  return typeof value === "boolean" ? value : loadJSON("x_callAutoZh", false) === true;
+}
+function setOnlineTranslationAuto(value) {
+  if (!saveJSON("x_onlineAutoZh", value === true)) return false;
+  window.dispatchEvent(new Event("archive-translation-display"));
+  return true;
+}
+function useOnlineTranslationAuto() {
+  const [auto, setAuto] = useState(onlineTranslationAuto);
+  useEffect(() => {
+    const sync = () => setAuto(onlineTranslationAuto());
+    const storage = e => { if (!e.key || e.key === "x_onlineAutoZh" || e.key === "x_callAutoZh") sync(); };
+    window.addEventListener("archive-translation-display", sync);
+    window.addEventListener("storage", storage);
+    window.addEventListener("focus", sync);
+    sync();
+    return () => {
+      window.removeEventListener("archive-translation-display", sync);
+      window.removeEventListener("storage", storage);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
+  return [auto, setOnlineTranslationAuto];
+}
+function OnlineTranslationControl({ compact = false }) {
+  const t = useTheme();
+  const [auto, setAuto] = useOnlineTranslationAuto();
+  const [error, setError] = useState(false);
+  const button = h("button", { type: "button", "aria-pressed": auto, title: "全局线上译文显示",
+    onClick: () => setError(!setAuto(!auto)),
+    style: { color: compact ? "#fff" : t.ink, background: compact ? "rgba(255,255,255,.14)" : t.bg2,
+      border: compact ? "none" : "1px solid " + t.line, borderRadius: 8, padding: "7px 9px", fontFamily: F_BODY, fontSize: 11 } },
+    error ? "保存失败，点此重试" : auto ? "译文：直接显示" : "译文：点击显示");
+  if (compact) return button;
+  return h("div", { style: { marginTop: 14 }, "data-online-translation-setting": true },
+    h("div", { className: "flex items-center justify-between gap-3" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "线上译文显示 · 全局"), button),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+      "即时生效并记住选择，单聊、群聊、语音／视频通话和通话回看共用。每条仍可单独展开或收起。缺少自带译文时会走翻译线路，可能使用额度。"));
+}
+function TransText({ text, isU, zhReady, ink }) {
+  const [autoShow] = useOnlineTranslationAuto();
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
@@ -9346,7 +9387,7 @@ function VoiceMsg({ m, isU, speaker }) {
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: fg, opacity: 0.45, margin: "8px 0 5px" } },
         (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, h(TransText, { text: m.content || "", isU, zhReady: m.zh, ink: fg }))));
 }
 // 气泡上的播放键(v60.29 她 2026-09-02 要的)
 // 「能不能给他气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，
@@ -13334,6 +13375,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    h(OnlineTranslationControl, null),
 
     (() => {
       const n = Number(msgCount) || 0, left = Math.max(0, (sumThresh || 150) - Math.max(0, n - (gs.lastSummarizedCount || 0)));
@@ -14436,8 +14478,9 @@ function ChatSettings({
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
       + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。"),
     dispRow("外语消息自带中译", bilingual, setBilingual),
+    h(OnlineTranslationControl, null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
-      "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，点气泡旁边的「译」直接展开——"
+      "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，按上面的全局偏好直接显示或点「译」展开——"
       + "语音、视频通话也适用，译文随通话记录保留，朗读只读原文。已有中译不再请求翻译，中文消息不受影响。")),
     // ── 只管这个人的两层（她 2026-09-04：「全局是 line 我给 a 选微信应该覆盖它」）──
     // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。

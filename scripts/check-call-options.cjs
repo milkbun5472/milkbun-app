@@ -41,7 +41,7 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
           }
         };
       });
-      await page.addScriptTag({ content: ['useTtsPlayer', 'TransText', 'TransTextState', 'CallScreen'].map(fn).join('\n') });
+      await page.addScriptTag({ content: ['onlineTranslationAuto', 'setOnlineTranslationAuto', 'useOnlineTranslationAuto', 'OnlineTranslationControl', 'useTtsPlayer', 'TransText', 'TransTextState', 'CallScreen'].map(fn).join('\n') });
       await page.evaluate(mode => {
         window.props = { mode, participants: [{ id: 'a', name: '甲', voiceId: 'va' }, { id: 'b', name: '乙', voiceId: 'vb' }, { id: 'c', name: '无音色' }],
           msgs: [{ role: 'char', senderId: 'a', content: 'History', zh: '旧消息' }], sending: false,
@@ -129,6 +129,26 @@ const fn = name => { const i = src.indexOf('function ' + name + '('); return src
       await page.evaluate(() => pending.shift()());
       await page.waitForTimeout(50);
       assert.equal(await page.evaluate(() => sources.length), 2);
+      // 两个入口和五种线上译文同时挂载，修改全局偏好要即时联动。
+      await page.evaluate(() => {
+        rootRender.unmount();
+        rootRender = ReactDOM.createRoot(document.getElementById('root'));
+        setOnlineTranslationAuto(false);
+        rootRender.render(h('div', { style: { padding: 12 } }, h(OnlineTranslationControl, {}), h(OnlineTranslationControl, { compact: true }),
+          ...['Single', 'Group', 'Voice', 'Video', 'Receipt'].map(text => h('div', { key: text, style: { marginTop: 12 } }, h(TransText, { text, zhReady: '译文' + text }))),
+          h(TransText, { text: '纯中文' })));
+      });
+      await page.waitForFunction(() => document.querySelector('[data-online-translation-setting]'));
+      await page.waitForFunction(() => document.querySelectorAll('[data-wk="translatebody"]').length === 0);
+      await page.getByRole('button', { name: '译文：点击显示' }).first().click();
+      await page.waitForFunction(() => document.querySelectorAll('[data-wk="translatebody"]').length === 5);
+      assert.equal(await page.getByRole('button', { name: '译文：直接显示' }).count(), 2);
+      await page.locator('[data-wk="translatebutton"]').first().click();
+      assert.equal(await page.locator('[data-wk="translatebody"]').count(), 4); // 仍可逐条收起
+      await page.getByRole('button', { name: '译文：直接显示' }).last().click();
+      await page.waitForFunction(() => document.querySelectorAll('[data-wk="translatebody"]').length === 0);
+      assert.equal(await page.evaluate(() => saved.x_onlineAutoZh), false);
+      if (width === 320 && mode === 'voice') await page.screenshot({ path: '/tmp/lisa-global-translation.png' });
       assert.deepEqual(errors, []);
       console.log('PASS', width, mode, 'queue/cancel/unmount/translation/layout');
       await ctx.close();

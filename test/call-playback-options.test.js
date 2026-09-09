@@ -1,8 +1,8 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs');
 const src = fs.readFileSync('js/components.js', 'utf8');
 const call = src.slice(src.indexOf('function CallScreen('), src.indexOf('// 匿名问答的夜色'));
-test('通话设置默认手动，两个偏好分别保存；语音和视频用同一队列', () => {
-  for (const [key, state] of [['x_callAutoVoice', 'autoVoice'], ['x_callAutoZh', 'autoZh']]) {
+test('通话播放默认手动，播放偏好独立保存；语音和视频用同一队列', () => {
+  for (const [key, state] of [['x_callAutoVoice', 'autoVoice']]) {
     assert.ok(call.includes('loadJSON("' + key + '", false)'));
     assert.ok(call.includes('saveJSON("' + key + '"'));
     assert.ok(call.includes(state));

@@ -20,7 +20,7 @@ test('通话窗口16→17→40条：同一条key稳定，新消息不继承旧�
 });
 test('公共翻译的状态实例跟原文、说话方、自带译文绑定，主题不重置',()=>{
  const body=src.slice(src.indexOf('function TransText('),src.indexOf('function TransTextState('));
- const fn=new Function('h','TransTextState',body+';return TransText;')(h,()=>{});
+ const fn=new Function('h','TransTextState','useOnlineTranslationAuto',body+';return TransText;')(h,()=>{},()=>[false]);
  const props={text:'Hello',isU:false,zhReady:'你好',ink:'#222'};
  const key=p=>fn(p).props.key;
  assert.equal(key(props),key({...props,ink:'#fff'}));

@@ -4,7 +4,7 @@ const fs = require('fs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = require('path').resolve(__dirname, '..') + '/';
 const src = fs.readFileSync(root+'js/components.js','utf8');
-const trans = src.slice(src.indexOf('function TransText('),src.indexOf('// 语音消息（',src.indexOf('function TransText(')));
+const trans = src.slice(src.indexOf('function onlineTranslationAuto('),src.indexOf('// 语音消息（',src.indexOf('function TransText(')));
 const start=src.indexOf('recent.map((m, i) => {');
 const render=src.slice(start,src.indexOf('\n  }),',start)+5);
 (async()=>{
@@ -16,6 +16,7 @@ const render=src.slice(start,src.indexOf('\n  }),',start)+5);
  await page.evaluate(({trans,render})=>{
   Object.assign(window,{h:React.createElement,useState:React.useState,useEffect:React.useEffect,
    useTheme:()=>({ink:'#222',line:'#999',fog:'#777'}),F_BODY:'sans-serif',BUBBLE_SKIN:{myText:'#222'},
+   loadJSON:(key,fallback)=>fallback,saveJSON:()=>true,
    translatableLang:()=> '日文',transCacheGet:()=>null,
    translateLongToZh:text=>new Promise(resolve=>{window.pending={text,resolve}})});
   (0,eval)(trans);
