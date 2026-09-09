@@ -176,7 +176,10 @@ test("顶上那一片每一格都单独挂了点（行内色压不过去）", ()
   // 两个顶栏（单聊 / 群聊）都得挂上——一处挂了一处没挂，正是「一层写在两处」那个病
   // ⚠️v65.14 起线下那两条顶栏也挂了 chathead（它们压在聊天页上，皮肤要抓得住），
   //   所以一共四处；这一条测的是【单聊和群聊那两条】，按后面跟着的内容认出来。
-  const heads = [...comp.matchAll(/"data-wk": "chathead"/g)].map(m => comp.slice(m.index, m.index + 2600))
+  // ⚠️这个窗口要罩住【整条顶栏】：返回键、名字、副标题、右上角那颗都在里头。
+  //   顶栏上多一颗键（v65.19 加了「同处一室」）它就得跟着长——原来卡在 2600，
+  //   那颗键一加，右上角那颗齿轮被挤到窗口外，测试红的是窗口不是代码。
+  const heads = [...comp.matchAll(/"data-wk": "chathead"/g)].map(m => comp.slice(m.index, m.index + 3600))
     .filter(x => x.indexOf("safeTop(20)") >= 0);   // 单聊/群聊那两条是 safeTop(20)，线下那两条是 (12)
   assert.equal(heads.length, 2, "顶栏应该正好两处（单聊、群聊），现在是 " + heads.length + " 处");
   heads.forEach((hd, n) => {

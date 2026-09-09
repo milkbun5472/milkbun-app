@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v65.93";
+const APP_VERSION = "v65.94";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1617,6 +1617,50 @@ function App() {
     ctxN: 50,
     sumThresh: 150,
     sumBuffer: 20
+  };
+  // ── 同处一室（她 2026-09-09：「我和他们在线上明明一起吃饭但是他们总是说为什么在对面还要发消息」）──
+  // 不开线下、但你俩此刻真的面对面。开着的时候做两件事：告诉他【人已经在一起了】，
+  // 并解禁【整条用括号包住】的那一小行动作（双方都用同一个写法）。
+  // ⚠️开关按人存，不按房间存：换小房间不该把「你俩在一起」这件事丢掉。
+  //
+  // ⚠️八处名单（施工规则/four-surfaces-same-context.md）在这一层上的落法，
+  //   差异是【显式的】，不是忘了：
+  //   · 单人线上 —— 全套（在场 + 括号动描），这就是它本来要解决的那一处。
+  //   · 通话 —— 在场那半层【白得的】：它走 buildBundle(roomContextFor→ctxFor)，
+  //     offlineNow 顺着同一个口子进去，所以打电话时他也知道你俩在一个屋里。
+  //     括号动描那半层不给：通话本来就有自己的 action 字段写神态。
+  //   · 单人线下 —— 两半都不需要：线下本来就是面对面，动作本来就能写。
+  //   · 群聊线上 / 群聊线下 / 群通话 —— 不适用：这个开关说的是【你和这一个人】
+  //     此刻在一起，群里有好几个人，那句话在群里根本不成立。
+  //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
+  const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
+  // 这个聊天窗的一个开关：一个出口，别到处各写一份 setChatSettings。
+  const patchChatSetting = (id, patch) => {
+    if (!id || !patch) return;
+    setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), ...patch } }; saveJSON("x_chatSettings", n); return n; });
+  };
+  // 括号大法：整条被【一对】括号从头包到尾的消息，就是一个动作，不是说出口的话。
+  // ⚠️必须是【从头那个括号一路配到末尾】才算：「（笑）行吧（叹气）」前半截就闭合了，
+  //   那是普通一句话里带了括号，不许整条当动作吞掉。
+  const actInner = text => {
+    const s = String(text == null ? "" : text).trim();
+    if (!/^[（(]/.test(s) || !/[）)]$/.test(s)) return null;
+    let d = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "（" || c === "(") d++;
+      else if (c === "）" || c === ")") { d--; if (d === 0 && i !== s.length - 1) return null; }
+    }
+    if (d !== 0) return null;
+    return s.slice(1, -1).trim() || null;
+  };
+  // 她发出去的那一条长什么样。⚠️她这边有两个入口（直接发 / 带着输入框的字让 TA 回复），
+  //   判据和落法只许写在这一处——各写一份的话，改一处另一处永远落单。
+  const asUserLine = (charId, text) => {
+    const act = sameRoomFor(charId) ? actInner(text) : null;
+    return act
+      ? { role: "narration", kind: "narration", content: act, ts: Date.now(), read: true }
+      : { role: "user", content: text, ts: Date.now(), read: false };
   };
   // 秋秋改这个聊天窗的气泡时的写入口（她 2026-09-05：「让秋秋在这个人的悬浮屏里
   // 可以直接改动」）。落进的是【这个人自己的气泡】那一层，跟她手动细调同一个出口——
@@ -3579,7 +3623,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       if (offlineTogetherNow(charId)) {
         // 此刻真面对面（最近一拍够新）：别催、别当没开始/已结束
-        return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许说「怎么还不来」「还没到吗」「在哪呢」「等你好久了」，也绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**（你俩此刻就在一起、面对面，人已经到了）；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
+        return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——" + FACING_BAN + "；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
           + (recent ? "\n【刚才线下正进行到这儿（还没结束，顺着这个接）】\n" + recent + "\n——用户现在从线上给你发消息，多半是这场线下的间隙里插空发的（比如 Ta 说要去买菜、下楼取个快递）；你清楚你俩正面对面约着、线下进行到上面这一刻，就顺着接，别当成新的一天/新话题。" : "");
       }
       // 线下场次还挂着、但已经隔了一阵没动静（睡下了/各自忙了/到了第二天）：按此刻真实时间正常来，别演成才刚到、别编和刚才矛盾的处境
@@ -4037,7 +4081,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     char,
     chars: characters,
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
-    offlineNow: offlineActiveFor(char.id),
+    // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
+    // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
+    offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
+      ? samePlacePresence(userName(profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
+      : offlineActiveFor(char.id)),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
@@ -6766,13 +6814,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 只把用户消息放进对话，不触发 AI（可连发多条）
   const pushUser = (charId, text, chatKey) => {
     const b = blocksRef.current[chatKey || charId] || {};
-    pChat(chatKey || charId, p => [...p, {
-      role: "user",
-      content: text,
-      blocked: !!(b.iBlocked || b.theyBlocked),
-      ts: Date.now(),
-      read: false
-    }]);
+    const m = asUserLine(charId, text);
+    if (m.role === "user") m.blocked = !!(b.iBlocked || b.theyBlocked);
+    pChat(chatKey || charId, p => [...p, m]);
   };
   // 拍一拍：只追加那行灰字、【不自动触发回复】（省 API 钱）。角色下次回复时会在历史里看到"被拍过"，
   // 由模型【按人设决定要不要 cue】——爱闹的会提/回拍，高冷正忙的可以当没看见。她 2026-07-12 拍板要这个行为。
@@ -6823,12 +6867,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const char = characters.find(c => c.id === charId);
     let base = chatsRef.current[chatKey] || [];
     if (extraText != null && extraText !== "") {
-      const um = {
-        role: "user",
-        content: extraText,
-        ts: Date.now(),
-        read: false
-      };
+      const um = asUserLine(charId, extraText);
       pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
@@ -7419,7 +7458,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，用手机和 " + uName + " 一对一聊天。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR;
+      // 同处一室开着才解禁括号动描；关着的时候这一段一个字都不发，线上还是纯打字。
+      const _sameRoom = !_s.engineerEyes && sameRoomFor(charId);
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_sameRoom ? "\n\n" + samePlaceActRule(uName) : "");
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       const g = [];
       for (const m of promptHistory) {
@@ -7442,10 +7483,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           g.push({ role: "user", content: stp + "【这个位置你们通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "——别当没打过这通电话】" });
           continue;
         }
-        if (m.role === "narration" || m.kind === "narration") {
+        if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          const nc = stp + "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content +
+          // ⚠️同处一室开着时它有了第二种身份：那是【她此刻做的动作】，不是无主的场景。
+          //   说成「无说话人」他会当背景板，不知道那是她伸手、她起身。
+          const nc = stp + (_sameRoom ? "【" + uName + "此刻做的动作／她那边的动静｜不是 Ta 说出口的话】\n" : "【无说话人的场景旁白｜不是" + uName + "说的话】\n") + m.content +
             "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
@@ -7479,7 +7522,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          const ac = stp + (m.kind === "voice" ? "（这条你是用语音说的）" + m.content
+          // 他自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
+          const ac = stp + ((m.role === "narration" || m.kind === "narration") ? "（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）" + m.content
+            : m.kind === "voice" ? "（这条你是用语音说的）" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -7869,6 +7914,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
+        // 同处一室开着时，整条被括号包住的那一条是【他做的动作】，不是他发出去的消息：
+        // 落成跟她自己写的旁白一模一样的一条（居中小斜体），只多一个 who 标明是他做的。
+        // ⚠️判据和她那边共用 actInner，不另写一份。
+        const _act = _sameRoom ? actInner(words[i]) : null;
+        if (_act) {
+          pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _act, ts: _tsOf(i), turnId }]);
+          delivered = true;
+          notifyBubble(_act, "act-" + i);
+          continue;
+        }
         pChat(chatKey, p => [...p, {
           role: "assistant",
           content: words[i],
@@ -17939,6 +17994,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     sending: sending,
     onBack: () => setScreen("messages"),
     onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
+    sameRoom: sameRoomFor(activeChar.id),
+    onToggleSameRoom: () => {
+      const on = !sameRoomFor(activeChar.id);
+      patchChatSetting(activeChar.id, { sameRoom: on });
+      toast(on ? "同处一室：开——他知道你俩此刻面对面了" : "同处一室：关");
+    },
     onReply: extraText => {
       const b = blocks[blockChatKey(activeChar.id)] || {};
       if (b.iBlocked) return blockedReaction(activeChar.id, blockChatKey(activeChar.id));

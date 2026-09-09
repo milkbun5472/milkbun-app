@@ -7239,6 +7239,8 @@ function PhotoSheet({ m, onClose, toast }) {
 function ChatThread({
   unreadOther,
   onOpenUs,
+  sameRoom,
+  onToggleSameRoom,
   character,
   characters,
   groups,
@@ -7572,7 +7574,27 @@ function ChatThread({
       letterSpacing: "0.08em",
       color: chatMode === "chat" ? t.fog : t.accent
     }
-  }, (chatMode === "narr" ? "旁白" : chatMode === "ooc" ? "出戏" : "说话") + " · 轻触切换"))), /*#__PURE__*/React.createElement("button", {
+  }, (chatMode === "narr" ? "旁白" : chatMode === "ooc" ? "出戏" : "说话") + " · 轻触切换"))),
+  // 同处一室（她 2026-09-09）：她和他此刻真的面对面，但仍用气泡说话。
+  // ⚠️放顶栏不放进那张模式单子：那张单子四档是【这一条怎么发】、互斥；这个是一直开着的状态。
+  //   而且它开着会改他的行为，状态必须一眼看得见——不然她会忘了关，他人都出门了还当在她对面。
+  onToggleSameRoom ? /*#__PURE__*/React.createElement("button", {
+    onClick: onToggleSameRoom,
+    "data-wk": "sameroom",
+    "data-on": sameRoom ? "1" : "0",
+    className: "active:opacity-60 shrink-0",
+    style: {
+      fontFamily: F_BODY,
+      fontSize: 10.5,
+      lineHeight: 1,
+      padding: "5px 8px",
+      borderRadius: 999,
+      whiteSpace: "nowrap",
+      border: "1px solid " + (sameRoom ? t.accent : t.line),
+      color: sameRoom ? t.accent : t.fog,
+      background: "transparent"
+    }
+  }, sameRoom ? "· 同处一室" : "同处一室") : null, /*#__PURE__*/React.createElement("button", {
     onClick: onOpenSettings,
     "data-wk": "chatmore",
     className: "active:opacity-50"
@@ -7686,8 +7708,11 @@ function ChatThread({
     }, m.content));
     if (m.kind === "narration" || m.role === "narration") return h("div", {
       key: i,
+      "data-wk": "narr",
+      "data-me": m.who === "char" ? "0" : "1",
       className: "flex items-start justify-center gap-2 my-3 px-6"
     }, h("span", {
+      "data-wk": "narrink",
       style: {
         fontFamily: F_BODY,
         fontSize: 12.5,
@@ -8079,7 +8104,7 @@ function ChatThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "发一条消息…",
+    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : sameRoom ? "发一条消息…（括号＝动作）" : "发一条消息…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
