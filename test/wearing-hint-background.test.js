@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const app = fs.readFileSync('js/app.js','utf8');
 test('实际穿着提醒引用已有背景，不重复活动地点或换衣示例', () => {
   const start = app.indexOf('const _wearRefreshHint =');
-  const end = app.indexOf('const _normalThoughtTurnHint',start);
+  const end = app.indexOf('const _clockStampHint',start);
   const code = app.slice(start,end);
   const render = new Function('_wearRefreshGate',code+'; return _wearRefreshHint;');
   assert.equal(render({required:false}), '');

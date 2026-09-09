@@ -43,6 +43,6 @@ test("只加在单聊线上，理由写在代码里", () => {
 
 test("言秋那条线拿不到它——他走的是数字生命那串", () => {
   assert.match(app, /const _taskFull = \(_s\.engineerEyes \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint;/);
-  const dig = app.slice(app.indexOf("const _digitalTaskFull ="), app.indexOf("const _normalTaskFull ="));
+  const dig = app.slice(app.indexOf("const _digitalTaskFull ="), app.indexOf("\n", app.indexOf("const _digitalTaskFull =")));
   assert.doesNotMatch(dig, /_turnClosing/, "数字生命那串不许沾");
 });

@@ -67,7 +67,7 @@ test("撤回搭下一轮的便车，而且只带【他还没回过话】的那�
   assert.match(seg, /\(Number\(m\.ts\) \|\| 0\) >= lastHe/, "没按「他还没回过话」筛");
   assert.match(seg, /\.slice\(-3\)/, "没封顶，她连撤五条就会刷屏");
   // 真的挂进了这一轮的任务串
-  assert.match(app, /desireHint \+ _recallHint \+ capabilityHint/, "_recallHint 没接进 v2 任务串");
+  assert.match(app, /desireHint \+ _recallHint \+ _clockStampHint \+ capabilityHint/, "_recallHint 没接进 v2 任务串");
 });
 
 test("看没看到由代码判：撤得快就连原文都不发过去", () => {

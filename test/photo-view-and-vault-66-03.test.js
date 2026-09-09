@@ -48,13 +48,14 @@ test("生图那条链每一处存图都走了会上云的那两扇门", () => {
 //    「挂在真正在跑的那条协议上，不是那条死路」。这一条替发照片也钉一次。
 test("发照片那一格挂在真正在跑的那条协议上，不是那条死路", () => {
   // 真正在跑的是 Protocol v2：openCaps + capState
-  assert.match(app, /openCaps\.push\("photo"\);\n\s*capState\.push\(photoCapLine\(uName, \{ face: canFace, duo: canDuo \}\)\);/,
+  assert.match(app, /openCaps\.push\("photo"\);/);
+  assert.match(app, /photoCapLine\(uName, \{ face: canFace, duo: canDuo \}\) \+ "\\n" \+ PHOTO_NO_EXCUSE\.trim\(\)/,
     "字段说明没进 capState——那模型手上永远只有 self/other/duo");
-  // ⚠️那条死路上不许再留第二份说法
-  const dead = app.slice(app.indexOf("      const _normalTaskFull = ("), app.indexOf("      // 旧 _normalTaskFull 暂留作"));
-  assert.ok(dead.indexOf("photoHint") >= 0, "基线结构变了，这条测试得重看");
-  assert.equal((app.match(/photoCapLine\(/g) || []).length, 3,
-    "字段说明该只有一份：photoCapLine 定义在 engine，单聊 capState、群 hint、那条死路各引一次");
+  // ⚠️那条死路 v66.12 已经整个删掉了（她：「每次都这样耽误事」），不许再长回来
+  assert.ok(!/const _normalTaskFull = /.test(app), "那条不再发送的 A/B 基线又回来了");
+  assert.ok(!/const photoHint = /.test(app), "photoHint 又回来了——它当初就只喂那条死路");
+  assert.equal((app.match(/photoCapLine\(/g) || []).length, 2,
+    "字段说明该只有一份：photoCapLine 定义在 engine，单聊 capState 和群 hint 各引一次");
   assert.ok(!/kind＝画面里是谁/.test(app), "app.js 里又手抄了一份字段说明");
   assert.match(eng, /function photoCapLine\(uName, o\)/);
   assert.match(eng, /face＝这张图里看不看得见你的脸/);

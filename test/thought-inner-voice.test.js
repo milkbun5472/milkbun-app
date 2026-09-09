@@ -28,7 +28,11 @@ test("四条心声写入路径全部过 ThoughtVoiceGuard，群线下不留旁�
 
 test("旧导演稿不再作为下一轮心声范文回喂", () => {
   assert.doesNotMatch(app, /lastThoughtRaw/);
-  assert.match(app, /const thoughtSpec = "本轮必须填写：一句角色本人此刻没说出口的第一人称心声"/);
+  // ⚠️v66.12：thoughtSpec 跟着那条不再发送的 A/B 基线一起删了。
+  //   真正在跑的是 _normalThoughtTurnHint（Protocol v2 每轮任务串里）。
+  assert.match(app, /const _normalThoughtTurnHint = "\\n【本轮心声·普通角色必填】/);
+  assert.match(app, /_normalThoughtTurnHint \+ "\\n" \+ MOOD_TURN_RULE/, "没拼进真正在跑的那一串");
+  assert.ok(!/thoughtSpec/.test(app.replace(/\/\/[^\n]*/g, "")), "旧 spec 还有活的引用");
 });
 
 test("普通角色心声守卫拒绝时不再冻结旧快照，言秋仍保持自愿", () => {

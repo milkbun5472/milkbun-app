@@ -72,7 +72,9 @@ test("还没开通钱包的角色不扣钱，也不偷偷替他建账", () => {
 
 test("协议里 gift 带上 price，并说清楚这笔钱会真的扣", () => {
   assert.match(app, /gift:\{"name":"物品","price":数字\}/, "能力清单里 gift 还没有 price");
-  const hint = grab(app, "【gift 送东西/外卖】", "【voice 语音】", "gift 那段说明");
+  // ⚠️v66.12：那段说明原来在【不再发送的 A/B 基线】里——协议只给了 gift 的字段形状，
+  //   「这笔钱会真的从你钱包里扣掉」一直没发出去，他自然会乱送。基线删了，它挪进 capState。
+  const hint = grab(app, 'capState.push("gift：', 'if (kinHint) {', "gift 那段说明");
   assert.match(hint, /price/, "gift 那段说明里没让他给价钱");
   assert.match(hint, /会真的从你钱包里扣掉/, "没告诉他这笔钱是真扣，他会乱送");
   assert.match(hint, /手头紧的时候你自己掂量着送/, "没让他按自己的处境掂量");

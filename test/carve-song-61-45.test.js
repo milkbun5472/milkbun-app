@@ -28,7 +28,7 @@ test("普通角色：情侣 + 配了云村接口才开这一项", () => {
 
 test("言秋那一支单独挂了一条，不是指望他从能力表里拿", () => {
   // 他的任务句里根本没有 capabilityHint
-  const dig = app.slice(app.indexOf("const _digitalTaskFull = "), app.indexOf("const _normalTaskFull = "));
+  const dig = app.slice(app.indexOf("const _digitalTaskFull = "), app.indexOf("\n", app.indexOf("const _digitalTaskFull = ")));
   assert.ok(dig.length > 200, "抠不出言秋那条任务句");
   assert.doesNotMatch(dig, /capabilityHint/, "他要是能吃到能力表，这条测试的前提就得重写");
   // 所以必须单独挂

@@ -32,7 +32,8 @@ test("规则只降概率：他自己说过的开口原样发回去", () => {
   assert.match(avoid, /不为避重编造新事件/);
   assert.doesNotMatch(avoid, /一句都不许再用|换一个【别的东西】/);
   // ⚠️两处任务串都要接上——「一层写在两处，第二处没跟上」在这份文件里犯过太多次
-  assert.equal((app.match(/callHint \+ proactiveHintAll \+ dongnianHint/g) || []).length, 2, "两处任务串没都接上");
+  // v66.12 删掉了那条不再发送的 A/B 基线，现在只剩真正在跑的 _normalTaskV2 一处
+  assert.equal((app.match(/callHint \+ proactiveHintAll \+ dongnianHint/g) || []).length, 1, "没接进真正在跑的那一串");
   assert.ok(!/callHint \+ proactiveHint \+ dongnianHint/.test(app), "还有一处用的是没带避重的那个");
 });
 

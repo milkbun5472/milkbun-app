@@ -61,8 +61,8 @@ test("常驻指令里那个「你俩隔着屏幕」的前提摘掉了", () => {
   assert.ok(!/用手机即时通讯和用户聊天/.test(app), "任务那两句还在断言你俩隔着屏幕");
   assert.ok(!/用手机和 " \+ uName \+ " 一对一聊天/.test(app), "总纲那句还在断言你俩隔着屏幕");
   assert.match(app, /【聊天总纲】你就是上面的「" \+ char\.name \+ "」本人，和 " \+ uName \+ " 一对一说话。/);
-  assert.equal((app.match(/完全代入「" \+ char\.name \+ "」和用户说话。/g) || []).length, 2,
-    "任务那句有两份（selfTask 和 _normalTaskFull），得一起改——漏一处它照旧每轮断言两地");
+  // v66.12 把那条不再发送的 A/B 基线删了，这句现在只剩 selfTask 一份
+  assert.equal((app.match(/完全代入「" \+ char\.name \+ "」和用户说话。/g) || []).length, 1);
   // 前提交还给上下文，这句话只许有一份，单聊群聊共用
   const one = eng.match(/【你俩此刻在不在一个地方，看上下文，别默认隔着老远】/g) || [];
   assert.equal(one.length, 1);

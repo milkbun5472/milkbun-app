@@ -34,16 +34,20 @@ test("留出口：这个人自己那种挑剔仍然可以写", () => {
 test("单聊和群聊两处都拼上了，声明完没人用不算数", () => {
   assert.equal((app.match(/\+ PHOTO_NO_EXCUSE/g) || []).length, 2,
     "单聊 photoHint + 群聊 gSelfieHint，两处都要");
-  const i = app.indexOf("const photoHint = canSelfie");
-  assert.match(app.slice(i, i + 2600), /\+ PHOTO_NO_EXCUSE/, "单聊没接");
+  // ⚠️v66.12：单聊那一份原来挂在 photoHint 上，而 photoHint 只进那条【不再发送的
+  //   A/B 基线】——也就是说这条铁律单聊侧从来没发出去过。基线删了，它挪进 capState。
+  const i = app.indexOf('openCaps.push("photo");');
+  assert.ok(i > 0, "找不到单聊那条真正在跑的 photo 能力");
+  assert.match(app.slice(i, i + 900), /\+ PHOTO_NO_EXCUSE\.trim\(\)/, "单聊没接");
   const j = app.indexOf("const gSelfieHint = ");
   assert.match(app.slice(j, j + 2200), /\+ PHOTO_NO_EXCUSE/, "群聊没接");
 });
 
 test("没开自拍能力的角色一个字都不多发", () => {
-  const i = app.indexOf("const photoHint = canSelfie");
-  const seg = app.slice(i, i + 2700);
-  assert.match(seg, /\n        : "";/, "canSelfie 为假时该是空串");
+  const i = app.indexOf("      if (canSelfie) {");
+  const seg = app.slice(i, i + 1200);
+  assert.ok(i > 0, "找不到那道 canSelfie 闸");
+  assert.match(seg, /openCaps\.push\("photo"\)/, "闸里没开 photo 能力");
 });
 
 test("照片依据实际理由，不做跨人物比较", () => {

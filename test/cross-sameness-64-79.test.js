@@ -13,7 +13,7 @@ test("共享规则允许普通回应，不要求逐句独特", () => {
 test("实际V2任务保留动态层，生成任务串不读取其他聊天", () => {
   const start = app.indexOf("const _normalTaskV2 = (");
   const task = app.slice(start, app.indexOf("const _roomHint", start));
-  const names = ["_stateBootstrapHint", "_wearRefreshHint", "paceHint", "callHint", "proactiveHintAll", "dongnianHint", "gapHint", "crossChannelHint", "_saidElsewhereHint", "eAfterglowHint", "desireHint", "_recallHint", "capabilityHint", "_normalThoughtTurnHint", "MOOD_TURN_RULE", "_biTurnLine", "_turnClosing", "_gazeNudgeHint"];
+  const names = ["_stateBootstrapHint", "_wearRefreshHint", "paceHint", "callHint", "proactiveHintAll", "dongnianHint", "gapHint", "crossChannelHint", "_saidElsewhereHint", "eAfterglowHint", "desireHint", "_recallHint", "_clockStampHint", "capabilityHint", "_normalThoughtTurnHint", "MOOD_TURN_RULE", "_biTurnLine", "_turnClosing", "_gazeNudgeHint"];
   const forbidden = new Proxy({}, { get() { throw new Error("不该扫描其他聊天"); }, ownKeys() { throw new Error("不该扫描其他聊天"); } });
   const render = new Function("char", "uName", "chatsRef", "stateHistRef", ...names, task + "return _normalTaskV2;");
   const result = render({name: "测试角色"}, "测试用户", forbidden, forbidden, ...names.map(n => "<" + n + ">"));

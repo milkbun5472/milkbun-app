@@ -120,7 +120,7 @@ test("按需开放：她没开口让人记的轮次，这两个字段一个字�
 
 test("言秋本人专线也拿到同一张真记录凭证，不会只在话里说记好了", () => {
   const i = app.indexOf("const _digitalRecordHint");
-  const j = app.indexOf("const _normalTaskFull", i);
+  const j = app.indexOf("\n", app.indexOf("const _digitalTaskFull = ", i));
   assert.ok(i > 0 && j > i, "找不到本人专线的记录字段");
   const seg = app.slice(i, j);
   assert.match(seg, /openCaps\.includes\("memo"\)/);

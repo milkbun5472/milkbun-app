@@ -22,9 +22,12 @@ test("单聊线上：时刻戳和日期锚都跟着 roomClockOn 走", () => {
 test("单聊线上：关了就别再教他读那些戳", () => {
   // 「聊天历史每条开头的〔今天14:32〕…供你感知」这句必须挂在 roomClockOn 上，
   // 否则戳没了、话还在，模型会去找一个不存在的东西。
+  // ⚠️v66.12：这句原来只在【不再发送的 A/B 基线】里——戳照盖，解释从来没发出去。
+  //   基线删了，它挪成 _clockStampHint 拼进 Protocol v2 每轮任务串。
   const i = app.indexOf("聊天历史每条开头的〔今天14:32〕");
   assert.ok(i > 0, "那句提示不见了");
-  assert.ok(app.slice(i - 40, i).indexOf("roomClockOn ?") >= 0, "那句提示没跟着开关走");
+  assert.ok(app.slice(i - 120, i).indexOf("roomClockOn") >= 0, "那句提示没跟着开关走");
+  assert.match(app, /_recallHint \+ _clockStampHint \+ capabilityHint/, "没拼进真正在跑的那一串");
 });
 
 test("群聊线上：改挂时间感知，不再挂闭群开关 memoryInterop", () => {

@@ -42,8 +42,8 @@ test("普通单聊实际发送的动作协议允许事实未变时原样填写",
 test("四处都要真的拼进去，不能再只是声明", () => {
   // 单聊线上：v2 每轮任务（现行路径）
   assert.match(app, /_normalThoughtTurnHint \+ "\\n" \+ MOOD_TURN_RULE/, "单聊线上·v2");
-  // 单聊线上：旧全量任务串（保留基线，不是现行发送路径）
-  assert.match(app, /" \+ MOOD_TURN_RULE \+ "\\n【输出】只输出一个 JSON/, "单聊线上·全量");
+  // ⚠️原来这儿还钉着「旧全量任务串」那一份。v66.12 把那条不再发送的 A/B 基线删了
+  //   （她 2026-09-09：「每次都这样耽误事」）——钉一条【发不出去的路】只会让人以为它还在跑。
   // 群线上：mood 字段只在开了记忆互通时才发，规则跟着字段走
   assert.match(app, /两项只更新共享状态，绝不写进 text 气泡。\\n" \+ MOOD_TURN_RULE/, "群线上");
   // 单聊线下 / 群线下
@@ -56,8 +56,8 @@ test("四处都要真的拼进去，不能再只是声明", () => {
   // 会写心情的才要：群线上的 mood 跟着字段走（在 common 里），通话不写心情
   assert.ok(!GB.has(GB.CALL, "MOOD_TURN_RULE"), "通话不写心情，别白发一层");
   assert.equal((engine.match(/MOOD_TURN_RULE/g) || []).length +
-               (app.match(/MOOD_TURN_RULE/g) || []).length, 6,
-    "1 处定义 + groupBans + 单人线下 + 单聊线上两条 + 群线上");
+               (app.match(/MOOD_TURN_RULE/g) || []).length, 5,
+    "1 处定义 + groupBans + 单人线下 + 单聊线上 v2 + 群线上（v66.12 删掉了那条不再发送的 A/B 基线，少一处）");
 });
 
 // 心声历史只存档、不回灌进提示词——所以唯一的反馈源就是【你此刻的心情】那一行，
