@@ -8321,8 +8321,14 @@ function CallScreen({
   const secRef = useRef(0);
   const [pos, setPos] = useState(null); // PiP 小屏拖动位置（null=默认右上）
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
-  // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条（共用 useTtsPlayer）
+  // 手动回听与自动队列共用 ttsSpeak 缓存，互相接管时先停止旧播放。
   const tp = useTtsPlayer();
+  const [autoVoice, setAutoVoice] = useState(() => loadJSON("x_callAutoVoice", false) === true);
+  const [autoZh, setAutoZh] = useState(() => loadJSON("x_callAutoZh", false) === true);
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioStatus, setAudioStatus] = useState("");
+  const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
+  audioRef.current.enabled = autoVoice && audioReady && !bye;
   // —— 真声通话档 v2（v56.23）：主耳=浏览器原生 SpeechRecognition（免费/实时/自带断句），
   //    书房 whisper 降级为兜底；播放=Web Audio+手势解锁（iOS PWA 拦非手势 audio.play，
   //    点🎙那一瞬先播1帧静音点亮 AudioContext）。脑子不变：onSend 走这通电话原有引擎。
@@ -8339,6 +8345,7 @@ function CallScreen({
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
+    audioRef.current.enabled = false; lvStop();
     const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
     return () => clearTimeout(tm);
   }, [!!bye]);
@@ -8454,18 +8461,46 @@ function CallScreen({
       }
     };
   };
+  const stopCallAudio = () => {
+    const st = lv.current;
+    audioRef.current.epoch++;
+    st.played = msgsRef.current.length; st.speaking = false; st.busy = 0;
+    try { st.src && st.src.stop(); } catch (e) {}
+    st.src = null; tp.stop();
+    setAudioStatus("");
+  };
+  // 每通电话需要一次手势解锁声音，不申请麦克风权限，也不补播历史。
+  const unlockCallAudio = async () => {
+    const st = lv.current, epoch = audioRef.current.epoch;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error("浏览器不支持自动播报");
+    if (!st.ttsCtx || st.ttsCtx.state === "closed") st.ttsCtx = new AC();
+    await st.ttsCtx.resume();
+    if (!audioRef.current.mounted || epoch !== audioRef.current.epoch) return false;
+    if (st.ttsCtx.state !== "running") throw new Error("声音未启用，请再点一次");
+    const us = st.ttsCtx.createBufferSource();
+    us.buffer = st.ttsCtx.createBuffer(1, 1, 22050); us.connect(st.ttsCtx.destination); us.start(0);
+    st.played = msgsRef.current.length;
+    setAudioReady(true); return true;
+  };
+  const toggleAutoVoice = async () => {
+    if (autoVoice && audioReady) {
+      audioRef.current.enabled = false; stopCallAudio(); recResume();
+      setAutoVoice(false); saveJSON("x_callAutoVoice", false); setAudioStatus(""); return;
+    }
+    try {
+      stopCallAudio();
+      if (!await unlockCallAudio()) return;
+      setAutoVoice(true); saveJSON("x_callAutoVoice", true); setAudioStatus("");
+    } catch (e) { setAudioStatus(e.message || "声音启用失败，请重试"); }
+  };
   const lvStart = async () => {
     try {
       const st = lv.current;
       st.session += 1; const session = st.session;
       st.turn = 0; st.lastFinal = ""; st.lastFinalAt = 0; st.pre = []; st.preSamples = 0;
-      // 手势里点亮 TTS 的 AudioContext：播1帧静音解锁，之后异步语音 iOS 也放行
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!st.ttsCtx || st.ttsCtx.state === "closed") st.ttsCtx = new AC();
-      try { await st.ttsCtx.resume(); } catch (e2) {}
-      const ub = st.ttsCtx.createBuffer(1, 1, 22050);
-      const us = st.ttsCtx.createBufferSource(); us.buffer = ub; us.connect(st.ttsCtx.destination); us.start(0);
-      st.played = (msgs || []).length;
+      stopCallAudio();
+      if (!await unlockCallAudio()) return;
       let mode = "";
       st.recAlive = false; st.recDead = false;
       if (recStart()) {
@@ -8488,6 +8523,7 @@ function CallScreen({
   };
   const lvStop = () => {
     const st = lv.current;
+    stopCallAudio();
     st.session += 1; // 先让识别/TTS 的迟到 promise 全部失效，再拆设备
     recPause(); st.rec = null;
     try { st.node && st.node.disconnect(); } catch (e) {}
@@ -8497,37 +8533,32 @@ function CallScreen({
     st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.busy = 0; st.speaking = false;
     setLive(false); setLiveSt("");
   };
-  useEffect(() => () => lvStop(), []);
+  useEffect(() => () => { audioRef.current.mounted = false; audioRef.current.enabled = false; lvStop(); try { lv.current.ttsCtx && lv.current.ttsCtx.close(); } catch (e) {} }, []);
   // —— 嘴：对方新台词自动播（Web Audio 队列，半双工：播时暂停识别） ——
   useEffect(() => {
-    if (!live) return;
+    if (!autoVoice || !audioReady || bye) return;
     const st = lv.current;
-    const session = st.session;
+    const session = st.session, epoch = audioRef.current.epoch;
+    const valid = () => audioRef.current.enabled && audioRef.current.mounted && audioRef.current.epoch === epoch && st.session === session;
     if (st.speaking) return; // 播报锁：防多气泡齐唱
     st.speaking = true;
     (async () => {
       let paused = false;
-      while (liveRef.current && st.played < msgsRef.current.length) {
+      while (valid() && st.played < msgsRef.current.length) {
         const m = msgsRef.current[st.played++];
         if (!m || m.role === "user" || m.act || !m.content) continue;
-        const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : primary;
-        if (!spk2 || !spk2.voiceId) continue;
+        const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : ((participants || []).length === 1 ? primary : null);
+        if (!spk2 || !spk2.voiceId || !ttsReady()) continue;
+        tp.stop();
         if (!paused) { paused = true; recPause(); } // 说话前闭耳，防自问自答
-        st.busy++; setLiveSt("对方说话中…");
-        // ⭐流水线预取：播这条前先把下一条的合成悄悄发出去（ttsSpeak 自带缓存，轮到它时秒中）
-        for (let k = st.played; k < msgsRef.current.length; k++) {
-          const nm = msgsRef.current[k];
-          if (nm && nm.role !== "user" && !nm.act && nm.content) {
-            const nspk = nm.senderId ? (participants || []).find(c => c.id === nm.senderId) : primary;
-            if (nspk && nspk.voiceId) { ttsSpeak(nm.content, nspk.voiceId).catch(() => {}); }
-            break;
-          }
-        }
+        st.busy++; setAudioStatus("对方说话中…");
+        // 不预取未轮到的收费语音，关闭开关后不再启动下一次合成。
         try {
           const blob = await ttsSpeak(m.content, spk2.voiceId);
-          if (!liveRef.current || st.session !== session) break;
+          if (!valid()) break;
           const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
-          if (!liveRef.current || st.session !== session) break;
+          if (!valid()) break;
+          if (st.ttsCtx.state !== "running") throw new Error("声音已暂停");
           await new Promise(res => {
             const srcN = st.ttsCtx.createBufferSource(); st.src = srcN;
             srcN.buffer = abuf; srcN.connect(st.ttsCtx.destination);
@@ -8535,13 +8566,13 @@ function CallScreen({
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
           });
-        } catch (e) {}
-        finally { if (st.session === session) st.busy = Math.max(0, st.busy - 1); }
+        } catch (e) { if (valid()) { setAudioStatus("播报暂停，请重新启用连续播报"); audioRef.current.enabled = false; setAudioReady(false); } break; }
+        finally { if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
       }
-      if (st.session === session) st.speaking = false;
-      if (liveRef.current && st.session === session) { setLiveSt("听着呢"); if (paused) setTimeout(() => { if (st.session === session) recResume(); }, 300); }
+      if (audioRef.current.epoch === epoch) st.speaking = false;
+      if (audioRef.current.epoch === epoch && st.session === session) { if (valid()) setAudioStatus(""); if (paused) setTimeout(() => { if (audioRef.current.epoch === epoch && st.session === session) recResume(); }, 300); }
     })();
-  }, [live, (msgs || []).length]);
+  }, [autoVoice, audioReady, !!bye, (msgs || []).length, tp.play]);
   useEffect(() => {
     const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
     return () => clearInterval(i);
@@ -8562,6 +8593,7 @@ function CallScreen({
     && (!!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady()));
   const send = () => {
     if (!input.trim() || sending) return;
+    stopCallAudio(); recResume();
     onSend(input.trim());
     setInput("");
   };
@@ -8654,7 +8686,18 @@ function CallScreen({
       color: onPhoto ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.6)",
       marginTop: 4
     }, litText)
-  }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss)), h("div", {
+  }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss),
+    h("div", { className: "flex flex-wrap justify-center gap-2 px-4 mt-2", "data-call-options": true },
+      h("button", { type: "button", onClick: toggleAutoVoice,
+        disabled: !!bye || !(typeof ttsReady === "function" && ttsReady() && people.some(c => c.voiceId)),
+        "aria-pressed": autoVoice && audioReady,
+        style: { color: "#fff", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: "7px 9px", fontSize: 11 } },
+        autoVoice ? (audioReady ? "连续播报：开" : "连续播报：点此启用") : "连续播报：关"),
+      h("button", { type: "button", onClick: () => { const next = !autoZh; setAutoZh(next); saveJSON("x_callAutoZh", next); }, "aria-pressed": autoZh,
+        style: { color: "#fff", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: "7px 9px", fontSize: 11 } },
+        autoZh ? "译文：直接显示" : "译文：点击显示")),
+    h("div", { role: "status", style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
+      audioStatus || "播报需配置音色与语音线路，会使用额度；缺少译文时自动翻译可能调用翻译线路")), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci,
@@ -8686,7 +8729,7 @@ function CallScreen({
     }
   }, (c.name || "?")[0])))), h("div", {
     ref: ref,
-    className: "flex-1 overflow-y-auto px-5 py-3 space-y-2"
+    className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2"
   }, recent.map((m, i) => {
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;
@@ -8715,8 +8758,19 @@ function CallScreen({
         background: callBubble(isU).background,
         color: callBubble(isU).color
       }
-    }, h(TransText, { text: m.content, isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
-      onClick: () => tp.toggle(messageKey, m.content, spk.voiceId),
+    }, h(TransText, { text: m.content, isU, zhReady: m.zh, autoShow: autoZh, ink: callBubble(isU).color })), canT ? h("button", {
+      disabled: !!bye,
+      "aria-label": meP ? "停止这句" : "播放这句",
+      onClick: () => {
+        stopCallAudio();
+        if (meP) { recResume(); return; }
+        const epoch = audioRef.current.epoch;
+        lv.current.speaking = true; lv.current.busy++; recPause();
+        tp.toggle(messageKey, m.content, spk.voiceId, undefined, () => {
+          if (audioRef.current.epoch !== epoch || !audioRef.current.mounted) return;
+          lv.current.speaking = false; lv.current.busy = 0; recResume();
+        });
+      },
       className: "active:opacity-60 shrink-0",
       style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
     }, meP ? (tp.play.st === "gen" ? "…" : "⏸") : "▶") : null));
@@ -8749,6 +8803,7 @@ function CallScreen({
       paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)"
     }, litPlate("0", ".78"))
   }, canLive && h("button", {
+    "aria-label": live ? "关闭麦克风" : "开启麦克风",
     onClick: () => live ? lvStop() : lvStart(),
     className: "shrink-0 flex items-center justify-center",
     style: { width: 42, height: 42, borderRadius: 999, background: live ? "#4a9d6e" : "rgba(255,255,255,0.2)" }
@@ -8780,7 +8835,7 @@ function CallScreen({
     size: 17,
     color: "#fff"
   })), h("button", {
-    onClick: () => onHangup(secRef.current, "me"),
+    onClick: () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); },
     className: "shrink-0 flex items-center justify-center",
     style: {
       width: 42,
@@ -9150,17 +9205,17 @@ function pinToBottom(el, ms) {
 // 有它就不再跑免费接口——那东西把「傘さすか迷うレベルで湿気すごい」翻成
 // 「您可能会迷失在雨伞中」；说这句话的人自己译，根本不是一个水平。
 // 译键的位置和展开样式一个字不改：她 2026-08-26 说了「我喜欢在旁边可以按翻译」。
-function TransText({ text, isU, zhReady, ink }) {
+function TransText({ text, isU, zhReady, ink, autoShow = false }) {
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
-  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink });
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
 }
-function TransTextState({ text, isU, zhReady, ink }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
   const t = useTheme();
   const _lang = typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
   const lang = zhReady ? (_lang || "外语") : _lang;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
   const [zh, setZh] = useState(() => zhReady || (cached && cached.zh) || "");
   const [by, setBy] = useState(() => zhReady ? "他自己给的" : (cached && cached.by) || "");
@@ -9176,6 +9231,7 @@ function TransTextState({ text, isU, zhReady, ink }) {
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
+  useEffect(() => { setOpen(!!autoShow); }, [autoShow]);
   useEffect(() => { if (open && lang) run(); }, [open, lang]);
   if (!lang) return text;
   const fg = ink || (isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink));
@@ -9354,27 +9410,39 @@ function TtsBubbleDot({ text, voiceId, emo, st, onTap }) {
 function useTtsPlayer() {
   const [play, setPlay] = useState(null); // {k, st:"gen"|"playing"}
   const audRef = useRef(null);
-  useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
-  const toggle = async (k, text, voiceId, opts) => {
-    if (play && play.st === "gen") return;
-    if (play && play.k === k && play.st === "playing") { try { audRef.current && audRef.current.pause(); } catch (e) {} setPlay(null); return; }
+  const requestRef = useRef(0);
+  const releaseRef = useRef(null);
+  const stop = () => {
+    requestRef.current++;
     if (audRef.current) { try { audRef.current.pause(); } catch (e) {} }
+    audRef.current = null;
+    if (releaseRef.current) { const release = releaseRef.current; releaseRef.current = null; release(); }
+    setPlay(null);
+  };
+  useEffect(() => () => stop(), []);
+  const toggle = async (k, text, voiceId, opts, onDone) => {
+    if (play && play.k === k) { stop(); return; }
+    stop();
+    const request = requestRef.current;
     const aud = new Audio();
     audRef.current = aud;
+    let url = null;
+    releaseRef.current = () => { if (url) URL.revokeObjectURL(url); if (onDone) onDone(); };
     aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
     setPlay({ k, st: "gen" });
     try {
       const blob = await ttsSpeak(text, voiceId, opts);
+      if (requestRef.current !== request) return;
       markTtsCached(text, voiceId, opts && opts.emo);   // 这一句从此免费重播，点亮它
-      const url = URL.createObjectURL(blob);
+      url = URL.createObjectURL(blob);
       aud.src = url;
-      aud.onended = () => { setPlay(p => p && p.k === k ? null : p); URL.revokeObjectURL(url); };
-      aud.onerror = () => { setPlay(p => p && p.k === k ? null : p); URL.revokeObjectURL(url); };
+      aud.onended = aud.onerror = () => { if (requestRef.current === request) stop(); };
       await aud.play();
+      if (requestRef.current !== request) { aud.pause(); return; }
       setPlay({ k, st: "playing" });
-    } catch (e) { setPlay(null); }
+    } catch (e) { if (requestRef.current === request) stop(); }
   };
-  return { play, toggle };
+  return { play, toggle, stop };
 }
 // 转录行的回听小按钮（角色台词旁）：spk 配了音色 + TTS 开着才显示
 function TtsDot({ k, text, spk, tp, dark }) {

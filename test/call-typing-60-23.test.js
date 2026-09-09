@@ -34,7 +34,7 @@ test("那一层是个气泡，长在他下一句会出现的地方", () => {
   // ⚠️不能只看「在 liveSt 之前」——把它挪到列表外面、liveSt 前面照样满足。
   //   要真的证明它长在那个滚动容器【里】，所以数括号：找到那个 h("div" 的开括号，
   //   配对到它自己的闭括号，key:"typing" 必须落在这一段之内。
-  const listProps = body.indexOf('className: "flex-1 overflow-y-auto');
+  const listProps = body.indexOf('className: "flex-1 min-h-0 overflow-y-auto');
   assert.ok(listProps > 0, "找不到通话页那条消息列表");
   const open = body.lastIndexOf('h("div"', listProps);
   let depth = 0, end = body.indexOf("(", open);

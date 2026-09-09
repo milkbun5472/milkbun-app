@@ -66,7 +66,7 @@ test("合成成功要当场点亮它——那一颗已经挂在屏幕上了", ()
   assert.match(comp, /const _ttsSubs = new Set\(\);/);
   assert.match(comp, /markTtsCached = \(text, voiceId, emo\) => \{[\s\S]{0,200}_ttsSubs\.forEach/);
   assert.match(dot, /_ttsSubs\.add\(f\)[\s\S]{0,80}_ttsSubs\.delete\(f\)/, "订阅了不退订会漏");
-  assert.match(comp, /await ttsSpeak\(text, voiceId, opts\);\n\s*markTtsCached\(text, voiceId, opts && opts\.emo\)/);
+  assert.match(comp, /await ttsSpeak\(text, voiceId, opts\);\n\s*if \(requestRef.current !== request\) return;\n\s*markTtsCached\(text, voiceId, opts && opts\.emo\)/);
 });
 
 test("查缓存只查一次，别每次重绘都翻 IDB", () => {

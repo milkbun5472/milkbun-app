@@ -37,7 +37,7 @@ test('流式、尾部对账和群通话均走同一拆分出口，字幕随真�
   assert.match(app, /ttsSpeak\(ln.speech, char.voiceId\)/);
 });
 test('通话现场与两处回看复用译键，深色通话传自己的前景色', () => {
-  assert.match(comp, /h\(TransText, \{ text: m.content, isU, zhReady: m.zh, ink: callBubble\(isU\).color \}\)/);
+  assert.match(comp, /h\(TransText, \{ text: m.content, isU, zhReady: m.zh, autoShow: autoZh, ink: callBubble\(isU\).color \}\)/);
   assert.equal((comp.match(/h\(TransText, \{ text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink \}\)/g)||[]).length,2);
-  assert.match(comp, /tp.toggle\(messageKey, m.content, spk.voiceId\)/);
+  assert.match(comp, /tp.toggle\(messageKey, m.content, spk.voiceId,/);
 });

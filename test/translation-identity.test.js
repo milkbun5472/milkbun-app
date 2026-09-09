@@ -5,7 +5,7 @@ const src=fs.readFileSync('js/components.js','utf8');
 const start=src.indexOf('recent.map((m, i) => {');
 const render=src.slice(start,src.indexOf('\n  }),',start)+5);
 const h=(tag,props,...children)=>({tag,props,children});
-const rows=new Function('h','TransText','F_BODY','list',`const recent=list.slice(-16),people=[],isGroup=false,primary=null,onPhoto=false,litText={},tp={play:null},callBubble=()=>({background:'#abc',color:'#222'});return ${render};`);
+const rows=new Function('h','TransText','F_BODY','list',`const recent=list.slice(-16),people=[],isGroup=false,primary=null,onPhoto=false,autoZh=false,litText={},tp={play:null},callBubble=()=>({background:'#abc',color:'#222'});return ${render};`);
 test('通话窗口16→17→40条：同一条key稳定，新消息不继承旧位置',()=>{
  // 消息形状钉在真实通话写入方；无需假造不存在的消息id。
  const app=fs.readFileSync('js/app.js','utf8');
