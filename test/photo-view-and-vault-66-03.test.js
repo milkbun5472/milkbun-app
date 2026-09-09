@@ -48,6 +48,15 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   // 提示词里那几种 kind 按【有没有脸可锁】给，view 永远在
   assert.match(app, /const _kinds = \(canFace \? \["self", "other"\] : \[\]\)\.concat\(canDuo \? \["duo"\] : \[\]\)\.concat\(\["view"\]\);/);
   assert.match(app, /\*\*view\*\*=【画面里没有人】的那种照片/);
+  // ⚠️光在末尾多列一种是不够的（她 2026-09-09 截图：整段描述里根本没有人，
+  //   kind 还是填了 self，脸被硬画进那张酸辣粉里）。得把【判据】说死：
+  //   kind 只回答「这张图里有没有你」，不是「你想发什么」。
+  assert.match(app, /kind 只回答一个问题：这张图里【有没有你】/);
+  assert.match(app, /一律填 view，绝不许填 self/);
+  assert.match(app, /填错了会硬把你的脸画进一张本来没有人的图里/);
+  // 群聊那一头也要有同一条判据
+  assert.match(app, /kind 只回答一个问题：这张图里【有没有那个成员本人】/);
+  assert.match(app, /填错了会硬把 TA 的脸画进一张本来没有人的图里/);
   assert.match(app, /\["self", "other", "duo", "view"\]\.includes/);
   // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
   assert.match(app, /&& \(photoKind === "view" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
