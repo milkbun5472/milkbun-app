@@ -8301,6 +8301,7 @@ function ChatThread({
 }
 // 仿微信语音/视频通话：发一句自动回一句
 function CallScreen({
+  audioSession,
   participants,
   mode,
   msgs,
@@ -8323,10 +8324,11 @@ function CallScreen({
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
   // 手动回听与自动队列共用 ttsSpeak 缓存，互相接管时先停止旧播放。
   const tp = useTtsPlayer();
-  const [autoVoice, setAutoVoice] = useState(() => loadJSON("x_callAutoVoice", false) === true);
+  const [autoVoice] = useCallAutoVoice();
   const [audioReady, setAudioReady] = useState(false);
   const [audioStatus, setAudioStatus] = useState("");
   const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
+  const audioInitialized = useRef(false);
   audioRef.current.enabled = autoVoice && audioReady && !bye;
   // —— 真声通话档 v2（v56.23）：主耳=浏览器原生 SpeechRecognition（免费/实时/自带断句），
   //    书房 whisper 降级为兜底；播放=Web Audio+手势解锁（iOS PWA 拦非手势 audio.play，
@@ -8334,8 +8336,8 @@ function CallScreen({
   const [live, setLive] = useState(false);
   const [liveSt, setLiveSt] = useState("");
   const lv = useRef({ rec: null, recWanted: false, recTimer: null, ctx: null, node: null, stream: null,
-    buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0,
-    speaking: false, ttsCtx: null, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
+    buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: (msgs || []).length,
+    speaking: false, ttsCtx: audioSession && audioSession.ctx, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
   // 他自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
   // 时长只有这里数着(secRef)，而且他最后那句得在屏幕上留一会儿，
@@ -8468,31 +8470,32 @@ function CallScreen({
     st.src = null; tp.stop();
     setAudioStatus("");
   };
-  // 每通电话需要一次手势解锁声音，不申请麦克风权限，也不补播历史。
-  const unlockCallAudio = async () => {
+  // 开麦与被系统暂停后的恢复也走拨打/接听共用的解锁器，不申请额外麦克风权限。
+  const unlockCallAudio = async (resetCursor = true) => {
     const st = lv.current, epoch = audioRef.current.epoch;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) throw new Error("浏览器不支持自动播报");
-    if (!st.ttsCtx || st.ttsCtx.state === "closed") st.ttsCtx = new AC();
-    await st.ttsCtx.resume();
+    const session = prepareCallAudio(st.ttsCtx); st.ttsCtx = session.ctx;
+    const error = await session.ready;
     if (!audioRef.current.mounted || epoch !== audioRef.current.epoch) return false;
-    if (st.ttsCtx.state !== "running") throw new Error("声音未启用，请再点一次");
-    const us = st.ttsCtx.createBufferSource();
-    us.buffer = st.ttsCtx.createBuffer(1, 1, 22050); us.connect(st.ttsCtx.destination); us.start(0);
-    st.played = msgsRef.current.length;
+    if (error || !st.ttsCtx || st.ttsCtx.state !== "running") throw new Error("声音未启用，请再点一次");
+    if (resetCursor) st.played = msgsRef.current.length;
     setAudioReady(true); return true;
   };
-  const toggleAutoVoice = async () => {
-    if (autoVoice && audioReady) {
-      audioRef.current.enabled = false; stopCallAudio(); recResume();
-      setAutoVoice(false); saveJSON("x_callAutoVoice", false); setAudioStatus(""); return;
-    }
-    try {
-      stopCallAudio();
-      if (!await unlockCallAudio()) return;
-      setAutoVoice(true); saveJSON("x_callAutoVoice", true); setAudioStatus("");
-    } catch (e) { setAudioStatus(e.message || "声音启用失败，请重试"); }
-  };
+  useEffect(() => {
+    let dead = false;
+    const first = !audioInitialized.current; audioInitialized.current = true;
+    if (!autoVoice) { audioRef.current.enabled = false; stopCallAudio(); setAudioReady(false); recResume(); return; }
+    if (!first) stopCallAudio();
+    // 拨打/接听时已经在用户手势内 resume。这里仅接收结果，不重置游标漏掉首句。
+    const session = first && audioSession ? audioSession : prepareCallAudio(lv.current.ttsCtx);
+    lv.current.ttsCtx = session.ctx;
+    Promise.resolve(session.ready).then(error => {
+      if (dead || !audioRef.current.mounted) return;
+      const ok = !error && lv.current.ttsCtx && lv.current.ttsCtx.state === "running";
+      setAudioReady(!!ok);
+      setAudioStatus(ok ? "" : "声音未启用，轻触通话页面重试");
+    });
+    return () => { dead = true; };
+  }, [autoVoice]);
   const lvStart = async () => {
     try {
       const st = lv.current;
@@ -8638,6 +8641,9 @@ function CallScreen({
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
+    onPointerDownCapture: () => {
+      if (autoVoice && !audioReady && !bye) unlockCallAudio(false).catch(() => setAudioStatus("声音未启用，轻触通话页面重试"));
+    },
     style: {
       background: callBackdrop(isVideo),
       paddingTop: "env(safe-area-inset-top)"
@@ -8686,15 +8692,8 @@ function CallScreen({
       marginTop: 4
     }, litText)
   }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss),
-    h("div", { className: "flex flex-wrap justify-center gap-2 px-4 mt-2", "data-call-options": true },
-      h("button", { type: "button", onClick: toggleAutoVoice,
-        disabled: !!bye || !(typeof ttsReady === "function" && ttsReady() && people.some(c => c.voiceId)),
-        "aria-pressed": autoVoice && audioReady,
-        style: { color: "#fff", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: "7px 9px", fontSize: 11 } },
-        autoVoice ? (audioReady ? "连续播报：开" : "连续播报：点此启用") : "连续播报：关"),
-      h(OnlineTranslationControl, { compact: true })),
-    h("div", { role: "status", style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
-      audioStatus || "播报需配置音色与语音线路，会使用额度；缺少译文时自动翻译可能调用翻译线路")), h("div", {
+    audioStatus && h("div", { role: "status", style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
+      audioStatus)), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci,
@@ -9212,33 +9211,70 @@ function setOnlineTranslationAuto(value) {
   window.dispatchEvent(new Event("archive-translation-display"));
   return true;
 }
-function useOnlineTranslationAuto() {
-  const [auto, setAuto] = useState(onlineTranslationAuto);
+function useOnlineDisplayPreference(read, keys, eventName, write) {
+  const [auto, setAuto] = useState(read);
   useEffect(() => {
-    const sync = () => setAuto(onlineTranslationAuto());
-    const storage = e => { if (!e.key || e.key === "x_onlineAutoZh" || e.key === "x_callAutoZh") sync(); };
-    window.addEventListener("archive-translation-display", sync);
+    const sync = () => setAuto(read());
+    const storage = e => { if (!e.key || keys.includes(e.key)) sync(); };
+    window.addEventListener(eventName, sync);
     window.addEventListener("storage", storage);
     window.addEventListener("focus", sync);
     sync();
     return () => {
-      window.removeEventListener("archive-translation-display", sync);
+      window.removeEventListener(eventName, sync);
       window.removeEventListener("storage", storage);
       window.removeEventListener("focus", sync);
     };
   }, []);
-  return [auto, setOnlineTranslationAuto];
+  return [auto, write];
 }
-function OnlineTranslationControl({ compact = false }) {
+function useOnlineTranslationAuto() {
+  return useOnlineDisplayPreference(onlineTranslationAuto, ["x_onlineAutoZh", "x_callAutoZh"], "archive-translation-display", setOnlineTranslationAuto);
+}
+function callAutoVoice() { return loadJSON("x_callAutoVoice", false) === true;
+}
+function setCallAutoVoice(value) {
+  if (!saveJSON("x_callAutoVoice", value === true)) return false;
+  window.dispatchEvent(new Event("archive-call-playback"));
+  return true;
+}
+function useCallAutoVoice() {
+  return useOnlineDisplayPreference(callAutoVoice, ["x_callAutoVoice"], "archive-call-playback", setCallAutoVoice);
+}
+// 必须从拨打/接听的同步点击栈调用，先 resume + 静音帧，再交给通话组件管理生命周期。
+function prepareCallAudio(existing) {
+  let ctx = existing;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!ctx || ctx.state === "closed") ctx = new AC();
+    const resumed = ctx.resume();
+    const source = ctx.createBufferSource();
+    source.buffer = ctx.createBuffer(1, 1, 22050); source.connect(ctx.destination); source.start(0);
+    return { ctx, ready: Promise.resolve(resumed).then(() => ctx.state === "running" ? "" : "声音未启用", e => String(e.message || e)) };
+  } catch (e) { return { ctx, ready: Promise.resolve(String(e.message || e)) }; }
+}
+function OnlineMediaSettings() {
+  const t = useTheme(), [auto, setAuto] = useCallAutoVoice(), [error, setError] = useState(false);
+  return h("section", { "data-online-media-settings": true, style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, marginBottom: 12 } }, "语音与译文 · 全局"),
+    h("div", { className: "flex items-center justify-between gap-3" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "通话连续播报"),
+      h("button", { type: "button", "aria-pressed": auto, onClick: () => setError(!setAuto(!auto)),
+        style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px" } },
+        error ? "保存失败，点此重试" : auto ? "连续播报：开" : "连续播报：关")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+      "语音和视频通话共用；拨打或接听后，按顺序播放对方的新消息。需配置音色与语音线路，合成会使用额度。"),
+    h(OnlineTranslationControl, null));
+}
+function OnlineTranslationControl() {
   const t = useTheme();
   const [auto, setAuto] = useOnlineTranslationAuto();
   const [error, setError] = useState(false);
   const button = h("button", { type: "button", "aria-pressed": auto, title: "全局线上译文显示",
     onClick: () => setError(!setAuto(!auto)),
-    style: { color: compact ? "#fff" : t.ink, background: compact ? "rgba(255,255,255,.14)" : t.bg2,
-      border: compact ? "none" : "1px solid " + t.line, borderRadius: 8, padding: "7px 9px", fontFamily: F_BODY, fontSize: 11 } },
+    style: { color: t.ink, background: t.bg2,
+      border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px", fontFamily: F_BODY, fontSize: 11 } },
     error ? "保存失败，点此重试" : auto ? "译文：直接显示" : "译文：点击显示");
-  if (compact) return button;
   return h("div", { style: { marginTop: 14 }, "data-online-translation-setting": true },
     h("div", { className: "flex items-center justify-between gap-3" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "线上译文显示 · 全局"), button),
@@ -13375,7 +13411,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
-    h(OnlineTranslationControl, null),
+    h(OnlineMediaSettings, null),
 
     (() => {
       const n = Number(msgCount) || 0, left = Math.max(0, (sumThresh || 150) - Math.max(0, n - (gs.lastSummarizedCount || 0)));
@@ -14478,10 +14514,10 @@ function ChatSettings({
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
       + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。"),
     dispRow("外语消息自带中译", bilingual, setBilingual),
-    h(OnlineTranslationControl, null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
-      "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，按上面的全局偏好直接显示或点「译」展开——"
-      + "语音、视频通话也适用，译文随通话记录保留，朗读只读原文。已有中译不再请求翻译，中文消息不受影响。")),
+      "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来。"
+      + "语音、视频通话也适用，译文随通话记录保留，朗读只读原文。已有中译不再请求翻译，中文消息不受影响。"),
+    h(OnlineMediaSettings, null)),
     // ── 只管这个人的两层（她 2026-09-04：「全局是 line 我给 a 选微信应该覆盖它」）──
     // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。
     // ⚠️两格都必须留【跟随全局】那一档：没有它就退不回去，改一次就永远脱离全局了。

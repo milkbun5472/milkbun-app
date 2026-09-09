@@ -8,7 +8,7 @@ const cut = (a,b) => { const start=src.indexOf(a),end=src.indexOf(b,start); asse
 function setup(overrides={}) {
   const room=Rooms.normalize({id:'r1',...Rooms.PRESETS.isolated,scenario:'测试房间设定',...overrides},'c1');
   const key=Rooms.chatKey('c1','r1'), writes=[], requests=[], stateWrites=[], memories=[], thoughts=[];
-  const box={window:{ChatRooms:{...Rooms,get:()=>room}},Date,console,
+  const box={window:{ChatRooms:{...Rooms,get:()=>room}},Date,console,loadJSON:(key,fallback)=>fallback,
     profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],
     callRef:{current:null}, chatsRef:{current:{c1:[{role:'user',content:'主房私事',ts:1}],[key]:[{role:'user',content:'房内对话',ts:2}]}},
     roomStatesRef:{current:{[key]:{mood:'房内心情'}}}, statesRef:{current:{}}, directives:{c1:[{id:'main_rule',text:'主房准则',ts:1}]},
@@ -28,6 +28,9 @@ function setup(overrides={}) {
     callAI:async (api,sys)=>{requests.push(sys);return JSON.stringify({say:['测试回应'],thought:'房内心声',mood:'房内新心情',wearing:'测试衣服',summary:'房间通话摘要',open:['测试约定']})}
   };
   vm.createContext(box);
+  const components = fs.readFileSync('js/components.js', 'utf8');
+  const audioPref = components.indexOf('function callAutoVoice(');
+  vm.runInContext(components.slice(audioPref, components.indexOf('\n}\n', audioPref) + 3), box);
   const engine = fs.readFileSync('js/engine.js', 'utf8');
   vm.runInContext(engine.slice(engine.indexOf('function splitBilingual('), engine.indexOf('const TRANS_CACHE_KEY')), box);
   vm.runInContext(cut('  const roomHistoryText =','  const blockBundleFor =') +

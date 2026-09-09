@@ -16,7 +16,8 @@ test('全局译文默认手动，沿用旧通话偏好，新设置 false 也有�
 test('六个线上气泡/语音消息/转录入口都经公共 TransText，不再有通话专属显示状态', () => {
   assert.equal((src.match(/h\(TransText, \{ text: [ml]\.content/g) || []).length, 6);
   assert.match(fn('TransText'), /useOnlineTranslationAuto\(\)/);
-  assert.equal((src.match(/h\(OnlineTranslationControl,/g) || []).length, 3);
+  assert.equal((src.match(/h\(OnlineTranslationControl,/g) || []).length, 1);
+  assert.equal((src.match(/h\(OnlineMediaSettings,/g) || []).length, 2);
   assert.doesNotMatch(src, /saveJSON\("x_callAutoZh"|autoShow: autoZh|\[autoZh, setAutoZh\]/);
   assert.equal((src.match(/saveJSON\("x_onlineAutoZh"/g) || []).length, 1);
 });

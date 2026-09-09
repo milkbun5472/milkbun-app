@@ -3,8 +3,8 @@ const src = fs.readFileSync('js/components.js', 'utf8');
 const call = src.slice(src.indexOf('function CallScreen('), src.indexOf('// 匿名问答的夜色'));
 test('通话播放默认手动，播放偏好独立保存；语音和视频用同一队列', () => {
   for (const [key, state] of [['x_callAutoVoice', 'autoVoice']]) {
-    assert.ok(call.includes('loadJSON("' + key + '", false)'));
-    assert.ok(call.includes('saveJSON("' + key + '"'));
+    assert.ok(src.includes('loadJSON("' + key + '", false)'));
+    assert.ok(src.includes('saveJSON("' + key + '"'));
     assert.ok(call.includes(state));
   }
   assert.match(call, /if \(!autoVoice \|\| !audioReady \|\| bye\) return/);
@@ -14,6 +14,10 @@ test('通话播放默认手动，播放偏好独立保存；语音和视频用�
   assert.match(call, /min-h-0 overflow-y-auto/);
   // 沿实际写入方确认队列读取的角色与动作字段，而不是虚构消息 ID。
   const app = fs.readFileSync('js/app.js', 'utf8');
+  assert.match(app, /const audioSession = callAutoVoice\(\) \? prepareCallAudio\(\) : null/);
+  assert.match(app, /audioSession: call.audioSession/);
+  assert.doesNotMatch(call, /data-call-options|h\(OnlineTranslationControl|toggleAutoVoice/);
+  assert.match(call, /Promise.resolve\(session.ready\)/);
   assert.match(app, /msgs: \[\.\.\.c.msgs, \{ ts: Date.now\(\), \.\.\.line \}\]/);
 });
 test('公共手动播放器：停止或卸载后，迟到的合成不能播放', async () => {
