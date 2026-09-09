@@ -926,14 +926,17 @@ async function callAI(p, system, messages, opts) {
     }, reqTimeout);
     if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
       const reader = r.body.getReader(), decoder = new TextDecoder();
-      let pending = "", text = "", usage = null, error = null, sseModel = "";
+      let pending = "", text = "", usage = null, error = null, sseModel = "", streamDone = false, finishAt = 0, finishReason = "stop";
+      const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
       const consume = line => {
-        if (!line.startsWith("data:")) return;
+        if (streamDone || !line.startsWith("data:")) return;
         const raw = line.slice(5).trim();
-        if (!raw || raw === "[DONE]") return;
+        if (!raw) return;
+        if (raw === "[DONE]") { streamDone = true; return; }
         let event; try { event = JSON.parse(raw); } catch (e) { return; }
-        if (event.error) error = event.error;
+        if (event.error) { error = event.error; streamDone = true; }
         const choice = event.choices && event.choices[0];
+        if (choice && choice.finish_reason) { finishReason = choice.finish_reason; if (!finishAt) finishAt = Date.now(); }
         if (choice && choice.delta && choice.delta.content) {
           text += choice.delta.content;
           // v56.26 GPT-Live：调用方给了 onDelta 就边收边喂（通话逐句 TTS 抢跑用）；回调炸了不拦流
@@ -949,8 +952,11 @@ async function callAI(p, system, messages, opts) {
       const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
       const t0 = Date.now();
       while (true) {
+        // 协议结束不等于 TCP 断开。网关可能在 [DONE] 后仍保持连接，不能继续占住发送锁。
+        // 只有 finish_reason 的兼容线路，留一秒接独立 usage 尾包；心跳不能延长这段收尾。
+        if (streamDone || (finishAt && Date.now() - finishAt >= 1000)) { cancelReader(); break; }
         if (Date.now() - t0 > TOTAL_MS) {
-          try { reader.cancel(); } catch (e) {}
+          cancelReader();
           throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
         }
         let silenceTimer;
@@ -958,20 +964,20 @@ async function callAI(p, system, messages, opts) {
         try {
           chunk = await Promise.race([
             reader.read(),
-            new Promise((_, rej) => { silenceTimer = setTimeout(() => rej(new Error("__stream_silence__")), SILENCE_MS); })
+            new Promise((resolve, rej) => { silenceTimer = setTimeout(() => finishAt ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), finishAt ? Math.max(0, 1000 - (Date.now() - finishAt)) : SILENCE_MS); })
           ]);
         } catch (e) {
-          try { reader.cancel(); } catch (e2) {}
+          cancelReader();
           if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
           throw e;
         } finally { clearTimeout(silenceTimer); }
-        if (chunk.done) break;
+        if (chunk.done) { if (chunk.finished) cancelReader(); break; }
         pending += decoder.decode(chunk.value, { stream: true });
         const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
         lines.forEach(consume);
       }
       if (pending) consume(pending);
-      return error ? { error } : { choices: [{ message: { content: text }, finish_reason: "stop" }], usage: usage || {}, model: sseModel };
+      return error ? { error } : { choices: [{ message: { content: text }, finish_reason: finishReason }], usage: usage || {}, model: sseModel };
     }
     return await r.json();
   };

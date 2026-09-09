@@ -39,6 +39,25 @@ function setup(overrides={}) {
     '\nthis.ops={startCall,callSend,endCall,roomContextFor,oocReply};',box);
   return {box,room,key,writes,requests,stateWrites,memories,thoughts};
 }
+test('真实流式结束释放通话发送锁：保留已落台词，下一条消息可以继续发送', async () => {
+  const { streamFixture, delta } = require('./_call-stream-fixture');
+  const f = setup(); let busy = false, calls = 0;
+  f.box.laneBusy = () => busy;
+  f.box.startLane = () => { busy = true; };
+  f.box.endLane = () => { busy = false; };
+  f.box.callAI = async (api, sys, hist, opts) => {
+    calls++;
+    const stream = streamFixture([delta(JSON.stringify({ say: ['已经说完'] })), 'data: [DONE]\n\n']);
+    const d = await stream.request(opts);
+    return d.choices[0].message.content;
+  };
+  f.box.ops.startCall(f.box.characters, 'voice', null, 'me', f.key);
+  await f.box.ops.callSend('第一句');
+  assert.equal(busy, false);
+  await f.box.ops.callSend('第二句');
+  assert.equal(busy, false); assert.equal(calls, 2);
+  assert.deepEqual(Array.from(f.box.callRef.current.msgs, m => m.content), ['第一句', '已经说完', '第二句', '已经说完']);
+});
 test('双语语音流式和视频全文实际落泡、对账、归档均保留译文且不朗读中文',async()=>{
   for (const mode of ['voice','video']) {
     const f=setup(), spoken=[];
