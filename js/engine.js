@@ -3389,6 +3389,10 @@ async function nativeMediaPut(bucket, k, blob) { try { const d = await blobToDat
 async function nativeMediaGet(bucket, k) { try { const d = await nativeMediaCall("get", bucket, k, ""); return typeof d === "string" && d.indexOf("data:") === 0 ? dataUrlToBlob(d) : null; } catch (e) { return null; } }
 async function nativeMediaDel(bucket, k) { try { await nativeMediaCall("delete", bucket, k, ""); } catch (e) {} }
 async function nativeMediaKeys(bucket) { try { const a = await nativeMediaCall("keys", bucket, "", ""); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+// 「画面里没有人」的那种照片叫什么。⚠️只许有这一个词：那条
+// 「duo→合照／other→别人拍的／else→自拍」的判断链全库有六处，
+// 各写一个词的话，改一处另外五处永远落单（而且 else 分支会把它叫成「自拍」）。
+const PHOTO_VIEW_ZH = "随手拍";
 // ---- 图上云：本机 → 原生壳 → VPS，三层（她 2026-09-06 数据丢了图也没了）----
 // 像素从来没进过云（saves 那一行只有 x_ 文本），所以本机一没图就真没了。
 // 现在每张图写进本机之后再进一条【上传队列】，队列里的名字慢慢往 VPS 上送；
@@ -4240,10 +4244,15 @@ function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + 
 // ============================================================
 function idbVaultOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_imgvault", 2); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); if (!r.result.objectStoreNames.contains("album")) r.result.createObjectStore("album"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbVaultPutOnly(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbVaultPut(k, blob) { await idbVaultPutOnly(k, blob); mediaQueueAdd("vault", k); mediaDrain(4); }
+// ⚠️三层里【原生壳那一层原来只有 selfies 有】（她 2026-09-09 让我查生图有没有上 VPS
+//   时挖出来的）：idbImgPut 写完本机还会 nativeMediaPut("selfies")，读不到时也回原生壳要；
+//   vault 这一头两样都没有——而 vault 才是大头（头像/参考照/壁纸/聊天图/朋友圈图/
+//   小剧场/跑团/同人封面全在这儿）。典型的「一层写在两处，第二处没跟上」：
+//   说好的三层，vault 一直只有两层。补齐，写和读都补。
+async function idbVaultPut(k, blob) { await idbVaultPutOnly(k, blob); await nativeMediaPut("vault", k, blob); mediaQueueAdd("vault", k); mediaDrain(4); }
 async function idbVaultGetOnly(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
-async function idbVaultGet(k) { const own = await idbVaultGetOnly(k).catch(() => null); if (own) return own; const far = await remoteMediaGet("vault", k); if (far && far.size) { try { await idbVaultPutOnly(k, far); } catch (e) {} return far; } return null; }
-async function idbVaultDel(k) { const db = await idbVaultOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await remoteMediaDel("vault", k); }
+async function idbVaultGet(k) { const own = await idbVaultGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("vault", k); if (native && native.size) { try { await idbVaultPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("vault", k); if (far && far.size) { try { await idbVaultPutOnly(k, far); } catch (e) {} return far; } return null; }
+async function idbVaultDel(k) { const db = await idbVaultOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("vault", k); await remoteMediaDel("vault", k); }
 // 清空图库（导入 v2+ 备份前用：旧机器攒的孤儿 blob 不再带进新档，防止越导越大）
 async function idbVaultClear() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction(["img", "album"], "readwrite"); tx.objectStore("img").clear(); tx.objectStore("album").clear(); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbVaultEntries() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }

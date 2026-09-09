@@ -18,5 +18,5 @@ test("三次角色回复内存在程序级发图冷却，明确索图可解除",
   assert.match(app, /PHOTO_REQUEST_RE\.test/);
   assert.match(app, /if \(photoCooldown\.cooling\) \{ photoKind = null; photoScene = null; \}/);
   assert.match(app, /photoCooldownState\(gchat, spk\.id\)\.cooling/);
-  assert.match(app, /members\.filter\(c => \(c\.appearance \|\| c\.refPhoto\) && !photoCooldownState\(gchat, c\.id\)\.cooling\)/);
+  assert.match(app, /const gFaceMembers = gSelfieMembers\.filter\(c => c\.appearance \|\| c\.refPhoto\);/);
 });

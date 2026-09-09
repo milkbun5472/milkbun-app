@@ -1,0 +1,89 @@
+// 她 2026-09-09：「你再看看现在已有的生图渠道生完图之后有没有上 vps，上次数据丢失
+// 我图库的图全没了嘤。然后再放开聊天生图必须要人脸吧，就是有脸正常锁脸都是不一定
+// 每张图都要脸有时候他们也可以发点别的图」
+//
+// 查生图那条链查出来的：写那一侧【每一处都进了上传队列】，没有漏的；
+// 但说好的三层（本机 → 原生壳 → VPS）里，**原生壳那一层只有 selfies 有**，
+// vault 一头两样都没有——而 vault 才是大头（头像/参考照/壁纸/聊天图/朋友圈图/
+// 小剧场/跑团/同人封面）。典型的「一层写在两处，第二处没跟上」。
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+const app = R("js/app.js"), eng = R("js/engine.js"), comp = R("js/components.js");
+
+test("两个图仓的三层要一样厚：本机 → 原生壳 → VPS", () => {
+  // 写：两边都要落原生壳 + 进上传队列
+  assert.match(eng, /async function idbImgPut\(k, blob\) \{ await idbImgPutOnly\(k, blob\); await nativeMediaPut\("selfies", k, blob\); mediaQueueAdd\("selfies", k\);/);
+  assert.match(eng, /async function idbVaultPut\(k, blob\) \{ await idbVaultPutOnly\(k, blob\); await nativeMediaPut\("vault", k, blob\); mediaQueueAdd\("vault", k\);/,
+    "vault 写完没落原生壳——说好的三层它只有两层");
+  // 读：本机没有时，两边都要先问原生壳、再问 VPS
+  assert.match(eng, /async function idbVaultGet\(k\)[\s\S]{0,400}?nativeMediaGet\("vault", k\)[\s\S]{0,200}?remoteMediaGet\("vault", k\)/,
+    "vault 读不到时没回原生壳要");
+  // 删：三层都要删掉，不然下次读又从云里把它拉回来
+  assert.match(eng, /async function idbVaultDel\(k\)[\s\S]{0,400}?nativeMediaDel\("vault", k\); await remoteMediaDel\("vault", k\);/);
+});
+
+test("生图那条链每一处存图都走了会上云的那两扇门", () => {
+  // 全库存图只有这两扇门会进上传队列；谁绕过它们直接 PutOnly，那张图就永远上不了云。
+  const only = [...eng.matchAll(/idb(Img|Vault)PutOnly\(/g)].length;
+  // 定义各 1 处 + idbImgPut/idbVaultPut 各调 1 次 + 回源回填 4 处（Img 读 2、Vault 读 2）+ 原生壳补齐 1 处
+  assert.ok(only >= 6, "PutOnly 调用点数变了，重新数一遍谁绕过了上云那扇门：" + only);
+  // 出图之后落库的那几处，一处都不许直接 PutOnly
+  for (const f of ["js/app.js", "js/theater.js", "js/trpg.js", "js/dwell.js", "js/impression.js", "js/phone.js"]) {
+    assert.ok(!/idb(Img|Vault)PutOnly\(/.test(R(f)), f + " 里有地方绕过上云那扇门直接写本机");
+  }
+  // 出图之后确实落到了那两扇门上
+  assert.match(app, /await idbImgPut\(key, out\.blob\);/);
+  assert.match(R("js/theater.js"), /imgToVault\(durl\)/);
+  assert.match(R("js/trpg.js"), /imgToVault\(durl\)/);
+});
+
+test("聊天发图不再必须有脸：多一种【画面里没有人】的", () => {
+  // 门槛拆成两条：拍人要有脸可锁，拍照不用
+  assert.match(app, /const canFace = \(char\.appearance \|\| char\.refPhoto\);/);
+  assert.match(app, /const canSelfieBase = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,
+    "拍东西还卡在「必须有脸」上");
+  // 提示词里那几种 kind 按【有没有脸可锁】给，view 永远在
+  assert.match(app, /const _kinds = \(canFace \? \["self", "other"\] : \[\]\)\.concat\(canDuo \? \["duo"\] : \[\]\)\.concat\(\["view"\]\);/);
+  assert.match(app, /\*\*view\*\*=【画面里没有人】的那种照片/);
+  assert.match(app, /\["self", "other", "duo", "view"\]\.includes/);
+  // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
+  assert.match(app, /&& \(photoKind === "view" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
+});
+
+test("view 走空景那条路，一张参考照都不喂", () => {
+  assert.match(app, /const isView = photoKind === "view";/);
+  assert.match(app, /const refs = isView \? \[\] :/, "view 还在喂参考照，它会想办法把脸画进去");
+  assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false \}\)/);
+  // ⚠️forText 必须显式关掉：空景那份默认是【要压字的背景板】（中下留空），
+  //   聊天里发的图不是背景板
+  assert.match(eng, /if \(opts\.forText !== false\) parts\.push\("【这是一张要压字的背景板】/);
+  // 备用稿是「把这个人画对」的稿子，view 拿它重试等于把人画回来
+  assert.match(app, /const minimalPrompt = isView \? null :/);
+  assert.match(app, /const contBlobKey = !isView && refs\.length === 0 && prevShot/,
+    "view 还会把上一张自拍当连贯参考塞进去");
+});
+
+test("群聊同一套，不许只做单聊那一半", () => {
+  assert.match(app, /const gSelfieMembers = gPhotoOn \? members\.filter\(c => !photoCooldownState\(gchat, c\.id\)\.cooling\) : \[\];/);
+  assert.match(app, /const gFaceMembers = gSelfieMembers\.filter\(c => c\.appearance \|\| c\.refPhoto\);/);
+  assert.match(app, /const gDuoMembers = \(profile && profile\.refPhoto\) \? gFaceMembers\.filter/,
+    "合照名单要从【有脸的】里挑，不是从全员里挑");
+  assert.match(app, /\["self", "other", "duo", "group", "view"\]\.includes/);
+  assert.match(app, /&& \(gPhotoKind === "view" \|\| spk\.appearance \|\| spk\.refPhoto\)\) \{/);
+  assert.match(app, /const gIsView = gPhotoKind === "view";/);
+  assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\)/);
+});
+
+test("「没有人的那种照片」叫什么只写在一处", () => {
+  // 那条 duo→合照／other→别人拍的／else→自拍 的链子全库好几处，
+  // else 分支会把 view 叫成「自拍」——每一处都得认得它，而那个词只许有一份
+  assert.match(eng, /const PHOTO_VIEW_ZH = "随手拍";/);
+  assert.equal((eng.match(/PHOTO_VIEW_ZH = /g) || []).length, 1);
+  assert.match(app, /m\.photoKind === "view" \? PHOTO_VIEW_ZH \+ "（画面里没有人，拍的是东西\/地方）"/, "单聊历史里它还叫自拍");
+  assert.match(app, /m\.photoKind === "view" \? PHOTO_VIEW_ZH \+ "（画面里没有人）"/, "群聊历史里它还叫自拍");
+  assert.match(comp, /m\.photoKind === "view" \? PHOTO_VIEW_ZH : m\.photoKind === "group" \? "合影"/, "拍失败时它还叫自拍");
+  assert.match(comp, /m\.photoKind === "view" \? " · " \+ PHOTO_VIEW_ZH/, "群图注脚里它还叫自拍");
+});
