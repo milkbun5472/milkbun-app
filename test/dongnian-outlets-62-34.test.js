@@ -53,19 +53,31 @@ test("愿望是【出口层】的一档，不是塞进「留东西」那个多�
   assert.ok((pw.match(/runProbe\(/g) || []).length === 1, "多开了一次调用");
 });
 
-test("档位层是【饥饿加权】不是配额：只建议，模型仍可以拒绝", () => {
-  const i = app.indexOf("const _hungry = outletHungry(char.id)");
-  assert.ok(i > 0, "没有饥饿加权那一步");
-  const seg = app.slice(i, i + 800);
-  assert.match(seg, /不合适就照常按你此刻真的想做的那样选，别为了凑而凑/, "写成硬指定了——那会造出为了填格子而生的内容");
-  assert.match(seg, /Date\.now\(\) - x\.a > 7 \* 86400000/, "没有「很久没走过」那道门槛，天天都在提示");
-  // 每一档落地都要记账，少记一档它就永远显得「很饿」
-  ["thing", "word", "draw", "timeline", "qa"].forEach(k => {
-    const re = k === "thing" || k === "draw"
-      ? /outletNote\(char\.id, kind, !!manual\);/       // thing/draw 走 kind 那一路
-      : new RegExp('outletNote\\(char\\.id, "' + k + '", !!manual\\);');
-    assert.match(app, re, k + " 这一档落地没记账");
-  });
+// ⚠️v66.15 翻案。她 2026-09-09：「但是确实现在另外几种都没有收到过」——
+//    软建议治不住塌陷。病根这份文件自己写着：「给模型的选项越多，它越会塌到默认那一档上」，
+//    v62.34 把【钉愿望】拎出来交给代码判就是这么治好的；可 leaveInCoupleSpace 里还剩
+//    两层嵌套的三选一（where → kind），只给了一句软建议，而会塌陷的模型正是不理建议的那种。
+//    现在同一招往下再用一层：档由代码定死，模型只写内容。
+//    那条「硬指定会造出为了填格子而生的画」的顾虑仍然成立，所以留了 skip 出口。
+test("档由【代码】挑，模型不再做选择；但留了不硬凑的出口", () => {
+  const i = app.indexOf("const _pick = (outletHungry(char.id)[0]");
+  assert.ok(i > 0, "档不是代码挑的");
+  const seg = app.slice(i, i + 1600);
+  assert.match(seg, /这一档你已经很久没留过了，所以这次就留它——不用挑，也别改成别的。/, "还在让模型自己挑");
+  assert.ok(!/【留在哪儿】三选一/.test(app), "那两层三选一还在");
+  // ⚠️出口：写不出来就什么都不留，空一次也不许编一件
+  assert.match(seg, /绝不许为了填这个格子硬造一件/, "没给不硬凑的出口——那会造出为了填格子而生的画");
+  assert.match(seg, /把 skip 填 true、text 留空/);
+  assert.match(app, /if \(d && \(d\.skip === true \|\| String\(d\.skip\)\.toLowerCase\(\) === "true"\)\) return false;/,
+    "他说写不出来，代码没听——返回 false 才会把闸还回去");
+  // 挑的是【最久没自己出现过】那一档，同样久按名单顺序，不随机
+  assert.match(app, /\.sort\(\(x, y\) => x\.a - y\.a\)/);
+  // 每一档落地都要记账，少记一档它就永远显得「很饿」→ 然后永远被挑中
+  assert.match(app, /outletNote\(char\.id, kind, !!manual\);/, "抽屉那三档（thing/word/draw）落地没记账");
+  ["timeline", "qa", "wish"].forEach(k =>
+    assert.match(app, new RegExp('outletNote\\(char\\.id, "' + k + '", !!manual\\);'), k + " 这一档落地没记账"));
+  // 抽屉那三档共用一句记账，靠的是 kind 就是代码挑的那一档
+  assert.match(app, /const kind = \["thing", "word", "draw"\]\.indexOf\(_pick\) >= 0 \? _pick : "thing";/);
 });
 
 test("⚠️她按按钮叫出来的那次单独算，不进保底", () => {

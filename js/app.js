@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.14";
+const APP_VERSION = "v66.15";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14884,44 +14884,50 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return true;
     } catch (e) { console.warn("[char wish]", e && e.message); return false; }
   };
+  // 这一档【由代码挑，模型只写内容】（她 2026-09-09：「但是确实现在另外几种都没有收到过」）。
+  // 病根就写在 js/app.js 那条 v62.34 的注释里：「给模型的选项越多，它越会塌到默认那一档上
+  // ——拾/半/画 就是这么几乎永远轮不上的」。当时把【钉愿望】拎出来交给代码判，治好了那一档；
+  // 可这儿还剩【两层嵌套的三选一】（where 三选一 → drawer 里 kind 再三选一），
+  // 只给了一句软建议「很久没走过的优先走」——而会塌陷的模型正是不理这种建议的那种。
+  // 现在同一招往下再用一层：饥饿最久的那一档由代码定死，模型不再做选择。
+  //
+  // ⚠️那条注释还留了一句反对意见，它是对的，所以留了出口：
+  //   「硬指定会造出【为了填格子而生的画】——比没有更糟」。
+  //   所以给模型一个 skip：这一档此刻实在写不出来，就什么都不留、把闸还回去，下一轮再来。
+  //   宁可空一次，也不要一件为了填格子而生的东西。
+  const OUTLET_PICK = {
+    thing: "往你俩的抽屉里放【一样你今天真的经手过的小物件】，要说清它是在哪儿、怎么到你手上的。",
+    word:  "往你俩的抽屉里放【半句没头没尾的话】——不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上。",
+    draw:  "往你俩的抽屉里放【一张你随手画的】——描述这张画上有什么，别描述你为什么画。",
+    timeline: "往你俩的时光轴上【补一条你记着、而她可能没记下来的事】，要写清是哪一天前后的事。",
+    qa: "往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的。**"
+  };
   const leaveInCoupleSpace = async (char, styleHint, manual) => {
     try {
-      // 饥饿加权（v62.34）：最久没【自己】出现过的那两档，写进这一轮当【建议】。
-      // ⚠️不是配额、不是轮转：说的是「如果此刻同样说得通就优先走它」，模型仍可以拒绝。
-      //   硬指定会造出「为了填格子而生的画」——比没有更糟。
-      const _hungry = outletHungry(char.id).filter(x => !x.a || Date.now() - x.a > 7 * 86400000);
-      const _hint = _hungry.length
-        ? "\n【这几档你已经很久没走过了】" + _hungry.map(x => x.zh).join("、")
-          + "。如果此刻同样说得通，优先走它们；不合适就照常按你此刻真的想做的那样选，别为了凑而凑。\n"
-        : "";
+      // 挑最久没【自己】出现过的那一档。同样久的按 OUTLET_KINDS 的顺序，不随机——
+      // 随机会让「已经很久没出现」这件事失去意义。
+      const _pick = (outletHungry(char.id)[0] || { k: "thing" }).k;
+      const _pickZh = (OUTLET_KINDS.find(x => x[0] === _pick) || [])[1] || _pick;
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
-          + "【留在哪儿】三选一——\n"
-          + "· drawer＝往你俩的抽屉里放一样东西，她要哪天想起来才会打开。**没话要说的时候就放这儿**：\n"
-          + "  再配一个 kind：thing＝你今天真的经手过的一样小物件，要说清它是在哪儿、怎么到你手上的；"
-          + "word＝半句没头没尾的话，不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上；"
-          + "draw＝你随手画的，那就描述这张画上有什么，别描述你为什么画。\n"
-          + "· timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
-          + "· qa＝往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、"
-          + "封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的**；"
-          + "只有真有一个问题在你心里转了几天，才走这一档，多数时候该走 drawer。\n"
-          + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。" + _hint,
-        schemaHint: "{\"where\":\"drawer 或 timeline 或 qa\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"question\":\"where 为 qa 时你出的那道题，否则留空\",\"text\":\"留下的内容（qa 那一档＝你自己那半答案）\",\"title\":\"timeline 给一个短标题；drawer 和 qa 那两档【不要标题】，留空——她拆开之前封面上什么都不显示\"}"
+          + "【这一次留的是这一样】" + OUTLET_PICK[_pick] + "\n"
+          + "这一档你已经很久没留过了，所以这次就留它——不用挑，也别改成别的。\n"
+          + "⚠️但**绝不许为了填这个格子硬造一件**：此刻你要是真没有这样一样东西可留（今天没经手过什么、"
+          + "脑子里没有半句话、没画过、想不起该补的那一天、心里没有一个真想问她的问题），"
+          + "就把 skip 填 true、text 留空——这次什么都不留，等下次。空一次没关系，编一件才糟。\n"
+          + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
+        schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"}"
       });
       const txt = String((d && d.text) || "").trim();
+      // 他自己说这一档写不出来：什么都不留，闸还回去，下一轮再来。
+      // ⚠️空一次没关系，编一件才糟——这正是「硬指定会造出为了填格子而生的画」那条顾虑的出口。
+      if (d && (d.skip === true || String(d.skip).toLowerCase() === "true")) return false;
       if (!txt) return false;
-      if (d.where === "drawer") {
-        const kind = ["thing", "word", "draw"].indexOf(String(d.kind || "")) >= 0 ? String(d.kind) : "thing";
-        outletNote(char.id, kind, !!manual);
-        setCoupleDrawer(p => {
-          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-            title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-          coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-        });
-      } else if (d.where === "timeline") {
+      // 落哪儿【不再看模型填了什么】：这一档是上面代码挑的，它只负责写内容。
+      if (_pick === "timeline") {
         outletNote(char.id, "timeline", !!manual);
         setCoupleTimeline(p => {
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
@@ -14930,9 +14936,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
         });
-      } else if (d.where === "qa" && String(d.question || "").trim()) {
-        // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开——
-        // 跟她翻题的 sealed 机制同一套，只是方向反过来。question 空的落不进这档（走下面兜底）。
+      } else if (_pick === "qa") {
+        // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开。
+        // ⚠️没出题就等于这一档没写成：别硬塞进抽屉凑数，直接算这次没留（闸还回去）。
+        if (!String((d && d.question) || "").trim()) return false;
         outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
@@ -14941,14 +14948,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           saveJSON("x_coupleQA", n); return n;
         });
       } else {
-        // ⚠️兜底不再走 drawerWhisper（v61.35）。原来的第三档 note＝「往便签墙上贴一张」，
-        //   可便签墙 v59.23 就撤掉了，它的产物被当成悄悄话塞进抽屉——三选一里两个出口
-        //   通向同一样东西，而模型还以为自己在往一个不存在的墙上贴。这是她 2026-09-03
-        //   问「另外仨咋触发啊」时查出来的：拾/半/画 几乎永远轮不上。
-        //   现在 where 只有两档；认不出来的一律当 drawer 落，别再变成第四个悄悄话。
-        outletNote(char.id, "word", !!manual);
+        // 抽屉那三档（thing / word / draw）。⚠️v61.35 那条教训仍然成立：
+        //   认不出来的一律当抽屉落，绝不许再变成第四个悄悄话。
+        const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
+        outletNote(char.id, kind, !!manual);
         setCoupleDrawer(p => {
-          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: "word",
+          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
             title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
           coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
         });

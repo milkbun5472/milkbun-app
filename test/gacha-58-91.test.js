@@ -181,13 +181,17 @@ test("约会券没有另起一套，是抽卡里多一个 act", () => {
 // 出口本来就在（dongnian 越过阈值时那一次调用），这一层只是给它加第三个落点。
 test("抽屉挂在已有的思念出口上，不是新开一条调用链", () => {
   // ⚠️右边界用它自己的收尾，别拿隔壁常量当锚（隔壁一插新代码就误伤）
+  // v66.15：档的说明（OUTLET_PICK）住在函数外面、紧挨着它，一起收进来。
+  // ⚠️右边界从【函数自己】那儿算：拿 OUTLET_PICK 的位置去找收尾，切出来的只有那张表。
+  const _pi = app.indexOf("  const OUTLET_PICK = {");
   const _li = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint, manual) => {");
-  const leave = app.slice(_li, app.indexOf("\n  };", _li) + 4);
+  const leave = app.slice(_pi, app.indexOf("\n  };", _li) + 4);
   assert.equal((leave.match(/runProbe\(/g) || []).length, 1, "抽屉多开了一次调用——它该跟便签/时光轴共用那一次");
   // v61.35 收成两档（note 那一档的便签墙 v59.23 就撤了，见 couple-leave-outlets-61-35）
-  assert.match(leave, /drawer 或 timeline/, "落点里没有抽屉");
-  assert.match(leave, /if \(d\.where === "drawer"\) \{/, "抽屉那一支没接上");
-  assert.match(leave, /\["thing", "word", "draw"\]\.indexOf\(String\(d\.kind \|\| ""\)\) >= 0/, "kind 没兜底,模型写错就存了个野值");
+  // v66.15：档由代码挑（她：另外几种从来没收到过），落点仍是抽屉那一支
+  assert.match(leave, /往你俩的抽屉里放/, "落点里没有抽屉");
+  assert.match(leave, /saveJSON\("x_coupleDrawer", n\)/, "抽屉那一支没接上");
+  assert.match(leave, /\["thing", "word", "draw"\]\.indexOf\(_pick\) >= 0 \? _pick : "thing"/, "kind 没兜底,挑错就存了个野值");
   assert.match(leave, /openedTs: null/, "放进来就是拆开的状态——那还惊喜什么");
   assert.match(leave, /\.slice\(0, DRAWER_CAP\)/, "抽屉没有天花板");
 });
