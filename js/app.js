@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.13";
+const APP_VERSION = "v66.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7107,7 +7107,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const isCouple = roomReads("innerLife") && couples[charId] && couples[charId].status === "together";
       const ambientBits = [];
       if (_s.autoMoment) ambientBits.push("发条朋友圈(moment)");
-      if (isCouple) ambientBits.push("给 Ta 贴一张悄悄话便签(whisper)——恋爱向、藏着心意、想对 Ta 说却没在聊天里直接说出口的话（跟上面的『心声/念头』不是一回事：心声是你脑内的真实想法，这个是你想让 Ta 悄悄收到的情话/在乎）");
+      // ⚠️「贴一张便签」是【过期说法】：便签墙 v59.23 就撤掉了，悄悄话早并进了情侣空间那个抽屉。
+      //   这句话一直躺在那条不再发送的基线里，没人发现它在说一个不存在的东西——
+      //   跟 v61.35 修过的那次（「模型还以为自己在往一个不存在的墙上贴」）是同一个毛病的第二处。
+      //   v66.14 补回这一段时顺手改对去处；别再原样搬那句「便签」。
+      if (isCouple) ambientBits.push("给 Ta 留一句悄悄话(whisper)——它会落进你俩的抽屉，跟你不在她身边时放进去的那些搁在一块儿，等她哪天拉开看见。"
+        + "写恋爱向、藏着心意、当着她的面没说出口的话（跟上面的『心声/念头』不是一回事：心声是你脑内的真实想法，这个是你想让 Ta 悄悄收到的情话/在乎）");
+      // ⚠️她 2026-09-09 点名补回（v66.14）。这一段跟着那条不再发送的 A/B 基线假活着，
+      //   而且比丢一段说明更糟：moment / whisper 这两格【从来没进过 openCaps】，
+      //   而稳定协议里明写着「能力字段只在本轮开放且角色实际决定触发时填写」——
+      //   也就是说他被告知这两格从来不开。聊天里顺手发朋友圈/留悄悄话因此基本不发生。
+      //   ⚠️那两格现在按条件给：没开自动朋友圈就不给 moment、不是情侣就不给 whisper。
+      //   代码那头本来就会挡（填了也不生效），但不给他这一格，他才不会以为自己发过。
+      const ambientHint = ambientBits.length
+        ? "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" + ambientBits.join("；") + "；像真人随手发，别为发而发、别频繁。"
+        : "";
       // 一起听联动：若你是 TA 当前"一起听"的人，可在聊天里直接切歌/点歌（消耗这次回复）
       const listenData = listenRef.current || {};
       const isListenPartner = roomReads("otherScenes") && listenData.partnerId === charId;
@@ -7291,6 +7305,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "。刻＝【送】不是【推荐】：只有这一轮真有一首非送不可才刻，note 写清为什么是这一首给这个人，"
           + "不是夸这首歌本身好听。一轮最多一首。");
       }
+      // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让他以为自己发得出去
+      if (_s.autoMoment) openCaps.push("moment");
+      if (isCouple) openCaps.push("whisper");
+      if (ambientHint) capState.push(ambientHint.trim());
       // ⚠️一起听那两句也是从被删的旧基线里救回来的（她 2026-09-09 点名要）：
       //   · 正在一起听那半边（listenHint）：原来 capState 只给了歌单，**怎么用没说**
       //     （「下一首/上一首」怎么填、别频繁乱切）；歌单本身它自己带着，别再单推一份。

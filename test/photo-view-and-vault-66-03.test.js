@@ -209,3 +209,27 @@ test("一起听那两半都接回真正在跑的那条协议", () => {
   // 歌单别推两份：listenHint 自己带着
   assert.ok(!/capState\.push\("songSwitch 可选歌曲/.test(app), "歌单又被单独推了一份");
 });
+
+// 她 2026-09-09：「这俩又是干啥的宝宝」→「加吧宝宝」。
+// ⚠️这一段比丢说明更糟：moment / whisper 两格【从来没进过 openCaps】，
+// 而稳定协议里明写着「能力字段只在本轮开放且角色实际决定触发时填写」——
+// 等于告诉他这两格永远不开，聊天里顺手发朋友圈/留悄悄话因此基本不发生。
+test("顺手发朋友圈 / 留悄悄话：这一格要真的开出去，而且按条件开", () => {
+  assert.match(app, /const ambientHint = ambientBits\.length/, "那段说明又没了");
+  assert.match(app, /if \(_s\.autoMoment\) openCaps\.push\("moment"\);/, "moment 没进本轮开放能力");
+  assert.match(app, /if \(isCouple\) openCaps\.push\("whisper"\);/, "whisper 没进本轮开放能力");
+  assert.match(app, /if \(ambientHint\) capState\.push\(ambientHint\.trim\(\)\);/);
+  // ⚠️条件不成立时【一格都不给】：代码那头本来就会挡，但不给他这一格，
+  //   他才不会在气泡里说「刚给你留了句悄悄话」而你那边什么都没有
+  assert.ok(!/openCaps\.push\("moment"\);\s*\n\s*openCaps\.push\("whisper"\)/.test(app), "两格变成无条件给了");
+  assert.match(app, /if \(_s\.autoMoment\) ambientBits\.push\("发条朋友圈\(moment\)"\);/);
+  // ⚠️「贴一张便签」是过期说法：便签墙 v59.23 就撤掉了，悄悄话早并进了抽屉。
+  //   那句一直躺在死基线里没人发现——补回来的时候必须改对去处，别把过期说法重新发出去。
+  assert.match(app, /if \(isCouple\) ambientBits\.push\("给 Ta 留一句悄悄话\(whisper\)——它会落进你俩的抽屉/);
+  assert.ok(!/悄悄话便签/.test(app), "又把「便签墙」那个已经撤掉的东西写回提示词里了");
+  // 那句「悄悄话不是心声」是这段里最值钱的：协议字典只有一行「whisper:string=情侣悄悄话」，
+  // 他分不清这两样，分不清就要么重复要么不敢用
+  assert.match(app, /跟上面的『心声\/念头』不是一回事/, "没说清悄悄话和心声的区别");
+  // 稳定协议那句是这条测试的前提：本轮开放能力才是权威
+  assert.match(app, /能力字段只在本轮开放且角色实际决定触发时填写/);
+});
