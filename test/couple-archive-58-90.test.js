@@ -36,7 +36,8 @@ test("四处都接上了，一处都没落下", () => {
   assert.match(eng, /archive: ctx\.memberCoupleArchive && ctx\.memberCoupleArchive\[c\.id\]/);
   assert.match(eng, /\+ bg\.caSeg/);
   assert.match(app, /archive: coupleArchiveFor\(c\.id\)/, "公共读取没算");
-  assert.match(app, /\+ cpSeg \+ caSeg \+/, "群聊线上算了但没拼进那位成员那一段");
+  // ⚠️别冻相邻（v66.30 中间插进了 gzSeg：那张印象卡）——要证的是 caSeg 真拼进了那一段
+  assert.match(app, /return "【" \+ c\.name \+ "】"[^\n]*\+ caSeg \+/, "群聊线上算了但没拼进那位成员那一段");
 });
 
 // 群里这是【这位成员的私事】：别的成员不知道他俩私下怎么称呼彼此

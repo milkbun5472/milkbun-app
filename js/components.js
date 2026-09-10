@@ -7579,24 +7579,7 @@ function ChatThread({
   // 同处一室（她 2026-09-09）：她和他此刻真的面对面，但仍用气泡说话。
   // ⚠️放顶栏不放进那张模式单子：那张单子四档是【这一条怎么发】、互斥；这个是一直开着的状态。
   //   而且它开着会改他的行为，状态必须一眼看得见——不然她会忘了关，他人都出门了还当在她对面。
-  onToggleSameRoom ? /*#__PURE__*/React.createElement("button", {
-    onClick: onToggleSameRoom,
-    "data-wk": "sameroom",
-    "data-on": sameRoom ? "1" : "0",
-    className: "active:opacity-60 shrink-0",
-    // ⚠️她 2026-09-09：「键太显眼了」。原来是一颗描边药丸，压在顶栏上比名字还抢眼。
-    //   它要的只是【一眼看得见开着没有】，不是让人先看到它——所以退成跟名字底下
-    //   那行「说话 · 轻触切换」同一档小字：关着是灰的，开着才上强调色、前面点一点。
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10,
-      lineHeight: 1.3,
-      padding: "6px 2px",
-      whiteSpace: "nowrap",
-      color: sameRoom ? t.accent : t.fog,
-      background: "transparent"
-    }
-  }, sameRoom ? "· 同处一室" : "同处一室") : null, /*#__PURE__*/React.createElement("button", {
+  onToggleSameRoom ? sameRoomButton({ on: sameRoom, onToggle: onToggleSameRoom, t: t }) : null, /*#__PURE__*/React.createElement("button", {
     onClick: onOpenSettings,
     "data-wk": "chatmore",
     className: "active:opacity-50"
@@ -9209,6 +9192,27 @@ function AnonBox({
     className: "active:opacity-60",
     style: { position: "absolute", right: 16, bottom: 22, width: 42, height: 42, borderRadius: 999, background: A.ink, color: A.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)", zIndex: 20 }
   }, h("span", { style: { fontSize: 20, fontWeight: 700, lineHeight: 1 } }, "↑")));
+}
+// 同处一室那颗键（她 2026-09-09「键太显眼了」→ 退成一行小字；她 2026-09-10
+// 「换成svg按钮画个小房子之类的」→ 换成图标）。单聊顶栏和群聊顶栏共用这一颗：
+// 两处各画一份的话，开着长什么样迟早会走散。
+// ⚠️分量对齐旁边那颗齿轮／自发那颗：细线图标、不带底盘。
+//   关着＝褪成 t.fog 再压一道斜杠（通用的「关掉了」样子，跟自发那颗一个语汇）；
+//   开着＝上强调色、不带斜杠。状态必须一眼看得见——她开着会忘了关，
+//   他人都出门了还当在她对面。
+function sameRoomButton({ on, onToggle, t }) {
+  return h("button", {
+    onClick: onToggle,
+    "data-wk": "sameroom",
+    "data-on": on ? "1" : "0",
+    className: "active:opacity-50 shrink-0",
+    title: on ? "同处一室中 · 点一下改回各在各处" : "各在各处 · 点一下告诉他们此刻在一起",
+    "aria-label": on ? "同处一室：开" : "同处一室：关",
+    style: { position: "relative", display: "flex", alignItems: "center" }
+  }, h(IHome, { size: 19, color: on ? t.accent : t.fog, wk: on ? undefined : "headdim" }),
+    on ? null : h("span", {
+      style: { position: "absolute", left: 1, top: "50%", width: 17, height: 1.3, borderRadius: 1, background: t.fog, transform: "rotate(-45deg)", transformOrigin: "center" }
+    }));
 }
 // 转账卡片：待接受/已收/已退回；收款方 pending 时可接受/退回
 // 礼物卡（送礼/转赠）——送角色的显示送达倒计时
@@ -12360,6 +12364,8 @@ function GroupThread({
   onDeleteMessages,
   onForward,
   onSaveSettings,
+  sameRoom,
+  onToggleSameRoom,
   onOpenMemberState,
   onStartPoll,
   onGenVotes,
@@ -12609,6 +12615,10 @@ function GroupThread({
       whiteSpace: "nowrap"
     }
   }, chatMode === "ooc" ? "出戏 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
+  // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：跟单聊顶栏同一颗小房子。
+  // 旁观群不给——她根本不在场，「大家和你在一个屋里」那句话不成立。
+  onToggleSameRoom && !gs.spectate && chatMode !== "ooc"
+    ? sameRoomButton({ on: sameRoom, onToggle: onToggleSameRoom, t: t }) : null,
   // 记忆互通关掉时本来就不会自发，这颗开关也就不出现——免得按了没反应
   gs.memoryInterop && chatMode !== "ooc" ? h("button", {
     onClick: () => onSaveSettings && onSaveSettings({ autoChat: gHold }),

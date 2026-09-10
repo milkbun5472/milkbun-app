@@ -53,7 +53,7 @@ test("群里也说清：今天是谁的生日、不是谁的", () => {
   // 没人过生日就一个字都不发（十轮里九轮用不上的层不该常驻）
   assert.match(seg, /if \(!who\.length\) return "";/, "没人过生日也照发一段");
   // 真挂进 system 了
-  assert.match(app, /dir \+ common \+ gBdayHint \+ gTimeHint/, "算出来了却没发下去");
+  assert.match(app, /dir \+ common \+ gSameRoomHint \+ gBdayHint \+ gTimeHint/, "算出来了却没发下去");
 });
 
 // 她 2026-09-10：「我都关了自发聊天他们还是在聊」。

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.29";
+const APP_VERSION = "v66.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1644,11 +1644,19 @@ function App() {
   //     offlineNow 顺着同一个口子进去，所以打电话时他也知道你俩在一个屋里。
   //     括号动描那半层不给：通话本来就有自己的 action 字段写神态。
   //   · 单人线下 —— 两半都不需要：线下本来就是面对面，动作本来就能写。
-  //   · 群聊线上 / 群聊线下 / 群通话 —— 不适用：这个开关说的是【你和这一个人】
-  //     此刻在一起，群里有好几个人，那句话在群里根本不成立。
+  //   · 群聊线上 —— 有（她 2026-09-10：「群里也接共处一室吧」）。开关按【群】存在
+  //     groupSettings.sameRoom 里，说的是「一屋子人和你此刻都在同一个地方」。
+  //     句子跟单聊共用 samePlacePresence 那一份，只多传一个 group 参数。
+  //   · 群聊线下 / 群通话 —— 不需要：线下本来就是面对面；群通话里大家都在说话，
+  //     「面对面还是隔着屏幕」不改他说什么。
   //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
+  // 群里那一份（她 2026-09-10）。⚠️故意挨着上面两行写：以后改「同处一室」这件事，
+  //   一眼能看见它有单聊和群聊两处，别再只改一处。存在群设置里，不跟单聊的按人存混。
+  // ⚠️它调用的 gsFor 声明在下面很远处：这是个箭头函数，只在渲染/回调里跑，那时 gsFor 早就有了。
+  //   别在这两行和 gsFor 之间【直接调用】它——那才会踩 TDZ。
+  const gSameRoomFor = gid => !!(gsFor(gid) || {}).sameRoom;
   // 这个聊天窗的一个开关：一个出口，别到处各写一份 setChatSettings。
   const patchChatSetting = (id, patch) => {
     if (!id || !patch) return;
@@ -8825,7 +8833,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + _now.gzSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -8990,7 +8998,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；想送的人填 gift 就真送到，但绝不是每轮都该送，也别几个人抢着送。别把这张单子念出来。）\n"
           + (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
         : "";
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
+      // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了
+      // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
+      const gSameRoomHint = (gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
+        ? "\n\n" + samePlacePresence(userName(profile), true) : "";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -12106,6 +12119,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 【群通话】那一处每位成员只有一份人设——他既不知道现在几点、
   // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
+  // 群里那张印象卡的封顶：群预算按人数平分，一人一整张卡会把主角色的人设额度吃掉。
+  const GROUP_GAZE_CAP = 400;
   const groupNowSegs = (c, opts) => {
     if (!c || c.npc) return {};
     const o = opts || {};
@@ -12121,6 +12136,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
       cpSeg: (() => { const l = coupleLineFor(c.id, userName(profile)); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })(),
+      // 「Ta 眼里的你」那张印象卡（她 2026-09-10：「我的群聊能不能也影响 ta 眼里，
+      //   不然如果只在群里聊永远改不了」）。
+      // ⚠️查下来【写】那一半群里早就有了（impressionField + 落地那处），缺的是【读】：
+      //   单聊常驻发着 gazeText，模型是在看着卡改；群里一个字都没发过去，
+      //   等于让它凭空重写「更新后的整块正文」——它多半就省略了，所以她怎么聊都不动。
+      // ⚠️跟 impressionField 同一道闸（memoryInterop）：这张卡讲的是【你们之间】，
+      //   封闭群不给（同 cpSeg 的隐私铁律，标明只有本人知道）。
+      gzSeg: (() => {
+        if (!o.interop || !window.Gaze || !window.Gaze.text || settingsFor(c.id).engineerEyes) return "";
+        const g = String(window.Gaze.text(c.id, userName(profile)) || "").trim();
+        if (!g) return "";
+        return "\n〔以下是 " + c.name + " 心里对 " + userName(profile) + " 的长期印象，只有 TA 本人知道，别的成员并不知情〕\n"
+          + g.slice(0, GROUP_GAZE_CAP);
+      })(),
       sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };
   };
@@ -18468,6 +18497,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,
     groups: groups,
+    // 同处一室（她 2026-09-10）：跟单聊那颗同一颗小房子，只是这颗按【群】存
+    sameRoom: gSameRoomFor(activeGroup.id),
+    onToggleSameRoom: () => {
+      const on = !gSameRoomFor(activeGroup.id);
+      saveGroupSettings(activeGroup.id, { sameRoom: on });
+      toast(on ? "他们知道大家此刻在一起了" : "回到各聊各的");
+    },
     characters: liveChars,
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）

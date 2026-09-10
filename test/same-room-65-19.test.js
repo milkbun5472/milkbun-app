@@ -51,7 +51,8 @@ test("「你俩此刻面对面」那句禁令只有一份，两个来源共用",
     "app.js 里还留着一份手抄的禁令：改一处另一处永远落单");
   assert.match(app, /【线下进行中】[\s\S]{0,200}?" \+ FACING_BAN \+ "/, "线下那一处没接到公共那份上");
   // 新来源也用同一份
-  assert.match(eng, /function samePlacePresence\(uName\)[\s\S]{0,400}?\+ FACING_BAN \+/);
+  // ⚠️别冻签名（v66.30 多了一个 group：群里也接了同处一室，句子仍共用这一份）
+  assert.match(eng, /function samePlacePresence\(uName, group\)[\s\S]{0,600}?\+ FACING_BAN \+/);
 });
 
 test("常驻指令里那个「你俩隔着屏幕」的前提摘掉了", () => {
@@ -78,7 +79,9 @@ test("在场那一层走 offlineNow 同一个口子；真开着线下时不说�
     "同处一室没接进 ctxFor 那一个口子");
   assert.match(app, /\? samePlacePresence\(userName\(profile\)\)/);
   // 「地点以在一起为准」——日程写着他在公司也不算数，不然他会两头都信
-  assert.match(eng, /【地点以「在一起」为准】你的日程这会儿写着你在别的地方也不算数/);
+  // v66.30：这句按【单聊/群里】分了两种说法，前半截仍是同一份
+  assert.match(eng, /【地点以「在一起」为准】/);
+  assert.match(eng, /你的日程这会儿写着你在别的地方也不算数——此刻你人就在 Ta 旁边/, "单聊那一句被改坏了");
   // 「都在对面了还发什么消息」正是她报的那句，必须点名禁掉
   assert.match(eng, /绝不许反问「都在对面了还发什么消息」/);
 });
@@ -200,13 +203,17 @@ test("两个开关各住各的地方，旁白那行有挂点", () => {
   assert.match(app, /const patchChatSetting = \(id, patch\) => \{[\s\S]{0,200}?saveJSON\("x_chatSettings", n\)/);
   assert.match(app, /patchChatSetting\(activeChar\.id, \{ sameRoom: on \}\);/);
   // 顶栏那颗键（不是塞进那张四档的模式单子——那四档是互斥的「这一条怎么发」）
-  assert.match(comp, /"data-wk": "sameroom",\s*\n\s*"data-on": sameRoom \? "1" : "0",/);
-  assert.match(comp, /onToggleSameRoom \? \/\*#__PURE__\*\/React\.createElement\("button"/);
+  // v66.30 她：「换成svg按钮画个小房子之类的」，而且群聊顶栏也要有同一颗——
+  // 所以它抽成了一个公共的 sameRoomButton，两处共用；两处各画一份迟早会走散。
+  assert.match(comp, /function sameRoomButton\(\{ on, onToggle, t \}\)/, "那颗键没抽成公共的");
+  assert.equal((comp.match(/"data-wk": "sameroom"/g) || []).length, 1, "那颗键被抄成了两份");
+  assert.match(comp, /h\(IHome, \{ size: 19, color: on \? t\.accent : t\.fog/, "不是小房子图标了");
+  assert.match(comp, /onToggleSameRoom \? sameRoomButton\(\{ on: sameRoom, onToggle: onToggleSameRoom, t: t \}\) : null/, "单聊顶栏没挂上");
   assert.ok(!/\["sameroom", "同处一室"/.test(comp), "别把它塞进那张模式单子里");
-  // 她 2026-09-09：「键太显眼了」——退成小字，不许再是一颗描边药丸
-  const key = comp.slice(comp.indexOf('"data-wk": "sameroom"'), comp.indexOf('"data-wk": "sameroom"') + 700);
+  // 她 2026-09-09：「键太显眼了」——细线图标、不带底盘，不许再是一颗描边药丸
+  const key = comp.slice(comp.indexOf("function sameRoomButton("), comp.indexOf("function sameRoomButton(") + 1200);
   assert.ok(!/borderRadius: 999/.test(key) && !/border: "1px solid/.test(key), "那颗键又变回药丸了");
-  assert.match(key, /color: sameRoom \? t\.accent : t\.fog/, "开着看不出来就白做了");
+  assert.match(key, /color: on \? t\.accent : t\.fog/, "开着看不出来就白做了");
   // 动描住在聊天设置的「窗」那一类里，不占顶栏
   assert.match(comp, /const \[actDesc, setActDesc\] = useState\(!!settings\.actDesc\);/);
   assert.match(comp, /show\("look", \{ title: "线上带不带动作", \.\.\.sec\("actdesc"\) \}/);
