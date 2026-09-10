@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.39";
+const APP_VERSION = "v66.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13318,6 +13318,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         voice: true, tag: "phoneWatch",
         instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
+          uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
           // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
           calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null),
@@ -13353,9 +13354,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 边演边落（她 2026-09-10 定）：看到一半退出去，他已经做过的就是做过了。
+  // 他微信里的「她」叫什么：她的本名 + 他给她起的备注（userContact 那一栏）。
+  // ⚠️他给她发消息不是演的——那是**真的发到她手机上**，所以得认准是不是她。
+  const watchMeNames = char => {
+    const wx = ((phonesRef.current || {})[char.id] || {}).wechat || {};
+    const uc = (wx.userContact && typeof wx.userContact === "object") ? wx.userContact : {};
+    return [userName(profile), profile && profile.name, uc.name, uc.remark]
+      .map(x => String(x || "").trim()).filter(Boolean);
+  };
+  const watchIsMe = (char, to) => {
+    const WK = window.PhoneWatch;
+    if (!WK || !to) return false;
+    return watchMeNames(char).some(n => WK.sameName(n, to));
+  };
   const watchSend = (char, where, to, text, extra) => {
     const WK = window.PhoneWatch;
     if (!WK || !char || !where) return;
+    // ── 他发给【她】的那一条：不进 x_phone，直接落进真的那条聊天 ──
+    // 她 2026-09-10：「看他玩发了消息给我我这边也能显示出来吧」。
+    // ⚠️手机里那一屏本来就把真聊天并进来显示（actualChats），所以写进 x_phone
+    //   反而会多出一条假的、跟真的那条并排站着。真话只该有一份。
+    if (where === "wechat" && watchIsMe(char, to) && String(text || "").trim()) {
+      pChat(char.id, p => [...p, { role: "assistant", content: String(text).trim(), ts: Date.now(), fromWatch: true }]);
+      return;
+    }
     const cur = ((phonesRef.current || {})[char.id] || {})[where];
     if (!cur) return;                       // 那个 app 还没生成过，没有底稿可接
     const r = WK.applyWrite(where, cur, to, text, Date.now(), extra);
@@ -13365,6 +13387,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const watchReply = (char, name, text, where) => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return;
+    // ⚠️「对面」永远不能是她：她要回什么话由她自己说，不许替她回
+    if (watchIsMe(char, name)) return;
     // 对面回话的地方：微信是会话，电话那边是短信串。默认还是微信（第一批就只有它）。
     const key = where === "calls" ? "calls" : "wechat";
     const cur = ((phonesRef.current || {})[char.id] || {})[key];

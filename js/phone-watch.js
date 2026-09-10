@@ -564,7 +564,11 @@
       const chats = arr(wx.chats).slice(0, 14).map(x => "· " + (x.name || "?") + (x.type === "group" ? "（群）" : "") + "：" + String(x.last || "").slice(0, 40)).join("\n");
       const contacts = arr(wx.contacts).slice(0, 16).map(x => (x.remark || x.name || "")).filter(Boolean).join("、");
       const moments = arr(wx.moments).slice(0, 6).map(x => "· " + (x.author || "?") + "：" + String(x.content || "").slice(0, 40)).join("\n");
-      now.push("〔微信 wechat〕会话（openItem 的 name 从这里照抄）：\n" + (chats || "（还没有会话）")
+      // ⚠️她也在他微信里，而且那一条是【真的】：发给她就是真发到她手机上。
+      //   不点出来的话他永远想不到可以给她发消息——那本来是这个玩法最戳人的一下。
+      const meLine = "\n· " + uName + (o && o.uRemark ? "（你给她的备注：" + o.uRemark + "）" : "")
+        + " —— **她。给她发消息就是真的发到她手机上，她会看见。**想好了再发。";
+      now.push("〔微信 wechat〕会话（openItem 的 name 从这里照抄）：\n" + (chats || "（还没有会话）") + meLine
         + (contacts ? "\n通讯录里有：" + contacts : "")
         + (moments ? "\n朋友圈最近几条：\n" + moments : ""));
     }

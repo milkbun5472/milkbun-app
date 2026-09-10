@@ -666,3 +666,20 @@ test("朋友圈那一栏也挂得住", () => {
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {} });
   assert.match(s, /切到 moments 就是翻朋友圈/);
 });
+
+test("他在看他玩里发给她的那一条，是真的发到她手机上", () => {
+  // 她 2026-09-10：「看他玩发了消息给我我这边也能显示出来吧」。
+  // ⚠️不许写进 x_phone：手机里那一屏本来就把真聊天并进来显示（actualChats），
+  //   写进去会多出一条假的、跟真的那条并排站着——真话只该有一份。
+  assert.match(app, /if \(where === "wechat" && watchIsMe\(char, to\) && String\(text \|\| ""\)\.trim\(\)\) \{/);
+  assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "assistant", content: String\(text\)\.trim\(\), ts: Date\.now\(\), fromWatch: true \}\]\)/);
+  // 认她认的是【她的本名 + 他给她起的备注】，走公共那条认名字规矩
+  assert.match(app, /\[userName\(profile\), profile && profile\.name, uc\.name, uc\.remark\]/);
+  assert.match(app, /watchMeNames\(char\)\.some\(n => WK\.sameName\(n, to\)\)/);
+  // ⚠️「对面回一句」永远不能是她：她要回什么由她自己说
+  assert.match(app, /if \(watchIsMe\(char, name\)\) return;/);
+  // 提示词里得点出来，不然他永远想不到可以给她发
+  const s = W.watchInstruction({ char: {}, uName: "Lisa", uRemark: "小笨蛋", apps: ["wechat"], phone: { wechat: { chats: [{ name: "老张" }] } } });
+  assert.match(s, /\*\*她。给她发消息就是真的发到她手机上，她会看见。\*\*/);
+  assert.match(s, /你给她的备注：小笨蛋/);
+});
