@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.58";
+const APP_VERSION = "v66.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13380,7 +13380,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
           // 由头：几点、上一次放下手机多久了。**这一段做的事要跟它对得上。**
-          whyNow: watchWhyNow(char), charHour: Math.floor(charLocalMin(char) / 60),
+          whyNow: watchWhyNow(char), charHour: Math.floor(charLocalMin(char) / 60), today: watchTodayLine(char),
           sinceLast: (watchAt || {})[char.id] ? Math.round((Date.now() - Number((watchAt || {})[char.id])) / 60000) : null,
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
           // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
@@ -13445,6 +13445,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   醒着 + 一天两次 + 稳定种子）。这儿只做另一半：**告诉他这一次是几点拿起来的**。
   //   两件事分得开：那一层管「什么时候提醒她去看」，这一层管「他为什么在刷」。
   // ⚠️几点用现成的 charLocalMin（他自己的时区），不另写一套算时区的（一层写在两处）。
+  // 他此刻／今天正在过的那一段，抽成一句递进去。
+  // ⚠️不另调模型：日程那整段本来就在上下文里（ctxFor.schedNow），可它离得远、又长，
+  //   模型读到的最响的东西还是「跟她的聊天」和「手机里已经有的那些」——
+  //   于是他刷手机永远围着这两样转（她 2026-09-10：「太依赖我们的聊天了，
+  //   而不是根据日程有自己真的新鲜料想去搜的」）。把今天他自己身上那件事拎到跟前来。
+  const watchTodayLine = char => {
+    let full = "";
+    try { full = typeof schedNowFor === "function" ? String(schedNowFor(char) || "") : ""; } catch (e) {}
+    if (!full) return "";
+    const now0 = (full.match(/此刻[^\n]*/) || [])[0] || "";
+    const next0 = (full.match(/待会儿：[^\n]*/) || [])[0] || "";
+    const load0 = (full.match(/今日安排（[^）]*）/) || [])[0] || "";
+    const wx0 = (full.match(/今天 Ta 那边的天气：[^\n]*/) || [])[0] || "";
+    return [now0, next0, load0, wx0].filter(Boolean).join("\n").slice(0, 420);
+  };
   const watchWhyNow = char => {
     const h = Math.floor(charLocalMin(char) / 60);
     if (h >= 23 || h < 2) return "深夜";

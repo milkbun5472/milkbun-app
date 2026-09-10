@@ -882,3 +882,23 @@ test("音乐不是死的：显示的是正在放的那一首", () => {
   // 歌单那一屏展开的那一行也跟着换歌走（她手动点开别的以她点的为准）
   assert.match(phone, /useEffect\(\(\) => \{ if \(nowSongId\) setOpen\(nowSongId\); \}, \[nowSongId\]\);/);
 });
+
+test("他玩手机得有自己的料，不能全围着跟她的聊天转", () => {
+  // 她 2026-09-10：「模型现在还是会依赖已有的东西而不是主动去搜索新的落进来……
+  // 他玩手机本身也还太依赖我们的聊天了，而不是根据日程有自己真的新鲜料想去搜的」。
+  // ⚠️日程那整段本来就在上下文里，可它离得远、又长——读到的最响的还是「跟她的聊天」
+  //   和「手机里已经有的那些」。所以：把今天他自己那一摊拎到跟前来，并且要求用它。
+  assert.match(app, /const watchTodayLine = char => \{/);
+  assert.match(app, /today: watchTodayLine\(char\)/);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["browser"], phone: {},
+    whyNow: "睡前", charHour: 22, today: "此刻（你当地约 21:30）Ta 正在：改稿子，在家" });
+  assert.match(s, /【你今天自己这一摊】/);
+  assert.match(s, /改稿子/);
+  assert.match(s, /\*\*这一段里至少有一件事是从【你今天自己这一摊】里长出来的\*\*/);
+  assert.match(s, /\*\*绝大多数事跟她无关。\*\*/);
+  // ⚠️那一长串「手机现在的样子」读起来就是「从这些里挑」——得挑明它不是菜单
+  assert.match(s, /不是让你从里面挑事做/);
+  assert.match(s, /\*\*这一段里至少要有一次真的去看新东西\*\*/);
+  // 没日程的角色不该凭空多出一段空标题
+  assert.doesNotMatch(W.watchInstruction({ char: {}, uName: "她", apps: ["browser"], phone: {} }), /【你今天自己这一摊】/);
+});
