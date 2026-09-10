@@ -87,7 +87,9 @@ self.addEventListener("message", (event) => {
     badge: "icon-192.png",
     tag: d.tag || ("archive-" + Date.now()),
     renotify: !!d.tag,
-    data: { charId: d.charId || "", screen: d.screen || "", roomId: d.roomId || "main" },
+    // groupId：群聊/旁观群那一路（v66.20，她 2026-09-09 要的）。点开要能直接落进那个群，
+    // 所以它得跟 charId 一样一路传到底：这儿存进 data、下面 notificationclick 再取出来。
+    data: { charId: d.charId || "", groupId: d.groupId || "", screen: d.screen || "", roomId: d.roomId || "main" },
     vibrate: [80, 40, 80],
     requireInteraction: false,
   }));
@@ -111,17 +113,19 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const charId = (event.notification.data && event.notification.data.charId) || "";
+  const groupId = (event.notification.data && event.notification.data.groupId) || "";
   const screen = (event.notification.data && event.notification.data.screen) || "";
   const roomId = (event.notification.data && event.notification.data.roomId) || "main";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
         if (c.url.startsWith(self.registration.scope)) {
-          return c.focus().then(() => c.postMessage({ type: "OPEN_FROM_NOTIF", charId, screen, roomId }));
+          return c.focus().then(() => c.postMessage({ type: "OPEN_FROM_NOTIF", charId, groupId, screen, roomId }));
         }
       }
       const url = new URL(self.registration.scope);
       if (charId) url.searchParams.set("notifChar", charId);
+      if (groupId) url.searchParams.set("notifGroup", groupId);
       if (screen) url.searchParams.set("notifScreen", screen);
       url.searchParams.set("notifRoom", roomId);
       return self.clients.openWindow(url.href);

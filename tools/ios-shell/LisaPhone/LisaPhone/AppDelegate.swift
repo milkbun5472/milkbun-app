@@ -1,8 +1,14 @@
 // Lisa-phone 原生壳 v1(2026-08-20,七天续签方案):WKWebView 全屏装载 GitHub Pages 正式站。
-// 目的:摆脱 Safari PWA 的后台限制,让 app 有自己的进程与图标;推送仍走 Web Push(站内已有)。
+// 目的:摆脱 Safari PWA 的后台限制,让 app 有自己的进程与图标。
+// ⚠️「推送仍走 Web Push(站内已有)」——原来这儿这么写,是错的(她 2026-09-09:「不知道为啥
+//    现在我的 xcode 壳开不了锁屏通知」)。**WKWebView 根本不暴露 Notification API**:
+//    站内 js/notify.js 第一句就是 "Notification" in window,在壳里恒为 false,
+//    于是那个开关点了永远打不开。iOS 上的 Web 通知只在 Safari 和「添加到主屏」的 PWA 里有。
+//    所以壳必须自己出这一层:下面 nativeNotify 这座桥 + UNUserNotificationCenter。
 import UIKit
 import WebKit
 import AVFoundation
+import UserNotifications
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -55,6 +61,8 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     // 网页的 <a download> 在 WKWebView 里常被静默吃掉。审计/备份等文本文件统一交给
     // 系统分享面板，用户可存到“文件”、隔空投送或发给其它 App。
     cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeExport")
+    // 锁屏通知:壳里没有 Web Notification,这一层由原生出(见文件头那段)。
+    cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeNotify")
     if #available(iOS 16.4, *) { cfg.preferences.isElementFullscreenEnabled = true }
     webView = WKWebView(frame: .zero, configuration: cfg)
     webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -135,6 +143,10 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     }
     if message.name == "nativeHttp" {
       handleNativeHttp(message.body, replyHandler: replyHandler)
+      return
+    }
+    if message.name == "nativeNotify" {
+      handleNativeNotify(message.body, replyHandler: replyHandler)
       return
     }
     guard let body = message.body as? [String: Any],
@@ -284,5 +296,76 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     }.resume()
   }
 
+  // ── 锁屏通知(2026-09-09)──────────────────────────────────────────
+  // 站内 js/notify.js 优先走这座桥;桥不在时才退回 Web Notification(Safari / 主屏 PWA)。
+  // 三个 action,跟站内那三件事一一对应:
+  //   status  → 现在是什么授权状态(granted/denied/default)
+  //   permission → 弹系统授权框(必须由她点按钮触发,跟 Web 那边同一条规矩)
+  //   show    → 真的弹一条。identifier 用站内那个 tag:同一个气泡重报会覆盖、不堆重复。
+  // ⚠️一律不抛:壳里这一层坏了只是没有通知,绝不许连累网页。
+  func handleNativeNotify(_ body: Any, replyHandler: @escaping (Any?, String?) -> Void) {
+    guard let d = body as? [String: Any], let action = d["action"] as? String else {
+      replyHandler(["ok": false], nil); return
+    }
+    let center = UNUserNotificationCenter.current()
+    center.delegate = self
+    switch action {
+    case "status":
+      center.getNotificationSettings { st in
+        let s: String
+        switch st.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: s = "granted"
+        case .denied: s = "denied"
+        default: s = "default"
+        }
+        DispatchQueue.main.async { replyHandler(["permission": s], nil) }
+      }
+    case "permission":
+      center.requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in
+        DispatchQueue.main.async { replyHandler(["permission": ok ? "granted" : "denied"], nil) }
+      }
+    case "show":
+      let c = UNMutableNotificationContent()
+      c.title = (d["title"] as? String) ?? "秋秋机"
+      c.body = (d["body"] as? String) ?? ""
+      c.sound = .default
+      // 点开要落回她正在看的那个人/那个群:原样带回给 window.__openFromNotif
+      c.userInfo = ["charId": (d["charId"] as? String) ?? "",
+                    "groupId": (d["groupId"] as? String) ?? "",
+                    "screen": (d["screen"] as? String) ?? "",
+                    "roomId": (d["roomId"] as? String) ?? "main"]
+      // identifier 就是站内那个 tag:重报同一个气泡时系统会替换,不会堆一串
+      let id = (d["tag"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? UUID().uuidString
+      // ⚠️trigger 给 nil 是「立刻」。壳被切到后台之后网页还能跑一小会儿,
+      //   这条就是在那一小会儿里发出去的——跟 Web 那条路的送达前提完全一样。
+      center.add(UNNotificationRequest(identifier: id, content: c, trigger: nil)) { err in
+        DispatchQueue.main.async { replyHandler(["ok": err == nil], nil) }
+      }
+    default:
+      replyHandler(["ok": false], nil)
+    }
+  }
+
   override var prefersStatusBarHidden: Bool { false }
+}
+
+// 点开通知:把落点交回网页那一头,复用站内已经写好的 window.__openFromNotif
+// (单聊/群聊/小房间怎么落全在那儿,壳这边不许自己再判一套)。
+extension ShellViewController: UNUserNotificationCenterDelegate {
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              didReceive response: UNNotificationResponse,
+                              withCompletionHandler completionHandler: @escaping () -> Void) {
+    let info = response.notification.request.content.userInfo
+    let esc: (Any?) -> String = { v in
+      let s = (v as? String) ?? ""
+      let data = try? JSONSerialization.data(withJSONObject: [s], options: [])
+      let j = data.flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\"]"
+      return String(j.dropFirst().dropLast())   // 取出那一个带引号的字符串
+    }
+    let js = "if (window.__openFromNotif) window.__openFromNotif(" + esc(info["charId"]) + ","
+      + esc(info["screen"]) + "," + esc(info["roomId"]) + "," + esc(info["groupId"]) + ");"
+    // 网页可能还没装好(冷启动):失败就算了,站内还有 __pendingNotif 那条冷启动路兜着
+    webView?.evaluateJavaScript(js, completionHandler: nil)
+    completionHandler()
+  }
 }

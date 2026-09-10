@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.21";
+const APP_VERSION = "v66.22";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1410,11 +1410,19 @@ function App() {
   }, []);
   // 点锁屏通知回到 app：打开对应角色的私聊（index.html 的 SW 监听里会调这个）
   useEffect(() => {
-    window.__openFromNotif = (charId, screen, roomId) => {
+    window.__openFromNotif = (charId, screen, roomId, groupId) => {
       const c = charId && characters.find(x => x.id === charId);
       if (charId && !c) return; // 冷启动资料未到，待下次角色列表更新重试。
+      // 群那一路（v66.20）：跟单聊同一个形状——找不到就先不动，等下次列表更新重试。
+      const g = groupId && (groupsRef.current || groups || []).find(x => String(x.id) === String(groupId));
+      if (groupId && !g) return;
       delete window.__pendingNotif;
-      if (c) {
+      if (g) {
+        setActiveGroup(g);
+        clearUnread(g.id);   // ⚠️群未读的键就是 g.id 本身（见 pGChat 里的 bumpUnread(id, ...)），不是 "g:"+id——那是 lane 的键
+        setScreen("gthread");
+      }
+      else if (c) {
         const rid = roomId || "main";
         const target = window.ChatRooms && window.ChatRooms.get(c.id, rid);
         if (rid !== "main" && (!target || target.id !== rid)) { toast("通知对应的房间已不存在"); return; }
@@ -1428,7 +1436,7 @@ function App() {
     };
     if (window.__pendingNotif) {
       const d = window.__pendingNotif;
-      window.__openFromNotif(d.charId, d.screen, d.roomId);
+      window.__openFromNotif(d.charId, d.screen, d.roomId, d.groupId);
     }
     return () => { if (window.__openFromNotif) delete window.__openFromNotif; };
   }, [characters]);
@@ -9157,6 +9165,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               }]);
               // iOS/React 可能把短间隔内的 functional updates 合并到同一帧；逐泡强制提交，才真是一条条冒出来。
               if (ReactDOM && typeof ReactDOM.flushSync === "function") ReactDOM.flushSync(reveal); else reveal();
+              // 锁屏通知（v66.20，她 2026-09-09：「群聊和旁观群能不能也做锁屏通知」）。
+              // ⚠️原来【只有单聊那一路在报】——群聊和旁观群一条都不报，切出去就等于没发生。
+              //   旁观群不用另写一支：她在旁观群里也是从这条路收成员发言的。
+              // ⚠️走 Notify.groupBubble（内部就是 chatBubble）：tag 形状跟单聊一样，
+              //   同一个气泡重报不会堆重复；标题写群名，正文带上是谁说的。
+              if (window.Notify && window.Notify.groupBubble) window.Notify.groupBubble({
+                title: (group && group.name) || "群聊",
+                body: (spk.name ? spk.name + "：" : "") + gBubbles[j],
+                chatKey: "g:" + groupId, turnId: gTurnId, bubbleId: "word-" + i + "-" + j,
+                groupId: groupId
+              });
             }
           }
           // 群照片：该成员这条发言带了 photo 对象（或旧版 selfie 字符串）→ 挂占位气泡 + 异步生成（复用私聊那套）
