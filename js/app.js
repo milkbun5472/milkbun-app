@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.51";
+const APP_VERSION = "v66.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11287,7 +11287,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = new Date(ts);
       return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
     };
-    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-12);
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
+    // ⚠️12 条改成 20：他手机里那条真聊天是【活的】，她刚说的话马上就在上面
+    //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
     const sessions = [];
     // 两人旁观局在「我的群聊」里是一个旁观群，但在角色自己的手机里就是
     // TA 与另一个人的私聊。同一对成员可能先后建过不止一个旁观房间：查手机

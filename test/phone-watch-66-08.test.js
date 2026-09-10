@@ -831,3 +831,16 @@ test("他这会儿为什么拿起手机：给这一段一个由头", () => {
   assert.match(app, /watchHintOn: \(\(\) => \{/);
   assert.doesNotMatch(app, /const watchHintFor =/);
 });
+
+test("他手机里那条真聊天是活的，不用退出去再进来", () => {
+  // 她 2026-09-10：「微信消息能不能做实时联动……而不是只有刷新才有」。
+  // ⚠️病根：thread 存的是【点开那一刻的那个对象】，一张快照。真聊天那几条每次渲染
+  //   都从最新的消息重算，可快照不会跟着长——于是她刚说的话要退出去再点进来才看得见。
+  assert.match(phone, /const liveThread = thread \? \(watchPick\(chats, thread\.name, c => c && c\.name\) \|\| thread\) : null;/);
+  assert.match(phone, /const th = liveThread \|\| thread;/);
+  assert.match(phone, /innerHead\(th\.name, th\.type === "group"/);
+  assert.match(phone, /arr\(th\.messages\)\.concat\(driveSent\)/);
+  assert.doesNotMatch(phone, /arr\(thread\.messages\)/, "又读回那张快照了");
+  // 截多少条：太短的话一进去只看得见半截对话
+  assert.match(app, /\.slice\(-20\);/);
+});

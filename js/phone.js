@@ -2438,6 +2438,12 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     return known.concat(unknown);
   };
   const chats = [...actual, ...byWhen(generated)];
+  // ⚠️thread 存的是【点开那一刻的那个对象】，是一张快照。真聊天那几条是活的
+  //   （actual 每次渲染都从最新的消息重算），可快照不会跟着长——于是她在聊天里
+  //   刚说的话、他刚回的那条，在他手机上要退出去再点进来才看得见
+  //   （她 2026-09-10：「微信消息能不能做实时联动……而不是只有刷新才有」）。
+  //   所以每一帧都按名字把它认回来：认名字走公共那条规矩。
+  const liveThread = thread ? (watchPick(chats, thread.name, c => c && c.name) || thread) : null;
   const meName = userName(profile);
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
@@ -2455,11 +2461,12 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   //   「《长夜》」而聊天叫「长夜」时，上面那个 effect 会正常打开聊天（它用的是 watchSame），
   //   可输入框和他发出去的气泡一个都不显示——屏幕上就是「点开了，然后什么也没发生」。
   const driveOn = !!(drive && drive.item && thread && watchSame(thread.name, drive.item));
+  const th = liveThread || thread;
   const driveSent = driveOn ? arr(drive.sent) : [];
   const driveTyping = driveOn && drive.typing != null ? String(drive.typing || "") : null;
-  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
+  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(th.name, th.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(th.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
-    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, m.text)));
+    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, m.text)));
   })),
     // 他正在打字的那一栏：只在「看他玩」里出现（她自己翻的时候没有理由往他微信里打字）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
