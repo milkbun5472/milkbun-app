@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.17";
+const APP_VERSION = "v66.18";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13158,9 +13158,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         schemaHint: WK.watchSchemaHint(),
         maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
       });
-      const got = WK.normalizeActs(out && out.acts);
+      // 第一批只有微信打得开。名单从 PHONE_APPS 里取那一条，不另手写一份。
+      const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => a.key === "wechat");
+      const got = WK.normalizeActs(out && (out.acts || out.actions || (Array.isArray(out) ? out : null)), openable);
       // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
       if (!got.acts.length) throw new Error("他这回没动。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
+      // ⚠️丢掉的那几条必须说出来。她 2026-09-10 真跑那次就是【一声不响】：
+      //   open 写成了「微信」认不出来，于是整段只剩两句心声飘过去，看着像功能坏了。
+      if (got.dropped.length) toast("有 " + got.dropped.length + " 下没看懂，跳过了：" + got.dropped.slice(0, 3).join("、"));
+      // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。
+      if (!got.acts.some(a => a.kind !== "think" && a.kind !== "pause")) {
+        throw new Error("他这回只在心里想，没动手。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
+      }
       return got.acts;
     } catch (e) {
       toast("这次没看成：" + (e && e.message ? String(e.message).slice(0, 60) : "重试一次"));

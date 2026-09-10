@@ -35,6 +35,10 @@
   const KNOCK_HALFLIFE_MS = 3 * 86400000;
   // 同一个角色两次「看他玩」之间的冷却。手机状态没那么快变，而且这是一枪真钱。
   const WATCH_COOLDOWN_MS = 30 * 60000;
+  // ⚠️她 2026-09-10：「测试这段时间先把 30 分钟限制 disable 一下吧」。
+  //   关的是【闸】不是【数】——数留在上面，要开回来把这一行改成 false 就行。
+  //   记在 屎山台账-2026-09-06.md 里，别忘了这道闸现在是关着的。
+  const WATCH_COOLDOWN_OFF = true;
   // 一段录像最多几个动作。给宽一点（闲翻本来就零散），但不许没有上限。
   const ACT_CAP = 60;
 
@@ -65,7 +69,18 @@
   // ── 规整模型给的那一串 ──────────────────────────────────────────
   // ⚠️认不出来的动作【丢掉，不猜】：猜错了就是屏幕上演出一件他没做的事。
   //   丢掉的记在 dropped 里，报错那头要看得见（施工规则/prompt-send-shape.md 第二条）。
-  function normalizeActs(raw) {
+  // apps = [{key,zh}]，可给可不给。给了就顺手把 app 名归一到 key——
+  // ⚠️模型多半写「微信」而不是 "wechat"（她 2026-09-10 真跑时撞上的：
+  //   open 那一下认不出来，于是整段只剩两句心声飘过去，微信压根没打开，
+  //   而且【一声不响】）。提示词里挑明是降概率，这儿归一才是保证。
+  function normalizeActs(raw, apps) {
+    const byName = {};
+    (Array.isArray(apps) ? apps : []).forEach(a => {
+      if (!a) return;
+      if (a.key) byName[S(a.key).toLowerCase()] = a.key;
+      if (a.zh) byName[S(a.zh)] = a.key;
+    });
+    const knowApps = Object.keys(byName).length > 0;
     const list = Array.isArray(raw) ? raw : [];
     const out = [], dropped = [];
     let thoughts = 0;
@@ -84,7 +99,12 @@
         continue;
       }
       const a = { kind: kind };
-      if (x.app != null) a.app = S(x.app).trim();
+      if (x.app != null) {
+        const want = S(x.app).trim();
+        const hit = byName[want.toLowerCase()] || byName[want];
+        if (knowApps && !hit) { dropped.push("打不开的 app：" + want); continue; }
+        a.app = hit || want;
+      }
       if (x.name != null) a.name = S(x.name).trim().slice(0, 40);
       if (x.at != null) a.at = S(x.at).trim().slice(0, 40);
       if (x.text != null) a.text = S(x.text).slice(0, 200);
@@ -173,6 +193,7 @@
   }
 
   function cooldownLeft(lastAt, now) {
+    if (WATCH_COOLDOWN_OFF) return 0;
     const left = WATCH_COOLDOWN_MS - (N(now, Date.now()) - N(lastAt, 0));
     return left > 0 ? left : 0;
   }
@@ -205,6 +226,7 @@
       "  **改**（写了又删）次之；**真发出去**最少。一整段里真正送出去的东西，一两件顶天了。",
       "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打，也可以打完了就 lock 走人。**没发出去的那句才是最像你的**。",
       "· 停顿是有意义的：pause 放在你犹豫、走神、或者盯着某样东西挪不开眼的地方。",
+      "· **动作是主角，心声是配角**：一整段里绝大多数是动作（点、翻、打字、停），think 只有寥寥几句。写成一串心声就不是「看他玩手机」了，是配旁白。",
       "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句**。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。多数动作根本不配一句心声。",
       "",
       "【这台手机现在的样子】",
@@ -214,7 +236,8 @@
       "",
       "【硬规矩】",
       "· 只能碰上面真实存在的人和会话，**不许凭空多出一个联系人**——真要出现新的人，让他出现在你发的话里，别新建一段私聊。",
-      "· 第一个动作从 wake（亮屏）起，最后一个动作是 lock（锁屏）。中间进哪个 app 用 open。第一批只有微信打得开。",
+      "· 第一个动作从 wake（亮屏）起，最后一个动作是 lock（锁屏）。中间要进 app 用 open。",
+      "· **现在只有微信打得开**，写成 open 的时候 app 一律填 wechat 这个词，别写中文名、别写别的 app——写别的等于这一下什么也没发生。",
       "· 你今天的心情、你和 " + uName + " 现在处到哪一步、你的人设——这几样决定你会点开谁、会不会点开 " + uName + "、在哪儿停住。",
       "· 别在动作里解释你为什么这么做。**做就是了**，看的人自己会明白。"
     ].filter(Boolean).join("\n");
@@ -312,7 +335,7 @@
   }
 
   return {
-    THOUGHT_CAP, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, ACT_CAP,
+    THOUGHT_CAP, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar,

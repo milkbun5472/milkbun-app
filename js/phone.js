@@ -99,6 +99,10 @@ const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "tak
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
 //   clock  一只走针的表      frame  从他相册里挑一张当相框      saying 把他写过的一句话放大
 const PHONE_DECOR = ["clock", "frame", "saying"];
+// 桌面上那几个【不是 app 的动作格】：点了是干一件事，不是进一个 app。
+// ⚠️名单要有个名字，别在 deskWidget 和两个测试里各写死一个 "refresh"——
+//   v66.18 加「看他玩」时，那三处正好一处不落地全红了一遍（一层写在三处的现成一例）。
+const PHONE_ACTION_WIDGETS = ["refresh", "watch"];
 // 四种桌面【不只是换几个 key】——她 2026-08-30 问「加了一堆新功能之后这四种分别怎么排比较好」。
 // 原来四种的骨架一模一样（时间线 wide + 一个 hero + 一个小的 + 刷新），换的只是里面的名字，
 // 摆出来就是同一部手机换了四次壁纸。现在四种各有各的节奏：
@@ -113,28 +117,28 @@ const PHONE_DESKTOP_LAYOUTS = [{
   dock: ["calls", "wechat", "browser", "music"],
   pages: [["notes", "album", "forum", "shopping"],
           ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail", "anon"]],
-  widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }],
+  widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "health" }, { key: "calendar" }]]
 }, {
   id: "archive", label: "爱记的",
   dock: ["calls", "wechat", "notes", "browser"],
   pages: [["album", "music", "clipboard", "calendar"],
           ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout", "anon"]],
-  widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }],
+  widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "reading", span: 2, size: "wide" }, { key: "saying", span: 2, size: "wide" }, { key: "mail" }, { key: "clock" }]]
 }, {
   id: "media", label: "泡内容的",
   dock: ["calls", "wechat", "music", "album"],
   pages: [["forum", "browser", "notes", "reading"],
           ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail", "anon"]],
-  widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }],
+  widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "liked" }, { key: "timeline" }]]
 }, {
   id: "wander", label: "安静的",
   dock: ["calls", "wechat", "browser", "album"],
   pages: [["notes", "music", "shopping", "forum"],
           ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health", "anon"]],
-  widgets: [[{ key: "clock" }, { key: "health" }, { key: "saying", span: 2, size: "wide" }, { key: "timeline", span: 2, size: "wide" }, { key: "refresh" }],
+  widgets: [[{ key: "clock" }, { key: "health" }, { key: "saying", span: 2, size: "wide" }, { key: "timeline", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "reading" }, { key: "takeout" }, { key: "calendar", span: 2, size: "wide" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -6121,13 +6125,28 @@ function PhoneCarry({
       onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
       className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
       style: {
-        gridColumn: "span 2", minHeight: 46, gap: 9, borderRadius: 16,
+        gridColumn: "span 1", minHeight: 46, gap: 7, borderRadius: 16,
         background: wPreset === "own" ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.52)",
         border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
       }
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
       style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }
-    }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻整部手机…") : "刷新全部 App"));
+    }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻…") : "刷新全部"));
+    // 「看他玩」跟「刷新全部」并排：它们是同一层的两面——一个是我翻他的手机，
+    // 一个是他自己在刷、我在旁边看。所以摆成一对，一人一半。
+    if (key === "watch") return h("button", {
+      key,
+      onClick: () => { if (!watchCoolLeft) startWatch(); },
+      disabled: watchBusy || !!busyKey || watchCoolLeft > 0,
+      className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
+      style: {
+        gridColumn: "span 1", minHeight: 46, gap: 7, borderRadius: 16,
+        background: wPreset === "own" ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.52)",
+        border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
+      }
+    }, h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: watchCoolLeft > 0 ? t.line : "#78bd58" } }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+        watchBusy ? T("等他拿起手机…") : watchCoolLeft > 0 ? Math.ceil(watchCoolLeft / 60000) + " 分钟后" : T("看他玩")));
     // 装饰件不是 app：表点了什么都不做，相框去相册，一句话去便签
     const decor = PHONE_DECOR.indexOf(key) >= 0;
     const jump = key === "frame" ? "album" : key === "saying" ? "notes" : key;
@@ -6201,24 +6220,8 @@ function PhoneCarry({
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
   // 搜索条已经并进顶栏（她 2026-09-01：「搜索键缩短放顶上时间那块地方」），
   // 这儿不再单占一条。
-  // ── 「看他玩」入口 ──────────────────────────────────────────
-  // ⚠️不做成「自己翻｜看他玩」那种一对药丸：她现在正站在「自己翻」里，
-  //   给个开关等于让她在两个 tab 之间选一个她已经在的（tabs-not-plain-pills 的判据）。
-  //   这是一个【动作】，所以它就长成一条能按下去的门缝。
-  q.trim() ? null : h("button", {
-    onClick: () => { if (!watchCoolLeft) startWatch(); },
-    disabled: watchBusy || watchCoolLeft > 0,
-    className: "shrink-0 mx-4 mb-2 active:opacity-70 disabled:opacity-45 flex items-center",
-    style: { gap: 9, minHeight: 44, padding: "0 13px", borderRadius: 14, textAlign: "left",
-      background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
-  },
-    h("span", { "aria-hidden": "true", style: { width: 8, height: 8, borderRadius: 999, flexShrink: 0,
-      background: watchCoolLeft > 0 ? t.line : "#78bd58" } }),
-    h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
-      watchBusy ? T("等他拿起手机…（这一步会调一次模型）")
-        : watchCoolLeft > 0 ? T("他刚放下手机 · ") + Math.ceil(watchCoolLeft / 60000) + " 分钟后再看"
-          : T("看他玩 · 他不知道你在看")),
-    watchBusy || watchCoolLeft > 0 ? null : h(IChevR, { size: 15, color: t.fog })),
+  // 「看他玩」的入口在桌面组件里，跟「刷新全部」并排（她 2026-09-10 定的：
+  // 全刷从 4×1 收成 2×1，另一半让给它）——它们是同一层的两面。
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
       hits.length ? T("在他手机里找到 ") + hits.length + " 处" : T("他手机里没有这个")),
@@ -6824,4 +6827,4 @@ if (typeof window !== "undefined") window.PhoneKit = {
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
   photoSig: phonePhotoSig
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
+if (typeof module === "object" && module.exports) module.exports = { PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };

@@ -107,17 +107,19 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
   // 换成组件的那几个在页面上没有图标，但组件本身点开就进去了。
   // 所以入口 = dock ∪ 页面图标 ∪ 组件（refresh 和装饰件除外）。
   const decor = P.PHONE_DECOR || [];
+  // 不是 app 的动作格（刷新全部 / 看他玩）：名单在 phone.js 一处，这儿别再写死一个
+  const acts = P.PHONE_ACTION_WIDGETS || ["refresh"];
   P.PHONE_DESKTOP_LAYOUTS.forEach(L => {
     const placed = L.dock.concat(...L.pages);
     const viaWidget = [].concat(...L.widgets).map(w => w.key)
-      .filter(k => k !== "refresh" && decor.indexOf(k) < 0);
+      .filter(k => acts.indexOf(k) < 0 && decor.indexOf(k) < 0);
     const reach = new Set(placed.concat(viaWidget));
     keys.forEach(k => assert.ok(reach.has(k), L.id + " 布局里找不到 " + k));
     // 不许同一个 app 在同一套布局里出现两次
     assert.equal(new Set(placed).size, placed.length, L.id + " 有重复入口");
     // 小组件引用的 key 必须真实存在：要么是 app，要么是 refresh，要么是登记过的装饰件
     L.widgets.forEach(page => page.forEach(w => {
-      assert.ok(w.key === "refresh" || decor.indexOf(w.key) >= 0 || keys.indexOf(w.key) >= 0,
+      assert.ok(acts.indexOf(w.key) >= 0 || decor.indexOf(w.key) >= 0 || keys.indexOf(w.key) >= 0,
         L.id + " 的小组件引用了不存在的 " + w.key);
     }));
   });

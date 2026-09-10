@@ -74,10 +74,13 @@ test("好感：封顶 ±1，而且不写死成负的", () => {
   assert.match(app, /if \(d && nth === 1\) bumpAff\(char\.id, d\);/);
 });
 
-test("冷却：同一个角色 30 分钟", () => {
-  assert.equal(W.WATCH_COOLDOWN_MS, 30 * 60000);
-  assert.equal(W.cooldownLeft(Date.now(), Date.now()) > 0, true);
-  assert.equal(W.cooldownLeft(Date.now() - 31 * 60000, Date.now()), 0);
+test("冷却：同一个角色 30 分钟（测试期间闸是关着的）", () => {
+  assert.equal(W.WATCH_COOLDOWN_MS, 30 * 60000, "数别丢了——闸关着不代表这个数没用了");
+  // ⚠️她 2026-09-10：「测试这段时间先把 30 分钟限制 disable 一下吧」。
+  //   关的是【闸】不是【数】；要开回来把 WATCH_COOLDOWN_OFF 改成 false 就行。
+  //   记在 屎山台账-2026-09-06.md 里，别忘了它现在是关着的。
+  assert.equal(W.WATCH_COOLDOWN_OFF, true, "闸开回来了？那就把这条断言和台账那一行一起改掉");
+  assert.equal(W.cooldownLeft(Date.now(), Date.now()), 0, "闸关着的时候不该还挡");
   assert.equal(W.cooldownLeft(0, Date.now()), 0, "从来没看过的时候应该能看");
   // 先记时刻再刷（跟查手机那条链同一个形状）：中途失败也不该下次又整份重来
   assert.match(app, /先记时刻再刷/);

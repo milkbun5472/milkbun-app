@@ -68,9 +68,12 @@ test("认得出来的那几个组件各有各的长相，不是一起走兜底",
   assert.match(body, /return h\("div", \{ style: \{ fontFamily: F_DISPLAY[\s\S]{0,200}widgetCopy\(key\)\)/, "兜底那一支没了，没写长相的组件会整块空掉");
 });
 
-test("刷新是一条细通栏，不是一整块组件", () => {
+// v66.18：全刷从 4×1 收成 2×1，另一半让给「看他玩」（她 2026-09-10 定的）——
+// 它俩是同一层的两面：一个是我翻他的手机，一个是他自己在刷、我在旁边看。
+test("刷新和看他玩并排一条，各占一半", () => {
   const w = grab('if (key === "refresh") return h("button"', "const decor = PHONE_DECOR");
-  assert.match(w, /gridColumn: "span 2"/, "刷新还占半行，旁边会空一块");
+  assert.match(w, /gridColumn: "span 1"/, "刷新还独占一整行，看他玩没地方站");
+  assert.match(w, /if \(key === "watch"\) return h\("button"/, "旁边那一半不见了");
   const mh = w.match(/minHeight: (\d+)/);
   assert.ok(mh && Number(mh[1]) <= 60, "刷新还是一整块组件的高度（" + (mh && mh[1]) + "），会把图标顶出屏幕");
 });
