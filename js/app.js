@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.30";
+const APP_VERSION = "v66.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13258,10 +13258,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
   // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
-  // ⚠️论坛和匿名信箱【故意不在这儿】（她 2026-09-10：「论坛匿名信箱都不要动」）：
-  //   那两个接的是真数据——他在那儿发一帖就是真的发出去了，不是演一下，跟别的 app 不是一回事。
+  // ⚠️论坛和匿名信箱是【只能看】的那一档（她 2026-09-10：「论坛和匿名可以点开看但是不改」）：
+  //   它们接的是真数据——在那儿发一帖、回一封就是真的发出去了，不是演一下。
+  //   所以名单里有它们（他能点进去翻），但 applyWrite 里一个分支都没有。
   const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
-    "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard"];
+    "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",
+    "forum", "anon"];
   const genWatchSession = async char => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
@@ -13274,18 +13276,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setWatchAt(a => { const n = { ...a, [char.id]: Date.now() }; saveJSON("x_phoneWatchAt", n); return n; });
     try {
       const ph = (phonesRef.current || {})[char.id] || {};
+      // ⚠️只让他打开【真有东西】的 app。没生成过的那些点进去是一屏转圈——
+      //   「看他玩」这一路不会顺手替他生成（那是另一枪，而且会把正在演的这一份盖掉），
+      //   于是他点开一个空 app 就等于卡在那儿（真机上就是这样）。
+      //   接真数据的那几个（音乐、论坛、日历、匿名信箱）本来就不进 phones，一律放行。
+      const live = typeof PHONE_LIVE_KEYS !== "undefined" ? PHONE_LIVE_KEYS : [];
+      const canApps = WATCH_APPS.filter(k => live.indexOf(k) >= 0 || (ph[k] && typeof ph[k] === "object"));
+      if (!canApps.length) { toast("他手机里还什么都没有，先翻一次再看他玩"); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: WATCH_APPS,
+        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
-          // 日历跟音乐一样是真数据（不在 x_phone 里），也单独递进去
-          calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null) }),
+          // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
+          calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null),
+          forum: (typeof phoneForumFor === "function"
+            ? (phoneForumFor(char) || []).reduce((all, a) => all.concat(Array.isArray(a && a.posts) ? a.posts : []), [])
+            : []) }),
         schemaHint: WK.watchSchemaHint(),
         maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
       });
       // 打得开的那几个：第一批微信，第二批加相册和便签。名单从 PHONE_APPS 里取，不另手写一份。
-      const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => WATCH_APPS.indexOf(a.key) >= 0);
+      const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => canApps.indexOf(a.key) >= 0);
       const got = WK.normalizeActs(out && (out.acts || out.actions || (Array.isArray(out) ? out : null)), openable);
       // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
       if (!got.acts.length) throw new Error("他这回没动。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));

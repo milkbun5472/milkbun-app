@@ -593,6 +593,8 @@ function Head({
     style: { width: SIDE }
   }, onBack ? /*#__PURE__*/React.createElement("button", {
     "data-wk": "headink",
+    // 「看他玩」的圆点要落在返回键上（查手机里九十来页的顶栏都用这个 Head）
+    "data-watch": "back",
     onClick: onBack,
     className: "active:opacity-50 flex items-center justify-center",
     style: { width: SIDE, height: 34 }

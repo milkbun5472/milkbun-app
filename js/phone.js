@@ -1567,7 +1567,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     if (!driveItem) { setOpen(null); return; }
     const want = String(driveItem);
     ["inbox", "sent", "drafts"].some(k => {
-      const hit = (Array.isArray(d && d[k]) ? d[k] : []).find(x => x && (String(x.subject || "") === want || String(x.from || "") === want));
+      const hit = (Array.isArray(d && d[k]) ? d[k] : []).find(x => x && (watchSame(x.subject, want) || watchSame(x.from, want)));
       if (hit) { setOpen({ ...hit, _kind: k }); return true; }
       return false;
     });
@@ -1761,7 +1761,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const rows = tallyEntries(tab, data);
   const openEntry = rows.find(e => e.key === flip) || null;
   // ⚠️翻开哪一张认的是 flip 这个 key（tab+下标），不是那一行本身——照这一屏自己的写法来
-  const driveKey = driveItem ? (rows.find(e => String(e.lead || "") === String(driveItem)) || {}).key : null;
+  const driveKey = driveItem ? (rows.find(e => watchSame(e.lead, driveItem)) || {}).key : null;
   useEffect(() => { if (drive) setFlip(driveKey || null); }, [driveKey]);
   const backText = openEntry ? openEntry.back.text : "";
   // 翻过去之后一个字一个字往外蹦。翻回来就停——计时器只跟着「翻开的是哪一张」走。
@@ -2418,7 +2418,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     if (!drive) return;
     if (!driveChat) { setThread(null); return; }
     // chats 在下面才算出来，但 effect 是渲染完才跑的，这时候它已经有值了
-    const hit = chats.find(c => c && String(c.name) === String(driveChat));
+    const hit = chats.find(c => c && watchSame(c.name, driveChat));
     if (hit) setThread(hit);
   }, [driveChat]);
   const [publicPage, setPublicPage] = useState(false);
@@ -2444,7 +2444,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
   //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
   //   挂点还是要有——只加属性，长相一个像素没动。
-  const innerHead = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10, flexShrink: 0 } },
+  const innerHead = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-3 px-4 pb-3", style: { paddingTop: safeTop(16), borderBottom: `1px solid ${t.line}`, background: "rgba(248,247,243,.96)" } }, h("button", { onClick: back, "aria-label": "返回", "data-watch": "back", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10, flexShrink: 0 } },
     // 本尊那根细尖角照旧，但它得是画出来的，而且要有 40px 可点区
     // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
@@ -2591,7 +2591,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     if (!drive) return;
     if (!driveItem) { setPhoto(null); return; }
     const all = Array.isArray(d && d.items) ? d.items : [];
-    const hit = all.find(x => x && String(x.caption || "") === String(driveItem));
+    const hit = all.find(x => x && watchSame(x.caption, driveItem));
     if (hit) setPhoto(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -2699,7 +2699,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
   const chrome = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56, background: "rgba(255,255,255,.97)", borderBottom: "1px solid #e5e5ea" } },
-    h("button", { onClick: back || onBack, "aria-label": "返回", className: "active:opacity-50", style: { width: 36, fontSize: 29, lineHeight: 1, color: "#111" } }, "‹"),
+    h("button", { onClick: back || onBack, "aria-label": "返回", "data-watch": "back", className: "active:opacity-50", style: { width: 36, fontSize: 29, lineHeight: 1, color: "#111" } }, "‹"),
     h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
@@ -2853,7 +2853,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     if (!driveItem) { setBook(null); return; }
     const A0 = a => Array.isArray(a) ? a : [];
     A0(d && d.shelves).some(sh => A0(sh && sh.books).some((b, i) => {
-      if (!b || String(b.title || "") !== String(driveItem)) return false;
+      if (!b || !watchSame(b.title, driveItem)) return false;
       // ⚠️照这一屏自己的写法来：详情里还挂着 _shelf / _no 两栏（openBook 那一处）
       setBook({ ...b, _shelf: (sh.name || ""), _no: i + 1 });
       return true;
@@ -3097,7 +3097,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     if (!drive) return;
     if (!driveItem) { setSheet(null); return; }
     const pool = [].concat(Array.isArray(d && d.wish) ? d.wish : [], Array.isArray(d && d.cart) ? d.cart : []);
-    const hit = pool.find(x => x && String(x.title || "") === String(driveItem));
+    const hit = pool.find(x => x && watchSame(x.title, driveItem));
     if (hit) setSheet({ kind: "wish", it: hit });
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -3437,7 +3437,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     if (!driveItem) { setOpen(null); return; }
     // 这一屏的 open 存的是【第几单】，不是那一单本身——照它自己的写法来
     const list = Array.isArray(d && d.orders) ? d.orders : [];
-    const i = list.findIndex(x => x && (String(x.shop || "") === String(driveItem) || String(x.main || "") === String(driveItem)));
+    const i = list.findIndex(x => x && (watchSame(x.shop, driveItem) || watchSame(x.main, driveItem)));
     if (i >= 0) setOpen(i);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -3664,7 +3664,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           return h(x ? "button" : "div", {
             key: di + "_" + ri,
             className: "flex w-full text-left" + (x ? " active:opacity-60" : ""),
-            onClick: x ? () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }); } : undefined,
+            onClick: x ? () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "auto" }); }); } : undefined,
             style: { gap: 11, marginTop: (di || ri) ? 11 : 0 }
           },
             // 左边这一列是那根线：换天时露出日子，同一天里就只剩一节线接着往下
@@ -3731,7 +3731,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, "送过 " + g.rows.length + " 次"),
             g.rows.slice(0, 3).map((x, j) => h("button", {
               key: j, className: "w-full text-left active:opacity-60",
-              onClick: () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }); },
+              onClick: () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "auto" }); }); },
               style: { display: "block", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: TAKE_SOFT }
             },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_ACCENT } }, [x.o.time, x.o.shop, x.o.main].filter(Boolean).join(" · ")),
@@ -4121,7 +4121,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const list = (Array.isArray(d && d.items) ? d.items : []).filter(x => x && typeof x === "object");
-    const i = list.findIndex(x => String(x.title || "") === String(driveItem));
+    const i = list.findIndex(x => watchSame(x.title, driveItem));
     // ⚠️open 存的是 { v, i } 这一对，不是那条本身——照这一屏自己的写法来
     if (i >= 0) setOpen({ v: list[i], i: i });
   }, [driveItem]);
@@ -4223,7 +4223,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.title || "") === String(driveItem));
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && watchSame(x.title, driveItem));
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4300,7 +4300,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const pool = [].concat(Array.isArray(d && d.items) ? d.items : [], Array.isArray(d && d.drafts) ? d.drafts : []);
-    const hit = pool.find(x => x && String(x.title || "") === String(driveItem));
+    const hit = pool.find(x => x && watchSame(x.title, driveItem));
     if (hit) setOpen(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -4483,7 +4483,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.title || "") === String(driveItem));
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && watchSame(x.title, driveItem));
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4615,7 +4615,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = A(d && d.items).find(x => x && String(x.title || "") === String(driveItem));
+    const hit = A(d && d.items).find(x => x && watchSame(x.title, driveItem));
     if (hit) setOpen(hit);
   }, [driveItem]);
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
@@ -4729,7 +4729,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.text || "").indexOf(String(driveItem)) >= 0);
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && (watchSame(x.text, driveItem) || String(x.text || "").indexOf(String(driveItem)) >= 0));
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4851,6 +4851,10 @@ const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "
 // 「看他玩」里【买东西那一路】的三个 app：它们没有输入框，send 落的是屏幕上那一页。
 // 写成一份名单，播放器和落盘各读它一次——别在两处各写一串 || 。
 const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
+// 「看他玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
+// （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
+const watchSame = (a, b) => (window.PhoneWatch && window.PhoneWatch.sameName)
+  ? window.PhoneWatch.sameName(a, b) : (String(a == null ? "" : a) === String(b == null ? "" : b));
 const watchPageNode = (drive, skin) => (drive && drive.page && window.PhoneWatch)
   ? h(window.PhoneWatch.WatchPage, { page: drive.page, skin: skin }) : null;
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
@@ -4865,7 +4869,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     if (!driveItem) { setOpen(null); return; }
     const arr2 = x => Array.isArray(x) ? x : [];
     const pool = [].concat(arr2(d && d.tabs), arr2(d && d.private), arr2(d && d.searches));
-    const hit = pool.find(x => x && String(x.title || x.q || "") === String(driveItem));
+    const hit = pool.find(x => x && (watchSame(x.title, driveItem) || watchSame(x.q, driveItem)));
     if (hit) setOpen(Object.assign({}, hit));
   }, [driveItem]);
   useEffect(() => { if (drive && drivePage) setOpen({ title: drivePage.title, site: drivePage.site, gist: drivePage.gist, _fresh: true }); }, [drivePage && drivePage.title]);
@@ -5077,11 +5081,11 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     if (!driveItem) { setOpen(null); return; }
     const A0 = a => Array.isArray(a) ? a : [];
     const want = String(driveItem);
-    const sm = A0(d && d.sms).find(x => x && (String(x.name || "") === want || String(x.number || "") === want));
+    const sm = A0(d && d.sms).find(x => x && (watchSame(x.name, want) || String(x.number || "") === want));
     if (sm) { setOpen({ kind: "sms", x: sm }); return; }
-    const cl = A0(d && d.calls).find(x => x && (String(x.name || "") === want || String(x.number || "") === want));
+    const cl = A0(d && d.calls).find(x => x && (watchSame(x.name, want) || String(x.number || "") === want));
     if (cl) { setOpen({ kind: "call", x: cl }); return; }
-    const v = A0(d && d.voicemail).find(x => x && String(x.from || "") === want);
+    const v = A0(d && d.voicemail).find(x => x && watchSame(x.from, want));
     if (v) setOpen({ kind: "vm", x: v });
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -5280,7 +5284,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
   useEffect(() => {
     if (!drive || !driveItem) return;
     const list = A(pl && pl.songs).filter(x => x && typeof x === "object");
-    const i = list.findIndex(x => String(x.title || "") === String(driveItem));
+    const i = list.findIndex(x => watchSame(x.title, driveItem));
     if (i < 0) return;
     // ⚠️open 存的是【那一行的 key】，不是歌对象——照这一屏自己的写法来（key = id 或 "s"+下标）
     setOpen(list[i].id || ("s" + i));
@@ -5403,7 +5407,7 @@ const PHONE_FORUM_SKINS = {
   alt: { bg: "linear-gradient(155deg,#eee9f2,#e2dbea)", paper: "rgba(251,248,252,.94)", ink: "#3b3044", dim: "#7c7084", line: "rgba(75,57,88,.15)", accent: "#79638a", soft: "rgba(121,99,138,.12)", label: "侧面的声音" },
   anon: { bg: "linear-gradient(155deg,#292c2b,#202322)", paper: "rgba(52,55,54,.96)", ink: "#f0eee7", dim: "#aaa9a2", line: "rgba(240,238,231,.13)", accent: "#b7a181", soft: "rgba(183,161,129,.14)", label: "没有署名" }
 };
-function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
+function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   const A = x => Array.isArray(x) ? x : [];
   const list = A(accounts);
   const acc = list.find(x => x.key === tab) || list[0] || { key: "main", label: "大号", name: "", posts: [], comments: [] };
@@ -5424,6 +5428,18 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
     savedScrollRef.current = scrollRef.current ? scrollRef.current.scrollTop : 0;
     setOpen({ kind, item });
   };
+  // ──「看他玩」驱动（她 2026-09-10：「论坛和匿名可以点开看但是不改」）──
+  // ⚠️这一路【零写入】，而且比相册还硬：论坛接的是真数据，他在这儿发一帖就是**真发出去**。
+  //   所以只认 openItem，一个写入分支都不给（applyWrite 里压根没有 forum 这一支）。
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const ps = A(acc && acc.posts).find(x => x && watchSame(x.title, driveItem));
+    if (ps) { setOpen({ kind: "post", item: ps }); return; }
+    const cs = A(acc && acc.comments).find(x => x && watchSame(x.postTitle, driveItem));
+    if (cs) setOpen({ kind: "comment", item: cs });
+  }, [driveItem]);
   const closeOne = () => {
     setOpen(null);
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -5468,7 +5484,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab }) {
           acc.key === "main" ? "转发给 TA" : T("摆到 TA 面前 · 这是他藏起来的"))));
   }
   const identityCount = countOf(acc);
-  const postCard = (it, i) => h("button", { key: it.id || "p" + i, onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
+  const postCard = (it, i) => h("button", { key: it.id || "p" + i, "data-watch": "item:" + (it.title || ""), onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
     h("div", { className: "flex items-center justify-between gap-3" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, background: skin.soft, color: skin.accent } }, it.board || "论坛"),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, fmtTs(it.ts))),
@@ -5549,6 +5565,7 @@ function renderPhoneModule(key, d, ctx) {
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
   if (key === "forum") return h(PhoneForumView, {
+    drive: ctx.drive,
     accounts: ctx.forumAccounts, char, onBack: ctx.onBack, onPeek: ctx.onPeek,
     tab: ctx.forumTab, onTab: ctx.setForumTab
   });
@@ -5769,20 +5786,57 @@ function PhoneCarry({
   // ⚠️打字是【逐字】的，所以 type 这一支自己再开一个小节拍；清理函数要把它一起收掉，
   //   不然退出去之后还有一串定时器在往一个已经没了的 state 里写。
   const WK = typeof window !== "undefined" ? window.PhoneWatch : null;
-  const watchDotTo = sel => {
+  // 挂点找不着的时候再模糊找一次：模型写的名字标点常常飘（「《长夜》」→「长夜」），
+  // 严格选择器就当场落空。认名字的规矩只有 PhoneWatch.sameName 一份。
+  const watchFuzzy = name => {
+    if (!name || !WK || !WK.sameName) return null;
+    const all = document.querySelectorAll('[data-watch^="item:"]');
+    for (let i = 0; i < all.length; i++) {
+      if (WK.sameName(String(all[i].getAttribute("data-watch")).slice(5), name)) return all[i];
+    }
+    return null;
+  };
+  const watchDotTo = (sel, fuzzyName) => {
     if (!sel) return;
     // 光标落在哪儿靠挂点量出来，不猜坐标：会话列表滚到哪儿、有几条，每台手机都不一样，
     // 猜出来的点会落在空处——那一眼就看得出是假的。
-    requestAnimationFrame(() => {
+    // ⚠️量一次是不够的：这一下刚改完 state，要点的那个东西【还没画出来】（切了栏、
+    //   进了详情页都是这样），一次 rAF 量到的是 null，于是圆点整段杵在原地不动
+    //   （她 2026-09-10：「整体光标都不会移动」）。所以隔几拍再试几次，量到就停。
+    let done = false;
+    const attempt = () => {
+      if (done) return;
       try {
-        const el = document.querySelector(sel);
+        const el = document.querySelector(sel) || watchFuzzy(fuzzyName);
         if (!el) return;
         const r = el.getBoundingClientRect();
         if (!r.width && !r.height) return;
-        setDot({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), press: true });
+        // ⚠️要点的东西不在屏幕上时【先把它翻出来】，别把圆点甩到屏幕外去
+        //   （桌面第二页那几个图标就是这样：量得到坐标，但那是 x=630 的地方，
+        //   人根本看不见）。真人也是先划到那一页、或者把列表滚到那一行，才点得着。
+        const W0 = window.innerWidth || 0, H0 = window.innerHeight || 0;
+        let box = r;
+        if (r.right < 0 || r.bottom < 0 || r.left > W0 || r.top > H0) {
+          try { el.scrollIntoView({ block: "center", inline: "center", behavior: "auto" }); } catch (e2) {}
+          // ⚠️翻完【当场再量一次】：这一下过后屏幕多半就换了（点开 app 那一下尤其），
+          //   等下一拍再来量，那个图标早不在 DOM 里了——圆点于是停在上一处不动。
+          box = el.getBoundingClientRect();
+          if (box.right < 0 || box.bottom < 0 || box.left > W0 || box.top > H0) return;
+        }
+        const r2 = box;
+        done = true;
+        setDot({ x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2), press: true });
         setTimeout(() => setDot(p => p ? { ...p, press: false } : p), 190);
       } catch (e) {/* 量不到就让圆点留在原地，别为这个崩掉整段 */}
-    });
+    };
+    // ⚠️第一下必须【当场同步量】：手指按的是**按下去之前**那一屏上的东西——
+    //   点开一个 app、点开一行、按返回，这几下一按屏幕就换了，等到下一帧那个图标
+    //   早没了（她 2026-09-10：「整体光标都不会移动」，病根就在这儿：原来第一下也是异步的）。
+    //   effect 里的 setState 不会同步刷 DOM，所以这一刻量到的正是他手指按下去的那一屏。
+    attempt();
+    // 按完才出现的那几样（搜出来的那一页、发送键、打字条）第一下量不到，隔几拍再试。
+    const shots = [90, 220, 420, 660].map(ms => setTimeout(attempt, ms));
+    return () => shots.forEach(clearTimeout);
   };
   useEffect(() => {
     if (!watch || watch.done || !WK) return;
@@ -5790,7 +5844,12 @@ function PhoneCarry({
     if (!a) { setWatch(w => w ? { ...w, done: true, typing: null } : w); return; }
     const speed = watch.speed || 1;
     let typer = null;
-    // ① 这一下的效果
+    // ① 圆点先落下去——**在这一下的效果之前**。
+    //   顺序反了的话，点开 app、点开一行、按返回这几下量到的都是【换过之后】那一屏，
+    //   要点的那个东西已经不在了，于是圆点整段杵着不动。
+    //   名字一起递过去：挂点没抓着就按名字模糊找一次（模型写的名字标点常常飘）。
+    const stopDot = watchDotTo(WK.watchTargetSel(a), a.name || a.at || "");
+    // ② 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
     else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
     else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, typing: null } : w); }
@@ -5872,11 +5931,10 @@ function PhoneCarry({
         if (n >= full.length) { clearInterval(typer); typer = null; }
       }, Math.max(28, 90 / speed));
     }
-    // ② 圆点挪过去
-    watchDotTo(WK.watchTargetSel(a));
+
     // ③ 排下一步
     const tid = setTimeout(() => setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w), Math.max(120, WK.actDuration(a) / speed));
-    return () => { clearTimeout(tid); if (typer) clearInterval(typer); };
+    return () => { clearTimeout(tid); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
     // eslint-disable-next-line
   }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
   const startWatch = async () => {
@@ -6192,6 +6250,9 @@ function PhoneCarry({
     const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : tone.glyph;
     return h("button", {
     key: a.key,
+    // 「看他玩」的圆点要落在这上面。⚠️原来一个 app: 挂点都没有，于是【点开一个 app】
+    //   这个最常见的动作永远不动圆点（她 2026-09-10：「整体光标都不会移动」）。
+    "data-watch": "app:" + a.key,
     onClick: () => openApp(a),
     className: "flex flex-col items-center active:opacity-60",
     style: { gap: compact ? 3 : 7, minWidth: 0 }
@@ -6522,6 +6583,7 @@ function PhoneCarry({
     const tone = phoneTone(jump);
     return h("button", {
       key,
+      "data-watch": "app:" + jump,
       onClick: () => { if (key === "clock") return; const a = appByKey(jump); if (a) openApp(a); },
       className: "text-left active:opacity-70",
       style: {

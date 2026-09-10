@@ -188,13 +188,16 @@ test("相册那一路零写入：只演不落", () => {
 });
 
 test("打得开哪几个 app 只此一份名单", () => {
-  // ⚠️论坛和匿名信箱故意不在名单里（她 2026-09-10：那两个是真数据，发一帖就是真发出去）
-  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",\s*\n\s*"calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard"\]/);
-  assert.doesNotMatch(app, /WATCH_APPS = \[[^\]]*"forum"/);
-  assert.doesNotMatch(app, /WATCH_APPS = \[[^\]]*"anon"/);
+  // 论坛和匿名信箱在名单里（她 2026-09-10：「可以点开看但是不改」），
+  // ⚠️但 applyWrite 里一个分支都不许有——它们接的是真数据，发一帖就是真发出去。
+  assert.match(app, /"calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",\s*\n\s*"forum", "anon"\]/);
+  assert.equal(W.applyWrite("forum", { posts: [] }, "帖子", "他要发的话", 1).wrote, false);
+  assert.equal(W.applyWrite("anon", { records: [] }, "一封", "他要回的话", 1).wrote, false);
   // 提示词、归一、播放器都读它，不各写一份
-  assert.match(app, /WATCH_APPS\.indexOf\(a\.key\) >= 0/);
-  assert.match(app, /apps: WATCH_APPS/);
+  assert.match(app, /canApps\.indexOf\(a\.key\) >= 0/);
+  // 名单先按【真有东西】筛一道：没生成过的 app 点进去是一屏转圈（看他玩不替他生成）
+  assert.match(app, /apps: canApps/);
+  assert.match(app, /const canApps = WATCH_APPS\.filter\(k => live\.indexOf\(k\) >= 0 \|\| \(ph\[k\] && typeof ph\[k\] === "object"\)\)/);
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat", "album", "notes"], phone: {} });
   assert.match(s, /\*\*能打开的只有这几个\*\*：wechat \/ album \/ notes/);
   // 空的 app 要明说别点进去，不然他会点开一个空相册愣着
@@ -485,4 +488,65 @@ test("「他自己」在两屏上叫的名字不一样，别一律换成微信�
   // 真机上抓到的：短信里他自己发的那条被画成了对面的灰气泡——
   // 病根是递给各屏的 drive.sent 一律把 from 换成微信昵称，而短信那屏认的是死字符串 "me"。
   assert.match(phone, /from: x\.them \? x\.from : \(x\.from === "me" \? "me" :/);
+});
+
+// ══════════════════════════════════════════════════════════════
+// 她 2026-09-10 报的那一串：点不开、写不了、光标不动
+// ══════════════════════════════════════════════════════════════
+test("认名字只此一份规矩：标点飘了也得认出来", () => {
+  // 病根：模型回写的名字标点常常飘，严格等号的后果是【一声不响什么也没发生】
+  //（她：「他打开相册图片点不开」）——页面没开、圆点也落不下去。
+  assert.equal(W.sameName("《长夜》", "长夜"), true);
+  assert.equal(W.sameName("海边那天", "海边 那天"), true);
+  assert.equal(W.sameName("周四交稿。", "周四交稿"), true);
+  assert.equal(W.sameName("甲", "乙"), false);
+  assert.equal(W.sameName("一条视频", ""), false, "空名字不许乱认一个");
+  // ⚠️两处必须用同一条：圆点找挂点用它，各屏找那一行也用它
+  assert.match(phone, /const watchSame = \(a, b\) => \(window\.PhoneWatch && window\.PhoneWatch\.sameName\)/);
+  assert.match(phone, /WK\.sameName\(String\(all\[i\]\.getAttribute\("data-watch"\)\)\.slice\(5\), name\)/);
+  assert.doesNotMatch(phone, /=== String\(driveItem\)/, "还有哪一屏在用严格等号认名字");
+});
+
+test("便签新写一条：正文不能是空的", () => {
+  // 她：「便签现在也是只能在已有的加一句不能新写」——病根是他没点开任何一条时
+  // who 是空的，于是抬头有了、正文写成了空串。
+  const r = W.applyWrite("notes", { items: [] }, "", "明天记得取快递", 1);
+  assert.equal(r.d.items[0].title, "明天记得取快递");
+  assert.equal(r.d.items[0].body, "明天记得取快递", "新写的便签正文不许是空的");
+  // 长的那种：抬头取前一截，正文还是整段
+  const long = "先去取快递\n然后把稿子的开头改一遍，编辑说太绕";
+  const r2 = W.applyWrite("notes", { items: [] }, "", long, 1);
+  assert.equal(r2.d.items[0].title, "先去取快递");
+  assert.equal(r2.d.items[0].body, long);
+  // 点开已有的那条改正文，还是就地改（不许变成第二条）
+  const r3 = W.applyWrite("notes", { items: [{ title: "周四交稿", body: "旧的" }] }, "周四交稿", "新的", 1);
+  assert.equal(r3.d.items.length, 1);
+  assert.equal(r3.d.items[0].body, "新的");
+});
+
+test("视频也能刷出一条新的点进去，看了就是看过了", () => {
+  const r = W.applyWrite("bili", { items: [] }, "一条新视频", "", 1, { act: "openPage", site: "某人", gist: "讲了点什么" });
+  assert.equal(r.d.items[0].title, "一条新视频");
+  assert.equal(r.d.items[0].up, "某人");
+  // ⚠️跟小红书分得开：那边点进去只是看，按了收藏才留
+  assert.equal(W.applyWrite("liked", { items: [] }, "一条笔记", "", 1, { act: "openPage" }).wrote, false);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["browser", "bili", "liked"], phone: {} });
+  assert.match(s, /\*\*搜了就要点开一条\*\*/, "浏览器搜完不点开，屏幕上就是一片空白");
+  assert.match(s, /视频：scroll 往下刷/);
+});
+
+test("圆点：先量后动，量不到再试几拍，翻不到就先把它翻出来", () => {
+  // 她：「整体光标都不会移动」。三个病根，一个一个钉住：
+  // ① 点开 app 那一下压根没有挂点
+  assert.match(phone, /"data-watch": "app:" \+ a\.key/);
+  assert.match(phone, /"data-watch": "app:" \+ jump/);
+  // ② 返回键没有挂点（九十来页的顶栏都走公共 Head）
+  assert.match(fs.readFileSync("js/components.js", "utf8"), /"data-watch": "back",\n\s*onClick: onBack/);
+  // ③ 量的时机反了：手指按的是【按下去之前】那一屏，所以第一下必须当场同步量
+  assert.match(phone, /attempt\(\);\n\s*\/\/ 按完才出现的那几样/);
+  assert.match(phone, /const stopDot = watchDotTo\(WK\.watchTargetSel\(a\), a\.name \|\| a\.at \|\| ""\);[\s\S]{0,400}\/\/ ② 这一下的效果/);
+  // 屏幕外的东西先翻出来再点，别把圆点甩到 x=630 那种看不见的地方
+  assert.match(phone, /el\.scrollIntoView\(\{ block: "center", inline: "center", behavior: "auto" \}\)/);
+  // look 落在那样东西身上，不另挂一套 look: 的点
+  assert.equal(W.watchTargetSel({ kind: "look", at: "海边那天" }), '[data-watch="item:海边那天"]');
 });

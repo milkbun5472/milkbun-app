@@ -76,6 +76,19 @@
   const ACT_ALIAS = { openChat: "openItem", openPhoto: "openItem", openNote: "openItem", save: "send" };
 
   const S = v => String(v == null ? "" : v);
+  // ── 认名字只此一份 ────────────────────────────────────────────
+  // ⚠️模型回写名字时标点、书名号、空格全会飘（「《长夜》」→「长夜」、「海边那天」→「海边 那天」）。
+  //   严格等号的后果是【一声不响地什么也没发生】：屏幕上那一下没打开，圆点也落不下去
+  //   （她 2026-09-10：「他打开相册图片点不开」）。
+  //   所以对外只有这一条规矩，圆点找挂点和各屏找那一行都用它——两处各写一套就会一处开一处不开。
+  const nameNorm = v => S(v).replace(/[\s《》「」『』“”"'`·・,，.。!！?？:：;；()（）\[\]【】\-—_~～]/g, "").toLowerCase();
+  function sameName(a, b) {
+    const x = nameNorm(a), y = nameNorm(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    // 一方包含另一方也算：模型爱把标题写长一截或者只写前半句
+    return (x.length >= 3 || y.length >= 3) && (x.indexOf(y) >= 0 || y.indexOf(x) >= 0);
+  }
   const N = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 
   // ── 规整模型给的那一串 ──────────────────────────────────────────
@@ -172,14 +185,14 @@
     // ⚠️短信那一屏认的是 from === "me"，别的一律画成对面（照那一屏自己的写法来）。
     if (appKey === "calls") {
       const sms = Array.isArray(base.sms) ? base.sms.map(x => Object.assign({}, x)) : [];
-      const row = sms.find(x => x && (S(x.name) === who || S(x.number) === who));
+      const row = sms.find(x => x && (sameName(x.name, who) || S(x.number) === who));
       if (!row) return { d: d, wrote: false };
       row.msgs = (Array.isArray(row.msgs) ? row.msgs.slice() : []).concat([{ from: "they", text: body, time: "刚刚" }]);
       row.time = "刚刚"; row.unread = true; row._ts = ts;
       return { d: Object.assign({}, base, { sms: sms }), wrote: true };
     }
     const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
-    let row = chats.find(c => c && S(c.name) === who);
+    let row = chats.find(c => c && sameName(c.name, who));
     if (!row) return { d: d, wrote: false };   // 对面得是已经存在的那个人，不许凭空多一个
     // 群里回话的可能是群里某个人；私聊就是对方本人。名字模型给的那个为准。
     const from = row.type === "group" ? (S((row.messages || [])[0] && (row.messages || [])[0].from) || who) : who;
@@ -201,7 +214,7 @@
       if (!who || !body) return { d: d, wrote: false };
       const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
       const meName = S(base.me && base.me.wechatName) || "我";
-      let row = chats.find(c => c && S(c.name) === who);
+      let row = chats.find(c => c && sameName(c.name, who));
       if (!row) { row = { name: who, type: "chat", messages: [] }; chats.push(row); }
       row.messages = (Array.isArray(row.messages) ? row.messages.slice() : []).concat([{ from: meName, text: body }]);
       row.last = body;
@@ -217,9 +230,16 @@
       // 她 2026-09-10 举的例子：「要删的备忘录他划掉重新写」。
       // 便签是【名册】（PHONE_RETIRE 里登记着），身份是标题——改正文不该变成第二条。
       const items = Array.isArray(base.items) ? base.items.map(x => Object.assign({}, x)) : [];
-      const hit = who ? items.find(x => x && S(x.title) === who) : null;
+      const hit = who ? items.find(x => x && sameName(x.title, who)) : null;
       if (hit) { hit.body = body; hit.time = "刚刚"; hit._ts = ts; }
-      else items.unshift({ title: who || body.slice(0, 14), body: who ? body : "", time: "刚刚", _ts: ts });
+      else {
+        // 新写一条：抬头取第一行（或者前十四个字），**正文是他打的那一整段**。
+        // ⚠️原来这儿写的是 body: who ? body : ""——他没点开任何一条就直接写的时候
+        //   who 是空的，于是抬头有了、正文是空的（她 2026-09-10：「便签不能新写」）。
+        const first = body.split("\n")[0].trim();
+        const title = who || (first.length <= 14 ? first : first.slice(0, 14));
+        items.unshift({ title: title, body: body, time: "刚刚", _ts: ts });
+      }
       return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
@@ -260,12 +280,12 @@
       const price = (o0 && o0.price != null) ? N(o0.price, null) : null;
       if (S(o0 && o0.act) === "send") {
         const cart = Array.isArray(base.cart) ? base.cart.slice() : [];
-        if (cart.some(x => x && S(x.title) === title)) return { d: d, wrote: false };  // 已经在车里了，别放第二遍
+        if (cart.some(x => x && sameName(x.title, title))) return { d: d, wrote: false };  // 已经在车里了，别放第二遍
         cart.unshift(wkRow({ title: title, shop: shop, price: price, why: why, qty: 1 }, ts));
         return { d: Object.assign({}, base, { cart: cart.slice(0, 12) }), wrote: true };
       }
       const viewed = Array.isArray(base.viewed) ? base.viewed.slice() : [];
-      if (viewed.some(x => x && S(x.title) === title)) return { d: d, wrote: false };
+      if (viewed.some(x => x && sameName(x.title, title))) return { d: d, wrote: false };
       viewed.unshift({ title: title, shop: shop, price: price, time: "刚刚", _ts: ts });
       return { d: Object.assign({}, base, { viewed: viewed }), wrote: true };
     }
@@ -287,6 +307,19 @@
       return { d: Object.assign({}, base, { live: live.slice(0, 6), orders: orders }), wrote: true };
     }
 
+    // ── 视频 ───────────────────────────────────────────────────
+    // 他刷出一条新的点进去看了——「看过的视频」是 📚（发生过什么），所以这一下就该留痕。
+    // ⚠️跟小红书不一样：那边点进去只是看、按了收藏才留；视频是**看了就是看过了**。
+    if (appKey === "bili") {
+      const title = who || body;
+      if (!title || S(o0 && o0.act) !== "openPage") return { d: d, wrote: false };
+      const items = Array.isArray(base.items) ? base.items.slice() : [];
+      if (items.some(x => x && sameName(x.title, title))) return { d: d, wrote: false };
+      items.unshift({ title: title, up: S(o0 && o0.site), gist: S(o0 && o0.gist),
+        time: "刚刚", cover: items.length % 6, _ts: ts });
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
+    }
+
     // ── 小红书 ─────────────────────────────────────────────────
     // 点进一条笔记只是【看】（那一页浮在屏幕上，什么也不写）；
     // 他真按了收藏才落一条——items 是 📚，收藏过的就该一直在。
@@ -294,7 +327,7 @@
       const title = who || body;
       if (!title || S(o0 && o0.act) !== "send") return { d: d, wrote: false };
       const items = Array.isArray(base.items) ? base.items.slice() : [];
-      if (items.some(x => x && S(x.title) === title)) return { d: d, wrote: false };
+      if (items.some(x => x && sameName(x.title, title))) return { d: d, wrote: false };
       items.unshift({ title: title, author: S(o0 && o0.site), excerpt: S(o0 && o0.gist),
         act: "收藏", time: "刚刚", cover: items.length % 6, _ts: ts });
       return { d: Object.assign({}, base, { items: items }), wrote: true };
@@ -306,7 +339,7 @@
     if (appKey === "calls") {
       if (!who || !body) return { d: d, wrote: false };
       const sms = Array.isArray(base.sms) ? base.sms.map(x => Object.assign({}, x)) : [];
-      const row = sms.find(x => x && (S(x.name) === who || S(x.number) === who));
+      const row = sms.find(x => x && (sameName(x.name, who) || S(x.number) === who));
       if (!row) return { d: d, wrote: false };   // 得是已经在的那一串，不许凭空多出个号码
       row.msgs = (Array.isArray(row.msgs) ? row.msgs.slice() : []).concat([{ from: "me", text: body, time: "刚刚" }]);
       row.time = "刚刚"; row.unread = false; row._ts = ts;
@@ -319,7 +352,7 @@
     if (appKey === "mail") {
       if (!body) return { d: d, wrote: false };
       const inbox = Array.isArray(base.inbox) ? base.inbox : [];
-      const src = who ? inbox.find(x => x && (S(x.subject) === who || S(x.from) === who)) : null;
+      const src = who ? inbox.find(x => x && (sameName(x.subject, who) || sameName(x.from, who))) : null;
       const sent = Array.isArray(base.sent) ? base.sent.slice() : [];
       sent.unshift({ to: (src && S(src.from)) || who, subject: src ? "回复：" + S(src.subject) : (who || body.slice(0, 16)),
         body: body, time: "刚刚", _ts: ts });
@@ -332,12 +365,10 @@
     // 改过的书盖 _upd，整份盖 _lastUpd，同一个时间戳才亮红点）。
     if (appKey === "reading") {
       if (!who || !body) return { d: d, wrote: false };
-      const norm = v => S(v).replace(/[\s《》「」"\u2019\u00b7,，.。!！?？:：;；]/g, "");
-      const want = norm(who);
       let hit = 0;
       const shelves = (Array.isArray(base.shelves) ? base.shelves : []).map(sh => Object.assign({}, sh, {
         books: (Array.isArray(sh && sh.books) ? sh.books : []).map(b => {
-          if (!b || norm(b.title) !== want) return b;
+          if (!b || !sameName(b.title, who)) return b;
           hit++;
           return Object.assign({}, b, { note: body, _upd: ts });
         })
@@ -499,6 +530,10 @@
       const cs = arr((ph.clipboard || {}).items).slice(0, 10).map(x => "· " + String(x.text || "").slice(0, 24)).join("\n");
       now.push("〔剪贴板 clipboard〕他复制过的（openItem 的 name 就是那一条的原文）：\n" + (cs || "（剪贴板是空的）"));
     }
+    if (can.indexOf("forum") >= 0) {
+      const fs = arr((o && o.forum) || []).slice(0, 8).map(x => "· " + (x.title || "?")).join("\n");
+      now.push("〔论坛 forum〕板上这几帖（openItem 的 name 就是帖子标题）：\n" + (fs || "（论坛上还没有他看的帖子）"));
+    }
     if (can.indexOf("notes") >= 0) {
       const ns = arr((ph.notes || {}).items).slice(0, 14)
         .map(x => "· " + (x.title || "?") + (x.body ? "：" + String(x.body).slice(0, 34) : "")).join("\n");
@@ -525,15 +560,17 @@
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
-      can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去。搜完**不一定点得开东西**，那也很像你；真想点进去就 openPage，给 name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
+      can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
       can.indexOf("takeout") >= 0 ? "· 外卖：openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
-      can.indexOf("liked") >= 0 ? "· 小红书：openPage 点进一条笔记——name 是标题、site 是作者、gist 是这条笔记写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。openItem 点开他以前存过的那几条。tab 可以切 feed / follow / mine。" : "",
+      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。tab 可以切 feed / follow / mine。" : "",
       can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
       can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**。tab 可以切 inbox / sent / drafts。" : "",
       can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。tab 可以切 shelf / archive。" : "",
       can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**这一路只能看，改不了**——那本账不是刷手机能改的东西。tab 可以切 debts / policies / statements / treasures / appraisals。" : "",
-      can.indexOf("bili") >= 0 || can.indexOf("latenight") >= 0 ? "· 视频 / 深夜台：openItem 点开一条已经在那儿的，look 着、pause 一会儿、scroll 往下划。**这一路什么都改不了**，就是刷。" : "",
+      can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
+      can.indexOf("latenight") >= 0 ? "· 深夜台：openItem 点开一条已经在那儿的，look 着、pause 一会儿、scroll 往下划。**这一路什么都改不了**，就是刷。" : "",
+      can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：只能 openItem 点开一条看看、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。" : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
       can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。**这三处只能看，一个字都改不了。**" : "",
       can.indexOf("music") >= 0 ? "· 音乐：openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑。" : "",
@@ -566,7 +603,8 @@
     if (a.kind === "reply") return '[data-watch="thread"]';
     if (a.kind === "tab") return '[data-watch="tab:' + S(a.name).replace(/"/g, "") + '"]';
     if (a.kind === "open") return '[data-watch="app:' + S(a.app).replace(/"/g, "") + '"]';
-    if (a.kind === "look") return '[data-watch="look:' + S(a.at).replace(/"/g, "") + '"]';
+    // 「只是看着某样东西」落在那样东西身上——它就是列表里那一行，不另挂一套 look: 的点
+    if (a.kind === "look") return '[data-watch="item:' + S(a.at).replace(/"/g, "") + '"]';
     if (a.kind === "back") return '[data-watch="back"]';
     // 买东西那三个 app 没有「发送」钮，这一下按在现编的那一页上——退而求其次落在它上面，
     // 总比圆点僵在原地强（querySelector 认逗号，谁先在页面上就落谁）。
@@ -672,7 +710,7 @@
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
-    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply,
+    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName,
     knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
   };
 });
