@@ -627,8 +627,12 @@
       const moments = arr(wx.moments).slice(0, 6).map(x => "· " + (x.author || "?") + "：" + String(x.content || "").slice(0, 40)).join("\n");
       // ⚠️她也在他微信里，而且那一条是【真的】：发给她就是真发到她手机上。
       //   不点出来的话他永远想不到可以给她发消息——那本来是这个玩法最戳人的一下。
+      // ⚠️她 2026-09-10：「现在微信变成只会在我的聊天框动手，不看朋友圈也不和别人发消息」。
+      //   病根是我上一版把这一行写得太响（全段最响的一句），于是他每次一开微信就直奔她。
+      //   她那条要留着（那是最戳人的一下），但得压回【偶尔】：先说别人，再提她。
       const meLine = "\n· " + uName + (o && o.uRemark ? "（你给她的备注：" + o.uRemark + "）" : "")
-        + " —— **她。给她发消息就是真的发到她手机上，她会看见。**想好了再发。";
+        + " —— 她也在你微信里。给她发消息是**真的发到她手机上**，所以**不是每次都发**："
+        + "这一段你多半只是刷别人，只有真有话说的那一次才点开她。";
       now.push("〔微信 wechat〕会话（openItem 的 name 从这里照抄）：\n" + (chats || "（还没有会话）") + meLine
         + (contacts ? "\n通讯录里有：" + contacts : "")
         + (moments ? "\n朋友圈最近几条：\n" + moments : ""));
@@ -760,10 +764,10 @@
       "· 点开一样东西之后**至少 pause 一下**再做别的：进去两秒就退出来，看的人只会觉得莫名其妙。",
       "",
       "【每个 app 里你能干什么】",
-      can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
+      can.indexOf("wechat") >= 0 ? "· 微信：**这个 app 里绝大多数时候你刷的是别人**——翻朋友圈（tab 切 moments，openItem 写发这条的人）、点开某个人的会话说两句、看看联系人。**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。**一段里翻一两张就够了，翻完去别处**：相册最容易一待就是半程，可一个人不会盯着同两张照片来回看。tab 可以切 library / collections / saved。" : "",
-      can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
+      can.indexOf("notes") >= 0 ? "· 便签：两种都行。**改**：openItem 点开一条已有的，手上就是它现在的正文，erase 划掉（不给 n 就整段划光）、type 重写、send 存下。**新写**：不点开任何一条，直接 type 打一段再 send——那就是新记一条。想起什么随手记一笔，本来就是便签最常发生的事。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
       can.indexOf("takeout") >= 0 ? "· 外卖：**想吃点别的就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
@@ -790,8 +794,9 @@
       //   一个人拿起手机不会只在两个 app 之间打转——那是名单顺序造成的位置偏好，不是他的性格。
       "· **这一段里至少进 3 个不一样的 app**，别在同两个之间来回。同一个 app 最多进两次。",
       (o && Array.isArray(o.recentItems) && o.recentItems.length)
-        ? "· 上一次你翻的是这几样：" + o.recentItems.slice(0, 8).join("、")
-          + "。**这一次换别的**——同一张照片、同一条东西，一段里只点一次就够了。"
+        ? "· 这几样你最近几次已经翻过了：" + o.recentItems.slice(0, 10).join("、")
+          + "。下面各份名单里，**没翻过的排在前面——先从前面那些里挑**；"
+          + "真要再看一遍旧的，得是这一次有理由再看它。同一样东西一段里只点一次就够了。"
         : "",
       (o && Array.isArray(o.recent) && o.recent.length)
         ? "· 上一次你刷的是：" + o.recent.join("、")

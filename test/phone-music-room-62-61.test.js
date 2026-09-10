@@ -35,7 +35,7 @@ test("底铺在最外那层外壳上，而且不跟着内容滚", () => {
 test("自画外壳就得进 full-bleed 名单，否则外面那层通用顶栏还会压一条", () => {
   assert.match(NOC, /const FULL_BLEED_KEYS = \["music",/);
   // 自己画顶栏就得自己接返回
-  assert.match(NOC, /onPeek: ctx\.onPeek, onBack: ctx\.onBack, drive: ctx\.drive\n?\s*\}\);/);
+  assert.match(NOC, /onPeek: ctx\.onPeek, onBack: ctx\.onBack, drive: ctx\.drive, nowSongId: ctx\.nowSongId\n?\s*\}\);/);
   assert.match(MV, /h\(Head, \{ zh: "歌单"[\s\S]{0,120}onBack: onBack/);
 });
 

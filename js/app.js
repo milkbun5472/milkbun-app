@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.53";
+const APP_VERSION = "v66.55";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13377,8 +13377,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app);
         if ((a.kind === "openItem" || a.kind === "look") && a.name && its.indexOf(a.name) < 0) its.push(a.name);
       });
+      // ⚠️只记【上一段】是不够的（她 2026-09-10 第三次报：还是那张照片、那个标签页）：
+      //   两段之间来回换，等于什么都没记住。改成滚动记最近几段，新的在前，封顶 24 个。
       if (opened.length || its.length) setWatchSeen(m => {
-        const n = { ...m, [char.id]: { a: opened, i: its.slice(0, 24) } };
+        const prev0 = m[char.id];
+        const prevIts = Array.isArray(prev0) ? [] : ((prev0 && prev0.i) || []);
+        const merged = its.concat(prevIts.filter(x => its.indexOf(x) < 0)).slice(0, 24);
+        const n = { ...m, [char.id]: { a: opened, i: merged } };
         watchSeenRef.current = n; saveJSON("x_phoneWatchSeen", n); return n;
       });
       // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。
@@ -13427,7 +13432,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   反而会多出一条假的、跟真的那条并排站着。真话只该有一份。
     if (where === "wechat" && watchIsMe(char, to) && String(text || "").trim()) {
       pChat(char.id, p => [...p, { role: "assistant", content: String(text).trim(), ts: Date.now(), fromWatch: true }]);
-      return;
+      // ⚠️回一个「真」字：那一屏上她那条聊天是【活的】（liveThread 每帧重认），
+      //   这条已经在里面了。播放器再挂一条演出用的气泡就是同一句话出现两遍
+      //   （她 2026-09-10：「给我发一条微信看他玩那会会显示同样的发了两条」）。
+      return true;
     }
     const cur = ((phonesRef.current || {})[char.id] || {})[where];
     if (!cur) return;                       // 那个 app 还没生成过，没有底稿可接
@@ -18772,6 +18780,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenAll: genPhoneAll,
     profile: profile,
     actualWechatFor: phoneWechatActual,
+    // ⚠️音乐那一屏和桌面那块组件原来都写死 songs[0]（她 2026-09-10：「音乐是死的
+    //   永远只能显示歌单第一首」）。正在放哪一首是播放器说了算，递进去。
+    nowSongId: player.songId,
     forumAccountsFor: phoneForumFor,
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
     calendarFor: phoneCalendarFor,

@@ -494,7 +494,8 @@ test("切到别的 app 时那一栏要清掉，不然它跟着串门", () => {
   // 真机上抓到的：在电话里切到 sms，进邮件之后邮件也去找「sms」那一栏，整页空着
   assert.match(phone, /const go = \(\) => \{ setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
   // ⚠️图标在桌面第二页时，先看着它翻过去再点开——瞬移等于「没翻页就开了」
-  assert.match(phone, /if \(scrolledRef\.current\) openTid = setTimeout\(go, 420\); else go\(\);/);
+  // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完：改成【等它真停下来】再点开
+  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 900\) \{ go\(\); return; \}/);
   assert.match(phone, /a\.kind === "home"\) \{ setOpen\(null\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
 });
 
@@ -682,6 +683,11 @@ test("他在看他玩里发给她的那一条，是真的发到她手机上", ()
   //   写进去会多出一条假的、跟真的那条并排站着——真话只该有一份。
   assert.match(app, /if \(where === "wechat" && watchIsMe\(char, to\) && String\(text \|\| ""\)\.trim\(\)\) \{/);
   assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "assistant", content: String\(text\)\.trim\(\), ts: Date\.now\(\), fromWatch: true \}\]\)/);
+  // ⚠️落进真聊天要回一个「真」字：那一屏上她那条聊天是活的，播放器再挂一条演出气泡
+  //   就是同一句话出现两遍（她 2026-09-10：「看他玩那会会显示同样的发了两条」）
+  assert.match(app, /\/\/ ⚠️回一个「真」字/);
+  assert.match(phone, /let toReal = false;/);
+  assert.match(phone, /if \(!toReal && \(where === "wechat" \|\| where === "calls"\) && to\)/);
   // 认她认的是【她的本名 + 他给她起的备注】，走公共那条认名字规矩
   assert.match(app, /\[userName\(profile\), profile && profile\.name, uc\.name, uc\.remark\]/);
   assert.match(app, /watchMeNames\(char\)\.some\(n => WK\.sameName\(n, to\)\)/);
@@ -689,7 +695,10 @@ test("他在看他玩里发给她的那一条，是真的发到她手机上", ()
   assert.match(app, /if \(watchIsMe\(char, name\)\) return;/);
   // 提示词里得点出来，不然他永远想不到可以给她发
   const s = W.watchInstruction({ char: {}, uName: "Lisa", uRemark: "小笨蛋", apps: ["wechat"], phone: { wechat: { chats: [{ name: "老张" }] } } });
-  assert.match(s, /\*\*她。给她发消息就是真的发到她手机上，她会看见。\*\*/);
+  // ⚠️这一句留着，但压回【偶尔】：写得太响的话他每次一开微信就直奔她
+  //   （她 2026-09-10：「微信变成只会在我的聊天框动手，不看朋友圈也不和别人发消息」）。
+  assert.match(s, /给她发消息是\*\*真的发到她手机上\*\*，所以\*\*不是每次都发\*\*/);
+  assert.match(s, /\*\*这个 app 里绝大多数时候你刷的是别人\*\*/);
   assert.match(s, /你给她的备注：小笨蛋/);
 });
 
@@ -790,7 +799,8 @@ test("桌面第二页的 app：先看着它翻过去，再点开", () => {
   // 她 2026-09-10：「第二页的app没有翻页动作就开了」——瞬移过去等于没翻页。
   assert.match(phone, /scrolledRef\.current = true;/);
   assert.match(phone, /behavior: "smooth"/);
-  assert.match(phone, /if \(scrolledRef\.current\) openTid = setTimeout\(go, 420\); else go\(\);/);
+  // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完：改成【等它真停下来】再点开
+  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 900\) \{ go\(\); return; \}/);
   // 这一下的定时器也要跟着清，不然退出去之后还有一个在往没了的 state 里写
   assert.match(phone, /if \(openTid\) clearTimeout\(openTid\);/);
 });
@@ -807,10 +817,11 @@ test("别来来回回翻同两张", () => {
   const s2 = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], recentItems: ["海边那天"],
     phone: { album: { items: [{ caption: "海边那天" }, { caption: "新的一张" }] } } });
   assert.ok(s2.indexOf("· 新的一张") < s2.indexOf("· 海边那天"), "上次翻过的还排在前面");
-  assert.match(s2, /上一次你翻的是这几样：海边那天/);
+  assert.match(s2, /这几样你最近几次已经翻过了：海边那天/);
   assert.match(s2, /\*\*一段里翻一两张就够了，翻完去别处\*\*/);
   // ③ 记的是两样：开过哪几个 app，和翻过哪几样东西
-  assert.match(app, /\{ a: opened, i: its\.slice\(0, 24\) \}/);
+  // ⚠️只记上一段不够：两段之间来回换等于什么都没记住。滚动记最近几段。
+  assert.match(app, /const merged = its\.concat\(prevIts\.filter\(x => its\.indexOf\(x\) < 0\)\)\.slice\(0, 24\);/);
   assert.match(app, /const seen = Array\.isArray\(seen0\) \? seen0 : \(\(seen0 && seen0\.a\) \|\| \[\]\)/, "老存档那一格是数组，两种都得认");
 });
 
@@ -856,4 +867,14 @@ test("他手机里不许有两条跟她的对话（一条真的活着，一条�
   // ② 已经存着的那些得在【显示】这一头挡住，否则她真得「再刷一次微信」才好
   assert.match(phone, /const meLike = \[userName\(profile\), profile && profile\.name,/);
   assert.match(phone, /const generated = arr\(d\.chats\)\.filter\(c => !\(c && c\.type !== "group"/);
+});
+
+test("音乐不是死的：显示的是正在放的那一首", () => {
+  // 她 2026-09-10：「音乐是死的永远只能显示歌单第一首就算播放的是其他歌也不会变」。
+  // ⚠️桌面那块组件和时间线那一行原来都写死 songs[0]——正在放哪一首是播放器说了算。
+  assert.match(app, /nowSongId: player\.songId/);
+  assert.equal((phone.match(/\(nowSongId && sgs\.find\(x => x && x\.id === nowSongId\)\) \|\| sgs\[0\]/g) || []).length, 2,
+    "桌面组件和时间线那一行都要跟着在放的那首走");
+  // 歌单那一屏展开的那一行也跟着换歌走（她手动点开别的以她点的为准）
+  assert.match(phone, /useEffect\(\(\) => \{ if \(nowSongId\) setOpen\(nowSongId\); \}, \[nowSongId\]\);/);
 });

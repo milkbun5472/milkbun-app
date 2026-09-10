@@ -5338,7 +5338,7 @@ const MUSIC_SKIN = {
   fog: "rgba(239,233,221,.45)", sub: "rgba(239,233,221,.66)",
   line: "rgba(239,233,221,.13)", tint: "#c8a06a", accent: "#c8a06a"
 };
-function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, drive }) {
+function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, drive, nowSongId }) {
   // 这一页从这儿往下都用听歌房那套色，不用她的主题色
   const t = MUSIC_SKIN;
   const [open, setOpen] = useState(null);
@@ -5346,6 +5346,10 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
   // ──「看他玩」驱动：音乐这一路跟别的都不一样——歌单是【真数据】（listen.playlists），
   //   不在 x_phone 里，所以他点一首歌就是【真的放出来】，不是演一下。
   //   ⚠️也因此这一路不落 x_phone：applyWrite 里压根没有 music 分支，写的是播放器状态。
+  // ⚠️「正在放的是哪一首」是播放器说了算，这一屏跟着它走（她 2026-09-10：
+  //   「就算播放的是其他歌也不会变」）。她手动点开别的那一行时，以她点的为准——
+  //   所以只在【换歌了】那一下跟过去。
+  useEffect(() => { if (nowSongId) setOpen(nowSongId); }, [nowSongId]);
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive || !driveItem) return;
@@ -5643,7 +5647,7 @@ function renderPhoneModule(key, d, ctx) {
   // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
   if (key === "music") return h(MusicView, {
     pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
-    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive
+    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive, nowSongId: ctx.nowSongId
   });
   if (key === "reading") return h(ReadingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -5795,6 +5799,7 @@ function PhoneCarry({
   onGenAll,
   profile,
   actualWechatFor,
+  nowSongId,
   forumAccountsFor,
   playlistFor,
   onGenPlaylist,
@@ -5897,6 +5902,7 @@ function PhoneCarry({
   };
   // 这一下有没有【先翻过去】：翻了的话，点开那一下要等它翻完，不然就是没翻页就开了
   const scrolledRef = useRef(false);
+  const dotSc = useRef(null);   // 刚才是哪一块在滚（等它停下来）
   const watchDotTo = (sel, fuzzyName) => {
     scrolledRef.current = false;
     if (!sel) return;
@@ -5922,6 +5928,7 @@ function PhoneCarry({
           // ⚠️桌面第二页那几个图标：瞬移过去等于「没翻页就开了」（她 2026-09-10 抓到的）。
           //   滚给她看，并且把「点开」那一下往后压一压（下面 open 那一支读 scrolledRef）。
           scrolledRef.current = true;
+          dotSc.current = el.parentElement && el.parentElement.closest ? (el.closest("[style*='scroll-snap'],.overflow-x-auto,.overflow-y-auto") || null) : null;
           try { el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" }); } catch (e2) {}
           // ⚠️翻完【当场再量一次】：这一下过后屏幕多半就换了（点开 app 那一下尤其），
           //   等下一拍再来量，那个图标早不在 DOM 里了——圆点于是停在上一处不动。
@@ -5969,7 +5976,21 @@ function PhoneCarry({
       if (app) {
         const go = () => { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: WATCH_SEARCH_APPS.indexOf(app.key) >= 0 ? "" : null } : w); };
         // ⚠️图标在桌面第二页的话，先看着它翻过去再点开——瞬移等于「没翻页就开了」。
-        if (scrolledRef.current) openTid = setTimeout(go, 420); else go();
+        // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完（她 2026-09-10：「换页换一半就
+        //   直接进第二页的 app 了」）。改成【等它真停下来】：盯着位置不动了再点开，
+        //   最多等 900 毫秒，免得某一屏滚不动就卡在这儿。
+        if (scrolledRef.current) {
+          const box = dotSc.current;
+          let last = -1, still = 0, t0 = Date.now();
+          const wait = () => {
+            const now2 = box ? Math.round(box.scrollLeft + box.scrollTop) : 0;
+            still = (now2 === last) ? still + 1 : 0;
+            last = now2;
+            if (still >= 2 || Date.now() - t0 > 900) { go(); return; }
+            openTid = setTimeout(wait, 70);
+          };
+          openTid = setTimeout(wait, 70);
+        } else go();
       }
     }
     else if (a.kind === "back") {
@@ -6053,12 +6074,16 @@ function PhoneCarry({
         if (pg && pg.title && onWatchSend) { try { onWatchSend(char, where, pg.title, "", Object.assign({}, pg, { act: "send" })); } catch (e) {/* 同上 */} }
       }
       else if (text) {
-        // 微信里发出去的那条要当场挂在气泡列表上；便签是就地改，正文由 drive.typing 顶着
+        // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
+        // ⚠️先落盘再决定要不要挂气泡：发给【她】的那一条落进的是真聊天，
+        //   而她那条聊天在这一屏上是活的——再挂一条演出用的气泡，同一句话就出现两遍
+        //   （她 2026-09-10 抓到的）。落盘那头回一个「真」字，这儿据此让路。
+        let toReal = false;
+        if (onWatchSend) { try { toReal = onWatchSend(char, where, to, text, { act: "send" }) === true; } catch (e) {/* 落盘失败不该把这段演砸 */} }
         // 微信／短信里发出去的那条要当场挂在气泡串上；便签、邮件、阅读是就地改，正文由 drive.typing 顶着
         // ⚠️「谁说的」两屏认的键不一样：微信认 __me__，短信那一屏认的是 "me"（照各自那屏自己的写法来）
-        if ((where === "wechat" || where === "calls") && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: where === "calls" ? "me" : "__me__", text: text }]) } : w);
-        // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
-        if (onWatchSend) { try { onWatchSend(char, where, to, text, { act: "send" }); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+        if (!toReal && (where === "wechat" || where === "calls") && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: where === "calls" ? "me" : "__me__", text: text }]) } : w);
+        else if (toReal) setWatch(w => w ? { ...w, typing: "" } : w);
       }
     }
     else if (a.kind === "type") {
@@ -6493,6 +6518,7 @@ function PhoneCarry({
     actualWechat: actualWechatFor ? actualWechatFor(char) : [],
     live: {
       ...liveCtx,
+      nowSongId,
       timelineRows: tlRows, newIds, newCount,
       kept: keptIds, onToggleKeep: toggleKeep,
       onMarkRead: () => markRead(tlRows.map(r => r.id)),
@@ -6539,7 +6565,11 @@ function PhoneCarry({
       const ci = ((liveCtx.calendar || {}).items || [])[0];
       return ci ? (ci.date ? String(ci.date).replace(/^\d{4}-/, "") + " " : "") + ci.title : fallback;
     }
-    if (key === "music") { const sg = ((livePlaylist && livePlaylist.songs) || [])[0]; return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback; }
+    if (key === "music") {
+      const sgs = (livePlaylist && livePlaylist.songs) || [];
+      const sg = (nowSongId && sgs.find(x => x && x.id === nowSongId)) || sgs[0];
+      return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback;
+    }
     if (key === "forum") {
       const all = (liveForum || []).reduce((a, x) => a.concat((x.posts || []).map(p => ({ ts: p.ts, s: p.title })), (x.comments || []).map(c => ({ ts: c.ts, s: c.text }))), []);
       const last = all.sort((a, b) => b.ts - a.ts)[0];
@@ -6625,7 +6655,9 @@ function PhoneCarry({
     }
     // 音乐：碟 + 曲名 + 一条进度
     if (key === "music") {
-      const sg = ((livePlaylist && livePlaylist.songs) || [])[0];
+      // 正在放的那首优先；这张歌单里没有它（或者压根没在放）才退回第一首
+      const sgs = (livePlaylist && livePlaylist.songs) || [];
+      const sg = (nowSongId && sgs.find(x => x && x.id === nowSongId)) || sgs[0];
       return h("div", { className: "flex flex-col", style: { flex: 1, marginTop: 6 } },
         h("div", { className: "flex items-center", style: { gap: 12 } },
           h("div", { style: { width: hero ? 46 : 36, height: hero ? 46 : 36, borderRadius: 999, flexShrink: 0,
