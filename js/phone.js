@@ -3394,6 +3394,13 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     // 不挂 backgroundAttachment:"local"——内容在动，纸不该跟着动。
     style: { background: SHOP_BG, backgroundImage: SHOP_LAID }
   }, chrome,
+  // 他在搜东西那一下才出现的搜索条：册页上不摆药丸，走【墨围】——方角、一道细线。
+  // （她自己翻的时候一个像素都不画。）
+  (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+    ? h("div", { className: "shrink-0 flex items-center", style: { margin: "0 13px 8px" } },
+        h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
+          skin: { ink: SHOP_INK, dim: SHOP_DIM, soft: "rgba(255,255,255,.5)", accent: SHOP_MARK, radius: 0, border: "1px solid " + SHOP_FRAME } }))
+    : null,
   // 版框：外粗内细的双边栏，册页最认得出的那个记号。它属于【这一叶】，
   // 所以钉在外面不跟着滚；正文在框里滚。
   h("div", {
@@ -3793,6 +3800,11 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "radial-gradient(circle at 88% 4%,rgba(216,166,116,.38),transparent 31%),linear-gradient(180deg,#efe0cc 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
     chrome,
+    (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+      ? h("div", { className: "shrink-0 flex items-center", style: { margin: "0 16px 8px" } },
+          h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
+            skin: { ink: TAKE_INK, dim: TAKE_DIM, soft: "#fff", accent: TAKE_CORAL, radius: 15 } }))
+      : null,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
       h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
@@ -4875,7 +4887,7 @@ const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
 // 能【搜出新东西】的那几个：进去就有一张空草稿，敲完回车先看见搜的那一句，再点进去。
 // ⚠️她 2026-09-10 定的顺序（浏览器那次立的，小红书和视频照办）：
 //   凭空冒出一页，看的人不知道他为什么看见它。
-const WATCH_SEARCH_APPS = ["browser", "liked", "bili"];
+const WATCH_SEARCH_APPS = ["browser", "liked", "bili", "shopping", "takeout"];
 // 「看他玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
 // （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
 const watchSame = (a, b) => (window.PhoneWatch && window.PhoneWatch.sameName)

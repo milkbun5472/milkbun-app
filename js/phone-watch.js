@@ -724,8 +724,8 @@
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
-      can.indexOf("shopping") >= 0 ? "· 购物：openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
-      can.indexOf("takeout") >= 0 ? "· 外卖：openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
+      can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
+      can.indexOf("takeout") >= 0 ? "· 外卖：**想吃点别的就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
       can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。tab 可以切 feed / follow / mine。" : "",
       can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
       can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**。tab 可以切 inbox / sent / drafts。" : "",
@@ -816,17 +816,21 @@
     const typing = p.typing, q = S(p.q);
     if (typing == null && !q) return null;
     const ink = sk.ink || "#1c1a16", dim = sk.dim || "#9a9aa4", soft = sk.soft || "#f1f2f3";
+    // ⚠️形状归各屏自己：药丸是小红书／视频那一路的说法，册页上不摆药丸（购物那一屏
+    //   走的是墨围：方角＋一道细线）。同一个零件，各穿各的衣服。
+    const rad = sk.radius != null ? sk.radius : 99;
+    const bd = sk.border || "none";
     // ⚠️回车之后草稿是空串（不是 null），照原样画就是【搜索框空着】——
     //   而那一刻正是她要看见「他搜了什么」的那一下。空草稿就把搜的那句留在框里。
     const draft = (typing != null && S(typing).length > 0) ? S(typing) : "";
     const shown = draft || q;
     const on = !!draft;
     return h("div", { className: "flex-1 min-w-0 flex items-center", "data-watch": "input",
-      style: { height: 32, borderRadius: 99, background: soft, padding: "0 6px 0 13px", gap: 8 } },
+      style: { height: 32, borderRadius: rad, border: bd, background: soft, padding: "0 6px 0 13px", gap: 8 } },
       h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, whiteSpace: "nowrap", overflow: "hidden" } },
         [shown || h("span", { key: "ph", style: { color: dim } }, "\u00a0"),
           typing != null ? h("span", { key: "c", style: { display: "inline-block", width: 1.5, height: 13, background: ink, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } }) : null]),
-      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: 99, padding: "4px 11px", fontFamily: F_BODY, fontSize: 11.5,
+      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: rad, padding: "4px 11px", fontFamily: F_BODY, fontSize: 11.5,
         color: on ? "#fff" : dim, background: on ? (sk.accent || ink) : "transparent" } }, "搜索"));
   }
 

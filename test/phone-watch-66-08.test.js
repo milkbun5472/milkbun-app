@@ -747,7 +747,7 @@ test("浏览器：敲完回车先看见搜出来的那一列，再点进去一�
 test("小红书和视频也一样：先搜，再点进去", () => {
   // 她 2026-09-10：「那小红书视频之类的搜索类能不能也如果要搜新玩意也先搜再点进去」。
   // 顺序是浏览器那次立的：凭空冒出一页，看的人不知道他为什么看见它。
-  assert.match(phone, /const WATCH_SEARCH_APPS = \["browser", "liked", "bili"\]/);
+  assert.match(phone, /const WATCH_SEARCH_APPS = \["browser", "liked", "bili", "shopping", "takeout"\]/);
   // 进这几个 app 就有一张空草稿（他要能往搜索框里敲字）
   assert.match(phone, /typing: WATCH_SEARCH_APPS\.indexOf\(app\.key\) >= 0 \? "" : null/);
   // ⚠️同一颗 send，两件事，靠【手上有没有草稿】分：有草稿＝搜索，没草稿＝这个 app 的动作
@@ -755,9 +755,15 @@ test("小红书和视频也一样：先搜，再点进去", () => {
   assert.match(phone, /searchQ: text, typing: "", page: null/);
   // 搜索条只此一份（小红书和视频各画一套的话，改一处必漏一处）
   assert.match(watchSrc, /function WatchSearchPill/);
-  assert.equal((phone.match(/window\.PhoneWatch\.WatchSearchPill/g) || []).length, 2);
+  // 四屏共用同一个零件，各穿各的衣服（药丸／墨围／白盘子）
+  assert.equal((phone.match(/window\.PhoneWatch\.WatchSearchPill/g) || []).length, 4);
+  assert.match(watchSrc, /const rad = sk\.radius != null \? sk\.radius : 99;/);
+  assert.match(phone, /radius: 0, border: "1px solid " \+ SHOP_FRAME/, "册页上不摆药丸");
   // ⚠️回车之后草稿是空串不是 null：照原样画就是搜索框空着，而那一刻正是要看见他搜了什么
   assert.match(watchSrc, /const shown = draft \|\| q;/);
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["liked", "bili"], phone: {} });
   assert.equal((s.match(/\*\*想看新东西就先搜\*\*/g) || []).length, 2);
+  const s3 = W.watchInstruction({ char: {}, uName: "她", apps: ["shopping", "takeout"], phone: {} });
+  assert.match(s3, /\*\*想买新东西就先搜\*\*/);
+  assert.match(s3, /\*\*想吃点别的就先搜\*\*/);
 });
