@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.62";
+const APP_VERSION = "v66.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4079,6 +4079,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
   const npcsOf = hostId => characters.filter(c => c && c.npc && String(c.ownerId) === String(hostId));
+  // 「这一轮在不在聊音乐」——只用来决定歌单要不要把歌名铺开（她 2026-09-11）。
+  // ⚠️别放「听」：听说、听话、听见全会命中，那就等于没有这道闸。
+  const MUSIC_TALK = /歌|音乐|专辑|歌手|旋律|唱|乐队|playlist|单曲|循环|耳机|一起听/i;
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -4523,9 +4526,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hist = L.history || [];
       const together = hist.filter(x => x.partnerId === char.id).slice(0, 8);
       if (together.length) lines.push("你和 " + uName + " 一起听过：" + together.map(x => "《" + x.title + "》" + (x.artist ? "(" + x.artist + ")" : "") + ago(x.ts)).join("、") + "（按括号里的时间感受远近：昨晚的歌可以像余温一样提，一个月前的就是回忆了）");
-      // 专属歌单连歌名一起喂（v54.49）：只喂名字他没法说「我歌单里那首X」
+      // 专属歌单连歌名一起喂（v54.49）：只喂名字他没法说「我歌单里那首X」。
+      // ⚠️她 2026-09-11 两条：
+      //   ①「不聊歌的时候这块基本上没用」——十轮里九轮用不上的层不该常驻。
+      //     所以歌名【按需铺开】：正一起听、或最近真聊到音乐了才列；平时只说「有这么一张单子」。
+      //     ⚠️不列名字的那一档也【绝不许】说「你清楚里面有什么」——那正是逼他现编一个
+      //       「我歌单里那首X」的说法。不列就别提「其中某首」，让他直接说他此刻真想放的。
+      //   ②「只说了他的歌单里有的…他也可以推荐新的不在歌单里的根据自己的品味」——
+      //     代码那头本来就支持（songSwitch 找不到会去网易云搜来放），是这句话把他框死了：
+      //     原来写的是「想推歌给 X 时可自然提起【其中某首】」。
       const myPl = (L.playlists || []).find(p => p.charId === char.id);
-      if (myPl) lines.push("你自己整理过一张歌单「" + myPl.name + "」，是你爱听的那些" + ((myPl.songs || []).length ? "，里面有：" + (myPl.songs || []).slice(0, 8).map(s => "《" + s.title + "》").join("、") + ((myPl.songs || []).length > 8 ? " 等" : "") + "。聊到音乐品味、想推歌给 " + uName + " 时可自然提起其中某首。" : "。"));
+      if (myPl) {
+        const songs = myPl.songs || [];
+        const talkingMusic = (() => {
+          if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) return true;
+          const rows = (chatsRef.current[char.id] || []).slice(-8);
+          return rows.some(m => m && MUSIC_TALK.test(String(m.content || "")));
+        })();
+        const free = "推歌给 " + uName + " 时，**歌单里的和歌单外的都行**——按你自己的品味挑，说得出为什么就好（歌单上没有的照样放得出来，会去搜）。";
+        lines.push("你自己整理过一张歌单「" + myPl.name + "」，是你爱听的那些"
+          + (songs.length
+              ? (talkingMusic
+                  ? "，里面有：" + songs.slice(0, 8).map(s => "《" + s.title + "》").join("、") + (songs.length > 8 ? " 等" : "") + "。" + free
+                  : "（" + songs.length + " 首）。" + free)
+              : "。" + free));
+      }
       return lines.join("\n");
     })(),
     groupEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
@@ -7188,7 +7213,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _seenSong = new Set();
       const libSongs = (listenData.songs || []).concat((listenData.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).filter(s => s && s.id && !_seenSong.has(s.id) && _seenSong.add(s.id));
       const listenHint = isListenPartner
-        ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，别频繁乱切。" + (libSongs.length ? "歌单里可放的歌：" + libSongs.slice(0, 30).map(s => s.title).join(" / ") + "。" : "（歌单里暂时没存别的歌，可以用「下一首/上一首」跳，或直接说出想放的歌名。）")
+        ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，别频繁乱切。"
+          // ⚠️「歌单里可放的歌：…」原来是这一条的全部，读起来就是【只能从这几首里挑】。
+          //   可代码那头找不到会去搜来放（见 songSwitch 那一支）——能力一直都在，是这句话把他框死的
+          //   （她 2026-09-11：「他也可以推荐新的不在歌单里的根据自己的品味」）。
+          + (libSongs.length ? "歌单里现成的有：" + libSongs.slice(0, 30).map(s => s.title).join(" / ") + "。" : "")
+          + "**不在歌单里的照样能放**：直接把歌名写进 songSwitch 就行，会去搜。别被这张单子框住——想放什么按你自己的品味来。"
         : "";
       // 一起听邀请：偶尔主动约对方一起听歌
       const inviteHint = isListenPartner ? "" : "\n【邀你一起听歌】偶尔（想跟 " + uName + " 分享一首歌、此刻在听到好歌、或气氛正好时，很克制、别频繁、绝大多数回合都 null），你可以主动邀请一起听歌：listenInvite 填 {\"song\":\"想一起听的歌名（可留空）\",\"say\":\"邀请的话，一句\"}；不邀请就 null。";
@@ -12224,13 +12254,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   注意的事』走」——剩下的就是一张软肋清单，谁读了都想当场翻出来讲。
         const g = String(window.Gaze.text(c.id, userName(profile), { cap: GROUP_GAZE_CAP }) || "").trim();
         if (!g) return "";
-        return "\n〔以下是 " + c.name + " 心里对 " + userName(profile) + " 的长期印象，只有 TA 本人知道，别的成员并不知情〕\n" + g
-          // ⚠️群里还要多一句：这是【底子】不是【这一轮的话题】。
-          //   一屋子人各揣一份关于她的长期认知，读下来每个人都在对着她想事情，
-          //   于是整轮变成几个人轮流对她说话，谁也不接谁的话
-          //   （她 2026-09-11：「好像全部都不会相互接话了」）。
-          + "\n〔这张卡是你心里的底子，不是这一轮的话题：别拿它当开场白、别照着它跟 "
-          + userName(profile) + " 翻旧账。这会儿你是在跟【在场的其他人】说话，先接住他们刚说的那句。〕";
+        // ⚠️v66.62 我在这儿加过一句「这是底子不是话题、先接住别人刚说的那句」。
+        //   她 2026-09-11 让删：「有时候又可以接话，应该是模型问题。不然一堆禁令会变笨的」。
+        //   ——她是对的。卡末尾那段守则（「绝不当台词复述」「绕着它走」）本来就管着这件事，
+        //   我那一句是同一件事说第二遍；真正的病是我把那段守则腰斩了，补的不该是新禁令。
+        return "\n〔以下是 " + c.name + " 心里对 " + userName(profile) + " 的长期印象，只有 TA 本人知道，别的成员并不知情〕\n" + g;
       })(),
       sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };
