@@ -30,3 +30,42 @@ test("那一份【确实】发到单聊线上——不是漏发（查过才动�
   assert.match(bb, /parts\.push\(INTIMATE_CHAT_ANTI_CLICHE\);/, "线上那条路上没有它——那才是漏发，改法就完全不同了");
   assert.match(eng, /P\.push\(INTIMATE_CHAT_ANTI_CLICHE\);/, "线下那条路上的那一份也不许丢");
 });
+
+// 她 2026-09-11（同一轮）：「开了动描他就是会写什么抵在颈窝喘息，
+// 但是因为不在线下所以没用线下那一堆压着咋办宝宝」。
+//
+// ⚠️v60.45 当初不把 INTIMATE_ANTI_CLICHE 搬到线上，写下的理由是
+//   「线上根本没有描写，只有台词」——**动描做出来之后这句话就不成立了**：
+//   居中那一行就是描写，而且正好是那几条（埋脸／颈窝／蹭／求饶）在管的东西。
+//   规则会过期，结构变了要回头看那个理由（施工规则/bans-make-it-dumber.md 第三问）。
+test("动描开着时，管描写的那一族也发到线上", () => {
+  const eng2 = fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8");
+  const app2 = fs.readFileSync(path.resolve(__dirname, "..", "js/app.js"), "utf8");
+  // ⚠️不抄第二遍：从已有那一份【滤】出来，以后往上面加一条，这一份自动跟着有
+  assert.match(eng2, /const INTIMATE_ACT_CLICHE = INTIMATE_ANTI_CLICHE\.split\("\\n"\)\s*\n\s*\.filter\(l => l\.indexOf\("【绝不 OOC \/ 不跳戏】"\) < 0\)\.join\("\\n"\);/,
+    "又照着抄了一份，或者改成了写死的字面量");
+  // 滤掉的那条只对连续正文成立：一行动描没有「此处省略／画面淡出」可言
+  assert.match(eng2, /一行动描没有「此处省略／画面淡出」可言，发过去是白发/);
+  // 单聊和群聊两处都接上，而且都挂在【动描那个开关】上——没开就一个字不发
+  assert.match(app2, /_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "单聊没接");
+  assert.match(app2, /_gActDesc \? "\\n\\n" \+ ownActNoBracketRule\(userName\(profile\)\) \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "群聊没接");
+  // 线下那一份一个字没动（顺序也没动）
+  assert.match(eng2, /const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1;/);
+  assert.match(eng2, /【绝不 OOC \/ 不跳戏】/, "线下那条被顺手删了");
+});
+
+// 她 2026-09-11：「叫他删掉重说这种话反而会让模型畏畏缩缩转向安全写法就会中规中矩」
+test("禁令给出口，不给判决（施工规则/bans-make-it-dumber.md）", () => {
+  const eng2 = fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8");
+  const seg = eng2.slice(eng2.indexOf("const INTIMATE_CHAT_ANTI_CLICHE = "), eng2.indexOf("// 隐私围栏一直只挡"));
+  assert.ok(seg.indexOf("就整句删掉重说") < 0, "判决式的收尾会把整个话题变成雷区，模型退回最安全那版");
+  assert.match(seg, /\*\*说你此刻真想说的那句\*\*：直接做那件事，或者说一句只有你会说的话。/, "只禁不给路，等于让他别写");
+  // 「禁的是模子不是尺度」那句是这一族的刹车，不许丢
+  assert.match(seg, /禁的是模子，不是尺度。/);
+  // 规则本身也得在。⚠️路径只写在 test/_rules.js 一处（下次搬家改一处就够）
+  const { ruleText } = require("./_rules.js");
+  const rule = ruleText("bans-make-it-dumber");
+  ["这件事已经有人管了吗", "有没有发到出问题的那一处", "它管的场合还成立吗", "给出口，不给判决"]
+    .forEach(k => assert.ok(rule.indexOf(k) > 0, "规则里少了：" + k));
+  assert.match(ruleText("README"), /bans-make-it-dumber\.md/, "没登记进 README，施工窗口不会读到它");
+});

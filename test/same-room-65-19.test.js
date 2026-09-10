@@ -92,7 +92,9 @@ test("动描和同处一室是两件事，各挂各的开关", () => {
   // ⚠️动描【不许】再看同处一室：她分开的时候也要他写自己在干嘛
   assert.match(app, /const _actDesc = !_s\.engineerEyes && actDescFor\(charId\);/);
   assert.ok(!/_sameRoom/.test(app), "动描那条路上还留着同处一室的判断，两件事又焊回去了");
-  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) : ""\)/,
+  // v66.65：动描开着时那一行【就是描写】，所以管描写的那一族（INTIMATE_ACT_CLICHE）
+  //   也跟着这同一个开关走——没开动描一个字都不发（线上只有台词，发过去是白发）。
+  assert.match(app, /PERSONA_REGISTER_ANCHOR \+ \(_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""\)/,
     "动描那一段没挂在动描开关上，或者挤进了那三层中间");
   // 在场那一层反过来只认同处一室，不认动描
   assert.match(app, /offlineNow: \(sameRoomFor\(char\.id\)/);
