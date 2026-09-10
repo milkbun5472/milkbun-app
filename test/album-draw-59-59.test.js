@@ -75,10 +75,19 @@ test("画好的图挂回收藏，不写进 phones", () => {
     "收藏里找不到这张时没有兜底，图会白画一次");
 });
 
-test("重画沿用同一个键，不在保险箱里攒垃圾", () => {
-  assert.match(draw, /String\(prev\.imageRef \|\| ""\)\.indexOf\("img_pk_"\) === 0/,
-    "重画时没沿用旧键，旧那张 blob 谁也删不掉");
-  assert.match(draw, /await idbImgPut\(ref, out\.blob\)/, "没把图存进保险箱");
+test("画好的图要存进【图库】，不是聊天自拍那个仓", () => {
+  // ⚠️她 2026-09-10 拍图给我看：toast 说「画好了」，位置上是一个碎图标。
+  //   病根是两个仓：图存进了聊天自拍仓（img_pk_ 键），可相册渲染走 resolveImg——
+  //   **它只认图库的 iv_ 键**，img_pk_ 原样返回，于是 <img src="img_pk_…"> 画不出来。
+  assert.match(draw, /const du = await blobToDataUrl\(out\.blob\);/);
+  assert.match(draw, /ref = await imgToVault\(du\);/, "没走图库那条路");
+  assert.doesNotMatch(draw, /idbImgPut\(ref, out\.blob\)/, "又存回聊天自拍那个仓了");
+  // 图库写不进去就退回内联，别把一个画不出来的键存下来
+  assert.match(draw, /if \(String\(ref\)\.indexOf\("iv_"\) !== 0\) \{ url = du; ref = ""; \}/);
+  // v66.61 之前存下的那些 img_ 键：读的时候异步捞一把，不用她再花一枪重画
+  const ph2 = fs.readFileSync("js/phone.js", "utf8");
+  assert.match(ph2, /const legacy = String\(ref \|\| ""\)\.indexOf\("img_"\) === 0;/);
+  assert.match(ph2, /idbImgGet\(k\)\.then\(b => \{/);
 });
 
 test("正画着的那一张才转圈，同屏别的按钮不跟着转", () => {

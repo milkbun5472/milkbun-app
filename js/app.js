@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.65";
+const APP_VERSION = "v66.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14475,12 +14475,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const all = loadJSON("x_phoneKeep", {});
       const list = Array.isArray(all[char.id]) ? all[char.id] : [];
       const prev = list.find(x => sigOf(x) === key) || null;
-      let ref = (prev && String(prev.imageRef || "").indexOf("img_pk_") === 0) ? prev.imageRef : "";
+      // ⚠️她 2026-09-10 拍了张图给我看：toast 说「画好了」，位置上却是一个碎图标。
+      //   病根：这儿把图存进【聊天自拍那个仓】、键叫 img_pk_*，
+      //   可相册那一屏渲染走的是 resolveImg——**它只认图库的 iv_ 键**，
+      //   img_pk_ 原样返回，于是 <img src="img_pk_…">，浏览器当然画不出来。
+      //   两个仓一直都在（engine.js 里那句注释写着「与 iv_ 图库不是同一个仓」），
+      //   是我当初挑错了那一个。改成走图库：blob → dataURL → imgToVault，
+      //   拿回来的就是 iv_ 键，resolveImg 认得，开机 hydrate 也会把它缓存成 objectURL。
+      let ref = "";
       let url = out.url || "";
       if (out.blob) {
-        if (!ref) ref = "img_pk_" + char.id + "_" + Date.now();
-        await idbImgPut(ref, out.blob);
-        url = "";
+        const du = await blobToDataUrl(out.blob);
+        ref = await imgToVault(du);
+        if (String(ref).indexOf("iv_") !== 0) { url = du; ref = ""; }  // 图库写不进去就退回内联，别把碎图标存下来
+        else url = "";
       }
       // 按钮只长在收着的那几张上，正常一定找得到；找不到就把这张补进收藏，
       // 否则图存进了保险箱却没有任何一条记录指向它，等于白画一次。

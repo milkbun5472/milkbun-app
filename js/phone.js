@@ -2703,6 +2703,20 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   // 画出来的那张图挂在【我收着的】那条记录上（v59.59）。详情页和缩略图翻的都是
   // 本轮 items，不是 keep——两边都得看一眼，否则刚画完当场还是程序化缩略图。
   const keptOf = p => saved.find(s => sig(s) === sig(p)) || null;
+  // ⚠️v66.61 之前画好的图存的是【聊天自拍那个仓】的 img_pk_ 键，而这一屏渲染走
+  //   resolveImg（只认图库的 iv_）——她那几张会显示成碎图标。重画一次要再花一枪，
+  //   所以读的时候异步捞一把，捞到就换成 objectURL 缓存起来（只此一次，之后走缓存）。
+  const [oldRefUrls, setOldRefUrls] = useState({});
+  const pullOldRef = k => {
+    if (!k || typeof idbImgGet !== "function") return "";
+    if (oldRefUrls[k] !== undefined) return oldRefUrls[k] || "";
+    setOldRefUrls(m => (m[k] !== undefined ? m : { ...m, [k]: "" }));
+    idbImgGet(k).then(b => {
+      if (!b) return;
+      try { const u = URL.createObjectURL(b); setOldRefUrls(m => ({ ...m, [k]: u })); } catch (e) {}
+    }).catch(() => {});
+    return "";
+  };
   const drawnRef = p => { const k = keptOf(p); return p.imageRef || (k && k.imageRef) || ""; };
   const drawnUrl = p => { const k = keptOf(p); return p.imageUrl || p.imgUrl || (k && k.imageUrl) || ""; };
   // 画完了要当场看见：keep 是这个组件自己的 state，App 那边写完 localStorage
@@ -2735,7 +2749,10 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     // imageRef 是本机保险箱里的键，得先解出来才能给 <img>（v59.59 起「我收着的」
     // 那几张可以真画出来，画完就存成 imageRef）。解不出来就照旧画程序化缩略图。
     const ref = drawnRef(it);
-    const img = drawnUrl(it) || (ref && typeof resolveImg === "function" ? resolveImg(ref) : "") || "";
+    const legacy = String(ref || "").indexOf("img_") === 0;
+    const img = drawnUrl(it)
+      || (legacy ? pullOldRef(ref) : (ref && typeof resolveImg === "function" ? resolveImg(ref) : ""))
+      || "";
     return h("div", { style: { position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius || 0,
       background: img ? "#ddd" : `linear-gradient(${110 + seed % 80}deg,hsl(${hue} 42% 75%),hsl(${hue2} 48% 37%))` } },
       img ? h("img", { src: img, alt: it.caption || "照片", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(React.Fragment, null,
