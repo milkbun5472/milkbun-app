@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.74";
+const APP_VERSION = "v66.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6742,20 +6742,47 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   maxTokens 一律给满（max-tokens-floor.md：给大了不多花一分钱，给小了会截断正文）。
   // ⚠️今天哪个频率有台、播到第几条，一个字都不在这几张单子里——那些是 js/radio.js 用种子和
   //   时间算出来的。生成的时候顺手把「今天有没有」也定了的话，这个世界就只在她打开时才存在。
-  // 这片地方（她 2026-09-10：「太完全和 char 世界无关那也不好听」）。
-  // ⚠️世界书走【那扇公共门】（loreForContext），门上就写着「所有非主聊天功能也必须从这儿拿」。
-  //   scope 用 creative：电台不是主线聊天，是这个世界的一件公共设施。
-  // ⚠️charIds 故意传空：这样只有【没绑定到具体角色】的世界条目过得来——
-  //   绑在某个人身上的设定是他的私事，电台不该知道。围栏那句写在 worldBedText 里。
+  // 这片地方 + 他的生活半径（她 2026-09-10：「太完全和 char 世界无关那也不好听」；
+  // 言秋 + gpt 同一轮：**电台该让她听见 char 生活的那个世界，不是一个随机生成的世界**）。
+  // ⚠️人名一个都不许进电台。做法是最保守的那种——**整条丢掉**，不是把名字抠掉留个残句：
+  //   这些台知道的是【那家店、那栋楼、那条路】，不是【谁去过】。差一个字，差的是整个世界的逻辑。
+  // ⚠️字段名全是照【写存档的那段】抄的（施工规则/stub-from-the-writer.md）：
+  //   x_schedules[charId][dayKey] = { load, seqs:[{time,title,location}] }（saveSchedDay）
+  //   论坛帖 { title, body, board, ts }；一起听 songs[{ title, artist }]；x_anonPool 是一串纯字符串。
+  // ⚠️世界书走 loreForContext 那扇公共门，scope=creative，**charIds 故意传空**——
+  //   这样只有不绑定到具体角色的世界条目过得来，绑在某个人身上的设定是他的私事。
   // ⚠️架空世界（x_worlds）故意不接：那是跑团的平行时空沙盒，接进来会把电台搬去另一个世界。
   const radioBed = () => {
-    const places = [];
-    liveChars.forEach(c => {
-      const city = (c && c.home && c.home.city) ? String(c.home.city).trim() : "";
-      if (city && places.indexOf(city) < 0) places.push(city);
+    const T = v => String(v == null ? "" : v).trim();
+    const names = [];
+    const addName = v => { const x = T(v); if (x.length >= 2 && names.indexOf(x) < 0) names.push(x); };
+    (characters || []).forEach(c => { if (c) { addName(c.name); addName(c.remark); } });
+    addName(userName(profile));
+    const clean = v => { const x = T(v); return (x && !names.some(n => x.indexOf(n) >= 0)) ? x : ""; };
+    const push = (arr, v, cap) => { const x = clean(v); if (x && arr.indexOf(x) < 0 && arr.length < cap) arr.push(x); };
+
+    const places = [], orbit = [];
+    (liveChars || []).slice(0, 4).forEach(c => {
+      if (c && c.home && c.home.city) push(places, c.home.city, 8);
+      const plans = (schedulesRef.current || {})[c.id] || {};
+      const k0 = (typeof schedLocalDayKey === "function") ? schedLocalDayKey(c) : "";
+      const keys = [k0, (k0 && typeof schedShiftDayKey === "function") ? schedShiftDayKey(k0, -1) : ""].filter(Boolean);
+      keys.forEach(k => (((plans[k] || {}).seqs) || []).forEach(x => {
+        if (!x) return;
+        push(places, x.location, 8);
+        push(orbit, T(x.title) + (x.location ? "（在" + T(x.location) + "）" : ""), 14);
+      }));
     });
+    // 论坛是这个世界的公共广场，电台引用它天然成立（吃灰的帖子本来就是现成节目源）
+    (forumPostsRef.current || []).slice(0, 12).forEach(x => x && push(orbit, x.title, 14));
+    // 「有人点了一首歌，是他最近循环的那首」
+    (((listenRef.current || {}).songs) || []).slice(0, 4).forEach(x => x && push(orbit, "有人在听《" + T(x.title) + "》" + (x.artist ? "（" + T(x.artist) + "）" : ""), 14));
+    // 匿名箱本来就是没署名的话，天生就是热线的料
+    const hotline = [];
+    (anonPool || []).slice(-8).forEach(q => push(hotline, q, 6));
+
     const lore = (typeof loreForContext === "function" ? String(loreForContext("creative", [], "") || "") : "");
-    return { places: places.slice(0, 8), lore: lore.slice(0, 1600) };
+    return { places: places.slice(0, 8), lore: lore.slice(0, 1600), orbit: orbit.slice(0, 14), hotline: hotline };
   };
   const radioAsk = async (instruction, schemaHint) => {
     const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
@@ -6808,8 +6835,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!window.AutoGate.due(key, period, { maxTries: 2, cooldownMs: 600000 })) return [];
     let items = [];
     try {
-      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen(), radioBed()), R.scheduleSchemaHint);
+      // ⚠️距离由**代码**掷，不交给模型自己拿捏——写成「今天他出现的概率是 15%」的话，
+      //   它会塌到一边去：要么天天是他，要么一次都没有（跟「今天哪个频率有台」同一条道理）。
+      const dists = R.rollDistances(R.DAY_ITEMS, st.id, period);
+      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen(), radioBed(), dists, st.thread), R.scheduleSchemaHint);
       items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 18);
+      // 台上悬着的那件事：明天该有下文的钩子（言秋：真电台让人回来的不是内容，是牵挂）
+      if (items.length) R.patchStation(st.id, { thread: String(d.thread || "").trim().slice(0, 120) });
     } finally { window.AutoGate.mark(key, period, items.length > 0); }
     if (!items.length) throw new Error("这一枪没排出节目来");
     R.writeDay(period, st.id, items);

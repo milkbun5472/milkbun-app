@@ -200,7 +200,7 @@ test("这片地方三张单子都收得到，不是只发一处", () => {
 test("电台是公共设施，不认识任何具体的人", () => {
   const t = R.worldBedText({ places: ["苏州"], lore: "" });
   assert.match(t, /不认识任何具体的人/, "只给地名不给围栏，它会拿地名顺手编一个住在那儿的人出来");
-  assert.match(t, /不许提某个人的名字、私事、感情、行踪/);
+  assert.match(t, /不许提某个人的名字、不许说他的私事和行踪/);
   assert.match(t, /别换成另一个地方、另一个年代/);
   assert.equal(R.worldBedText({}), "", "什么都没有的时候发了一段空的");
   assert.equal(R.worldBedText({ places: [], lore: "  " }), "");

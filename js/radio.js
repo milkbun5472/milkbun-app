@@ -81,6 +81,15 @@
     const str = Array.prototype.slice.call(arguments).map(S).join("|");
     let h = 2166136261;
     for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    // ⚠️收尾这三步不许省（murmur3 的 fmix32）。
+    //   光跑 FNV 的话，**只有最后一个字不一样的两串，算出来的数是挨着的**：
+    //   「…dist|0」「…dist|1」「…dist|2」出来是 0.289 / 0.293 / 0.281。
+    //   而这个文件里到处都是「按序号掷」——第几条内容、第几个字、第几圈——
+    //   于是掷出来的不是随机分布，是一条缓慢爬行的线：整段内容全落进同一档，
+    //   信号差要丢的字连成一片而不是散着丢。2026-09-10 掷「三个距离」时当场撞出来的。
+    h ^= h >>> 16; h = Math.imul(h, 2246822507);
+    h ^= h >>> 13; h = Math.imul(h, 3266489909);
+    h ^= h >>> 16;
     return (h >>> 0) / 4294967296;
   }
   const seedPick = (list, ...parts) => (Array.isArray(list) && list.length) ? list[Math.floor(seed01.apply(null, parts) * list.length) % list.length] : null;
@@ -290,16 +299,23 @@
   // 六、写台的那一半：轴、地板、三张单子
   // ------------------------------------------------------------
   // 这一段一个字都不许写成「今天的台是 XX 类型」。见文件开头第三条铁的。
+  // ⚠️「允许无聊——电台大部分时间是无聊的，那正是它可信的原因」这一句**删掉了**，
+  //   不是在后面补一句「但也要好听」（施工规则/no-yes-unless.md：说错了就删掉重写）。
+  //   言秋 2026-09-10 一句话点破：**可信≠想听，第一版只做了前一个**。
+  //   模型很听话，于是我得到了一台忠实执行「可信的无聊」的收音机。
+  //   真正该说的是下面那句：平淡可以，空转不行——每一条都得有个具体的东西钩着人。
   const RADIO_FLOOR = [
     "【这是要被念出口的话，不是写在纸上的文案】",
     "念的人对着话筒，不知道有几个人在听，也不打算讨好谁。所以：一句话说完就说完；",
-    "允许废话、允许重复、允许说到一半改口、允许念错一个字再纠回来；**允许无聊**——",
-    "电台大部分时间是无聊的，那正是它可信的原因。",
+    "允许废话、允许重复、允许说到一半改口、允许念错一个字再纠回来。",
+    "**但每一条都得有一个具体的东西**——一个数字、一个地名、一件今天真发生的事、",
+    "一个没说完的缺口。平淡可以，空转不行：通篇都是「今天也是平常的一天」那种句子，",
+    "听的人没有任何理由再拧回来。",
     "",
     "【最容易替这个台开口的那一族】所有电台文案的公摊部分：夜色、城市的某个角落、",
     "愿你、如果你也还醒着、我们下期再见。认它只靠一句判据：**这句话换到任何一个台都成立吗？**",
     "成立的话它就不是这个台的。那就说这个台今天真正要说的那句——一件具体的事、一个具体的数字、",
-    "一个具体的人名或地名、一件说了也没用的小事。",
+    "一个地名、一家店、一个门牌号、一件说了也没用的小事。",
     "",
     "⚠️拦的是「电台该说什么」替这个台开口，不是拦煽情本身。这个台本来就爱押韵、爱说漂亮话、",
     "爱骂人、爱插科打诨的，那就照它本来的样子写足。"
@@ -393,24 +409,80 @@
     return kept.concat(fresh.filter(x => kept.indexOf(x) < 0).slice(0, Math.max(0, target - kept.length)));
   }
 
-  // ---- 这片地方（她 2026-09-10：「太完全和 char 世界无关那也不好听」）----
-  // 电台是【公共设施】，不是一个角色。所以接进来的不是任何一个人，是他们脚下这片地方：
-  // 世界书里那些常驻的世界事实、他们住的城。名字、行当、天气、物价照这片地方来，
-  // 一台架在她世界之外的收音机确实不好听——可它也不该认识她的人。
-  // ⚠️围栏必须跟着一起发：世界书走的是公共那扇门、只取【没绑定到具体角色】的条目，
-  //   但光靠取数不够——还得当面说清「这些台不认识任何具体的人」，
-  //   否则模型会拿地名顺手编出一个住在那儿的人来。
+  // ---- 三个距离（言秋 + gpt 2026-09-10，第一版之后当场拉回来的那一次）----
+  //
+  // 第一版把中心放在「造一个可信的、独立于 char 的世界」上，做出来的东西是对的，
+  // 可它回答不了一个很致命的问题：**所以我为什么要打开它？**
+  // 秋秋机不是世界模拟器；跟角色完全无关的内容，再精致也是 NPC 噪音。
+  //
+  // 但反过来做成「顾朝彩蛋机」更糟。真正缺的是中间那一层——
+  // gpt 的原话：**「这个世界不是围着我男朋友转，但因为我认识他，所以我听什么都可能联想到他。」**
+  //
+  //   远景     跟他完全无关。这一档负责让世界不围着他转。       ~25%
+  //   生活半径 不写他，但内容自然经过他的地方、他碰过的事物。   ~60%  ← 命根子在这一层
+  //   痕迹     他真的在这个台上留下过一点东西。                ~15%，且一天一个台最多一条
+  //
+  // ⚠️距离由**代码**掷（跟「今天哪个频率有台」同一条道理）。
+  //   写成「今天他出现的概率是 15%」交给模型自己拿捏，它会塌到一边去——
+  //   要么天天是他，要么一次都没有。
+  // ⚠️**不许判定**。痕迹那一条不署名、不标注，界面上也永远不写「这是谁」。
+  //   「到底是不是他」这个悬着的问号就是这一档的全部价值；一旦坐实，它就死了。
+  const DISTANCE = { FAR: "far", ORBIT: "orbit", TRACE: "trace" };
+  const DIST_ZH = { far: "远景", orbit: "生活半径", trace: "他留下的痕迹" };
+  function rollDistances(n, ...parts) {
+    const k = Math.max(1, N(n, 1));
+    const out = [];
+    let traced = false;
+    for (let i = 0; i < k; i++) {
+      const r = seed01.apply(null, parts.concat(["dist", i]));
+      let d = r < 0.25 ? DISTANCE.FAR : (r < 0.85 ? DISTANCE.ORBIT : DISTANCE.TRACE);
+      // 一天一个台最多一条痕迹。多了就不是「诶，这个跟他有关」，是蹲男朋友告白
+      if (d === DISTANCE.TRACE) { if (traced) d = DISTANCE.ORBIT; else traced = true; }
+      out.push(d);
+    }
+    // 一条远景都没有＝整个台都在围着他转，那正是要防的另一头
+    if (k >= 6 && out.indexOf(DISTANCE.FAR) < 0) out[k - 1] = DISTANCE.FAR;
+    return out;
+  }
+  const DISTANCE_RULE = [
+    "【三个距离】下面那张单子上每一条都标了它离【那个人】有多远。这不是三种题材，是三种**距离**：",
+    "",
+    "· **远景**——跟他完全无关。照常写这片地方自己的事，这一档就是让这个世界不围着他转的那一档。",
+    "· **生活半径**——⚠️**不要写关于他的内容**。写的还是这片地方的事，只是让它自然**经过**下面",
+    "  「他的生活半径」里那些东西：他常在的地方、他最近碰过的事物、他那一行的活儿、他听的那类歌。",
+    "  播的人不认识他，也不知道有他这个人；是**听的人自己**会「诶，这个跟他有关」。",
+    "  判据一句：**把那个人整个删掉，这一条还成立吗？**成立才算写对了。",
+    "· **他留下的痕迹**——他真的在这个台上留下过一点东西（点了首歌、丢了样东西、留了句话、",
+    "  某个地方被人顺口提到）。两条要紧的：",
+    "  ① **不署名、不点名、也不在话里暗示「你懂的」。**听的人自己怀疑是不是他，那是这一条的全部价值；",
+    "     一旦坐实，它就从「可能是他」变成「系统通知你是他」，两回事。",
+    "  ② 写成那种**本来就会一整天反复播**的东西——寻物启事、一次点播、一条转告。",
+    "     它越小越好：越小，听的人越会自己往下想。写成告白、写成他专门讲给谁听的话，就全塌了。"
+  ].join("\n");
+
+  // ---- 这片地方 + 他的生活半径 ----
+  // 她 2026-09-10：「太完全和 char 世界无关那也不好听」。
+  // 电台是【公共设施】，不是一个角色。所以接进来的不是任何一个人，是他脚下这片地方，
+  // 以及**他生活半径上那些东西**——地方、店、楼、活儿、歌、这几天正在传的事。
+  // ⚠️人名一个都不进来（调用方那头就滤掉了）：电台知道的是【那家店、那栋楼、那条路】，
+  //   不是【谁去过】。这两件事差一个字，差的是整个世界的逻辑。
   function worldBedText(bed) {
     const b = bed && typeof bed === "object" ? bed : {};
-    const places = (Array.isArray(b.places) ? b.places : []).map(S).map(x => x.trim()).filter(Boolean).slice(0, 8);
+    const list = k => (Array.isArray(b[k]) ? b[k] : []).map(S).map(x => x.trim()).filter(Boolean);
+    const places = list("places").slice(0, 8), orbit = list("orbit").slice(0, 14), hotline = list("hotline").slice(0, 6);
     const lore = S(b.lore).trim();
-    if (!places.length && !lore) return "";
+    if (!places.length && !lore && !orbit.length && !hotline.length) return "";
     const rows = ["\n\n【这片地方】这几个台就架在这儿，播的也是这儿的事。"];
     if (places.length) rows.push("· 常听得到的地名：" + places.join("、"));
     if (lore) rows.push("· 这个世界本来的样子：\n" + lore.slice(0, 1600));
-    rows.push("上面没写到的，按同一片地方的调子往下推——**别换成另一个地方、另一个年代**。");
-    rows.push("⚠️这些台是公共设施，**不认识任何具体的人**：不许提某个人的名字、私事、感情、行踪，"
-      + "也不许对着谁说话、问谁、等谁回答。它播的是这片地方本身——路、天气、物价、活儿、丢的东西、要办的事、谁家开门谁家关门。");
+    if (orbit.length) rows.push("\n【他的生活半径】这些是那个人这几天真的沾过的地方和事物："
+      + "\n" + orbit.map(x => "· " + x.slice(0, 60)).join("\n")
+      + "\n⚠️这一份**不是让你写他**，是让「生活半径」那一档的内容从这些东西旁边经过。别整份用完，挑得上的那几样就够。");
+    if (hotline.length) rows.push("\n【今天有人打进来说的话】这几句是真有人说的，可以当热线、留言、来信的料，"
+      + "也可以一句都不用：\n" + hotline.map(x => "· " + x.slice(0, 90)).join("\n"));
+    rows.push("\n上面没写到的，按同一片地方的调子往下推——**别换成另一个地方、另一个年代**。");
+    rows.push("⚠️这些台是公共设施，**不认识任何具体的人**：不许提某个人的名字、不许说他的私事和行踪，"
+      + "也不许对着谁说话、问谁、等谁回答。它播的是这片地方本身——路、天气、物价、活儿、丢的东西、谁家开门谁家关门。");
     return rows.join("\n");
   }
 
@@ -442,8 +514,11 @@
     + '"habit":"这个台平时播什么、什么调子，一句话","signOn":"每圈开头念的那一句","timeCall":"报时的说法，含{时}{分}",'
     + '"ads":["一段广告口播"],"windowFrom":null,"windowTo":null}]}';
 
-  function buildScheduleInstruction(st, now, seen, bed) {
+  const DAY_ITEMS = 12;
+  function buildScheduleInstruction(st, now, seen, bed, dists, thread) {
     const d = new Date(N(now, Date.now()));
+    const list = (Array.isArray(dists) && dists.length) ? dists : rollDistances(DAY_ITEMS, st && st.id, dayKey(now));
+    const hang = S(thread).trim();
     return [
       "你在给下面这个台排今天一天的内容。",
       "",
@@ -452,20 +527,33 @@
       "路数：" + S(st && st.habit),
       "今天是 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。",
       "",
-      "给 10 到 16 条内容。每一条是**会被完整念出口的一整段话**，不是标题、不是提要。",
+      "今天要 " + list.length + " 条内容，**一条对一条**照下面这张单子来：",
+      list.map((x, i) => " " + (i + 1) + ". " + (DIST_ZH[x] || x)).join("\n"),
+      "",
+      DISTANCE_RULE,
+      "",
+      "每一条是**会被完整念出口的一整段话**，不是标题、不是提要。",
       "长短要差得很开：有的两句就完了，有的能念上一分钟。",
       "",
       "⚠️不要写片头、不要写报时、不要写广告——那三样是这个台自己的东西，程序会插进去。",
-      "⚠️这些内容会**循环播**，她今天中午听到的，晚上可能还是它。所以不要写成「接下来」「刚才那位」",
-      "这种前后咬死的话；每一条都要能单独立住。",
+      "⚠️这些内容会**循环播**，中午听到的晚上可能还是它。所以**同一天里的几条之间不许前后咬死**：",
+      "没有「接下来」「刚才那位」「下面继续」，每一条单独拎出来都要立得住。",
+      // ⚠️「每一条都要能单独立住」第一版是写死的一条通则，结果**把全部钩子一起拆了**
+      //   （言秋 2026-09-10：真电台让人回来的从来不是内容，是牵挂——追着听的连载、明天才揭晓的下文）。
+      //   现在只管【同一天里】：跨天照样接得上，而且必须接。这是循环播唯一放得下钩子的地方。
+      "⚠️但**跨天是可以接的、而且该接**——「昨天说的那件事今天怎么样了」正是让人第二天还想拧回来的东西。",
       "⚠️也不要每条都是同一件事的不同说法。这个台一天里本来就该有几件不相干的事。",
+      hang ? "\n【你手上还悬着这件事】" + hang
+        + "\n今天它得往前走一步，或者今天就揭晓。别原地把昨天那句重说一遍。" : "",
+      "\n最后给一个 thread：今天播完，这个台手上还悬着、明天该有下文的那件事，一句话。"
+        + "**没有就留空字符串，别为了交这个字段硬造一件事。**",
       "",
       RADIO_FLOOR,
       worldBedText(bed),
       avoidText(seen)
     ].join("\n");
   }
-  const scheduleSchemaHint = '{"items":["一整段会被念出口的话"]}';
+  const scheduleSchemaHint = '{"items":["一整段会被念出口的话"],"thread":"今天播完还悬着的那件事，一句话；没有就空字符串"}';
 
   function buildDriftInstruction(rolled, freq, seen, bed) {
     return [
@@ -473,6 +561,10 @@
       "把它造出来，顺便排好它今天在播的内容。",
       "",
       axesText(rolled),
+      "",
+      // ⚠️临时台**故意不掷三个距离**（不是漏）：它是从别处飘过来的一台，
+      //   凭什么知道这儿住着谁。它天然就是「远景」那一档，那正是它存在的意义——
+      //   常驻台把她拉近，漂移台提醒她这个世界比她认识的那点大。
       "",
       NAME_RULE,
       TIME_RULE,
@@ -527,6 +619,12 @@
     return box;
   }
   // 拆了重装的时候连节目单一起清：旧台没了，挂在它名下的节目单就是一堆认不了领的孤儿
+  // 台上悬着的那件事写回去（thread）。整份 world 重写太重，而且会把别的台一起卷进来
+  function patchStation(id, patch) {
+    const w = readWorld();
+    w.stations = (Array.isArray(w.stations) ? w.stations : []).map(x => (x && x.id === id) ? Object.assign({}, x, patch) : x);
+    return writeWorld(w);
+  }
   function wipeDays() { if (_has()) saveJSON(K_DAYS, {}); return {}; }
   function addStation(st) {
     const w = readWorld();
@@ -540,8 +638,8 @@
     SLOTS, freqText,
     KIND, DRIFT_DENSITY, SIGNAL_ROUGH, inWindow, onAirToday, signalToday, dialToday, driftDue,
     CPS, secOf, timeText, floatOrder, assembleLoop, anchorFor, whereIs, roughen, leakLine,
-    RADIO_FLOOR, worldBedText, AXES, AXIS_FREE, rollAxes, axesText, AVOID_CAP, avoidPush, avoidText, ADS_KEEP, rollAds,
-    buildWorldInstruction, worldSchemaHint, buildScheduleInstruction, scheduleSchemaHint, buildDriftInstruction, driftSchemaHint,
-    K_WORLD, K_DAYS, K_SEEN, KEEP_DAYS, readWorld, writeWorld, readDays, writeDay, itemsFor, readSeen, writeSeen, clearDev, wipeDays, addStation
+    RADIO_FLOOR, DISTANCE, DIST_ZH, rollDistances, DISTANCE_RULE, worldBedText, AXES, AXIS_FREE, rollAxes, axesText, AVOID_CAP, avoidPush, avoidText, ADS_KEEP, rollAds,
+    buildWorldInstruction, worldSchemaHint, DAY_ITEMS, buildScheduleInstruction, scheduleSchemaHint, buildDriftInstruction, driftSchemaHint,
+    K_WORLD, K_DAYS, K_SEEN, KEEP_DAYS, readWorld, writeWorld, readDays, writeDay, itemsFor, readSeen, writeSeen, clearDev, wipeDays, addStation, patchStation
   };
 });
