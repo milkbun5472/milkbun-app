@@ -5969,7 +5969,11 @@ function PhoneCarry({
         // 浏览器里按回车＝搜这一句。搜完不一定点得开东西（那也很像他），
         // 所以这一下先只记 searches；真点开哪一页由后面的 openPage 决定。
         if (text) {
-          setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null } : w);
+          // ⚠️敲完回车得【先看见搜出来的那一列】，再点进去其中一条（她 2026-09-10：
+          //   「搜浏览器顺序错了，现在是先打开了搜索后的页面退出才显示搜索」）。
+          //   原来这一下只把地址栏清空，屏幕还停在标签页那一栏，于是下一下 openPage
+          //   直接盖上来——看着就是「凭空冒出一页，退出来才看见他搜了什么」。
+          setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null, tab: "search" } : w);
           if (onWatchSend) { try { onWatchSend(char, "browser", text, "", { act: "send" }); } catch (e) {} }
         }
       }
