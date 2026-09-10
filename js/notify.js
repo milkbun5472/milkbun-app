@@ -28,6 +28,14 @@
 
   const webSupported = () => typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
   const supported = () => !!bridge() || webSupported();
+  // 壳里那句话得说人话（她 2026-09-10：「壳开不了通知宝宝」）。
+  // 旧壳＝装着 nativeMedia 那座桥（v1 就有）、却没有 nativeNotify（v66.22 才加）。
+  // 这时候弹「此设备/浏览器不支持通知」是把她引到死路上：真正要做的是在 Xcode 里重 build 一次。
+  const oldShell = () => { try { return !bridge() && !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMedia); } catch (e) { return false; } };
+  function whyUnsupported() {
+    if (supported()) return "";
+    return oldShell() ? "壳还是旧的：在 Xcode 里重新 build 一次就有通知了" : "此设备/浏览器不支持通知";
+  }
 
   function permission() { return bridge() ? _nativePerm : (webSupported() ? Notification.permission : "unsupported"); }
   function isOn() {
@@ -111,5 +119,5 @@
     return true;
   }
 
-  window.Notify = { supported, permission, isOn, enable, disable, push, chatBubble, groupBubble, test };
+  window.Notify = { supported, whyUnsupported, permission, isOn, enable, disable, push, chatBubble, groupBubble, test };
 })();

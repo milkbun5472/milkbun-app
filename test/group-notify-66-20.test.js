@@ -89,3 +89,19 @@ test("壳里走原生那座桥，桥不在才回到 Web 那条老路", () => {
   // 那句错话不许再留着
   assert.ok(!/推送仍走 Web Push\(站内已有\)。/.test(shell), "头注释还写着「推送走 Web Push」——壳里根本没有");
 });
+
+// v66.23 她 2026-09-10：「壳开不了通知宝宝」——她点的时候弹的是「此设备/浏览器不支持通知」，
+// 那句话把她引到死路上：旧壳不是不支持，是那座桥 v66.22 才加、她还没在 Xcode 里重 build。
+// 旧壳认得出来：nativeMedia 那座桥 v1 就有，nativeNotify 没有＝壳是旧的。
+test("旧壳弹的是「去 Xcode 重 build」，不是「不支持」", () => {
+  assert.match(notify, /const oldShell = \(\) => \{[\s\S]{0,200}!bridge\(\)[\s\S]{0,120}messageHandlers\.nativeMedia/,
+    "认不出旧壳——nativeMedia 在、nativeNotify 不在，才是「壳旧了」");
+  assert.match(notify, /if \(supported\(\)\) return "";/, "能用的时候还给理由，那就会乱弹");
+  assert.match(notify, /return oldShell\(\) \? "壳还是旧的：在 Xcode 里重新 build 一次就有通知了" : "此设备\/浏览器不支持通知";/);
+  assert.match(notify, /window\.Notify = \{[^}]*whyUnsupported/, "没挂出去，界面拿不到");
+  // 界面那头必须用它，而且拿不到时还能退回原来那句
+  const s = R("js/screens.js");
+  assert.match(s, /if \(!window\.Notify \|\| !window\.Notify\.supported\(\)\) \{ toast && toast\(\(window\.Notify && window\.Notify\.whyUnsupported && window\.Notify\.whyUnsupported\(\)\) \|\| "此设备\/浏览器不支持通知"\); return; \}/,
+    "开关那儿还在硬写「不支持」");
+  assert.equal((s.match(/"此设备\/浏览器不支持通知"/g) || []).length, 1, "这句话在界面里不止一处");
+});

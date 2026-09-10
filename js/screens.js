@@ -7869,7 +7869,7 @@ function SenseConfig({
   }, "切到别处后，单聊回复按气泡通知；系统暂停或关闭网页后不保证送达。iPhone 请先添加到主屏幕并从图标打开；Android、电脑需浏览器支持并允许通知。通知可能显示聊天内容。")), h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 } }, h(Toggle, {
     on: notifOn,
     onChange: v => {
-      if (!window.Notify || !window.Notify.supported()) { toast && toast("此设备/浏览器不支持通知"); return; }
+      if (!window.Notify || !window.Notify.supported()) { toast && toast((window.Notify && window.Notify.whyUnsupported && window.Notify.whyUnsupported()) || "此设备/浏览器不支持通知"); return; }
       if (v) {
         window.Notify.enable().then(perm => {
           if (perm === "granted") { setNotifOn(true); toast && toast("已开启，可发一条消息后切后台试试"); window.Notify.test(700); }
