@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.27";
+const APP_VERSION = "v66.28";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4402,11 +4402,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const cdu = daysUntilBirthday(char && char.birthday, today);
       // 生日填了年份就能算出今天满几岁；只填月日的（古风/架空角色多半如此）就不提岁数
       const _cage = typeof charAgeNow === "function" ? charAgeNow(char, Date.now()) : null;
+      // ⚠️他自己生日那天，模型十有八九把「寿星」按到她头上（她 2026-09-10：「他们生日
+      //   还是总是觉得是我生日说我是寿星」）。陪伴类对话的训练先验里，过生日的默认是用户。
+      //   原来只写「今天是你自己的生日」——【是谁的】说清了，【不是谁的】一个字没说，
+      //   而模型塌的正是没说的那一半。今天是不是她生日这件事这儿本来就算得出来，直接说死。
+      const _uBdDu = daysUntilBirthday(profile && profile.birthday, today);
+      const _bdIsMine = _uBdDu === 0
+        ? "（今天也正好是 " + uName + " 的生日，你俩同一天。）"
+        : "⚠️今天【不是】" + uName + " 的生日：别祝 Ta 生日快乐、别叫 Ta 寿星、别说「今天是你的日子」、别问 Ta 想怎么过。今天要被记得的人是【你】。";
       if (cdu === 0) lines.push("🎂 今天是你自己的生日"
         + (_cage != null ? "，你今天满 " + _cage + " 岁了（昨天还是 " + (_cage - 1) + "）" : "")
-        + "。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。");
+        + "。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。" + _bdIsMine);
       else if (cdu != null && cdu <= 5) lines.push("再过 " + cdu + " 天就是你自己的生日"
-        + (_cage != null ? "，过完就 " + (_cage + 1) + " 岁了" : "") + "。");
+        + (_cage != null ? "，过完就 " + (_cage + 1) + " 岁了" : "")
+        + (_uBdDu === cdu ? "（也是 " + uName + " 的生日，你俩同一天）" : "——是【你的】生日，不是 " + uName + " 的") + "。");
       // —— 纪念日：和这个角色在一起满几周年 ——
       // ⚠️v62.31 补上【提前几天】那一档（她 2026-09-04：「应该是进日历然后他提前几天就会知道对吧」
       //   ——她的预期是对的，但原来只有当天那一句）。生日旁边早就有 cdu<=5 这一档，
@@ -8864,7 +8873,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
       if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       const nMin = Math.min(Math.min(3, members.length), nMax);
-      const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
+      const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。" : "**这一轮的额度只剩这么多，说到就停，别硬凑也别多写——多出来的会被丢掉。**") + "\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
+      // 今天是谁的生日（她 2026-09-10：「他们生日还是总是觉得是我生日说我是寿星」）。
+      // ⚠️群里【本来就有】每个人的生日：成员那一段的 ageLineFor 里写着「生日 X · 就是今天」。
+      //   缺的和单聊那处缺的是同一样东西——只说了【是谁的】，没说【不是谁的】，
+      //   而陪伴类对话的训练先验默认过生日的是用户，模型塌的正是没说的那一半。
+      //   旁观群不发：她根本不在场，没有「不是她的」这回事。
+      const gBdayHint = (() => {
+        if (gs.spectate) return "";
+        const _t = new Date();
+        const who = members.filter(c => c && !c.npc && daysUntilBirthday(c.birthday, _t) === 0).map(c => c.name);
+        if (!who.length) return "";
+        const uN = userName(profile);
+        const hers = daysUntilBirthday(profile && profile.birthday, _t) === 0;
+        return "\n【今天是谁的生日】今天是" + who.map(n => "「" + n + "」").join("、") + "的生日"
+          + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：别祝 " + uN + " 生日快乐、别叫 " + uN + " 寿星、别问 " + uN + " 想怎么过。今天要被大家记得的是上面这位。")
+          + "本人自己怎么表现看各自性子（期待被记得、感慨、故作不在意都行）。";
+      })();
       const gEmotes = emotesForGroup(group.memberIds);
       const gPolls = _graw.filter(m => m.kind === "poll");
       const gPollHint = gPolls.length ? "\n【投票操作】上文投票卡列出了编号与选项。成员要投票或改票，在自己的发言对象中增加 pollVote:{\"pollId\":\"对应投票编号\",\"choice\":从0起的选项序号}；-1 为撤回自己的票。只说投了不会改变票数，text 必须与 choice 一致。匿名投票不在 text 里透露自己的选择。" : "";
@@ -8958,7 +8983,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；想送的人填 gift 就真送到，但绝不是每轮都该送，也别几个人抢着送。别把这张单子念出来。）\n"
           + (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
         : "";
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + "\n\n【身份铁律】用户「" + userName(profile) + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + gWishHint + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + userName(profile) + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -9059,7 +9084,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       {
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, userName(profile)) : { items: arr, dropped: [], thoughtsDropped: [] };
-        const safeArr = guarded.items;
+        // ⚠️自发那一轮的条数上限【原来只写在提示词里】（"一次产出 n~m 条"）——那只降概率。
+        //   模型多写几条，下面这个循环照单全收，她设的「自发总条数上限」就成了摆设
+        //   （她 2026-09-10：「群自发聊天怎么感觉停不下来了，都超了限制还在发」）。
+        //   闸得在代码这一道：超出本轮预算的直接截掉，一条都不许落地。
+        //   截掉之后 addAutoChatMessages 记的也是【真正发出去的条数】，额度卡才对得上账。
+        const _autoBudget = (rgOpts.auto && Number(rgOpts.msgBudget) > 0) ? Math.floor(Number(rgOpts.msgBudget)) : 0;
+        const safeArr = _autoBudget ? (guarded.items || []).slice(0, _autoBudget) : guarded.items;
         if (rgOpts.auto) addAutoChatMessages(groupId, safeArr.length); // 自发累计条数（持久额度卡，跨重开仍有效）
         if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
         phase = "落地发言";
