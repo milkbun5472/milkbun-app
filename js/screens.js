@@ -2761,7 +2761,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "在「" + ((grp && grp.name) || "群聊") + "」里送给谁"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
-        "当着大家的面递过去，不走快递。群里其他人看得见，也会有各自的反应。"),
+        "当着大家的面递过去，不走快递。送完你还能接着说话，说完按【回复】大家再一起接。"),
       mem.length
         ? h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, mem.map(c => h("button", { key: c.id, onClick: () => { const gid = sheet.id; setSheet(null); onCheckout(sel, "gift", { type: "group", id: gid, toId: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
             h(Avatar, { character: c, size: 38, radius: 9 }),

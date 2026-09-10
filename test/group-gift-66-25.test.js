@@ -23,15 +23,17 @@ test("挑人那一屏：选了群不是送给群，是换一屏挑群里的谁",
   assert.match(two, /这个群里还没有成员/, "空群没有兜底，点进去是一片白");
 });
 
-test("结算这一头：收礼人只认一次，反应只要一次", () => {
+test("结算这一头：收礼人只认一次，送完不替她开口", () => {
   const ck = app.slice(app.indexOf('} else if (mode === "gift") {'), app.indexOf('} else if (mode === "paylater") {'));
   assert.match(ck, /const toId = target && \(inGroup \? target\.toId : target\.type === "char" \? target\.id : null\);/, "收礼人不是一处算出来的");
   assert.match(ck, /if \(!toId\) \{ toast\(inGroup \? "请选择送给群里的谁" : "请选择送礼对象"\); return; \}/, "没挑人也放行了");
   assert.match(ck, /items\.forEach\(it => sendGiftToChar\(toId, it\.name, it\.cat, false, inGroup \? target\.id : null\)\)/, "群那一路没把群 id 传下去");
-  // ⚠️一次结算可能好几件东西：一件调一次模型＝把她的钱按件数翻倍
-  assert.ok(ck.indexOf("items.forEach") < ck.indexOf("reactGroupGift"), "反应挂在 forEach 里了");
-  assert.match(ck, /if \(inGroup\) setTimeout\(\(\) => reactGroupGift\(target\.id, toId, items\.map\(x => x\.name\)\), 1400\);/);
-  assert.equal((app.match(/reactGroupGift\(/g) || []).length, 1, "反应不止一个调用点");
+  // ⚠️她 2026-09-10：「送完等我说完话再点回复，不要送了就回复」。
+  //   跟买东西那条（v60.45）、跟 promoteGifts 那条是同一条：送完她还要接着说自己的话，
+  //   这时候替她开一次群聊＝把她的下半句堵在门外，还多花一次钱。
+  assert.ok(app.indexOf("reactGroupGift") < 0, "又替她自动开了一次口");
+  assert.ok(ck.indexOf("setTimeout") < 0, "送完还挂着一个定时器去调模型");
+  assert.match(ck, /送完不自动回复/, "那条教训的注释没留下");
   // 钱照旧从她钱包里扣，跟私聊送礼共用同一行
   assert.match(ck, /changeWallet\(-total, "送礼 "/, "群里送礼不扣钱了");
 });
@@ -54,23 +56,7 @@ test("模型读到的那一行说清了「只送给一个人」", () => {
   const line = app.slice(app.indexOf("const groupHistLine = m =>"), app.indexOf("\n  // ---- 群里每位成员那一段"));
   assert.match(line, /m\.kind === "gift" \? "\[当着全群的面，把「" \+ \(\(m\.item && m\.item\.name\) \|\| m\.name \|\| "一件东西"\) \+ "」送给了" \+ \(m\.toName \|\| "群里某位"\)/);
   assert.match(line, /只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上/, "没说死只有一个人有——群发是这一档最容易塌的方向");
-});
-
-test("反应这一次调用：收礼人单开一个字段，别人认不出名字就丢掉", () => {
-  const fn = app.slice(app.indexOf("const reactGroupGift = async"), app.indexOf("\n  // 送的东西值多少钱"));
-  // 收礼那位的反应不跟别人挤在 say 里：挤在一起就得靠名字去认，漏了他这次钱就白花
-  assert.match(fn, /\{\\"toSay\\":\[\\"气泡1\\"\],\\"say\\"/, "收礼人的反应没单开字段");
-  assert.match(fn, /pushGroupRich\(groupId, \{ role: "char", senderId: to\.id, senderName: to\.name, content: toWords\[i\] \}\)/, "收礼人那几句没落到他名下");
-  assert.ok(fn.indexOf("toWords") < fn.indexOf("const say ="), "别人的话排在收礼人前面了");
-  // ⚠️认不出名字就丢掉，绝不许像代付那样退到 members[0]——退错人整段戏就演反了
-  assert.match(fn, /if \(!spk \|\| !txt\) continue;/, "认不出说话人还硬塞");
-  assert.ok(fn.indexOf("|| members[0]") < 0, "又退回 members[0] 了");
-  assert.match(fn, /const spk = members\.find\(m => m\.name === nm \|\| \(m\.remark \|\| ""\) === nm\);/);
-  // 塌向群发是这一档最大的风险，提示词和落地都得挡
-  assert.match(fn, /只送给 Ta 一个人，在场其他人都没有/);
-  assert.match(fn, /绝不许让别人也收到礼物、也绝不许当成群发/);
-  assert.match(fn, /不必每个人都开口/, "不挡的话每个人都会硬凑一句");
-  assert.match(fn, /bumpAff\(toId, d\.affinityDelta\)/, "收了礼好感不动");
+  // 这一行是她按【回复】时大家唯一的依据：送完不再单独调模型，全靠它接话
 });
 
 test("群里那张礼物盒复用单聊那一只，顶上写着送给谁", () => {
@@ -91,4 +77,17 @@ test("礼物往来那两行别说反：carryGifts 是【他收到的】", () => 
   assert.match(seg, /const given = \(carryGiftsRef\.current\[char\.id\] \|\| \[\]\)/);
   assert.match(seg, /if \(given\.length\) parts\.push\("用户送给你过："/, "他收到的东西还写着是他送出去的");
   assert.match(seg, /if \(got\.length\) parts\.push\("你送给用户过："/);
+});
+
+// 她 2026-09-10（同一轮）：「旁观群可以去掉，因为我都不在场」。
+// 旁观群里她是旁白不是成员——递不了东西给谁，也开不了口请人代付。
+// 所以滤在【递给购物这一屏的那一处】：送礼和代付两屏一起对，不用各滤一遍。
+test("旁观群不进选人名单，送礼和代付一起滤", () => {
+  assert.match(app, /const imInGroup = g => !!g && g\.roomKind !== "spectate" && !gsFor\(g\.id\)\.spectate;/,
+    "判据没归成一处，或只问了一头");
+  assert.match(app, /groups: groups\.filter\(imInGroup\),/, "购物那一屏还在拿全部的群");
+  // ⚠️两头都要问：roomKind 记在群自己身上，spectate 记在另一份设置里，后者在老数据里丢过
+  assert.ok(app.indexOf("const imInGroup") > app.indexOf("const gsFor = id =>"), "排在 gsFor 前面会踩 TDZ");
+  // 挑人那两屏自己不许再滤第二遍（滤两处＝以后改一处漏一处）
+  assert.equal((scr.match(/roomKind !== "spectate"/g) || []).length, 0, "界面里又滤了一遍");
 });

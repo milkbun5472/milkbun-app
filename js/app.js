@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.26";
+const APP_VERSION = "v66.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8650,6 +8650,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     sumThresh: 150,
     sumBuffer: 20
   };
+  // 我到底在不在这个群里（她 2026-09-10：「旁观群可以去掉，因为我都不在场」）。
+  // 旁观群里她是【旁白】不是成员：递不了东西给谁，也开不了口请人代付——
+  // 凡是「她本人当场做一件事」的选人屏，群名单都该按这条过一遍，别各屏各写一套。
+  // ⚠️两头都要问：roomKind 记在群自己身上，spectate 记在另一份 groupSettings 里，
+  //   而那一份在老数据里丢过（见 groupPhoneKind 那段的注释）。有一头说是旁观就算旁观。
+  const imInGroup = g => !!g && g.roomKind !== "spectate" && !gsFor(g.id).spectate;
   // 群创建时间：优先用显式 createdTs，老群回落到 id 里的时间戳
   const groupCreatedTs = group => (group && group.createdTs) || (group && /^g_\d+$/.test(group.id) ? Number(group.id.slice(2)) : 0);
   const saveGroupSettings = (id, patch) => setGroupSettings(p => {
@@ -17256,52 +17262,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (typeof d.affinityDelta === "number") bumpAff(charId, d.affinityDelta);
     } catch (e) {/* silent */}
   };
-  // 在群里当面送出去之后，群里当场的反应（她 2026-09-10：「想看大家看到礼物的反应」）。
-  // 跟 decideGroupPayLater 同一个形状：一次调用，推演出你来我往的几句，代码负责落地。
-  // ⚠️收礼那位的反应【单开一个字段】，不跟别人的话挤在 say 里：
-  //   挤在一起就要靠名字去认，模型漏了他、或者把名字写歪一个字，她这次就白花了钱——
-  //   而她要看的头一件事恰恰是收礼那个人什么表情。字段分开，senderId 由代码填，认不歪。
-  const reactGroupGift = async (groupId, toId, names) => {
-    const group = groups.find(g => g.id === groupId);
-    const to = characters.find(c => c.id === toId);
-    if (!group || !to || !active) return;
-    const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-    if (!members.length) return;
-    const others = members.filter(m => m.id !== toId);
-    const meName = userName(profile);
-    const what = (names || []).filter(Boolean).join("、") || "一份礼物";
-    try {
-      const bundle = buildBundle(ctxFor(to));
-      const system = bundle + "\n\n【场景】这是一个群聊，成员：" + members.map(m => m.name).join("、")
-        + "。刚才 " + meName + " 当着大家的面，把「" + what + "」送给了「" + to.name + "」——**只送给 Ta 一个人，在场其他人都没有**。东西现在就在 " + to.name + " 手上。"
-        + "\n【任务】写出群里此刻的反应。"
-        + "\n· toSay：「" + to.name + "」自己的反应，完全代入他本人，依人设与对 " + meName + " 的好感来（惊喜/害羞/淡定/嘴硬/当场拆开都行），即时通讯口吻，短句 1~3 个气泡。"
-        + (others.length ? "\n· say：其余在场的人（" + others.map(m => m.name).join("、") + "）看见这一幕的反应：起哄、吃味、打趣、追问、装没看见都行，各是各的人，别几个人说同一种话。**不必每个人都开口**，谁没什么可说的就别写他。0~5 条。" : "\n· say：群里没有别人，留空数组。")
-        + "\n绝不许让别人也收到礼物、也绝不许当成群发。别写旁白、别写括号动作。"
-        + "\n【输出】只输出 JSON：{\"toSay\":[\"气泡1\"],\"say\":[{\"name\":\"成员名\",\"text\":\"内容\"}],\"affinityDelta\":整数(-3到5)}";
-      const raw = await callAI(active, system, [{ role: "user", content: "[当着群里的面送给 " + to.name + "：" + what + "]" }]);
-      const d = extractJSON(raw) || {};
-      const toWords = (Array.isArray(d.toSay) ? d.toSay : [d.toSay]).map(x => String(x || "").trim()).filter(Boolean);
-      for (let i = 0; i < toWords.length; i++) {
-        if (i > 0) await new Promise(r => setTimeout(r, 420));
-        pushGroupRich(groupId, { role: "char", senderId: to.id, senderName: to.name, content: toWords[i] });
-      }
-      // ⚠️别人那几句认名字要认得准：认不出来就【丢掉这一条】，绝不像代付那样退到 members[0]——
-      //   代付只要有人付钱就行，这儿退错人就是把「吃味的那句」按在收礼人头上，整段戏就演反了。
-      const say = Array.isArray(d.say) ? d.say : [];
-      for (let i = 0; i < say.length; i++) {
-        const nm = String((say[i] && say[i].name) || "").trim();
-        const spk = members.find(m => m.name === nm || (m.remark || "") === nm);
-        const txt = String((say[i] && say[i].text) || "").trim();
-        if (!spk || !txt) continue;
-        await new Promise(r => setTimeout(r, 480));
-        pushGroupRich(groupId, { role: "char", senderId: spk.id, senderName: spk.name, content: txt });
-      }
-      if (typeof d.affinityDelta === "number") bumpAff(toId, d.affinityDelta);
-    } catch (e) {
-      toast("群里的反应没生成出来：" + e.message);
-    }
-  };
   // 送的东西值多少钱。模型在同一轮回复里就该给 price（不额外调一次模型）；
   // 没给或给歪了才本地估一个——按他自己的家底缩放，穷学生送的咖啡不该标八百。
   // ⚠️估价只是兜底，不是主路：真正的价钱应该由他自己在那一轮里说出来。
@@ -17616,8 +17576,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (wallet < total) { toast("余额不足"); return; }
       changeWallet(-total, "送礼 " + items.map(x => x.name).join("、").slice(0, 18), "shop");
       items.forEach(it => sendGiftToChar(toId, it.name, it.cat, false, inGroup ? target.id : null));
-      // ⚠️反应只要一次：一次结算可能有好几件东西，一件调一次模型就是把她的钱按件数翻倍。
-      if (inGroup) setTimeout(() => reactGroupGift(target.id, toId, items.map(x => x.name)), 1400);
+      // ⚠️【送完不自动回复】（她 2026-09-10：「送完等我说完话再点回复，不要送了就回复」）。
+      //   跟买东西那条是同一条（v60.45）、跟 promoteGifts 那条也是同一条：她送完还要
+      //   接着说自己的话，这时候替她开一次群聊，就是把她的下半句堵在门外、还多花一次钱。
+      //   群里那张卡本身就是证据——groupHistLine 那一支已经把「当着全群送给了谁」说清了，
+      //   她按回复时大家自然接得上，不需要专门再调一次模型。
       removeCartUids(uids);
     } else if (mode === "paylater") {
       if (!target) { toast("请选择代付对象"); return; }
@@ -18719,7 +18682,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     orders: orders,
     inventory: inventory,
     characters: liveChars,
-    groups: groups,
+    // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
+    //   旁观群里她根本不在场（她 2026-09-10：「旁观群可以去掉，因为我都不在场」），
+    //   所以名单在这儿就滤掉——滤在这一处，送礼和代付两屏一起对，不用各滤一遍。
+    groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
     feed: shopFeed,
     busy: shopBusy,
