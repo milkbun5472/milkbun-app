@@ -2824,13 +2824,13 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在他手机上被删掉。
         (onPhotoEdit && tab !== "saved") ? h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
           canon(photo.category) === "deleted"
-            ? [h("button", { key: "back", onClick: () => editPhoto(photo, "memory"),
+            ? [h("button", { key: "back", onClick: () => editPhoto(photo, "memory"), "data-watch": "move:memory",
                 className: "flex-1 active:opacity-60",
                 style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" } }, "捞回来"),
-               h("button", { key: "gone", onClick: () => editPhoto(photo, "gone"),
+               h("button", { key: "gone", onClick: () => editPhoto(photo, "gone"), "data-watch": "move:gone",
                 className: "flex-1 active:opacity-60",
                 style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,90,80,.5)", color: "#ff8a80" } }, "真的删掉")]
-            : h("button", { onClick: () => editPhoto(photo, "deleted"),
+            : h("button", { onClick: () => editPhoto(photo, "deleted"), "data-watch": "move:deleted",
                 className: "w-full active:opacity-60",
                 style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.72)" } }, "扔进「删了又没真删的」")) : null,
         onPeek ? (function () {
@@ -6123,6 +6123,13 @@ function PhoneCarry({
         try { onWatchSend(char, openRef.current, a.name || "", a.text, { act: "draft" }); } catch (e) {/* 同上 */}
       }
       setWatch(w => w ? { ...w, typing: null } : w);
+    }
+    // 把正看着的这张照片挪到另一摞（她 2026-09-10：「照片换相册我是说看他玩让他弄」）。
+    // ⚠️不另开落盘路径：跟发微信、下单同一条路（onWatchSend → applyWrite → savePhoneApp）。
+    else if (a.kind === "move") {
+      const w0 = watchRef.current;
+      const nm = a.name || (w0 && w0.item) || "";
+      if (onWatchSend && nm && a.to) { try { onWatchSend(char, openRef.current, nm, a.to, { act: "move" }); } catch (e) {/* 落盘失败不该把这段演砸 */} }
     }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——

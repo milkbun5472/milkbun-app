@@ -88,6 +88,10 @@
     //   小红书写了一半没发（草稿箱那一格空着）。
     copy:     { args: ["text"], zh: "复制一段字（落进剪贴板，随时随地都能干）", write: true },
     draft:    { args: ["text", "name"], zh: "写了一半没发出去（小红书草稿箱／邮件草稿）", write: true },
+    // ⚠️她 2026-09-10：「照片换相册我是说【看他玩让他弄】，而不是给我加一个键」。
+    //   回收站进出本来就是他自己在手机上会干的事（顺手把一张扔进「删了又没真删的」、
+    //   翻回收站时又把一张捞回来），所以它是一个【动作】，不是给她的一颗按钮。
+    move:     { args: ["to", "name"], zh: "把正看着的这张照片挪到另一摞（deleted＝扔进「删了又没真删的」／memory＝捞回来／gone＝真的删掉）", write: true },
     pause:    { args: ["ms"], zh: "停住" },
     think:    { args: ["text"], zh: "心里那一句（浮在屏幕上）" }
   };
@@ -196,6 +200,8 @@
       // 买东西那几个 app 才用得上的一栏：他看的那样东西多少钱。
       // ⚠️不拿 amount 顶替——那一栏是滑动距离，混用就成了「滑了 68 像素买了一杯」。
       if (x.price != null) { const pv = N(x.price, null); if (pv != null && pv >= 0 && pv <= 999999) a.price = Math.round(pv * 100) / 100; }
+      // 挪照片挪到哪一摞（deleted/memory/favorite/saved/private/gone，中文也认）
+      if (x.to != null) a.to = S(x.to).trim().slice(0, 20);
       if (x.ms != null) a.ms = Math.max(120, Math.min(6000, N(x.ms, 800)));
       out.push(a);
     }
@@ -222,6 +228,7 @@
     if (a.kind === "think") return 1600;
     if (a.kind === "look") return 1400;
     if (a.kind === "scroll") return 700;
+    if (a.kind === "move") return 900;
     return 620;
   }
   function sessionDuration(acts) { return (acts || []).reduce((n, a) => n + actDuration(a), 0); }
@@ -273,6 +280,17 @@
     row.time = "刚刚";
     return { d: Object.assign({}, base, { chats: chats }), wrote: true };
   }
+  // 他能把照片挪到哪儿：照相册那一屏自己的五摞来，中英文都认（模型两种都会写）。
+  // gone 不是一摞，是「真的删掉」。
+  const ALBUM_MOVE = {
+    deleted: "deleted", "删了又没真删的": "deleted", "最近删除": "deleted", "回收站": "deleted",
+    memory: "memory", "总翻出来看的": "memory", "回忆": "memory", "捞回来": "memory",
+    favorite: "favorite", "舍不得删的": "favorite", "个人收藏": "favorite",
+    saved: "saved", "从别处存下来的": "saved", "最近保存": "saved",
+    private: "private", "锁起来的": "private", "私密": "private",
+    gone: "gone", "真的删掉": "gone", "彻底删掉": "gone", "删掉": "gone"
+  };
+
   function applyWrite(appKey, d, target, text, now, o0) {
     const ts = N(now, Date.now());
     const who = S(target).trim(), body = S(text).trim();
@@ -423,6 +441,21 @@
         : { title: head, kind: "", worth: body, _ts: ts });
       const out2 = Object.assign({}, base); out2[bucket] = rows;
       return { d: out2, wrote: true };
+    }
+
+    // ── 相册：把一张照片挪进另一摞（她 2026-09-10 要的是他自己动手）──
+    // ⚠️走的是这个 app 现成的那套分类字段（category），不另造数据；
+    //   gone＝真的从这份 items 里拿掉（回收站里那一下「真的删掉」）。
+    if (appKey === "album") {
+      const items0 = Array.isArray(base.items) ? base.items : [];
+      const hit = pickName(items0, who, x => x && (x.caption || x.desc));
+      if (!hit) return { d: d, wrote: false };
+      const to = ALBUM_MOVE[body] || "";
+      if (!to) return { d: d, wrote: false };
+      const items = to === "gone"
+        ? items0.filter(x => x !== hit)
+        : items0.map(x => x === hit ? Object.assign({}, x, { category: to }) : x);
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
     // ── 剪贴板：他复制的那一段字 ────────────────────────────────
@@ -869,7 +902,8 @@
       "【每个 app 里你能干什么】",
       can.indexOf("wechat") >= 0 ? "· 微信：**这个 app 里绝大多数时候你刷的是别人**——翻朋友圈（tab 切 moments，openItem 写发这条的人）、点开某个人的会话说两句、看看联系人。**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
-      can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。**一段里翻一两张就够了，翻完去别处**：相册最容易一待就是半程，可一个人不会盯着同两张照片来回看。tab 可以切 library / collections / saved。" : "",
+      can.indexOf("album") >= 0 ? "· 相册（挪照片）：点开一张之后，偶尔——**只是偶尔，不是每次进相册都干一次**——你会顺手把它挪个地方：move to:\"deleted\" 是扔进「删了又没真删的」；翻到那一摞里时 move to:\"memory\" 是把它捞回来，move to:\"gone\" 是真的删掉（删了就再也没有了，得是你真的不想留着的那种）。挪之前先 openItem 点开它。" : "",
+      can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**多半只是翻旧照片，翻一两张就够了，翻完去别处**（相册最容易一待就是半程，可一个人不会盯着同两张照片来回看）。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：两种都行。**改**：openItem 点开一条已有的，手上就是它现在的正文，erase 划掉（不给 n 就整段划光）、type 重写、send 存下。**新写**：不点开任何一条，直接 type 打一段再 send——那就是新记一条。想起什么随手记一笔，本来就是便签最常发生的事。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。想留着以后看就在那一页上再 send 一下——**那是收藏进书签**（手上没在打字的时候按下去就是收藏，不是又搜一遍）。不想留痕迹的那一次，openPage 上加 priv:true——**无痕开的那一页不进搜索记录、不进标签页**，只进无痕那一格。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
@@ -938,6 +972,8 @@
     // 总比圆点僵在原地强（querySelector 认逗号，谁先在页面上就落谁）。
     if (a.kind === "send") return '[data-watch="send"],[data-watch="result"]';
     if (a.kind === "type" || a.kind === "erase") return '[data-watch="input"]';
+    // 挪照片按的是详情页底下那几颗真键，圆点就落在那颗键上
+    if (a.kind === "move") return '[data-watch="move:' + S(a.to).replace(/"/g, "") + '"]';
     return "";
   }
 

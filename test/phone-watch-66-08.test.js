@@ -190,14 +190,31 @@ test("便签是【改】不是【新写一条】：按标题认人", () => {
   assert.equal(W.applyWrite("notes", d, "", "随手记一句", 999).d.items[0].title, "随手记一句");
 });
 
-test("相册那一路零写入：只演不落", () => {
+test("相册：只有【挪去哪一摞】那一下写得动，别的一律只演不落", () => {
+  // 她 2026-09-10：「照片换相册我是说【看他玩让他弄】，而不是给我加一个键」。
+  // 翻照片仍然是零写入；挪进／挪出回收站是他自己按那几颗真键，走的还是同一条落盘路。
   assert.equal(W.applyWrite("album", { items: [{ caption: "海边那天" }] }, "海边那天", "什么", 1).wrote, false);
+  const mv = W.applyWrite("album", { items: [{ caption: "海边那天" }, { caption: "楼下的猫" }] }, "海边那天。", "deleted", 1);
+  assert.equal(mv.wrote, true);
+  assert.equal(mv.d.items[0].category, "deleted");
+  assert.equal(mv.d.items[1].category, undefined, "顺手把别的照片也挪了");
+  // 中文也认（模型两种都会写）；「真的删掉」是真从这份 items 里拿掉
+  assert.equal(W.applyWrite("album", { items: [{ caption: "甲" }] }, "甲", "捞回来", 1).d.items[0].category, "memory");
+  assert.equal(W.applyWrite("album", { items: [{ caption: "甲" }, { caption: "乙" }] }, "甲", "gone", 1).d.items.length, 1);
+  // 认不出这张照片、或者没说挪去哪儿：什么也不写，绝不猜
+  assert.equal(W.applyWrite("album", { items: [{ caption: "甲" }] }, "不存在的", "deleted", 1).wrote, false);
+  assert.equal(W.applyWrite("album", { items: [{ caption: "甲" }] }, "甲", "随便哪儿", 1).wrote, false);
+  // 圆点落在详情页那三颗真键上，不是另挂一套假挂点
+  assert.match(phone, /"data-watch": "move:deleted"/);
+  assert.match(phone, /"data-watch": "move:memory"/);
+  assert.match(phone, /"data-watch": "move:gone"/);
+  assert.match(watchSrc, /if \(a\.kind === "move"\) return '\[data-watch="move:'/);
   // 还没接的 app 也一样——绝不乱写
   assert.equal(W.applyWrite("bili", {}, "x", "y", 1).wrote, false);
   assert.match(watchSrc, /还没接的 app：只演不落，绝不乱写/);
   // 提示词里也说死了
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: { album: { items: [{ caption: "甲" }] } } });
-  assert.match(s, /这一路你什么都改不了，也不该改/);
+  assert.match(s, /move to:"deleted" 是扔进「删了又没真删的」/);
 });
 
 test("打得开哪几个 app 只此一份名单", () => {
@@ -832,7 +849,7 @@ test("别来来回回翻同两张", () => {
     phone: { album: { items: [{ caption: "海边那天" }, { caption: "新的一张" }] } } });
   assert.ok(s2.indexOf("· 新的一张") < s2.indexOf("· 海边那天"), "上次翻过的还排在前面");
   assert.match(s2, /这几样你最近几次已经翻过了：海边那天/);
-  assert.match(s2, /\*\*一段里翻一两张就够了，翻完去别处\*\*/);
+  assert.match(s2, /\*\*多半只是翻旧照片，翻一两张就够了，翻完去别处\*\*/);
   // ③ 记的是两样：开过哪几个 app，和翻过哪几样东西
   // ⚠️只记上一段不够：两段之间来回换等于什么都没记住。滚动记最近几段。
   assert.match(app, /const merged = its\.concat\(prevIts\.filter\(x => its\.indexOf\(x\) < 0\)\)\.slice\(0, 24\);/);
