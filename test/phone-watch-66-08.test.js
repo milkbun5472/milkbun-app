@@ -712,3 +712,20 @@ test("底下那条是悬浮的，不占屏幕一寸", () => {
   assert.match(watchSrc, /opacity: p\.dim \? 0\.34 : 1/);
   assert.match(watchSrc, /onPointerDown: p\.onWake/);
 });
+
+test("心声：短段还是三四句，长段放宽到六句，而且要花在刀刃上", () => {
+  // 她 2026-09-10：「他翻开了没有心声就看他点进去有点莫名其妙」。
+  // ⚠️病不在句数，在【落在哪一下】：配给亮屏、回桌面、滑动这种一看就懂的动作，
+  //   真正需要一句话的那几下反而空着。所以两头一起动：底数不变、长段放宽、说清落在哪儿。
+  assert.equal(W.thoughtCapFor(8), 4, "短段还是她要的那个数");
+  assert.equal(W.thoughtCapFor(20), 4);
+  assert.equal(W.thoughtCapFor(60), W.THOUGHT_CAP_MAX);
+  assert.equal(W.THOUGHT_CAP_MAX, 6, "再多就是配旁白的 PPT 了");
+  const many = n => Array.from({ length: n }, (_, i) => ({ kind: "think", text: "a" + i }));
+  assert.equal(W.normalizeActs(many(8)).acts.length, 4);
+  assert.equal(W.normalizeActs(many(60)).acts.length, 6);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: {} });
+  assert.match(s, /\*\*那几句要花在刀刃上\*\*/);
+  assert.match(s, /亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配/);
+  assert.match(s, /点开一样东西之后\*\*至少 pause 一下\*\*/);
+});

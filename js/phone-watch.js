@@ -28,7 +28,12 @@
   "use strict";
 
   // 一整段里最多几句心声。她要的是「三四句就够」，多了就变成配旁白的 PPT。
+  // ⚠️但反过来也会难受（她 2026-09-10：「他翻开了没有心声就看他点进去有点莫名其妙」）：
+  //   一段刷了六个 app、四十个动作，只给四句就是大半程没人说话。
+  //   所以底数还是 4，**长段按长短放宽，封顶 6**——多出来的两句是给长段的，不是给短段的。
   const THOUGHT_CAP = 4;
+  const THOUGHT_CAP_MAX = 6;
+  const thoughtCapFor = n => Math.max(THOUGHT_CAP, Math.min(THOUGHT_CAP_MAX, Math.floor(N(n, 0) / 12) + 2));
   // 一次 session 最多接几下敲。再敲不调用了——省钱，真人也不会无限接招。
   const KNOCK_CAP = 5;
   // 敲的跨次记忆：三天半衰（跟心情那套用同一个词，她读起来是同一件事）
@@ -127,6 +132,7 @@
     const knowApps = Object.keys(byName).length > 0;
     const list = Array.isArray(raw) ? raw : [];
     const out = [], dropped = [];
+    const cap = thoughtCapFor(list.length);
     let thoughts = 0;
     for (const x of list) {
       if (out.length >= ACT_CAP) { dropped.push("超出 " + ACT_CAP + " 条的部分"); break; }
@@ -136,7 +142,7 @@
       if (ACT_KEYS.indexOf(kind) < 0) { dropped.push(raw0 || JSON.stringify(x)); continue; }
       if (kind === "think") {
         // 心声超额的直接扔掉，不是往后挪——往后挪等于还是发了 8 句，只是晚一点
-        if (thoughts >= THOUGHT_CAP) { dropped.push("第 " + (thoughts + 1) + " 句心声（超过 " + THOUGHT_CAP + " 句）"); continue; }
+        if (thoughts >= cap) { dropped.push("第 " + (thoughts + 1) + " 句心声（超过 " + cap + " 句）"); continue; }
         const text = S(x.text).trim();
         if (!text) { dropped.push("空的心声"); continue; }
         thoughts++;
@@ -693,7 +699,12 @@
       "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打、改口、整句删掉重写。**改到一半的那句才是最像你的**——打完删光不发出去也算数，只要你是真的打了。",
       "· 停顿是有意义的：pause 放在你犹豫、走神、或者盯着某样东西挪不开眼的地方。",
       "· **动作是主角，心声是配角**：一整段里绝大多数是动作（点、翻、打字、停），think 只有寥寥几句。写成一串心声就不是「看他玩手机」了，是配旁白。",
-      "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句**。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。多数动作根本不配一句心声。",
+      "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句上下**（段子长可以多一两句）。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。",
+      // ⚠️她 2026-09-10：「他翻开了没有心声就看他点进去有点莫名其妙」。
+      //   病不在句数，在【落在哪一下】：配给亮屏、回桌面、滑动这种一看就懂的动作，
+      //   真正需要一句话的那几下反而空着。
+      "· **那几句要花在刀刃上**：你点开一样【已经有的】东西（一张旧照片、某个人的会话、一条旧笔记、一本书）、或者停在某样东西上挪不开眼——**这几下才配一句心声**，因为看的人只看得见你点了什么，看不见你为什么点它。亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配。",
+      "· 点开一样东西之后**至少 pause 一下**再做别的：进去两秒就退出来，看的人只会觉得莫名其妙。",
       "",
       "【每个 app 里你能干什么】",
       can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
@@ -868,7 +879,7 @@
   }
 
   return {
-    THOUGHT_CAP, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
+    THOUGHT_CAP, THOUGHT_CAP_MAX, thoughtCapFor, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
