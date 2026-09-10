@@ -23,12 +23,16 @@ test("群红包要有头像和发的人是谁", () => {
 });
 
 test("自发轮不许把「用户没说话」演成被冷落", () => {
-  assert.match(app, /if \(!tail\.length\) userContent \+= "\\n\\n【重要·别演成被冷落】/);
-  const seg = app.slice(app.indexOf("【重要·别演成被冷落】"), app.indexOf("【重要·别演成被冷落】") + 900);
+  assert.match(app, /if \(!tail\.length\) userContent \+= "\\n\\n【重要·别演成被冷落，也别把 TA 从场面里挪走】/);
+  const seg = app.slice(app.indexOf("【重要·别演成被冷落"), app.indexOf("【重要·别演成被冷落") + 1200);
   assert.match(seg, /【不是】不理你们、不是已读不回、不是在生气/);
   assert.match(seg, /怎么不说话/, "要点名禁掉这几句口头禅");
   assert.match(seg, /是不是不理我了/);
-  assert.match(seg, /这一轮就当 TA 不在场/, "得给出替代演法，不能只禁不给");
+  // v66.48：替代演法还是要给，但不能再是「就当 TA 不在场」——她本来就在那个场面里，
+  // 把她挪走，剩下的人只能另起一摊（她 2026-09-11 报的那次正是这样）。
+  // 现在给的替代演法是【顺着上面那件事往下推】，禁的那几句一个没少。
+  assert.ok(seg.indexOf("这一轮就当 TA 不在场") < 0, "那句话把她从场面里删掉了");
+  assert.match(seg, /这一轮由你们几个把话往下推/, "只禁不给，他们会自己脑补一个演法");
 });
 
 test("拉黑时要把原因和时刻存下来，判定才有尺子", () => {
