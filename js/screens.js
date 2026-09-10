@@ -2743,11 +2743,30 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
       chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
       cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
   } else if (sheet === "gift") {
+    // 她 2026-09-10：「送礼物能不能选择发到群然后再选群里面的某位，想看大家看到礼物的反应」。
+    // 挑人这一屏跟代付那屏同形状（人在上、群在下）；选了群不是就送给群，而是【换一屏挑人】——
+    // 礼物永远是送给一个人的，群只是送的场合。
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "送给谁"),
-      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
-        h(Avatar, { character: c, size: 38, radius: 9 }),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)))));
+      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
+        (characters || []).map(c => h("button", { key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+          h(Avatar, { character: c, size: 38, radius: 9 }),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
+        (groups || []).map(g => h("button", { key: g.id, onClick: () => setSheet({ kind: "giftgroup", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+          h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "群")),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, " · 当着群里的面送"))))));
+  } else if (sheet && sheet.kind === "giftgroup") {
+    const grp = (groups || []).find(g => g.id === sheet.id);
+    const mem = ((grp && grp.memberIds) || []).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    sheetEl = h(Sheet, { onClose: () => setSheet(null) },
+      h(Eyebrow, { style: { marginBottom: 4 } }, "在「" + ((grp && grp.name) || "群聊") + "」里送给谁"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
+        "当着大家的面递过去，不走快递。群里其他人看得见，也会有各自的反应。"),
+      mem.length
+        ? h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, mem.map(c => h("button", { key: c.id, onClick: () => { const gid = sheet.id; setSheet(null); onCheckout(sel, "gift", { type: "group", id: gid, toId: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+            h(Avatar, { character: c, size: 38, radius: 9 }),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px 2px", lineHeight: 1.7 } }, "这个群里还没有成员。"));
   } else if (sheet === "paylater") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "请谁帮我付"),

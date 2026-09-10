@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.24";
+const APP_VERSION = "v66.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4217,8 +4217,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const given = (carryGiftsRef.current[char.id] || []).map(g => g.name).filter(Boolean);
       const got = (inventory || []).filter(x => x.fromCharId === char.id).map(x => x.name).filter(Boolean);
       const parts = [];
-      if (given.length) parts.push("你送给用户过：" + given.slice(-8).join("、"));
-      if (got.length) parts.push("用户送给你过：" + got.slice(-8).join("、"));
+      // ⚠️这两行原来是反的：given 取自 carryGifts（＝【他收到的】，见 state 那行注释），
+      //   却写着「你送给用户过」——他会以为那件东西是自己送出去的，当着她的面谢错人。
+      if (given.length) parts.push("用户送给你过：" + given.slice(-8).join("、"));
+      if (got.length) parts.push("你送给用户过：" + got.slice(-8).join("、"));
       return parts.join("；");
     })(),
     // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【他怎么会知道】——
@@ -12053,7 +12055,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 他五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
   const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -17198,21 +17200,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠hand=true 是【转赠】：东西已经送到她手上了，转手就是转手，不该再从头跑一遍快递
   //（她 2026-09-03 报的：「我买了东西送到了，选择转赠的时候显示还有一段时间」）。
   // 这一路不进 giftOut，直接落成已送达 + 存进 TA 的随身物品。
-  const sendGiftToChar = (charId, itemName, cat, hand) => {
+  // ⚠️groupId：在群里当着大家的面送（她 2026-09-10：「送礼物能不能选择发到群然后再选群里面的
+  //   某位，想看大家看到礼物的反应」）。这一路【必然是当面给】——不是我硬塞的语义：
+  //   她要的就是「大家看到」，而快递要几小时才到，到的时候她多半已经不在这个群里看了，
+  //   后台定时器还会替她开一次群聊。所以群里送＝把东西递过去，hand 那条老路一个字不用改。
+  //   礼物的归属照旧是【收礼那个人】：carryGifts 落在他名下，giftLog、随身物品全接得上，
+  //   变的只是这张卡摆在哪张聊天里。
+  const sendGiftToChar = (charId, itemName, cat, hand, groupId) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     const giftId = "gf_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
     const now = Date.now();
-    const arriveTs = hand ? now : now + deliverMsForCat(cat, itemName);
-    pChat(charId, p => [...p, { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: !!hand, hand: !!hand, item: { name: itemName }, content: "[礼物] " + (hand ? "当面给你：" : "送给你：") + itemName, ts: now, read: true }]);
-    if (hand) {
+    const inGroup = !!groupId;
+    const handNow = !!hand || inGroup;
+    const arriveTs = handNow ? now : now + deliverMsForCat(cat, itemName);
+    const toName = char.remark || char.name;
+    const card = { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: handNow, hand: handNow, item: { name: itemName }, ts: now, read: true };
+    if (inGroup) pushGroupRich(groupId, { ...card, toId: charId, toName: toName, content: "[礼物] 当着大家的面把「" + itemName + "」送给了" + toName });
+    else pChat(charId, p => [...p, { ...card, content: "[礼物] " + (handNow ? "当面给你：" : "送给你：") + itemName }]);
+    if (handNow) {
       setCarryGifts(prev => {
         const list = prev[charId] || [];
         const n = { ...prev, [charId]: [{ id: giftId, name: itemName, receivedTs: now }, ...list] };
         carryGiftsRef.current = n; saveJSON("x_carryGifts", n);
         return n;
       });
-      toast("已转交给 " + (char.remark || char.name) + "，东西现在在 Ta 手上");
+      toast(inGroup ? "当着大家的面送给 " + toName + " 了" : "已转交给 " + toName + "，东西现在在 Ta 手上");
       return;
     }
     setGiftOut(p => { const n = [...p, { id: giftId, charId, name: itemName, arriveTs, cat: cat || null }]; giftOutRef.current = n; saveJSON("x_giftOut", n); return n; });
@@ -17235,6 +17248,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       if (typeof d.affinityDelta === "number") bumpAff(charId, d.affinityDelta);
     } catch (e) {/* silent */}
+  };
+  // 在群里当面送出去之后，群里当场的反应（她 2026-09-10：「想看大家看到礼物的反应」）。
+  // 跟 decideGroupPayLater 同一个形状：一次调用，推演出你来我往的几句，代码负责落地。
+  // ⚠️收礼那位的反应【单开一个字段】，不跟别人的话挤在 say 里：
+  //   挤在一起就要靠名字去认，模型漏了他、或者把名字写歪一个字，她这次就白花了钱——
+  //   而她要看的头一件事恰恰是收礼那个人什么表情。字段分开，senderId 由代码填，认不歪。
+  const reactGroupGift = async (groupId, toId, names) => {
+    const group = groups.find(g => g.id === groupId);
+    const to = characters.find(c => c.id === toId);
+    if (!group || !to || !active) return;
+    const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+    if (!members.length) return;
+    const others = members.filter(m => m.id !== toId);
+    const meName = userName(profile);
+    const what = (names || []).filter(Boolean).join("、") || "一份礼物";
+    try {
+      const bundle = buildBundle(ctxFor(to));
+      const system = bundle + "\n\n【场景】这是一个群聊，成员：" + members.map(m => m.name).join("、")
+        + "。刚才 " + meName + " 当着大家的面，把「" + what + "」送给了「" + to.name + "」——**只送给 Ta 一个人，在场其他人都没有**。东西现在就在 " + to.name + " 手上。"
+        + "\n【任务】写出群里此刻的反应。"
+        + "\n· toSay：「" + to.name + "」自己的反应，完全代入他本人，依人设与对 " + meName + " 的好感来（惊喜/害羞/淡定/嘴硬/当场拆开都行），即时通讯口吻，短句 1~3 个气泡。"
+        + (others.length ? "\n· say：其余在场的人（" + others.map(m => m.name).join("、") + "）看见这一幕的反应：起哄、吃味、打趣、追问、装没看见都行，各是各的人，别几个人说同一种话。**不必每个人都开口**，谁没什么可说的就别写他。0~5 条。" : "\n· say：群里没有别人，留空数组。")
+        + "\n绝不许让别人也收到礼物、也绝不许当成群发。别写旁白、别写括号动作。"
+        + "\n【输出】只输出 JSON：{\"toSay\":[\"气泡1\"],\"say\":[{\"name\":\"成员名\",\"text\":\"内容\"}],\"affinityDelta\":整数(-3到5)}";
+      const raw = await callAI(active, system, [{ role: "user", content: "[当着群里的面送给 " + to.name + "：" + what + "]" }]);
+      const d = extractJSON(raw) || {};
+      const toWords = (Array.isArray(d.toSay) ? d.toSay : [d.toSay]).map(x => String(x || "").trim()).filter(Boolean);
+      for (let i = 0; i < toWords.length; i++) {
+        if (i > 0) await new Promise(r => setTimeout(r, 420));
+        pushGroupRich(groupId, { role: "char", senderId: to.id, senderName: to.name, content: toWords[i] });
+      }
+      // ⚠️别人那几句认名字要认得准：认不出来就【丢掉这一条】，绝不像代付那样退到 members[0]——
+      //   代付只要有人付钱就行，这儿退错人就是把「吃味的那句」按在收礼人头上，整段戏就演反了。
+      const say = Array.isArray(d.say) ? d.say : [];
+      for (let i = 0; i < say.length; i++) {
+        const nm = String((say[i] && say[i].name) || "").trim();
+        const spk = members.find(m => m.name === nm || (m.remark || "") === nm);
+        const txt = String((say[i] && say[i].text) || "").trim();
+        if (!spk || !txt) continue;
+        await new Promise(r => setTimeout(r, 480));
+        pushGroupRich(groupId, { role: "char", senderId: spk.id, senderName: spk.name, content: txt });
+      }
+      if (typeof d.affinityDelta === "number") bumpAff(toId, d.affinityDelta);
+    } catch (e) {
+      toast("群里的反应没生成出来：" + e.message);
+    }
   };
   // 送的东西值多少钱。模型在同一轮回复里就该给 price（不额外调一次模型）；
   // 没给或给歪了才本地估一个——按他自己的家底缩放，穷学生送的咖啡不该标八百。
@@ -17542,10 +17601,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       payWithKinship(target.id, items, total);
       removeCartUids(uids);
     } else if (mode === "gift") {
-      if (!target || target.type !== "char") { toast("请选择送礼对象"); return; }
+      // 群里送：target.id 是群，target.toId 才是收礼的那个人（她 2026-09-10）。
+      // 收礼人是谁这件事只算一次，下面扣钱、发卡、要反应全用同一个 toId。
+      const inGroup = target && target.type === "group";
+      const toId = target && (inGroup ? target.toId : target.type === "char" ? target.id : null);
+      if (!toId) { toast(inGroup ? "请选择送给群里的谁" : "请选择送礼对象"); return; }
       if (wallet < total) { toast("余额不足"); return; }
       changeWallet(-total, "送礼 " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-      items.forEach(it => sendGiftToChar(target.id, it.name, it.cat));
+      items.forEach(it => sendGiftToChar(toId, it.name, it.cat, false, inGroup ? target.id : null));
+      // ⚠️反应只要一次：一次结算可能有好几件东西，一件调一次模型就是把她的钱按件数翻倍。
+      if (inGroup) setTimeout(() => reactGroupGift(target.id, toId, items.map(x => x.name)), 1400);
       removeCartUids(uids);
     } else if (mode === "paylater") {
       if (!target) { toast("请选择代付对象"); return; }

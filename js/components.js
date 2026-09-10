@@ -12767,6 +12767,25 @@ function GroupThread({
       who: m.senderName || ((memberById(m.senderId) || {}).name || ""),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }), onCallBack: onCallBack });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
+    // 群里当着大家面送的那份礼物（她 2026-09-10）。走的是单聊那只礼物盒，不另画一张——
+    // 顶上多一行「送给 XXX」，跟隔壁转账卡同一个形状（群里的钱和东西都得写清给了谁）。
+    if (m.kind === "gift") return h("div", {
+      key: i,
+      className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start"),
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined,
+      style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 14 }
+    }, m.toName && h("div", {
+      style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 2, marginRight: 4 }
+    }, "送给 " + m.toName), h(GiftCard, {
+      m: m,
+      isU: m.role === "user",
+      // ⚠️不传 now：群里这份必然是当面给的（已送达），压根没有倒计时那一档要算；
+      //   而 GroupThread 里根本没有 now 这个变量，写上去是直接 ReferenceError。
+      avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+    }));
     if (m.kind === "transfer") return h("div", {
       key: i,
       className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start"),

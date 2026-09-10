@@ -5,8 +5,9 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
+// ⚠️别冻签名（v66.25 后面又多了一个 groupId：群里当面送）——认函数名就够了
 const gift = (() => {
-  const i = app.indexOf("const sendGiftToChar = (charId, itemName, cat, hand) => {");
+  const i = app.indexOf("const sendGiftToChar = (charId, itemName, cat, hand");
   assert.ok(i > 0, "sendGiftToChar 抠不出来了");
   return app.slice(i, app.indexOf("\n  // 礼物送达后", i));
 })();
@@ -17,14 +18,17 @@ const gift = (() => {
 
 test("转赠是当面转手：不再从头跑一遍快递", () => {
   assert.match(app, /sendGiftToChar\(charId, o\.name, o\.cat, true\)/, "转赠那一路要挑明是转手");
-  assert.match(gift, /const arriveTs = hand \? now : now \+ deliverMsForCat\(cat, itemName\)/, "转手的到达时刻就是此刻");
-  assert.match(gift, /delivered: !!hand, hand: !!hand/, "聊天里那张卡直接是已送达");
+  // v66.25：群里当面送也是「当面」，所以这一档从 hand 变成 handNow＝hand 或在群里。
+  // 要证的还是那一条：当面这一档的到达时刻就是此刻，卡直接是已送达。
+  assert.match(gift, /const handNow = !!hand \|\| inGroup;/, "「当面」这一档没归成一处");
+  assert.match(gift, /const arriveTs = handNow \? now : now \+ deliverMsForCat\(cat, itemName\)/, "转手的到达时刻就是此刻");
+  assert.match(gift, /delivered: handNow, hand: handNow/, "聊天里那张卡直接是已送达");
   // 不进在途表：进了的话轮询还会再「送达」一次，卡片和随身物品都会重复
-  const handBranch = gift.slice(gift.indexOf("if (hand) {"), gift.indexOf("setGiftOut("));
+  const handBranch = gift.slice(gift.indexOf("if (handNow) {"), gift.indexOf("setGiftOut("));
   assert.ok(handBranch.indexOf("setGiftOut") < 0, "转手这一路不许进在途表");
   assert.match(handBranch, /setCarryGifts\(prev => \{/, "转手要当场存进 TA 的随身物品");
   assert.match(handBranch, /return;/, "转手这一路要就此收住，别掉进下面的下单流程");
-  assert.match(gift, /toast\("已转交给 " \+ \(char\.remark \|\| char\.name\) \+ "，东西现在在 Ta 手上"\)/);
+  assert.match(gift, /"已转交给 " \+ toName \+ "，东西现在在 Ta 手上"/);
 });
 
 test("模型那边读到的也是「已经在手上」，在路上的还得说清还有多久", () => {
