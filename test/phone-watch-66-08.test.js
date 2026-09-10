@@ -180,7 +180,7 @@ test("便签是【改】不是【新写一条】：按标题认人", () => {
 test("相册那一路零写入：只演不落", () => {
   assert.equal(W.applyWrite("album", { items: [{ caption: "海边那天" }] }, "海边那天", "什么", 1).wrote, false);
   // 还没接的 app 也一样——绝不乱写
-  assert.equal(W.applyWrite("browser", {}, "x", "y", 1).wrote, false);
+  assert.equal(W.applyWrite("bili", {}, "x", "y", 1).wrote, false);
   assert.match(watchSrc, /还没接的 app：只演不落，绝不乱写/);
   // 提示词里也说死了
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: { album: { items: [{ caption: "甲" }] } } });
@@ -188,7 +188,7 @@ test("相册那一路零写入：只演不落", () => {
 });
 
 test("打得开哪几个 app 只此一份名单", () => {
-  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes"\]/);
+  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music"\]/);
   // 提示词、归一、播放器都读它，不各写一份
   assert.match(app, /WATCH_APPS\.indexOf\(a\.key\) >= 0/);
   assert.match(app, /apps: WATCH_APPS/);
@@ -200,7 +200,7 @@ test("打得开哪几个 app 只此一份名单", () => {
 
 test("落盘一个入口按 app 分流，不是每个 app 一个函数", () => {
   assert.equal((watchSrc.match(/function applyWrite\(/g) || []).length, 1);
-  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, Date\.now\(\)\);/);
+  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, Date\.now\(\), extra\);/);
   // 那个 app 还没生成过就没有底稿可接
   assert.match(app, /if \(!cur\) return;/);
 });
@@ -211,10 +211,77 @@ test("界面：相册和便签也接了 drive，一份 drive 三个 app 共用",
   assert.match(phone, /h\(AlbumView, \{ drive: ctx\.drive/);
   assert.match(phone, /h\(StickyView, \{ drive: ctx\.drive/);
   // 一份 drive 递给所有被驱动的 app——各拼一份的话，第三批又要多一支
-  assert.match(phone, /drive: watch \? \{ tab: watch\.tab, item: watch\.item, typing: watch\.typing,/);
+  assert.match(phone, /drive: watch \? \{ tab: watch\.tab, item: watch\.item, page: watch\.page, typing: watch\.typing,/);
   // 同一个 openItem/send 在微信和便签里做的事不一样，所以播放器要知道此刻开着哪个 app
   assert.match(phone, /const openRef = useRef\(null\);/);
   assert.match(phone, /openRef\.current === "wechat" \? ""/);
   // 便签里点开一条，手上那份草稿就是它现在的正文（不然没东西可划）
   assert.match(phone, /const noteBodyOf = title =>/);
+});
+
+// ── 第三批：浏览器（第一次现编新内容）+ 音乐（真数据）────────────────
+test("浏览器：搜一次＝两层各动各的", () => {
+  // searches 是【发生过什么】→ 📚 累积；tabs 是【现在开着哪几个】→ ♻️ 快照，新的顶到最前
+  const b0 = { searches: [{ q: "旧的" }], tabs: [{ title: "旧标签" }] };
+  const r = W.applyWrite("browser", b0, "怎么让开头不绕", "写作课", 999, { site: "知乎", gist: "先删第一段" });
+  assert.equal(r.d.searches[0].q, "怎么让开头不绕");
+  assert.equal(r.d.tabs[0].title, "写作课", "刚打开那一页没顶到最前面");
+  assert.equal(r.d.tabs.length, 2, "旧标签页被抹掉了——tabs 是快照不是清空重来");
+  // tabs 不在 PHONE_GROW 里＝它本来就是 ♻️（这份桩钉在写入方上）
+  assert.match(fs.readFileSync("js/phone.js", "utf8"), /browser: \{ searches: 44, marks: 14, private: 10 \}/);
+  // 搜了但什么都没点开，也是真会发生的一下
+  assert.equal(W.applyWrite("browser", b0, "半夜睡不着", "", 999).d.searches[0].opened, "");
+});
+
+test("一次搜索来两下（send + openPage），不许记成两条", () => {
+  let b = { searches: [], tabs: [] };
+  b = W.applyWrite("browser", b, "怎么让开头不绕", "", 1000).d;
+  b = W.applyWrite("browser", b, "怎么让开头不绕", "写作课", 1600, { site: "知乎" }).d;
+  assert.equal(b.searches.length, 1, "同一句搜索词记了两遍（真机上一眼看见的）");
+  assert.equal(b.searches[0].opened, "写作课", "第二下没把「点开了哪条」补上去");
+  // 换一句、或者隔太久，就该是新的一条
+  assert.equal(W.applyWrite("browser", b, "另一句", "", 1700).d.searches.length, 2);
+  assert.equal(W.applyWrite("browser", b, "怎么让开头不绕", "", 99999999).d.searches.length, 2);
+});
+
+test("openPage 跟 openItem 分得开", () => {
+  // openItem 打开【已经有的】，openPage 是【刚搜出来的那一页】。揉成一个词模型分不清
+  assert.ok(W.ACT_KEYS.indexOf("openPage") >= 0);
+  assert.equal(W.watchTargetSel({ kind: "openPage", name: "x" }), '[data-watch="result"]');
+  assert.match(phone, /drive && drive\.page \? h\("div", \{ "data-watch": "result"/);
+});
+
+test("音乐不落 x_phone：它是真数据，点一首就真的放", () => {
+  assert.equal(W.applyWrite("music", { songs: [] }, "Intro", "x", 1).wrote, false, "音乐不该写进 x_phone");
+  assert.match(phone, /setOpen\(list\[i\]\.id \|\| \("s" \+ i\)\)/);
+  assert.match(phone, /if \(onPlay\) onPlay\(list\[i\]\);/);
+  // ⚠️open 存的是【那一行的 key】不是歌对象——照这一屏自己的写法来
+  assert.match(phone, /open 存的是【那一行的 key】/);
+  // 歌单单独递进提示词（它不在 x_phone 里）
+  assert.match(app, /playlist: \(listenRef\.current\.playlists \|\| \[\]\)\.find/);
+});
+
+// ── 她 2026-09-10 真跑之后报的三条 ──────────────────────────────
+test("微信：对面会回一句", () => {
+  assert.ok(W.ACT_KEYS.indexOf("reply") >= 0);
+  const d = { me: { wechatName: "屿白" }, chats: [{ name: "老张", messages: [{ from: "老张", text: "来不来" }], _ts: 1 }] };
+  const r = W.applyReply(d, "老张", "行吧 那我先订着", 999);
+  assert.equal(r.d.chats[0].messages.length, 2);
+  assert.equal(r.d.chats[0].messages[1].from, "老张", "对面那条的 from 写成了他自己");
+  assert.equal(r.d.chats[0]._ts, 999);
+  // 对面得是已经存在的那个人
+  assert.equal(W.applyReply(d, "陌生人", "喂", 1).wrote, false);
+  // ⚠️跟 applyWrite 分开：那个写的是他自己发的话，from 不一样
+  assert.match(watchSrc, /混在一个函数里迟早把 from 写错人/);
+  assert.match(app, /const r = WK\.applyReply\(cur, name, text, Date\.now\(\)\);/);
+});
+
+test("新消息要滚到屏幕最底下，而且有冒出来那一下", () => {
+  // 她 2026-09-10：「发微信不会显示屏幕最底下，发出去的动画也没用」
+  assert.match(phone, /const threadRef = useRef\(null\);/);
+  assert.match(phone, /el\.scrollTop = el\.scrollHeight;/);
+  // ⚠️两拍：这一帧 React 刚插进气泡，下一帧才量得到新的 scrollHeight
+  assert.match(phone, /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => \{ el\.scrollTop = el\.scrollHeight; \}\)\);/);
+  assert.match(phone, /animation: m\._new \? "wkpop/);
+  assert.match(fs.readFileSync("index.html", "utf8"), /@keyframes wkpop/);
 });

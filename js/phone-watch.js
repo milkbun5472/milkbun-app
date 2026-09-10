@@ -56,12 +56,18 @@
     //   各写一个 openChat/openPhoto/openNote 的话，第三批加浏览器就是第四个，
     //   而播放器那头要 if 四次（一层写在四处）。openChat 留作同义词——
     //   它当了一天的正式词，模型学到的可能还是它。
-    openItem: { args: ["name"], zh: "点开里面的一样东西（对话／照片／便签）" },
+    openItem: { args: ["name"], zh: "点开里面的一样东西（对话／照片／便签／歌／标签页）" },
+    // ⚠️跟 openItem 分得开：openItem 打开【已经有的】，openPage 是【刚出现的那一页】
+    //   （他搜完点进去的那条）。揉成一个词，模型分不清「点开旧的」和「搜出新的」。
+    openPage: { args: ["name", "site", "gist"], zh: "打开刚搜出来的那一页", write: true },
     scroll:   { args: ["amount"], zh: "滑动" },
     look:     { args: ["at"], zh: "只是看着某样东西，什么也没做" },
     type:     { args: ["text"], zh: "一个字一个字打" },
     erase:    { args: ["n"], zh: "删字（不给 n 就全删光）" },
     send:     { args: [], zh: "落下这一笔：微信里是发出去，便签里是存下", write: true },
+    // 他发完，对面隔一会儿回一句——不然那一屏就永远停在他自己那条上，像对面死了。
+    // ⚠️这是【对面说的话】，不是他说的：from 是对面那个人。
+    reply:    { args: ["name", "text"], zh: "对面回了一句（发完之后隔一会儿）", write: true },
     pause:    { args: ["ms"], zh: "停住" },
     think:    { args: ["text"], zh: "心里那一句（浮在屏幕上）" }
   };
@@ -114,6 +120,8 @@
       }
       if (x.name != null) a.name = S(x.name).trim().slice(0, 40);
       if (x.at != null) a.at = S(x.at).trim().slice(0, 40);
+      if (x.site != null) a.site = S(x.site).trim().slice(0, 40);
+      if (x.gist != null) a.gist = S(x.gist).trim().slice(0, 160);
       if (x.text != null) a.text = S(x.text).slice(0, 200);
       if (x.amount != null) a.amount = Math.max(-2000, Math.min(2000, N(x.amount, 0)));
       if (x.n != null) a.n = Math.max(1, Math.min(200, N(x.n, 1)));
@@ -129,6 +137,7 @@
     if (a.kind === "pause") return N(a.ms, 800);
     if (a.kind === "type") return Math.max(300, S(a.text).length * 90);
     if (a.kind === "erase") return Math.max(260, N(a.n, 8) * 55);
+    if (a.kind === "reply") return Math.max(900, S(a.text).length * 55);
     if (a.kind === "think") return 1600;
     if (a.kind === "look") return 1400;
     if (a.kind === "scroll") return 700;
@@ -146,14 +155,34 @@
   //
   // ⚠️一个入口按 appKey 分流，不是每个 app 一个函数：第三批加浏览器只多一个分支，
   //   app.js 那头一个字都不用改（施工规则/one-public-mechanism.md）。
-  function applyWrite(appKey, d, target, text, now) {
+  // 对面回的那一条。跟 applyWrite 分开：那个函数写的是【他自己】发出去的话，
+  // 这个写的是【别人】说的话——from 不一样，混在一个函数里迟早把 from 写错人。
+  function applyReply(d, name, text, now) {
+    const ts = N(now, Date.now());
+    const who = S(name).trim(), body = S(text).trim();
+    if (!who || !body) return { d: d, wrote: false };
+    const base = d && typeof d === "object" ? d : {};
+    const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
+    let row = chats.find(c => c && S(c.name) === who);
+    if (!row) return { d: d, wrote: false };   // 对面得是已经存在的那个人，不许凭空多一个
+    // 群里回话的可能是群里某个人；私聊就是对方本人。名字模型给的那个为准。
+    const from = row.type === "group" ? (S((row.messages || [])[0] && (row.messages || [])[0].from) || who) : who;
+    row.messages = (Array.isArray(row.messages) ? row.messages.slice() : []).concat([{ from: from, text: body }]);
+    row.last = body;
+    row._ts = ts;
+    row.time = "刚刚";
+    return { d: Object.assign({}, base, { chats: chats }), wrote: true };
+  }
+  function applyWrite(appKey, d, target, text, now, o0) {
     const ts = N(now, Date.now());
     const who = S(target).trim(), body = S(text).trim();
-    if (!body) return { d: d, wrote: false };
+    // ⚠️「什么都没写就不算数」这道闸不能放在这儿：浏览器里【搜了但没点开任何一条】
+    //   是真会发生的一下（而且挺像他），text 空着照样要记一条 searches。
+    //   所以各 app 自己判空。
     const base = d && typeof d === "object" ? d : {};
 
     if (appKey === "wechat") {
-      if (!who) return { d: d, wrote: false };
+      if (!who || !body) return { d: d, wrote: false };
       const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
       const meName = S(base.me && base.me.wechatName) || "我";
       let row = chats.find(c => c && S(c.name) === who);
@@ -168,6 +197,7 @@
     }
 
     if (appKey === "notes") {
+      if (!body) return { d: d, wrote: false };
       // 她 2026-09-10 举的例子：「要删的备忘录他划掉重新写」。
       // 便签是【名册】（PHONE_RETIRE 里登记着），身份是标题——改正文不该变成第二条。
       const items = Array.isArray(base.items) ? base.items.map(x => Object.assign({}, x)) : [];
@@ -175,6 +205,30 @@
       if (hit) { hit.body = body; hit.time = "刚刚"; hit._ts = ts; }
       else items.unshift({ title: who || body.slice(0, 14), body: who ? body : "", time: "刚刚", _ts: ts });
       return { d: Object.assign({}, base, { items: items }), wrote: true };
+    }
+
+    if (appKey === "browser") {
+      // 搜一次＝两层各动各的，这正是她要的那条分层规矩（施工规则/phone-data-layers.md）：
+      //   searches 是【发生过什么】→ 📚 累积，接在前面；
+      //   tabs 是【现在开着哪几个】→ ♻️ 快照，他刚打开的那一页顶到最前面。
+      // target 是他敲进搜索框的原话，text 是他点开那一页；只搜没点开就只记 searches。
+      const searches = Array.isArray(base.searches) ? base.searches.slice() : [];
+      const tabs = Array.isArray(base.tabs) ? base.tabs.slice() : [];
+      const page = S(text).trim();
+      // 一次搜索会来两下：先 send（敲完回车），再 openPage（点开其中一条）。
+      // ⚠️两下各记一条的话，同一句搜索词会在记录里出现两遍（真机上一眼看见的）。
+      //   第二下认出「就是刚才那一句」就【就地补上结果】，不新开一条。
+      const head = searches[0];
+      const sameQ = who && head && S(head.q) === who && (ts - N(head._ts, 0)) < 180000;
+      if (sameQ) {
+        searches[0] = Object.assign({}, head, { opened: page || head.opened || "", _ts: ts,
+          results: page ? [{ source: S((o0 && o0.site) || ""), title: page, excerpt: S((o0 && o0.gist) || "") }] : (head.results || []) });
+      }
+      else if (who) searches.unshift({ q: who, time: "刚刚", opened: page || "", _ts: ts,
+        results: page ? [{ source: S((o0 && o0.site) || ""), title: page, excerpt: S((o0 && o0.gist) || "") }] : [] });
+      if (page) tabs.unshift({ title: page, site: S((o0 && o0.site) || ""), age: "刚开的", pinned: false, cover: tabs.length % 6, gist: S((o0 && o0.gist) || "") });
+      if (!who && !page) return { d: d, wrote: false };
+      return { d: Object.assign({}, base, { searches: searches, tabs: tabs.slice(0, 12) }), wrote: true };
     }
 
     return { d: d, wrote: false };   // 还没接的 app：只演不落，绝不乱写
@@ -254,6 +308,18 @@
         .map(x => "· " + (x.caption || "?") + (x.date || x.time ? "（" + (x.date || x.time) + "）" : "") + (x.desc ? "：" + String(x.desc).slice(0, 30) : "")).join("\n");
       now.push("〔相册 album〕已有的照片（openItem 的 name 就是照片那个标题）：\n" + (ps || "（相册还是空的，那就别点进去）"));
     }
+    if (can.indexOf("browser") >= 0) {
+      const br = ph.browser || {};
+      const tabs = arr(br.tabs).slice(0, 8).map(x => "· " + (x.title || "?") + (x.site ? "（" + x.site + "）" : "")).join("\n");
+      const qs = arr(br.searches).slice(0, 8).map(x => "· " + (x.q || "")).filter(x => x.length > 2).join("\n");
+      now.push("〔浏览器 browser〕现在开着的标签页（openItem 的 name 就是标题）：\n" + (tabs || "（一个都没开）")
+        + (qs ? "\n他最近搜过（别原样再搜一遍）：\n" + qs : ""));
+    }
+    if (can.indexOf("music") >= 0) {
+      const sg = arr(((o && o.playlist) || {}).songs).slice(0, 16)
+        .map(x => "· " + (x.title || "?") + (x.artist ? " / " + x.artist : "")).join("\n");
+      now.push("〔音乐 music〕他歌单里的歌（openItem 的 name 就是歌名）：\n" + (sg || "（歌单还是空的，那就别点进去）"));
+    }
     if (can.indexOf("notes") >= 0) {
       const ns = arr((ph.notes || {}).items).slice(0, 14)
         .map(x => "· " + (x.title || "?") + (x.body ? "：" + String(x.body).slice(0, 34) : "")).join("\n");
@@ -277,8 +343,11 @@
       "",
       "【每个 app 里你能干什么】",
       can.indexOf("wechat") >= 0 ? "· 微信：openItem 点开一个会话 → type / erase 打字改字 → send 发出去（或者不发，直接 back 走人）。tab 可以切 chats / contacts / moments / me。" : "",
+      can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
+      can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去。搜完**不一定点得开东西**，那也很像你；真想点进去就 openPage，给 name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
+      can.indexOf("music") >= 0 ? "· 音乐：openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑。" : "",
       "",
       "【他这台手机现在的样子】\n" + now.join("\n\n"),
       "",
@@ -304,6 +373,8 @@
   function watchTargetSel(a) {
     if (!a) return "";
     if (a.kind === "openItem") return '[data-watch="item:' + S(a.name).replace(/"/g, "") + '"]';
+    if (a.kind === "openPage") return '[data-watch="result"]';
+    if (a.kind === "reply") return '[data-watch="thread"]';
     if (a.kind === "tab") return '[data-watch="tab:' + S(a.name).replace(/"/g, "") + '"]';
     if (a.kind === "open") return '[data-watch="app:' + S(a.app).replace(/"/g, "") + '"]';
     if (a.kind === "look") return '[data-watch="look:' + S(a.at).replace(/"/g, "") + '"]';
@@ -387,7 +458,7 @@
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar,
-    normalizeActs, actDuration, sessionDuration, applyWrite,
+    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply,
     knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
   };
 });

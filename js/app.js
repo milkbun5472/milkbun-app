@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.20";
+const APP_VERSION = "v66.21";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13164,7 +13164,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
   // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
-  const WATCH_APPS = ["wechat", "album", "notes"];
+  const WATCH_APPS = ["wechat", "album", "notes", "browser", "music"];
   const genWatchSession = async char => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
@@ -13179,7 +13179,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const ph = (phonesRef.current || {})[char.id] || {};
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: WATCH_APPS }),
+        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: WATCH_APPS,
+          // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
+          playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null }),
         schemaHint: WK.watchSchemaHint(),
         maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
       });
@@ -13202,13 +13204,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 边演边落（她 2026-09-10 定）：看到一半退出去，他已经做过的就是做过了。
-  const watchSend = (char, where, to, text) => {
+  const watchSend = (char, where, to, text, extra) => {
     const WK = window.PhoneWatch;
     if (!WK || !char || !where) return;
     const cur = ((phonesRef.current || {})[char.id] || {})[where];
     if (!cur) return;                       // 那个 app 还没生成过，没有底稿可接
-    const r = WK.applyWrite(where, cur, to, text, Date.now());
+    const r = WK.applyWrite(where, cur, to, text, Date.now(), extra);
     if (r.wrote) savePhoneApp(char.id, where, r.d, { noArchive: true, patched: true });
+  };
+  // 对面回的那一句：落盘走跟他自己发话同一条路（savePhoneApp），只是 from 是对面
+  const watchReply = (char, name, text) => {
+    const WK = window.PhoneWatch;
+    if (!WK || !char) return;
+    const cur = ((phonesRef.current || {})[char.id] || {}).wechat;
+    if (!cur) return;
+    const r = WK.applyReply(cur, name, text, Date.now());
+    if (r.wrote) savePhoneApp(char.id, "wechat", r.d, { noArchive: true, patched: true });
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   const watchKnock = async (char, nth, nowAct) => {
@@ -18514,6 +18525,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     drawingPhoto: gen.phoneShot || "",
     onWatchStart: genWatchSession,
     onWatchSend: watchSend,
+    onWatchReply: watchReply,
     onWatchKnock: watchKnock,
     onWatching: setWatching,
     watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,

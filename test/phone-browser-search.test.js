@@ -31,7 +31,8 @@ test("搜索记录点进去带上结果和「他点开了哪条」", () => {
 test("搜索走自己的结果页，不再落进那个通用弹层", () => {
   assert.match(SRC, /const searchPage2 = open && open\._search \?/);
   assert.match(SRC, /const detail = open && !open\._search \?/, "两个都会渲染的话会叠两层");
-  assert.match(SRC, /page\.body\),\n    searchPage2, detail\);/, "结果页没挂进渲染树");
+  // v66.21：后面又多挂了一层「他刚搜出来那一页」（看他玩专用），所以不再是这一行结尾
+  assert.match(SRC, /page\.body\),\n    searchPage2, detail,/, "结果页没挂进渲染树");
 });
 
 test("结果条数是算出来的稳定值，不问模型要也不每次跳", () => {

@@ -2318,6 +2318,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // ⚠️不另做一份「他的微信」：他操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
   //   所以只加一条同步——drive 变了就把内部状态搬过去，drive 不在时一个像素都没变。
   const driveTab = drive && drive.tab, driveChat = drive && drive.item;
+  // ⚠️她 2026-09-10 报的两条：「发微信不会显示屏幕最底下，发出去的动画也没有」。
+  //   ① 新气泡加进去之后没人把这一屏滚下去——新消息挂在看不见的地方，等于没发。
+  //   ② 那条气泡是【凭空出现】的，没有真手机上「冒出来」的那一下。
+  const threadRef = useRef(null);
+  const driveCount = drive ? (drive.sent || []).length : 0;
+  useEffect(() => {
+    if (!threadRef.current) return;
+    const el = threadRef.current;
+    // 两拍：这一帧 React 刚把气泡插进去，下一帧才量得到新的 scrollHeight
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }));
+  }, [driveCount, driveChat]);
   useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
   useEffect(() => {
     if (!drive) return;
@@ -2357,9 +2368,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 「看他玩」里他刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
   const driveSent = (drive && String(drive.item) === String(thread && thread.name) ? arr(drive.sent) : []);
   const driveTyping = drive && drive.item && drive.typing != null && String(drive.item) === String(thread && thread.name) ? String(drive.typing || "") : null;
-  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
+  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
-    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } }, m.text)));
+    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, m.text)));
   })),
     // 他正在打字的那一栏：只在「看他玩」里出现（她自己翻的时候没有理由往他微信里打字）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
@@ -4656,9 +4667,22 @@ const BR_DIM = "#8e8e93";
 const BR_BLUE = "#2f6fdb";
 const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "#e8f1ea"],
   ["#e5dbef", "#f1ebf7"], ["#e9e3cc", "#f4f0e2"], ["#cfe3e8", "#e6f0f3"]];
-function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("tabs");
   const [open, setOpen] = useState(null);
+  // ──「看他玩」驱动：这是第一个【现编新内容】的 app——他敲进搜索框、回车、点开一页。
+  //   搜到的那一页当场就在这一屏上（drive.page），落盘另走 applyWrite。
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item, drivePage = drive && drive.page;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const arr2 = x => Array.isArray(x) ? x : [];
+    const pool = [].concat(arr2(d && d.tabs), arr2(d && d.private), arr2(d && d.searches));
+    const hit = pool.find(x => x && String(x.title || x.q || "") === String(driveItem));
+    if (hit) setOpen(Object.assign({}, hit));
+  }, [driveItem]);
+  useEffect(() => { if (drive && drivePage) setOpen({ title: drivePage.title, site: drivePage.site, gist: drivePage.gist, _fresh: true }); }, [drivePage && drivePage.title]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4677,7 +4701,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他没打算留痕的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   // ── 标签页：卡片网格，仿 Safari 那个标签墙 ──
   const tabCard = (x, i, isPriv) => h("button", {
-    key: i, onClick: () => setOpen({ ...x, _priv: isPriv }), className: "text-left active:opacity-75",
+    key: i, "data-watch": "item:" + (x.title || ""), onClick: () => setOpen({ ...x, _priv: isPriv }), className: "text-left active:opacity-75",
     style: { background: isPriv ? "#26262b" : "#fff", borderRadius: 13, overflow: "hidden", minWidth: 0,
       border: x.pinned ? "1.5px solid " + BR_BLUE : "1px solid " + (isPriv ? "#33333a" : "#e8e8ed") }
   }, h("div", { style: { height: 84, position: "relative", background: isPriv ? "linear-gradient(150deg,#33333c,#22222a)" : "linear-gradient(150deg," + cov(x.cover != null ? x.cover : i)[0] + "," + cov(x.cover != null ? x.cover : i)[1] + ")" } },
@@ -4708,7 +4732,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: BR_DIM } }, A(f.items).length + " 条")),
     h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
       A(f.items).map((x, j) => h("button", {
-        key: j, onClick: () => setOpen({ ...x, _mark: f.name }),
+        key: j, "data-watch": "item:" + (x.title || ""), onClick: () => setOpen({ ...x, _mark: f.name }),
         className: "w-full text-left active:opacity-60",
         style: { padding: "12px 14px", borderTop: j ? "1px solid #f1f1f4" : "none" }
       }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: BR_INK } }, x.title || ""),
@@ -4794,8 +4818,13 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         // 地址栏：真浏览器的样子
         h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 11, background: "#e6e6ea", padding: "0 12px" } },
           h("span", { "aria-hidden": "true", style: { fontSize: 10.5, color: BR_DIM } }, "🔒"),
-          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-            me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
+          // ⚠️他敲搜索框那一下必须看得见——这一路的戏就在「敲进去、又退回来」上。
+          drive && drive.typing != null
+            ? h("span", { "data-watch": "input", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: BR_INK, overflow: "hidden", whiteSpace: "nowrap" } },
+                drive.typing,
+                h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 13, marginLeft: 1, verticalAlign: "-2px", background: BR_BLUE, animation: "wkcaret 1s steps(2) infinite" } }))
+            : h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
         h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
       // ── 四页＝浏览器的标签条（tabs-not-plain-pills）──────────────────
       //   原来是四颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
@@ -4804,7 +4833,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { className: "flex px-3", style: { gap: 3, borderBottom: "1px solid " + BR_LINE } }, PAGES.map(pg => {
         const on = tab === pg.key;
         return h("button", {
-          key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-70",
+          key: pg.key, "data-watch": "tab:" + pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12.5, padding: on ? "9px 4px 8px" : "11px 4px 6px",
             borderRadius: "10px 10px 0 0", marginBottom: -1,
             background: on ? BR_BG : "transparent",
@@ -4814,7 +4843,16 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         }, pg.zh + (pg.badge ? " " + pg.badge : ""));
       })) ),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
-    searchPage2, detail);
+    searchPage2, detail,
+    // ── 他刚搜出来点进去的那一页（「看他玩」专属）──────────────────────
+    //   这一页在他手机里本来不存在——是这一段里现编出来的。落盘另走 applyWrite：
+    //   搜的那句进 searches（📚 累积），打开的这一页顶到 tabs 最前面（♻️ 快照）。
+    drive && drive.page ? h("div", { "data-watch": "result", className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 20 } },
+      h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(12), padding: "12px 16px 10px", borderBottom: "1px solid " + BR_LINE } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM } }, drive.page.site || "网页"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: BR_INK, marginTop: 5 } }, drive.page.title || "")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 30px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3a3a42", whiteSpace: "pre-wrap" } }, drive.page.gist || ""))) : null);
 }
 // ============================================================
 // 电话 —— 通话 / 短信 / 信箱 / 联系人（她 2026-08-29 拍板留下并重做）
@@ -5022,11 +5060,24 @@ const MUSIC_SKIN = {
   fog: "rgba(239,233,221,.45)", sub: "rgba(239,233,221,.66)",
   line: "rgba(239,233,221,.13)", tint: "#c8a06a", accent: "#c8a06a"
 };
-function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack }) {
+function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, drive }) {
   // 这一页从这儿往下都用听歌房那套色，不用她的主题色
   const t = MUSIC_SKIN;
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
+  // ──「看他玩」驱动：音乐这一路跟别的都不一样——歌单是【真数据】（listen.playlists），
+  //   不在 x_phone 里，所以他点一首歌就是【真的放出来】，不是演一下。
+  //   ⚠️也因此这一路不落 x_phone：applyWrite 里压根没有 music 分支，写的是播放器状态。
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive || !driveItem) return;
+    const list = A(pl && pl.songs).filter(x => x && typeof x === "object");
+    const i = list.findIndex(x => String(x.title || "") === String(driveItem));
+    if (i < 0) return;
+    // ⚠️open 存的是【那一行的 key】，不是歌对象——照这一屏自己的写法来（key = id 或 "s"+下标）
+    setOpen(list[i].id || ("s" + i));
+    if (onPlay) onPlay(list[i]);
+  }, [driveItem]);
   // String({}) 会变成 [object Object] 印在曲目单上——模型偶尔把一栏写成对象
   const S = v => (v == null || typeof v === "object") ? "" : String(v).trim();
   // 模型/存档里偶尔混进 null 或字符串；不滤掉的话下一行 x.cover 当场抛
@@ -5101,7 +5152,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack }) {
       const k = s2.id || ("s" + i);
       const on = open === k;
       const note = S(s2.note);
-      return h("div", { key: k, style: { borderTop: "1px solid " + t.line } },
+      return h("div", { key: k, "data-watch": "item:" + S(s2.title), style: { borderTop: "1px solid " + t.line } },
         h("button", {
           onClick: () => setOpen(on ? null : k),
           "aria-expanded": on ? "true" : "false",
@@ -5282,7 +5333,7 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
   if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
   if (key === "album") return h(AlbumView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
@@ -5298,7 +5349,7 @@ function renderPhoneModule(key, d, ctx) {
   // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
   if (key === "music") return h(MusicView, {
     pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
-    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack
+    onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive
   });
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -5467,6 +5518,7 @@ function PhoneCarry({
   drawingPhoto,
   onWatchStart,
   onWatchSend,
+  onWatchReply,
   onWatchKnock,
   onWatching,
   watchCoolLeft
@@ -5523,24 +5575,53 @@ function PhoneCarry({
     let typer = null;
     // ① 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
-    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, typing: null } : w); }
-    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, typing: null } : w); }
-    else if (a.kind === "open") { const app = appByKey(a.app); if (app) setOpen(app.key); }
-    else if (a.kind === "back") { setWatch(w => w ? (w.item ? { ...w, item: null, typing: null } : w) : w); if (!watch.item) setOpen(null); }
+    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
+    else if (a.kind === "open") {
+      const app = appByKey(a.app);
+      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, typing: app.key === "browser" ? "" : null } : w); }
+    }
+    else if (a.kind === "back") {
+      const w0 = watchRef.current;
+      const inner = !!(w0 && (w0.item || w0.page));
+      setWatch(w => w ? { ...w, item: null, page: null, typing: openRef.current === "browser" ? "" : null } : w);
+      if (!inner) setOpen(null);
+    }
     else if (a.kind === "tab") setWatch(w => w ? { ...w, tab: a.name, item: null, typing: null } : w);
     else if (a.kind === "openItem") setWatch(w => w ? {
-      ...w, item: a.name,
+      ...w, item: a.name, page: null,
       // 微信：点开会话＝可以开始打字（空草稿）。便签：点开＝手上是那条现有的正文，
-      // 他要划掉重写就从这一份上删起。相册：纯看，压根不给草稿。
+      // 他要划掉重写就从这一份上删起。相册／音乐：纯点开，压根不给草稿。
       typing: openRef.current === "wechat" ? ""
         : openRef.current === "notes" ? String((noteBodyOf(a.name) || "")) : null
     } : w);
+    // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
+    else if (a.kind === "openPage") {
+      const pg = { title: a.name, site: a.site || "", gist: a.gist || "" };
+      const q = String((watchRef.current && watchRef.current.lastQ) || "");
+      setWatch(w => w ? { ...w, page: pg, typing: null } : w);
+      if (onWatchSend) { try { onWatchSend(char, openRef.current, q, a.name, pg); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+    }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
+    // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
+    // 不然那一屏永远停在他自己那条上，像对面死了。
+    else if (a.kind === "reply") {
+      setWatch(w => w ? { ...w, sent: (w.sent || []).concat([{ from: a.name, text: a.text, them: true }]) } : w);
+      if (onWatchReply) { try { onWatchReply(char, a.name, a.text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+    }
     else if (a.kind === "erase") setWatch(w => w ? { ...w, typing: a.n == null ? "" : String(w.typing || "").slice(0, Math.max(0, String(w.typing || "").length - a.n)) } : w);
     else if (a.kind === "send") {
       const w0 = watchRef.current;
       const text = String((w0 && w0.typing) || "").trim(), to = w0 && w0.item, where = openRef.current;
-      if (text) {
+      if (where === "browser") {
+        // 浏览器里按回车＝搜这一句。搜完不一定点得开东西（那也很像他），
+        // 所以这一下先只记 searches；真点开哪一页由后面的 openPage 决定。
+        if (text) {
+          setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null } : w);
+          if (onWatchSend) { try { onWatchSend(char, "browser", text, "", null); } catch (e) {} }
+        }
+      }
+      else if (text) {
         // 微信里发出去的那条要当场挂在气泡列表上；便签是就地改，正文由 drive.typing 顶着
         if (where === "wechat" && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
         // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
@@ -5930,8 +6011,9 @@ function PhoneCarry({
     },
     // 一份 drive 递给所有被驱动的 app（微信／相册／便签各取所需）——
     // 各拼一份的话，第三批加浏览器又要在这儿多一支（一层写在多处）。
-    drive: watch ? { tab: watch.tab, item: watch.item, typing: watch.typing,
-      sent: (watch.sent || []).map(x => ({ from: (data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name, text: x.text })) } : null,
+    drive: watch ? { tab: watch.tab, item: watch.item, page: watch.page, typing: watch.typing,
+      // sent 里两种人：他自己发的（右侧绿气泡）和对面回的
+      sent: (watch.sent || []).map(x => ({ from: x.them ? x.from : ((data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name), text: x.text, _new: true })) } : null,
     onBack: () => setOpen(null)
   }));
   if (locked) return watchSkin(h(LockScreen, {
