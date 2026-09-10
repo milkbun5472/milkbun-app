@@ -5789,6 +5789,7 @@ function PhoneCarry({
   const [watch, setWatch] = useState(null);   // {acts,i,speed,tab,chat,typing,sent,thought,knocks,knocking,done,note}
   const [watchBusy, setWatchBusy] = useState(false);
   const [dot, setDot] = useState(null);       // 触控圆点落在哪儿 {x,y,press}
+  const [barWake, setBarWake] = useState(false);   // 底下那条让路之后，手指按上去先亮回来
   const watchRef = useRef(null); watchRef.current = watch;
   // 播放器要知道【此刻开着哪个 app】：同一个 openItem/send 在微信和便签里做的事不一样。
   // open 是 state，effect 里读到的是那一轮的旧值，所以另存一份 ref。
@@ -5997,7 +5998,7 @@ function PhoneCarry({
         n += 1;
         setWatch(w => w ? { ...w, typing: base + full.slice(0, n) } : w);
         if (n >= full.length) { clearInterval(typer); typer = null; }
-      }, Math.max(28, 90 / speed));
+      }, Math.max(12, (WK.typeTick ? WK.typeTick(full) : 90) / speed));
     }
 
     // ③ 排下一步
@@ -6312,13 +6313,21 @@ function PhoneCarry({
     if (!watch || !WK) return view;
     // ⚠️底下那条会把正在打字的那一栏压住（真机上看见的）。给正文让出一条的高度，
     //   别让「他打了又删」那一下正好被自己的控制条挡掉——那是这个功能最戳人的一眼。
+    // ⚠️原来这儿给正文让出 54px（怕底下那条压住正在打字的那一栏）。可她 2026-09-10 说
+    //   「按键是实的会把手机屏幕往上推一节」——让位＝手机变矮了一截，那才是真穿帮：
+    //   他的手机不会因为她在看就少一块。改成真悬浮：这一条压在屏幕上，一个像素都不占。
+    //   压住打字那一栏的问题另解：把它收窄压扁，并且演到打字那几下自己让路（变淡）。
     return h(React.Fragment, null,
-      h("div", { style: { height: "100%", paddingBottom: 54, boxSizing: "border-box" } }, view),
+      h("div", { style: { height: "100%" } }, view),
       h("div", { style: { position: "fixed", inset: 0, zIndex: 55, pointerEvents: "none" } },
         h(WK.WatchDot, dot || {}),
         h(WK.WatchThought, { text: watch.thought })),
       h("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 56 } },
         h(WK.WatchBar, {
+          // 他正在打字（或者刚打完还没发）的时候这一条让路——那一眼是这个功能最戳人的
+          // 一下，不能被自己的控制条挡掉。手指按上去它就亮回来。
+          dim: watch.typing != null && !watch.done && !barWake,
+          onWake: () => { setBarWake(true); setTimeout(() => setBarWake(false), 2600); },
           t, i: watch.i, total: watch.acts.length, done: watch.done, speed: watch.speed,
           knocks: watch.knocks, knocking: watch.knocking, paused: watch.paused,
           onSpeed: () => setWatch(w => w ? { ...w, speed: w.speed >= 4 ? 1 : w.speed * 2 } : w),

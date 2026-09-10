@@ -683,3 +683,32 @@ test("他在看他玩里发给她的那一条，是真的发到她手机上", ()
   assert.match(s, /\*\*她。给她发消息就是真的发到她手机上，她会看见。\*\*/);
   assert.match(s, /你给她的备注：小笨蛋/);
 });
+
+test("他打的字不许写一半就没了", () => {
+  // 她 2026-09-10：「为啥备忘录写一半会截断」。200 字是给「发一条微信」定的，
+  // 可 type 也用来写便签、写批注、写回信。
+  const long = "字".repeat(400);
+  assert.equal(W.normalizeActs([{ kind: "type", text: long }]).acts[0].text.length, 400);
+  // 心声照旧另有一道 60 字的闸
+  assert.equal(W.normalizeActs([{ kind: "think", text: "字".repeat(200) }]).acts[0].text.length, 60);
+  // ⚠️长了要打得快些，不然一条三百字的便签能演二十七秒——那一屏就卡在那儿不动了
+  // ⚠️这一下演多久 = 字数 × 每字的节拍，同一条算法算出来（两处各定一个数就会对不上）
+  assert.equal(W.actDuration({ kind: "type", text: long }), 400 * W.typeTick(long));
+  assert.ok(W.actDuration({ kind: "type", text: long }) <= 7000, "四百字不该演成半分钟");
+  assert.equal(W.typeTick("短"), 90);
+  // 抬头断在一句话结束的地方，不是硬砍十四个字
+  const r = W.applyWrite("notes", { items: [] }, "", "先去取快递，然后把稿子的开头改一遍", 1);
+  assert.equal(r.d.items[0].title, "先去取快递");
+  assert.equal(r.d.items[0].body, "先去取快递，然后把稿子的开头改一遍");
+});
+
+test("底下那条是悬浮的，不占屏幕一寸", () => {
+  // 她 2026-09-10：「按键是实的会把手机屏幕往上推一节」——让位等于他的手机
+  // 凭空矮了一截，那才是真穿帮。
+  assert.doesNotMatch(phone, /paddingBottom: 54, boxSizing: "border-box"/, "又给它让位了");
+  assert.match(phone, /h\("div", \{ style: \{ height: "100%" \} \}, view\)/);
+  // 压住打字那一栏的问题另解：演到他打字那几下自己变淡，手指按上去再亮回来
+  assert.match(phone, /dim: watch\.typing != null && !watch\.done && !barWake/);
+  assert.match(watchSrc, /opacity: p\.dim \? 0\.34 : 1/);
+  assert.match(watchSrc, /onPointerDown: p\.onWake/);
+});

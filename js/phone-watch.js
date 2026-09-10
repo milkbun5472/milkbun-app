@@ -154,7 +154,10 @@
       if (x.at != null) a.at = S(x.at).trim().slice(0, 40);
       if (x.site != null) a.site = S(x.site).trim().slice(0, 40);
       if (x.gist != null) a.gist = S(x.gist).trim().slice(0, 160);
-      if (x.text != null) a.text = S(x.text).slice(0, 200);
+      // ⚠️200 字是给「发一条微信」定的，可 type 也用来写便签、写批注、写回信——
+      //   一条便签写到一半就没了（她 2026-09-10：「为啥备忘录写一半会截断」）。
+      //   心声另有 60 字的闸（在上面 think 那一支），这儿放到 800。
+      if (x.text != null) a.text = S(x.text).slice(0, 800);
       if (x.amount != null) a.amount = Math.max(-2000, Math.min(2000, N(x.amount, 0)));
       if (x.n != null) a.n = Math.max(1, Math.min(200, N(x.n, 1)));
       // 买东西那几个 app 才用得上的一栏：他看的那样东西多少钱。
@@ -166,11 +169,21 @@
     return { acts: out, dropped: dropped };
   }
 
+  // 每个字隔多久蹦出来：正常 90 毫秒一个字，长到一定程度就往快里压，最快 16。
+  // ⚠️actDuration 的 type 那一支拿它算总长——只此一份，别在播放器那头另定一个数。
+  function typeTick(text) {
+    const n = Math.max(1, S(text).length);
+    return Math.max(16, Math.min(90, Math.round(5000 / n)));
+  }
   // 演一个动作要多久（毫秒）。打字按字数走，别的按手感给。
   function actDuration(a) {
     if (!a) return 0;
     if (a.kind === "pause") return N(a.ms, 800);
-    if (a.kind === "type") return Math.max(300, S(a.text).length * 90);
+    // 打字按字数走，但**长了要打得快些**：一条三百字的便签按每字 90 毫秒是二十七秒，
+    // 那一屏就卡在那儿不动了。
+    // ⚠️这一下演多久 = 字数 × 每字的节拍，**同一条算法算出来**——两处各定一个数的话，
+    //   短的等半天、长的没打完就被推到下一步。
+    if (a.kind === "type") { const n = S(a.text).length; return Math.max(300, n * typeTick(a.text)); }
     if (a.kind === "erase") return Math.max(260, N(a.n, 8) * 55);
     if (a.kind === "reply") return Math.max(900, S(a.text).length * 55);
     if (a.kind === "think") return 1600;
@@ -261,8 +274,12 @@
         // 新写一条：抬头取第一行（或者前十四个字），**正文是他打的那一整段**。
         // ⚠️原来这儿写的是 body: who ? body : ""——他没点开任何一条就直接写的时候
         //   who 是空的，于是抬头有了、正文是空的（她 2026-09-10：「便签不能新写」）。
+        // 抬头断在【一句话结束的地方】，不是硬砍十四个字：
+        // 「先去取快递，然后把稿子的开头」——那不是抬头，那是半句话。
         const first = body.split("\n")[0].trim();
-        const title = who || (first.length <= 14 ? first : first.slice(0, 14));
+        const stop = first.split(/[。！？!?，,、；;]/)[0].trim();
+        const head = (stop && stop.length <= 16) ? stop : first.slice(0, 14);
+        const title = who || head;
         items.unshift({ title: title, body: body, time: "刚刚", _ts: ts });
       }
       return { d: Object.assign({}, base, { items: items }), wrote: true };
@@ -810,12 +827,18 @@
   function WatchBar(o) {
     const p = o || {}, t = p.t || {};
     const left = Math.max(0, KNOCK_CAP - (p.knocks || 0));
+    // ⚠️这一条是【悬浮】的，不占正文一寸（她 2026-09-10：「按键是实的会把手机屏幕
+    //   往上推一节」——让位等于他的手机凭空矮了一截，那才是真穿帮）。
+    //   所以它收窄压扁；而且**演到他打字那几下自己让路**：压在输入框上就把最戳人的
+    //   那一眼挡掉了，让它变淡、手指真按上去再亮回来。
     return h("div", {
+      onPointerDown: p.onWake,
       style: {
         position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 64,
-        padding: "10px 14px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 12px)",
-        display: "flex", alignItems: "center", gap: 9,
-        background: "linear-gradient(rgba(18,16,14,0), rgba(18,16,14,.72) 42%)"
+        padding: "7px 12px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 9px)",
+        display: "flex", alignItems: "center", gap: 8,
+        opacity: p.dim ? 0.34 : 1, transition: "opacity .25s",
+        background: "linear-gradient(rgba(18,16,14,0), rgba(18,16,14,.62) 46%)"
       }
     },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.72)", minWidth: 44 } },
@@ -831,13 +854,13 @@
           padding: "5px 11px", background: p.paused ? "rgba(255,255,255,.92)" : "transparent" } },
         p.paused ? "继续" : "暂停"),
       p.done ? null : h("button", { onClick: p.onSpeed, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "5px 11px", background: "transparent" } },
+        style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
         (p.speed || 1) + "×"),
       p.done ? null : h("button", { onClick: p.onSkip, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "5px 11px", background: "transparent" } },
+        style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
         "跳到最后"),
       h("button", { onClick: p.onKnock, disabled: !!p.knocking || left <= 0 || p.done, className: "active:opacity-60 disabled:opacity-35",
-        style: { fontFamily: F_BODY, fontSize: 12, color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "6px 14px", border: "none" } },
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "5px 13px", border: "none" } },
         p.knocking ? "…" : left <= 0 ? "他不理了" : p.knocks ? "敲一下 · " + left : "敲一下"),
       h("button", { onClick: p.onClose, className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.8)", padding: "5px 4px", background: "transparent", border: "none" } },
@@ -849,7 +872,7 @@
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
-    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName, pickName,
+    normalizeActs, actDuration, typeTick, sessionDuration, applyWrite, applyReply, sameName, pickName,
     knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
     knockedToday, watchedNote, HINT_PER_DAY, watchHintOn, watchHintUsed
   };
