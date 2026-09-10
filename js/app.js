@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.23";
+const APP_VERSION = "v66.24";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13183,7 +13183,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
   // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
-  const WATCH_APPS = ["wechat", "album", "notes", "browser", "music"];
+  const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked"];
   const genWatchSession = async char => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;

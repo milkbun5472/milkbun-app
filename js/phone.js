@@ -960,12 +960,70 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   delete out.retired;    // 它是一条指令，不是要存下来的内容
   return appKey === "album" ? phoneAlbumTidy(out, now) : out;
 }
-// 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志
+// ── 走乙：他自己刷出来的那几行，周刷不许凭空重编（她 2026-09-10 选的「乙」）──
+// 「看他玩」之后，这个 app 就变成【有底稿的 app】。可它写进去的那几栏偏偏是 ♻️：
+// 开着的标签页、购物车、还在路上的那一单——♻️ 的规矩是每次照实重写，
+// 于是下一次周刷会把他刚开的那一页、刚放进车里的那件东西，凭空抹掉。
+//
+// 「甲」是周刷绕开他碰过的 app（那一周整个 app 不刷了，太粗）；
+// 「乙」是她选的：**那几行留住，别的照旧重编**。这就是乙在代码里的落法——
+// 提示词那一段（phoneWatchDraftBlock）告诉模型它们存在，这一层兜死它们不会没。
+//
+// ⚠️只保【他真做过的那几行】，不是整栏冻住：栏还是 ♻️，周刷照常重写其余部分。
+// ⚠️会过期。八天＝比一周长一点，正好让下一次周刷还认得上一周他干的事；
+//   再往后那一页早该关了、那一单早该到了，还留着就成了坟场。
+const PHONE_WATCH_KEEP = {
+  browser: { tabs: 12 },
+  shopping: { cart: 12 },
+  takeout: { live: 6 }
+};
+const PHONE_WATCH_KEEP_DAYS = 8;
+const phoneWatchRows = (data, field, nowTs) => {
+  const arr = phoneGetPath(data, field);
+  if (!Array.isArray(arr)) return [];
+  const now = Number(nowTs) || Date.now();
+  return arr.filter(x => x && typeof x === "object" && x._wk
+    && (now - (Number(x._wkAt) || Number(x._ts) || 0)) <= PHONE_WATCH_KEEP_DAYS * 86400000);
+};
+function phoneWatchKeep(appKey, oldData, newData, nowTs) {
+  const conf = PHONE_WATCH_KEEP[appKey];
+  if (!conf || !oldData || !newData || typeof newData !== "object") return newData;
+  const out = JSON.parse(JSON.stringify(newData));
+  Object.keys(conf).forEach(field => {
+    const mine = phoneWatchRows(oldData, field, nowTs);
+    if (!mine.length) return;
+    const fresh = phoneGetPath(out, field);
+    const seen = {};
+    mine.forEach(x => { seen[phoneNameNorm(phoneRowName(x))] = 1; });
+    // 他做过的那几行排在最前面（那是【刚刚】发生的），模型新写的接在后面；
+    // 同名的以他那一行为准——不然屏幕上同一件东西会出现两遍。
+    const rest = (Array.isArray(fresh) ? fresh : []).filter(x => !seen[phoneNameNorm(phoneRowName(x))]);
+    phoneSetPath(out, field, mine.concat(rest).slice(0, conf[field]));
+  });
+  return out;
+}
+// 这几行也要喂回提示词：代码兜死它们不会没，但模型不知道它们存在的话，
+// 会写出一份跟屏幕上对不上的东西来（规则降概率，代码才保证，两头都要）。
+function phoneWatchDraftBlock(appKey, known, nowTs) {
+  const conf = PHONE_WATCH_KEEP[appKey];
+  if (!conf || !known) return "";
+  const lines = [];
+  Object.keys(conf).forEach(field => {
+    const names = phoneWatchRows(known, field, nowTs).map(phoneRowName).filter(Boolean).slice(0, 12);
+    if (names.length) lines.push("- " + field + "：" + names.join("｜"));
+  });
+  if (!lines.length) return "";
+  return "\n\n【这几样是他自己刚在手机上弄出来的】\n" + lines.join("\n")
+    + "\n它们不是编出来的，是他真做过的那一下——**别当成旧数据清掉，也别改写名字**。"
+    + "你这一轮写的别的东西要和它们对得上（同一件东西别再写一遍）。";
+}
+// 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志 + 他自己刷出来的那几行
 function phoneMergeSaved(appKey, oldData, newData, nowTs) {
-  // 顺序：🔒 硬钉死盖回来 → 🌱 缓慢演化收口 → 📚 日志并进来。
+  // 顺序：🔒 硬钉死盖回来 → 🌱 缓慢演化收口 → 📚 日志并进来 → 走乙留住他做过的。
   // 剩下没登记的一律 ♻️ 照实重写。
-  return phoneGrowMerge(appKey, oldData,
-    phoneEvolveMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData)), nowTs);
+  // ⚠️走乙排在最后：它要盖的正是 ♻️ 那一步的结果，排在前面会被随后的重写抹掉。
+  return phoneWatchKeep(appKey, oldData, phoneGrowMerge(appKey, oldData,
+    phoneEvolveMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData)), nowTs), nowTs);
 }
 // 名册发回去。跟 phoneSelfAvoidBlock 说的是相反的话：
 // 日志那些「别再写一遍」，名册这些「还在的请照抄回来」。
@@ -2981,9 +3039,20 @@ const SHOP_BODY = "#414d5e";     // 正文
 const SHOP_LINE = "#e3e8ee";     // 分隔线
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
-function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
+function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
   const [tab, setTab] = useState("home");
   const [sheet, setSheet] = useState(null);
+  // ── 「看他玩」驱动（第四批）──────────────────────────────────────
+  // ⚠️只加一条同步：drive 不在的时候这一屏一个像素都没变（跟微信那几屏同一个做法）。
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setSheet(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setSheet(null); return; }
+    const pool = [].concat(Array.isArray(d && d.wish) ? d.wish : [], Array.isArray(d && d.cart) ? d.cart : []);
+    const hit = pool.find(x => x && String(x.title || "") === String(driveItem));
+    if (hit) setSheet({ kind: "wish", it: hit });
+  }, [driveItem]);
   const scrollRef = useRef(null);
   // 换页回到顶部；同一页内来回开详情不动位置
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
@@ -3046,7 +3115,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ── 购物车 ──
   const cart = A(data.cart);
   const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("还没舍得付", cart.length + " 件停在这儿"),
-    plain(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
+    plain(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", "data-watch": "item:" + (it.title || ""), style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.shop) : null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, it.title || ""),
@@ -3067,7 +3136,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const wish = A(data.wish);
   const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("一直没下手的", wish.length + " 样"),
     h("div", { style: { marginBottom: 16 } }, wish.map((it, i) => h("button", {
-      key: i, className: "w-full text-left active:opacity-70",
+      key: i, className: "w-full text-left active:opacity-70", "data-watch": "item:" + (it.title || ""),
       // ⚠️点开是看，不是发。转发一律要走详情里那颗单独的按钮——
       // 列表项直接触发转发是不可逆动作，手一滑就发出去了（她 2026-08-29 中招）。
       onClick: () => setSheet({ kind: "wish", it: it }),
@@ -3213,7 +3282,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e8e8ee" }
   }, PAGES.map(pg => h("button", {
-    key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); },
+    key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); }, "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
@@ -3281,7 +3350,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: SHOP_DIM, textIndent: "2em", paddingBottom: 12, marginBottom: 14, borderBottom: "1px solid " + SHOP_LINE } }, page.lead),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord),
       body.length ? folio : null)),
-  nav, sheetNode);
+  nav, sheetNode,
+  // 他刚点进去的那一件商品页：手机里本来没有这一页，是这一段里现编的
+  watchPageNode(drive, { bg: SHOP_BG, ink: SHOP_INK, dim: SHOP_DIM, line: SHOP_FRAME, body: SHOP_BODY, mark: SHOP_MARK }));
 }
 // ============================================================
 // 外卖 —— 他怎么把自己喂饱（她 2026-08-29 点名先搭个框）
@@ -3308,9 +3379,20 @@ const TAKE_BODY = "#5b4436";     // 正文褐：成段的话
 const TAKE_LINE = "#ece1d2";     // 分隔线
 const TAKE_SOFT = "#f7f0e6";     // 卡里再嵌一块的底
 const TAKE_MUTE = "#bcaa98";     // 最淡的那一档：没吃上的那天、虚线圈
-function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
+function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
   const [tab, setTab] = useState("home");
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    // 这一屏的 open 存的是【第几单】，不是那一单本身——照它自己的写法来
+    const list = Array.isArray(d && d.orders) ? d.orders : [];
+    const i = list.findIndex(x => x && (String(x.shop || "") === String(driveItem) || String(x.main || "") === String(driveItem)));
+    if (i >= 0) setOpen(i);
+  }, [driveItem]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
@@ -3454,7 +3536,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
       const expanded = open === i;
       // id 是给「这七天」跳过来用的：点上面那一顿，落到下面这一条并展开
-      return h("div", { key: i, id: "tk-od-" + i, style: { padding: "14px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none", scrollMarginTop: 90 } },
+      return h("div", { key: i, id: "tk-od-" + i, "data-watch": "item:" + (o.shop || o.main || ""), style: { padding: "14px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none", scrollMarginTop: 90 } },
         h("button", { onClick: () => setOpen(expanded ? null : i), className: "w-full text-left active:opacity-60", "aria-expanded": expanded },
           h("div", { className: "flex items-start", style: { gap: 12 } },
             h("div", { style: { width: 44, flexShrink: 0, textAlign: "center" } },
@@ -3645,7 +3727,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
   }, PAGES.map(pg => h("button", {
-    key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
+    key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
@@ -3657,7 +3739,9 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
       h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
-    nav);
+    nav,
+    // 他刚点进去的那一家店／那一道菜
+    watchPageNode(drive, { bg: TAKE_BG, ink: TAKE_INK, dim: TAKE_DIM, line: TAKE_LINE, body: TAKE_BODY, mark: TAKE_CORAL }));
 }
 // ============================================================
 // 健康 —— 十几张指标卡 + 今日轨迹 + 健康洞察（她 2026-08-29 给了参考稿）
@@ -4137,10 +4221,20 @@ const PLAZA_COVERS = [
   ["#f4b8bf", "#fadde0"], ["#b9d4ef", "#dbe9f7"], ["#cfe0bd", "#e6efdc"],
   ["#eed9b0", "#f7ecd6"], ["#cfc4e6", "#e5dff2"], ["#b6dfd7", "#d9efeb"]
 ];
-function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("feed");
   const [open, setOpen] = useState(null);
   const [chan, setChan] = useState(0);
+  // ── 「看他玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const pool = [].concat(Array.isArray(d && d.items) ? d.items : [], Array.isArray(d && d.drafts) ? d.drafts : []);
+    const hit = pool.find(x => x && String(x.title || "") === String(driveItem));
+    if (hit) setOpen(hit);
+  }, [driveItem]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4163,7 +4257,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       cols.map((col, ci) => h("div", { key: ci, style: { display: "flex", flexDirection: "column", gap: 9 } }, col.map(x => postCard(x.it, x.i, x.ratio)))));
   };
   const postCard = (it, i, ratio) => h("button", {
-    key: i, onClick: () => setOpen(it), className: "text-left active:opacity-75",
+    key: i, onClick: () => setOpen(it), className: "text-left active:opacity-75", "data-watch": "item:" + (it.title || ""),
     style: { background: "#fff", borderRadius: 12, overflow: "hidden", minWidth: 0 }
   }, h("div", { style: { aspectRatio: "1 / " + (ratio || 1), background: "linear-gradient(150deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")" } }),
   h("div", { style: { padding: "9px 10px 11px" } },
@@ -4300,13 +4394,14 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 12px 20px" } }, page.body),
     h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid #eeeef1" } },
       PAGES.map(pg => h("button", {
-        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
+        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-watch": "tab:" + pg.key,
         className: "flex flex-col items-center justify-center active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? PLAZA_RED : PLAZA_DIM, paddingTop: 2, paddingBottom: 2 }
       }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
         h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? PLAZA_RED : PLAZA_DIM })),
       h("span", { style: { marginTop: 2 } }, pg.zh)))),
-    null);
+    // 他刚点进去的那一条笔记（现编的那一页）
+    watchPageNode(drive, { bg: "#fff", ink: PLAZA_INK, dim: PLAZA_DIM, line: "#eeeef1", mark: PLAZA_RED }));
 }
 // ============================================================
 // 日历 —— 月历格子 + 事项列表。推迟次数是这个 app 的重点：
@@ -4667,6 +4762,13 @@ const BR_DIM = "#8e8e93";
 const BR_BLUE = "#2f6fdb";
 const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "#e8f1ea"],
   ["#e5dbef", "#f1ebf7"], ["#e9e3cc", "#f4f0e2"], ["#cfe3e8", "#e6f0f3"]];
+// 「看他玩」里现编的那一页，四个 app 共用一份（浏览器 / 购物 / 外卖 / 小红书）。
+// 这儿只是个转手：组件在 js/phone-watch.js 里，没加载那个文件时什么也不画。
+// 「看他玩」里【买东西那一路】的三个 app：它们没有输入框，send 落的是屏幕上那一页。
+// 写成一份名单，播放器和落盘各读它一次——别在两处各写一串 || 。
+const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
+const watchPageNode = (drive, skin) => (drive && drive.page && window.PhoneWatch)
+  ? h(window.PhoneWatch.WatchPage, { page: drive.page, skin: skin }) : null;
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("tabs");
   const [open, setOpen] = useState(null);
@@ -4847,12 +4949,10 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     // ── 他刚搜出来点进去的那一页（「看他玩」专属）──────────────────────
     //   这一页在他手机里本来不存在——是这一段里现编出来的。落盘另走 applyWrite：
     //   搜的那句进 searches（📚 累积），打开的这一页顶到 tabs 最前面（♻️ 快照）。
-    drive && drive.page ? h("div", { "data-watch": "result", className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 20 } },
-      h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(12), padding: "12px 16px 10px", borderBottom: "1px solid " + BR_LINE } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM } }, drive.page.site || "网页"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: BR_INK, marginTop: 5 } }, drive.page.title || "")),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 30px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3a3a42", whiteSpace: "pre-wrap" } }, drive.page.gist || ""))) : null);
+    // ⚠️这一页原来是这儿手写的一份。第四批要在购物／外卖／小红书上摆同一张，
+    //   于是搬进 PhoneWatch.WatchPage 一处，这儿也跟着改用它（不是只开公共的、
+    //   旧的留在原地——那样反而多一处要同步，施工规则/one-public-mechanism.md）。
+    watchPageNode(drive, { bg: "#fff", ink: BR_INK, dim: BR_DIM, line: BR_LINE }));
 }
 // ============================================================
 // 电话 —— 通话 / 短信 / 信箱 / 联系人（她 2026-08-29 拍板留下并重做）
@@ -5334,8 +5434,8 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
-  if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
+  if (key === "shopping") return h(ShoppingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
+  if (key === "takeout") return h(TakeoutView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
   if (key === "album") return h(AlbumView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
@@ -5354,7 +5454,7 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });
-  if (key === "liked") return h(PlazaView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "liked") return h(PlazaView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -5597,10 +5697,12 @@ function PhoneCarry({
     } : w);
     // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
     else if (a.kind === "openPage") {
-      const pg = { title: a.name, site: a.site || "", gist: a.gist || "" };
+      const pg = { title: a.name, site: a.site || "", gist: a.gist || "", price: a.price != null ? a.price : null };
       const q = String((watchRef.current && watchRef.current.lastQ) || "");
-      setWatch(w => w ? { ...w, page: pg, typing: null } : w);
-      if (onWatchSend) { try { onWatchSend(char, openRef.current, q, a.name, pg); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+      // ⚠️item 要一起清掉：小红书那一屏的详情页是【顶掉整屏】的，item 还挂着的话
+      //   现编的这一页就被压在它下面，等于什么都没看见。
+      setWatch(w => w ? { ...w, page: pg, item: null, typing: null } : w);
+      if (onWatchSend) { try { onWatchSend(char, openRef.current, q, a.name, Object.assign({ act: "openPage" }, pg)); } catch (e) {/* 落盘失败不该把这段演砸 */} }
     }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
@@ -5618,14 +5720,20 @@ function PhoneCarry({
         // 所以这一下先只记 searches；真点开哪一页由后面的 openPage 决定。
         if (text) {
           setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null } : w);
-          if (onWatchSend) { try { onWatchSend(char, "browser", text, "", null); } catch (e) {} }
+          if (onWatchSend) { try { onWatchSend(char, "browser", text, "", { act: "send" }); } catch (e) {} }
         }
+      }
+      else if (WATCH_BUY_APPS.indexOf(where) >= 0) {
+        // 购物／外卖／小红书里没有输入框：这一下按的是【他正看着的那一页】上那颗钮——
+        // 加进购物车 / 下这一单 / 收藏这一条。所以看的不是草稿，是屏幕上那一页。
+        const pg = w0 && w0.page;
+        if (pg && pg.title && onWatchSend) { try { onWatchSend(char, where, pg.title, "", Object.assign({}, pg, { act: "send" })); } catch (e) {/* 同上 */} }
       }
       else if (text) {
         // 微信里发出去的那条要当场挂在气泡列表上；便签是就地改，正文由 drive.typing 顶着
         if (where === "wechat" && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
         // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
-        if (onWatchSend) { try { onWatchSend(char, where, to, text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+        if (onWatchSend) { try { onWatchSend(char, where, to, text, { act: "send" }); } catch (e) {/* 落盘失败不该把这段演砸 */} }
       }
     }
     else if (a.kind === "type") {
@@ -6941,7 +7049,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
@@ -6955,4 +7063,4 @@ if (typeof window !== "undefined") window.PhoneKit = {
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
   photoSig: phonePhotoSig
 };
-if (typeof module === "object" && module.exports) module.exports = { PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW };
+if (typeof module === "object" && module.exports) module.exports = { PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };

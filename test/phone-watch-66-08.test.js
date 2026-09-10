@@ -188,7 +188,7 @@ test("相册那一路零写入：只演不落", () => {
 });
 
 test("打得开哪几个 app 只此一份名单", () => {
-  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music"\]/);
+  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked"\]/);
   // 提示词、归一、播放器都读它，不各写一份
   assert.match(app, /WATCH_APPS\.indexOf\(a\.key\) >= 0/);
   assert.match(app, /apps: WATCH_APPS/);
@@ -248,7 +248,11 @@ test("openPage 跟 openItem 分得开", () => {
   // openItem 打开【已经有的】，openPage 是【刚搜出来的那一页】。揉成一个词模型分不清
   assert.ok(W.ACT_KEYS.indexOf("openPage") >= 0);
   assert.equal(W.watchTargetSel({ kind: "openPage", name: "x" }), '[data-watch="result"]');
-  assert.match(phone, /drive && drive\.page \? h\("div", \{ "data-watch": "result"/);
+  // ⚠️这一页四个 app 共用一份（v66.22 搬进 PhoneWatch.WatchPage）：挂点长在组件身上，
+  //   各屏只负责把 drive 和自己的配色递进去。
+  assert.match(watchSrc, /h\("div", \{ "data-watch": "result", className: "absolute inset-0 flex flex-col"/);
+  assert.match(phone, /const watchPageNode = \(drive, skin\)/);
+  assert.equal((phone.match(/watchPageNode\(drive, \{/g) || []).length, 4, "浏览器/购物/外卖/小红书四屏都要摆这一页");
 });
 
 test("音乐不落 x_phone：它是真数据，点一首就真的放", () => {
@@ -284,4 +288,110 @@ test("新消息要滚到屏幕最底下，而且有冒出来那一下", () => {
   assert.match(phone, /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => \{ el\.scrollTop = el\.scrollHeight; \}\)\);/);
   assert.match(phone, /animation: m\._new \? "wkpop/);
   assert.match(fs.readFileSync("index.html", "utf8"), /@keyframes wkpop/);
+});
+
+// ══════════════════════════════════════════════════════════════
+// 第四批：购物 / 外卖 / 小红书（她 2026-09-10「都做了吧」）
+// ══════════════════════════════════════════════════════════════
+const PK = require("../js/phone.js");
+
+test("购物：看过和买下是两回事", () => {
+  // ⚠️桩照【写存档的那段】写：购物车那一行在 phone.js 里读的是 title/shop/price/qty/why，
+  //   看过的那一行读的是 title/shop/price/time（施工规则/stub-from-the-writer.md）。
+  const d0 = { viewed: [], cart: [] };
+  const seen = W.applyWrite("shopping", d0, "一把椅子", "", 1000, { act: "openPage", site: "木作店", gist: "描述", price: 880 });
+  assert.equal(seen.wrote, true);
+  assert.equal(seen.d.viewed[0].title, "一把椅子");
+  assert.equal(seen.d.viewed[0].price, 880);
+  assert.equal(seen.d.cart.length, 0, "只是点进去看看，不该自己跳进购物车");
+
+  const buy = W.applyWrite("shopping", seen.d, "一把椅子", "", 1000, { act: "send", site: "木作店", gist: "他终于点了", price: 880 });
+  assert.equal(buy.d.cart[0].title, "一把椅子");
+  assert.equal(buy.d.cart[0].qty, 1);
+  assert.equal(buy.d.cart[0]._wk, 1, "♻️ 那一行要盖戳，不然周刷把它洗掉（走乙认的就是这枚戳）");
+  // 同一件东西按两下不该在车里出现两遍
+  assert.equal(W.applyWrite("shopping", buy.d, "一把椅子", "", 1001, { act: "send" }).wrote, false);
+});
+
+test("外卖：翻店不写，真下单才落，而且一下落两层", () => {
+  const r = W.applyWrite("takeout", { live: [], orders: [] }, "一碗牛肉面", "", 2000, { act: "send", site: "老陈面馆", gist: "不要香菜", price: 28 });
+  assert.equal(r.wrote, true);
+  // 📚 这一顿是发生过的事
+  assert.equal(r.d.orders[0].shop, "老陈面馆");
+  assert.equal(r.d.orders[0].main, "一碗牛肉面");
+  assert.equal(r.d.orders[0].amount, 28);
+  // ♻️ 「他这会儿等着的」是当前状态——她要的「刷了外卖就把旧的顶掉」正是这一层
+  assert.equal(r.d.live[0].shop, "老陈面馆");
+  assert.equal(r.d.live[0].items, "一碗牛肉面");
+  assert.equal(r.d.live[0]._wk, 1);
+  assert.equal(W.applyWrite("takeout", { live: [], orders: [] }, "一碗牛肉面", "", 2000, { act: "openPage" }).wrote, false,
+    "翻半天没点也很像他——那一下不许写进订单");
+});
+
+test("小红书：看过不等于赞过", () => {
+  assert.equal(W.applyWrite("liked", { items: [] }, "一条笔记", "", 3000, { act: "openPage", site: "作者" }).wrote, false);
+  const r = W.applyWrite("liked", { items: [] }, "一条笔记", "", 3000, { act: "send", site: "作者", gist: "正文" });
+  assert.equal(r.d.items[0].act, "收藏");
+  assert.equal(r.d.items[0].author, "作者");
+  assert.equal(W.applyWrite("liked", r.d, "一条笔记", "", 3001, { act: "send" }).wrote, false, "同一条收藏两遍");
+});
+
+test("多少钱是单独一栏，不许拿滑动距离顶替", () => {
+  const r = W.normalizeActs([{ kind: "openPage", name: "x", price: "88.5" }, { kind: "scroll", amount: 300 }]);
+  assert.equal(r.acts[0].price, 88.5);
+  assert.equal(r.acts[0].amount, undefined);
+  assert.equal(r.acts[1].price, undefined);
+  assert.match(watchSrc, /price 是标价/);
+});
+
+test("买东西那三个 app 没有输入框：send 按的是屏幕上那一页", () => {
+  assert.match(phone, /const WATCH_BUY_APPS = \["shopping", "takeout", "liked"\]/);
+  assert.match(phone, /else if \(WATCH_BUY_APPS\.indexOf\(where\) >= 0\)/);
+  // 三屏都要接 drive，不然演了半天屏幕不动
+  ["ShoppingView", "TakeoutView", "PlazaView"].forEach(v => {
+    assert.match(phone, new RegExp("h\\(" + v + ", \\{ drive: ctx\\.drive"), v + " 没接上 drive");
+  });
+  // 挂点：切栏和点开一样东西都要抓得住，不然圆点落在空处
+  ["tab:\" + pg.key", "item:\" + (it.title || \"\")"].forEach(x => assert.ok(phone.indexOf('"data-watch": "' + x) >= 0, "少了挂点：" + x));
+});
+
+// ══════════════════════════════════════════════════════════════
+// 走乙：他自己刷出来的那几行，周刷不许凭空重编
+// ══════════════════════════════════════════════════════════════
+test("走乙：♻️ 那几栏里他做过的那几行，周刷之后还在", () => {
+  const now = Date.now();
+  const old = { tabs: [
+    { title: "他刚开的那一页", _wk: 1, _wkAt: now - 3600000 },
+    { title: "上一轮编出来的", site: "x" }
+  ] };
+  // 周刷是【整份重生成】：模型这一轮写的 tabs 里压根没有他刚开的那一页
+  const merged = PK.phoneMergeSaved("browser", old, { tabs: [{ title: "模型新编的" }] }, now);
+  const names = merged.tabs.map(x => x.title);
+  assert.equal(names[0], "他刚开的那一页", "他做过的排最前面——那是刚刚发生的");
+  assert.ok(names.indexOf("模型新编的") >= 0, "别的照旧重写，走乙只保他那几行");
+  assert.ok(names.indexOf("上一轮编出来的") < 0, "没盖戳的旧行不该跟着留下——那一栏还是 ♻️");
+});
+
+test("走乙会过期，而且同名不许出现两遍", () => {
+  const now = Date.now();
+  const stale = { tabs: [{ title: "九天前那一页", _wk: 1, _wkAt: now - 9 * 86400000 }] };
+  assert.ok(PK.phoneMergeSaved("browser", stale, { tabs: [] }, now).tabs.every(x => x.title !== "九天前那一页"),
+    "留过 " + PK.PHONE_WATCH_KEEP_DAYS + " 天的还留着就是坟场了");
+  assert.equal(PK.PHONE_WATCH_KEEP_DAYS >= 8, true, "得比一周长一点，下一次周刷才认得上一周他干的事");
+  const dup = { cart: [{ title: "一把椅子", _wk: 1, _wkAt: now }] };
+  const m = PK.phoneMergeSaved("shopping", dup, { cart: [{ title: "一把椅子", shop: "模型又写了一遍" }] }, now);
+  assert.equal(m.cart.filter(x => x.title === "一把椅子").length, 1);
+  assert.equal(m.cart[0]._wk, 1, "同名的以他那一行为准");
+});
+
+test("走乙也要说给模型听（代码兜死 + 提示词降概率，两头都要）", () => {
+  const now = Date.now();
+  const blk = PK.phoneWatchDraftBlock("takeout", { live: [{ shop: "老陈面馆", _wk: 1, _wkAt: now }] }, now);
+  assert.match(blk, /他自己刚在手机上弄出来的/);
+  assert.match(blk, /老陈面馆/);
+  assert.equal(PK.phoneWatchDraftBlock("takeout", { live: [{ shop: "老陈面馆" }] }, now), "", "不是他刷出来的就别说");
+  // 接进那一整段提示词里了（漏接的话这一层等于没有）
+  assert.match(phone, /phoneRosterBlock\(key, known\) \+ phoneWatchDraftBlock\(key, known\)/);
+  // ⚠️顺序：走乙必须排在 ♻️ 重写之后，排前面会被随后那一步抹掉
+  assert.match(phone, /return phoneWatchKeep\(appKey, oldData, phoneGrowMerge\(/);
 });

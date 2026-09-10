@@ -125,6 +125,9 @@
       if (x.text != null) a.text = S(x.text).slice(0, 200);
       if (x.amount != null) a.amount = Math.max(-2000, Math.min(2000, N(x.amount, 0)));
       if (x.n != null) a.n = Math.max(1, Math.min(200, N(x.n, 1)));
+      // 买东西那几个 app 才用得上的一栏：他看的那样东西多少钱。
+      // ⚠️不拿 amount 顶替——那一栏是滑动距离，混用就成了「滑了 68 像素买了一杯」。
+      if (x.price != null) { const pv = N(x.price, null); if (pv != null && pv >= 0 && pv <= 999999) a.price = Math.round(pv * 100) / 100; }
       if (x.ms != null) a.ms = Math.max(120, Math.min(6000, N(x.ms, 800)));
       out.push(a);
     }
@@ -157,6 +160,9 @@
   //   app.js 那头一个字都不用改（施工规则/one-public-mechanism.md）。
   // 对面回的那一条。跟 applyWrite 分开：那个函数写的是【他自己】发出去的话，
   // 这个写的是【别人】说的话——from 不一样，混在一个函数里迟早把 from 写错人。
+  // 他自己刷出来的那一行盖一枚戳。♻️ 那几栏（开着的标签页、购物车、在送的那一单）
+  // 周刷会整份重编，这枚戳是「走乙」认人的凭据——留住的只有他真做过的那几行。
+  const wkRow = (o, ts) => Object.assign({}, o, { _wk: 1, _wkAt: ts, _ts: ts });
   function applyReply(d, name, text, now) {
     const ts = N(now, Date.now());
     const who = S(name).trim(), body = S(text).trim();
@@ -226,9 +232,62 @@
       }
       else if (who) searches.unshift({ q: who, time: "刚刚", opened: page || "", _ts: ts,
         results: page ? [{ source: S((o0 && o0.site) || ""), title: page, excerpt: S((o0 && o0.gist) || "") }] : [] });
-      if (page) tabs.unshift({ title: page, site: S((o0 && o0.site) || ""), age: "刚开的", pinned: false, cover: tabs.length % 6, gist: S((o0 && o0.gist) || "") });
+      // ⚠️tabs 是 ♻️ 快照，周刷会整份重编——他刚开的这一页会被凭空洗掉。
+      //   盖上 _wk 这枚戳，phone.js 那头的「走乙」认它，周刷时把它留住（她 2026-09-10 选的乙）。
+      if (page) tabs.unshift(wkRow({ title: page, site: S((o0 && o0.site) || ""), age: "刚开的", pinned: false, cover: tabs.length % 6, gist: S((o0 && o0.gist) || "") }, ts));
       if (!who && !page) return { d: d, wrote: false };
       return { d: Object.assign({}, base, { searches: searches, tabs: tabs.slice(0, 12) }), wrote: true };
+    }
+
+    // ── 购物（她 2026-09-10「第四批」）────────────────────────────
+    // 两下分得开：openPage＝点进一件商品页（**看过就是发生过** → 📚 viewed）；
+    // send＝放进购物车（**现在车里有什么** → ♻️ cart，他刚放的顶在最前面，
+    // 正是她要的「刷了就把旧的顶掉」）。看了没买是这个 app 最常见的一下。
+    if (appKey === "shopping") {
+      const title = who || body;
+      if (!title) return { d: d, wrote: false };
+      const shop = S(o0 && o0.site), why = S(o0 && o0.gist);
+      const price = (o0 && o0.price != null) ? N(o0.price, null) : null;
+      if (S(o0 && o0.act) === "send") {
+        const cart = Array.isArray(base.cart) ? base.cart.slice() : [];
+        if (cart.some(x => x && S(x.title) === title)) return { d: d, wrote: false };  // 已经在车里了，别放第二遍
+        cart.unshift(wkRow({ title: title, shop: shop, price: price, why: why, qty: 1 }, ts));
+        return { d: Object.assign({}, base, { cart: cart.slice(0, 12) }), wrote: true };
+      }
+      const viewed = Array.isArray(base.viewed) ? base.viewed.slice() : [];
+      if (viewed.some(x => x && S(x.title) === title)) return { d: d, wrote: false };
+      viewed.unshift({ title: title, shop: shop, price: price, time: "刚刚", _ts: ts });
+      return { d: Object.assign({}, base, { viewed: viewed }), wrote: true };
+    }
+
+    // ── 外卖 ───────────────────────────────────────────────────
+    // 翻店不写（他多半就是看看今天吃什么）；真下单才落，而且一下落两层：
+    //   orders 📚 —— 这一顿是发生过的事；
+    //   live   ♻️ —— 「他这会儿等着的」是当前状态，新的一单顶掉旧的。
+    if (appKey === "takeout") {
+      const title = who || body;
+      if (!title || S(o0 && o0.act) !== "send") return { d: d, wrote: false };
+      const shop = S(o0 && o0.site) || title, note = S(o0 && o0.gist);
+      const price = (o0 && o0.price != null) ? N(o0.price, null) : null;
+      const live = Array.isArray(base.live) ? base.live.slice() : [];
+      const orders = Array.isArray(base.orders) ? base.orders.slice() : [];
+      live.unshift(wkRow({ shop: shop, items: title, status: "配送中", eta: "", amount: price, note: note, step: 1 }, ts));
+      orders.unshift({ shop: shop, main: title, amount: price, time: "刚刚", status: "刚下单",
+        items: [{ name: title, qty: 1, price: price }], note: note, _ts: ts });
+      return { d: Object.assign({}, base, { live: live.slice(0, 6), orders: orders }), wrote: true };
+    }
+
+    // ── 小红书 ─────────────────────────────────────────────────
+    // 点进一条笔记只是【看】（那一页浮在屏幕上，什么也不写）；
+    // 他真按了收藏才落一条——items 是 📚，收藏过的就该一直在。
+    if (appKey === "liked") {
+      const title = who || body;
+      if (!title || S(o0 && o0.act) !== "send") return { d: d, wrote: false };
+      const items = Array.isArray(base.items) ? base.items.slice() : [];
+      if (items.some(x => x && S(x.title) === title)) return { d: d, wrote: false };
+      items.unshift({ title: title, author: S(o0 && o0.site), excerpt: S(o0 && o0.gist),
+        act: "收藏", time: "刚刚", cover: items.length % 6, _ts: ts });
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
     return { d: d, wrote: false };   // 还没接的 app：只演不落，绝不乱写
@@ -320,6 +379,25 @@
         .map(x => "· " + (x.title || "?") + (x.artist ? " / " + x.artist : "")).join("\n");
       now.push("〔音乐 music〕他歌单里的歌（openItem 的 name 就是歌名）：\n" + (sg || "（歌单还是空的，那就别点进去）"));
     }
+    if (can.indexOf("shopping") >= 0) {
+      const sp = ph.shopping || {};
+      const cart = arr(sp.cart).slice(0, 8).map(x => "· " + (x.title || "?") + (x.shop ? "（" + x.shop + "）" : "")).join("\n");
+      const wish = arr(sp.wish).slice(0, 10).map(x => (x.title || "")).filter(Boolean).join("、");
+      now.push("〔购物 shopping〕购物车里停着（openItem 的 name 就是这些标题）：\n" + (cart || "（车是空的）")
+        + (wish ? "\n一直没下手的：" + wish : ""));
+    }
+    if (can.indexOf("takeout") >= 0) {
+      const tk = ph.takeout || {};
+      const shops = arr(tk.shops).slice(0, 10).map(x => (x.name || "") + (x.usual ? "（常点 " + x.usual + "）" : "")).filter(Boolean).join("、");
+      const live = arr(tk.live).slice(0, 4).map(x => "· " + (x.shop || "") + "：" + (x.items || "")).join("\n");
+      now.push("〔外卖 takeout〕他常点的店：" + (shops || "（还没有常点的店）")
+        + (live ? "\n这会儿还在路上的：\n" + live : ""));
+    }
+    if (can.indexOf("liked") >= 0) {
+      const lk = ph.liked || {};
+      const its = arr(lk.items).slice(0, 10).map(x => "· " + (x.title || "?") + (x.author ? " / " + x.author : "")).join("\n");
+      now.push("〔小红书 liked〕他赞过收藏过的（openItem 的 name 就是标题）：\n" + (its || "（还什么都没存过）"));
+    }
     if (can.indexOf("notes") >= 0) {
       const ns = arr((ph.notes || {}).items).slice(0, 14)
         .map(x => "· " + (x.title || "?") + (x.body ? "：" + String(x.body).slice(0, 34) : "")).join("\n");
@@ -347,6 +425,9 @@
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去。搜完**不一定点得开东西**，那也很像你；真想点进去就 openPage，给 name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
+      can.indexOf("shopping") >= 0 ? "· 购物：openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
+      can.indexOf("takeout") >= 0 ? "· 外卖：openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
+      can.indexOf("liked") >= 0 ? "· 小红书：openPage 点进一条笔记——name 是标题、site 是作者、gist 是这条笔记写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。openItem 点开他以前存过的那几条。tab 可以切 feed / follow / mine。" : "",
       can.indexOf("music") >= 0 ? "· 音乐：openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑。" : "",
       "",
       "【他这台手机现在的样子】\n" + now.join("\n\n"),
@@ -362,7 +443,7 @@
   // ⚠️占位值写成【说明】不是【样例内容】——写成样例，模型会照抄那句话
   function watchSchemaHint() {
     return '{"acts":[{"kind":"上面词表里的一个词","app":"要打开的 app（只有 open 用）","name":"要点开的会话或人的名字",'
-      + '"at":"你在看的那样东西","text":"你打的字，或者 think 时你心里那一句","amount":"滑动的距离，正数往下","n":"要删掉几个字","ms":"停多久，毫秒"}]}';
+      + '"at":"你在看的那样东西","text":"你打的字，或者 think 时你心里那一句","amount":"滑动的距离，正数往下","price":"这样东西多少钱（只有买东西那几个 app 用）","n":"要删掉几个字","ms":"停多久，毫秒"}]}';
   }
 
   // ── 光标落在哪儿：靠挂点，不靠猜坐标 ────────────────────────────
@@ -379,9 +460,34 @@
     if (a.kind === "open") return '[data-watch="app:' + S(a.app).replace(/"/g, "") + '"]';
     if (a.kind === "look") return '[data-watch="look:' + S(a.at).replace(/"/g, "") + '"]';
     if (a.kind === "back") return '[data-watch="back"]';
-    if (a.kind === "send") return '[data-watch="send"]';
+    // 买东西那三个 app 没有「发送」钮，这一下按在现编的那一页上——退而求其次落在它上面，
+    // 总比圆点僵在原地强（querySelector 认逗号，谁先在页面上就落谁）。
+    if (a.kind === "send") return '[data-watch="send"],[data-watch="result"]';
     if (a.kind === "type" || a.kind === "erase") return '[data-watch="input"]';
     return "";
+  }
+
+  // ── 现编的那一页：他刚搜出来／刚点进去的东西 ──────────────────────
+  // 这一页在他手机里本来不存在，是这一段里现编的。四个 app 共用一份
+  // （浏览器、购物、外卖、小红书）——各写一套的话，改一处必漏三处
+  // （施工规则/one-public-mechanism.md）。长相靠 skin 传色，形状只此一种。
+  // ⚠️挂点 data-watch="result" 长在它身上：圆点要落在这一页上，靠的就是它。
+  function WatchPage(o) {
+    const p = o || {}, pg = p.page;
+    if (!pg) return null;
+    const sk = p.skin || {};
+    const bg = sk.bg || "#fff", ink = sk.ink || "#1c1a16", dim = sk.dim || "#9a9aa4";
+    const line = sk.line || "#eeeef1", body = sk.body || "#3a3a42";
+    const price = pg.price != null && pg.price !== "" ? pg.price : null;
+    return h("div", { "data-watch": "result", className: "absolute inset-0 flex flex-col", style: { background: bg, zIndex: 20 } },
+      // ⚠️padding 简写写在 paddingTop 后面会把它整个盖掉（刘海就白让了）——顺序不能反。
+      h("div", { "data-wk": "head", className: "shrink-0", style: { padding: "12px 16px 10px", paddingTop: safeTop(12), borderBottom: "1px solid " + line } },
+        h("div", { className: "flex items-baseline", style: { gap: 10 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: dim } }, pg.site || p.fallbackSite || "网页"),
+          price != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: sk.mark || ink } }, "¥" + price) : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: ink, marginTop: 5 } }, pg.title || "")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 30px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: body, whiteSpace: "pre-wrap" } }, pg.gist || "")));
   }
 
   // 触控圆点：手机不该配一个电脑鼠标。一颗很淡的圆 + 按下时一圈涟漪。
@@ -457,7 +563,7 @@
     THOUGHT_CAP, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
-    WatchDot, WatchThought, WatchBar,
+    WatchDot, WatchThought, WatchBar, WatchPage,
     normalizeActs, actDuration, sessionDuration, applyWrite, applyReply,
     knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
   };
