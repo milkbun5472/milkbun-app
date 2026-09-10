@@ -128,3 +128,13 @@ test("相册这张是【他自己拍的】：谁的手、谁的胸口，不能�
   assert.match(draw, /body: bodyish,/);
   assert.match(draw, /pov: \{ me: char\.remark \|\| char\.name, other: userName\(profile\) \}/);
 });
+
+test("「再画一张」得真是另一张；给回同一张就说出来", () => {
+  // 她 2026-09-10：「显示画好了但是 override 不了现在这张」。
+  // ⚠️不是存坏了：同一段提示词喂回去，很多站子会稳定吐回同一张图——
+  //   存进图库按内容取哈希，于是键一样、objectURL 一样，屏幕当然一动不动。
+  assert.match(draw, /const again = !!\(prevKept && \(prevKept\.imageRef \|\| prevKept\.imageUrl\)\);/);
+  assert.match(draw, /【这是重画的一张】同一件事，换个拍法/);
+  // 真的一样就别说「画好了」——她盯着一张没变的图只会以为是这儿坏了
+  assert.match(draw, /toast\(same \? "模型又给了同一张，再点一次试试" : "画好了"\)/);
+});

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.67";
+const APP_VERSION = "v66.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14474,11 +14474,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   跟这种照片正面打架——模型要么不画，要么画出来是一团糊。
       //   有身体部位或者有人在里面的，走【不露脸的局部照】那一档（同一份说明书，只换那道铁律）。
       const bodyish = /手|指|腕|胳膊|肩|背|腿|脚|脖|胸|怀里|头发|侧脸|睡着|抱|牵|搂|靠着|膝盖|锁骨|耳/.test(scene);
-      const out = await generateSelfieImage(buildScenePrompt(char, scene, {
+      // ⚠️「再画一张」得真的是另一张（她 2026-09-10：「显示画好了但是 override 不了现在这张」）。
+      //   同一段提示词喂回去，很多站子会稳定吐回同一张图——存进图库时按内容取哈希，
+      //   于是键都一样、objectURL 也一样，屏幕上当然一动不动。所以重画时明说换个拍法。
+      const sigOf0 = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
+      const prevKept = (Array.isArray(loadJSON("x_phoneKeep", {})[char.id]) ? loadJSON("x_phoneKeep", {})[char.id] : [])
+        .find(x => sigOf0(x) === key) || null;
+      const again = !!(prevKept && (prevKept.imageRef || prevKept.imageUrl));
+      const p0 = buildScenePrompt(char, scene, {
         forText: false, body: bodyish,
         // 画面里谁是谁：这张是他自己举着手机拍的，「我」是他、「她」是用户
         pov: { me: char.remark || char.name, other: userName(profile) }
-      }), null, {});
+      }) + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光，"
+        + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
+      const out = await generateSelfieImage(p0, null, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = loadJSON("x_phoneKeep", {});
@@ -14505,7 +14514,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? list.map(x => sigOf(x) === key ? { ...x, imageRef: ref || x.imageRef || "", imageUrl: url } : x)
         : [{ ...photo, imageRef: ref, imageUrl: url, _at: Date.now() }, ...list];
       saveJSON("x_phoneKeep", { ...all, [char.id]: nl });
-      toast("画好了");
+      // ⚠️一模一样就别说「画好了」——她盯着一张没变的图，只会以为是这儿坏了。
+      const same = again && ((ref && ref === prevKept.imageRef) || (url && url === prevKept.imageUrl));
+      toast(same ? "模型又给了同一张，再点一次试试" : "画好了");
       return true;
     // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）：
     //   截成十个字的「没画成：请求失败」等于什么也没说。
