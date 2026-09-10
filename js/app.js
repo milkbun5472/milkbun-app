@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.68";
+const APP_VERSION = "v66.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6735,6 +6735,86 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const r = listenReturnRef.current || "home";
     if (r === "home") goHome(); else setScreen(r);
     if (back) { if (back.kind === "char") setOfflineChar(back.v); else setOfflineGroup(back.v); }
+  };
+  // ── 电台（v66.66，她 2026-09-10「同意宝宝开始吧」；范围见 电台-第一版范围-2026-09-10.md）──
+  // 生成只有三张单子，而且都在这儿——因为只有这儿拿得到 active 那条线路。
+  // ⚠️三张单子都走「料全放 system、user 只留一句触发」（施工规则/prompt-send-shape.md），
+  //   maxTokens 一律给满（max-tokens-floor.md：给大了不多花一分钱，给小了会截断正文）。
+  // ⚠️今天哪个频率有台、播到第几条，一个字都不在这几张单子里——那些是 js/radio.js 用种子和
+  //   时间算出来的。生成的时候顺手把「今天有没有」也定了的话，这个世界就只在她打开时才存在。
+  const radioAsk = async (instruction, schemaHint) => {
+    const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "电台" });
+    const d = extractJSON(raw);
+    // 报错里必须带着我没看懂的那个东西本身（prompt-send-shape.md 第二条）
+    if (!d) throw new Error("电台这一枪没解析出东西。它回的是：\n" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 260));
+    return d;
+  };
+  const radioStation = (raw, kind, freq, extra) => {
+    const R = window.Radio;
+    const S = v => String(v == null ? "" : v).trim();
+    return Object.assign({
+      id: "rs_" + Math.random().toString(36).slice(2, 9),
+      kind: kind, freq: freq,
+      name: S(raw.name).slice(0, 18) || "无名台",
+      callSign: S(raw.callSign).slice(0, 14),
+      area: S(raw.area).slice(0, 40),
+      habit: S(raw.habit).slice(0, 120),
+      signOn: S(raw.signOn).slice(0, 60),
+      timeCall: S(raw.timeCall).slice(0, 40),
+      ads: (Array.isArray(raw.ads) ? raw.ads : []).map(S).filter(Boolean).slice(0, 8),
+      density: kind === R.KIND.DRIFT ? R.DRIFT_DENSITY : 1
+    }, extra || {});
+  };
+  const genRadioWorld = async () => {
+    const R = window.Radio;
+    const seen = R.readSeen();
+    const d = await radioAsk(R.buildWorldInstruction(seen), R.worldSchemaHint);
+    const rows = (Array.isArray(d.stations) ? d.stations : []).filter(x => x && x.name).slice(0, 4);
+    if (rows.length < 2) throw new Error("这一枪只建出来 " + rows.length + " 个台");
+    // 频率由代码发：模型报的频率会往 88.0 / 101.1 这种「好听的数字」上挤，挤到一起就没有频段了
+    const slots = R.SLOTS.slice();
+    const pick = k => slots.splice(Math.floor(R.seed01("build", Date.now(), k) * slots.length), 1)[0];
+    const stations = rows.map((raw, k) => {
+      const win = Number.isFinite(Number(raw.windowFrom)) && Number.isFinite(Number(raw.windowTo));
+      return radioStation(raw, win ? R.KIND.WINDOW : R.KIND.RESIDENT, pick(k),
+        win ? { window: { from: (Number(raw.windowFrom) + 24) % 24, to: (Number(raw.windowTo) + 24) % 24 } } : null);
+    });
+    R.writeWorld({ builtAt: R.radioNow(), stations: stations });
+    R.writeSeen(R.avoidPush(seen, stations.map(x => x.name)));
+    return stations;
+  };
+  const genRadioDay = async st => {
+    const R = window.Radio;
+    const now = R.radioNow();
+    const key = "radio|" + st.id, period = R.dayKey(now);
+    // 闸只此一份（施工规则/one-public-mechanism.md）：失败了留痕迹，
+    // 不然她每拧回来一次就是重打一枪，那正是 v65.03 那次一天八块钱的形状。
+    if (!window.AutoGate.due(key, period, { maxTries: 2, cooldownMs: 600000 })) return [];
+    let items = [];
+    try {
+      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen()), R.scheduleSchemaHint);
+      items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 18);
+    } finally { window.AutoGate.mark(key, period, items.length > 0); }
+    if (!items.length) throw new Error("这一枪没排出节目来");
+    R.writeDay(period, st.id, items);
+    return items;
+  };
+  const genRadioDrift = async freq => {
+    const R = window.Radio;
+    const now = R.radioNow(), period = R.dayKey(now);
+    const key = "radio|drift|" + R.freqText(freq);
+    if (!window.AutoGate.due(key, period, { maxTries: 1, cooldownMs: 3600000 })) return null;
+    window.AutoGate.claim(key, period);
+    const seen = R.readSeen();
+    const d = await radioAsk(R.buildDriftInstruction(R.rollAxes("slot", R.freqText(freq), period), freq, seen), R.driftSchemaHint);
+    if (!d.name) throw new Error("这一格上没掷出一个台来");
+    const st = radioStation(d, R.KIND.DRIFT, freq, { bornAt: now });
+    R.addStation(st);
+    R.writeSeen(R.avoidPush(seen, [st.name]));
+    const items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 16);
+    if (items.length) R.writeDay(period, st.id, items);
+    return st;
   };
   const saveChar = c => {
     pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, c]);
@@ -19589,6 +19669,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenComments: genDiaryCommentsFor,
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
+  else if (screen === "radio") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
+    onBack: goHome,
+    onBuild: genRadioWorld,
+    onTune: genRadioDay,
+    onDrift: genRadioDrift,
+    onClearDev: () => window.Radio.clearDev(),
+    toast: toast
+  }) : null);
   else if (screen === "listen") body = h(ListenTogether, {
     listen: listen,
     characters: liveChars,
@@ -19919,7 +20007,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggle: togglePlay,
     onNext: () => stepSong(1),
     onClose: stopPlayer
-  }) : null, (() => {
+  }) : null, (window.RadioUI && screen !== "radio") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radio") }) : null, (() => {
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
