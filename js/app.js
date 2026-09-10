@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.25";
+const APP_VERSION = "v66.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13185,7 +13185,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
   // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
-  const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked"];
+  // ⚠️论坛和匿名信箱【故意不在这儿】（她 2026-09-10：「论坛匿名信箱都不要动」）：
+  //   那两个接的是真数据——他在那儿发一帖就是真的发出去了，不是演一下，跟别的 app 不是一回事。
+  const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
+    "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard"];
   const genWatchSession = async char => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
@@ -13202,7 +13205,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         voice: true, tag: "phoneWatch",
         instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: WATCH_APPS,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
-          playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null }),
+          playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
+          // 日历跟音乐一样是真数据（不在 x_phone 里），也单独递进去
+          calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null) }),
         schemaHint: WK.watchSchemaHint(),
         maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
       });
@@ -13234,13 +13239,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (r.wrote) savePhoneApp(char.id, where, r.d, { noArchive: true, patched: true });
   };
   // 对面回的那一句：落盘走跟他自己发话同一条路（savePhoneApp），只是 from 是对面
-  const watchReply = (char, name, text) => {
+  const watchReply = (char, name, text, where) => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return;
-    const cur = ((phonesRef.current || {})[char.id] || {}).wechat;
+    // 对面回话的地方：微信是会话，电话那边是短信串。默认还是微信（第一批就只有它）。
+    const key = where === "calls" ? "calls" : "wechat";
+    const cur = ((phonesRef.current || {})[char.id] || {})[key];
     if (!cur) return;
-    const r = WK.applyReply(cur, name, text, Date.now());
-    if (r.wrote) savePhoneApp(char.id, "wechat", r.d, { noArchive: true, patched: true });
+    const r = WK.applyReply(cur, name, text, Date.now(), key);
+    if (r.wrote) savePhoneApp(char.id, key, r.d, { noArchive: true, patched: true });
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   const watchKnock = async (char, nth, nowAct) => {

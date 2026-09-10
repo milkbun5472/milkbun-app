@@ -1556,9 +1556,22 @@ function PGlyph({
 // 界面照着真邮箱做：列表只露主题和那一截，点进去才是全文。
 const MAIL_BG = "#f2f4f7", MAIL_INK = "#1b1f26", MAIL_DIM = "#8a919c", MAIL_LINE = "#e3e7ec", MAIL_BLUE = "#2f6fd0";
 const MAIL_TABS = [{ k: "inbox", zh: "收件箱" }, { k: "sent", zh: "发出去的" }, { k: "drafts", zh: "草稿" }];
-function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("inbox");
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第五批）──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const want = String(driveItem);
+    ["inbox", "sent", "drafts"].some(k => {
+      const hit = (Array.isArray(d && d[k]) ? d[k] : []).find(x => x && (String(x.subject || "") === want || String(x.from || "") === want));
+      if (hit) { setOpen({ ...hit, _kind: k }); return true; }
+      return false;
+    });
+  }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
   const S = v => String(v == null ? "" : v).trim();
   const data = (d && typeof d === "object") ? d : {};
@@ -1568,7 +1581,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const unreadN = rows("inbox").filter(x => x.unread).length;
 
   const listRow = (x, i, kind) => h("button", {
-    key: i, onClick: () => setOpen({ ...x, _kind: kind }),
+    key: i, onClick: () => setOpen({ ...x, _kind: kind }), "data-watch": "item:" + (x.subject || x.from || ""),
     className: "w-full text-left active:opacity-60",
     style: { display: "flex", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + MAIL_LINE, background: "transparent" }
   },
@@ -1627,6 +1640,13 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       open._kind === "drafts" ? h("div", {
         style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: "#b6473c", lineHeight: 1.8 }
       }, "这封一直没发出去。" + phoneKeptLine(open, Date.now())) : null,
+      // ── 回信条：只有「看他玩」演到打字那一下才出现 ──
+      drive && drive.typing != null ? h("div", { "data-watch": "input", style: { marginTop: 20, border: "1px solid " + MAIL_LINE, borderRadius: 13, padding: "13px 15px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM } }, "回复 · " + (S(open.from) || S(open.to))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: MAIL_INK, marginTop: 7, whiteSpace: "pre-wrap", minHeight: 22 } },
+          drive.typing,
+          h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: MAIL_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
+        h("div", { "data-watch": "send", style: { marginTop: 11, textAlign: "center", borderRadius: 999, padding: "8px 0", fontFamily: F_BODY, fontSize: 13, color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? MAIL_INK : "#eeeef2" } }, "发送")) : null,
       onPeek ? h("button", {
         onClick: () => onPeek({
           tier: open._kind === "drafts" ? "hidden" : "quiet",
@@ -1656,7 +1676,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         MAIL_TABS.map(x => {
           const on = tab === x.k, n = rows(x.k).length;
           return h("button", {
-            key: x.k, onClick: () => { setTab(x.k); setOpen(null); }, className: "active:opacity-70",
+            key: x.k, onClick: () => { setTab(x.k); setOpen(null); }, "data-watch": "tab:" + x.k, className: "active:opacity-70",
             style: {
               fontFamily: F_BODY, fontSize: 12.5, padding: on ? "10px 16px 9px" : "8px 14px 7px",
               minHeight: 40, marginBottom: -1,
@@ -1725,8 +1745,11 @@ function tallyEntries(tab, data) {
     return { ...b, lead: S(x.q), back: { label: "他的答案", text: S(x.a) } };
   });
 }
-function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("debts");
+  // ── 「看他玩」驱动（第五批）。账本只能看：翻开一张卡片看它背面，改不了 ──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setFlip(null); } }, [driveTab]);
   // 同一时刻只翻开一张：打字机的计时器就一个，不会漏；也免得整页都在动。
   const [flip, setFlip] = useState(null);
   const [typed, setTyped] = useState(0);
@@ -1737,6 +1760,9 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const count = k => A(data[k]).filter(x => x && typeof x === "object").length;
   const rows = tallyEntries(tab, data);
   const openEntry = rows.find(e => e.key === flip) || null;
+  // ⚠️翻开哪一张认的是 flip 这个 key（tab+下标），不是那一行本身——照这一屏自己的写法来
+  const driveKey = driveItem ? (rows.find(e => String(e.lead || "") === String(driveItem)) || {}).key : null;
+  useEffect(() => { if (drive) setFlip(driveKey || null); }, [driveKey]);
   const backText = openEntry ? openEntry.back.text : "";
   // 翻过去之后一个字一个字往外蹦。翻回来就停——计时器只跟着「翻开的是哪一张」走。
   useEffect(() => {
@@ -1895,7 +1921,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         } }, String(e.i + 1).padStart(2, "0"))),
       h("div", { style: { flex: 1, minWidth: 0, perspective: 1000 } },
       h(has ? "button" : "div", {
-        onClick: has ? () => tap(e) : undefined,
+        onClick: has ? () => tap(e) : undefined, "data-watch": "item:" + (e.lead || ""),
         className: has ? "w-full text-left" : "w-full",
         "aria-expanded": has ? (on ? "true" : "false") : undefined,
         style: {
@@ -1962,7 +1988,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           background: "linear-gradient(to top,rgba(156,63,52,.55) 0 2px,transparent 2px)"
         }
       }, TALLY_TABS.map(x => h("button", {
-        key: x.k, onClick: () => { setTab(x.k); setFlip(null); },
+        key: x.k, onClick: () => { setTab(x.k); setFlip(null); }, "data-watch": "tab:" + x.k,
         className: "active:opacity-70",
         "aria-pressed": tab === x.k ? "true" : "false",
         style: {
@@ -2816,9 +2842,23 @@ const readFmtMin = n => {
   const hh = Math.floor(n / 60), mm = n % 60;
   return hh ? hh + " 小时" + (mm ? " " + mm + " 分" : "") : mm + " 分";
 };
-function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("shelf");
   const [book, setBook] = useState(null);
+  // ── 「看他玩」驱动（第五批）──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setBook(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setBook(null); return; }
+    const A0 = a => Array.isArray(a) ? a : [];
+    A0(d && d.shelves).some(sh => A0(sh && sh.books).some((b, i) => {
+      if (!b || String(b.title || "") !== String(driveItem)) return false;
+      // ⚠️照这一屏自己的写法来：详情里还挂着 _shelf / _no 两栏（openBook 那一处）
+      setBook({ ...b, _shelf: (sh.name || ""), _no: i + 1 });
+      return true;
+    }));
+  }, [driveItem]);
   const scrollRef = useRef(null);
   const returnScroll = useRef({ top: 0, pending: false });
   const shelves = (Array.isArray(d && d.shelves) ? d.shelves : []).filter(x => x && typeof x === "object");
@@ -2879,7 +2919,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const pct = readPct(b.readAt);
     const cold = stalled(b.readAt);
     return h("button", {
-      key: i, onClick: () => openBook(b, sh, i), className: "w-full text-left active:opacity-60",
+      key: i, onClick: () => openBook(b, sh, i), "data-watch": "item:" + (b.title || ""), className: "w-full text-left active:opacity-60",
       style: { display: "block", padding: "13px 2px 14px", borderTop: i ? "1px solid " + READ_LINE : "none" }
     },
       h("div", { className: "flex items-baseline", style: { gap: 10 } },
@@ -2972,7 +3012,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     className: "shrink-0 grid grid-cols-2",
     style: { padding: "5px 30px", paddingBottom: COMPOSER_PAD_BOTTOM, background: READ_CARD, borderTop: "1px solid " + READ_LINE }
   }, [["shelf", "书架"], ["mine", "我的"]].map(([k, label]) => h("button", {
-    key: k, onClick: () => { setTab(k); setBook(null); },
+    key: k, onClick: () => { setTab(k); setBook(null); }, "data-watch": "tab:" + k,
     className: "flex flex-col items-center justify-center active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === k ? "#9dc49a" : READ_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { width: 30, height: 20, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: tab === k ? "rgba(157,196,154,.18)" : "transparent" } },
@@ -2998,6 +3038,13 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, T("他划的一句")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, book.quote)) : null,
+    // ── 批注条：只有「看他玩」演到写批注那一下才出现 ──
+    drive && drive.typing != null ? h("div", { "data-watch": "input", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, "他正在写的批注"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap", minHeight: 22 } },
+        drive.typing,
+        h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: READ_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
+      h("div", { "data-watch": "send", style: { marginTop: 10, textAlign: "center", borderRadius: 8, padding: "7px 0", fontFamily: F_BODY, fontSize: 12.5, color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? "#b07f8e" : "rgba(0,0,0,.06)" } }, "记下")) : null,
     book.note ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "批注"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
@@ -3832,8 +3879,11 @@ const healthGroupOf = c => {
   const hit = Object.keys(HEALTH_GROUP_ALIAS).find(w => raw.indexOf(w) >= 0);
   return hit ? HEALTH_GROUP_ALIAS[hit] : "body";
 };
-function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals }) {
+function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals, drive }) {
   const [tab, setTab] = useState("body");
+  // ── 「看他玩」驱动（第五批）：健康只能看，他盯着某一项读数而已 ──
+  const driveTab = drive && drive.tab;
+  useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
@@ -3877,7 +3927,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   const labRow = (c, i, last) => {
     const alert = /异常|偏[高低]|不足|过[高低多少]|警|差|超/.test(String(c.tag || ""));
     const ink = alert ? HEALTH_ALERT : HEALTH_INK;
-    return h("div", { key: i, style: { padding: "12px 0 13px", borderBottom: last ? "none" : "1px solid " + HEALTH_LINE } },
+    return h("div", { key: i, "data-watch": "item:" + (c.name || ""), style: { padding: "12px 0 13px", borderBottom: last ? "none" : "1px solid " + HEALTH_LINE } },
       h("div", { className: "flex items-baseline" },
         // 左边那道栏外的记号：异常才有，一笔就够
         h("span", { "aria-hidden": "true", style: { width: 9, flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: HEALTH_ALERT, lineHeight: 1 } }, alert ? "·" : ""),
@@ -4036,7 +4086,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 8px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
   }, PAGES.map(pg => h("button", {
-    key: pg.key, onClick: () => setTab(pg.key),
+    key: pg.key, onClick: () => setTab(pg.key), "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
@@ -4062,9 +4112,19 @@ const BILI_COVERS = [
   ["#8ec5e8", "#c9e4f4"], ["#f6a9be", "#fbd3de"], ["#a8d5b5", "#d3ead9"],
   ["#e8c98e", "#f4e3c4"], ["#b3aede", "#d9d6ef"], ["#8fd0c8", "#c7e7e2"]
 ];
-function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState(0);
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第五批）：这一路什么都改不了，就是刷 ──
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const list = (Array.isArray(d && d.items) ? d.items : []).filter(x => x && typeof x === "object");
+    const i = list.findIndex(x => String(x.title || "") === String(driveItem));
+    // ⚠️open 存的是 { v, i } 这一对，不是那条本身——照这一屏自己的写法来
+    if (i >= 0) setOpen({ v: list[i], i: i });
+  }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const me = (data.me && typeof data.me === "object") ? data.me : {};
@@ -4074,7 +4134,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const shown = cur === "全部" ? items : items.filter(x => x.tab === cur);
   const cover = i => BILI_COVERS[i % BILI_COVERS.length];
   const card = (v, i) => h("button", {
-    key: i, onClick: () => setOpen({ v: v, i: i }), className: "text-left active:opacity-75",
+    key: i, onClick: () => setOpen({ v: v, i: i }), "data-watch": "item:" + (v.title || ""), className: "text-left active:opacity-75",
     style: { background: "#fff", borderRadius: 10, overflow: "hidden", minWidth: 0 }
   }, h("div", { style: { position: "relative", aspectRatio: "16 / 10", background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")" } },
     h("div", { style: { position: "absolute", left: 6, bottom: 6, right: 6, display: "flex", justifyContent: "space-between", alignItems: "flex-end" } },
@@ -4156,15 +4216,23 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // ============================================================
 // 深夜台 —— 暗色、极简、不解释（她 2026-08-29 起的名，尺度照旧不动）
 // ============================================================
-function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第五批）：只能看 ──
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.title || "") === String(driveItem));
+    if (hit) setOpen(hit);
+  }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const me = (data.me && typeof data.me === "object") ? data.me : {};
   const items = A(data.items).filter(x => x && typeof x === "object");
   const BG = "#0d0c0e", CARD = "#17151a", INK = "#e8e3e6", DIM = "rgba(232,227,230,.44)", HOT = "#c0566d";
   const row = (v, i) => h("button", {
-    key: i, onClick: () => setOpen(v), className: "w-full text-left active:opacity-70",
+    key: i, onClick: () => setOpen(v), "data-watch": "item:" + (v.title || ""), className: "w-full text-left active:opacity-70",
     style: { display: "flex", gap: 12, padding: "13px 0", borderTop: i ? "1px solid rgba(232,227,230,.08)" : "none" }
   }, h("div", { style: { width: 112, height: 66, borderRadius: 8, flexShrink: 0, position: "relative", overflow: "hidden", background: "linear-gradient(140deg,#2a2129," + ["#3a2630", "#2b2733", "#33272a", "#262b33", "#332a26"][i % 5] + ")" } },
     h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
@@ -4407,9 +4475,17 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
 // 日历 —— 月历格子 + 事项列表。推迟次数是这个 app 的重点：
 // 一件推了四次的小事，比四件按时完成的大事更能说明这个人。
 // ============================================================
-function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
   const [sel, setSel] = useState(null);
+  // ── 「看他玩」驱动（第五批）：日历只能看 ──
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.title || "") === String(driveItem));
+    if (hit) setOpen(hit);
+  }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const items = A(data.items).filter(x => x && typeof x === "object");
@@ -4456,7 +4532,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const inMonth = dated.filter(r => r.at.y === cy && r.at.m === cm).map(r => r.x);
   const listFor = sel ? onDay(sel) : inMonth;
   const row = (x, i) => h("button", {
-    key: i, onClick: () => setOpen(x), className: "w-full text-left active:opacity-60",
+    key: i, onClick: () => setOpen(x), "data-watch": "item:" + (x.title || ""), className: "w-full text-left active:opacity-60",
     style: { display: "flex", gap: 12, background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 9 }
   }, h("span", { style: { width: 8, height: 8, borderRadius: 99, marginTop: 6, flexShrink: 0, background: x.done ? "#c7c7cc" : late(x) ? CAL_RED : "#4a90d9" } }),
   h("div", { style: { flex: 1, minWidth: 0 } },
@@ -4646,8 +4722,16 @@ function ClipPin({ color, size }) {
       fill: "none", stroke: color, strokeWidth: 2.1, strokeLinecap: "round", strokeLinejoin: "round"
     }));
 }
-function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第五批）：剪贴板只能看 ──
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && String(x.text || "").indexOf(String(driveItem)) >= 0);
+    if (hit) setOpen(hit);
+  }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
   const held = items.filter(x => x.sent === false);
@@ -4658,7 +4742,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const tilt = ((seed % 5) - 2) * 0.6;   // 叠不齐：-1.2° ~ +1.2°
     return h("div", { key: i, style: { position: "relative", marginBottom: isHeld ? 18 : 13, paddingTop: isHeld ? 8 : 0 } },
       h("button", {
-        onClick: () => setOpen(it), className: "w-full text-left active:opacity-90",
+        onClick: () => setOpen(it), "data-watch": "item:" + String(it.text || "").slice(0, 24), className: "w-full text-left active:opacity-90",
         style: {
           position: "relative", display: "block", background: isHeld ? CLIP_PAPER : CLIP_PAPER2,
           borderRadius: 2, padding: "15px 16px 20px", transform: "rotate(" + tilt + "deg)",
@@ -4982,9 +5066,24 @@ function callGlyph(kind, color) {
     h("path", Object.assign({ key: "b", d: "M5.4 19.2c0-3.4 3-5.6 6.6-5.6s6.6 2.2 6.6 5.6" }, P))]);
 }
 const CALL_RED = "#ff3b30";
-function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("calls");
   const [open, setOpen] = useState(null);
+  // ── 「看他玩」驱动（第五批）。drive 不在时这一屏一个像素都没变 ──
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const A0 = a => Array.isArray(a) ? a : [];
+    const want = String(driveItem);
+    const sm = A0(d && d.sms).find(x => x && (String(x.name || "") === want || String(x.number || "") === want));
+    if (sm) { setOpen({ kind: "sms", x: sm }); return; }
+    const cl = A0(d && d.calls).find(x => x && (String(x.name || "") === want || String(x.number || "") === want));
+    if (cl) { setOpen({ kind: "call", x: cl }); return; }
+    const v = A0(d && d.voicemail).find(x => x && String(x.from || "") === want);
+    if (v) setOpen({ kind: "vm", x: v });
+  }, [driveItem]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
@@ -5011,7 +5110,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const missed = x.answered === false;
     const isIn = x.dir === "in";
     return h("button", {
-      key: i, onClick: () => setOpen({ kind: "call", x: x }),
+      key: i, onClick: () => setOpen({ kind: "call", x: x }), "data-watch": "item:" + (x.name || x.number || ""),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 12, padding: "12px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("span", { "aria-hidden": "true", style: { width: 26, flexShrink: 0, textAlign: "center", fontSize: 15, color: missed ? CALL_RED : CALL_DIM } }, isIn ? "↙" : "↗"),
@@ -5030,7 +5129,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const smsRow = (x, i) => {
     const isNotice = x.kind !== "人";
     return h("button", {
-      key: i, onClick: () => setOpen({ kind: "sms", x: x }),
+      key: i, onClick: () => setOpen({ kind: "sms", x: x }), "data-watch": "item:" + (x.name || x.number || ""),
       className: "w-full text-left active:opacity-60 flex items-start",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("div", { style: { width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -5082,6 +5181,9 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     (!freq.length && !blocked.length && !me.number)
       ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
+  // 演到一半就该看见：他刚发出去的那条先挂在气泡串上（落盘另走 applyWrite）
+  const driveSent = (drive && open && open.kind === "sms" && String(drive.item || "") === String((open.x || {}).name || (open.x || {}).number || "")) ? A(drive.sent) : [];
+  const driveTyping = (drive && open && open.kind === "sms" && drive.typing != null) ? String(drive.typing || "") : null;
   const detail = open ? (function () {
     const x = open.x || {};
     const isCall = open.kind === "call", isSms = open.kind === "sms", isVm = open.kind === "vm";
@@ -5094,7 +5196,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 5 } },
         [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · ")),
       // 短信：气泡串。收到的靠左灰、他发的靠右蓝
-      isSms ? h("div", { style: { marginTop: 16 } }, A(x.msgs).map((m2, j) => {
+      isSms ? h("div", { "data-watch": "thread", style: { marginTop: 16 } }, A(x.msgs).concat(driveSent).map((m2, j) => {
         const mine = m2.from === "me";
         return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
           h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m2.text || ""));
@@ -5104,6 +5206,12 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
       isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
       x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
+      // ── 打字条：只有「看他玩」演到打字那一下才出现（drive 不在时压根不画）──
+      driveTyping != null ? h("div", { "data-watch": "input", className: "flex items-end", style: { gap: 8, marginTop: 16, padding: "8px 10px", background: "#f5f5f8", borderRadius: 14 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: CALL_INK, minHeight: 20 } },
+          driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
+          h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: CALL_BLUE, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
+        h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: 999, padding: "7px 14px", fontFamily: F_BODY, fontSize: 13, color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? CALL_BLUE : "#e6e6ea" } }, "发送")) : null,
       peekBtn("quiet",
         isCall ? (missed ? T("他没接的一通电话") : T("他的通话记录")) : isSms ? T("他收到的短信") : T("有人给他留的言"),
         x.name || x.from || x.number,
@@ -5128,7 +5236,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       PAGES.map(pg => {
         const on = tab === pg.key;
         return h("button", {
-          key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
+          key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-watch": "tab:" + pg.key,
           className: "flex-1 flex flex-col items-center justify-center active:opacity-60",
           style: { padding: "7px 0 6px", minHeight: 48, position: "relative" }
         },
@@ -5432,7 +5540,7 @@ function renderPhoneModule(key, d, ctx) {
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
   if (key === "takeout") return h(TakeoutView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
@@ -5451,15 +5559,15 @@ function renderPhoneModule(key, d, ctx) {
     pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
     onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive
   });
-  if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });
+  if (key === "reading") return h(ReadingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "clipboard") return h(ClipView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "health") return h(HealthView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });
   if (key === "liked") return h(PlazaView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "mail") return h(MailView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "tally") return h(TallyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "calendar") return h(CalendarView, { drive: ctx.drive, d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "bili") return h(BiliView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "latenight") return h(LateNightView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "mail") return h(MailView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "tally") return h(TallyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "anon") return h(AnonBox, {
     char,
     data: ctx.anon || {},
@@ -5639,6 +5747,15 @@ function PhoneCarry({
   const openRef = useRef(null);
   openRef.current = open;
   // 便签里点开一条时，手上那份草稿就是它现在的正文——他要「划掉重写」得先有东西可划
+  // 阅读：点开一本书时，手上那份草稿就是它现在的批注（跟便签同一个理由）
+  const bookNoteOf = title => {
+    const shelves = (((phones || {})[char && char.id] || {}).reading || {}).shelves;
+    let out = "";
+    (Array.isArray(shelves) ? shelves : []).forEach(sh => (Array.isArray(sh && sh.books) ? sh.books : []).forEach(b => {
+      if (b && String(b.title || "") === String(title)) out = String(b.note || "");
+    }));
+    return out;
+  };
   const noteBodyOf = title => {
     const it = (((phones || {})[char && char.id] || {}).notes || {}).items;
     const hit = (Array.isArray(it) ? it : []).find(x => x && String(x.title || "") === String(title));
@@ -5676,10 +5793,12 @@ function PhoneCarry({
     // ① 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
     else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
-    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, typing: null } : w); }
     else if (a.kind === "open") {
       const app = appByKey(a.app);
-      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, typing: app.key === "browser" ? "" : null } : w); }
+      // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
+      //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
+      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, typing: app.key === "browser" ? "" : null } : w); }
     }
     else if (a.kind === "back") {
       const w0 = watchRef.current;
@@ -5692,8 +5811,12 @@ function PhoneCarry({
       ...w, item: a.name, page: null,
       // 微信：点开会话＝可以开始打字（空草稿）。便签：点开＝手上是那条现有的正文，
       // 他要划掉重写就从这一份上删起。相册／音乐：纯点开，压根不给草稿。
-      typing: openRef.current === "wechat" ? ""
-        : openRef.current === "notes" ? String((noteBodyOf(a.name) || "")) : null
+      // 微信／短信／邮件：点开＝可以开始打字（空草稿）。
+      // 便签／阅读：点开＝手上是它现在的正文／批注，他要划掉重写就从这一份上删起。
+      // 相册／音乐／视频／健康这些：纯点开，压根不给草稿。
+      typing: (openRef.current === "wechat" || openRef.current === "calls" || openRef.current === "mail") ? ""
+        : openRef.current === "notes" ? String((noteBodyOf(a.name) || ""))
+        : openRef.current === "reading" ? String((bookNoteOf(a.name) || "")) : null
     } : w);
     // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
     else if (a.kind === "openPage") {
@@ -5709,7 +5832,7 @@ function PhoneCarry({
     // 不然那一屏永远停在他自己那条上，像对面死了。
     else if (a.kind === "reply") {
       setWatch(w => w ? { ...w, sent: (w.sent || []).concat([{ from: a.name, text: a.text, them: true }]) } : w);
-      if (onWatchReply) { try { onWatchReply(char, a.name, a.text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+      if (onWatchReply) { try { onWatchReply(char, a.name, a.text, openRef.current); } catch (e) {/* 落盘失败不该把这段演砸 */} }
     }
     else if (a.kind === "erase") setWatch(w => w ? { ...w, typing: a.n == null ? "" : String(w.typing || "").slice(0, Math.max(0, String(w.typing || "").length - a.n)) } : w);
     else if (a.kind === "send") {
@@ -5731,7 +5854,9 @@ function PhoneCarry({
       }
       else if (text) {
         // 微信里发出去的那条要当场挂在气泡列表上；便签是就地改，正文由 drive.typing 顶着
-        if (where === "wechat" && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
+        // 微信／短信里发出去的那条要当场挂在气泡串上；便签、邮件、阅读是就地改，正文由 drive.typing 顶着
+        // ⚠️「谁说的」两屏认的键不一样：微信认 __me__，短信那一屏认的是 "me"（照各自那屏自己的写法来）
+        if ((where === "wechat" || where === "calls") && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: where === "calls" ? "me" : "__me__", text: text }]) } : w);
         // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
         if (onWatchSend) { try { onWatchSend(char, where, to, text, { act: "send" }); } catch (e) {/* 落盘失败不该把这段演砸 */} }
       }
@@ -6121,7 +6246,12 @@ function PhoneCarry({
     // 各拼一份的话，第三批加浏览器又要在这儿多一支（一层写在多处）。
     drive: watch ? { tab: watch.tab, item: watch.item, page: watch.page, typing: watch.typing,
       // sent 里两种人：他自己发的（右侧绿气泡）和对面回的
-      sent: (watch.sent || []).map(x => ({ from: x.them ? x.from : ((data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name), text: x.text, _new: true })) } : null,
+      // ⚠️「他自己」在两屏上叫的名字不一样：微信按头像认人，所以要换成他的微信昵称；
+      //   短信那一屏认的是死字符串 "me"（照各自那屏自己的写法来）。
+      //   原来这儿一律换成昵称——于是短信里他自己发的那条被画成了对面的灰气泡（真机上抓到的）。
+      sent: (watch.sent || []).map(x => ({
+        from: x.them ? x.from : (x.from === "me" ? "me" : ((data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name)),
+        text: x.text, _new: true })) } : null,
     onBack: () => setOpen(null)
   }));
   if (locked) return watchSkin(h(LockScreen, {

@@ -555,7 +555,7 @@ test("日历：月历格子按真实日期落位，推迟多的标红", () => {
   assert.match(SRC, /const late = x => Number\(x\.postponed\) >= 2 \|\| !!x\.overdue/);
   // v57.64：日历不再自己生成，读 App 里那份真的
   assert.equal(loadPhone().phoneProbeSpec("calendar", char, [], "", []).schemaHint, "{}", "日历还留着推演任务");
-  assert.match(SRC, /if \(key === "calendar"\) return h\(CalendarView, \{ d: ctx\.calendar \|\| d/);
+  assert.match(SRC, /if \(key === "calendar"\) return h\(CalendarView, \{ drive: ctx\.drive, d: ctx\.calendar \|\| d/);
 });
 
 test("日历接的是 App 里那三份真的：他自己那格、带时刻的日程、答应过的事", () => {

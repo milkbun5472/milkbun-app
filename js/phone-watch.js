@@ -163,11 +163,21 @@
   // 他自己刷出来的那一行盖一枚戳。♻️ 那几栏（开着的标签页、购物车、在送的那一单）
   // 周刷会整份重编，这枚戳是「走乙」认人的凭据——留住的只有他真做过的那几行。
   const wkRow = (o, ts) => Object.assign({}, o, { _wk: 1, _wkAt: ts, _ts: ts });
-  function applyReply(d, name, text, now) {
+  function applyReply(d, name, text, now, appKey) {
     const ts = N(now, Date.now());
     const who = S(name).trim(), body = S(text).trim();
     if (!who || !body) return { d: d, wrote: false };
     const base = d && typeof d === "object" ? d : {};
+    // 短信也有对面（她 9-10 要的那一条对微信立的规矩，这儿是同一件事）：
+    // ⚠️短信那一屏认的是 from === "me"，别的一律画成对面（照那一屏自己的写法来）。
+    if (appKey === "calls") {
+      const sms = Array.isArray(base.sms) ? base.sms.map(x => Object.assign({}, x)) : [];
+      const row = sms.find(x => x && (S(x.name) === who || S(x.number) === who));
+      if (!row) return { d: d, wrote: false };
+      row.msgs = (Array.isArray(row.msgs) ? row.msgs.slice() : []).concat([{ from: "they", text: body, time: "刚刚" }]);
+      row.time = "刚刚"; row.unread = true; row._ts = ts;
+      return { d: Object.assign({}, base, { sms: sms }), wrote: true };
+    }
     const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
     let row = chats.find(c => c && S(c.name) === who);
     if (!row) return { d: d, wrote: false };   // 对面得是已经存在的那个人，不许凭空多一个
@@ -290,6 +300,52 @@
       return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
+    // ── 电话·短信 ──────────────────────────────────────────────
+    // 只接短信这一路：它跟微信是同一个形状（点开一串 → 打字 → 发出去 → 对面回）。
+    // 通话记录只看不写——「拨一通电话」不是手机上打几个字的事，那是另一件事。
+    if (appKey === "calls") {
+      if (!who || !body) return { d: d, wrote: false };
+      const sms = Array.isArray(base.sms) ? base.sms.map(x => Object.assign({}, x)) : [];
+      const row = sms.find(x => x && (S(x.name) === who || S(x.number) === who));
+      if (!row) return { d: d, wrote: false };   // 得是已经在的那一串，不许凭空多出个号码
+      row.msgs = (Array.isArray(row.msgs) ? row.msgs.slice() : []).concat([{ from: "me", text: body, time: "刚刚" }]);
+      row.time = "刚刚"; row.unread = false; row._ts = ts;
+      return { d: Object.assign({}, base, { sms: sms }), wrote: true };
+    }
+
+    // ── 邮件 ───────────────────────────────────────────────────
+    // 他回的那一封落进【发件箱】。收件人从他正回的那封里取——
+    // 一封回信的收件人是原来那封的发件人，不是标题。
+    if (appKey === "mail") {
+      if (!body) return { d: d, wrote: false };
+      const inbox = Array.isArray(base.inbox) ? base.inbox : [];
+      const src = who ? inbox.find(x => x && (S(x.subject) === who || S(x.from) === who)) : null;
+      const sent = Array.isArray(base.sent) ? base.sent.slice() : [];
+      sent.unshift({ to: (src && S(src.from)) || who, subject: src ? "回复：" + S(src.subject) : (who || body.slice(0, 16)),
+        body: body, time: "刚刚", _ts: ts });
+      return { d: Object.assign({}, base, { sent: sent }), wrote: true };
+    }
+
+    // ── 阅读 ───────────────────────────────────────────────────
+    // 他这一下动的只有【读到哪儿】和【那一条批注】，书目一本不增不减——
+    // 跟周刷「只问 updates」那一路是同一个写法（照 phoneApplyBookUpdates 那段来：
+    // 改过的书盖 _upd，整份盖 _lastUpd，同一个时间戳才亮红点）。
+    if (appKey === "reading") {
+      if (!who || !body) return { d: d, wrote: false };
+      const norm = v => S(v).replace(/[\s《》「」"\u2019\u00b7,，.。!！?？:：;；]/g, "");
+      const want = norm(who);
+      let hit = 0;
+      const shelves = (Array.isArray(base.shelves) ? base.shelves : []).map(sh => Object.assign({}, sh, {
+        books: (Array.isArray(sh && sh.books) ? sh.books : []).map(b => {
+          if (!b || norm(b.title) !== want) return b;
+          hit++;
+          return Object.assign({}, b, { note: body, _upd: ts });
+        })
+      }));
+      if (!hit) return { d: d, wrote: false };   // 架上没有这本，不许凭空添一本
+      return { d: Object.assign({}, base, { shelves: shelves, _lastUpd: ts }), wrote: true };
+    }
+
     return { d: d, wrote: false };   // 还没接的 app：只演不落，绝不乱写
   }
 
@@ -398,6 +454,51 @@
       const its = arr(lk.items).slice(0, 10).map(x => "· " + (x.title || "?") + (x.author ? " / " + x.author : "")).join("\n");
       now.push("〔小红书 liked〕他赞过收藏过的（openItem 的 name 就是标题）：\n" + (its || "（还什么都没存过）"));
     }
+    if (can.indexOf("calls") >= 0) {
+      const cl = ph.calls || {};
+      const ss = arr(cl.sms).slice(0, 10).map(x => "· " + (x.name || x.number || "?") + (x.kind === "人" ? "" : "（通知）")).join("\n");
+      const cs = arr(cl.calls).slice(0, 8).map(x => "· " + (x.name || x.number || "陌生号码") + (x.answered === false ? "（没接通）" : "")).join("\n");
+      now.push("〔电话 calls〕短信里这几串（openItem 的 name 从这里照抄）：\n" + (ss || "（没有短信）")
+        + (cs ? "\n通话记录：\n" + cs : ""));
+    }
+    if (can.indexOf("mail") >= 0) {
+      const ml = ph.mail || {};
+      const ib = arr(ml.inbox).slice(0, 10).map(x => "· " + (x.subject || "?") + (x.from ? " / " + x.from : "")).join("\n");
+      now.push("〔邮件 mail〕收件箱（openItem 的 name 就是那封的标题）：\n" + (ib || "（邮箱是空的，那就别点进去）"));
+    }
+    if (can.indexOf("reading") >= 0) {
+      const bs = [];
+      arr((ph.reading || {}).shelves).forEach(sh => arr(sh && sh.books).slice(0, 6).forEach(b => {
+        if (b && b.title) bs.push("· " + b.title + (b.readAt ? "（" + b.readAt + "）" : ""));
+      }));
+      now.push("〔阅读 reading〕他架上的书（openItem 的 name 就是书名）：\n" + (bs.slice(0, 16).join("\n") || "（架上还没有书）"));
+    }
+    if (can.indexOf("tally") >= 0) {
+      const ty = ph.tally || {};
+      const one = (k, zh) => arr(ty[k]).slice(0, 5).map(x => (x.title || x.name || x.text || x.q || "")).filter(Boolean).map(v => "· " + v + "（" + zh + "）");
+      const rs = [].concat(one("debts", "欠着的"), one("statements", "放过的话"), one("treasures", "舍不得的"), one("policies", "他的规矩"));
+      now.push("〔账本 tally〕他记着的这些（openItem 的 name 从这里照抄）：\n" + (rs.join("\n") || "（这本账还是空的，那就别点进去）"));
+    }
+    if (can.indexOf("bili") >= 0) {
+      const vs = arr((ph.bili || {}).items).slice(0, 12).map(x => "· " + (x.title || "?")).join("\n");
+      now.push("〔视频 bili〕他看过的（openItem 的 name 就是标题）：\n" + (vs || "（还没看过什么）"));
+    }
+    if (can.indexOf("latenight") >= 0) {
+      const vs = arr((ph.latenight || {}).items).slice(0, 10).map(x => "· " + (x.title || "?")).join("\n");
+      now.push("〔深夜台 latenight〕这几条（openItem 的 name 就是标题）：\n" + (vs || "（深夜台还是空的）"));
+    }
+    if (can.indexOf("health") >= 0) {
+      const cs = arr((ph.health || {}).cards).slice(0, 12).map(x => (x.name || "")).filter(Boolean).join("、");
+      now.push("〔健康 health〕今天这几张读数（openItem 的 name 就是那一项的名字）：" + (cs || "（今天还没有读数）"));
+    }
+    if (can.indexOf("calendar") >= 0) {
+      const cs = arr(((o && o.calendar) || {}).items).slice(0, 12).map(x => "· " + (x.title || "?") + (x.date ? "（" + x.date + "）" : "")).join("\n");
+      now.push("〔日历 calendar〕他记下的事（openItem 的 name 就是那件事）：\n" + (cs || "（日历上什么也没有）"));
+    }
+    if (can.indexOf("clipboard") >= 0) {
+      const cs = arr((ph.clipboard || {}).items).slice(0, 10).map(x => "· " + String(x.text || "").slice(0, 24)).join("\n");
+      now.push("〔剪贴板 clipboard〕他复制过的（openItem 的 name 就是那一条的原文）：\n" + (cs || "（剪贴板是空的）"));
+    }
     if (can.indexOf("notes") >= 0) {
       const ns = arr((ph.notes || {}).items).slice(0, 14)
         .map(x => "· " + (x.title || "?") + (x.body ? "：" + String(x.body).slice(0, 34) : "")).join("\n");
@@ -428,6 +529,13 @@
       can.indexOf("shopping") >= 0 ? "· 购物：openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
       can.indexOf("takeout") >= 0 ? "· 外卖：openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
       can.indexOf("liked") >= 0 ? "· 小红书：openPage 点进一条笔记——name 是标题、site 是作者、gist 是这条笔记写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。openItem 点开他以前存过的那几条。tab 可以切 feed / follow / mine。" : "",
+      can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
+      can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**。tab 可以切 inbox / sent / drafts。" : "",
+      can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。tab 可以切 shelf / archive。" : "",
+      can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**这一路只能看，改不了**——那本账不是刷手机能改的东西。tab 可以切 debts / policies / statements / treasures / appraisals。" : "",
+      can.indexOf("bili") >= 0 || can.indexOf("latenight") >= 0 ? "· 视频 / 深夜台：openItem 点开一条已经在那儿的，look 着、pause 一会儿、scroll 往下划。**这一路什么都改不了**，就是刷。" : "",
+      can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
+      can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。**这三处只能看，一个字都改不了。**" : "",
       can.indexOf("music") >= 0 ? "· 音乐：openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑。" : "",
       "",
       "【他这台手机现在的样子】\n" + now.join("\n\n"),

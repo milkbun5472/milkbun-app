@@ -188,7 +188,10 @@ test("相册那一路零写入：只演不落", () => {
 });
 
 test("打得开哪几个 app 只此一份名单", () => {
-  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked"\]/);
+  // ⚠️论坛和匿名信箱故意不在名单里（她 2026-09-10：那两个是真数据，发一帖就是真发出去）
+  assert.match(app, /const WATCH_APPS = \["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",\s*\n\s*"calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard"\]/);
+  assert.doesNotMatch(app, /WATCH_APPS = \[[^\]]*"forum"/);
+  assert.doesNotMatch(app, /WATCH_APPS = \[[^\]]*"anon"/);
   // 提示词、归一、播放器都读它，不各写一份
   assert.match(app, /WATCH_APPS\.indexOf\(a\.key\) >= 0/);
   assert.match(app, /apps: WATCH_APPS/);
@@ -214,7 +217,7 @@ test("界面：相册和便签也接了 drive，一份 drive 三个 app 共用",
   assert.match(phone, /drive: watch \? \{ tab: watch\.tab, item: watch\.item, page: watch\.page, typing: watch\.typing,/);
   // 同一个 openItem/send 在微信和便签里做的事不一样，所以播放器要知道此刻开着哪个 app
   assert.match(phone, /const openRef = useRef\(null\);/);
-  assert.match(phone, /openRef\.current === "wechat" \? ""/);
+  assert.match(phone, /\(openRef\.current === "wechat" \|\| openRef\.current === "calls" \|\| openRef\.current === "mail"\) \? ""/);
   // 便签里点开一条，手上那份草稿就是它现在的正文（不然没东西可划）
   assert.match(phone, /const noteBodyOf = title =>/);
 });
@@ -277,7 +280,7 @@ test("微信：对面会回一句", () => {
   assert.equal(W.applyReply(d, "陌生人", "喂", 1).wrote, false);
   // ⚠️跟 applyWrite 分开：那个写的是他自己发的话，from 不一样
   assert.match(watchSrc, /混在一个函数里迟早把 from 写错人/);
-  assert.match(app, /const r = WK\.applyReply\(cur, name, text, Date\.now\(\)\);/);
+  assert.match(app, /const r = WK\.applyReply\(cur, name, text, Date\.now\(\), key\);/);
 });
 
 test("新消息要滚到屏幕最底下，而且有冒出来那一下", () => {
@@ -394,4 +397,92 @@ test("走乙也要说给模型听（代码兜死 + 提示词降概率，两头�
   assert.match(phone, /phoneRosterBlock\(key, known\) \+ phoneWatchDraftBlock\(key, known\)/);
   // ⚠️顺序：走乙必须排在 ♻️ 重写之后，排前面会被随后那一步抹掉
   assert.match(phone, /return phoneWatchKeep\(appKey, oldData, phoneGrowMerge\(/);
+});
+
+// ══════════════════════════════════════════════════════════════
+// 第五批：剩下那些（她 2026-09-10「论坛匿名信箱都不要动其他都做了吧」）
+// ══════════════════════════════════════════════════════════════
+test("短信：跟微信同一个形状，只是那一屏认的键不一样", () => {
+  // ⚠️桩照【画它那一屏】写：短信气泡认的是 from === "me"，不是 __me__
+  assert.match(phone, /const mine = m2\.from === "me";/, "短信那一屏认人的写法变了，这份桩要跟着改");
+  const d0 = { sms: [{ name: "老张", kind: "人", msgs: [{ from: "they", text: "在吗" }] }] };
+  const r = W.applyWrite("calls", d0, "老张", "在", 1000);
+  assert.equal(r.d.sms[0].msgs[1].from, "me");
+  assert.equal(r.d.sms[0].unread, false, "他自己发完那一串就不该还标着未读");
+  const back = W.applyReply(r.d, "老张", "那出来", 1001, "calls");
+  assert.equal(back.d.sms[0].msgs[2].from, "they");
+  assert.equal(back.d.sms[0].unread, true);
+  // 不许凭空多出一个号码
+  assert.equal(W.applyWrite("calls", d0, "谁也不是", "喂", 1000).wrote, false);
+  // 通话记录只看不写
+  assert.equal(W.applyWrite("calls", { calls: [{ name: "老张" }] }, "老张", "", 1000).wrote, false);
+});
+
+test("邮件：回信落进发件箱，收件人是原来那封的发件人", () => {
+  const d0 = { inbox: [{ subject: "关于下周的稿子", from: "编辑 林" }], sent: [] };
+  const r = W.applyWrite("mail", d0, "关于下周的稿子", "周四之前给您", 2000);
+  assert.equal(r.d.sent[0].to, "编辑 林", "收件人写成标题就是回给了一个不存在的人");
+  assert.match(r.d.sent[0].subject, /^回复：/);
+  assert.equal(r.d.inbox.length, 1, "收件箱不该被动");
+});
+
+test("阅读：只动读到哪儿和那一条批注，书目一本不增不减", () => {
+  const d0 = { shelves: [{ name: "床头", books: [{ title: "《长夜》", readAt: "读到 42%", note: "旧的" }] }] };
+  const r = W.applyWrite("reading", d0, "《长夜》", "这一段写得真狠", 3000);
+  assert.equal(r.d.shelves[0].books[0].note, "这一段写得真狠");
+  assert.equal(r.d.shelves[0].books[0].readAt, "读到 42%", "他写批注不该把进度冲掉");
+  // 红点认的是【同一个时间戳】（照 phoneApplyBookUpdates 那段来）
+  assert.equal(r.d.shelves[0].books[0]._upd, 3000);
+  assert.equal(r.d._lastUpd, 3000);
+  assert.equal(W.applyWrite("reading", d0, "《架上没有这本》", "x", 3000).wrote, false, "不许凭空添一本书");
+});
+
+test("只能看的那几个：一个字都不许写进去", () => {
+  // 账本、视频、深夜台、健康、日历、剪贴板——刷手机改不了这些
+  ["tally", "bili", "latenight", "health", "calendar", "clipboard", "timeline"].forEach(k => {
+    assert.equal(W.applyWrite(k, { items: [{ title: "x" }] }, "x", "他写了点什么", 1).wrote, false, k + " 不该被写");
+  });
+  // 提示词里也要明说，不然模型会去试
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["tally", "health", "calendar"], phone: {} });
+  assert.match(s, /这一路只能看，改不了/);
+  assert.match(s, /这三处只能看，一个字都改不了/);
+});
+
+test("十七个 app 各自的样子都发回去了，一个都不能漏", () => {
+  const apps = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
+    "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard"];
+  const phoneState = { calls: { sms: [{ name: "老张", kind: "人" }] }, mail: { inbox: [{ subject: "稿子", from: "林" }] },
+    reading: { shelves: [{ books: [{ title: "《长夜》" }] }] }, tally: { debts: [{ title: "欠着的那顿饭" }] },
+    bili: { items: [{ title: "一条视频" }] }, latenight: { items: [{ title: "深夜那条" }] },
+    health: { cards: [{ name: "睡眠" }] }, clipboard: { items: [{ text: "一串复制过的字" }] } };
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: apps, phone: phoneState,
+    calendar: { items: [{ title: "周四交稿", date: "2026-09-11" }] } });
+  ["老张", "稿子", "《长夜》", "欠着的那顿饭", "一条视频", "深夜那条", "睡眠", "一串复制过的字", "周四交稿"]
+    .forEach(x => assert.ok(s.indexOf(x) >= 0, "这一段没发回去：" + x));
+  // ⚠️日历跟音乐一样是真数据，不在 x_phone 里——得单独递进去
+  assert.match(app, /calendar: \(typeof phoneCalendarFor === "function"/);
+});
+
+test("这一批的每一屏都接上了 drive，一屏都不许漏", () => {
+  [["PhoneCallsView", "calls"], ["MailView", "mail"], ["ReadingView", "reading"], ["TallyView", "tally"],
+   ["BiliView", "bili"], ["LateNightView", "latenight"], ["HealthView", "health"],
+   ["ClipView", "clipboard"]].forEach(([v, k]) => {
+    assert.match(phone, new RegExp("h\\(" + v + ", \\{ drive: ctx\\.drive"), v + " 没接上 drive");
+  });
+  assert.match(phone, /h\(CalendarView, \{ drive: ctx\.drive/);
+  // 打字那三处：短信、邮件、批注各有一条只在看他玩时出现的输入条
+  assert.equal((phone.match(/"data-watch": "input"/g) || []).length, 6,
+    "微信 / 便签 / 浏览器 / 短信 / 邮件 / 批注 —— 有输入条的每一处都要挂 input");
+});
+
+test("切到别的 app 时那一栏要清掉，不然它跟着串门", () => {
+  // 真机上抓到的：在电话里切到 sms，进邮件之后邮件也去找「sms」那一栏，整页空着
+  assert.match(phone, /if \(app\) \{ setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
+  assert.match(phone, /a\.kind === "home"\) \{ setOpen\(null\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
+});
+
+test("「他自己」在两屏上叫的名字不一样，别一律换成微信昵称", () => {
+  // 真机上抓到的：短信里他自己发的那条被画成了对面的灰气泡——
+  // 病根是递给各屏的 drive.sent 一律把 from 换成微信昵称，而短信那屏认的是死字符串 "me"。
+  assert.match(phone, /from: x\.them \? x\.from : \(x\.from === "me" \? "me" :/);
 });
