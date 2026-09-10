@@ -56,10 +56,13 @@ test("照片指纹一处算，两处用", () => {
 });
 
 const draw = ap.slice(ap.indexOf("const drawKeptPhoto = async"), ap.indexOf("const askCharAboutItem ="));
-test("走空景那条路，不走【画一个人】那份说明书", () => {
+test("走 buildScenePrompt 那条路，不走【画一个人】那份说明书", () => {
   assert.ok(draw.length > 200, "app.js 里没有 drawKeptPhoto");
-  assert.match(draw, /buildScenePrompt\(char, scene, \{ forText: false \}\)/,
+  // ⚠️空景／局部两档【同一份说明书】，只换那道铁律（body 开关）——
+  //   相册里那些「一只手搭在胸口」的照片走空景会跟 no hands 铁律正面打架。
+  assert.match(draw, /buildScenePrompt\(char, scene, \{/,
     "没走 buildScenePrompt——buildPhotoPrompt 是画人的说明书，外挂一句「不要有人」压不住它");
+  assert.match(draw, /forText: false, body: bodyish,/);
   assert.ok(draw.indexOf("buildPhotoPrompt") < 0, "又拿画人那份说明书去画景了");
   assert.match(draw, /\[photo\.caption, photo\.desc\]/, "没按这张照片自己写的东西画");
   assert.ok(draw.indexOf("photo.thought") < 0, "把他对这张照片的想法也塞进画图指令了");
@@ -110,4 +113,18 @@ test("没配图像 API 时先说一声，不白转一圈", () => {
   assert.match(draw, /少了 key/);
   assert.match(draw, /String\(\(e && e\.message\) \|\| e \|\| "重试"\)\.slice\(0, 120\)/, "报错要带着那句原话");
   assert.match(draw, /if \(gen\.phoneShot\) return false;/, "同时能点起两张，第二张会把第一张的 busy 覆盖掉");
+});
+
+test("相册这张是【他自己拍的】：谁的手、谁的胸口，不能弄混", () => {
+  // 她 2026-09-10 拍图指出来的：「生成出来的确实符合下面小字说的，但是语义不对，
+  // 应该是别人（我）的手搭上去而不是他自己的」。
+  // ⚠️两处一起错：① 走的是【空景】那一档（带着 no hands / no body parts 的铁律），
+  //   跟「一只手搭在胸口」正面打架；② 谁是「我」、谁是「她」压根没说。
+  const eng = fs.readFileSync("js/engine.js", "utf8");
+  assert.match(eng, /【谁拍的·画面里谁是谁】/);
+  assert.match(eng, /而不是他自己的手搭在自己身上/);
+  // 有身体部位的走【不露脸的局部照】那一档，同一份说明书只换那道铁律
+  assert.match(draw, /const bodyish = \/手\|指\|腕/);
+  assert.match(draw, /body: bodyish,/);
+  assert.match(draw, /pov: \{ me: char\.remark \|\| char\.name, other: userName\(profile\) \}/);
 });

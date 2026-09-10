@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.66";
+const APP_VERSION = "v66.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14469,7 +14469,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!scene) { toast("这张没写下是什么，画不出来"); return false; }
     setGen(g => ({ ...g, phoneShot: key }));
     try {
-      const out = await generateSelfieImage(buildScenePrompt(char, scene, { forText: false }), null, {});
+      // ⚠️相册里这些照片【不都是空景】：她 2026-09-10 那张写的就是一只手搭在胸口。
+      //   空景那一档带着「no people / no hands / no body parts」的铁律，
+      //   跟这种照片正面打架——模型要么不画，要么画出来是一团糊。
+      //   有身体部位或者有人在里面的，走【不露脸的局部照】那一档（同一份说明书，只换那道铁律）。
+      const bodyish = /手|指|腕|胳膊|肩|背|腿|脚|脖|胸|怀里|头发|侧脸|睡着|抱|牵|搂|靠着|膝盖|锁骨|耳/.test(scene);
+      const out = await generateSelfieImage(buildScenePrompt(char, scene, {
+        forText: false, body: bodyish,
+        // 画面里谁是谁：这张是他自己举着手机拍的，「我」是他、「她」是用户
+        pov: { me: char.remark || char.name, other: userName(profile) }
+      }), null, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = loadJSON("x_phoneKeep", {});
