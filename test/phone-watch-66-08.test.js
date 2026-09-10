@@ -550,3 +550,13 @@ test("圆点：先量后动，量不到再试几拍，翻不到就先把它翻�
   // look 落在那样东西身上，不另挂一套 look: 的点
   assert.equal(W.watchTargetSel({ kind: "look", at: "海边那天" }), '[data-watch="item:海边那天"]');
 });
+
+test("他刷手机的时候，她那几颗按钮要收起来", () => {
+  // 她 2026-09-10：「点开会显示转发给他看比如便签之类的，在他玩的时候能不能 hide」。
+  // 这一屏此刻扮的是【他手里的手机】——屏幕上冒出一颗「转发给他，他会知道你翻了手机」就穿帮了。
+  // ⚠️收在一处：二十来屏都是 `onPeek ? h("button"…) : null`，给它 null 就整片消失。
+  assert.match(phone, /onPeek: drive \? null : \(live \|\| \{\}\)\.onPeek/);
+  assert.ok((phone.match(/onPeek \? h\("button"/g) || []).length > 10, "各屏还是靠 onPeek 在不在来决定画不画");
+  // 顶栏那颗「重新推演」不吃 null，就按住它（点一下是一枪真钱，还会盖掉正在演的这一份）
+  assert.match(phone, /refreshing: drive \? true : !!busyKey/);
+});

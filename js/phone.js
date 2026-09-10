@@ -5648,11 +5648,19 @@ function PhoneApp({
     profile,
     onBack,
     onRefresh: () => onGen(char, appKey),
-    refreshing: !!busyKey,
+    // 同理：顶栏那颗「重新推演」也是她的按钮。它画在各屏自己的顶栏里、不吃 null，
+    // 所以按住它——演的过程里点一下就是一枪真钱，而且会把正在演的这一份盖掉。
+    refreshing: drive ? true : !!busyKey,
     forumTab,
     setForumTab,
     drive,
-    ...(live || {})
+    ...(live || {}),
+    // ⚠️「看他玩」的时候把【转发给 TA / 摆到 TA 面前】那颗钮收起来（她 2026-09-10 提）。
+    //   这一屏此刻扮的是**他手里的手机**：他自己刷着刷着，屏幕上冒出一颗
+    //   「转发给他，他会知道你翻了手机」——那是她的按钮，出现在他的手上就穿帮了。
+    //   收在这一处就够：二十来屏都是 `onPeek ? h("button"…) : null` 的写法，
+    //   给它 null 就整片消失，不用去二十个地方各加一个 if（施工规则/one-public-mechanism.md）。
+    onPeek: drive ? null : (live || {}).onPeek
   });
   // ⚠️第二次以后重刷，原来【一点动静都没有】（她 2026-09-01：「刷新的时候没有提醒，
   // 我怀疑全部查手机每个 app 第二次以后都没有」——对，就是全部）。
