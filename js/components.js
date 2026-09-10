@@ -8571,7 +8571,36 @@ function CallScreen({
     st.speaking = true;
     (async () => {
       let paused = false, skipped = "";
+      // 每条气泡之间那段死空档（她 2026-09-10：「自动播放每条气泡有延迟能不能减少延迟，
+      // 比如说开了自动播报就直接缓存好放队列排序自动播」）。
+      // 病根：这个循环是【彻底串行】的——播完这一条才去合成下一条，于是两条之间
+      // 一定要空掉一次网络往返 + 一次解码。合成本来完全可以躲在上一条的播放里跑。
+      // ⚠️只提前【一条】，不是把整队都合成出来：语音按次收费，她中途关掉开关，
+      //   最多只白花一条（原来那句「不预取未轮到的收费语音」防的就是这个，理由仍然成立，
+      //   只是「一条都不预取」把代价全转嫁成了她每句都要等）。一条已经够填满空档。
+      // ⚠️合成结果本来就进 idb 缓存（ttsSpeak 里的 idbAudGet），预取命中缓存时一分钱不花。
+      let ahead = null;   // { key: 那条在 msgsRef 里的下标, task: Promise<AudioBuffer> }
+      const synth = (text, voiceId) => {
+        const task = (async () => {
+          const blob = await ttsSpeak(text, voiceId);
+          return await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
+        })();
+        task.catch(() => {});   // 预取那条可能永远没人 await：先吃掉未处理拒绝，await 时照样会抛
+        return task;
+      };
+      // 从 from 往后找第一条【真能出声】的（跳过她自己的、动作行、没配音色的）
+      const nextSpeakable = from => {
+        for (let i = from; i < msgsRef.current.length; i++) {
+          const mm = msgsRef.current[i];
+          if (!mm || mm.role === "user" || mm.act || !mm.content) continue;
+          const s2 = mm.senderId ? (participants || []).find(c => c.id === mm.senderId) : ((participants || []).length === 1 ? primary : null);
+          if (!s2 || !s2.voiceId) continue;
+          return { i: i, m: mm, spk: s2 };
+        }
+        return null;
+      };
       while (valid() && st.played < msgsRef.current.length) {
+        const idx = st.played;
         const m = msgsRef.current[st.played++];
         if (!m || m.role === "user" || m.act || !m.content) continue;
         const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : ((participants || []).length === 1 ? primary : null);
@@ -8582,14 +8611,27 @@ function CallScreen({
         tp.stop();
         if (!paused) { paused = true; recPause(); } // 说话前闭耳，防自问自答
         st.busy++; setAudioStatus("正在准备语音…");
-        // 不预取未轮到的收费语音，关闭开关后不再启动下一次合成。
+        let poll = null;
         try {
-          const blob = await ttsSpeak(m.content, spk2.voiceId);
-          if (!valid()) break;
-          setAudioStatus("正在解码语音…");
-          const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
+          // 上一轮提前合成的正是这一条就直接拿（多半已经好了）；不是就现合成
+          const task = (ahead && ahead.key === idx) ? ahead.task : synth(m.content, spk2.voiceId);
+          ahead = null;
+          const abuf = await task;
           if (!valid()) break;
           if (st.ttsCtx.state !== "running") throw new Error("声音已暂停");
+          // ⚠️下一条的合成【在这一条开播之前】就发出去，让它跑在这几秒播放里。
+          //   ⚠️只看一眼不够：气泡是一条条冒出来的（callSend 里每条之间 sleep 500~550ms），
+          //   这会儿下一条多半还没进 msgs。所以播放的这几秒里接着盯，一冒出来就开合成——
+          //   这才真的把空档填上；只看一眼的话经常什么都没预取到。
+          const tryAhead = () => {
+            if (ahead || !valid() || !ttsReady()) return;
+            const nx = nextSpeakable(st.played);
+            if (!nx) return;
+            ahead = { key: nx.i, task: synth(nx.m.content, nx.spk.voiceId) };
+            if (poll) { clearInterval(poll); poll = null; }
+          };
+          tryAhead();
+          if (!ahead && ttsReady()) poll = setInterval(tryAhead, 300);
           await new Promise(res => {
             const srcN = st.ttsCtx.createBufferSource(); st.src = srcN;
             srcN.buffer = abuf; srcN.connect(st.ttsCtx.destination);
@@ -8599,7 +8641,7 @@ function CallScreen({
             setAudioStatus("对方说话中…");
           });
         } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
-        finally { if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
+        finally { if (poll) clearInterval(poll); if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
       }
       if (audioRef.current.epoch === epoch) st.speaking = false;
       if (audioRef.current.epoch === epoch && st.session === session) { if (valid()) setAudioStatus(skipped); if (paused) setTimeout(() => { if (audioRef.current.epoch === epoch && st.session === session) recResume(); }, 300); }
