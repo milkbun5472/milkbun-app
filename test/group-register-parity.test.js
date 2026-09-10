@@ -49,7 +49,9 @@ test("群线上补上【用户是谁】——以前群里只有她一个名字",
   const i = app.indexOf("【成员】\\n\" + memberDesc");
   assert.ok(i > 0);
   const seg = app.slice(i, i + 600);
-  assert.match(seg, /profile\.persona/, "用户人设要进群线上");
+  // v66.56：这一段整个抽成 gMeBlock（旁观群不发——她压根没在跟大家说话）
+  assert.match(app, /const gMeBlock = \(!gSpec && profile && \(profile\.name \|\| profile\.persona\)\)[\s\S]{0,160}?profile\.persona/, "用户人设要进群线上");
+  assert.match(seg, /gMeBlock/, "算出来了没拼进 system");
   // 群线下一直有这一层，别退回去
   assert.match(engine, /【用户「" \+ userName \+ "」的设定】/);
 });

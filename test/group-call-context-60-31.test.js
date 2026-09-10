@@ -12,8 +12,11 @@ const gc = app.slice(app.indexOf("// 群通话：多角色你一言我一语"), 
 
 test("每人那一段【此刻】跟群聊共用一份，不是各写各的", () => {
   assert.match(app, /const groupNowSegs = \(c, opts\) => \{/);
-  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/, "群聊那一处");
-  assert.match(gc, /const n = groupNowSegs\(c, \{ interop: gcInterop \}\);/, "群通话那一处");
+  // ⚠️别冻 opts 的形状（v66.56 多传了 spectate：旁观群里她不在场，跟她有关的层一律不发）——
+  //   要证的是【三处都问同一个函数要】，不是它收几个参数
+  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop, spectate: !!gs\.spectate \}\);/, "群聊那一处");
+  assert.match(gc, /const n = groupNowSegs\(c, \{ interop: gcInterop, spectate: !!gcSpectate \}\);/, "群通话那一处");
+  assert.match(gc, /const gcSpectate = !!\(cgs && cgs\.spectate\);/, "群通话那一处没算旁观——少传一处就照旧把她拽进场");
   for (const field of ["live", "mdSeg", "afSeg", "ageSeg", "sbSeg", "cpSeg"]) assert.ok(gc.includes("+ n." + field), field + " 取了却没拼进去");
 });
 

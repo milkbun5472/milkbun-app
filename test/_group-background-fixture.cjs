@@ -27,6 +27,9 @@ function fixture() {
     crossChannelSaid: id => id + '跨群消息', listenRef: { current: { playlists: [{ charId: 'a', songs: [{ title: '甲的歌' }] }] } },
     window: { HeartKit: { personaText: x => x }, MoodLabel: { settle: label => ({ label, note: '' }) } },
   };
+  // v66.56：群通话那一段现在会问「这是不是旁观群」（旁观群里跟她有关的层一律不发）。
+  // ⚠️这里给 false：快照要对照的是【普通群】那一份，逐字不许变。
+  env.gcSpectate = false;
   env.ctx = { npcOwnerName: { npc: '甲' } };
   const maps = { memberGrown: ['甲成长', '乙成长'], memberAMood: ['a底色', 'b底色'], memberSleep: ['a睡眠\n第二行', 'b睡眠\n第二行'], memberHome: ['甲城', '乙城'], memberCarry: ['甲随身物', '乙随身物'], memberCoupleArchive: ['a私有档案', 'b私有档案'] };
   for (const [key, values] of Object.entries(maps)) env.ctx[key] = { a: values[0], b: values[1] };

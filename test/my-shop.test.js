@@ -106,7 +106,8 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
   assert.match(app, /wishLog: \(!settingsFor\(char\.id\)\.engineerEyes && \(wishRef\.current \|\| \[\]\)\.length\)/, "单聊没接");
   assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\)\) parts\.push\("【" \+ uName \+ " 最近看上但没买的东西】/, "buildBundle 里没发");
-  assert.match(app, /const gWishHint = \(wishRef\.current \|\| \[\]\)\.length/, "线上群聊没接");
+  // v66.56：旁观群不发——那一段写着「在场的人都可能知道」，可她根本不在场
+  assert.match(app, /const gWishHint = \(!gs\.spectate && \(wishRef\.current \|\| \[\]\)\.length\)/, "线上群聊没接／或者旁观群里也发了她的想要清单");
   assert.match(app, /wishLog: \(wishRef\.current \|\| \[\]\)\.length/, "群线下没接");
   assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\) \? "\\n\\n【" \+ userName \+ " 最近看上但没买的东西】/, "群线下那一段没读");
   // 言秋不发：他不是被扮演的角色
