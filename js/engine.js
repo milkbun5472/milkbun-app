@@ -2635,6 +2635,8 @@ function buildBundle(ctx, opts) {
   // 一个被吵醒的人，不管底色是暖是冷，反应都是慢的。
   if (!ctx.notRoleplay && ctx.sleepTone && ctx.sleepTone.trim()) parts.push(ctx.sleepTone.trim());
   if (!ctx.notRoleplay && ctx.gazeText && ctx.gazeText.trim()) parts.push(ctx.gazeText.trim());
+  // 今天她敲过他的手机屏（js/phone-watch.js 的 watchedNote）。没敲过就是空串，一个字不发。
+  if (!ctx.notRoleplay && ctx.watchedNote && ctx.watchedNote.trim()) parts.push(ctx.watchedNote.trim());
   // 梦的余味（v61.48）：只在她真翻过那场梦、且三天之内才有；过期由 ctxFor 那头判。
   if (!ctx.notRoleplay && ctx.dreamEcho && ctx.dreamEcho.trim()) parts.push(ctx.dreamEcho.trim());
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());

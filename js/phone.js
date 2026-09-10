@@ -5776,7 +5776,8 @@ function PhoneCarry({
   onWatchKnock,
   onWatchToast,
   onWatching,
-  watchCoolLeft
+  watchCoolLeft,
+  watchHintOn
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -6683,9 +6684,17 @@ function PhoneCarry({
         background: wPreset === "own" ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.52)",
         border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
       }
-    }, h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: watchCoolLeft > 0 ? t.line : "#78bd58" } }),
+    }, h("span", { "aria-hidden": "true", style: {
+        width: 7, height: 7, borderRadius: 999, flexShrink: 0,
+        background: watchCoolLeft > 0 ? t.line : "#78bd58",
+        // 「他这会儿在手机上」（她 2026-09-10 第 ⑩ 条）：这颗点本来就在，
+        // 提示只是让它【呼吸一下】——不另加一个红点、也不多一行字。
+        // 判据零调用，节奏由 PhoneWatch 兜（冷却是关着的，见台账那条红的）。
+        animation: (watchHintOn && !watchCoolLeft && !watchBusy) ? "wkbreathe 2.4s ease-in-out infinite" : undefined
+      } }),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
-        watchBusy ? T("等他拿起手机…") : watchCoolLeft > 0 ? Math.ceil(watchCoolLeft / 60000) + " 分钟后" : T("看他玩")));
+        watchBusy ? T("等他拿起手机…") : watchCoolLeft > 0 ? Math.ceil(watchCoolLeft / 60000) + " 分钟后"
+          : (watchHintOn ? T("他在手机上") : T("看他玩"))));
     // 装饰件不是 app：表点了什么都不做，相框去相册，一句话去便签
     const decor = PHONE_DECOR.indexOf(key) >= 0;
     const jump = key === "frame" ? "album" : key === "saying" ? "notes" : key;

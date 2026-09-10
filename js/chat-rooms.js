@@ -78,7 +78,9 @@
     // 今天几号、他此刻在干嘛
     schedule: ["schedNow", "geo", "timeAware", "sleepTone"],
     // 群里和见面时发生的
-    otherScenes: ["offlineNow", "groupEcho", "groupOfflineEcho", "forumEcho", "forumPmLog", "momentLog", "dreamEcho"]
+    // watchedNote＝今天她在【别的地方】看着他刷手机、还敲了他——跟朋友圈回声同一档：
+    // 是这间房外面发生的事，隔离房里不该知道。
+    otherScenes: ["offlineNow", "groupEcho", "groupOfflineEcho", "forumEcho", "forumPmLog", "momentLog", "dreamEcho", "watchedNote"]
   };
   // 清空成什么，按这一栏原来是什么类型来：数组→[]、字符串→""、真假→false、其余→null。
   // 逐栏写一遍 empty 值就是又一张要同步的表（加一栏忘一栏），所以照类型来。

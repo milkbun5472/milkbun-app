@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.38";
+const APP_VERSION = "v66.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4120,6 +4120,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return { moodLabel: st.label || null, moodNote: st.note || "" };
     })(),
     gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, userName(profile)) : "",
+    // 「看他玩」看完留下什么（她 2026-09-10 拍的：**只敲过才写**）。
+    // ⚠️她安安静静看完＝他真的不知道，这儿一个字都不发、一分钱不花——这个玩法
+    //   成立的地方就是「他以为没人在看」，看一次就往他脑子里塞一句等于把它拆了。
+    //   只有她伸手敲了屏幕，他才真的抬过头，那才是发生过的事。当天为界（见 knockedToday）。
+    watchedNote: (window.PhoneWatch && !settingsFor(char.id).engineerEyes)
+      ? window.PhoneWatch.watchedNote(
+          window.PhoneWatch.knockedToday((knockLogRef.current || {})[char.id], Date.now()),
+          userName(profile))
+      : "",
     // A 情绪底色（v62.39 起走 buildBundle）：她 2026-09-04 问「八处不一起喂吗」。
     // 原来它挂在【单聊线上那两条任务串】上——那是「一条条 push 的」那一类，换个入口就一个字都没有。
     // 挪进 bundle 之后，单聊线上/线下、通话、匿名信箱、解梦馆全都白得（判据见 four-surfaces）。
@@ -13256,6 +13265,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 正在看他玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
   const [watching, setWatching] = useState(false);
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
+  // ⚠️ctxFor 会在异步回调里被调到（回复那一枪常常隔着好几秒），直接闭包读 state
+  //   读到的是那一刻的旧值——她刚敲完就说话，那一行就漏了。别处的层都用 ref，照做。
+  const knockLogRef = useRef(knockLog); knockLogRef.current = knockLog;
+  // 「他这会儿在玩手机」提示今天提过几次（她 2026-09-10：冷却关着，提示自己兜节奏）
+  const [watchHint, setWatchHint] = useState(() => loadJSON("x_phoneWatchHint", {}));
   // 上一段他开过哪几个 app：下一次把它们排到队尾，并且明说「这次换几个别的」
   const [watchSeen, setWatchSeen] = useState(() => loadJSON("x_phoneWatchSeen", {}));
   const watchSeenRef = useRef(watchSeen);
@@ -13278,6 +13292,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!p) { toast("先去设置里配一条 API"); return null; }
     // 先记时刻再刷（跟查手机那条链同一个形状）：中途失败也不该下次唤起又整份重来
     setWatchAt(a => { const n = { ...a, [char.id]: Date.now() }; saveJSON("x_phoneWatchAt", n); return n; });
+    // 今天这一次提示【被她用掉了】。⚠️只在她真点进来时记：路过看见那颗点不算，
+    //   否则她压根没看，今天的两次提示就白白没了。
+    setWatchHint(hv => {
+      const n = { ...hv, [char.id]: WK.watchHintUsed(hv[char.id], charLocalMin(char), Date.now()) };
+      saveJSON("x_phoneWatchHint", n); return n;
+    });
     try {
       const ph = (phonesRef.current || {})[char.id] || {};
       // ⚠️只让他打开【真有东西】的 app。没生成过的那些点进去是一屏转圈——
@@ -18701,6 +18721,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchToast: toast,
     onWatching: setWatching,
     watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,
+    // 「他这会儿在玩手机」（她 2026-09-10：冷却关着，提示照做）。
+    // ⚠️冷却是关着的，所以【节奏全靠提示自己兜】——判据在 PhoneWatch 一处，
+    //   零调用：他那边醒着 + 今天没提够 + 这一小时的稳定种子说亮。
+    //   稳定种子而不是 Math.random：随机的话这颗点会随着重渲染闪来闪去。
+    watchHintOn: (() => {
+      const c = liveChars.find(x => x.id === selPhone);
+      if (!c || !window.PhoneWatch) return false;
+      return window.PhoneWatch.watchHintOn(c.id, charLocalMin(c), (watchHint || {})[c.id], Date.now());
+    })(),
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },

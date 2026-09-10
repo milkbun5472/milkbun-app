@@ -471,6 +471,70 @@
     return n > 0 ? 1 : -1;
   }
 
+  // ── 看完之后留下什么（她 2026-09-10 拍的：「只敲过才写」）─────────
+  // ⚠️她安安静静看完＝【他真的不知道】，上下文里一个字不留，也一分钱不花。
+  //   这个玩法成立的地方就是「他以为没人在看」，看一次就往他脑子里塞一句，
+  //   等于把它拆了。只有她伸手敲了屏幕，他才真的抬过头——那才是发生过的事。
+  // ⚠️当天为界：昨天被敲过今天还挂着，就成了常驻层（十轮里九轮用不上的不该常驻）。
+  //   算「同一天」按本机日期，跟别处的 dayKey 一个意思。
+  function knockedToday(list, now) {
+    const ts = N(now, Date.now());
+    const day = new Date(ts).toDateString();
+    return (Array.isArray(list) ? list : []).filter(t => {
+      const v = N(t, 0);
+      return v > 0 && v <= ts && new Date(v).toDateString() === day;
+    }).length;
+  }
+  // 喂给模型的那一句。只此一份：单聊线上线下都走 buildBundle 这一个口子。
+  function watchedNote(n, uName) {
+    const k = Math.max(0, N(n, 0));
+    if (!k) return "";
+    return "【今天她看过你玩手机】你一个人刷手机的时候，" + (uName || "对方")
+      + "就在旁边看着，还敲了你 " + k + " 下屏幕——你抬头看见她了，这件事你心里有数。"
+      + "要不要提、怎么提，按你的性子来：装没事、别扭、调侃、追问她看了多久都行。"
+      + "**别复述你在手机上做过什么**（那是你自己的事，她看见多少是她的事），也别每句都念叨。";
+  }
+
+  // ── 「他这会儿在玩手机」的提示（她 2026-09-10：冷却关着，提示照做）────
+  // ⚠️冷却是关着的（WATCH_COOLDOWN_OFF），所以【节奏得由提示自己兜】：
+  //   不兜的话这颗点会一直亮着，亮着就不叫提示了，等于一个常驻装饰。
+  // 三道闸，全是零调用的本地判断：
+  //   ① 他得醒着（照他自己的时区算；睡着的人不玩手机）；
+  //   ② 一天最多提 HINT_PER_DAY 次；
+  //   ③ 同一个小时里稳定地开或不开——用「角色 + 那一天 + 第几小时」当种子，
+  //      不用 Math.random：随机会让这颗点在同一小时里闪来闪去（重渲染一次换一次）。
+  const HINT_PER_DAY = 2;
+  const HINT_ODDS = 0.34;         // 醒着的每一小时里，大约三分之一会亮
+  function hintSeed(charId, dayKey, hour) {
+    const str = S(charId) + "|" + S(dayKey) + "|" + hour;
+    let h0 = 2166136261;
+    for (let i = 0; i < str.length; i++) { h0 ^= str.charCodeAt(i); h0 = Math.imul(h0, 16777619); }
+    return ((h0 >>> 0) % 1000) / 1000;
+  }
+  // localMin = 他那边此刻是几点几分（分钟数，调用方按角色时区算好递进来）
+  // seen = { day: "那一天", n: 今天已经提过几次, hour: 上一次提的是哪个小时 }
+  function watchHintOn(charId, localMin, seen, now) {
+    const mins = N(localMin, -1);
+    if (mins < 0) return false;
+    const hour = Math.floor(mins / 60);
+    // 醒着的时段：9:00 到次日 0:59。⚠️深夜那一小时【要留着】——深夜台本来就是那会儿刷的。
+    if (hour < 9 && hour >= 1) return false;
+    const day = new Date(N(now, Date.now())).toDateString();
+    const st = seen && typeof seen === "object" ? seen : {};
+    const used = S(st.day) === day ? N(st.n, 0) : 0;
+    if (used >= HINT_PER_DAY) return false;
+    // 这一小时已经提过就不再重复（她看见了没点进来，不必一小时里催两遍）
+    if (S(st.day) === day && N(st.hour, -1) === hour) return false;
+    return hintSeed(charId, day, hour) < HINT_ODDS;
+  }
+  // 她真点进去看了才记一次——只是路过看见那颗点不算用掉今天的额度
+  function watchHintUsed(seen, localMin, now) {
+    const day = new Date(N(now, Date.now())).toDateString();
+    const st = seen && typeof seen === "object" ? seen : {};
+    const same = S(st.day) === day;
+    return { day: day, n: (same ? N(st.n, 0) : 0) + 1, hour: Math.floor(N(localMin, 0) / 60) };
+  }
+
   function cooldownLeft(lastAt, now) {
     if (WATCH_COOLDOWN_OFF) return 0;
     const left = WATCH_COOLDOWN_MS - (N(now, Date.now()) - N(lastAt, 0));
@@ -782,6 +846,7 @@
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
     normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName, pickName,
-    knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft
+    knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
+    knockedToday, watchedNote, HINT_PER_DAY, watchHintOn, watchHintUsed
   };
 });
