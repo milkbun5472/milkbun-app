@@ -115,7 +115,13 @@ test("圈是「一眼看得出还剩几条」，不是一颗点不着的小点",
   assert.match(seg, /if \(!n\) return/, "一条没有时该退回原来那支箭，别摆一个 0");
   assert.match(seg, /n > 99 \? "99\+"/);
   assert.match(seg, /padding: "9px 5px 9px 3px"/, "圈只有 22px 高，靠 padding 补到 40 的手感");
-  assert.match(seg, /border: "1\.5px solid "/, "圈得是个圈——只填个色就退回基础款了");
+  // v66.64：颜色改跟顶栏那套走（headink），别再从主题拿强调色——顶栏是装修皮肤刷的，
+  //   一颗主题红压在深灰蓝顶栏上就是贴上去的（她 2026-09-11：「未读消息…的红色很突兀」）。
+  assert.match(seg, /border: "1\.5px solid currentColor"/, "圈得是个圈——只填个色就退回基础款了");
+  assert.match(seg, /"data-wk": "headink"/, "没挂顶栏那套墨色的挂点，皮肤改不到它");
+  // ⚠️只对着【代码】断言：注释里那句是病历（写着原来取的就是 t.accent）
+  const segCode = seg.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(segCode.indexOf("t.accent") < 0, "还在从主题拿强调色");
 });
 
 test("夹子整只是程序画的：没有 emoji、没有符号当图标", () => {

@@ -228,11 +228,17 @@
       "aria-label": "返回，别处还有 " + n + " 条未读"
     },
       h(IArrow, { size: 15, color: t.ink, wk: "headink" }),
+      // ⚠️颜色得跟【它坐着的那块底】同一套。原来这颗取的是主题的强调色 t.accent，
+      //   可顶栏是【装修皮肤】刷的（data-wk="chathead"）——一个深灰蓝的顶栏上，
+      //   突然一颗主题红，看着就是贴上去的（她 2026-09-11：「未读消息…的红色很突兀」）。
+      //   改用顶栏自己那套墨色（headink）：旁边那支返回箭头一直用的就是它。
+      //   它照旧是一颗描边药丸，认得出是未读数，只是不再跟顶栏打架。
       h("span", {
+        "data-wk": "headink",
         style: {
           minWidth: 22, height: 22, padding: "0 5px", borderRadius: 999,
-          border: "1.5px solid " + (t.accent || "#b04a3f"),
-          color: t.accent || "#b04a3f", background: "transparent",
+          border: "1.5px solid currentColor",
+          color: t.ink, background: "transparent",
           fontFamily: F_BODY, fontSize: txt.length > 2 ? 9.5 : 11,
           display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box"
         }

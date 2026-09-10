@@ -7662,7 +7662,13 @@ function ChatThread({
     // 居中那几行（系统行/撤回/沉默/拍一拍/旁白/通话小结）本来是【直接写在背景上】的字。
     // 素色背景上没事，一换壁纸就被图案打穿——她 2026-09-02 从记账卡起的疑，一路查下来
     // 这一类全中。跟顶栏同一个办法：设了壁纸就垫一层磨砂，没设壁纸时返回空对象、一个像素都不变。
-    const plate = (pad) => dsp.chatBg ? {
+    // ⚠️这块小垫子原来只在【她自己设过聊天背景图】时才铺。可气泡皮肤也能刷一整块
+    //   聊天底色（BUBBLE_SKIN.chatBg，见这一屏最外层那行），底色一深，
+    //   居中那行旁白／动描用的 t.fog 是给浅底配的浅灰——整行就看不见了
+    //   （她 2026-09-11 截图：「动描放深背景看不见」）。
+    //   判据改成【这一屏底下是不是有一层不归主题管的东西】：图或皮肤底色，有一个就铺。
+    const _wkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
+    const plate = (pad) => (dsp.chatBg || _wkBg) ? {
       display: "inline-block",
       background: "rgba(255,255,255,0.62)",
       backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
@@ -7712,7 +7718,8 @@ function ChatThread({
         fontSize: 12.5,
         fontStyle: "italic",
         lineHeight: 1.7,
-        color: selMode && selIds.includes(i) ? t.ink : t.fog,
+        // 垫子铺上了字就得跟着变深：浅灰压在白垫子上还是一片淡（同上那条病历）
+        color: (selMode && selIds.includes(i)) ? t.ink : ((dsp.chatBg || _wkBg) ? "#5a5550" : t.fog),
         ...plate("5px 12px")
       }
     }, m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
@@ -9255,7 +9262,10 @@ function sameRoomButton({ on, onToggle, t }) {
     title: on ? "同处一室中 · 点一下改回各在各处" : "各在各处 · 点一下告诉他们此刻在一起",
     "aria-label": on ? "同处一室：开" : "同处一室：关",
     style: { position: "relative", display: "flex", alignItems: "center" }
-  }, h(IHome, { size: 19, color: on ? t.accent : t.fog, wk: on ? undefined : "headdim" }),
+    // ⚠️开着那一档原来上的是主题强调色 t.accent。顶栏是装修皮肤刷的，
+    //   深底上冒一颗主题红就是贴上去的（她 2026-09-11：「共处一室的红色很突兀」）。
+    //   跟旁边那颗齿轮、那颗自发键用同一套：开＝顶栏墨色(headink)，关＝褪灰(headdim)+一道斜杠。
+  }, h(IHome, { size: 19, color: on ? t.ink : t.fog, wk: on ? "headink" : "headdim" }),
     on ? null : h("span", {
       style: { position: "absolute", left: 1, top: "50%", width: 17, height: 1.3, borderRadius: 1, background: t.fog, transform: "rotate(-45deg)", transformOrigin: "center" }
     }));
@@ -12601,6 +12611,8 @@ function GroupThread({
     setPhotoOpen(false);
   };
   const gChatBg = settings && settings.chatBg;
+  // 气泡皮肤刷的那层聊天底色（跟单聊那处同一条判据）：它也会把居中那行动描吞掉
+  const _gWkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
   // 白＝等我接话（他们不自己聊），黑＝他们可以自己去聊。翻的就是群设置里那个「群里自发聊天」，
   // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
   const gHold = gs.autoChat === false;
@@ -12735,11 +12747,13 @@ function GroupThread({
         fontFamily: F_BODY,
         fontSize: 12,
         fontStyle: "italic",
-        color: selMode && selIds.includes(i) ? t.ink : t.fog,
+        // ⚠️跟单聊那一处同一条（见那儿的病历）：垫子原来只认【她设过的背景图】，
+        //   气泡皮肤刷的那层底色不算——底色一深，t.fog 那行动描就整个看不见。
+        color: (selMode && selIds.includes(i)) ? t.ink : ((gChatBg || _gWkBg) ? "#5a5550" : t.fog),
         textAlign: "center",
         maxWidth: "82%",
         lineHeight: 1.5
-        , ...(gChatBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
+        , ...((gChatBg || _gWkBg) ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
       }
     }, m.who === "char" ? (m.senderName || "TA") + " " + m.content : "— " + m.content + " —"),
       (onDeleteMessages && m.who !== "char") ? h("button", {

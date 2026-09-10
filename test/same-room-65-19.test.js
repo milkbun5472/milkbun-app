@@ -207,13 +207,15 @@ test("两个开关各住各的地方，旁白那行有挂点", () => {
   // 所以它抽成了一个公共的 sameRoomButton，两处共用；两处各画一份迟早会走散。
   assert.match(comp, /function sameRoomButton\(\{ on, onToggle, t \}\)/, "那颗键没抽成公共的");
   assert.equal((comp.match(/"data-wk": "sameroom"/g) || []).length, 1, "那颗键被抄成了两份");
-  assert.match(comp, /h\(IHome, \{ size: 19, color: on \? t\.accent : t\.fog/, "不是小房子图标了");
+  // v66.64：开着那一档改用顶栏墨色（同上，主题红压在装修过的顶栏上很突兀）
+  assert.match(comp, /h\(IHome, \{ size: 19, color: on \? t\.ink : t\.fog, wk: on \? "headink" : "headdim" \}\)/, "不是小房子图标了");
   assert.match(comp, /onToggleSameRoom \? sameRoomButton\(\{ on: sameRoom, onToggle: onToggleSameRoom, t: t \}\) : null/, "单聊顶栏没挂上");
   assert.ok(!/\["sameroom", "同处一室"/.test(comp), "别把它塞进那张模式单子里");
   // 她 2026-09-09：「键太显眼了」——细线图标、不带底盘，不许再是一颗描边药丸
   const key = comp.slice(comp.indexOf("function sameRoomButton("), comp.indexOf("function sameRoomButton(") + 1200);
   assert.ok(!/borderRadius: 999/.test(key) && !/border: "1px solid/.test(key), "那颗键又变回药丸了");
-  assert.match(key, /color: on \? t\.accent : t\.fog/, "开着看不出来就白做了");
+  // v66.64：开着那一档从主题强调色换成顶栏墨色（headink）——要证的还是【开关看得出来】
+  assert.match(key, /color: on \? t\.ink : t\.fog, wk: on \? "headink" : "headdim"/, "开着看不出来就白做了");
   // 动描住在聊天设置的「窗」那一类里，不占顶栏
   assert.match(comp, /const \[actDesc, setActDesc\] = useState\(!!settings\.actDesc\);/);
   assert.match(comp, /show\("look", \{ title: "线上带不带动作", \.\.\.sec\("actdesc"\) \}/);

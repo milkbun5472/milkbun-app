@@ -31,8 +31,11 @@ test("亲属卡底下那句说明也得有块底", () => {
 });
 
 test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
-  const i = comp.indexOf("const plate = (pad) => dsp.chatBg ?");
+  // v66.64：判据从「她设过背景图」放宽到「底下有一层不归主题管的东西」——
+  //   气泡皮肤刷的那层聊天底色也算（深底上 t.fog 那行动描整个看不见）。
+  const i = comp.indexOf("const plate = (pad) => (dsp.chatBg || _wkBg) ?");
   assert.ok(i > 0, "共用的那层没了");
+  assert.match(comp, /const _wkBg = \(typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN\.chatBg\) \|\| "";/, "皮肤那层底色没算进来");
   // 没设壁纸时必须【一个像素都不变】
   assert.match(comp.slice(i, i + 400), /: \{\};/, "没壁纸时要返回空对象");
   // ⚠️逐个渲染分支各切一小段来问：recalled/silence 排在 transfer 【后面】，
@@ -76,7 +79,7 @@ test("群聊也有背景图，旁白同样要垫", () => {
   const nb = g.indexOf('m.role === "narration" || m.kind === "narration"');
   const narr = g.slice(nb, g.indexOf("\n    if (m.", nb + 40));
   assert.ok(narr.length > 200 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
-  assert.match(narr, /gChatBg \? \{ background: "rgba\(255,255,255,0\.62\)"/);
+  assert.match(narr, /\(gChatBg \|\| _gWkBg\) \? \{ display: "inline-block", background: "rgba\(255,255,255,0\.62\)"/);
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
   assert.match(g, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });
