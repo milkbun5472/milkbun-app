@@ -104,7 +104,8 @@ test("提示词：给词表和判据，一个内容示范都不给", () => {
   //   改成「改到一半的那句」——反悔照旧要演，但最后那一下不能省。
   assert.match(s, /改到一半的那句才是最像你的/);
   assert.match(s, /\*\*点开一个会话就是要跟这个人说话\*\*/);
-  assert.match(s, /别点开看两眼就退出来/);
+  assert.match(s, /不许点开看两秒就退出去/);
+  assert.match(s, /打完删光不发出去也算数/);
   // ⚠️施工规则/prompt-no-content-samples.md：写一段「他给老张发『晚点说』」当例子，
   //   出来的就是每个角色都在给老张发晚点说
   assert.ok(watchSrc.indexOf("一个内容示范都不给") > 0);
@@ -607,4 +608,58 @@ test("敲一下：失败要说出来，而且不许白扣一次", () => {
   assert.match(phone, /knocks: \(p\.knocks \|\| 0\) \+ \(say \? 1 : 0\)/);
   assert.match(phone, /onWatchToast\("没敲动："/);
   assert.match(app, /onWatchToast: toast/);
+});
+
+// ══════════════════════════════════════════════════════════════
+// 另一个窗口报的那几条（2026-09-10 审计）
+// ══════════════════════════════════════════════════════════════
+test("scroll 不是个空动作：他刷的时候屏幕要真的动", () => {
+  // ⚠️词表里有、提示词里三处让他用（小红书／视频／深夜台这三个「只能刷」的 app
+  //   里他几乎只能干这个），可播放器原来一个分支都没有——屏幕纹丝不动地停 700 毫秒。
+  assert.match(phone, /else if \(a\.kind === "scroll"\) \{/);
+  assert.match(phone, /el\.scrollBy\(\{ top: px, behavior: "smooth" \}\)/);
+  // 找的是【此刻真正在滚的那一块】，不写死某个 ref（二十来屏各有各的容器）
+  assert.match(phone, /const watchScroller = \(\) => \{/);
+  assert.match(phone, /if \(st !== "auto" && st !== "scroll"\) continue;/);
+});
+
+test("认名字：四处漏网的严格等号补上了", () => {
+  // 后果是「点开了，然后什么也没发生」：effect 用模糊认名开了聊天，
+  // 输入框和气泡却用严格等号，一个都不显示。
+  assert.match(phone, /const driveOn = !!\(drive && drive\.item && thread && watchSame\(thread\.name, drive\.item\)\)/);
+  assert.match(phone, /watchSame\(\(open\.x \|\| \{\}\)\.name, drive\.item\)/);
+  assert.match(phone, /const hit = watchPick\(flat, title, b => b && b\.title\)/, "阅读的草稿取正文");
+  assert.match(phone, /const hit = watchPick\(Array\.isArray\(it\) \? it : \[\], title, x => x && x\.title\)/, "便签的草稿取正文");
+  // ⚠️便签那一处最阴：草稿取不到正文＝他划掉了一片空白，可落盘照样覆盖了那条便签
+  assert.ok(phone.indexOf("演的和写的两回事") > 0);
+});
+
+test("他刚搜的那句不许跟着他串到别的 app 里", () => {
+  // 先在浏览器搜「怎么煮溏心蛋」，后来点开购物点一件商品——那件商品会被存成那句搜索词
+  assert.match(phone, /const q = openRef\.current === "browser" \? String\(\(watchRef\.current && watchRef\.current\.lastQ\) \|\| ""\) : "";/);
+  // 换 app / 回桌面 / 锁屏都要把它清掉（一句话不能只堵一头）
+  assert.equal((phone.match(/lastQ: ""/g) || []).length, 3);
+});
+
+test("群里回话的那个人，不能是他自己", () => {
+  const d0 = { me: { wechatName: "屿白" }, chats: [{ name: "老同学群", type: "group",
+    messages: [{ from: "屿白", text: "我先走了" }, { from: "阿松", text: "行" }] }] };
+  const r = W.applyReply(d0, "老同学群", "那明天见", 1, "wechat");
+  const last = r.d.chats[0].messages[2];
+  assert.equal(last.from, "阿松", "拿群里第一条的发言人当回话的人，撞上他自己就把「对面的回复」落成了他的话");
+  assert.notEqual(last.from, "屿白");
+});
+
+test("敲一下失败：跨次那一笔也不许记", () => {
+  // 敲了没反应、次数少一下、跨次记忆还多一笔——第三个哑口
+  assert.match(app, /const markKnock = \(\) => setKnockLog/);
+  const knockFn = app.slice(app.indexOf("const watchKnock = async"), app.indexOf("const genMoment"));
+  assert.ok(knockFn.indexOf("markKnock();") > knockFn.indexOf("await Promise.race"), "跨次那一笔要排在这一枪成了之后");
+});
+
+test("朋友圈那一栏也挂得住", () => {
+  // 「看他半夜翻谁的朋友圈」是这个玩法里最有戏的一幕，可那一栏原来一个挂点都没有
+  assert.match(phone, /const momentCard = \(m, i\) => h\("div", \{ key: i, "data-watch": "item:" \+ \(m\.author \|\| ""\)/);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {} });
+  assert.match(s, /切到 moments 就是翻朋友圈/);
 });

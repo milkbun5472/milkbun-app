@@ -214,7 +214,13 @@
     let row = chats.find(c => c && sameName(c.name, who));
     if (!row) return { d: d, wrote: false };   // 对面得是已经存在的那个人，不许凭空多一个
     // 群里回话的可能是群里某个人；私聊就是对方本人。名字模型给的那个为准。
-    const from = row.type === "group" ? (S((row.messages || [])[0] && (row.messages || [])[0].from) || who) : who;
+    // ⚠️群里回话的是【群里某个人】，但绝不能是他自己。
+    //   原来拿的是这个群第一条消息的发言人——那第一条完全可能就是他发的，
+    //   于是「对面的回复」落成他自己的话，界面上还画成右边那颗绿气泡。
+    const meName = S(base.me && base.me.wechatName);
+    const others = (Array.isArray(row.messages) ? row.messages : [])
+      .map(m => S(m && m.from)).filter(n => n && n !== "me" && n !== "__me__" && !(meName && sameName(n, meName)));
+    const from = row.type === "group" ? (others[0] || who) : who;
     row.messages = (Array.isArray(row.messages) ? row.messages.slice() : []).concat([{ from: from, text: body }]);
     row.last = body;
     row._ts = ts;
@@ -569,13 +575,13 @@
       "· **大部分时候你什么也没干成**：点进去、看两眼、退出来。别每次都非得发生一件大事。",
       "· 三种动作的分量完全不同——**只是看**（点开一张旧照片、翻回很久以前的话、盯着某个人的头像）本来就是最常见的那种；",
       "  **改**（写了又删）次之；**真发出去**最少。一整段里真正送出去的东西，一两件顶天了。",
-      "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打、改口、整句删掉重写。**改到一半的那句才是最像你的**——但微信里最后还是要发出去（见下面各 app 那一段）。",
+      "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打、改口、整句删掉重写。**改到一半的那句才是最像你的**——打完删光不发出去也算数，只要你是真的打了。",
       "· 停顿是有意义的：pause 放在你犹豫、走神、或者盯着某样东西挪不开眼的地方。",
       "· **动作是主角，心声是配角**：一整段里绝大多数是动作（点、翻、打字、停），think 只有寥寥几句。写成一串心声就不是「看他玩手机」了，是配旁白。",
       "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句**。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。多数动作根本不配一句心声。",
       "",
       "【每个 app 里你能干什么】",
-      can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后要 type，最后要 send 发出去。中间可以 erase 掉重打、改口、删了再写（那一下最像你），但**别点开看两眼就退出来**：只想看看的话就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me。" : "",
+      can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",

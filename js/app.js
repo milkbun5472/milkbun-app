@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.36";
+const APP_VERSION = "v66.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13365,7 +13365,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const p = bgActive;
     if (!p) throw new Error("先去设置里配一条 API");
     const step = WK.knockStep(nth, WK.knockDecayed((knockLog || {})[char.id], Date.now()));
-    setKnockLog(k => { const n = { ...k, [char.id]: WK.knockPush(k[char.id], Date.now()) }; saveJSON("x_phoneKnock", n); return n; });
+    // ⚠️跨次那一笔要等【真敲响了】再记：原来它排在这一枪前面，失败那一下照样记进衰减表
+    //   ——敲了没反应、次数少一下、跨次记忆还多一笔（她 9-10 报的「卡住没反应」的第三个哑口）。
+    const markKnock = () => setKnockLog(k => { const n = { ...k, [char.id]: WK.knockPush(k[char.id], Date.now()) }; saveJSON("x_phoneKnock", n); return n; });
     const doing = nowAct ? "你此刻正在：" + (WK.WATCH_ACTS[nowAct.kind] || {}).zh + (nowAct.name ? "（" + nowAct.name + "）" : "") : "";
     try {
       const out = await Promise.race([runProbe(p, phoneCtx(char), {
@@ -13386,6 +13388,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 好感一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0）
       const d = WK.clampWatchAff(out && out.aff);
       if (d && nth === 1) bumpAff(char.id, d);   // 只认第一下，连着敲不叠加
+      markKnock();
       return say;
     } catch (e) {
       // ⚠️别再吞掉：吞掉的样子就是「敲了没反应」，而且那一下还被算掉了

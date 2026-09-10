@@ -2451,8 +2451,12 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
       h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
   // 「看他玩」里他刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
-  const driveSent = (drive && String(drive.item) === String(thread && thread.name) ? arr(drive.sent) : []);
-  const driveTyping = drive && drive.item && drive.typing != null && String(drive.item) === String(thread && thread.name) ? String(drive.typing || "") : null;
+  // ⚠️认名字必须走公共那份（watchSame）。这两行原来是严格等号：模型把会话名写成
+  //   「《长夜》」而聊天叫「长夜」时，上面那个 effect 会正常打开聊天（它用的是 watchSame），
+  //   可输入框和他发出去的气泡一个都不显示——屏幕上就是「点开了，然后什么也没发生」。
+  const driveOn = !!(drive && drive.item && thread && watchSame(thread.name, drive.item));
+  const driveSent = driveOn ? arr(drive.sent) : [];
+  const driveTyping = driveOn && drive.typing != null ? String(drive.typing || "") : null;
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, m.text)));
@@ -2489,7 +2493,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   if (tab === "chats") body = h("div", null, chats.map(chatRow));
   else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: 11, color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
   else if (tab === "moments") {
-    const momentCard = (m, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "15px 14px", borderBottom: "1px solid #eee" } },
+    // 挂点挂在【谁发的】上：他半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
+    // 一个挂点都没有，切过去之后圆点还停在别处，看着像卡住）。
+    const momentCard = (m, i) => h("div", { key: i, "data-watch": "item:" + (m.author || ""), className: "flex gap-3", style: { padding: "15px 14px", borderBottom: "1px solid #eee" } },
       h(Avatar, { character: person(m.author), size: 40, radius: 6 }),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#526786" } }, m.author),
@@ -5197,8 +5203,11 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
   // 演到一半就该看见：他刚发出去的那条先挂在气泡串上（落盘另走 applyWrite）
-  const driveSent = (drive && open && open.kind === "sms" && String(drive.item || "") === String((open.x || {}).name || (open.x || {}).number || "")) ? A(drive.sent) : [];
-  const driveTyping = (drive && open && open.kind === "sms" && drive.typing != null) ? String(drive.typing || "") : null;
+  // 同上：这一行也得走公共那份，不然短信点开了、他打的字和发出去的气泡却不出现
+  const driveOn = !!(drive && open && open.kind === "sms" && drive.item
+    && (watchSame((open.x || {}).name, drive.item) || String((open.x || {}).number || "") === String(drive.item)));
+  const driveSent = driveOn ? A(drive.sent) : [];
+  const driveTyping = (driveOn && drive.typing != null) ? String(drive.typing || "") : null;
   const detail = open ? (function () {
     const x = open.x || {};
     const isCall = open.kind === "call", isSms = open.kind === "sms", isVm = open.kind === "vm";
@@ -5788,15 +5797,16 @@ function PhoneCarry({
   // 阅读：点开一本书时，手上那份草稿就是它现在的批注（跟便签同一个理由）
   const bookNoteOf = title => {
     const shelves = (((phones || {})[char && char.id] || {}).reading || {}).shelves;
-    let out = "";
-    (Array.isArray(shelves) ? shelves : []).forEach(sh => (Array.isArray(sh && sh.books) ? sh.books : []).forEach(b => {
-      if (b && String(b.title || "") === String(title)) out = String(b.note || "");
-    }));
-    return out;
+    const flat = [];
+    (Array.isArray(shelves) ? shelves : []).forEach(sh => (Array.isArray(sh && sh.books) ? sh.books : []).forEach(b => { if (b) flat.push(b); }));
+    const hit = watchPick(flat, title, b => b && b.title);
+    return hit ? String(hit.note || "") : "";
   };
   const noteBodyOf = title => {
     const it = (((phones || {})[char && char.id] || {}).notes || {}).items;
-    const hit = (Array.isArray(it) ? it : []).find(x => x && String(x.title || "") === String(title));
+    // ⚠️这一处最阴：取不到正文的话，他「划掉重写」划的是一片空白，
+    //   可落盘那头 applyWrite 用的是模糊认名，照样找到那条便签覆盖掉——演的和写的两回事。
+    const hit = watchPick(Array.isArray(it) ? it : [], title, x => x && x.title);
     return hit ? String(hit.body || "") : "";
   };
   // ⚠️播放器这一串 hook 必须待在【所有 return 上面】——这个组件下面有好几处早返回
@@ -5816,6 +5826,24 @@ function PhoneCarry({
     //   圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的）。
     const all = [].slice.call(document.querySelectorAll('[data-watch^="item:"]'));
     return WK.pickName(all, name, el => String(el.getAttribute("data-watch")).slice(5));
+  };
+  // 这一屏此刻真正在滚的是哪一块：最大的那个能滚、又看得见的容器。
+  // ⚠️不写死某个 ref：二十来屏各有各的滚动容器，写死一个就只有那一屏能滑。
+  const watchScroller = () => {
+    let best = null, area = 0;
+    const all = document.querySelectorAll("div,section,main,ul");
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i];
+      if (el.scrollHeight - el.clientHeight < 24) continue;
+      const st = window.getComputedStyle(el).overflowY;
+      if (st !== "auto" && st !== "scroll") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 80 || r.height < 80) continue;
+      if (r.bottom < 0 || r.top > (window.innerHeight || 0)) continue;
+      const a2 = r.width * r.height;
+      if (a2 > area) { area = a2; best = el; }
+    }
+    return best;
   };
   const watchDotTo = (sel, fuzzyName) => {
     if (!sel) return;
@@ -5872,13 +5900,13 @@ function PhoneCarry({
     const stopDot = watchDotTo(WK.watchTargetSel(a), a.name || a.at || "");
     // ② 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
-    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, typing: null } : w); }
-    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, typing: null } : w); }
+    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, lastQ: "", typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", typing: null } : w); }
     else if (a.kind === "open") {
       const app = appByKey(a.app);
       // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
       //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
-      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, typing: app.key === "browser" ? "" : null } : w); }
+      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", typing: app.key === "browser" ? "" : null } : w); }
     }
     else if (a.kind === "back") {
       const w0 = watchRef.current;
@@ -5901,11 +5929,28 @@ function PhoneCarry({
     // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
     else if (a.kind === "openPage") {
       const pg = { title: a.name, site: a.site || "", gist: a.gist || "", price: a.price != null ? a.price : null };
-      const q = String((watchRef.current && watchRef.current.lastQ) || "");
+      // ⚠️只有浏览器那一路的 openPage 才接得住「他刚搜的那句」。
+      //   lastQ 原来跨 app 不清：先在浏览器搜过「怎么煮溏心蛋」，后来点开购物点一件商品，
+      //   那件商品就被存成了「怎么煮溏心蛋」（购物/外卖/小红书/视频四处同一行写法，全中）。
+      const q = openRef.current === "browser" ? String((watchRef.current && watchRef.current.lastQ) || "") : "";
       // ⚠️item 要一起清掉：小红书那一屏的详情页是【顶掉整屏】的，item 还挂着的话
       //   现编的这一页就被压在它下面，等于什么都没看见。
       setWatch(w => w ? { ...w, page: pg, item: null, typing: null } : w);
       if (onWatchSend) { try { onWatchSend(char, openRef.current, q, a.name, Object.assign({ act: "openPage" }, pg)); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+    }
+    // ⚠️scroll 原来是个【空动作】：词表里有、提示词里三处让他用（小红书／视频／深夜台
+    //   这三个「只能刷」的 app 里他几乎只能干这个），可播放器一个分支都没有——
+    //   屏幕纹丝不动地停 700 毫秒。这个功能的命根子就是「一眼看得出是真的」。
+    else if (a.kind === "scroll") {
+      const px = Math.max(-1400, Math.min(1400, Number(a.amount) || 320));
+      requestAnimationFrame(() => {
+        const el = watchScroller();
+        if (!el) return;
+        try { el.scrollBy({ top: px, behavior: "smooth" }); } catch (e) { el.scrollTop += px; }
+        // 手指落在他划的那一片上，跟着往下带一截
+        const r = el.getBoundingClientRect();
+        setDot({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * (px > 0 ? 0.62 : 0.38)), press: false });
+      });
     }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
