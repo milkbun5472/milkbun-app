@@ -39,8 +39,26 @@ test("真图两处都认：本轮这一张身上没有，就去收藏那条记�
 });
 
 test("画完当场就能看见：keep 是自己的 state，写完得再读一遍", () => {
-  assert.match(view, /Promise\.resolve\(onDrawPhoto\(p, sig\(p\)\)\)\.then\(\(\) => setKeep\(loadJSON\("x_phoneKeep", \{\}\)\)\)/,
+  assert.match(view, /Promise\.resolve\(onDrawPhoto\(p, sig\(p\)\)\)\.then\(\(\) => \{[\s\S]{0,200}setKeep\(k\);/,
     "画完没有重读 x_phoneKeep，按钮和图都不会变");
+  // ⚠️她 2026-09-10：「他说画好了但是图不会动，要我重开 app 进一次才会替换」。
+  //   正看着的这一张是 photo 那份快照，drawnRef 先看 p.imageRef——把新 ref 盖回快照。
+  assert.match(view, /setPhoto\(cur => \(cur && sig\(cur\) === sig\(p\)\)/,
+    "画完没把新 ref 盖回手上这份快照，得重开 app 才换图");
+  // 图库的键要当场解得出来：缓存里没有＝这一屏拿到空串
+  assert.match(draw, /!resolveImg\(ref\) && typeof _imgCache === "function"/);
+  assert.match(draw, /_imgCache\(\)\.set\(ref, URL\.createObjectURL\(out\.blob\)\)/);
+});
+
+test("描述点名哪个部位，就把英文构图指令顶到最前面", () => {
+  // 她 2026-09-10 第四次拍图：写「搭在深灰色 T 恤胸口位置」，画出来手搭在被子上、框的是腿。
+  const eng = fs.readFileSync("js/engine.js", "utf8");
+  assert.match(eng, /【框哪一块·这条比什么都硬】/);
+  assert.match(eng, /NOT the lap, NOT the thighs, NOT the legs/);
+  assert.ok(eng.indexOf("const PART_HINTS = [") > 0, "没有部位→英文构图的对照表");
+  // 这一段必须在【画的就是这个】之前立住构图
+  assert.ok(eng.indexOf("【框哪一块") < eng.indexOf('(body ? "【画的就是这个】"'),
+    "构图指令排在描述后面，等于先让模型自由发挥再补一句");
 });
 
 // 指纹必须是模块级的一份：App 那边要按同一个指纹把图挂回那条记录上。

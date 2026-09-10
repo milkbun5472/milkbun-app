@@ -3797,6 +3797,24 @@ function buildScenePrompt(char, sceneDesc, opts) {
       + "写「腿」才拍腿。**不许拿别的部位顶替**：chest means chest, not lap or thigh。"
       + "姿势也照描述来：写「睡着」「床上」就是躺着，别画成坐着低头看膝盖。");
   }
+  // ⚠️她 2026-09-10 第四次拍图：归属、部位都写进去了，画出来还是【手搭在被子上、
+  //   框的是腿】——而描述写的是「搭在深灰色 T 恤胸口位置」。中文部位词对图像模型
+  //   基本无效，得把「框哪一块」翻成英文构图指令，并且【点名不许拍成哪一块】。
+  //   放在【画的就是这个】之前，让它先立住构图，再喂那句中文描述。
+  const PART_HINTS = [
+    [/胸口|胸前|锁骨|前胸/, "framing: close on the upper chest and collarbone, camera looking straight down at the chest from the person's own eyes. The chest fills the middle of the frame. NOT the lap, NOT the thighs, NOT the legs, NOT a blanket over the legs"],
+    [/肚子|腰|小腹/, "framing: close on the stomach and waist. NOT the chest, NOT the legs"],
+    [/膝盖|大腿|腿上|腿间/, "framing: the lap and thighs seen from above. NOT the chest"],
+    [/脖|颈/, "framing: close on the neck and throat. NOT the chest, NOT the legs"],
+    [/手腕|手背|指尖|手指|一只手|手心/, "framing: close on the hand, hand and fingers clearly the main subject and in sharp focus"],
+    [/脚|脚踝|脚趾/, "framing: close on the feet and ankles. NOT the legs above the knee"],
+    [/背|后颈|肩胛/, "framing: the back and shoulder blades. NOT the front of the body"]
+  ];
+  if (sceneDesc && String(sceneDesc).trim()) {
+    const sd = String(sceneDesc);
+    const hit = PART_HINTS.find(([re]) => re.test(sd));
+    if (hit) parts.push("【框哪一块·这条比什么都硬】" + hit[1] + "。描述里点名的就是这一块，画面主体必须是它；拍成别的部位就是画错了。");
+  }
   if (sceneDesc && String(sceneDesc).trim()) parts.push((body ? "【画的就是这个】" : "【画这个地方】") + String(sceneDesc).trim() + "。");
   // 竖屏背景板：正文对话框压在下半屏，所以画面的分量要往上走、中下留得住字
   // ⚠️只有空景那一档会被拿去当背景板；局部照是聊天里发的一张图，不压字。

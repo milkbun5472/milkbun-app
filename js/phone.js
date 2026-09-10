@@ -2737,7 +2737,17 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   };
   const drawPhoto = p => {
     if (!onDrawPhoto) return;
-    Promise.resolve(onDrawPhoto(p, sig(p))).then(() => setKeep(loadJSON("x_phoneKeep", {})));
+    Promise.resolve(onDrawPhoto(p, sig(p))).then(() => {
+      const k = loadJSON("x_phoneKeep", {});
+      setKeep(k);
+      // ⚠️她 2026-09-10：「他说画好了但是图不会动，要我重开 app 进一次才会替换」。
+      //   光 setKeep 不够稳：正看着的这一张是 photo 这份【快照】，而 drawnRef 先看
+      //   p.imageRef、再回落到收藏那条记录。把新的 ref 直接盖回手上这份快照，
+      //   这一屏就当场换图，不用等任何一层 state 对上。
+      const rec = arr(k[char.id]).find(s => sig(s) === sig(p));
+      if (rec) setPhoto(cur => (cur && sig(cur) === sig(p))
+        ? { ...cur, imageRef: rec.imageRef || "", imageUrl: rec.imageUrl || "" } : cur);
+    });
   };
   // 零 API 的程序化缩略图：按照片内容稳定生成不同色光、景深与构图；不是灰色占位，
   // 也不会为 25 张照片额外烧生图额度。若将来数据带 imageRef/imageUrl，会优先显示真图。

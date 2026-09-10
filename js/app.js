@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.70";
+const APP_VERSION = "v66.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14587,6 +14587,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ref = await imgToVault(du);
         if (String(ref).indexOf("iv_") !== 0) { url = du; ref = ""; }  // 图库写不进去就退回内联，别把碎图标存下来
         else url = "";
+        // ⚠️图库的键要当场解得出来才算数：resolveImg 读的是内存那份 iv_→objectURL 缓存，
+        //   它只在开机 hydrate 和 imgToVault 头一次写入时灌。缓存里没有＝这一屏拿到空串，
+        //   她得重开 app 才看得见（她 2026-09-10：「要我重开 app 进一次才会替换」）。
+        if (ref && typeof resolveImg === "function" && !resolveImg(ref) && typeof _imgCache === "function") {
+          try { _imgCache().set(ref, URL.createObjectURL(out.blob)); } catch (e) {}
+        }
       }
       // 按钮只长在收着的那几张上，正常一定找得到；找不到就把这张补进收藏，
       // 否则图存进了保险箱却没有任何一条记录指向它，等于白画一次。
