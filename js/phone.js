@@ -4194,8 +4194,12 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   const head = h("div", { "data-wk": "head", className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IArrow, { size: 18, color: BILI_INK })),
-      h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: BILI_DIM } }, "搜索")),
+      // 「看他玩」演到他搜东西那一下，这颗药丸就是真的搜索条（她自己翻的时候一个像素没变）
+      (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+        ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
+            skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
+        : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: BILI_DIM } }, "搜索")),
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
     // 他自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
     (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
@@ -4457,14 +4461,20 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   // 顶栏照小红书：返回 · 居中的频道 tab（首页那页才有）· 刷新
   const chans = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
+  const searchPill = (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+    ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
+        skin: { ink: PLAZA_INK, dim: PLAZA_DIM, soft: "#f3f3f6", accent: PLAZA_RED } })
+    : null;
   const topBar = h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-2 pb-1.5", style: { paddingTop: safeTop(10), background: "#fff" } },
     h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: PLAZA_INK })),
-    tab === "feed"
+    // 演到他搜东西那一下，频道那一排让位给搜索条（平时一个像素都不变）
+    searchPill,
+    searchPill ? null : tab === "feed"
       ? h("div", { className: "flex-1 min-w-0 flex gap-3 overflow-x-auto justify-center", style: { scrollbarWidth: "none" } }, chans.map((c, i) => h("button", {
           key: i, onClick: () => setChan(i), className: "shrink-0 active:opacity-60",
           style: { fontFamily: F_DISPLAY, fontSize: i === chan ? 16 : 14, color: i === chan ? PLAZA_INK : "#b0b0b8", padding: "3px 2px", borderBottom: i === chan ? "2px solid " + PLAZA_RED : "2px solid transparent" }
         }, c)))
-      : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: PLAZA_INK } }, page.zh),
+      : searchPill ? null : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: PLAZA_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK })));
   // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
@@ -4862,6 +4872,10 @@ const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "
 // 「看他玩」里【买东西那一路】的三个 app：它们没有输入框，send 落的是屏幕上那一页。
 // 写成一份名单，播放器和落盘各读它一次——别在两处各写一串 || 。
 const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
+// 能【搜出新东西】的那几个：进去就有一张空草稿，敲完回车先看见搜的那一句，再点进去。
+// ⚠️她 2026-09-10 定的顺序（浏览器那次立的，小红书和视频照办）：
+//   凭空冒出一页，看的人不知道他为什么看见它。
+const WATCH_SEARCH_APPS = ["browser", "liked", "bili"];
 // 「看他玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
 // （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
 const watchSame = (a, b) => (window.PhoneWatch && window.PhoneWatch.sameName)
@@ -5902,18 +5916,18 @@ function PhoneCarry({
     const stopDot = watchDotTo(WK.watchTargetSel(a), a.name || a.at || "");
     // ② 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
-    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, lastQ: "", typing: null } : w); }
-    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", typing: null } : w); }
+    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, lastQ: "", searchQ: "", typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: null } : w); }
     else if (a.kind === "open") {
       const app = appByKey(a.app);
       // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
       //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
-      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", typing: app.key === "browser" ? "" : null } : w); }
+      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: WATCH_SEARCH_APPS.indexOf(app.key) >= 0 ? "" : null } : w); }
     }
     else if (a.kind === "back") {
       const w0 = watchRef.current;
       const inner = !!(w0 && (w0.item || w0.page));
-      setWatch(w => w ? { ...w, item: null, page: null, typing: openRef.current === "browser" ? "" : null } : w);
+      setWatch(w => w ? { ...w, item: null, page: null, typing: WATCH_SEARCH_APPS.indexOf(openRef.current) >= 0 ? "" : null } : w);
       if (!inner) setOpen(null);
     }
     else if (a.kind === "tab") setWatch(w => w ? { ...w, tab: a.name, item: null, typing: null } : w);
@@ -5976,6 +5990,13 @@ function PhoneCarry({
           setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null, tab: "search" } : w);
           if (onWatchSend) { try { onWatchSend(char, "browser", text, "", { act: "send" }); } catch (e) {} }
         }
+      }
+      else if (text && WATCH_SEARCH_APPS.indexOf(where) >= 0) {
+        // ⚠️同一颗键，两件事，靠【手上有没有草稿】分：
+        //   有草稿＝他在搜索框里敲完了 → 这一下是搜索（先让那句话留在框里）；
+        //   没草稿＝屏幕上摆着一页 → 这一下才是这个 app 的动作（收藏／加购／下单）。
+        //   真手机就是这么分的，不用另造一个词。
+        setWatch(w => w ? { ...w, searchQ: text, typing: "", page: null } : w);
       }
       else if (WATCH_BUY_APPS.indexOf(where) >= 0) {
         // 购物／外卖／小红书里没有输入框：这一下按的是【他正看着的那一页】上那颗钮——
@@ -6431,7 +6452,7 @@ function PhoneCarry({
     },
     // 一份 drive 递给所有被驱动的 app（微信／相册／便签各取所需）——
     // 各拼一份的话，第三批加浏览器又要在这儿多一支（一层写在多处）。
-    drive: watch ? { tab: watch.tab, item: watch.item, page: watch.page, typing: watch.typing,
+    drive: watch ? { tab: watch.tab, item: watch.item, page: watch.page, typing: watch.typing, searchQ: watch.searchQ,
       // sent 里两种人：他自己发的（右侧绿气泡）和对面回的
       // ⚠️「他自己」在两屏上叫的名字不一样：微信按头像认人，所以要换成他的微信昵称；
       //   短信那一屏认的是死字符串 "me"（照各自那屏自己的写法来）。

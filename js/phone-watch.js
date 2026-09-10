@@ -726,12 +726,12 @@
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
       can.indexOf("takeout") >= 0 ? "· 外卖：openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
-      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。tab 可以切 feed / follow / mine。" : "",
+      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。tab 可以切 feed / follow / mine。" : "",
       can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
       can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**。tab 可以切 inbox / sent / drafts。" : "",
       can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。tab 可以切 shelf / archive。" : "",
       can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**这一路只能看，改不了**——那本账不是刷手机能改的东西。tab 可以切 debts / policies / statements / treasures / appraisals。" : "",
-      can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
+      can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的。**想看新东西就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点开其中一条——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
       can.indexOf("latenight") >= 0 ? "· 深夜台：openItem 点开一条已经在那儿的，look 着、pause 一会儿、scroll 往下划。**这一路什么都改不了**，就是刷。" : "",
       can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：只能 openItem 点开一条看看、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。" : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
@@ -804,6 +804,30 @@
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: ink, marginTop: 5 } }, pg.title || "")),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 30px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: body, whiteSpace: "pre-wrap" } }, pg.gist || "")));
+  }
+
+  // ── 搜索条：他在这个 app 里搜新东西的那一下 ────────────────────
+  // ⚠️「先搜再点进去」这条顺序是她定的（2026-09-10，浏览器那次）：
+  //   凭空冒出一页，看的人不知道他为什么看见它。所以凡是能搜出新东西的 app，
+  //   都先让那句搜索词出现在搜索框里，再由 openPage 盖上那一页。
+  //   这一条只此一份：小红书、视频各画一套的话，改一处必漏一处。
+  function WatchSearchPill(o) {
+    const p = o || {}, sk = p.skin || {};
+    const typing = p.typing, q = S(p.q);
+    if (typing == null && !q) return null;
+    const ink = sk.ink || "#1c1a16", dim = sk.dim || "#9a9aa4", soft = sk.soft || "#f1f2f3";
+    // ⚠️回车之后草稿是空串（不是 null），照原样画就是【搜索框空着】——
+    //   而那一刻正是她要看见「他搜了什么」的那一下。空草稿就把搜的那句留在框里。
+    const draft = (typing != null && S(typing).length > 0) ? S(typing) : "";
+    const shown = draft || q;
+    const on = !!draft;
+    return h("div", { className: "flex-1 min-w-0 flex items-center", "data-watch": "input",
+      style: { height: 32, borderRadius: 99, background: soft, padding: "0 6px 0 13px", gap: 8 } },
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, whiteSpace: "nowrap", overflow: "hidden" } },
+        [shown || h("span", { key: "ph", style: { color: dim } }, "\u00a0"),
+          typing != null ? h("span", { key: "c", style: { display: "inline-block", width: 1.5, height: 13, background: ink, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } }) : null]),
+      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: 99, padding: "4px 11px", fontFamily: F_BODY, fontSize: 11.5,
+        color: on ? "#fff" : dim, background: on ? (sk.accent || ink) : "transparent" } }, "搜索"));
   }
 
   // 触控圆点：手机不该配一个电脑鼠标。一颗很淡的圆 + 按下时一圈涟漪。
@@ -894,7 +918,7 @@
     THOUGHT_CAP, THOUGHT_FREE, thoughtCapFor, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
-    WatchDot, WatchThought, WatchBar, WatchPage,
+    WatchDot, WatchThought, WatchBar, WatchPage, WatchSearchPill,
     normalizeActs, actDuration, typeTick, sessionDuration, applyWrite, applyReply, sameName, pickName,
     knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
     knockedToday, watchedNote, HINT_PER_DAY, watchHintOn, watchHintUsed
