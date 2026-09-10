@@ -16,11 +16,18 @@ test("认不出来的动作丢掉、不猜；心声整段封顶", () => {
     { kind: "think", text: "d" }, { kind: "think", text: "e" },
     { kind: "think", text: "  " }, { kind: "飞起来" }, null, "x"
   ]);
-  assert.equal(r.acts.filter(a => a.kind === "think").length, W.THOUGHT_CAP);
+  assert.equal(r.acts.filter(a => a.kind === "think").length, 1, "连着的心声只留第一句：连在一起就是旁白");
   assert.ok(r.dropped.some(x => /飞起来/.test(x)), "认不出的动作没被丢掉——猜就是演出一件他没做的事");
   // ⚠️超额的心声是【扔掉】不是往后挪：往后挪等于还是发了 8 句，只是晚一点
-  assert.ok(r.dropped.some(x => /超过 4 句/.test(x)));
-  assert.equal(W.THOUGHT_CAP, 4, "她要的是三四句就够，多了变成配旁白的 PPT");
+  const many = W.normalizeActs([].concat(...Array.from({ length: 9 }, (_, i) =>
+    [{ kind: "pause" }, { kind: "think", text: "t" + i }])));
+  assert.equal(many.acts.filter(a => a.kind === "think").length, 4, "一次都没点开，就只有底数那几句");
+  assert.ok(many.dropped.some(x => /超过 4 句/.test(x)));
+  // ⚠️「三四句就够」是我自己编的、还写成了她的原话——她从没说过（2026-09-10 当场指出来）。
+  //   她定的是「每点开一样东西就想一句」，所以这个数只是【一次都没点开时】的底数。
+  assert.equal(W.THOUGHT_CAP, 4);
+  assert.ok(!/她要的是「三四句/.test(watchSrc), "别再把自己的判断写成她的原话");
+  assert.ok(watchSrc.indexOf("是我自己编的") > 0, "记着这一次：她的原话是记录，编一句安在她头上比写错代码更糟");
 });
 
 // ⚠️桩照着【写存档的那段】写：微信会话在 phone.js 里读的是 name/type/last/messages[{from,text}]/_ts
@@ -713,19 +720,19 @@ test("底下那条是悬浮的，不占屏幕一寸", () => {
   assert.match(watchSrc, /onPointerDown: p\.onWake/);
 });
 
-test("心声：短段还是三四句，长段放宽到六句，而且要花在刀刃上", () => {
-  // 她 2026-09-10：「他翻开了没有心声就看他点进去有点莫名其妙」。
-  // ⚠️病不在句数，在【落在哪一下】：配给亮屏、回桌面、滑动这种一看就懂的动作，
-  //   真正需要一句话的那几下反而空着。所以两头一起动：底数不变、长段放宽、说清落在哪儿。
-  assert.equal(W.thoughtCapFor(8), 4, "短段还是她要的那个数");
-  assert.equal(W.thoughtCapFor(20), 4);
-  assert.equal(W.thoughtCapFor(60), W.THOUGHT_CAP_MAX);
-  assert.equal(W.THOUGHT_CAP_MAX, 6, "再多就是配旁白的 PPT 了");
-  const many = n => Array.from({ length: n }, (_, i) => ({ kind: "think", text: "a" + i }));
-  assert.equal(W.normalizeActs(many(8)).acts.length, 4);
-  assert.equal(W.normalizeActs(many(60)).acts.length, 6);
-  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: {} });
-  assert.match(s, /\*\*那几句要花在刀刃上\*\*/);
-  assert.match(s, /亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配/);
-  assert.match(s, /点开一样东西之后\*\*至少 pause 一下\*\*/);
+test("心声：每点开一样东西就想一句（她 2026-09-10 定的）", () => {
+  // ⚠️配额跟着【他点开了几样东西】走，不是拍一个数字：
+  //   看的人只看得见他点了什么，看不见他为什么点它——那一下没有一句话，就是「他点进去了，然后呢？」
+  const runs = o => [].concat(...Array.from({ length: o }, () => [{ kind: "openItem", name: "x" }, { kind: "think", text: "t" }, { kind: "pause" }]));
+  assert.equal(W.thoughtCapFor(runs(0)), W.THOUGHT_CAP, "一次都没点开时还有个底数，免得整段一句话都没有");
+  assert.equal(W.thoughtCapFor(runs(8)), 8 + W.THOUGHT_FREE, "点开八样就该有八句，外加两句自由的");
+  assert.equal(W.normalizeActs(runs(8)).acts.filter(a => a.kind === "think").length, 8);
+  // 两句连在一起是旁白，不是想法
+  const r = W.normalizeActs([{ kind: "think", text: "a" }, { kind: "think", text: "b" }]);
+  assert.equal(r.acts.length, 1);
+  assert.ok(r.dropped.some(x => /连着的第二句心声/.test(x)));
+  const s2 = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: {} });
+  assert.match(s2, /\*\*每点开一样东西，就想一句\*\*/);
+  assert.match(s2, /亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配/);
+  assert.match(s2, /点开一样东西之后\*\*至少 pause 一下\*\*/);
 });
