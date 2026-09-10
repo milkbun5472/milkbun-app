@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.50";
+const APP_VERSION = "v66.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13339,6 +13339,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen, recentItems: seenIts,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
+          // 由头：几点、上一次放下手机多久了。**这一段做的事要跟它对得上。**
+          whyNow: watchWhyNow(char), charHour: Math.floor(charLocalMin(char) / 60),
+          sinceLast: (watchAt || {})[char.id] ? Math.round((Date.now() - Number((watchAt || {})[char.id])) / 60000) : null,
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
           // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
           calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null),
@@ -13391,6 +13394,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const WK = window.PhoneWatch;
     if (!WK || !to) return false;
     return watchMeNames(char).some(n => WK.sameName(n, to));
+  };
+  // ── 他这会儿为什么会拿起手机（她 2026-09-10 要的「由头」）──────────
+  // ⚠️入口那颗提示点【不在这儿】：那一层已经有了（PhoneWatch.watchHintOn，
+  //   醒着 + 一天两次 + 稳定种子）。这儿只做另一半：**告诉他这一次是几点拿起来的**。
+  //   两件事分得开：那一层管「什么时候提醒她去看」，这一层管「他为什么在刷」。
+  // ⚠️几点用现成的 charLocalMin（他自己的时区），不另写一套算时区的（一层写在两处）。
+  const watchWhyNow = char => {
+    const h = Math.floor(charLocalMin(char) / 60);
+    if (h >= 23 || h < 2) return "深夜";
+    if (h >= 20) return "睡前";
+    if (h >= 12 && h < 14) return "饭点";
+    if (h >= 6 && h < 9) return "刚醒";
+    return "";
   };
   const watchSend = (char, where, to, text, extra) => {
     const WK = window.PhoneWatch;

@@ -813,3 +813,21 @@ test("别来来回回翻同两张", () => {
   assert.match(app, /\{ a: opened, i: its\.slice\(0, 24\) \}/);
   assert.match(app, /const seen = Array\.isArray\(seen0\) \? seen0 : \(\(seen0 && seen0\.a\) \|\| \[\]\)/, "老存档那一格是数组，两种都得认");
 });
+
+test("他这会儿为什么拿起手机：给这一段一个由头", () => {
+  // 她 2026-09-10：他每次都像从零开始刷，于是永远是那几个 app、那两张照片。
+  // ⚠️他此刻在做什么本来就在上下文里（ctxFor.schedNow），可从没有人让他把两件事接上。
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {},
+    whyNow: "深夜", charHour: 1, sinceLast: 190 });
+  assert.match(s, /【你这会儿为什么拿起手机】/);
+  assert.match(s, /你那边现在大约 1 点。这是深夜——你本该睡了/);
+  assert.match(s, /离你上次放下手机过了 3 个多小时——\*\*别把上次做过的事再做一遍\*\*/);
+  assert.match(s, /\*\*这一段里做的每一下都要跟这个由头对得上\*\*/);
+  // 第一次看他玩时不该凭空说「离上次」
+  assert.doesNotMatch(W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {} }), /离你上次放下手机/);
+  // ⚠️几点走现成的 charLocalMin（他自己的时区），不另写一套算时区的
+  assert.match(app, /whyNow: watchWhyNow\(char\), charHour: Math\.floor\(charLocalMin\(char\) \/ 60\)/);
+  // ⚠️入口那颗提示点不归这一层管——那是 PhoneWatch.watchHintOn，别开第二处
+  assert.match(app, /watchHintOn: \(\(\) => \{/);
+  assert.doesNotMatch(app, /const watchHintFor =/);
+});
