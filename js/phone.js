@@ -2307,9 +2307,21 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
+  // ── 「看他玩」在开着的时候，这一屏由外面那串动作驱动（js/phone-watch.js）──
+  // ⚠️不另做一份「他的微信」：他操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
+  //   所以只加一条同步——drive 变了就把内部状态搬过去，drive 不在时一个像素都没变。
+  const driveTab = drive && drive.tab, driveChat = drive && drive.chat;
+  useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveChat) { setThread(null); return; }
+    // chats 在下面才算出来，但 effect 是渲染完才跑的，这时候它已经有值了
+    const hit = chats.find(c => c && String(c.name) === String(driveChat));
+    if (hit) setThread(hit);
+  }, [driveChat]);
   const [publicPage, setPublicPage] = useState(false);
   const [article, setArticle] = useState(null);
   const arr = a => Array.isArray(a) ? a : [];
@@ -2338,13 +2350,23 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
     // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
       h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
-  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).map((m, i) => {
+  // 「看他玩」里他刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
+  const driveSent = (drive && String(drive.chat) === String(thread && thread.name) ? arr(drive.sent) : []);
+  const driveTyping = drive && drive.chat && String(drive.chat) === String(thread && thread.name) ? String(drive.typing || "") : null;
+  if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } }, m.text)));
-  })));
+  })),
+    // 他正在打字的那一栏：只在「看他玩」里出现（她自己翻的时候没有理由往他微信里打字）。
+    // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
+    driveTyping != null ? h("div", { "data-watch": "input", className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      h("div", { className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
+        driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
+        h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 15, marginLeft: 1, verticalAlign: "-2px", background: "#07c160", animation: "wkcaret 1s steps(2) infinite" } })),
+      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: 13.5, color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
   const accounts = arr(d.me && d.me.accounts);
   if (publicPage) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, article.title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, article.summary), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, article.thought))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
-  const chatRow = (c, i) => h("button", { key: c.id || i, onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
+  const chatRow = (c, i) => h("button", { key: c.id || i, "data-watch": "chat:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage }, ...arr(d.contacts)];
   const contactRow = (c, i) => h("button", { key: i, onClick: () => setThread({ ...c, type: "contact" }), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, c.intro)));
@@ -2418,7 +2440,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
         }, "发消息") : null));
   }
   const navs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
-  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "env(safe-area-inset-bottom)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label)))));
+  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "env(safe-area-inset-bottom)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label)))));
 }
 
 function AlbumNavIcon({ kind, active }) {
@@ -5227,7 +5249,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive });
   if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -5285,7 +5307,8 @@ function PhoneApp({
   onBack,
   profile,
   actualWechat,
-  live
+  live,
+  drive
 }) {
   const t = useTheme();
   phoneViewTa(char);   // 界面上的「他/她/TA」跟着这台手机的主人走（v58.88）
@@ -5298,7 +5321,8 @@ function PhoneApp({
   const [forumTab, setForumTab] = useState("main");
   // 打开非视频版块：直接生成，失败退回上一级（不再显示中间的「生成」页）
   useEffect(() => {
-    if (isLive || charData[appKey]) return;
+    // ⚠️「看他玩」开着的时候不许顺手再生成一次：那是另一枪，而且会把正在演的这一份盖掉
+    if (drive || isLive || charData[appKey]) return;
     let alive = true;
     Promise.resolve(onGen(char, appKey)).then(ok => { if (alive && ok === false) onBack(); });
     return () => { alive = false; };
@@ -5321,6 +5345,7 @@ function PhoneApp({
     refreshing: !!busyKey,
     forumTab,
     setForumTab,
+    drive,
     ...(live || {})
   });
   // ⚠️第二次以后重刷，原来【一点动静都没有】（她 2026-09-01：「刷新的时候没有提醒，
@@ -5409,12 +5434,113 @@ function PhoneCarry({
   lastAll,
   onPeek,
   onDrawPhoto,
-  drawingPhoto
+  drawingPhoto,
+  onWatchStart,
+  onWatchSend,
+  onWatchKnock,
+  onWatching,
+  watchCoolLeft
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
   const [deskPage, setDeskPage] = useState(0);
+  // ── 「看他玩」：他自己在刷手机，我在旁边看（js/phone-watch.js 是词表和落盘那一份）──
+  // ⚠️他操作的就是她平时翻的这几屏，不另做一套「他的手机」——那才是这个玩法成立的地方。
+  //   所以这儿只多一个【播放器】：把一串动作按时间演成 open/locked/tab/chat/typing 的变化。
+  const [watch, setWatch] = useState(null);   // {acts,i,speed,tab,chat,typing,sent,thought,knocks,knocking,done,note}
+  const [watchBusy, setWatchBusy] = useState(false);
+  const [dot, setDot] = useState(null);       // 触控圆点落在哪儿 {x,y,press}
+  const watchRef = useRef(null); watchRef.current = watch;
+  // ⚠️播放器这一串 hook 必须待在【所有 return 上面】——这个组件下面有好几处早返回
+  //   （没选角色 / 通讯录 / 外观设置），挂在它们后面就是条件调用 hook，整页会白。
+  //   文件里 deskNow 那儿早就写着同一句话了。
+  // ── 播放器：一个动作一个动作往下演 ──────────────────────────────
+  // 每一步只做两件事：把这一下的效果落到界面上，然后按这一下该花多久排下一步。
+  // ⚠️打字是【逐字】的，所以 type 这一支自己再开一个小节拍；清理函数要把它一起收掉，
+  //   不然退出去之后还有一串定时器在往一个已经没了的 state 里写。
+  const WK = typeof window !== "undefined" ? window.PhoneWatch : null;
+  const watchDotTo = sel => {
+    if (!sel) return;
+    // 光标落在哪儿靠挂点量出来，不猜坐标：会话列表滚到哪儿、有几条，每台手机都不一样，
+    // 猜出来的点会落在空处——那一眼就看得出是假的。
+    requestAnimationFrame(() => {
+      try {
+        const el = document.querySelector(sel);
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        if (!r.width && !r.height) return;
+        setDot({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), press: true });
+        setTimeout(() => setDot(p => p ? { ...p, press: false } : p), 190);
+      } catch (e) {/* 量不到就让圆点留在原地，别为这个崩掉整段 */}
+    });
+  };
+  useEffect(() => {
+    if (!watch || watch.done || !WK) return;
+    const a = watch.acts[watch.i];
+    if (!a) { setWatch(w => w ? { ...w, done: true, typing: null } : w); return; }
+    const speed = watch.speed || 1;
+    let typer = null;
+    // ① 这一下的效果
+    if (a.kind === "wake") { setLocked(false); setOpen(null); }
+    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, chat: null, typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, chat: null, typing: null } : w); }
+    else if (a.kind === "open") { const app = appByKey(a.app); if (app) setOpen(app.key); }
+    else if (a.kind === "back") { setWatch(w => w ? (w.chat ? { ...w, chat: null, typing: null } : w) : w); if (!watch.chat) setOpen(null); }
+    else if (a.kind === "tab") setWatch(w => w ? { ...w, tab: a.name, chat: null, typing: null } : w);
+    else if (a.kind === "openChat") setWatch(w => w ? { ...w, chat: a.name, typing: "" } : w);
+    else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
+    else if (a.kind === "erase") setWatch(w => w ? { ...w, typing: a.n == null ? "" : String(w.typing || "").slice(0, Math.max(0, String(w.typing || "").length - a.n)) } : w);
+    else if (a.kind === "send") {
+      const w0 = watchRef.current;
+      const text = String((w0 && w0.typing) || "").trim(), to = w0 && w0.chat;
+      if (text && to) {
+        setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
+        // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
+        if (onWatchSend) { try { onWatchSend(char, to, text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+      }
+    }
+    else if (a.kind === "type") {
+      // 逐字打：底稿在开始那一刻定死，后面每一拍只往后接一个字
+      const full = String(a.text || "");
+      const base = String((watchRef.current && watchRef.current.typing) || "");
+      let n = 0;
+      typer = setInterval(() => {
+        n += 1;
+        setWatch(w => w ? { ...w, typing: base + full.slice(0, n) } : w);
+        if (n >= full.length) { clearInterval(typer); typer = null; }
+      }, Math.max(28, 90 / speed));
+    }
+    // ② 圆点挪过去
+    watchDotTo(WK.watchTargetSel(a));
+    // ③ 排下一步
+    const tid = setTimeout(() => setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w), Math.max(120, WK.actDuration(a) / speed));
+    return () => { clearTimeout(tid); if (typer) clearInterval(typer); };
+    // eslint-disable-next-line
+  }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
+  const startWatch = async () => {
+    if (watchBusy || !onWatchStart) return;
+    setWatchBusy(true);
+    try {
+      const acts = await onWatchStart(char);
+      if (!acts || !acts.length) return;
+      setWatch({ acts, i: 0, speed: 1, tab: "chats", chat: null, typing: null, sent: [], thought: "", knocks: 0, knocking: false, done: false });
+      setDot(null);
+      // 让别的浮层（秋秋那颗球）让开——这一屏扮的是他的手机
+      if (onWatching) onWatching(true);
+    } finally { setWatchBusy(false); }
+  };
+  const endWatch = () => { setWatch(null); setDot(null); setOpen(null); setLocked(true); if (onWatching) onWatching(false); };
+  const doKnock = async () => {
+    const w = watchRef.current;
+    if (!w || w.knocking || !onWatchKnock || WK && WK.knockOver(w.knocks)) return;
+    setWatch(p => p ? { ...p, knocking: true } : p);
+    try {
+      const say = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
+      setWatch(p => p ? { ...p, knocks: (p.knocks || 0) + 1, knocking: false, thought: say || p.thought } : p);
+    } catch (e) { setWatch(p => p ? { ...p, knocking: false } : p); }
+  };
+
   // 桌面上那只表要走针。半分钟对一次就够——画秒针的话整页每秒重渲染，不值。
   // ⚠️跟上面那些 hook 一样，必须待在所有 return 上面（见下面那条 #310 的教训）。
   const [deskNow, setDeskNow] = useState(() => Date.now());
@@ -5652,6 +5778,28 @@ function PhoneCarry({
         h(PGlyph, { k: "settings", size: 24, color: glyph })),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
   };
+  // 「看他玩」那一层罩子：触控圆点 / 他心里那一句 / 底下那条。
+  // 三处 return（app 里、锁屏、桌面）都套同一个——各写一份的话，改一处另两处必然落单。
+  const watchSkin = view => {
+    if (!watch || !WK) return view;
+    // ⚠️底下那条会把正在打字的那一栏压住（真机上看见的）。给正文让出一条的高度，
+    //   别让「他打了又删」那一下正好被自己的控制条挡掉——那是这个功能最戳人的一眼。
+    return h(React.Fragment, null,
+      h("div", { style: { height: "100%", paddingBottom: 54, boxSizing: "border-box" } }, view),
+      h("div", { style: { position: "fixed", inset: 0, zIndex: 55, pointerEvents: "none" } },
+        h(WK.WatchDot, dot || {}),
+        h(WK.WatchThought, { text: watch.thought })),
+      h("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 56 } },
+        h(WK.WatchBar, {
+          t, i: watch.i, total: watch.acts.length, done: watch.done, speed: watch.speed,
+          knocks: watch.knocks, knocking: watch.knocking,
+          onSpeed: () => setWatch(w => w ? { ...w, speed: w.speed >= 4 ? 1 : w.speed * 2 } : w),
+          onSkip: () => setWatch(w => w ? { ...w, speed: 8 } : w),
+          onKnock: doKnock,
+          onClose: endWatch
+        })));
+  };
+
   const openApp = a => {
     if (!a || a.soon) return;
     // 原来的匿名正门首次打开会自动准备马甲；从查手机进也保持同一体验。
@@ -5716,7 +5864,7 @@ function PhoneCarry({
     }
   }, a.zh));
   };
-  if (open) return h(PhoneApp, {
+  if (open) return watchSkin(h(PhoneApp, {
     appKey: open,
     char,
     charData: data,
@@ -5733,14 +5881,15 @@ function PhoneCarry({
       onMarkRead: () => markRead(tlRows.map(r => r.id)),
       onOpenApp: k => { const a = appByKey(k); if (a) openApp(a); }
     },
+    drive: watch ? { tab: watch.tab, chat: watch.chat, typing: watch.typing, sent: (watch.sent || []).map(x => ({ from: (data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name, text: x.text })) } : null,
     onBack: () => setOpen(null)
-  });
-  if (locked) return h(LockScreen, {
+  }));
+  if (locked) return watchSkin(h(LockScreen, {
     char, t, rows: tlRows, newIds, newCount, look,
     onUnlock: () => setLocked(false),
     onTimeline: () => { setLocked(false); setOpen("timeline"); },
     onOpenApp: k => { setLocked(false); const a = appByKey(k); if (a) openApp(a); }
-  });
+  }));
   const homeSrc = phoneImage(look.homeWallpaper);
   const layout = phoneDesktopLayout(char);
   const widgetData = key => data[key];
@@ -6020,7 +6169,7 @@ function PhoneCarry({
       // 外观设置：她 2026-09-01「做他们 app 的一个图标，不要放在上面」。
       // 只摆在最后一页，跟别的 app 一样是个图标——顶栏那一格还给搜索。
       .concat(pageIndex === layout.pages.length - 1 ? [lookIcon()] : []))));
-  return h("div", {
+  return watchSkin(h("div", {
     className: "h-full flex flex-col overflow-hidden",
     style: homeSrc ? {
       backgroundImage: "linear-gradient(rgba(246,243,237,.13),rgba(246,243,237,.31)),url(\"" + homeSrc.replace(/\"/g, "%22") + "\")",
@@ -6052,6 +6201,24 @@ function PhoneCarry({
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
   // 搜索条已经并进顶栏（她 2026-09-01：「搜索键缩短放顶上时间那块地方」），
   // 这儿不再单占一条。
+  // ── 「看他玩」入口 ──────────────────────────────────────────
+  // ⚠️不做成「自己翻｜看他玩」那种一对药丸：她现在正站在「自己翻」里，
+  //   给个开关等于让她在两个 tab 之间选一个她已经在的（tabs-not-plain-pills 的判据）。
+  //   这是一个【动作】，所以它就长成一条能按下去的门缝。
+  q.trim() ? null : h("button", {
+    onClick: () => { if (!watchCoolLeft) startWatch(); },
+    disabled: watchBusy || watchCoolLeft > 0,
+    className: "shrink-0 mx-4 mb-2 active:opacity-70 disabled:opacity-45 flex items-center",
+    style: { gap: 9, minHeight: 44, padding: "0 13px", borderRadius: 14, textAlign: "left",
+      background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
+  },
+    h("span", { "aria-hidden": "true", style: { width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+      background: watchCoolLeft > 0 ? t.line : "#78bd58" } }),
+    h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
+      watchBusy ? T("等他拿起手机…（这一步会调一次模型）")
+        : watchCoolLeft > 0 ? T("他刚放下手机 · ") + Math.ceil(watchCoolLeft / 60000) + " 分钟后再看"
+          : T("看他玩 · 他不知道你在看")),
+    watchBusy || watchCoolLeft > 0 ? null : h(IChevR, { size: 15, color: t.fog })),
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
       hits.length ? T("在他手机里找到 ") + hits.length + " 处" : T("他手机里没有这个")),
@@ -6114,7 +6281,7 @@ function PhoneCarry({
       fontSize: 16,
       color: t.ink
     }
-  }, c.name))))));
+  }, c.name)))))));
 }
 
 // 各 app 的推演任务

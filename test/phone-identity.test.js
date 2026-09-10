@@ -174,7 +174,7 @@ test("两处生成调用都把旧那份传过去了", () => {
 });
 
 test("存进去之前代码把四层按顺序走一遍（规则降概率，代码才保证）", () => {
-  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
+  const m = appSrc.match(/const savePhoneApp = \(charId, key, d, opts\) => \{[\s\S]*?\n  \};/);
   assert.ok(m);
   assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/);
   assert.match(phoneSrc, /function phoneMergeSaved[\s\S]{0,400}phoneEvolveMerge\(appKey, oldData, phoneKeepIdentity\(appKey, oldData, newData\)\)/,

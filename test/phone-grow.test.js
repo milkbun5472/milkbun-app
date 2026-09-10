@@ -121,7 +121,7 @@ test("已经攒着的要回喂给模型，否则它会把旧的再写一遍", ()
 });
 
 test("存进去走的是合并那一路，不是直接盖", () => {
-  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
+  const m = appSrc.match(/const savePhoneApp = \(charId, key, d, opts\) => \{[\s\S]*?\n  \};/);
   assert.ok(m);
   assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/, "刷新还是整份盖掉，日志攒不起来");
 });

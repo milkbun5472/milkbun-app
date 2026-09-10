@@ -7,11 +7,13 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 // 她 2026-08-30（截图）：「角色朋友圈我都没刷新过他就自己出来的」
 test("打开一个还没数据的版块＝自动生成一次，而且只生成一次", () => {
-  const i = phone.indexOf("  useEffect(() => {\n    if (isLive || charData[appKey]) return;");
+  const i = phone.indexOf("    if (drive || isLive || charData[appKey]) return;");
   assert.ok(i > 0, "打开即生成那一支不见了");
   const seg = phone.slice(i, i + 420);
   // 已经有数据就不许再生成——没有这个闸，每次点进来都是一刀
-  assert.match(seg, /if \(isLive \|\| charData\[appKey\]\) return;/);
+  assert.match(seg, /if \(drive \|\| isLive \|\| charData\[appKey\]\) return;/);
+  // v66.08：「看他玩」开着时也不许顺手再生成一次——那是另一枪，还会把正在演的那份盖掉
+  assert.match(phone, /⚠️「看他玩」开着的时候不许顺手再生成一次/);
   assert.match(seg, /Promise\.resolve\(onGen\(char, appKey\)\)/);
   // 接真数据的那几个不该走生成
   assert.match(phone, /const isLive = PHONE_LIVE_KEYS\.indexOf\(appKey\) >= 0;/);

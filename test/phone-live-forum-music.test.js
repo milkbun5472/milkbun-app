@@ -36,7 +36,7 @@ test("全刷跳过接真数据的那几个，少几次调用", () => {
 test("接真数据的 app 不自动生成、也不给重刷按钮", () => {
   assert.match(phoneSrc, /const isLive = PHONE_LIVE_KEYS\.indexOf\(appKey\) >= 0/);
   // v57.54 起视频不再是带子版块的特例，这里只剩接真数据的判断
-  assert.match(phoneSrc, /if \(isLive \|\| charData\[appKey\]\) return;/);
+  assert.match(phoneSrc, /if \(drive \|\| isLive \|\| charData\[appKey\]\) return;/);   // v66.08 多了「看他玩」那道闸
   assert.match(phoneSrc, /const refreshKey = isLive \? null : appKey;/);
 });
 
@@ -160,7 +160,7 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
 // ── 归档必须发生在覆盖之前，而且绝不许拖累这次刷新 ──
 // 浏览器里够不到 savePhoneApp（它是组件内的闭包），这一层只能静态验。
 test("刷新时先归档旧那份，再整份覆盖", () => {
-  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
+  const m = appSrc.match(/const savePhoneApp = \(charId, key, d, opts\) => \{[\s\S]*?\n  \};/);
   assert.ok(m, "找不到 savePhoneApp");
   const fn = m[0];
   const iArch = fn.indexOf("archivePhoneApp(");

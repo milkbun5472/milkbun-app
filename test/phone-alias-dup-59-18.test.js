@@ -71,7 +71,7 @@ test("两道都接上了：提示词发别名，存之前再筛一遍", () => {
   assert.match(taken, /samePerson\(c\.name, o\.name\)/, "没顺着会话名把角色卡上的别名一起收进来");
   assert.match(taken, /add\(o\.name\); add\(o\.remark\)/, "备注那个叫法没收");
   // ② 代码这一道：规则只降概率
-  const save = cut(app, "  const savePhoneApp = (charId, key, d) => {", "      saveJSON(\"x_phone\", n);");
+  const save = cut(app, "  const savePhoneApp = (charId, key, d, opts) => {", "      saveJSON(\"x_phone\", n);");
   assert.match(save, /key === "wechat" && window\.PhoneKit/, "存之前没筛");
   // ⚠️钉的是「筛用的和提示词用的是同一份名单」，不是「写成一行」。
   //   v61.38 把名单提成 wxTaken 复用（合并之后还要再筛一次，见 phone-npc-dup-avatar-61-38），

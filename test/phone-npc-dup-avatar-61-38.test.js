@@ -59,7 +59,7 @@ test("② 收进名单之后，假的那条私聊真的会被筛掉", () => {
 });
 
 test("② 存量的重复也要退得出来，不能只筛这一轮新写的", () => {
-  const save = slice(app, "  const savePhoneApp = (charId, key, d) => {", "\n    setPhones(p => {", "savePhoneApp 前半");
+  const save = slice(app, "  const savePhoneApp = (charId, key, d, opts) => {", "\n    setPhones(p => {", "savePhoneApp 前半");
   assert.match(save, /wxTaken = phoneTakenNames\(c0\)/, "名单没存下来给后面复用");
   assert.match(save, /dropDupWechat\(d, wxTaken\)/, "这一轮新写的没筛");
   // 合并之后再筛一次：名册每次整份重写，所以这一刀能把早就存进去的那条也清掉

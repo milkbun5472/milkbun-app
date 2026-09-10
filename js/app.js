@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.15";
+const APP_VERSION = "v66.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11283,7 +11283,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
     } catch (e) { /* 归档失败就算了，不影响这次刷新 */ }
   };
-  const savePhoneApp = (charId, key, d) => {
+  const savePhoneApp = (charId, key, d, opts) => {
     // ⚠️规则降概率，代码才保证：提示词里已经把「这几个人已经有了」连别名一起发回去了，
     // 但模型换个叫法照样能造出第二个。这里按叫法归一，撞上的直接丢掉。
     // 病历夹：离上次看大夫不够久就不许新增一条（她 2026-09-01 定的「大夫的话是低频的」）。
@@ -11298,7 +11298,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { wxTaken = phoneTakenNames(c0); d = window.PhoneKit.dropDupWechat(d, wxTaken); } catch (e) {/* 去重失败不连累刷新 */}
       }
     }
-    archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
+    // ⚠️「看他玩」那一路不归档：归档是为【整份覆盖】准备的（旧那份就此没了，先抽成时间线）。
+    //   他刷手机是【接着往下写】，旧的还在；每发一条就归档一次，时间线会攒出一串重复条目
+    //   （真机上一眼就看见了）。
+    if (!(opts && opts.noArchive)) archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
     // 放进 setTimeout 是为了让 setPhones 先落地——核账读的是 phonesRef。
     if (key === "shopping" || key === "takeout") {
@@ -11319,7 +11322,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const cur = p[charId] || {};
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
       // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
-      let merged = typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d;
+      // ⚠️「看他玩」写进来的那一份【不许再合并一次】：它本来就是在旧那份上改出来的
+      //   （applySend 拿的就是 cur[key]），再过一遍累积层就会重复。
+      //   具体是这样重复的：他发完话，那个会话的 _ts 要跟着重算（不重算会被排到列表最底下，
+      //   v59.41 那个病），而 phoneGrowList 对日志类是按【名字＋时刻】认人的——
+      //   时刻变了就成了另一行，于是同一个人出现两次（真机上一眼看见的）。
+      //   微信「只问 updates」那一路（v59.54）绕开 phoneGrowList，正是同一个理由。
+      let merged = (opts && opts.patched) ? d
+        : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d);
       // ⚠️去重原来只筛【这一轮模型新写的】，已经攒进名册里的那几条永远退不出来。
       //   陆闻早先被当成 NPC 存过一次，后来他成了真角色——那条假私聊就一直挂在列表里，
       //   往后每一轮都照抄回来。名册每次是【整份重写】的，所以合并完再筛一次，
@@ -13120,6 +13130,83 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // ---- moments ----
+  // ── 看他玩（她 2026-09-09 提，2026-09-10 定案）────────────────────
+  // 「查手机」原来只有一面：他不在，我翻他的手机。这是另一面：他在，我旁观他自己玩。
+  // 词表、落盘算法、心声封顶、敲的衰减全在 js/phone-watch.js 一处，这儿只管【调模型】和【写盘】。
+  //
+  // ⚠️这不是旁路，它本身就是一次刷新（她拍的）：他真发出去的那一条，走【现成的】
+  //   savePhoneApp——分层合并、去重、归档全在它里面。另开一条写入路径就是又一处要同步的地方。
+  const [watchAt, setWatchAt] = useState(() => loadJSON("x_phoneWatchAt", {}));
+  // 正在看他玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
+  const [watching, setWatching] = useState(false);
+  const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
+  const genWatchSession = async char => {
+    const WK = window.PhoneWatch;
+    if (!WK || !char) return null;
+    const left = WK.cooldownLeft((watchAt || {})[char.id], Date.now());
+    if (left > 0) { toast("他刚放下手机，" + Math.ceil(left / 60000) + " 分钟后再看"); return null; }
+    // 线路跟查手机那条链一样走 bgActive（后台便宜池），别自成一路
+    const p = bgActive;
+    if (!p) { toast("先去设置里配一条 API"); return null; }
+    // 先记时刻再刷（跟查手机那条链同一个形状）：中途失败也不该下次唤起又整份重来
+    setWatchAt(a => { const n = { ...a, [char.id]: Date.now() }; saveJSON("x_phoneWatchAt", n); return n; });
+    try {
+      const wx = ((phonesRef.current || {})[char.id] || {}).wechat || {};
+      const out = await runProbe(p, phoneCtx(char), {
+        voice: true, tag: "phoneWatch",
+        instruction: WK.watchInstruction({ char, uName: userName(profile), wechat: wx }),
+        schemaHint: WK.watchSchemaHint(),
+        maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
+      });
+      const got = WK.normalizeActs(out && out.acts);
+      // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
+      if (!got.acts.length) throw new Error("他这回没动。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
+      return got.acts;
+    } catch (e) {
+      toast("这次没看成：" + (e && e.message ? String(e.message).slice(0, 60) : "重试一次"));
+      return null;
+    }
+  };
+  // 边演边落（她 2026-09-10 定）：看到一半退出去，他已经做过的就是做过了。
+  const watchSend = (char, to, text) => {
+    const WK = window.PhoneWatch;
+    if (!WK || !char) return;
+    const cur = ((phonesRef.current || {})[char.id] || {}).wechat;
+    if (!cur) return;                       // 微信那一份还没生成过，没有底稿可接
+    const r = WK.applySend(cur, to, text, Date.now());
+    if (r.wrote) savePhoneApp(char.id, "wechat", r.d, { noArchive: true, patched: true });
+  };
+  // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
+  const watchKnock = async (char, nth, nowAct) => {
+    const WK = window.PhoneWatch;
+    if (!WK || !char) return "";
+    const p = bgActive;
+    if (!p) return "";
+    const step = WK.knockStep(nth, WK.knockDecayed((knockLog || {})[char.id], Date.now()));
+    setKnockLog(k => { const n = { ...k, [char.id]: WK.knockPush(k[char.id], Date.now()) }; saveJSON("x_phoneKnock", n); return n; });
+    const doing = nowAct ? "你此刻正在：" + (WK.WATCH_ACTS[nowAct.kind] || {}).zh + (nowAct.name ? "（" + nowAct.name + "）" : "") : "";
+    try {
+      const out = await runProbe(p, phoneCtx(char), {
+        voice: true, tag: "phoneWatch",
+        instruction: [
+          "你正一个人刷着手机。刚才屏幕被敲了一下——是 " + userName(profile) + "，她一直在旁边看着你。",
+          doing,
+          step.hint,
+          step.old > 0 ? "（这些天她已经这样看过你好几次了。）" : "",
+          "写你此刻心里那一句，一句就够，第一人称，不要旁白。",
+          "aff 只在这件事真的在你心里留下点什么时才不是 0：嫌她烦就给负的，心里一动就给正的——**你是哪一路，由你的人设决定，不是默认不高兴**。"
+        ].filter(Boolean).join("\n"),
+        schemaHint: '{"say":"你心里那一句","aff":"整数，通常 0"}',
+        maxTokens: 8000
+      });
+      const say = String((out && out.say) || "").trim().slice(0, 60);
+      // 好感一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0）
+      const d = WK.clampWatchAff(out && out.aff);
+      if (d && nth === 1) bumpAff(char.id, d);   // 只认第一下，连着敲不叠加
+      return say;
+    } catch (e) { return ""; }
+  };
+
   const genMoment = async char => {
     setGen(g => ({
       ...g,
@@ -18391,6 +18478,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     weekAt: phoneWeekAt,
     onDrawPhoto: drawKeptPhoto,
     drawingPhoto: gen.phoneShot || "",
+    onWatchStart: genWatchSession,
+    onWatchSend: watchSend,
+    onWatchKnock: watchKnock,
+    onWatching: setWatching,
+    watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },
@@ -19297,7 +19389,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   不碰根节点的 background/height，也不碰那条 safe-area 空带
     //   （施工规则/home-screen-layout.md：动了主屏就坏）。
     // 通话中不出现——那会儿屏幕上正有更要紧的事，一颗球压在上面只会挡路。
-    if (!window.AssistantDock || call || ringing) return null;
+    // 「看他玩」也一样，而且更要紧：那一屏扮的是【他的手机】，一颗别的 app 的浮球压在上面，
+    // 扮演当场就散了（真机上它正好压在发送键上）。
+    if (!window.AssistantDock || call || ringing || watching) return null;
     return h(window.AssistantDock, {
       // 她此刻开着哪一页 + 这一页上是谁（她 2026-09-03 点名要的「页面上下文」）：
       // 有了它，「这一页」「这里」「他」才有指代对象，秋秋不用反问是哪一页。

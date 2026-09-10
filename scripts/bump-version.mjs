@@ -77,7 +77,10 @@ CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g")
 // 这一步跑在 git add 之前，diff 拿到的正是这一版要发的东西。
 let touched = [];
 try {
-  touched = execSync("git diff --name-only HEAD -- js/ && git diff --name-only --cached HEAD -- js/", { encoding: "utf8" })
+  // ⚠️还要算上【全新的、还没 git add 过】的文件：git diff 一个字都不会提它们
+  //   （v66.16 加 phone-watch.js 时抓到的：新文件的指纹被漏在上一版上，
+  //   等于新模块一发出去就吃着旧缓存）。闸自己有盲区的时候，全绿什么都不证明。
+  touched = execSync("git diff --name-only HEAD -- js/ && git diff --name-only --cached HEAD -- js/ && git ls-files --others --exclude-standard -- js/", { encoding: "utf8" })
     .split("\n").map(x => x.trim()).filter(x => x.endsWith(".js"))
     .map(x => x.replace(/^js\//, "").replace(/\.js$/, ""));
 } catch (e) { touched = []; }

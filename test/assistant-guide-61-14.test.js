@@ -282,7 +282,9 @@ test("两边都有头像框；它默认是她给的那只小鸡", () => {
 });
 
 test("挂在 App 里，但一根手指都没碰主屏那几样", () => {
-  assert.match(app, /if \(!window\.AssistantDock \|\| call \|\| ringing\) return null;/, "通话时也压着一颗球");
+  // v66.08 起「看他玩」也让它让开：那一屏扮的是他的手机，一颗别的 app 的球压在上面，
+  // 扮演当场就散（真机上它正好压在发送键上）。
+  assert.match(app, /if \(!window\.AssistantDock \|\| call \|\| ringing \|\| watching\) return null;/, "通话／看他玩时还压着一颗球");
   assert.match(app, /h\(window\.AssistantDock, \{/);
   // 主屏那几样一个都不许动（施工规则/home-screen-layout.md）
   assert.match(app, /const _safeTop = \{ height: screen === "home" \? "env\(safe-area-inset-top\)" : 0 \};/);
