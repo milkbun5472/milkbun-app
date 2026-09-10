@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.60";
+const APP_VERSION = "v66.61";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13387,7 +13387,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           calendar: (typeof phoneCalendarFor === "function" ? phoneCalendarFor(char) : null),
           forum: (typeof phoneForumFor === "function"
             ? (phoneForumFor(char) || []).reduce((all, a) => all.concat(Array.isArray(a && a.posts) ? a.posts : []), [])
-            : []) }),
+            : []),
+          // 匿名信箱那几问也发回去（openItem 才点得着；这一路只看不写）
+          anon: (((anon || {})[char.id] || {}).records || []).slice(0, 12) }),
         schemaHint: WK.watchSchemaHint(),
         // ⚠️她 2026-09-10：「是不是 token 给少了给 65535 然后多给几个动作」。
         //   两万确实紧：一段一百来个动作、加上他打的字和心声，写到一半就得收着写。
@@ -14402,7 +14404,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️重画时沿用同一个 img_ 键：换个新键的话旧那张 blob 谁也删不掉，一路攒在保险箱里。
   const drawKeptPhoto = async (char, photo, key) => {
     if (!char || !photo || !key) return false;
-    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
+    // ⚠️她 2026-09-10：「收藏的生图生不出来」。原来这一句一律说「去配一下」——
+    //   可最常见的其实是【配好了、没启用】（v65.16 之后保存不再等于设为主用）。
+    //   说不清是哪一种，她就只能对着一句没用的提示干瞪眼。
+    if (!(typeof imgApiReady === "function" && imgApiReady())) {
+      let why = "还没配图像 API";
+      try {
+        const a0 = typeof loadImgApi === "function" ? loadImgApi() : null;
+        if (a0 && a0.baseUrl && a0.apiKey && !a0.enabled) why = "图像 API 配好了但没启用：设置 → 图像 API → 把它设为主用";
+        else if (a0 && a0.baseUrl && !a0.apiKey) why = "图像 API 少了 key";
+        else if (a0 && !a0.baseUrl && a0.apiKey) why = "图像 API 少了地址";
+      } catch (e) {}
+      toast(why);
+      return false;
+    }
     if (gen.phoneShot) return false;
     const scene = [photo.caption, photo.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
     if (!scene) { toast("这张没写下是什么，画不出来"); return false; }
@@ -14429,7 +14444,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       saveJSON("x_phoneKeep", { ...all, [char.id]: nl });
       toast("画好了");
       return true;
-    } catch (e) { toast("没画成：" + (e.message || "重试")); return false; }
+    // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）：
+    //   截成十个字的「没画成：请求失败」等于什么也没说。
+    } catch (e) { toast("没画成：" + String((e && e.message) || e || "重试").slice(0, 120)); return false; }
     finally { setGen(g => ({ ...g, phoneShot: null })); }
   };
   // 逛购物 app 时问问他：把这件商品发进和他的聊天，问值不值得买。
@@ -18857,6 +18874,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     lastAll: phoneLastAll,
     weekAt: phoneWeekAt,
     onDrawPhoto: drawKeptPhoto,
+    // 相册回收站进出（她 2026-09-10）：走现成的 savePhoneApp，
+    // ⚠️patched＋noArchive——这是【就地改一条】，不是整份覆盖，不能过累积层、也不该归档。
+    onPhotoEdit: (char, items) => {
+      if (!char || !Array.isArray(items)) return;
+      const cur = ((phonesRef.current || {})[char.id] || {}).album;
+      if (!cur) return;
+      savePhoneApp(char.id, "album", { ...cur, items: items }, { noArchive: true, patched: true });
+    },
     drawingPhoto: gen.phoneShot || "",
     onWatchStart: genWatchSession,
     onWatchSend: watchSend,

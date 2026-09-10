@@ -9210,7 +9210,9 @@ function AnonBox({
   }),
   shown.map(function (r, i) {
     const src = r.re && byId[r.re];
-    return h("div", { key: r.id || i, className: "px-5 py-4", style: { borderBottom: `1px solid ${A.line}` } },
+    // 「看他玩」的圆点要落得住：匿名信箱没有详情页，整串就摊在这一屏上，
+    // 所以挂点直接长在每一条上（她 2026-09-10：「匿名信箱也是可以点开看到然后想想」）。
+    return h("div", { key: r.id || i, className: "px-5 py-4", "data-watch": "item:" + String(r.q || "").slice(0, 24), style: { borderBottom: `1px solid ${A.line}` } },
       h("div", { className: "flex items-center gap-1.5 mb-1.5" },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: A.bg, background: r.from === "me" ? A.hot : A.cool, borderRadius: 999, padding: "1px 8px", flexShrink: 0 } },
           r.from === "me" ? "我问的" : "网友问的"),

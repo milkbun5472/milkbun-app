@@ -225,7 +225,7 @@ test("落盘一个入口按 app 分流，不是每个 app 一个函数", () => {
 });
 
 test("界面：相册和便签也接了 drive，一份 drive 三个 app 共用", () => {
-  assert.match(phone, /function AlbumView\(\{ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive \}\)/);
+  assert.match(phone, /function AlbumView\(\{ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive, onPhotoEdit \}\)/);
   assert.match(phone, /function StickyView\(\{ d, char, t, onBack, onRefresh, refreshing, onPeek, drive \}\)/);
   assert.match(phone, /h\(AlbumView, \{ drive: ctx\.drive/);
   assert.match(phone, /h\(StickyView, \{ drive: ctx\.drive/);
@@ -457,12 +457,17 @@ test("只能看的那几个：一个字都不许写进去", () => {
   // 账本、视频、深夜台、健康、日历、剪贴板——刷手机改不了这些
   // ⚠️视频、深夜台、剪贴板后来各自开了一条口子（看过的视频／深夜台那一条／复制的那段字），
   //   这一条钉的是剩下那几个「刷手机改不了」的。
-  ["tally", "health", "calendar", "timeline", "forum", "anon"].forEach(k => {
+  // ⚠️账本后来也开了口子（她 2026-09-10「开账本吧」）：只有健康／日历／时间线／
+  //   论坛／匿名信箱是真的一个字都写不进去。
+  ["health", "calendar", "timeline", "forum", "anon"].forEach(k => {
     assert.equal(W.applyWrite(k, { items: [{ title: "x" }] }, "x", "他写了点什么", 1).wrote, false, k + " 不该被写");
   });
   // 提示词里也要明说，不然模型会去试
-  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["tally", "health", "calendar"], phone: {} });
-  assert.match(s, /这一路只能看，改不了/);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["forum", "health", "calendar"], phone: {} });
+  assert.match(s, /这两处一个字都不许写/);
+  // 论坛／匿名信箱这两处：看得见楼下的回复，也值得配一句心声
+  assert.match(s, /点开能看见楼下那些回复/);
+  assert.match(s, /看完可以想一句/);
   // ⚠️剪贴板后来开了一条口子（copy 随时随地能用），所以这句从「一个字都改不了」
   //   收成「点开只能看」——改的那一下不在这个 app 里发生。
   assert.match(s, /这三处点开只能看/);
@@ -765,7 +770,7 @@ test("小红书和视频也一样：先搜，再点进去", () => {
   // 顺序是浏览器那次立的：凭空冒出一页，看的人不知道他为什么看见它。
   assert.match(phone, /const WATCH_SEARCH_APPS = \["browser", "liked", "bili", "shopping", "takeout"\]/);
   // 进这几个 app 就有一张空草稿（他要能往搜索框里敲字）
-  assert.match(phone, /typing: WATCH_SEARCH_APPS\.indexOf\(app\.key\) >= 0 \? "" : null/);
+  assert.match(phone, /typing: \(WATCH_SEARCH_APPS\.indexOf\(app\.key\) >= 0 \|\| app\.key === "tally"\) \? "" : null/);
   // ⚠️同一颗 send，两件事，靠【手上有没有草稿】分：有草稿＝搜索，没草稿＝这个 app 的动作
   assert.match(phone, /else if \(text && WATCH_SEARCH_APPS\.indexOf\(where\) >= 0\) \{/);
   assert.match(phone, /searchQ: text, typing: "", page: null/);
@@ -943,4 +948,41 @@ test("一段里能干的事得够多：动作上限和 token 都给足", () => {
   // 她 2026-09-10：「现在只有四十几还是包括了点进来和后退，真正能干的动作没几个」
   assert.equal(W.ACT_CAP, 120);
   assert.match(app, /maxTokens: 65535/);
+});
+
+test("账本能记一笔了（她 2026-09-10：「开账本吧」）", () => {
+  // ⚠️五栏字段各不相同，所以按【他此刻翻开的那一栏】分流，各按各栏自己的写法来
+  const d1 = W.applyWrite("tally", { debts: [] }, "老张", "欠他一顿饭，从三月拖到现在", 1, { tab: "debts" });
+  assert.equal(d1.d.debts[0].who, "老张");
+  assert.equal(d1.d.debts[0].title, "欠他一顿饭", "抬头断在一句话结束的地方");
+  assert.equal(W.applyWrite("tally", { statements: [] }, "", "说了再也不管他", 1, { tab: "statements" }).d.statements[0].text, "说了再也不管他");
+  assert.equal(W.applyWrite("tally", { treasures: [] }, "", "那张票根", 1, { tab: "treasures" }).d.treasures[0].title, "那张票根");
+  // 条款和自问自答不接：那两栏是成段的问答，不是手机上随手记的一笔
+  assert.equal(W.applyWrite("tally", { appraisals: [] }, "", "x", 1, { tab: "appraisals" }).wrote, false);
+  assert.equal(W.applyWrite("tally", { policies: [] }, "", "x", 1, { tab: "policies" }).wrote, false);
+  // 记在哪一栏，靠播放器把【他此刻在哪一栏】带下去
+  assert.match(phone, /onWatchSend\(char, "tally", \(w0 && w0\.item\) \|\| "", text, \{ act: "send", tab: \(w0 && w0\.tab\) \|\| "debts" \}\)/);
+});
+
+test("相册：看他玩时开在「全部」，回收站能进能出，我收着的不许动", () => {
+  // 她 2026-09-10：「照片也是打开显示全部而不是他的几摞……删了又没真删的可以真的删除
+  // 或者移出删除，或者把其他相册里的放进删除（我收藏的永远不会删除）」
+  assert.match(phone, /useEffect\(\(\) => \{ if \(drive\) \{ setTab\("library"\); setOpened\(null\); \} \}, \[!!drive\]\);/);
+  assert.match(phone, /const editPhoto = \(p, how\) => \{/);
+  assert.match(phone, /how === "gone"\s*\n?\s*\? all\.filter\(x => sig\(x\) !== sig\(p\)\)/);
+  assert.match(phone, /\(onPhotoEdit && tab !== "saved"\)/, "「我收着的」那一摞不该有这几颗键");
+  assert.match(phone, /"真的删掉"/);
+  assert.match(phone, /"捞回来"/);
+  // ⚠️就地改一条：不过累积层、也不归档
+  assert.match(app, /savePhoneApp\(char\.id, "album", \{ \.\.\.cur, items: items \}, \{ noArchive: true, patched: true \}\)/);
+});
+
+test("匿名信箱：点得着、想得出来", () => {
+  // 它没有详情页，整串摊在一屏上——所以挂点直接长在每一条上
+  assert.match(fs.readFileSync("js/components.js", "utf8"),
+    /"data-watch": "item:" \+ String\(r\.q \|\| ""\)\.slice\(0, 24\)/);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["anon"], phone: {},
+    anon: [{ q: "你其实一直在等一个人吧" }] });
+  assert.match(s, /〔匿名信箱 anon〕/);
+  assert.match(s, /你其实一直在等一个人吧/);
 });

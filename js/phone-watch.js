@@ -404,6 +404,27 @@
       return { d: Object.assign({}, base, { live: live.slice(0, 6), orders: orders }), wrote: true };
     }
 
+    // ── 账本：在当前翻开的那一栏记一笔（她 2026-09-10：「开账本吧」）────
+    // ⚠️五栏字段各不相同，所以【按他此刻在哪一栏】分流，各按各栏自己的写法来
+    //   （施工规则/stub-from-the-writer.md）。条款和自问自答不接：那两栏是成段的问答，
+    //   不是手机上随手记的一笔。
+    if (appKey === "tally") {
+      if (!body) return { d: d, wrote: false };
+      const bucket = S(o0 && o0.tab) || "debts";
+      if (["debts", "statements", "treasures"].indexOf(bucket) < 0) return { d: d, wrote: false };
+      const rows = Array.isArray(base[bucket]) ? base[bucket].slice() : [];
+      const first = body.split("\n")[0].trim();
+      const stop = first.split(/[。！？!?，,、；;]/)[0].trim();
+      const head = (stop && stop.length <= 16) ? stop : first.slice(0, 14);
+      const dupKey = bucket === "statements" ? body : head;
+      if (rows.some(x => x && sameName(x.title || x.text, dupKey))) return { d: d, wrote: false };
+      rows.unshift(bucket === "debts" ? { who: who || "", title: head, dir: "欠着", note: body, _ts: ts }
+        : bucket === "statements" ? { text: body, heat: "", truth: "", _ts: ts }
+        : { title: head, kind: "", worth: body, _ts: ts });
+      const out2 = Object.assign({}, base); out2[bucket] = rows;
+      return { d: out2, wrote: true };
+    }
+
     // ── 剪贴板：他复制的那一段字 ────────────────────────────────
     // ⚠️这一下【不属于任何一个 app】：他在浏览器里复制一句、在微信里复制一个地址，
     //   落的都是剪贴板。所以 copy 那一支不看他此刻开着哪个 app（appKey 传 "clipboard"）。
@@ -784,6 +805,10 @@
       const cs = arr((ph.clipboard || {}).items).slice(0, 10).map(x => "· " + String(x.text || "").slice(0, 24)).join("\n");
       now.push("〔剪贴板 clipboard〕他复制过的（openItem 的 name 就是那一条的原文）：\n" + (cs || "（剪贴板是空的）"));
     }
+    if (can.indexOf("anon") >= 0) {
+      const qs = arr((o && o.anon) || []).slice(0, 8).map(x => "· " + String((x && x.q) || "").slice(0, 30)).filter(x => x.length > 2).join("\n");
+      now.push("〔匿名信箱 anon〕有人匿名问他的（openItem 的 name 就是那一问的头几个字）：\n" + (qs || "（还没人问过他什么）"));
+    }
     if (can.indexOf("forum") >= 0) {
       const fs = arr((o && o.forum) || []).slice(0, 8).map(x => "· " + (x.title || "?")).join("\n");
       now.push("〔论坛 forum〕板上这几帖（openItem 的 name 就是帖子标题）：\n" + (fs || "（论坛上还没有他看的帖子）"));
@@ -853,10 +878,10 @@
       can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
       can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**——真要留着回头再写，就用 draft 存进草稿箱。tab 可以切 inbox / sent / drafts。" : "",
       can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。**架上那几本是真在读的**——睡前、通勤、等人的时候翻两页很自然，别一次都不进去。tab 可以切 shelf / archive。" : "",
-      can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**这一路只能看，改不了**——那本账不是刷手机能改的东西。tab 可以切 debts / policies / statements / treasures / appraisals。" : "",
+      can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**也能记一笔新的**：先 tab 切到那一栏，再 type 打一段、send 记下——欠着的（debts，name 写欠谁的／谁欠他的）、放过的话（statements）、舍不得的（treasures）这三栏能记；条款和自问自答那两栏是成段的问答，不是手机上随手写的，别往那儿记。**这本账是他心里没结清的东西，不是待办清单**：记进去的得是真憋着的那种。" : "",
       can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的。**想看新东西就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点开其中一条——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
       can.indexOf("latenight") >= 0 ? "· 深夜台：scroll 往下划，openItem 点开一条已经在那儿的；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是谁发的、gist 是这条讲了什么。这个台子本来就是半夜一条接一条往下刷的地方。" : "",
-      can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：只能 openItem 点开一条看看、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。" : "",
+      can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：openItem 点开一帖（点开能看见楼下那些回复）、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。但**看完可以想一句**：别人在楼下说的话、有人匿名问他的那一句，最值得配一句心声。" : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
       can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。这三处点开只能看。" : "",
       can.indexOf("clipboard") >= 0 ? "· **copy 随时随地都能用**（不用先打开剪贴板）：看见一串地址、一句话、一个单号、一段别人说的话，复制下来——它就落进剪贴板。真人一天要复制好几回，那一格能看出他在办什么事。" : "",

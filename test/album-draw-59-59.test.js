@@ -87,12 +87,18 @@ test("正画着的那一张才转圈，同屏别的按钮不跟着转", () => {
     "liveCtx 没把 onDrawPhoto 接下去");
   assert.match(ph, /drawing: drawingPhoto \|\| ""/, "liveCtx 没把正在画的那张接下去");
   assert.match(ph, /onDrawPhoto: ctx\.onDrawPhoto, drawing: ctx\.drawing/, "album 那一行没往下发");
-  assert.match(ap, /onDrawPhoto: drawKeptPhoto,\n\s*drawingPhoto: gen\.phoneShot \|\| "",/,
-    "PhoneCarry 没拿到这两个 prop");
+  // ⚠️中间后来插进了 onPhotoEdit（回收站进出，她 2026-09-10），两条各自钉住就行
+  assert.match(ap, /onDrawPhoto: drawKeptPhoto,/, "PhoneCarry 没拿到 onDrawPhoto");
+  assert.match(ap, /drawingPhoto: gen\.phoneShot \|\| "",/, "PhoneCarry 没拿到 drawingPhoto");
 });
 
 test("没配图像 API 时先说一声，不白转一圈", () => {
-  assert.match(draw, /imgApiReady\(\)\)\) \{ toast\("先去 设置·图像API 配一下"\); return false; \}/,
+  assert.match(draw, /if \(!\(typeof imgApiReady === "function" && imgApiReady\(\)\)\) \{/,
     "没配图像 API 就直接去调了");
+  // ⚠️她 2026-09-10：「收藏的生图生不出来」——最常见的其实是【配好了没启用】
+  //   （v65.16 之后保存不再等于设为主用）。一句「去配一下」等于什么都没说。
+  assert.match(draw, /图像 API 配好了但没启用/);
+  assert.match(draw, /少了 key/);
+  assert.match(draw, /String\(\(e && e\.message\) \|\| e \|\| "重试"\)\.slice\(0, 120\)/, "报错要带着那句原话");
   assert.match(draw, /if \(gen\.phoneShot\) return false;/, "同时能点起两张，第二张会把第一张的 busy 覆盖掉");
 });

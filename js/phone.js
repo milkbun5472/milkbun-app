@@ -2608,7 +2608,7 @@ function phonePhotoSig(p) {
   p = p || {};
   return p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
 }
-function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive }) {
+function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive, onPhotoEdit }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
@@ -2618,6 +2618,10 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   //   然后屏幕某处有他的想法之类的」。素材本来就在他手机里，一个字都不用现编。
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpened(null); } }, [driveTab]);
+  // ⚠️她 2026-09-10：「照片也是打开显示全部而不是他的几摞」。
+  //   这一屏默认停在【他的几摞】——那是她自己翻手机时想看的（他把照片分成了哪几堆）；
+  //   可他自己刷相册不会先看分类，是直接往下翻。所以【只在看他玩时】改默认。
+  useEffect(() => { if (drive) { setTab("library"); setOpened(null); } }, [!!drive]);
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setPhoto(null); return; }
@@ -2703,6 +2707,20 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const drawnUrl = p => { const k = keptOf(p); return p.imageUrl || p.imgUrl || (k && k.imageUrl) || ""; };
   // 画完了要当场看见：keep 是这个组件自己的 state，App 那边写完 localStorage
   // 不会通知它，所以画完再读一遍。
+  // ── 回收站是真的能进能出（她 2026-09-10）────────────────────────
+  // 「删了又没真删的」原来只是一摞【看得见的】照片：按了删除还在这儿躺着，可她
+  // 既不能真删掉，也不能把它捞回来，更不能把别的照片扔进去。
+  // ⚠️「我收着的」那一摞【永远不动】：那是她自己挑着留下的（x_phoneKeep 另一份数据），
+  //   跟他手机里这份 items 是两回事——删这边不该碰到那边。
+  const editPhoto = (p, how) => {
+    if (!onPhotoEdit || !p) return;
+    const all = arr(d && d.items);
+    const next = how === "gone"
+      ? all.filter(x => sig(x) !== sig(p))
+      : all.map(x => sig(x) === sig(p) ? { ...x, category: how } : x);
+    onPhotoEdit(next);
+    if (how === "gone") closePhoto(); else setPhoto({ ...p, category: how });
+  };
   const drawPhoto = p => {
     if (!onDrawPhoto) return;
     Promise.resolve(onDrawPhoto(p, sig(p))).then(() => setKeep(loadJSON("x_phoneKeep", {})));
@@ -2775,6 +2793,19 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
         }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
           : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
+        // ── 回收站进出（她 2026-09-10）──────────────────────────
+        // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在他手机上被删掉。
+        (onPhotoEdit && tab !== "saved") ? h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
+          canon(photo.category) === "deleted"
+            ? [h("button", { key: "back", onClick: () => editPhoto(photo, "memory"),
+                className: "flex-1 active:opacity-60",
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" } }, "捞回来"),
+               h("button", { key: "gone", onClick: () => editPhoto(photo, "gone"),
+                className: "flex-1 active:opacity-60",
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,90,80,.5)", color: "#ff8a80" } }, "真的删掉")]
+            : h("button", { onClick: () => editPhoto(photo, "deleted"),
+                className: "w-full active:opacity-60",
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.72)" } }, "扔进「删了又没真删的」")) : null,
         onPeek ? (function () {
           // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
           const hid = photo.category === "private" || photo.category === "deleted";
@@ -5644,7 +5675,7 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
   if (key === "takeout") return h(TakeoutView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
-  if (key === "album") return h(AlbumView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
+  if (key === "album") return h(AlbumView, { drive: ctx.drive, onPhotoEdit: ctx.onPhotoEdit, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
@@ -5833,6 +5864,7 @@ function PhoneCarry({
   lastAll,
   onPeek,
   onDrawPhoto,
+  onPhotoEdit,
   drawingPhoto,
   onWatchStart,
   onWatchSend,
@@ -5988,7 +6020,7 @@ function PhoneCarry({
       // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
       //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
       if (app) {
-        const go = () => { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: WATCH_SEARCH_APPS.indexOf(app.key) >= 0 ? "" : null } : w); };
+        const go = () => { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: (WATCH_SEARCH_APPS.indexOf(app.key) >= 0 || app.key === "tally") ? "" : null } : w); };
         // ⚠️图标在桌面第二页的话，先看着它翻过去再点开——瞬移等于「没翻页就开了」。
         // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完（她 2026-09-10：「换页换一半就
         //   直接进第二页的 app 了」）。改成【等它真停下来】：盯着位置不动了再点开，
@@ -6106,6 +6138,11 @@ function PhoneCarry({
         // 加进购物车 / 下这一单 / 收藏这一条。所以看的不是草稿，是屏幕上那一页。
         const pg = w0 && w0.page;
         if (pg && pg.title && onWatchSend) { try { onWatchSend(char, where, pg.title, "", Object.assign({}, pg, { act: "send" })); } catch (e) {/* 同上 */} }
+      }
+      else if (where === "tally" && text) {
+        // 账本：记在【他此刻翻开的那一栏】里（五栏字段各不相同，落盘那头按 tab 分流）
+        if (onWatchSend) { try { onWatchSend(char, "tally", (w0 && w0.item) || "", text, { act: "send", tab: (w0 && w0.tab) || "debts" }); } catch (e) {} }
+        setWatch(w => w ? { ...w, typing: "" } : w);
       }
       else if (text) {
         // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
@@ -6372,6 +6409,7 @@ function PhoneCarry({
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
     // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
     onDrawPhoto: (photo, key) => onDrawPhoto && onDrawPhoto(char, photo, key),
+    onPhotoEdit: items => onPhotoEdit && onPhotoEdit(char, items),
     drawing: drawingPhoto || ""
   };
   // ── 时间线 + delta ──────────────────────────────────────────
