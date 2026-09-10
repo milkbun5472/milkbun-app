@@ -2317,7 +2317,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // ── 「看他玩」在开着的时候，这一屏由外面那串动作驱动（js/phone-watch.js）──
   // ⚠️不另做一份「他的微信」：他操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
   //   所以只加一条同步——drive 变了就把内部状态搬过去，drive 不在时一个像素都没变。
-  const driveTab = drive && drive.tab, driveChat = drive && drive.chat;
+  const driveTab = drive && drive.tab, driveChat = drive && drive.item;
   useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
   useEffect(() => {
     if (!drive) return;
@@ -2355,8 +2355,8 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
       h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
   // 「看他玩」里他刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
-  const driveSent = (drive && String(drive.chat) === String(thread && thread.name) ? arr(drive.sent) : []);
-  const driveTyping = drive && drive.chat && String(drive.chat) === String(thread && thread.name) ? String(drive.typing || "") : null;
+  const driveSent = (drive && String(drive.item) === String(thread && thread.name) ? arr(drive.sent) : []);
+  const driveTyping = drive && drive.item && drive.typing != null && String(drive.item) === String(thread && thread.name) ? String(drive.typing || "") : null;
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(thread.name, thread.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(thread.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, thread)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } }, m.text)));
@@ -2370,7 +2370,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: 13.5, color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
   const accounts = arr(d.me && d.me.accounts);
   if (publicPage) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, article.title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, article.summary), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, article.thought))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
-  const chatRow = (c, i) => h("button", { key: c.id || i, "data-watch": "chat:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
+  const chatRow = (c, i) => h("button", { key: c.id || i, "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage }, ...arr(d.contacts)];
   const contactRow = (c, i) => h("button", { key: i, onClick: () => setThread({ ...c, type: "contact" }), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, c.intro)));
@@ -2482,11 +2482,23 @@ function phonePhotoSig(p) {
   p = p || {};
   return p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
 }
-function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing }) {
+function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
   const [photo, setPhoto] = useState(null);
+  // ──「看他玩」驱动：这一路【零写入】——他只是点开一张已有的照片看看。
+  //   她 2026-09-10：「不一定是每次要加新东西，可以是比如说点开一张已有的照片
+  //   然后屏幕某处有他的想法之类的」。素材本来就在他手机里，一个字都不用现编。
+  const driveTab = drive && drive.tab, driveItem = drive && drive.item;
+  useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpened(null); } }, [driveTab]);
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setPhoto(null); return; }
+    const all = Array.isArray(d && d.items) ? d.items : [];
+    const hit = all.find(x => x && String(x.caption || "") === String(driveItem));
+    if (hit) setPhoto(hit);
+  }, [driveItem]);
   const scrollRef = useRef(null);
   const returnScroll = useRef({ top: 0, pending: false });
   const openPhoto = p => {
@@ -2587,7 +2599,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
         bare ? null : h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, it.caption || "照片")));
   };
-  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
+  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, "data-watch": "item:" + (it.caption || ""), onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
     it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
@@ -2597,7 +2609,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
   // （施工规则/mobile-ui-layout.md §2）
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, "data-watch": "tab:" + k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   // ── 一张照片（v62.60 重做）─────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：白底 + 圆角 20 的缩略图 +
   // 一块 #f2f2f7 圆角 17 的灰卡——换成任何一个 app 的详情页都成立。
@@ -4413,9 +4425,17 @@ const STICKY_COLORS = [
   { bg: "#ffd8b8", edge: "#f6c199", ink: "#4d3018" }
 ];
 const STICKY_BG = "#efeae0";
-function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
+  // ──「看他玩」驱动：这是【改】那一类——他把写好的那条划掉重写（她举的例子之一）
+  const driveItem = drive && drive.item;
+  useEffect(() => {
+    if (!drive) return;
+    if (!driveItem) { setOpen(null); return; }
+    const hit = A(d && d.items).find(x => x && String(x.title || "") === String(driveItem));
+    if (hit) setOpen(hit);
+  }, [driveItem]);
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
   const pal = n => STICKY_COLORS[(Number(n) || 0) % STICKY_COLORS.length];
   const tilt = i => [-1.6, 1.2, -0.8, 1.8, -1.2, 0.9][i % 6];
@@ -4427,7 +4447,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const c = pal(it.color != null ? it.color : i);
     const voice = it.kind === "voice";
     return h("button", {
-      key: i, onClick: () => setOpen(it), className: "text-left active:opacity-80",
+      key: i, "data-watch": "item:" + (it.title || ""), onClick: () => setOpen(it), className: "text-left active:opacity-80",
       style: {
         background: c.bg, borderRadius: 3, padding: "13px 13px 15px", minWidth: 0,
         transform: "rotate(" + tilt(i) + "deg)",
@@ -4454,7 +4474,13 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: c.ink } }, open.title || ""),
         voice ? wave(c.ink, 34) : null,
-        open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, open.body) : null,
+        // ⚠️「看他玩」里他正在改这条：显示手上那份草稿，不是存档里那份。
+        //   驱动时哪怕草稿是空的也要占着位（他刚把整段划掉，那一下正是要看见的）。
+        drive && drive.typing != null
+          ? h("div", { "data-watch": "input", style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
+              drive.typing,
+              h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 16, marginLeft: 1, verticalAlign: "-3px", background: c.ink, animation: "wkcaret 1s steps(2) infinite" } }))
+          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, open.body) : null,
         onPeek ? h("button", {
           onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: open.body }),
           className: "w-full active:opacity-60",
@@ -5254,12 +5280,12 @@ function renderPhoneModule(key, d, ctx) {
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive });
-  if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
   if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
-  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
+  if (key === "album") return h(AlbumView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
@@ -5456,6 +5482,16 @@ function PhoneCarry({
   const [watchBusy, setWatchBusy] = useState(false);
   const [dot, setDot] = useState(null);       // 触控圆点落在哪儿 {x,y,press}
   const watchRef = useRef(null); watchRef.current = watch;
+  // 播放器要知道【此刻开着哪个 app】：同一个 openItem/send 在微信和便签里做的事不一样。
+  // open 是 state，effect 里读到的是那一轮的旧值，所以另存一份 ref。
+  const openRef = useRef(null);
+  openRef.current = open;
+  // 便签里点开一条时，手上那份草稿就是它现在的正文——他要「划掉重写」得先有东西可划
+  const noteBodyOf = title => {
+    const it = (((phones || {})[char && char.id] || {}).notes || {}).items;
+    const hit = (Array.isArray(it) ? it : []).find(x => x && String(x.title || "") === String(title));
+    return hit ? String(hit.body || "") : "";
+  };
   // ⚠️播放器这一串 hook 必须待在【所有 return 上面】——这个组件下面有好几处早返回
   //   （没选角色 / 通讯录 / 外观设置），挂在它们后面就是条件调用 hook，整页会白。
   //   文件里 deskNow 那儿早就写着同一句话了。
@@ -5487,21 +5523,28 @@ function PhoneCarry({
     let typer = null;
     // ① 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
-    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, chat: null, typing: null } : w); }
-    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, chat: null, typing: null } : w); }
+    else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, typing: null } : w); }
+    else if (a.kind === "home") { setOpen(null); setWatch(w => w ? { ...w, item: null, typing: null } : w); }
     else if (a.kind === "open") { const app = appByKey(a.app); if (app) setOpen(app.key); }
-    else if (a.kind === "back") { setWatch(w => w ? (w.chat ? { ...w, chat: null, typing: null } : w) : w); if (!watch.chat) setOpen(null); }
-    else if (a.kind === "tab") setWatch(w => w ? { ...w, tab: a.name, chat: null, typing: null } : w);
-    else if (a.kind === "openChat") setWatch(w => w ? { ...w, chat: a.name, typing: "" } : w);
+    else if (a.kind === "back") { setWatch(w => w ? (w.item ? { ...w, item: null, typing: null } : w) : w); if (!watch.item) setOpen(null); }
+    else if (a.kind === "tab") setWatch(w => w ? { ...w, tab: a.name, item: null, typing: null } : w);
+    else if (a.kind === "openItem") setWatch(w => w ? {
+      ...w, item: a.name,
+      // 微信：点开会话＝可以开始打字（空草稿）。便签：点开＝手上是那条现有的正文，
+      // 他要划掉重写就从这一份上删起。相册：纯看，压根不给草稿。
+      typing: openRef.current === "wechat" ? ""
+        : openRef.current === "notes" ? String((noteBodyOf(a.name) || "")) : null
+    } : w);
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     else if (a.kind === "erase") setWatch(w => w ? { ...w, typing: a.n == null ? "" : String(w.typing || "").slice(0, Math.max(0, String(w.typing || "").length - a.n)) } : w);
     else if (a.kind === "send") {
       const w0 = watchRef.current;
-      const text = String((w0 && w0.typing) || "").trim(), to = w0 && w0.chat;
-      if (text && to) {
-        setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
+      const text = String((w0 && w0.typing) || "").trim(), to = w0 && w0.item, where = openRef.current;
+      if (text) {
+        // 微信里发出去的那条要当场挂在气泡列表上；便签是就地改，正文由 drive.typing 顶着
+        if (where === "wechat" && to) setWatch(w => w ? { ...w, typing: "", sent: (w.sent || []).concat([{ from: "__me__", text: text }]) } : w);
         // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
-        if (onWatchSend) { try { onWatchSend(char, to, text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
+        if (onWatchSend) { try { onWatchSend(char, where, to, text); } catch (e) {/* 落盘失败不该把这段演砸 */} }
       }
     }
     else if (a.kind === "type") {
@@ -5885,7 +5928,10 @@ function PhoneCarry({
       onMarkRead: () => markRead(tlRows.map(r => r.id)),
       onOpenApp: k => { const a = appByKey(k); if (a) openApp(a); }
     },
-    drive: watch ? { tab: watch.tab, chat: watch.chat, typing: watch.typing, sent: (watch.sent || []).map(x => ({ from: (data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name, text: x.text })) } : null,
+    // 一份 drive 递给所有被驱动的 app（微信／相册／便签各取所需）——
+    // 各拼一份的话，第三批加浏览器又要在这儿多一支（一层写在多处）。
+    drive: watch ? { tab: watch.tab, item: watch.item, typing: watch.typing,
+      sent: (watch.sent || []).map(x => ({ from: (data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name, text: x.text })) } : null,
     onBack: () => setOpen(null)
   }));
   if (locked) return watchSkin(h(LockScreen, {

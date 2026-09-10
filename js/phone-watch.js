@@ -52,16 +52,22 @@
     open:     { args: ["app"], zh: "点开一个 app" },
     back:     { args: [], zh: "退回上一层" },
     tab:      { args: ["name"], zh: "切到某一栏" },
-    openChat: { args: ["name"], zh: "点开和某人的对话" },
+    // ⚠️一个动词管所有 app 里「点开一样东西」：会话、照片、便签都走它。
+    //   各写一个 openChat/openPhoto/openNote 的话，第三批加浏览器就是第四个，
+    //   而播放器那头要 if 四次（一层写在四处）。openChat 留作同义词——
+    //   它当了一天的正式词，模型学到的可能还是它。
+    openItem: { args: ["name"], zh: "点开里面的一样东西（对话／照片／便签）" },
     scroll:   { args: ["amount"], zh: "滑动" },
     look:     { args: ["at"], zh: "只是看着某样东西，什么也没做" },
     type:     { args: ["text"], zh: "一个字一个字打" },
     erase:    { args: ["n"], zh: "删字（不给 n 就全删光）" },
-    send:     { args: [], zh: "发出去", write: true },
+    send:     { args: [], zh: "落下这一笔：微信里是发出去，便签里是存下", write: true },
     pause:    { args: ["ms"], zh: "停住" },
     think:    { args: ["text"], zh: "心里那一句（浮在屏幕上）" }
   };
   const ACT_KEYS = Object.keys(WATCH_ACTS);
+  // openChat 是 openItem 的旧名字（v66.17 那一天用的），照收不误
+  const ACT_ALIAS = { openChat: "openItem", openPhoto: "openItem", openNote: "openItem", save: "send" };
 
   const S = v => String(v == null ? "" : v);
   const N = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -87,8 +93,9 @@
     for (const x of list) {
       if (out.length >= ACT_CAP) { dropped.push("超出 " + ACT_CAP + " 条的部分"); break; }
       if (!x || typeof x !== "object") { dropped.push(JSON.stringify(x)); continue; }
-      const kind = S(x.kind || x.action).trim();
-      if (ACT_KEYS.indexOf(kind) < 0) { dropped.push(kind || JSON.stringify(x)); continue; }
+      const raw0 = S(x.kind || x.action).trim();
+      const kind = ACT_ALIAS[raw0] || raw0;
+      if (ACT_KEYS.indexOf(kind) < 0) { dropped.push(raw0 || JSON.stringify(x)); continue; }
       if (kind === "think") {
         // 心声超额的直接扔掉，不是往后挪——往后挪等于还是发了 8 句，只是晚一点
         if (thoughts >= THOUGHT_CAP) { dropped.push("第 " + (thoughts + 1) + " 句心声（超过 " + THOUGHT_CAP + " 句）"); continue; }
@@ -129,31 +136,48 @@
   }
   function sessionDuration(acts) { return (acts || []).reduce((n, a) => n + actDuration(a), 0); }
 
-  // ── 落盘：他真发出去的那一条，接进这个 app 的 d ─────────────────
+  // ── 落盘：他落下的那一笔，接进这个 app 的 d ────────────────────
   // ⚠️这儿【只算出新的 d】，真正写盘走 app.js 那个 savePhoneApp——
   //   分层合并（🔒/🌱/📚）、去重、归档、核账全在它里面。另开一条写入路径就是又一处要同步的地方。
   //   她要的「刷了外卖就把旧的顶掉」，正是那条路上 ♻️ 字段本来的行为，不用另写。
   //
   // ⚠️「打了又删」的那半不在这儿：草稿是播放器手里的东西（type/erase 边演边攒），
-  //   到这儿的只有【真按下发送】的那一句。各记一份草稿就会有两个真相。
+  //   到这儿的只有【真按下那一下】的最终结果。各记一份草稿就会有两个真相。
   //
-  // 认人按名字——名册的身份是【名字】，不是名字＋时刻（施工规则/phone-data-layers.md）。
-  function applySend(d, name, text, now) {
+  // ⚠️一个入口按 appKey 分流，不是每个 app 一个函数：第三批加浏览器只多一个分支，
+  //   app.js 那头一个字都不用改（施工规则/one-public-mechanism.md）。
+  function applyWrite(appKey, d, target, text, now) {
     const ts = N(now, Date.now());
-    const who = S(name).trim(), body = S(text).trim();
-    if (!who || !body) return { d: d, wrote: false };
+    const who = S(target).trim(), body = S(text).trim();
+    if (!body) return { d: d, wrote: false };
     const base = d && typeof d === "object" ? d : {};
-    const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
-    const meName = S(base.me && base.me.wechatName) || "我";
-    let row = chats.find(c => c && S(c.name) === who);
-    if (!row) { row = { name: who, type: "chat", messages: [] }; chats.push(row); }
-    row.messages = (Array.isArray(row.messages) ? row.messages.slice() : []).concat([{ from: meName, text: body }]);
-    row.last = body;
-    // ⚠️_ts 必须跟着重算：刚说完话的会话还挂着上一轮的时刻，会被排到列表最底下
-    //   （v59.41 修过一次的那个病，从这儿能漏回来）。
-    row._ts = ts;
-    row.time = "刚刚";
-    return { d: Object.assign({}, base, { chats: chats }), wrote: true };
+
+    if (appKey === "wechat") {
+      if (!who) return { d: d, wrote: false };
+      const chats = Array.isArray(base.chats) ? base.chats.map(c => Object.assign({}, c)) : [];
+      const meName = S(base.me && base.me.wechatName) || "我";
+      let row = chats.find(c => c && S(c.name) === who);
+      if (!row) { row = { name: who, type: "chat", messages: [] }; chats.push(row); }
+      row.messages = (Array.isArray(row.messages) ? row.messages.slice() : []).concat([{ from: meName, text: body }]);
+      row.last = body;
+      // ⚠️_ts 必须跟着重算：刚说完话的会话还挂着上一轮的时刻，会被排到列表最底下
+      //   （v59.41 修过一次的那个病，从这儿能漏回来）。
+      row._ts = ts;
+      row.time = "刚刚";
+      return { d: Object.assign({}, base, { chats: chats }), wrote: true };
+    }
+
+    if (appKey === "notes") {
+      // 她 2026-09-10 举的例子：「要删的备忘录他划掉重新写」。
+      // 便签是【名册】（PHONE_RETIRE 里登记着），身份是标题——改正文不该变成第二条。
+      const items = Array.isArray(base.items) ? base.items.map(x => Object.assign({}, x)) : [];
+      const hit = who ? items.find(x => x && S(x.title) === who) : null;
+      if (hit) { hit.body = body; hit.time = "刚刚"; hit._ts = ts; }
+      else items.unshift({ title: who || body.slice(0, 14), body: who ? body : "", time: "刚刚", _ts: ts });
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
+    }
+
+    return { d: d, wrote: false };   // 还没接的 app：只演不落，绝不乱写
   }
 
   // ── 敲一下：本次递进 + 跨次三天半衰 ─────────────────────────────
@@ -205,15 +229,37 @@
   function watchInstruction(o) {
     const c = (o && o.char) || {};
     const uName = (o && o.uName) || "对方";
-    const wx = (o && o.wechat) || {};
+    const ph = (o && o.phone) || {};
+    const can = Array.isArray(o && o.apps) ? o.apps : ["wechat"];
     const arr = a => Array.isArray(a) ? a : [];
-    const chats = arr(wx.chats).slice(0, 14).map(x => "· " + (x.name || "?") + (x.type === "group" ? "（群）" : "") + "：" + String(x.last || "").slice(0, 40)).join("\n");
-    const moments = arr(wx.moments).slice(0, 6).map(x => "· " + (x.author || "?") + "：" + String(x.content || "").slice(0, 40)).join("\n");
-    const contacts = arr(wx.contacts).slice(0, 16).map(x => (x.remark || x.name || "")).filter(Boolean).join("、");
     const words = Object.keys(WATCH_ACTS).map(k => {
       const a = WATCH_ACTS[k];
       return "· " + k + (a.args.length ? "（" + a.args.join("、") + "）" : "") + " —— " + a.zh;
     }).join("\n");
+
+    // 手机现在的样子：只发【他打得开的那几个 app】，一个字都不多发。
+    // ⚠️名字要原样发回去（openItem 得从这些里照抄），不然他会点开一样不存在的东西。
+    const now = [];
+    if (can.indexOf("wechat") >= 0) {
+      const wx = ph.wechat || {};
+      const chats = arr(wx.chats).slice(0, 14).map(x => "· " + (x.name || "?") + (x.type === "group" ? "（群）" : "") + "：" + String(x.last || "").slice(0, 40)).join("\n");
+      const contacts = arr(wx.contacts).slice(0, 16).map(x => (x.remark || x.name || "")).filter(Boolean).join("、");
+      const moments = arr(wx.moments).slice(0, 6).map(x => "· " + (x.author || "?") + "：" + String(x.content || "").slice(0, 40)).join("\n");
+      now.push("〔微信 wechat〕会话（openItem 的 name 从这里照抄）：\n" + (chats || "（还没有会话）")
+        + (contacts ? "\n通讯录里有：" + contacts : "")
+        + (moments ? "\n朋友圈最近几条：\n" + moments : ""));
+    }
+    if (can.indexOf("album") >= 0) {
+      const ps = arr((ph.album || {}).items).slice(0, 18)
+        .map(x => "· " + (x.caption || "?") + (x.date || x.time ? "（" + (x.date || x.time) + "）" : "") + (x.desc ? "：" + String(x.desc).slice(0, 30) : "")).join("\n");
+      now.push("〔相册 album〕已有的照片（openItem 的 name 就是照片那个标题）：\n" + (ps || "（相册还是空的，那就别点进去）"));
+    }
+    if (can.indexOf("notes") >= 0) {
+      const ns = arr((ph.notes || {}).items).slice(0, 14)
+        .map(x => "· " + (x.title || "?") + (x.body ? "：" + String(x.body).slice(0, 34) : "")).join("\n");
+      now.push("〔便签 notes〕已有的便签（openItem 的 name 就是便签的标题）：\n" + (ns || "（一条便签都没有，那就别点进去）"));
+    }
+
     return [
       "现在是你自己拿着手机在刷。没有人跟你说话，也没有人在听——**你以为**。",
       "把接下来这几分钟你在手机上真实做的事，一步一步写成一串动作。" + uName + " 会像看屏幕录像一样看着它被演出来。",
@@ -229,15 +275,17 @@
       "· **动作是主角，心声是配角**：一整段里绝大多数是动作（点、翻、打字、停），think 只有寥寥几句。写成一串心声就不是「看他玩手机」了，是配旁白。",
       "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句**。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。多数动作根本不配一句心声。",
       "",
-      "【这台手机现在的样子】",
-      "微信会话（越靠前越新）：\n" + (chats || "（还没有会话）"),
-      contacts ? "通讯录里有：" + contacts : "",
-      moments ? "朋友圈最近几条：\n" + moments : "",
+      "【每个 app 里你能干什么】",
+      can.indexOf("wechat") >= 0 ? "· 微信：openItem 点开一个会话 → type / erase 打字改字 → send 发出去（或者不发，直接 back 走人）。tab 可以切 chats / contacts / moments / me。" : "",
+      can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
+      can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
+      "",
+      "【他这台手机现在的样子】\n" + now.join("\n\n"),
       "",
       "【硬规矩】",
-      "· 只能碰上面真实存在的人和会话，**不许凭空多出一个联系人**——真要出现新的人，让他出现在你发的话里，别新建一段私聊。",
+      "· 只能碰上面真实存在的东西：会话、人、照片、便签，**名字一个字都不许改，也不许凭空多出一个**。",
       "· 第一个动作从 wake（亮屏）起，最后一个动作是 lock（锁屏）。中间要进 app 用 open。",
-      "· **现在只有微信打得开**，写成 open 的时候 app 一律填 wechat 这个词，别写中文名、别写别的 app——写别的等于这一下什么也没发生。",
+      "· **能打开的只有这几个**：" + can.join(" / ") + "。open 的 app 一律填这几个英文词，别写中文名、别写别的 app——写别的等于这一下什么也没发生。",
       "· 你今天的心情、你和 " + uName + " 现在处到哪一步、你的人设——这几样决定你会点开谁、会不会点开 " + uName + "、在哪儿停住。",
       "· 别在动作里解释你为什么这么做。**做就是了**，看的人自己会明白。"
     ].filter(Boolean).join("\n");
@@ -255,7 +303,7 @@
   //   猜出来的点会落在空处——那一眼就看得出是假的。
   function watchTargetSel(a) {
     if (!a) return "";
-    if (a.kind === "openChat") return '[data-watch="chat:' + S(a.name).replace(/"/g, "") + '"]';
+    if (a.kind === "openItem") return '[data-watch="item:' + S(a.name).replace(/"/g, "") + '"]';
     if (a.kind === "tab") return '[data-watch="tab:' + S(a.name).replace(/"/g, "") + '"]';
     if (a.kind === "open") return '[data-watch="app:' + S(a.app).replace(/"/g, "") + '"]';
     if (a.kind === "look") return '[data-watch="look:' + S(a.at).replace(/"/g, "") + '"]';
@@ -339,7 +387,7 @@
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar,
-    normalizeActs, actDuration, sessionDuration, applySend,
+    normalizeActs, actDuration, sessionDuration, applyWrite,
     knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
   };
 });

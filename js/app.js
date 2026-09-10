@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.19";
+const APP_VERSION = "v66.20";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13162,6 +13162,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 正在看他玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
   const [watching, setWatching] = useState(false);
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
+  // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
+  // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
+  const WATCH_APPS = ["wechat", "album", "notes"];
   const genWatchSession = async char => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
@@ -13173,15 +13176,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 先记时刻再刷（跟查手机那条链同一个形状）：中途失败也不该下次唤起又整份重来
     setWatchAt(a => { const n = { ...a, [char.id]: Date.now() }; saveJSON("x_phoneWatchAt", n); return n; });
     try {
-      const wx = ((phonesRef.current || {})[char.id] || {}).wechat || {};
+      const ph = (phonesRef.current || {})[char.id] || {};
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), wechat: wx }),
+        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: WATCH_APPS }),
         schemaHint: WK.watchSchemaHint(),
         maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
       });
-      // 第一批只有微信打得开。名单从 PHONE_APPS 里取那一条，不另手写一份。
-      const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => a.key === "wechat");
+      // 打得开的那几个：第一批微信，第二批加相册和便签。名单从 PHONE_APPS 里取，不另手写一份。
+      const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => WATCH_APPS.indexOf(a.key) >= 0);
       const got = WK.normalizeActs(out && (out.acts || out.actions || (Array.isArray(out) ? out : null)), openable);
       // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
       if (!got.acts.length) throw new Error("他这回没动。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
@@ -13199,13 +13202,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 边演边落（她 2026-09-10 定）：看到一半退出去，他已经做过的就是做过了。
-  const watchSend = (char, to, text) => {
+  const watchSend = (char, where, to, text) => {
     const WK = window.PhoneWatch;
-    if (!WK || !char) return;
-    const cur = ((phonesRef.current || {})[char.id] || {}).wechat;
-    if (!cur) return;                       // 微信那一份还没生成过，没有底稿可接
-    const r = WK.applySend(cur, to, text, Date.now());
-    if (r.wrote) savePhoneApp(char.id, "wechat", r.d, { noArchive: true, patched: true });
+    if (!WK || !char || !where) return;
+    const cur = ((phonesRef.current || {})[char.id] || {})[where];
+    if (!cur) return;                       // 那个 app 还没生成过，没有底稿可接
+    const r = WK.applyWrite(where, cur, to, text, Date.now());
+    if (r.wrote) savePhoneApp(char.id, where, r.d, { noArchive: true, patched: true });
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   const watchKnock = async (char, nth, nowAct) => {
