@@ -50,11 +50,27 @@ test("画完当场就能看见：keep 是自己的 state，写完得再读一遍
   assert.match(draw, /_imgCache\(\)\.set\(ref, URL\.createObjectURL\(out\.blob\)\)/);
 });
 
+test("送去画之前先让文字模型把这句中文读懂", () => {
+  // 她 2026-09-10：「不要那么多禁令，还是说我们让他生图之前先思考这个的语义？」
+  // 图像模型不读语义，会读中文的是文字模型——多花一次很便宜的文字调用换一句英文描述。
+  const eng = fs.readFileSync("js/engine.js", "utf8");
+  assert.ok(eng.indexOf("async function scenePhotoBrief(") > 0, "没有那一步「先想清楚这张是什么」");
+  assert.match(eng, /【这张照片是什么样的·以这一句为准】/);
+  assert.ok(eng.indexOf("【这张照片是什么样的") < eng.indexOf('(body ? "【画的就是这个】"'),
+    "英文描述排在中文描述后面，就不是主指令了");
+  assert.match(draw, /await scenePhotoBrief\(bgActiveRef\.current, \{ scene, me: char\.remark \|\| char\.name, other: userName\(profile\) \}\)/);
+  assert.match(draw, /buildScenePrompt\(char, scene, \{\s*\n\s*brief,/);
+  // 要不到就照旧走中文那条路，不许挡着她画图
+  assert.match(eng, /catch \(e\) \{ return ""; \}/);
+});
+
 test("描述点名哪个部位，就把英文构图指令顶到最前面", () => {
   // 她 2026-09-10 第四次拍图：写「搭在深灰色 T 恤胸口位置」，画出来手搭在被子上、框的是腿。
   const eng = fs.readFileSync("js/engine.js", "utf8");
-  assert.match(eng, /【框哪一块·这条比什么都硬】/);
-  assert.match(eng, /NOT the lap, NOT the thighs, NOT the legs/);
+  assert.match(eng, /【框哪一块】/);
+  assert.match(eng, /framing: close on the upper chest and collarbone/);
+  // ⚠️她 2026-09-10：「不要那么多禁令」——构图只说拍什么，不列一串 NOT
+  assert.ok((eng.match(/NOT the/g) || []).length === 0, "又堆回一串禁令了");
   assert.ok(eng.indexOf("const PART_HINTS = [") > 0, "没有部位→英文构图的对照表");
   // 这一段必须在【画的就是这个】之前立住构图
   assert.ok(eng.indexOf("【框哪一块") < eng.indexOf('(body ? "【画的就是这个】"'),
@@ -140,11 +156,8 @@ test("相册这张是【他自己拍的】：谁的手、谁的胸口，不能�
   //   跟「一只手搭在胸口」正面打架；② 谁是「我」、谁是「她」压根没说。
   const eng = fs.readFileSync("js/engine.js", "utf8");
   assert.match(eng, /【谁拍的·画面里谁是谁·镜头在哪儿】/);
-  assert.match(eng, /不是他自己的手搭在自己身上/);
-  // ⚠️她 2026-09-10 第三版：归属对了，可画面拍的是【腿】，描述写的是【胸口】。
-  assert.match(eng, /\*\*部位要对得上\*\*/);
-  assert.match(eng, /chest means chest, not lap or thigh/);
-  assert.match(eng, /姿势也照描述来/);
+  assert.match(eng, /another person's hand resting on the subject's own chest/);
+  assert.match(eng, /描述里点名哪一处，画面主体就是那一处；姿势也照描述来/);
   // 有身体部位的走【不露脸的局部照】那一档，同一份说明书只换那道铁律
   assert.match(draw, /const bodyish = \/手\|指\|腕/);
   assert.match(draw, /body: bodyish,/);

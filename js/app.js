@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.71";
+const APP_VERSION = "v66.72";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14561,7 +14561,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const prevKept = (Array.isArray(loadJSON("x_phoneKeep", {})[char.id]) ? loadJSON("x_phoneKeep", {})[char.id] : [])
         .find(x => sigOf0(x) === key) || null;
       const again = !!(prevKept && (prevKept.imageRef || prevKept.imageUrl));
+      // ⭐先想清楚这句小字是什么意思，再去画（她 2026-09-10：「让他生图之前先思考这个的语义」）。
+      //   图像模型不会读中文语义，会读的是文字模型——多花一次很便宜的文字调用换一句
+      //   写死了「谁的手、框哪一块、镜头在哪」的英文描述。要不到就照旧走中文那条路。
+      const brief = typeof scenePhotoBrief === "function"
+        ? await scenePhotoBrief(bgActiveRef.current, { scene, me: char.remark || char.name, other: userName(profile) })
+        : "";
       const p0 = buildScenePrompt(char, scene, {
+        brief,
         forText: false, body: bodyish,
         // 画面里谁是谁：这张是他自己举着手机拍的，「我」是他、「她」是用户
         pov: { me: char.remark || char.name, other: userName(profile) }

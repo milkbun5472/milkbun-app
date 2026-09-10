@@ -3789,32 +3789,31 @@ function buildScenePrompt(char, sceneDesc, opts) {
     //   ① 谁是谁；② 镜头在哪儿；③ **拍的就是描述点名的那个部位，不许换成别的**。
     parts.push("【谁拍的·画面里谁是谁·镜头在哪儿】first-person POV, phone held by the subject, camera looking down along their own body。"
       + "这是 " + (pov.me || "他") + " 自己举着手机拍下来的一张照片："
-      + "描述里的「我／自己」＝**举着手机的这个人**，画面里出现的是**他自己的身体**（镜头从他眼睛的位置往下看，能看到他自己的胸口/肚子/腿/手）；"
+      + "描述里的「我／自己」＝**举着手机的这个人**，画面里出现的是他自己的身体；"
       + (pov.other ? "「她／你／" + pov.other + "」＝**另一个人**，出现在画面里的是对方的手或身体的一角。" : "")
-      + "**别弄反**：说「她的手搭在我胸口」＝another person's hand resting on the subject's own chest, seen from the subject's own eyes——"
-      + "是【对方的手】压在【他自己胸口】上，不是他自己的手搭在自己身上。"
-      + "**部位要对得上**：描述里点名哪一处就拍哪一处——写「胸口」就把镜头框在胸口那一块（躺着的话是从脸的上方沿着身体往下看，看到穿着衣服的前胸），"
-      + "写「腿」才拍腿。**不许拿别的部位顶替**：chest means chest, not lap or thigh。"
-      + "姿势也照描述来：写「睡着」「床上」就是躺着，别画成坐着低头看膝盖。");
+      + "所以「她的手搭在我胸口」＝another person's hand resting on the subject's own chest, seen from the subject's own eyes。"
+      + "描述里点名哪一处，画面主体就是那一处；姿势也照描述来。");
   }
-  // ⚠️她 2026-09-10 第四次拍图：归属、部位都写进去了，画出来还是【手搭在被子上、
-  //   框的是腿】——而描述写的是「搭在深灰色 T 恤胸口位置」。中文部位词对图像模型
-  //   基本无效，得把「框哪一块」翻成英文构图指令，并且【点名不许拍成哪一块】。
-  //   放在【画的就是这个】之前，让它先立住构图，再喂那句中文描述。
   const PART_HINTS = [
-    [/胸口|胸前|锁骨|前胸/, "framing: close on the upper chest and collarbone, camera looking straight down at the chest from the person's own eyes. The chest fills the middle of the frame. NOT the lap, NOT the thighs, NOT the legs, NOT a blanket over the legs"],
-    [/肚子|腰|小腹/, "framing: close on the stomach and waist. NOT the chest, NOT the legs"],
-    [/膝盖|大腿|腿上|腿间/, "framing: the lap and thighs seen from above. NOT the chest"],
-    [/脖|颈/, "framing: close on the neck and throat. NOT the chest, NOT the legs"],
-    [/手腕|手背|指尖|手指|一只手|手心/, "framing: close on the hand, hand and fingers clearly the main subject and in sharp focus"],
-    [/脚|脚踝|脚趾/, "framing: close on the feet and ankles. NOT the legs above the knee"],
-    [/背|后颈|肩胛/, "framing: the back and shoulder blades. NOT the front of the body"]
+    [/胸口|胸前|锁骨|前胸/, "framing: close on the upper chest and collarbone, camera looking straight down from the person's own eyes; the chest fills the middle of the frame"],
+    [/肚子|腰|小腹/, "framing: close on the stomach and waist"],
+    [/膝盖|大腿|腿上|腿间/, "framing: the lap and thighs seen from above"],
+    [/脖|颈/, "framing: close on the neck and throat"],
+    [/手腕|手背|指尖|手指|一只手|手心/, "framing: close on the hand, fingers in sharp focus as the main subject"],
+    [/脚|脚踝|脚趾/, "framing: close on the feet and ankles"],
+    [/背|后颈|肩胛/, "framing: the back and shoulder blades"]
   ];
   if (sceneDesc && String(sceneDesc).trim()) {
     const sd = String(sceneDesc);
     const hit = PART_HINTS.find(([re]) => re.test(sd));
-    if (hit) parts.push("【框哪一块·这条比什么都硬】" + hit[1] + "。描述里点名的就是这一块，画面主体必须是它；拍成别的部位就是画错了。");
+    if (hit) parts.push("【框哪一块】" + hit[1] + "。描述里点名的就是这一块，画面主体就是它。");
   }
+  // ⭐【真正在思考语义的那一步】她 2026-09-10：「不要那么多禁令，还是说我们让他生图
+  //   之前先思考这个的语义？」——对。gpt-image 这一档不会替你想「谁的手、框哪一块」，
+  //   它拿到的只是一串词。所以在送去画之前，先让【文字模型】把这句中文小字读懂、
+  //   写成一句英文照片描述（scenePhotoBrief），这里把它排在中文描述前面当主指令。
+  const brief = String((opts && opts.brief) || "").trim();
+  if (brief) parts.push("【这张照片是什么样的·以这一句为准】" + brief);
   if (sceneDesc && String(sceneDesc).trim()) parts.push((body ? "【画的就是这个】" : "【画这个地方】") + String(sceneDesc).trim() + "。");
   // 竖屏背景板：正文对话框压在下半屏，所以画面的分量要往上走、中下留得住字
   // ⚠️只有空景那一档会被拿去当背景板；局部照是聊天里发的一张图，不压字。
@@ -6694,6 +6693,27 @@ async function fetchLocalEnv() {
     out.location = city ? (city + (g.countryCode ? ", " + g.countryCode : "")) : "";
   } catch (e) {}
   return out;
+}
+// ── 送去画之前，先让文字模型把这句中文小字读懂（她 2026-09-10）──────────────
+// 图像模型不会思考语义：「她睡着时搭在我胸口的手」进去，出来的是一只手搭在被子上、
+// 框的是腿——谁的手、谁的胸口、镜头在哪儿，它全靠猜，堆再多禁令也只是堵漏。
+// 真正会读中文的是【文字模型】，所以多花一次很便宜的文字调用，把这句小字翻成
+// 一句英文照片描述，再交给画图那一端。拿不到就照旧走中文描述，不挡她画图。
+async function scenePhotoBrief(p, o) {
+  const scene = String((o && o.scene) || "").trim();
+  if (!p || !scene) return "";
+  const me = String((o && o.me) || "他"), other = String((o && o.other) || "").trim();
+  const system = "你是摄影指导。下面是某人手机相册里一张照片的中文说明。先读懂它说的是什么，"
+    + "再写成**一句英文照片描述**（不超过 60 词），交给图像模型照着拍。必须写清楚："
+    + "①画面主体是哪个部位/哪样东西——镜头框住的就是它；"
+    + "②这是谁的身体、谁的手——这张是 " + me + " 自己举着手机拍的，说明里的「我／自己」＝举手机的这个人自己的身体"
+    + (other ? "，「她／你／" + other + "」＝另一个人，画面里只出现对方的手或身体一角" : "") + "；"
+    + "③镜头的位置和距离；④人物姿势；⑤光线、时间和环境。\n"
+    + "只输出这一句英文，不要解释、不要引号、不要写否定句（别用 no/not/without）。";
+  try {
+    const raw = await callAI(p, system, [{ role: "user", content: scene }], { maxTokens: 8900, tag: "照片语义" });
+    return String(raw || "").replace(/[\r\n]+/g, " ").replace(/^["'\u300c\u300d]+|["'\u300c\u300d]+$/g, "").trim().slice(0, 420);
+  } catch (e) { return ""; }
 }
 // 角色给「用户写的日记」写一条评论：依据当下心情+关系+好感度，不复述、简短、不做互评
 // opts.prevSaid：该角色最近评论用户别的日记时说过的话 → 逼 Ta 换新说法，治「每篇都同一个梗/开头」
