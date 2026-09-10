@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.28";
+const APP_VERSION = "v66.29";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4383,7 +4383,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 生日（用户/角色自己）+ 日历三视角（世界事件人人知、我的日历按可见名单、角色自己视角）。dateKey 与 calKey 同格式：年-月-日，月 1-based 不补零。
     dateNote: (() => {
       const cal = calendar || {};
-      const uName = profile && profile.name ? profile.name : "对方";
+      const uName = userName(profile);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
       const mdK = (today.getMonth() + 1) + "-" + today.getDate();
@@ -4488,7 +4488,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memoNote: (typeof memoNoteFor === "function" ? memoNoteFor(char.id) : ""),
     listenLog: (() => {
       const L = listenRef.current || {};
-      const uName = profile && profile.name ? profile.name : "对方";
+      const uName = userName(profile);
       const lines = [];
       // 正和这个角色一起听 → 无论开没开自动评论，TA 都「知道」在放什么（被问起能接住）；开了自动评论才额外鼓励主动聊
       if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) {
@@ -4909,6 +4909,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   useEffect(() => {
     if (!offlineGroup) return;
     const gid = offlineGroup.id;
+    // ⚠️「群里自己聊起来」这道闸原来【只写在线上那条巡检里】，线下这条一个字都没跟上
+    //   （她 2026-09-10：「我都关了自发聊天他们还是在聊」）。她关掉的是【他们自己往下聊】
+    //   这件事本身，不是「线上的那一半」——把话头留给她，线上线下都得留。
+    //   又是「一层写在两处、第二处没跟上」（施工规则/four-surfaces-same-context.md）。
+    if (gsFor(gid).autoChat === false) return;
     const timer = setInterval(() => {
       if (laneBusy("g:" + gid)) return;
       const sess = (groupOfflinesRef.current[gid] || []).find(s => s && !s.endTs);
@@ -4925,7 +4930,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       groupOfflineReply(gid);
     }, 20000);
     return () => clearInterval(timer);
-  }, [offlineGroup, chatSettings, sending]);
+    // ⚠️groupSettings 必须在 deps 里：少了它，她刚把开关关掉，这个 interval 还闭包着
+    //   旧设置照跑——闸加了也等于没加（原来这儿写的是 chatSettings，那是单聊那份）。
+  }, [offlineGroup, groupSettings, chatSettings, sending]);
   // ---- 默认进线下（她 2026-07-23，方便同居/常在一起的角色：默认基本上都在一起）----
   // 点进开了「默认进线下」的单聊，直接进线下相处；随时可「离开」跳回线上。只在【进入这个聊天】那一下
   // 触发一次——跳回线上后不再自动弹（尊重你主动离开）；下次从列表重新进这个聊天才会再默认开。
@@ -7005,7 +7012,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
-      const uName = profile && profile.name ? profile.name : "对方"; // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
+      const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"

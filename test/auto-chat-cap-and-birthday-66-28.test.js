@@ -55,3 +55,31 @@ test("群里也说清：今天是谁的生日、不是谁的", () => {
   // 真挂进 system 了
   assert.match(app, /dir \+ common \+ gBdayHint \+ gTimeHint/, "算出来了却没发下去");
 });
+
+// 她 2026-09-10：「我都关了自发聊天他们还是在聊」。
+// ⚠️「群里自己聊起来」这道闸【只写在线上那条巡检里】，群线下那条自主续演一个字都没跟上——
+//    她关掉的是「他们自己往下聊」这件事本身，不是「线上的那一半」。
+test("关掉自发聊天，线上线下两条自主续聊都得停", () => {
+  // 线上那条本来就有
+  assert.match(app, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false\) continue;/, "线上那道闸没了");
+  // 线下那条（群线下浮层里自己往下演）
+  const i = app.indexOf("  // ---- 群线下 dongnian 驱动自发");
+  assert.ok(i > 0, "群线下那条自主续演不见了");
+  const eff = app.slice(i, app.indexOf("  // ---- 默认进线下", i));
+  assert.match(eff, /if \(gsFor\(gid\)\.autoChat === false\) return;/, "线下这条没跟上——关了还在演");
+  // ⚠️闸装了还得刷新：deps 里没有 groupSettings 的话，interval 闭包着旧设置照跑
+  assert.match(eff, /\}, \[offlineGroup, groupSettings, chatSettings, sending\]\);/, "关掉后这个 interval 不会重建，闸等于没装");
+  // 闸要排在 setInterval 之前：装在回调里每 20 秒白算一遍
+  assert.ok(eff.indexOf("gsFor(gid).autoChat === false") < eff.indexOf("const timer = setInterval"), "闸装到回调里去了");
+});
+
+// 她 2026-09-10：「不要Lisa，改成设置里可以替换的名字」
+test("生日那几行的名字来自设置，不是写死的", () => {
+  const seg = app.slice(app.indexOf("    dateNote: (() => {"), app.indexOf("      // —— 纪念日：和这个角色在一起满几周年 ——"));
+  assert.match(seg, /const uName = userName\(profile\);/, "又自己写了一份兜底");
+  assert.ok(!/Lisa/.test(seg), "生日这一段里出现了写死的名字");
+  // 群里那一句同理
+  const g = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      const gEmotes = emotesForGroup"));
+  assert.match(g, /const uN = userName\(profile\);/);
+  assert.ok(!/Lisa/.test(g), "群里那一句出现了写死的名字");
+});

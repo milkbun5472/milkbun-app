@@ -44,6 +44,10 @@ test("没填名字时的兜底只剩一处，而且不是她本人的名字", ()
       if (/\bname\s*\|\|\s*"(Lisa|lisa)"/.test(code)) bad.push(f + ":" + (i + 1));
       // 旧的两种写法也不许再出现——它们就是 userName() 要替掉的那个形状
       if (/profile\s*(&&\s*profile)?\.name\s*\|\|\s*"(用户|Lisa)"/.test(code)) bad.push(f + ":" + (i + 1) + "（该换成 userName(profile)）");
+      // v66.29：三元那种写法原来漏网（`profile && profile.name ? profile.name : "对方"`）——
+      // 它也是自己写了一份兜底，而且兜的还是第三个词「对方」。她 2026-09-10：
+      // 「不要Lisa，改成设置里可以替换的名字」——兜底只许有一处，写法也只许有一种。
+      if (/profile\s*&&\s*profile\.name\s*\?\s*profile\.name\s*:/.test(code)) bad.push(f + ":" + (i + 1) + "（三元兜底，该换成 userName(profile)）");
     });
   });
   assert.deepEqual(bad, [], "这几处还在自己写兜底：\n  " + bad.join("\n  "));

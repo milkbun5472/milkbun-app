@@ -2549,7 +2549,7 @@ function buildBundle(ctx, opts) {
       }
     }
   }
-  const uName = profile && profile.name ? profile.name : "对方";
+  const uName = userName(profile);
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
   // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
   {
