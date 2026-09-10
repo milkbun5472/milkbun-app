@@ -781,7 +781,7 @@
       can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：只能 openItem 点开一条看看、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。" : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
       can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。**这三处只能看，一个字都改不了。**" : "",
-      can.indexOf("music") >= 0 ? "· 音乐：openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑。" : "",
+      can.indexOf("music") >= 0 ? "· 音乐：scroll 往下翻曲目单，openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑，**别老点最上面那几首**：往下翻翻，挑一首跟你此刻对得上的。" : "",
       "",
       "【他这台手机现在的样子】\n" + now.join("\n\n"),
       "",
@@ -831,6 +831,19 @@
     if (a.kind === "send") return '[data-watch="send"],[data-watch="result"]';
     if (a.kind === "type" || a.kind === "erase") return '[data-watch="input"]';
     return "";
+  }
+
+  // ── 演出用的气泡：数据已经追上了就别再挂一条 ────────────────────
+  // ⚠️他发出去的那一条【落盘是同步的】：applyWrite 写进 x_phone，那一屏下一帧就看得见。
+  //   播放器为了「当场看得见」另挂的那条演出气泡于是成了第二遍
+  //   （她 2026-09-10：「微信给别人发还是有 duplicate」）。
+  //   两条路都要留着（数据慢一拍的时候还得靠它），所以在【画的那一刻】去重：
+  //   最后几条里已经有同一句了，演出那条就不画。
+  function dropEchoBubbles(messages, sent) {
+    const ms = Array.isArray(messages) ? messages : [], sd = Array.isArray(sent) ? sent : [];
+    if (!sd.length) return sd;
+    const tail = ms.slice(-6).map(m => S(m && m.text).trim()).filter(Boolean);
+    return sd.filter(x => tail.indexOf(S(x && x.text).trim()) < 0);
   }
 
   // ── 现编的那一页：他刚搜出来／刚点进去的东西 ──────────────────────
@@ -972,7 +985,7 @@
     THOUGHT_CAP, THOUGHT_FREE, thoughtCapFor, KNOCK_CAP, KNOCK_HALFLIFE_MS, WATCH_COOLDOWN_MS, WATCH_COOLDOWN_OFF, ACT_CAP,
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
-    WatchDot, WatchThought, WatchBar, WatchPage, WatchSearchPill,
+    WatchDot, WatchThought, WatchBar, WatchPage, WatchSearchPill, dropEchoBubbles,
     normalizeActs, actDuration, typeTick, sessionDuration, applyWrite, applyReply, sameName, pickName,
     knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
     knockedToday, watchedNote, HINT_PER_DAY, watchHintOn, watchHintUsed

@@ -2475,7 +2475,11 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   //   可输入框和他发出去的气泡一个都不显示——屏幕上就是「点开了，然后什么也没发生」。
   const driveOn = !!(drive && drive.item && thread && watchSame(thread.name, drive.item));
   const th = liveThread || thread;
-  const driveSent = driveOn ? arr(drive.sent) : [];
+  // ⚠️落盘是同步的，数据那一头下一帧就有了；再挂一条演出气泡就是同一句话两遍。
+  //   去重收在 PhoneWatch.dropEchoBubbles 一处（微信和短信两屏共用）。
+  const driveSent0 = driveOn ? arr(drive.sent) : [];
+  const driveSent = (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.dropEchoBubbles)
+    ? window.PhoneWatch.dropEchoBubbles((liveThread || {}).messages, driveSent0) : driveSent0;
   const driveTyping = driveOn && drive.typing != null ? String(drive.typing || "") : null;
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(th.name, th.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(th.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
@@ -3416,7 +3420,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   }, chrome,
   // 他在搜东西那一下才出现的搜索条：册页上不摆药丸，走【墨围】——方角、一道细线。
   // （她自己翻的时候一个像素都不画。）
-  (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+  (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
     ? h("div", { className: "shrink-0 flex items-center", style: { margin: "0 13px 8px" } },
         h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
           skin: { ink: SHOP_INK, dim: SHOP_DIM, soft: "rgba(255,255,255,.5)", accent: SHOP_MARK, radius: 0, border: "1px solid " + SHOP_FRAME } }))
@@ -3820,7 +3824,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "radial-gradient(circle at 88% 4%,rgba(216,166,116,.38),transparent 31%),linear-gradient(180deg,#efe0cc 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
     chrome,
-    (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+    (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
       ? h("div", { className: "shrink-0 flex items-center", style: { margin: "0 16px 8px" } },
           h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
             skin: { ink: TAKE_INK, dim: TAKE_DIM, soft: "#fff", accent: TAKE_CORAL, radius: 15 } }))
@@ -4227,7 +4231,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IArrow, { size: 18, color: BILI_INK })),
       // 「看他玩」演到他搜东西那一下，这颗药丸就是真的搜索条（她自己翻的时候一个像素没变）
-      (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+      (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
         ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
             skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
         : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
@@ -4493,7 +4497,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   // 顶栏照小红书：返回 · 居中的频道 tab（首页那页才有）· 刷新
   const chans = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
-  const searchPill = (drive && (drive.typing != null || drive.searchQ) && window.PhoneWatch)
+  const searchPill = (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
     ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
         skin: { ink: PLAZA_INK, dim: PLAZA_DIM, soft: "#f3f3f6", accent: PLAZA_RED } })
     : null;
@@ -4910,15 +4914,15 @@ const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
 const WATCH_SEARCH_APPS = ["browser", "liked", "bili", "shopping", "takeout"];
 // 「看他玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
 // （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
-const watchSame = (a, b) => (window.PhoneWatch && window.PhoneWatch.sameName)
+const watchSame = (a, b) => (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.sameName)
   ? window.PhoneWatch.sameName(a, b) : (String(a == null ? "" : a) === String(b == null ? "" : b));
 // 从一堆里挑出他点的那一个。⚠️别用 find(watchSame)：两条都「像」的时候，
 // 各屏按数据顺序挑、圆点按 DOM 顺序挑，挑出来的会是两条不同的东西
 // （她 2026-09-10：「点开一个标题点进去又是另一个标题」）。pickName 先要完全一样的。
-const watchPick = (list, name, get) => (window.PhoneWatch && window.PhoneWatch.pickName)
+const watchPick = (list, name, get) => (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.pickName)
   ? window.PhoneWatch.pickName(list, name, get)
   : (Array.isArray(list) ? list : []).find(x => watchSame(get ? get(x) : x, name)) || null;
-const watchPageNode = (drive, skin) => (drive && drive.page && window.PhoneWatch)
+const watchPageNode = (drive, skin) => (drive && drive.page && typeof window !== "undefined" && window.PhoneWatch)
   ? h(window.PhoneWatch.WatchPage, { page: drive.page, skin: skin }) : null;
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("tabs");
@@ -5248,14 +5252,21 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     (!freq.length && !blocked.length && !me.number)
       ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
+  // ⚠️跟微信那一屏同一件事：open.x 是【点开那一刻的那一行】，一张快照。
+  //   他发出去的那条落进 x_phone 之后这张快照不会跟着长——去重也就无从比起。
+  //   所以每一帧按名字把它认回来（认名字走公共那条）。
+  const liveSms = (open && open.kind === "sms")
+    ? (watchPick(A(d && d.sms), (open.x || {}).name, x => x && x.name) || open.x || {}) : null;
   // 演到一半就该看见：他刚发出去的那条先挂在气泡串上（落盘另走 applyWrite）
   // 同上：这一行也得走公共那份，不然短信点开了、他打的字和发出去的气泡却不出现
   const driveOn = !!(drive && open && open.kind === "sms" && drive.item
     && (watchSame((open.x || {}).name, drive.item) || String((open.x || {}).number || "") === String(drive.item)));
-  const driveSent = driveOn ? A(drive.sent) : [];
+  const driveSent0 = driveOn ? A(drive.sent) : [];
+  const driveSent = (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.dropEchoBubbles)
+    ? window.PhoneWatch.dropEchoBubbles((liveSms || {}).msgs, driveSent0) : driveSent0;
   const driveTyping = (driveOn && drive.typing != null) ? String(drive.typing || "") : null;
   const detail = open ? (function () {
-    const x = open.x || {};
+    const x = (open.kind === "sms" ? (liveSms || open.x) : open.x) || {};
     const isCall = open.kind === "call", isSms = open.kind === "sms", isVm = open.kind === "vm";
     const missed = isCall && x.answered === false;
     return h(PhoneSubPage, {
@@ -5949,10 +5960,13 @@ function PhoneCarry({
     attempt();
     // 按完才出现的那几样（搜出来的那一页、发送键、打字条）第一下量不到，隔几拍再试。
     const shots = [90, 220, 420, 660].map(ms => setTimeout(attempt, ms));
-    // ⚠️几拍都没量到就把圆点收起来——【手指停在返回键上、屏幕却翻开了下一张照片】
-    //   比没有手指还假（她 2026-09-10 抓到的正是这一下）。
-    shots.push(setTimeout(() => { if (!done) setDot(null); }, 780));
-    return () => shots.forEach(clearTimeout);
+    // ⚠️「几拍都没量到就把圆点收起来」原来挂在 780 毫秒上——**那一枪永远打不响**：
+    //   一下动作才 620 毫秒，到点之前清理函数就把它连同别的定时器一起清了。
+    //   于是只要这一下没找着挂点，圆点就赖在【上一下】那儿不动——她看见的
+    //   「看第二条便签光标还是停在后退键」正是这个，而且每个 app 都会犯
+    //   （她 2026-09-10：「我怀疑这个大部分 app 都有这个问题」）。
+    //   改成挂在【这一下结束】那一刻：没量到就收起来，不许赖着。
+    return () => { shots.forEach(clearTimeout); if (!done) setDot(null); };
   };
   useEffect(() => {
     if (!watch || watch.done || !WK) return;

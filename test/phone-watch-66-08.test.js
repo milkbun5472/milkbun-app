@@ -517,7 +517,7 @@ test("认名字只此一份规矩：标点飘了也得认出来", () => {
   assert.equal(W.sameName("甲", "乙"), false);
   assert.equal(W.sameName("一条视频", ""), false, "空名字不许乱认一个");
   // ⚠️两处必须用同一条：圆点找挂点用它，各屏找那一行也用它
-  assert.match(phone, /const watchSame = \(a, b\) => \(window\.PhoneWatch && window\.PhoneWatch\.sameName\)/);
+  assert.match(phone, /const watchSame = \(a, b\) => \(typeof window !== "undefined" && window\.PhoneWatch && window\.PhoneWatch\.sameName\)/);
   assert.match(phone, /WK\.pickName\(all, name, el => String\(el\.getAttribute\("data-watch"\)\)\.slice\(5\)\)/);
   // ⚠️「像不像」不够，屏幕上要的是【挑哪一个】：两条都像的时候必须挑出同一条，
   //   否则圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的）。
@@ -785,7 +785,11 @@ test("退出来再点下一张：圆点不许赖在返回键上", () => {
   //   没有任何东西可落，就赖在上一处不动。
   assert.match(phone, /key: sig\(p2\), "data-watch": "item:" \+ \(p2\.caption \|\| ""\), onClick: \(\) => openPhoto\(p2\)/);
   // 几拍都没量到就把圆点收起来——手指停在返回键上、屏幕却翻开了下一张，比没有手指还假
-  assert.match(phone, /shots\.push\(setTimeout\(\(\) => \{ if \(!done\) setDot\(null\); \}, 780\)\)/);
+  // ⚠️这道兜底原来挂在 780 毫秒上——**那一枪永远打不响**：一下动作才 620 毫秒，
+  //   到点之前清理函数就把它清了。于是没找着挂点时圆点赖在上一下那儿不动
+  //   （她 2026-09-10 第二次报：「看第二条便签光标还是停在后退键」，而且每个 app 都会犯）。
+  assert.match(phone, /return \(\) => \{ shots\.forEach\(clearTimeout\); if \(!done\) setDot\(null\); \};/);
+  assert.doesNotMatch(phone, /setDot\(null\); \}, 780\)/, "又把它挂回一个永远打不响的定时器上了");
 });
 
 test("论坛：楼下那几条也挂得住，不然点着一个帖子开的是另一个", () => {
