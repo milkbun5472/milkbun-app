@@ -431,6 +431,36 @@
   }
   function knockOver(inSession) { return N(inSession, 0) >= KNOCK_CAP; }
 
+  // ── 敲完他真的会变一下（她 2026-09-10 那批里的第 ⑥ 条）────────────
+  // 病根：上面那个梯度（knockStep）写得很好，可它只管【那一句话】——
+  //   她敲了三下，他心里说「知道你在看」，然后继续若无其事地刷。
+  //   按下去的那一下没有分量，正是这个功能最可惜的地方。
+  //
+  // ⚠️只【插】不【删】：边演边落是她定的（看到一半退出去，他做过的就是做过了），
+  //   截掉剩下的动作会把本该落盘的那几下整段演漏。
+  // ⚠️也不插 lock / home：后面那串动作全是按「他还在这个 app 里」写的，
+  //   把他弹回桌面，接下来的 type / send 全落在空处——拧巴比没反应更糟。
+  // 所以这一段只做三件事：停住、（被看得）打不下去、把心里那句说出来。
+  function knockBeat(n, say, typing) {
+    const k = Math.max(1, N(n, 1));
+    // 停多久＝他有多装不下去。跟 knockStep 那四档一一对上，别另立一套梯度。
+    const out = [{ kind: "pause", ms: k >= 4 ? 2600 : k === 3 ? 2200 : k === 2 ? 1500 : 900 }];
+    // 第三下起：他被看得打不下去了，手上打了一半那句删光。
+    // ⚠️这一笔【不用另外截断后面】：接下来那一下 send 遇到空草稿本来就什么都不做
+    //   （各屏都有 if (text) 那道闸），效果正好就是「他没发出去」。
+    if (k >= 3 && S(typing).trim()) out.push({ kind: "erase" });
+    const line = S(say).trim();
+    if (line) out.push({ kind: "think", text: line.slice(0, 60) });
+    return out;
+  }
+  // 把这一段插在【当前这一下的后面】：当前那一下已经在演了，插它前面会把它顶掉。
+  function spliceBeat(acts, i, beat) {
+    const list = Array.isArray(acts) ? acts : [];
+    if (!Array.isArray(beat) || !beat.length) return list;
+    const at = Math.min(list.length, Math.max(0, N(i, 0)) + 1);
+    return list.slice(0, at).concat(beat, list.slice(at));
+  }
+
   // 好感：一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0，
   // 所以 ±1 已经是「这事留了点痕迹」的分量）。
   // ⚠️方向不写死成负的：他被你撞见在翻你的照片，完全可以是加分的。
@@ -721,8 +751,17 @@
       }
     },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.72)", minWidth: 44 } },
-        p.done ? "看完了" : (p.i || 0) + " / " + (p.total || 0)),
+        p.done ? "看完了" : p.paused ? "停住了" : (p.i || 0) + " / " + (p.total || 0)),
       h("span", { style: { flex: 1 } }),
+      // 暂停（她 2026-09-10 第 ⑦ 条）：他打了一句又删掉、心声一闪而过，
+      // 原来想看清楚只能按 1× 或者干脆错过。四个键里最便宜的一个。
+      // ⚠️暂停着的时候倍速那颗还留着能按：她多半是「停下来看完，再挑个速度继续」。
+      p.done ? null : h("button", { onClick: p.onPause, className: "active:opacity-60",
+        "aria-label": p.paused ? "继续" : "暂停",
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: p.paused ? "#1c1a16" : "#fff",
+          border: "1px solid rgba(255,255,255," + (p.paused ? ".92" : ".4") + ")", borderRadius: 999,
+          padding: "5px 11px", background: p.paused ? "rgba(255,255,255,.92)" : "transparent" } },
+        p.paused ? "继续" : "暂停"),
       p.done ? null : h("button", { onClick: p.onSpeed, className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "5px 11px", background: "transparent" } },
         (p.speed || 1) + "×"),
@@ -743,6 +782,6 @@
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
     normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName, pickName,
-    knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
+    knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft
   };
 });

@@ -5992,6 +5992,7 @@ function PhoneCarry({
       const base = String((watchRef.current && watchRef.current.typing) || "");
       let n = 0;
       typer = setInterval(() => {
+        if (watchRef.current && watchRef.current.paused) return;   // 暂停时连字都不许再往下打
         n += 1;
         setWatch(w => w ? { ...w, typing: base + full.slice(0, n) } : w);
         if (n >= full.length) { clearInterval(typer); typer = null; }
@@ -5999,8 +6000,16 @@ function PhoneCarry({
     }
 
     // ③ 排下一步
-    const tid = setTimeout(() => setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w), Math.max(120, WK.actDuration(a) / speed));
-    return () => { clearTimeout(tid); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
+    // ⚠️暂停【不能挂进这个 effect 的 deps】：deps 一变整段 effect 重跑，
+    //   这一下的效果就会再做一遍——发出去的再发一次、打过的字再打一遍。
+    //   所以暂停只拦【往下走那一脚】：时候到了先看一眼旗子，还举着就每 200ms 再问一次。
+    let hold = null;
+    const advance = () => {
+      if (watchRef.current && watchRef.current.paused) { hold = setTimeout(advance, 200); return; }
+      setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w);
+    };
+    const tid = setTimeout(advance, Math.max(120, WK.actDuration(a) / speed));
+    return () => { clearTimeout(tid); if (hold) clearTimeout(hold); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
     // eslint-disable-next-line
   }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
   // ── 心声自己会退场（她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」）──
@@ -6011,7 +6020,13 @@ function PhoneCarry({
   useEffect(() => {
     if (!thought) return;
     const ms = Math.min(2600, 900 + String(thought).length * 55) / ((watch && watch.speed) || 1);
-    const id = setTimeout(() => setWatch(w => (w && w.thought === thought) ? { ...w, thought: "" } : w), ms);
+    // 暂停时这句话得留在屏幕上——她按暂停多半就是为了把它看完（同上，不挂 deps）
+    let id = null;
+    const bye = () => {
+      if (watchRef.current && watchRef.current.paused) { id = setTimeout(bye, 200); return; }
+      setWatch(w => (w && w.thought === thought) ? { ...w, thought: "" } : w);
+    };
+    id = setTimeout(bye, ms);
     return () => clearTimeout(id);
   }, [thought, watch && watch.speed]);
   const startWatch = async () => {
@@ -6020,7 +6035,7 @@ function PhoneCarry({
     try {
       const acts = await onWatchStart(char);
       if (!acts || !acts.length) return;
-      setWatch({ acts, i: 0, speed: 1, tab: "chats", chat: null, typing: null, sent: [], thought: "", knocks: 0, knocking: false, done: false });
+      setWatch({ acts, i: 0, speed: 1, tab: "chats", chat: null, typing: null, sent: [], thought: "", knocks: 0, knocking: false, paused: false, done: false });
       setDot(null);
       // 让别的浮层（秋秋那颗球）让开——这一屏扮的是他的手机
       if (onWatching) onWatching(true);
@@ -6034,7 +6049,18 @@ function PhoneCarry({
     try {
       const say = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
       // 真出声了才算这一下：没出声还扣次数，就是「敲了没反应，还少一下」
-      setWatch(p => p ? { ...p, knocks: (p.knocks || 0) + (say ? 1 : 0), knocking: false, thought: say || p.thought } : p);
+      setWatch(p => {
+        if (!p) return p;
+        const n = (p.knocks || 0) + (say ? 1 : 0);
+        // 敲完他真的会变一下：往【当前这一下后面】插一段停住（第三下起还会把
+        // 手上打了一半那句删光）。⚠️只插不删——截掉剩下的动作会把本该落盘的演漏。
+        // 那一句心声跟着这一段一起演，不再直接压在 thought 上：走同一条退场路，
+        // 才不会一句话挂到整段结束（她 9-10 报过的那条）。
+        const beat = (say && WK && WK.knockBeat) ? WK.knockBeat(n, say, p.typing) : [];
+        return beat.length
+          ? { ...p, acts: WK.spliceBeat(p.acts, p.i, beat), knocks: n, knocking: false }
+          : { ...p, knocks: n, knocking: false, thought: say || p.thought };
+      });
     } catch (e) {
       setWatch(p => p ? { ...p, knocking: false } : p);
       // ⚠️失败必须说出来。一声不响就是她看到的那个「卡住了一直没反应」。
@@ -6293,9 +6319,13 @@ function PhoneCarry({
       h("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 56 } },
         h(WK.WatchBar, {
           t, i: watch.i, total: watch.acts.length, done: watch.done, speed: watch.speed,
-          knocks: watch.knocks, knocking: watch.knocking,
+          knocks: watch.knocks, knocking: watch.knocking, paused: watch.paused,
           onSpeed: () => setWatch(w => w ? { ...w, speed: w.speed >= 4 ? 1 : w.speed * 2 } : w),
-          onSkip: () => setWatch(w => w ? { ...w, speed: 8 } : w),
+          // 暂停（她 2026-09-10 那批里的第 ⑦ 条）：他打了一句又删掉、心声一闪而过，
+          // 原来想看清楚只能按 1× 或者错过。⚠️「跳到最后」要顺手放开暂停，
+          // 否则按了没反应——暂停着的时候倍速再快也不往下走。
+          onPause: () => setWatch(w => w ? { ...w, paused: !w.paused } : w),
+          onSkip: () => setWatch(w => w ? { ...w, speed: 8, paused: false } : w),
           onKnock: doKnock,
           onClose: endWatch
         })));

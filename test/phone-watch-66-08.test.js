@@ -589,7 +589,10 @@ test("别老在同几个 app 之间来回", () => {
 test("心声自己会退场，不许一直压在屏幕上", () => {
   // 她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」。
   // 原来它只在【演到下一个 think】才清掉；敲一下回的那句更糟，能挂到整段结束。
-  assert.match(phone, /const id = setTimeout\(\(\) => setWatch\(w => \(w && w\.thought === thought\) \? \{ \.\.\.w, thought: "" \} : w\), ms\)/);
+  // v66.38：加了暂停之后这一支改成【到点先看一眼旗子】（停着的时候那句话得留在屏幕上），
+  // 所以别冻 setTimeout 那一行的形状，冻的是「到点会把它清掉」这件事本身。
+  assert.match(phone, /setWatch\(w => \(w && w\.thought === thought\) \? \{ \.\.\.w, thought: "" \} : w\)/);
+  assert.match(phone, /id = setTimeout\(bye, ms\)/, "没按那条命排退场");
   assert.match(phone, /Math\.min\(2600, 900 \+ String\(thought\)\.length \* 55\)/);
   // 倍速要跟着走：跳到最后的时候还慢慢念就更碍眼了
   assert.match(phone, /\/ \(\(watch && watch\.speed\) \|\| 1\)/);
@@ -605,7 +608,7 @@ test("敲一下：失败要说出来，而且不许白扣一次", () => {
   assert.doesNotMatch(knockFn, /catch \(e\) \{ return ""; \}/, "又把敲一下的错吞回去了");
   assert.match(knockFn, /throw new Error\(e && e\.message/);
   // 真出声了才算这一下；没出声要报出来
-  assert.match(phone, /knocks: \(p\.knocks \|\| 0\) \+ \(say \? 1 : 0\)/);
+  assert.match(phone, /const n = \(p\.knocks \|\| 0\) \+ \(say \? 1 : 0\);/);
   assert.match(phone, /onWatchToast\("没敲动："/);
   assert.match(app, /onWatchToast: toast/);
 });
