@@ -19,7 +19,10 @@ test("单人和群线下每轮继续喂逐条原文，并给每条加真实时�
 
 test("结束回线上后摘要只负责显示，模型另拿有上限的真实逐条尾段", () => {
   assert.match(app, /offlineTranscriptForOnline/);
-  assert.match(app, /used \+ n > 6000/);
+  // v66.16：那道预算提成公共的了（线下归档 + 通话回执共用同一道）
+  assert.match(app, /const TRANSCRIPT_CAP = 6000;/);
+  assert.match(app, /used \+ n > \(cap \|\| TRANSCRIPT_CAP\)/);
+  assert.match(app, /const offlineTranscriptForOnline = \(msgs, groupMode, charName\) => transcriptTail\(/);
   assert.match(app, /transcript: offlineTranscriptForOnline\(sess\.msgs, false/);
   assert.match(app, /transcript: offlineTranscriptForOnline\(sess\.msgs, true/);
   assert.match(app, /【线下实际逐条记录·以原话为准】/);

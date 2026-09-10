@@ -3,7 +3,7 @@ const app = fs.readFileSync('js/app.js', 'utf8');
 const cut = (a,b) => app.slice(app.indexOf(a),app.indexOf(b,app.indexOf(a)));
 function setup() {
   const requests=[],timers=[],notices=[];
-  const b={Date,Math,Number,Set,console:{warn(){}},useRef:current=>({current}),
+  const b={Date,Math,Number,Set,console:{warn(){}},useRef:current=>({current}),fmtStampAI:()=>'',
     profile:{name:'用户'},characters:[{id:'a',name:'甲',persona:'甲设定'},{id:'b',name:'乙',persona:'乙设定'}],
     groups:[{id:'g',memberIds:['a','b']}],groupChatsRef:{current:{g:[]}},gsFor:()=>({ctxN:40,memoryInterop:false}),
     active:{},groupMembers:g=>b.characters.filter(c=>g.memberIds.includes(c.id)),
@@ -19,7 +19,11 @@ function setup() {
     callAI:async(api,sys,hist,opts)=>{requests.push({sys,hist,opts});return JSON.stringify([{name:'甲',choice:'1',say:'选择第二项'}])}
   };
   vm.createContext(b);
-  vm.runInContext(cut('  const pollVoteBusyRef =','  // ---- 群红包 ----') +
+  // v66.16：群通话回执现在把【逐句原话】也喂回去（她：「靠一个不靠谱的小结，
+  //   说出来的话都是错的」），所以 groupHistLine 依赖 callTranscriptForOnline，
+  //   连同它那道共用预算一起搬进沙盒。
+  vm.runInContext(cut('  const TRANSCRIPT_CAP =','  useEffect(() => {\n    offlinesRef.current') +
+    cut('  const pollVoteBusyRef =','  // ---- 群红包 ----') +
     cut('  const groupContextRows =','  // ---- 群里每位成员那一段') +
     '\nthis.ops={startPoll,castVote,genPollVotes,groupPoll,groupPollText,groupContextRows,groupHistLine};',b);
   return {b,requests,timers,notices};
