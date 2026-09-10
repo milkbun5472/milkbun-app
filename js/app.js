@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.52";
+const APP_VERSION = "v66.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11365,6 +11365,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const phoneTakenNames = char => {
     const out = [];
     const add = v => { const t = String(v || "").trim(); if (t && out.indexOf(t) < 0) out.push(t); };
+    // ⚠️她自己也要进避重名单，而且【连他给她起的备注一起】（她 2026-09-10 撞到的）：
+    //   只收本名的话，模型会照着备注（「小笨蛋」）另造一条跟她的私聊，
+    //   于是他手机里两条跟她的对话——一条真的活着，一条推演出来的永远停在那儿。
+    add(userName(profile)); add(profile && profile.name);
+    try {
+      const uc = ((((phonesRef.current || {})[char.id] || {}).wechat || {}).userContact) || {};
+      add(uc.remark); add(uc.name);
+    } catch (e) {}
     phoneWechatActual(char).forEach(c => {
       // ⚠️群里那几个【真人】要收进来（她 2026-09-03 报：陆闻出现两次，一个真的一个假的）。
       //   原来整条群会话直接 return，于是只在群里跟他说过话的人从来不进避重名单，

@@ -2425,7 +2425,20 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const [publicPage, setPublicPage] = useState(false);
   const [article, setArticle] = useState(null);
   const arr = a => Array.isArray(a) ? a : [];
-  const actual = arr(d.actualChats), generated = arr(d.chats);
+  const actual = arr(d.actualChats);
+  // ⚠️她 2026-09-10：「我发睡了吗他回了，我查手机，然后就一直被固定住在那儿了，
+  //   下次再聊几轮进去都不会显示，除非我再刷一次微信。」
+  //   病根：模型刷新时会照着【他给她的备注】另造一条跟她的私聊（「小笨蛋」），
+  //   而避重名单里只有她的本名——于是他手机里有两条跟她的对话：
+  //   一条是真的（活的），一条是推演出来的（永远停在刷新那一刻）。她点开的是后面那条。
+  //   落盘那头也补了（phoneTakenNames 收下备注），但已经存着的那些得在这儿挡住，
+  //   否则她得再刷一次微信才好——那正是她说的「除非我再刷一次」。
+  const meLike = [userName(profile), profile && profile.name,
+    (d.userContact && d.userContact.remark), (d.userContact && d.userContact.name)]
+    .concat(actual.filter(c => c && c.type !== "group").map(c => c && c.name))
+    .map(x => String(x || "").trim()).filter(Boolean);
+  const generated = arr(d.chats).filter(c => !(c && c.type !== "group"
+    && meLike.some(n => (typeof phoneSamePerson === "function" ? phoneSamePerson(c.name, n) : String(c.name || "").trim() === n))));
   // ⚠️显示这一端也要按时间排。存的那一端（phoneGrowList）v59.41 起会排，
   // 但那只在【刷新时】发生——已经存着的那份还是乱的，她得等下一次刷新才看得对。
   // 会话列表乱序是一眼就假的：今天下午那条掉在前天下面，微信不会长这样。

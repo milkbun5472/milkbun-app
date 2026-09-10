@@ -844,3 +844,16 @@ test("他手机里那条真聊天是活的，不用退出去再进来", () => {
   // 截多少条：太短的话一进去只看得见半截对话
   assert.match(app, /\.slice\(-20\);/);
 });
+
+test("他手机里不许有两条跟她的对话（一条真的活着，一条推演出来的停在那儿）", () => {
+  // 她 2026-09-10：「我发睡了吗他回了，我查手机，然后就一直被固定住在那儿了，
+  // 下次再聊几轮进去都不会显示，除非我再刷一次微信。」
+  // ⚠️病根：避重名单里只有她的本名，模型照着【他给她的备注】另造了一条跟她的私聊——
+  //   于是他手机里两条：真的那条是活的，编的那条永远停在刷新那一刻。她点开的是后面那条。
+  // ① 落盘那头：备注也进避重名单
+  assert.match(app, /add\(userName\(profile\)\); add\(profile && profile\.name\);/);
+  assert.match(app, /add\(uc\.remark\); add\(uc\.name\);/);
+  // ② 已经存着的那些得在【显示】这一头挡住，否则她真得「再刷一次微信」才好
+  assert.match(phone, /const meLike = \[userName\(profile\), profile && profile\.name,/);
+  assert.match(phone, /const generated = arr\(d\.chats\)\.filter\(c => !\(c && c\.type !== "group"/);
+});
