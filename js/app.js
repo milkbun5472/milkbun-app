@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.72";
+const APP_VERSION = "v66.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6742,6 +6742,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   maxTokens 一律给满（max-tokens-floor.md：给大了不多花一分钱，给小了会截断正文）。
   // ⚠️今天哪个频率有台、播到第几条，一个字都不在这几张单子里——那些是 js/radio.js 用种子和
   //   时间算出来的。生成的时候顺手把「今天有没有」也定了的话，这个世界就只在她打开时才存在。
+  // 这片地方（她 2026-09-10：「太完全和 char 世界无关那也不好听」）。
+  // ⚠️世界书走【那扇公共门】（loreForContext），门上就写着「所有非主聊天功能也必须从这儿拿」。
+  //   scope 用 creative：电台不是主线聊天，是这个世界的一件公共设施。
+  // ⚠️charIds 故意传空：这样只有【没绑定到具体角色】的世界条目过得来——
+  //   绑在某个人身上的设定是他的私事，电台不该知道。围栏那句写在 worldBedText 里。
+  // ⚠️架空世界（x_worlds）故意不接：那是跑团的平行时空沙盒，接进来会把电台搬去另一个世界。
+  const radioBed = () => {
+    const places = [];
+    liveChars.forEach(c => {
+      const city = (c && c.home && c.home.city) ? String(c.home.city).trim() : "";
+      if (city && places.indexOf(city) < 0) places.push(city);
+    });
+    const lore = (typeof loreForContext === "function" ? String(loreForContext("creative", [], "") || "") : "");
+    return { places: places.slice(0, 8), lore: lore.slice(0, 1600) };
+  };
   const radioAsk = async (instruction, schemaHint) => {
     const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
     const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "电台" });
@@ -6769,7 +6784,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const genRadioWorld = async () => {
     const R = window.Radio;
     const seen = R.readSeen();
-    const d = await radioAsk(R.buildWorldInstruction(seen), R.worldSchemaHint);
+    const d = await radioAsk(R.buildWorldInstruction(seen, radioBed()), R.worldSchemaHint);
     const rows = (Array.isArray(d.stations) ? d.stations : []).filter(x => x && x.name).slice(0, 4);
     if (rows.length < 2) throw new Error("这一枪只建出来 " + rows.length + " 个台");
     // 频率由代码发：模型报的频率会往 88.0 / 101.1 这种「好听的数字」上挤，挤到一起就没有频段了
@@ -6793,7 +6808,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!window.AutoGate.due(key, period, { maxTries: 2, cooldownMs: 600000 })) return [];
     let items = [];
     try {
-      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen()), R.scheduleSchemaHint);
+      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen(), radioBed()), R.scheduleSchemaHint);
       items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 18);
     } finally { window.AutoGate.mark(key, period, items.length > 0); }
     if (!items.length) throw new Error("这一枪没排出节目来");
@@ -6807,7 +6822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!window.AutoGate.due(key, period, { maxTries: 1, cooldownMs: 3600000 })) return null;
     window.AutoGate.claim(key, period);
     const seen = R.readSeen();
-    const d = await radioAsk(R.buildDriftInstruction(R.rollAxes("slot", R.freqText(freq), period), freq, seen), R.driftSchemaHint);
+    const d = await radioAsk(R.buildDriftInstruction(R.rollAxes("slot", R.freqText(freq), period), freq, seen, radioBed()), R.driftSchemaHint);
     if (!d.name) throw new Error("这一格上没掷出一个台来");
     const st = radioStation(d, R.KIND.DRIFT, freq, { bornAt: now });
     R.addStation(st);
@@ -19688,6 +19703,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onTune: genRadioDay,
     onDrift: genRadioDrift,
     onClearDev: () => window.Radio.clearDev(),
+    // 已经建过的那一片频段是在「这片地方」接进来【之前】建的，得给她一条重建的路。
+    // ⚠️连着节目单一起清：旧台没了，挂在它名下的节目单留着就是一堆认不了领的孤儿。
+    onRebuild: async () => {
+      window.Radio.writeWorld({ builtAt: 0, stations: [] });
+      window.Radio.wipeDays();
+      return genRadioWorld();
+    },
     toast: toast
   }) : null);
   else if (screen === "listen") body = h(ListenTogether, {

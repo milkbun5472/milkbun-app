@@ -393,12 +393,33 @@
     return kept.concat(fresh.filter(x => kept.indexOf(x) < 0).slice(0, Math.max(0, target - kept.length)));
   }
 
+  // ---- 这片地方（她 2026-09-10：「太完全和 char 世界无关那也不好听」）----
+  // 电台是【公共设施】，不是一个角色。所以接进来的不是任何一个人，是他们脚下这片地方：
+  // 世界书里那些常驻的世界事实、他们住的城。名字、行当、天气、物价照这片地方来，
+  // 一台架在她世界之外的收音机确实不好听——可它也不该认识她的人。
+  // ⚠️围栏必须跟着一起发：世界书走的是公共那扇门、只取【没绑定到具体角色】的条目，
+  //   但光靠取数不够——还得当面说清「这些台不认识任何具体的人」，
+  //   否则模型会拿地名顺手编出一个住在那儿的人来。
+  function worldBedText(bed) {
+    const b = bed && typeof bed === "object" ? bed : {};
+    const places = (Array.isArray(b.places) ? b.places : []).map(S).map(x => x.trim()).filter(Boolean).slice(0, 8);
+    const lore = S(b.lore).trim();
+    if (!places.length && !lore) return "";
+    const rows = ["\n\n【这片地方】这几个台就架在这儿，播的也是这儿的事。"];
+    if (places.length) rows.push("· 常听得到的地名：" + places.join("、"));
+    if (lore) rows.push("· 这个世界本来的样子：\n" + lore.slice(0, 1600));
+    rows.push("上面没写到的，按同一片地方的调子往下推——**别换成另一个地方、另一个年代**。");
+    rows.push("⚠️这些台是公共设施，**不认识任何具体的人**：不许提某个人的名字、私事、感情、行踪，"
+      + "也不许对着谁说话、问谁、等谁回答。它播的是这片地方本身——路、天气、物价、活儿、丢的东西、要办的事、谁家开门谁家关门。");
+    return rows.join("\n");
+  }
+
   // ---- 三张单子：建台（一次）／排今天的节目（每天）／造一个临时台（掷轴）----
   const NAME_RULE = "台名要像这片地方**真的会有**的那种名字，不是给一个功能起的名"
     + "（一看就知道是干嘛用的那种名字全都不要）。呼号另给，短。";
   const TIME_RULE = "timeCall 是报时的说法，里面必须留 {时} 和 {分} 两个占位，真实时间由程序填进去。";
 
-  function buildWorldInstruction(seen) {
+  function buildWorldInstruction(seen, bed) {
     return [
       "你在给一片频段建台。这几个台从今天起就一直在那儿了，往后每天都在播，所以现在定下来的东西以后不会再改。",
       "",
@@ -413,6 +434,7 @@
       "windowFrom / windowTo 只有那个时段台要填（0-23 的整点，可以跨午夜）。",
       "",
       RADIO_FLOOR,
+      worldBedText(bed),
       avoidText(seen)
     ].join("\n");
   }
@@ -420,7 +442,7 @@
     + '"habit":"这个台平时播什么、什么调子，一句话","signOn":"每圈开头念的那一句","timeCall":"报时的说法，含{时}{分}",'
     + '"ads":["一段广告口播"],"windowFrom":null,"windowTo":null}]}';
 
-  function buildScheduleInstruction(st, now, seen) {
+  function buildScheduleInstruction(st, now, seen, bed) {
     const d = new Date(N(now, Date.now()));
     return [
       "你在给下面这个台排今天一天的内容。",
@@ -439,12 +461,13 @@
       "⚠️也不要每条都是同一件事的不同说法。这个台一天里本来就该有几件不相干的事。",
       "",
       RADIO_FLOOR,
+      worldBedText(bed),
       avoidText(seen)
     ].join("\n");
   }
   const scheduleSchemaHint = '{"items":["一整段会被念出口的话"]}';
 
-  function buildDriftInstruction(rolled, freq, seen) {
+  function buildDriftInstruction(rolled, freq, seen, bed) {
     return [
       "这片频段上今天多出来一个台，在 " + freqText(freq) + "。它不是常驻的：过几天可能就没了，再过几天可能又回来。",
       "把它造出来，顺便排好它今天在播的内容。",
@@ -458,6 +481,7 @@
       "不要写片头、报时和广告进 items，那三样程序会插。内容会循环播，所以每条都要能单独立住。",
       "",
       RADIO_FLOOR,
+      worldBedText(bed),
       avoidText(seen)
     ].join("\n");
   }
@@ -502,6 +526,8 @@
     if (_has()) saveJSON(K_DAYS, box);
     return box;
   }
+  // 拆了重装的时候连节目单一起清：旧台没了，挂在它名下的节目单就是一堆认不了领的孤儿
+  function wipeDays() { if (_has()) saveJSON(K_DAYS, {}); return {}; }
   function addStation(st) {
     const w = readWorld();
     w.stations = (Array.isArray(w.stations) ? w.stations : []).filter(x => x && x.id !== st.id).concat([st]);
@@ -514,8 +540,8 @@
     SLOTS, freqText,
     KIND, DRIFT_DENSITY, SIGNAL_ROUGH, inWindow, onAirToday, signalToday, dialToday, driftDue,
     CPS, secOf, timeText, floatOrder, assembleLoop, anchorFor, whereIs, roughen, leakLine,
-    RADIO_FLOOR, AXES, AXIS_FREE, rollAxes, axesText, AVOID_CAP, avoidPush, avoidText, ADS_KEEP, rollAds,
+    RADIO_FLOOR, worldBedText, AXES, AXIS_FREE, rollAxes, axesText, AVOID_CAP, avoidPush, avoidText, ADS_KEEP, rollAds,
     buildWorldInstruction, worldSchemaHint, buildScheduleInstruction, scheduleSchemaHint, buildDriftInstruction, driftSchemaHint,
-    K_WORLD, K_DAYS, K_SEEN, KEEP_DAYS, readWorld, writeWorld, readDays, writeDay, itemsFor, readSeen, writeSeen, clearDev, addStation
+    K_WORLD, K_DAYS, K_SEEN, KEEP_DAYS, readWorld, writeWorld, readDays, writeDay, itemsFor, readSeen, writeSeen, clearDev, wipeDays, addStation
   };
 });

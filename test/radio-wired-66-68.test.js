@@ -89,3 +89,43 @@ test("加速期的痕迹能一次清干净", () => {
   assert.match(ui, /清掉测试痕迹/);
   assert.match(R("js/radio.js"), /if \(devShifted\(\)\) row\.dev = true;/, "不盖戳就分不清哪几天是测出来的");
 });
+
+// ── 她 2026-09-10 听完第一版报的两条 ──
+test("嗓子不许拿音高掷种子（「这个女声很诡异像闹鬼」）", () => {
+  const seg = ui.slice(ui.indexOf("function voiceOf"), ui.indexOf("function fromBoundary"));
+  assert.ok(seg.indexOf('"pitch"') < 0, "音高又拿去掷种子了——移调出来的是恐怖片音效，不是另一个人");
+  assert.match(seg, /pitch: 1\b/);
+  // 台跟台的区别改成换一把真的声音
+  assert.match(ui, /function zhVoices\(\)/);
+  assert.match(ui, /addEventListener\("voiceschanged"/, "第一次 getVoices\\(\\) 常常是空的");
+  assert.match(seg, /voice: list\.length \? list\[/);
+  // 语速只微调
+  const m = seg.match(/rate: ([\d.]+) \+ r\.seed01\(id, "rate"\) \* ([\d.]+)/);
+  assert.ok(m, "语速那一行改没了");
+  assert.ok(Number(m[1]) >= 0.9 && Number(m[1]) + Number(m[2]) <= 1.15, "语速摆到了 " + m[1] + "~" + (Number(m[1]) + Number(m[2])));
+});
+
+test("半路拧过来从句子边界接，不从半个词中间切进去", () => {
+  assert.match(ui, /function fromBoundary\(text, frac\)/);
+  assert.match(ui, /say\(fromBoundary\(v\.pos\.item\.text, done\), v\.station\)/);
+  assert.match(ui, /rest\.length >= 6 \? rest : ""/, "只剩个尾巴还要念，那比不说话更像坏了");
+  // cancel 之后不许立刻 speak
+  assert.match(ui, /sayTimer = setTimeout\(\(\) => \{/);
+  assert.match(ui, /\}, 140\);/);
+});
+
+test("世界书走那扇公共门，而且只拿不绑人的那些", () => {
+  const seg = app.slice(app.indexOf("const radioBed = () =>"), app.indexOf("const radioAsk"));
+  assert.match(seg, /loreForContext\("creative", \[\], ""\)/,
+    "自己去翻 x_loreEntries＝又开了一处要同步的地方；charIds 传了人＝把某个人的私设也端上电台");
+  assert.ok(seg.indexOf("worlds") < 0, "架空世界是跑团的平行时空，接进来会把电台搬去另一个世界");
+  assert.match(seg, /c\.home && c\.home\.city/);
+  // 三张单子都要拿到，不能只喂建台那一张
+  assert.equal((app.match(/radioBed\(\)/g) || []).length, 3, "三张单子里有一张没喂到「这片地方」");
+});
+
+test("拆了重装：旧台清掉，挂在它名下的节目单不许留成孤儿", () => {
+  assert.match(app, /onRebuild: async \(\) => \{/);
+  assert.match(app, /window\.Radio\.wipeDays\(\);/);
+  assert.match(ui, /k\("拆了重装天线", async \(\) => \{/);
+});

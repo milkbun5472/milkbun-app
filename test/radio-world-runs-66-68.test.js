@@ -181,3 +181,27 @@ test("槽位比台多，空频是这台机器可信的一半", () => {
   assert.ok(dial.some(x => x.station && x.station.id === "s1"));
   assert.ok(!dial.some(x => x.station && x.station.id === "s2"), "中午还能拧到那个时段台");
 });
+
+// ── 她 2026-09-10 听完第一版报的第二条：「太完全和 char 世界无关那也不好听」──
+test("这片地方三张单子都收得到，不是只发一处", () => {
+  const bed = { places: ["苏州", "平江路"], lore: "江上跑的是木船。" };
+  const seen = { names: [] };
+  const all = [
+    R.buildWorldInstruction(seen, bed),
+    R.buildScheduleInstruction({ id: "s1", name: "甲", freq: 92, ads: [] }, Date.now(), seen, bed),
+    R.buildDriftInstruction(R.rollAxes("x"), 98.7, seen, bed)
+  ];
+  all.forEach((t, k) => {
+    assert.ok(t.indexOf("苏州") >= 0, "第 " + (k + 1) + " 张单子没收到地名——那一处就会另起一个世界");
+    assert.ok(t.indexOf("江上跑的是木船") >= 0, "第 " + (k + 1) + " 张单子没收到世界书");
+  });
+});
+
+test("电台是公共设施，不认识任何具体的人", () => {
+  const t = R.worldBedText({ places: ["苏州"], lore: "" });
+  assert.match(t, /不认识任何具体的人/, "只给地名不给围栏，它会拿地名顺手编一个住在那儿的人出来");
+  assert.match(t, /不许提某个人的名字、私事、感情、行踪/);
+  assert.match(t, /别换成另一个地方、另一个年代/);
+  assert.equal(R.worldBedText({}), "", "什么都没有的时候发了一段空的");
+  assert.equal(R.worldBedText({ places: [], lore: "  " }), "");
+});

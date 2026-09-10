@@ -21,11 +21,44 @@
     const R = () => root.Radio;
     const notify = () => subs.slice().forEach(f => { try { f(); } catch (e) {} });
 
-    // 每个台的嗓子：系统 TTS 没有几十个声音，但语速和音高能把台跟台分开。
+    // 每个台的嗓子。
+    // ⚠️**不许拿音高掷种子**（她 2026-09-10：「这个女声很诡异像闹鬼」）——
+    //   把一把人声在 0.78~1.32 之间乱移调，出来的就是恐怖片音效，不是另一个人。
+    //   台跟台的区别改成【换一把真的声音】：系统里本来就有好几把中文嗓子，按台挑一把；
+    //   挑不出来就老老实实用默认那把，语速上微调一点点，音高一律不动。
+    let _voices = null;
+    function zhVoices() {
+      if (_voices) return _voices;
+      try {
+        const all = (root.speechSynthesis && root.speechSynthesis.getVoices()) || [];
+        const zh = all.filter(v => /^zh/i.test((v && v.lang) || ""));
+        _voices = zh.length ? zh : [];
+      } catch (e) { _voices = []; }
+      return _voices;
+    }
+    // 第一次问 getVoices() 常常是空的，声音表是异步加载的
+    try { if (root.speechSynthesis) root.speechSynthesis.addEventListener("voiceschanged", () => { _voices = null; }); } catch (e) {}
     function voiceOf(st) {
       const r = R();
       const id = (st && st.id) || "";
-      return { rate: 0.84 + r.seed01(id, "rate") * 0.4, pitch: 0.78 + r.seed01(id, "pitch") * 0.54 };
+      const list = zhVoices();
+      return {
+        voice: list.length ? list[Math.floor(r.seed01(id, "voice") * list.length) % list.length] : null,
+        rate: 0.95 + r.seed01(id, "rate") * 0.12,
+        pitch: 1
+      };
+    }
+    // 半路拧过来的时候从哪儿接着念：切在句子边界上。
+    // 从半个词中间切进去，念出来是一串听不懂的音节——那也是「闹鬼」的一半。
+    function fromBoundary(text, frac) {
+      const s = String(text || "");
+      const cut = Math.floor(s.length * Math.min(0.98, Math.max(0, frac)));
+      if (cut <= 0) return s;
+      const m = s.slice(cut).search(/[。！？；…\n]/);
+      const start = m >= 0 ? cut + m + 1 : cut;
+      const rest = s.slice(start).trim();
+      // 只剩个尾巴就别念了，等下一条——半句话比不说话更像坏了
+      return rest.length >= 6 ? rest : "";
     }
     // 此刻这一格是什么。全部现算，一个字都不缓存。
     function look() {
@@ -45,19 +78,28 @@
         pos: items.length ? r.whereIs(slot.station, items, now, dk) : null
       });
     }
+    let sayTimer = null;
     function say(text, st) {
       const t = String(text || "").trim();
       try {
         if (!root.speechSynthesis) return;
+        if (sayTimer) { clearTimeout(sayTimer); sayTimer = null; }
         root.speechSynthesis.cancel();
         if (!t) return;
-        const u = new root.SpeechSynthesisUtterance(t);
-        const v = voiceOf(st);
-        u.lang = "zh-CN"; u.rate = v.rate; u.pitch = v.pitch;
-        root.speechSynthesis.speak(u);
+        // cancel 之后立刻 speak，Safari 会把上一条的尾巴和这一条搅在一起念
+        sayTimer = setTimeout(() => {
+          try {
+            const u = new root.SpeechSynthesisUtterance(t);
+            const v = voiceOf(st);
+            if (v.voice) u.voice = v.voice;
+            u.lang = (v.voice && v.voice.lang) || "zh-CN";
+            u.rate = v.rate; u.pitch = v.pitch;
+            root.speechSynthesis.speak(u);
+          } catch (e) {}
+        }, 140);
       } catch (e) {}
     }
-    function hush() { try { if (root.speechSynthesis) root.speechSynthesis.cancel(); } catch (e) {} }
+    function hush() { try { if (sayTimer) { clearTimeout(sayTimer); sayTimer = null; } if (root.speechSynthesis) root.speechSynthesis.cancel(); } catch (e) {} }
     function beat() {
       const v = look();
       if (!v) return;
@@ -66,9 +108,8 @@
         lastKey = key;
         if (sound && v.station && v.pos) {
           // 中途拧过来的，就从这句话已经念到的地方接着念——不从头念一遍
-          const full = String(v.pos.item.text || "");
-          const done = Math.min(0.98, Math.max(0, v.pos.into / Math.max(1, v.pos.item.sec)));
-          say(full.slice(Math.floor(full.length * done)), v.station);
+          const done = v.pos.into / Math.max(1, v.pos.item.sec);
+          say(fromBoundary(v.pos.item.text, done), v.station);
         } else hush();
       }
       notify();
@@ -222,7 +263,7 @@
             btn("◀ 往回拧", () => turn(-1)), btn("往前拧 ▶", () => turn(1)),
             btn(eng.soundOn() ? "关掉声音" : "出声", () => Engine.setSound(!eng.soundOn()), eng.soundOn()),
             btn("关掉电台", () => { Engine.setPower(false); props.onBack && props.onBack(); })),
-          root.Radio.RADIO_DEV ? h(DevBar, { view: view, onClear: props.onClearDev, toast: props.toast }) : null
+          root.Radio.RADIO_DEV ? h(DevBar, { view: view, onClear: props.onClearDev, onRebuild: props.onRebuild, toast: props.toast }) : null
         )));
   }
 
@@ -247,7 +288,13 @@
         k("−1时", () => jump(-3600000)), k("+1时", () => jump(3600000)),
         k("−1天", () => jump(-86400000)), k("+1天", () => jump(86400000)),
         k("回到现在", () => { R.devReset(); Engine.refresh(); }),
-        k("清掉测试痕迹", () => { R.clearDev(); Engine.refresh(); props.toast && props.toast("加速期生成的节目单清掉了"); })));
+        k("清掉测试痕迹", () => { R.clearDev(); Engine.refresh(); props.toast && props.toast("加速期生成的节目单清掉了"); }),
+        k("拆了重装天线", async () => {
+          if (!props.onRebuild) return;
+          try { await props.onRebuild(); props.toast && props.toast("重新架了一片频段"); }
+          catch (e) { props.toast && props.toast(String((e && e.message) || e).slice(0, 60)); }
+          Engine.refresh();
+        })));
   }
 
   // 退出电台页之后那一条：台还在播，这儿显示它是谁
