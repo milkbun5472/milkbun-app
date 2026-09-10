@@ -122,10 +122,25 @@
   const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
 
   // 常驻注入文本(空卡=零注入)
-  function text(charId, uName) {
+  // opts.cap：只给【内容那几行】封顶，末尾那段守则一个字都不许砍。
+  // ⚠️v66.30 群聊那一处是把【整段】slice 到 400 字的——于是砍掉的正好是最后那句
+  //   「自然渗进语气…绝不当台词复述或逐条印证」和「『假装没注意的事』…绝不主动把话题引向它」。
+  //   剩下发出去的，就是一张写着她软肋、雷区、把柄和「我假装没注意的事」的清单，
+  //   没有任何一句话拦着别把它说出口——谁读了都想当场翻出来讲
+  //   （她 2026-09-11：「还是喜欢『算账』『有本事』『找借口』之类的八股」）。
+  //   封顶砍内容可以，砍守则不行：守则是这张卡唯一的刹车。
+  function text(charId, uName, opts) {
     const box = boxOf(load(), charId);
-    const rows = Object.entries(KEYS).map(([k, name]) => box.blocks[k] && box.blocks[k].text ? "·" + name + ":" + box.blocks[k].text : null).filter(Boolean);
+    let rows = Object.entries(KEYS).map(([k, name]) => box.blocks[k] && box.blocks[k].text ? "·" + name + ":" + box.blocks[k].text : null).filter(Boolean);
     if (!rows.length) return "";
+    const cap = Number(opts && opts.cap) || 0;
+    if (cap > 0) {
+      // 按【整行】收，不腰斩某一块：半句「她的软肋和雷区:她最怕别人」比不发还糟
+      let used = 0;
+      const keep = [];
+      for (const r of rows) { if (used && used + r.length > cap) break; keep.push(r); used += r.length + 1; }
+      rows = keep.length ? keep : [rows[0]];
+    }
     return "【你眼里的 " + uName + " 与你们(你私下沉淀的长期认知)】\n" + rows.join("\n") +
       "\n这些是你自己心里的东西:自然渗进语气、分寸和相处方式,绝不当台词复述或逐条印证。尤其「假装没注意的事」——它存在的方式就是你【绕着它走】,绝不主动把话题引向它,只在被真正踩到时才露出一点反应。";
   }

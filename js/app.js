@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.61";
+const APP_VERSION = "v66.62";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8973,7 +8973,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️action 原来只挂在【记忆互通】上。群里开了动描却没开互通的话，模型压根不会被
       //   要求填这一格——开关点了却什么都不出现，正是「说改好了其实没变」那一类。
       //   所以这一格【两个来源都算】：互通要它写状态卡，动描要它摆那一行。
-      const gActionField = ",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"";
+      // ⚠️这一格原来写的是「（每次更新）」——跟单聊那条【正好反着】：那边写的是
+      //   「当前事实未变且原表述仍准确时可以原样填写…无需为了交字段换措辞、制造动作」。
+      //   写成「每次更新」的后果是：同一个人连发三条，模型得为三条各编一个新动作——
+      //   太贵，于是它干脆一个人只发一条，一轮里你一言我一语就没了
+      //   （她 2026-09-11：「开了群里的动描感觉整体回复气泡都变短了，以前还可以一轮相互接话」）。
+      //   两处说同一件事，措辞得是同一个意思。
+      const gActionField = ",\"action\":\"该成员此刻正在做的事（简短一句）。当前事实没变、原来那句仍然准确时【原样填写】，别为了交字段换措辞或制造动作；同一个人连发好几条时，只按事实变没变来，不必每条都换一个新动作\"";
       const thoughtField = gs.memoryInterop
         ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
         : (_gActDesc ? gActionField : "");
@@ -12186,7 +12192,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
   // 群里那张印象卡的封顶：群预算按人数平分，一人一整张卡会把主角色的人设额度吃掉。
-  const GROUP_GAZE_CAP = 400;
+  // ⚠️这个数只管【内容那几行】，末尾那段守则不在封顶之内（见 Gaze.text 里那条）。
+  //   十块各 ≤80 字、而且只有写过的块才出现，平时远够不到这个数。
+  const GROUP_GAZE_CAP = 700;
   const groupNowSegs = (c, opts) => {
     if (!c || c.npc) return {};
     const o = opts || {};
@@ -12211,10 +12219,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   封闭群不给（同 cpSeg 的隐私铁律，标明只有本人知道）。
       gzSeg: (() => {
         if (!o.interop || !window.Gaze || !window.Gaze.text || settingsFor(c.id).engineerEyes) return "";
-        const g = String(window.Gaze.text(c.id, userName(profile)) || "").trim();
+        // ⚠️封顶交给 Gaze.text（它只砍内容行、守则一个字不砍）。原来这儿是把【整段】
+        //   slice 到 400 字的，砍掉的正好是末尾那句「绝不当台词复述」和「绕着『假装没
+        //   注意的事』走」——剩下的就是一张软肋清单，谁读了都想当场翻出来讲。
+        const g = String(window.Gaze.text(c.id, userName(profile), { cap: GROUP_GAZE_CAP }) || "").trim();
         if (!g) return "";
-        return "\n〔以下是 " + c.name + " 心里对 " + userName(profile) + " 的长期印象，只有 TA 本人知道，别的成员并不知情〕\n"
-          + g.slice(0, GROUP_GAZE_CAP);
+        return "\n〔以下是 " + c.name + " 心里对 " + userName(profile) + " 的长期印象，只有 TA 本人知道，别的成员并不知情〕\n" + g
+          // ⚠️群里还要多一句：这是【底子】不是【这一轮的话题】。
+          //   一屋子人各揣一份关于她的长期认知，读下来每个人都在对着她想事情，
+          //   于是整轮变成几个人轮流对她说话，谁也不接谁的话
+          //   （她 2026-09-11：「好像全部都不会相互接话了」）。
+          + "\n〔这张卡是你心里的底子，不是这一轮的话题：别拿它当开场白、别照着它跟 "
+          + userName(profile) + " 翻旧账。这会儿你是在跟【在场的其他人】说话，先接住他们刚说的那句。〕";
       })(),
       sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };
