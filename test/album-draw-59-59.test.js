@@ -121,8 +121,12 @@ test("相册这张是【他自己拍的】：谁的手、谁的胸口，不能�
   // ⚠️两处一起错：① 走的是【空景】那一档（带着 no hands / no body parts 的铁律），
   //   跟「一只手搭在胸口」正面打架；② 谁是「我」、谁是「她」压根没说。
   const eng = fs.readFileSync("js/engine.js", "utf8");
-  assert.match(eng, /【谁拍的·画面里谁是谁】/);
-  assert.match(eng, /而不是他自己的手搭在自己身上/);
+  assert.match(eng, /【谁拍的·画面里谁是谁·镜头在哪儿】/);
+  assert.match(eng, /不是他自己的手搭在自己身上/);
+  // ⚠️她 2026-09-10 第三版：归属对了，可画面拍的是【腿】，描述写的是【胸口】。
+  assert.match(eng, /\*\*部位要对得上\*\*/);
+  assert.match(eng, /chest means chest, not lap or thigh/);
+  assert.match(eng, /姿势也照描述来/);
   // 有身体部位的走【不露脸的局部照】那一档，同一份说明书只换那道铁律
   assert.match(draw, /const bodyish = \/手\|指\|腕/);
   assert.match(draw, /body: bodyish,/);
