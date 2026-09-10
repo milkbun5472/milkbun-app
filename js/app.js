@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.49";
+const APP_VERSION = "v66.50";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13328,12 +13328,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ① 名单顺序每次都一样，模型就总挑排在前面那几个（位置偏好，不是他的性格）。
       //      上次刷过的挪到队尾，头几行自然换人。
       //   ② 光靠换顺序还不够，所以把上次刷过的名单直接告诉它：这次换几个别的。
-      const seen = (watchSeenRef.current || {})[char.id] || [];
+      // 老存档里这一格是个数组（只记了 app），新的是 {a,i}——两种都认
+      const seen0 = (watchSeenRef.current || {})[char.id];
+      const seen = Array.isArray(seen0) ? seen0 : ((seen0 && seen0.a) || []);
+      const seenIts = (seen0 && !Array.isArray(seen0) && seen0.i) || [];
       const canApps = has.filter(k => seen.indexOf(k) < 0).concat(has.filter(k => seen.indexOf(k) >= 0));
       if (!canApps.length) { toast("他手机里还什么都没有，先翻一次再看他玩"); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen,
+        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen, recentItems: seenIts,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
@@ -13354,10 +13357,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   open 写成了「微信」认不出来，于是整段只剩两句心声飘过去，看着像功能坏了。
       if (got.dropped.length) toast("有 " + got.dropped.length + " 下没看懂，跳过了：" + got.dropped.slice(0, 3).join("、"));
       // 这一段他开过哪几个 app，记下来给下一次换人用（只记最后一次那一轮）
-      const opened = [];
-      got.acts.forEach(a => { if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app); });
-      if (opened.length) setWatchSeen(m => {
-        const n = { ...m, [char.id]: opened };
+      // ⚠️记两样：开过哪几个 app，和**翻过哪几样东西**（她 2026-09-10 第二次报：
+      //   「还是爱来来回回翻相册而且还是来来回回那两张」——app 换了，里头那两张没换）。
+      const opened = [], its = [];
+      got.acts.forEach(a => {
+        if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app);
+        if ((a.kind === "openItem" || a.kind === "look") && a.name && its.indexOf(a.name) < 0) its.push(a.name);
+      });
+      if (opened.length || its.length) setWatchSeen(m => {
+        const n = { ...m, [char.id]: { a: opened, i: its.slice(0, 24) } };
         watchSeenRef.current = n; saveJSON("x_phoneWatchSeen", n); return n;
       });
       // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。

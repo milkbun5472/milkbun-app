@@ -160,6 +160,14 @@
         out.push({ kind: "think", text: text.slice(0, 60) });
         continue;
       }
+      // ⚠️同一样东西在一段里点开两次，就是「来来回回那两张」（她 2026-09-10 第二次报）。
+      //   提示词说「别老翻同几张」只是降概率；这儿丢掉才是保证。
+      if (kind === "openItem") {
+        const nm = S(x.name).trim();
+        if (nm && out.some(o2 => o2.kind === "openItem" && sameName(o2.name, nm))) {
+          dropped.push("又点了一次：" + nm); continue;
+        }
+      }
       const a = { kind: kind };
       if (x.app != null) {
         const want = S(x.app).trim();
@@ -579,12 +587,31 @@
   // ⚠️只给【词表】和【判据】，一个内容示范都不给（施工规则/prompt-no-content-samples.md）：
   //   写一段「他给老张发『晚点说』」当例子，出来的就是每个角色都在给老张发晚点说。
   //   那一栏要多有脾气，靠判据说清楚，不靠抄一句好句子。
+  // 上次他翻过的那几样排到队尾：名单顺序每次一样，模型就总挑排在前面那几个
+  // （跟 app 名单那次是同一个病，位置偏好不是他的性格）。
+  // 一行东西在名单上叫什么（照各屏自己认人的那几个字段来）
+  const rowName = x => {
+    if (x == null) return "";
+    if (typeof x !== "object") return S(x);
+    return ["caption", "title", "name", "q", "shop", "author", "text"]
+      .map(k => (typeof x[k] === "string" ? x[k].trim() : "")).filter(Boolean)[0] || "";
+  };
+  function freshFirst(list, seen, get) {
+    const arr0 = Array.isArray(list) ? list : [];
+    if (!Array.isArray(seen) || !seen.length) return arr0;
+    const old0 = [], neu = [];
+    arr0.forEach(x => (seen.some(n => sameName(n, get ? get(x) : rowName(x))) ? old0 : neu).push(x));
+    return neu.concat(old0);
+  }
   function watchInstruction(o) {
     const c = (o && o.char) || {};
     const uName = (o && o.uName) || "对方";
     const ph = (o && o.phone) || {};
     const can = Array.isArray(o && o.apps) ? o.apps : ["wechat"];
-    const arr = a => Array.isArray(a) ? a : [];
+    const seenIt = Array.isArray(o && o.recentItems) ? o.recentItems : [];
+    // ⚠️所有名单都从这儿过一道：上次翻过的排到最后（不是删掉——他当然可以再翻，
+    //   只是别每次都从同一张开始）。
+    const arr = a => freshFirst(Array.isArray(a) ? a : [], seenIt);
     const words = Object.keys(WATCH_ACTS).map(k => {
       const a = WATCH_ACTS[k];
       return "· " + k + (a.args.length ? "（" + a.args.join("、") + "）" : "") + " —— " + a.zh;
@@ -721,7 +748,7 @@
       "【每个 app 里你能干什么】",
       can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
-      can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
+      can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。**一段里翻一两张就够了，翻完去别处**：相册最容易一待就是半程，可一个人不会盯着同两张照片来回看。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
@@ -748,6 +775,10 @@
       // ⚠️她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
       //   一个人拿起手机不会只在两个 app 之间打转——那是名单顺序造成的位置偏好，不是他的性格。
       "· **这一段里至少进 3 个不一样的 app**，别在同两个之间来回。同一个 app 最多进两次。",
+      (o && Array.isArray(o.recentItems) && o.recentItems.length)
+        ? "· 上一次你翻的是这几样：" + o.recentItems.slice(0, 8).join("、")
+          + "。**这一次换别的**——同一张照片、同一条东西，一段里只点一次就够了。"
+        : "",
       (o && Array.isArray(o.recent) && o.recent.length)
         ? "· 上一次你刷的是：" + o.recent.join("、")
           + "。**这一次换几个别的开**——那几个可以再点，但别又整段围着它们转。"

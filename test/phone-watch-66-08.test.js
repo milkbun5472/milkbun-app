@@ -794,3 +794,22 @@ test("桌面第二页的 app：先看着它翻过去，再点开", () => {
   // 这一下的定时器也要跟着清，不然退出去之后还有一个在往没了的 state 里写
   assert.match(phone, /if \(openTid\) clearTimeout\(openTid\);/);
 });
+
+test("别来来回回翻同两张", () => {
+  // 她 2026-09-10（第二次报）：「还是爱来来回回翻相册而且还是来来回回那两张」。
+  // 上一次改的是 app 名单的顺序，可【app 里头那几样】的顺序一直没动——同一个病换了一层。
+  // ① 代码兜死：同一样东西一段里点开两次，第二次丢掉
+  const r = W.normalizeActs([{ kind: "openItem", name: "海边那天" }, { kind: "back" },
+    { kind: "openItem", name: "海边那天。" }, { kind: "openItem", name: "楼下的猫" }]);
+  assert.equal(r.acts.filter(a => a.kind === "openItem").length, 2);
+  assert.ok(r.dropped.some(x => /又点了一次/.test(x)));
+  // ② 上次翻过的那几样排到队尾（名单顺序每次一样，模型就总挑排在前面那几个）
+  const s2 = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], recentItems: ["海边那天"],
+    phone: { album: { items: [{ caption: "海边那天" }, { caption: "新的一张" }] } } });
+  assert.ok(s2.indexOf("· 新的一张") < s2.indexOf("· 海边那天"), "上次翻过的还排在前面");
+  assert.match(s2, /上一次你翻的是这几样：海边那天/);
+  assert.match(s2, /\*\*一段里翻一两张就够了，翻完去别处\*\*/);
+  // ③ 记的是两样：开过哪几个 app，和翻过哪几样东西
+  assert.match(app, /\{ a: opened, i: its\.slice\(0, 24\) \}/);
+  assert.match(app, /const seen = Array\.isArray\(seen0\) \? seen0 : \(\(seen0 && seen0\.a\) \|\| \[\]\)/, "老存档那一格是数组，两种都得认");
+});
