@@ -492,7 +492,9 @@ test("这一批的每一屏都接上了 drive，一屏都不许漏", () => {
 
 test("切到别的 app 时那一栏要清掉，不然它跟着串门", () => {
   // 真机上抓到的：在电话里切到 sms，进邮件之后邮件也去找「sms」那一栏，整页空着
-  assert.match(phone, /if \(app\) \{ setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
+  assert.match(phone, /const go = \(\) => \{ setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
+  // ⚠️图标在桌面第二页时，先看着它翻过去再点开——瞬移等于「没翻页就开了」
+  assert.match(phone, /if \(scrolledRef\.current\) openTid = setTimeout\(go, 420\); else go\(\);/);
   assert.match(phone, /a\.kind === "home"\) \{ setOpen\(null\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
 });
 
@@ -565,7 +567,7 @@ test("圆点：先量后动，量不到再试几拍，翻不到就先把它翻�
   assert.match(phone, /attempt\(\);\n\s*\/\/ 按完才出现的那几样/);
   assert.match(phone, /const stopDot = watchDotTo\(WK\.watchTargetSel\(a\), a\.name \|\| a\.at \|\| ""\);[\s\S]{0,400}\/\/ ② 这一下的效果/);
   // 屏幕外的东西先翻出来再点，别把圆点甩到 x=630 那种看不见的地方
-  assert.match(phone, /el\.scrollIntoView\(\{ block: "center", inline: "center", behavior: "auto" \}\)/);
+  assert.match(phone, /el\.scrollIntoView\(\{ block: "center", inline: "center", behavior: "smooth" \}\)/);
   // look 落在那样东西身上，不另挂一套 look: 的点
   assert.equal(W.watchTargetSel({ kind: "look", at: "海边那天" }), '[data-watch="item:海边那天"]');
 });
@@ -766,4 +768,29 @@ test("小红书和视频也一样：先搜，再点进去", () => {
   const s3 = W.watchInstruction({ char: {}, uName: "她", apps: ["shopping", "takeout"], phone: {} });
   assert.match(s3, /\*\*想买新东西就先搜\*\*/);
   assert.match(s3, /\*\*想吃点别的就先搜\*\*/);
+});
+
+test("退出来再点下一张：圆点不许赖在返回键上", () => {
+  // 她 2026-09-10：「看了一张照片点退出后光标还在后退键第二张照片就出来了」。
+  // ⚠️病根在【他的几摞】那一屏：那几张缩略图一个挂点都没有，退回来之后圆点
+  //   没有任何东西可落，就赖在上一处不动。
+  assert.match(phone, /key: sig\(p2\), "data-watch": "item:" \+ \(p2\.caption \|\| ""\), onClick: \(\) => openPhoto\(p2\)/);
+  // 几拍都没量到就把圆点收起来——手指停在返回键上、屏幕却翻开了下一张，比没有手指还假
+  assert.match(phone, /shots\.push\(setTimeout\(\(\) => \{ if \(!done\) setDot\(null\); \}, 780\)\)/);
+});
+
+test("论坛：楼下那几条也挂得住，不然点着一个帖子开的是另一个", () => {
+  // 她 2026-09-10：「刷论坛也是对着一个不一样的帖子点进去是另一个」。
+  // 病根：楼下那几条没有挂点，模型说的名字落在某条回复上时，页面按 comment 打开，
+  // 圆点却只能在帖子堆里模糊找一个。
+  assert.match(phone, /const commentCard = \(it, i\) => h\("button", \{ key: "c" \+ i, "data-watch": "item:" \+ \(it\.postTitle \|\| ""\)/);
+});
+
+test("桌面第二页的 app：先看着它翻过去，再点开", () => {
+  // 她 2026-09-10：「第二页的app没有翻页动作就开了」——瞬移过去等于没翻页。
+  assert.match(phone, /scrolledRef\.current = true;/);
+  assert.match(phone, /behavior: "smooth"/);
+  assert.match(phone, /if \(scrolledRef\.current\) openTid = setTimeout\(go, 420\); else go\(\);/);
+  // 这一下的定时器也要跟着清，不然退出去之后还有一个在往没了的 state 里写
+  assert.match(phone, /if \(openTid\) clearTimeout\(openTid\);/);
 });

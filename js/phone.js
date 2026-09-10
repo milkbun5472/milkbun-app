@@ -2797,7 +2797,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           soon != null ? "还有 " + soon + " 天就真的没了" : a.why)),
       h("div", { className: "flex", style: { gap: 6, marginTop: 11 } },
         list.slice(0, 4).map((p2, i2) => h("button", {
-          key: sig(p2), onClick: () => openPhoto(p2), className: "active:opacity-70",
+          key: sig(p2), "data-watch": "item:" + (p2.caption || ""), onClick: () => openPhoto(p2), className: "active:opacity-70",
           style: { flex: 1, minWidth: 0, aspectRatio: "1 / 1", borderRadius: 11, overflow: "hidden", background: "#eae7ea", position: "relative" }
         }, art(p2, 11)))));
   };
@@ -5538,7 +5538,9 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: skin.ink, marginTop: 8 } }, it.title || "无题"),
     it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: skin.dim, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.body) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim, marginTop: 9 } }, it.replyCount ? it.replyCount + " 条回复" : "还没人回"));
-  const commentCard = (it, i) => h("button", { key: "c" + i, onClick: () => openOne("comment", it), className: "w-full text-left active:opacity-65", style: { display: "block", marginTop: 9, padding: "12px 14px", borderRadius: 15, background: skin.paper, border: "1px solid " + skin.line, borderLeft: "3px solid " + skin.accent } },
+  // ⚠️楼下那几条原来一个挂点都没有：模型说的名字对上的是【某条回复所在的帖子】时，
+  //   页面按 comment 打开，圆点却只能在帖子里模糊找一个——于是「对着一个帖子，点进去是另一个」。
+  const commentCard = (it, i) => h("button", { key: "c" + i, "data-watch": "item:" + (it.postTitle || ""), onClick: () => openOne("comment", it), className: "w-full text-left active:opacity-65", style: { display: "block", marginTop: 9, padding: "12px 14px", borderRadius: 15, background: skin.paper, border: "1px solid " + skin.line, borderLeft: "3px solid " + skin.accent } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: skin.ink } }, it.text || ""),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim, marginTop: 6 } }, "在「" + String(it.postTitle || "帖子").slice(0, 20) + "」下 · " + fmtTs(it.ts)));
   return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
@@ -5873,7 +5875,10 @@ function PhoneCarry({
     }
     return best;
   };
+  // 这一下有没有【先翻过去】：翻了的话，点开那一下要等它翻完，不然就是没翻页就开了
+  const scrolledRef = useRef(false);
   const watchDotTo = (sel, fuzzyName) => {
+    scrolledRef.current = false;
     if (!sel) return;
     // 光标落在哪儿靠挂点量出来，不猜坐标：会话列表滚到哪儿、有几条，每台手机都不一样，
     // 猜出来的点会落在空处——那一眼就看得出是假的。
@@ -5894,10 +5899,14 @@ function PhoneCarry({
         const W0 = window.innerWidth || 0, H0 = window.innerHeight || 0;
         let box = r;
         if (r.right < 0 || r.bottom < 0 || r.left > W0 || r.top > H0) {
-          try { el.scrollIntoView({ block: "center", inline: "center", behavior: "auto" }); } catch (e2) {}
+          // ⚠️桌面第二页那几个图标：瞬移过去等于「没翻页就开了」（她 2026-09-10 抓到的）。
+          //   滚给她看，并且把「点开」那一下往后压一压（下面 open 那一支读 scrolledRef）。
+          scrolledRef.current = true;
+          try { el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" }); } catch (e2) {}
           // ⚠️翻完【当场再量一次】：这一下过后屏幕多半就换了（点开 app 那一下尤其），
           //   等下一拍再来量，那个图标早不在 DOM 里了——圆点于是停在上一处不动。
           box = el.getBoundingClientRect();
+          // 平滑滚的话这一帧还没到位，等下一拍再量（760 毫秒那一下兜底）
           if (box.right < 0 || box.bottom < 0 || box.left > W0 || box.top > H0) return;
         }
         const r2 = box;
@@ -5913,6 +5922,9 @@ function PhoneCarry({
     attempt();
     // 按完才出现的那几样（搜出来的那一页、发送键、打字条）第一下量不到，隔几拍再试。
     const shots = [90, 220, 420, 660].map(ms => setTimeout(attempt, ms));
+    // ⚠️几拍都没量到就把圆点收起来——【手指停在返回键上、屏幕却翻开了下一张照片】
+    //   比没有手指还假（她 2026-09-10 抓到的正是这一下）。
+    shots.push(setTimeout(() => { if (!done) setDot(null); }, 780));
     return () => shots.forEach(clearTimeout);
   };
   useEffect(() => {
@@ -5920,7 +5932,7 @@ function PhoneCarry({
     const a = watch.acts[watch.i];
     if (!a) { setWatch(w => w ? { ...w, done: true, typing: null } : w); return; }
     const speed = watch.speed || 1;
-    let typer = null;
+    let typer = null, openTid = null;
     // ① 圆点先落下去——**在这一下的效果之前**。
     //   顺序反了的话，点开 app、点开一行、按返回这几下量到的都是【换过之后】那一屏，
     //   要点的那个东西已经不在了，于是圆点整段杵着不动。
@@ -5934,7 +5946,11 @@ function PhoneCarry({
       const app = appByKey(a.app);
       // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
       //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
-      if (app) { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: WATCH_SEARCH_APPS.indexOf(app.key) >= 0 ? "" : null } : w); }
+      if (app) {
+        const go = () => { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: WATCH_SEARCH_APPS.indexOf(app.key) >= 0 ? "" : null } : w); };
+        // ⚠️图标在桌面第二页的话，先看着它翻过去再点开——瞬移等于「没翻页就开了」。
+        if (scrolledRef.current) openTid = setTimeout(go, 420); else go();
+      }
     }
     else if (a.kind === "back") {
       const w0 = watchRef.current;
@@ -6048,7 +6064,7 @@ function PhoneCarry({
       setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w);
     };
     const tid = setTimeout(advance, Math.max(120, WK.actDuration(a) / speed));
-    return () => { clearTimeout(tid); if (hold) clearTimeout(hold); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
+    return () => { clearTimeout(tid); if (hold) clearTimeout(hold); if (openTid) clearTimeout(openTid); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
     // eslint-disable-next-line
   }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
   // ── 心声自己会退场（她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」）──
