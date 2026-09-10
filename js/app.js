@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.59";
+const APP_VERSION = "v66.60";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13389,7 +13389,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             ? (phoneForumFor(char) || []).reduce((all, a) => all.concat(Array.isArray(a && a.posts) ? a.posts : []), [])
             : []) }),
         schemaHint: WK.watchSchemaHint(),
-        maxTokens: 20000   // 一整段几十个动作＋他打的字，照 max-tokens-floor 那张表的「一屏名单」档
+        // ⚠️她 2026-09-10：「是不是 token 给少了给 65535 然后多给几个动作」。
+        //   两万确实紧：一段一百来个动作、加上他打的字和心声，写到一半就得收着写。
+        //   她按【次】计费，token 给足不多花钱（施工规则/max-tokens-floor.md）。
+        maxTokens: 65535
       });
       // 打得开的那几个：第一批微信，第二批加相册和便签。名单从 PHONE_APPS 里取，不另手写一份。
       const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => canApps.indexOf(a.key) >= 0);
@@ -13471,6 +13474,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const watchSend = (char, where, to, text, extra) => {
     const WK = window.PhoneWatch;
     if (!WK || !char || !where) return;
+    // 「写了一半没发」落进这个 app 的草稿箱。⚠️两个草稿箱字段不一样，
+    //   所以 applyWrite 那头分成 _draft_liked / _draft_mail 两支，这儿只负责把 key 递对。
+    if (extra && extra.act === "draft") {
+      const k = (where === "mail") ? "mail" : "liked";
+      const cur0 = ((phonesRef.current || {})[char.id] || {})[k];
+      if (!cur0) return;
+      const r0 = WK.applyWrite(k === "mail" ? "_draft_mail" : "_draft_liked", cur0, to, text, Date.now(), extra);
+      if (r0.wrote) savePhoneApp(char.id, k, r0.d, { noArchive: true, patched: true });
+      return;
+    }
     // ── 他发给【她】的那一条：不进 x_phone，直接落进真的那条聊天 ──
     // 她 2026-09-10：「看他玩发了消息给我我这边也能显示出来吧」。
     // ⚠️手机里那一屏本来就把真聊天并进来显示（actualChats），所以写进 x_phone

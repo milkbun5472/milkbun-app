@@ -127,7 +127,8 @@ test("这一处也接上了公共那几层，maxTokens 给足", () => {
   // 走 runProbe({voice:true}) ＝ buildBundle 整份白得（人设/心情/好感/反八股…）
   assert.match(seg, /voice: true/);
   assert.match(seg, /instruction: WK\.watchInstruction/);
-  assert.match(seg, /maxTokens: 20000/);
+  // ⚠️她按【次】计费，token 给足不多花钱；两万在一段一百来个动作时会写到一半就收着写
+  assert.match(seg, /maxTokens: 65535/);
   // 料全在 system、user 只留一句触发——runProbe 本来就是这个形状（prompt-send-shape.md）
   assert.match(fs.readFileSync("js/engine.js", "utf8"), /\[\{ role: "user", content: "开始。" \}\]/);
   // 报错要带着模型真回的那个东西本身
@@ -454,13 +455,17 @@ test("阅读：只动读到哪儿和那一条批注，书目一本不增不减",
 
 test("只能看的那几个：一个字都不许写进去", () => {
   // 账本、视频、深夜台、健康、日历、剪贴板——刷手机改不了这些
-  ["tally", "bili", "latenight", "health", "calendar", "clipboard", "timeline"].forEach(k => {
+  // ⚠️视频、深夜台、剪贴板后来各自开了一条口子（看过的视频／深夜台那一条／复制的那段字），
+  //   这一条钉的是剩下那几个「刷手机改不了」的。
+  ["tally", "health", "calendar", "timeline", "forum", "anon"].forEach(k => {
     assert.equal(W.applyWrite(k, { items: [{ title: "x" }] }, "x", "他写了点什么", 1).wrote, false, k + " 不该被写");
   });
   // 提示词里也要明说，不然模型会去试
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["tally", "health", "calendar"], phone: {} });
   assert.match(s, /这一路只能看，改不了/);
-  assert.match(s, /这三处只能看，一个字都改不了/);
+  // ⚠️剪贴板后来开了一条口子（copy 随时随地能用），所以这句从「一个字都改不了」
+  //   收成「点开只能看」——改的那一下不在这个 app 里发生。
+  assert.match(s, /这三处点开只能看/);
 });
 
 test("十七个 app 各自的样子都发回去了，一个都不能漏", () => {
@@ -901,4 +906,41 @@ test("他玩手机得有自己的料，不能全围着跟她的聊天转", () =>
   assert.match(s, /\*\*这一段里至少要有一次真的去看新东西\*\*/);
   // 没日程的角色不该凭空多出一段空标题
   assert.doesNotMatch(W.watchInstruction({ char: {}, uName: "她", apps: ["browser"], phone: {} }), /【你今天自己这一摊】/);
+});
+
+test("每个 app 都得有一条能落新东西的路（她 2026-09-10 逐个点名的那几处）", () => {
+  const now = 1;
+  // 剪贴板：copy 随时随地能用，不属于任何一个 app
+  const cb = W.applyWrite("clipboard", { items: [] }, "浏览器", "一串地址", now);
+  assert.equal(cb.d.items[0].text, "一串地址");
+  assert.equal(cb.d.items[0].sent, false, "照这一屏自己的写法来：捏在手里没发出去的那几张");
+  // 小红书草稿箱 / 邮件草稿：两个箱子字段不一样，各按各屏来
+  assert.equal(W.applyWrite("_draft_liked", { drafts: [] }, "", "写了一半", now).d.drafts[0].excerpt, "写了一半");
+  assert.equal(W.applyWrite("_draft_mail", { drafts: [] }, "编辑 林", "回一半", now).d.drafts[0].to, "编辑 林");
+  // 深夜台：跟视频一样，刷出新的一条点进去就是看过了
+  assert.equal(W.applyWrite("latenight", { items: [] }, "深夜那条新的", "", now, { act: "openPage", site: "谁" }).wrote, true);
+  // 浏览器：收藏进书签（名册，按文件夹分组）；无痕那一路什么都不留
+  const mk = W.applyWrite("browser", { searches: [], tabs: [], marks: [] }, "", "某一页", now, { act: "mark", site: "x" });
+  assert.equal(mk.d.marks[0].items[0].title, "某一页");
+  const pv = W.applyWrite("browser", { searches: [], tabs: [], private: [] }, "", "见不得人那一页", now, { act: "openPage", priv: true });
+  assert.equal(pv.d.private[0].title, "见不得人那一页");
+  assert.equal(pv.d.tabs.length, 0, "无痕不进标签页");
+  assert.equal(pv.d.searches.length, 0, "无痕不进搜索记录");
+  // ⚠️无痕不是「另存一格」，是【不留痕迹】：刚才搜的那句也要从历史里抹掉
+  const before = { searches: [{ q: "睡不着", time: "刚刚", _ts: now }], tabs: [], private: [] };
+  const pv2 = W.applyWrite("browser", before, "睡不着", "那一页", now + 10, { act: "openPage", priv: true });
+  assert.equal(pv2.d.searches.length, 0, "无痕开完，刚才那句搜索还挂在历史里");
+  // 收藏那一支要长在 browser 分支【里面】，写在外面永远走不到（真机上书签一直是空的）
+  assert.match(phone, /if \(!text && w0 && w0\.page\) \{[\s\S]{0,220}act: "mark"/);
+  // 词表和提示词都要跟上
+  assert.ok(W.ACT_KEYS.indexOf("copy") >= 0 && W.ACT_KEYS.indexOf("draft") >= 0);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["browser", "latenight", "liked", "clipboard", "reading"], phone: {} });
+  ["收藏进书签", "无痕开的那一页", "用 draft 写", "copy 随时随地都能用", "别一次都不进去"]
+    .forEach(k => assert.ok(s.indexOf(k) >= 0, "提示词里少了：" + k));
+});
+
+test("一段里能干的事得够多：动作上限和 token 都给足", () => {
+  // 她 2026-09-10：「现在只有四十几还是包括了点进来和后退，真正能干的动作没几个」
+  assert.equal(W.ACT_CAP, 120);
+  assert.match(app, /maxTokens: 65535/);
 });

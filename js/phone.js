@@ -6027,7 +6027,7 @@ function PhoneCarry({
     } : w);
     // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
     else if (a.kind === "openPage") {
-      const pg = { title: a.name, site: a.site || "", gist: a.gist || "", price: a.price != null ? a.price : null };
+      const pg = { title: a.name, site: a.site || "", gist: a.gist || "", price: a.price != null ? a.price : null, priv: !!a.priv };
       // ⚠️只有浏览器那一路的 openPage 才接得住「他刚搜的那句」。
       //   lastQ 原来跨 app 不清：先在浏览器搜过「怎么煮溏心蛋」，后来点开购物点一件商品，
       //   那件商品就被存成了「怎么煮溏心蛋」（购物/外卖/小红书/视频四处同一行写法，全中）。
@@ -6051,6 +6051,20 @@ function PhoneCarry({
         setDot({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * (px > 0 ? 0.62 : 0.38)), press: false });
       });
     }
+    // 复制一段字：不属于任何一个 app，直接落进剪贴板（她 2026-09-10 点名的那一格）
+    else if (a.kind === "copy") {
+      const app0 = appByKey(openRef.current);
+      if (onWatchSend && String(a.text || "").trim()) {
+        try { onWatchSend(char, "clipboard", (app0 && app0.zh) || "", a.text, { act: "copy" }); } catch (e) {/* 落盘失败不该把这段演砸 */}
+      }
+    }
+    // 写了一半没发：落进这个 app 的草稿箱
+    else if (a.kind === "draft") {
+      if (onWatchSend && String(a.text || "").trim()) {
+        try { onWatchSend(char, openRef.current, a.name || "", a.text, { act: "draft" }); } catch (e) {/* 同上 */}
+      }
+      setWatch(w => w ? { ...w, typing: null } : w);
+    }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
     // 不然那一屏永远停在他自己那条上，像对面死了。
@@ -6063,9 +6077,15 @@ function PhoneCarry({
       const w0 = watchRef.current;
       const text = String((w0 && w0.typing) || "").trim(), to = w0 && w0.item, where = openRef.current;
       if (where === "browser") {
+        // ⚠️这一支要放在 browser 分支【里面】：写在外面的 else-if 永远走不到，
+        //   因为上面这个 if 已经把浏览器里所有的 send 都接住了（真机上抓到的：书签一直是空的）。
+        if (!text && w0 && w0.page) {
+          // 手上没在打字、屏幕上摆着一页 → 这一下是把它收进书签（跟买东西那几屏同一条分家规矩）
+          if (onWatchSend) { try { onWatchSend(char, "browser", "", w0.page.title, Object.assign({}, w0.page, { act: "mark" })); } catch (e) {} }
+        }
         // 浏览器里按回车＝搜这一句。搜完不一定点得开东西（那也很像他），
         // 所以这一下先只记 searches；真点开哪一页由后面的 openPage 决定。
-        if (text) {
+        else if (text) {
           // ⚠️敲完回车得【先看见搜出来的那一列】，再点进去其中一条（她 2026-09-10：
           //   「搜浏览器顺序错了，现在是先打开了搜索后的页面退出才显示搜索」）。
           //   原来这一下只把地址栏清空，屏幕还停在标签页那一栏，于是下一下 openPage

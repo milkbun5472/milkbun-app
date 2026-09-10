@@ -53,7 +53,9 @@
   //   记在 屎山台账-2026-09-06.md 里，别忘了这道闸现在是关着的。
   const WATCH_COOLDOWN_OFF = true;
   // 一段录像最多几个动作。给宽一点（闲翻本来就零散），但不许没有上限。
-  const ACT_CAP = 60;
+  // ⚠️她 2026-09-10：「现在只有四十几还是包括了点进来和后退，真正能干的动作没几个」。
+  //   一段里 open/back/home/pause/think 就吃掉一半，60 的上限等于只剩二三十下真事。
+  const ACT_CAP = 120;
 
   // ── 动作词表（只此一份）────────────────────────────────────────
   // 第一批只驱动【桌面 + 微信】。往外扩是加 kind，不是另开一套词表。
@@ -72,7 +74,7 @@
     openItem: { args: ["name"], zh: "点开里面的一样东西（对话／照片／便签／歌／标签页）" },
     // ⚠️跟 openItem 分得开：openItem 打开【已经有的】，openPage 是【刚出现的那一页】
     //   （他搜完点进去的那条）。揉成一个词，模型分不清「点开旧的」和「搜出新的」。
-    openPage: { args: ["name", "site", "gist"], zh: "打开刚搜出来的那一页", write: true },
+    openPage: { args: ["name", "site", "gist", "priv"], zh: "打开刚搜出来的那一页（priv:true = 用无痕开）", write: true },
     scroll:   { args: ["amount"], zh: "滑动" },
     look:     { args: ["at"], zh: "只是看着某样东西，什么也没做" },
     type:     { args: ["text"], zh: "一个字一个字打" },
@@ -81,6 +83,11 @@
     // 他发完，对面隔一会儿回一句——不然那一屏就永远停在他自己那条上，像对面死了。
     // ⚠️这是【对面说的话】，不是他说的：from 是对面那个人。
     reply:    { args: ["name", "text"], zh: "对面回了一句（发完之后隔一会儿）", write: true },
+    // ⚠️她 2026-09-10 点的两样「他从来没干过的事」：
+    //   剪贴板一次都没被打开过（真人复制粘贴是随时随地发生的，不是一个 app 里的事），
+    //   小红书写了一半没发（草稿箱那一格空着）。
+    copy:     { args: ["text"], zh: "复制一段字（落进剪贴板，随时随地都能干）", write: true },
+    draft:    { args: ["text", "name"], zh: "写了一半没发出去（小红书草稿箱／邮件草稿）", write: true },
     pause:    { args: ["ms"], zh: "停住" },
     think:    { args: ["text"], zh: "心里那一句（浮在屏幕上）" }
   };
@@ -178,6 +185,7 @@
       if (x.name != null) a.name = S(x.name).trim().slice(0, 40);
       if (x.at != null) a.at = S(x.at).trim().slice(0, 40);
       if (x.site != null) a.site = S(x.site).trim().slice(0, 40);
+      if (x.priv != null) a.priv = !!x.priv && S(x.priv) !== "false";
       if (x.gist != null) a.gist = S(x.gist).trim().slice(0, 160);
       // ⚠️200 字是给「发一条微信」定的，可 type 也用来写便签、写批注、写回信——
       //   一条便签写到一半就没了（她 2026-09-10：「为啥备忘录写一半会截断」）。
@@ -331,6 +339,28 @@
         results: page ? [{ source: S((o0 && o0.site) || ""), title: page, excerpt: S((o0 && o0.gist) || "") }] : [] });
       // ⚠️tabs 是 ♻️ 快照，周刷会整份重编——他刚开的这一页会被凭空洗掉。
       //   盖上 _wk 这枚戳，phone.js 那头的「走乙」认它，周刷时把它留住（她 2026-09-10 选的乙）。
+      // ⚠️无痕那一路【什么都不留】：不进搜索记录、不进标签页，只进 private 那一格
+      //   （她 2026-09-10：「也不会搞无痕网页」）。这个 app 里最像人的恰恰是这一格。
+      if (o0 && o0.priv && page) {
+        const priv = Array.isArray(base.private) ? base.private.slice() : [];
+        if (priv.some(x => x && sameName(x.title, page))) return { d: d, wrote: false };
+        priv.unshift({ title: page, site: S((o0 && o0.site) || ""), age: "刚开的", cover: priv.length % 6, gist: S((o0 && o0.gist) || ""), _ts: ts });
+        // ⚠️无痕不是「另存一格」，是【不留痕迹】：刚才那句搜索也要从记录里抹掉，
+        //   否则搜的那句还在历史里挂着，等于没无痕。
+        const keep = who ? searches.filter(x => !(x && sameName(x.q, who) && (ts - N(x._ts, 0)) < 180000)) : searches;
+        return { d: Object.assign({}, base, { private: priv.slice(0, 10), searches: keep }), wrote: true };
+      }
+      // 收藏这一页：书签是【名册】（PHONE_RETIRE 里登记着），按文件夹分组
+      if (S(o0 && o0.act) === "mark" && page) {
+        const marks = Array.isArray(base.marks) ? base.marks.map(f => Object.assign({}, f)) : [];
+        let folder = marks[0];
+        if (!folder) { folder = { name: "随手存的", items: [] }; marks.unshift(folder); }
+        const its = Array.isArray(folder.items) ? folder.items.slice() : [];
+        if (its.some(x => x && sameName(x.title, page))) return { d: d, wrote: false };
+        its.unshift({ title: page, site: S((o0 && o0.site) || ""), why: S((o0 && o0.gist) || ""), _ts: ts });
+        folder.items = its;
+        return { d: Object.assign({}, base, { marks: marks }), wrote: true };
+      }
       if (page) tabs.unshift(wkRow({ title: page, site: S((o0 && o0.site) || ""), age: "刚开的", pinned: false, cover: tabs.length % 6, gist: S((o0 && o0.gist) || "") }, ts));
       if (!who && !page) return { d: d, wrote: false };
       return { d: Object.assign({}, base, { searches: searches, tabs: tabs.slice(0, 12) }), wrote: true };
@@ -372,6 +402,42 @@
       orders.unshift({ shop: shop, main: title, amount: price, time: "刚刚", status: "刚下单",
         items: [{ name: title, qty: 1, price: price }], note: note, _ts: ts });
       return { d: Object.assign({}, base, { live: live.slice(0, 6), orders: orders }), wrote: true };
+    }
+
+    // ── 剪贴板：他复制的那一段字 ────────────────────────────────
+    // ⚠️这一下【不属于任何一个 app】：他在浏览器里复制一句、在微信里复制一个地址，
+    //   落的都是剪贴板。所以 copy 那一支不看他此刻开着哪个 app（appKey 传 "clipboard"）。
+    if (appKey === "clipboard") {
+      if (!body) return { d: d, wrote: false };
+      const items = Array.isArray(base.items) ? base.items.slice() : [];
+      if (items.some(x => x && S(x.text).trim() === body)) return { d: d, wrote: false };
+      // ⚠️照这一屏自己的写法来：sent === false 的那几张是【还捏在手里没发出去的】
+      items.unshift({ text: body, from: who || "", time: "刚刚", sent: false, _ts: ts });
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
+    }
+
+    // ── 写了一半没发：小红书草稿箱 / 邮件草稿 ────────────────────
+    if (appKey === "_draft_liked" || appKey === "_draft_mail") {
+      if (!body) return { d: d, wrote: false };
+      const drafts = Array.isArray(base.drafts) ? base.drafts.slice() : [];
+      const first = body.split("\n")[0].trim();
+      const title = who || (first.length <= 16 ? first : first.slice(0, 16));
+      if (drafts.some(x => x && sameName(x.title || x.subject, title))) return { d: d, wrote: false };
+      // 两个草稿箱的字段不一样，各按各屏自己的写法来（施工规则/stub-from-the-writer.md）
+      drafts.unshift(appKey === "_draft_mail"
+        ? { to: who || "", subject: title, body: body, savedAt: "刚刚", _ts: ts }
+        : { title: title, excerpt: body, savedAt: "刚刚", cover: drafts.length % 6, _ts: ts });
+      return { d: Object.assign({}, base, { drafts: drafts }), wrote: true };
+    }
+
+    // ── 深夜台：跟视频一样，刷出一条新的点进去就是看过了 ────────
+    if (appKey === "latenight") {
+      const title0 = who || body;
+      if (!title0 || S(o0 && o0.act) !== "openPage") return { d: d, wrote: false };
+      const items = Array.isArray(base.items) ? base.items.slice() : [];
+      if (items.some(x => x && sameName(x.title, title0))) return { d: d, wrote: false };
+      items.unshift({ title: title0, up: S(o0 && o0.site), gist: S(o0 && o0.gist), time: "刚刚", _ts: ts });
+      return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
     // ── 视频 ───────────────────────────────────────────────────
@@ -780,19 +846,20 @@
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。**一段里翻一两张就够了，翻完去别处**：相册最容易一待就是半程，可一个人不会盯着同两张照片来回看。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：两种都行。**改**：openItem 点开一条已有的，手上就是它现在的正文，erase 划掉（不给 n 就整段划光）、type 重写、send 存下。**新写**：不点开任何一条，直接 type 打一段再 send——那就是新记一条。想起什么随手记一笔，本来就是便签最常发生的事。" : "",
-      can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
+      can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。想留着以后看就在那一页上再 send 一下——**那是收藏进书签**（手上没在打字的时候按下去就是收藏，不是又搜一遍）。不想留痕迹的那一次，openPage 上加 priv:true——**无痕开的那一页不进搜索记录、不进标签页**，只进无痕那一格。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
       can.indexOf("takeout") >= 0 ? "· 外卖：**想吃点别的就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
-      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。tab 可以切 feed / follow / mine。" : "",
+      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。**想发一条自己的**：用 draft 写——写了一半没发出去，它会躺在草稿箱里（那一格比发出去的更像你）。tab 可以切 feed / follow / mine。" : "",
       can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
-      can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**。tab 可以切 inbox / sent / drafts。" : "",
-      can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。tab 可以切 shelf / archive。" : "",
+      can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**——真要留着回头再写，就用 draft 存进草稿箱。tab 可以切 inbox / sent / drafts。" : "",
+      can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。**架上那几本是真在读的**——睡前、通勤、等人的时候翻两页很自然，别一次都不进去。tab 可以切 shelf / archive。" : "",
       can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**这一路只能看，改不了**——那本账不是刷手机能改的东西。tab 可以切 debts / policies / statements / treasures / appraisals。" : "",
       can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的。**想看新东西就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点开其中一条——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
-      can.indexOf("latenight") >= 0 ? "· 深夜台：openItem 点开一条已经在那儿的，look 着、pause 一会儿、scroll 往下划。**这一路什么都改不了**，就是刷。" : "",
+      can.indexOf("latenight") >= 0 ? "· 深夜台：scroll 往下划，openItem 点开一条已经在那儿的；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是谁发的、gist 是这条讲了什么。这个台子本来就是半夜一条接一条往下刷的地方。" : "",
       can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：只能 openItem 点开一条看看、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。" : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
-      can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。**这三处只能看，一个字都改不了。**" : "",
+      can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。这三处点开只能看。" : "",
+      can.indexOf("clipboard") >= 0 ? "· **copy 随时随地都能用**（不用先打开剪贴板）：看见一串地址、一句话、一个单号、一段别人说的话，复制下来——它就落进剪贴板。真人一天要复制好几回，那一格能看出他在办什么事。" : "",
       can.indexOf("music") >= 0 ? "· 音乐：scroll 往下翻曲目单，openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑，**别老点最上面那几首**：往下翻翻，挑一首跟你此刻对得上的。" : "",
       "",
       "【他这台手机现在的样子】\n"
