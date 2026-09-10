@@ -5945,6 +5945,17 @@ function PhoneCarry({
     return () => { clearTimeout(tid); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
     // eslint-disable-next-line
   }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
+  // ── 心声自己会退场（她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」）──
+  // 原来它只在【演到下一个 think 那一下】才被清掉：中间隔着十几个动作，那句话就
+  // 一直压在屏幕上；敲一下回的那句更糟——它压根等不到下一个 think，能挂到整段结束。
+  // 现在按字数给它一条命：读得完就走。
+  const thought = watch && watch.thought;
+  useEffect(() => {
+    if (!thought) return;
+    const ms = Math.min(2600, 900 + String(thought).length * 55) / ((watch && watch.speed) || 1);
+    const id = setTimeout(() => setWatch(w => (w && w.thought === thought) ? { ...w, thought: "" } : w), ms);
+    return () => clearTimeout(id);
+  }, [thought, watch && watch.speed]);
   const startWatch = async () => {
     if (watchBusy || !onWatchStart) return;
     setWatchBusy(true);

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.33";
+const APP_VERSION = "v66.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13256,6 +13256,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 正在看他玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
   const [watching, setWatching] = useState(false);
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
+  // 上一段他开过哪几个 app：下一次把它们排到队尾，并且明说「这次换几个别的」
+  const [watchSeen, setWatchSeen] = useState(() => loadJSON("x_phoneWatchSeen", {}));
+  const watchSeenRef = useRef(watchSeen);
+  watchSeenRef.current = watchSeen;
   // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
   // ⚠️论坛和匿名信箱是【只能看】的那一档（她 2026-09-10：「论坛和匿名可以点开看但是不改」）：
@@ -13281,11 +13285,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   于是他点开一个空 app 就等于卡在那儿（真机上就是这样）。
       //   接真数据的那几个（音乐、论坛、日历、匿名信箱）本来就不进 phones，一律放行。
       const live = typeof PHONE_LIVE_KEYS !== "undefined" ? PHONE_LIVE_KEYS : [];
-      const canApps = WATCH_APPS.filter(k => live.indexOf(k) >= 0 || (ph[k] && typeof ph[k] === "object"));
+      const has = WATCH_APPS.filter(k => live.indexOf(k) >= 0 || (ph[k] && typeof ph[k] === "object"));
+      // ⚠️她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
+      //   两条一起做——**顺序**和**上次刷过谁**：
+      //   ① 名单顺序每次都一样，模型就总挑排在前面那几个（位置偏好，不是他的性格）。
+      //      上次刷过的挪到队尾，头几行自然换人。
+      //   ② 光靠换顺序还不够，所以把上次刷过的名单直接告诉它：这次换几个别的。
+      const seen = (watchSeenRef.current || {})[char.id] || [];
+      const canApps = has.filter(k => seen.indexOf(k) < 0).concat(has.filter(k => seen.indexOf(k) >= 0));
       if (!canApps.length) { toast("他手机里还什么都没有，先翻一次再看他玩"); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps,
+        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
           // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
@@ -13304,6 +13315,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️丢掉的那几条必须说出来。她 2026-09-10 真跑那次就是【一声不响】：
       //   open 写成了「微信」认不出来，于是整段只剩两句心声飘过去，看着像功能坏了。
       if (got.dropped.length) toast("有 " + got.dropped.length + " 下没看懂，跳过了：" + got.dropped.slice(0, 3).join("、"));
+      // 这一段他开过哪几个 app，记下来给下一次换人用（只记最后一次那一轮）
+      const opened = [];
+      got.acts.forEach(a => { if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app); });
+      if (opened.length) setWatchSeen(m => {
+        const n = { ...m, [char.id]: opened };
+        watchSeenRef.current = n; saveJSON("x_phoneWatchSeen", n); return n;
+      });
       // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。
       if (!got.acts.some(a => a.kind !== "think" && a.kind !== "pause")) {
         throw new Error("他这回只在心里想，没动手。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));

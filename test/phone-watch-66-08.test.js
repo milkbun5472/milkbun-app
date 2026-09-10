@@ -197,7 +197,7 @@ test("打得开哪几个 app 只此一份名单", () => {
   assert.match(app, /canApps\.indexOf\(a\.key\) >= 0/);
   // 名单先按【真有东西】筛一道：没生成过的 app 点进去是一屏转圈（看他玩不替他生成）
   assert.match(app, /apps: canApps/);
-  assert.match(app, /const canApps = WATCH_APPS\.filter\(k => live\.indexOf\(k\) >= 0 \|\| \(ph\[k\] && typeof ph\[k\] === "object"\)\)/);
+  assert.match(app, /const has = WATCH_APPS\.filter\(k => live\.indexOf\(k\) >= 0 \|\| \(ph\[k\] && typeof ph\[k\] === "object"\)\)/);
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat", "album", "notes"], phone: {} });
   assert.match(s, /\*\*能打开的只有这几个\*\*：wechat \/ album \/ notes/);
   // 空的 app 要明说别点进去，不然他会点开一个空相册愣着
@@ -559,4 +559,26 @@ test("他刷手机的时候，她那几颗按钮要收起来", () => {
   assert.ok((phone.match(/onPeek \? h\("button"/g) || []).length > 10, "各屏还是靠 onPeek 在不在来决定画不画");
   // 顶栏那颗「重新推演」不吃 null，就按住它（点一下是一枪真钱，还会盖掉正在演的这一份）
   assert.match(phone, /refreshing: drive \? true : !!busyKey/);
+});
+
+test("别老在同几个 app 之间来回", () => {
+  // 她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
+  // 病根一半是【名单顺序每次都一样】——模型总挑排在前面那几个，那是位置偏好不是他的性格。
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat", "album", "notes"], phone: {}, recent: ["album", "notes"] });
+  assert.match(s, /\*\*这一段里至少进 3 个不一样的 app\*\*/);
+  assert.match(s, /上一次你刷的是：album、notes/);
+  assert.doesNotMatch(W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {} }), /上一次你刷的是/,
+    "第一次看他玩不该凭空说「上一次」");
+  // 代码这一头：上次刷过的排到队尾，并且真的记下来
+  assert.match(app, /const canApps = has\.filter\(k => seen\.indexOf\(k\) < 0\)\.concat\(has\.filter\(k => seen\.indexOf\(k\) >= 0\)\)/);
+  assert.match(app, /saveJSON\("x_phoneWatchSeen", n\)/);
+});
+
+test("心声自己会退场，不许一直压在屏幕上", () => {
+  // 她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」。
+  // 原来它只在【演到下一个 think】才清掉；敲一下回的那句更糟，能挂到整段结束。
+  assert.match(phone, /const id = setTimeout\(\(\) => setWatch\(w => \(w && w\.thought === thought\) \? \{ \.\.\.w, thought: "" \} : w\), ms\)/);
+  assert.match(phone, /Math\.min\(2600, 900 \+ String\(thought\)\.length \* 55\)/);
+  // 倍速要跟着走：跳到最后的时候还慢慢念就更碍眼了
+  assert.match(phone, /\/ \(\(watch && watch\.speed\) \|\| 1\)/);
 });

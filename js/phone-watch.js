@@ -582,6 +582,13 @@
       "· 第一个动作从 wake（亮屏）起，最后一个动作是 lock（锁屏）。中间要进 app 用 open。",
       "· **能打开的只有这几个**：" + can.join(" / ") + "。open 的 app 一律填这几个英文词，别写中文名、别写别的 app——写别的等于这一下什么也没发生。",
       "· 你今天的心情、你和 " + uName + " 现在处到哪一步、你的人设——这几样决定你会点开谁、会不会点开 " + uName + "、在哪儿停住。",
+      // ⚠️她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
+      //   一个人拿起手机不会只在两个 app 之间打转——那是名单顺序造成的位置偏好，不是他的性格。
+      "· **这一段里至少进 3 个不一样的 app**，别在同两个之间来回。同一个 app 最多进两次。",
+      (o && Array.isArray(o.recent) && o.recent.length)
+        ? "· 上一次你刷的是：" + o.recent.join("、")
+          + "。**这一次换几个别的开**——那几个可以再点，但别又整段围着它们转。"
+        : "",
       "· 别在动作里解释你为什么这么做。**做就是了**，看的人自己会明白。"
     ].filter(Boolean).join("\n");
   }
@@ -661,14 +668,14 @@
     //   给它自己一块很淡的深色底，浅底深底都读得出来。
     return h("div", {
       style: {
-        position: "absolute", left: 0, right: 0, bottom: 122, zIndex: 62, pointerEvents: "none",
+        position: "absolute", left: 0, right: 0, bottom: 148, zIndex: 62, pointerEvents: "none",
         display: "flex", justifyContent: "center", padding: "0 20px"
       }
     }, h("span", {
       style: {
-        maxWidth: "88%", borderRadius: 14, padding: "8px 14px",
-        background: "rgba(24,21,18,.74)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-        fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: "rgba(255,252,246,.96)",
+        maxWidth: "84%", borderRadius: 13, padding: "6px 12px",
+        background: "rgba(24,21,18,.66)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+        fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "rgba(255,252,246,.94)",
         boxShadow: "0 6px 20px rgba(20,17,13,.28)"
       }
     }, p.text));
