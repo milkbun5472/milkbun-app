@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.35";
+const APP_VERSION = "v66.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13353,16 +13353,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (r.wrote) savePhoneApp(char.id, key, r.d, { noArchive: true, patched: true });
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
+  // ⚠️她 2026-09-10：「敲一敲有时候卡住了一直没反应」。三个哑口，一个一个堵：
+  //   ① 没配后台线路时直接 return ""——按钮转一下就没了，什么也不说；
+  //   ② 模型那一枪失败也 return ""——**而外面那层照样把这一下算进 knocks**，
+  //      于是敲了、没反应、次数还少了一下；
+  //   ③ 一枪卡住不返回的话，按钮永远停在「…」。
+  //   现在：出错就抛，外面接住报出来、并且不消耗次数；再加一条 25 秒的绳子。
   const watchKnock = async (char, nth, nowAct) => {
     const WK = window.PhoneWatch;
-    if (!WK || !char) return "";
+    if (!WK || !char) throw new Error("他这会儿不在");
     const p = bgActive;
-    if (!p) return "";
+    if (!p) throw new Error("先去设置里配一条 API");
     const step = WK.knockStep(nth, WK.knockDecayed((knockLog || {})[char.id], Date.now()));
     setKnockLog(k => { const n = { ...k, [char.id]: WK.knockPush(k[char.id], Date.now()) }; saveJSON("x_phoneKnock", n); return n; });
     const doing = nowAct ? "你此刻正在：" + (WK.WATCH_ACTS[nowAct.kind] || {}).zh + (nowAct.name ? "（" + nowAct.name + "）" : "") : "";
     try {
-      const out = await runProbe(p, phoneCtx(char), {
+      const out = await Promise.race([runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
         instruction: [
           "你正一个人刷着手机。刚才屏幕被敲了一下——是 " + userName(profile) + "，她一直在旁边看着你。",
@@ -13374,13 +13380,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ].filter(Boolean).join("\n"),
         schemaHint: '{"say":"你心里那一句","aff":"整数，通常 0"}',
         maxTokens: 8000
-      });
+      }), new Promise((_, rej) => setTimeout(() => rej(new Error("他没抬头（超时）")), 25000))]);
       const say = String((out && out.say) || "").trim().slice(0, 60);
+      if (!say) throw new Error("他这一下没吭声");
       // 好感一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0）
       const d = WK.clampWatchAff(out && out.aff);
       if (d && nth === 1) bumpAff(char.id, d);   // 只认第一下，连着敲不叠加
       return say;
-    } catch (e) { return ""; }
+    } catch (e) {
+      // ⚠️别再吞掉：吞掉的样子就是「敲了没反应」，而且那一下还被算掉了
+      throw new Error(e && e.message ? String(e.message).slice(0, 40) : "没敲动");
+    }
   };
 
   const genMoment = async char => {
@@ -18685,6 +18695,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchSend: watchSend,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
+    onWatchToast: toast,
     onWatching: setWatching,
     watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,
     onGenPlaylist: genCharPlaylist,

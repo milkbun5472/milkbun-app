@@ -82,6 +82,25 @@
   //   （她 2026-09-10：「他打开相册图片点不开」）。
   //   所以对外只有这一条规矩，圆点找挂点和各屏找那一行都用它——两处各写一套就会一处开一处不开。
   const nameNorm = v => S(v).replace(/[\s《》「」『』“”"'`·・,，.。!！?？:：;；()（）\[\]【】\-—_~～]/g, "").toLowerCase();
+  // ⚠️「像不像」是个是非题，可屏幕上要的是【挑哪一个】。两处各自 find 一遍的话，
+  //   一处按 DOM 顺序、一处按数据顺序，撞上两条都像的就会各挑各的——
+  //   于是圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的正是这个）。
+  //   所以挑人只此一份：**先要完全一样的，没有才退而求其次挑最接近的那一条**。
+  function pickName(list, name, get) {
+    const want = nameNorm(name);
+    if (!want) return null;
+    let exact = null, near = null, gap = 1e9;
+    (Array.isArray(list) ? list : []).forEach(it => {
+      const v = nameNorm(get ? get(it) : it);
+      if (!v) return;
+      if (v === want) { if (exact == null) exact = it; return; }
+      if ((v.length >= 3 || want.length >= 3) && (v.indexOf(want) >= 0 || want.indexOf(v) >= 0)) {
+        const g = Math.abs(v.length - want.length);
+        if (g < gap) { gap = g; near = it; }
+      }
+    });
+    return exact != null ? exact : near;
+  }
   function sameName(a, b) {
     const x = nameNorm(a), y = nameNorm(b);
     if (!x || !y) return false;
@@ -550,13 +569,13 @@
       "· **大部分时候你什么也没干成**：点进去、看两眼、退出来。别每次都非得发生一件大事。",
       "· 三种动作的分量完全不同——**只是看**（点开一张旧照片、翻回很久以前的话、盯着某个人的头像）本来就是最常见的那种；",
       "  **改**（写了又删）次之；**真发出去**最少。一整段里真正送出去的东西，一两件顶天了。",
-      "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打，也可以打完了就 lock 走人。**没发出去的那句才是最像你的**。",
+      "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打、改口、整句删掉重写。**改到一半的那句才是最像你的**——但微信里最后还是要发出去（见下面各 app 那一段）。",
       "· 停顿是有意义的：pause 放在你犹豫、走神、或者盯着某样东西挪不开眼的地方。",
       "· **动作是主角，心声是配角**：一整段里绝大多数是动作（点、翻、打字、停），think 只有寥寥几句。写成一串心声就不是「看他玩手机」了，是配旁白。",
       "· think 是你心里那一句，第一人称，**整段最多 " + THOUGHT_CAP + " 句**。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。多数动作根本不配一句心声。",
       "",
       "【每个 app 里你能干什么】",
-      can.indexOf("wechat") >= 0 ? "· 微信：openItem 点开一个会话 → type / erase 打字改字 → send 发出去（或者不发，直接 back 走人）。tab 可以切 chats / contacts / moments / me。" : "",
+      can.indexOf("wechat") >= 0 ? "· 微信：**点开一个会话就是要跟这个人说话**——openItem 之后要 type，最后要 send 发出去。中间可以 erase 掉重打、改口、删了再写（那一下最像你），但**别点开看两眼就退出来**：只想看看的话就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me。" : "",
       can.indexOf("wechat") >= 0 ? "  发出去之后，对面**多半会回一句**：用 reply 写，name 是那个会话的名字、text 是对面说的话。别每条都秒回——先 pause 一会儿更像。对面也可以干脆不回（那也是一种回答）。" : "",
       can.indexOf("album") >= 0 ? "· 相册：openItem 点开一张【已经有的】照片，look 着它、pause 一会儿。**这一路你什么都改不了，也不该改**——就是翻旧照片。tab 可以切 library / collections / saved。" : "",
       can.indexOf("notes") >= 0 ? "· 便签：openItem 点开一条已有的便签，手上就是它现在的正文；erase 把它划掉（不给 n 就整段划光）、type 重新写、send 存下。**这是改，不是新写一条**。" : "",
@@ -717,7 +736,7 @@
     WATCH_ACTS, ACT_KEYS,
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage,
-    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName,
+    normalizeActs, actDuration, sessionDuration, applyWrite, applyReply, sameName, pickName,
     knockDecayed, knockPush, knockStep, knockOver, clampWatchAff, cooldownLeft
   };
 });

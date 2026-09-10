@@ -100,7 +100,11 @@ test("提示词：给词表和判据，一个内容示范都不给", () => {
   const s = W.watchInstruction({ char: { name: "某某" }, uName: "她", apps: ["wechat"], phone: { wechat: { chats: [{ name: "甲", last: "乙" }] } } });
   W.ACT_KEYS.forEach(k => assert.ok(s.indexOf("· " + k) >= 0, "词表里少了 " + k));
   assert.match(s, /大部分时候你什么也没干成/);
-  assert.match(s, /没发出去的那句才是最像你的/);
+  // ⚠️她 2026-09-10 改了口径：微信【点开就得发】，所以这一句从「没发出去的那句」
+  //   改成「改到一半的那句」——反悔照旧要演，但最后那一下不能省。
+  assert.match(s, /改到一半的那句才是最像你的/);
+  assert.match(s, /\*\*点开一个会话就是要跟这个人说话\*\*/);
+  assert.match(s, /别点开看两眼就退出来/);
   // ⚠️施工规则/prompt-no-content-samples.md：写一段「他给老张发『晚点说』」当例子，
   //   出来的就是每个角色都在给老张发晚点说
   assert.ok(watchSrc.indexOf("一个内容示范都不给") > 0);
@@ -503,7 +507,14 @@ test("认名字只此一份规矩：标点飘了也得认出来", () => {
   assert.equal(W.sameName("一条视频", ""), false, "空名字不许乱认一个");
   // ⚠️两处必须用同一条：圆点找挂点用它，各屏找那一行也用它
   assert.match(phone, /const watchSame = \(a, b\) => \(window\.PhoneWatch && window\.PhoneWatch\.sameName\)/);
-  assert.match(phone, /WK\.sameName\(String\(all\[i\]\.getAttribute\("data-watch"\)\)\.slice\(5\), name\)/);
+  assert.match(phone, /WK\.pickName\(all, name, el => String\(el\.getAttribute\("data-watch"\)\)\.slice\(5\)\)/);
+  // ⚠️「像不像」不够，屏幕上要的是【挑哪一个】：两条都像的时候必须挑出同一条，
+  //   否则圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的）。
+  const list = [{ t: "夏天" }, { t: "夏天的海边" }];
+  assert.equal(W.pickName(list, "夏天", x => x.t).t, "夏天", "有完全一样的就不许挑那条更长的");
+  assert.equal(W.pickName(list, "夏天的海", x => x.t).t, "夏天的海边");
+  assert.equal(W.pickName(list, "别的", x => x.t), null);
+  assert.ok((phone.match(/watchPick\(/g) || []).length > 15, "各屏都要走同一条挑人规矩");
   assert.doesNotMatch(phone, /=== String\(driveItem\)/, "还有哪一屏在用严格等号认名字");
 });
 
@@ -581,4 +592,19 @@ test("心声自己会退场，不许一直压在屏幕上", () => {
   assert.match(phone, /Math\.min\(2600, 900 \+ String\(thought\)\.length \* 55\)/);
   // 倍速要跟着走：跳到最后的时候还慢慢念就更碍眼了
   assert.match(phone, /\/ \(\(watch && watch\.speed\) \|\| 1\)/);
+});
+
+test("敲一下：失败要说出来，而且不许白扣一次", () => {
+  // 她 2026-09-10：「敲一敲有时候卡住了一直没反应」。三个哑口：
+  // 没配线路直接 return ""、模型那一枪失败也 return ""（外面照样把这一下算掉）、卡住不返回。
+  assert.match(app, /if \(!p\) throw new Error\("先去设置里配一条 API"\)/);
+  assert.match(app, /他没抬头（超时）/);
+  assert.match(app, /if \(!say\) throw new Error\("他这一下没吭声"\)/);
+  const knockFn = app.slice(app.indexOf("const watchKnock = async"), app.indexOf("const genMoment"));
+  assert.doesNotMatch(knockFn, /catch \(e\) \{ return ""; \}/, "又把敲一下的错吞回去了");
+  assert.match(knockFn, /throw new Error\(e && e\.message/);
+  // 真出声了才算这一下；没出声要报出来
+  assert.match(phone, /knocks: \(p\.knocks \|\| 0\) \+ \(say \? 1 : 0\)/);
+  assert.match(phone, /onWatchToast\("没敲动："/);
+  assert.match(app, /onWatchToast: toast/);
 });

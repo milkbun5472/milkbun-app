@@ -1567,7 +1567,8 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     if (!driveItem) { setOpen(null); return; }
     const want = String(driveItem);
     ["inbox", "sent", "drafts"].some(k => {
-      const hit = (Array.isArray(d && d[k]) ? d[k] : []).find(x => x && (watchSame(x.subject, want) || watchSame(x.from, want)));
+      const pool0 = (Array.isArray(d && d[k]) ? d[k] : []);
+      const hit = watchPick(pool0, want, x => x && x.subject) || watchPick(pool0, want, x => x && x.from);
       if (hit) { setOpen({ ...hit, _kind: k }); return true; }
       return false;
     });
@@ -1761,7 +1762,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const rows = tallyEntries(tab, data);
   const openEntry = rows.find(e => e.key === flip) || null;
   // ⚠️翻开哪一张认的是 flip 这个 key（tab+下标），不是那一行本身——照这一屏自己的写法来
-  const driveKey = driveItem ? (rows.find(e => watchSame(e.lead, driveItem)) || {}).key : null;
+  const driveKey = driveItem ? ((watchPick(rows, driveItem, e => e && e.lead) || {}).key) : null;
   useEffect(() => { if (drive) setFlip(driveKey || null); }, [driveKey]);
   const backText = openEntry ? openEntry.back.text : "";
   // 翻过去之后一个字一个字往外蹦。翻回来就停——计时器只跟着「翻开的是哪一张」走。
@@ -2418,7 +2419,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     if (!drive) return;
     if (!driveChat) { setThread(null); return; }
     // chats 在下面才算出来，但 effect 是渲染完才跑的，这时候它已经有值了
-    const hit = chats.find(c => c && watchSame(c.name, driveChat));
+    const hit = watchPick(chats, driveChat, c => c && c.name);
     if (hit) setThread(hit);
   }, [driveChat]);
   const [publicPage, setPublicPage] = useState(false);
@@ -2591,7 +2592,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     if (!drive) return;
     if (!driveItem) { setPhoto(null); return; }
     const all = Array.isArray(d && d.items) ? d.items : [];
-    const hit = all.find(x => x && watchSame(x.caption, driveItem));
+    const hit = watchPick(all, driveItem, x => x && x.caption);
     if (hit) setPhoto(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -2851,13 +2852,15 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setBook(null); return; }
+    // 先摊平再挑：书分在几个架子上，一架一架各挑各的就会「挑到哪一本看运气」
     const A0 = a => Array.isArray(a) ? a : [];
-    A0(d && d.shelves).some(sh => A0(sh && sh.books).some((b, i) => {
-      if (!b || !watchSame(b.title, driveItem)) return false;
-      // ⚠️照这一屏自己的写法来：详情里还挂着 _shelf / _no 两栏（openBook 那一处）
-      setBook({ ...b, _shelf: (sh.name || ""), _no: i + 1 });
-      return true;
+    const flat = [];
+    A0(d && d.shelves).forEach(sh => A0(sh && sh.books).forEach((b, i) => {
+      if (b) flat.push({ b: b, shelf: (sh && sh.name) || "", no: i + 1 });
     }));
+    const hit = watchPick(flat, driveItem, x => x && x.b && x.b.title);
+    // ⚠️照这一屏自己的写法来：详情里还挂着 _shelf / _no 两栏（openBook 那一处）
+    if (hit) setBook({ ...hit.b, _shelf: hit.shelf, _no: hit.no });
   }, [driveItem]);
   const scrollRef = useRef(null);
   const returnScroll = useRef({ top: 0, pending: false });
@@ -3097,7 +3100,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     if (!drive) return;
     if (!driveItem) { setSheet(null); return; }
     const pool = [].concat(Array.isArray(d && d.wish) ? d.wish : [], Array.isArray(d && d.cart) ? d.cart : []);
-    const hit = pool.find(x => x && watchSame(x.title, driveItem));
+    const hit = watchPick(pool, driveItem, x => x && x.title);
     if (hit) setSheet({ kind: "wish", it: hit });
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -3437,7 +3440,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     if (!driveItem) { setOpen(null); return; }
     // 这一屏的 open 存的是【第几单】，不是那一单本身——照它自己的写法来
     const list = Array.isArray(d && d.orders) ? d.orders : [];
-    const i = list.findIndex(x => x && (watchSame(x.shop, driveItem) || watchSame(x.main, driveItem)));
+    const row0 = watchPick(list, driveItem, x => x && x.shop) || watchPick(list, driveItem, x => x && x.main);
+    const i = row0 ? list.indexOf(row0) : -1;
     if (i >= 0) setOpen(i);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -4121,7 +4125,8 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const list = (Array.isArray(d && d.items) ? d.items : []).filter(x => x && typeof x === "object");
-    const i = list.findIndex(x => watchSame(x.title, driveItem));
+    const row0 = watchPick(list, driveItem, x => x && x.title);
+    const i = row0 ? list.indexOf(row0) : -1;
     // ⚠️open 存的是 { v, i } 这一对，不是那条本身——照这一屏自己的写法来
     if (i >= 0) setOpen({ v: list[i], i: i });
   }, [driveItem]);
@@ -4223,7 +4228,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && watchSame(x.title, driveItem));
+    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4300,7 +4305,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const pool = [].concat(Array.isArray(d && d.items) ? d.items : [], Array.isArray(d && d.drafts) ? d.drafts : []);
-    const hit = pool.find(x => x && watchSame(x.title, driveItem));
+    const hit = watchPick(pool, driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -4483,7 +4488,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && watchSame(x.title, driveItem));
+    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4615,7 +4620,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = A(d && d.items).find(x => x && watchSame(x.title, driveItem));
+    const hit = watchPick(A(d && d.items), driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
@@ -4729,7 +4734,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = (Array.isArray(d && d.items) ? d.items : []).find(x => x && (watchSame(x.text, driveItem) || String(x.text || "").indexOf(String(driveItem)) >= 0));
+    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.text);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4855,6 +4860,12 @@ const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
 // （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
 const watchSame = (a, b) => (window.PhoneWatch && window.PhoneWatch.sameName)
   ? window.PhoneWatch.sameName(a, b) : (String(a == null ? "" : a) === String(b == null ? "" : b));
+// 从一堆里挑出他点的那一个。⚠️别用 find(watchSame)：两条都「像」的时候，
+// 各屏按数据顺序挑、圆点按 DOM 顺序挑，挑出来的会是两条不同的东西
+// （她 2026-09-10：「点开一个标题点进去又是另一个标题」）。pickName 先要完全一样的。
+const watchPick = (list, name, get) => (window.PhoneWatch && window.PhoneWatch.pickName)
+  ? window.PhoneWatch.pickName(list, name, get)
+  : (Array.isArray(list) ? list : []).find(x => watchSame(get ? get(x) : x, name)) || null;
 const watchPageNode = (drive, skin) => (drive && drive.page && window.PhoneWatch)
   ? h(window.PhoneWatch.WatchPage, { page: drive.page, skin: skin }) : null;
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
@@ -4869,7 +4880,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     if (!driveItem) { setOpen(null); return; }
     const arr2 = x => Array.isArray(x) ? x : [];
     const pool = [].concat(arr2(d && d.tabs), arr2(d && d.private), arr2(d && d.searches));
-    const hit = pool.find(x => x && (watchSame(x.title, driveItem) || watchSame(x.q, driveItem)));
+    const hit = watchPick(pool, driveItem, x => x && x.title) || watchPick(pool, driveItem, x => x && x.q);
     if (hit) setOpen(Object.assign({}, hit));
   }, [driveItem]);
   useEffect(() => { if (drive && drivePage) setOpen({ title: drivePage.title, site: drivePage.site, gist: drivePage.gist, _fresh: true }); }, [drivePage && drivePage.title]);
@@ -5081,11 +5092,11 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     if (!driveItem) { setOpen(null); return; }
     const A0 = a => Array.isArray(a) ? a : [];
     const want = String(driveItem);
-    const sm = A0(d && d.sms).find(x => x && (watchSame(x.name, want) || String(x.number || "") === want));
+    const sm = watchPick(A0(d && d.sms), want, x => x && x.name) || A0(d && d.sms).find(x => x && String(x.number || "") === want);
     if (sm) { setOpen({ kind: "sms", x: sm }); return; }
-    const cl = A0(d && d.calls).find(x => x && (watchSame(x.name, want) || String(x.number || "") === want));
+    const cl = watchPick(A0(d && d.calls), want, x => x && x.name) || A0(d && d.calls).find(x => x && String(x.number || "") === want);
     if (cl) { setOpen({ kind: "call", x: cl }); return; }
-    const v = A0(d && d.voicemail).find(x => x && watchSame(x.from, want));
+    const v = watchPick(A0(d && d.voicemail), want, x => x && x.from);
     if (v) setOpen({ kind: "vm", x: v });
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -5284,7 +5295,8 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
   useEffect(() => {
     if (!drive || !driveItem) return;
     const list = A(pl && pl.songs).filter(x => x && typeof x === "object");
-    const i = list.findIndex(x => watchSame(x.title, driveItem));
+    const row0 = watchPick(list, driveItem, x => x && x.title);
+    const i = row0 ? list.indexOf(row0) : -1;
     if (i < 0) return;
     // ⚠️open 存的是【那一行的 key】，不是歌对象——照这一屏自己的写法来（key = id 或 "s"+下标）
     setOpen(list[i].id || ("s" + i));
@@ -5435,9 +5447,9 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const ps = A(acc && acc.posts).find(x => x && watchSame(x.title, driveItem));
+    const ps = watchPick(A(acc && acc.posts), driveItem, x => x && x.title);
     if (ps) { setOpen({ kind: "post", item: ps }); return; }
-    const cs = A(acc && acc.comments).find(x => x && watchSame(x.postTitle, driveItem));
+    const cs = watchPick(A(acc && acc.comments), driveItem, x => x && x.postTitle);
     if (cs) setOpen({ kind: "comment", item: cs });
   }, [driveItem]);
   const closeOne = () => {
@@ -5753,6 +5765,7 @@ function PhoneCarry({
   onWatchSend,
   onWatchReply,
   onWatchKnock,
+  onWatchToast,
   onWatching,
   watchCoolLeft
 }) {
@@ -5797,12 +5810,12 @@ function PhoneCarry({
   // 挂点找不着的时候再模糊找一次：模型写的名字标点常常飘（「《长夜》」→「长夜」），
   // 严格选择器就当场落空。认名字的规矩只有 PhoneWatch.sameName 一份。
   const watchFuzzy = name => {
-    if (!name || !WK || !WK.sameName) return null;
-    const all = document.querySelectorAll('[data-watch^="item:"]');
-    for (let i = 0; i < all.length; i++) {
-      if (WK.sameName(String(all[i].getAttribute("data-watch")).slice(5), name)) return all[i];
-    }
-    return null;
+    if (!name || !WK || !WK.pickName) return null;
+    // ⚠️必须跟各屏用【同一条】挑人规矩（pickName：先要完全一样的）。
+    //   一处 sameName 顺着 DOM 找、一处顺着数据找，撞上两条都像的就各挑各的——
+    //   圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的）。
+    const all = [].slice.call(document.querySelectorAll('[data-watch^="item:"]'));
+    return WK.pickName(all, name, el => String(el.getAttribute("data-watch")).slice(5));
   };
   const watchDotTo = (sel, fuzzyName) => {
     if (!sel) return;
@@ -5975,8 +5988,13 @@ function PhoneCarry({
     setWatch(p => p ? { ...p, knocking: true } : p);
     try {
       const say = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
-      setWatch(p => p ? { ...p, knocks: (p.knocks || 0) + 1, knocking: false, thought: say || p.thought } : p);
-    } catch (e) { setWatch(p => p ? { ...p, knocking: false } : p); }
+      // 真出声了才算这一下：没出声还扣次数，就是「敲了没反应，还少一下」
+      setWatch(p => p ? { ...p, knocks: (p.knocks || 0) + (say ? 1 : 0), knocking: false, thought: say || p.thought } : p);
+    } catch (e) {
+      setWatch(p => p ? { ...p, knocking: false } : p);
+      // ⚠️失败必须说出来。一声不响就是她看到的那个「卡住了一直没反应」。
+      if (onWatchToast) onWatchToast("没敲动：" + (e && e.message ? e.message : "再试一下"));
+    }
   };
 
   // 桌面上那只表要走针。半分钟对一次就够——画秒针的话整页每秒重渲染，不值。
