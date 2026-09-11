@@ -1315,7 +1315,10 @@
     ghost: "给她的文代过笔", grab: "把笔从对方手里抢了回去",
     quit: "因为对方代笔，撂了挑子", back: "被请回来，答应了", refuse: "被请回来，没答应",
     // 请的是对家：她自己回绝了这一单（v66.95，她 2026-09-11）
-    turnDown: "不接对方那篇文"
+    turnDown: "不接对方那篇文",
+    // 圈里的太太下场评论（v67.10，她 2026-09-11）：⚠️只记带刺的那几条，
+    //   夸的不记——每篇文都记会把这本账吵成一片，而且「上次你夸过我」不构成关系。
+    snark: "在对方的文底下阴阳过"
   };
   function loadCircle() { const v = loadJSON(K_CIRCLE, []); return Array.isArray(v) ? v : []; }
   function saveCircle(list) { return saveJSON(K_CIRCLE, (Array.isArray(list) ? list : []).slice(-CIRCLE_CAP)); }
@@ -1357,6 +1360,7 @@
       else if (e.kind === "grab") out.push("· 《" + e.title + "》那次，" + who + "把笔从" + to + "手里抢了回去");
       else if (e.kind === "quit") out.push("· 《" + e.title + "》那次，" + who + "撂了挑子不写了" + (e.say ? "（当时说的是「" + e.say + "」）" : ""));
       else if (e.kind === "turnDown") out.push("· 《" + e.title + "》那次，" + to + "来请" + who + "接，" + who + "没接");
+      else if (e.kind === "snark") out.push("· " + who + "在" + to + "的《" + e.title + "》底下阴阳过一句" + (e.say ? "（说的是「" + e.say + "」）" : ""));
     });
     // 嗑同一对 CP 是圈子里天然的亲近，现算不存
     if (o.sameCP) out.push("· 你们嗑的是同一对");
@@ -1752,6 +1756,86 @@
     return { ok: !!ok, say: say.slice(0, 300) };
   }
 
+  // ── 圈里的太太也下场（她 2026-09-11：「让圈子里的作者们也有机会书评刷出来吧，
+  //    但是也要注意他们的 cp 立场」）────────────────────────────────────
+  // ⚠️代码定【谁来、什么立场】，模型定【她说什么】。立场不用新存一栏，现算：
+  //   · 写过文的：按她【真写过】的那一对算（authorCPStats 的头一条）；
+  //   · 一篇没写过的：按笔名从【她配好的那几对】里定死一对当本命——
+  //     稳定（下次还是这一对）、不花枪。新请来的八位不该等写了文才有性格。
+  const CRITIC_MAX = 2;
+  function authorShipKey(name, fics, characters, userName) {
+    const st = authorCPStats(name, fics, characters, userName) || [];
+    const real = st.filter(function (x) { return x.key !== "_none"; })[0];
+    if (real) return real.key;
+    const cps = loadCPs().map(function (c) { return (Array.isArray(c) ? c : (c && c.cp)) || []; })
+      .filter(function (a) { return a.length >= 2; });
+    if (!cps.length) return "";
+    const pick = Axes.pick(cps, "ship:" + name);
+    return pick ? pick.slice().sort().join("|") : "";
+  }
+  // same=同好；rival=对家（磕的是拆了这一对的另一对，共用其中一个人）；
+  // feud=跟本篇作者有旧账；far=不沾边
+  function criticStance(name, fic, fics, characters, userName, circle) {
+    const own = String((fic && fic.author) || "").trim();
+    if (own && circleFeud(own, name, circle)) return "feud";
+    const mine = ((fic && fic.cp) || []).slice().sort().join("|");
+    const key = authorShipKey(name, fics, characters, userName);
+    if (!mine || !key) return "far";
+    if (key === mine) return "same";
+    const a = key.split("|"), b = mine.split("|");
+    return a.some(function (x) { return x && b.indexOf(x) >= 0; }) ? "rival" : "far";
+  }
+  // ⚠️封顶 2 位：太太满地走，「圈里的太太」就不值钱了。多数篇 0-1 位。
+  // ⚠️不沾边的那几位多半不来——她说的「注意 cp 立场」就是这一条。
+  function rosterCritics(fic, nonce, opts) {
+    const o = opts || {};
+    const fics = o.fics || loadFics(), circle = o.circle || loadCircle();
+    const own = String((fic && fic.author) || "").trim();
+    const pool = (o.authors || loadAuthors()).map(function (a) { return authorName(a); })
+      .filter(function (n) { return n && n !== own; })
+      .map(function (n) { return { name: n, stance: criticStance(n, fic, fics, o.characters, o.userName, circle) }; });
+    if (!pool.length) return [];
+    const r = Axes.seed01(nonce, "criticN");
+    let want = r < 0.45 ? 0 : (r < 0.85 ? 1 : CRITIC_MAX);
+    if (!want) return [];
+    const likely = pool.filter(function (x) { return x.stance !== "far"; });
+    // 不沾边的只有一成半的机会露面，而且只在没人跟这篇有关系的时候
+    const from = likely.length ? likely : (Axes.seed01(nonce, "farIn") < 0.15 ? pool : []);
+    if (!from.length) return [];
+    const order = from.map(function (x, i) { return { x: x, r: Axes.seed01(nonce, "who", x.name, i) }; })
+      .sort(function (p, q2) { return p.r - q2.r; }).map(function (p) { return p.x; });
+    return order.slice(0, Math.min(want, CRITIC_MAX));
+  }
+  // 拼给模型看。⚠️**只给立场和她的卡，不给判语**——写「她会阴阳你」等于替她演完了。
+  function criticBlock(critics, fic, opts) {
+    if (!critics || !critics.length) return "";
+    const o = opts || {};
+    const own = String((fic && fic.author) || "").trim();
+    const zh = { same: "跟这一篇磕的是同一对", rival: "她磕的是【拆了这一对】的另一对（共用其中一个人）",
+      feud: "跟这篇作者有旧账", far: "跟这一篇不沾边，纯路过" };
+    const rows = critics.map(function (c) {
+      const a = findAuthor(c.name) || {};
+      const lines = (c.stance === "feud" && own) ? circleLines(c.name, own, { list: o.circle }) : "";
+      return "· 「" + c.name + "」"
+        + (a.style ? "——路数：" + String(a.style).slice(0, 60) : "")
+        + (a.sore ? "；碰不得：" + String(a.sore).slice(0, 40) : "")
+        + "。立场：" + (zh[c.stance] || zh.far)
+        + (lines ? "\n  旧账：" + lines.replace(/\n/g, "；") : "");
+    });
+    return "\n\n【圈子里这几位也来了】她们是这个圈子的常驻太太，看完这一篇各自留了一条：\n"
+      + rows.join("\n")
+      + "\n⚠️这几条必须署上面这几个笔名，**一位一条，不许多、不许少，也不许现编别的太太**。\n"
+      + "⚠️她们不是来捧场的，立场是什么就写什么：\n"
+      + "· 同好是自己人：催更、玩梗、补刀、点出只有同好才看得见的那一处。\n"
+      + "· 对家：可以阴阳、可以冷、可以「不是我的菜，但笔力是有的」——"
+      + "⚠️**不许人身攻击、不许骂人**。同人圈的对家就是这个火候，撕起来反而假。\n"
+      + "· 有过节的：上面写着旧账，那一条冲的是人，不是文。\n"
+      + "· 要是这一篇正好动到了她「碰不得」的那一点，她那条就冲那一点去；没动到就别硬扯。\n"
+      + "⚠️也不是每位来都为了夸。\n"
+      + "【这几条要标出来】她们那几条各加一个 \"pen\"：\"她的笔名\"；"
+      + "其中带刺的（阴阳、冷嘲、挑刺、翻旧账）再加 \"barbed\":true。别的读者那几条不要加这两栏。\n";
+  }
+
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
   async function genReviews(active, fic, tab, worldbook, characters, userName) {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
@@ -1762,6 +1846,7 @@
     //   现在把它发过去。⚠️顺带让这件事变成一根探针：正文跟挂的 CP 对不上时，
     //   读者会像在站子上看到挂错 tag 那样直说——**她一眼就能看见这一篇写跑了**。
     //   ⚠️给出口：对得上就别提这件事，不然每条书评都在挑标签。
+    const critics = rosterCritics(fic, uid("rv") + Math.random(), { characters: characters, userName: userName });
     const cpTxt = (fic.cp && fic.cp.length) ? cpLabel(fic.cp, characters || [], userName) : "";
     const wayTxt = String(fic.groupWay || "").trim();
     const cpLine = cpTxt
@@ -1772,17 +1857,28 @@
     const sys = ANTI_CLICHE + "\n\n" + READER_VOICE + "\n\n" +
       "他们刚读完一篇发在【" + tab.name + "】同人版、作者笔名「" + authorName + "」的同人文《" + fic.title + "》（标签：" + (fic.tags || []).join("、") + "）。" + cpLine +
       "下面是正文节选，据此写具体的书评/短评（可夸可挑刺可玩梗可催更），别泛泛，别剧透式复述剧情。\n" +
-      "【正文节选】\n" + String(excerpt).slice(0, 1200) + "\n\n" +
+      "【正文节选】\n" + String(excerpt).slice(0, 1200) + criticBlock(critics, fic) + "\n\n" +
       "【输出】只输出合法 JSON 数组，5-8 条书评：\n" +
       "[{\"author\":\"读者马甲（同人圈网名，别用真名，别带@）\",\"content\":\"书评正文\",\"replies\":[{\"author\":\"另一读者马甲\",\"content\":\"楼中楼回复\",\"isAuthor\":false}]}]\n" +
       "**其中必须至少有一条**（某条书评本身、或某条楼中楼回复）是作者「" + authorName + "」本人下场回复读者的——署名就写「" + authorName + "」、把那条的 isAuthor 设为 true，像作者回评那样（道谢/回应读者的梗/害羞解释/回怼黑评，符合太太本人语气）。其余 replies 大多留空，只 1-2 条带楼中楼。语气各异别雷同。";
     const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { maxTokens: 11200 });
     const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
+    // 名册里那几位：只认【真在名册里】的笔名，模型现编的一律当普通读者
+    const roster = {};
+    critics.forEach(function (c) { roster[c.name] = 1; });
+    const own = String(fic.author || "").trim();
     return arr.filter(function (x) { return x && x.content; }).slice(0, 10).map(function (x) {
+      const pen = String(x.pen || "").trim();
+      const fromRoster = pen && roster[pen] && String(x.author || "").trim() === pen;
+      // ⚠️只记带刺的那几条（她 2026-09-11 定的）：夸的不记，不然这本账会被评论淹掉
+      if (fromRoster && x.barbed && own) {
+        circlePush({ a: pen, b: own, kind: "snark", title: fic.title, say: String(x.content).trim().slice(0, 60) });
+      }
       return {
         id: uid("rv"),
         author: String(x.author || "路人读者").slice(0, 20),
+        pen: fromRoster ? pen : "",
         isAuthor: !!x.isAuthor || String(x.author || "") === authorName,
         content: String(x.content).trim(),
         replies: Array.isArray(x.replies) ? x.replies.filter(function (r) { return r && r.content; }).slice(0, 4).map(function (r) {
@@ -3408,7 +3504,13 @@
           h("button", { onClick: postComment, disabled: busy === "myrev", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "0 4px" } }, busy === "myrev" ? "…" : "发表")),
         (function () { const rs = (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }); return rs.length ? rs.map(function (r) {
           return h("div", { key: r.id, className: "mb-3 pb-3", style: { borderBottom: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } }, r.author, r.isAuthor ? authorTag(t) : null),
+            // 名册里那几位：名字点得进她的主页（路人读者没有主页，照旧是死的）
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } },
+              r.pen && props.onOpenAuthor
+                ? h("button", { onClick: function () { props.onOpenAuthor(r.pen); }, className: "active:opacity-60",
+                    style: { fontFamily: F_BODY, fontSize: 12, color: "inherit", background: "transparent", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 } }, r.author)
+                : r.author,
+              r.isAuthor ? authorTag(t) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink } }, r.content),
             (r.replies || []).map(function (rp) {
               return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line } },
@@ -4561,6 +4663,14 @@
     const [list, setList] = useState(function () { return window.Fanfic.loadAuthors(); });
     const [open, setOpen] = useState(null);   // 打开的那位
     const [busy, setBusy] = useState(false);
+    // 从别处点名进来（书评区点了某位太太的名字）：翻到她那一条
+    useEffect(function () {
+      const nm = String(props.startName || "").trim();
+      if (!nm) return;
+      const hit = window.Fanfic.loadAuthors().filter(function (a) { return String(a.name || "").trim() === nm; })[0];
+      props.onStartUsed && props.onStartUsed();
+      if (hit) setOpen(hit.id);
+    }, [props.startName]);
     // 她 2026-09-11：「请作者的时候能不能给一个写想要什么类型或者文风还有磕啥 cp 的」。
     // ⚠️不另开一层：这是「一行字 + 一颗键」，开半窗反而更重（no-half-sheet.md 的判据）。
     //   记在本地：她多半想连着请几批同一个方向的人。
@@ -4876,6 +4986,8 @@
     // cast＝含配角的全量：CP 选择、CP 名字解析、CP 预设都得看得见配角。
     // 老调用方没给 allChars 时退回 characters，行为和以前一样。
     const cast = props.allChars || characters;
+    // 从书评区点进某位太太的主页：带一个笔名过去，那一页自己翻到她那一条
+    const [authorStart, setAuthorStart] = useState("");
     const curTab = tabs.find(function (x) { return x.id === activeTab; }) || tabs[0];
 
     function persistFics(next) { if (saveFics(next)) { setFics(next); return true; } props.toast && props.toast("这次没保存成功，原文章还在"); return false; }
@@ -5051,6 +5163,7 @@
         paper: fPaper,
         onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
+        onOpenAuthor: function (nm) { setAuthorStart(nm); setView("authors"); },
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },
@@ -5081,6 +5194,7 @@
         onExtendFic: function (id, ch) { updateFic(id, function (f) { f.chapters = (f.chapters || []).concat([ch]); f.updatedAt = Date.now(); return f; }); } });
     } else if (view === "authors") {
       inner = h(AuthorsPage, { fics: fics, tabs: tabs, characters: cast, userName: userName, active: props.active, toast: props.toast,
+        startName: authorStart, onStartUsed: function () { setAuthorStart(""); },
         onBack: function () { setView("feed"); },
         onOpenFic: function (id) { setOpenId(id); },
         // 从作者主页直接加笔：把这一篇递给加笔那一屏，省得再去列表里找

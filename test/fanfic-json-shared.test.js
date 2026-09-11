@@ -9,9 +9,13 @@ function generation(name, reply) {
   const end = src.indexOf('\n  }', start) + 4;
   assert.ok(start > 0 && end > start);
   let calls = 0;
+  // v67.10：书评那一枪多了「圈里的太太也下场」那一层，桩跟着补上——
+  // 这几个都是模块作用域里的帮手，不是存档字段，所以给空实现就够。
   const fn = new Function('parseJSONLoose', 'callAI', 'uid', 'ANTI_CLICHE', 'READER_VOICE',
+    'rosterCritics', 'criticBlock', 'circlePush', 'cpLabel', 'findAuthor',
     src.slice(start, end) + '\nreturn ' + name + ';')(
-    parseJSONLoose, async () => { calls++; return reply; }, p => p + '_fixture', '', '');
+    parseJSONLoose, async () => { calls++; return reply; }, p => p + '_fixture', '', '',
+    () => [], () => '', () => {}, () => '', () => null);
   return {fn, calls: () => calls};
 }
 test('同人文六处解析共用 engine，不留本地修复链', () => {
