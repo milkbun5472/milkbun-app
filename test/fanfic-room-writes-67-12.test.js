@@ -142,6 +142,16 @@ test("拿给他看那一条也做成卡，而且是复用转发那张", () => {
   // 卡上那一行小字：第几章、是拿给他看还是他写的
   assert.match(fic, /note: "第 " \+ \(i \+ 1\) \+ " 章 · " \+ \(mine \? "他写的" : "拿给你看"\),/);
   assert.match(fic, /cpText: cpLabel\(f\.cp, props\.characters, props\.userName\),/);
+  // ⚠️v67.14：这儿写过一次 ch.content——那个闭包里压根没有 ch（那一章叫 ch2），
+  //   点下去当场抛异常，按钮看着像死的（她 2026-09-11：「拿给他看那个按钮是死的」）。
+  //   所以摘要必须从【这个闭包自己声明的那一章】上取。
+  const onFile = fic.slice(fic.indexOf("        onFile: function (c, noteOnly, roomPick) {"), fic.indexOf("        setFileIdx(-1);"));
+  assert.ok(onFile.length > 300, "没切到 onFile");
+  assert.match(onFile, /const ch2 = \(f\.chapters \|\| \[\]\)\[i\] \|\| \{\};/);
+  assert.match(onFile, /excerpt: String\(ch2\.content \|\| ""\)\.trim\(\)\.slice\(0, 90\)/);
+  // ⚠️先把注释剥掉：病历里就写着 ch.content 那几个字，拿原文去断永远是红的
+  const onFileNoc = onFile.split("\n").map(l => l.split("//")[0]).join("\n").replace(/ch2\./g, "");
+  assert.ok(!/[^a-zA-Z0-9_]ch\./.test(onFileNoc), "又去摸了一个这个闭包里不存在的 ch");
   // ⚠️复用转发那张卡，不新发明一种；转发那一路没有 note，长相一点没变
   assert.match(comp, /"同人文" \+ \(f\.cpText \? " · " \+ f\.cpText : ""\) \+ \(f\.note \? " · " \+ f\.note : ""\)\)/);
   assert.equal(comp.split("function FicShareCard").length - 1, 1, "又画了第二张同人文卡");

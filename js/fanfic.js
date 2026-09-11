@@ -3622,7 +3622,9 @@
               { ficId: f.id, ficTitle: f.title, author: f.author || "",
                 cpText: cpLabel(f.cp, props.characters, props.userName),
                 note: "第 " + (i + 1) + " 章 · " + (mine ? "他写的" : "拿给你看"),
-                excerpt: String(ch.content || "").trim().slice(0, 90) });
+                // ⚠️这儿的那一章叫 ch2（ch 在这个闭包里压根不存在）——
+                //   写成 ch.content 就是当场抛异常，按钮看着像死的（她 2026-09-11 报）。
+                excerpt: String(ch2.content || "").trim().slice(0, 90) });
             setFiledNote(r ? "放进了「" + r.roomName + "」" : "没能放进去");
           }
           setFileIdx(-1);
