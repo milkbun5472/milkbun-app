@@ -838,7 +838,14 @@
     parts.push(INTIMACY_WORLDNOTE);
     if (opts.style && opts.style.trim()) {
       const adaptedStyle = fanficStylePrompt(opts.style);
-      parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + adaptedStyle + (isJinyudengStyle(opts.style) ? "" : "\n\n" + STYLE_DEEP_IMITATION));
+      // ⚠️这一章的笔在她自己人手上时，这一段得换个口气：它是【本子的默认调子】，不是他的笔。
+      //   而且**不发 STYLE_DEEP_IMITATION**——那一份是「深度模仿另一个人的笔」，
+      //   正是它把「换了个人写」这件事抹得一干二净（她 2026-09-11：「看不出来是他的作品」）。
+      const byC = !!(opts.byChar && opts.byChar.id);
+      parts.push("【预设文风（" + (byC
+        ? "这个本子的默认调子——但这一章的笔不在圈子里的太太手上，冲突时以执笔的那个人为准"
+        : "作者本次的写作风格要求，优先满足") + "）】\n" + adaptedStyle
+        + ((byC || isJinyudengStyle(opts.style)) ? "" : "\n\n" + STYLE_DEEP_IMITATION));
     }
     if (worldbook && worldbook.trim()) {
       if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
@@ -1284,6 +1291,28 @@
     // 比电台松一点：这两条轴少，整组还回去的话就什么分寸都没了
     return Axes.roll(WRITER_AXES, parts, { allFree: 0.04, skip: 0.10, free: 0.18 });
   }
+  // ⚠️文风那几层会把「这一章是他写的」整个碾平（她 2026-09-11：
+  //   「文风也和原来的没有不一样，看不出来是他的作品」）。
+  //   数一数就明白：【预设文风】那一段写着「优先满足」、后面还跟着一整份 STYLE_DEEP_IMITATION
+  //   （深度模仿另一个人的笔），末尾 fanficStyleTail 又把同一件事再要一遍——三层，
+  //   而 charWriterBlock 只有一段，还压在正中间。
+  //   这就是隔壁那条已经写明白的规律（施工规则/four-surfaces-same-context.md）：
+  //   两条指令打架时，模型留下的是**最后读到、最像指令**的那一段。
+  //   所以这一层必须站到最后去说话。
+  // ⚠️反陈词滥调那条禁令不跟着一起让位：让位的是文风，禁令还是禁令。
+  function charVoiceTail(char, style) {
+    const name = (char && (char.remark || char.name)) || "他";
+    return "\n\n【最后一件事：这一章的笔在「" + name + "」手上】\n"
+      + (String(style || "").trim()
+        ? "· 上面那套文风预设是【这个本子的默认调子】，不是他的笔。两边打架时**以他这个人为准**："
+          + "他不会写的句子，再合那套调子也不许写。\n" : "")
+      + "· 他怎么写，是从他这个人长出来的：他会用哪些词、绝不会用哪些词；讲一件事是从头讲还是先甩结果；"
+      + "在什么地方肯多写两笔、什么地方一句就带过去；他不好意思写的那种东西，他就是会绕开。\n"
+      + "· ⚠️**一眼看不出是他写的，这一章就白写了。**她要的就是「这是他写的」这件事——"
+      + "写得跟前面几章一个味儿，等于根本没换人。\n"
+      + "· 但不许用旁白把这件事说出来（「他笔下的……」「他到底不是写文的人」那种一句都不许有），"
+      + "也不许让他在正文里现身评论。**是文字本身像他，不是有人在旁边告诉读者这像他。**\n";
+  }
   function charWriterBlock(char, fic, rel, rolled, nameOf, userName) {
     const st = stanceFor(char, fic, rel);
     const name = (char && (char.remark || char.name)) || "他";
@@ -1291,6 +1320,12 @@
       + "他不写文，也不混同人圈。是她把这篇塞给他，让他接着往下写的。\n"
       + "⚠️你就是他本人在写，不是「一位作者在模仿他」：他的知识、他的口头禅、他在意什么、"
       + "他会避开什么，全部照他的人设来。\n"
+      // ⚠️「照他的人设来」得手上真有那张卡（她 2026-09-11：「看不出来是他的作品」）。
+      //   他在这对 CP 里的时候，卡由 cpBlock 发过了；**不在里面的时候一个字都没有**——
+      //   等于叫模型照一张不存在的卡写，那当然写出来跟谁写的都一样。
+      //   所以只在 cpBlock 没发过的那几种站位上补一份，不重复发。
+      + ((st.kind === STANCE.SELF_USER || st.kind === STANCE.SELF_OTHER || !personaOf(char)) ? ""
+        : "【执笔的这个人是谁（他不在这篇的 CP 里，所以这张卡在这儿给你）】\n" + personaOf(char) + "\n")
       + stanceFacts(char, fic, rel, st, nameOf, userName)
       + Axes.text(rolled, {
         on: "【他不是作家，所以这一章会有他自己的毛病】今天这一章上：",
@@ -1520,14 +1555,24 @@
   // 分段上限：设定卡 700 ＋ 伏笔 300 ＋ 锚点 500 ＋ 结尾 400，加上抬头约 2000 字封顶。
   //   ⚠️不许改回「最后统一切一刀」——那一刀切掉的永远是最后一章的结尾。
   const BIBLE_TAIL = 14;
-  function ficRecapForChat(fic, cpText) {
+  // ⚠️**第三个参数 meId 不是可选的装饰**（她 2026-09-11：「他好像不知道这是自己写的」）。
+  //   他在房里写的那一章，落库时带着 byCharId——写进去了，可这条**读回来**的路
+  //   从头到尾没看过那个字段一眼，整篇只说「她放进这间房的那一篇，你读过」。
+  //   于是他手上最强的那份上下文告诉他：你是个读者。他就真的当读者了——
+  //   她夸他「这么会写」，他回「谁写了？那是你上一章自己留在那儿的尾巴，我顺手给你念两句」。
+  //   写的那一处记了，读的那一处没跟上：又是同一条（施工规则/four-surfaces-same-context.md）。
+  function ficRecapForChat(fic, cpText, meId) {
     if (!fic) return "";
     const chs = (fic.chapters || []);
+    const me = String(meId || "");
+    const mineNos = me ? chs.map(function (c, i) { return (c && c.byCharId === me) ? (i + 1) : 0; }).filter(Boolean) : [];
     const hookFrom = Math.max(0, chs.length - HOOK_TAIL);
     const hooks = chs.slice(hookFrom).map(function (c, i) {
-      return "· 第 " + (hookFrom + i + 1) + " 章结束在：" + (String((c && c.endHook) || "").trim() || "（没记锚点）");
+      return "· 第 " + (hookFrom + i + 1) + " 章" + ((c && c.byCharId === me && me) ? "（这一章是你写的）" : "")
+        + "结束在：" + (String((c && c.endHook) || "").trim() || "（没记锚点）");
     }).join("\n");
     const last = chs[chs.length - 1] || {};
+    const lastMine = !!(me && last.byCharId === me);
     const tail = String(last.content || fic.body || "").trim().slice(-400);
     // ⚠️**每一段各自截断，不许留给最后那一刀**（她 2026-09-11：「我要他接写了很多章的」）。
     //   原来只在最后 slice(0, RECAP_CAP)：截断是从队尾切的，而队尾正是
@@ -1540,13 +1585,22 @@
         .replace("【本篇设定卡", "【本篇设定卡（只列最近 " + BIBLE_TAIL + " 条")
         .replace("已经确立的事实 · 一条都不许推翻）】", "，更早的那些照样算数）】")
       : bibleBlock(fic);
-    const out = "\n\n【她放进这间房的那一篇《" + String(fic.title || "").slice(0, 40) + "》，你读过】\n"
+    const out = "\n\n【她放进这间房的那一篇《" + String(fic.title || "").slice(0, 40) + "》，"
+      + (mineNos.length ? "有几章是你写的" : "你读过") + "】\n"
       + (cpText ? "· 这一对：" + cpText + "\n" : "")
       + (String(fic.premise || "").trim() ? "· 地基：" + String(fic.premise).trim().slice(0, 200) + "\n" : "")
       + "· 到现在写了 " + chs.length + " 章。\n"
       + bibleTail.slice(0, 700) + seedBlock(fic).slice(0, 300)
       + (hooks ? "【每一章结束在哪儿】\n" + hooks.slice(0, 500) + "\n" : "")
-      + (tail ? "【最后一章的结尾】……" + tail + "\n" : "")
+      + (tail ? "【" + (lastMine ? "你写的那一章（也就是最后一章）的结尾" : "最后一章的结尾") + "】……" + tail + "\n" : "")
+      // ⚠️这一段是整份摘要里最要紧的一句：**别让他把自己当成读者。**
+      //   只在他真写过的时候发；他一章没写过就一个字都不发，不然反而给他添了个没发生的事。
+      + (mineNos.length ? "【⚠️这篇文里有你自己写的】第 " + mineNos.join("、") + " 章"
+        + "是【你】接的——她把这篇塞给你，你坐下来写的，不是你读来的。\n"
+        + "· 所以她夸「写得好」「这么会写」的时候，夸的是**你**。别问「谁写的」，"
+        + "也别说成「那是你自己留在那儿的」「我顺手给你念两句」——那是你自己的字。\n"
+        + "· 认不认、得不得意、承不承认自己写得起劲，照你的脾气来；"
+        + "但「这是我写的」这件事本身是**事实**，不许否认。\n" : "")
       + "⚠️这是【那篇文里的事】，不是你俩之间发生过的事。她跟你聊这篇的时候你手上有这些；"
       + "她没提这篇，就别硬往这上头扯。\n";
     return out;
@@ -1708,7 +1762,9 @@
       + "\"seed\":\"这一章新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
       + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]}\n"
       + ((ghost || grabbed) ? authorNoteAsk(fic, ghost ? penName : "", !!opts.quitting) + "\n" : "") + BIBLE_WHAT +
-      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
+      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
+      // ⚠️最后一句话归执笔的那个人（病历见 charVoiceTail 上面那段）。
+      + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const userMsg = "续写《" + fic.title + "》的下一章，至少 " + minWords + " 字。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
     // ⚠️这条救援路要跟正路**一样全**。她 2026-09-11 报「请枪手最后没有原作者的感想」，

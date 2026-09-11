@@ -153,7 +153,10 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
   assert.match(app, /onFileChapter: \(charId, card, pick, meta\) => \{/);
   assert.match(app, /addMemEntry\(\{[\s\S]{0,200}charIds: \[charId\], source: "fanfic"/);
   // relOf 只给状态不给数字这件事，是在 app 那头就定的
-  assert.match(app, /relOf: charId => \{/);
+  // ⚠️v67.17 它从 props 里那一处**搬去了公共的 relOfChar**：房里那一枪原来传的是
+  //   charRel: null，同一件事写在两处、第二处是个 null。所以这儿认的是那个名字。
+  assert.match(app, /relOf: relOfChar,/);
+  assert.match(app, /const relOfChar = charId => \{/);
   assert.match(app, /只给【状态】不给数字/);
 });
 

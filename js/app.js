@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.16";
+const APP_VERSION = "v67.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7147,6 +7147,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { cooling: !explicitlyAsked && turns.size < 3, explicitlyAsked, assistantTurns: turns.size };
   };
   // 这间房最近放进来的是哪一篇同人文（「拿给他看」那张卡上带着 ficId）。
+  // 他写同人文那一章时手上的实情（同人文那边 stanceFacts 用）。
+  // ⚠️只给【状态】不给数字：好感度 78 递过去，他写出来的是一份报告，不是一章文。
+  // ⚠️**只有一处**：原来它只长在同人文那个 props 里，房里那一枪传的是 charRel: null，
+  //   于是他在房里写的那一章，手上没有「他和她现在是什么样」（她 2026-09-11：
+  //   「看不出来是他的作品」有一半在这儿）。一层写在两处，第二处是个 null。
+  const relOfChar = charId => {
+    const cp = couples[charId] || {};
+    const out = { aff: Math.round(affOf(charId)), couple: cp.status || "", rels: {} };
+    if (cp.status === "together" && cp.since) out.days = Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1);
+    Object.keys(rels || {}).forEach(k => {
+      const p2 = String(k).split("->");
+      if (p2[0] === charId && p2[1] && rels[k] && rels[k].label) out.rels[p2[1]] = rels[k].label;
+    });
+    return out;
+  };
   // ⚠️只认【这间房自己】的卡：他那边别的房放过什么，跟这间房不相干。
   const lastRoomFic = chatKey => {
     if (!window.Fanfic) return null;
@@ -7711,14 +7726,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   还是说生成文的时候本身就已经有一些小结了，也能顺手扔过去」——就是这样。
       // ⚠️料是现成的（premise／设定卡／伏笔盒／每章锚点／上一章结尾），一枪都不用多打。
       if (roomFic && window.Fanfic.ficRecapForChat) {
-        const cpc = window.Fanfic.cpChars(roomFic.cp || [], characters, profile);
+        // ⚠️第三个参数是【他自己的 id】。不传＝摘要里一个字都不会提他写过哪几章，
+        //   他就只当自己是读者（她 2026-09-11：「他好像不知道这是自己写的」）。
         capState.push(window.Fanfic.ficRecapForChat(roomFic,
-          window.Fanfic.cpLabel ? window.Fanfic.cpLabel(roomFic.cp || [], characters, (profile && profile.name) || "我") : ""));
+          window.Fanfic.cpLabel ? window.Fanfic.cpLabel(roomFic.cp || [], characters, (profile && profile.name) || "我") : "",
+          charId));
       }
       if (roomFic) {
         openCaps.push("ficNext");
+        const myChaps = (roomFic.chapters || []).map((x, i2) => (x && x.byCharId === charId) ? (i2 + 1) : 0).filter(Boolean);
         capState.push("ficNext：她把《" + String(roomFic.title || "").slice(0, 40) + "》放进了这间房，现在写到第 "
-          + ((roomFic.chapters || []).length) + " 章。只有你此刻真的想接着往下写一章才填写，"
+          + ((roomFic.chapters || []).length) + " 章"
+          + (myChaps.length ? "，其中第 " + myChaps.join("、") + " 章是你自己写的" : "") + "。只有你此刻真的想接着往下写一章才填写，"
           + "格式 {say:\"你想写下一章的时候会说的那一句——为什么想写、想从哪儿接\"}。"
           + "⚠️不能声称已经写好了，最终由她点卡片你才真的动笔；不想写就省略这一栏。");
       }
@@ -19049,7 +19068,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             style: K.activeStyleText(cfg), perFic: cfg.perFic, minChars: cfg.minChars,
             chatMaterial: K.chatMaterialFor(cpc),
             byChar: activeChar,
-            charRel: null,
+            charRel: relOfChar(cid),
             writerAxes: K.rollWriterAxes(cid, f.id, (f.chapters || []).length),
             roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14),
             nameOf: id2 => { const c = characters.find(x => x && x.id === id2); return c ? (c.remark || c.name) : "那个人"; }
@@ -19874,17 +19893,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForwardToGroup: forwardFicToGroup,
     onNotifyChapter: notifyChapterToChars,
     // 让角色来写（她 2026-09-11）：立场由同人文那边算，料由这儿给。
-    // ⚠️只给【状态】不给数字：好感度 78 递过去，他写出来的是一份报告，不是一章文。
-    relOf: charId => {
-      const cp = couples[charId] || {};
-      const out = { aff: Math.round(affOf(charId)), couple: cp.status || "", rels: {} };
-      if (cp.status === "together" && cp.since) out.days = Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1);
-      Object.keys(rels || {}).forEach(k => {
-        const p2 = String(k).split("->");
-        if (p2[0] === charId && p2[1] && rels[k] && rels[k].label) out.rels[p2[1]] = rels[k].label;
-      });
-      return out;
-    },
+    // ⚠️算法在上面 relOfChar 那一处，只许有一份——房里那一枪走的是同一个。
+    relOf: relOfChar,
     // 他替你写的那一章落在哪儿（她 2026-09-11 改的口）。
     // ⚠️原来这儿是**自动往主线记忆库写一条**——她当场指出：「有时候我也只是想测试一下，
     //   但是不想让他们记得」。她是对的：「不记」事后能补，「记了」得手动去删，
