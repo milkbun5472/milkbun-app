@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.11";
+const APP_VERSION = "v67.12";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7146,6 +7146,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const turns = new Set(after.filter(m => m && (m.role === "assistant" || m.role === "char") && (!senderId || String(m.senderId || "") === String(senderId)) && m.kind !== "selfie").map(m => m.turnId || ("m:" + m.ts)));
     return { cooling: !explicitlyAsked && turns.size < 3, explicitlyAsked, assistantTurns: turns.size };
   };
+  // 这间房最近放进来的是哪一篇同人文（「拿给他看」那张卡上带着 ficId）。
+  // ⚠️只认【这间房自己】的卡：他那边别的房放过什么，跟这间房不相干。
+  const lastRoomFic = chatKey => {
+    if (!window.Fanfic) return null;
+    const msgs = chatsRef.current[chatKey] || [];
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const id = msgs[i] && String(msgs[i].ficId || "");
+      if (!id) continue;
+      const f = (window.Fanfic.loadFics() || []).filter(x => x && x.id === id)[0];
+      if (f) return f;
+    }
+    return null;
+  };
+  // 你们在这间房里刚聊过的那几句：这是【商量出来的走向】，不是素材。
+  // ⚠️ChatRooms.visibleText 那一道照旧过一遍：撤回的、system 的、被上下文闸挡掉的都不算。
+  const roomTalkOf = (chatKey, charName, uName, n) => {
+    const K = window.ChatRooms;
+    const msgs = (chatsRef.current[chatKey] || []).filter(m => {
+      if (!m || m.ficId || isOocMsg(m)) return false;
+      return K ? !!K.visibleText(m) : !!(m.content && (m.role === "user" || m.role === "assistant"));
+    }).slice(-(Number(n) || 14));
+    return msgs.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
+      String((K ? K.visibleText(m) : m.content) || "").replace(/\s+/g, " ").slice(0, 160)).join("\n");
+  };
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
     const chatKey = opts.chatKey || charId;
@@ -7678,6 +7702,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("studyInvite");
         capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由对方点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
       }
+      // 一起写跟一起学同一个形状（她 2026-09-11：「房间里我们讨论了他直接写了然后推卡给我」）：
+      // 房里开了「一起写」、而且这间房里放进过某一篇，他才能开口说「这一章我来写」，
+      // 而且【只出一张卡】——她点了才真花那一枪。⚠️他不许声称已经写好了。
+      const roomFicOn = !!(room && !room.main && room.actions && room.actions.fanfic && !_s.engineerEyes);
+      const roomFic = roomFicOn ? lastRoomFic(chatKey) : null;
+      if (roomFic) {
+        openCaps.push("ficNext");
+        capState.push("ficNext：她把《" + String(roomFic.title || "").slice(0, 40) + "》放进了这间房，现在写到第 "
+          + ((roomFic.chapters || []).length) + " 章。只有你此刻真的想接着往下写一章才填写，"
+          + "格式 {say:\"你想写下一章的时候会说的那一句——为什么想写、想从哪儿接\"}。"
+          + "⚠️不能声称已经写好了，最终由她点卡片你才真的动笔；不想写就省略这一栏。");
+      }
       // 小游戏跟一起学同一个形状：房里开了这一条，他才能开口约你玩，
       // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——他不许声称已经开局。
       const roomGamesOn = !!(room && !room.main && room.actions && room.actions.games && !_s.engineerEyes);
@@ -8188,6 +8224,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           }]);
           delivered = true;
         }
+      }
+      if (roomFic && parsed.ficNext && typeof parsed.ficNext === "object") {
+        pChat(chatKey, p => [...p, {
+          role: "assistant", kind: "ficinvite", ficId: roomFic.id,
+          subject: String(roomFic.title || "").slice(0, 60),
+          sessionTitle: "接着写第 " + ((roomFic.chapters || []).length + 1) + " 章",
+          say: String(parsed.ficNext.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
+        }]);
+        delivered = true;
       }
       if (roomGamesOn && parsed.gameInvite && typeof parsed.gameInvite === "object") {
         const gv = parsed.gameInvite;
@@ -18969,6 +19014,59 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id, roomId: m.roomId || activeRoomId || "main" });
       setScreen("study");
     },
+    // 一起写：她点了这张卡，他才**真的动笔**（这一枪的钱花在这儿，不在他开口那一下）。
+    // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让他写谁再写」。
+    // ⚠️走向按你们在这间房里商量的来；**分歧按他的来**，那一句写在 authorNote 里。
+    onOpenFicInvite: async m => {
+      const K = window.Fanfic;
+      if (!K || !activeChar) return;
+      const cid = activeChar.id;
+      const key = window.ChatRooms ? window.ChatRooms.chatKey(cid, activeRoomId) : cid;
+      const f = (K.loadFics() || []).filter(x => x && x.id === String(m.ficId || ""))[0];
+      if (!f) { toast("那一篇找不到了"); return; }
+      const p = bgActiveRef.current || active;
+      if (!p) { toast("先去 设置·API 配一条线路"); return; }
+      if (laneBusy("ficroom:" + cid)) return;
+      startLane("ficroom:" + cid);
+      toast("他写着呢…");
+      try {
+        const tab = (K.loadTabs() || []).filter(x => x && x.id === f.tabId)[0] || { name: "", desc: "" };
+        const cpc = K.cpChars(f.cp || [], characters, profile);
+        const cfg = K.loadCfg();
+        const uName = (profile && profile.name) || "我";
+        const ids = cpc.filter(c => c && !c.isMe && c.id).map(c => c.id);
+        const ch = await K.genNextChapter(p, f, tab, cpc, uName,
+          loreForContext("creative", ids, [f.title, tab.name].filter(Boolean).join("\n")),
+          {
+            style: K.activeStyleText(cfg), perFic: cfg.perFic, minChars: cfg.minChars,
+            chatMaterial: K.chatMaterialFor(cpc),
+            byChar: activeChar,
+            charRel: null,
+            writerAxes: K.rollWriterAxes(cid, f.id, (f.chapters || []).length),
+            roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14),
+            nameOf: id2 => { const c = characters.find(x => x && x.id === id2); return c ? (c.remark || c.name) : "那个人"; }
+          });
+        const nm = activeChar.remark || activeChar.name;
+        const fics = K.loadFics().map(x => {
+          if (!x || x.id !== f.id) return x;
+          const next = Object.assign({}, x);
+          next.chapters = (x.chapters || []).concat([Object.assign({}, ch, { byAuthor: nm, byCharId: cid })]);
+          next.updatedAt = Date.now();
+          return next;
+        });
+        K.saveFics(fics);
+        const no = (f.chapters || []).length + 1;
+        // 推回房里：卡上只放【开头两百字 + 他那句话】，全文在同人文里
+        pChat(key, prev => [...prev, {
+          role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
+          subject: "《" + f.title + "》第 " + no + " 章",
+          say: String(ch.authorNote || "").trim().slice(0, 300),
+          content: String(ch.content || "").trim().slice(0, 200)
+        }]);
+        toast("他写好了第 " + no + " 章");
+      } catch (e) { toast(String(e.message || e)); }
+      endLane("ficroom:" + cid);
+    },
     // 小游戏走同一张卡、同一条路（studyinvite 那个形状），只是落到游戏架上。
     onOpenGameInvite: m => {
       setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id });
@@ -19786,7 +19884,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   改成她按一下才发生，而且默认落进【房间】，不是主线。
     // ⚠️这一条一分钱不花：「喂给他」只是把东西放进上下文，上下文是本地拼的；
     //   只有「让他开口」才打枪。
-    onFileChapter: (charId, card, pick) => {
+    onFileChapter: (charId, card, pick, meta) => {
       const K = window.ChatRooms;
       if (!K || !charId || !card) return null;
       // 先找他现成的那间「一起写」；没有就开一间——不能先把她赶去建房，
@@ -19800,7 +19898,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!room) room = rooms.filter(r => r.actions && r.actions.fanfic).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
       if (!room) room = K.create(charId, "一起写", "focused");
       const key = K.chatKey(charId, room.id);
-      pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", ts: Date.now(), read: true, content: String(card).slice(0, 900) }]);
+      // ⚠️卡上要带【是哪一篇】：不带的话，这间房里聊完想让他接着写，
+      //   谁都不知道该续哪一篇（她 2026-09-11 要的那条链就从这儿起）。
+      pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", ts: Date.now(), read: true,
+        content: String(card).slice(0, 900),
+        ficId: String((meta && meta.ficId) || ""), ficTitle: String((meta && meta.ficTitle) || "").slice(0, 60) }]);
       return { roomId: room.id, roomName: room.name };
     },
     // 「只记一笔」：也是 0 枪，也是她按了才发生

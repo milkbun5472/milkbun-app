@@ -7351,6 +7351,7 @@ function ChatThread({
   onAcceptListen,
   onOpenStudyInvite,
   onOpenGameInvite,
+  onOpenFicInvite,
   onSendTransfer,
   onRespondTransfer,
   onOpenMoments,
@@ -7943,6 +7944,22 @@ function ChatThread({
         h("button", { onClick: () => onAcceptListen && onAcceptListen(character.id, m.song || ""), className: "w-full active:opacity-80", style: { background: "#fff", color: "#17171b", fontFamily: F_DISPLAY, fontSize: 14, padding: "8px", borderRadius: 10 } }, "和 TA 一起听 →")));
     // 一起学和小游戏是同一张卡（他在房里开口约你，点了才真进那一屏）。
     // 小游戏当初没有卡，那个开关等于空的——补的时候不另画一张，就长在这一张上。
+    // 一起写（她 2026-09-11）：他开口说「这一章我来写」出一张卡，她点了他才真动笔；
+    // 写完再推一张「他写好了」的卡回来。⚠️两张卡都照一起学那张的形状，不另发明一种。
+    if (m.kind === "ficinvite" || m.kind === "ficdone") {
+      const done = m.kind === "ficdone";
+      return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
+        h(Avatar, { character: character, size: 34, radius: 10 }),
+        h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, done ? "他写好了" : "一起写"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || "接着写一章"),
+          !done && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
+          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
+          // 写好的那张只放开头两百字，全文在同人文里——房间里不放第二份正文
+          done && m.content ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.ink, lineHeight: 1.85, marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.line, whiteSpace: "pre-wrap" } }, m.content + "…") : null,
+          done ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } }, "全文在同人文里")
+            : h("button", { onClick: function () { onOpenFicInvite && onOpenFicInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "让他写")));
+    }
     if (m.kind === "studyinvite" || m.kind === "gameinvite") {
       const isGame = m.kind === "gameinvite";
       const eyebrow = isGame ? "一起玩" : m.mode === "resume" ? "继续一起学" : "一起学邀请";

@@ -1507,6 +1507,28 @@
       + (ghost ? "（你是被请来接这篇的，多半会顺着点单走，但也不必当命令。）" : "（这是你自己的连载，你说了算。）") + "\n";
   }
 
+  // ── 你们在房里商量好的（她 2026-09-11）───────────────────────────────
+  // 她原话：「就直接做房间里我们讨论了他直接写了然后推卡给我，就按我和他商量过的来，
+  //   但是如果我们有不同意见有分叉那还是按他想的来（比如说"不行我觉得这样比较合理"），
+  //   这样才好玩。然后我跟谁讨论让他写谁再写。」
+  // ⚠️这一段是【走向】，不是素材：上次「她的原话被当成台词搬进正文」那个坑就在隔壁，
+  //   所以用途照旧钉死——一句原话都不许进正文。
+  // ⚠️分歧那一条是这件事最要紧的地方：**不许改成「照她说的办」**。
+  //   她要的就是他会顶回来——听话的合作者不好玩。
+  function roomTalkBlock(talk, meName, heName) {
+    const t2 = String(talk || "").trim();
+    if (!t2) return "";
+    return "\n【你们在房里商量过这一章】以下是" + (meName || "她") + "和你刚才聊的（新的在后面）：\n"
+      + t2.slice(0, 1200)
+      + "\n⚠️这是【你们商量出来的走向】，不是素材：上面那些话**一句都不许出现在正文里**，"
+      + "也不许把这段对话本身写成情节。\n"
+      + "⚠️商量好的就照着写。**但你要是不同意，就按你自己想的写**——"
+      + "你是写这一章的人，不是替她记录的人。\n"
+      + "⚠️真没照她说的写，就在 authorNote 里当面跟她说一句为什么"
+      + "（「不行我觉得这样比较合理」那种口气，是" + (heName || "你") + "会说的话，不是道歉、不是请示）。"
+      + "照着写了就不用提这件事。\n";
+  }
+
   // ── 设定卡 + 伏笔盒（她 2026-09-11：「章节多了怎么记住重要设定和 callback 不会崩」）──
   // 病根：endHook 记的是【结束在哪儿】，不是【这篇文里有什么】。十章之后，
   // 他母亲叫什么、那枚戒指是谁给的，一个字都没有；而 priorHooks 还在线性变长。
@@ -1622,6 +1644,7 @@
       "· **这一章至少写 " + minWords + " 字**。这是硬指标，不是参考值：写到了再收尾，别写个开头就交。\n" +
       seedBlock(fic) +
       wantBlock(opts.want, opts.hardWant, ghost) +
+      (byChar ? roomTalkBlock(opts.roomTalk, userName, byChar.remark || byChar.name) : "") +
       ((ghost || grabbed) ? "\n" + authorStanceFacts(fic, {
         hardWant: opts.hardWant,
         ghostName: byChar ? "" : (ghost ? penName : (opts.author && authorName(opts.author)) || ""),
@@ -2490,7 +2513,9 @@
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
     circlePush: circlePush, circleBetween: circleBetween, circleFeud: circleFeud, circleLines: circleLines, sameCPWith: sameCPWith,
     HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter,
-    authorHeatOf: authorHeatOf, heatBand: heatBand,
+    authorHeatOf: authorHeatOf, heatBand: heatBand, roomTalkBlock: roomTalkBlock,
+    // 房间那头要自己解析 CP 才能让他接着写（loadCfg／activeStyleText 上面已经开过了）
+    cpChars: cpChars,
     grabChance: grabChance, refuseChance: refuseChance, backChance: backChance,
     authorStanceFacts: authorStanceFacts, authorNoteAsk: authorNoteAsk,
     wantBlock: wantBlock, bibleBlock: bibleBlock, seedBlock: seedBlock, applyChapterMeta: applyChapterMeta, BIBLE_CAP: BIBLE_CAP, SEED_CAP: SEED_CAP, HOOK_TAIL: HOOK_TAIL,
@@ -3559,7 +3584,8 @@
             props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName));
             setFiledNote("记了一笔");
           } else {
-            const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName), roomPick);
+            const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName), roomPick,
+              { ficId: f.id, ficTitle: f.title });
             setFiledNote(r ? "放进了「" + r.roomName + "」" : "没能放进去");
           }
           setFileIdx(-1);

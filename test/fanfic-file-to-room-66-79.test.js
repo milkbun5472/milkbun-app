@@ -56,7 +56,7 @@ test("落进去的是一张卡，不是整章正文", () => {
 });
 
 test("不先把她赶去建房：没有就顺手开一间", () => {
-  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick) =>"), app.indexOf("onNoteChapter:"));
+  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick, meta) =>"), app.indexOf("onNoteChapter:"));
   assert.match(seg, /if \(!room\) room = K\.create\(charId, "一起写", "focused"\);/, "先要求她去建房的话，她就不记了，又回到自动写那个问题上");
   // v67.11：她可以点名放进哪一间、也可以另开一间；两样都没点时老路一个字没变
   assert.match(seg, /let room = \(pick && pick\.id\) \? rooms\.filter\(r => r\.id === pick\.id\)\[0\] \|\| null : null;/);
@@ -71,7 +71,7 @@ test("不先把她赶去建房：没有就顺手开一间", () => {
 test("这一步一分钱不花——喂不要钱，说话才要钱", () => {
   // ⚠️结束锚点要【从起点往后找】：app.js 里 `onBack: () => setScreen("home")` 有好几十处，
   //   从头找会切出一段空串，底下那几条断言就全变成摆设（axes 那条顺序断言刚踩过同一个坑）
-  const from = app.indexOf("onFileChapter: (charId, card, pick) =>");
+  const from = app.indexOf("onFileChapter: (charId, card, pick, meta) =>");
   assert.ok(from > 0);
   const seg = app.slice(from, app.indexOf("    onBack: () => setScreen", from));
   assert.ok(seg.length > 200 && seg.length < 2600, "切出来 " + seg.length + " 字，锚点不对");

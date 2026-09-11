@@ -45,11 +45,11 @@ test("选的那一间真的递到了落库那一步", () => {
     "名字空着也得有个默认，不然开出一间没名字的房");
   assert.match(page, /props\.onFile\(picked, false, roomTarget\(\)\)/, "选了却没递过去＝白选");
   assert.match(fic, /onFile: function \(c, noteOnly, roomPick\) \{/);
-  assert.match(fic, /props\.onFileChapter\(c\.id, window\.Fanfic\.chapterCard\(f, i, nm, mine, props\.userName\), roomPick\)/);
+  assert.match(fic, /props\.onFileChapter\(c\.id, window\.Fanfic\.chapterCard\(f, i, nm, mine, props\.userName\), roomPick,\n\s*\{ ficId: f\.id, ficTitle: f\.title \}\)/);
 });
 
 test("落库那一头：点名就进那间，另开就开那间，都没点走老路", () => {
-  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick) =>"), app.indexOf("onNoteChapter:"));
+  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick, meta) =>"), app.indexOf("onNoteChapter:"));
   assert.ok(seg.length > 300, "没切到 onFileChapter");
   assert.match(seg, /let room = \(pick && pick\.id\) \? rooms\.filter\(r => r\.id === pick\.id\)\[0\] \|\| null : null;/);
   assert.match(seg, /if \(!room && pick && String\(pick\.name \|\| ""\)\.trim\(\)\) room = K\.create\(charId, String\(pick\.name\)\.trim\(\)\.slice\(0, 20\), "focused"\);/);
