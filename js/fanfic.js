@@ -359,7 +359,42 @@
   // ⚠️**写给模型看的鲁布里克，写着写着就成了模子。**
   // 改法照 bans-make-it-dumber：把格子撤掉（不是在后面加一句「别都一样」），
   // 改成**每位分到一个不同的落点**——掷的是从哪儿下笔，不是她是什么人。
+  // ⚠️她 2026-09-11 第二次拿着一屏回来：「还是不行啊，而且全部都是太正经的了！
+  //   还有这些 id 也太一样了」。上一版只掷了【从哪儿说起】，那只管住了内容的落点；
+  //   笔名和口气这两样一格都没掷，于是全落回模型的先验中心：
+  //   笔名清一色「两三个字的冷硬物件名」（折痕／退热贴／生铁秤／防潮纸），
+  //   路数那一句清一色书评腔。**没掷的那一维，就是它偷偷长回一个样的那一维。**
+  // ⚠️笔名单拎出来一条：她两次报的都是这一维（「这些 id 也太一样了」），
+  //   所以这一轴【每位都要掷到】——skip 归零。天花板照旧留着：
+  //   free 那一格还在（「你自己想一个，别用上面那种」），代码关的是「不许不想」，
+  //   不是「只许从这十格里挑」。
+  const PEN_AXIS = [
+    { key: "pen", zh: "她这个笔名是什么样的", opts: [
+      "一句自嘲的话，长一点也没关系",
+      "一句催自己更新、或者干脆认自己是鸽子的话",
+      "叠字、或者一个软乎乎的小名",
+      "英文，或者英文加数字，短",
+      "三四个字的中二短语",
+      "拿一样吃的东西当名字",
+      "像是随手敲出来的几个字，没什么意思",
+      "带着她本命角色或本命 CP 的缩写、梗",
+      "一个数字加一个字",
+      "一个特别正经的书面词——她要的就是这个反差"
+    ] }
+  ];
   const AUTHOR_ANGLE_AXES = [
+    { key: "tone", zh: "她那两句（简介、路数）用什么口气写", opts: [
+      "像圈里人私下聊起她那样说",
+      "像她自己在简介栏里写的自我介绍那样说",
+      "像一条被点赞很多的读者评论那样说",
+      "像有人把她挂出来吐槽那样说",
+      "像一份一本正经的作者推荐那样说",
+      "像她自己不好意思地承认那样说",
+      "像一句看热闹的转述：「就是那个谁谁谁」",
+      // ⚠️每条轴上的格子不许少于 8：请人一次最多请 8 位，格子比人少的时候
+      //   「不放回」那道闸就顺不动了，两位又会分到同一个口气
+      "像一句半开玩笑的吐槽——说的人自己也在追她的文"
+    ] },
     { key: "from", zh: "她的路数这一句从哪儿说起", opts: [
       "从她的文里总会出现的那样具体东西说起",
       "从读者在她评论区最常说的那一句说起",
@@ -391,7 +426,7 @@
     //   顺到没得顺（人比格子多）才认。
     const used = {};
     const shift = function (key, opt) {
-      const ax = AUTHOR_ANGLE_AXES.filter(function (a) { return a.key === key; })[0];
+      const ax = PEN_AXIS.concat(AUTHOR_ANGLE_AXES).filter(function (a) { return a.key === key; })[0];
       const list = (ax && ax.opts) || [];
       const seen = used[key] || (used[key] = {});
       let o = opt;
@@ -406,16 +441,21 @@
       return o;
     };
     for (let i = 0; i < cnt; i++) {
-      const r = Axes.roll(AUTHOR_ANGLE_AXES, [nonce, i], { allFree: 0.10, skip: 0.12, free: 0.20 });
+      // ⚠️轴从两条变四条，掷丢的概率是按【每条轴】算的：还按 0.12/0.20 的话，
+      //   四条里平均有一条多被掷丢，笔名那一条一丢就又长回冷硬物件名了。
+      //   收一点，但 free 一格都不许调到 0（那就等于代码把门关死）。
+      const pen = Axes.roll(PEN_AXIS, [nonce, i, "pen"], { allFree: 0, skip: 0, free: 0.22 });
+      const r = Axes.roll(AUTHOR_ANGLE_AXES, [nonce, i], { allFree: 0.06, skip: 0.08, free: 0.16 });
+      const rows = pen.rows.concat((r && !r.free && r.rows) || []);
       const who = "· 第 " + (i + 1) + " " + (unit || "位") + "：";
-      lines.push((!r || r.free || !r.rows.length)
-        ? who + "落点你自己挑一个，别跟上下几位撞。"
-        : who + r.rows.map(function (x) {
-            // 「你自己想一个」那一格不占位：它本来就不是从表里挑的
-            return x.zh + "＝" + (x.opt === Axes.FREE ? x.opt : shift(x.key, x.opt));
-          }).join("；"));
+      const said = rows.map(function (x) {
+        // 「你自己想一个」那一格不占位：它本来就不是从表里挑的
+        return x.zh + "＝" + (x.opt === Axes.FREE ? x.opt : shift(x.key, x.opt));
+      }).join("；");
+      // 整组还回去时，笔名那一条照样在——还回去的是【剩下几样】
+      lines.push(who + said + ((!r || r.free || !r.rows.length) ? "；剩下几样你自己挑，别跟上下几位撞" : ""));
     }
-    return "\n【这几位各自从哪儿说起】\n" + lines.join("\n")
+    return "\n【这几位各自照着自己这一条长，别照着同一条】\n" + lines.join("\n")
       + "\n⚠️这是【从哪儿下笔】，不是她们的设定本身——别把这几句话抄进任何一位的简介或路数里。\n";
   }
   function angleNonce() { return String(Date.now()) + ":" + Math.random(); }
@@ -744,7 +784,9 @@
       + (cpChars && cpChars.length ? "【圈子里的人】" + cpChars.map(function (c) { return c && c.name; }).filter(Boolean).join("、") + "\n" : "")
       + (has.length ? "【已经在的（笔名别撞、路数也别撞）】" + has.join("、") + "\n" : "")
       + "【怎么写】每位都要是【一个具体的人】，不是一个类型：\n"
-      + "· name：同人圈的笔名／马甲，别用真名别带 @；\n"
+      + "· name：同人圈的笔名／马甲，别用真名别带 @。"
+      + "⚠️几位的笔名不许是同一路货色——一批全是「两三个字的冷硬物件名」那种，"
+      + "一看就是一个人取的，不是几个人自己取的；\n"
       + "· bio：她是谁——一句，要认得出是这一个具体的人（有她自己的来历和处境），不是一个类型；\n"
       + "· style：她写东西的路数——**别人一眼认出她的文**靠的是什么，一句。别写「文笔细腻」这种谁都成立的话；\n"
       + "· sore：她最护着的那一点——被人动到这儿她反应最大。\n"
@@ -753,6 +795,8 @@
       + "几位之间要真的不一样：脾气、路数、写文的动机、对 CP 的看法，至少三样彼此拉开。\n"
       // ⚠️「不一样」四个字管不住句式：上一版就是每位的【内容】都不同，可每句话的
       //   骨架一模一样。得把那个骨架指出来，再给一条出路（底下那几个落点）。
+      + "⚠️这是同人圈，不是文学期刊：笔名可以俗、可以好笑、可以中二、可以自嘲，"
+      + "简介和路数也不必句句都是正经的书评腔。一批人里有一两位正经的没问题，全是正经的就不对了。\n"
       + "⚠️几位的 style 也不许长成同一个句式：如果这一批写下来每句都是"
       + "「偏爱某种体裁＋力气全花在某处＋坚决不写某处＋全靠某物定胜负」，那是一个模子印的，不是几个人。"
       + "长短也该不一样——有人一句话就说完了，有人得绕一下。\n"
@@ -817,6 +861,7 @@
     //   那边撤掉的模子，这边不撤的话，八位太太换个入口照样一个模子印出来。
     const authorCPRule = by ? "" : "\n\n" + cpRuleBlock(allowedCPLabels(cpChars, userName)) + "（这条管的是 authorBio／authorStyle／authorTemper 那几栏。）"
       + "\n⚠️这几位的 authorStyle 不许长成同一个句式（「偏爱某种体裁＋力气全花在某处＋坚决不写某处＋全靠某物定胜负」那种模子），长短也该不一样。"
+      + "\n⚠️这是同人圈，不是文学期刊：笔名可以俗、可以好笑、可以中二、可以自嘲，别几个笔名都是同一路货色（比如全是两三个字的冷硬物件名）；authorBio／authorStyle 也不必句句都是正经的书评腔。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
