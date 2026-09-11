@@ -252,8 +252,9 @@ test("请枪手先挑人，挑的那位真的递进了这一枪", () => {
   const reader = cut("  function Reader(", "  // ---------- 请谁接着写");
   // 按钮不再直接开写，而是先开挑人页
   assert.match(reader, /onClick: function \(\) \{ setGhostOpen\(true\); \}, disabled: busyChap/);
-  assert.match(reader, /onGo: function \(by\) \{ setGhostOpen\(false\); addChapter\(by\); \}/);
-  assert.match(reader, /Object\.assign\(genOpts\(\), \{ author: by \|\| null \}\)/, "挑的人要递到 genNextChapter");
+  // v66.76 起这一页还带着她的点单（想看什么 + 许愿还是硬要求），一起递下去
+  assert.match(reader, /onGo: function \(by, want, hard\) \{ setGhostOpen\(false\); addChapter\(by, want, hard\); \}/);
+  assert.match(reader, /\{ author: by \|\| null, want: want \|\| "", hardWant: !!hard \}/, "挑的人和点单都要递到 genNextChapter");
   // 代笔记在【章】上，不是把这篇的作者改掉
   assert.match(reader, /ch\.byAuthor = byNm/);
   assert.ok(!/fic\.author = byNm/.test(reader), "这篇的作者没变，只是这一章的笔换了人");

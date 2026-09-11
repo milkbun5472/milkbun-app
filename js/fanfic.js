@@ -149,7 +149,9 @@
   const K_SHARED_STYLES = "x_offlineStyles"; // 与线下共用的本地文风库（不复制长 prompt）
 
   // 文风做成多个自定义预设，可多选任意切换；perFic=每篇/每章目标 token（放宽，别老骗刷下一章）
-  const CFG_DEFAULT = { styles: [], activeStyleIds: [], perFic: 4200 };
+  // minChars=每章最少写多少字。0＝跟着 perFic 折算（旧行为），填了数就以它为准。
+  // ⚠️它是【字数】不是 token：perFic 那一栏是 token 目标，两件事，别混着看。
+  const CFG_DEFAULT = { styles: [], activeStyleIds: [], perFic: 4200, minChars: 0 };
   // 她 2026-08-30：「把 token 也放开了写」。原来是 2000–8000 的滑杆。
   // 上限留一个：填成天文数字只会让请求直接被模型拒掉或挂到超时，那不是「放开」。
   const FIC_TOKEN_MAX = 60000;
@@ -204,6 +206,32 @@
       bg: paper.bg, bg2: paper.bg2, ink: paper.ink, sub: paper.sub,
       fog: paper.fog, line: paper.line, accent: paper.accent, tint: paper.tint
     }));
+  }
+  // 一章的字数地板。只此一份：提示词里发的、写完数的、界面上提示的，全问它要。
+  // ⚠️API 上**没有 min_tokens 这种东西**（max_tokens 是天花板，没有地板），
+  //   所以「最低要求」只能落成两件事：写进提示词 + 写完自己数一遍。
+  const MIN_CHARS_MAX = 20000;
+  function clampMinChars(v) {
+    const n = Math.round(Number(v));
+    if (!isFinite(n) || n <= 0) return 0;
+    return Math.max(200, Math.min(MIN_CHARS_MAX, n));
+  }
+  function minCharsFor(cfg) {
+    const set = clampMinChars(cfg && cfg.minChars);
+    if (set) return set;
+    // 没填就照老规矩折算：perFic 是 token，中文一个字大约 1.5 个 token
+    return Math.max(600, Math.round(clampPerFic(cfg && cfg.perFic) * 0.55));
+  }
+  // 数正文有多少字：空白一律不算（中文没有词间空格，空格多半是排版）
+  function countChars(text) { return String(text || "").replace(/\s/g, "").length; }
+  // 这一章短了多少。0＝没短。**只判断，不自动补**——补不补是她按键决定的
+  //（她 2026-09-11：「以后任何东西都不接受一次发两遍」）。
+  function shortBy(text, min) {
+    const need = Math.round(Number(min) || 0);
+    if (need <= 0) return 0;
+    const got = countChars(text);
+    // 留一成的余量：差十几个字就报「偷懒」是找茬
+    return got >= Math.round(need * 0.9) ? 0 : need - got;
   }
   function clampPerFic(v) {
     const n = Math.round(Number(v));
@@ -665,7 +693,9 @@
   async function genBatch(active, tab, cpChars, n, userName, worldbook, opts) {
     opts = opts || {};
     const perFic = clampPerFic(opts.perFic);
-    const minWords = Math.max(600, Math.round(perFic * 0.55)); // 大致字数下限
+    // ⚠️字数地板只此一份（minCharsFor）：首发和续写各算一遍的话，
+    //   她在设置里填的那个数迟早只对其中一处生效（施工规则/one-public-mechanism.md）。
+    const minWords = minCharsFor({ perFic: opts.perFic, minChars: opts.minChars });
     const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || "主角";
     const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }, "fanfic") : "";
     const batchDraftRule = cotT ? "\n【本批小稿分篇】这次要写 " + n + " 篇，请在同一个创作小稿标记块里依次写『【第1篇】』『【第2篇】』直到『【第" + n + "篇】』；每篇各自写在意/推进/避开/自定义检查，不能共用一份泛泛计划。\n" : "";
@@ -743,17 +773,87 @@
     });
   }
 
+  // ── 点单：她想看的剧情走向（她 2026-09-11）───────────────────────────────
+  // 两档，**由她自己在那一栏里选**，不是按作者身份分权。
+  // 分权的乐趣在于不确定，而不确定只有在她自愿的时候才是乐趣：
+  // 今天想看那场戏就点硬要求，想被惊喜就许个愿。
+  // ⚠️「许个愿」那一档结尾给的是出口不是判决（施工规则/bans-make-it-dumber.md）：
+  //   说清这是读者的呼声、她听不听按自己的脾气来——写成「必须照办」就没有第二档了，
+  //   写成「随便你」它又会当没看见。
+  function wantBlock(want, hard, ghost) {
+    const w = String(want || "").trim().slice(0, 600);
+    if (!w) return "";
+    if (hard) {
+      return "\n【这一章必须照这个走（硬要求，优先于你自己的想法）】\n" + w
+        + "\n这是点单，不是建议：上面说的那件事这一章里**真的要发生**，不许挪到下一章、不许只提一句带过、"
+        + "不许改成一个意思相近但更好写的版本。别的地方照你自己的路数写。\n";
+    }
+    return "\n【读者在评论区喊的】\n" + w
+      + "\n这是读者的呼声，不是编辑部的要求。**你听不听、怎么听，按你自己的脾气来**——"
+      + "可以照办，可以只取你看得上的那半截，可以偏着写，也可以压根不理。"
+      + (ghost ? "（你是被请来接这篇的，多半会顺着点单走，但也不必当命令。）" : "（这是你自己的连载，你说了算。）") + "\n";
+  }
+
+  // ── 设定卡 + 伏笔盒（她 2026-09-11：「章节多了怎么记住重要设定和 callback 不会崩」）──
+  // 病根：endHook 记的是【结束在哪儿】，不是【这篇文里有什么】。十章之后，
+  // 他母亲叫什么、那枚戒指是谁给的，一个字都没有；而 priorHooks 还在线性变长。
+  //
+  // 设定卡（bible）＝只增不改的事实，**它就是这篇文的远期记忆**，所以不必另开一枪做滚动总结：
+  // 前情摘要只发最近几章，更早的由设定卡和伏笔盒撑着。
+  const BIBLE_CAP = 60, SEED_CAP = 12, HOOK_TAIL = 8;
+  // ⚠️「什么算事实」必须给判据、不给例子（施工规则/prompt-no-content-samples.md）：
+  //   给了例子它会照着例子的句式填，给了判据它才会去想这一章真确立了什么。
+  const BIBLE_WHAT = "【什么算事实】名字、身份、亲属、住处、职业、随身的东西、"
+    + "已经发生且撤不回的事、当面说定的约定——这些进。"
+    + "心情、暧昧到哪一步、这一章的剧情走向**都不算**，一条都别写进来（写进来它就变成剧情摘要，一样会爆）。";
+  function bibleBlock(fic) {
+    const rows = (fic && Array.isArray(fic.bible) ? fic.bible : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+    if (!rows.length) return "";
+    return "【本篇设定卡（前面几章已经确立的事实 · 一条都不许推翻）】\n"
+      + rows.map(function (x, i) { return (i + 1) + ". " + x; }).join("\n")
+      + "\n这一份比你记忆里的前情更权威：对不上的时候一律以它为准。\n";
+  }
+  function seedBlock(fic) {
+    const rows = (fic && Array.isArray(fic.seeds) ? fic.seeds : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+    if (!rows.length) return "";
+    // ⚠️「不必这一章收」这句不许省：不写它，它每章都会强行回收一条，变成填格子
+    return "【还埋着没收的伏笔】\n" + rows.map(function (x) { return "· " + x; }).join("\n")
+      + "\n**不必这一章就收**——它们摆在这儿只是别让你忘了。"
+      + "真收了哪一条，在 paid 里把那一条原样抄回来；这一章又埋了新的，就写进 seed。\n";
+  }
+  // 把这一章交上来的 facts / seed / paid 合进这篇文。纯函数，好测。
+  // ⚠️设定卡只增不改：改了就等于允许后面的章推翻前面的，那正是要防的事。
+  function applyChapterMeta(fic, out) {
+    const f = fic || {};
+    const bible = (Array.isArray(f.bible) ? f.bible : []).slice();
+    (Array.isArray(out && out.facts) ? out.facts : []).forEach(function (x) {
+      const t = String(x || "").trim().slice(0, 90);
+      if (t && bible.indexOf(t) < 0 && bible.length < BIBLE_CAP) bible.push(t);
+    });
+    const paid = (Array.isArray(out && out.paid) ? out.paid : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+    let seeds = (Array.isArray(f.seeds) ? f.seeds : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean)
+      .filter(function (x) { return !paid.some(function (p) { return p === x || x.indexOf(p) >= 0 || p.indexOf(x) >= 0; }); });
+    const sd = String((out && out.seed) || "").trim().slice(0, 90);
+    if (sd && seeds.indexOf(sd) < 0) seeds.push(sd);
+    return { bible: bible, seeds: seeds.slice(-SEED_CAP) };
+  }
+
   // ---- 追更：append 一章（续写 = 前情摘要 + 上一章 endHook，不塞全文）----
   // opts: { style, perFic, chatMaterial }
   async function genNextChapter(active, fic, tab, cpChars, userName, worldbook, opts) {
     opts = opts || {};
     const perFic = clampPerFic(opts.perFic);
-    const minWords = Math.max(600, Math.round(perFic * 0.55));
+    // 字数地板只此一份（minCharsFor）：提示词里发的、写完数的、界面上提示的是同一个数
+    const minWords = minCharsFor({ perFic: opts.perFic, minChars: opts.minChars });
     const chapters = fic.chapters || [];
     const last = chapters[chapters.length - 1] || {};
     // 前情压缩摘要：标题 + tags + 每章 endHook 串起来（不塞全文，省 token）
-    const priorHooks = chapters.map(function (c, i) {
-      return "第" + (i + 1) + "章结束在：" + (c.endHook || "（无锚点）");
+    // ⚠️只发最近 HOOK_TAIL 章。原来是整串——二十章之后它自己占掉一大块，
+    //   而越老的锚点越没用（「结束在哪儿」这件事过了十章就不重要了）。
+    //   远期靠【设定卡】撑：那才是「这篇文里有什么」，锚点只管「上一段停在哪儿」。
+    const hookFrom = Math.max(0, chapters.length - HOOK_TAIL);
+    const priorHooks = chapters.slice(hookFrom).map(function (c, i) {
+      return "第" + (hookFrom + i + 1) + "章结束在：" + (c.endHook || "（无锚点）");
     }).join("\n");
     const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || (fic.title || "主角");
     const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }, "fanfic") : "";
@@ -773,25 +873,40 @@
     const byBlock = penBy && authorVoiceLines(penBy) ?
       "\n【这一章由谁执笔】" + (ghost ? "笔名「" + penName + "」——她是被请来接这篇的（原作者是「" + (fic.author || "无名") + "」）。" : "笔名「" + penName + "」，这篇文本来就是她写的。") + "\n"
       + authorVoiceLines(penBy)
-      + (ghost ? "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n" : "")
+      + (ghost ? "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n"
+        // ⚠️「设定不许改」和「要看得出是她写的」会打架，而打架时模型倾向于保文风、丢设定
+        //   ——文风是它刚读到的、最像指令的那段（four-surfaces-same-context 里 v55.91 那条：
+        //   料给够了还是崩，因为站位错了）。所以要当面把这两件事分开。
+        + "· **她的路数只管【怎么写】，不管【写什么】。**句子长短、力气花在哪儿、故意不写什么，照她来；"
+        + "人物是谁、发生过什么、这篇往哪儿走，照设定卡和前情来，一个字不许因为「她会这么写」而改掉。\n" : "")
       : "";
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
       "【当前任务：给一篇已在连载的同人文续写下一章】\n" + byBlock +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
       "【本篇基本设定（地基·每一章都不许动）】\n" + (premise ? premise + "\n" : "") + (ch1Head ? "第一章开头（设定以此为准）：" + ch1Head + "……\n" : "") +
       "【改设禁令（比剧情更优先）】第一章确立的东西一个字不许变：两人的关系设定（开篇是前未婚夫妻就全程是前未婚夫妻，绝不许写成青梅竹马/前同事/初次见面）、双方身份职业、称呼、世界观、已发生的事实和时间线；tags 里的关系标签同样是铁律。写之前先对着上面的基本设定自查一遍，若你记忆中的前情与第一章开头冲突，一律以第一章开头为准。\n" +
-      "【前情摘要（历章锚点，不含全文，你据此自然接续、保持人物与线索一致）】\n" + (priorHooks || "（这是第一章）") + "\n" +
+      bibleBlock(fic) +
+      "【前情摘要（最近几章的锚点，不含全文，你据此自然接续、保持人物与线索一致）】\n" + (priorHooks || "（这是第一章）") + "\n" +
       (lastTail ? "【上一章结尾原文（新章从这个现场往下写）】\n……" + lastTail + "\n" : "") +
       "【上一章的结尾锚点】\n" + (last.endHook || "（无，请自然开新章）") + "\n" +
       "【衔接与进度铁律（比字数更重要）】\n" +
       "· 新章开头必须与上面结尾原文【无缝衔接】：同一时间线自然往下走；确需转场，先用一两句交代过渡（过了几日／次日清晨），不许没头没尾直接跳到全新处境。\n" +
       "· 两人的感情与亲密进度只能【小步推进】：先判断上一章结束时处在什么阶段（暧昧、试探、刚点破、热恋…），这一章至多往前走一小步——绝不允许上一章还在暧昧、这一章开场就已发生关系或直接写事后；要到那一步，必须在章内写足完整的过程与铺垫。\n" +
-      "· 中间若有时间跳跃，跳过的事只能是无关紧要的日常，关键情节（表白、第一次亲密、重大冲突）必须写出来，不许发生在幕后。\n\n" +
+      "· 中间若有时间跳跃，跳过的事只能是无关紧要的日常，关键情节（表白、第一次亲密、重大冲突）必须写出来，不许发生在幕后。\n" +
+      // ⚠️字数在这儿先说一遍。原来它只写在最后那行 JSON schema 里，
+      //   前面压着前情、改设禁令、衔接铁律一大堆，最容易被冲掉（她 2026-09-11 报「续写老是偷懒」）。
+      "· **这一章至少写 " + minWords + " 字**。这是硬指标，不是参考值：写到了再收尾，别写个开头就交。\n" +
+      seedBlock(fic) +
+      wantBlock(opts.want, opts.hardWant, ghost) + "\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
-      "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
+      "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
+      + "\"endHook\":\"本章新的结尾锚点，供再下一章接续\","
+      + "\"facts\":[\"这一章新确立的事实，0-3 条，没有就空数组\"],"
+      + "\"seed\":\"这一章新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
+      + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]}\n" + BIBLE_WHAT +
       (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
-    const userMsg = "续写《" + fic.title + "》的下一章。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
+    const userMsg = "续写《" + fic.title + "》的下一章，至少 " + minWords + " 字。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
     function salvageChapter(clean, cot) {
       const s = String(clean || "");
@@ -803,10 +918,15 @@
     }
     // 思考型模型预算别抠（占 maxTokens），太紧就返回空；解析失败先抢救正文、再不行才重试一次
     async function once(extra) {
-      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }], { maxTokens: Math.min(FIC_TOKEN_MAX * 2, perFic + 10000), timeout: 300000 });
+      // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
+      //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
+      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }],
+        { maxTokens: Math.min(FIC_TOKEN_MAX * 2, Math.max(perFic, minWords * 2) + 12000), timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
-      if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(), cot: sp.cot, cotRequested: !!cotT };
+      if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
+        facts: Array.isArray(d.facts) ? d.facts : [], seed: String(d.seed || "").trim(), paid: Array.isArray(d.paid) ? d.paid : [],
+        cot: sp.cot, cotRequested: !!cotT };
       return salvageChapter(sp.clean, sp.cot);
     }
     let out = await once("");
@@ -814,6 +934,55 @@
     if (!out) throw new Error("续写失败：模型返回为空，可再点一次重试");
     out.cotRequested = !!cotT;
     return out;
+  }
+
+  // ---- 「让他接着写」：她按了才发的那第二枪（她 2026-09-11）----
+  // ⚠️**不许自动调用**。她定的规矩：「以后任何东西都不接受一次发两遍」。
+  //   所以短了只在章顶留一行小字 + 一颗键，按不按是她的事。
+  // ⚠️也不是重写：重写是掷骰子（可能更短），接着写是必然变长，
+  //   而且顺带把「JSON 被截断写到一半」那种也救回来了。
+  async function genChapterMore(active, fic, tab, cpChars, userName, worldbook, opts, chapIdx) {
+    opts = opts || {};
+    const chapters = fic.chapters || [];
+    const i = Math.max(0, Math.min(chapters.length - 1, Number(chapIdx)));
+    const ch = chapters[i] || {};
+    const have = String(ch.content || "").trim();
+    if (!have) throw new Error("这一章还没有正文");
+    const minWords = minCharsFor({ perFic: opts.perFic, minChars: opts.minChars });
+    const missing = shortBy(have, minWords);
+    const penBy = (opts.author && authorName(opts.author)) ? opts.author : findAuthor(ch.byAuthor || fic.author);
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
+      "【当前任务：把一章没写完的正文接着写完】\n" +
+      (penBy && authorVoiceLines(penBy) ? "【这一章的笔在谁手上】笔名「" + authorName(penBy) + "」\n" + authorVoiceLines(penBy) : "") +
+      "篇名《" + fic.title + "》第 " + (i + 1) + " 章。\n" +
+      bibleBlock(fic) +
+      "【已经写出来的部分 · 结尾原文】\n……" + have.slice(-900) + "\n" +
+      "【怎么接】从上面最后一个字**往下接着写**。\n" +
+      "· 绝不许重述已经写过的内容，也不许换个说法把刚才那段重来一遍——那是接着写，不是重写。\n" +
+      "· 也不要写「（续）」「接上文」这类招呼，直接就是下一句。\n" +
+      "· 这一章现在 " + countChars(have) + " 字，还差大约 " + Math.max(200, missing) + " 字才够。写到够、把这一章真正收完再停。\n" +
+      "· 这一段写完，这一章就算完了：结尾要收得住，并给出新的 endHook。\n\n" +
+      "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
+      "{\"add\":\"接着往下写的正文（分段用\\n\\n）\",\"endHook\":\"这一章现在的结尾锚点\","
+      + "\"facts\":[\"这一段新确立的事实，0-3 条，没有就空数组\"],"
+      + "\"seed\":\"这一段新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
+      + "\"paid\":[\"这一段回收掉的伏笔，原样抄回来；没收就空数组\"]}\n" + BIBLE_WHAT +
+      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
+    const raw = await callAI(active, sys, [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
+      { maxTokens: Math.min(FIC_TOKEN_MAX * 2, Math.max(clampPerFic(opts.perFic), minWords * 2) + 12000), timeout: 300000 });
+    const d = parseJSONLoose(raw);
+    let add = d && d.add ? String(d.add).trim() : "";
+    if (!add) {
+      // 救一把：正文在，只是 JSON 没收好
+      const m = String(raw || "").match(/"add"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"endHook"|"\s*\}\s*$|$)/);
+      if (m && m[1] && m[1].length > 100) add = m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+    }
+    if (!add) throw new Error("没接出东西来。他回的是：\n" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 200));
+    return {
+      add: add, endHook: String((d && d.endHook) || ch.endHook || "").trim(),
+      facts: Array.isArray(d && d.facts) ? d.facts : [], seed: String((d && d.seed) || "").trim(),
+      paid: Array.isArray(d && d.paid) ? d.paid : []
+    };
   }
 
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
@@ -1467,7 +1636,9 @@
     authorSeal: authorSeal, zhengTally: zhengTally, cnIndex: cnIndex,
     allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
-    genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
+    clampMinChars: clampMinChars, minCharsFor: minCharsFor, countChars: countChars, shortBy: shortBy, MIN_CHARS_MAX: MIN_CHARS_MAX,
+    wantBlock: wantBlock, bibleBlock: bibleBlock, seedBlock: seedBlock, applyChapterMeta: applyChapterMeta, BIBLE_CAP: BIBLE_CAP, SEED_CAP: SEED_CAP, HOOK_TAIL: HOOK_TAIL,
+    genBatch: genBatch, genNextChapter: genNextChapter, genChapterMore: genChapterMore, genReviews: genReviews, genReplyToUser: genReplyToUser,
     loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpLeftPct: rpLeftPct, rpAuthorCardOf: rpAuthorCardOf, rpDevBand: rpDevBand, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel
   };
 
@@ -2003,6 +2174,7 @@
     const [busy, setBusy] = useState("");         // 内联小操作（发书评/回复）
     const chapterTaskKey = "fanfic:chapter:" + f.id;
     const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
+    const [busyMore, setBusyMore] = useState(false); // 「让他接着写」那一枪：她按了才发
     const [busyRev, setBusyRev] = useState(false);   // 刷书评（可与追更并行）
     const [myWrite, setMyWrite] = useState(false);  // 她自己写下一章（v64.63）
     const [myChap, setMyChap] = useState("");
@@ -2043,20 +2215,30 @@
     useEffect(function () { markRead(f.id, chapIdx); }, [f.id]);
     const authorName = f.author || (f.source === "user" ? (props.userName || "我") : ficPenName(f.id));
 
-    function genOpts() { const cfg = window.Fanfic.loadCfg(); return { style: window.Fanfic.activeStyleText(cfg), perFic: cfg.perFic, chatMaterial: window.Fanfic.chatMaterialFor(chars) }; }
+    function genOpts() { const cfg = window.Fanfic.loadCfg(); return { style: window.Fanfic.activeStyleText(cfg), perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: window.Fanfic.chatMaterialFor(chars) }; }
+    // 字数地板：界面上提示的、提示词里发的、写完数的是同一个数（minCharsFor 只此一份）
+    const minChars = window.Fanfic.minCharsFor(window.Fanfic.loadCfg());
 
     // by＝她点名请的那位枪手；不传＝照原样，genNextChapter 自己去名册里找这篇原来那位太太。
-    async function addChapter(by) {
+    async function addChapter(by, want, hard) {
       if (busyChap) return;
       const newIdx = (f.chapters || []).length; // 新章的索引
       const run = async function () {
-        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"), Object.assign(genOpts(), { author: by || null }));
+        const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"),
+          Object.assign(genOpts(), { author: by || null, want: want || "", hardWant: !!hard }));
         // 请了别人代笔就把名字记在这一章上：翻到这一章时看得见是谁写的。
         // ⚠️记在【章】上不是记在【篇】上——这篇的作者没变，只是这一章的笔换了人。
         // ⚠️这里不能用外面那个 authorName()——Reader 里有个同名的 const 把它挡住了
         const byNm = String((by && by.name) || "").trim();
         if (byNm && byNm !== String(f.author || "").trim()) ch.byAuthor = byNm;
-        props.onUpdate(f.id, function (fic) { fic.chapters = (fic.chapters || []).concat([ch]); fic.updatedAt = Date.now(); return fic; });
+        props.onUpdate(f.id, function (fic) {
+          fic.chapters = (fic.chapters || []).concat([ch]);
+          // 设定卡只增不改 + 伏笔盒收支：合并的规矩只写在 applyChapterMeta 那一处
+          const meta = window.Fanfic.applyChapterMeta(fic, ch);
+          fic.bible = meta.bible; fic.seeds = meta.seeds;
+          if (want && want.trim()) fic.lastWant = want.trim().slice(0, 600);
+          fic.updatedAt = Date.now(); return fic;
+        });
         props.toast && props.toast("已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
         if (props.onChapterShared && (f.sharedTo || []).length) props.onChapterShared(f, ch, newIdx + 1);
@@ -2070,6 +2252,26 @@
       }
       try { await window.BackgroundGeneration.start(chapterTaskKey, { label: "追更生成中" }, run); }
       catch (e) { props.toast && props.toast(String(e.message || e)); }
+    }
+    // 「让他接着写」：她按了才发的那第二枪。接着写不是重写——
+    // 重写是掷骰子（可能更短），接着写必然变长，还顺带救回被截断的那种。
+    async function moreChapter(i) {
+      if (busyMore) return;
+      setBusyMore(true);
+      try {
+        const add = await window.Fanfic.genChapterMore(props.active, f, props.tab, chars, props.userName, storyLore("续章"), genOpts(), i);
+        props.onUpdate(f.id, function (fic) {
+          const chs = (fic.chapters || []).slice();
+          const cur = chs[i]; if (!cur) return fic;
+          chs[i] = Object.assign({}, cur, { content: String(cur.content || "").trim() + "\n\n" + add.add, endHook: add.endHook || cur.endHook });
+          fic.chapters = chs;
+          const meta = window.Fanfic.applyChapterMeta(fic, add);
+          fic.bible = meta.bible; fic.seeds = meta.seeds;
+          fic.updatedAt = Date.now(); return fic;
+        });
+        props.toast && props.toast("接上去了");
+      } catch (e) { props.toast && props.toast(String(e.message || e)); }
+      setBusyMore(false);
     }
     // 她自己写的那一章：跟枪手写的走【同一条落地路】（onUpdate + chapters.concat），
     // 所以翻页、阅读进度、分享给角色那几处一个字都不用改。
@@ -2203,6 +2405,18 @@
                 return h("p", { key: pi, style: { margin: "0 0 1.05em" } }, para.trim());
               })),
             ((ch.cot || ch.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: ch.cot, requested: ch.cotRequested }) : null,
+            // 偷懒的那一章不许悄无声息地落盘（她 2026-09-11）。
+            // ⚠️只留一行字 + 一颗键，**绝不自动再打一枪**——她定的：任何东西都不接受一次发两遍。
+            (function () {
+              const miss = window.Fanfic.shortBy(ch.content, minChars);
+              if (!miss) return null;
+              return h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+                  "这章只有 " + window.Fanfic.countChars(ch.content) + " 字，你要的是 " + minChars + " 字"),
+                h("button", { onClick: function () { moreChapter(idx); }, disabled: busyMore, className: "active:opacity-60",
+                  style: { fontFamily: F_BODY, fontSize: 11.5, color: busyMore ? t.fog : t.accent, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 } },
+                  busyMore ? "接着写…" : "让他接着写"));
+            })(),
             pager(false));
         })(),
 
@@ -2274,7 +2488,7 @@
       ghostOpen ? h(GhostPage, { fic: f, pickedId: ghostId,
         onPick: function (id) { setGhostId(id); },
         onClose: function () { setGhostOpen(false); },
-        onGo: function (by) { setGhostOpen(false); addChapter(by); } }) : null);
+        onGo: function (by, want, hard) { setGhostOpen(false); addChapter(by, want, hard); } }) : null);
   }
 
   // ---------- 请谁接着写（v64.64，她 2026-09-06：「请枪手可以选择已有的作者吧，也可以不选」）
@@ -2285,6 +2499,11 @@
     const f = props.fic;
     const authors = loadAuthors();
     const own = String(f.author || "").trim();
+    // 点单：她想看的剧情走向（她 2026-09-11）。两档由她自己选，不按作者身份分权——
+    // 分权的乐趣在于不确定，而不确定只有在她自愿的时候才是乐趣。
+    const [want, setWant] = useState("");
+    const [hard, setHard] = useState(false);
+    const lastWant = String(f.lastWant || "").trim();
     // 「照原样」那一行：名册里认得这篇的太太就写她的名字——她自己的连载本来就该她接着写。
     const ownCard = findAuthor(own);
     const head = { id: "", name: ownCard ? "照原样：「" + own + "」自己接着写" : (own ? "照原样：「" + own + "」接着写" : "随缘（谁接都行）"),
@@ -2294,6 +2513,18 @@
       sore: ownCard ? ownCard.sore : "" };
     const rows = [head].concat(authors.filter(function (a) { return authorName(a) !== own; }));
     const picked = rows.filter(function (a) { return (a.id || "") === (props.pickedId || ""); })[0] || head;
+    const ghostPicked = !!picked.id;
+    // ⚠️这两格不是一排药丸（施工规则/tabs-not-plain-pills.md）：这一页是【给太太的稿约单】，
+    //   所以它长成单子上那两行勾选项——方框、打勾、底下一道格线。换个 app 就不成立了。
+    const optRow = function (on, title, note, onPick) {
+      return h("button", { onClick: onPick, className: "w-full text-left active:opacity-70",
+        style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line } },
+        h("span", { style: { width: 14, height: 14, marginTop: 3, flexShrink: 0, borderRadius: 2, border: "1px solid " + (on ? t.ink : t.line), display: "flex", alignItems: "center", justifyContent: "center" } },
+          on ? h(ICheck, { size: 10, color: t.ink }) : null),
+        h("span", { style: { minWidth: 0 } },
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, title),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } }, note)));
+    };
     return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
       h(Head, { bg: "transparent", zh: "请谁接着写", sub: "《" + f.title + "》第 " + ((f.chapters || []).length + 1) + " 章", onBack: props.onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
@@ -2310,9 +2541,27 @@
               (on && a.sore) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "护着：" + a.sore) : null));
         }),
         authors.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } },
-          "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。")),
+          "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。"),
+
+        // ── 点单 ──
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, margin: "22px 0 4px" } }, "这一章你想看什么"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } },
+          "空着就让她自己写。"),
+        h("textarea", { value: want, onChange: function (e) { setWant(e.target.value); }, placeholder: "想看的走向、想让谁出场、想在哪儿收…",
+          className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, padding: "11px 12px", borderRadius: 10,
+            background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 84, resize: "vertical" } }),
+        (lastWant && !want.trim()) ? h("button", { onClick: function () { setWant(lastWant); }, className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, background: "transparent", border: "none", padding: "7px 2px", minHeight: 34, textAlign: "left" } },
+          "填回上次那条：" + lastWant.slice(0, 22) + (lastWant.length > 22 ? "…" : "")) : null,
+        want.trim() ? h("div", { style: { marginTop: 6 } },
+          optRow(!hard, "许个愿", ghostPicked
+            ? "当读者的呼声递过去。她是被请来接这篇的，多半会顺着走，但不必当命令。"
+            : "当读者的呼声递过去。这是她自己的连载——听不听、怎么听，按她的脾气来。",
+            function () { setHard(false); }),
+          optRow(hard, "就这么写", "点单。这件事这一章里真的要发生，不许挪到下一章、不许一句带过。",
+            function () { setHard(true); })) : null),
       h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
-        h("button", { onClick: function () { props.onGo(picked.id ? picked : null); }, className: "w-full active:opacity-80",
+        h("button", { onClick: function () { props.onGo(picked.id ? picked : null, want.trim(), hard); }, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, minHeight: 46, borderRadius: 12, border: "none" } },
           picked.id ? "就请「" + picked.name + "」写" : "开始写")));
   }
@@ -2674,6 +2923,24 @@
         }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "范围 500–" + FIC_TOKEN_MAX + "。设太高的话，一次请求会很久，也更容易撞上模型自己的上限或超时。"),
+
+        // 她 2026-09-11：「弄一个设置最低 token 要求，免得模型偷懒」。
+        // ⚠️说人话＝【字数】：上面那一栏是 token 目标，两件事。
+        //   API 上没有 min_tokens（max_tokens 是天花板、没有地板），所以这个数
+        //   只能落成两件事：发进提示词 + 写完自己数一遍。数出来短了只提示，不自动补。
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "16px 0 6px" } }, "每章最少写多少字"),
+        h("input", {
+          type: "number", inputMode: "numeric", min: 0, max: MIN_CHARS_MAX, step: 100,
+          // ⚠️0 就是「没填」：写成 == null 的话默认值 0 会显示成一个真的「0」，占着位子、提示语还永远出不来
+          value: cfg.minChars ? cfg.minChars : "",
+          placeholder: "留空＝按上面那个 token 折算（现在约 " + minCharsFor(cfg) + " 字）",
+          onChange: function (e) { patch({ minChars: e.target.value === "" ? "" : Number(e.target.value) }); },
+          onBlur: function (e) { patch({ minChars: clampMinChars(e.target.value) }); },
+          style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px", outline: "none" }
+        }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
+          "这个数会写进提示词，写完还会数一遍。没写够也不会自动再打一枪——"
+          + "只在那一章底下留一行字和一颗「让他接着写」，按不按你说了算。"),
 
         // ── 书页 ──
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "22px 0 3px" } }, "默认书页"),
@@ -3542,7 +3809,7 @@
         // 推荐(mixed)版：把其它世界观当池子供每篇随机取
         const worldPool = curTab.mixed ? tabs.filter(function (x) { return !x.mixed; }) : null;
         const briefList = Array.isArray(briefs) ? briefs : [];
-        const opts = { style: styleText, perFic: cfg.perFic, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
+        const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
           includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "" };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，

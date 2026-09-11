@@ -15,7 +15,8 @@ function generation(name, reply) {
   return {fn, calls: () => calls};
 }
 test('同人文六处解析共用 engine，不留本地修复链', () => {
-  assert.equal((src.match(/= parseJSONLoose\(/g) || []).length, 6);
+  // 7 处：v66.76 加了「让他接着写」那一枪（genChapterMore），它也走同一个解析器
+  assert.equal((src.match(/= parseJSONLoose\(/g) || []).length, 7);
   assert.doesNotMatch(src, /\b(?:extractJSON|repairJSON)\(/);
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   assert.ok(html.indexOf('js/engine.js?') < html.indexOf('js/fanfic.js?'));
