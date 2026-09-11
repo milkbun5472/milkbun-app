@@ -112,7 +112,9 @@ test("她盯着一张冻住的卡时得有个按得动的东西", () => {
   assert.match(components, /onGazeReview, gazeReviewBusy/, "状态卡没把这条线传下去");
   assert.match(components, /onReview: onGazeReview, reviewBusy: gazeReviewBusy/);
   // v64.35：手动这颗传 manual=true，别再跟自动共用那三次预算
-  assert.match(app, /onGazeReview: \(\) => \{ if \(!apiFor\(scc\.id\)\) return toast\("请先配置 API"\); reviewGazeFor\(scc, true\); \}/);
+  // v66.82：守卫要检查【真正要用的那条】。复看走 bgActive 优先，
+  // 原来只看 apiFor(角色)，于是后台线路坏掉时守卫照样放行，进去才 401。
+  assert.match(app, /onGazeReview: \(\) => \{ if \(!\(bgActive \|\| apiFor\(scc\.id\)\)\) return toast\("请先配置 API"\); reviewGazeFor\(scc, true\); \}/);
 });
 
 test("卡片只显示明确的复看结果，不再显示漏答连击",()=>{

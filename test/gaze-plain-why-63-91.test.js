@@ -34,10 +34,13 @@ test("异常原文一律翻成人话，翻不出来的就说「这一次没成�
 });
 
 test("存进去之前就翻好——存原文的话这句在界面上会一直是机器话", () => {
-  const rf = cut(gaze, "  function markReviewFail(charId, why)", "  const reviewState =");
-  assert.match(rf, /box\.reviewErr = plainWhy\(why\)\.slice\(0, 60\);/);
-  const sf = cut(gaze, "  function markAutoSeedFail(charId, why)", "  const autoSeedState =");
-  assert.match(sf, /box\.autoSeedErr = plainWhy\(why\)\.slice\(0, 60\);/);
+  // v66.82 起多一个 route 参数（报错要说清是哪条线路），切片锚点跟着改
+  const rf = cut(gaze, "  function markReviewFail(charId, why, route)", "  const reviewState =");
+  // 显示那一栏照旧是【翻好的人话】，只是前面多挂了一句「哪条线路」——
+  // 存 e.message 原文那件事仍然不许（下面两条反向断言守着）
+  assert.match(rf, /box\.reviewErr = \(\(rt \? rt \+ "：" : ""\) \+ plainWhy\(why\)\)\.slice\(0, 80\);/);
+  const sf = cut(gaze, "  function markAutoSeedFail(charId, why, route)", "  const autoSeedState =");
+  assert.match(sf, /box\.autoSeedErr = \(\(String\(route \|\| ""\)\.trim\(\) \? String\(route\)\.trim\(\) \+ "：" : ""\) \+ plainWhy\(why\)\)\.slice\(0, 80\);/);
   // 两处【显示的那一栏】都不许直接存 e.message
   assert.doesNotMatch(rf, /box\.reviewErr = String\(why/);
   assert.doesNotMatch(sf, /box\.autoSeedErr = String\(why/);
@@ -45,8 +48,11 @@ test("存进去之前就翻好——存原文的话这句在界面上会一直�
   //   她 2026-09-06 报「还是不行」，界面上只有一句「这一次没成」——
   //   那正是翻不出来时的兜底，于是她和我都不知道到底什么坏了。
   //   翻好了再存这条没变；变的是「翻不出来的那部分不能连原文一起扔」。
-  assert.match(rf, /box\.reviewErrRaw = String\(why \|\| ""\)\.slice\(0, 400\);/);
-  assert.match(sf, /box\.autoSeedErrRaw = String\(why \|\| ""\)\.slice\(0, 400\);/);
+  // 原文前面也钉上线路名：她点开「到底哪儿没成」时，第一行就写着这一枪走的是哪条
+  assert.match(rf, /box\.reviewErrRaw = \(rt \? "【这一枪走的是 " \+ rt \+ "】/);
+  assert.match(rf, /\+ String\(why \|\| ""\)\.slice\(0, 400\);/);
+  assert.match(sf, /box\.autoSeedErrRaw = \(String\(route \|\| ""\)\.trim\(\) \? "【这一枪走的是 "/);
+  assert.match(sf, /\+ String\(why \|\| ""\)\.slice\(0, 400\)/);
 });
 
 test("界面那两行说人话，而且说清还试不试", () => {

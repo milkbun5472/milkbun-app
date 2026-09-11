@@ -228,10 +228,14 @@
   //   而 engine 那边其实已经把话说得很清楚了（callDiag：哪个模型、提示词多大、
   //   输出上限多少、等了几秒、是上游直接打回来还是超时）——全被这一句吞掉了。
   //   所以原文另存一份，界面上收在「为什么」后面，点开才看。
-  function markReviewFail(charId, why) {
+  // route＝这一枪用的是哪条线路（调用点算好传进来）。
+  // ⚠️不写清是哪条，她只能挨条去试——她 2026-09-11 就是这么「修了很多次」的：
+  //   建卡和复看走【后台任务模型】，她一直在修聊天那条。
+  function markReviewFail(charId, why, route) {
     const d = load(); const box = boxOf(d, charId);
-    box.reviewErr = plainWhy(why).slice(0, 60);
-    box.reviewErrRaw = String(why || "").slice(0, 400);
+    const rt = String(route || "").trim();
+    box.reviewErr = ((rt ? rt + "：" : "") + plainWhy(why)).slice(0, 80);
+    box.reviewErrRaw = (rt ? "【这一枪走的是 " + rt + "】\n" : "") + String(why || "").slice(0, 400);
     box.reviewOkAt = 0;
     d[charId] = box; persist(d, charId);
     return true;
@@ -361,10 +365,10 @@
     return true;
   }
   // 败因留下来:不留的话「试过三次都没成」和「还没到十条」在界面上长得一模一样。
-  function markAutoSeedFail(charId, why) {
+  function markAutoSeedFail(charId, why, route) {
     const d = load(); const box = boxOf(d, charId);
-    box.autoSeedErr = plainWhy(why).slice(0, 60);
-    box.autoSeedErrRaw = String(why || "").slice(0, 400);   // 同上：人话给她看，原文留着查
+    box.autoSeedErr = ((String(route || "").trim() ? String(route).trim() + "：" : "") + plainWhy(why)).slice(0, 80);
+    box.autoSeedErrRaw = (String(route || "").trim() ? "【这一枪走的是 " + String(route).trim() + "】\n" : "") + String(why || "").slice(0, 400);   // 同上：人话给她看，原文留着查
     d[charId] = box; persist(d, charId);
     return true;
   }

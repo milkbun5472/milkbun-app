@@ -421,7 +421,9 @@ test("⑧ 建卡那一路同病：手动失败原来只弹 toast，卡上一个�
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const seed = app.slice(app.indexOf("const seedGazeFor = async (char, auto)"), app.indexOf("const maybeAutoSeedGaze"));
   // toast 两秒就没了，卡才是留话的地方——两条路都得写进卡里
-  assert.match(seed, /if \(window\.Gaze\.markAutoSeedFail\) window\.Gaze\.markAutoSeedFail\(char\.id, e\.message \|\| "调用没成"\);\n\s*if \(!auto\) toast\("建卡失败/,
+  // v66.82：败因还要带上【是哪条线路】——建卡和复看走的是后台任务模型，
+  // 不说清的话她只会一次次去修聊天那条（她 2026-09-11 就是这么修了很多次的）
+  assert.match(seed, /if \(window\.Gaze\.markAutoSeedFail\) window\.Gaze\.markAutoSeedFail\(char\.id, e\.message \|\| "调用没成", gazeRouteZh\(p\)\);\n\s*if \(!auto\) toast\("建卡失败/,
     "手动那一路的败因还是只进 toast");
   assert.doesNotMatch(seed, /if \(auto\) \{ if \(window\.Gaze\.markAutoSeedFail\)/, "旧那行还在");
   // 「一块都没写」那一支也一样
@@ -433,7 +435,7 @@ test("⑧ 建卡那一路同病：手动失败原来只弹 toast，卡上一个�
 test("⑧ 手动失败当场也有回音（她按了键，总该立刻知道）", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
-  assert.match(rev, /if \(manual\) toast\("复看没成："/);
+  assert.match(rev, /if \(manual\) toast\("复看没成（" \+ gazeRouteZh\(p\) \+ "）："/);
   // 那句人话得是 gaze 翻好的那一份，不是把异常原文摆到她眼前
   assert.match(rev, /window\.Gaze\.plainWhy/);
   assert.match(SRC, /plainWhy \};/, "plainWhy 没导出，上面那句会退回兜底");

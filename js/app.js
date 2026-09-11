@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.84";
+const APP_VERSION = "v66.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -722,7 +722,7 @@ function App() {
       // ⚠️v64.54：败因【两条路都写进卡里】。原来手动那一路只 toast，
       //   于是她按完看不到任何解释——「没更新也没说为什么」。
       //   auto 照旧不弹 toast（她没按过任何按钮，不该被打断）。
-      if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成");
+      if (window.Gaze.markAutoSeedFail) window.Gaze.markAutoSeedFail(char.id, e.message || "调用没成", gazeRouteZh(p));
       if (!auto) toast("建卡失败:" + (e.message || "重试"));
     } finally { setGazeSeedBusy(false); }
   };
@@ -760,6 +760,11 @@ function App() {
   //   而【复看那份 system 会把这张卡现在写的十块正文原样摆回去】——它一次都没缩到。
   //   她 2026-09-06 的观察正好指着这儿：「写过 10 版的人都失败、都卡在 16-20 天前，
   //   剩下新人让他们写是可以过的」——新人走的是建卡，那份提示词里没有卡的正文。
+  // 这一枪用的是哪条线路（她 2026-09-11：报错只说「这条线路没配好」，不说是哪条，
+  // 于是她一次次去修【聊天】那条——而建卡和复看走的是【后台任务模型】那条，怎么修都修不到点上）。
+  // ⚠️bgActive 在没单独选后台线路时就是主模型本身，所以得看 bgApiId 有没有真的选过。
+  const gazeRouteZh = p => (!p ? "没有可用线路"
+    : ((bgApiId && bgActive && p.id === bgActive.id) ? "后台任务模型" : "主模型") + "「" + (p.name || "未命名") + "」");
   const gazeCall = async (p, levels, onFallback) => {
     let last = null;
     for (let i = 0; i < levels.length; i++) {
@@ -854,9 +859,9 @@ function App() {
       if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
       window.Gaze.acceptReview(char.id, parsed);
     } catch (e) {
-      if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成");
+      if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成", gazeRouteZh(p));
       // 她亲手按的那一次，按下去总该立刻有回音；卡上那一行照旧留着话（v64.54）
-      if (manual) toast("复看没成：" + (window.Gaze.plainWhy ? window.Gaze.plainWhy(e.message || "") : "看卡上那一行"));
+      if (manual) toast("复看没成（" + gazeRouteZh(p) + "）：" + (window.Gaze.plainWhy ? window.Gaze.plainWhy(e.message || "") : "看卡上那一行"));
     } finally { setGazeReviewBusy(false); }
   };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
@@ -20202,7 +20207,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
       // 手动复看不等待聊天轮数或卡龄。
-      onGazeReview: () => { if (!apiFor(scc.id)) return toast("请先配置 API"); reviewGazeFor(scc, true); },
+      // ⚠️守卫检查的得是【真正要用的那条】：复看走 bgActive 优先，
+      //   原来这儿只看 apiFor(角色)，于是后台线路坏掉时守卫照样放行，进去才 401。
+      onGazeReview: () => { if (!(bgActive || apiFor(scc.id))) return toast("请先配置 API"); reviewGazeFor(scc, true); },
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });

@@ -7598,7 +7598,13 @@ function ApiConfig({
             ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "2px 8px" } }, "主用中")
             : h("button", { onClick: e => { e.stopPropagation(); onSave(list, p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
     routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
-    routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。", bgApiId, onSetBgApi, "跟随主模型"),
+    // ⚠️「Ta 眼里」这一句不许省（她 2026-09-11 报「来来回回修了那么多次都当天好了以后又不行了」）：
+    //   v64.43 起【建卡和复看】也走这条线，可这一栏的说明还停在「记忆、日程、钱包、便签」，
+    //   于是她照着说明把它指去便宜线路，顺手也把「Ta 眼里」指过去了——而她无从知道。
+    //   一层挪了地方，说明没跟上，就是这条规矩的另一种犯法。
+    routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。"
+      + "⚠️「Ta 眼里」的建卡和复看也走这条——那两枪吃的料重，便宜线路容易拦或者报 401，"
+      + "「Ta 眼里」不更新时先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
