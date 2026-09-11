@@ -69,3 +69,17 @@ test("那颗键是一颗小房子，而且单聊群聊共用同一颗", () => {
   const key = comp.slice(comp.indexOf("function sameRoomButton("), comp.indexOf("function sameRoomButton(") + 1200);
   assert.match(key, /transform: "rotate\(-45deg\)"/, "关着没有那道斜杠，看不出开没开");
 });
+
+test("开着同处一室时，动作写屋里的事，不写「盯着屏幕回消息」", () => {
+  // 她 2026-09-11 拿状态卡给我看：「我侧躺在床上，伸手把被子往 Lisa 肩头扯了扯，
+  // 眼睛半眯着盯着发光的手机屏幕回消息」——前半句人在旁边，后半句又写回了隔着屏幕。
+  // ⚠️单聊和群聊共用同一句（samePlacePresence 只此一份）。
+  const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const fn = eng.slice(eng.indexOf("function samePlacePresence(uName, group) {"),
+    eng.indexOf("// 动描（她 2026-09-09）"));
+  assert.match(fn, /【动作写屋里的事】/);
+  assert.match(fn, /手在哪、看着谁/);
+  assert.match(fn, /盯着手机屏幕回消息/);
+  assert.match(fn, /不是你此刻在做的事/);
+  assert.equal((eng.match(/【动作写屋里的事】/g) || []).length, 1, "被抄成了第二份");
+});
