@@ -37,7 +37,7 @@ test("生成同人文能点名让谁写；没点名也会把新笔名收进来",
   assert.match(fic, /upsertAuthor\(stripStrayCP\(\{ name: nm, bio: by \? by\.bio : x\.authorBio, sign: by \? by\.sign : x\.authorSign/);
   // 弹窗里那一排不是药丸：署名表上一行行的名字，选中那行落一个墨点
   assert.match(fic, /"让谁来写"/);
-  assert.match(fic, /doGen\(n, cp, styleIds, includeMe, briefs, byAuthor\)/);
+  assert.match(fic, /doGen\(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay\)/);
 });
 
 test("作者榜是一张署名表，不是一排卡片", () => {

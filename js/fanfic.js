@@ -691,6 +691,16 @@
     if (c.isMe) return "「" + c.name + "」是读者本人（我）" + (p ? "，按这份面具人设来写：\n" + p : "，没有填写人设——可自由发挥其性格，别硬套设定");
     return "「" + c.name + "」严格贴合角色卡：\n" + (p || "（暂无设定，可据名字合理发挥）");
   }
+  // 群像那一向（友情向／亲情向／修罗场／无 CP／她自己写的）从哪儿来，只认这一处：
+  // 新生成时是这一次挑的（opts.groupWay），续写和加笔时是这篇文自己带着的（fic.groupWay）。
+  // ⚠️三个调用点各读各的，就是「一层写在三处」——迟早有一处忘了带。
+  function groupWayOf(fic, opts) {
+    return String((opts && opts.groupWay) || (fic && fic.groupWay) || "").trim().slice(0, 120);
+  }
+  // ⚠️凡是【手上已经有这篇文】的那几枪（续写、写长一点、请原作者回来、加笔），
+  //   都得把这篇文的群像向带上。写成这一行，新开第四枪时照抄就行——
+  //   不然那一处又会是「一层写在四处、第四处没跟上」的那一处。
+  function ficOpts(fic, opts) { return Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) }); }
   function cpBlock(cpChars, opts) {
     opts = opts || {};
     if (!cpChars || !cpChars.length)
@@ -706,6 +716,24 @@
     const posRule = function (l, r) {
       return "\n【左右位铁律（最高优先，凌驾于人设气场与性别之上）】这个 CP 的顺序就是左右位：「" + l + "」是左位，「" + r + "」是右位。写亲密关系时严格执行【左攻右受】：主导/进攻的一方永远是「" + l + "」，承受/被动的一方永远是「" + r + "」——**绝对禁止因为谁人设更强势、更年长、更冷、更有钱、体格更壮，或者因为谁是男的，就自行把位置调换**。人设强势的右位就写成气场强但在这段关系里是受的那一方；性格软的左位就写成温柔但主动的攻。**异性 CP 一样按这条走**：女左男右就是女方主导，不是「男的照例在上」；该怎么做、用什么姿势，由这个顺序决定，别拿常见写法把它翻回去。";
     };
+    // ── 群像（她 2026-09-11：「除了 cp 还可以写群像，有好几个人同时写进来，
+    //    然后可以选是友情向亲情向，修罗场，无 cp」）────────────────────
+    // ⚠️**群像一个字的左右位都不发**：一群人里没有左右位这回事，发了就等于替她
+    //   在里头指定了一对——她选「无 CP」的时候尤其荒唐。
+    // ⚠️三个人以上，模型的默认写法是【点名册】：一人一段轮流发言、每人都得有戏。
+    //   所以得明说不是每个人都要出场——这一条不写，群像就写成了通讯录。
+    if (cpChars.length >= 3) {
+      const way = String((opts.groupWay || "")).trim();
+      return "【群像：" + cpChars.map(function (c) { return c.name; }).join("、") + "】"
+        + "这一篇同时写这几个人，**不是一对 CP**。\n"
+        + cpChars.map(function (c) { return "· " + sideDesc(c); }).join("\n")
+        + "\n\n【这几个人之间是什么关系】" + (way || "她没说——你自己定一种，定下来就别中途换。")
+        + "\n⚠️几个人之间怎么回事，以上面这一行为准：**别自作主张在里头挑两个配成一对**。"
+        + "\n⚠️**不是每个人都要出场**：谁是这一篇的重心由你定，有人只出现一次、有人从头到尾没露面都行。"
+        + "别写成点名册——一人一段轮流发言、每个人都分到一场戏，那是通讯录不是故事。"
+        + "\n⚠️人多了最容易丢的是【谁是谁】：几个人说话的调子、在意的事、动手的方式都得分得开，"
+        + "不许几个人共用一种语气。";
+    }
     if (cpChars.length === 1) {
       const c = cpChars[0];
       return "【CP：" + c.name + " × 原创对象】\n主角一方：" + sideDesc(c) + "\n另一方是一个由你设定的原创角色（自由发挥，贴合本世界观基调）。" + posRule(c.name, "原创对象");
@@ -783,7 +811,9 @@
     const out = [];
     list.forEach(function (cp) {
       const pair = Array.isArray(cp) ? cp : (cp && cp.cp);
-      if (!Array.isArray(pair) || !pair.length) return;
+      // ⚠️只收【两个人】的：群像预设进了这张白名单，就等于告诉模型
+      //   「A、B、C 群像」是她配过的一对，它照样会去凑对
+      if (!Array.isArray(pair) || !pair.length || pair.length >= 3) return;
       const lb = cpLabel(pair, characters || [], userName);
       if (lb && out.indexOf(lb) < 0) out.push(lb);
     });
@@ -1429,7 +1459,7 @@
         + "· **她的路数只管【怎么写】，不管【写什么】。**句子长短、力气花在哪儿、故意不写什么，照她来；"
         + "人物是谁、发生过什么、这篇往哪儿走，照设定卡和前情来，一个字不许因为「她会这么写」而改掉。\n" : "")
       : "");
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, ficOpts(fic, opts)) + "\n\n" +
       "【当前任务：给一篇已在连载的同人文续写下一章】\n" + byBlock +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
       "【本篇基本设定（地基·每一章都不许动）】\n" + (premise ? premise + "\n" : "") + (ch1Head ? "第一章开头（设定以此为准）：" + ch1Head + "……\n" : "") +
@@ -1522,7 +1552,7 @@
     const minWords = minCharsFor({ perFic: opts.perFic, minChars: opts.minChars });
     const missing = shortBy(have, minWords);
     const penBy = (opts.author && authorName(opts.author)) ? opts.author : findAuthor(ch.byAuthor || fic.author);
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, ficOpts(fic, opts)) + "\n\n" +
       "【当前任务：把一章没写完的正文接着写完】\n" +
       (penBy && authorVoiceLines(penBy) ? "【这一章的笔在谁手上】笔名「" + authorName(penBy) + "」\n" + authorVoiceLines(penBy) : "") +
       "篇名《" + fic.title + "》第 " + (i + 1) + " 章。\n" +
@@ -1564,7 +1594,7 @@
     opts = opts || {};
     const own = String(fic.author || "").trim();
     const by = findAuthor(own);
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, ficOpts(fic, opts)) + "\n\n" +
       "【当前任务：写一句话】你是同人圈里的太太，笔名「" + (own || "无名") + "」。\n" +
       (by && authorVoiceLines(by) ? authorVoiceLines(by) : "") +
       "你之前放话不写《" + fic.title + "》这篇了" + (fic.quitSay ? "（你当时说的是：「" + String(fic.quitSay).slice(0, 120) + "」）" : "") + "。\n" +
@@ -1733,8 +1763,14 @@
   }
   function rpRoleDesc(mode, cpChars, userName, identity) {
     const a = cpChars[0], b = cpChars[1];
-    if (mode === "left") return "玩家【魂穿成主角「" + (a ? a.name : "左位主角") + "」】——顶着 TA 的身份、外壳、人际关系登场，但言行与选择完全由玩家真实决定，可以偏离 TA 的原设（这正是穿书的乐趣）。" + (b ? "另一位主角「" + b.name + "」是对方，由你（引擎）扮演的 NPC。" : "");
-    if (mode === "right") return "玩家【魂穿成主角「" + (b ? b.name : "右位主角") + "」】——顶着 TA 的身份登场，但言行由玩家决定，可偏离原设。" + (a ? "另一位主角「" + a.name + "」是对方，由你扮演的 NPC。" : "");
+    // ⚠️群像篇里没有「另一位主角」这回事：照旧说「另一位主角是对方」，
+    //   等于当着四个人的面说这儿只有两个人。魂穿目标暂时仍是头两位
+    //   （要能穿进第三、第四位，得动 RP_MODES 那一串，另算一次）。
+    const rest = cpChars.length >= 3
+      ? "这一篇是群像，场上还有" + cpChars.slice(2).map(function (c) { return "「" + c.name + "」"; }).join("、") + "，连同其余几位都由你（引擎）扮演。"
+      : "";
+    if (mode === "left") return "玩家【魂穿成主角「" + (a ? a.name : "左位主角") + "」】——顶着 TA 的身份、外壳、人际关系登场，但言行与选择完全由玩家真实决定，可以偏离 TA 的原设（这正是穿书的乐趣）。" + (rest || (b ? "另一位主角「" + b.name + "」是对方，由你（引擎）扮演的 NPC。" : ""));
+    if (mode === "right") return "玩家【魂穿成主角「" + (b ? b.name : "右位主角") + "」】——顶着 TA 的身份登场，但言行由玩家决定，可偏离原设。" + (rest || (a ? "另一位主角「" + a.name + "」是对方，由你扮演的 NPC。" : ""));
     if (mode === "passerby") return identity && identity.name
       ? "玩家【天降成「" + identity.name + "」】——" + (identity.role || "一个闯入这个世界的路人 / 配角") + "。原著里本没有 TA，全程就是这个固定身份，【绝不会变成原著里的主角，也绝不是现实里操作游戏的那个人】。"
       : "玩家【天降成一个路人 / 配角】——原著里本没有 TA，作为闯入这个世界的新角色出现（开场给 TA 一个合理身份，之后固定不变）。";
@@ -1823,9 +1859,12 @@
     // 一份 system 里同时说「你是闯进来的路人」和「读者不出场」，模型必然写歪。
     // includeMe 本来就是「把『我』作为第三方写进去」那个开关，正对上这里。
     const playerIsThirdParty = mode === "passerby" || mode === "random";
-    parts.push(cpBlock(cpChars, playerIsThirdParty
+    // ⚠️群像那一向也得跟过来：加笔走的是同一个 cpBlock，这儿不带的话，
+    //   穿进一篇「无 CP 群像」之后它照样会在里头给你凑一对。
+    //   （群像那一支本来就不发「读者不出场」那条尾巴，所以跟天降身份不打架。）
+    parts.push(cpBlock(cpChars, ficOpts(fic, playerIsThirdParty
       ? { includeMe: true, meName: (identity && identity.name) || userName || "我", mePersona: "" }
-      : {}));
+      : {})));
     parts.push("【玩家的身份 / 穿进去的方式】" + rpRoleDesc(mode, cpChars, userName, identity));
     parts.push(rpAnchorLine(mode, cpChars, identity));
     { const kl = rpKnowLine(know, mode, cpChars, userName); if (kl) parts.push(kl); }
@@ -2322,10 +2361,25 @@
     if (!cp || !cp.length) return "原创向";
     const nameOf = function (tok) { if (tok === "me") return userName || "我"; const c = characters.find(function (x) { return x.id === tok; }); return c ? c.name : "原创"; };
     if (cp.length === 1) return nameOf(cp[0]) + " × 原创";
+    // 三个人以上是群像，不是 CP：写成「A × B × C」会让人以为她配了个三角
+    if (cp.length >= 3) {
+      const names = cp.map(nameOf);
+      return (names.length <= 3 ? names.join("、") : names.slice(0, 3).join("、") + " 等 " + names.length + " 人") + " 群像";
+    }
     return nameOf(cp[0]) + " × " + nameOf(cp[1]);
   }
   // CP 下拉里的选项：真人角色在前，配角归到「配角」一组并标上是谁身边的人。
   // 不分组的话一长串名字里认不出哪个是配角、属于谁。
+  // 那两个下拉的样子只写在这一处（她 2026-09-11：「选 cp 那两条太长了超出屏幕了」）。
+  // ⚠️病根是 select 的固有宽度按【最长的那个选项】算——「老板娘（阿凛身边）」这种一进去，
+  //   两个下拉加起来就比屏幕宽。flex:1 挡不住它：flex 元素的 min-width 默认是 auto，
+  //   不许它缩到内容以下。**minWidth:0 才是那道闸。**
+  // ⚠️同一行下拉库里有三处（生成弹窗、加笔那一页、磕 CP 管理），
+  //   所以样式收在这儿——各写各的，就是改一处漏两处。
+  function cpSelectStyle(t, radius, bg) {
+    return { flex: 1, minWidth: 0, maxWidth: "100%", fontFamily: F_BODY, fontSize: 12.5,
+      padding: "7px 10px", borderRadius: radius || 10, background: bg || t.bg2, color: t.ink, border: "1px solid " + t.line };
+  }
   function cpOptions(characters, userName) {
     const all = characters || [];
     const live = all.filter(function (c) { return c && !c.npc; });
@@ -2341,6 +2395,44 @@
       })));
     }
     return out;
+  }
+  // ── 几个人一起写（她 2026-09-11：「除了 cp 还可以写群像，有好几个人同时写进来」）──
+  // ⚠️这不是「再来一个 CP 选择器」：**点的先后就是顺序**——两个人时那个顺序就是左右位，
+  //   三个人以上是群像，左右位一个字都不发。所以行上要把顺序显出来，
+  //   不然她点完了也不知道自己点出的是「女左男右」还是反过来。
+  // ⚠️形状照名册那一页的署名行来（墨点 + 名字），不是一排勾选框：
+  //   这个 app 里「挑人」已经有长相了，再发明一种就是两处各长各的。
+  const CAST_MAX = 6;
+  const GROUP_WAYS = ["友情向", "亲情向", "修罗场", "无 CP"];
+  function CastPicker(props) {
+    const t = props.t, cast = props.value || [];
+    const all = props.characters || [];
+    const list = [{ id: "me", name: (props.userName || "我") + "（我）" }]
+      .concat(all.filter(function (c) { return c && !c.npc; }))
+      .concat(all.filter(function (c) { return c && c.npc; }).map(function (c) { return { id: c.id, name: c.name, npc: true }; }));
+    return h("div", null, list.map(function (c) {
+      const at = cast.indexOf(c.id), on = at >= 0;
+      const mark = cast.length === 2 ? (at === 0 ? "左位" : "右位") : String(at + 1);
+      return h("button", { key: c.id, className: "w-full text-left active:opacity-70",
+        onClick: function () { props.onChange(on ? cast.filter(function (x) { return x !== c.id; }) : (cast.length >= CAST_MAX ? cast : cast.concat([c.id]))); },
+        style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          c.name + (c.npc ? "（配角）" : "")),
+        on ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, mark) : null);
+    }));
+  }
+  // 那一向挂成一枚标签：这是同人站，选「向」本来就是给这篇文挂 tag
+  //   （不是一排药丸——选中那枚上墨、带一个钩，形状和没选的不一样）
+  function WayTag(props) {
+    const t = props.t, on = props.on;
+    const st = ficTagStyle(ficTagKind(props.tag), t, false);
+    return h("button", { onClick: props.onClick, className: "active:opacity-70",
+      style: { minHeight: 40, padding: "0 13px", display: "flex", alignItems: "center", gap: 5,
+        fontFamily: F_BODY, fontSize: 12.5, borderRadius: 3,
+        color: on ? (t.bg2 || t.bg) : st.color, background: on ? st.color : st.background,
+        border: on ? "1px solid " + st.color : st.border, fontWeight: on ? 600 : 400 } },
+      on ? h("span", { style: { fontSize: 11 } }, "✓") : null, props.tag);
   }
   function cpChars(cp, characters, profile) {
     return (cp || []).map(function (tok) { return tok === "me" ? meChar(profile) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
@@ -2610,14 +2702,21 @@
     const [pickA, setPickA] = useState(""), [pickB, setPickB] = useState("");
     const [styleIds, setStyleIds] = useState(cfg0.activeStyleIds || []); // 本次生效的文风（默认=上次选的）
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
+    // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
+    const [cast, setCast] = useState([]);
+    const [way, setWay] = useState("");
     function toggleStyle(id) { setStyleIds(function (prev) { return prev.indexOf(id) >= 0 ? prev.filter(function (x) { return x !== id; }) : prev.concat([id]); }); }
     const cps = props.cps, characters = props.characters;
     // 最终 cp：优先用手动选（pickA/pickB，可为角色/我/原创空），否则用点选的 preset
     function chosenCP() {
+      if (cast.length >= 2) return cast;           // 两个＝CP（点的先后就是左右位），三个以上＝群像
       const manual = [pickA, pickB].filter(function (x) { return x; });
       if (manual.length) return manual;
       return sel;
     }
+    const isGroup = chosenCP().length >= 3;
+    // 挑人的三条路互斥：不清掉另外两条，界面上会同时亮着两处而只有一处算数
+    function pickCast(next) { setSel([]); setPickA(""); setPickB(""); setCast(next); }
     // 两个都是角色（都不是「我」/原创）时才给「带上我」开关
     function twoRealChars() { const cc = chosenCP(); return cc.length === 2 && cc.every(function (x) { return x && x !== "me"; }); }
     // ── 四格收放（v64.63）──────────────────────────────────────────────
@@ -2626,7 +2725,9 @@
     function cpSummary() {
       const cc = chosenCP();
       if (!cc.length) return "还没挑";
-      return cpLabel(cc, characters, props.userName) + (twoRealChars() && includeMe ? " · 带上我" : "");
+      return cpLabel(cc, characters, props.userName)
+        + (isGroup && way.trim() ? " · " + way.trim() : "")
+        + (!isGroup && twoRealChars() && includeMe ? " · 带上我" : "");
     }
     function styleSummary() {
       if (!styleIds.length) return "不限";
@@ -2695,7 +2796,7 @@
             cps.map(function (cp) {
               const on = JSON.stringify(chosenCP()) === JSON.stringify(cp.cp);
               return h("button", {
-                key: cp.id, onClick: function () { setPickA(""); setPickB(""); setSel(on ? [] : cp.cp); },
+                key: cp.id, onClick: function () { setPickA(""); setPickB(""); setCast([]); setSel(on ? [] : cp.cp); },
                 style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }
               }, cp.label || cpLabel(cp.cp, characters, props.userName));
             })
@@ -2703,20 +2804,40 @@
 
           // 本次手动设置一对（不进预设）：原创 / 我（面具人设）/ 角色
           h("div", { className: "flex items-center gap-2 mb-2" },
-            h("select", { value: pickA, onChange: function (e) { setSel([]); setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+            h("select", { value: pickA, onChange: function (e) { setSel([]); setCast([]); setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
               cpOptions(characters, props.userName)),
-            h("span", { style: { fontFamily: F_BODY, color: t.fog } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setSel([]); setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+            h("span", { style: { fontFamily: F_BODY, color: t.fog, flexShrink: 0 } }, "×"),
+            h("select", { value: pickB, onChange: function (e) { setSel([]); setCast([]); setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
               cpOptions(characters, props.userName))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按你在设置里的面具人设来写，没填则自由发挥"),
 
           // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
-          twoRealChars() ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+          (!isGroup && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
             style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 } },
             h("div", { style: { textAlign: "left" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
             h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (includeMe ? t.ink : t.line), background: includeMe ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, includeMe ? "✓" : "")) : null,
+
+          // ── 几个人一起（她 2026-09-11）────────────────────────────
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, letterSpacing: ".16em", margin: "16px 0 2px" } }, "或者几个人一起"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4, lineHeight: 1.6 } },
+            "点的先后就是顺序：点两个＝这一对（先点的是左位），点三个以上＝群像，不分左右位。最多 " + CAST_MAX + " 个。"),
+          h(CastPicker, { t: t, characters: characters, userName: props.userName, value: cast, onChange: pickCast }),
+          // 三个人以上才问「这几个人什么关系」——两个人那是 CP，不是向
+          isGroup ? h("div", { style: { marginTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "这几个人之间是什么关系"),
+            h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+              GROUP_WAYS.map(function (w) {
+                return h(WayTag, { key: w, t: t, tag: w, on: way.trim() === w, onClick: function () { setWay(way.trim() === w ? "" : w); } });
+              })),
+            // ⚠️那四个是她随口想得到的，「还有啥别的类型的想不到了」——所以这一格永远开着
+            h("input", { value: way, onChange: function (e) { setWay(e.target.value.slice(0, 120)); },
+              placeholder: "或者自己写：同门、一个乐队、互相看不顺眼的同事…",
+              className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "9px 0 8px", marginTop: 10,
+                background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+              "空着就让她自己定一种。不是每个人都要出场——谁是重心交给写的人。")) : null,
         ),
         sec("style", "什么味道", styleSummary(),
           // 本次文风（在「我的·生成设置」里建，这里按需勾选，可多选，不选=不限）
@@ -2749,7 +2870,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成")));
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : ""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -3041,7 +3162,9 @@
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "by " + authorName))),
-        metaRow("这一对", h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName))),
+        metaRow((f.cp || []).length >= 3 ? "这几个" : "这一对",
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
+            cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : ""))),
         (f.tags || []).length ? metaRow("标签", h("div", { className: "flex flex-wrap", style: { gap: 5 } },
           (f.tags || []).map(function (tag, i) { return h(FicTag, { key: i, tag: tag }); }))) : null,
         metaRow("数目", h("div", { className: "flex flex-wrap", style: { gap: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 1 } },
@@ -3428,10 +3551,10 @@
             props.tabs.map(function (tb) { return h("option", { key: tb.id, value: tb.id }, tb.name); })),
           h("input", { value: title, onChange: function (e) { setTitle(e.target.value); }, placeholder: "标题", className: "w-full outline-none mb-3", style: { fontFamily: F_DISPLAY, fontSize: 17, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
           h("div", { className: "flex items-center gap-2 mb-3" },
-            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
               cpOptions(characters, props.userName)),
-            h("span", { style: { color: t.fog } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
+            h("span", { style: { color: t.fog, flexShrink: 0 } }, "×"),
+            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
               cpOptions(characters, props.userName))),
           h("input", { value: tags, onChange: function (e) { setTags(e.target.value); }, placeholder: "标签，用空格或逗号分隔（如 HE 破镜重圆）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } })
         ),
@@ -3545,9 +3668,9 @@
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
           h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "备注名（可空，默认用名字）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
           h("div", { className: "flex items-center gap-2 mb-3" },
-            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }, picks),
-            h("span", { style: { color: t.fog } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }, picks)),
+            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 8, t.bg) }, picks),
+            h("span", { style: { color: t.fog, flexShrink: 0 } }, "×"),
+            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 8, t.bg) }, picks)),
           h("button", { onClick: save, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "9px", borderRadius: 10 } }, editId ? "保存修改" : "保存 CP")) : null,
         cps.length ? cps.map(function (cp) {
           return h("div", { key: cp.id, className: "flex items-center justify-between rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
@@ -4655,7 +4778,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay) {
       setGearOpen(false);
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
       const run = async function (updateProgress) {
@@ -4679,7 +4802,8 @@
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
-          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "" };
+          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "",
+          groupWay: String(groupWay || "").trim() };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
         // 每篇完成立刻落库；中途失败也不赔掉已经写好的篇目。普通文风仍是一批一次调用。
@@ -4690,7 +4814,8 @@
           const now = Date.now();
           return arr.map(function (x, i) {
           return {
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset

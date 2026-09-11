@@ -164,7 +164,7 @@ test("三格的摘要都跟着填进去的东西变，不是一句死话", () =>
     return ctx.f;
   };
   // 谁和谁
-  const cpCtx = { characters: [], props: { userName: "我" }, includeMe: false,
+  const cpCtx = { characters: [], props: { userName: "我" }, includeMe: false, isGroup: false, way: "",
     cpLabel: cc => cc.join(" × "), chosenCP: () => cpCtx.picked, twoRealChars: () => cpCtx.picked.length === 2, picked: [] };
   const cpSummary = run("cpSummary", "styleSummary", cpCtx);
   assert.equal(cpSummary(), "还没挑");
@@ -172,6 +172,11 @@ test("三格的摘要都跟着填进去的东西变，不是一句死话", () =>
   assert.equal(cpSummary(), "甲 × 乙");
   cpCtx.includeMe = true;
   assert.equal(cpSummary(), "甲 × 乙 · 带上我");
+  // 群像那一档：跟着那一向变，而且「带上我」不许再冒出来（一群人里没有他俩×我）
+  cpCtx.picked = ["甲", "乙", "丙"]; cpCtx.isGroup = true; cpCtx.way = "修罗场";
+  assert.equal(cpSummary(), "甲 × 乙 × 丙 · 修罗场");
+  cpCtx.way = "";
+  assert.equal(cpSummary(), "甲 × 乙 × 丙");
 
   // 什么味道
   const stCtx = { styles: [{ id: "a", name: "甲风" }, { id: "b", name: "乙风" }, { id: "c", name: "丙风" }], styleIds: [] };

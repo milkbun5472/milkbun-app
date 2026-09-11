@@ -33,7 +33,7 @@ test("英文眉标换成中文，而且不是把英文译回来", () => {
     .forEach(w => assert.ok(NOC.indexOf(w) < 0, w + " 还在"));
   assert.match(NOC, /"圈子里最上面那一篇"/);
   assert.match(NOC, /view === "shelf" \? "收进来的那些" : "别人都在写什么"/);
-  assert.match(NOC, /metaRow\("这一对"/);
+  assert.match(NOC, /metaRow\(\(f\.cp \|\| \[\]\)\.length >= 3 \? "这几个" : "这一对"/, "三个人以上还写「这一对」");
   // Head 上那几个 en:（有 zh 时 Head 本来就不发纯拉丁的 en）也一并删掉，不留死重量
   assert.doesNotMatch(NOC, /en: "(Publish|Mine|Published|Ships|Settings)"/);
 });

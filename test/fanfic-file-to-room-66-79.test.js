@@ -84,14 +84,15 @@ test("一起写是第三个开关，一间房想开几样开几样", () => {
 });
 
 test("左右位：异性 CP 那个分叉删掉了，性别跟「更壮」是同一类借口", () => {
-  const seg = fic.slice(fic.indexOf("const posRule = function"), fic.indexOf("    if (cpChars.length === 1)"));
+  const seg = fic.slice(fic.indexOf("const posRule = function"), fic.indexOf("    // ── 群像"));
+  assert.ok(seg.length > 300, "没切到左右位那一段");
   assert.ok(seg.indexOf("若两人是同性 CP") < 0 && seg.indexOf("顺序代表叙事重心先后") < 0,
     "那一行把她的选择悄悄丢掉了：她点女×男是要女方主导，模型收到的却是「顺序只是先后」");
   assert.match(seg, /或者因为谁是男的，就自行把位置调换/);
   assert.match(seg, /\*\*异性 CP 一样按这条走\*\*：女左男右就是女方主导，不是「男的照例在上」/);
   assert.match(seg, /凌驾于人设气场与性别之上/);
   // 加笔走的是同一个 cpBlock，所以改一处两边一起好
-  assert.match(fic, /parts\.push\(cpBlock\(cpChars, playerIsThirdParty/);
+  assert.match(fic, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, playerIsThirdParty/);
   assert.equal((fic.match(/const posRule = function/g) || []).length, 1, "左右位又被抄了第二份");
 });
 

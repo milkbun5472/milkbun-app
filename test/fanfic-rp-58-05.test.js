@@ -69,11 +69,11 @@ test("「我的」页那个入口撤干净了，连那条线一起", () => {
 test("天降模式不许再发「读者不出场」——那和身份锚点正面打架", () => {
   const i = fic.indexOf("    const playerIsThirdParty =");
   assert.ok(i > 0, "没分出天降这一支");
-  const seg = fic.slice(i, i + 420);
+  const seg = fic.slice(i, i + 620);
   assert.match(seg, /mode === "passerby" \|\| mode === "random"/);
   // ⚠️认的是【它真的当了那个条件】：只找变量名的话，把 cpBlock 的第二个参数
   // 改成写死的 false，声明还在、测试照样绿（第一版就是这么漏过去的）
-  assert.match(seg, /parts\.push\(cpBlock\(cpChars, playerIsThirdParty\s*\n?\s*\? \{ includeMe: true, meName: \(identity && identity\.name\) \|\| userName \|\| "我", mePersona: "" \}\s*\n?\s*: \{\}\)\);/);
+  assert.match(seg, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, playerIsThirdParty\s*\n?\s*\? \{ includeMe: true, meName: \(identity && identity\.name\) \|\| userName \|\| "我", mePersona: "" \}\s*\n?\s*: \{\}\)\)\);/);
   // cpBlock 里那条尾巴就是打架的那句
   assert.match(fic, /读者\/『我』不出场、不作为角色写进去/);
   assert.match(fic, /const soloTail = bothChars \? /);
