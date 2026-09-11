@@ -42,20 +42,22 @@ test("底栏只吃 0.4 条安全区，和主聊天输入栏、购物底栏同一
 });
 
 // ── 改名加笔（v62.44 她 2026-09-04：「加笔我觉得可以」；原来叫穿书）──
-test("界面上叫加笔了，但存档键和 mode key 一个都没动", () => {
+test("界面上叫加笔了，但存档键没动", () => {
   // 底栏中间那一枚让给了它（＋写文挪进「我的」）
   assert.match(fic, /\{ key: "rp", label: "加笔", center: true \}/);
   ["加笔中", "＋ 新一篇", "还没在谁的文上动过笔", "挑一篇下笔"].forEach(x =>
     assert.ok(fic.indexOf(x) > 0, "这处没改名：" + x));
   // v66.79：她 2026-09-11「如果有旧的名称全部改了」——提示词是模型看得见的字，
   // 跟存档键不是一回事，所以这一处跟着界面改成「加笔」。
-  assert.match(fic, /【加笔 · 互动叙事引擎】玩家『穿』进了一篇同人文里/);
+  // v67.02：开宗明义那一句也从「穿进去」改成了「在写好的文上动笔」
+  assert.match(fic, /【加笔 · 互动叙事引擎】玩家正在一篇已经写好的同人文上动笔/);
+  assert.ok(fic.indexOf("玩家『穿』进了一篇同人文里") < 0);
   assert.ok(fic.indexOf("【穿书 · 互动叙事引擎】") < 0);
-  assert.match(fic, /【玩家的身份 \/ 穿进去的方式】/);
+  assert.match(fic, /【玩家是怎么在这儿的】/);
   // ⚠️改了这两样旧存档就读不出来了
   assert.match(fic, /const K_RP = "x_fanfic_rp";/);
-  ["left", "right", "passerby", "random"].forEach(k =>
-    assert.ok(fic.indexOf('key: "' + k + '"') > 0, "mode key 被改了：" + k));
+  // ⚠️v67.02 起没有 mode 这回事了（魂穿整套删掉）：老存档里那一栏还躺着，只是不再被读
+  assert.ok(fic.indexOf("mode: \"left\"") < 0, "开一局还在往存档里落 mode");
   // 体裁标签里「穿越」是读者用的词，留着，另外把「穿书」也认上
   assert.match(fic, /IF线\|AU\|au\|穿越\|穿书\|重生/);
 });
@@ -66,15 +68,12 @@ test("「我的」页那个入口撤干净了，连那条线一起", () => {
 });
 
 // ── 穿书的逻辑 ──
-test("天降模式不许再发「读者不出场」——那和身份锚点正面打架", () => {
-  const i = fic.indexOf("    const playerIsThirdParty =");
-  assert.ok(i > 0, "没分出天降这一支");
-  const seg = fic.slice(i, i + 620);
-  assert.match(seg, /mode === "passerby" \|\| mode === "random"/);
-  // ⚠️认的是【它真的当了那个条件】：只找变量名的话，把 cpBlock 的第二个参数
-  // 改成写死的 false，声明还在、测试照样绿（第一版就是这么漏过去的）
-  assert.match(seg, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, playerIsThirdParty\s*\n?\s*\? \{ includeMe: true, meName: \(identity && identity\.name\) \|\| userName \|\| "我", mePersona: "" \}\s*\n?\s*: \{\}\)\)\);/);
-  // cpBlock 里那条尾巴就是打架的那句
+// v67.02：没有「天降」这一支了，但**那条尾巴照样一个字都不许发**——
+// 加笔里玩家本人就站在场上，一份 system 里同时说「你站在那儿」和「读者不出场」，
+// 模型必然写歪。所以这一条钉的是【那一枪永远带着 includeMe】。
+test("加笔里玩家本人在场，绝不许发「读者不出场」那条尾巴", () => {
+  assert.match(fic, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, \{ includeMe: true, meName: rpMeName\(userName\), mePersona: "" \}\)\)\);/);
+  // cpBlock 里那条尾巴就是打架的那句（它还在，只是这一枪永远走不到）
   assert.match(fic, /读者\/『我』不出场、不作为角色写进去/);
   assert.match(fic, /const soloTail = bothChars \? /);
   assert.doesNotMatch(fic, /parts\.push\(cpBlock\(cpChars\)\);/, "还在无条件发那条尾巴");
@@ -85,9 +84,10 @@ test("世界书真的进了穿书的 system——原来一路传到底、从没�
   const seg = fic.slice(i, fic.indexOf("  // ⚠️v63.92 删掉了 genLandings", i));
   assert.match(seg, /if \(worldbook && worldbook\.trim\(\)\) \{\n\s*if \(typeof WORLDBOOK_RULE !== "undefined"\) parts\.push\(WORLDBOOK_RULE\);\n\s*parts\.push\("【全局世界书（严格遵循/,
     "穿书还是收不到世界书");
-  // 身份也要合得上世界书
-  const j = fic.indexOf("  async function genRPIdentity(");
-  assert.match(fic.slice(j, j + 1400), /这个身份要合得上里面的设定与禁忌/);
+  // v67.02：定身份那一枪（genRPIdentity）跟着魂穿一起删了——没有身份要定了。
+  // ⚠️要先把注释剥掉再断：那个名字还写在病历注释里，拿原文去断永远是红的
+  const noc = fic.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(noc.indexOf("genRPIdentity") < 0, "撤东西要删干净，别留半条线");
   // v63.92：挑落点那一枪整个撤掉了（她 2026-09-05「直接进去改文」），撤就撤干净——
   // 留半条线比没有更坏（「我的」页那个入口那次学到的同一条）。
   assert.doesNotMatch(fic, /genLandings\(/, "撤东西要删干净，别留半条线");

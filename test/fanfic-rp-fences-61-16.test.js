@@ -117,7 +117,7 @@ test("压根不是 JSON 的那次照旧原样当正文——这条不许坏", ()
 
 test("穿书这条链上几处解析全换过来了，不许只治一半", () => {
   // ⚠️genRPStart v62.50 起不写正文了（原文就是开场），所以它没有正文可救
-  ["genRPTurn", "genRPEnding", "genRPIdentity"].forEach(fn => {
+  ["genRPTurn", "genRPEnding"].forEach(fn => {
     const i = fic.indexOf("async function " + fn + "(");
     assert.ok(i > 0, "找不到 " + fn);
     const seg = fic.slice(i, i + 3200);
@@ -181,7 +181,7 @@ test("加笔中那一页不再顶着一块 30px 大标题", () => {
   // v61.27：Head 本身已经改成紧凑标题栏了（components.js），所以这一页改回用 Head——
   // 同一层东西不许有两个实现，不然下次只会改到其中一处。
   assert.match(th, /h\(Head, \{ bg: "transparent",\n\s+zh: s\.ficTitle \|\| "加笔中",/);
-  assert.match(th, /sub: \[window\.Fanfic\.rpModeShort/, "副标题没接上");
+  assert.match(th, /sub: \[window\.Fanfic\.rpKnowLabel\(s\.know\), "原稿还剩 "/, "副标题没接上");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");
   // 书名只写一遍——底下那份重复的抬头撤掉了
   assert.equal((th.match(/s\.ficTitle/g) || []).length, 1, "书名还是连着写了两遍");

@@ -7,27 +7,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
-
-// ⚠️v63.92：选身份那一屏整个撤掉了（她 2026-09-05：「去掉那个选身份和记忆，
-//   就直接进去改文」），所以按钮那几条断言跟着走。存档里那份 key 和短名照旧要认。
-test("存档里的 mode 照旧认得出，短名写真名", () => {
-  // 存档里那份 key 不许改名（改了旧档读不出来）
-  assert.match(fic, /\{ key: "left", label: "魂穿 · CP 左位"/);
-  // v60.93：正在玩的那一屏、存档行的短名也要写真名（她：「这里没改呢」）
-  assert.match(fic, /function rpModeShort\(key, cpChars\)/);
-  assert.match(fic, /c\.isMe \? "我自己" : c\.name/);
-  assert.doesNotMatch(fic, /window\.Fanfic\.rpModeLabel\(s\.mode\)/, "还有地方在用不带名字的短名");
-});
-
-// 她 2026-09-03：「天降路人删了吧就留一个随机」
-test("天降只剩「随机身份」，但 passerby 这个字留着给老存档认", () => {
-  const m = fic.match(/const RP_MODES = \[[\s\S]*?\n  \];/);
-  assert.ok(m, "找不到 RP_MODES");
-  assert.match(m[0], /\{ key: "passerby",[^}]*legacy: true \}/, "老存档还得读得出这一档");
-  assert.doesNotMatch(m[0], /\{ key: "random",[^}]*legacy/, "随机这一档不能被一起藏掉");
-  // 提示词里仍旧认得 passerby，老局接着玩不会变味
-  assert.match(fic, /if \(mode === "passerby"\) return identity && identity\.name/);
-});
+// ⚠️v67.02：**「魂穿」整套删掉了**（她 2026-09-11：「加笔本来就不应该有魂穿这种东西，
+//   那是以前的玩法现在应该删掉了」）。所以原来钉 RP_MODES／rpModeShort 的那两条
+//   跟着删了——功能没了，断言不留（不是改成断言它不存在）。
+//   下面留着的是【跟模式无关】的那几条：老局的 know 那一路、平行时空那条线。
 
 // 她 2026-09-03：「同人文确实能写两个角色之间的，所以不一定是我自己」
 test("CP 是两个角色时，那几句话照样成立", () => {
@@ -41,8 +24,6 @@ test("CP 是两个角色时，那几句话照样成立", () => {
   const k = fic.match(/const RP_KNOWS = \[[\s\S]*?\n  \];/)[0];
   assert.doesNotMatch(k, /你和 TA 真正的关系/);
   assert.match(k, /你记得现实里的他们/);
-  // 另一边没有角色卡（A × 原创）时也别让人猜
-  assert.match(fic, /return c \? \(c\.isMe \? "我自己" : c\.name\) : "原创的那位";/);
 });
 
 // v63.92 起选单里不再问这一维，但【已经开着的那几局】存档里写着 know——
@@ -51,8 +32,8 @@ test("老局的 know 照旧一路发到底", () => {
   const m = fic.match(/const RP_KNOWS = \[[\s\S]*?\n  \];/);
   assert.ok(m, "找不到 RP_KNOWS");
   ["blank", "spoiler", "real"].forEach(k => assert.ok(m[0].indexOf('"' + k + '"') > 0, k + " 这一档没了"));
-  assert.match(fic, /session\.style, id, session\.know\)/, "开场没吃到");
-  assert.match(fic, /session\.style, session\.playerIdentity, session\.know\)/, "回合没吃到");
+  assert.equal(fic.split("buildRPSystem(fic, tab, cpChars, userName, worldbook, session.style, session.know)").length - 1, 3,
+    "开场／回合／收尾三处，少一处那一局的 know 就半路断了");
 });
 
 test("老存档不受影响：没有 know 的那些一个字都不多发", () => {

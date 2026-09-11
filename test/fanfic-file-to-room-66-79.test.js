@@ -92,7 +92,7 @@ test("左右位：异性 CP 那个分叉删掉了，性别跟「更壮」是同�
   assert.match(seg, /\*\*异性 CP 一样按这条走\*\*：女左男右就是女方主导，不是「男的照例在上」/);
   assert.match(seg, /凌驾于人设气场与性别之上/);
   // 加笔走的是同一个 cpBlock，所以改一处两边一起好
-  assert.match(fic, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, playerIsThirdParty/);
+  assert.match(fic, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, \{ includeMe: true/);
   assert.equal((fic.match(/const posRule = function/g) || []).length, 1, "左右位又被抄了第二份");
 });
 

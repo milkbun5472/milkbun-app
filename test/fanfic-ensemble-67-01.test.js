@@ -68,8 +68,8 @@ test("那一向跟着这篇文走，续写第七章还是那一向", () => {
   assert.deepEqual(Object.assign({}, F.f(null, null)), { groupWay: "" });
   assert.ok(code.indexOf("buildGenSystem(tab, cpChars, userName, worldbook, opts) + \"\\n\\n\"") < 0,
     "还有一枪是光秃秃传 opts 的");
-  // 加笔走同一个 cpBlock
-  assert.match(code, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, playerIsThirdParty/);
+  // 加笔走同一个 cpBlock（v67.02 删掉魂穿之后，那一枪永远带着 includeMe）
+  assert.match(code, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, \{ includeMe: true/);
   // 落在这篇文上，不然续写时无从读起
   assert.match(code, /cp: cp \|\| \[\], groupWay: String\(groupWay \|\| ""\)\.trim\(\)/);
 });
@@ -134,27 +134,4 @@ test("挑人不是一排勾选框，选中态也不只靠色", () => {
   assert.match(wt, /ficTagStyle\(ficTagKind\(props\.tag\), t, false\)/, "另画了一套标签，没用这个 app 已有的那套");
   assert.match(wt, /on \? h\("span", \{ style: \{ fontSize: 11 \} \}, "✓"\) : null/, "选中态只有色差");
   assert.match(wt, /minHeight: 40/);
-});
-
-test("群像篇里没有「另一位主角」这回事", () => {
-  const rd = grab("rpRoleDesc");
-  assert.match(rd, /cpChars\.length >= 3/);
-  assert.match(rd, /这一篇是群像，场上还有/);
-  assert.match(rd, /rest \|\| \(b \?/);
-  assert.match(rd, /rest \|\| \(a \?/);
-});
-
-test("选 CP 那两条不许超出屏幕（她 2026-09-11 报）", () => {
-  // ⚠️病根是 select 的固有宽度按【最长的那个选项】算：「老板娘（阿凛身边）」一进去，
-  //   两个下拉加起来比屏幕还宽。flex:1 挡不住——flex 元素的 min-width 默认 auto。
-  //   实测（390 宽）：没有这道闸时右边界 412，有了之后 349。
-  const st = grab("cpSelectStyle");
-  assert.match(st, /flex: 1, minWidth: 0, maxWidth: "100%"/);
-  // 库里三处下拉都走这一处：各写各的就是改一处漏两处
-  assert.equal(code.split("style: cpSelectStyle(t,").length - 1, 6, "还有下拉没收编");
-  const bad = code.match(/h\("select",[^\n]*style: \{ flex: 1,/g) || [];
-  assert.equal(bad.length, 0, "有下拉还在自己写 flex:1 那一串：" + bad.join(" | "));
-  // 中间那个「×」不许被挤没
-  assert.ok(code.indexOf('h("span", { style: { fontFamily: F_BODY, color: t.fog, flexShrink: 0 } }, "×")') > 0);
-  assert.ok(code.indexOf('h("span", { style: { color: t.fog, flexShrink: 0 } }, "×")') > 0);
 });

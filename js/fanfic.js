@@ -1682,24 +1682,18 @@
         return (y.updatedAt || y.createdAt || 0) - (x.updatedAt || x.createdAt || 0);
       }).slice(0, RP_KEEP));
   }
-  const RP_MODES = [
-    { key: "left", label: "魂穿 · CP 左位", short: "魂穿左位" },
-    { key: "right", label: "魂穿 · CP 右位", short: "魂穿右位" },
-    // ⚠️passerby 留在表里【只为了老存档还认得出这个字】，选单里不再出现
-    //   （她 2026-09-03：「天降路人删了吧就留一个随机」）——它和 random 本来就
-    //   高度重合：random 抽出来的多半也是个路人，多这一档只是让人多做一次选择。
-    { key: "passerby", label: "天降 · 路人 / 配角", short: "天降路人", legacy: true },
-    { key: "random", label: "天降 · 随机身份", short: "天降随机" }
-  ];
-  function rpModeLabel(key) { const m = RP_MODES.find(function (x) { return x.key === key; }); return m ? m.short : key; }
-  // 短名（存档行、穿书中那一屏顶上）也要写真名——她 2026-09-03：「这里没改呢」。
-  // 拿不到 cpChars 的地方仍旧回落到 rpModeLabel，不至于空着。
-  function rpModeShort(key, cpChars) {
-    const a = cpChars && cpChars[0], b = cpChars && cpChars[1];
-    const c = key === "left" ? a : key === "right" ? b : null;
-    if (key === "left" || key === "right") return c ? (c.isMe ? "我自己" : c.name) : "原创的那位";
-    return rpModeLabel(key);
-  }
+  // ⚠️**加笔没有「魂穿」这回事**（她 2026-09-11：「加笔本来就不应该有魂穿这种东西，
+  //   那是以前的玩法现在应该删掉了」）。上一代的玩法是先挑一个模式——魂穿 CP 左位／
+  //   右位、天降路人、天降随机——再顶着那个人的壳把他演一遍。
+  //   v62.50 换掉整个循环之后，这一页玩的已经是【在她写好的文上动笔】：
+  //   一段段读原文，读到哪一句伸手，后面就从那儿改道。**动笔的人是她自己**，
+  //   不是谁的替身。所以 RP_MODES／rpModeShort／rpModeLabel／rpPlayerName／rpOther／
+  //   rpRoleDesc／天降身份那一枪（genRPIdentity）整套删掉——不是留着不发。
+  //   ⚠️老存档里的 mode／playerIdentity／landing 一个字都没动，只是不再被读：
+  //   删掉一个玩法不许连带动她写过的字。
+  // 动笔的那个人叫什么：她的名字；没填就退回「你」，别在提示词里留一个空引号。
+  function rpMeName(userName) { return String(userName || "").trim() || "你"; }
+
   // 【只剩老存档在读】v63.92 起选单里不再问「你带着什么进去」（她 2026-09-05：
   //   「去掉那个选身份和记忆，就直接进去改文」）。这几样留着是因为【已经开着的那几局】
   //   存档里写着 know，删了它们那几局的 system 会当场变一副样子——撤掉一道选择不该
@@ -1716,7 +1710,7 @@
     { key: "real", label: "带着现实里的记忆", short: "带记忆", desc: "你记得现实里的他们——可这个世界里，没有人认识你。" }
   ];
   function rpKnowLabel(key) { const k = RP_KNOWS.find(function (x) { return x.key === key; }); return k ? k.short : ""; }
-  function rpKnowLine(know, mode, cpChars, userName) {
+  function rpKnowLine(know, cpChars, userName) {
     const k = RP_KNOWS.find(function (x) { return x.key === know; });
     if (!k || k.key === "blank") return "";   // 老存档没有这一栏：不发，保持原来的样子
     if (k.key === "spoiler") {
@@ -1727,16 +1721,14 @@
     }
     // 现实里的记忆这一档，分两种局面写——上一版只写了「你和 TA 的关系」，
     // 那是把「CP 一定有她」当成了前提。CP 是两个角色时她不在里面，那句话就成了空话。
-    const other = rpOther(mode, cpChars);
     const mine = (cpChars || []).filter(function (c) { return c && c.isMe; })[0];
-    const wearing = (mode === "left" || mode === "right") ? rpPlayerName(mode, cpChars, null) : null;
+    const other = (cpChars || []).filter(function (c) { return c && !c.isMe; })[0] || null;
     const head = "【玩家带进去的东西 · 现实里的记忆】";
     const tailRule = "\n⚠️这个世界是平行的：不许直接引用现实里发生过的具体事件当剧情，只有玩家自己心里记得。"
       + "别把这层落差写成煽情的旁白，让它从对方的困惑和玩家的失手里自己露出来。";
     if (mine) {
       // 这篇写的就是她和她的角色：那是「一边记得、一边不记得」
       return head + "玩家记得现实里 TA 和" + (other ? "「" + other.name + "」" : "对方") + "真正的关系"
-        + (wearing && wearing !== mine.name ? "——尽管这一场里 TA 顶着「" + wearing + "」的身份" : "")
         + "。而这个世界里的" + (other ? "「" + other.name + "」" : "对方") + "不认识 TA，也没有那段关系，他就是原著里的他。"
         + "\n所以这一场的底色是【一边记得、一边不记得】：玩家可能会脱口而出只有他俩才懂的话、下意识做熟悉的动作，"
         + "而对面只会当成一个陌生人的冒犯或古怪。" + tailRule;
@@ -1744,43 +1736,19 @@
     // 这篇写的是【两个角色之间】，她不在这段关系里：那是「我认识你们，你们不认识我」
     const names = (cpChars || []).filter(Boolean).map(function (c) { return "「" + c.name + "」"; }).join("和");
     return head + "玩家在现实里【真的认识" + (names || "这两个人") + "】——处过、说过话、知道他们私下是什么样子"
-      + (wearing ? "；而这一场里 TA 顶着" + (other ? "其中一位（" + wearing + "）" : "「" + wearing + "」") + "的身份进来" : "")
       + "。但这个世界里的他们从没见过玩家，也不知道自己被谁认识着。"
       + "\n所以这一场的底色是【我认识你们，你们不认识我】：玩家会一眼看穿某个人在硬撑、会知道哪句话戳得到谁，"
       + "也可能失手叫出只有现实里才用的称呼——而他们只会觉得这个陌生人怪得离奇。" + tailRule;
   }
-  // 玩家固定扮演谁（魂穿=某主角名；天降=session.playerIdentity.name）
-  function rpPlayerName(mode, cpChars, identity) {
-    const a = cpChars[0], b = cpChars[1];
-    if (mode === "left") return a ? a.name : "左位主角";
-    if (mode === "right") return b ? b.name : "右位主角";
-    return identity && identity.name ? identity.name : null;
-  }
-  function rpOther(mode, cpChars) { // 魂穿时的"对方"（另一位主角）
-    if (mode === "left") return cpChars[1] || null;
-    if (mode === "right") return cpChars[0] || null;
-    return null;
-  }
-  function rpRoleDesc(mode, cpChars, userName, identity) {
-    const a = cpChars[0], b = cpChars[1];
-    // ⚠️群像篇里没有「另一位主角」这回事：照旧说「另一位主角是对方」，
-    //   等于当着四个人的面说这儿只有两个人。魂穿目标暂时仍是头两位
-    //   （要能穿进第三、第四位，得动 RP_MODES 那一串，另算一次）。
-    const rest = cpChars.length >= 3
-      ? "这一篇是群像，场上还有" + cpChars.slice(2).map(function (c) { return "「" + c.name + "」"; }).join("、") + "，连同其余几位都由你（引擎）扮演。"
-      : "";
-    if (mode === "left") return "玩家【魂穿成主角「" + (a ? a.name : "左位主角") + "」】——顶着 TA 的身份、外壳、人际关系登场，但言行与选择完全由玩家真实决定，可以偏离 TA 的原设（这正是穿书的乐趣）。" + (rest || (b ? "另一位主角「" + b.name + "」是对方，由你（引擎）扮演的 NPC。" : ""));
-    if (mode === "right") return "玩家【魂穿成主角「" + (b ? b.name : "右位主角") + "」】——顶着 TA 的身份登场，但言行由玩家决定，可偏离原设。" + (rest || (a ? "另一位主角「" + a.name + "」是对方，由你扮演的 NPC。" : ""));
-    if (mode === "passerby") return identity && identity.name
-      ? "玩家【天降成「" + identity.name + "」】——" + (identity.role || "一个闯入这个世界的路人 / 配角") + "。原著里本没有 TA，全程就是这个固定身份，【绝不会变成原著里的主角，也绝不是现实里操作游戏的那个人】。"
-      : "玩家【天降成一个路人 / 配角】——原著里本没有 TA，作为闯入这个世界的新角色出现（开场给 TA 一个合理身份，之后固定不变）。";
-    return identity && identity.name
-      ? "玩家【天降身份：「" + identity.name + "」】——" + (identity.role || "一个合理有趣的身份") + "。全程固定，【绝不会变成原著主角，也绝不是现实里操作游戏的那个人】。"
-      : "玩家【天降 · 随机身份】——开场为玩家安排一个合理又有趣的固定身份，一旦定下全程不变。";
+  // 她是怎么在这儿的：不是穿成谁，是【在这篇文上动笔】。
+  function rpWhoLine() {
+    return "【玩家是怎么在这儿的】玩家不是这个故事里的人物，是**在这篇文上动笔的那个人**："
+      + "她一段段读原文，读到哪一句伸手，后面就从那儿改道。她本人就这样落到场上——"
+      + "不顶任何人的身份、不替换原著里的谁，也不是「作者」或「旁白」，是一个真的站在那儿的人。";
   }
   const RP_RULES = "【引擎规则（严格遵守）】\n" +
     "1. 用第二人称称呼玩家（『你』）。你负责描写场景、推进剧情、演其他所有角色（各守人设声纹）。\n" +
-    "2. 【身份绝对固定】玩家自始至终就是那一个人（见身份锚点），第二人称『你』永远指 TA；【绝对不许中途把玩家换成别的角色、也不许把 CP 两人的位置对调】。玩家魂穿的是哪一位，就一直是哪一位；另一位始终是『对方』、是你扮演的 NPC，绝不和玩家混同。\n" +
+    "2. 【玩家是谁，全程不变】玩家就是【在这篇文上动笔的那个人】本人，第二人称『你』永远指 TA。原著里的角色一个都不是玩家——他们全是你扮演的 NPC，绝不和玩家混同，也绝不中途把玩家写成他们当中的某一位。\n" +
     "3. 绝不替玩家决定行动、不替玩家说话、不替玩家做选择。每一回合结尾都落在一个【需要玩家做出反应/抉择的处境】上，用叙事把玩家逼到要开口/行动的当口，然后停下——别用『选项A/B』『决策点：』这种标签，自然地把球交回玩家。\n" +
     "4. 玩家输入行动后，合理承接、展开后果、让相关角色按人设真实反应，推进一段（两三百字）再抛出下一个抉择处境。\n" +
     "5. 尊重玩家的选择哪怕大幅偏离原著——原著是底子不是铁轨，玩家在改写它；但人物性格与世界设定要连贯。\n" +
@@ -1818,25 +1786,16 @@
     if (ld && ld.label) return "\n\n【本场起点】「" + ld.label + "」——" + (ld.scene || "");
     return "\n\n【本场起点】从这篇文的开头起，玩家一段一段读她写下的原文，读到哪儿就在哪儿动笔。";
   }
-  function rpAnchorLine(mode, cpChars, identity) {
-    const me = rpPlayerName(mode, cpChars, identity), other = rpOther(mode, cpChars);
-    if (me) return "【身份锚点（全程不变）】玩家 = 「" + me + "」，第二人称『你』永远指 " + me + "。绝不把玩家换成原著里的别的角色，也绝不当成现实里操作游戏的那个人（哪怕上下文里出现过别的名字，也不许拿来套在玩家头上）。" + (other ? "另一位「" + other.name + "」是对方 / NPC，绝不和玩家对调或混同。" : "");
-    return "【身份锚点（全程不变）】玩家 = 你在开场为其设定的那个天降身份，第二人称『你』永远指这个身份，中途绝不更换、绝不变成原著主角或现实用户本人。";
+  function rpAnchorLine(cpChars, userName) {
+    const me = rpMeName(userName);
+    const mine = (cpChars || []).filter(function (c) { return c && c.isMe; })[0];
+    return "【身份锚点（全程不变）】玩家＝「" + me + "」本人，第二人称『你』永远指 TA。"
+      + "原著里的每一个角色都是你扮演的 NPC：**一个都不许拿来套在玩家头上**，也不许中途把玩家写成他们当中的谁"
+      + "（上下文里出现过谁的名字都不行）。"
+      + (mine ? "这篇文里本来就写着 TA（文里那位「" + mine.name + "」就是玩家本人），别写成两个人。"
+              : "场上的人本来不认识 TA。");
   }
-  // 天降模式：先确定玩家这次的固定身份（一个具体名字），供全程锚定
-  async function genRPIdentity(active, fic, tab, cpChars, mode, landing, userName, worldbook) {
-    const sys = ANTI_CLICHE + "\n\n你在为一场加笔互动叙事【确定玩家这次的固定身份】。穿进去的方式：" + rpRoleDesc(mode, cpChars, userName, null) +
-      "\n世界观：" + tab.name + "。他从这儿进去：「" + (landing && landing.label || "") + "」——" + (landing && landing.scene || "") +
-      (worldbook && worldbook.trim() ? "\n【全局世界书（这个身份要合得上里面的设定与禁忌）】\n" + worldbook.trim().slice(0, 3000) : "") +
-      "\n【原著正文节选】\n" + rpStory(fic).slice(0, 2500) +
-      "\n\n给玩家安排一个具体、贴合这个世界观的固定身份（" + (mode === "passerby" ? "一个原著里没有的路人 / 配角" : "一个合理有趣的身份，可与原著相关也可全新") + "）。这个身份不能是原著已有的两位主角、也不能叫『" + (userName || "用户") + "』。\n" +
-      "只输出 JSON：{\"name\":\"这个身份的名字 / 称谓\",\"role\":\"一句话身份说明（职业 / 处境 / 和主角是什么关系或毫无关系）\"}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "定身份。" }], { maxTokens: 8400 });
-    const d = rpJSON(raw);
-    if (d && d.name) return { name: String(d.name).slice(0, 20), role: String(d.role || "").slice(0, 90) };
-    return { name: "无名路人", role: "一个刚好路过的陌生人" };
-  }
-  function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity, know) {
+  function buildRPSystem(fic, tab, cpChars, userName, worldbook, style, know) {
     // 穿书 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
     const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
     // ⚠️穿书是【第六处】（她 2026-09-03：「穿书这块是不是没有喂禁八股那一堆，一堆八股」）。
@@ -1852,22 +1811,21 @@
     if (typeof OVERREACH_BAN !== "undefined") parts.push(OVERREACH_BAN);   // 三件套的近亲，同进同出
     if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
     if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) parts.push(ReplyPacing.reading());
-    parts.push("【加笔 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
+    // ⚠️开宗明义这一句就是整份 system 的定调：说「穿进去」，模型就按穿书写；
+    //   加笔玩的是【在别人写好的文上动笔】，这一句得照那个说（她 2026-09-11）。
+    parts.push("【加笔 · 互动叙事引擎】玩家正在一篇已经写好的同人文上动笔：她一段段读原文，读到哪一句伸手，后面就从那儿改道。你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
     parts.push("【世界观：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
-    // ⚠️天降模式下玩家【就是】场上的第三个人，这时绝不能发 cpBlock 那条
-    // 「读者/『我』不出场、不作为角色写进去」的尾巴——那和身份锚点正面打架，
-    // 一份 system 里同时说「你是闯进来的路人」和「读者不出场」，模型必然写歪。
-    // includeMe 本来就是「把『我』作为第三方写进去」那个开关，正对上这里。
-    const playerIsThirdParty = mode === "passerby" || mode === "random";
+    // ⚠️加笔里玩家【本人就在场上】，所以绝不能发 cpBlock 那条「读者/『我』不出场、
+    //   不作为角色写进去」的尾巴——那和身份锚点正面打架：一份 system 里同时说
+    //   「你站在那儿」和「读者不出场」，模型必然写歪。
+    //   includeMe 本来就是「把『我』作为第三方写进去」那个开关，正对上这里。
     // ⚠️群像那一向也得跟过来：加笔走的是同一个 cpBlock，这儿不带的话，
     //   穿进一篇「无 CP 群像」之后它照样会在里头给你凑一对。
-    //   （群像那一支本来就不发「读者不出场」那条尾巴，所以跟天降身份不打架。）
-    parts.push(cpBlock(cpChars, ficOpts(fic, playerIsThirdParty
-      ? { includeMe: true, meName: (identity && identity.name) || userName || "我", mePersona: "" }
-      : {})));
-    parts.push("【玩家的身份 / 穿进去的方式】" + rpRoleDesc(mode, cpChars, userName, identity));
-    parts.push(rpAnchorLine(mode, cpChars, identity));
-    { const kl = rpKnowLine(know, mode, cpChars, userName); if (kl) parts.push(kl); }
+    //   （群像那一支本来就不发「读者不出场」那条尾巴，所以跟身份锚点也不打架。）
+    parts.push(cpBlock(cpChars, ficOpts(fic, { includeMe: true, meName: rpMeName(userName), mePersona: "" })));
+    parts.push(rpWhoLine());
+    parts.push(rpAnchorLine(cpChars, userName));
+    { const kl = rpKnowLine(know, cpChars, userName); if (kl) parts.push(kl); }
     if (style && style.trim()) parts.push("【文风】\n" + style.trim());
     // ⚠️世界书：这个参数一路从 RPApp 传到这儿，然后【从没被引用过】——
     // 声明了但没人用，比压根没写更坏，看代码以为已经在发了
@@ -2105,8 +2063,7 @@
   // ⚠️骨架不另开一次调用：开场这一次的 system 里本来就压着整篇原著，
   //   再问一次等于同样的料付两回钱（她按次计费）。
   async function genRPStart(active, session, fic, tab, cpChars, userName, worldbook, perFic) {
-    const id = session.playerIdentity;
-    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id, session.know) +
+    const sys = buildRPSystem(fic, tab, cpChars, userName, worldbook, session.style, session.know) +
       rpStartLine(session) +
       // v62.50：加笔不再由引擎写开场——【原文本身就是开场】，玩家进去先读她写的字。
       //   这一枪只干一件事：把这本书后面的骨架抽出来压在书脊上。
@@ -2164,12 +2121,12 @@
     }
     // 创作小稿（v62.39 接上）：一拍就是一整段，错了得整段重摇——正是它该在的地方。
     // ⚠️小稿写在正文 JSON 之前，所以要先 splitCot 再解析，否则那一块会被当成正文的一部分。
-    const cotName = rpPlayerName(session.mode, cpChars, session.playerIdentity) || (cpChars && cpChars[0] && cpChars[0].name) || "这场里的人";
+    const cotName = rpMeName(userName);
     const cotT = (typeof cotThink === "function") ? cotThink({ char: cotName, user: userName }, "rp") : "";
-    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity, session.know) +
+    const sys = buildRPSystem(fic, tab, cpChars, userName, worldbook, session.style, session.know) +
       rpStartLine(session) +
       (skel ? "\n\n" + skel : "") +
-      task + "\n" + rpAnchorLine(session.mode, cpChars, session.playerIdentity) + "（切记：别把玩家换人、别对调 CP 位置、别把玩家当成现实用户本人。）" +
+      task + "\n" + rpAnchorLine(cpChars, userName) + "（切记：别把玩家换成原著里的谁，也别把这一场写成她在旁边看。）" +
       "\n\n" + rpTurnShape(fic, session, !!o.wantNote) +
       (cotT && typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "");
     const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
@@ -2186,7 +2143,7 @@
     const broken = bs.filter(function (b) { return b.state === "broken"; });
     const kept = bs.filter(function (b) { return b.state === "kept"; });
     const an = rpAuthorName(fic);
-    const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity, session.know) +
+    const sys = buildRPSystem(fic, tab, cpChars, userName, worldbook, session.style, session.know) +
       rpStartLine(session) +
       (rpBeatsBlock(session) ? "\n\n" + rpBeatsBlock(session) : "") +
       "\n\n【这一拍要写的】这场加笔到此为止，写【收束】：把玩家走到这一步的局面收拢成一个落点——" +
@@ -2240,7 +2197,7 @@
     }).filter(Boolean).join("\n\n");
     const bs = session.beats || [];
     const broken = bs.filter(function (b) { return b.state === "broken"; }).length;
-    const tail = "\n\n———\n这一版由" + (session.playerIdentity && session.playerIdentity.name ? "「" + session.playerIdentity.name + "」" : "动笔的那个人") + "走出来："
+    const tail = "\n\n———\n这一版由动笔的那个人走出来："
       + bs.filter(function (b) { return b.state !== "pending"; }).map(function (b) { return "「" + b.label + "」" + (b.state === "broken" ? "被拦下" : "照原样"); }).join("；")
       + (broken ? "。这本书被改了 " + broken + " 处。" : "。一页也没改。")
       + (dead.length ? "\n原稿有 " + dead.length + " 段被改掉了。" : "")
@@ -2288,7 +2245,7 @@
     authorStanceFacts: authorStanceFacts, authorNoteAsk: authorNoteAsk,
     wantBlock: wantBlock, bibleBlock: bibleBlock, seedBlock: seedBlock, applyChapterMeta: applyChapterMeta, BIBLE_CAP: BIBLE_CAP, SEED_CAP: SEED_CAP, HOOK_TAIL: HOOK_TAIL,
     genBatch: genBatch, genNextChapter: genNextChapter, genChapterMore: genChapterMore, genAuthorBack: genAuthorBack, genReviews: genReviews, genReplyToUser: genReplyToUser,
-    loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpLeftPct: rpLeftPct, rpAuthorCardOf: rpAuthorCardOf, rpDevBand: rpDevBand, genRPIdentity: genRPIdentity, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpModeLabel: rpModeLabel, rpModeShort: rpModeShort, rpKnowLabel: rpKnowLabel
+    loadRP: loadRP, saveRP: saveRP, rpParas: rpParas, rpSentences: rpSentences, rpLeftPct: rpLeftPct, rpAuthorCardOf: rpAuthorCardOf, rpDevBand: rpDevBand, genRPStart: genRPStart, genRPTurn: genRPTurn, genRPEnding: genRPEnding, rpToFic: rpToFic, rpAuthorName: rpAuthorName, rpKnowLabel: rpKnowLabel
   };
 
   // ============================================================
@@ -3943,12 +3900,11 @@
     function persist(list) { setSessions(list); window.Fanfic.saveRP(list); }
     // 开一局：不再有选身份、选记忆、选落点那一屏
     // （她 2026-09-05：「去掉那个选身份和记忆，就直接进去改文」）。
-    // ⚠️mode 仍旧落一个 "left" 进存档：它是【引擎那头的身份锚点】，不是一道要她做的选择——
-    //   CP 的头一位通常就是她自己，而这一栏空着的话锚点那句话会散掉（玩家会被写成别人）。
+    // ⚠️不再落 mode：加笔没有「穿成谁」这回事了（她 2026-09-11），动笔的人就是她自己。
     function startSession(fic) {
       const cfg = window.Fanfic.loadCfg();
       const sess = { id: uid("rp"), ficId: fic.id, ficTitle: fic.title, tabId: fic.tabId, cp: fic.cp,
-        mode: "left", authorCard: window.Fanfic.rpAuthorCardOf(fic),
+        authorCard: window.Fanfic.rpAuthorCardOf(fic),
         style: window.Fanfic.activeStyleText(cfg), transcript: [],
         // 加笔从【原文的哪一段】开始读。⚠️只存下标，不存原文：存一份就有两份，
         //   而且每一局都复制一遍全文。voided ＝ 被改掉／被她也不要了的那几段。
@@ -4009,7 +3965,7 @@
           return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
             h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, [window.Fanfic.rpModeShort(s.mode, charsOf({ cp: s.cp })), window.Fanfic.rpKnowLabel(s.know), (s.landing && s.landing.label) || "", ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步"].filter(Boolean).join(" · ")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, [window.Fanfic.rpKnowLabel(s.know), ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步"].filter(Boolean).join(" · ")),
               (function () {
                 const bs = s.beats || [], br = bs.filter(function (b) { return b.state === "broken"; }).length, kp = bs.filter(function (b) { return b.state === "kept"; }).length;
                 if (!bs.length) return null;
@@ -4068,7 +4024,8 @@
     const moreSrc = Number.isFinite(s.paraIdx) ? s.paraIdx < paras.length : false;
     const taRef = React.useRef(null);
     function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
-    // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然顶上又变回「魂穿左位」
+    // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然这一局的人全空了，
+    // 身份锚点那句话认不出「文里那位就是她」，玩家会被写成另一个人
     const cpc = cpChars((props.fic && props.fic.cp) || s.cp || [], props.characters, props.profile);
     const storyLore = function (extra) {
       const ids = cpc.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
@@ -4130,14 +4087,9 @@
       if (!props.active) return;   // 没配 API 也照样读得下去，只是没有骨架
       setBusy(true);
       try {
-        let sess = s;
-        // 天降模式：先确定玩家这次的固定身份（一个具体名字），全程锚定，避免被当成用户本人/主角
-        if ((s.mode === "passerby" || s.mode === "random") && !s.playerIdentity) {
-          const id = await window.Fanfic.genRPIdentity(props.active, props.fic, props.tab, cpc, s.mode, s.landing, props.userName, storyLore("进入故事"));
-          props.onUpdate(function (ss) { ss.playerIdentity = id; return ss; });
-          sess = Object.assign({}, s, { playerIdentity: id });
-        }
-        const r = await window.Fanfic.genRPStart(props.active, sess, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
+        // ⚠️开场前不再先打一枪定身份：动笔的人就是她自己，没有身份要定（她按次计费，
+        //   那一枪本来也只为「天降」那个已经删掉的玩法存在）。
+        const r = await window.Fanfic.genRPStart(props.active, s, props.fic, props.tab, cpc, props.userName, storyLore("故事开场"), perFic);
         props.onUpdate(function (ss) { ss.beats = r.beats || []; ss.updatedAt = Date.now(); return ss; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -4293,7 +4245,8 @@
       h(Head, { bg: "transparent",
         zh: s.ficTitle || "加笔中",
         // ⚠️空的那几栏不许拼进去：新局没有落点，硬拼会留下一条「原创的那位 · 」的尾巴
-        sub: [window.Fanfic.rpModeShort(s.mode, cpc), (s.landing && s.landing.label) || "", s.playerIdentity && s.playerIdentity.name ? "你是「" + s.playerIdentity.name + "」" : ""].filter(Boolean).join(" · "),
+        // ⚠️空的那几栏不许拼进去：硬拼会留下一条「 · 」的尾巴
+        sub: [window.Fanfic.rpKnowLabel(s.know), "原稿还剩 " + window.Fanfic.rpLeftPct(s, paras) + "%"].filter(Boolean).join(" · "),
         onBack: props.onBack,
         right: (props.fic && !s.done && trans.length >= 4)
           ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",

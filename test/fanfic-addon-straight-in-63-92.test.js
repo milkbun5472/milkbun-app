@@ -37,8 +37,9 @@ test("老存档还读得出来：没有 landing 的那几局不许炸", () => {
   assert.match(f, /从这篇文的开头起/, "新局那一支没了");
   // 三处（开场 / 每一拍 / 收尾）都走这一个，不许各拼各的
   assert.equal((fic.match(/\n      rpStartLine\(session\) \+/g) || []).length, 3);
-  // 存档行也不许直接摸那几栏
-  assert.match(fic, /\(s\.landing && s\.landing\.label\) \|\| ""/);
+  // v67.02：存档行上那一串（模式／落点／天降身份）跟着魂穿一起撤了，
+  // 只剩【带什么进去】和走了几步——所以这儿改钉「没人再直接摸 landing」。
+  assert.ok(fic.indexOf("s.landing") < 0, "存档行还在摸老存档那几栏");
 });
 
 // ── 顺手抓出来的三个（她 2026-09-05：「你再看看有没有别的bug」）──────────
