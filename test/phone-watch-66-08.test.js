@@ -519,10 +519,10 @@ test("这一批的每一屏都接上了 drive，一屏都不许漏", () => {
 
 test("切到别的 app 时那一栏要清掉，不然它跟着串门", () => {
   // 真机上抓到的：在电话里切到 sms，进邮件之后邮件也去找「sms」那一栏，整页空着
-  assert.match(phone, /const go = \(\) => \{ setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
+  assert.match(phone, /const go = \(\) => \{ if \(opened\) return; opened = true; setOpen\(app\.key\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
   // ⚠️图标在桌面第二页时，先看着它翻过去再点开——瞬移等于「没翻页就开了」
   // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完：改成【等它真停下来】再点开
-  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 900\) \{ go\(\); return; \}/);
+  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 380\) \{ go\(\); return; \}/);
   assert.match(phone, /a\.kind === "home"\) \{ setOpen\(null\); setWatch\(w => w \? \{ \.\.\.w, item: null, page: null, tab: null,/);
 });
 
@@ -831,7 +831,7 @@ test("桌面第二页的 app：先看着它翻过去，再点开", () => {
   assert.match(phone, /scrolledRef\.current = true;/);
   assert.match(phone, /behavior: "smooth"/);
   // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完：改成【等它真停下来】再点开
-  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 900\) \{ go\(\); return; \}/);
+  assert.match(phone, /if \(still >= 2 \|\| Date\.now\(\) - t0 > 380\) \{ go\(\); return; \}/);
   // 这一下的定时器也要跟着清，不然退出去之后还有一个在往没了的 state 里写
   assert.match(phone, /if \(openTid\) clearTimeout\(openTid\);/);
 });
@@ -1002,4 +1002,44 @@ test("匿名信箱：点得着、想得出来", () => {
     anon: [{ q: "你其实一直在等一个人吧" }] });
   assert.match(s, /〔匿名信箱 anon〕/);
   assert.match(s, /你其实一直在等一个人吧/);
+});
+
+// ── 2026-09-11 审计：她报的三样 ────────────────────────────────────
+test("卡在主屏那一下：等翻页的 open 一定会发生", () => {
+  // 她 2026-09-11：「有一次卡在主页然后出了个心声，我猜是不是有一个页面打不开卡着了」。
+  // ⚠️病根是【两个时钟】：等翻页最多等 900ms，可 open 这一下只演 620ms——
+  //   时候一到 advance 把这一步推走，清理函数顺手清掉 openTid，go() 一辈子没跑。
+  assert.equal(W.actDuration({ kind: "open", app: "album" }), 620);
+  assert.match(phone, /let opened = false;\s*\n\s*const go = \(\) => \{ if \(opened\) return; opened = true;/,
+    "open 那一下没有「只跑一次」的闸");
+  assert.match(phone, /Date\.now\(\) - t0 > 380/, "等翻页还是等到了这一下之外");
+  assert.ok(phone.indexOf("Date.now() - t0 > 900") < 0, "900ms 比这一下本身还长，等于没等到就被推走");
+  assert.match(phone, /if \(openFallback\) openFallback\(\);/, "被推走时没有补开那一下");
+});
+
+test("切栏：模型写中文栏名也要对上真正那一栏", () => {
+  // 名字对不上时【两处一起哑】：圆点找不着挂点，而那一屏被切到一个不存在的栏、整页空着。
+  assert.match(phone, /const watchTabKey = name => \{/);
+  assert.match(phone, /document\.querySelectorAll\('\[data-watch\^="tab:"\]'\)/);
+  assert.match(phone, /WK\.pickName\(all, want, keyOf\) \|\| WK\.pickName\(all, want, el => String\(el\.textContent \|\| ""\)\.trim\(\)\)/,
+    "只按 key 对，没按那颗键上写的字对");
+  // 圆点和切栏读的是同一个 a：一处对上两处都对
+  assert.match(phone, /const a = a0\.kind === "tab" \? Object\.assign\(\{\}, a0, \{ name: watchTabKey\(a0\.name\) \}\) : a0;/);
+});
+
+test("搜索记录每一行也认名字", () => {
+  // 审计时先以为 openPage 的 result 挂点不存在——其实它长在 WatchPage 那个组件身上
+  // （现编的那一页自己就是挂点），所以那一下是【等页面出来再落】，不是消失。
+  // 这儿补的是另一半：他回头点开自己搜过的那一句时，圆点也得落得下去。
+  assert.match(phone, /"data-watch": "item:" \+ \(x\.q \|\| ""\)/, "搜索记录那几行没有挂点");
+});
+
+test("一段有多长这件事，提示词里得有个数", () => {
+  // 她 2026-09-11：「看他玩现在还是只有 30 40 个动作」——查下来这一段从来没说过要写多少下。
+  assert.match(watchSrc, /const ACT_TARGET_LO = 70, ACT_TARGET_HI = 110;/);
+  const s = W.watchInstruction({ char: {}, uName: "她", apps: ["album"], phone: { album: { items: [{ caption: "甲" }] } } });
+  assert.match(s, /【这一段有多长】70～110 下/);
+  assert.match(s, /别只写三四十下就收/);
+  // 上限仍然是代码那头的事，两个数不许混成一个
+  assert.match(watchSrc, /const ACT_CAP = 120;/);
 });

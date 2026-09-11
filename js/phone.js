@@ -5032,6 +5032,8 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const searchPage = searches.length ? h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
     searches.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time, results: x.results, opened: x.opened }),
+      // 搜索记录每一行也认名字：他要是回头点开自己搜过的那一句，圆点落得下去
+      "data-watch": "item:" + (x.q || ""),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: BR_DIM } }, "⌕"),
@@ -5944,6 +5946,19 @@ function PhoneCarry({
   const WK = typeof window !== "undefined" ? window.PhoneWatch : null;
   // 挂点找不着的时候再模糊找一次：模型写的名字标点常常飘（「《长夜》」→「长夜」），
   // 严格选择器就当场落空。认名字的规矩只有 PhoneWatch.sameName 一份。
+  // 他说「切到收藏那一栏」，可挂点上写的是 tab:saved——名字对不上的后果是【两处一起哑】：
+  // 圆点找不着挂点（她 2026-09-11：「光标有时候还是对不上」），而那一屏被切到一个
+  // 根本不存在的栏，于是整页空着（跟「在邮件里切到 sms」同一个病）。
+  // ⚠️认名字仍然只走 PhoneWatch.pickName 这一份规矩：先按 key 对，再按那颗键上写的字对。
+  const watchTabKey = name => {
+    const want = String(name || "").trim();
+    if (!want || !WK || !WK.pickName) return want;
+    const all = [].slice.call(document.querySelectorAll('[data-watch^="tab:"]'));
+    if (!all.length) return want;
+    const keyOf = el => String(el.getAttribute("data-watch")).slice(4);
+    const hit = WK.pickName(all, want, keyOf) || WK.pickName(all, want, el => String(el.textContent || "").trim());
+    return hit ? keyOf(hit) : want;
+  };
   const watchFuzzy = name => {
     if (!name || !WK || !WK.pickName) return null;
     // ⚠️必须跟各屏用【同一条】挑人规矩（pickName：先要完全一样的）。
@@ -6029,10 +6044,12 @@ function PhoneCarry({
   };
   useEffect(() => {
     if (!watch || watch.done || !WK) return;
-    const a = watch.acts[watch.i];
-    if (!a) { setWatch(w => w ? { ...w, done: true, typing: null } : w); return; }
+    const a0 = watch.acts[watch.i];
+    if (!a0) { setWatch(w => w ? { ...w, done: true, typing: null } : w); return; }
+    // 切栏那一下先把名字对成屏幕上真有的那一栏：圆点和切栏读的是同一个 a，一处对上两处都对
+    const a = a0.kind === "tab" ? Object.assign({}, a0, { name: watchTabKey(a0.name) }) : a0;
     const speed = watch.speed || 1;
-    let typer = null, openTid = null;
+    let typer = null, openTid = null, openFallback = null;
     // ① 圆点先落下去——**在这一下的效果之前**。
     //   顺序反了的话，点开 app、点开一行、按返回这几下量到的都是【换过之后】那一屏，
     //   要点的那个东西已经不在了，于是圆点整段杵着不动。
@@ -6047,7 +6064,15 @@ function PhoneCarry({
       // ⚠️tab 也要清掉：它是【上一个 app 里切到哪一栏】，跟着进下一个 app 就成了
       //   「在邮件里切到 sms」——那一栏不存在，于是整页空着（真机上抓到的）。
       if (app) {
-        const go = () => { setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: (WATCH_SEARCH_APPS.indexOf(app.key) >= 0 || app.key === "tally") ? "" : null } : w); };
+        // ⚠️她 2026-09-11：「有一次卡在主页然后出了个心声，我猜是不是有一个页面打不开卡着了」。
+        //   就是这儿：下面那段「等它翻完再点开」最多等 900 毫秒，可这一下本身只演 620
+        //   毫秒——时候一到 advance 就把这一步推走，清理函数顺手把 openTid 清掉，
+        //   **go() 于是一辈子没跑**：app 没打开，后面 openItem／心声全在主屏上演。
+        //   所以这一下只许发生一次，而且【一定】发生：等待封顶 380 毫秒（还在这一下之内），
+        //   万一这一步被推走了，清理时也把它补上。
+        let opened = false;
+        const go = () => { if (opened) return; opened = true; setOpen(app.key); setWatch(w => w ? { ...w, item: null, page: null, tab: null, lastQ: "", searchQ: "", typing: (WATCH_SEARCH_APPS.indexOf(app.key) >= 0 || app.key === "tally") ? "" : null } : w); };
+        openFallback = go;
         // ⚠️图标在桌面第二页的话，先看着它翻过去再点开——瞬移等于「没翻页就开了」。
         // ⚠️420 毫秒是拍出来的，平滑滚常常还没走完（她 2026-09-10：「换页换一半就
         //   直接进第二页的 app 了」）。改成【等它真停下来】：盯着位置不动了再点开，
@@ -6059,7 +6084,7 @@ function PhoneCarry({
             const now2 = box ? Math.round(box.scrollLeft + box.scrollTop) : 0;
             still = (now2 === last) ? still + 1 : 0;
             last = now2;
-            if (still >= 2 || Date.now() - t0 > 900) { go(); return; }
+            if (still >= 2 || Date.now() - t0 > 380) { go(); return; }
             openTid = setTimeout(wait, 70);
           };
           openTid = setTimeout(wait, 70);
@@ -6214,7 +6239,13 @@ function PhoneCarry({
       setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w);
     };
     const tid = setTimeout(advance, Math.max(120, WK.actDuration(a) / speed));
-    return () => { clearTimeout(tid); if (hold) clearTimeout(hold); if (openTid) clearTimeout(openTid); if (typer) clearInterval(typer); if (stopDot) stopDot(); };
+    return () => {
+      clearTimeout(tid); if (hold) clearTimeout(hold); if (openTid) clearTimeout(openTid);
+      // ⚠️等着翻页的那一下要是没等到就被推走了，在这儿补开——不补的话这一段就卡在主屏
+      //   （她 2026-09-11：「卡在主页然后出了个心声」）。go 自己带着「只跑一次」的闸。
+      if (openFallback) openFallback();
+      if (typer) clearInterval(typer); if (stopDot) stopDot();
+    };
     // eslint-disable-next-line
   }, [watch && watch.i, watch && watch.speed, watch && watch.done]);
   // ── 心声自己会退场（她 2026-09-10：「台词显示太久了太碍眼了看不到屏幕」）──
