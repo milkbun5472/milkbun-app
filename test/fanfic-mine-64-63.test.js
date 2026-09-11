@@ -210,10 +210,12 @@ test("一位太太的嗓子只写一份，出文和续写共用", () => {
 });
 
 test("续写也把作者的文风和雷点喂进去，默认就是这篇原来那位太太", () => {
-  const seg = cut("    const penBy = (opts.author", "    const sys = buildGenSystem");
+  // v66.77 起这一段前面多了「抢笔」那一掷（grabbed），切片跟着往前挪
+  const seg = cut("    // 抢笔：她点了枪手", "    const sys = buildGenSystem");
   const mk = (ficAuthor, optsAuthor, lib) => {
     const sandbox = {
       fic: { author: ficAuthor }, opts: { author: optsAuthor },
+      authorStanceFacts: () => "",
       authorName: a => String((a && a.name) || "").trim(),
       findAuthor: nm => lib.filter(x => x.name === String(nm || "").trim())[0] || null,
       authorVoiceLines: by => by ? "《" + by.name + "的卡》" : ""
@@ -254,7 +256,8 @@ test("请枪手先挑人，挑的那位真的递进了这一枪", () => {
   assert.match(reader, /onClick: function \(\) \{ setGhostOpen\(true\); \}, disabled: busyChap/);
   // v66.76 起这一页还带着她的点单（想看什么 + 许愿还是硬要求），一起递下去
   assert.match(reader, /onGo: function \(by, want, hard\) \{ setGhostOpen\(false\); addChapter\(by, want, hard\); \}/);
-  assert.match(reader, /\{ author: by \|\| null, want: want \|\| "", hardWant: !!hard \}/, "挑的人和点单都要递到 genNextChapter");
+  assert.match(reader, /\{ author: by \|\| null, want: want \|\| "", hardWant: !!hard, grabbed: grabbed, quitting: quitting \}/,
+    "挑的人、点单、抢笔和撂挑子那两掷都要递到 genNextChapter");
   // 代笔记在【章】上，不是把这篇的作者改掉
   assert.match(reader, /ch\.byAuthor = byNm/);
   assert.ok(!/fic\.author = byNm/.test(reader), "这篇的作者没变，只是这一章的笔换了人");
@@ -273,7 +276,10 @@ test("挑人页是整页、一行行署名，不是半窗也不是一排药丸",
   assert.match(g, /background: on \? t\.ink : "transparent"/, "选中那行的墨点");
   assert.match(g, /fontWeight: on \? 600 : 400/, "选中态不能只靠一个色差（tabs-not-plain-pills.md §2）");
   // 「照原样」那一行要写她真正的路数，不是一句解说词
-  assert.match(g, /style: ownCard \? \(ownCard\.style \|\|/);
+  assert.match(g, /: \(ownCard \? \(ownCard\.style \|\|/);
+  // v66.77：她撂挑子之后这一行点不了，显示的是她当时说的那句话
+  assert.match(g, /disabled: !!a\.quit/);
+  assert.match(g, /String\(f\.quitSay \|\| ""\)\.slice\(0, 80\)/);
   // 原作者不许在名单里出现两次
   assert.match(g, /authors\.filter\(function \(a\) \{ return authorName\(a\) !== own; \}\)/);
 });
