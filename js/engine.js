@@ -1704,9 +1704,34 @@ const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每�
 // 不用 lookbehind 是为了不挑运行环境（她是 iPhone PWA）。
 const BUBBLE_NUMSEP = "\u0001";
 const bubbleProtectNum = x => String(x).replace(/(\d)[，,](?=\d)/g, "$1" + BUBBLE_NUMSEP);
-const bubbleRestoreNum = x => String(x).split(BUBBLE_NUMSEP).join(",");
+// ⚠️引号里面的标点也不是句子边界（她 2026-09-11 截图）。
+// 「还是教你'两个人影坐得近，几乎叠成一块'该怎么在纸上写得更隐晦点？」被那个逗号一切，
+// 就成了「还是教你'两个人影坐得近」+「几乎叠成一块'该怎么在纸上写得更隐晦点？」——
+// 半个引号吊在上一个气泡屁股上，另半个吊在下一个气泡脑门上。
+// 跟千分位是同一个病：句读只在【裸露的】标点上成立，包在引号里的那些是引文的内部结构。
+// 做法也一样：切之前把成对引号里的 。！？！？，， 换成哨兵，切完再换回【原来那个字符】
+// （所以这里按字符逐个记，不像千分位那样一律还原成半角逗号）。
+// 哨兵占一个字，长度跟原字符一样，不会把 22 字的门槛顶歪。
+// QUOTE_MAX=60：一防落单的引号把后面整段都圈进去，二是真有超长引文时还是让它照常拆，
+// 否则会甩出一个巨大的气泡——引号是不想被切断，不是不想被切。
+// 英文直引号没有左右之分，don't、it's 里的撇号不能当开引号：要求开引号前面不是字母数字、
+// 收引号后面也不是。不用 lookbehind 是为了不挑运行环境（她是 iPhone PWA）。
+const BUBBLE_QPUNC = "。！？!?，,";
+const BUBBLE_QSEP0 = 0xe000;
+const BUBBLE_QPAIR = [/「([^」]{0,60})」/g, /『([^』]{0,60})』/g, /“([^”]{0,60})”/g, /‘([^’]{0,60})’/g];
+const BUBBLE_QFLAT = [/(^|[^A-Za-z0-9])"([^"]{0,60})"(?![A-Za-z0-9])/g, /(^|[^A-Za-z0-9])'([^']{0,60})'(?![A-Za-z0-9])/g];
+const bubbleHidePunc = x => String(x).replace(/[。！？!?，,]/g, c => String.fromCharCode(BUBBLE_QSEP0 + BUBBLE_QPUNC.indexOf(c)));
+function bubbleProtectQuote(x) {
+  let t = String(x);
+  BUBBLE_QPAIR.forEach(re => { t = t.replace(re, (m, inner) => m.charAt(0) + bubbleHidePunc(inner) + m.slice(-1)); });
+  BUBBLE_QFLAT.forEach(re => { t = t.replace(re, (m, pre, inner) => pre + m.charAt(pre.length) + bubbleHidePunc(inner) + m.slice(-1)); });
+  return t;
+}
+const bubbleRestore = x => String(x)
+  .replace(/[\ue000-\ue006]/g, c => BUBBLE_QPUNC.charAt(c.charCodeAt(0) - BUBBLE_QSEP0))
+  .split(BUBBLE_NUMSEP).join(",");
 function splitLongBubble(s, allowComma) {
-  s = bubbleProtectNum(String(s == null ? "" : s).trim());
+  s = bubbleProtectQuote(bubbleProtectNum(String(s == null ? "" : s).trim()));
   if (!s) return [];
   const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;
   const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
@@ -1714,7 +1739,7 @@ function splitLongBubble(s, allowComma) {
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
-  if (allowComma === false) return out.map(bubbleRestoreNum);
+  if (allowComma === false) return out.map(bubbleRestore);
   return out.reduce((acc, part) => {
     if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
@@ -1725,7 +1750,7 @@ function splitLongBubble(s, allowComma) {
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
     return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
-  }, []).map(bubbleRestoreNum);
+  }, []).map(bubbleRestore);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：
