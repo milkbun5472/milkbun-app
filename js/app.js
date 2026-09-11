@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.10";
+const APP_VERSION = "v67.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19786,13 +19786,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   改成她按一下才发生，而且默认落进【房间】，不是主线。
     // ⚠️这一条一分钱不花：「喂给他」只是把东西放进上下文，上下文是本地拼的；
     //   只有「让他开口」才打枪。
-    onFileChapter: (charId, card) => {
+    onFileChapter: (charId, card, pick) => {
       const K = window.ChatRooms;
       if (!K || !charId || !card) return null;
       // 先找他现成的那间「一起写」；没有就开一间——不能先把她赶去建房，
       // 那一步一多她就不记了，又回到「自动写」那个问题上。
+      // ⚠️她 2026-09-11：「只能默认进已有的房间而不能另开，如果我有好几个房间就选不了了」。
+      //   所以现在收 pick：{id} 就放进那一间，{name} 就照这个名字另开一间；
+      //   两样都没有时照旧走「最近动过的那一间」——老路一个字没变。
       const rooms = K.list(charId).filter(r => r && !r.main);
-      let room = rooms.filter(r => r.actions && r.actions.fanfic).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+      let room = (pick && pick.id) ? rooms.filter(r => r.id === pick.id)[0] || null : null;
+      if (!room && pick && String(pick.name || "").trim()) room = K.create(charId, String(pick.name).trim().slice(0, 20), "focused");
+      if (!room) room = rooms.filter(r => r.actions && r.actions.fanfic).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
       if (!room) room = K.create(charId, "一起写", "focused");
       const key = K.chatKey(charId, room.id);
       pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", ts: Date.now(), read: true, content: String(card).slice(0, 900) }]);

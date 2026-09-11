@@ -3549,7 +3549,7 @@
         chars: (props.fwdChars || props.characters || []).filter(function (c) { return c && !c.npc; }),
         defaultCharId: ((f.chapters || [])[fileIdx] || {}).byCharId || "",
         onClose: function () { setFileIdx(-1); },
-        onFile: function (c, noteOnly) {
+        onFile: function (c, noteOnly, roomPick) {
           if (!c) return;
           const i = fileIdx;
           const ch2 = (f.chapters || [])[i] || {};
@@ -3559,7 +3559,7 @@
             props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName));
             setFiledNote("记了一笔");
           } else {
-            const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName));
+            const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName), roomPick);
             setFiledNote(r ? "放进了「" + r.roomName + "」" : "没能放进去");
           }
           setFileIdx(-1);
@@ -3704,11 +3704,23 @@
     const rows = props.chars || [];
     const [pick, setPick] = useState(props.defaultCharId || (rows[0] && rows[0].id) || "");
     const picked = rows.filter(function (c) { return c.id === pick; })[0] || null;
-    const roomOf = function (cid) {
+    // ⚠️她 2026-09-11：「现在只能默认进已有的房间而不能另开，如果我有好几个房间就选不了了」。
+    //   原来这儿只算出【最近动过的那一间】，她连看都看不见，更别说挑。
+    const roomsOf = function (cid) {
       const K = (typeof window !== "undefined" && window.ChatRooms) || null;
-      if (!K || !cid) return null;
+      if (!K || !cid) return [];
       return K.list(cid).filter(function (r) { return r && !r.main && r.actions && r.actions.fanfic; })
-        .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })[0] || null;
+        .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    };
+    const myRooms = roomsOf(pick);
+    // "" ＝ 用最近动过的那一间（和以前一样）；"__new" ＝ 另开一间
+    const [roomId, setRoomId] = useState("");
+    const [newName, setNewName] = useState("一起写");
+    // 换个人就把房间的选择清掉：那是另一个人的房间
+    const pickChar = function (id2) { setPick(id2); setRoomId(""); };
+    const roomTarget = function () {
+      if (roomId === "__new") return { id: "", name: String(newName || "").trim().slice(0, 20) || "一起写" };
+      return { id: roomId, name: "" };
     };
     const mine = !!(ch.byCharId && picked && ch.byCharId === picked.id);
     const btn = function (label, primary, onClick) {
@@ -3724,19 +3736,40 @@
           h("br"), "这一步不花钱——喂给他只是放进他的上下文，让他开口才要。"),
         rows.map(function (c) {
           const on = c.id === pick;
-          const rm = on ? roomOf(c.id) : null;
-          return h("button", { key: c.id, onClick: function () { setPick(c.id); }, className: "w-full text-left active:opacity-70",
+          return h("button", { key: c.id, onClick: function () { pickChar(c.id); }, className: "w-full text-left active:opacity-70",
             style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
             h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 7, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
             h("span", { style: { minWidth: 0 } },
               h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } },
                 (c.remark || c.name) + (ch.byCharId === c.id ? "（这一章就是他写的）" : "")),
               on ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } },
-                rm ? "放进他那间「" + rm.name + "」" : "会给他开一间「一起写」") : null));
+                myRooms.length ? "他有 " + myRooms.length + " 间开了「一起写」的房" : "他还没有开「一起写」的房，底下可以给他开一间") : null));
         }),
-        rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } }, "还没有角色。")),
+        rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } }, "还没有角色。"),
+
+        // ── 放进哪一间（她 2026-09-11）────────────────────────────────
+        // ⚠️形状照上面那份名单来（墨点＋名字），不另发明一种：同一页上两处挑东西，
+        //   长得不一样就是两套规矩。
+        picked ? h("div", { style: { marginTop: 18 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, letterSpacing: ".16em", marginBottom: 2 } }, "放进哪一间"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
+            "只列开了「一起写」的那几间。别的房间要放，先去那间房的设置里把「一起写」打开。"),
+          [{ id: "", name: myRooms.length ? "最近动过的那一间（" + myRooms[0].name + "）" : "给他开一间「一起写」", note: "" }]
+            .concat(myRooms.map(function (r) { return { id: r.id, name: r.name, note: "" }; }))
+            .concat([{ id: "__new", name: "另开一间", note: "" }])
+            .map(function (o) {
+              const on = roomId === o.id;
+              return h("button", { key: o.id || "_auto", onClick: function () { setRoomId(o.id); }, className: "w-full text-left active:opacity-70",
+                style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+                h("span", { style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+                h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, o.name));
+            }),
+          roomId === "__new" ? h("input", { value: newName, autoFocus: true, onChange: function (e) { setNewName(e.target.value); },
+            placeholder: "这间房叫什么", className: "w-full outline-none",
+            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "9px 0 8px", marginTop: 8, background: "transparent",
+              color: t.ink, border: "none", borderBottom: "1px solid " + t.line } }) : null) : null),
       h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
-        btn(mine ? "记进他那间房" : "拿给他看", true, function () { props.onFile(picked, false); }),
+        btn(mine ? "记进他那间房" : "拿给他看", true, function () { props.onFile(picked, false, roomTarget()); }),
         btn("只记一笔（不进房间）", false, function () { props.onFile(picked, true); })));
   }
 

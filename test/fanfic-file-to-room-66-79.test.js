@@ -56,8 +56,11 @@ test("落进去的是一张卡，不是整章正文", () => {
 });
 
 test("不先把她赶去建房：没有就顺手开一间", () => {
-  const seg = app.slice(app.indexOf("onFileChapter: (charId, card) =>"), app.indexOf("onNoteChapter:"));
+  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick) =>"), app.indexOf("onNoteChapter:"));
   assert.match(seg, /if \(!room\) room = K\.create\(charId, "一起写", "focused"\);/, "先要求她去建房的话，她就不记了，又回到自动写那个问题上");
+  // v67.11：她可以点名放进哪一间、也可以另开一间；两样都没点时老路一个字没变
+  assert.match(seg, /let room = \(pick && pick\.id\) \? rooms\.filter\(r => r\.id === pick\.id\)\[0\] \|\| null : null;/);
+  assert.match(seg, /if \(!room && pick && String\(pick\.name \|\| ""\)\.trim\(\)\) room = K\.create\(charId, String\(pick\.name\)\.trim\(\)\.slice\(0, 20\), "focused"\);/);
   assert.match(seg, /r\.actions && r\.actions\.fanfic/, "随便挑一间房塞进去＝塞进了一起学那间");
   assert.match(seg, /sort\(\(a, b\) => \(b\.updatedAt \|\| 0\) - \(a\.updatedAt \|\| 0\)\)/, "不按最近用过排，她每次都得想「上次放哪儿了」");
   // 房间里那条要真进得了上下文：kind:"system" 的卡是被过滤掉的
@@ -68,10 +71,10 @@ test("不先把她赶去建房：没有就顺手开一间", () => {
 test("这一步一分钱不花——喂不要钱，说话才要钱", () => {
   // ⚠️结束锚点要【从起点往后找】：app.js 里 `onBack: () => setScreen("home")` 有好几十处，
   //   从头找会切出一段空串，底下那几条断言就全变成摆设（axes 那条顺序断言刚踩过同一个坑）
-  const from = app.indexOf("onFileChapter: (charId, card) =>");
+  const from = app.indexOf("onFileChapter: (charId, card, pick) =>");
   assert.ok(from > 0);
   const seg = app.slice(from, app.indexOf("    onBack: () => setScreen", from));
-  assert.ok(seg.length > 200 && seg.length < 2000, "切出来 " + seg.length + " 字，锚点不对");
+  assert.ok(seg.length > 200 && seg.length < 2600, "切出来 " + seg.length + " 字，锚点不对");
   assert.ok(seg.indexOf("callAI") < 0 && seg.indexOf("await") < 0, "归档那条路上打枪了");
   assert.match(app, /这一条一分钱不花/);
   assert.match(fic, /这一步不花钱——喂给他只是放进他的上下文，让他开口才要/, "界面上不说清楚，她会以为每按一次都在烧钱");

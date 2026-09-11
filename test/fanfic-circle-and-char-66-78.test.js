@@ -150,7 +150,7 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
   //   默认值不该选不可逆的那一边。撤掉就是删掉，不是在后面挂说明。
   assert.ok(fic.indexOf("onCharWrote") < 0 && app.indexOf("onCharWrote") < 0, "自动往主线记忆库写那一条又长回来了");
   assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给他看"/, "她按一下才发生的那颗键没了");
-  assert.match(app, /onFileChapter: \(charId, card\) => \{/);
+  assert.match(app, /onFileChapter: \(charId, card, pick\) => \{/);
   assert.match(app, /addMemEntry\(\{[\s\S]{0,200}charIds: \[charId\], source: "fanfic"/);
   // relOf 只给状态不给数字这件事，是在 app 那头就定的
   assert.match(app, /relOf: charId => \{/);
