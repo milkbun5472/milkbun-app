@@ -7320,7 +7320,8 @@ function Config(props) {
     { key: "sense", char: "知", title: "他们知道现在几点、我在哪", tint: "#687f73",
       state: () => { const p = props.prefs || {};
         return "时间 " + onOff(p.timeAware !== false) + " · 位置 " + onOff(p.geoAware)
-          + " · 通知 " + onOff(window.Notify && window.Notify.isOn && window.Notify.isOn()); } },
+          + " · 通知 " + onOff(window.Notify && window.Notify.isOn && window.Notify.isOn())
+          + " · 顶上提醒 " + onOff(p.msgBanner !== false); } },
     { key: "auto", char: "动", title: "谁会自己动、多久动一次", tint: "#c0904f",
       state: () => { const f = ((props.autoRefreshPolicy || {}).features) || {};
         const on = Object.keys(f).filter(k => f[k] && f[k].global !== false).length;
@@ -7898,7 +7899,17 @@ function SenseConfig({
       } else { window.Notify.disable(); setNotifOn(false); toast && toast("已关闭锁屏通知"); }
     }
   }), notifOn ? h("button", { onClick: () => window.Notify && window.Notify.test(0),
-    style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: 12, minHeight: 40 } }, "测试通知") : null)), /*#__PURE__*/React.createElement("div", {
+    style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: 12, minHeight: 40 } }, "测试通知") : null)), h("div", {
+    className: "flex items-center justify-between py-4",
+    style: { borderBottom: `1px solid ${t.line}` }
+  }, h("div", { style: { paddingRight: 12 } }, h("div", {
+    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink }
+  }, "App 内消息提醒"), h("div", {
+    style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 }
+  }, "人在别的玩法里时，新消息在顶上出一条，过几秒自己翻上去；点一下直接进那条聊天。单聊、群聊、旁观群都算")), h(Toggle, {
+    on: p.msgBanner !== false,
+    onChange: v => save({ ...p, msgBanner: v })
+  })), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between py-4",
     style: {
       borderBottom: `1px solid ${t.line}`

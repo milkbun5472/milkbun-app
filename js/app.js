@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.79";
+const APP_VERSION = "v66.80";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -266,7 +266,13 @@ function App() {
   // 置顶的聊天/群 id 集合
   const [pinnedChats, setPinnedChats] = useState(() => loadJSON("x_pinnedChats", []));
   const [characters, setCharacters] = useState([]);
+  const charactersRef = useRef([]);
+  charactersRef.current = characters; // 顶上那条消息提醒在异步回调里认人，闭包拿不到最新的 characters
   const [groups, setGroups] = useState([]);
+  // 顶上那一摞消息提醒（她 2026-09-11）。只是提示，不落盘——错过了看红点就行。
+  const [banners, setBanners] = useState([]);
+  const bannerTimers = useRef([]);
+  useEffect(() => () => { bannerTimers.current.forEach(clearTimeout); bannerTimers.current = []; }, []);
   const groupsRef = useRef([]);
   groupsRef.current = groups; // 动念那条链在 setInterval 里读它，闭包拿不到最新的 groups
   const [chats, setChats] = useState({});
@@ -560,8 +566,11 @@ function App() {
   const [wallFx, setWallFx] = useState({ veil: 22, blur: 0 });
   const [prefs, setPrefs] = useState({
     timeAware: true,
-    geoAware: false
+    geoAware: false,
+    msgBanner: true           // App 内消息提醒（她 2026-09-11），默认开着
   });
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;   // 提醒那一下在异步回调里问「这个开关开着吗」
   const [geo, setGeo] = useState(null);
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
   const [worlds, setWorlds] = useState([]);   // 架空世界（x_worlds）：一份设定 + 区域骨架，地图每次现算
@@ -1335,7 +1344,8 @@ function App() {
     { const f = loadJSON("x_wallFx", null); if (f && typeof f === "object") setWallFx({ veil: clampFx(f.veil, 22), blur: clampFx(f.blur, 0, 20) }); }
     setPrefs(loadJSON("x_prefs", {
       timeAware: true,
-      geoAware: false
+      geoAware: false,
+      msgBanner: true
     }));
     setGeo(loadJSON("x_geo", null));
     setMapMode(loadJSON("x_mapMode", "real"));
@@ -3394,6 +3404,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("导入失败：" + (e.message || "重试")); }
     finally { endLane("c:" + charId); }
   };
+  // 点开某一条聊天：主屏那张「捎来的字条」和顶上那条消息提醒走的是同一处
+  // （施工规则/one-public-mechanism.md：第二处要用时，把已有的那份也搬过来）。
+  const openChatById = (id, type) => {
+    if (type === "group") {
+      const g = (groupsRef.current || []).find(x => String(x.id) === String(id));
+      if (!g) return;
+      setActiveGroup(g); clearUnread(id); setScreen("gthread"); return;
+    }
+    const c = (charactersRef.current || []).find(x => String(x.id) === String(id));
+    if (!c) return;
+    setActiveChar(c); clearUnread(id); setScreen("thread");
+  };
   const clearUnread = id => setUnreadMap(p => {
     const n = {
       ...p,
@@ -3402,12 +3424,56 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     saveJSON("x_unread", n);
     return n;
   });
+  // ── App 内消息提醒（她 2026-09-11）────────────────────────────────
+  // 「我发了消息然后退出聊天去别的玩法里玩，顶上也会有提醒……过几秒就上翻消失，
+  //   点击也可以快速到达聊天界面。群聊单聊旁观群都要。」
+  // ⚠️挂在 bumpUnread 上，不在五个来处各挂一次（施工规则/one-public-mechanism.md）：
+  //   「来了新消息、而且她没在看这一屏」这个判断五处早就各自做完了，全都汇到这儿。
+  //   单聊走 pChat、群聊和旁观群走 pGChat、线下冒泡和跨端账本也都从这儿过。
+  const BANNER_MS = 4200;      // 停几秒（跟系统通知横幅一个量级）
+  const BANNER_OUT_MS = 300;   // 往上翻走那一下
+  const pushBanner = (id, count) => {
+    if (prefsRef.current && prefsRef.current.msgBanner === false) return;
+    const g = (groupsRef.current || []).find(x => String(x.id) === String(id));
+    const c = g ? null : (charactersRef.current || []).find(x => String(x.id) === String(id));
+    if (!g && !c) return;                       // 认不出是谁就不弹：宁可没有，也不弹一条「未知」
+    const msgs = g ? ((groupChatsRef.current || {})[id] || []) : ((chatsRef.current || {})[id] || []);
+    let last = null;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (!m || m.role === "user" || m.kind === "system" || m.kind === "silence") continue;
+      last = m; break;
+    }
+    // ⚠️开机那一下跨端账本会把早先的消息补进来，也从 bumpUnread 过一遍——
+    //   不挡的话一开 app 顶上就糊一摞几个钟头前的旧消息。只提醒【刚到的】。
+    if (last && last.ts && Date.now() - last.ts > 120000) return;
+    const body = String((last && last.content) || "").replace(/\s+/g, " ").trim();
+    const text = g
+      ? (((last && last.senderName) ? last.senderName + "：" : "") + (body || "发来一条消息")).slice(0, 44)
+      : (body || "发来一条消息").slice(0, 44);
+    const b = {
+      key: "b" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      id: id, type: g ? "group" : "char",
+      name: g ? (g.name || "群聊") : (c.remark || c.name || "TA"),
+      // 旁观群她本来就不在场，标出来省得以为是有人在跟她说话
+      tag: g ? (g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate ? "旁观" : "群") : "",
+      who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : c,
+      text: text, n: count
+    };
+    setBanners(p => [b, ...p].slice(0, 4));
+    const t1 = setTimeout(() => setBanners(p => p.map(x => x.key === b.key ? { ...x, leaving: true } : x)), BANNER_MS);
+    const t2 = setTimeout(() => setBanners(p => p.filter(x => x.key !== b.key)), BANNER_MS + BANNER_OUT_MS);
+    bannerTimers.current.push(t1, t2);
+  };
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
-  const bumpUnread = (id, k) => setUnreadMap(p => {
-    const n = { ...p, [id]: (p[id] || 0) + k };
-    saveJSON("x_unread", n);
-    return n;
-  });
+  const bumpUnread = (id, k) => {
+    pushBanner(id, k);
+    setUnreadMap(p => {
+      const n = { ...p, [id]: (p[id] || 0) + k };
+      saveJSON("x_unread", n);
+      return n;
+    });
+  };
   // 置顶/取消置顶某个聊天（长按聊天条触发）
   const togglePinChat = id => setPinnedChats(p => {
     const n = p.includes(id) ? p.filter(x => x !== id) : [id, ...p];
@@ -18636,11 +18702,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     chats: chats,
     groupChats: groupChats,
     unreadMap: unreadMap,
-    onOpenChat: (id, type) => {
-      if (type === "group") { const g = groups.find(x => x.id === id); if (!g) return; setActiveGroup(g); clearUnread(id); setScreen("gthread"); return; }
-      const c = characters.find(x => x.id === id); if (!c) return;
-      setActiveChar(c); clearUnread(id); setScreen("thread");
-    },
+    onOpenChat: openChatById,
     calendar: calendar,
     period: period,
     listen: listen,
@@ -20408,6 +20470,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => { setThemePeek(null); setConfigPage("themeStudio"); setScreen("config"); }
   }), /*#__PURE__*/React.createElement(Toast, {
     msg: toastMsg
+  }), h(MsgBanners, {
+    list: banners,
+    // 点一下直接落到那条聊天里（跟主屏那张「捎来的字条」是同一个动作，走同一处）
+    onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); openChatById(b.id, b.type); }
   })));
 }
 // 挂载前先把图片仓库 hydrate 进内存缓存（iv_ 键→objectURL），首帧头像/壁纸就能直接显示、不闪空。

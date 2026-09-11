@@ -806,7 +806,7 @@ function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
 }
 // 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
 //   由调用点自己决定要不要拦——这一层不替它做主。
-const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210 });
+const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210, banner: 1220 });
 function appDialogPortal(content, onCancel) {
   return ReactDOM.createPortal(h("div", {
     className: "fixed inset-0 flex items-center justify-center",
@@ -877,6 +877,44 @@ function Toast({
       wordBreak: "break-word"
     }
   }, msg)), document.body);
+}
+// ── App 内消息提醒（她 2026-09-11）───────────────────────────────────
+// 她原话：「我发了消息然后退出聊天去别的玩法里玩，顶上也会有提醒，一个气泡出一条
+// 叠加在上面……过几秒就上翻消失，点击也可以快速到达聊天界面。群聊单聊旁观群都要。」
+// ⚠️不新发明一种横幅：顶上这一条跟【来电横幅 CallRing】是同一个形状——
+//   同一张卡、同一条安全区（safeTop(8) + 左右 10）、同样从上面滑下来。
+// 叠加：新的在最上面，后面那几条往后缩一点点，看着是一摞而不是三张并排的卡。
+function MsgBanners({ list, onOpen }) {
+  const t = useTheme();
+  const arr = (Array.isArray(list) ? list : []).slice(0, 3);
+  if (!arr.length) return null;
+  return ReactDOM.createPortal(
+    h("div", { style: { position: "fixed", top: safeTop(8), left: 10, right: 10,
+      zIndex: APP_OVERLAY_LAYERS.banner, display: "flex", flexDirection: "column", gap: 7, pointerEvents: "none" } },
+      h("style", null,
+        "@keyframes msgb-in{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}"
+        + "@keyframes msgb-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-18px)}}"),
+      arr.map((b, i) => h("button", {
+        key: b.key,
+        onClick: () => onOpen && onOpen(b),
+        "data-wk": "msgbanner",
+        className: "w-full active:opacity-70",
+        style: { pointerEvents: "auto", display: "block", textAlign: "left",
+          background: t.bg2, border: "1px solid " + t.line, borderRadius: 18,
+          boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px",
+          transformOrigin: "top center", transform: "scale(" + (1 - i * 0.03) + ")", opacity: 1 - i * 0.14,
+          animation: (b.leaving ? "msgb-out .3s ease both" : "msgb-in .22s ease both") } },
+        h("div", { className: "flex items-center gap-3" },
+          h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { className: "flex items-center", style: { gap: 6 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.name || "TA"),
+              b.tag ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog,
+                border: "1px solid " + t.line, borderRadius: 6, padding: "1px 4px" } }, b.tag) : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))))),
+    document.body);
 }
 function Toggle({
   on,
