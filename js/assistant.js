@@ -1179,7 +1179,7 @@
 
     if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, ctx: props, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
-    const QUICK = ["这个 App 都能玩什么", "穿书怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
+    const QUICK = ["这个 App 都能玩什么", "加笔怎么玩", "我设的文风好像没生效", "帮我把现在的文风改得更克制一点"];
     // ── 值班台（v62.70 审美审计点名）─────────────────────────────────
     // 审计原话：整页 t.bg 平色，**自写顶栏、返回键是字符「←」、不走 Head**。
     // 「一个助手在跟你说话」本来就长得像任何一个聊天框，所以这一页的分寸是：

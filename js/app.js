@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.78";
+const APP_VERSION = "v66.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19676,18 +19676,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       return out;
     },
-    // 他写了一章关于你俩的文——这是真发生过的一件事，该留在他记忆里，
-    // 不然就是个一次性玩具（她 2026-09-11 说的「人设本身也会决定…」那一层的另一半）。
-    onCharWrote: (charId, info) => {
-      const c = (characters || []).find(x => x && x.id === charId);
-      if (!c) return;
-      const zh = { self_user: "写的就是他和我", self_other: "文里把他跟别人配了", jealous: "文里写的是我和别人",
-        tied: "文里有他认识的人", outsider: "跟他没什么关系" };
-      addMemEntry({
-        text: "我把同人文《" + String(info.title || "").slice(0, 20) + "》第 " + (info.chapterNo || 1)
-          + " 章交给他写（" + (zh[info.stance] || "") + "）。",
-        charIds: [charId], source: "fanfic"
-      });
+    // 他替你写的那一章落在哪儿（她 2026-09-11 改的口）。
+    // ⚠️原来这儿是**自动往主线记忆库写一条**——她当场指出：「有时候我也只是想测试一下，
+    //   但是不想让他们记得」。她是对的：「不记」事后能补，「记了」得手动去删，
+    //   **默认值不该选不可逆的那一边**。所以自动写这条撤掉了（撤就是删，不是在后面挂说明），
+    //   改成她按一下才发生，而且默认落进【房间】，不是主线。
+    // ⚠️这一条一分钱不花：「喂给他」只是把东西放进上下文，上下文是本地拼的；
+    //   只有「让他开口」才打枪。
+    onFileChapter: (charId, card) => {
+      const K = window.ChatRooms;
+      if (!K || !charId || !card) return null;
+      // 先找他现成的那间「一起写」；没有就开一间——不能先把她赶去建房，
+      // 那一步一多她就不记了，又回到「自动写」那个问题上。
+      const rooms = K.list(charId).filter(r => r && !r.main);
+      let room = rooms.filter(r => r.actions && r.actions.fanfic).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+      if (!room) room = K.create(charId, "一起写", "focused");
+      const key = K.chatKey(charId, room.id);
+      pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", ts: Date.now(), read: true, content: String(card).slice(0, 900) }]);
+      return { roomId: room.id, roomName: room.name };
+    },
+    // 「只记一笔」：也是 0 枪，也是她按了才发生
+    onNoteChapter: (charId, text) => {
+      if (!charId || !String(text || "").trim()) return;
+      addMemEntry({ text: String(text).trim().slice(0, 200), charIds: [charId], source: "fanfic" });
     },
     onBack: () => setScreen("home")
   });else if (screen === "weekly") body = h(WeeklyApp, {

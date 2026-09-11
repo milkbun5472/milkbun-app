@@ -145,9 +145,12 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
   assert.match(fic, /byChar: byChar,/);
   assert.match(fic, /writerAxes: byChar \? K\.rollWriterAxes\(byChar\.id, f\.id, \(f\.chapters \|\| \[\]\)\.length\) : null/);
   assert.match(fic, /if \(byChar\) ch\.byCharId = byChar\.id;/);
-  // 他写了一章是真发生过的事：该留在他记忆里，不是一次性玩具
-  assert.match(fic, /if \(byChar && props\.onCharWrote\)/);
-  assert.match(app, /onCharWrote: \(charId, info\) => \{/);
+  // ⚠️v66.79 改口：写完**不自动回流**。她 2026-09-11：「有时候我也只是想测试一下，
+  //   但是不想让他们记得」——「不记」事后能补，「记了」得手动去删，
+  //   默认值不该选不可逆的那一边。撤掉就是删掉，不是在后面挂说明。
+  assert.ok(fic.indexOf("onCharWrote") < 0 && app.indexOf("onCharWrote") < 0, "自动往主线记忆库写那一条又长回来了");
+  assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给他看"/, "她按一下才发生的那颗键没了");
+  assert.match(app, /onFileChapter: \(charId, card\) => \{/);
   assert.match(app, /addMemEntry\(\{[\s\S]{0,200}charIds: \[charId\], source: "fanfic"/);
   // relOf 只给状态不给数字这件事，是在 app 那头就定的
   assert.match(app, /relOf: charId => \{/);

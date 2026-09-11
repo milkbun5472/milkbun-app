@@ -20,7 +20,10 @@
     ],
     actions: [
       ["study", "他可以拉你一起学", "允许他在这间房自然提议一起学"],
-      ["games", "他可以拉你玩点什么", "允许他在这间房自然提议玩小游戏"]
+      ["games", "他可以拉你玩点什么", "允许他在这间房自然提议玩小游戏"],
+      // 一起写（她 2026-09-11：「一起学一起玩一起写能不能都同时存在一个房间里，懒得开那么多」）——
+      // 本来就是独立开关，一间房想开几样开几样。同人文里他替你写的那几章就落在这种房里。
+      ["fanfic", "他可以拉你一起写", "允许他在这间房自然提议接着写那篇文"]
     ],
     writeback: [
       ["roomHistory", "这里说过的话留在这里", "这间房永远留着自己完整的聊天记录"],
@@ -102,7 +105,7 @@
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
   const PRESETS = {
     everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
-    focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
+    focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "不带出门", note: "只在这里成立，不补主线、不改共同状态，也不进入记忆", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
     alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" }
   };

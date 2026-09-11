@@ -47,7 +47,10 @@ test("界面上叫加笔了，但存档键和 mode key 一个都没动", () => {
   assert.match(fic, /\{ key: "rp", label: "加笔", center: true \}/);
   ["加笔中", "＋ 新一篇", "还没在谁的文上动过笔", "挑一篇下笔"].forEach(x =>
     assert.ok(fic.indexOf(x) > 0, "这处没改名：" + x));
-  assert.match(fic, /【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里/);
+  // v66.79：她 2026-09-11「如果有旧的名称全部改了」——提示词是模型看得见的字，
+  // 跟存档键不是一回事，所以这一处跟着界面改成「加笔」。
+  assert.match(fic, /【加笔 · 互动叙事引擎】玩家『穿』进了一篇同人文里/);
+  assert.ok(fic.indexOf("【穿书 · 互动叙事引擎】") < 0);
   assert.match(fic, /【玩家的身份 \/ 穿进去的方式】/);
   // ⚠️改了这两样旧存档就读不出来了
   assert.match(fic, /const K_RP = "x_fanfic_rp";/);

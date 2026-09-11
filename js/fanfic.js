@@ -525,10 +525,16 @@
     opts = opts || {};
     if (!cpChars || !cpChars.length)
       return "【CP】未指定具体 CP——写原创向/群像向短篇，主角自拟，别硬凑现有角色。";
-    // 左右位铁律（v47.78 她点名修）：CP 的书写顺序=左右位，同性 CP 严格左攻右受，
-    // 绝不许按「谁人设强势谁当攻」自行对调——人设强势的右位就是「强势受」，反差才是萌点
+    // 左右位铁律（v47.78 她点名修）：CP 的书写顺序=左右位，严格左攻右受，
+    // 绝不许按「谁人设强势谁当攻」自行对调——人设强势的右位就是「强势受」，反差才是萌点。
+    // ⚠️v66.79 把「同性 CP 才算攻受、异性 CP 顺序只代表叙事重心」那个分叉**删掉了**
+    //   （她 2026-09-11：「这个不仅仅是同性 cp，异性 cp 女左男右那也不是男上位而是 4 爱女的上」）。
+    //   那一行等于把她的选择悄悄丢掉：她点「女 × 男」是要女方主导，模型收到的却是
+    //   「顺序只是先后」，于是照先验写成男主导。所以**性别跟「更强势／更年长／更壮」
+    //   是同一类借口**，得并排写进那张不许调换的清单里。
+    // ⚠️加笔（旧名穿书）走的是同一个 cpBlock，所以这一处改完，那边一起好。
     const posRule = function (l, r) {
-      return "\n【左右位铁律（最高优先，凌驾于人设气场之上）】这个 CP 的顺序就是左右位：「" + l + "」是左位，「" + r + "」是右位。若两人是同性 CP，写亲密关系时严格执行【左攻右受】：主导/进攻的一方永远是「" + l + "」，承受/被动的一方永远是「" + r + "」——**绝对禁止因为谁人设更强势、更年长、更冷、更有钱、体格更壮就自行把位置调换**。人设强势的右位就写成气场强但在这段关系里是受的那一方；性格软的左位就写成温柔但主动的攻。若是异性 CP，顺序代表叙事重心先后即可。";
+      return "\n【左右位铁律（最高优先，凌驾于人设气场与性别之上）】这个 CP 的顺序就是左右位：「" + l + "」是左位，「" + r + "」是右位。写亲密关系时严格执行【左攻右受】：主导/进攻的一方永远是「" + l + "」，承受/被动的一方永远是「" + r + "」——**绝对禁止因为谁人设更强势、更年长、更冷、更有钱、体格更壮，或者因为谁是男的，就自行把位置调换**。人设强势的右位就写成气场强但在这段关系里是受的那一方；性格软的左位就写成温柔但主动的攻。**异性 CP 一样按这条走**：女左男右就是女方主导，不是「男的照例在上」；该怎么做、用什么姿势，由这个顺序决定，别拿常见写法把它翻回去。";
     };
     if (cpChars.length === 1) {
       const c = cpChars[0];
@@ -771,6 +777,34 @@
         cotRequested: !!cotT
       };
     });
+  }
+
+  // ── 记进房间 / 拿给他看（她 2026-09-11）──────────────────────────────
+  //
+  // ⚠️**自动回流撤掉了。** 原来写完一章就往主线记忆库记一条，她当场拦下来：
+  //   「有时候我也只是想测试一下，但是不想让他们记得」。
+  //   「不记」事后能补，「记了」得手动去删——**默认值不该选不可逆的那一边**。
+  // ⚠️落进去的是【一张卡】，不是整章正文：一章几千字塞进房间聊天，上下文当场吃光。
+  //   他要读全文有同人文那一页，房里躺的是「这件事发生过」。
+  // ⚠️一分钱不花：喂给他＝把东西放进上下文，上下文是本地拼的；只有让他开口才打枪。
+  const FILE_CARD_HEAD = 200;
+  function chapterCard(fic, chapIdx, charName, mine, userName) {
+    const chs = (fic && fic.chapters) || [];
+    const ch = chs[Math.max(0, Math.min(chs.length - 1, Number(chapIdx) || 0))] || {};
+    const no = (Number(chapIdx) || 0) + 1;
+    const head = String(ch.content || "").trim().replace(/\s+/g, " ").slice(0, FILE_CARD_HEAD);
+    const who = mine ? "你写的" : (ch.byAuthor ? "「" + ch.byAuthor + "」写的" : (ch.byMe ? (userName || "她") + "自己写的" : "「" + String(fic.author || "").trim() + "」写的"));
+    return "[同人文] " + (mine ? "你替" + (userName || "她") + "接的《" : (userName || "她") + "把《")
+      + String(fic.title || "").slice(0, 24) + "》第 " + no + " 章" + (mine ? "。" : "拿给你看了——那一章是" + who + "。")
+      + (head ? "\n开头是：" + head + "……" : "")
+      + "\n（全文在同人文里，这儿只是留个话头。）";
+  }
+  // 「只记一笔」那条：短一句，进的是她自己的记忆库
+  function chapterNote(fic, chapIdx, charName, mine, userName) {
+    const no = (Number(chapIdx) || 0) + 1;
+    const t = String((fic && fic.title) || "").slice(0, 24);
+    return mine ? "《" + t + "》第 " + no + " 章是「" + charName + "」替我接着写的。"
+      : "我把《" + t + "》第 " + no + " 章拿给「" + charName + "」看了。";
   }
 
   // ── 让角色来写（她 2026-09-11）──────────────────────────────────────
@@ -1323,7 +1357,11 @@
   }
 
   // ============================================================
-  // 穿书（互动叙事 RP 引擎）—— 玩家穿进一篇收藏的同人文，AI 抛决策点、玩家自由输入行动
+  // 加笔（互动叙事 RP 引擎）—— 玩家穿进一篇收藏的同人文，AI 抛决策点
+  // ⚠️**「穿书」＝这个功能的旧名**（v62.50 改玩法时一起改的名，界面上早就是「加笔」）。
+  //   下面注释里那些「v61.16 穿书那次」是**病历**：事故发生的时候它就叫穿书，
+  //   改掉病历会让它跟版本号对不上，所以原样留着。
+  //   界面、手册、提示词里一律写「加笔」；变量名 rp*／stepin 是内部名，不动。、玩家自由输入行动
   // ⚠️存储键 x_fanfic_rp 和 mode key 不跟着改名——那是存档，改了旧档就读不出来了
   // ============================================================
   const K_RP = "x_fanfic_rp"; // 存档数组
@@ -1478,7 +1516,7 @@
   }
   // 天降模式：先确定玩家这次的固定身份（一个具体名字），供全程锚定
   async function genRPIdentity(active, fic, tab, cpChars, mode, landing, userName, worldbook) {
-    const sys = ANTI_CLICHE + "\n\n你在为一场穿书互动叙事【确定玩家这次的固定身份】。穿进去的方式：" + rpRoleDesc(mode, cpChars, userName, null) +
+    const sys = ANTI_CLICHE + "\n\n你在为一场加笔互动叙事【确定玩家这次的固定身份】。穿进去的方式：" + rpRoleDesc(mode, cpChars, userName, null) +
       "\n世界观：" + tab.name + "。他从这儿进去：「" + (landing && landing.label || "") + "」——" + (landing && landing.scene || "") +
       (worldbook && worldbook.trim() ? "\n【全局世界书（这个身份要合得上里面的设定与禁忌）】\n" + worldbook.trim().slice(0, 3000) : "") +
       "\n【原著正文节选】\n" + rpStory(fic).slice(0, 2500) +
@@ -1505,7 +1543,7 @@
     if (typeof OVERREACH_BAN !== "undefined") parts.push(OVERREACH_BAN);   // 三件套的近亲，同进同出
     if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
     if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) parts.push(ReplyPacing.reading());
-    parts.push("【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
+    parts.push("【加笔 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
     parts.push("【世界观：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     // ⚠️天降模式下玩家【就是】场上的第三个人，这时绝不能发 cpBlock 那条
     // 「读者/『我』不出场、不作为角色写进去」的尾巴——那和身份锚点正面打架，
@@ -1839,7 +1877,7 @@
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, session.playerIdentity, session.know) +
       rpStartLine(session) +
       (rpBeatsBlock(session) ? "\n\n" + rpBeatsBlock(session) : "") +
-      "\n\n【这一拍要写的】这场穿书到此为止，写【收束】：把玩家走到这一步的局面收拢成一个落点——" +
+      "\n\n【这一拍要写的】这场加笔到此为止，写【收束】：把玩家走到这一步的局面收拢成一个落点——" +
       "不是大团圆，也不是强行悲剧，是这一版故事走成了这个样子之后，它自然停在哪儿。" +
       (broken.length ? "被拦下的那几页（" + broken.map(function (b) { return "「" + b.label + "」"; }).join("、") + "）真的没有发生，收束要认这笔账：那些事没发生，换来的是什么。" : "") +
       (kept.length ? "照原样发生过的那几页（" + kept.map(function (b) { return "「" + b.label + "」"; }).join("、") + "）也要认。" : "") +
@@ -1926,6 +1964,7 @@
     allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
     clampMinChars: clampMinChars, minCharsFor: minCharsFor, countChars: countChars, shortBy: shortBy, MIN_CHARS_MAX: MIN_CHARS_MAX,
+    FILE_CARD_HEAD: FILE_CARD_HEAD, chapterCard: chapterCard, chapterNote: chapterNote,
     STANCE: STANCE, stanceFor: stanceFor, stanceFacts: stanceFacts,
     WRITER_AXES: WRITER_AXES, rollWriterAxes: rollWriterAxes, charWriterBlock: charWriterBlock,
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
@@ -2472,6 +2511,8 @@
     const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
     const [busyMore, setBusyMore] = useState(false); // 「让他接着写」那一枪：她按了才发
     const [busyBack, setBusyBack] = useState(false); // 「去请她回来」那一枪
+    const [fileIdx, setFileIdx] = useState(-1);      // 正在挑「拿给谁看」的那一章
+    const [filedNote, setFiledNote] = useState("");  // 刚落进哪儿，给她一句回执
     const [busyRev, setBusyRev] = useState(false);   // 刷书评（可与追更并行）
     const [myWrite, setMyWrite] = useState(false);  // 她自己写下一章（v64.63）
     const [myChap, setMyChap] = useState("");
@@ -2579,10 +2620,6 @@
           else K.circlePush({ a: byNmRaw, b: ownNm, kind: "ghost", title: f.title });
         }
         if (quitting && ownNm) K.circlePush({ a: ownNm, b: byNmRaw, kind: "quit", title: f.title, say: note });
-        // 他写了一章关于你俩的文——这是真发生过的一件事，不是一次性玩具
-        if (byChar && props.onCharWrote) {
-          try { props.onCharWrote(byChar.id, { title: f.title, chapterNo: newIdx + 1, stance: K.stanceFor(byChar, f, (props.relOf && props.relOf(byChar.id)) || {}).kind }); } catch (e) {}
-        }
         props.toast && props.toast(grabbed ? "「" + String(f.author || "原作者") + "」把笔抢回去自己写了" : "已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
         if (props.onChapterShared && (f.sharedTo || []).length) props.onChapterShared(f, ch, newIdx + 1);
@@ -2781,6 +2818,13 @@
                     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub } }, r.content));
                 }));
             })(),
+            // 记进房间 / 拿给他看。⚠️**不自动发生**：她按一下才有
+            //（自动往主线记忆库写那一版是错的，撤掉了）。这一步一分钱不花。
+            h("div", { style: { marginTop: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+              h("button", { onClick: function () { setFileIdx(idx); }, className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 } },
+                ch.byCharId ? "记进房间" : "拿给他看"),
+              filedNote ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, filedNote) : null),
             // 偷懒的那一章不许悄无声息地落盘（她 2026-09-11）。
             // ⚠️只留一行字 + 一颗键，**绝不自动再打一枪**——她定的：任何东西都不接受一次发两遍。
             (function () {
@@ -2863,6 +2907,27 @@
       fwdOpen ? h(FwdSheet, { characters: props.fwdChars || props.characters, groups: props.groups, onClose: function () { setFwdOpen(false); },
         onPickChar: function (c) { setFwdOpen(false); props.onForwardToChat && props.onForwardToChat(f, c); },
         onPickGroup: function (g) { setFwdOpen(false); props.onForwardToGroup && props.onForwardToGroup(f, g); } }) : null,
+      fileIdx >= 0 ? h(FilePage, {
+        fic: f, chapIdx: fileIdx,
+        chars: (props.fwdChars || props.characters || []).filter(function (c) { return c && !c.npc; }),
+        defaultCharId: ((f.chapters || [])[fileIdx] || {}).byCharId || "",
+        onClose: function () { setFileIdx(-1); },
+        onFile: function (c, noteOnly) {
+          if (!c) return;
+          const i = fileIdx;
+          const ch2 = (f.chapters || [])[i] || {};
+          const mine = ch2.byCharId === c.id;
+          const nm = c.remark || c.name;
+          if (noteOnly) {
+            props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName));
+            setFiledNote("记了一笔");
+          } else {
+            const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName));
+            setFiledNote(r ? "放进了「" + r.roomName + "」" : "没能放进去");
+          }
+          setFileIdx(-1);
+        }
+      }) : null,
       ghostOpen ? h(GhostPage, { fic: f, pickedId: ghostId, backBusy: busyBack, onAskBack: askAuthorBack,
         chars: (props.fwdChars || props.characters || []).filter(function (c) { return c && !c.npc; }), relOf: props.relOf,
         onPick: function (id) { setGhostId(id); },
@@ -2966,6 +3031,51 @@
           disabled: !!picked.quit, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: picked.quit ? t.line : t.ink, minHeight: 46, borderRadius: 12, border: "none" } },
           picked.quit ? "得先请她回来，或者另找一位" : (picked.id ? "就请「" + picked.name + "」写" : "开始写"))));
+  }
+
+  // ---------- 拿给谁看 / 记进哪间房（v66.79，她 2026-09-11）----------
+  // 整页，不是半窗（no-half-sheet.md）：角色能有几十个，半窗一掀只剩三四行。
+  function FilePage(props) {
+    const t = useTheme();
+    const f = props.fic, idx = props.chapIdx;
+    const ch = (f.chapters || [])[idx] || {};
+    const rows = props.chars || [];
+    const [pick, setPick] = useState(props.defaultCharId || (rows[0] && rows[0].id) || "");
+    const picked = rows.filter(function (c) { return c.id === pick; })[0] || null;
+    const roomOf = function (cid) {
+      const K = (typeof window !== "undefined" && window.ChatRooms) || null;
+      if (!K || !cid) return null;
+      return K.list(cid).filter(function (r) { return r && !r.main && r.actions && r.actions.fanfic; })
+        .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })[0] || null;
+    };
+    const mine = !!(ch.byCharId && picked && ch.byCharId === picked.id);
+    const btn = function (label, primary, onClick) {
+      return h("button", { onClick: onClick, disabled: !picked, className: "w-full active:opacity-80",
+        style: { fontFamily: F_BODY, fontSize: primary ? 14 : 13, minHeight: primary ? 46 : 42, borderRadius: 12, marginTop: primary ? 0 : 8,
+          border: primary ? "none" : "1px solid " + t.line, background: primary ? t.ink : "transparent", color: primary ? t.bg2 : t.sub } }, label);
+    };
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+      h(Head, { bg: "transparent", zh: "拿给谁看", sub: "《" + f.title + "》第 " + (idx + 1) + " 章", onBack: props.onClose }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75, margin: "2px 0 10px" } },
+          "落进去的是一张卡：这件事发生过、开头两百字。全文还在同人文里。",
+          h("br"), "这一步不花钱——喂给他只是放进他的上下文，让他开口才要。"),
+        rows.map(function (c) {
+          const on = c.id === pick;
+          const rm = on ? roomOf(c.id) : null;
+          return h("button", { key: c.id, onClick: function () { setPick(c.id); }, className: "w-full text-left active:opacity-70",
+            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+            h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 7, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
+            h("span", { style: { minWidth: 0 } },
+              h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } },
+                (c.remark || c.name) + (ch.byCharId === c.id ? "（这一章就是他写的）" : "")),
+              on ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } },
+                rm ? "放进他那间「" + rm.name + "」" : "会给他开一间「一起写」") : null));
+        }),
+        rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } }, "还没有角色。")),
+      h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
+        btn(mine ? "记进他那间房" : "拿给他看", true, function () { props.onFile(picked, false); }),
+        btn("只记一笔（不进房间）", false, function () { props.onFile(picked, true); })));
   }
 
   // ---------- 转发选人 sheet ----------
@@ -4323,7 +4433,7 @@
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared,
         // 让角色来写：他跟她、跟 CP 另一方是什么关系，由 app 那头算好递进来
-        relOf: props.relOf, onCharWrote: props.onCharWrote, allChars: props.allChars
+        relOf: props.relOf, onFileChapter: props.onFileChapter, onNoteChapter: props.onNoteChapter, allChars: props.allChars
       })));
     }
 
