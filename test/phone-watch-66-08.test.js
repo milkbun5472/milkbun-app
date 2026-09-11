@@ -552,7 +552,8 @@ test("认名字只此一份规矩：标点飘了也得认出来", () => {
   assert.equal(W.pickName(list, "夏天", x => x.t).t, "夏天", "有完全一样的就不许挑那条更长的");
   assert.equal(W.pickName(list, "夏天的海", x => x.t).t, "夏天的海边");
   assert.equal(W.pickName(list, "别的", x => x.t), null);
-  assert.ok((phone.match(/watchPick\(/g) || []).length > 15, "各屏都要走同一条挑人规矩");
+  // v67.03 起点开那一类改走 watchOpenPick（它里面第一句就是 watchPick，仍是同一条规矩）
+  assert.ok((phone.match(/watchPick\(|watchOpenPick\(/g) || []).length > 15, "各屏都要走同一条挑人规矩");
   assert.doesNotMatch(phone, /=== String\(driveItem\)/, "还有哪一屏在用严格等号认名字");
 });
 
@@ -593,7 +594,7 @@ test("圆点：先量后动，量不到再试几拍，翻不到就先把它翻�
   assert.match(fs.readFileSync("js/components.js", "utf8"), /"data-watch": "back",\n\s*onClick: onBack/);
   // ③ 量的时机反了：手指按的是【按下去之前】那一屏，所以第一下必须当场同步量
   assert.match(phone, /attempt\(\);\n\s*\/\/ 按完才出现的那几样/);
-  assert.match(phone, /const stopDot = watchDotTo\(WK\.watchTargetSel\(a\), a\.name \|\| a\.at \|\| ""\);[\s\S]{0,400}\/\/ ② 这一下的效果/);
+  assert.match(phone, /const stopDot = watchDotTo\(WK\.watchTargetSel\(a\), a\.name \|\| a\.at \|\| "",[\s\S]{0,400}\/\/ ② 这一下的效果/);
   // 屏幕外的东西先翻出来再点，别把圆点甩到 x=630 那种看不见的地方
   assert.match(phone, /el\.scrollIntoView\(\{ block: "center", inline: "center", behavior: "smooth" \}\)/);
   // look 落在那样东西身上，不另挂一套 look: 的点
@@ -1042,4 +1043,37 @@ test("一段有多长这件事，提示词里得有个数", () => {
   assert.match(s, /别只写三四十下就收/);
   // 上限仍然是代码那头的事，两个数不许混成一个
   assert.match(watchSrc, /const ACT_CAP = 120;/);
+});
+
+// ── 2026-09-11 第二轮：她报的三样 ──────────────────────────────────
+test("微信不再被截断：字数没有上限，打字那一拍和往下走那一脚是同一个数", () => {
+  // 她 2026-09-11：「微信还是会截断，不要 cap 了，模型知道微信一般发多长」。
+  const long = "字".repeat(1500);
+  assert.equal(W.normalizeActs([{ kind: "type", text: long }]).acts[0].text.length, 1500,
+    "又给打字的内容设了上限");
+  assert.ok(watchSrc.indexOf('S(x.text).slice(0, 800)') < 0, "800 那道闸还在");
+  // ⚠️真正把话切断的是【两个节拍不是同一个数】：打字每拍有 12 毫秒地板，
+  //   而往下走那一脚按 actDuration/speed 算——开到 2 倍速就永远打不完。
+  assert.match(phone, /const tick = Math\.max\(12, \(WK\.typeTick \? WK\.typeTick\(full\) : 90\) \/ speed\);/);
+  assert.match(phone, /typeMs = full\.length \* tick \+ 160;/);
+  assert.match(phone, /setTimeout\(advance, Math\.max\(120, typeMs \|\| WK\.actDuration\(a\) \/ speed\)\)/,
+    "还是按 actDuration 推走打字那一下");
+  assert.match(phone, /\}, tick\);/, "打字那一拍没用同一个 tick");
+});
+
+test("点开那一下一定开出一页来（认不出名字就开第一条）", () => {
+  // 她 2026-09-11：「便签浏览器视频有时候还是不显示开了的页面」。
+  // 病根：模型点开的名字在这一屏数据里一条都对不上 → hit 为 null → 一个 setOpen 都没跑。
+  assert.match(phone, /const watchOpenPick = \(list, name, get\) =>\s*\n\s*watchPick\(list, name, get\) \|\| \(Array\.isArray\(list\) && list\.length \? list\[0\] : null\);/);
+  // 便签／浏览器／视频这三屏点名要有（她报的就是它们）
+  ["StickyView", "BrowserView", "BiliView"].forEach(fn => {
+    const seg = phone.slice(phone.indexOf("function " + fn + "("), phone.indexOf("function " + fn + "(") + 1600);
+    assert.match(seg, /watchOpenPick\(/, fn + " 还在用严格的那一份，认不出就什么都不开");
+  });
+  // ⚠️微信／短信不给这个兜底：开错人比不开更糟（会在错的会话里打字）
+  const wx = phone.slice(phone.indexOf("const hit = watchPick(chats, driveChat"), phone.indexOf("const hit = watchPick(chats, driveChat") + 120);
+  assert.match(wx, /watchPick\(chats, driveChat/, "微信也给了兜底——会开错人");
+  // 圆点跟着走同一条判断：认不出名字就落在第一条上
+  assert.match(phone, /const watchFuzzy = \(name, firstIfMiss\) => \{/);
+  assert.match(phone, /a\.kind === "openItem" \|\| a\.kind === "look"\);/);
 });

@@ -194,10 +194,11 @@
       if (x.site != null) a.site = S(x.site).trim().slice(0, 40);
       if (x.priv != null) a.priv = !!x.priv && S(x.priv) !== "false";
       if (x.gist != null) a.gist = S(x.gist).trim().slice(0, 160);
-      // ⚠️200 字是给「发一条微信」定的，可 type 也用来写便签、写批注、写回信——
-      //   一条便签写到一半就没了（她 2026-09-10：「为啥备忘录写一半会截断」）。
-      //   心声另有 60 字的闸（在上面 think 那一支），这儿放到 800。
-      if (x.text != null) a.text = S(x.text).slice(0, 800);
+      // ⚠️字数上限【取消了】（她 2026-09-11：「不要 cap 了，模型知道微信一般发多长」）。
+      //   这条路上的 200 → 800 → 没有：每次收窄都只是把截断挪得更靠后一点，
+      //   而「一条微信该多长」本来就不是代码该替他定的事（施工规则/bans-make-it-dumber.md）。
+      //   心声另有 60 字的闸（在上面 think 那一支），那一条是给屏幕留的，不是给他的。
+      if (x.text != null) a.text = S(x.text);
       if (x.amount != null) a.amount = Math.max(-2000, Math.min(2000, N(x.amount, 0)));
       if (x.n != null) a.n = Math.max(1, Math.min(200, N(x.n, 1)));
       // 买东西那几个 app 才用得上的一栏：他看的那样东西多少钱。

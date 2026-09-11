@@ -2626,7 +2626,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     if (!drive) return;
     if (!driveItem) { setPhoto(null); return; }
     const all = Array.isArray(d && d.items) ? d.items : [];
-    const hit = watchPick(all, driveItem, x => x && x.caption);
+    const hit = watchOpenPick(all, driveItem, x => x && x.caption);
     if (hit) setPhoto(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -2946,7 +2946,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     A0(d && d.shelves).forEach(sh => A0(sh && sh.books).forEach((b, i) => {
       if (b) flat.push({ b: b, shelf: (sh && sh.name) || "", no: i + 1 });
     }));
-    const hit = watchPick(flat, driveItem, x => x && x.b && x.b.title);
+    const hit = watchOpenPick(flat, driveItem, x => x && x.b && x.b.title);
     // ⚠️照这一屏自己的写法来：详情里还挂着 _shelf / _no 两栏（openBook 那一处）
     if (hit) setBook({ ...hit.b, _shelf: hit.shelf, _no: hit.no });
   }, [driveItem]);
@@ -3188,7 +3188,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     if (!drive) return;
     if (!driveItem) { setSheet(null); return; }
     const pool = [].concat(Array.isArray(d && d.wish) ? d.wish : [], Array.isArray(d && d.cart) ? d.cart : []);
-    const hit = watchPick(pool, driveItem, x => x && x.title);
+    const hit = watchOpenPick(pool, driveItem, x => x && x.title);
     if (hit) setSheet({ kind: "wish", it: hit });
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -3535,7 +3535,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     if (!driveItem) { setOpen(null); return; }
     // 这一屏的 open 存的是【第几单】，不是那一单本身——照它自己的写法来
     const list = Array.isArray(d && d.orders) ? d.orders : [];
-    const row0 = watchPick(list, driveItem, x => x && x.shop) || watchPick(list, driveItem, x => x && x.main);
+    const row0 = watchOpenPick(list, driveItem, x => x && x.shop) || watchOpenPick(list, driveItem, x => x && x.main);
     const i = row0 ? list.indexOf(row0) : -1;
     if (i >= 0) setOpen(i);
   }, [driveItem]);
@@ -4225,7 +4225,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const list = (Array.isArray(d && d.items) ? d.items : []).filter(x => x && typeof x === "object");
-    const row0 = watchPick(list, driveItem, x => x && x.title);
+    const row0 = watchOpenPick(list, driveItem, x => x && x.title);
     const i = row0 ? list.indexOf(row0) : -1;
     // ⚠️open 存的是 { v, i } 这一对，不是那条本身——照这一屏自己的写法来
     if (i >= 0) setOpen({ v: list[i], i: i });
@@ -4332,7 +4332,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
+    const hit = watchOpenPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4409,7 +4409,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
     const pool = [].concat(Array.isArray(d && d.items) ? d.items : [], Array.isArray(d && d.drafts) ? d.drafts : []);
-    const hit = watchPick(pool, driveItem, x => x && x.title);
+    const hit = watchOpenPick(pool, driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const scrollRef = useRef(null);
@@ -4598,7 +4598,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
+    const hit = watchOpenPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4730,7 +4730,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = watchPick(A(d && d.items), driveItem, x => x && x.title);
+    const hit = watchOpenPick(A(d && d.items), driveItem, x => x && x.title);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const items = A((d && d.items)).filter(x => x && typeof x === "object");
@@ -4844,7 +4844,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const hit = watchPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.text);
+    const hit = watchOpenPick(Array.isArray(d && d.items) ? d.items : [], driveItem, x => x && x.text);
     if (hit) setOpen(hit);
   }, [driveItem]);
   const A = a => Array.isArray(a) ? a : [];
@@ -4994,7 +4994,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     if (!driveItem) { setOpen(null); return; }
     const arr2 = x => Array.isArray(x) ? x : [];
     const pool = [].concat(arr2(d && d.tabs), arr2(d && d.private), arr2(d && d.searches));
-    const hit = watchPick(pool, driveItem, x => x && x.title) || watchPick(pool, driveItem, x => x && x.q);
+    const hit = watchOpenPick(pool, driveItem, x => x && x.title) || watchOpenPick(pool, driveItem, x => x && x.q);
     if (hit) setOpen(Object.assign({}, hit));
   }, [driveItem]);
   useEffect(() => { if (drive && drivePage) setOpen({ title: drivePage.title, site: drivePage.site, gist: drivePage.gist, _fresh: true }); }, [drivePage && drivePage.title]);
@@ -5425,7 +5425,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
   useEffect(() => {
     if (!drive || !driveItem) return;
     const list = A(pl && pl.songs).filter(x => x && typeof x === "object");
-    const row0 = watchPick(list, driveItem, x => x && x.title);
+    const row0 = watchOpenPick(list, driveItem, x => x && x.title);
     const i = row0 ? list.indexOf(row0) : -1;
     if (i < 0) return;
     // ⚠️open 存的是【那一行的 key】，不是歌对象——照这一屏自己的写法来（key = id 或 "s"+下标）
@@ -5577,7 +5577,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   useEffect(() => {
     if (!drive) return;
     if (!driveItem) { setOpen(null); return; }
-    const ps = watchPick(A(acc && acc.posts), driveItem, x => x && x.title);
+    const ps = watchOpenPick(A(acc && acc.posts), driveItem, x => x && x.title);
     if (ps) { setOpen({ kind: "post", item: ps }); return; }
     const cs = watchPick(A(acc && acc.comments), driveItem, x => x && x.postTitle);
     if (cs) setOpen({ kind: "comment", item: cs });
@@ -5959,13 +5959,25 @@ function PhoneCarry({
     const hit = WK.pickName(all, want, keyOf) || WK.pickName(all, want, el => String(el.textContent || "").trim());
     return hit ? keyOf(hit) : want;
   };
-  const watchFuzzy = name => {
-    if (!name || !WK || !WK.pickName) return null;
+  // ⚠️她 2026-09-11：「便签、浏览器、视频有时候还是不显示开了的页面」。
+  //   病根：模型点开的那个名字在这一屏的数据里**一条都对不上**（它自己编了个标题，
+  //   或者那条被上一次刷新顶掉了），于是各屏的 openItem effect 里 hit 是 null、
+  //   一个 setOpen 都没跑——屏幕停在列表上，后面「看了两眼又退出去」全落空。
+  //   点开这一下是【他真的按下去了】，必须开出一页来：认不出名字就开这一屏的第一条。
+  //   ⚠️微信／短信／邮件不给这个兜底：开错人比不开更糟（在错的会话里打字）。
+  const watchOpenPick = (list, name, get) =>
+    watchPick(list, name, get) || (Array.isArray(list) && list.length ? list[0] : null);
+  // firstIfMiss：点开那一类的动作，认不出名字时圆点落在这一屏第一条上——
+  // 跟上面 watchOpenPick 是【同一条判断】：那一下真的会开出第一条来，手指就该按在它身上。
+  const watchFuzzy = (name, firstIfMiss) => {
+    if (!WK || !WK.pickName) return null;
+    if (!name) return firstIfMiss ? document.querySelector('[data-watch^="item:"]') : null;
     // ⚠️必须跟各屏用【同一条】挑人规矩（pickName：先要完全一样的）。
     //   一处 sameName 顺着 DOM 找、一处顺着数据找，撞上两条都像的就各挑各的——
     //   圆点点在这一条上、点进去却是另一条（她 2026-09-10 在视频里看见的）。
     const all = [].slice.call(document.querySelectorAll('[data-watch^="item:"]'));
-    return WK.pickName(all, name, el => String(el.getAttribute("data-watch")).slice(5));
+    return WK.pickName(all, name, el => String(el.getAttribute("data-watch")).slice(5))
+      || (firstIfMiss ? all[0] || null : null);
   };
   // 这一屏此刻真正在滚的是哪一块：最大的那个能滚、又看得见的容器。
   // ⚠️不写死某个 ref：二十来屏各有各的滚动容器，写死一个就只有那一屏能滑。
@@ -5988,7 +6000,7 @@ function PhoneCarry({
   // 这一下有没有【先翻过去】：翻了的话，点开那一下要等它翻完，不然就是没翻页就开了
   const scrolledRef = useRef(false);
   const dotSc = useRef(null);   // 刚才是哪一块在滚（等它停下来）
-  const watchDotTo = (sel, fuzzyName) => {
+  const watchDotTo = (sel, fuzzyName, firstIfMiss) => {
     scrolledRef.current = false;
     if (!sel) return;
     // 光标落在哪儿靠挂点量出来，不猜坐标：会话列表滚到哪儿、有几条，每台手机都不一样，
@@ -6000,7 +6012,7 @@ function PhoneCarry({
     const attempt = () => {
       if (done) return;
       try {
-        const el = document.querySelector(sel) || watchFuzzy(fuzzyName);
+        const el = document.querySelector(sel) || watchFuzzy(fuzzyName, firstIfMiss);
         if (!el) return;
         const r = el.getBoundingClientRect();
         if (!r.width && !r.height) return;
@@ -6049,12 +6061,13 @@ function PhoneCarry({
     // 切栏那一下先把名字对成屏幕上真有的那一栏：圆点和切栏读的是同一个 a，一处对上两处都对
     const a = a0.kind === "tab" ? Object.assign({}, a0, { name: watchTabKey(a0.name) }) : a0;
     const speed = watch.speed || 1;
-    let typer = null, openTid = null, openFallback = null;
+    let typer = null, openTid = null, openFallback = null, typeMs = 0;
     // ① 圆点先落下去——**在这一下的效果之前**。
     //   顺序反了的话，点开 app、点开一行、按返回这几下量到的都是【换过之后】那一屏，
     //   要点的那个东西已经不在了，于是圆点整段杵着不动。
     //   名字一起递过去：挂点没抓着就按名字模糊找一次（模型写的名字标点常常飘）。
-    const stopDot = watchDotTo(WK.watchTargetSel(a), a.name || a.at || "");
+    const stopDot = watchDotTo(WK.watchTargetSel(a), a.name || a.at || "",
+      a.kind === "openItem" || a.kind === "look");
     // ② 这一下的效果
     if (a.kind === "wake") { setLocked(false); setOpen(null); }
     else if (a.kind === "lock") { setLocked(true); setOpen(null); setWatch(w => w ? { ...w, item: null, page: null, lastQ: "", searchQ: "", typing: null } : w); }
@@ -6221,12 +6234,19 @@ function PhoneCarry({
       const full = String(a.text || "");
       const base = String((watchRef.current && watchRef.current.typing) || "");
       let n = 0;
+      // ⚠️她 2026-09-11：「微信还是会截断」。病根不在字数上限，在【两个节拍不是同一个数】：
+      //   往下走那一脚按 actDuration/speed 算，可真正打字那一拍有一道 12 毫秒的地板
+      //   （Math.max(12, …)）。开到 2 倍速以后每拍还是 12 毫秒，budget 却被除掉了一半——
+      //   时候一到这一步就被推走，清理函数把 typer 清掉，那句话【正好打到一半】。
+      //   现在这一下演多久由【真实那一拍】算出来：打完了才往下走。
+      const tick = Math.max(12, (WK.typeTick ? WK.typeTick(full) : 90) / speed);
+      typeMs = full.length * tick + 160;
       typer = setInterval(() => {
         if (watchRef.current && watchRef.current.paused) return;   // 暂停时连字都不许再往下打
         n += 1;
         setWatch(w => w ? { ...w, typing: base + full.slice(0, n) } : w);
         if (n >= full.length) { clearInterval(typer); typer = null; }
-      }, Math.max(12, (WK.typeTick ? WK.typeTick(full) : 90) / speed));
+      }, tick);
     }
 
     // ③ 排下一步
@@ -6238,7 +6258,7 @@ function PhoneCarry({
       if (watchRef.current && watchRef.current.paused) { hold = setTimeout(advance, 200); return; }
       setWatch(w => w ? { ...w, i: w.i + 1, thought: a.kind === "think" ? "" : w.thought } : w);
     };
-    const tid = setTimeout(advance, Math.max(120, WK.actDuration(a) / speed));
+    const tid = setTimeout(advance, Math.max(120, typeMs || WK.actDuration(a) / speed));
     return () => {
       clearTimeout(tid); if (hold) clearTimeout(hold); if (openTid) clearTimeout(openTid);
       // ⚠️等着翻页的那一下要是没等到就被推走了，在这儿补开——不补的话这一段就卡在主屏

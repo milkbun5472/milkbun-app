@@ -54,7 +54,8 @@ test("⑦ 暂停只拦「往下走那一脚」，绝不挂进 effect 的 deps", 
     "暂停挂进 deps 了——这一下的效果会重做一遍");
   assert.match(phone, /const advance = \(\) => \{\s*\n\s*if \(watchRef\.current && watchRef\.current\.paused\) \{ hold = setTimeout\(advance, 200\); return; \}/,
     "到点没先看一眼旗子");
-  assert.match(phone, /const tid = setTimeout\(advance, Math\.max\(120, WK\.actDuration\(a\) \/ speed\)\);/);
+  // v67.03 起打字那一下按【真实那一拍】算时长（微信被截断的病根），别的照旧
+  assert.match(phone, /const tid = setTimeout\(advance, Math\.max\(120, typeMs \|\| WK\.actDuration\(a\) \/ speed\)\);/);
   // 清理要连着新排的那一发一起收，不然退出去还有一串定时器在往没了的 state 里写
   assert.match(phone, /clearTimeout\(tid\); if \(hold\) clearTimeout\(hold\);/, "暂停那一发定时器漏了");
 });
