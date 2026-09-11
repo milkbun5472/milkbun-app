@@ -12,6 +12,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+globalThis.Axes = require("../js/axes.js");
 const R = require("../js/radio.js");
 const Rd = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const app = Rd("js/app.js"), ui = Rd("js/radio-ui.js");
@@ -126,5 +127,5 @@ test("seed01 收尾那三步不许省", () => {
   assert.ok(near <= 4, "相邻序号有 " + near + " 对算出来几乎一样——掷出来的不是分布，是一条缓慢爬行的线");
   const lo = xs.filter(x => x < 0.34).length, hi = xs.filter(x => x > 0.66).length;
   assert.ok(lo >= 4 && hi >= 4, "24 个数全挤在中间一档（低 " + lo + " 高 " + hi + "）");
-  assert.match(Rd("js/radio.js"), /h \^= h >>> 16; h = Math\.imul\(h, 2246822507\);/);
+  assert.match(Rd("js/axes.js"), /h \^= h >>> 16; h = Math\.imul\(h, 2246822507\);/);  // 搬去公共那一层了
 });

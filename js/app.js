@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.77";
+const APP_VERSION = "v66.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19664,6 +19664,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForwardToChat: forwardFicToChat,
     onForwardToGroup: forwardFicToGroup,
     onNotifyChapter: notifyChapterToChars,
+    // 让角色来写（她 2026-09-11）：立场由同人文那边算，料由这儿给。
+    // ⚠️只给【状态】不给数字：好感度 78 递过去，他写出来的是一份报告，不是一章文。
+    relOf: charId => {
+      const cp = couples[charId] || {};
+      const out = { aff: Math.round(affOf(charId)), couple: cp.status || "", rels: {} };
+      if (cp.status === "together" && cp.since) out.days = Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1);
+      Object.keys(rels || {}).forEach(k => {
+        const p2 = String(k).split("->");
+        if (p2[0] === charId && p2[1] && rels[k] && rels[k].label) out.rels[p2[1]] = rels[k].label;
+      });
+      return out;
+    },
+    // 他写了一章关于你俩的文——这是真发生过的一件事，该留在他记忆里，
+    // 不然就是个一次性玩具（她 2026-09-11 说的「人设本身也会决定…」那一层的另一半）。
+    onCharWrote: (charId, info) => {
+      const c = (characters || []).find(x => x && x.id === charId);
+      if (!c) return;
+      const zh = { self_user: "写的就是他和我", self_other: "文里把他跟别人配了", jealous: "文里写的是我和别人",
+        tied: "文里有他认识的人", outsider: "跟他没什么关系" };
+      addMemEntry({
+        text: "我把同人文《" + String(info.title || "").slice(0, 20) + "》第 " + (info.chapterNo || 1)
+          + " 章交给他写（" + (zh[info.stance] || "") + "）。",
+        charIds: [charId], source: "fanfic"
+      });
+    },
     onBack: () => setScreen("home")
   });else if (screen === "weekly") body = h(WeeklyApp, {
     active: active,

@@ -77,21 +77,9 @@
   // ⚠️也不许跟 calEvAutoColor / avatarSeedHash / ttsCacheKey 那几个哈希合并：
   //   那几个的输出是【冻住的契约】（日历颜色、头像长相、缓存键），换个算法全库变样；
   //   这一个的输出没人看得见，只用来决定「今天有没有」。形状像，契约不是同一件事。
-  function seed01() {
-    const str = Array.prototype.slice.call(arguments).map(S).join("|");
-    let h = 2166136261;
-    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-    // ⚠️收尾这三步不许省（murmur3 的 fmix32）。
-    //   光跑 FNV 的话，**只有最后一个字不一样的两串，算出来的数是挨着的**：
-    //   「…dist|0」「…dist|1」「…dist|2」出来是 0.289 / 0.293 / 0.281。
-    //   而这个文件里到处都是「按序号掷」——第几条内容、第几个字、第几圈——
-    //   于是掷出来的不是随机分布，是一条缓慢爬行的线：整段内容全落进同一档，
-    //   信号差要丢的字连成一片而不是散着丢。2026-09-10 掷「三个距离」时当场撞出来的。
-    h ^= h >>> 16; h = Math.imul(h, 2246822507);
-    h ^= h >>> 13; h = Math.imul(h, 3266489909);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  }
+  // ⚠️搬去公共那一层了（js/axes.js）。同一个哈希活在两处，改一处必然漏一处——
+  //   2026-09-10 那次 fmix32 的漏收尾就是在这儿修的，公共之后只修得起一遍。
+  const seed01 = function () { return Axes.seed01.apply(null, arguments); };
   const seedPick = (list, ...parts) => (Array.isArray(list) && list.length) ? list[Math.floor(seed01.apply(null, parts) * list.length) % list.length] : null;
 
   // ------------------------------------------------------------
@@ -355,30 +343,21 @@
       "只有片头和报时是清楚的"
     ] }
   ];
-  const AXIS_FREE = "（这一轴你自己想一个，别用上面那种）";
-  // 代码不是关门，是关一部分门：
-  //   8% 四条轴整个还回去；每条轴 15% 不掷、20% 掷到「你自己想一个」。
-  //   一叠加，几乎每次都有一两轴是自由的——它塌不回默认那一档，但也没人规定它该往哪儿去。
+  // ⚠️掷轴这个形状已经搬去公共那一层了（js/axes.js）：它在同人文「角色来写」上出现了第二次，
+  //   规矩是**开公共的，而且把已有的这一处也搬过去**——只开公共的、旧的留在原地是最坏的一种
+  //   （施工规则/one-public-mechanism.md）。这儿只剩「电台这一处的分寸」：
+  //   轴表是电台自己的，概率也是电台自己的，掷法是公共的。
+  const AXIS_FREE = (typeof Axes !== "undefined" && Axes.FREE) || "（这一轴你自己想一个，别用上面那种）";
   function rollAxes() {
     const parts = Array.prototype.slice.call(arguments);
-    if (seed01.apply(null, parts.concat(["allfree"])) < 0.08) return { free: true, rows: [] };
-    const rows = [];
-    AXES.forEach(ax => {
-      const r = seed01.apply(null, parts.concat([ax.key]));
-      if (r < 0.15) return;                       // 这一轴今天不掷
-      if (r < 0.35) { rows.push({ key: ax.key, zh: ax.zh, opt: AXIS_FREE }); return; }
-      rows.push({ key: ax.key, zh: ax.zh, opt: seedPick(ax.opts, parts.join("|"), ax.key, "pick") });
-    });
-    return { free: rows.length === 0, rows: rows };
+    return Axes.roll(AXES, parts, { allFree: 0.08, skip: 0.15, free: 0.20 });
   }
   function axesText(rolled) {
-    if (!rolled || rolled.free || !rolled.rows.length) {
-      return "【今天这一台没有给你任何限制】造一个你认为这片频段里可能存在的台，"
-        + "**不要沿用已经有的那几个台的结构**，也不要挑一个最像电台的样子来做。";
-    }
-    return "【今天这一台要同时满足下面这几条】它们互相独立，别挑一条顺手的做、把别的糊过去；"
-      + "没列出来的方面你自己拿主意。\n"
-      + rolled.rows.map(r => "· " + r.zh + "：" + r.opt).join("\n");
+    return Axes.text(rolled, {
+      on: "【今天这一台要同时满足下面这几条】它们互相独立，别挑一条顺手的做、把别的糊过去；没列出来的方面你自己拿主意。",
+      off: "【今天这一台没有给你任何限制】造一个你认为这片频段里可能存在的台，"
+        + "**不要沿用已经有的那几个台的结构**，也不要挑一个最像电台的样子来做。"
+    });
   }
 
   // 出现过的台名长期记着，只存名字，一年也就几百字节。这样这个机制越用越好，不是越用越旧。

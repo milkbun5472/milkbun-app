@@ -131,7 +131,8 @@ test("① 她那句话跟这一章同一枪出，不另打一枪", () => {
 test("② 抢笔：掷在调用点，而且当场告诉她", () => {
   const r = fic.slice(fic.indexOf("async function addChapter(by, want, hard)"), fic.indexOf("    // 去请她回来"));
   assert.match(r, /Math\.random\(\) < K\.grabChance\(heat\)/);
-  assert.match(r, /const grabbed = !!by && !!ownCard &&/, "没点枪手也会「抢笔」＝她抢自己的笔");
+  // v66.78：抢笔只发生在【太太】之间——她自己的人接手，原作者照样说话，但抢不回来
+  assert.match(r, /const grabbed = !!by && !byChar && !!ownCard &&/, "没点枪手也会「抢笔」＝她抢自己的笔");
   assert.match(r, /抢回去自己写了/, "不当场说一句，她只会以为是坏了");
   assert.match(r, /if \(grabbed\) ch\.grabbed = true;/);
   assert.match(fic, /抢回去自己写的/, "章头上没标，翻回来就看不出这一章出过事");

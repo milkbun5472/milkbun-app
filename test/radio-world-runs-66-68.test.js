@@ -8,6 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+globalThis.Axes = require("../js/axes.js");   // 掷轴与种子搬去公共那一层了（js/axes.js）
 const R = require("../js/radio.js");
 const src = fs.readFileSync(path.resolve(__dirname, "..", "js/radio.js"), "utf8");
 // 注释里写满了病历，断言「某个词没出现」必须先把注释剥掉，否则永远红（吃过四次亏）

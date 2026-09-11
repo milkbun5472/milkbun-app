@@ -773,6 +773,165 @@
     });
   }
 
+  // ── 让角色来写（她 2026-09-11）──────────────────────────────────────
+  //
+  // 第三类笔：不是圈子里的太太，是**她自己的人**。
+  // ⚠️**立场由代码算，不由模型猜**：他在不在这对 CP 里、另一方是谁、他跟她什么关系、
+  //   他跟另一方什么关系——这四条手上全有，算出来就是他的站位。
+  //   写成「你可能会吃醋」交给模型拿捏，它要么每次都吃醋，要么一次都不。
+  // ⚠️但**他会怎么动手不许写成一张表由代码挑**：代码定的是立场和分寸，
+  //   怎么捣乱让他自己长（掷约束不掷答案）。
+  const STANCE = {
+    SELF_USER: "self_user",   // 这篇写的就是他和她
+    SELF_OTHER: "self_other", // 这篇把他跟别人配了
+    JEALOUS: "jealous",       // 她在里面，他不在
+    TIED: "tied",             // 都是别人，但他跟其中一个有关系
+    OUTSIDER: "outsider"      // 跟他没关系
+  };
+  function stanceFor(char, fic, rel) {
+    const cp = (fic && Array.isArray(fic.cp)) ? fic.cp : [];
+    const id = (char && char.id) || "";
+    const r = rel || {};
+    const meIn = cp.indexOf("me") >= 0;
+    const inCp = id && cp.indexOf(id) >= 0;
+    const other = cp.filter(function (tok) { return tok !== id && tok !== "me"; })[0] || "";
+    if (inCp && meIn) return { kind: STANCE.SELF_USER, other: "" };
+    if (inCp) return { kind: STANCE.SELF_OTHER, other: other };
+    if (meIn) return { kind: STANCE.JEALOUS, other: other };
+    if (other && r.rels && r.rels[other]) return { kind: STANCE.TIED, other: other };
+    return { kind: STANCE.OUTSIDER, other: other };
+  }
+  // 他手上的实情。⚠️给事实，不给情绪标签，也不给数字——
+  //   「好感度 78」进去，他写出来的是一份报告，不是一章文。
+  function stanceFacts(char, fic, rel, stance, nameOf, userName) {
+    const r = rel || {};
+    const nm = function (tok) { return tok === "me" ? (userName || "她") : (nameOf ? nameOf(tok) : tok); };
+    const rows = [];
+    if (stance.kind === STANCE.SELF_USER) rows.push("· 这篇写的就是【你和她】。");
+    else if (stance.kind === STANCE.SELF_OTHER) rows.push("· 这篇把【你和「" + nm(stance.other) + "」】配成了一对。");
+    else if (stance.kind === STANCE.JEALOUS) rows.push("· 这篇写的是【她和「" + nm(stance.other) + "」】，你不在里面。");
+    else if (stance.kind === STANCE.TIED) rows.push("· 这篇写的是别人，但里面有「" + nm(stance.other) + "」。");
+    else rows.push("· 这篇跟你没什么关系，是她随手塞给你的。");
+    // 你俩现在是什么样：只说状态，不报数字
+    if (r.couple === "together") rows.push("· 你和她在一起了" + (r.days ? "，" + r.days + " 天了" : "") + "。");
+    else if (r.couple === "pending") rows.push("· 你和她的事还悬着，没挑明。");
+    else if (r.aff != null) rows.push("· 你和她" + (r.aff >= 75 ? "很近了" : r.aff >= 45 ? "还算熟" : "还没那么熟") + "。");
+    if (stance.other && r.rels && r.rels[stance.other]) rows.push("· 你和「" + nm(stance.other) + "」：" + r.rels[stance.other] + "。");
+    rows.push("**你写的时候会不会往自己想要的方向偏、偏多少，你自己清楚**——"
+      + "别演一个「吃醋的人」，也别克制到通篇看不出是你写的。你本来就无所谓的，那就真的无所谓。");
+    return "【这篇文跟你的关系】\n" + rows.join("\n") + "\n";
+  }
+  // 他不是作家，所以他写出来的东西会有他自己的毛病。
+  // ⚠️两条轴，不是一张「烂文清单」。而且第一条轴上留着「他是真的会写」那一格——
+  //   不是每个角色都写得差，人设里真会写的人就该写得好。
+  const WRITER_AXES = [
+    { key: "craft", zh: "他的手艺停在哪儿", opts: [
+      "只写得动对话，一到叙述就两句带过",
+      "场面铺得挺好，可人物一开口全是他自己的语气",
+      "写着写着从故事滑进他自己的心里话，收不回来",
+      "一件小事能写三页，正事一笔带过",
+      "太用力：每一段都要收一个金句",
+      "偏偏在最该写的地方停住",
+      "所有人说话都一个调子，分不出谁是谁",
+      "他是真的会写——这一章不比那些太太差"
+    ] },
+    { key: "care", zh: "他写这篇的时候最在意什么", opts: [
+      "把某个人写得好看一点",
+      "把某件事说清楚——他觉得前面几章写错了",
+      "让某个人下不来台",
+      "让它赶紧走到那一步",
+      "就想知道接下来会怎样，写着玩"
+    ] }
+  ];
+  function rollWriterAxes() {
+    const parts = Array.prototype.slice.call(arguments);
+    // 比电台松一点：这两条轴少，整组还回去的话就什么分寸都没了
+    return Axes.roll(WRITER_AXES, parts, { allFree: 0.04, skip: 0.10, free: 0.18 });
+  }
+  function charWriterBlock(char, fic, rel, rolled, nameOf, userName) {
+    const st = stanceFor(char, fic, rel);
+    const name = (char && (char.remark || char.name)) || "他";
+    return "\n【这一章不是圈子里的太太写的，是「" + name + "」写的】\n"
+      + "他不写文，也不混同人圈。是她把这篇塞给他，让他接着往下写的。\n"
+      + "⚠️你就是他本人在写，不是「一位作者在模仿他」：他的知识、他的口头禅、他在意什么、"
+      + "他会避开什么，全部照他的人设来。\n"
+      + stanceFacts(char, fic, rel, st, nameOf, userName)
+      + Axes.text(rolled, {
+        on: "【他不是作家，所以这一章会有他自己的毛病】今天这一章上：",
+        off: "【他不是作家】这一章他的毛病长什么样，你照他的人设自己想——别挑一个最常见的写法。"
+      })
+      + "\n⚠️不是让你写「烂文」：不许错别字、不许故意幼稚、不许写成戏仿。"
+      + "**他是认真在写的，只是他不是干这行的。**毛病要从他这个人长出来——"
+      + "话少的人写坏的方式，和话痨的不一样。\n"
+      + "⚠️正文里不许出现他对读者的解释、吐槽或者旁白。他写的是故事，不是给她的留言。\n";
+  }
+
+  // ── 圈子：谁跟谁有过什么（她 2026-09-11 的④）────────────────────────
+  //
+  // ⚠️**不存关系值，存一本流水账。** 关系现算。
+  //   存一个「−20」出来，喂给模型只能变成一句判语；存「你给她代过两次笔，
+  //   第二次她在评论区阴阳了你一句」，那本身就是能直接用的料。
+  // ⚠️也不许长成第二个论坛：作者之间不自动互动、不生成日常，
+  //   只有【真发生过一件事】的时候才记一笔。一条几十字节，一年也就几百字。
+  const K_CIRCLE = "x_ficCircle";
+  const CIRCLE_CAP = 300;
+  const CIRCLE_ZH = {
+    ghost: "给她的文代过笔", grab: "把笔从对方手里抢了回去",
+    quit: "因为对方代笔，撂了挑子", back: "被请回来，答应了", refuse: "被请回来，没答应"
+  };
+  function loadCircle() { const v = loadJSON(K_CIRCLE, []); return Array.isArray(v) ? v : []; }
+  function saveCircle(list) { return saveJSON(K_CIRCLE, (Array.isArray(list) ? list : []).slice(-CIRCLE_CAP)); }
+  // a=这件事的主语，b=另一方（没有就空串，比如「被请回来」是跟读者之间的）
+  function circlePush(ev) {
+    const a = String((ev && ev.a) || "").trim();
+    if (!a || !CIRCLE_ZH[ev && ev.kind]) return loadCircle();
+    const list = loadCircle().concat([{
+      a: a, b: String((ev && ev.b) || "").trim(), kind: ev.kind,
+      title: String((ev && ev.title) || "").trim().slice(0, 30),
+      say: String((ev && ev.say) || "").trim().slice(0, 60), ts: Date.now()
+    }]);
+    saveCircle(list);
+    return list;
+  }
+  // 这两个人之间发生过什么，新的在前
+  function circleBetween(a, b, list) {
+    const x = String(a || "").trim(), y = String(b || "").trim();
+    if (!x || !y) return [];
+    return (Array.isArray(list) ? list : loadCircle())
+      .filter(function (e) { return e && ((e.a === x && e.b === y) || (e.a === y && e.b === x)); })
+      .slice().reverse();
+  }
+  // 有没有过节：抢过笔、或者为对方撂过挑子
+  function circleFeud(a, b, list) {
+    return circleBetween(a, b, list).some(function (e) { return e.kind === "grab" || e.kind === "quit"; });
+  }
+  // 拼成给模型看的几句话。**只说发生过的事，不下判语**——
+  // 「你们关系很差」这种话进去，它就只会照着那个词演。
+  function circleLines(me, other, opts) {
+    const o = opts || {};
+    const rows = circleBetween(me, other, o.list).slice(0, 6);
+    const out = [];
+    rows.forEach(function (e) {
+      const mine = e.a === me;
+      const who = mine ? "你" : "「" + other + "」";
+      const to = mine ? "「" + other + "」" : "你";
+      if (e.kind === "ghost") out.push("· " + who + "给" + to + "的《" + e.title + "》代过笔");
+      else if (e.kind === "grab") out.push("· 《" + e.title + "》那次，" + who + "把笔从" + to + "手里抢了回去");
+      else if (e.kind === "quit") out.push("· 《" + e.title + "》那次，" + who + "撂了挑子不写了" + (e.say ? "（当时说的是「" + e.say + "」）" : ""));
+    });
+    // 嗑同一对 CP 是圈子里天然的亲近，现算不存
+    if (o.sameCP) out.push("· 你们嗑的是同一对");
+    if (!out.length) return "";
+    return "\n【你和「" + other + "」之间发生过的事】\n" + out.join("\n")
+      + "\n这些只是实情，不是判词——你此刻怎么看对方，照你自己的脾气来。\n";
+  }
+  // 两位太太是不是嗑同一对（现算，authorCPStats 已经有了，不另存一份）
+  function sameCPWith(a, b, fics, characters, userName) {
+    const A = authorCPStats(a, fics, characters, userName) || [];
+    const B = authorCPStats(b, fics, characters, userName) || [];
+    return A.some(function (x) { return x.key !== "_none" && B.some(function (y) { return y.key === x.key; }); });
+  }
+
   // ── 太太还坐得住吗：热度表（她 2026-09-11 的③）──────────────────────
   //
   // 她要的三件事：代笔之后原作者在底下说两句 / 有几率抢笔回来自己写 / 写多了她可能撂挑子。
@@ -814,7 +973,8 @@
   function heatAfter(fic, kind, opts) {
     const o = opts || {};
     let h = heatNow(fic, o.now);
-    if (kind === "ghost") h += HEAT.GHOST + Math.round((HEAT.GHOST_HARD - HEAT.GHOST) * temperWeight(o.by));
+    // 请了一位跟她有过节的枪手，涨得更凶——③和④在这儿接上
+    if (kind === "ghost") h += (HEAT.GHOST + Math.round((HEAT.GHOST_HARD - HEAT.GHOST) * temperWeight(o.by))) * (o.feud ? 1.6 : 1);
     else if (kind === "own") h += HEAT.OWN;
     else if (kind === "mine") h += HEAT.MINE;
     if (o.hardWant) h += HEAT.HARD_ORDER;
@@ -838,6 +998,12 @@
       "· 一共 " + chs.length + " 章，其中 " + ghostN + " 章是请别人代笔的" + (ghostN ? "" : "（都还是她自己写的）")];
     if (streak > 0) rows.push("· 最近连着 " + streak + " 章都不是她自己写的");
     if (o.hardWant) rows.push("· 而且这一章是被点了单的：读者指定了要发生什么，不是她自己想写成这样");
+    if (o.outsider) rows.push("· 这一章是「" + o.outsider + "」接过去写的");
+    if (o.ghostName) {
+      const past = circleLines(own, o.ghostName, {}).trim();
+      if (past) rows.push("· 这一章请的是「" + o.ghostName + "」——" + past.split("\n").slice(1, -1).join("；").replace(/^· /, "").replace(/\n· /g, "；"));
+      else rows.push("· 这一章请的是「" + o.ghostName + "」，你们之前没打过交道");
+    }
     rows.push("她此刻是什么态度，由这些事实和她自己的脾气决定——"
       + "**别默认她生气，也别写成客气的场面话**；她本来就不在乎的，那就真的不在乎。");
     return rows.join("\n") + "\n";
@@ -949,22 +1115,27 @@
     // ⚠️名册里查不到那个笔名（老文、手写的）时返回 null，这一段就不发，不会出错。
     // 抢笔：她点了枪手，但原作者看不下去了——这一章由原作者自己写（调用点掷的，这儿只认这个旗子）
     const grabbed = !!opts.grabbed;
+    // 第三类笔：她自己的人。抢笔只发生在太太之间——角色写的那一章，原作者照样会在底下说话，
+    // 所以 byChar 也算 ghost（不然她连一句反应都收不到）。
+    const byChar = (!grabbed && opts.byChar && opts.byChar.id) ? opts.byChar : null;
     const penBy = grabbed ? (findAuthor(fic.author) || opts.author || null)
-      : ((opts.author && authorName(opts.author)) ? opts.author : findAuthor(fic.author));
+      : (byChar ? null : ((opts.author && authorName(opts.author)) ? opts.author : findAuthor(fic.author)));
     const penName = authorName(penBy);
-    const ghost = !grabbed && penName && authorName(opts.author) && penName !== String(fic.author || "").trim();
-    const byBlock = penBy && authorVoiceLines(penBy) ?
+    const ghost = !grabbed && (!!byChar || (penName && authorName(opts.author) && penName !== String(fic.author || "").trim()));
+    const charBlock = byChar ? charWriterBlock(byChar, fic, opts.charRel, opts.writerAxes, opts.nameOf, userName) : "";
+    const byBlock = charBlock ? charBlock : (penBy && authorVoiceLines(penBy) ?
       "\n【这一章由谁执笔】" + (ghost ? "笔名「" + penName + "」——她是被请来接这篇的（原作者是「" + (fic.author || "无名") + "」）。" : "笔名「" + penName + "」，这篇文本来就是她写的。") + "\n"
       + authorVoiceLines(penBy)
       + (grabbed ? "· ⚠️这一章本来说好是请别人接的，可你看不下去，**把笔抢回来自己写**。"
         + "为什么抢、抢得多理直气壮，照你自己的脾气来；别在正文里对读者解释这件事，正文还是正文。\n" : "")
-      + (ghost ? "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n"
+      + (ghost ? (byChar ? "" : circleLines(penName, String(fic.author || "").trim(), { sameCP: !!opts.sameCP }))
+        + "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n"
         // ⚠️「设定不许改」和「要看得出是她写的」会打架，而打架时模型倾向于保文风、丢设定
         //   ——文风是它刚读到的、最像指令的那段（four-surfaces-same-context 里 v55.91 那条：
         //   料给够了还是崩，因为站位错了）。所以要当面把这两件事分开。
         + "· **她的路数只管【怎么写】，不管【写什么】。**句子长短、力气花在哪儿、故意不写什么，照她来；"
         + "人物是谁、发生过什么、这篇往哪儿走，照设定卡和前情来，一个字不许因为「她会这么写」而改掉。\n" : "")
-      : "";
+      : "");
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
       "【当前任务：给一篇已在连载的同人文续写下一章】\n" + byBlock +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
@@ -983,7 +1154,11 @@
       "· **这一章至少写 " + minWords + " 字**。这是硬指标，不是参考值：写到了再收尾，别写个开头就交。\n" +
       seedBlock(fic) +
       wantBlock(opts.want, opts.hardWant, ghost) +
-      ((ghost || grabbed) ? "\n" + authorStanceFacts(fic, { hardWant: opts.hardWant }) : "") + "\n" +
+      ((ghost || grabbed) ? "\n" + authorStanceFacts(fic, {
+        hardWant: opts.hardWant,
+        ghostName: byChar ? "" : (ghost ? penName : (opts.author && authorName(opts.author)) || ""),
+        outsider: byChar ? ((byChar.remark || byChar.name) + "——不是圈子里的人，是这篇文里那个人本人") : ""
+      }) : "") + "\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
       "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
@@ -1751,6 +1926,10 @@
     allowedCPLabels: allowedCPLabels, stripStrayCP: stripStrayCP, cpRuleBlock: cpRuleBlock,
     chatMaterialFor: chatMaterialFor,
     clampMinChars: clampMinChars, minCharsFor: minCharsFor, countChars: countChars, shortBy: shortBy, MIN_CHARS_MAX: MIN_CHARS_MAX,
+    STANCE: STANCE, stanceFor: stanceFor, stanceFacts: stanceFacts,
+    WRITER_AXES: WRITER_AXES, rollWriterAxes: rollWriterAxes, charWriterBlock: charWriterBlock,
+    K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
+    circlePush: circlePush, circleBetween: circleBetween, circleFeud: circleFeud, circleLines: circleLines, sameCPWith: sameCPWith,
     HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter,
     grabChance: grabChance, refuseChance: refuseChance, backChance: backChance,
     authorStanceFacts: authorStanceFacts, authorNoteAsk: authorNoteAsk,
@@ -2348,18 +2527,33 @@
       //   模型只负责她开口说什么（跟电台「今天哪个频率有台」同一条道理）。
       // ⚠️这儿用 Math.random 是对的：这不是「世界是否存在」那种要长期稳定的事，
       //   是这一次的一掷；用种子的话她重点一次会得到同一个结果，那才怪。
-      const grabbed = !!by && !!ownCard && Math.random() < K.grabChance(heat);
+      const ownNm = String(f.author || "").trim();
+      const byChar = (by && by.char) || null;                 // 她自己的人接了这一章
+      const byNmRaw = byChar ? "" : String((by && by.name) || "").trim();
+      // ④在这儿接进③：请了一位跟她有过节的枪手，热度涨得更凶
+      const feud = !!(byNmRaw && ownNm && K.circleFeud(ownNm, byNmRaw));
+      const sameCP = !!(byNmRaw && ownNm && K.sameCPWith(ownNm, byNmRaw, K.loadFics(), props.allChars || chars, props.userName));
+      // 抢笔只发生在【太太】之间：她自己的人接手，原作者照样说话，但抢不回来
+      const grabbed = !!by && !byChar && !!ownCard && Math.random() < K.grabChance(heat);
       // 撂挑子先预告：这一章的 authorNote 里她会把「我不写了」说出来，
       // 下次她再点原作者就被挡住——有铺垫、有台词，而且不多花一枪。
-      const quitting = !f.authorQuit && (!!by || grabbed) && Math.random() < K.refuseChance(grabbed ? heat : K.heatAfter(f, "ghost", { by: by, hardWant: hard }));
+      const quitting = !f.authorQuit && (!!by || grabbed) && Math.random() < K.refuseChance(grabbed ? heat : K.heatAfter(f, "ghost", { by: by, hardWant: hard, feud: feud }));
       const run = async function () {
         const ch = await K.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"),
-          Object.assign(genOpts(), { author: by || null, want: want || "", hardWant: !!hard, grabbed: grabbed, quitting: quitting }));
+          Object.assign(genOpts(), {
+            author: byChar ? null : (by || null), want: want || "", hardWant: !!hard,
+            grabbed: grabbed, quitting: quitting, sameCP: sameCP,
+            byChar: byChar,
+            charRel: byChar && props.relOf ? props.relOf(byChar.id) : null,
+            writerAxes: byChar ? K.rollWriterAxes(byChar.id, f.id, (f.chapters || []).length) : null,
+            nameOf: function (id) { const c = (props.allChars || chars || []).filter(function (x) { return x && x.id === id; })[0]; return c ? (c.remark || c.name) : "那个人"; }
+          }));
         // 请了别人代笔就把名字记在这一章上：翻到这一章时看得见是谁写的。
         // ⚠️记在【章】上不是记在【篇】上——这篇的作者没变，只是这一章的笔换了人。
         // ⚠️这里不能用外面那个 authorName()——Reader 里有个同名的 const 把它挡住了
-        const byNm = grabbed ? "" : String((by && by.name) || "").trim();
+        const byNm = grabbed ? "" : (byChar ? (byChar.remark || byChar.name) : String((by && by.name) || "").trim());
         if (byNm && byNm !== String(f.author || "").trim()) ch.byAuthor = byNm;
+        if (byChar) ch.byCharId = byChar.id;
         if (grabbed) ch.grabbed = true;
         const note = String(ch.authorNote || "").trim();
         props.onUpdate(f.id, function (fic) {
@@ -2369,7 +2563,7 @@
           fic.bible = meta.bible; fic.seeds = meta.seeds;
           if (want && want.trim()) fic.lastWant = want.trim().slice(0, 600);
           // 热度：抢回来自己写＝她出手了，热度往下走；请了枪手才往上加
-          fic.authorHeat = window.Fanfic.heatAfter(fic, grabbed ? "own" : (by ? "ghost" : "own"), { by: by, hardWant: hard });
+          fic.authorHeat = window.Fanfic.heatAfter(fic, grabbed ? "own" : (by ? "ghost" : "own"), { by: by, hardWant: hard, feud: feud });
           fic.heatTs = Date.now();
           // 她那句话挂在【这一章】上：章末显示，书评区不重复
           if (note) fic.reviews = (fic.reviews || []).concat([{
@@ -2379,6 +2573,16 @@
           if (quitting) { fic.authorQuit = true; fic.quitSay = note; }
           fic.updatedAt = Date.now(); return fic;
         });
+        // ④ 圈子流水：只有【真发生过一件事】才记一笔，不生成日常
+        if (ownNm && byNmRaw && !byChar) {
+          if (grabbed) K.circlePush({ a: ownNm, b: byNmRaw, kind: "grab", title: f.title });
+          else K.circlePush({ a: byNmRaw, b: ownNm, kind: "ghost", title: f.title });
+        }
+        if (quitting && ownNm) K.circlePush({ a: ownNm, b: byNmRaw, kind: "quit", title: f.title, say: note });
+        // 他写了一章关于你俩的文——这是真发生过的一件事，不是一次性玩具
+        if (byChar && props.onCharWrote) {
+          try { props.onCharWrote(byChar.id, { title: f.title, chapterNo: newIdx + 1, stance: K.stanceFor(byChar, f, (props.relOf && props.relOf(byChar.id)) || {}).kind }); } catch (e) {}
+        }
         props.toast && props.toast(grabbed ? "「" + String(f.author || "原作者") + "」把笔抢回去自己写了" : "已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
         if (props.onChapterShared && (f.sharedTo || []).length) props.onChapterShared(f, ch, newIdx + 1);
@@ -2406,6 +2610,8 @@
           if (r.ok) { fic.authorQuit = false; fic.quitSay = ""; fic.authorHeat = Math.max(0, window.Fanfic.heatNow(fic, Date.now()) - 25); fic.heatTs = Date.now(); }
           fic.updatedAt = Date.now(); return fic;
         });
+        const own2 = String(f.author || "").trim();
+        if (own2) K.circlePush({ a: own2, b: "", kind: r.ok ? "back" : "refuse", title: f.title, say: r.say });
         props.toast && props.toast(r.ok ? "她答应回来写了" : "她还是没答应");
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusyBack(false);
@@ -2658,6 +2864,7 @@
         onPickChar: function (c) { setFwdOpen(false); props.onForwardToChat && props.onForwardToChat(f, c); },
         onPickGroup: function (g) { setFwdOpen(false); props.onForwardToGroup && props.onForwardToGroup(f, g); } }) : null,
       ghostOpen ? h(GhostPage, { fic: f, pickedId: ghostId, backBusy: busyBack, onAskBack: askAuthorBack,
+        chars: (props.fwdChars || props.characters || []).filter(function (c) { return c && !c.npc; }), relOf: props.relOf,
         onPick: function (id) { setGhostId(id); },
         onClose: function () { setGhostOpen(false); },
         onGo: function (by, want, hard) { setGhostOpen(false); addChapter(by, want, hard); } }) : null);
@@ -2686,7 +2893,20 @@
       style: quit ? (String(f.quitSay || "").slice(0, 80) || "她撂挑子了，这一章只能另请人接")
         : (ownCard ? (ownCard.style || "她的路数、雷点都会带进这一章") : (own ? "名册里还没有这位太太的卡，只按前情往下写" : "模型自己接，不钉笔名")),
       sore: quit ? "" : (ownCard ? ownCard.sore : "") };
-    const rows = [head].concat(authors.filter(function (a) { return authorName(a) !== own; }));
+    // ④：跟这篇原作者有过节的，在她名下标一行小字——请谁接手这件事就有了分量
+    const circle = loadCircle();
+    const penRows = authors.filter(function (a) { return authorName(a) !== own; }).map(function (a) {
+      return own ? Object.assign({}, a, { feud: circleFeud(own, authorName(a), circle) }) : a;
+    });
+    // 第三类笔：她自己的人。⚠️这一行的 style 写的是【他跟这篇文什么关系】，
+    //   不是一句「他会按人设写」的空话——那正是旁边两组都在说的那种实话。
+    const charRows = (props.chars || []).map(function (c) {
+      const st = stanceFor(c, f, (props.relOf && props.relOf(c.id)) || {});
+      const zh = { self_user: "这篇写的就是他和你", self_other: "这篇把他跟别人配了",
+        jealous: "你在里面，他不在", tied: "他跟里面那位有关系", outsider: "跟他没关系，纯帮忙" };
+      return { id: "char:" + c.id, name: (c.remark || c.name) + "（你的人）", style: zh[st.kind] || "", char: c };
+    });
+    const rows = [head].concat(penRows, charRows);
     const picked = rows.filter(function (a) { return (a.id || "") === (props.pickedId || ""); })[0] || head;
     const ghostPicked = !!picked.id;
     // ⚠️这两格不是一排药丸（施工规则/tabs-not-plain-pills.md）：这一页是【给太太的稿约单】，
@@ -2713,7 +2933,8 @@
             h("span", { style: { minWidth: 0 } },
               h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
               a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } }, a.style) : null,
-              (on && a.sore) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "护着：" + a.sore) : null));
+              (on && a.sore) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "护着：" + a.sore) : null,
+              a.feud ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10, color: t.tint, marginTop: 3 } }, "她跟「" + own + "」有过节") : null));
         }),
         authors.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } },
           "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。"),
@@ -4100,7 +4321,9 @@
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
-        onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared
+        onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared,
+        // 让角色来写：他跟她、跟 CP 另一方是什么关系，由 app 那头算好递进来
+        relOf: props.relOf, onCharWrote: props.onCharWrote, allChars: props.allChars
       })));
     }
 
