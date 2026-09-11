@@ -417,21 +417,45 @@
     return tfVal;
   };
   const SLOT_KEY = "x_themeCssSlots";
-  const SLOT_MAX = 5;
+  // ⚠️她 2026-09-11：「页面 css 现在只能 5 套，改成可以自定义再加吧，然后可以 ❌ 删除」。
+  //   原来是【五个固定格子】：存在第几格是数据的一部分，删掉一格留一个空洞。
+  //   现在是【一摞，想加就加】：存＝往后添一套，删＝真的从这摞里拿掉。
+  //   SLOT_MAX 留着当【上限】而不是【格数】：localStorage 是有限的，一页存到几十套
+  //   就该拦一下，但那是防呆，不是她能存几套的规定。
+  const SLOT_MAX = 40;
   const loadSlots = () => { try { const v = JSON.parse(localStorage.getItem(SLOT_KEY) || "{}"); return (v && typeof v === "object") ? v : {}; } catch (_) { return {}; } };
-  const pageSlots = page => { const a = loadSlots()[page]; return Array.isArray(a) ? a.slice(0, SLOT_MAX) : []; };
-  const saveSlot = (page, i, name, css) => {
-    const all = loadSlots(); const a = Array.isArray(all[page]) ? all[page].slice(0, SLOT_MAX) : [];
-    while (a.length < SLOT_MAX) a.push(null);
-    a[i] = { name: String(name || ("预设 " + (i + 1))).slice(0, 12), css: String(css || "") };
-    all[page] = a; try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
-    return a;
+  // 老存档里是定长五格、空格记成 null（v61.05～v66.88）：读的时候把空洞挤掉就行，
+  // 她存过的那几套一套都不会丢。
+  const pageSlots = page => {
+    const a = loadSlots()[page];
+    return (Array.isArray(a) ? a : []).filter(x => x && typeof x === "object").slice(0, SLOT_MAX);
   };
+  const writeSlots = (page, a) => {
+    const all = loadSlots();
+    all[page] = a.slice(0, SLOT_MAX);
+    try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
+    return all[page];
+  };
+  const slotRow = (name, css, i) => ({ name: String(name || ("预设 " + (i + 1))).slice(0, 12), css: String(css || "") });
+  // 添一套：存到这一摞的末尾
+  const addSlot = (page, name, css) => {
+    const a = pageSlots(page);
+    if (a.length >= SLOT_MAX) return a;                       // 到顶了就原样返回，调用方照这个数报一句
+    return writeSlots(page, a.concat([slotRow(name, css, a.length)]));
+  };
+  // 盖掉第 i 套（改名／重存都走它）
+  const saveSlot = (page, i, name, css) => {
+    const a = pageSlots(page);
+    if (i < 0 || i >= a.length) return addSlot(page, name, css);
+    a[i] = slotRow(name, css, i);
+    return writeSlots(page, a);
+  };
+  // 删掉第 i 套：真的从这摞里拿掉，不留空格
   const clearSlot = (page, i) => {
-    const all = loadSlots(); const a = Array.isArray(all[page]) ? all[page].slice(0, SLOT_MAX) : [];
-    while (a.length < SLOT_MAX) a.push(null);
-    a[i] = null; all[page] = a; try { localStorage.setItem(SLOT_KEY, JSON.stringify(all)); } catch (_) {}
-    return a;
+    const a = pageSlots(page);
+    if (i < 0 || i >= a.length) return a;
+    a.splice(i, 1);
+    return writeSlots(page, a);
   };
   // ── 内置整套图标（v62.42，她 2026-09-04：「能不能直接把我发给你的单个图标套进去做一套预设皮肤，
   //    随时可以用或者切换成别的」）──
@@ -563,7 +587,7 @@
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

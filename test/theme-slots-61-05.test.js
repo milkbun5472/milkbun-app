@@ -57,11 +57,15 @@ test("气泡皮肤压在主题 CSS 上面，且有一排一键预设（含仿微
   assert.match(comp, /"只给 TA 换气泡"/, "单聊那一处的按人换气泡没了");
 });
 
-// ⑦「设置每一个界面可以存 5 种预设」
-test("每一页 5 个槽位，另有只读的内置预设", () => {
-  assert.match(st, /const SLOT_MAX = 5;/);
+// ⑦「设置每一个界面可以存 5 种预设」→ 她 2026-09-11 改口：
+//   「页面 css 现在只能 5 套，改成可以自定义再加吧，然后可以 ❌ 删除」
+test("想存几套存几套，另有只读的内置预设", () => {
+  // SLOT_MAX 现在是【上限】不是【格数】：localStorage 有限，但不该是五格的规定
+  assert.match(st, /const SLOT_MAX = 40;/);
+  assert.doesNotMatch(st, /while \(a\.length < SLOT_MAX\) a\.push\(null\);/,
+    "又变回定长格子了：空格会占着位置，删掉一套留一个洞");
   // 简写导出（pageSlots）和显式写法（pageSlots: pageSlots）都算
-  ["pageSlots", "saveSlot", "clearSlot"].forEach(f =>
+  ["pageSlots", "addSlot", "saveSlot", "clearSlot"].forEach(f =>
     assert.match(st, new RegExp("[,{]\\s*" + f + "\\s*[,}:]"), f + " 没导出"));
   // v61.13：五套聊天皮肤都在这一栏里（她要的是「点一下灌进编辑框还能自己改」，
   // 不是另开一页开关）。两页共用同一份 CHAT_SKINS。
@@ -72,5 +76,37 @@ test("每一页 5 个槽位，另有只读的内置预设", () => {
   assert.equal((st.match(/data-wk=\\?"bubble\\?"\]\[data-me/g) || []).length <= 4, true,
     "看起来有人把骨架又抄了一份，五套的差别只该是那十几个数");
   assert.match(ui, /studio\.pageSlots\(page\)/);
-  assert.match(ui, /studio\.saveSlot\(page, i, nm, cur\)/);
+  assert.match(ui, /studio\.addSlot\(page, nm, cur\)/);
+});
+
+test("存了几套就摆几个，末尾跟着一颗「＋」，每套自带 ×", () => {
+  assert.match(ui, /slots\.map\(\(sl, i\) =>/, "还在按固定格数画");
+  assert.doesNotMatch(ui, /Array\.from\(\{ length: studio\.SLOT_MAX \}\)/, "又摆回五个固定格子了");
+  assert.match(ui, /"＋ 存成新的一套"/);
+  assert.match(ui, /setSlots\(studio\.clearSlot\(page, i\)\)/, "× 没接上删除");
+  // 删是删不回来的，先问一句（走公共那个确认框，不用 window.confirm）
+  assert.match(ui, /requestAppConfirm\("删掉「" \+ sl\.name \+ "」？"/);
+  assert.match(ui, /slots\.length >= studio\.SLOT_MAX/, "存到上限时没有一句话");
+});
+
+test("老存档那五格里存过的，一套都不许丢", () => {
+  // 老格式是定长五格、空格记成 null。读的时候把空洞挤掉，剩下的照旧。
+  const src = st.slice(st.indexOf("const pageSlots = page =>"), st.indexOf("const writeSlots"));
+  assert.match(src, /\.filter\(x => x && typeof x === "object"\)/, "老存档里的 null 会被当成一套");
+  const run = new Function("store", `
+    const localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+    ${st.slice(st.indexOf("const SLOT_KEY ="), st.indexOf("  // ── 内置整套图标"))}
+    return { pageSlots, addSlot, clearSlot, saveSlot };
+  `);
+  const api = run({ x_themeCssSlots: JSON.stringify({ thread: [null, { name: "甲", css: "a{}" }, null, { name: "乙", css: "b{}" }, null] }) });
+  assert.deepEqual(api.pageSlots("thread").map(x => x.name), ["甲", "乙"]);
+  // 加一套在末尾；删掉第 0 套之后不留空洞
+  api.addSlot("thread", "丙", "c{}");
+  assert.deepEqual(api.pageSlots("thread").map(x => x.name), ["甲", "乙", "丙"]);
+  api.clearSlot("thread", 0);
+  assert.deepEqual(api.pageSlots("thread").map(x => x.name), ["乙", "丙"]);
+  assert.equal(api.pageSlots("thread")[0].css, "b{}");
+  // 名字最多 12 个字，越界的索引当成「添一套」
+  api.saveSlot("thread", 9, "丁", "d{}");
+  assert.deepEqual(api.pageSlots("thread").map(x => x.name), ["乙", "丙", "丁"]);
 });

@@ -270,29 +270,34 @@
             studio.CSS_BUILTINS[page].map(([nm, code]) => h("button", { key: nm, onClick: () => { setCSS(code); clearSkin(); toast("「" + nm + "」已灌进编辑框，先预览看看"); },
               className: "active:opacity-70", style: { minHeight: 40, padding: "8px 13px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, nm)))) : null,
         h("div", { style: { marginTop: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "这一页可以存 " + studio.SLOT_MAX + " 套：点空格＝把现在这段存进去；点存过的＝读出来"),
+          // ⚠️她 2026-09-11：「现在只能 5 套，改成可以自定义再加吧，然后可以 ❌ 删除」。
+          //   所以这儿不再摆五个固定格子（空格也占着位置），而是【存了几套就摆几个】，
+          //   末尾永远跟着一颗「＋ 存成新的一套」。
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } },
+            "你自己存的（点一下读回编辑框，× 删掉）：" + (slots.length ? slots.length + " 套" : "还没存过")),
           h("div", { className: "flex flex-wrap", style: { gap: 7 } },
-            Array.from({ length: studio.SLOT_MAX }).map((_, i) => {
-              const sl = slots[i];
-              return h("div", { key: i, className: "flex items-center", style: { gap: 4, minHeight: 40, padding: "6px 8px 6px 11px", borderRadius: 10, border: "1px solid " + t.line, background: sl ? t.bg2 : "transparent" } },
-                h("button", { onClick: () => {
-                    if (sl) { setCSS(sl.css); toast("读出「" + sl.name + "」"); return; }
-                    const cur = page === "all" ? (draft.globalCSS || "") : (draft.pageCSS[page] || "");
-                    if (!cur.trim()) { toast("编辑框还是空的，先写点东西再存"); return; }
-                    // ⚠️不许用 window.prompt：PWA 里它会被系统吞掉，而且【不抛异常、
-                    //   直接返回 null】——所以原来那个 try/catch 一次都没走到，
-                    //   走的是「空字符串 → return」，按钮按下去什么都不发生
-                    //   （她 2026-09-06：「可以放 5 套预设那个按钮也是摆设」）。
-                    requestAppPrompt("给这一套起个名字", "存进第 " + (i + 1) + " 格；重名会盖掉那一格。", "预设 " + (i + 1),
-                      function (nm) {
-                        nm = String(nm || "").trim().slice(0, 12);
-                        if (!nm) { toast("没起名字，没存"); return; }
-                        setSlots(studio.saveSlot(page, i, nm, cur)); toast("存好了：" + nm);
-                      }, "存进去", { maxLength: 12 });
-                  }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: sl ? t.ink : t.fog } },
-                  sl ? (i + 1) + " " + sl.name : (i + 1) + " 空"),
-                sl ? h("button", { onClick: () => setSlots(studio.clearSlot(page, i)), "aria-label": "清掉这一套", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 3px" } }, "×") : null);
-            })))),
+            slots.map((sl, i) => h("div", { key: i, className: "flex items-center", style: { gap: 4, minHeight: 40, padding: "6px 8px 6px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2 } },
+              h("button", { onClick: () => { setCSS(sl.css); toast("读出「" + sl.name + "」"); },
+                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, sl.name),
+              h("button", {
+                onClick: () => requestAppConfirm("删掉「" + sl.name + "」？", "这一套 CSS 就没了；正用着的主题不受影响。",
+                  () => { setSlots(studio.clearSlot(page, i)); toast("删掉了"); }, "删掉"),
+                "aria-label": "删掉这一套", className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 3px" } }, "×"))).concat([
+            h("button", { key: "add", onClick: () => {
+                const cur = page === "all" ? (draft.globalCSS || "") : (draft.pageCSS[page] || "");
+                if (!cur.trim()) { toast("编辑框还是空的，先写点东西再存"); return; }
+                if (slots.length >= studio.SLOT_MAX) { toast("这一页已经存了 " + studio.SLOT_MAX + " 套，先删掉几套"); return; }
+                // ⚠️不许用 window.prompt：PWA 里它会被系统吞掉，而且【不抛异常、直接返回 null】
+                //   （她 2026-09-06：「可以放 5 套预设那个按钮也是摆设」）。
+                requestAppPrompt("给这一套起个名字", "存成新的一套；同名不会互相盖。", "预设 " + (slots.length + 1),
+                  function (nm) {
+                    nm = String(nm || "").trim().slice(0, 12);
+                    if (!nm) { toast("没起名字，没存"); return; }
+                    setSlots(studio.addSlot(page, nm, cur)); toast("存好了：" + nm);
+                  }, "存进去", { maxLength: 12 });
+              }, className: "active:opacity-70",
+              style: { minHeight: 40, padding: "6px 13px", borderRadius: 10, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "＋ 存成新的一套")])))),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
         h("div", { className: "flex gap-2" }, h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"), h("button", { onClick: () => importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")), h("input", { ref: importFile, type: "file", accept: ".json,application/json", onChange: importTheme, style: { display: "none" } })),
