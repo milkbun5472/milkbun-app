@@ -4980,6 +4980,17 @@ const watchSame = (a, b) => (typeof window !== "undefined" && window.PhoneWatch 
 const watchPick = (list, name, get) => (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.pickName)
   ? window.PhoneWatch.pickName(list, name, get)
   : (Array.isArray(list) ? list : []).find(x => watchSame(get ? get(x) : x, name)) || null;
+// ⚠️她 2026-09-11：「便签、浏览器、视频有时候还是不显示开了的页面」。
+//   病根：模型点开的那个名字在这一屏的数据里**一条都对不上**（它自己编了个标题，
+//   或者那条被上一次刷新顶掉了），于是各屏的 openItem effect 里 hit 是 null、
+//   一个 setOpen 都没跑——屏幕停在列表上，后面「看了两眼又退出去」全落空。
+//   点开这一下是【他真的按下去了】，必须开出一页来：认不出名字就开这一屏的第一条。
+//   ⚠️微信／短信／邮件不给这个兜底：开错人比不开更糟（在错的会话里打字）。
+// ⚠️⚠️它必须住在【模块级】，跟 watchPick/watchSame 并排：用它的是二十来个各自独立的
+//   组件（StickyView / BrowserView / BiliView…）。v67.04 我把它写进了 PhoneCarry 里面，
+//   那几屏一渲染就是 ReferenceError —— 她那边整页白屏（「页面直接崩了」）。
+const watchOpenPick = (list, name, get) =>
+  watchPick(list, name, get) || (Array.isArray(list) && list.length ? list[0] : null);
 const watchPageNode = (drive, skin) => (drive && drive.page && typeof window !== "undefined" && window.PhoneWatch)
   ? h(window.PhoneWatch.WatchPage, { page: drive.page, skin: skin }) : null;
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
@@ -5959,14 +5970,6 @@ function PhoneCarry({
     const hit = WK.pickName(all, want, keyOf) || WK.pickName(all, want, el => String(el.textContent || "").trim());
     return hit ? keyOf(hit) : want;
   };
-  // ⚠️她 2026-09-11：「便签、浏览器、视频有时候还是不显示开了的页面」。
-  //   病根：模型点开的那个名字在这一屏的数据里**一条都对不上**（它自己编了个标题，
-  //   或者那条被上一次刷新顶掉了），于是各屏的 openItem effect 里 hit 是 null、
-  //   一个 setOpen 都没跑——屏幕停在列表上，后面「看了两眼又退出去」全落空。
-  //   点开这一下是【他真的按下去了】，必须开出一页来：认不出名字就开这一屏的第一条。
-  //   ⚠️微信／短信／邮件不给这个兜底：开错人比不开更糟（在错的会话里打字）。
-  const watchOpenPick = (list, name, get) =>
-    watchPick(list, name, get) || (Array.isArray(list) && list.length ? list[0] : null);
   // firstIfMiss：点开那一类的动作，认不出名字时圆点落在这一屏第一条上——
   // 跟上面 watchOpenPick 是【同一条判断】：那一下真的会开出第一条来，手指就该按在它身上。
   const watchFuzzy = (name, firstIfMiss) => {

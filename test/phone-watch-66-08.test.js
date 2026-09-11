@@ -1064,7 +1064,12 @@ test("微信不再被截断：字数没有上限，打字那一拍和往下走�
 test("点开那一下一定开出一页来（认不出名字就开第一条）", () => {
   // 她 2026-09-11：「便签浏览器视频有时候还是不显示开了的页面」。
   // 病根：模型点开的名字在这一屏数据里一条都对不上 → hit 为 null → 一个 setOpen 都没跑。
-  assert.match(phone, /const watchOpenPick = \(list, name, get\) =>\s*\n\s*watchPick\(list, name, get\) \|\| \(Array\.isArray\(list\) && list\.length \? list\[0\] : null\);/);
+  // ⚠️v67.04 我把它写进了 PhoneCarry 里面 → 那二十来个各自独立的组件一渲染就是
+  //   ReferenceError，她那边整页白屏（「页面直接崩了」）。**必须是模块级那一份**：
+  //   行首没有缩进，跟 watchPick / watchSame 并排。
+  assert.match(phone, /\nconst watchOpenPick = \(list, name, get\) =>\n  watchPick\(list, name, get\) \|\| \(Array\.isArray\(list\) && list\.length \? list\[0\] : null\);/,
+    "watchOpenPick 不在模块级——用它的组件根本看不见它");
+  assert.ok(phone.indexOf("\n  const watchOpenPick") < 0, "又被塞进某个组件里了");
   // 便签／浏览器／视频这三屏点名要有（她报的就是它们）
   ["StickyView", "BrowserView", "BiliView"].forEach(fn => {
     const seg = phone.slice(phone.indexOf("function " + fn + "("), phone.indexOf("function " + fn + "(") + 1600);
