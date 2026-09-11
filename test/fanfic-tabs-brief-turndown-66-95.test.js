@@ -62,7 +62,12 @@ test("② 请太太时说得出想要什么，但那段话不许抄进她们的�
   assert.match(g, /几位都合这个方向，但各自合的地方不一样/);
   assert.ok(g.indexOf('String(want || "").trim()\n        ? ') > 0 || /want \|\| ""\)\.trim\(\)/.test(g), "空着时还发一段空的");
   // 界面：不另开一层（一行字 + 一颗键，开半窗反而更重）
-  assert.match(fic, /placeholder: "想请什么样的？写什么类型、什么文风、磕哪对…空着就随缘"/);
+  // v66.99 起这一格不再常年杵在名册顶上：点了「请人」才掀开（她 2026-09-11）
+  assert.match(fic, /placeholder: "写什么类型、什么文风、磕哪对…空着就随缘"/);
+  assert.match(fic, /const \[asking, setAsking\] = useState\(false\);/);
+  assert.match(fic, /asking \? h\("div", \{ style: \{ border: "1px dashed "/, "稿约条没挂在 asking 上＝又常年杵在那儿");
+  assert.match(fic, /busy \? "请人中…" : \(asking \? "算了" : "＋ 请人"\)/, "「请人」那颗键不掀条子");
+  assert.match(fic, /refresh\(\); setAsking\(false\);/, "请完不收起来，那张条子会一直挡着名册");
   assert.match(fic, /localStorage\.getItem\("x_ficAuthorWant"\)/, "不记住的话连着请几批同一个方向要重打好几遍");
   assert.match(fic, /window\.Fanfic\.loadAuthors\(\), want\)/, "输入框写了，可根本没递进那一枪");
 });

@@ -156,7 +156,7 @@ test("长度是硬指标，不是一句「长短该不一样」", () => {
   for (let i = 0; i < 40; i++) {
     const lines = M.authorAnglesBlock(6, nonce(i + 7000), "位").split("\n").filter(l => l.indexOf("· 第 ") === 0);
     assert.equal(lines.length, 6);
-    lines.forEach(l => assert.match(l, /；\*\*这两句写多长\*\*＝\S+$/, "这一位没拿到长度：" + l));
+    lines.forEach(l => assert.match(l, /；\*\*简介和路数写多长\*\*＝\S+$/, "这一位没拿到长度：" + l));
   }
   assert.equal(code.split("那是硬的").length - 1, 2, "「那是硬的」只在一处说了");
   assert.match(code, /别硬塞细节凑长度|别硬塞细节凑长/);

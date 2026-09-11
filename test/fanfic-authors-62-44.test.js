@@ -32,8 +32,9 @@ test("生成同人文能点名让谁写；没点名也会把新笔名收进来",
   assert.match(fic, /const by = opts\.author && authorName\(opts\.author\) \? opts\.author : null;/);
   assert.match(fic, /每一篇的 author 都填「" \+ authorName\(by\) \+ "」/);
   // 没点名时顺带要一份简介回来——⚠️不额外调一次模型，她按次计费
-  assert.ok(fic.includes('const authorFields = by ? "" : ",\\"authorBio\\"'), "没点名时要顺带要一份作者简介");
-  assert.match(fic, /upsertAuthor\(stripStrayCP\(\{ name: nm, bio: by \? by\.bio : x\.authorBio/);
+  assert.ok(fic.includes('const authorFields = by ? "" : ",\\"authorSign\\"'), "没点名时要顺带要一份作者简介");
+  assert.match(fic, /\\"authorBio\\":/, "简介那一栏没了");
+  assert.match(fic, /upsertAuthor\(stripStrayCP\(\{ name: nm, bio: by \? by\.bio : x\.authorBio, sign: by \? by\.sign : x\.authorSign/);
   // 弹窗里那一排不是药丸：署名表上一行行的名字，选中那行落一个墨点
   assert.match(fic, /"让谁来写"/);
   assert.match(fic, /doGen\(n, cp, styleIds, includeMe, briefs, byAuthor\)/);

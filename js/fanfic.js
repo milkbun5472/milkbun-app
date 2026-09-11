@@ -329,6 +329,9 @@
       const cur = list[i];
       list[i] = Object.assign({}, cur, {
         bio: cur.bio || String(a.bio || "").trim().slice(0, 120),
+        // 签名：她自己挂在个人页上的那一句（第一人称）。她 2026-09-11：
+        // 「里面那一块应该是她自己的签名而不是第三人称描述」。短，四十字封顶。
+        sign: cur.sign || String(a.sign || "").trim().slice(0, 40),
         style: cur.style || String(a.style || "").trim().slice(0, 120),
         sore: cur.sore || String(a.sore || "").trim().slice(0, 80),
         // 脾气：有人改她的文时她是哪一路。原来这一栏是【加笔开局时】临时问模型要的
@@ -340,6 +343,7 @@
       list.unshift({
         id: uid("au"), name: nm.slice(0, 20),
         bio: String(a.bio || "").trim().slice(0, 120),
+        sign: String(a.sign || "").trim().slice(0, 40),
         style: String(a.style || "").trim().slice(0, 120),
         sore: String(a.sore || "").trim().slice(0, 80),
         temper: String(a.temper || "").trim().slice(0, 120),
@@ -400,6 +404,18 @@
     //   里头混着「跟人吵过的那一架」这种人事，模型就把 style 也写成了八卦轶事——
     //   一屏看下来全是恩怨，没一条说得清她们的文是什么样。
     //   ⚠️请枪手那一页是**照 style 那一栏挑人的**：那一栏讲八卦，那一栏就白给了。
+    // 签名也得掷：不掷的话四位的签名会一起长成「随缘更新，勿上升真人」那一句
+    { key: "sign", zh: "她那句签名是什么样的（这是 sign 那一栏）", opts: [
+      "一条立在那儿的规矩（雷点、别上升、别催更）",
+      "拿自己开涮的一句",
+      "一句她本命角色的台词，别人看不懂也无所谓",
+      "一句跟写文完全不相干的废话",
+      "一句告示：最近在写什么、什么时候更",
+      "一句撂在那儿的气话",
+      "一句挂了好几年没改过的老话",
+      "一句只说了半截的话",
+      "干脆就两三个字"
+    ] },
     { key: "bfrom", zh: "她这个人从哪儿说起（这是 bio 那一栏）", opts: [
       "她原来写的是别的，后来怎么拐进这个圈子",
       "她跟人吵过的那一架",
@@ -423,7 +439,7 @@
       "她写两个人时最在意的那一样（谁说了算、谁先低头这种）"
     ] }
   ];
-  // ── 这两句写多长 ──────────────────────────────────────────────
+  // ── 简介和路数写多长 ──────────────────────────────────────────────
   // ⚠️她 2026-09-11 第三次：笔名和口气都散开了，可四条读下来还是一个形状——
   //   全是一整段密不透风的长复合句，塞满具体细节，都在讲一个小故事。
   //   **没掷的那一维照旧长回一个样**，这次是【长度和密度】。
@@ -496,7 +512,7 @@
       }).join("；");
       // 整组还回去时，笔名那一条照样在——还回去的是【剩下几样】
       lines.push(who + said + ((!r || r.free || !r.rows.length) ? "；剩下几样你自己挑，别跟上下几位撞" : "")
-        + "；**这两句写多长**＝" + lens[i]);
+        + "；**简介和路数写多长**＝" + lens[i]);
     }
     return "\n【这几位各自照着自己这一条长，别照着同一条】\n" + lines.join("\n")
       + "\n⚠️这是【从哪儿下笔】，不是她们的设定本身——别把这几句话抄进任何一位的简介或路数里。\n";
@@ -809,7 +825,7 @@
       if (out && !/[。！？…」』）)]$/.test(out)) out += "。";
       return out;
     };
-    return Object.assign({}, a, { bio: clean(a.bio), style: clean(a.style), sore: clean(a.sore), temper: clean(a.temper) });
+    return Object.assign({}, a, { bio: clean(a.bio), sign: clean(a.sign), style: clean(a.style), sore: clean(a.sore), temper: clean(a.temper) });
   }
 
   // ---- 请一批新作者进来（一枪，落库）--------------------------------
@@ -830,6 +846,9 @@
       + "· name：同人圈的笔名／马甲，别用真名别带 @。"
       + "⚠️几位的笔名不许是同一路货色——一批全是「两三个字的冷硬物件名」那种，"
       + "一看就是一个人取的，不是几个人自己取的；\n"
+      + "· sign：**她自己挂在个人页上的那一句签名**。⚠️第一人称，是【她写的】，"
+      + "不是介绍她的话——「这位作者擅长…」那种一个字都不许有。很短，一句。"
+      + "可以是一条规矩、一句自嘲、一句她本命的台词、一句不相干的废话，也可以是句正经告示；\n"
       + "· bio：她是谁——要认得出是这一个具体的人，不是一个类型；\n"
       + "· style：她写东西的路数——**别人一眼认出她的文**靠的是什么。别写「文笔细腻」这种谁都成立的话；\n"
       + "  ⚠️bio 讲【这个人】，style 讲【她的文长什么样】，两栏别串味："
@@ -842,7 +861,7 @@
       //   骨架一模一样。得把那个骨架指出来，再给一条出路（底下那几个落点）。
       // ⚠️「长短也该不一样」这句上一版就写了，它没听：四位全是一整段密不透风的长句。
       //   所以底下按位给了硬指标，这儿只负责说清那是硬的、以及短的那几位不许凑长。
-      + "⚠️底下给每位写了【这两句写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，"
+      + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，"
       + "别硬塞细节凑长度。一屏全是长句子，读起来就还是一个人写的。\n"
       + "⚠️这是同人圈，不是文学期刊：笔名可以俗、可以好笑、可以中二、可以自嘲，"
       + "简介和路数也不必句句都是正经的书评腔。一批人里有一两位正经的没问题，全是正经的就不对了。\n"
@@ -860,7 +879,7 @@
         : "")
       + cpRuleBlock(okCPs)
       + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
-      + "[{\"name\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\",\"temper\":\"\"}]";
+      + "[{\"name\":\"\",\"sign\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\",\"temper\":\"\"}]";
     const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { maxTokens: 12000, timeout: 180000 });
     const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
@@ -901,18 +920,18 @@
     const byBlock = by
       ? "\n\n【这一批由谁写】笔名「" + authorName(by) + "」。\n"
         + authorVoiceLines(by)
-        + "每一篇的 author 都填「" + authorName(by) + "」，不许换别的笔名，也不要再交 authorBio／authorStyle。"
+        + "每一篇的 author 都填「" + authorName(by) + "」，不许换别的笔名，也不要再交 authorSign／authorBio／authorStyle。"
       : "";
     // ⚠️这一份简介和 genAuthors 那一份是同一层东西，所以那条「不许拉郎配」也得给它
     //   （她 2026-09-05 报的那句「是圈子里 A×B 这一对的固定供粮大户」就是从这儿出来的）。
-    const authorFields = by ? "" : ",\"authorBio\":\"这个笔名背后是个什么人，一句，要认得出是这一个人\",\"authorStyle\":\"她写东西的路数，一句：别人一眼认出她的文靠的是什么\",\"authorTemper\":\"有人改她的文时她是哪一路，一句：往回拽／嘴硬着给你圆／跟着你推得更远／先冷着看\"";
+    const authorFields = by ? "" : ",\"authorSign\":\"她自己挂在个人页上的那一句签名，第一人称，很短，不是介绍她的话\",\"authorBio\":\"这个笔名背后是个什么人，一句，要认得出是这一个人\",\"authorStyle\":\"她写东西的路数，一句：别人一眼认出她的文靠的是什么\",\"authorTemper\":\"有人改她的文时她是哪一路，一句：往回拽／嘴硬着给你圆／跟着你推得更远／先冷着看\"";
     // ⚠️这一枪一次出 n 篇、每篇一位新太太，和 genAuthors 是同一层东西——
     //   那边撤掉的模子，这边不撤的话，八位太太换个入口照样一个模子印出来。
-    const authorCPRule = by ? "" : "\n\n" + cpRuleBlock(allowedCPLabels(cpChars, userName)) + "（这条管的是 authorBio／authorStyle／authorTemper 那几栏。）"
+    const authorCPRule = by ? "" : "\n\n" + cpRuleBlock(allowedCPLabels(cpChars, userName)) + "（这条管的是 authorSign／authorBio／authorStyle／authorTemper 那几栏。）"
       + "\n⚠️这几位的 authorStyle 不许长成同一个句式（「偏爱某种体裁＋力气全花在某处＋坚决不写某处＋全靠某物定胜负」那种模子），长短也该不一样。"
       + "\n⚠️这是同人圈，不是文学期刊：笔名可以俗、可以好笑、可以中二、可以自嘲，别几个笔名都是同一路货色（比如全是两三个字的冷硬物件名）；authorBio／authorStyle 也不必句句都是正经的书评腔。"
       + "\n⚠️authorBio 讲【这个人】，authorStyle 讲【她的文长什么样】，两栏别串味——挑枪手是照 authorStyle 那一栏挑人的。"
-      + "⚠️底下给每位写了【这两句写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
+      + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
@@ -947,7 +966,7 @@
       // 「没写简介」也照样落一条：先有这个人，简介以后再补（空值不许抹掉旧值）。
       const nm = by ? authorName(by) : String(x.author || "佚名").slice(0, 20);
       // 落库前过一道同样的兜底：模型还是会自己配对，规则只降概率
-      upsertAuthor(stripStrayCP({ name: nm, bio: by ? by.bio : x.authorBio, style: by ? by.style : x.authorStyle, sore: by ? by.sore : "", temper: by ? by.temper : x.authorTemper }, cpChars, userName));
+      upsertAuthor(stripStrayCP({ name: nm, bio: by ? by.bio : x.authorBio, sign: by ? by.sign : x.authorSign, style: by ? by.style : x.authorStyle, sore: by ? by.sore : "", temper: by ? by.temper : x.authorTemper }, cpChars, userName));
       return {
         title: String(x.title || "无题").slice(0, 60),
         author: nm,
@@ -1233,6 +1252,25 @@
   const grabChance = h => (h <= HEAT.GRAB_AT ? 0 : Math.min(0.5, (h - HEAT.GRAB_AT) / 120));
   const refuseChance = h => (h <= HEAT.QUIT_AT ? 0 : Math.min(0.55, (h - HEAT.QUIT_AT) / 60));
   const backChance = h => Math.max(0.15, Math.min(0.7, 0.6 - (h - HEAT.QUIT_AT) / 100));
+  // 这位太太现在被点到什么程度（她 2026-09-11：「作者汇总这里要不要下面加一个热度」）。
+  // ⚠️热度是【按篇】记的（f.authorHeat）——抢笔、撂挑子、请不请得回来，掷的都是那一篇的数。
+  //   一位手上可能有好几篇，所以这儿取她**最烫的那一篇**，并且把是哪一篇一起交出去：
+  //   只报一个光秃秃的数，看见了也不知道是为哪篇气的。
+  function authorHeatOf(name, fics, now) {
+    const mine = authorFics(name, fics);
+    let top = 0, at = null;
+    mine.forEach(function (f) { const v = heatNow(f, now); if (v > top || !at) { top = v; at = f; } });
+    return { heat: Math.round(top), fic: at, n: mine.length };
+  }
+  // 这个数该叫什么。⚠️档位一律从 HEAT 里读，不许在界面上再抄一遍 45／70
+  //   （one-public-mechanism：抄一遍就是两处，以后调阈值永远漏一处）。
+  function heatBand(v) {
+    const n = Math.max(0, Math.min(HEAT.CAP, Number(v) || 0));
+    if (n >= HEAT.QUIT_AT) return { key: "quit", zh: "随时会撂挑子", v: n };
+    if (n >= HEAT.GRAB_AT) return { key: "grab", zh: "快自己抢笔了", v: n };
+    if (n >= Math.round(HEAT.GRAB_AT / 2)) return { key: "warm", zh: "有点火气", v: n };
+    return { key: "calm", zh: "还和气", v: n };
+  }
   // 这篇文现在的实情。⚠️给的是【事实】不是【情绪标签】：
   //   写「她现在很不满」等于替她把戏演完了，模型只会照着那个词写一句判语。
   function authorStanceFacts(fic, opts) {
@@ -2206,6 +2244,7 @@
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
     circlePush: circlePush, circleBetween: circleBetween, circleFeud: circleFeud, circleLines: circleLines, sameCPWith: sameCPWith,
     HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter,
+    authorHeatOf: authorHeatOf, heatBand: heatBand,
     grabChance: grabChance, refuseChance: refuseChance, backChance: backChance,
     authorStanceFacts: authorStanceFacts, authorNoteAsk: authorNoteAsk,
     wantBlock: wantBlock, bibleBlock: bibleBlock, seedBlock: seedBlock, applyChapterMeta: applyChapterMeta, BIBLE_CAP: BIBLE_CAP, SEED_CAP: SEED_CAP, HOOK_TAIL: HOOK_TAIL,
@@ -4255,6 +4294,19 @@
   // 这个圈子里固定的那几位太太。⚠️不是「一排卡片」：作者榜在现实里是
   // 【一份署名表】——名字靠左立着，右边跟着她的产出。所以这一页长成一张表，
   // 不是网格（tabs-not-plain-pills.md 的同一条判据：换个 app 还成立就是没设计）。
+  // 热度那一道朱笔：名册那一页和她的主页共用这一个（别各画各的）。
+  // ⚠️给的是【条 + 话 + 数】三样：光一条看不出烫到哪儿了，光一个数她得自己去记 45／70。
+  function heatMark(v, t, tail) {
+    const b = window.Fanfic.heatBand(v);
+    const red = "#a8392f";
+    const on = b.key !== "calm";
+    return h("span", { className: "flex items-center", style: { gap: 6, marginTop: 5 } },
+      h("span", { style: { width: 44, height: 3, background: t.line, flexShrink: 0, overflow: "hidden" } },
+        h("span", { style: { display: "block", height: "100%", width: Math.max(3, b.v) + "%", background: on ? red : t.fog } })),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? red : t.fog } }, b.zh),
+      h("span", { style: { fontFamily: "monospace", fontSize: 10, color: t.fog } }, b.v),
+      tail ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, tail) : null);
+  }
   function AuthorsPage(props) {
     const t = useTheme();
     const [list, setList] = useState(function () { return window.Fanfic.loadAuthors(); });
@@ -4263,6 +4315,11 @@
     // 她 2026-09-11：「请作者的时候能不能给一个写想要什么类型或者文风还有磕啥 cp 的」。
     // ⚠️不另开一层：这是「一行字 + 一颗键」，开半窗反而更重（no-half-sheet.md 的判据）。
     //   记在本地：她多半想连着请几批同一个方向的人。
+    // ⚠️同一天她又说：「那个框能不能放进请人里面，点击请人打开输入再生成」——
+    //   原来它常年杵在名册顶上，而她十次里有九次是直接翻名册的。
+    //   所以改成【点了「请人」才掀开】：不是新开一层（那才要按整页办），
+    //   是那颗键自己底下长出来的一张稿约条。
+    const [asking, setAsking] = useState(false);
     const [want, setWant] = useState(function () { try { return localStorage.getItem("x_ficAuthorWant") || ""; } catch (e) { return ""; } });
     const setWantSaved = function (v) { setWant(v); try { localStorage.setItem("x_ficAuthorWant", String(v || "").slice(0, 300)); } catch (e) {} };
     const fics = props.fics || [];
@@ -4273,7 +4330,7 @@
       setBusy(true);
       try {
         const got = await window.Fanfic.genAuthors(props.active, 4, props.tabs, props.characters, props.userName, window.Fanfic.loadAuthors(), want);
-        refresh();
+        refresh(); setAsking(false);
         props.toast && props.toast("来了 " + got.length + " 位：" + got.map(function (a) { return a.name; }).join("、"));
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -4289,15 +4346,21 @@
     // 一行一位：左边名字立着，右边是她的产出
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { bg: "transparent", zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
-        right: h("button", { onClick: invite, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } }, busy ? "请人中…" : "＋ 请人") }),
+        right: h("button", { onClick: function () { if (!busy) setAsking(!asking); }, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } },
+          busy ? "请人中…" : (asking ? "算了" : "＋ 请人")) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 8px" } },
           "她们是这个圈子的常驻——清空版块只清文，人留着。生成同人文时可以点名让某一位来写。"),
-        // 请人之前先说一句想请什么样的（她 2026-09-11）。空着就照旧随缘。
-        h("textarea", { value: want, onChange: function (e) { setWantSaved(e.target.value); }, rows: 2,
-          placeholder: "想请什么样的？写什么类型、什么文风、磕哪对…空着就随缘",
-          className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, padding: "9px 11px", borderRadius: 11,
-            background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "vertical", marginBottom: 12 } }),
+        // 点了「请人」才掀开的那张稿约条：一行眉标 + 一格空白 + 一颗键。
+        asking ? h("div", { style: { border: "1px dashed " + t.line, padding: "11px 12px 12px", marginBottom: 14, background: "transparent" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, letterSpacing: ".16em", marginBottom: 7 } }, "想请什么样的"),
+          h("textarea", { value: want, onChange: function (e) { setWantSaved(e.target.value); }, rows: 3, autoFocus: true,
+            placeholder: "写什么类型、什么文风、磕哪对…空着就随缘",
+            className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, padding: "8px 0 10px",
+              background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line, resize: "vertical" } }),
+          h("button", { onClick: invite, disabled: busy, className: "w-full active:opacity-75",
+            style: { marginTop: 12, minHeight: 44, border: "none", background: t.ink, color: t.bg2,
+              fontFamily: F_BODY, fontSize: 13, letterSpacing: ".08em" } }, busy ? "去问了…" : "请 4 位进来")) : null,
         list.length ? list.map(function (a, i) {
           const mine = window.Fanfic.authorFics(a.name, fics);
           const cps = window.Fanfic.authorCPStats(a.name, fics, props.characters, props.userName);
@@ -4309,7 +4372,9 @@
               h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, a.name),
               a.style ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2, lineHeight: 1.55 } }, a.style) : null,
               h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
-                mine.length + " 篇" + (cps.length ? " · 最常写 " + cps[0].label + "（" + cps[0].n + "）" : " · 还没写"))),
+                mine.length + " 篇" + (cps.length ? " · 最常写 " + cps[0].label + "（" + cps[0].n + "）" : " · 还没写")),
+              // 还没写过的那几位没有热度可言——热度是按篇记的，没篇就没有
+              mine.length ? heatMark(window.Fanfic.authorHeatOf(a.name, fics).heat, t) : null),
             h(IChevR, { size: 15, color: t.fog, style: { marginTop: 4, flexShrink: 0 } }));
         }) : h(Empty, { text: "这个圈子还没有常驻作者", sub: "点右上「＋ 请人」请几位进来；生成同人文时也会自动把新笔名收进来" })));
   }
@@ -4431,7 +4496,15 @@
           // 那一行数：小字排成一行，不是五个并排的大数字（那是社交 app 的长相）
           h("div", { className: "flex", style: { gap: 13, marginTop: 11, flexWrap: "wrap" } },
             stat("作品", st.works), stat("字", st.words), stat("被喜欢", st.kudos), stat("粉丝", st.fans), stat("关注", st.following))),
-        a.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, marginTop: 13, borderLeft: "2px solid " + t.line, paddingLeft: 11 } }, a.style) : null,
+        // ⚠️扉页底下这一块是【她自己挂在个人页上的签名】，不是第三人称的介绍
+        //   （她 2026-09-11：「里面那一块应该是她自己的签名而不是第三人称描述」）。
+        //   老存档里的太太没有这一栏——那就不画这一块，不拿路数去顶（顶上去就又是第三人称）。
+        a.sign ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, lineHeight: 1.85, color: t.sub, marginTop: 13, borderLeft: "2px solid " + t.line, paddingLeft: 11 } }, a.sign) : null,
+        // 路数挪到这儿来，跟「碰不得」「你动她的文」排成一列：这三样都是【关于她的】，
+        // 签名那一块是【她自己说的】，两种东西不该长成一个样子。
+        a.style ? h("div", { className: "flex items-start", style: { gap: 7, marginTop: 13 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "1px 6px", flexShrink: 0, marginTop: 2, whiteSpace: "nowrap" } }, "她的文"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub } }, a.style)) : null,
         a.sore ? h("div", { className: "flex items-start", style: { gap: 7, marginTop: 9 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "#a8392f", borderRadius: 2, padding: "1.5px 6px", flexShrink: 0, marginTop: 2, whiteSpace: "nowrap" } }, "碰不得"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } }, a.sore)) : null,
@@ -4439,6 +4512,11 @@
         a.temper ? h("div", { className: "flex items-start", style: { gap: 7, marginTop: 7 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg, background: t.ink, borderRadius: 2, padding: "1.5px 6px", flexShrink: 0, marginTop: 2, whiteSpace: "nowrap" } }, "你动她的文"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } }, a.temper)) : null,
+        // 热度：名册那一页只看得见数，看不见是为哪一篇气的——这儿把那一篇也写上
+        (function () {
+          const hb = window.Fanfic.authorHeatOf(a.name, props.fics);
+          return hb.n ? heatMark(hb.heat, t, hb.fic ? "《" + hb.fic.title + "》" : "") : null;
+        })(),
         // ── 写了谁：正字计数 ──
         cps.length ? h("div", null, sec("写了谁"),
           cps.map(function (c) {
