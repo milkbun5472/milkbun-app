@@ -71,7 +71,8 @@ test("两条生成线都要吃到这条规则，而且落库前都过一道兜�
   // 生成一批文时顺带交简介那一路（她报的那句就是从这儿出来的）
   const gb = cut("  async function genBatch(", "  // ---- 追更：append 一章");
   assert.match(gb, /const authorCPRule = by \? "" : "\\n\\n" \+ cpRuleBlock\(allowedCPLabels\(cpChars, userName\)\)/);
-  assert.match(gb, /briefBlock \+ byBlock \+ authorCPRule/, "拼进去了没？声明了却没引用等于没写");
+  assert.match(gb, /briefBlock\n\s*\+ ficAvoidBlock\(tab, loadFics\(\)\) \+ ficAxesBlock\(n, angleNonce\(\)\) \+ byBlock \+ authorCPRule/,
+    "拼进去了没？声明了却没引用等于没写");
   assert.match(gb, /upsertAuthor\(stripStrayCP\(\{ name: nm/, "这一路落库前没兜底");
 });
 

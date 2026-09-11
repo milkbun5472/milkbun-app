@@ -477,43 +477,23 @@
   //   按人数掷成定数的话，第二批八位会跟第一批八位一个角度一个角度地对上。
   function authorAnglesBlock(n, nonce, unit) {
     const cnt = Math.max(1, Number(n) || 1);
-    const lines = [];
-    // ⚠️一批之内不许重样：掷完还要过一道【不放回】——六位里有两位分到同一个落点，
-    //   那两位又要长成一个样，这一整套就白做了。同一轴上撞了就往后顺一格，
-    //   顺到没得顺（人比格子多）才认。
-    const used = {};
     const lens = lenPlan(cnt, nonce);
-    const shift = function (key, opt) {
-      const ax = PEN_AXIS.concat(AUTHOR_ANGLE_AXES).filter(function (a) { return a.key === key; })[0];
-      const list = (ax && ax.opts) || [];
-      const seen = used[key] || (used[key] = {});
-      let o = opt;
-      if (seen[o]) {
-        const at = list.indexOf(o);
-        for (let k = 1; k <= list.length; k++) {
-          const c = list[(at + k + list.length) % list.length];
-          if (!seen[c]) { o = c; break; }
-        }
-      }
-      seen[o] = 1;
-      return o;
-    };
-    for (let i = 0; i < cnt; i++) {
-      // ⚠️轴从两条变四条，掷丢的概率是按【每条轴】算的：还按 0.12/0.20 的话，
-      //   四条里平均有一条多被掷丢，笔名那一条一丢就又长回冷硬物件名了。
-      //   收一点，但 free 一格都不许调到 0（那就等于代码把门关死）。
-      const pen = Axes.roll(PEN_AXIS, [nonce, i, "pen"], { allFree: 0, skip: 0, free: 0.22 });
-      const r = Axes.roll(AUTHOR_ANGLE_AXES, [nonce, i], { allFree: 0.06, skip: 0.08, free: 0.16 });
-      const rows = pen.rows.concat((r && !r.free && r.rows) || []);
-      const who = "· 第 " + (i + 1) + " " + (unit || "位") + "：";
-      const said = rows.map(function (x) {
-        // 「你自己想一个」那一格不占位：它本来就不是从表里挑的
-        return x.zh + "＝" + (x.opt === Axes.FREE ? x.opt : shift(x.key, x.opt));
-      }).join("；");
+    // ⚠️掷 + 一批之内不放回这一套已经搬去 js/axes.js 的 Axes.batch 了
+    //   （one-public-mechanism：出一批文那边也要同一个形状，抽公共的，旧的也搬过去）。
+    // ⚠️笔名那一组单开一组、skip 归零：她两次报的都是这一维，被掷丢一次
+    //   那一位就又长回冷硬物件名。天花板照旧留着——free 那一格还在。
+    const rolled = Axes.batch([
+      { axes: PEN_AXIS, opts: { allFree: 0, skip: 0, free: 0.22 } },
+      { axes: AUTHOR_ANGLE_AXES, opts: { allFree: 0.06, skip: 0.08, free: 0.16 } }
+    ], cnt, [nonce]);
+    const lines = rolled.map(function (g, i) {
+      const pen = g[0], ang = g[1];
+      const said = Axes.line(pen.rows.concat(ang.free ? [] : ang.rows));
       // 整组还回去时，笔名那一条照样在——还回去的是【剩下几样】
-      lines.push(who + said + ((!r || r.free || !r.rows.length) ? "；剩下几样你自己挑，别跟上下几位撞" : "")
-        + "；**简介和路数写多长**＝" + lens[i]);
-    }
+      return "· 第 " + (i + 1) + " " + (unit || "位") + "：" + said
+        + (ang.free ? "；剩下几样你自己挑，别跟上下几位撞" : "")
+        + "；**简介和路数写多长**＝" + lens[i];
+    });
     return "\n【这几位各自照着自己这一条长，别照着同一条】\n" + lines.join("\n")
       + "\n⚠️这是【从哪儿下笔】，不是她们的设定本身——别把这几句话抄进任何一位的简介或路数里。\n";
   }
@@ -751,17 +731,36 @@
   }
 
   // 素材来源：把 CP 角色的私聊记录抽尾巴当写作素材（item 6：生成素材来源人设聊天）
+  // 素材来源：只摘【角色自己说过的那几句】当声纹样本。
+  // ⚠️她 2026-09-11 撞上的那次：明明写的是「皇帝 × 王爷」，出来的却是**她和王爷的私聊
+  //   被整段搬进了文里**——她本人被换成一个男精怪跟他做爱，台词还是她真说过的原话，
+  //   皇帝一场都没出。三样病根，一样一样堵：
+  //   ① 原来把【她说的话】也发了，而且标成「对方」——一个没名字的对话方，
+  //      模型顺手就给它安一个人。于是她的原话从别人嘴里说了出来。
+  //      **她的话一句都不发**：要对的是他的调子，她的话对这件事没有用。
+  //   ② 原来只写了「化用进文里，别照抄」——规则只降概率。改成钉死用途：
+  //      只对语气，不许进正文，也不许把那段聊天本身当成这一篇的情节。
+  //   ③ 只有一位有聊天记录时，整篇会偏到他身上——皇帝没出场就是这么来的。
+  //      所以明说：谁有样本，跟谁是主角没有关系。
   function chatMaterialFor(cpChars) {
     if (!cpChars || !cpChars.length) return "";
     const blocks = [];
     cpChars.forEach(function (c) {
+      if (!c || c.isMe || !c.id) return;                  // 她自己不需要「声纹样本」
       const log = loadJSON("x_chat:" + c.id, []);
-      const tail = (log || []).filter(function (m) { return m && (m.role === "user" || m.role === "assistant") && m.content && !isOocMsg(m); }).slice(-14);
+      const tail = (log || []).filter(function (m) {
+        return m && m.role === "assistant" && m.content && !isOocMsg(m);
+      }).slice(-10);
       if (!tail.length) return;
-      const lines = tail.map(function (m) { return (m.role === "assistant" ? c.name : "对方") + "：" + String(m.content).slice(0, 80); });
-      blocks.push("· 和「" + c.name + "」的近期聊天（可提炼 TA 的说话习惯、你俩的相处质感、在意的事，化用进文里，别照抄）：\n" + lines.join("\n"));
+      blocks.push("· 「" + c.name + "」平时说话是这个调子：\n"
+        + tail.map(function (m) { return "「" + String(m.content).replace(/\s+/g, " ").slice(0, 60) + "」"; }).join("\n"));
     });
-    return blocks.length ? "【素材来源 · 角色真实聊天记录】\n" + blocks.join("\n\n") : "";
+    if (!blocks.length) return "";
+    return "【声纹样本（只对语气，不是素材，也不是剧情）】\n" + blocks.join("\n\n")
+      + "\n⚠️这几句是从【另一个时空的真实聊天】里摘出来的，只用来听清他说话的调子："
+      + "句子多长、爱用什么词、话停在哪儿。\n"
+      + "⚠️**一句都不许出现在正文里**，也不许把那段聊天本身写成这一篇的情节——这一篇的事情是新发生的。\n"
+      + "⚠️谁有这几句、谁没有，跟谁是主角**没有关系**：没摘到句子的那一位不许因此变成配角，更不许一场都不出。\n";
   }
 
   function buildGenSystem(tab, cpChars, userName, worldbook, opts) {
@@ -920,6 +919,95 @@
     return out;
   }
 
+  // ── 这几篇各自从哪儿长 ──────────────────────────────────────────────
+  // 她 2026-09-11：「那个志怪板块怎么感觉写来写去都是一个套路，
+  //   都会有一篇是右位捡了一个小鬼或者精怪。」
+  // ⚠️原来这儿只有一句鲁布里克：「同一批里开场位置、核心推进方式、时间跨度、
+  //   叙述距离和收尾形状至少有三项彼此不同」。两个毛病：
+  //   ① 跟作者那条一模一样——说了五个维度，没说谁占哪一格，模型自己挑最顺手的几格；
+  //   ② **它一个字都管不到上一批**。「写来写去」说的正是这个：每一批各自内部是错开的，
+  //      可每一批都从同一个先验中心出发，于是每批都有那一篇「捡了个精怪」。
+  // 所以两件事一起做：一批之内【按篇掷】（掷约束不掷答案），
+  //   跨批靠【这一版已经写过什么】那张单子拦住（bans-make-it-dumber 的后半条：
+  //   把出现过的记下来当 avoid 单子，长期记——这儿连记都不用，文本来就存着）。
+  // ⚠️轴上一格都不许写成剧情（「捡到一只精怪」那种）：写成剧情就是拿代码顶替想象力，
+  //   天花板变成我们的。这几条管的全是【怎么写】。
+  const FIC_AXES = [
+    { key: "open", zh: "这一篇从哪儿起", opts: [
+      "从一件已经结束的事的收尾起",
+      "从一次交接起：东西、人或话从一方到了另一方",
+      "从一个被打断的日常起",
+      "从两个人都在等的那段空当起",
+      "从一句已经出口、收不回来的话起",
+      "先有那个地方，人后到",
+      "从第三个人的眼睛里起",
+      "从事情过去很久之后起，往回看"
+    ] },
+    { key: "engine", zh: "推着这一篇往前走的是什么", opts: [
+      "一样东西要还回去",
+      "一件瞒着的事快瞒不住了",
+      "一个说好的期限",
+      "一笔要清的账",
+      "一个人想走，另一个不肯开口留",
+      "一个错认：有人把谁当成了别人",
+      "一件反复出现的小事，这一次不一样了",
+      "外面的人要来了"
+    ] },
+    { key: "span", zh: "时间跨度", opts: [
+      "一夜之间", "一整天", "三五天", "一个季节",
+      "隔了好几年，跳着写", "就一场谈话的工夫", "两次见面之间空着很久", "同一天，来回写两遍"
+    ] },
+    { key: "dist", zh: "叙述离人有多近", opts: [
+      "贴着其中一个人写，另一个只从外面看得见",
+      "两个人轮着看，但不许对半分",
+      "离得远，像有人在转述这桩事",
+      "只写看得见的：动作、东西、天气——心里话一句不写",
+      "贴得很近，近到只剩感觉和手边这几样东西",
+      "从一个不相干的人那儿看过去",
+      "跟着一样东西走，人来了又走",
+      "贴着其中一个人，可那个人自己也没弄明白"
+    ] },
+    { key: "close", zh: "收在哪儿", opts: [
+      "收在一个没做完的动作上",
+      "收在一句没人接的话上",
+      "收在一样东西的去向上",
+      "收在旁人的一句转述上",
+      "收在时间忽然往前跳了一下",
+      "收在两个人各自走开",
+      "收在一件小事被重新做了一遍",
+      "收在一个没人回答的问题上"
+    ] }
+  ];
+  function ficAxesBlock(n, nonce) {
+    const rolled = Axes.batch([{ axes: FIC_AXES }], Math.max(1, Number(n) || 1), [nonce]);
+    const lines = rolled.map(function (g, i) {
+      const o = g[0];
+      return "· 第 " + (i + 1) + " 篇：" + ((o.free || !o.rows.length)
+        ? "这一篇你自己找一个跟上下几篇都不一样的角度。" : Axes.line(o.rows));
+    });
+    return "\n\n【这几篇各自照着自己这一条长，别照着同一条】\n" + lines.join("\n")
+      + "\n⚠️这是【怎么写】，不是【写什么】：别把这几句话当梗写进正文，也别在文里点破。\n";
+  }
+  // 这一版已经写过什么。⚠️只报【标题 + 那一句核心设定】——正文一个字都不进去，
+  //   那是给读者的，不是给下一批当材料的。
+  const AVOID_KEEP = 14;
+  function ficAvoidBlock(tab, fics) {
+    const id = tab && tab.id;
+    const mine = (Array.isArray(fics) ? fics : loadFics())
+      .filter(function (f) { return f && f.tabId === id; })
+      .sort(function (a, b) { return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0); })
+      .slice(0, AVOID_KEEP);
+    if (!mine.length) return "";
+    return "\n\n【这一版已经写过这些】\n"
+      + mine.map(function (f) {
+          const p = String(f.premise || "").replace(/\s+/g, "").slice(0, 46);
+          return "· 《" + String(f.title || "无题").slice(0, 20) + "》" + (p ? "：" + p : "");
+        }).join("\n")
+      + "\n⚠️上面这些里出现过的【开局、两个人凑到一起的理由、身份组合、收尾的收法】，这一批一个都不许重来。"
+      + "落笔前对一遍：要是你正要写的那一篇，跟上面某一篇是同一件事换了层皮，就换掉——"
+      + "**换的是那件事本身，不是换个名字、换个天气、换个朝代。**\n";
+  }
+
   // ---- 批量生成 N 篇（容错 + 重试）------------------------------------
   // opts: { style, perFic, worldPool, chatMaterial }
   async function genBatch(active, tab, cpChars, n, userName, worldbook, opts) {
@@ -963,11 +1051,12 @@
       + "\n⚠️authorBio 讲【这个人】，authorStyle 讲【她的文长什么样】，两栏别串味——挑枪手是照 authorStyle 那一栏挑人的。"
       + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + byBlock + authorCPRule + "\n\n" +
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock
+      + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce()) + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"" + authorFields + "}]\n" +
-      "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
+      "每篇 title 别重复、别都一个套路；禁止只是换背景与人名却复用同一情节拍（开局位置、时间跨度、叙述距离、收尾形状那几样，上面已经按篇分好了，照各自那一条来）。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
       (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;

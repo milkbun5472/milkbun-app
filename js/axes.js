@@ -61,6 +61,53 @@
     return { free: rows.length === 0, rows: rows };
   }
 
+  // ── 一批里每人／每篇分一组【互不相同】的落点 ────────────────────────
+  // ⚠️第二次出现就抽公共的（one-public-mechanism）：
+  //   第一处是同人文请太太（笔名／口气／路数落点），第二处是出一批文（每篇的落点）。
+  //   共同的那三件事是——① 一人一组掷；② **一批之内不放回**（撞了就往后顺一格，
+  //   顺到没得顺才认，不然分到同一格的那两个又会长成一个样）；
+  //   ③「你自己想一个」那一格不占位（它本来就不是从表里挑的）。
+  //
+  // groups: [{ axes:[...], opts:{} }]——每组有自己的概率（比如笔名那一组 skip 归零）。
+  // 返回：out[i] = [{rows, free}, ...]，一组一个，调用方自己拼话。
+  function batch(groups, n, parts, sharedOpts) {
+    const gs = (Array.isArray(groups) ? groups : [groups]).filter(Boolean);
+    const cnt = Math.max(1, Number(n) || 1);
+    const seed = (Array.isArray(parts) ? parts : [parts]).map(S);
+    const all = gs.reduce(function (acc, g) { return acc.concat(g.axes || []); }, []);
+    const used = {};
+    const shift = function (key, opt) {
+      const ax = all.filter(function (a) { return a && a.key === key; })[0];
+      const list = (ax && ax.opts) || [];
+      const seen = used[key] || (used[key] = {});
+      let o = opt;
+      if (seen[o]) {
+        const at = list.indexOf(o);
+        for (let k = 1; k <= list.length; k++) {
+          const c = list[(at + k + list.length) % list.length];
+          if (!seen[c]) { o = c; break; }
+        }
+      }
+      seen[o] = 1;
+      return o;
+    };
+    const out = [];
+    for (let i = 0; i < cnt; i++) {
+      out.push(gs.map(function (g, gi) {
+        const r = roll(g.axes || [], seed.concat([i, gi ? "g" + gi : ""]), Object.assign({}, sharedOpts || {}, g.opts || {}));
+        const rows = (r.rows || []).map(function (row) {
+          return row.opt === FREE ? row : { key: row.key, zh: row.zh, opt: shift(row.key, row.opt) };
+        });
+        return { free: !!r.free || !rows.length, rows: rows };
+      }));
+    }
+    return out;
+  }
+  // 一组 rows → 「甲＝乙；丙＝丁」那一行（一批里一人一行，用这个拼）
+  function line(rows) {
+    return (rows || []).map(function (r) { return S(r.zh) + "＝" + S(r.opt); }).join("；");
+  }
+
   // rolled → 一段可以直接拼进 system 的话。
   // head.on = 掷到了东西时的领句；head.off = 整组还回去时那一句。
   function text(rolled, head) {
@@ -69,5 +116,5 @@
     return S(h.on) + "\n" + rolled.rows.map(function (r) { return "· " + S(r.zh) + "：" + S(r.opt); }).join("\n");
   }
 
-  return { seed01, pick, roll, text, FREE, DEFAULT };
+  return { seed01, pick, roll, batch, line, text, FREE, DEFAULT };
 });
