@@ -160,8 +160,9 @@ test("拿给他看那一条也做成卡，而且是复用转发那张", () => {
 test("只给他看两百字不够：现成的小结一起扔过去", () => {
   const box = {};
   vm.createContext(box);
-  vm.runInContext("const HOOK_TAIL = 8;" + grab(fic, "bibleBlock") + grab(fic, "seedBlock") + grab(fic, "ficRecapForChat")
-    + "\nconst RECAP_CAP = 1500;\nthis.f = ficRecapForChat;", box);
+  vm.runInContext("const HOOK_TAIL = 8; const BIBLE_TAIL = 14;"
+    + grab(fic, "bibleBlock") + grab(fic, "seedBlock") + grab(fic, "ficRecapForChat")
+    + "\nthis.f = ficRecapForChat;", box);
   const F = { title: "长夜", premise: "他欠他一条命", bible: ["他是王爷", "那年下过雪"], seeds: ["那封信还没拆"],
     chapters: [{ content: "第一章正文", endHook: "灯灭了" }, { content: "第二章正文，最后一句在这儿。", endHook: "他没回头" }] };
   const out = box.f(F, "皇帝 × 王爷");
@@ -182,12 +183,33 @@ test("只给他看两百字不够：现成的小结一起扔过去", () => {
   assert.match(out, /⚠️这是【那篇文里的事】，不是你俩之间发生过的事。/);
   assert.match(out, /她没提这篇，就别硬往这上头扯。/, "不说这一句，他会把那篇文当成你们的共同经历");
   // 封顶：不封的话每一轮聊天都背着一大段
-  // ⚠️桩要真的撑破 1500：设定卡每条都得够长，不然封顶那道闸拆了也照样过
-  const big = { title: "长", chapters: [{ content: "字".repeat(5000), endHook: "锚" }],
-    bible: Array.from({ length: 60 }, (_, i) => "设定" + i + "：" + "细".repeat(40)) };
-  assert.ok(box.f(big, "").length <= 1502, "没封顶：" + box.f(big, "").length);
+  // ⚠️长篇那一头（她 2026-09-11：「我要他接写了很多章的」）：
+  //   每一段各自截断，**最后一章的结尾必须活下来**——原来统一切一刀，
+  //   而刀是从队尾落的，最要紧的那一段第一个被切掉。
+  const big = { title: "长", premise: "地".repeat(400),
+    chapters: Array.from({ length: 20 }, (_, i) => ({ content: "第" + i + "章正文" + "字".repeat(500) + "这是最后一句。", endHook: "锚" + i })),
+    bible: Array.from({ length: 60 }, (_, i) => "设定" + i + "：" + "细".repeat(40)),
+    seeds: Array.from({ length: 20 }, (_, i) => "伏笔" + i + "：" + "细".repeat(40)) };
+  const bigOut = box.f(big, "甲 × 乙");
+  assert.match(bigOut, /【最后一章的结尾】……/, "最后一章的结尾被那一刀切掉了");
+  assert.match(bigOut, /这是最后一句。/, "结尾只剩半截");
+  assert.match(bigOut, /· 第 20 章结束在：锚19/, "最近几章的锚点没了");
+  assert.match(bigOut, /只列最近 14 条/, "设定卡没收着，它会把别的挤掉");
+  assert.ok(bigOut.length < 2600, "太长了：" + bigOut.length);
+  // 短的那一篇不许被截：二十章的刀不能落到三章的文上
+  assert.ok(box.f(F, "皇帝 × 王爷").indexOf("只列最近") < 0);
   assert.equal(box.f(null, ""), "");
   // 真的接进了房里那一枪
   assert.match(app, /capState\.push\(window\.Fanfic\.ficRecapForChat\(roomFic,/);
   assert.match(app, /if \(roomFic && window\.Fanfic\.ficRecapForChat\) \{/);
+});
+
+test("界面上得说清楚：放一张就够，不用一章一章发", () => {
+  // 她 2026-09-11：「那我要他接写了很多章的只能一章一章发给他嘛」——
+  // 不用，可那一页从来没说过，她只能照着「开头两百字」那句猜。
+  assert.match(fic, /放一张就够：这一篇的地基、设定卡、还埋着的伏笔、每一章结束在哪儿、/);
+  assert.match(fic, /上一章的结尾，都会跟着进他手里——写了多少章都一样，不用一章一章发。/);
+  // ⚠️界面上的字不许写 markdown：** ** 会原样显示出来
+  const line = fic.slice(fic.indexOf("放一张就够"), fic.indexOf("不用一章一章发。") + 10);
+  assert.ok(line.indexOf("**") < 0, "界面上的字里有 markdown，会原样显示");
 });

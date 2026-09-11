@@ -1517,7 +1517,9 @@
   //   续写那份是给【写的人】的指令（带改设禁令、衔接铁律、字数地板）；
   //   这一份是给【在房里跟她聊天的他】读的，一条写作指令都不许带——
   //   带了他就会在聊天里开始写文。
-  const RECAP_CAP = 1500;
+  // 分段上限：设定卡 700 ＋ 伏笔 300 ＋ 锚点 500 ＋ 结尾 400，加上抬头约 2000 字封顶。
+  //   ⚠️不许改回「最后统一切一刀」——那一刀切掉的永远是最后一章的结尾。
+  const BIBLE_TAIL = 14;
   function ficRecapForChat(fic, cpText) {
     if (!fic) return "";
     const chs = (fic.chapters || []);
@@ -1527,16 +1529,27 @@
     }).join("\n");
     const last = chs[chs.length - 1] || {};
     const tail = String(last.content || fic.body || "").trim().slice(-400);
+    // ⚠️**每一段各自截断，不许留给最后那一刀**（她 2026-09-11：「我要他接写了很多章的」）。
+    //   原来只在最后 slice(0, RECAP_CAP)：截断是从队尾切的，而队尾正是
+    //   【最后一章的结尾】——长篇一超标，最要紧的那一段第一个被切掉，
+    //   他就成了「设定背得滚瓜烂熟、但不知道上一章停在哪儿」。
+    //   设定卡是只增不改的，写到二十章那一份最长，所以刀要落在它身上：只留最近那几条。
+    const bible = (fic && Array.isArray(fic.bible)) ? fic.bible : [];
+    const bibleTail = bible.length > BIBLE_TAIL
+      ? bibleBlock(Object.assign({}, fic, { bible: bible.slice(-BIBLE_TAIL) }))
+        .replace("【本篇设定卡", "【本篇设定卡（只列最近 " + BIBLE_TAIL + " 条")
+        .replace("已经确立的事实 · 一条都不许推翻）】", "，更早的那些照样算数）】")
+      : bibleBlock(fic);
     const out = "\n\n【她放进这间房的那一篇《" + String(fic.title || "").slice(0, 40) + "》，你读过】\n"
       + (cpText ? "· 这一对：" + cpText + "\n" : "")
-      + (String(fic.premise || "").trim() ? "· 地基：" + String(fic.premise).trim() + "\n" : "")
+      + (String(fic.premise || "").trim() ? "· 地基：" + String(fic.premise).trim().slice(0, 200) + "\n" : "")
       + "· 到现在写了 " + chs.length + " 章。\n"
-      + bibleBlock(fic) + seedBlock(fic)
-      + (hooks ? "【每一章结束在哪儿】\n" + hooks + "\n" : "")
+      + bibleTail.slice(0, 700) + seedBlock(fic).slice(0, 300)
+      + (hooks ? "【每一章结束在哪儿】\n" + hooks.slice(0, 500) + "\n" : "")
       + (tail ? "【最后一章的结尾】……" + tail + "\n" : "")
       + "⚠️这是【那篇文里的事】，不是你俩之间发生过的事。她跟你聊这篇的时候你手上有这些；"
       + "她没提这篇，就别硬往这上头扯。\n";
-    return out.length > RECAP_CAP ? out.slice(0, RECAP_CAP) + "…\n" : out;
+    return out;
   }
 
   // ── 你们在房里商量好的（她 2026-09-11）───────────────────────────────
@@ -3798,6 +3811,11 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75, margin: "2px 0 10px" } },
           "落进去的是一张卡：这件事发生过、开头两百字。全文还在同人文里。",
+          // ⚠️她 2026-09-11 问：「那我要他接写了很多章的只能一章一章发给他嘛」——
+          //   不用，可界面上从来没说过这件事，她只能照着上面那句「开头两百字」猜。
+          // ⚠️界面上的字不许写 markdown：**这样**会原样显示出来（踩过两次）
+          h("br"), "放一张就够：这一篇的地基、设定卡、还埋着的伏笔、每一章结束在哪儿、"
+          + "上一章的结尾，都会跟着进他手里——写了多少章都一样，不用一章一章发。",
           h("br"), "这一步不花钱——喂给他只是放进他的上下文，让他开口才要。"),
         rows.map(function (c) {
           const on = c.id === pick;
