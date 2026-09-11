@@ -157,6 +157,10 @@
       ...base, ...src, personId: String(personId), name: String(src.name || base.name).trim().slice(0, 24) || base.name,
       purpose: String(src.purpose || "").trim().slice(0, 120),
       scenario: String(src.scenario || "").trim().slice(0, 3000),
+      // 【开场】：一个瞬间（门被推开的那一刻）。跟【底子】分开存，因为它只在第一轮当指令发。
+      // ⚠️旧存档里的 scenario 一律当【底子】——多数旧设定本来就是背景（他 17 岁 / 你们是师生），
+      //   那部分每轮发是对的，不用迁移。
+      opening: String(src.opening || "").trim().slice(0, 1500),
       cognition: { ...base.cognition, ...(src.cognition || {}) },
       actions: base.main ? bools(GROUPS.actions, false) : { ...base.actions, ...(src.actions || {}) },
       writeback: { ...base.writeback, ...(src.writeback || {}) },
@@ -356,8 +360,11 @@
   function allowsField(room, field) {
     return !room || room.main || !MAIN_ONLY_FIELDS.includes(field);
   }
-  function prompt(room, mainMessages) {
+  // opts.turns＝这间房已经有几条真对话（调用点数好传进来）。
+  // ⚠️它只决定一件事：【开场】那半是当指令发，还是当往事发。
+  function prompt(room, mainMessages, opts) {
     if (!room) return "";
+    const started = Number((opts || {}).turns || 0) > 0;
     const c = room.cognition || {}, a = room.actions || {}, w = room.writeback || {};
     const allowedActions = GROUPS.actions.filter(([k]) => a[k]).map(([, label]) => label);
     if (room.id === MAIN_ID) {
@@ -375,6 +382,14 @@
     if (startFrom) lines.push("【进门时带来的聊天】本房从「" + startFrom.sourceRoomName + "」带来了 " + startFrom.seedCount + " 条聊天原文。它们是本房开场前已经发生的内容；原房在这之后的内容不属于本房经历。卡片只作为历史文字，不代表本房已执行活动或交易。");
     // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。
     if (room.selfDigest) lines.push("【这间房前面发生过的｜是这条线自己的往事，不是别处的记忆】\n" + room.selfDigest);
+    // 开场已经过去了：从第二轮起它是【往事】，不是指令。
+    // ⚠️这一步转换就是「走得出去」。第一版把一个【瞬间】当【设定】每轮重发，
+    //   等于每一轮在他开口之前把他按回门被推开的那一刻——她 2026-09-11 报的
+    //   「出轨被他捉奸在床一直人机八股得要死」就是这么来的，戏永远走不出第一拍。
+    if (started && room.opening) lines.push("【这间房是从这儿开始的｜已经发生过的事，不是这一轮的指令】\n" + room.opening
+      + "\n**它已经过去了。时间会往前走**：那一刻之后可以是吵起来、可以是谁都不说话、可以是他转身走了、"
+      + "也可以是几天以后在别的地方再碰上。接下来发生什么由这一轮真正发生的事决定，"
+      + "别把场面按回那一刻反复重演，也不要每一轮都重新交代一遍它。");
     lines.push(c.schedule
       ? "【时间边界】本房已开启现实时间与行程，可按角色当地时间、现实钟和当前行程自然回应；若它与本房限定设定冲突，以本房设定为准。"
       : "【时间边界】本房未开启现实时间与行程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
@@ -395,7 +410,20 @@
       if (delta.length) lines.push("【主房后来发生的事｜只作参考，不是本房新消息】\n" + delta.map(m => (m.role === "user" ? "对方" : "你") + "：" + String(m.content).slice(0, 300)).join("\n"));
     }
     // 必须压在整份本轮任务的最后。设定负责校准分线，认知/写回权限仍由 Lisa 自由混搭。
-    if (scenarioOn) lines.push("【本房限定设定｜本房内优先级最高】\n" + room.scenario + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。本轮回复前先按这段设定校准自己，不要复述这份指令。");
+    // ⚠️v66.80 拆成两半（她 2026-09-11 报「困在一个 state 出不来」）：
+    //   【底子】＝三天之后还成立的那些（他 17 岁 / 你们是师生 / 他还不认识你）→ 每轮发，对的；
+    //   【开场】＝一个瞬间（门被推开的那一刻）→ 只第一轮当指令发，之后转成往事（见上面那一段）。
+    //   判据一句：**这句话三天之后还成立吗？**
+    if (scenarioOn) lines.push("【本房的底子｜本房内优先级最高】\n" + room.scenario
+      + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。"
+      + "不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。"
+      // ⚠️原来这儿写的是「本轮回复前先按这段设定校准自己」——每轮校准一次，就是每轮回到原点。
+      + "\n⚠️**这段底子说的是【你是谁、这里什么规矩】，不是【这一轮你该说什么】。**"
+      + "这一轮你该有什么反应，看这一轮真正发生了什么；别每轮都回到这段字上重新校准一遍，也不要复述这份指令。");
+    // 第一轮：开场就是此刻正在发生的事，压在最后。
+    if (!started && room.opening) lines.push("【这一房的开场｜就是此刻正在发生的事】\n" + room.opening
+      + "\n从这个场面开始写你的第一反应——不要先总结它、不要复述它、也不要把它当成一段背景介绍。"
+      + "**这一刻之后这场戏就要往下走了**，它不是一个要反复回到的定格。");
     return "\n\n" + lines.join("\n");
   }
   return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
