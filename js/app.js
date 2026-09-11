@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.87";
+const APP_VERSION = "v66.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -272,6 +272,7 @@ function App() {
   // 顶上那一摞消息提醒（她 2026-09-11）。只是提示，不落盘——错过了看红点就行。
   const [banners, setBanners] = useState([]);
   const bannerTimers = useRef([]);
+  const bootAtRef = useRef(Date.now());   // 开机那几秒别弹：那会儿正在把存档和云端接上
   useEffect(() => () => { bannerTimers.current.forEach(clearTimeout); bannerTimers.current = []; }, []);
   const groupsRef = useRef([]);
   groupsRef.current = groups; // 动念那条链在 setInterval 里读它，闭包拿不到最新的 groups
@@ -3449,9 +3450,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!m || m.role === "user" || m.kind === "system" || m.kind === "silence") continue;
       last = m; break;
     }
-    // ⚠️开机那一下跨端账本会把早先的消息补进来，也从 bumpUnread 过一遍——
-    //   不挡的话一开 app 顶上就糊一摞几个钟头前的旧消息。只提醒【刚到的】。
-    if (last && last.ts && Date.now() - last.ts > 120000) return;
+    // ⚠️她 2026-09-11：「有时候不触发，有时候我在别人聊天框他会出现有时候又不显示」。
+    //   病根就在这儿：原来这一句是【按消息自己的时刻】判新旧（超过两分钟就不提醒），
+    //   可主动消息里有一整类是【故意往回盖时间戳】的——约回（他说「等我忙完找你」，
+    //   到点补发，ts 记成他许诺的那会儿）和动念（backdateTs）。它们真的是刚到的，
+    //   却被这一句当成旧消息静静吞掉，于是同样一条消息有时弹有时不弹。
+    //   要挡的从来只有两样，各自照它本来的样子挡：
+    //   ① 开机那几秒的一摞（app 刚起来，正在把存档和云端接上）；
+    //   ② 跨端账本补进来的【别处早就说过的话】（它们带着 ledgerKey）。
+    if (Date.now() - bootAtRef.current < 6000) return;
+    if (last && last.ledgerKey && last.ts && Date.now() - last.ts > 300000) return;
     const body = String((last && last.content) || "").replace(/\s+/g, " ").trim();
     const text = g
       ? (((last && last.senderName) ? last.senderName + "：" : "") + (body || "发来一条消息")).slice(0, 44)

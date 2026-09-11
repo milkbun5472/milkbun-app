@@ -24,8 +24,13 @@ test("只挂在 bumpUnread 这一处：单聊、群聊、旁观群、线下冒�
   assert.match(pb, /spectate.*\?\s*"旁观"\s*:\s*"群"/);
   // 认不出是谁就不弹
   assert.match(pb, /if \(!g && !c\) return;/);
-  // 开机补账本那一摞旧消息不许糊在顶上
-  assert.match(pb, /Date\.now\(\) - last\.ts > 120000\) return;/);
+  // 开机补账本那一摞旧消息不许糊在顶上……
+  assert.match(pb, /if \(Date\.now\(\) - bootAtRef\.current < 6000\) return;/);
+  assert.match(pb, /if \(last && last\.ledgerKey && last\.ts && Date\.now\(\) - last\.ts > 300000\) return;/);
+  // ……但【不许按消息自己的时刻判新旧】：约回和动念是故意把 ts 盖回过去的
+  //   （她 2026-09-11：「有时候不触发，有时候又不显示」就是被这一句吞掉的）。
+  assert.ok(pb.indexOf("Date.now() - last.ts > 120000") < 0,
+    "又回到按 ts 判新旧了——约回/动念那类消息会被静静吞掉");
 });
 
 test("开关：默认开着，关了就一条都不弹", () => {
