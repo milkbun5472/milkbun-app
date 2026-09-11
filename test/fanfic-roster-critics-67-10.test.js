@@ -134,8 +134,13 @@ test("接进那一枪了，而且只记带刺的那几条", () => {
   assert.match(g, /const critics = rosterCritics\(fic, uid\("rv"\) \+ Math\.random\(\), \{ characters: characters, userName: userName \}\);/);
   assert.match(g, /\+ criticBlock\(critics, fic\) \+/, "算出来了却没拼进去＝没写");
   // 只认真在名册里的笔名：模型现编的一律当普通读者
-  assert.match(g, /const fromRoster = pen && roster\[pen\] && String\(x\.author \|\| ""\)\.trim\(\) === pen;/);
-  assert.match(g, /pen: fromRoster \? pen : "",/);
+  assert.match(g, /const fromRoster = !!\(pen && roster\[pen\] && nm === pen\) \|\| !!roster\[nm\];/);
+  // v67.19：能不能点进她的主页，改成【直接查名册/作者库】——
+  //   原来非得模型自己多填一格 pen、还得跟 author 写得一字不差，漏填一次名字就成死的
+  //   （她 2026-09-11：「其他作者路过点不进她主页」）。fromRoster 还是只认名册（记流水那一条），
+  //   pen 认的是「有没有一张卡」，两件事本来就不是一件。
+  assert.match(g, /const who = \(pen && roster\[pen\]\) \? pen : \(\(roster\[nm\] \|\| findAuthor\(nm\)\) \? nm : ""\);/);
+  assert.match(g, /pen: who,/);
   // ⚠️只记带刺的：夸的不记，不然这本账会被评论淹掉
   assert.match(g, /if \(fromRoster && x\.barbed && own\) \{/);
   assert.match(g, /circlePush\(\{ a: pen, b: own, kind: "snark", title: fic\.title, say: String\(x\.content\)\.trim\(\)\.slice\(0, 60\) \}\);/);

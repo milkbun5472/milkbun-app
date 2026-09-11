@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.18";
+const APP_VERSION = "v67.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7730,7 +7730,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   他就只当自己是读者（她 2026-09-11：「他好像不知道这是自己写的」）。
         capState.push(window.Fanfic.ficRecapForChat(roomFic,
           window.Fanfic.cpLabel ? window.Fanfic.cpLabel(roomFic.cp || [], characters, (profile && profile.name) || "我") : "",
-          charId));
+          charId, (profile && profile.name) || "我"));
       }
       if (roomFic) {
         openCaps.push("ficNext");
@@ -19111,6 +19111,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (!x || x.id !== f.id) return x;
           const next = Object.assign({}, x);
           next.chapters = (x.chapters || []).concat([Object.assign({}, ch, { byAuthor: nm, byCharId: cid })]);
+          // ⚠️热度：房里这条路原来一个字都没写过 authorHeat，于是她在房里让角色写了好几章，
+          //   原作者一点火气都没有（她 2026-09-11：「让角色代笔作者的热度也不会动」）。
+          //   算法在 fanfic.js 的 heatFields 那一份，两条路共用——阅读页那颗「请人」也走它。
+          Object.assign(next, K.heatFields(x, { by: activeChar }));
           next.updatedAt = Date.now();
           return next;
         });
@@ -19120,7 +19124,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(key, prev => [...prev, {
           role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
           subject: "《" + f.title + "》第 " + no + " 章",
-          say: String(ch.authorNote || "").trim().slice(0, 300),
+          // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是他的话。
+          //   于是他交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
+          //   有一半在这儿）。现在他自己那一格叫 penNote；他没话说就不摆这一行。
+          say: String(ch.penNote || "").trim().slice(0, 300),
           content: String(ch.content || "").trim().slice(0, 200)
         }]);
         toast("他写好了第 " + no + " 章");

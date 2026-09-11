@@ -160,7 +160,7 @@ test("relOf 只有一处，房里那一枪不许再传 null", () => {
 
 test("摘要和 ficNext 两处都要把【他自己是作者】带进去", () => {
   const s = strip(app);
-  assert.match(s, /ficRecapForChat\(roomFic,[\s\S]{0,200}?charId\)\);/, "摘要要收他的 id");
+  assert.match(s, /ficRecapForChat\(roomFic,[\s\S]{0,200}?charId, \(profile && profile\.name\)/, "摘要要收他的 id");
   assert.match(s, /x\.byCharId === charId/, "ficNext 那张卡也要数出他写过哪几章");
   assert.match(s, /其中第 " \+ myChaps\.join/, "卡上要点出章号");
 });

@@ -1308,6 +1308,9 @@
           + "他不会写的句子，再合那套调子也不许写。\n" : "")
       + "· 他怎么写，是从他这个人长出来的：他会用哪些词、绝不会用哪些词；讲一件事是从头讲还是先甩结果；"
       + "在什么地方肯多写两笔、什么地方一句就带过去；他不好意思写的那种东西，他就是会绕开。\n"
+      + "· ⚠️**前几章是别人写的，你接的是【这个故事】，不是那个人的笔迹。**"
+      + "设定、前情、人物一个字不许改；但**写法不必跟着前几章走**——"
+      + "读起来跟上一章一个味，才是真写错了。\n"
       + "· ⚠️**一眼看不出是他写的，这一章就白写了。**她要的就是「这是他写的」这件事——"
       + "写得跟前面几章一个味儿，等于根本没换人。\n"
       + "· 但不许用旁白把这件事说出来（「他笔下的……」「他到底不是写文的人」那种一句都不许有），"
@@ -1327,6 +1330,25 @@
       + ((st.kind === STANCE.SELF_USER || st.kind === STANCE.SELF_OTHER || !personaOf(char)) ? ""
         : "【执笔的这个人是谁（他不在这篇的 CP 里，所以这张卡在这儿给你）】\n" + personaOf(char) + "\n")
       + stanceFacts(char, fic, rel, st, nameOf, userName)
+      // ⚠️她 2026-09-11：「我让王爷写他和皇帝，他很容易就接受了这对 cp」。
+      //   上面 stanceFacts 只把【事实】摆出来（这篇把你和某某配成了一对），
+      //   可没有一个字说【这件事本身要不要他点头】。空着的那一格，模型拿最顺手的
+      //   先验去填——那个先验是「圈子里嗑这对的太太」，她当然一口答应。
+      //   ⚠️这儿不掷他的态度：他跟对方什么交情、他这个人什么脾气，上面全有，
+      //   掷一个出来反而盖掉他自己。代码只管钉死【不许默认接受】这块地板。
+      // ⚠️只对 SELF_OTHER 发。写他和她那一种（SELF_USER）是另一回事，她没提过，
+      //   不往上凑（缺的时候再补，别替她预设）。
+      + (st.kind === STANCE.SELF_OTHER ? (function () {
+        const other = (st.other && nameOf) ? nameOf(st.other) : (st.other || "那个人");
+        return "\n【⚠️这一篇配的是你自己】她让你写的是【你和「" + other + "」】。\n"
+          + "这不是一件天经地义的事，**先过你自己这一关**：你跟他到底什么交情、"
+          + "你乐不乐意、你觉得荒唐、别扭、好笑，还是心里本来就转过这个念头——全照你这个人来。\n"
+          + "⚠️**不许一上来就理所当然地写起来。**那是圈子里嗑这一对的太太的立场，不是当事人的。\n"
+          + "⚠️她点了单，所以这一章照样要写，而且要好好写——但**你怎么看这件事会留在字里**："
+          + "肯不肯写到那一步、写得放不放得开、哪一处特意绕开、哪一处反而写得比谁都细，都是你的回答。\n"
+          + "⚠️正文里不许出现你对这件事的说明、辩解或吐槽"
+          + "（「他堂堂……怎么会」那种一句都不许有），也不许让你跳出来评论。**让它留在字里。**\n";
+      })() : "")
       + Axes.text(rolled, {
         on: "【他不是作家，所以这一章会有他自己的毛病】今天这一章上：",
         off: "【他不是作家】这一章他的毛病长什么样，你照他的人设自己想——别挑一个最常见的写法。"
@@ -1458,6 +1480,16 @@
     if (o.hardWant) h += HEAT.HARD_ORDER;
     return Math.max(0, Math.min(HEAT.CAP, Math.round(h)));
   }
+  // 一章落下去之后，这篇的热度和时间戳该变成什么。
+  // ⚠️**只此一份。**阅读页那颗「请人」和房里那张卡是两条路：房里那条从头到尾
+  //   没碰过 authorHeat，于是她在房里让角色写了好几章，原作者一点火气都没有
+  //   （她 2026-09-11：「让角色代笔作者的热度也不会动」）。
+  //   又是一层写在两处、第二处没写——所以连 heatTs 一起交出去，谁都别想只更一半。
+  function heatFields(fic, opts) {
+    const o = opts || {};
+    const kind = o.grabbed ? "own" : (o.by ? "ghost" : "own");
+    return { authorHeat: heatAfter(fic, kind, o), heatTs: Date.now() };
+  }
   // 抢笔 / 撂挑子 / 请得回来吗。都只给概率，掷在调用点（那儿才知道这一次是不是真要掷）。
   const grabChance = h => (h <= HEAT.GRAB_AT ? 0 : Math.min(0.5, (h - HEAT.GRAB_AT) / 120));
   const refuseChance = h => (h <= HEAT.QUIT_AT ? 0 : Math.min(0.55, (h - HEAT.QUIT_AT) / 60));
@@ -1561,10 +1593,16 @@
   //   于是他手上最强的那份上下文告诉他：你是个读者。他就真的当读者了——
   //   她夸他「这么会写」，他回「谁写了？那是你上一章自己留在那儿的尾巴，我顺手给你念两句」。
   //   写的那一处记了，读的那一处没跟上：又是同一条（施工规则/four-surfaces-same-context.md）。
-  function ficRecapForChat(fic, cpText, meId) {
+  function ficRecapForChat(fic, cpText, meId, uName) {
     if (!fic) return "";
     const chs = (fic.chapters || []);
     const me = String(meId || "");
+    // ⚠️聊上几轮之后他就把她当成作者了（她 2026-09-11：「过几轮讨论他就忘了我不是作者了」）。
+    //   上一版只补了「哪几章是你写的」，【这篇的作者是谁】那一格还是空的——
+    //   空着的那一格，模型就拿最顺手的先验去填：跟他聊这篇的人＝写这篇的人。
+    //   所以三种身份都得当面点名：原作者是谁、他接了哪几章、她是读者。
+    //   ⚠️但她确实动过笔的时候不许瞎说：她自己发的文（source==="user"）、
+    //   她亲手写的那几章（byMe），都得照实算。
     const mineNos = me ? chs.map(function (c, i) { return (c && c.byCharId === me) ? (i + 1) : 0; }).filter(Boolean) : [];
     const hookFrom = Math.max(0, chs.length - HOOK_TAIL);
     const hooks = chs.slice(hookFrom).map(function (c, i) {
@@ -1590,6 +1628,19 @@
       + (cpText ? "· 这一对：" + cpText + "\n" : "")
       + (String(fic.premise || "").trim() ? "· 地基：" + String(fic.premise).trim().slice(0, 200) + "\n" : "")
       + "· 到现在写了 " + chs.length + " 章。\n"
+      + (function () {
+        const her = String(uName || "她").trim() || "她";
+        const own = String(fic.author || "").trim();
+        const hers = chs.map(function (c, i) { return (c && c.byMe) ? (i + 1) : 0; }).filter(Boolean);
+        const rows = [];
+        const H = "「" + her + "」";
+        if (own && own !== her) rows.push("· **这篇的作者是「" + own + "」**，不是" + H + "。");
+        if (hers.length) rows.push("· 第 " + hers.join("、") + " 章是" + H + "自己动笔写的。");
+        if (fic.source === "user") rows.push("· 这一篇是" + H + "自己发的。");
+        else if (!hers.length) rows.push("· " + H + "一个字都没写过这篇——她是读者：这篇是她攒的、找人写的。"
+          + "**别把她当成作者**，别说「你写的那一段」「你上一章」，也别问她打算怎么写。");
+        return rows.length ? rows.join("\n") + "\n" : "";
+      })()
       + bibleTail.slice(0, 700) + seedBlock(fic).slice(0, 300)
       + (hooks ? "【每一章结束在哪儿】\n" + hooks.slice(0, 500) + "\n" : "")
       + (tail ? "【" + (lastMine ? "你写的那一章（也就是最后一章）的结尾" : "最后一章的结尾") + "】……" + tail + "\n" : "")
@@ -1623,7 +1674,7 @@
       + "也不许把这段对话本身写成情节。\n"
       + "⚠️商量好的就照着写。**但你要是不同意，就按你自己想的写**——"
       + "你是写这一章的人，不是替她记录的人。\n"
-      + "⚠️真没照她说的写，就在 authorNote 里当面跟她说一句为什么"
+      + "⚠️真没照她说的写，就在 penNote 里当面跟她说一句为什么"
       + "（「不行我觉得这样比较合理」那种口气，是" + (heName || "你") + "会说的话，不是道歉、不是请示）。"
       + "照着写了就不用提这件事。\n";
   }
@@ -1758,6 +1809,11 @@
       "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
       + "\"endHook\":\"本章新的结尾锚点，供再下一章接续\","
       + ((ghost || grabbed) ? "\"authorNote\":\"原作者看完这一章，在评论区底下留的那一句话\"," : "")
+      // ⚠️authorNote 是【原作者】的话，不是执笔人的。可 roomTalkBlock 一直叫他
+      //   「在 authorNote 里当面跟她说一句」，房里那张卡也拿 authorNote 当他说的话——
+      //   于是他交稿那一句其实是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
+      //   有一半是从这儿来的）。所以他自己那句另开一格。
+      + (byChar ? "\"penNote\":\"你把这一章交给她的时候，顺口说的那一句（你本人的口气，不是作者的；没什么可说就空字符串）\"," : "")
       + "\"facts\":[\"这一章新确立的事实，0-3 条，没有就空数组\"],"
       + "\"seed\":\"这一章新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
       + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]}\n"
@@ -1774,7 +1830,7 @@
     function salvageChapter(clean, cot) {
       const s = String(clean || "");
       const unesc = x => String(x || "").replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\").trim();
-      const m = s.match(/"content"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"(?:endHook|authorNote|facts|seed|paid)"|"\s*\}\s*$|$)/);
+      const m = s.match(/"content"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"(?:endHook|authorNote|penNote|facts|seed|paid)"|"\s*\}\s*$|$)/);
       if (!m || !m[1] || m[1].length < 200) return null; // 太短不算章节，宁可重试
       const one = k => { const x = s.match(new RegExp('"' + k + '"\\s*:\\s*"([\\s\\S]{1,300}?)"')); return x ? unesc(x[1]).replace(/\n/g, " ") : ""; };
       const list = k => {
@@ -1783,6 +1839,7 @@
         return (x[1].match(/"([\s\S]*?)"/g) || []).map(y => unesc(y.slice(1, -1))).filter(Boolean);
       };
       return { content: unesc(m[1]), endHook: one("endHook"), authorNote: one("authorNote").slice(0, 300),
+        penNote: one("penNote").slice(0, 300),
         facts: list("facts"), seed: one("seed"), paid: list("paid"), cot: cot || null };
     }
     // 思考型模型预算别抠（占 maxTokens），太紧就返回空；解析失败先抢救正文、再不行才重试一次
@@ -1796,6 +1853,7 @@
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
         facts: Array.isArray(d.facts) ? d.facts : [], seed: String(d.seed || "").trim(), paid: Array.isArray(d.paid) ? d.paid : [],
         authorNote: String(d.authorNote || "").trim().slice(0, 300),
+        penNote: String(d.penNote || "").trim().slice(0, 300),
         cot: sp.cot, cotRequested: !!cotT };
       return salvageChapter(sp.clean, sp.cot);
     }
@@ -1993,8 +2051,15 @@
     critics.forEach(function (c) { roster[c.name] = 1; });
     const own = String(fic.author || "").trim();
     return arr.filter(function (x) { return x && x.content; }).slice(0, 10).map(function (x) {
+      const nm = String(x.author || "").trim();
       const pen = String(x.pen || "").trim();
-      const fromRoster = pen && roster[pen] && String(x.author || "").trim() === pen;
+      // ⚠️原来非得【模型自己多填一格 pen、而且跟 author 写得一字不差】才算数，
+      //   漏填一次、写岔一个字，这位太太的名字就点不进她的主页了
+      //   （她 2026-09-11：「其他作者路过点不进她主页」）。
+      //   认哪一位不该指望模型：**名字本身就在名册/作者库里，直接查。**
+      //   有卡＝有主页，这才是「点不点得进去」的真判据。
+      const who = (pen && roster[pen]) ? pen : ((roster[nm] || findAuthor(nm)) ? nm : "");
+      const fromRoster = !!(pen && roster[pen] && nm === pen) || !!roster[nm];
       // ⚠️只记带刺的那几条（她 2026-09-11 定的）：夸的不记，不然这本账会被评论淹掉
       if (fromRoster && x.barbed && own) {
         circlePush({ a: pen, b: own, kind: "snark", title: fic.title, say: String(x.content).trim().slice(0, 60) });
@@ -2002,11 +2067,13 @@
       return {
         id: uid("rv"),
         author: String(x.author || "路人读者").slice(0, 20),
-        pen: fromRoster ? pen : "",
+        pen: who,
         isAuthor: !!x.isAuthor || String(x.author || "") === authorName,
         content: String(x.content).trim(),
         replies: Array.isArray(x.replies) ? x.replies.filter(function (r) { return r && r.content; }).slice(0, 4).map(function (r) {
-          return { id: uid("rp"), author: String(r.author || "路人读者").slice(0, 20), isAuthor: !!r.isAuthor || String(r.author || "") === authorName, content: String(r.content).trim() };
+          // 回复里那一层同样要点得进去——一层写在两处，少写一处就是「楼主点得进、楼中楼点不进」
+          const rn = String(r.author || "路人读者").slice(0, 20);
+          return { id: uid("rp"), author: rn, pen: (roster[rn] || findAuthor(rn)) ? rn : "", isAuthor: !!r.isAuthor || String(r.author || "") === authorName, content: String(r.content).trim() };
         }) : []
       };
     });
@@ -2613,7 +2680,7 @@
     WRITER_AXES: WRITER_AXES, rollWriterAxes: rollWriterAxes, charWriterBlock: charWriterBlock,
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
     circlePush: circlePush, circleBetween: circleBetween, circleFeud: circleFeud, circleLines: circleLines, sameCPWith: sameCPWith,
-    HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter,
+    HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter, heatFields: heatFields,
     authorHeatOf: authorHeatOf, heatBand: heatBand, roomTalkBlock: roomTalkBlock, ficRecapForChat: ficRecapForChat,
     // 房间那头要自己解析 CP、写出这一对的名字（loadCfg／activeStyleText 上面已经开过了）
     cpChars: cpChars, cpLabel: cpLabel,
@@ -3353,8 +3420,7 @@
           fic.bible = meta.bible; fic.seeds = meta.seeds;
           if (want && want.trim()) fic.lastWant = want.trim().slice(0, 600);
           // 热度：抢回来自己写＝她出手了，热度往下走；请了枪手才往上加
-          fic.authorHeat = window.Fanfic.heatAfter(fic, grabbed ? "own" : (by ? "ghost" : "own"), { by: by, hardWant: hard, feud: feud });
-          fic.heatTs = Date.now();
+          Object.assign(fic, window.Fanfic.heatFields(fic, { grabbed: grabbed, by: by, hardWant: hard, feud: feud }));
           // 她那句话挂在【这一章】上：章末显示，书评区不重复
           if (note) fic.reviews = (fic.reviews || []).concat([{
             id: uid("rv"), author: String(fic.author || "").trim() || "原作者", isAuthor: true,
@@ -3628,19 +3694,25 @@
         h("div", { className: "flex items-center gap-2 mb-4" },
           h("input", { value: newComment, onChange: function (e) { setNewComment(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") postComment(); }, placeholder: "写条书评…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
           h("button", { onClick: postComment, disabled: busy === "myrev", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "0 4px" } }, busy === "myrev" ? "…" : "发表")),
-        (function () { const rs = (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }); return rs.length ? rs.map(function (r) {
+        (function () {
+          // ⚠️这颗按钮只此一份：楼主那一行和楼中楼那一行都是它。
+          //   各写一份的结果就是「楼主点得进、回复里点不进」——同一件事写在两处的老毛病。
+          const penName = function (r, size) {
+            return (r.pen && props.onOpenAuthor)
+              ? h("button", { onClick: function () { props.onOpenAuthor(r.pen); }, className: "active:opacity-60",
+                  style: { fontFamily: F_BODY, fontSize: size, color: "inherit", background: "transparent", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 } }, r.author)
+              : r.author;
+          };
+          const rs = (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }); return rs.length ? rs.map(function (r) {
           return h("div", { key: r.id, className: "mb-3 pb-3", style: { borderBottom: "1px solid " + t.line } },
             // 名册里那几位：名字点得进她的主页（路人读者没有主页，照旧是死的）
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } },
-              r.pen && props.onOpenAuthor
-                ? h("button", { onClick: function () { props.onOpenAuthor(r.pen); }, className: "active:opacity-60",
-                    style: { fontFamily: F_BODY, fontSize: 12, color: "inherit", background: "transparent", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 } }, r.author)
-                : r.author,
+              penName(r, 12),
               r.isAuthor ? authorTag(t) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink } }, r.content),
             (r.replies || []).map(function (rp) {
               return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, rp.author + "：", rp.isAuthor ? authorTag(t) : null),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), "：", rp.isAuthor ? authorTag(t) : null),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, rp.content));
             }),
             replyTo === r.id

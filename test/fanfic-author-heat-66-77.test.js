@@ -140,7 +140,11 @@ test("② 抢笔：掷在调用点，而且当场告诉她", () => {
   assert.match(r, /if \(grabbed\) ch\.grabbed = true;/);
   assert.match(fic, /抢回去自己写的/, "章头上没标，翻回来就看不出这一章出过事");
   // 抢笔＝她出手了，热度该往下走
-  assert.match(r, /heatAfter\(fic, grabbed \? "own" : \(by \? "ghost" : "own"\)/);
+  // v67.19：那一行搬进了 heatFields（连 heatTs 一起交出去）——房里那条路原来
+  //   从头到尾没碰过 authorHeat（她 2026-09-11：「让角色代笔作者的热度也不会动」），
+  //   两条路各写一份必然漏一处。要证的还是【抢回来算自己写、请了人算 ghost】。
+  assert.match(r, /window\.Fanfic\.heatFields\(fic, \{ grabbed: grabbed, by: by/);
+  assert.match(fic, /const kind = o\.grabbed \? "own" : \(o\.by \? "ghost" : "own"\);/);
   // 提示词里写的是「你把笔抢回来」，不是「你很生气」
   assert.match(fic, /\*\*把笔抢回来自己写\*\*/);
   assert.match(fic, /别在正文里对读者解释这件事，正文还是正文/);
@@ -192,9 +196,9 @@ test("② 救援那条路要跟正路一样全", () => {
   //   照整段搜的话，就算 return 里一个都不捞，这条断言照样绿
   const ret = sv.slice(sv.indexOf("return { content:"));
   assert.ok(ret.length > 40, "抠不出救援那条路交回来的形状");
-  ["authorNote", "facts", "seed", "paid", "endHook"].forEach(k =>
+  ["authorNote", "penNote", "facts", "seed", "paid", "endHook"].forEach(k =>
     assert.ok(ret.indexOf(k) > 0, "救援路交回来的东西里没有 " + k + " —— 长章被截断走的正是这条"));
-  assert.match(sv, /endHook\|authorNote\|facts\|seed\|paid/, "正文的收尾锚点只认 endHook，后面那几栏一出现就会被当成正文吃进去");
+  assert.match(sv, /endHook\|authorNote\|penNote\|facts\|seed\|paid/, "正文的收尾锚点只认 endHook，后面那几栏一出现就会被当成正文吃进去");
   // 正路和救援路交回来的形状要对得上
   const once = fic.slice(fic.indexOf("async function once(extra)"), fic.indexOf("let out = await once"));
   ["authorNote", "facts", "seed", "paid", "endHook"].forEach(k =>

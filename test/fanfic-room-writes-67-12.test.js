@@ -32,7 +32,7 @@ test("商量好的照办，但分歧按他的来——这一条是她要的那�
   // ⚠️分歧按他的来，而且要当面说一句为什么
   assert.match(out, /\*\*但你要是不同意，就按你自己想的写\*\*/);
   assert.match(out, /你是写这一章的人，不是替她记录的人/);
-  assert.match(out, /在 authorNote 里当面跟她说一句为什么/);
+  assert.match(out, /在 penNote 里当面跟她说一句为什么/);
   assert.match(out, /「不行我觉得这样比较合理」那种口气，是沈屿白会说的话，不是道歉、不是请示/);
   assert.match(out, /照着写了就不用提这件事/, "不给出口的话，每一章都要解释一遍自己为什么听话");
   // 没商量过就一个字都不发
@@ -107,7 +107,7 @@ test("点了才花那一枪，而且写的是这间房的这个人", () => {
   assert.match(h, /K\.saveFics\(fics\);/);
   // 推卡回房：只放开头两百字 + 他那句话
   assert.match(h, /kind: "ficdone", ficId: f\.id/);
-  assert.match(h, /say: String\(ch\.authorNote \|\| ""\)\.trim\(\)\.slice\(0, 300\)/);
+  assert.match(h, /say: String\(ch\.penNote \|\| ""\)\.trim\(\)\.slice\(0, 300\)/);
   assert.match(h, /content: String\(ch\.content \|\| ""\)\.trim\(\)\.slice\(0, 200\)/);
   // 那一篇被删了就别硬写
   assert.match(h, /if \(!f\) \{ toast\("那一篇找不到了"\); return; \}/);
