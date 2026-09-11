@@ -58,7 +58,7 @@ test("搜得到：标题／笔名／CP 里那几个人／标签，而且跨版�
   assert.match(seg, /return \[f\.title, f\.author \|\| ficPenName\(f\.id\), cpNames, \(f\.tags \|\| \[\]\)\.join\(" "\),/,
     "标题／笔名／CP 里的人／标签，有一样没拼进去");
   // 「按 CP 找」靠的就是把 CP 里的人名一起搜进去
-  assert.match(seg, /const c = characters\.find\(function \(x\) \{ return x\.id === id; \}\)/);
+  assert.match(seg, /const c = cast\.find\(function \(x\) \{ return x\.id === id; \}\)/);
   assert.match(fic, /if \(meOnly && !ficHasMe\(f\)\) return false/);
   assert.match(fic, /if \(kw\) return !f\.onShelf;/, "搜的时候没跨版——她多半不记得那篇在哪一版");
   assert.match(fic, /"跨版搜「" \+ q\.trim\(\) \+ "」· " \+ list\.length/, "搜出几篇要看得见");

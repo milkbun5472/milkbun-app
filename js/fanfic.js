@@ -4905,10 +4905,27 @@
 
     // 生成
     async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay) {
+      // ⚠️**用 cast 不是 characters**（她 2026-09-11 那三篇的病根就在这一行）：
+      //   characters 是【真人角色】那一份，不含配角；cast 才是含配角的全量。
+      //   挑人那一格用的是 cast（所以她挑得到「萧成烨」），可这一枪用的是 characters，
+      //   于是配角出身的那一位在 cpChars 里【解析不出来、被 filter(Boolean) 悄悄丢掉】，
+      //   两个人的 CP 变成一个人 —— cpBlock 就掉进「A × 原创对象」那一支，
+      //   提示词上明明白白写着「另一方是一个由你设定的原创角色」。
+      //   模型照做了：那只精怪、那个沈清和，都是这么来的。少掉的那一位从来没进过提示词。
+      //   （一层写在两处、第二处没跟上：picker 升级成 cast 时，这一枪没跟着升。）
+      const missing = (cp || []).filter(function (tok) {
+        return tok && tok !== "me" && !cast.some(function (c) { return c && c.id === tok; });
+      });
+      // ⚠️再加一道明的：解析不出来就别开枪。悄悄少一位＝花了钱拿回一篇写跑的文，
+      //   而她要翻开才知道。
+      if (missing.length) {
+        props.toast && props.toast("这一对里有 " + missing.length + " 位找不到了（多半是被删了），先去「谁和谁」重挑一下");
+        return;
+      }
       setGearOpen(false);
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
       const run = async function (updateProgress) {
-        const chars = cpChars(cp, characters, props.profile);
+        const chars = cpChars(cp, cast, props.profile);
         const routedWorldbook = props.worldbookFor ? props.worldbookFor((cp || []).filter(function (id) { return id && id !== "me"; }), [curTab.name, curTab.desc, (briefs || []).join("\n")].filter(Boolean).join("\n")) : props.worldbook;
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
@@ -5076,7 +5093,8 @@
       const hay = function (f) {
         const cpNames = (f.cp || []).map(function (id) {
           if (id === "me") return userName + " 我";
-          const c = characters.find(function (x) { return x.id === id; });
+          // ⚠️同上：按 CP 找的时候也得看得见配角，不然写配角的那几篇搜不出来
+          const c = cast.find(function (x) { return x.id === id; });
           return c ? (c.name + " " + (c.remark || "")) : "";
         }).join(" ");
         return [f.title, f.author || ficPenName(f.id), cpNames, (f.tags || []).join(" "),
