@@ -890,20 +890,30 @@ function MsgBanners({ list, onOpen }) {
   if (!arr.length) return null;
   return ReactDOM.createPortal(
     h("div", { style: { position: "fixed", top: safeTop(8), left: 10, right: 10,
-      zIndex: APP_OVERLAY_LAYERS.banner, display: "flex", flexDirection: "column", gap: 7, pointerEvents: "none" } },
+      zIndex: APP_OVERLAY_LAYERS.banner, pointerEvents: "none" } },
       h("style", null,
         "@keyframes msgb-in{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}"
         + "@keyframes msgb-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-18px)}}"),
-      arr.map((b, i) => h("button", {
+      // ⚠️她 2026-09-11：「不是三个都显示，是像 notification 那样会 overlap 盖住上一条」。
+      //   所以这是【一摞】不是【一列】：新的那条压在最上面，旧的缩在它底下只露出一道边。
+      //   第一条留在文档流里撑高度，后面那几条绝对定位垫在它下面。
+      h("div", { style: { position: "relative" } }, arr.map((b, i) => h("div", {
         key: b.key,
+        style: Object.assign({
+          zIndex: 10 - i,
+          transformOrigin: "top center",
+          // 往下挪一点点、缩一点点：只露出后面那条的一道边，像系统通知那样
+          transform: "translateY(" + (i * 7) + "px) scale(" + (1 - i * 0.05) + ")",
+          animation: (b.leaving ? "msgb-out .3s ease both" : "msgb-in .22s ease both")
+        }, i === 0 ? { position: "relative" } : { position: "absolute", top: 0, left: 0, right: 0 })
+      }, h("button", {
         onClick: () => onOpen && onOpen(b),
         "data-wk": "msgbanner",
         className: "w-full active:opacity-70",
-        style: { pointerEvents: "auto", display: "block", textAlign: "left",
+        style: { pointerEvents: i === 0 ? "auto" : "none", display: "block", textAlign: "left",
           background: t.bg2, border: "1px solid " + t.line, borderRadius: 18,
-          boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px",
-          transformOrigin: "top center", transform: "scale(" + (1 - i * 0.03) + ")", opacity: 1 - i * 0.14,
-          animation: (b.leaving ? "msgb-out .3s ease both" : "msgb-in .22s ease both") } },
+          boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px" }
+      },
         h("div", { className: "flex items-center gap-3" },
           h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
           h("div", { className: "flex-1 min-w-0" },
@@ -913,7 +923,7 @@ function MsgBanners({ list, onOpen }) {
               b.tag ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog,
                 border: "1px solid " + t.line, borderRadius: 6, padding: "1px 4px" } }, b.tag) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))))),
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))))))),
     document.body);
 }
 function Toggle({

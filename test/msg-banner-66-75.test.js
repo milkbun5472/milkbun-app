@@ -65,8 +65,14 @@ test("顶上那张卡跟来电横幅同一个形状，不另发明一种", () =>
   assert.match(mb, /ReactDOM\.createPortal/);
   assert.match(mb, /zIndex: APP_OVERLAY_LAYERS\.banner/);
   assert.match(co, /banner: 1220/, "层级没登记在那张表里");
-  // 一摞：最多三条，后面的往后缩
+  // ⚠️她 2026-09-11：「不是三个都显示，是像 notification 那样会 overlap 盖住上一条」。
+  //   一摞、不是一列：新的压在最上面（z 最高），旧的垫在底下只露一道边。
   assert.match(mb, /\.slice\(0, 3\)/);
-  assert.match(mb, /transform: "scale\(" \+ \(1 - i \* 0\.03\) \+ "\)"/);
+  assert.match(mb, /zIndex: 10 - i/);
+  assert.match(mb, /transform: "translateY\(" \+ \(i \* 7\) \+ "px\) scale\(" \+ \(1 - i \* 0\.05\) \+ "\)"/);
+  assert.match(mb, /i === 0 \? \{ position: "relative" \} : \{ position: "absolute", top: 0, left: 0, right: 0 \}/,
+    "后面那几条没垫到同一处，就又成了并排三张卡");
+  // 盖住的那几条点不到（点下去只会是最上面那条）
+  assert.match(mb, /pointerEvents: i === 0 \? "auto" : "none"/);
   assert.match(mb, /h\(Avatar, \{ character: b\.who/, "没有头像，认不出是谁发的");
 });
