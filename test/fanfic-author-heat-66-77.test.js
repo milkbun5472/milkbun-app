@@ -115,12 +115,15 @@ test("热度那个数一个字都不进提示词，进去的是【事实】", ()
 test("① 她那句话跟这一章同一枪出，不另打一枪", () => {
   const ask = M.authorNoteAsk({ author: "青梅" }, "老陈", false);
   assert.match(ask, /\*\*那是另一个人在开口，不是你\*\*/, "不说清站位，枪手会用自己的语气写原作者的话");
-  assert.match(ask, /不必每章都有话/, "逼它每章都说，说出来的就是废话");
+  // v66.91 收窄：那句本来是防它硬挤废话，结果成了「可以一直不说」（她 2026-09-11 报的就是这个）。
+  // 现在出口留在【说什么】上，不留在【说不说】上——下面那条新测试钉着。
+  assert.match(ask, /心平气和也写一句心平气和的；挑不出毛病就说挑不出毛病/, "不给「说什么」的出口，它只会写成一句客气话");
   assert.ok(ask.indexOf("不打算再写这篇") < 0, "没撂挑子的那一次也在说「不写了」");
   const quit = M.authorNoteAsk({ author: "青梅" }, "老陈", true);
   assert.match(quit, /她已经不打算再写这篇了/);
   // 零额外成本：authorNote 是这一枪 JSON 里多出来的一栏
-  assert.ok(fic.indexOf(',\\"authorNote\\":\\"原作者看完这一章在评论区留的一句话') > 0, "输出形状里没有 authorNote 这一栏");
+  // v66.91 挪了位置（从队尾挪到正文和锚点后面），措辞也跟着短了一点
+  assert.ok(fic.indexOf('\\"authorNote\\":\\"原作者看完这一章，在评论区底下留的那一句话\\",') > 0, "输出形状里没有 authorNote 这一栏");
   assert.match(fic, /authorNote: String\(d\.authorNote \|\| ""\)\.trim\(\)\.slice\(0, 300\)/);
   // 挂在【这一章】上，所以章末显示、书评区不重复
   assert.match(fic, /chapterIdx: newIdx/);
@@ -164,4 +167,44 @@ test("③ 能翻脸就得能和好，而且成不成由代码定", () => {
   assert.match(g, /【这一次你没答应】/);
   assert.match(g, /别写成一句客气的场面话/);
   assert.ok(g.indexOf("你自己决定要不要答应") < 0, "把「答不答应」交回给模型了");
+});
+
+// ── 她 2026-09-11 报：「为啥请枪手最后没有原作者的感想」──────────────────
+// 三个原因叠在一起，没有一个是「模型不配合」：
+//  ① authorNote 排在输出形状的**最后一个**，而截断永远从队尾开始——正文一长它第一个没。
+//  ② 救援那条路（长章被截断走的正是它）只认 content / endHook，
+//     v66.77~79 给正路加的 authorNote / facts / seed / paid **一个都没跟上**。
+//  ③ 出口给太宽了：「不必每章都有话」本来是防它硬挤废话，结果成了「可以一直不说」。
+test("① authorNote 挪到队首那几栏里——截断从尾巴开始", () => {
+  // ⚠️先把注释剥掉：上面那段病历里也写着 authorNote，不剥的话量到的是注释的位置
+  const out = strip(fic.slice(fic.indexOf('"【输出】只输出一个合法 JSON 对象'), fic.indexOf("const userMsg = \"续写《")));
+  const at = k => out.indexOf('\\"' + k + '\\"');
+  assert.ok(at("content") > 0 && at("authorNote") > 0 && at("facts") > 0 && at("paid") > 0, "输出形状抠不出来");
+  assert.ok(at("authorNote") < at("facts") && at("authorNote") < at("paid"), "authorNote 又排到队尾去了——正文一长它第一个被切掉");
+  assert.ok(at("content") < at("authorNote"), "它得写在正文后面：刚读完才说得出话");
+  assert.match(fic, /字段顺序＝生成顺序，而\*\*截断永远从队尾开始\*\*/);
+});
+
+test("② 救援那条路要跟正路一样全", () => {
+  // ⚠️又是注释：上面那段病历里把 authorNote/facts/seed/paid 全点了一遍，不剥就永远绿
+  const sv = strip(fic.slice(fic.indexOf("function salvageChapter(clean, cot)"), fic.indexOf("    // 思考型模型预算别抠")));
+  // ⚠️只看【交回来的那个对象】：那几个名字在上面那条正则的锚点清单里也出现，
+  //   照整段搜的话，就算 return 里一个都不捞，这条断言照样绿
+  const ret = sv.slice(sv.indexOf("return { content:"));
+  assert.ok(ret.length > 40, "抠不出救援那条路交回来的形状");
+  ["authorNote", "facts", "seed", "paid", "endHook"].forEach(k =>
+    assert.ok(ret.indexOf(k) > 0, "救援路交回来的东西里没有 " + k + " —— 长章被截断走的正是这条"));
+  assert.match(sv, /endHook\|authorNote\|facts\|seed\|paid/, "正文的收尾锚点只认 endHook，后面那几栏一出现就会被当成正文吃进去");
+  // 正路和救援路交回来的形状要对得上
+  const once = fic.slice(fic.indexOf("async function once(extra)"), fic.indexOf("let out = await once"));
+  ["authorNote", "facts", "seed", "paid", "endHook"].forEach(k =>
+    assert.ok(once.indexOf(k) > 0, "正路少了 " + k));
+});
+
+test("③ 出口留在「说什么」上，不留在「说不说」上", () => {
+  const ask = M.authorNoteAsk({ author: "青梅" }, "老陈", false);
+  assert.ok(ask.indexOf("不必每章都有话") < 0, "那句又回来了——它本来是防硬挤废话，结果成了「可以一直不说」");
+  assert.match(ask, /这一章是别人替她写的，她\*\*一定\*\*看了——所以这一栏默认是有话的/);
+  assert.match(ask, /心平气和也写一句心平气和的；挑不出毛病就说挑不出毛病/, "不给「说什么」的出口，它只会写成一句客气话");
+  assert.match(ask, /只有在她压根不在乎这篇文的时候才留空/);
 });

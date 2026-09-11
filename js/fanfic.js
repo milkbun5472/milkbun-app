@@ -1049,7 +1049,12 @@
     return "\n【还要一句 authorNote】这篇文的原作者「" + own + "」看完这一章之后，在评论区底下留的一句话。"
       + "⚠️**那是另一个人在开口，不是你**（你是" + (ghostName ? "「" + ghostName + "」，被请来接这一章的" : "执笔的那位") + "）——"
       + "她的口气照她自己的脾气来：文风、剧情走向、哪儿写得不对她的意、或者干脆跟这章无关的一句吐槽，都行。"
-      + "\n她要是没什么想说的，就留空字符串——**不必每章都有话**。"
+      // ⚠️这个出口原来给得太宽（「不必每章都有话」）——那句本来是防它硬挤一句废话，
+      //   结果成了「可以一直不说」。代笔章她**一定**看了，所以默认是有话的；
+      //   出口留在「说什么」上，不留在「说不说」上。
+      + "\n⚠️这一章是别人替她写的，她**一定**看了——所以这一栏默认是有话的。"
+      + "心平气和也写一句心平气和的；挑不出毛病就说挑不出毛病。"
+      + "只有在她压根不在乎这篇文的时候才留空字符串。"
       + (quitting ? "\n⚠️而且这一次，她已经不打算再写这篇了。把这件事在这句话里说出来（怎么说、说得多难听，还是照她的脾气）。" : "");
   }
 
@@ -1195,23 +1200,37 @@
       }) : "") + "\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
+      // ⚠️字段顺序＝生成顺序，而**截断永远从队尾开始**。
+      //   她 2026-09-11 报「请枪手最后没有原作者的感想」——authorNote 原来排在最后一个，
+      //   正文一长、尾巴被切掉，这一栏就第一个没了。挪到正文和锚点后面、设定卡那几栏前面：
+      //   既是「刚读完就说一句」的自然顺序，也让它活过截断。
       "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
       + "\"endHook\":\"本章新的结尾锚点，供再下一章接续\","
+      + ((ghost || grabbed) ? "\"authorNote\":\"原作者看完这一章，在评论区底下留的那一句话\"," : "")
       + "\"facts\":[\"这一章新确立的事实，0-3 条，没有就空数组\"],"
       + "\"seed\":\"这一章新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
-      + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]"
-      + ((ghost || grabbed) ? ",\"authorNote\":\"原作者看完这一章在评论区留的一句话；没什么想说的就空字符串\"" : "") + "}\n"
+      + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]}\n"
       + ((ghost || grabbed) ? authorNoteAsk(fic, ghost ? penName : "", !!opts.quitting) + "\n" : "") + BIBLE_WHAT +
       (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
     const userMsg = "续写《" + fic.title + "》的下一章，至少 " + minWords + " 字。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
+    // ⚠️这条救援路要跟正路**一样全**。她 2026-09-11 报「请枪手最后没有原作者的感想」，
+    //   一半原因在这儿：v66.77~79 给正路加了 authorNote / facts / seed / paid，
+    //   救援这条一个都没跟上——而长章被截断走的正是救援。
+    //   又一次「一层写在两处，第二处没跟上」（施工规则/four-surfaces-same-context.md）。
     function salvageChapter(clean, cot) {
       const s = String(clean || "");
-      const m = s.match(/"content"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"endHook"|"\s*\}\s*$|$)/);
+      const unesc = x => String(x || "").replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\").trim();
+      const m = s.match(/"content"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"(?:endHook|authorNote|facts|seed|paid)"|"\s*\}\s*$|$)/);
       if (!m || !m[1] || m[1].length < 200) return null; // 太短不算章节，宁可重试
-      const txt = m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\").trim();
-      const hk = s.match(/"endHook"\s*:\s*"([\s\S]{1,200}?)"/);
-      return { content: txt, endHook: hk ? hk[1].replace(/\\n/g, " ").trim() : "", cot: cot || null };
+      const one = k => { const x = s.match(new RegExp('"' + k + '"\\s*:\\s*"([\\s\\S]{1,300}?)"')); return x ? unesc(x[1]).replace(/\n/g, " ") : ""; };
+      const list = k => {
+        const x = s.match(new RegExp('"' + k + '"\\s*:\\s*\\[([\\s\\S]{0,600}?)\\]'));
+        if (!x) return [];
+        return (x[1].match(/"([\s\S]*?)"/g) || []).map(y => unesc(y.slice(1, -1))).filter(Boolean);
+      };
+      return { content: unesc(m[1]), endHook: one("endHook"), authorNote: one("authorNote").slice(0, 300),
+        facts: list("facts"), seed: one("seed"), paid: list("paid"), cot: cot || null };
     }
     // 思考型模型预算别抠（占 maxTokens），太紧就返回空；解析失败先抢救正文、再不行才重试一次
     async function once(extra) {
