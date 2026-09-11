@@ -124,7 +124,9 @@ test("动作那一行只在真变了的时候摆一次，而且这道闸在代�
   // 上一次摆出来的那条就存在聊天记录里，拿它比——不另存一份游标
   assert.match(blk, /const _rows = chatsRef\.current\[chatKey\] \|\| \[\];/);
   assert.match(blk, /m\.who === "char" && \(m\.role === "narration" \|\| m\.kind === "narration"\)/);
-  assert.match(blk, /if \(_line !== _prevAct\) pChat\(chatKey/, "没比就写＝每轮刷一行，两天就腻了");
+  // v67.18：裸比较换成了公共的 sameActLine——模型换个标点、句尾多个「了」，
+  //   原来那道闸一次都拦不住（她 2026-09-11：「有我的群还是一句一个动作」）。
+  assert.match(blk, /if \(!sameActLine\(_line, _prevAct\)\) pChat\(chatKey/, "没比就写＝每轮刷一行，两天就腻了");
   assert.match(blk, /who: "char"/);
   // 她 2026-09-09：「然后动作放气泡前面」——先看见他在干嘛，再看见他说什么
   assert.ok(app.indexOf("if (_actDesc && onlineAction") < app.indexOf("for (let i = 0; i < words.length; i++)"),
@@ -181,7 +183,7 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.ok(i > 0, "群里那一行没接上");
   const blk = app.slice(i, i + 1100);
   assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "拿全群最后一条比，两个人的动作会互相盖掉");
-  assert.match(blk, /if \(gActionNow !== _gprevAct\) pGChat\(groupId/);
+  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\)\) pGChat\(groupId/);
   assert.match(blk, /senderId: spk\.id, senderName: spk\.name/, "群里不写是谁做的，三个人就认不出来了");
   // 摆在这一条发言的气泡【前面】
   assert.ok(i < app.indexOf("for (let j = 0; j < gBubbles.length; j++)"));

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.17";
+const APP_VERSION = "v67.18";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8366,7 +8366,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const m = _rows[i];
           if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
         }
-        if (_line !== _prevAct) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Math.max(0, _tsOf(0) - 1), turnId }]);
+        if (!sameActLine(_line, _prevAct)) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Math.max(0, _tsOf(0) - 1), turnId }]);
       }
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
@@ -9225,6 +9225,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
       if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       const nMin = Math.min(Math.min(3, members.length), nMax);
+      // 「接彼此的话」这句只许有一份：她开口那一轮和她没出声那一轮都从这儿取。
+      const G_EACH_OTHER = "接彼此的话、顺着跑题、拌嘴、补刀、翻旧账、动手做下去都行";
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。" : "**这一轮的额度只剩这么多，说到就停，别硬凑也别多写——多出来的会被丢掉。**") + "\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
       // 今天是谁的生日（她 2026-09-10：「他们生日还是总是觉得是我生日说我是寿星」）。
       // ⚠️群里【本来就有】每个人的生日：成员那一段的 ageLineFor 里写着「生日 X · 就是今天」。
@@ -9276,7 +9278,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + (gGroupShotOk ? "\ngroup 是多人合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；**一个人在场时不许用**。" : "")
         + "\n一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
+      // ⚠️**action 这一格的说法只许有一份**（她 2026-09-11：「有我的群还是一句一个动作」）。
+      //   下面 gActionField 早就改成了「没变就原样填写」，可【心声与心情】这一段里
+      //   还留着一句职责一模一样、意思正好相反的：「每次随情境更新、别照抄上一动作」。
+      //   而这一段【只在记忆互通开着时才发】，互通正是「有我的群」的常态——
+      //   于是她那几个群里每一条都被要求换一个新动作：
+      //     · 代码那道「没变就别刷屏」的闸比的是字符串相等，当然一次都拦不住 → 一句一个动作；
+      //     · 模型还得为每一条现编一个新动作，太贵，索性一人只说一句
+      //       → 「我说话他们就不互相接话了」的另一半也在这儿。
+      //   两处说同一件事，就得是同一份字。
+      //   （不带「action」这个词，是因为它在 JSON 字段里本来就是 key，重复一遍很傻。）
+      const G_ACTION_SPEC = "发这句话时正在做的一件事（简短一句）。当前事实没变、原来那句仍然准确时就【原样填写】，别为了交字段换措辞、也别硬造一个新动作；同一个人连着发好几条时只按事实有没有变来定，不必每条都换一个新的。";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -9306,8 +9319,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   写成「每次更新」的后果是：同一个人连发三条，模型得为三条各编一个新动作——
       //   太贵，于是它干脆一个人只发一条，一轮里你一言我一语就没了
       //   （她 2026-09-11：「开了群里的动描感觉整体回复气泡都变短了，以前还可以一轮相互接话」）。
-      //   两处说同一件事，措辞得是同一个意思。
-      const gActionField = ",\"action\":\"该成员此刻正在做的事（简短一句）。当前事实没变、原来那句仍然准确时【原样填写】，别为了交字段换措辞或制造动作；同一个人连发好几条时，只按事实变没变来，不必每条都换一个新动作\"";
+      //   ⚠️措辞取的就是上面那一份 G_ACTION_SPEC——这两处上一轮只改好了这一处，
+      //   另一处还在反着说，她当天就又报了一次。
+      const gActionField = ",\"action\":\"" + G_ACTION_SPEC + "\"";
       const thoughtField = gs.memoryInterop
         ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
         : (_gActDesc ? gActionField : "");
@@ -9387,6 +9401,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
       let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? "【旁白】" + m.content : userName(profile) + quoteLead + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      // ── 她开口的那一轮，也得有人告诉他们「接彼此的话」（她 2026-09-11）──────
+      // 她原话：「群里还是我说话他们就不互相接话了」。
+      // ⚠️病根是这一层**只长在一条分支上**：她没出声那一轮（下面 !tail.length 那段）
+      //   写着「接彼此的话、互相拌嘴都行」；她一开口，这句就整个没了，
+      //   剩下的只有训练先验——用户发言＝每个助手排队作答一句。
+      // ⚠️而真正说明白「别围着用户转」的那两句，又只写给了旁观群和她旁观的私下对话，
+      //   那两种她都不在场。也就是说：
+      //   **她在场的群，是唯一一种没人告诉他们要互相接话的群。**
+      //   跟生日那次是同一个形状：只说了【是谁的】，没说【不是谁的】，
+      //   模型塌的永远是没说的那一半。
+      // ⚠️旁观群和她旁观的两人私聊不发这一段：她根本不在场，「她说了话」这个前提就不成立，
+      //   dir 里也早写着别围着她转。
+      if (tail.length && !gs.spectate && !asPrivate) userContent += "\n\n【" + _uN + "说了话，但那不是点名提问】"
+        + "她在群里说一句，跟真人在群里说一句是一回事：**不是每个人都得答一句**，"
+        + "更不是一人一句排着队答完就算这一轮完了。"
+        + "\n· 有人接住她之后，话头就该滑到你们几个中间去——" + G_EACH_OTHER + "。"
+        + "\n· 也可以有人压根没先接她那句，接的是上一位成员还没说完的话。"
+        + "\n· ⚠️**这一轮只要不止两条，就至少要有一条是说给另一个成员听的，不是说给她听的。**"
+        + "\n· 别写成「每个人对着她表态一轮」——那是客服轮班，不是群聊。";
       // 让他们自己接着聊时，记录里会连着好几轮没有用户发言。模型读到这个只会得出一个结论：
       // 「她不理我」——于是第二轮开始整群都在演被冷落（她 2026-08-20 报）。
       // 用户没说话不是冷落，是她此刻不在这个话题里；这句必须写死，不然它自己会脑补。
@@ -9403,7 +9436,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n⚠️**「没出声」不等于「不在场」**：上文里正在发生的事，人还是那些人、地方还是那个地方。"
         + "TA 要是本来就在这场面里，那 TA 现在【仍然在】，只是这一轮没开口——绝不许因为 TA 没说话就把 TA 挪走、写成 TA 走了/睡了/不在了，"
         + "更不许把上文那一场丢掉、另起一个话题或者从头把场面重新铺一遍。**顺着上面正在发生的那件事往下接。**"
-        + "\n这一轮由你们几个把话往下推：接彼此的话、动手做下去、互相拌嘴都行；TA 没开口的这段时间里该发生什么就发生什么。"
+        + "\n这一轮由你们几个把话往下推：" + G_EACH_OTHER + "；TA 没开口的这段时间里该发生什么就发生什么。"
         + "**绝不许出现「怎么不说话」「是不是不理我了」「人呢」「@" + userName(profile) + "」这类冲着 TA 要回应的话，也不许因此闹脾气或反复提起 TA。**"
         + "TA 什么时候插话都可以，到时候再自然接住就是了。"
         // ⚠️她开着「同处一室」的时候，上面 system 里那句 samePlacePresence 已经写明
@@ -9592,7 +9625,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 const mm = _grows[k];
                 if (mm && mm.who === "char" && String(mm.senderId) === String(spk.id) && (mm.role === "narration" || mm.kind === "narration")) { _gprevAct = String(mm.content || "").trim(); break; }
               }
-              if (gActionNow !== _gprevAct) pGChat(groupId, p => [...p, {
+              if (!sameActLine(gActionNow, _gprevAct)) pGChat(groupId, p => [...p, {
                 role: "narration", kind: "narration", who: "char",
                 senderId: spk.id, senderName: spk.name, content: gActionNow,
                 mid: "gm_" + Date.now() + "_" + i + "_act", ts: Date.now(), turnId: gTurnId

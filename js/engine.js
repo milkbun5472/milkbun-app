@@ -1730,6 +1730,20 @@ function bubbleProtectQuote(x) {
 const bubbleRestore = x => String(x)
   .replace(/[\ue000-\ue006]/g, c => BUBBLE_QPUNC.charAt(c.charCodeAt(0) - BUBBLE_QSEP0))
   .split(BUBBLE_NUMSEP).join(",");
+// ── 动描那道「没变就别刷屏」的闸（单聊和群聊共用）────────────────────
+// 两处都写着「提示词只降概率，代码才保证」，可比的是【字符串完全相等】——
+// 模型换一个标点、把「他」换成「她」、句尾多个「了」，这道闸就一次都拦不住。
+// 她 2026-09-11 报「有我的群还是一句一个动作」，一半就是从这儿漏过去的。
+// 所以比之前先把标点、空白和句尾的语气字去掉再比；真换了一件事照样拦不住它，
+// 那本来就该显示出来。
+const ACT_TAIL = /[了着过呢吧啊呀嘛哦噢的]+$/;
+function sameActLine(a, b) {
+  const norm = x => String(x == null ? "" : x).trim()
+    .replace(/[\s，,。.、！!？?；;：:…—～~\-]/g, "")
+    .replace(ACT_TAIL, "");
+  const x = norm(a), y = norm(b);
+  return !!x && x === y;
+}
 function splitLongBubble(s, allowComma) {
   s = bubbleProtectQuote(bubbleProtectNum(String(s == null ? "" : s).trim()));
   if (!s) return [];
