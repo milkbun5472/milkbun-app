@@ -16,9 +16,10 @@ const grab = name => {
   for (let k = j; k < fic.length; k++) { if (fic[k] === "{") d++; else if (fic[k] === "}") { d--; if (!d) { j = k + 1; break; } } }
   return fic.slice(i, j);
 };
-const box = { FIC_PERSONA_CAP: 3000 };
+const box = { FIC_PERSONA_CAP: 3000, loadJSON: (k, fb) => fb };
 vm.createContext(box);
-vm.runInContext(grab("personaOf") + grab("sideDesc") + grab("cpBlock") + grab("groupWayOf") + grab("cpLabel")
+vm.runInContext(grab("personaOf") + grab("sideDesc") + grab("worldIdentityLine") + grab("evenSidesLine")
+  + grab("cpBlock") + grab("groupWayOf") + grab("cpLabel")
   + "\nthis.M = { cpBlock, cpLabel, groupWayOf };", box);
 const M = box.M;
 const P = n => ({ name: n, persona: n + "的人设" });

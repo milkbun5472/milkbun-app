@@ -681,6 +681,34 @@
   //   都得把这篇文的群像向带上。写成这一行，新开第四枪时照抄就行——
   //   不然那一处又会是「一层写在四处、第四处没跟上」的那一处。
   function ficOpts(fic, opts) { return Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) }); }
+  // ── 同人文到底是什么 ──────────────────────────────────────────────
+  // 她 2026-09-11 亲口定的：**「同人文本来就是『他们俩换了个身份世界观继续相爱』。」**
+  // 她同一轮还说：「他们身份也不应该被带入同人文吧」——
+  // ⚠️所以上一版我顺手加的「把他俩在主线里的关系发过去」是反的，当场撤掉（不是留着不发）：
+  //   带进去的是【这个人】，不是【他在别处的身份和关系】。
+  //
+  // 这一条同时是「皇帝一场都没出」那件事的另一半解法：
+  // 原来一整份提示词里没有任何一句说过【这一篇里他们各自是谁】，
+  // 于是模型只给料多的那一位安排了身份，另一位就飘着——飘着的那位最容易被顶掉。
+  function worldIdentityLine(cpChars) {
+    const who = (cpChars || []).filter(Boolean).map(function (c) { return "「" + c.name + "」"; });
+    if (who.length < 2) return "";
+    return "\n【这一篇里他们各自是谁】同人文写的是**这几个人换了一个身份、换了一个世界观，继续是他们自己**：\n"
+      + "· 照卡来的是【这个人】——性格、说话的调子、在意什么、碰不得哪儿、跟人相处的方式。\n"
+      + "· **不照卡来的是身份**：卡上写的职业、位分、所处的时代，在这一篇里不算数；"
+      + "他们在这个世界里靠什么活着、彼此怎么认识的，由你按本版世界观现安排。\n"
+      + "· ⚠️" + who.join("、") + "**每一位都要安排到**：不许只给其中一位安排好身份和处境，另一位顺手带过——"
+      + "飘着的那一位下一步就会被别人顶掉。\n";
+  }
+  // 戏份是对半的。⚠️不说这一句，模型会按【谁的卡写得长谁是主角】来分篇幅：
+  //   她那三篇里没出场的那位，卡上只有一句话（配角出身的角色卡天生短）。
+  // ⚠️这儿一个字都不许提「谁是配角出身」——那正是她说的【不该带进同人文的身份】。
+  function evenSidesLine(cpChars) {
+    if (!cpChars || cpChars.length < 2) return "";
+    return "\n⚠️**戏份是对半的**：每一位都要出场、开口、有自己要办的事和自己的立场。"
+      + "卡上写得长的那一位不许因此多占篇幅，写得短的那一位也不是背景板——"
+      + "卡的长短是卡的事，不是戏份的事。\n";
+  }
   function cpBlock(cpChars, opts) {
     opts = opts || {};
     if (!cpChars || !cpChars.length)
@@ -712,7 +740,8 @@
         + "\n⚠️**不是每个人都要出场**：谁是这一篇的重心由你定，有人只出现一次、有人从头到尾没露面都行。"
         + "别写成点名册——一人一段轮流发言、每个人都分到一场戏，那是通讯录不是故事。"
         + "\n⚠️人多了最容易丢的是【谁是谁】：几个人说话的调子、在意的事、动手的方式都得分得开，"
-        + "不许几个人共用一种语气。";
+        + "不许几个人共用一种语气。"
+        + worldIdentityLine(cpChars) + evenSidesLine(cpChars);
     }
     if (cpChars.length === 1) {
       const c = cpChars[0];
@@ -723,11 +752,20 @@
     // 带上我：写成 A × 我 × B 三人同框
     if (bothChars && opts.includeMe) {
       const meName = opts.meName || "我";
-      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + posRule(a.name, b.name);
+      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + posRule(a.name, b.name);
     }
     // 只他俩 CP：即便角色卡写了「我男朋友」，也不把「我」带进文里
     const soloTail = bothChars ? "\n【只写这两人】这是 " + a.name + " × " + b.name + " 的双人同人文，读者/『我』不出场、不作为角色写进去；就算某人的设定里写了 TA 是「我的男朋友/恋人」，本篇也只聚焦他们两人彼此，别把「我」拉进来凑三人。" : "";
-    return "【CP：" + a.name + " × " + b.name + "】\n两位主角各自守住各自设定、别互相同化。\n· " + sideDesc(a) + "\n· " + sideDesc(b) + soloTail + posRule(a.name, b.name);
+    // ⚠️她 2026-09-11 撞到的那一篇：点的是「皇帝 × 王爷」，写出来是「王爷 × 一个精怪」，
+    //   皇帝从头到尾没露面。上面那几条管的是【别把读者拉进来】和【别对调左右位】，
+    //   谁都没管【临时造一个人把其中一位顶掉】——那是另一族，得单说。
+    //   ⚠️给出口不给判决：配角照样可以有，拦的只是「顶掉主角」这一件事。
+    const bothPresent = "\n【这两位都得真的在场】「" + a.name + "」和「" + b.name + "」是这一篇的两位主角，"
+      + "两个人都要真的出场、有戏、有话说——不许把其中一位写成只被人提起的一个名字，"
+      + "更**不许临时造一个人（原创角色、路人、非人之物都算）顶掉其中任何一位的位置**。"
+      + "这一篇里要添别的角色当然可以，但那位是配角，不是拿来替换他俩中的谁。";
+    return "【CP：" + a.name + " × " + b.name + "】\n两位主角各自守住各自设定、别互相同化。\n· " + sideDesc(a) + "\n· " + sideDesc(b)
+      + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + soloTail + bothPresent + posRule(a.name, b.name);
   }
 
   // 素材来源：把 CP 角色的私聊记录抽尾巴当写作素材（item 6：生成素材来源人设聊天）
@@ -2480,6 +2518,19 @@
         border: on ? "1px solid " + st.color : st.border, fontWeight: on ? 600 : 400 } },
       on ? h("span", { style: { fontSize: 11 } }, "✓") : null, props.tag);
   }
+  // 这一篇里谁一次都没露面。⚠️规则只降概率，这一道是【看得见】：
+  //   两位主角的文，其中一位的名字在两三千字里出现 0 次，那基本就是被顶掉了
+  //   （她 2026-09-11：「皇帝是一点没出场」）。
+  // ⚠️不另存一栏：现算。存了之后续写、改文，那个数就对不回来了。
+  function absentLeads(fic, characters, userName) {
+    const cp = (fic && Array.isArray(fic.cp)) ? fic.cp : [];
+    if (cp.length < 2) return [];
+    const body = ((fic.chapters || []).map(function (c) { return (c && c.content) || ""; }).join("\n") || fic.body || "");
+    if (String(body).length < 200) return [];          // 还没正文，别乱报
+    return cpChars(cp, characters || [], null)
+      .map(function (c) { return c && (c.isMe ? (userName || "我") : c.name); })
+      .filter(function (nm) { return nm && String(body).indexOf(nm) < 0; });
+  }
   function cpChars(cp, characters, profile) {
     return (cp || []).map(function (tok) { return tok === "me" ? meChar(profile) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
   }
@@ -3209,8 +3260,14 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "by " + authorName))),
         metaRow((f.cp || []).length >= 3 ? "这几个" : "这一对",
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
-            cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : ""))),
+          h("div", null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
+              cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
+            (function () {
+              const gone = absentLeads(f, props.characters, props.userName);
+              return gone.length ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "#a8392f", marginTop: 3, lineHeight: 1.6 } },
+                "⚠️「" + gone.join("」「") + "」从头到尾没出现过——这一篇多半被写跑了") : null;
+            })())),
         (f.tags || []).length ? metaRow("标签", h("div", { className: "flex flex-wrap", style: { gap: 5 } },
           (f.tags || []).map(function (tag, i) { return h(FicTag, { key: i, tag: tag }); }))) : null,
         metaRow("数目", h("div", { className: "flex flex-wrap", style: { gap: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 1 } },
