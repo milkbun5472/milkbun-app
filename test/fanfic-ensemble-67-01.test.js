@@ -18,7 +18,7 @@ const grab = name => {
 };
 const box = { FIC_PERSONA_CAP: 3000, loadJSON: (k, fb) => fb };
 vm.createContext(box);
-vm.runInContext(grab("personaOf") + grab("sideDesc") + grab("worldIdentityLine") + grab("evenSidesLine")
+vm.runInContext(grab("personaOf") + grab("sideDesc") + grab("worldIdentityLine") + grab("evenSidesLine") + grab("loveLine")
   + grab("cpBlock") + grab("groupWayOf") + grab("cpLabel")
   + "\nthis.M = { cpBlock, cpLabel, groupWayOf };", box);
 const M = box.M;

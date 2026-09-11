@@ -703,6 +703,19 @@
   // 戏份是对半的。⚠️不说这一句，模型会按【谁的卡写得长谁是主角】来分篇幅：
   //   她那三篇里没出场的那位，卡上只有一句话（配角出身的角色卡天生短）。
   // ⚠️这儿一个字都不许提「谁是配角出身」——那正是她说的【不该带进同人文的身份】。
+  // 她 2026-09-11：「而且 cp 主要就是爱情向的。」
+  // ⚠️整份提示词里从来没有一句说过这件事：左右位那条管的是【亲密场面里谁主导】，
+  //   不是【这一篇写的是不是他们俩的感情】。于是「两位各自守住设定」＋一个世界观，
+  //   写出来完全可以是并肩办案、兄弟情深、或者一整篇世界观展示——
+  //   她那三篇里，世界观（志怪：人与非人相遇）就是这么把故事吃掉的。
+  // ⚠️给出口不给判决：拦的是「不写感情」，不是规定「必须甜」。
+  function loveLine() {
+    return "\n【这一篇写的是他们俩的感情】CP 文默认就是爱情向："
+      + "这两个人之间是什么关系、走到哪一步、卡在哪儿——**那是这一篇的主线**。"
+      + "外面发生的事（案子、灾变、朝局、山里的规矩）是台子，他们俩才是戏。\n"
+      + "⚠️不是要你写甜文：冷、克制、拧巴、求而不得、已经完了还没断干净，都算爱情向。"
+      + "写足他们此刻是什么状态，比让他们把爱说出口要紧。\n";
+  }
   function evenSidesLine(cpChars) {
     if (!cpChars || cpChars.length < 2) return "";
     return "\n⚠️**戏份是对半的**：每一位都要出场、开口、有自己要办的事和自己的立场。"
@@ -741,18 +754,19 @@
         + "别写成点名册——一人一段轮流发言、每个人都分到一场戏，那是通讯录不是故事。"
         + "\n⚠️人多了最容易丢的是【谁是谁】：几个人说话的调子、在意的事、动手的方式都得分得开，"
         + "不许几个人共用一种语气。"
-        + worldIdentityLine(cpChars) + evenSidesLine(cpChars);
+        + worldIdentityLine(cpChars) + evenSidesLine(cpChars);   // ⚠️群像不发爱情向：它有自己那一向
     }
     if (cpChars.length === 1) {
       const c = cpChars[0];
-      return "【CP：" + c.name + " × 原创对象】\n主角一方：" + sideDesc(c) + "\n另一方是一个由你设定的原创角色（自由发挥，贴合本世界观基调）。" + posRule(c.name, "原创对象");
+      return "【CP：" + c.name + " × 原创对象】\n主角一方：" + sideDesc(c) + "\n另一方是一个由你设定的原创角色（自由发挥，贴合本世界观基调）。"
+        + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + posRule(c.name, "原创对象");
     }
     const a = cpChars[0], b = cpChars[1];
     const bothChars = !a.isMe && !b.isMe; // 两个都是角色（没有「我」）
     // 带上我：写成 A × 我 × B 三人同框
     if (bothChars && opts.includeMe) {
       const meName = opts.meName || "我";
-      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + posRule(a.name, b.name);
+      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + posRule(a.name, b.name);
     }
     // 只他俩 CP：即便角色卡写了「我男朋友」，也不把「我」带进文里
     const soloTail = bothChars ? "\n【只写这两人】这是 " + a.name + " × " + b.name + " 的双人同人文，读者/『我』不出场、不作为角色写进去；就算某人的设定里写了 TA 是「我的男朋友/恋人」，本篇也只聚焦他们两人彼此，别把「我」拉进来凑三人。" : "";
@@ -765,7 +779,7 @@
       + "更**不许临时造一个人（原创角色、路人、非人之物都算）顶掉其中任何一位的位置**。"
       + "这一篇里要添别的角色当然可以，但那位是配角，不是拿来替换他俩中的谁。";
     return "【CP：" + a.name + " × " + b.name + "】\n两位主角各自守住各自设定、别互相同化。\n· " + sideDesc(a) + "\n· " + sideDesc(b)
-      + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + soloTail + bothPresent + posRule(a.name, b.name);
+      + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + soloTail + bothPresent + posRule(a.name, b.name);
   }
 
   // 素材来源：把 CP 角色的私聊记录抽尾巴当写作素材（item 6：生成素材来源人设聊天）
@@ -1739,11 +1753,24 @@
   }
 
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
-  async function genReviews(active, fic, tab, worldbook) {
+  async function genReviews(active, fic, tab, worldbook, characters, userName) {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const authorName = fic.author || ficPenName(fic.id);
+    // ⚠️她 2026-09-11：「上一轮书评他们也都觉得皇帝和王爷不是 cp，写的是王爷和精怪」
+    //   「tag 他们也看不到也是编的」。查下来读者说的是实话——**这一枪根本没告诉他们这篇挂的是谁**：
+    //   进去的只有正文节选和几个题材标签，CP 那一栏（她自己点的那一对）一个字都没发。
+    //   现在把它发过去。⚠️顺带让这件事变成一根探针：正文跟挂的 CP 对不上时，
+    //   读者会像在站子上看到挂错 tag 那样直说——**她一眼就能看见这一篇写跑了**。
+    //   ⚠️给出口：对得上就别提这件事，不然每条书评都在挑标签。
+    const cpTxt = (fic.cp && fic.cp.length) ? cpLabel(fic.cp, characters || [], userName) : "";
+    const wayTxt = String(fic.groupWay || "").trim();
+    const cpLine = cpTxt
+      ? "这一篇挂的是【" + cpTxt + "】" + (wayTxt ? "（" + wayTxt + "）" : "") + "。"
+        + "⚠️他们看的是【正文】：正文写的跟挂的这一对对不上时，读者会直说——"
+        + "就像在站子上看到一篇挂错 tag 的文（「说好的谁和谁呢」）。对得上就一个字都别提这件事。\n"
+      : "";
     const sys = ANTI_CLICHE + "\n\n" + READER_VOICE + "\n\n" +
-      "他们刚读完一篇发在【" + tab.name + "】同人版、作者笔名「" + authorName + "」的同人文《" + fic.title + "》（标签：" + (fic.tags || []).join("、") + "）。" +
+      "他们刚读完一篇发在【" + tab.name + "】同人版、作者笔名「" + authorName + "」的同人文《" + fic.title + "》（标签：" + (fic.tags || []).join("、") + "）。" + cpLine +
       "下面是正文节选，据此写具体的书评/短评（可夸可挑刺可玩梗可催更），别泛泛，别剧透式复述剧情。\n" +
       "【正文节选】\n" + String(excerpt).slice(0, 1200) + "\n\n" +
       "【输出】只输出合法 JSON 数组，5-8 条书评：\n" +
@@ -3192,7 +3219,7 @@
       if (busyRev) return;
       setBusyRev(true);
       try {
-        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, storyLore("书评"));
+        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, storyLore("书评"), props.characters, props.userName);
         props.onUpdate(f.id, function (fic) { fic.reviews = (fic.reviews || []).concat(rv); return fic; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusyRev(false);

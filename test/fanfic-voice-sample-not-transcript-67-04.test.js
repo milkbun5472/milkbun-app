@@ -154,10 +154,10 @@ test("戏份对半：卡的长短不是戏份的事", () => {
   assert.equal(I.evenSidesLine([{ name: "甲" }]), "");
 });
 
-test("三种局面都接上了：双人、三人同框、群像", () => {
+test("四种局面都接上了：一人配原创、双人、三人同框、群像", () => {
   const cb = grab("cpBlock");
-  assert.equal(cb.split("worldIdentityLine(cpChars) + evenSidesLine(cpChars)").length - 1, 3,
-    "少接一支，换个 CP 形状就又回到老样子");
+  assert.equal(cb.split("worldIdentityLine(cpChars) + evenSidesLine(cpChars)").length - 1, 4,
+    "少接一支，换个 CP 形状就又回到老样子（一人配原创／双人／三人同框／群像）");
   // 两位都得真的在场——这一条是另一族：上面那几条管的是别拉读者进来、别对调左右位
   assert.match(cb, /const bothPresent = "\\n【这两位都得真的在场】/);
   assert.match(cb, /\*\*不许临时造一个人（原创角色、路人、非人之物都算）顶掉其中任何一位的位置\*\*/);
@@ -179,4 +179,45 @@ test("写完之后数一数：谁一次都没露面", () => {
   assert.equal(A({ cp: ["wang"], chapters: [{ content: long("谁都没有") }] }, CS, "我").length, 0);
   // 详情页上标出来
   assert.match(code, /从头到尾没出现过——这一篇多半被写跑了/);
+});
+
+// ── 她 2026-09-11 再追两条 ────────────────────────────────────────────
+//  ①「而且 cp 主要就是爱情向的。」
+//  ②「上一轮书评他们也都觉得皇帝和王爷不是 cp，写的是王爷和精怪」
+//    「tag 他们也看不到也是编的」——查下来读者说的是实话：那一枪根本没告诉他们这篇挂的是谁。
+test("CP 文默认就是爱情向：这件事以前一个字都没说过", () => {
+  const lbox = {};
+  vm.createContext(lbox);
+  vm.runInContext(grab("loveLine") + "\nthis.f = loveLine;", lbox);
+  const out = lbox.f();
+  assert.match(out, /【这一篇写的是他们俩的感情】CP 文默认就是爱情向/);
+  assert.match(out, /\*\*那是这一篇的主线\*\*/);
+  assert.match(out, /外面发生的事（案子、灾变、朝局、山里的规矩）是台子，他们俩才是戏/,
+    "不说这一句，世界观会把故事吃掉——她那三篇就是被志怪那套设定吃掉的");
+  // ⚠️给出口不给判决：拦的是「不写感情」，不是规定「必须甜」
+  assert.match(out, /⚠️不是要你写甜文：冷、克制、拧巴、求而不得、已经完了还没断干净，都算爱情向。/);
+  // 左右位那条管的是别的事，不能拿来顶这一条
+  assert.ok(out.indexOf("左攻右受") < 0);
+  // 三处 CP 局面都发，群像那一支不发（它有自己那一向）
+  const cb = grab("cpBlock");
+  assert.equal(cb.split("loveLine()").length - 1, 3, "一人配原创／双人／三人同框，少一处就漏一处");
+  const gi = cb.indexOf("if (cpChars.length >= 3) {"), ge = cb.indexOf("if (cpChars.length === 1)");
+  assert.ok(gi > 0 && ge > gi);
+  assert.ok(cb.slice(gi, ge).indexOf("loveLine()") < 0, "群像也被塞了爱情向——她那一向是自己选的");
+});
+
+test("书评那一枪现在知道这篇挂的是谁", () => {
+  const g = fic.slice(fic.indexOf("async function genReviews("), fic.indexOf("  // ---- 加载/保存"));
+  assert.ok(g.length > 400, "没切到 genReviews");
+  assert.match(g, /async function genReviews\(active, fic, tab, worldbook, characters, userName\)/);
+  assert.match(g, /const cpTxt = \(fic\.cp && fic\.cp\.length\) \? cpLabel\(fic\.cp, characters \|\| \[\], userName\) : "";/);
+  assert.match(g, /"这一篇挂的是【" \+ cpTxt \+ "】"/);
+  assert.match(g, /\+ cpLine \+/, "算出来了却没拼进去＝没写");
+  // ⚠️这件事顺带是一根探针：对不上时读者会直说，她一眼就看得见这一篇写跑了
+  assert.match(g, /正文写的跟挂的这一对对不上时，读者会直说/);
+  assert.match(g, /对得上就一个字都别提这件事。/, "不给出口的话，每条书评都在挑标签");
+  // 群像那一向也一起告诉他们
+  assert.match(g, /wayTxt \? "（" \+ wayTxt \+ "）" : ""/);
+  // 调用点真的把人递过去了
+  assert.match(code, /window\.Fanfic\.genReviews\(props\.active, f, props\.tab, storyLore\("书评"\), props\.characters, props\.userName\)/);
 });
