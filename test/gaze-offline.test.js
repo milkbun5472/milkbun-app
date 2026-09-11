@@ -32,7 +32,7 @@ test("单聊线下按需写入，省略不计漏答", () => {
   assert.match(blk, /window\.Gaze && !settingsFor\(charId\)\.engineerEyes/, "言秋不塑形");
   assert.match(blk, /window\.Gaze\.applyParsed\(charId, res\.impression\)/);
   assert.match(blk, /window\.Gaze\.markChecked\(charId, _offCk\)/);
-  assert.doesNotMatch(blk, /Gaze\.tick|maybeAutoReviewGaze/);
+  assert.doesNotMatch(blk, /Gaze\.tick/);
 });
 
 test("群线下也接上，但闭群只进不出、配角没有印象卡", () => {

@@ -43,8 +43,12 @@ test("省略不留漏答痕迹，也不伪造看过记录",()=>{
   assert.equal(store.x_gaze,before);
   assert.equal(G.checkedAt(id,"me.person"),0);
   assert.equal(G.tick,undefined);
-  assert.equal(G.reviewDue,undefined);
-  assert.doesNotMatch(appCode,/maybeAutoReviewGaze|Gaze\\.tick/);
+  // ⚠️v66.88：自动复看接回来了（她 2026-09-11「这本来就是要自动的」），所以 reviewDue 存在是对的。
+  //   这一条钉的仍然是原来那件事：**省略/漏答不许成为触发收费复看的理由**——
+  //   闸看的只有「上次复看之后又聊了几条」和「隔了多久」，跟漏没漏答无关。
+  assert.equal(typeof G.reviewDue,"function");
+  assert.doesNotMatch(gaze,/reviewDue[\s\S]{0,400}(skips|refuse|mute)/);
+  assert.doesNotMatch(appCode,/Gaze\.tick/);
 });
 test("任意块的小补充可立即写入，只影响当前角色当前块并保存历史",()=>{
   const {G,store}=loadGaze();
@@ -68,7 +72,10 @@ test("旧存档漏答计数不会再催写或触发收费复看",()=>{
   Object.assign(data.legacy,{mute:999,refuse:999,turns:999,skips:{"me.person":99}});
   store.x_gaze=JSON.stringify(data);
   assert.doesNotMatch(G.spec("阿棠","legacy"),/不许再跳过|点名|必须二选一/);
-  assert.equal(G.reviewDue,undefined);
+  // 老存档里那些 mute/refuse/turns/skips 一个都不许再左右复看：闸只看聊了几条、隔了多久
+  const later=Date.now()+3*24*3600000;   // 越过那道连点冷却再问
+  assert.equal(G.reviewDue("legacy",0,later),false,"一点料都没有还是要刷，那就是「没有也写」");
+  assert.equal(G.reviewDue("legacy",999,later),true,"料堆到 999 条还不看，那就是「有料也不写」");
   assert.doesNotMatch(gaze,/lines.push.*被点名/);
 });
 test("复看那一份问的是「哪几块已经不对了」，不是「你对她怎么看」", () => {

@@ -56,19 +56,26 @@ test("设置里那一栏的说明要跟上——一层挪了地方，说明没�
   assert.match(box, /「Ta 眼里」不更新时先回来看这一栏/);
 });
 
-test("①那台从来没人开过的自动预算机器——还在的话，下一个看代码的人还会以为它在跑", () => {
-  // 事实先钉住：复看只有【一个】调用点，而且是手动那颗键
-  // 定义那行写的是 `const reviewGazeFor = async (char, manual) =>`，不带括号，
-  // 所以 `reviewGazeFor(` 数出来的就是【调用点】——现在正好一处：手动那颗键。
+test("① 自动复看接回来了：闸只看「聊了几条／隔了多久」", () => {
+  // 她 2026-09-11：「**这本来就是要自动的，我们就是修不好很多次而已**」——
+  // gaze.js 里那句「聊天不再依据次数、天数或省略字段自动复看」是当初放弃时留的注释，
+  // 不是设计。现在有两个自动挂点 + 手动那颗键。
   const calls = (strip(app).match(/reviewGazeFor\(/g) || []).length;
-  assert.equal(calls, 1, "reviewGazeFor 有 " + calls + " 个调用点（现在只有手动那一个）");
-  assert.match(app, /reviewGazeFor\(scc, true\)/);
-  assert.ok(strip(app).indexOf("reviewGazeFor(char, false)") < 0 && strip(app).indexOf("reviewGazeFor(scc, false)") < 0,
-    "有了自动调用点就把这条断言删掉，别让它挡路");
-  assert.match(app, /Ta 眼里专门复看只走手动入口/, "这句注释是唯一说清「它不会自己看」的地方，别删");
-  // 而 gaze.js 那边整套自动预算还摆着：markReview(charId, 非手动) 那一支、REVIEW_MAX、tries/max
-  assert.match(gaze, /const REVIEW_MAX = 3;/);
-  assert.match(gaze, /if \(!manual\) box\.reviewN = \(Number\(box\.reviewN\) \|\| 0\) \+ 1;/);
-  // ⚠️这一条是【留给下一轮的问题】，不是断言它对：接上自动、或者把这台机器删掉，
-  //   二选一。留着不动就是「声明了但没人引用」——看代码的人会以为它在自动跑。
+  assert.equal(calls, 2, "reviewGazeFor 有 " + calls + " 个调用点（自动那一处 + 手动那颗键）");
+  assert.match(app, /reviewGazeFor\(scc, true\)/, "手动那颗键没了");
+  assert.match(app, /reviewGazeFor\(char, false\)/, "自动那条又没接上");
+  assert.equal((strip(app).match(/maybeAutoReviewGaze\(char/g) || []).length, 2,
+    "自动复看要跟建卡挂在同样那两处（线上一处、线下一处）");
+  // ⚠️闸写在 Gaze 那一处，app 这儿只负责数「上次复看之后又聊了几条」
+  assert.match(app, /if \(!window\.Gaze\.reviewDue\(char\.id, fresh\)\) return;/);
+  assert.match(app, /Number\(m\.ts \|\| 0\) > since/);
+  assert.ok(strip(app).indexOf("REVIEW_FLOOR_DAYS") < 0 && strip(app).indexOf("REVIEW_FRESH") < 0,
+    "闸的数字被抄了第二份到 app 里——改一处必然漏一处");
+  // 她定的那句：不要那么久 / 有料就写 / 没有就不写 / 不准永远不写
+  assert.match(gaze, /const REVIEW_FLOOR_DAYS = 6;/, "又变回十四天那种「那么久」了");
+  assert.match(gaze, /const REVIEW_FRESH = 60;/);
+  assert.match(gaze, /const REVIEW_FLOOR_MIN = 8;/);
+  assert.match(gaze, /这本来就是要自动的，我们就是修不好很多次而已/, "那句放弃的注释得换成她的原话，不然下一轮又有人当它是设计");
+  // 失败满三次不许停死——那正是她这些天遇到的「怎么都不更新」
+  assert.match(gaze, /if \(\(Number\(box\.reviewN\) \|\| 0\) >= REVIEW_MAX\) return t - last >= REVIEW_RETRY_DAYS \* 86400000/);
 });

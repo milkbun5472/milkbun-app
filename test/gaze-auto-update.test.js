@@ -48,7 +48,7 @@ test("四条写入路径共用轻量标准，保留隔离闸",()=>{
   assert.match(engine,/window\.Gaze\.updateRule\(userName\)/);
   assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
   assert.match(app,/if \(!sideRoom && window\.Gaze && !settingsFor\(charId\)\.engineerEyes\)/);
-  assert.doesNotMatch(app,/Gaze\.tick\(|maybeAutoReviewGaze/);
+  assert.doesNotMatch(app,/Gaze\.tick\(/);
   assert.doesNotMatch(engine,/impression 与 impressionChecked 必须二选一/);
 });
 test("可选提醒仍接在单聊任务尾部，字段说明不会丢",()=>{

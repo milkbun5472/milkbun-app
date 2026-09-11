@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.88";
+const APP_VERSION = "v66.90";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -738,7 +738,23 @@ function App() {
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
     seedGazeFor(char, true);
   };
-  // Ta 眼里专门复看只走手动入口，聊天省略字段不触发额外调用。
+  // ── 自动复看（v66.88 接回来）─────────────────────────────────────────
+  // ⚠️这一条**原来就该有**。她 2026-09-11：「这本来就是要自动的，我们就是修不好很多次而已」——
+  //   代码里那句「聊天不再依据次数、天数或省略字段自动复看」是当初放弃时留的注释，
+  //   不是设计。于是「Ta 眼里」只在她亲手按那颗键的那天更新一次，之后再也不动。
+  // ⚠️闸写在 Gaze.reviewDue 一处（有料线／兜底线／一点没有就不打扰），这儿只负责
+  //   **数出「上次复看之后又聊了几条」**——只有调用点拿得到聊天记录。
+  const maybeAutoReviewGaze = (char, extra) => {
+    if (!char || char.npc || !window.Gaze || !window.Gaze.reviewDue) return;
+    if (settingsFor(char.id).engineerEyes) return;
+    const st = window.Gaze.reviewState ? window.Gaze.reviewState(char.id) : null;
+    const since = st ? Math.max(Number(st.last) || 0, Number(st.okAt) || 0) : 0;
+    const fresh = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)
+      && contextAllowsMessage(m) && Number(m.ts || 0) > since).length + (Number(extra) || 0);
+    if (!window.Gaze.reviewDue(char.id, fresh)) return;
+    reviewGazeFor(char, false);
+  };
+  // 手动那颗键在状态卡底下，走同一个 reviewGazeFor（manual=true，不占自动预算）。
   // ── 被线路拦下来时，自己缩一次再试（v64.47）─────────────────────────────
   // 她 2026-09-06：**后台线路和聊天线路是同一个模型，而别的调用全过、只有这两枪被拦。**
   // 那就跟线路无关了，是这一枪的提示词本身。可它有三块料（人设 / 长期记忆 / 几十条聊天），
@@ -5976,6 +5992,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           } catch (e) {}
         }
         try { maybeAutoSeedGaze(char, ((workSess && workSess.msgs) || []).length); } catch (e) {}
+        try { maybeAutoReviewGaze(char, ((workSess && workSess.msgs) || []).length); } catch (e) {}
       }
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
@@ -8073,6 +8090,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
         // 首次建卡沿用独立的条数门槛；省略 impression 不触发复看调用。
         try { maybeAutoSeedGaze(char); } catch (e) {}
+        try { maybeAutoReviewGaze(char); } catch (e) {}
       }
       // mark user msg read
       pChat(chatKey, p => p.map(m => m.role === "user" ? {

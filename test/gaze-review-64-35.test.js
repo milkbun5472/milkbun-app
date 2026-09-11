@@ -111,10 +111,40 @@ test("① 全 null＝他真没什么要改的，不是失败", () => {
   store.x_gaze = JSON.stringify(box);
 });
 
-test("旧复看日期不会启动自动调用",()=>{
+// v66.88：自动复看接回来了（她 2026-09-11：「这本来就是要自动的，我们就是修不好很多次而已」）。
+// 这一条原来钉的是「不会自动」，现在改成钉她定的那句：
+//   **不要那么久周期，有料就写没有就不写，但是不准永远不写。**
+test("隔了很久之后：有料就看，一点料都没有就不打扰",()=>{
   const {G,store}=boot();
   seedBox(store,{reviewOkAt:Date.now()-15*DAY,reviewAt:Date.now()-15*DAY});
-  assert.equal(G.reviewDue,undefined);
+  assert.equal(G.reviewDue("c1",0),false,"十五天没聊过一句还去刷一枪＝「没有也写」");
+  assert.equal(G.reviewDue("c1",G.REVIEW_FLOOR_MIN),true,"隔这么久、有一点料也不看＝「永远不写」");
+  assert.equal(G.reviewDue("c1",G.REVIEW_FRESH),true);
+});
+test("不到兜底那几天：料不够就先不看，攒够了随时看",()=>{
+  const {G,store}=boot();
+  const justNow=Date.now()-2*DAY;      // 越过连点冷却，但没到兜底线
+  seedBox(store,{reviewOkAt:justNow,reviewAt:justNow});
+  assert.equal(G.reviewDue("c1",G.REVIEW_FLOOR_MIN),false,"两天前刚看过、只多聊了几句就又刷一枪");
+  assert.equal(G.reviewDue("c1",G.REVIEW_FRESH),true,"聊了三十个来回还不看，那这个闸就是按天数硬刷");
+});
+test("刚看过就不看了（连点冷却）",()=>{
+  const {G,store}=boot();
+  seedBox(store,{reviewOkAt:Date.now(),reviewAt:Date.now()});
+  assert.equal(G.reviewDue("c1",9999),false,"自动那条一天能刷好几枪");
+});
+test("失败攒满之后退到几天一次，不许停死",()=>{
+  const {G,store}=boot();
+  const old=Date.now()-10*DAY;
+  seedBox(store,{reviewOkAt:old,reviewAt:old,reviewN:G.reviewState("c1").max});
+  assert.equal(G.reviewDue("c1",G.REVIEW_FRESH),true,"三次失败之后就永远不试了——那正是她这些天遇到的那件事");
+  const recent=Date.now()-2*DAY;
+  seedBox(store,{reviewOkAt:recent,reviewAt:recent,reviewN:G.reviewState("c1").max});
+  assert.equal(G.reviewDue("c1",G.REVIEW_FRESH),false,"失败之后还每天重试＝坏线路上一直烧钱");
+});
+test("还没建卡就轮不到复看",()=>{
+  const {G}=boot();
+  assert.equal(G.reviewDue("nobody",9999),false);
 });
 
 test("② 手动那一次不占自动预算", () => {

@@ -163,8 +163,35 @@
   function nudge(uName, charId) {
     return "\n【Ta 眼里】本轮多认识了 " + uName + " 一点就通过 impression 记下；没有新认识可省略，正常继续聊天。";
   }
-  // 保留旧版复看次数的展示兼容；聊天不再依据次数、天数或省略字段自动复看。
+  // ⚠️「聊天不再依据次数、天数或省略字段自动复看」那句注释是**当初放弃时留的**，
+  //   不是设计。她 2026-09-11：「**这本来就是要自动的，我们就是修不好很多次而已**」。
+  //   v66.88 把自动那条接回来了，闸就是下面这个 reviewDue。
   const REVIEW_MAX = 3;
+  // 她定的那一句：「**不要那么久周期，有料就写没有就不写，但是不准永远不写**」。
+  // 拆成三条线：
+  //   有料线   —— 上次复看之后又聊了这么多条，那就是真有东西可看了
+  //   兜底线   —— 隔了这么久，只要有一点点料也看一次（「不准永远不写」就是这一条）
+  //   一点没有 —— 真的什么都没发生，别打扰（「没有就不写」）
+  const REVIEW_FRESH = 60;          // ≈三十个来回
+  const REVIEW_FLOOR_DAYS = 6;      // 原来是 14 天，她说太久
+  const REVIEW_FLOOR_MIN = 8;       // 兜底也得有一点点料，不然等于按天数硬刷
+  const REVIEW_GAP_MS = 20 * 3600000;   // 自动那条一天最多一次
+  // ⚠️失败满三次之后【不许永远停】：那正是她这些天遇到的「怎么都不更新」。
+  //   退到几天一次，别停死——线路修好了它自己会回来。
+  const REVIEW_RETRY_DAYS = 5;
+  // fresh = 上次复看之后这个角色又说了几条（调用点数好传进来：只有它拿得到聊天记录）
+  function reviewDue(charId, fresh, now) {
+    const box = boxOf(load(), charId);
+    if (!Object.keys(box.blocks || {}).length) return false;   // 还没建卡，轮不到复看
+    const t = Number(now) || Date.now();
+    const n = Number(fresh) || 0;
+    const last = Math.max(Number(box.reviewAt) || 0, Number(box.reviewOkAt) || 0) || newestTs(box);
+    if (t - last < REVIEW_GAP_MS) return false;                // 连点冷却
+    // 失败攒够了就退到几天一次（不是停死）
+    if ((Number(box.reviewN) || 0) >= REVIEW_MAX) return t - last >= REVIEW_RETRY_DAYS * 86400000 && n >= REVIEW_FLOOR_MIN;
+    if (n >= REVIEW_FRESH) return true;                        // 有料
+    return n >= REVIEW_FLOOR_MIN && t - last >= REVIEW_FLOOR_DAYS * 86400000;   // 兜底
+  }
   const newestTs = box => Object.keys(box.blocks || {}).reduce((a, k) => Math.max(a, Number(box.blocks[k].ts) || 0), 0);
   // 先记标记再打调用（照「先记游标再刷」）：抖一下不该把这轮机会静悄悄烧掉，所以记的是次数不是布尔。
   // ⚠️manual=她自己按下面那颗「让他再看一遍这十块」：**不占自动预算**（v64.35）。
@@ -580,6 +607,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, updateRule, seedSpec, seed, hasAny, unseenKeys, unseenCount, markSeen, revisions, markChecked, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, plainWhy };
+  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, updateRule, seedSpec, seed, hasAny, unseenKeys, unseenCount, markSeen, revisions, markChecked, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, reviewDue, REVIEW_FRESH, REVIEW_FLOOR_DAYS, REVIEW_FLOOR_MIN, REVIEW_RETRY_DAYS, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, plainWhy };
   window.GazePage = GazePage;
 })();
