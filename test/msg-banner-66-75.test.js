@@ -74,10 +74,24 @@ test("顶上那张卡跟来电横幅同一个形状，不另发明一种", () =>
   //   一摞、不是一列：新的压在最上面（z 最高），旧的垫在底下只露一道边。
   assert.match(mb, /\.slice\(0, 3\)/);
   assert.match(mb, /zIndex: 10 - i/);
-  assert.match(mb, /transform: "translateY\(" \+ \(i \* 7\) \+ "px\) scale\(" \+ \(1 - i \* 0\.05\) \+ "\)"/);
+  assert.match(mb, /transform: "translateY\(" \+ \(i \* 7 \+ dy\) \+ "px\) scale\(" \+ \(1 - i \* 0\.05\) \+ "\)"/);
   assert.match(mb, /i === 0 \? \{ position: "relative" \} : \{ position: "absolute", top: 0, left: 0, right: 0 \}/,
     "后面那几条没垫到同一处，就又成了并排三张卡");
   // 盖住的那几条点不到（点下去只会是最上面那条）
   assert.match(mb, /pointerEvents: i === 0 \? "auto" : "none"/);
   assert.match(mb, /h\(Avatar, \{ character: b\.who/, "没有头像，认不出是谁发的");
+});
+
+test("上划就送走，不用等那几秒", () => {
+  // 她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」。
+  const mb = co.slice(co.indexOf("function MsgBanners("), co.indexOf("function Toggle("));
+  assert.match(mb, /onTouchStart: i === 0 \?/, "只有最上面那条该接手指");
+  assert.match(mb, /setDrag\(\{ key: b\.key, dy: Math\.min\(0, d\) \}\)/, "往下拽也跟着动了");
+  assert.match(mb, /const gone = dy <= -GO;/);
+  assert.match(mb, /if \(gone && onDismiss\) onDismiss\(b\)/);
+  // 推到一半松手要弹回去：手指按着的时候不许有过渡，松开才有
+  assert.match(mb, /transition: dragging \? "none" : "transform \.18s ease"/);
+  // 划过去那一下不能算点开
+  assert.match(mb, /onClick: \(\) => \{ if \(dy > -6 && onOpen\) onOpen\(b\); \}/);
+  assert.match(ap, /onDismiss: b => setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\)/);
 });

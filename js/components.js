@@ -884,10 +884,16 @@ function Toast({
 // ⚠️不新发明一种横幅：顶上这一条跟【来电横幅 CallRing】是同一个形状——
 //   同一张卡、同一条安全区（safeTop(8) + 左右 10）、同样从上面滑下来。
 // 叠加：新的在最上面，后面那几条往后缩一点点，看着是一摞而不是三张并排的卡。
-function MsgBanners({ list, onOpen }) {
+function MsgBanners({ list, onOpen, onDismiss }) {
   const t = useTheme();
+  // ⚠️她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」。
+  //   跟系统通知一样：手指往上一推就走，推到一半松手就弹回去。
+  //   drag 只记【最上面那条】——底下那几条本来就点不到，也推不动。
+  const [drag, setDrag] = React.useState(null);   // { key, dy }
+  const startY = React.useRef(0);
   const arr = (Array.isArray(list) ? list : []).slice(0, 3);
   if (!arr.length) return null;
+  const GO = 40;   // 推上去这么多就算她要它走
   return ReactDOM.createPortal(
     h("div", { style: { position: "fixed", top: safeTop(8), left: 10, right: 10,
       zIndex: APP_OVERLAY_LAYERS.banner, pointerEvents: "none" } },
@@ -897,33 +903,54 @@ function MsgBanners({ list, onOpen }) {
       // ⚠️她 2026-09-11：「不是三个都显示，是像 notification 那样会 overlap 盖住上一条」。
       //   所以这是【一摞】不是【一列】：新的那条压在最上面，旧的缩在它底下只露出一道边。
       //   第一条留在文档流里撑高度，后面那几条绝对定位垫在它下面。
-      h("div", { style: { position: "relative" } }, arr.map((b, i) => h("div", {
-        key: b.key,
-        style: Object.assign({
-          zIndex: 10 - i,
-          transformOrigin: "top center",
-          // 往下挪一点点、缩一点点：只露出后面那条的一道边，像系统通知那样
-          transform: "translateY(" + (i * 7) + "px) scale(" + (1 - i * 0.05) + ")",
-          animation: (b.leaving ? "msgb-out .3s ease both" : "msgb-in .22s ease both")
-        }, i === 0 ? { position: "relative" } : { position: "absolute", top: 0, left: 0, right: 0 })
-      }, h("button", {
-        onClick: () => onOpen && onOpen(b),
-        "data-wk": "msgbanner",
-        className: "w-full active:opacity-70",
-        style: { pointerEvents: i === 0 ? "auto" : "none", display: "block", textAlign: "left",
-          background: t.bg2, border: "1px solid " + t.line, borderRadius: 18,
-          boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px" }
-      },
-        h("div", { className: "flex items-center gap-3" },
-          h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { className: "flex items-center", style: { gap: 6 } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink,
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.name || "TA"),
-              b.tag ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog,
-                border: "1px solid " + t.line, borderRadius: 6, padding: "1px 4px" } }, b.tag) : null),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))))))),
+      h("div", { style: { position: "relative" } }, arr.map((b, i) => {
+        const dy = (drag && drag.key === b.key) ? drag.dy : 0;
+        const dragging = dy !== 0;
+        return h("div", {
+          key: b.key,
+          // 上划送走（只有最上面那条接手指）
+          onTouchStart: i === 0 ? (e => { startY.current = e.touches[0].clientY; setDrag({ key: b.key, dy: 0 }); }) : undefined,
+          onTouchMove: i === 0 ? (e => {
+            const d = e.touches[0].clientY - startY.current;
+            setDrag({ key: b.key, dy: Math.min(0, d) });   // 只跟着往上走，往下拽不动
+          }) : undefined,
+          onTouchEnd: i === 0 ? (() => {
+            const gone = dy <= -GO;
+            setDrag(null);
+            if (gone && onDismiss) onDismiss(b);
+          }) : undefined,
+          onTouchCancel: i === 0 ? (() => setDrag(null)) : undefined,
+          style: Object.assign({
+            zIndex: 10 - i,
+            transformOrigin: "top center",
+            // 往下挪一点点、缩一点点：只露出后面那条的一道边，像系统通知那样
+            transform: "translateY(" + (i * 7 + dy) + "px) scale(" + (1 - i * 0.05) + ")",
+            // 推到一半松手要弹回去；手指还按着的时候不许有过渡，不然跟不上手
+            transition: dragging ? "none" : "transform .18s ease",
+            opacity: dy < 0 ? Math.max(0, 1 + dy / 90) : 1,
+            touchAction: i === 0 ? "pan-x" : undefined,
+            animation: (b.leaving ? "msgb-out .3s ease both" : (dragging ? "none" : "msgb-in .22s ease both"))
+          }, i === 0 ? { position: "relative" } : { position: "absolute", top: 0, left: 0, right: 0 })
+        }, h("button", {
+          // 推着的时候那一下不算点开（手指划过也会触发 click）
+          onClick: () => { if (dy > -6 && onOpen) onOpen(b); },
+          "data-wk": "msgbanner",
+          className: "w-full active:opacity-70",
+          style: { pointerEvents: i === 0 ? "auto" : "none", display: "block", textAlign: "left",
+            background: t.bg2, border: "1px solid " + t.line, borderRadius: 18,
+            boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px" }
+        },
+          h("div", { className: "flex items-center gap-3" },
+            h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex items-center", style: { gap: 6 } },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.name || "TA"),
+                b.tag ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog,
+                  border: "1px solid " + t.line, borderRadius: 6, padding: "1px 4px" } }, b.tag) : null),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))));
+      }))),
     document.body);
 }
 function Toggle({
