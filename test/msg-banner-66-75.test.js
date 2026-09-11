@@ -82,8 +82,9 @@ test("顶上那张卡跟来电横幅同一个形状，不另发明一种", () =>
   assert.match(mb, /h\(Avatar, \{ character: b\.who/, "没有头像，认不出是谁发的");
 });
 
-test("上划就送走，不用等那几秒", () => {
-  // 她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」。
+test("上划一下整摞都走：那一条连同压在它底下的", () => {
+  // 她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」，
+  // 接着纠正：「我要的是往上扫【全部截止到那一条】都划掉，不是一条一条划」。
   const mb = co.slice(co.indexOf("function MsgBanners("), co.indexOf("function Toggle("));
   assert.match(mb, /onTouchStart: i === 0 \?/, "只有最上面那条该接手指");
   assert.match(mb, /setDrag\(\{ key: b\.key, dy: Math\.min\(0, d\) \}\)/, "往下拽也跟着动了");
@@ -93,5 +94,9 @@ test("上划就送走，不用等那几秒", () => {
   assert.match(mb, /transition: dragging \? "none" : "transform \.18s ease"/);
   // 划过去那一下不能算点开
   assert.match(mb, /onClick: \(\) => \{ if \(dy > -6 && onOpen\) onOpen\(b\); \}/);
-  assert.match(ap, /onDismiss: b => setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\)/);
+  // 整摞一起跟着手指走，不是只有最上面那张在动
+  assert.match(mb, /const dy = drag \? drag\.dy : 0;/, "还是只有最上面那条在动");
+  // 松手：那一条连同压在它底下的（更早的）一起清掉
+  assert.match(ap, /onDismiss: b => setBanners\(p => \{ const i = p\.findIndex\(x => x\.key === b\.key\); return i < 0 \? p : p\.slice\(0, i\); \}\)/,
+    "还是一条一条删");
 });

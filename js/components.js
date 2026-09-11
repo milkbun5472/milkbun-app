@@ -886,9 +886,11 @@ function Toast({
 // 叠加：新的在最上面，后面那几条往后缩一点点，看着是一摞而不是三张并排的卡。
 function MsgBanners({ list, onOpen, onDismiss }) {
   const t = useTheme();
-  // ⚠️她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」。
-  //   跟系统通知一样：手指往上一推就走，推到一半松手就弹回去。
-  //   drag 只记【最上面那条】——底下那几条本来就点不到，也推不动。
+  // ⚠️她 2026-09-11：「能不能做可以自己上划去掉，不然自己等也太慢了」，
+  //   接着又纠正：「我要的是往上扫【全部截止到那一条】都划掉，不是一条一条划」。
+  //   所以手指推的是【整摞】：一摞一起跟着走，松手就把这一条连同压在它底下的
+  //   那几条一起送走（它们本来就是更早的、她已经看过一眼的）。
+  //   drag 只记【最上面那条】——底下那几条接不到手指，也不用各推一次。
   const [drag, setDrag] = React.useState(null);   // { key, dy }
   const startY = React.useRef(0);
   const arr = (Array.isArray(list) ? list : []).slice(0, 3);
@@ -904,7 +906,8 @@ function MsgBanners({ list, onOpen, onDismiss }) {
       //   所以这是【一摞】不是【一列】：新的那条压在最上面，旧的缩在它底下只露出一道边。
       //   第一条留在文档流里撑高度，后面那几条绝对定位垫在它下面。
       h("div", { style: { position: "relative" } }, arr.map((b, i) => {
-        const dy = (drag && drag.key === b.key) ? drag.dy : 0;
+        // 整摞一起动：dy 记在最上面那条身上，可每一张都跟着走
+        const dy = drag ? drag.dy : 0;
         const dragging = dy !== 0;
         return h("div", {
           key: b.key,

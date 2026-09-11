@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v66.97";
+const APP_VERSION = "v66.98";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20517,8 +20517,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     list: banners,
     // 点一下直接落到那条聊天里（跟主屏那张「捎来的字条」是同一个动作，走同一处）
     onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); openChatById(b.id, b.type); },
-    // 上划送走（她 2026-09-11：「不然自己等也太慢了」）：当场拿掉，不等那几秒
-    onDismiss: b => setBanners(p => p.filter(x => x.key !== b.key))
+    // 上划送走（她 2026-09-11：「往上扫【全部截止到那一条】都划掉，不是一条一条划」）：
+    // 推走的那条连同压在它底下的那几条（更早的、她已经扫过一眼的）一起清掉。
+    onDismiss: b => setBanners(p => { const i = p.findIndex(x => x.key === b.key); return i < 0 ? p : p.slice(0, i); })
   })));
 }
 // 挂载前先把图片仓库 hydrate 进内存缓存（iv_ 键→objectURL），首帧头像/壁纸就能直接显示、不闪空。
