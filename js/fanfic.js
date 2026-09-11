@@ -661,7 +661,7 @@
   // ---- 请一批新作者进来（一枪，落库）--------------------------------
   // ⚠️只写【判据】不给例子：给了例子，四位太太会长成同一个句式
   //   （施工规则/prompt-no-content-samples.md）。
-  async function genAuthors(active, n, tabs, cpChars, userName, have) {
+  async function genAuthors(active, n, tabs, cpChars, userName, have, want) {
     const cnt = Math.max(1, Math.min(8, n || 4));
     const has = (have || []).map(function (a) { return authorName(a); }).filter(Boolean);
     // ⚠️她 2026-09-05：「介绍里面不要生成奇奇怪怪的 cp」。原来只给了【圈子里的人】这一串名字，
@@ -681,6 +681,14 @@
       + "· temper：【有人改她的文时她是哪一路】——一句话说清她的反应路数：是死死往回拽、是嘴上骂着手上还给你圆、"
       + "是觉得有意思跟着你把故事推得更离谱、还是先冷着看你能走多远。这一栏要从上面三行长出来，不是随便挑一种。\n"
       + "几位之间要真的不一样：脾气、路数、写文的动机、对 CP 的看法，至少三样彼此拉开。\n"
+      // 她 2026-09-11：「请作者的时候能不能给一个写想要什么类型或者文风还有磕啥 cp 的」。
+      // ⚠️这是【挑人的方向】，不是【她们的设定】：不说清的话它会把这段话原样抄进 bio 里，
+      //   四个人的简介长得一模一样（跟「提示词里不许塞内容示范」是同一个坑）。
+      + (String(want || "").trim()
+        ? "\n【她想请什么样的人】" + String(want).trim().slice(0, 300)
+          + "\n⚠️这是**挑人的方向**，不是她们的设定：照着这个方向找人，但**别把这段话抄进任何一位的简介或路数里**。"
+          + "几位都合这个方向，但各自合的地方不一样——别四个人长成同一个。\n"
+        : "")
       + cpRuleBlock(okCPs)
       + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
       + "[{\"name\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\",\"temper\":\"\"}]";
@@ -807,6 +815,34 @@
       : "我把《" + t + "》第 " + no + " 章拿给「" + charName + "」看了。";
   }
 
+  // ── 请的是对家：她自己也可以不接，或者接了不好好写（她 2026-09-11）──────
+  //
+  // ⚠️原来只有【原作者】会翻脸。可她 2026-09-11 点出另一半：
+  //   「如果请的是对家，她也可以要么拒绝要么也不好好写」——
+  //   圈子那本流水账（④）记的本来就是**双向**的事，拒绝这件事当然也该是双向的。
+  // ⚠️还是那条分工：**代码掷，模型写**。拒不拒、上不上心由这儿定；
+  //   拒绝那一次【连枪都不打】——她不接，就没有这一章，一分钱不花。
+  const GHOST_REFUSE_BASE = 0.2, GHOST_REFUSE_TEMPER = 0.3, GHOST_LAZY_UNTIL = 0.75;
+  function ghostStance(feud, by, roll) {
+    if (!feud) return "";
+    const r = Number(roll);
+    // 脾气越硬（temper/sore 写得越足）越可能当场回绝；软的那种更可能嘴上答应、手上敷衍
+    if (r < GHOST_REFUSE_BASE + GHOST_REFUSE_TEMPER * temperWeight(by)) return "refuse";
+    if (r < GHOST_LAZY_UNTIL) return "lazy";
+    return "";   // 也可能就正常写——人不是机器，有过节不代表每次都使性子
+  }
+  // 「接了但不想认真写」。⚠️**不是让她写烂文**——跟角色那边同一个坑：
+  //   写成「写得差」，模型给的是一段戏仿的烂文，那不好笑，那是侮辱这个人。
+  //   要给的是【不上心长什么样】的形状，而且最后那句必须有：让它从字里透出来，
+  //   不许在正文里跟读者解释自己在敷衍。
+  function ghostLazyBlock(own) {
+    return "\n【你接了这活，但你不想认真写】你跟「" + (own || "原作者") + "」有过节。这一章是钱的事，不是情分。\n"
+      + "⚠️不是让你写烂文：错别字、故意幼稚、把人物写崩——一个都不许。你是个会写的人，交出去的东西照样拿得出手。\n"
+      + "**不上心是这样长的**：该接住的前情细处粗粗带过；她最护着的那一点你偏不碰，或者只碰个边；"
+      + "篇幅够了就收，结尾不留余味；你自己那套最见功夫的写法今天一点都不亮出来——反正这不是你的文。\n"
+      + "⚠️全篇不许出现任何一句对读者解释你不上心的话（「她敷衍地写道」那种一个字都不许有）。**让它从字里透出来。**\n";
+  }
+
   // ── 让角色来写（她 2026-09-11）──────────────────────────────────────
   //
   // 第三类笔：不是圈子里的太太，是**她自己的人**。
@@ -911,7 +947,9 @@
   const CIRCLE_CAP = 300;
   const CIRCLE_ZH = {
     ghost: "给她的文代过笔", grab: "把笔从对方手里抢了回去",
-    quit: "因为对方代笔，撂了挑子", back: "被请回来，答应了", refuse: "被请回来，没答应"
+    quit: "因为对方代笔，撂了挑子", back: "被请回来，答应了", refuse: "被请回来，没答应",
+    // 请的是对家：她自己回绝了这一单（v66.95，她 2026-09-11）
+    turnDown: "不接对方那篇文"
   };
   function loadCircle() { const v = loadJSON(K_CIRCLE, []); return Array.isArray(v) ? v : []; }
   function saveCircle(list) { return saveJSON(K_CIRCLE, (Array.isArray(list) ? list : []).slice(-CIRCLE_CAP)); }
@@ -952,6 +990,7 @@
       if (e.kind === "ghost") out.push("· " + who + "给" + to + "的《" + e.title + "》代过笔");
       else if (e.kind === "grab") out.push("· 《" + e.title + "》那次，" + who + "把笔从" + to + "手里抢了回去");
       else if (e.kind === "quit") out.push("· 《" + e.title + "》那次，" + who + "撂了挑子不写了" + (e.say ? "（当时说的是「" + e.say + "」）" : ""));
+      else if (e.kind === "turnDown") out.push("· 《" + e.title + "》那次，" + to + "来请" + who + "接，" + who + "没接");
     });
     // 嗑同一对 CP 是圈子里天然的亲近，现算不存
     if (o.sameCP) out.push("· 你们嗑的是同一对");
@@ -1167,6 +1206,7 @@
       + authorVoiceLines(penBy)
       + (grabbed ? "· ⚠️这一章本来说好是请别人接的，可你看不下去，**把笔抢回来自己写**。"
         + "为什么抢、抢得多理直气壮，照你自己的脾气来；别在正文里对读者解释这件事，正文还是正文。\n" : "")
+      + ((ghost && !byChar && opts.lazy) ? ghostLazyBlock(String(fic.author || "").trim()) : "")
       + (ghost ? (byChar ? "" : circleLines(penName, String(fic.author || "").trim(), { sameCP: !!opts.sameCP }))
         + "· 接手不是重写：上面那些设定与前情一个字不许改，只是这一章的笔是她的。\n"
         // ⚠️「设定不许改」和「要看得出是她写的」会打架，而打架时模型倾向于保文风、丢设定
@@ -1984,6 +2024,7 @@
     chatMaterialFor: chatMaterialFor,
     clampMinChars: clampMinChars, minCharsFor: minCharsFor, countChars: countChars, shortBy: shortBy, MIN_CHARS_MAX: MIN_CHARS_MAX,
     FILE_CARD_HEAD: FILE_CARD_HEAD, chapterCard: chapterCard, chapterNote: chapterNote,
+    GHOST_REFUSE_BASE: GHOST_REFUSE_BASE, GHOST_LAZY_UNTIL: GHOST_LAZY_UNTIL, ghostStance: ghostStance, ghostLazyBlock: ghostLazyBlock,
     STANCE: STANCE, stanceFor: stanceFor, stanceFacts: stanceFacts,
     WRITER_AXES: WRITER_AXES, rollWriterAxes: rollWriterAxes, charWriterBlock: charWriterBlock,
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
@@ -2594,6 +2635,13 @@
       const feud = !!(byNmRaw && ownNm && K.circleFeud(ownNm, byNmRaw));
       const sameCP = !!(byNmRaw && ownNm && K.sameCPWith(ownNm, byNmRaw, K.loadFics(), props.allChars || chars, props.userName));
       // 抢笔只发生在【太太】之间：她自己的人接手，原作者照样说话，但抢不回来
+      // 请的是对家：她自己也可以不接、或者接了不好好写。⚠️拒绝那一次【连枪都不打】。
+      const gStance = byChar ? "" : K.ghostStance(feud, by, Math.random());
+      if (gStance === "refuse") {
+        K.circlePush({ a: byNmRaw, b: ownNm, kind: "turnDown", title: f.title });
+        props.toast && props.toast("「" + byNmRaw + "」不接这篇——她跟「" + ownNm + "」有过节");
+        return;
+      }
       const grabbed = !!by && !byChar && !!ownCard && Math.random() < K.grabChance(heat);
       // 撂挑子先预告：这一章的 authorNote 里她会把「我不写了」说出来，
       // 下次她再点原作者就被挡住——有铺垫、有台词，而且不多花一枪。
@@ -2602,7 +2650,7 @@
         const ch = await K.genNextChapter(props.active, f, props.tab, chars, props.userName, storyLore("续章"),
           Object.assign(genOpts(), {
             author: byChar ? null : (by || null), want: want || "", hardWant: !!hard,
-            grabbed: grabbed, quitting: quitting, sameCP: sameCP,
+            grabbed: grabbed, quitting: quitting, sameCP: sameCP, lazy: gStance === "lazy",
             byChar: byChar,
             charRel: byChar && props.relOf ? props.relOf(byChar.id) : null,
             writerAxes: byChar ? K.rollWriterAxes(byChar.id, f.id, (f.chapters || []).length) : null,
@@ -2979,8 +3027,13 @@
       sore: quit ? "" : (ownCard ? ownCard.sore : "") };
     // ④：跟这篇原作者有过节的，在她名下标一行小字——请谁接手这件事就有了分量
     const circle = loadCircle();
+    // ⚠️没 id 的太太（早期存档、或从别处导进来的）会跟「照原样」那一行撞上同一个 key
+    //   （两边都落成 "_own"）：React 拿它俩当同一格，翻到「你的人」那一叠之后，
+    //   「照原样」那行还赖在名单顶上；点她也等于点了「照原样」，最后接笔的是原作者。
+    //   笔名在库里本来就是唯一的（upsertAuthor 按笔名去重），拿它兜个 id 就够。
     const penRows = authors.filter(function (a) { return authorName(a) !== own; }).map(function (a) {
-      return own ? Object.assign({}, a, { feud: circleFeud(own, authorName(a), circle) }) : a;
+      return Object.assign({}, a, { id: a.id || ("au:" + authorName(a)) },
+        own ? { feud: circleFeud(own, authorName(a), circle) } : {});
     });
     // 第三类笔：她自己的人。⚠️这一行的 style 写的是【他跟这篇文什么关系】，
     //   不是一句「他会按人设写」的空话——那正是旁边两组都在说的那种实话。
@@ -2990,8 +3043,24 @@
         jealous: "你在里面，他不在", tied: "他跟里面那位有关系", outsider: "跟他没关系，纯帮忙" };
       return { id: "char:" + c.id, name: (c.remark || c.name) + "（你的人）", style: zh[st.kind] || "", char: c };
     });
-    const rows = [head].concat(penRows, charRows);
-    const picked = rows.filter(function (a) { return (a.id || "") === (props.pickedId || ""); })[0] || head;
+    // ⚠️分两叠（她 2026-09-11：「请枪手写能不能把作者和角色分成两个 tab」）。
+    //   ⚠️不是一排药丸（tabs-not-plain-pills.md）：这一页是【找人代笔的委托单】，
+    //   委托单分栏靠的是「你翻到哪一页」——所以做成两张纸的页签：
+    //   翻开的那张满高、纸色、直接长进底下的名单里；压在后面那张矮一截、暗着。
+    //   选中态不只靠色：高度、字重、跟底下那张纸连不连着，三样一起变。
+    const [pane, setPane] = useState("pen");
+    const rows = pane === "pen" ? [head].concat(penRows) : charRows;
+    const picked = rows.filter(function (a) { return (a.id || "") === (props.pickedId || ""); })[0] || rows[0] || head;
+    const pageTab = function (key, label, n) {
+      const on = pane === key;
+      return h("button", { key: key, onClick: function () { setPane(key); props.onPick(""); }, className: "active:opacity-70",
+        style: { flex: 1, minHeight: 44, padding: on ? "11px 6px 13px" : "14px 6px 10px",
+          border: "1px solid " + t.line, borderBottom: on ? "none" : "1px solid " + t.line,
+          borderRadius: "10px 10px 0 0", background: on ? t.bg : "transparent", marginBottom: on ? -1 : 3,
+          fontFamily: F_BODY, fontSize: on ? 13 : 12, fontWeight: on ? 600 : 400, color: on ? t.ink : t.fog,
+          position: "relative", zIndex: on ? 2 : 1 } },
+        label + (n ? " · " + n : ""));
+    };
     const ghostPicked = !!picked.id;
     // ⚠️这两格不是一排药丸（施工规则/tabs-not-plain-pills.md）：这一页是【给太太的稿约单】，
     //   所以它长成单子上那两行勾选项——方框、打勾、底下一道格线。换个 app 就不成立了。
@@ -3007,6 +3076,9 @@
     return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
       h(Head, { bg: "transparent", zh: "请谁接着写", sub: "《" + f.title + "》第 " + ((f.chapters || []).length + 1) + " 章", onBack: props.onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
+        h("div", { style: { display: "flex", gap: 6, marginTop: 8, alignItems: "flex-end" } },
+          pageTab("pen", "圈里的太太", penRows.length), pageTab("char", "你的人", charRows.length)),
+        h("div", { style: { border: "1px solid " + t.line, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "2px 10px 6px" } },
         // ⚠️不是一排药丸：署名表上的一行行名字，选中那行左边落一个墨点、名字加重
         //   （tabs-not-plain-pills.md：换个 app 就不成立的形状才算长出来了）
         rows.map(function (a) {
@@ -3020,8 +3092,9 @@
               (on && a.sore) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "护着：" + a.sore) : null,
               a.feud ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10, color: t.tint, marginTop: 3 } }, "她跟「" + own + "」有过节") : null));
         }),
-        authors.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } },
-          "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。"),
+        rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "10px 2px", lineHeight: 1.7 } },
+          pane === "pen" ? "作者库还空着。出一批文、或去「作者」那一页请几位太太进来，之后就能点名让谁接。"
+            : "还没有角色。角色接的那一章，原作者照样会在底下说话——但她抢不回去。")),
         // 能翻脸就得能和好：不然作者库单向枯竭，攒三十位太太最后一个都不肯写
         quit ? h("button", { onClick: props.onAskBack, disabled: !!props.backBusy, className: "w-full active:opacity-70",
           style: { marginTop: 12, minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent",
@@ -4011,6 +4084,11 @@
     const [list, setList] = useState(function () { return window.Fanfic.loadAuthors(); });
     const [open, setOpen] = useState(null);   // 打开的那位
     const [busy, setBusy] = useState(false);
+    // 她 2026-09-11：「请作者的时候能不能给一个写想要什么类型或者文风还有磕啥 cp 的」。
+    // ⚠️不另开一层：这是「一行字 + 一颗键」，开半窗反而更重（no-half-sheet.md 的判据）。
+    //   记在本地：她多半想连着请几批同一个方向的人。
+    const [want, setWant] = useState(function () { try { return localStorage.getItem("x_ficAuthorWant") || ""; } catch (e) { return ""; } });
+    const setWantSaved = function (v) { setWant(v); try { localStorage.setItem("x_ficAuthorWant", String(v || "").slice(0, 300)); } catch (e) {} };
     const fics = props.fics || [];
     function refresh() { setList(window.Fanfic.loadAuthors()); }
     async function invite() {
@@ -4018,7 +4096,7 @@
       if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
       setBusy(true);
       try {
-        const got = await window.Fanfic.genAuthors(props.active, 4, props.tabs, props.characters, props.userName, window.Fanfic.loadAuthors());
+        const got = await window.Fanfic.genAuthors(props.active, 4, props.tabs, props.characters, props.userName, window.Fanfic.loadAuthors(), want);
         refresh();
         props.toast && props.toast("来了 " + got.length + " 位：" + got.map(function (a) { return a.name; }).join("、"));
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
@@ -4037,8 +4115,13 @@
       h(Head, { bg: "transparent", zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
         right: h("button", { onClick: invite, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } }, busy ? "请人中…" : "＋ 请人") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 12px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 8px" } },
           "她们是这个圈子的常驻——清空版块只清文，人留着。生成同人文时可以点名让某一位来写。"),
+        // 请人之前先说一句想请什么样的（她 2026-09-11）。空着就照旧随缘。
+        h("textarea", { value: want, onChange: function (e) { setWantSaved(e.target.value); }, rows: 2,
+          placeholder: "想请什么样的？写什么类型、什么文风、磕哪对…空着就随缘",
+          className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, padding: "9px 11px", borderRadius: 11,
+            background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "vertical", marginBottom: 12 } }),
         list.length ? list.map(function (a, i) {
           const mine = window.Fanfic.authorFics(a.name, fics);
           const cps = window.Fanfic.authorCPStats(a.name, fics, props.characters, props.userName);

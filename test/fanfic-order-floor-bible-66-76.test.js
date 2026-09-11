@@ -43,7 +43,7 @@ test("① 点单两档：许个愿给出口，就这么写是硬指标", () => {
 test("① 点单接到界面上了，而且会记住上次那条", () => {
   assert.match(fic, /onGo: function \(by, want, hard\) \{ setGhostOpen\(false\); addChapter\(by, want, hard\); \}/);
   assert.match(fic, /async function addChapter\(by, want, hard\)/);
-  assert.match(fic, /\{\s*\n\s*author: byChar \? null : \(by \|\| null\), want: want \|\| "", hardWant: !!hard,\s*\n\s*grabbed: grabbed, quitting: quitting, sameCP: sameCP,\s*\n\s*byChar: byChar,/);
+  assert.match(fic, /\{\s*\n\s*author: byChar \? null : \(by \|\| null\), want: want \|\| "", hardWant: !!hard,\s*\n\s*grabbed: grabbed, quitting: quitting, sameCP: sameCP, lazy: gStance === "lazy",\s*\n\s*byChar: byChar,/);
   assert.match(fic, /if \(want && want\.trim\(\)\) fic\.lastWant = want\.trim\(\)\.slice\(0, 600\);/);
   assert.match(fic, /"填回上次那条："/);
   // 那两格不是一排药丸：这一页是给太太的稿约单，所以它长成单子上的勾选项

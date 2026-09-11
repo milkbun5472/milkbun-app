@@ -256,7 +256,7 @@ test("请枪手先挑人，挑的那位真的递进了这一枪", () => {
   assert.match(reader, /onClick: function \(\) \{ setGhostOpen\(true\); \}, disabled: busyChap/);
   // v66.76 起这一页还带着她的点单（想看什么 + 许愿还是硬要求），一起递下去
   assert.match(reader, /onGo: function \(by, want, hard\) \{ setGhostOpen\(false\); addChapter\(by, want, hard\); \}/);
-  assert.match(reader, /\{\s*\n\s*author: byChar \? null : \(by \|\| null\), want: want \|\| "", hardWant: !!hard,\s*\n\s*grabbed: grabbed, quitting: quitting, sameCP: sameCP,\s*\n\s*byChar: byChar,/,
+  assert.match(reader, /\{\s*\n\s*author: byChar \? null : \(by \|\| null\), want: want \|\| "", hardWant: !!hard,\s*\n\s*grabbed: grabbed, quitting: quitting, sameCP: sameCP, lazy: gStance === "lazy",\s*\n\s*byChar: byChar,/,
     "挑的人、点单、抢笔撂挑子那两掷、圈子那一层、以及角色执笔那一路，都要递到 genNextChapter");
   // 代笔记在【章】上，不是把这篇的作者改掉
   assert.match(reader, /ch\.byAuthor = byNm/);
