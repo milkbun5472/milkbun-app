@@ -18,7 +18,7 @@ const box = { Axes };
 vm.createContext(box);
 const a = fic.indexOf("  const PEN_AXIS = ["), b = fic.indexOf("  // 请一位太太离开名册");
 assert.ok(a > 0 && b > a, "没切到掷落点那一段");
-vm.runInContext(fic.slice(a, b) + "\nthis.M = { PEN_AXIS, AUTHOR_ANGLE_AXES, authorAnglesBlock, angleNonce };", box);
+vm.runInContext(fic.slice(a, b) + "\nthis.M = { PEN_AXIS, AUTHOR_ANGLE_AXES, SAY_LENS, SHORTEST, lenPlan, authorAnglesBlock, angleNonce };", box);
 const M = box.M;
 const nonce = i => "t" + i + ":" + (i * 7919 % 104729);
 
@@ -131,4 +131,54 @@ test("整组还回去的时候，笔名那一条照样在", () => {
       .forEach(l => { hit++; assert.match(l, /她这个笔名是什么样的＝/, "还回去的时候把笔名也还回去了：" + l); });
   }
   assert.ok(hit > 0, "整组还回去那一档一次都没掷到");
+});
+
+// ── 她 2026-09-11 第三次：「还是不对宝宝」。笔名和口气散开了，可四条读下来还是
+//    一个形状：全是一整段密不透风的长复合句，塞满细节，都在讲一个小故事。
+//    而且四条都在讲八卦——路数那一栏是她挑枪手时看的那一栏，讲八卦就白给了。
+
+test("人归人、文归文：路数那一栏不许拿来讲八卦", () => {
+  const ax = k => M.AUTHOR_ANGLE_AXES.filter(x => x.key === k)[0];
+  assert.ok(ax("bfrom") && ax("sfrom"), "落点还混在一条轴上");
+  assert.ok(!ax("from"), "旧的那条混轴还在（撤东西要删掉，不是留着再加一条）");
+  // style 那一栏的每一格都得是【关于文本身】的
+  ["拐进", "营生", "吵", "资历", "跟谁走得近", "为什么开始写"].forEach(k =>
+    ax("sfrom").opts.forEach(o => assert.ok(o.indexOf(k) < 0, "style 那一轴上混进了人事：" + o)));
+  assert.match(ax("sfrom").zh, /style 那一栏/);
+  assert.match(ax("bfrom").zh, /bio 那一栏/);
+  // 两处提示词都得说清这两栏各干各的
+  assert.equal(code.split("两栏别串味").length - 1, 2, "只在一处说了「别串味」");
+  assert.match(code, /照 style 那一栏挑人的/);
+});
+
+test("长度是硬指标，不是一句「长短该不一样」", () => {
+  // 上一版就写了「长短也该不一样」，它没听。所以这一条按位给死。
+  for (let i = 0; i < 40; i++) {
+    const lines = M.authorAnglesBlock(6, nonce(i + 7000), "位").split("\n").filter(l => l.indexOf("· 第 ") === 0);
+    assert.equal(lines.length, 6);
+    lines.forEach(l => assert.match(l, /；\*\*这两句写多长\*\*＝\S+$/, "这一位没拿到长度：" + l));
+  }
+  assert.equal(code.split("那是硬的").length - 1, 2, "「那是硬的」只在一处说了");
+  assert.match(code, /别硬塞细节凑长度|别硬塞细节凑长/);
+});
+
+test("一批里必得有两位是极短的——代码保证，不是求模型", () => {
+  // 一屏里只要有两条是十来个字的，整屏立刻就不一样了；掷出来不够就改过来
+  const tiers = {};
+  [1, 2, 3, 4, 5, 8, 12].forEach(n => {
+    for (let k = 0; k < 200; k++) {
+      const plan = M.lenPlan(n, "s" + n + ":" + k);
+      assert.equal(plan.length, n);
+      const short = plan.filter(x => x === M.SHORTEST).length;
+      assert.ok(short >= Math.min(n, n >= 3 ? 2 : 1), "n=" + n + " 只有 " + short + " 位极短");
+      // 也不能改过头：够了就停，不然全员一样短又是另一种一个样
+      if (n >= 5) assert.ok(short < n, "n=" + n + " 全员都被改成极短了");
+      tiers[n] = Math.max(tiers[n] || 0, new Set(plan).size);
+    }
+  });
+  // 够了就停：八位里该掷出三四档长短，不是「两位极短 + 其余全改成极短」
+  assert.ok(tiers[8] >= 3, "八位掷下来最多只有 " + tiers[8] + " 档长短——闸改过头了");
+  assert.match(M.SHORTEST, /十来个字/);
+  assert.ok(M.SAY_LENS.length >= 4 && new Set(M.SAY_LENS).size >= 4, "档位太少");
+  assert.match(M.SAY_LENS[M.SAY_LENS.length - 1], /不许写成一整句密不透风的长句/, "最长那一档没拦住长复合句");
 });
