@@ -1507,6 +1507,38 @@
       + (ghost ? "（你是被请来接这篇的，多半会顺着点单走，但也不必当命令。）" : "（这是你自己的连载，你说了算。）") + "\n";
   }
 
+  // ── 他手上要有这篇文的前情（她 2026-09-11）──────────────────────────
+  // 她问：「如果我只给他看前 200 字，他怎么接后面的剧情？」——问得对，这是个真漏洞：
+  //   房里那张卡只有开头两百字，可他要跟她商量【接下来怎么走】，手上却什么都没有。
+  // 她自己接着说出了答案：「还是说生成文的时候本身就已经有一些小结了，也能顺手扔过去」——
+  //   **就是这样**，料全是现成的，一个字都不用另生成：
+  //   premise（生成时自报的地基）／bible 设定卡／seeds 伏笔盒／每章的 endHook／上一章结尾。
+  // ⚠️这一份跟【续写那一枪】用的是同几样料，但**不是同一段话**，差异写在这儿：
+  //   续写那份是给【写的人】的指令（带改设禁令、衔接铁律、字数地板）；
+  //   这一份是给【在房里跟她聊天的他】读的，一条写作指令都不许带——
+  //   带了他就会在聊天里开始写文。
+  const RECAP_CAP = 1500;
+  function ficRecapForChat(fic, cpText) {
+    if (!fic) return "";
+    const chs = (fic.chapters || []);
+    const hookFrom = Math.max(0, chs.length - HOOK_TAIL);
+    const hooks = chs.slice(hookFrom).map(function (c, i) {
+      return "· 第 " + (hookFrom + i + 1) + " 章结束在：" + (String((c && c.endHook) || "").trim() || "（没记锚点）");
+    }).join("\n");
+    const last = chs[chs.length - 1] || {};
+    const tail = String(last.content || fic.body || "").trim().slice(-400);
+    const out = "\n\n【她放进这间房的那一篇《" + String(fic.title || "").slice(0, 40) + "》，你读过】\n"
+      + (cpText ? "· 这一对：" + cpText + "\n" : "")
+      + (String(fic.premise || "").trim() ? "· 地基：" + String(fic.premise).trim() + "\n" : "")
+      + "· 到现在写了 " + chs.length + " 章。\n"
+      + bibleBlock(fic) + seedBlock(fic)
+      + (hooks ? "【每一章结束在哪儿】\n" + hooks + "\n" : "")
+      + (tail ? "【最后一章的结尾】……" + tail + "\n" : "")
+      + "⚠️这是【那篇文里的事】，不是你俩之间发生过的事。她跟你聊这篇的时候你手上有这些；"
+      + "她没提这篇，就别硬往这上头扯。\n";
+    return out.length > RECAP_CAP ? out.slice(0, RECAP_CAP) + "…\n" : out;
+  }
+
   // ── 你们在房里商量好的（她 2026-09-11）───────────────────────────────
   // 她原话：「就直接做房间里我们讨论了他直接写了然后推卡给我，就按我和他商量过的来，
   //   但是如果我们有不同意见有分叉那还是按他想的来（比如说"不行我觉得这样比较合理"），
@@ -2513,9 +2545,9 @@
     K_CIRCLE: K_CIRCLE, CIRCLE_CAP: CIRCLE_CAP, CIRCLE_ZH: CIRCLE_ZH, loadCircle: loadCircle, saveCircle: saveCircle,
     circlePush: circlePush, circleBetween: circleBetween, circleFeud: circleFeud, circleLines: circleLines, sameCPWith: sameCPWith,
     HEAT: HEAT, temperWeight: temperWeight, heatNow: heatNow, heatAfter: heatAfter,
-    authorHeatOf: authorHeatOf, heatBand: heatBand, roomTalkBlock: roomTalkBlock,
-    // 房间那头要自己解析 CP 才能让他接着写（loadCfg／activeStyleText 上面已经开过了）
-    cpChars: cpChars,
+    authorHeatOf: authorHeatOf, heatBand: heatBand, roomTalkBlock: roomTalkBlock, ficRecapForChat: ficRecapForChat,
+    // 房间那头要自己解析 CP、写出这一对的名字（loadCfg／activeStyleText 上面已经开过了）
+    cpChars: cpChars, cpLabel: cpLabel,
     grabChance: grabChance, refuseChance: refuseChance, backChance: backChance,
     authorStanceFacts: authorStanceFacts, authorNoteAsk: authorNoteAsk,
     wantBlock: wantBlock, bibleBlock: bibleBlock, seedBlock: seedBlock, applyChapterMeta: applyChapterMeta, BIBLE_CAP: BIBLE_CAP, SEED_CAP: SEED_CAP, HOOK_TAIL: HOOK_TAIL,
@@ -3584,8 +3616,13 @@
             props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName));
             setFiledNote("记了一笔");
           } else {
+            // 卡上要露的那几样（她 2026-09-11：「把我转发给他的也做成卡吧」）——
+            // 跟转发那张同一套字段，所以共用同一张卡
             const r = props.onFileChapter && props.onFileChapter(c.id, window.Fanfic.chapterCard(f, i, nm, mine, props.userName), roomPick,
-              { ficId: f.id, ficTitle: f.title });
+              { ficId: f.id, ficTitle: f.title, author: f.author || "",
+                cpText: cpLabel(f.cp, props.characters, props.userName),
+                note: "第 " + (i + 1) + " 章 · " + (mine ? "他写的" : "拿给你看"),
+                excerpt: String(ch.content || "").trim().slice(0, 90) });
             setFiledNote(r ? "放进了「" + r.roomName + "」" : "没能放进去");
           }
           setFileIdx(-1);

@@ -10313,7 +10313,10 @@ function FicShareCard({ m, isU }) {
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
     h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog } }, "同人文" + (f.cpText ? " · " + f.cpText : "")),
+        // note＝这张卡是怎么来的（转发／拿给你看／他写的那一章记进来）。
+        // ⚠️转发那一路没有 note，一个字都不多——老卡的长相一点没变。
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog } },
+          "同人文" + (f.cpText ? " · " + f.cpText : "") + (f.note ? " · " + f.note : "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, f.title || ""),
         f.excerpt && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, f.excerpt),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "文 / " + (f.author || "佚名")))));

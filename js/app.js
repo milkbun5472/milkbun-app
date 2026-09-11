@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.12";
+const APP_VERSION = "v67.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7707,6 +7707,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 而且【只出一张卡】——她点了才真花那一枪。⚠️他不许声称已经写好了。
       const roomFicOn = !!(room && !room.main && room.actions && room.actions.fanfic && !_s.engineerEyes);
       const roomFic = roomFicOn ? lastRoomFic(chatKey) : null;
+      // 她 2026-09-11：「如果我只给他看前 200 字，他怎么接后面的剧情？
+      //   还是说生成文的时候本身就已经有一些小结了，也能顺手扔过去」——就是这样。
+      // ⚠️料是现成的（premise／设定卡／伏笔盒／每章锚点／上一章结尾），一枪都不用多打。
+      if (roomFic && window.Fanfic.ficRecapForChat) {
+        const cpc = window.Fanfic.cpChars(roomFic.cp || [], characters, profile);
+        capState.push(window.Fanfic.ficRecapForChat(roomFic,
+          window.Fanfic.cpLabel ? window.Fanfic.cpLabel(roomFic.cp || [], characters, (profile && profile.name) || "我") : ""));
+      }
       if (roomFic) {
         openCaps.push("ficNext");
         capState.push("ficNext：她把《" + String(roomFic.title || "").slice(0, 40) + "》放进了这间房，现在写到第 "
@@ -19900,8 +19908,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const key = K.chatKey(charId, room.id);
       // ⚠️卡上要带【是哪一篇】：不带的话，这间房里聊完想让他接着写，
       //   谁都不知道该续哪一篇（她 2026-09-11 要的那条链就从这儿起）。
-      pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", ts: Date.now(), read: true,
+      // ⚠️做成卡（她 2026-09-11：「把我转发给他的也做成卡吧」）：**复用转发那张 ficshare**，
+      //   不另发明一种卡。content 照旧留着——他读的是 content，卡只是给她看的那一面。
+      pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", kind: "ficshare", ts: Date.now(), read: true,
         content: String(card).slice(0, 900),
+        fic: {
+          title: String((meta && meta.ficTitle) || "").slice(0, 60),
+          author: String((meta && meta.author) || "") || "佚名",
+          cpText: String((meta && meta.cpText) || ""),
+          note: String((meta && meta.note) || "拿给你看"),
+          excerpt: String((meta && meta.excerpt) || "").slice(0, 90)
+        },
         ficId: String((meta && meta.ficId) || ""), ficTitle: String((meta && meta.ficTitle) || "").slice(0, 60) }]);
       return { roomId: room.id, roomName: room.name };
     },

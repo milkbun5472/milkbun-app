@@ -45,7 +45,7 @@ test("选的那一间真的递到了落库那一步", () => {
     "名字空着也得有个默认，不然开出一间没名字的房");
   assert.match(page, /props\.onFile\(picked, false, roomTarget\(\)\)/, "选了却没递过去＝白选");
   assert.match(fic, /onFile: function \(c, noteOnly, roomPick\) \{/);
-  assert.match(fic, /props\.onFileChapter\(c\.id, window\.Fanfic\.chapterCard\(f, i, nm, mine, props\.userName\), roomPick,\n\s*\{ ficId: f\.id, ficTitle: f\.title \}\)/);
+  assert.match(fic, /props\.onFileChapter\(c\.id, window\.Fanfic\.chapterCard\(f, i, nm, mine, props\.userName\), roomPick,\n\s*\{ ficId: f\.id, ficTitle: f\.title, author: f\.author \|\| ""/);
 });
 
 test("落库那一头：点名就进那间，另开就开那间，都没点走老路", () => {

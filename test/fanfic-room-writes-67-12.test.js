@@ -127,3 +127,57 @@ test("两张卡照一起学那张的形状，不另发明一种", () => {
   assert.match(comp, /  onOpenFicInvite,/, "props 没接上，按钮点了没人接");
   assert.match(app, /onOpenFicInvite: async m => \{/);
 });
+
+// ── 她 2026-09-11 追两条 ──────────────────────────────────────────────
+//  ①「把我转发给他的也做成卡吧」——「拿给他看」那一条原来是条光秃秃的文字消息。
+//  ②「如果我只给他看前 200 字，他怎么接后面的剧情？还是说生成文的时候本身
+//     就已经有一些小结了，也能顺手扔过去」——就是这样，料全是现成的。
+test("拿给他看那一条也做成卡，而且是复用转发那张", () => {
+  const seg = app.slice(app.indexOf("onFileChapter: (charId, card, pick, meta) =>"), app.indexOf("onNoteChapter:"));
+  assert.match(seg, /role: "user", kind: "ficshare", ts: Date\.now\(\)/, "还是条光秃秃的文字消息");
+  // ⚠️他读的是 content，卡只是给她看的那一面——content 不许被卡顶掉
+  assert.match(seg, /content: String\(card\)\.slice\(0, 900\),/);
+  assert.match(seg, /fic: \{\n\s*title: String\(\(meta && meta\.ficTitle\) \|\| ""\)\.slice\(0, 60\),/);
+  assert.match(seg, /note: String\(\(meta && meta\.note\) \|\| "拿给你看"\),/);
+  // 卡上那一行小字：第几章、是拿给他看还是他写的
+  assert.match(fic, /note: "第 " \+ \(i \+ 1\) \+ " 章 · " \+ \(mine \? "他写的" : "拿给你看"\),/);
+  assert.match(fic, /cpText: cpLabel\(f\.cp, props\.characters, props\.userName\),/);
+  // ⚠️复用转发那张卡，不新发明一种；转发那一路没有 note，长相一点没变
+  assert.match(comp, /"同人文" \+ \(f\.cpText \? " · " \+ f\.cpText : ""\) \+ \(f\.note \? " · " \+ f\.note : ""\)\)/);
+  assert.equal(comp.split("function FicShareCard").length - 1, 1, "又画了第二张同人文卡");
+});
+
+test("只给他看两百字不够：现成的小结一起扔过去", () => {
+  const box = {};
+  vm.createContext(box);
+  vm.runInContext("const HOOK_TAIL = 8;" + grab(fic, "bibleBlock") + grab(fic, "seedBlock") + grab(fic, "ficRecapForChat")
+    + "\nconst RECAP_CAP = 1500;\nthis.f = ficRecapForChat;", box);
+  const F = { title: "长夜", premise: "他欠他一条命", bible: ["他是王爷", "那年下过雪"], seeds: ["那封信还没拆"],
+    chapters: [{ content: "第一章正文", endHook: "灯灭了" }, { content: "第二章正文，最后一句在这儿。", endHook: "他没回头" }] };
+  const out = box.f(F, "皇帝 × 王爷");
+  // ⚠️料全是生成时就存下来的，一枪都不用多打
+  assert.match(out, /【她放进这间房的那一篇《长夜》，你读过】/);
+  assert.match(out, /· 这一对：皇帝 × 王爷/);
+  assert.match(out, /· 地基：他欠他一条命/);
+  assert.match(out, /· 到现在写了 2 章。/);
+  assert.match(out, /本篇设定卡/);
+  assert.match(out, /他是王爷/);
+  assert.match(out, /还埋着没收的伏笔/);
+  assert.match(out, /· 第 1 章结束在：灯灭了/);
+  assert.match(out, /· 第 2 章结束在：他没回头/);
+  assert.match(out, /【最后一章的结尾】……第二章正文，最后一句在这儿。/);
+  // ⚠️这一份是给【聊天的他】读的，一条写作指令都不许带——带了他会在聊天里开始写文
+  ["至少写", "字数", "输出", "JSON", "只输出"].forEach(w =>
+    assert.ok(out.indexOf(w) < 0, "混进了写作指令：" + w));
+  assert.match(out, /⚠️这是【那篇文里的事】，不是你俩之间发生过的事。/);
+  assert.match(out, /她没提这篇，就别硬往这上头扯。/, "不说这一句，他会把那篇文当成你们的共同经历");
+  // 封顶：不封的话每一轮聊天都背着一大段
+  // ⚠️桩要真的撑破 1500：设定卡每条都得够长，不然封顶那道闸拆了也照样过
+  const big = { title: "长", chapters: [{ content: "字".repeat(5000), endHook: "锚" }],
+    bible: Array.from({ length: 60 }, (_, i) => "设定" + i + "：" + "细".repeat(40)) };
+  assert.ok(box.f(big, "").length <= 1502, "没封顶：" + box.f(big, "").length);
+  assert.equal(box.f(null, ""), "");
+  // 真的接进了房里那一枪
+  assert.match(app, /capState\.push\(window\.Fanfic\.ficRecapForChat\(roomFic,/);
+  assert.match(app, /if \(roomFic && window\.Fanfic\.ficRecapForChat\) \{/);
+});

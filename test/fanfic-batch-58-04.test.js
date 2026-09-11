@@ -72,8 +72,9 @@ test("配角（npc）能选进 CP，但转发不列他们", () => {
   const a = app.indexOf('screen === "fanfic"');
   const blk = app.slice(a, app.indexOf('screen === "weekly"', a));
   // 上限只是「别越界到 weekly 那一段」的保险丝，不是设计约束：
-  // v66.78 加了 relOf / onCharWrote（让角色来写那一层），这一段本来就长了一截
-  assert.ok(a > 0 && blk.length > 100 && blk.length < 3200, "切不出同人文那一段");
+  // v66.78 加了 relOf / onCharWrote（让角色来写那一层），
+  // v67.13 又加了 onOpenFicInvite（房里商量完他直接写那一整段），这一段本来就长了几截
+  assert.ok(a > 0 && blk.length > 100 && blk.length < 5600, "切不出同人文那一段");
   // 照 app 既有的约定：characters 一律是真人那份，要全量的显式再要一份 allChars
   // （test/npc.test.js 守着这条，名单是一处一处点名的）
   assert.match(blk, /characters: liveChars,/);

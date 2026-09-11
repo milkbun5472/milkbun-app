@@ -64,7 +64,9 @@ test("不先把她赶去建房：没有就顺手开一间", () => {
   assert.match(seg, /r\.actions && r\.actions\.fanfic/, "随便挑一间房塞进去＝塞进了一起学那间");
   assert.match(seg, /sort\(\(a, b\) => \(b\.updatedAt \|\| 0\) - \(a\.updatedAt \|\| 0\)\)/, "不按最近用过排，她每次都得想「上次放哪儿了」");
   // 房间里那条要真进得了上下文：kind:"system" 的卡是被过滤掉的
-  assert.match(seg, /role: "user", ts: Date\.now\(\)/);
+  // v67.13：这张也做成卡了（复用转发那张 ficshare），但 role 照旧是 user——
+  // ⚠️他读的是 content，卡只是给她看的那一面；kind:"system" 那种是进不了上下文的
+  assert.match(seg, /role: "user", kind: "ficshare", ts: Date\.now\(\)/);
   assert.ok(seg.indexOf('kind: "system"') < 0, "system 卡在好几处都被排除出上下文，他根本看不见");
 });
 
