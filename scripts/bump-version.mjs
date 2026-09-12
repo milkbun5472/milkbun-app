@@ -22,12 +22,24 @@ try { push(execSync("git log --format=%s -60", { encoding: "utf8" })); } catch (
 // ⚠️还得问一次【远端】（她 2026-09-04：两个窗口同时发版，两边都发了 62.12）。
 // 本地历史只记得我 fetch 那一刻为止的事；另一个窗口在这之后推的版本，
 // 本地一无所知——于是两边算出同一个「下一个号」，谁后推谁把号写回去。
-// 所以发版前现拉一次 origin/main，再把它的提交标题和四个版本文件一起算进来。
+// 所以发版前现拉一次远端 main，再把它的提交标题和四个版本文件一起算进来。
 // 拉不动（离线/超时）就跳过：不能因为没网就发不了版。
-try { execSync("git fetch --quiet origin main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
-try { push(execSync("git log --format=%s origin/main -60", { encoding: "utf8" })); } catch (_) {}
-try { push(execSync("git show origin/main:js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]); } catch (_) {}
-try { push(execSync("git show origin/main:index.html", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/\?v=[\d.]+/g)?.join(" ")); } catch (_) {}
+// ⚠️2026-09-11：这一段原本写死 origin/main，可本仓的 remote 叫 milkbun，没有 origin。
+// 于是每一条 git 命令都在报错 → 被 catch(_) 静默吞掉 → 远端那一路从来没有数据进来，
+// 闸看着在，其实从头到尾没关上过。远端名一律现问，别再写死。
+const REMOTE = (() => {
+  const run = c => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  // 1) main 自己的 upstream 最准（milkbun/main → milkbun）
+  try { const u = run("git rev-parse --abbrev-ref main@{upstream}"); if (u.includes("/")) return u.split("/")[0]; } catch (_) {}
+  // 2) 只有一个 remote 就是它
+  try { const rs = run("git remote").split("\n").filter(Boolean); if (rs.length === 1) return rs[0]; if (rs.includes("origin")) return "origin"; if (rs.length) return rs[0]; } catch (_) {}
+  return "origin";
+})();
+const REMOTE_MAIN = REMOTE + "/main";
+try { execSync("git fetch --quiet " + REMOTE + " main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
+try { push(execSync("git log --format=%s " + REMOTE_MAIN + " -60", { encoding: "utf8" })); } catch (_) {}
+try { push(execSync("git show " + REMOTE_MAIN + ":js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]); } catch (_) {}
+try { push(execSync("git show " + REMOTE_MAIN + ":index.html", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/\?v=[\d.]+/g)?.join(" ")); } catch (_) {}
 
 const top = all.sort((x, y) => num(x) - num(y)).pop();
 // --check：推之前再问一次远端。bump 到 push 之间那几分钟，另一个窗口可能又发了一版；
@@ -36,15 +48,20 @@ const top = all.sort((x, y) => num(x) - num(y)).pop();
 if (process.argv.includes("--check")) {
   const mine = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1];
   let theirs = null;
-  try { execSync("git fetch --quiet origin main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
+  try { execSync("git fetch --quiet " + REMOTE + " main", { stdio: "ignore", timeout: 20000 }); } catch (_) {}
   // ⚠️maxBuffer 要给足：app.js 一个多兆，默认 1MB 会直接抛错被 catch 吞掉，
   // 于是「远端版本」永远读不到——闸看着在，其实从没关上过
-  try { theirs = execSync("git show origin/main:js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]; } catch (_) {}
+  try { theirs = execSync("git show " + REMOTE_MAIN + ":js/app.js", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]; } catch (_) {}
   if (mine && theirs && num(theirs) >= num(mine)) {
     console.error("远端已经发到 " + theirs + "，本地这版是 " + mine + "：先 rebase，再跑一次 bump-version，然后推");
     process.exit(1);
   }
-  console.log("远端 " + (theirs || "未知") + " < 本地 " + mine + "，可以推");
+  // 读不到远端就别假装闸关上了：这一路正是 2026-09-11 发现「静默失灵」的地方，
+  // 必须喊出来，让人自己决定是离线硬推还是先查远端。
+  if (!theirs) {
+    console.warn("⚠️ 读不到 " + REMOTE_MAIN + " 的 APP_VERSION（离线？远端名不对？）——撞号闸这次没生效");
+  }
+  console.log("远端 " + (theirs || "未知") + " < 本地 " + mine + "（remote: " + REMOTE + "），可以推");
   process.exit(0);
 }
 if (!top) { console.error("找不到任何版本号"); process.exit(1); }
