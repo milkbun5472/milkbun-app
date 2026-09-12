@@ -46,13 +46,15 @@ test("「你」是她，一个字都不许动", () => {
 
 // ⚠️「我们」是他和她两个人：换成第三人称到底该是「他们」还是「你们」说不清。
 //   说不清的就别改——改错比不改难看。
-test("「我们」「她们」都不动", () => {
+test("「我们」「她们」「你们」都不动", () => {
   assert.equal(actLineAs("我们坐在沙发上", "他"), "我们坐在沙发上");
   assert.equal(actLineAs("我们坐在沙发上，我把杯子放下", "他"), "我们坐在沙发上，他把杯子放下");
-  assert.equal(actLineAs("我们坐在沙发上，她们在厨房", "他", ["她"]), "我们坐在沙发上，她们在厨房");
-  // 还原用的哨兵不许漏进正文，两种合称也不许串
-  assert.ok(actLineAs("我们她们我她", "他", ["她"]).indexOf("\u0002") < 0);
-  assert.equal(actLineAs("我们她们我她", "他", ["她"]), "我们她们他你");
+  assert.equal(actLineAs("我们出门，她们在家，你们等着", "他", ["她"]), "我们出门，她们在家，你们等着");
+  // 反着那一头也一样：选「她」的时候「你们」不许变成「她们」
+  assert.equal(actLineAs("我们出门，你们等着", "他", [], "她"), "我们出门，你们等着");
+  // 还原用的哨兵不许漏进正文，三种合称也不许串位
+  assert.ok(actLineAs("我们她们你们我她", "他", ["她"]).indexOf("\u0002") < 0);
+  assert.equal(actLineAs("我们她们你们我她", "他", ["她"]), "我们她们你们他你");
 });
 
 // ── 第二个旋钮：他那一行里【你】叫什么（她 2026-09-12：「他卡里写的她」）──
@@ -69,17 +71,33 @@ test("女角色那一档：他自己的「她」不许被当成你再换一次",
   assert.equal(actLineAs("我把伞递给她", "她", ["她"]), "她把伞递给你");
 });
 
-test("选「照卡来」就一个字不动", () => {
-  assert.equal(actLineAs("我把伞递给她", "他", []), "他把伞递给她");
+// ⚠️她 2026-09-12：「应该是你/她，因为卡有时候也会写你」——
+//   卡里时而写「你」时而写「她」，「照卡来」等于没选，她看到的还是一时一个样。
+//   所以第二个旋钮是【两个确定的方向】，两边都得真的转得动。
+test("卡里写「你」、她选「她」：也要转得过去", () => {
+  assert.equal(actLineAs("我把伞递给你", "他", [], "她"), "他把伞递给她");
+  assert.equal(actLineAs("我站在门外，递向你", "他", [], "她"), "他站在门外，递向她");
+});
+
+test("四种组合都落在该落的地方", () => {
+  assert.equal(actLineAs("我把伞递给她", "他", ["她"], ""), "他把伞递给你", "卡写她·选你");
+  assert.equal(actLineAs("我把伞递给你", "他", ["她"], ""), "他把伞递给你", "卡写你·选你");
+  assert.equal(actLineAs("我把伞递给你", "他", [], "她"), "他把伞递给她", "卡写你·选她");
+  assert.equal(actLineAs("我把伞递给她", "他", [], "她"), "他把伞递给她", "卡写她·选她");
+});
+
+test("两个方向都不给的时候，只动他自己那个人称", () => {
+  assert.equal(actLineAs("我把伞递给她", "他", [], ""), "他把伞递给她");
   assert.equal(actLineAs("我把伞递给她", "他"), "他把伞递给她", "不传就是不换");
 });
 
 test("两个旋钮各管各的，单独开一个也要管用", () => {
-  // 只开「你」那一个：他自己照旧是「我」
+  // 只动「你」那一头：他自己照旧是「我」
   assert.equal(actLineAs("我把伞递给她", "", ["她"]), "我把伞递给你");
-  // 只开「他」那一个：她照旧是卡里写的
+  assert.equal(actLineAs("我把伞递给你", "", [], "她"), "我把伞递给她");
+  // 只动「他」那一头：她照旧是卡里写的
   assert.equal(actLineAs("我把伞递给她", "他", []), "他把伞递给她");
-  // 两个都不开就原样
+  // 两个都不动就原样
   assert.equal(actLineAs("我把伞递给她", "", []), "我把伞递给她");
 });
 
@@ -127,13 +145,13 @@ test("只改显示，不碰存进去的那一份", () => {
 });
 
 test("单聊那一行按开关显示", () => {
-  const i = C.indexOf('m.who === "char" && window.ActLine && (actPerson === "ta" || userPerson === "you")');
+  const i = C.indexOf('m.who === "char" && window.ActLine');
   assert.ok(i > 0, "那一行没接上开关");
   const blk = C.slice(i, i + 400);
   assert.match(blk, /window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"/,
     "人称得跟着角色性别走——charTa 那张表只有一份，别再各写一遍");
-  assert.match(blk, /userPerson === "you" \? \["她", \(profile && profile\.name\) \|\| ""\] : \[\]/,
-    "第二个旋钮没接上");
+  assert.match(blk, /userPerson === "ta" \? \[\] : \["她", \(profile && profile\.name\) \|\| ""\]/, "「选你」那一头没接上");
+  assert.match(blk, /userPerson === "ta" \? "她" : ""/, "「选她」那一头没接上——卡里写「你」时就转不过去了");
   assert.match(blk, /: m\.content\)/, "没开开关时得原样显示");
   // 她自己写的旁白（who 不是 char）一个字都不许动
   assert.match(C, /m\.who === "char" && window\.ActLine/, "没判 who＝把她自己的旁白也转了");
@@ -142,9 +160,9 @@ test("单聊那一行按开关显示", () => {
 test("开关存得下来，而且只认 ta 这一个值", () => {
   assert.match(C, /const \[actPerson, setActPerson\] = useState\(settings\.actPerson === "ta" \? "ta" : "me"\);/);
   assert.match(C, /\n      actDesc,\n      actPerson,\n      userPerson,\n/, "保存时没带上");
-  assert.match(C, /const \[userPerson, setUserPerson\] = useState\(settings\.userPerson === "asis" \? "asis" : "you"\);/);
-  assert.match(A, /userPerson: s\.userPerson === "asis" \? "asis" : "you",/, "存进来的脏值没归一");
-  assert.match(A, /userPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.userPerson === "asis" \? "asis" : "you",/);
+  assert.match(C, /const \[userPerson, setUserPerson\] = useState\(settings\.userPerson === "ta" \? "ta" : "you"\);/);
+  assert.match(A, /userPerson: s\.userPerson === "ta" \? "ta" : "you",/, "存进来的脏值没归一");
+  assert.match(A, /userPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.userPerson === "ta" \? "ta" : "you",/);
   assert.match(A, /actPerson: s\.actPerson === "ta" \? "ta" : "me",/, "存进来的脏值没归一");
   assert.match(A, /actPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.actPerson === "ta" \? "ta" : "me",/, "没传进聊天那一屏");
 });
@@ -154,12 +172,13 @@ test("动描关着的时候不摆这个开关", () => {
   assert.ok(i > 0, "开关没挂在动描底下");
   const blk = C.slice(i, i + 3200);   // 两个开关都在这一段里，窗口得够长
   assert.match(blk, /TA 那一行里，TA 自己叫什么/, "标题得说清是【谁那一行】——她 2026-09-12 就是被这个绊到的");
-  assert.match(blk, /\*\*你自己那一行不动\*\*/, "得当面说清她自己那行不会变");
   assert.match(blk, /TA 那一行里，你叫什么/, "第二个开关没摆出来");
-  assert.match(blk, /\[\["you", "你"\], \["asis", "照卡来"\]\]/);
-  assert.match(blk, /这儿抓不到——跟我说一声/, "抓不到的那一种得当面说明白，别让她以为全兜住了");
-  assert.match(blk, /两个人都说「我」容易看岔/, "得说清为什么会想换——她自己的旁白也是「我」");
-  assert.match(blk, /只改显示，状态卡里那一格不动/, "得说清它不碰存的那一份");
+  assert.match(blk, /\[\["you", "你"\], \["ta", "她"\]\]/, "第二个开关得是两个确定的方向，不是「照卡来」");
+  // ⚠️她 2026-09-12：「这几个灰字注释太长了给别人看不好，删掉」。
+  //   解释搬进代码注释了——那是给改代码的人看的，不占她的屏幕。这条反着钉：别再长回来。
+  assert.ok(blk.indexOf("t.fog, marginTop: 2") < 0, "那两段灰字说明又长回来了");
+  assert.ok(C.indexOf("只认「她」和你的名字") < 0, "灰字没删干净");
+  assert.ok(C.indexOf("你自己写的旁白也是「我」，两个人都说「我」容易看岔") < 0, "灰字没删干净");
   assert.match(blk, /\[\["me", "我"\], \["ta", "他"\]\]/);
   assert.equal((blk.match(/minHeight: 32/g) || []).length, 2, "两个开关的按钮都得点得到，不能只有第一个够大");
   assert.match(blk, /\) : null\)/, "动描关着时该整个不摆");

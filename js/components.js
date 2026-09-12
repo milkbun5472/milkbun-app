@@ -7324,7 +7324,7 @@ function ChatThread({
   onToggleSameRoom,
   actDesc,
   actPerson,   // 他那一行里【他自己】叫什么："me"（我，默认）/ "ta"（他，跟角色性别走）
-  userPerson,  // 他那一行里【你】叫什么："you"（你，默认）/ "asis"（他卡里怎么写就怎么显示）
+  userPerson,  // 他那一行里【你】叫什么："you"（你，默认）/ "ta"（她）——两个都是确定的方向
   character,
   characters,
   groups,
@@ -7837,10 +7837,11 @@ function ChatThread({
         color: (selMode && selIds.includes(i)) ? t.ink : ((dsp.chatBg || _wkBg) ? "#5a5550" : t.fog),
         ...plate("5px 12px")
       }
-    }, m.who === "char" && window.ActLine && (actPerson === "ta" || userPerson === "you")
+    }, m.who === "char" && window.ActLine
         ? window.ActLine.as(m.content,
             actPerson === "ta" ? (window.PhonePronoun ? window.PhonePronoun.ta(character) : "他") : "",
-            userPerson === "you" ? ["她", (profile && profile.name) || ""] : [])
+            userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""],
+            userPerson === "ta" ? "她" : "")
         : m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
@@ -14475,7 +14476,7 @@ function ChatSettings({
   // 动描那一行用第几人称（她 2026-09-12 选的「就设置开关可以改」）
   const [actPerson, setActPerson] = useState(settings.actPerson === "ta" ? "ta" : "me");
   // 他那一行里【你】叫什么（她 2026-09-12：「哦是因为他卡里写的她，给她也做个开关吧」）
-  const [userPerson, setUserPerson] = useState(settings.userPerson === "asis" ? "asis" : "you");
+  const [userPerson, setUserPerson] = useState(settings.userPerson === "ta" ? "ta" : "you");
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
   const [wipeMemToo, setWipeMemToo] = useState(false);
@@ -15052,11 +15053,10 @@ function ChatSettings({
   //   那儿本来就是角色自己的卡（她 2026-09-12 选的就是这条路）。
   actDesc ? h("div", { className: "flex items-center justify-between pt-4" },
     h("div", { style: { paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，TA 自己叫什么"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
-        "默认是「我站在门外」。你自己写的旁白也是「我」，两个人都说「我」容易看岔——"
-        + "换成「他」就一眼分得出哪一行是谁的。**你自己那一行不动**，还是「我」。"
-        + "只改显示，状态卡里那一格不动。")),
+      // ⚠️底下那段灰字删掉了（她 2026-09-12：「太长了给别人看不好」）。
+      //   标题 + 两个选项本身就说得清；解释留在这儿给下一个改代码的人看，不占她的屏幕。
+      //   意思是：只改【显示】，状态卡里存的那一格照旧第一人称；她自己写的旁白一个字不动。
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，TA 自己叫什么")),
     h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
       [["me", "我"], ["ta", "他"]].map(function (o) {
         const on = actPerson === o[0];
@@ -15070,16 +15070,16 @@ function ChatSettings({
   //   这跟「他自己叫什么」是两件事，所以是两个开关。
   actDesc ? h("div", { className: "flex items-center justify-between pt-4" },
     h("div", { style: { paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，你叫什么"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
-        "TA 的卡里要是把你写成「她」，那一行就成了「他把伞递给她」——你就从「你」变成了「她」。"
-        + "选「你」会把那一行里的「她」和你的名字换成「你」；选「照卡来」就一个字不动。"
-        + "（只认「她」和你的名字；TA 卡里要是写的「他」或「TA」，这儿抓不到——跟我说一声。）")),
+      // ⚠️灰字同上删掉。这一格是【两个确定的方向】，不是「照卡来」——
+      //   她 2026-09-12：「应该是你/她，因为卡有时候也会写你」。卡里时而写你时而写她，
+      //   「照卡来」等于没选。选「你」：她/她的名字 → 你；选「她」：你 → 她。
+      //   ⚠️只认「她」和她的名字；卡里写成「他」或「TA」抓不到，她报了再说。
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，你叫什么")),
     h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
-      [["you", "你"], ["asis", "照卡来"]].map(function (o) {
+      [["you", "你"], ["ta", "她"]].map(function (o) {
         const on = userPerson === o[0];
         return h("button", { key: o[0], onClick: function () { setUserPerson(o[0]); }, className: "active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", minHeight: 32, border: "none",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
             background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
       }))) : null), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"

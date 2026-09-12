@@ -1770,23 +1770,33 @@ function sameActLine(a, b) {
 //   他那一行里【她】叫什么。他卡里要是把她写成第三人称，那一行就是
 //   「我把伞递给她」——换成第三人称之后更明显：「他把伞递给她」，她就从
 //   「你」变成了「她」。这跟第一个旋钮是两件事，所以是两个开关。
-// ⚠️顺序要紧：**先把她换成「你」，再把他换成第三人称**。
+// ⚠️**两个方向都要能转**（她 2026-09-12：「应该是你/她，因为卡有时候也会写你」）。
+//   原来那一版第二个选项是「照卡来」——可卡里时而写「你」时而写「她」，
+//   「照卡来」等于没选，她看到的还是一时一个样。所以现在是两个确定的方向：
+//     toYou：那几个词（她／她的名字）→「你」
+//     toTa ：「你」→ 那个词（她）
+//   两个永远只会有一个是满的，互不打架。
+// ⚠️顺序要紧：**先动「你」这一头，再把他换成第三人称**。
 //   反过来的话，他要也是「她」（女角色），刚换出来的那个「她」会被当成她再换成「你」。
-// ⚠️「我们」「她们」都不动：两个人的合称，换成第三人称说不清该是哪个，说不清就别改。
-const ACT_PAIR = /我们|她们/g;
-function actLineAs(text, ta, youWords) {
+// ⚠️「我们」「她们」「你们」都不动：两个人的合称，换成另一个人称说不清该是哪个，
+//   说不清就别改——改错比不改难看。
+const ACT_PAIR = /我们|她们|你们/g;
+const ACT_PAIR_BACK = ["我们", "她们", "你们"];
+function actLineAs(text, ta, toYou, toTa) {
   const who = String(ta || "").trim();
-  const mine = (Array.isArray(youWords) ? youWords : []).map(function (x) { return String(x || "").trim(); })
+  const mine = (Array.isArray(toYou) ? toYou : []).map(function (x) { return String(x || "").trim(); })
     .filter(Boolean).sort(function (a, b) { return b.length - a.length; });   // 长的先换，免得名字被拆掉
+  const asTa = String(toTa || "").trim();
   let s = String(text == null ? "" : text);
   // ⚠️不另加 who === "我" 那一支：调用点要么传 charTa（他/她/TA）、要么压根不调，
   //   而且真传了「我」也只是原样替换。加了是死代码，删掉一条测试都不红——试过了。
-  if ((!who && !mine.length) || !s) return s;
+  if ((!who && !mine.length && !asTa) || !s) return s;
   const HOLD = "\u0002";
-  s = s.replace(ACT_PAIR, function (m) { return HOLD + (m === "我们" ? "0" : "1"); });
+  s = s.replace(ACT_PAIR, function (m) { return HOLD + ACT_PAIR_BACK.indexOf(m); });
+  if (asTa) s = s.split("你").join(asTa);
   mine.forEach(function (w) { s = s.split(" " + w).join("你").split(w).join("你"); });
   if (who) s = s.replace(/我/g, who);
-  return s.replace(new RegExp(HOLD + "([01])", "g"), function (_, d) { return d === "0" ? "我们" : "她们"; });
+  return s.replace(new RegExp(HOLD + "([0-2])", "g"), function (_, d) { return ACT_PAIR_BACK[+d]; });
 }
 if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 function splitLongBubble(s, allowComma) {
