@@ -116,16 +116,33 @@ test("衣柜按场合分组，同一场合可以有好几套", () => {
   assert.match(screens, /\*\*有几件由这个人决定\*\*/, "别的几栏也不该再写死件数");
 });
 
+// ⚠️别把这三个数抄进断言里。它们是【许可】不是【指标】（她 2026-09-12），
+//   会跟着她的要求往上抬；钉死了，以后抬一次就红一次，红的还是一条没坏的闸。
+//   这里从源码读出当天的数，只钉【三道闸各自真的生效】。
+const CLO = (() => {
+  const m = screens.match(/const CLOSET_MAX_OCCASIONS = (\d+), CLOSET_MAX_SETS = (\d+), CLOSET_MAX_TOTAL = (\d+);/);
+  assert.ok(m, "衣柜那三个上限不在了");
+  return { occ: +m[1], sets: +m[2], total: +m[3] };
+})();
 test("衣柜的上限由代码守着，光靠提示词只是降概率", () => {
-  const big = { closet: Array.from({ length: 9 }, (_, i) => ({ occasion: "场合" + i, sets: Array.from({ length: 9 }, (_, j) => ({ name: "套" + i + "_" + j })) })) };
+  const n = CLO.occ + 3, k = CLO.sets + 3;
+  const big = { closet: Array.from({ length: n }, (_, i) => ({ occasion: "场合" + i, sets: Array.from({ length: k }, (_, j) => ({ name: "套" + i + "_" + j })) })) };
   const g = F.closetGroups(big);
-  assert.ok(g.length <= 6, "场合数没封顶：" + g.length);
-  g.forEach(x => assert.ok(x.sets.length <= 6, "单场合套数没封顶"));
-  assert.ok(g.reduce((n, x) => n + x.sets.length, 0) <= 30, "总套数没封顶");
-  // 上面那个用例会先撞上总数 24 而停下，测不到【场合数】那道闸。
-  // 每个场合只放一套，总数就够不着 24——这时候拦住它的必须是场合数本身。
-  const thin = { closet: Array.from({ length: 9 }, (_, i) => ({ occasion: "场合" + i, sets: [{ name: "套" + i }] })) };
-  assert.ok(F.closetGroups(thin).length <= 6, "场合数那道闸没有单独生效：" + F.closetGroups(thin).length);
+  assert.ok(g.length <= CLO.occ, "场合数没封顶：" + g.length);
+  g.forEach(x => assert.ok(x.sets.length <= CLO.sets, "单场合套数没封顶"));
+  assert.ok(g.reduce((a, x) => a + x.sets.length, 0) <= CLO.total, "总套数没封顶");
+  // 上面那个用例会先撞上总数而停下，测不到【场合数】那道闸。
+  // 每个场合只放一套，总数就够不着上限——这时候拦住它的必须是场合数本身。
+  const thin = { closet: Array.from({ length: n }, (_, i) => ({ occasion: "场合" + i, sets: [{ name: "套" + i }] })) };
+  assert.ok(F.closetGroups(thin).length <= CLO.occ, "场合数那道闸没有单独生效：" + F.closetGroups(thin).length);
+});
+
+// ⚠️反过来那一半：这道闸是【渲染时】才截的，给小了不会报错，只会把她刚添上的
+//   那几身在界面上静默砍掉。「再添几套」既然是一次次攒，就得攒得下好几次。
+test("上限要留得下她攒好几次——太低会把添上的静默砍掉", () => {
+  assert.ok(CLO.total >= 60, "总套数天花板只有 " + CLO.total + "：添几次就顶死了");
+  assert.ok(CLO.sets >= 10, "单场合只让挂 " + CLO.sets + " 身：她想在同一个场合多几身就挂不进去");
+  assert.ok(CLO.occ >= 8, "场合只让开 " + CLO.occ + " 种");
 });
 
 test("旧的平清单还看得见（她手机上已经有旧数据）", () => {

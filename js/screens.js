@@ -11410,7 +11410,13 @@ const CARRY_SECTIONS = [
 // v57.85 放宽：单场合 4 套太紧——「上朝」这种场合真讲究的人就是有五六套，
 // 而她要的正是「同一个场合也能多几套」。上限只是防模型排出四十套的那道闸，
 // 不该反过来替角色决定他有多少衣服。
-const CLOSET_MAX_OCCASIONS = 6, CLOSET_MAX_SETS = 6, CLOSET_MAX_TOTAL = 30;
+// v67.33 再放宽（她 2026-09-12：「衣柜能不能多加可以生成多几套衣服」）：
+// 有了「再添几套」那条路之后，这个数管的就不只是【模型一次能给多少】了，
+// 而是【她一次次攒起来能攒多少】。⚠️这是渲染时才截的闸——给小了，
+// 她刚添上的那几套会在界面上被静默砍掉，人还以为没添进去。
+// 天花板是许可不是指标（她 2026-09-12 那句，v67.25 同一条）：
+// 用不到的时候它一分钱不花，太低的时候才实打实掐掉她攒的东西。
+const CLOSET_MAX_OCCASIONS = 10, CLOSET_MAX_SETS = 12, CLOSET_MAX_TOTAL = 72;
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];
@@ -11423,7 +11429,11 @@ function closetGroups(data) {
       const occasion = String(g.occasion || g.name || "").trim();
       const sets = (Array.isArray(g.sets) ? g.sets : []).filter(x => x && String(x.name || "").trim());
       const room = Math.max(0, Math.min(CLOSET_MAX_SETS, CLOSET_MAX_TOTAL - total));
-      if (!occasion || !sets.length || !room) return;
+      // ⚠️原来这儿还有一条「没写场合名就整组丢掉」。丢的是【真有衣服的那一组】：
+      //   旧的平清单（没有场合这回事）一走 closetMerge 就成了 occasion 为空的那一组，
+      //   写回去再读一次，她那几身老衣服当场消失。没有场合名照样挂得出来
+      //   （下面渲染那头本来就写着 g.occasion ? 标题 : null），空的是名字不是衣服。
+      if (!sets.length || !room) return;
       out.push({ occasion, sets: sets.slice(0, room) });
       total += Math.min(sets.length, room);
     });
@@ -11432,6 +11442,37 @@ function closetGroups(data) {
   // 旧数据：一条平的清单，归到一个没有场合名的组里，照样看得见
   const items = (Array.isArray(data.items) ? data.items : []).filter(x => x && String(x.name || "").trim());
   return items.length ? [{ occasion: "", sets: items.slice(0, CLOSET_MAX_TOTAL) }] : [];
+}
+// 衣柜里一共几套 / 还塞得下几套。数的是【真会显示出来的那些】，
+// 所以一律从 closetGroups 数起，别另写一把尺子。
+function closetCount(data) { return closetGroups(data).reduce((n, g) => n + g.sets.length, 0); }
+// ⚠️不用再夹一次 0：closetGroups 读出来就已经截在 CLOSET_MAX_TOTAL 上了，
+// 数不可能比它大（test/carry-scroll-and-closet-more-67-33 钉着这个关系）。
+function closetRoom(data) { return CLOSET_MAX_TOTAL - closetCount(data); }
+// 「再添几套」落进衣柜：新的那几身按场合并进老的那一柜，老的一身都不动。
+// ⚠️这条路和「重新翻一遍」正相反，别把两者混成一个函数：
+//   刷新走 carryEvolveMerge，是【比对着改】，一次最多真换掉两件；
+//   这一条是【只添不换】——她按的那个按钮上写的就是「多几套」，不是「换几套」。
+// 撞名用的是 carrySameThing（跨栏避重那同一把尺子），免得添回来一身只换了个说法的。
+function closetMerge(oldData, addData) {
+  const groups = closetGroups(oldData).map(g => ({ occasion: g.occasion, sets: g.sets.slice() }));
+  let total = groups.reduce((n, g) => n + g.sets.length, 0);
+  const has = nm => groups.some(g => g.sets.some(s => carrySameThing(s.name, nm)));
+  closetGroups(addData).forEach(g => {
+    let home = groups.find(x => carryNameNorm(x.occasion) === carryNameNorm(g.occasion) && carryNameNorm(g.occasion));
+    g.sets.forEach(s => {
+      if (total >= CLOSET_MAX_TOTAL || has(s.name)) return;
+      if (!home) {
+        if (groups.length >= CLOSET_MAX_OCCASIONS) return;
+        home = { occasion: g.occasion, sets: [] };
+        groups.push(home);
+      }
+      if (home.sets.length >= CLOSET_MAX_SETS) return;
+      home.sets.push(s);
+      total++;
+    });
+  });
+  return { ...(oldData || {}), closet: groups };
 }
 // 一身衣服该怎么称呼（v61.42，她 2026-09-03 报：「陆衍的衣服写成了这个风格，
 // 但是别人的都是正常描述是啥衣服，所以看陆衍状态卡就只能看到他穿着 xx 场合的衣服」）。
@@ -11729,8 +11770,21 @@ function carryEvolveMerge(key, oldData, newData, pinned) {
   if (!putBack.length) return newData;
   if (key === "outfit") {
     const groups = closetGroups(newData).map(g => ({ occasion: g.occasion, sets: g.sets.slice() }));
-    const home = groups[0] || (groups[0] = { occasion: "", sets: [] });
-    putBack.forEach(it => home.sets.push(it));
+    // ⚠️补回来的那几身要回到【它原来挂的那一格】。原来一律塞进 groups[0]，
+    //   于是刷一次，他的朝服就挂到「在家」那一格去了；衣柜越大这事越显眼
+    //   （v67.33 加了「再添几身」之后，柜子本来就会攒大）。
+    const was = {};
+    closetGroups(oldData).forEach(g => g.sets.forEach(it => { was[carryItemKey(it)] = g.occasion; }));
+    putBack.forEach(it => {
+      const occ = was[carryItemKey(it)] || "";
+      let home = occ ? groups.find(g => g.occasion === occ) : null;
+      if (!home) {
+        // 那一格整个被模型删掉了：连格子一起补回来，别把衣服倒进别人那一格
+        if (occ) { home = { occasion: occ, sets: [] }; groups.push(home); }
+        else home = groups[0] || (groups[0] = { occasion: "", sets: [] });
+      }
+      home.sets.push(it);
+    });
     return { ...newData, closet: groups };
   }
   return { ...newData, items: carryFlatItems(key, newData).concat(putBack) };
@@ -11861,6 +11915,37 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
       + carryAvoidBlock(elsewhere) + carryKnownBlock(key, known, pinned)
   };
 }
+// 「再添几套」那一枪（她 2026-09-12：「衣柜能不能多加可以生成多几套衣服」）。
+//
+// ⚠️为什么不能拿「重新翻一遍」那一枪凑合：那一枪带的是 carryKnownBlock，
+//   里头写着「**默认原样照抄回来**、这一次最多换掉两件」——照抄回来的东西
+//   在这条路上全是废话，而「最多换两件」正是她要的反面。她按这个按钮的意思是
+//   【多几身】，不是【换几身】，所以这一枪只要新的那几身。
+// ⚠️已经挂着的那几身要点名列出来「别再写一遍」：不列的话它会把老的重写一遍，
+//   撞名全被 closetMerge 挡掉，一枪白打。
+function closetMoreSpec(char, known, room, material, elsewhere) {
+  const nm = char.name;
+  const have = closetGroups(known);
+  const list = have.map(g => "· 〔" + (g.occasion || "没写场合") + "〕" + g.sets.map(x => x.name).join("、")).join("\n");
+  const want = Math.max(1, Math.min(5, room));
+  return {
+    maxTokens: 65535,
+    schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}",
+    instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
+      + (list ? "\n\n【柜子里已经挂着这些】\n" + list
+          + "\n新添的要和上面这些真的是两回事——不是同一件换个颜色，也不是同一句话换个说法。" : "")
+      + "\n\n【添在哪个场合由这个人决定】可以补进上面已经有的场合——同一种场合下他反复挑中的那几身，"
+      + "彼此只有细微差别（料子、新旧、配的东西不同），那正是一个人有偏好的证据；"
+      + "也可以开一个他日子里本来就有、柜子里却还空着的场合。"
+      + "\n【这一次写 1~" + want + " 身】他是个什么处境的人就添什么样的衣服：置办得起几身、讲不讲究、"
+      + "最近过的日子让他多了什么。真添得出几身就写几身，添不出那么多就少写。"
+      + "\n【补进老场合时，occasion 要和上面列的那个逐字一样】写岔一个字就另开一格了。"
+      + "\n【name 写的是衣服本身，不是场合】判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？**"
+      + "\nnote 再补：由什么组成、什么料子颜色、什么时候穿、哪儿来的。"
+      + "每身还要写 thought：「" + nm + "」对这一身的私人想法（什么场合会挑它、和谁有关、藏了什么心事），点开细看用，贴人设、可以更私密。"
+      + carryMaterialBlock("outfit", material) + carryAvoidBlock(elsewhere)
+  };
+}
 // 四栏【一次写完】（她 2026-08-30：「能不能全部做 1 次调用而不是每一个一次，
 // 因为它每个内容确实不是很多」）。四次串行 → 一次，省四刀。
 //
@@ -11906,7 +11991,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenGiftThought, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -11916,14 +12001,30 @@ function CarryAll(props) {
     if (empty && !busyKey && typeof onGenAll === "function") onGenAll(char);
     // eslint-disable-next-line
   }, [char.id]);
+  // 滚到某一栏：进来时跳那一下、点布标那一下，都是它。
+  // 两处各写一遍的话，改一处必然忘掉另一处（施工规则/one-public-mechanism.md）。
+  const goSec = key => {
+    const el = secRefs.current[key], sc = scRef.current;
+    if (!el || !sc) return;
+    ownTs.current = Date.now();
+    sc.scrollTop = Math.max(0, el.offsetTop - 8);
+  };
   // 点哪一格进来就先滚到哪一栏。⚠️等内容铺开之后再滚——
-  // 挂载那一帧下面几栏还没高度，滚过去等于没滚。
+  // 挂载那一帧下面几栏还没高度，滚过去等于没滚；四栏一次生成的那十几秒里内容才落下来，
+  // 所以 data/gifts 变了还要再跳一次。
+  //
+  // ⚠️她 2026-09-12 报「随身物现在是卡的不能下滑」——病根就在这个 deps 上：
+  //   gifts 是 (carryGifts[char.id] || [])，**没收过礼物的角色每渲染一次就是一个新的 []**，
+  //   于是这一跳从「进来跳一次」变成了「整页每重画一次就往回弹一次」。
+  //   主屏那只表 30 秒走一格（setNow）就足够重画整棵树：她往下滑，半分钟内被拽回原处，
+  //   看上去就是这一页卡住了、滑不动。
+  //   deps 不是病根的全部——内容确实会晚到，该跳还得跳。真正的界限是**她动没动过手**：
+  //   她自己滑过一次，这一页就归她了，之后再有内容落下来也不许再拽。
+  const ownTs = useRef(0);      // 上一次是【我们自己】把它滚过去的时刻
+  const taken = useRef(false);  // 她自己滑过了：从此不再自动跳
   useEffect(() => {
-    if (!scrollTo) return;
-    const go = () => {
-      const el = secRefs.current[scrollTo], sc = scRef.current;
-      if (el && sc) sc.scrollTop = Math.max(0, el.offsetTop - 8);
-    };
+    if (!scrollTo || taken.current) return;
+    const go = () => { if (!taken.current) goSec(scrollTo); };
     go();
     const a = setTimeout(go, 60), b = setTimeout(go, 260);
     return () => { clearTimeout(a); clearTimeout(b); };
@@ -11946,7 +12047,7 @@ function CarryAll(props) {
     h("div", { className: "shrink-0 flex px-5 pb-2", style: { gap: 8, overflowX: "auto" } },
       secs.map(x => h("button", {
         key: x.key,
-        onClick: () => { const el = secRefs.current[x.key], sc = scRef.current; if (el && sc) sc.scrollTop = Math.max(0, el.offsetTop - 8); },
+        onClick: () => { taken.current = true; goSec(x.key); },
         className: "shrink-0 active:opacity-60 flex items-center",
         style: { fontFamily: F_BODY, fontSize: 11.5, padding: "6px 5px", minHeight: 40, gap: 5,
           borderRadius: 3, color: carryTint(x.key, .95), background: carryTint(x.key, .13),
@@ -11957,7 +12058,11 @@ function CarryAll(props) {
         h("span", { key: "z" }, x.zh),
         h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "3px 0",
           background: "repeating-linear-gradient(180deg," + carryTint(x.key, .6) + " 0 2px,transparent 2px 4px)" } })))),
-    h("div", { ref: scRef, className: "flex-1 overflow-y-auto px-5 pt-1 pb-10" },
+    h("div", {
+      ref: scRef, className: "flex-1 overflow-y-auto px-5 pt-1 pb-10",
+      // 自己刚滚过去那一下也会回来一个 scroll 事件，隔一拍才算是她动的手
+      onScroll: () => { if (Date.now() - ownTs.current > 400) taken.current = true; }
+    },
       secs.map(x => h("div", { key: x.key, ref: el => { secRefs.current[x.key] = el; } },
         // 分节标题：这一栏的色相 + 一条渐隐的线，四栏靠它分开而不是靠换底色
         h("div", { className: "flex items-center", style: { gap: 8, margin: "16px 0 9px" } },
@@ -11967,11 +12072,11 @@ function CarryAll(props) {
           embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onPeek, onGen, onGenGiftThought, onBack
+          onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenGiftThought, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -12086,8 +12191,23 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         h("div", { style: { position: "relative", minWidth: "100%", width: "max-content", paddingTop: 11 } },
           h("div", { style: { position: "absolute", top: 15, left: -14, right: -14, height: 3.5, borderRadius: 2, background: "linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(150,128,100,.75) 45%,rgba(74,58,40,.55) 100%)" } }),
           h("div", { className: "flex" }, sets))));
+    // 「再添几套」（她 2026-09-12：「衣柜能不能多加可以生成多几套衣服」）。
+    // ⚠️顶上那个刷新键是【重新翻一遍】，它走 carryEvolveMerge——一次最多真换掉两件，
+    //   一身都不会多出来。所以「想多几身」在界面上原本是【没有路】的，
+    //   不是她没找到。这个按钮走的是另一条：closetMoreSpec 只要新的，closetMerge 只添不换。
+    const moreBtn = onGenClosetMore ? h("button", {
+      onClick: () => onGenClosetMore(char),
+      disabled: !!busyKey || !!closetBusy,
+      className: "w-full active:opacity-70 disabled:opacity-40",
+      style: {
+        marginTop: total ? 2 : 20, minHeight: 44, borderRadius: 12,
+        fontFamily: F_BODY, fontSize: 12.5, color: carryTint("outfit", .95),
+        background: carryTint("outfit", .10),
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.14)"
+      }
+    }, closetBusy ? "正在添…" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
     content = !total
-      ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的")
+      ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", moreBtn)
       : h("div", { style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
@@ -12097,7 +12217,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
-            bay(g.sets.map((it, si) => hanger(it, g, gi, si))))));
+            bay(g.sets.map((it, si) => hanger(it, g, gi, si))))),
+          moreBtn);
   } else if (sec.stuff) {
     // 包内／口袋／珍藏：把包倒在内衬上。每件东西一张小牌，牌上不画那个东西
     // （画不完也画不像），只留一条它的【材质色】——铜的、纸的、布的、瓷的。
@@ -12302,7 +12423,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     sheetNode,
     giftNode);
 }
-function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought, onTogglePin, onPeek }) {
+function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onTogglePin, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -12386,8 +12507,8 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   // 点开哪一格，进的都是【同一页】，只是先滚到那一栏（她 2026-08-30）。
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
-    char, data, gifts, busyKey, giftBusy, carryPins,
-    onTogglePin, onPeek, onGen, onGenAll, onGenGiftThought,
+    char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
+    onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

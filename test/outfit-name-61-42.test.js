@@ -49,6 +49,7 @@ test("喂给角色的上下文和衣柜格子都过这一道，不然只修了�
 test("提示词那头也说清了：name 写衣服，不写场合", () => {
   assert.match(scr, /【name 写的是衣服本身，不是场合】/);
   assert.match(scr, /把 note 盖住只看 name，能不能看出他穿的是什么/, "少了判据");
-  // 两处 schemaHint（单栏 outfit / 四栏合一）都得改，各写一份迟早只改一处
-  assert.equal((scr.match(/不许写成场合名/g) || []).length, 2);
+  // 每一份 schemaHint 都得写上——各写一份迟早只改一处。
+  // v67.33 起是三份：单栏 outfit / 四栏合一 / 「再添几身」那一枪。
+  assert.equal((scr.match(/不许写成场合名/g) || []).length, 3);
 });

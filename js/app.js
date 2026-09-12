@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.32";
+const APP_VERSION = "v67.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18494,6 +18494,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
   // ============================================================
+  // 随身物这几枪走哪条线路：后台 API 是【可选的省钱开关】，没配就走主 API。
+  // ⚠️判断的和真正拿去调的必须是同一个：只看 active、却拿 bgActive 去调的话，
+  //   bgApiId 指着一条已经删掉的线路时 bgActive 是 null，报出来的是
+  //   「Cannot read properties of null (reading 'baseUrl')」——她根本看不懂。
+  //   （genDwellPlace 早就这么写了，这儿是把已有的那两处也搬过来。）
+  const carryApi = () => bgActive || active;
   const saveCarrySection = (charId, key, d) => setCarry(p => {
     const cur = p[charId] || {};
     const n = { ...p, [charId]: { ...cur, [key]: d } };
@@ -18635,7 +18641,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const pins = carryPinsFor(char.id, key);
       // 别栏已经有的那些：喂进去说「别再写一遍」，写回来之前再删一道
       const other = carryElsewhere(key, carryRef.current[char.id], (carryGiftsRef.current || {})[char.id]);
-      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id), other));
+      const d = await runProbe(carryApi(), ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id), other));
       // 🌱 收口：钉住的一件不许掉，其余一次最多真换两件。
       // 光靠提示词说「默认照抄回来」只是降概率，代码这一道才是保证。跨栏撞名同理。
       saveCarrySection(char.id, key, carryEvolveMerge(key, known, carryDedupe(key, d, other), pins));
@@ -18645,6 +18651,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     } finally {
       setGen(g => ({ ...g, carrySec: null }));
+    }
+  };
+  // 衣柜「再添几身」（她 2026-09-12：「衣柜能不能多加可以生成多几套衣服」）。
+  //
+  // ⚠️这条路和 genCarrySection 是两件事，别合成一个函数：
+  //   刷新那条走 carryEvolveMerge，规矩是「默认原样照抄回来、一次最多真换掉两件」——
+  //   也就是说【按多少次刷新，衣柜都不会多出一身】。想多几身在界面上原本没有路。
+  //   这条只要新的那几身（closetMoreSpec），落盘走 closetMerge：只添不换，老的一身不动。
+  const genClosetMore = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setSelCarry(char.id);
+    setGen(g => ({ ...g, closetMore: char.id }));
+    try {
+      const known = (carryRef.current[char.id] || {}).outfit || null;
+      const room = closetRoom(known);
+      if (!room) { toast("衣柜已经挂满了"); return; }
+      const other = carryElsewhere("outfit", carryRef.current[char.id], (carryGiftsRef.current || {})[char.id]);
+      const d = await runProbe(carryApi(), ctxFor(char), closetMoreSpec(char, known, room, carryMaterialFor(char.id), other));
+      const merged = closetMerge(known, carryDedupe("outfit", d, other));
+      // ⚠️添了几身要真数出来再说话：模型把老的重写一遍时，撞名全被 closetMerge 挡掉，
+      //   衣柜一身没多——这时候报「添好了」就是一句假回执（回执是个承诺）。
+      const add = closetCount(merged) - closetCount(known);
+      if (add <= 0) { toast("这次没添出新的，再试一次"); return; }
+      saveCarrySection(char.id, "outfit", merged);
+      toast("衣柜里多了 " + add + " 身");
+    } catch (e) {
+      toast("添衣服失败：" + e.message);
+    } finally {
+      setGen(g => ({ ...g, closetMore: null }));
     }
   };
   // 收到的礼物：角色对某件礼物的想法/批注（点开时懒生成）
@@ -18714,7 +18749,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const known = {}, pins = {};
       keys.forEach(k => { known[k] = (carryRef.current[char.id] || {})[k] || null; pins[k] = carryPinsFor(char.id, k); });
-      const all = await runProbe(bgActive, ctxFor(char), carryProbeSpecAll(char, known, pins, carryMaterialFor(char.id)));
+      const all = await runProbe(carryApi(), ctxFor(char), carryProbeSpecAll(char, known, pins, carryMaterialFor(char.id)));
       if (!all || typeof all !== "object") throw new Error("没返回可用的内容");
       // ⚠️一栏都没解析出来才算失败。少了某一栏就只留那一栏不动，
       // 别把已经写好的三栏一起丢掉——那是一整次调用的钱。
@@ -19569,10 +19604,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     selId: selCarry,
     busyKey: gen.carrySec,
     giftBusy: gen.giftThought,
+    closetBusy: !!gen.closetMore,
     onBack: goHome,
     onSel: setSelCarry,
     onGen: genCarrySection,
     onGenAll: genCarryAll,
+    onGenClosetMore: genClosetMore,
     onGenGiftThought: genGiftThought
   });else if (screen === "cwallet") body = h(CharWallet, {
     characters: liveChars,
