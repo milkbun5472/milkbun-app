@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.47";
+const APP_VERSION = "v67.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7299,7 +7299,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return picked.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
       String((K ? K.visibleText(m) : m.content) || "").trim()).join("\n");
   };
+  // 她 2026-09-12：「为啥有时只有动作和心声没有气泡」。
+  // 病根：word 这一格可以整个空着回来（协议里 silent:true 才是「已读不回」的正经出口），
+  // 而空 word 之后【没有任何人接手】——动描那一行照样摆出去，delivered 仍是 false，
+  // 调用方从来不看这个返回值。于是她等来的是一行灰字动作，一个字都没有，
+  // 而那一次调用的钱已经花了。
+  // ⚠️所以这一层只做一件事：**真的跑完了、却一个字都没送到她面前** → 重来一次。
+  //   为了分得清「跑完了但空」和「压根没跑/报错了」，下面那一支把提前退出和 catch
+  //   全改成 return null；只有 false 才是「跑完了，什么都没送到」。
+  //   主动那一路不重来：没人在等，而且它本来就可能选择不说话。
   const replyNow = async (charId, extraText, mode, opts) => {
+    const ok = await _replyTurn(charId, extraText, mode, opts);
+    if (ok !== false) return ok;
+    if (opts && (opts.proactive || opts._emptyRetry)) return ok;
+    // 重来这一次不再把她那句话塞一遍（extraText 传 null＝照现有对话重生成，跟重 Roll 同一条路）
+    return await _replyTurn(charId, null, mode, { ...(opts || {}), _emptyRetry: true });
+  };
+  const _replyTurn = async (charId, extraText, mode, opts) => {
     opts = opts || {};
     const chatKey = opts.chatKey || charId;
     const room = opts.room || null;
@@ -7307,9 +7323,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const roomReads = group => !window.ChatRooms || window.ChatRooms.canRead(room, group);
     const roomClockOn = roomTimeAwareFor(room, charId);
     let delivered = false;
-    if (laneBusy("c:" + chatKey)) return false;
-    if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
-    if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
+    // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
+    if (laneBusy("c:" + chatKey)) return null;
+    if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
+    if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -7369,13 +7386,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       : modelHistory.slice(-_historyBudget.maxMessages);
     if (!opts.proactive && history.length === 0) {
       toast("先发条消息再让 TA 回复");
-      return false;
+      return null;
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     if (opts.proactive && !opts.promise && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
-      if (Date.now() - _lastTs < 12 * 60000) return false;
+      if (Date.now() - _lastTs < 12 * 60000) return null;
     }
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
@@ -7902,7 +7919,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 先产生角色此刻真正会发送的消息。mood、thought、action、wearing、affinityDelta 与能力字段只记录已经形成的反应、状态或决定，不得用于提前规划、解释或反向塑造 word；没有真实变化或实际触发时，不要为了填字段制造内容。
 只输出一个合法 JSON 对象，不要代码块。
 【核心字段】
-word: string[]，角色实际发送的消息。【一个元素＝一句话】：想说三句就给三个元素，别把两三句用逗号缝进同一个元素。${_biWordSpec}
+word: string[]，角色实际发送的消息。【一个元素＝一句话】：想说三句就给三个元素，别把两三句用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』）——那是旁白在结案，不是人在想事情。⚠️「回头再收拾你」这类狠话本来就是【说得出口的】：真要撂就写进 word 让 TA 听见，别塞进心声——心声只留真正咽下去、说不出口的那一点。
@@ -8910,7 +8927,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ts: Date.now(),
         turnId: "e_" + Date.now()
       }]);
-      return false;
+      return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
       endLane("c:" + chatKey);
     }
