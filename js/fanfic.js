@@ -3340,8 +3340,9 @@
     // 房间里那张卡直接翻到这一章（她 2026-09-12 要的那个快捷键）。
     // ⚠️用完就还回去：不还的话她往后翻一章、组件一重画又被拽回来。
     useEffect(function () {
+      if (props.startChap == null || props.startChap === "") return;
       const c = Number(props.startChap);
-      if (!(c >= 0)) return;
+      if (!Number.isInteger(c) || c < 0) return;
       const n = ((props.fic && props.fic.chapters) || []).length;
       if (n) setChapIdx(Math.max(0, Math.min(n - 1, c)));
       props.onStartChapUsed && props.onStartChapUsed();
@@ -5430,7 +5431,7 @@
         onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
         startChap: jumpChap, onStartChapUsed: function () { setJumpChap(null); },
-        onOpenAuthor: function (nm) { setAuthorStart(nm); setView("authors"); },
+        onOpenAuthor: function (nm) { setOpenId(null); setAuthorStart(nm); setView("authors"); },
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },

@@ -152,7 +152,7 @@ test("接进那一枪了，而且只记带刺的那几条", () => {
 test("名册里那几位的名字点得进她的主页", () => {
   assert.match(code, /r\.pen && props\.onOpenAuthor/);
   assert.match(code, /onClick: function \(\) \{ props\.onOpenAuthor\(r\.pen\); \}/);
-  assert.match(code, /onOpenAuthor: function \(nm\) \{ setAuthorStart\(nm\); setView\("authors"\); \}/);
+  assert.match(code, /onOpenAuthor: function \(nm\) \{ setOpenId\(null\); setAuthorStart\(nm\); setView\("authors"\); \}/);
   assert.match(code, /startName: authorStart, onStartUsed: function \(\) \{ setAuthorStart\(""\); \}/);
   // 那一页翻到她那一条；名册里查无此人时不炸、也不乱开一页
   const ap = fic.slice(fic.indexOf("function AuthorsPage(props)"), fic.indexOf("  // 一位作者的主页"));

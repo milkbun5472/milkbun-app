@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.42";
+const APP_VERSION = "v67.43";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19454,6 +19454,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (!x || x.id !== f.id) return x;
           const next = Object.assign({}, x);
           next.chapters = (x.chapters || []).concat([Object.assign({}, ch, { byAuthor: nm, byCharId: cid })]);
+          // 和阅读页续写共用设定/伏笔合并规则，落章时一起保存。
+          Object.assign(next, K.applyChapterMeta(x, ch));
           // ⚠️热度：房里这条路原来一个字都没写过 authorHeat，于是她在房里让角色写了好几章，
           //   原作者一点火气都没有（她 2026-09-11：「让角色代笔作者的热度也不会动」）。
           //   算法在 fanfic.js 的 heatFields 那一份，两条路共用——阅读页那颗「请人」也走它。
