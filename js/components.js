@@ -7355,6 +7355,7 @@ function ChatThread({
   onOpenStudyInvite,
   onOpenGameInvite,
   onOpenFicInvite,
+  onOpenFicChapter,
   onSendTransfer,
   onRespondTransfer,
   onOpenMoments,
@@ -7989,7 +7990,13 @@ function ChatThread({
           m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
           // 写好的那张只放开头两百字，全文在同人文里——房间里不放第二份正文
           done && m.content ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.ink, lineHeight: 1.85, marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.line, whiteSpace: "pre-wrap" } }, m.content + "…") : null,
-          done ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } }, "全文在同人文里")
+          // ⚠️这一行原来是【死字】：写好了还得她自己翻去同人文里找
+          //   （她 2026-09-12：「从房间到同人文有点慢，能不能搞个快捷键」）。
+          //   现在点一下就翻到这一章。卡上没写是哪一篇的老卡照旧只是一行字。
+          done ? (m.ficId && onOpenFicChapter
+            ? h("button", { onClick: function () { onOpenFicChapter(m); }, className: "w-full text-left active:opacity-60",
+                style: { marginTop: 7, padding: "7px 0 1px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, minHeight: 30 } }, "去看这一章 ›")
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } }, "全文在同人文里"))
             : h("button", { onClick: function () { onOpenFicInvite && onOpenFicInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "让他写")));
     }
     if (m.kind === "studyinvite" || m.kind === "gameinvite") {

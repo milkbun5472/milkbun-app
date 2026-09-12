@@ -144,7 +144,13 @@ test("两张卡照一起学那张的形状，不另发明一种", () => {
   assert.match(seg, /h\(Avatar, \{ character: character, size: 34, radius: 10 \}\)/, "跟一起学那张不是一个长相");
   assert.match(seg, /done \? "他写好了" : "一起写"/);
   // ⚠️写好的那张不给「让他写」的按钮：给了她会又点一次，又花一枪
-  assert.match(seg, /done \? h\("div", \{[^}]*\} \}, "全文在同人文里"\)\n\s*: h\("button"/);
+  // v67.28：写好的那张现在是「去看这一章 ›」（她 2026-09-12 要的那个快捷键），
+  //   形状从「一行死字 : 按钮」变成了「跳转 : 死字 : 按钮」。要证的还是同一件事，
+  //   所以别再钉那个形状，直接数：「让他写」只许出现一次，而且在【没写好】那一支上。
+  assert.equal((seg.match(/"让他写"/g) || []).length, 1, "写好的那张也摆了「让他写」＝她一点又花一枪");
+  assert.match(seg, /done \? \(m\.ficId && onOpenFicChapter/, "写好的那张得能跳过去");
+  assert.match(seg, /"全文在同人文里"/, "老卡（没记是哪一篇）还得留着那行字");
+  assert.ok(seg.indexOf('"让他写"') > seg.indexOf('"去看这一章 ›"'), "「让他写」跑到写好的那一支上去了");
   assert.match(seg, /onClick: function \(\) \{ onOpenFicInvite && onOpenFicInvite\(m\); \}/);
   assert.match(seg, /\}, "让他写"\)\)\);/);
   // 房间里不放第二份正文

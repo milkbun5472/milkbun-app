@@ -3337,6 +3337,15 @@
       const n = (props.fic && props.fic.chapters || []).length;
       return r && r.chap > 0 && r.chap < n ? r.chap : 0;
     });
+    // 房间里那张卡直接翻到这一章（她 2026-09-12 要的那个快捷键）。
+    // ⚠️用完就还回去：不还的话她往后翻一章、组件一重画又被拽回来。
+    useEffect(function () {
+      const c = Number(props.startChap);
+      if (!(c >= 0)) return;
+      const n = ((props.fic && props.fic.chapters) || []).length;
+      if (n) setChapIdx(Math.max(0, Math.min(n - 1, c)));
+      props.onStartChapUsed && props.onStartChapUsed();
+    }, [props.startChap]);
     const swipeRef = React.useRef({ x: 0, y: 0 });
     // 翻到/生成新章后跳到该章开头（别落在中间，省得往回翻）
     const chapRef = React.useRef(null);
@@ -5204,6 +5213,19 @@
     const [view, setView] = useState("feed"); // feed / shelf / publish / rp / authors / mine
     const [rpStart, setRpStart] = useState(null); // 从作者主页点「加笔」带过来的那一篇
     const [openId, setOpenId] = useState(null);
+    // ── 从房间里那张「他写好了」直接翻到这一章（她 2026-09-12：
+    //    「从房间到同人文有点慢，能不能搞个快捷键可以写了新章直接跳转过去」）
+    // ⚠️只带【一次】：用完就还回去（onOpenUsed），否则她翻到别的篇、
+    //   一 setState 又被拽回这一章。
+    const [jumpChap, setJumpChap] = useState(null);
+    useEffect(function () {
+      const j = props.openFic;
+      if (!j || !j.ficId) return;
+      const f = (loadFics() || []).filter(function (x) { return x && x.id === j.ficId; })[0];
+      if (f) { setFics(loadFics()); setView("feed"); setOpenId(f.id); setJumpChap(Number(j.chap) >= 0 ? Number(j.chap) : null); }
+      else if (props.toast) props.toast("那一篇找不到了");
+      props.onOpenFicUsed && props.onOpenFicUsed();
+    }, [props.openFic]);
     const [gearOpen, setGearOpen] = useState(false);
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
     // 点标签只看这个标签的（AO3 上最常用的那一下）
@@ -5407,6 +5429,7 @@
         paper: fPaper,
         onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
+        startChap: jumpChap, onStartChapUsed: function () { setJumpChap(null); },
         onOpenAuthor: function (nm) { setAuthorStart(nm); setView("authors"); },
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上

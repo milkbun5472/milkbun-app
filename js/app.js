@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.27";
+const APP_VERSION = "v67.28";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -620,6 +620,7 @@ function App() {
   const [msgTab, setMsgTab] = useState("chats"); // 信息页内部 tab（聊天/通讯录/朋友圈/我）提到 App 层，进角色详情返回时不丢（v48.40）
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
+  const [ficJump, setFicJump] = useState(null);        // 房间里点「去看这一章」带过去的 {ficId, chap}
   const [roomFicTick, setRoomFicTick] = useState(0);   // 换书之后推一下重画（那一格存在 localStorage 里）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
   const [stateCardRoomKey, setStateCardRoomKey] = useState(null); // 侧房自己的心声卡；null 才读主房状态
@@ -7206,8 +7207,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const K = window.ChatRooms;
     const all = chatsRef.current[chatKey] || [];
     const track = (ficId && K && K.ficTrack) ? K.ficTrack(all, roomFicPick(chatKey)) : null;
+    // ⚠️只取【上一章写完之后】说的那几句（她 2026-09-12：「现在是每一章之间的话
+    //   都会做参考吗宝宝」）。原来一律取最近 14 条，不管中间已经写过几章——
+    //   于是写第五章时他手上那份「我们说好的」里还混着第四章那会儿商量的事，
+    //   越往后越像是在照着上一章的决定重写一遍。
+    //   「每一章之间的话」就是字面意思：这一段窗口从上一张「他写好了」那儿起算。
+    // ⚠️还没写过章的时候不设起点：那会儿商量的话就是给第一章用的。
+    let from = -1;
+    for (let k = all.length - 1; k >= 0; k--) {
+      const m = all[k];
+      if (m && m.kind === "ficdone" && String(m.ficId || "") === String(ficId || "")) { from = k; break; }
+    }
     const msgs = all.filter((m, i) => {
       if (!m || m.ficId || isOocMsg(m)) return false;
+      if (ficId && i < from) return false;
       if (track && track[i] !== ficId) return false;
       return K ? !!K.visibleText(m) : !!(m.content && (m.role === "user" || m.role === "assistant"));
     }).slice(-(Number(n) || 14));
@@ -19264,6 +19277,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(key, prev => [...prev, {
           role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
           subject: "《" + f.title + "》第 " + no + " 章",
+          chapIdx: no - 1,   // 卡上点一下直接翻到这一章（她 2026-09-12 要的快捷键）
           // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是他的话。
           //   于是他交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
           //   有一半在这儿）。现在他自己那一格叫 penNote；他没话说就不摆这一行。
@@ -19275,6 +19289,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       endLane("ficroom:" + cid);
     },
     // 小游戏走同一张卡、同一条路（studyinvite 那个形状），只是落到游戏架上。
+    // 「去看这一章」：卡上带着是哪一篇、第几章，直接翻过去，不用她自己找
+    onOpenFicChapter: m => {
+      if (!m || !m.ficId) { toast("这张卡上没写是哪一篇"); return; }
+      setFicJump({ ficId: String(m.ficId), chap: Number(m.chapIdx) >= 0 ? Number(m.chapIdx) : -1, key: Date.now() });
+      setScreen("fanfic");
+    },
     onOpenGameInvite: m => {
       setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id });
       setScreen("games");
@@ -20069,6 +20089,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     toast: toast,
+    // 房间里那张「他写好了」点一下就翻到这一章（她 2026-09-12：「从房间到同人文有点慢」）
+    openFic: ficJump,
+    onOpenFicUsed: () => setFicJump(null),
     onForwardToChat: forwardFicToChat,
     onForwardToGroup: forwardFicToGroup,
     onNotifyChapter: notifyChapterToChars,
