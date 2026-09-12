@@ -23,7 +23,10 @@
       ["games", "他可以拉你玩点什么", "允许他在这间房自然提议玩小游戏"],
       // 一起写（她 2026-09-11：「一起学一起玩一起写能不能都同时存在一个房间里，懒得开那么多」）——
       // 本来就是独立开关，一间房想开几样开几样。同人文里他替你写的那几章就落在这种房里。
-      ["fanfic", "他可以拉你一起写", "允许他在这间房自然提议接着写那篇文"]
+      ["fanfic", "他可以拉你一起写", "允许他在这间房自然提议接着写那篇文"],
+      // 一起读（她 2026-09-12：「我就是想在某个房间开一起读的开关」）——
+      // 跟一起学、一起写同一个形状：房里开了这一条，他才能开口说「接着读那本」。
+      ["read", "他可以拉你一起读", "允许他在这间房自然提议接着读那本书"]
     ],
     writeback: [
       ["roomHistory", "这里说过的话留在这里", "这间房永远留着自己完整的聊天记录"],
@@ -105,7 +108,7 @@
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
   const PRESETS = {
     everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
-    focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
+    focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true, read: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "不带出门", note: "只在这里成立，不补主线、不改共同状态，也不进入记忆", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
     alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" }
   };
@@ -326,15 +329,34 @@
         .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0));
     } catch (_) { return []; }
   }
-  // 这节课算不算数：主线的一律算；侧房的课要那间房自己开了写回口子才算。
+  // 这间房里发生的事算不算数：主线的一律算；侧房的要那间房自己开了写回口子才算。
   // 读的那头（发呆的「你俩一起做过的事」）拿这一句问，别自己再判一遍。
-  function studyCounts(personId, session) {
-    const rid = roomIdOf(session);
+  // ⚠️v67.53 之前这一份只认「一节课」。一起读进来之后同一个问题有了第二个问法，
+  //   所以抠成对着 roomId 问的一份，课那一头改成转交（施工规则/one-public-mechanism.md：
+  //   开了公共的就要把已有的搬过去，不许留两份各判各的）。
+  function roomCounts(personId, roomId) {
+    const rid = String(roomId || MAIN_ID);
     if (rid === MAIN_ID) return true;
     const room = list(personId).find(r => r && r.id === rid);
     if (!room) return false;                        // 房间已经删了：按不算数处理，宁可少说
     const w = room.writeback || {};
-    return !!(w.sharedState || w.memoryCandidate);   // 两个口子有一个开着，这节课才算数
+    return !!(w.sharedState || w.memoryCandidate);   // 两个口子有一个开着，这里的事才算数
+  }
+  function studyCounts(personId, session) { return roomCounts(personId, roomIdOf(session)); }
+  // 这间房里放着哪几本正在一起读的书（照 studySessionsFor 那一份的形状）。
+  // ⚠️存档里那一栏叫 partnerId，不叫 charId（施工规则/stub-from-the-writer.md：
+  //   照【写存档的那段】写——read.js 建书那一行写的就是 partnerId）。
+  function readBooksFor(personId, roomId) {
+    try {
+      const want = String(roomId || MAIN_ID);
+      // ⚠️走公共那扇门，不许自己 localStorage.getItem：x_ 这些键有 IDB 镜像和回落，
+      //   自己读会绕过那一层（loadJSON 那段就是为此写的）。
+      const raw = typeof loadJSON === "function" ? loadJSON("x_read_books", []) : [];
+      return (Array.isArray(raw) ? raw : [])
+        .filter(b => b && String(b.partnerId || "") === String(personId))
+        .filter(b => String(b.roomId || MAIN_ID) === want)
+        .sort((a, b) => Number(b.lastReadTs || 0) - Number(a.lastReadTs || 0));
+    } catch (_) { return []; }
   }
   // 写回闸。sharedState 是总开关，心情和印象卡各自还有一道。
   // ⚠️最要紧的一条：认知里关了「关系与内在状态」时，这两样一律不许写——
@@ -503,6 +525,6 @@
     });
   }
 
-  return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt,
+  return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, ficTrack };
 });

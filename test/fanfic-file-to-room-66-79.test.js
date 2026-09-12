@@ -84,7 +84,9 @@ test("这一步一分钱不花——喂不要钱，说话才要钱", () => {
 
 test("一起写是第三个开关，一间房想开几样开几样", () => {
   assert.match(rooms, /\["fanfic", "他可以拉你一起写"/);
-  assert.match(rooms, /actions: \{ \.\.\.bools\(GROUPS\.actions, false\), study: true, fanfic: true \}/, "归档用的那一档（focused）没把一起写开上");
+  // ⚠️钉的是「focused 这一档把一起写开着」，不是「这一行一共列了几样」——
+  //   v67.53 一起读进来之后又多一样，再多一样也不该红。
+  assert.match(rooms, /actions: \{ \.\.\.bools\(GROUPS\.actions, false\)[^}]*\bfanfic: true\b/, "归档用的那一档（focused）没把一起写开上");
   assert.match(rooms, /懒得开那么多/);
 });
 

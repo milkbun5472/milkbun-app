@@ -44,7 +44,11 @@ test("商量好的照办，但分歧按他的来——这一条是她要的那�
 test("他才能开口：房里开了「一起写」，而且这间房里放进过某一篇", () => {
   const seg = app.slice(app.indexOf("const roomFicOn ="), app.indexOf("// 小游戏跟一起学同一个形状"));
   assert.ok(seg.length > 300, "没切到那一段");
-  assert.match(seg, /const roomFicOn = !!\(room && !room\.main && room\.actions && room\.actions\.fanfic && !_s\.engineerEyes\);/);
+  // ⚠️v67.53：这句闸原来一起学、一起玩、一起写各写了一遍，一起读是第四处，
+  //   于是抠成了公共的 roomActionOn（施工规则/one-public-mechanism.md）。
+  //   钉的是「这一样活动要过那道闸」，不是那一行怎么拼。
+  assert.match(seg, /const roomFicOn = roomActionOn\("fanfic"\);/);
+  assert.match(app, /const roomActionOn = k => !!\(room && !room\.main && room\.actions && room\.actions\[k\] && !_s\.engineerEyes\);/);
   assert.match(seg, /const roomFic = roomFicOn \? lastRoomFic\(chatKey\) : null;/);
   assert.match(seg, /if \(roomFic\) \{\n\s*openCaps\.push\("ficNext"\);/, "没放进 openCaps＝这一栏他压根收不到");
   // ⚠️他不许声称已经写好了——一起学那张卡定下的规矩，这儿照抄

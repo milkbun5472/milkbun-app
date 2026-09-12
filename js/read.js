@@ -289,6 +289,16 @@
     //   在她手机上从上线起就是句空话，而且不报任何错。
     // 照梦境/塔罗那两处现成的做法：touch 计时 550ms 自己判长按，contextmenu 留给桌面。
     const lpTimer = useRef(null), lpFired = useRef(false);
+    // 房间里点了「接着读《X》」那张卡：直接翻开那一本，别把她扔回书架自己找。
+    // ⚠️取完就报一声，让上层把 entry 清掉——不然下次自己进书架又会被拽进同一本。
+    const tookEntry = useRef("");
+    useEffect(function () {
+      const e = props.entry;
+      if (!e || !e.key || tookEntry.current === e.key) return;
+      tookEntry.current = e.key;
+      if (e.bookId && loadBooks().some(function (b) { return b.id === e.bookId; })) setOpenId(e.bookId);
+      props.onEntryTaken && props.onEntryTaken();
+    }, [props.entry && props.entry.key]);
 
     const persist = function (list) { if (saveBooks(list)) setBooks(list); else props.toast && props.toast("这次没保存成功，原书还在"); };
     const patchBook = function (id, patch) {
@@ -315,7 +325,9 @@
         const id = "bk_" + Date.now();
         await idbPut(id, text);
         const title = f.name.replace(/\.(txt|pdf)$/i, "").slice(0, 40);
-        persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
+        // roomId＝这本书算哪间房的（"main"＝主聊天）。写回边界要认这一戳，
+        // 否则「不带出门」那间房里读的书会从主线的他嘴里说出来（同一起学那一戳）。
+        persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, roomId: "main", perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
         props.toast && props.toast("《" + title + "》已上架");
       } catch (err) { props.toast && props.toast("读取失败：" + (err.message || "重试")); }
     };
@@ -829,7 +841,11 @@
       topbar, yqHead, reader, selBar, actionBar, footer,
       noteSheet ? h(NoteSheet, { anchor: noteSheet.anchor, t: t, onSave: function (v) { saveNoteForYanqiu(noteSheet.anchor, v); }, onClose: function () { setNoteSheet(null); } }) : null,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
-        onPick: function (id) { props.onPatch({ partnerId: id }); setPickOpen(false); },
+        roomId: book.roomId || "main",
+        // ⚠️挑完人【不关这一层】：房间是挂在这个人名下的，关掉她就没地方挑房间了。
+        //   换了人就把房间退回主聊天——旧那间房是上一个人的，留着就是张错的戳。
+        onPick: function (id) { props.onPatch({ partnerId: id, roomId: id === book.partnerId ? (book.roomId || "main") : "main" }); },
+        onPickRoom: function (rid) { props.onPatch({ roomId: rid || "main" }); },
         onClose: function () { setPickOpen(false); } }) : null,
       selResult ? h(SelExplainSheet, { partner: partner, data: selResult, t: t, onClose: function () { setSelResult(null); } }) : null,
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
@@ -985,7 +1001,30 @@
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.tagline || "")),
                 c.id === props.currentId ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "当前") : null);
-            })));
+            }),
+        // ── 这本算哪间房的（她 2026-09-12：「我就是想在某个房间开一起读的开关」）──
+        // ⚠️只有挑定了人才问：房间是挂在【某个人】名下的，没有人就没有房间可选。
+        // 选了侧房＝这本书只在那间房里成立：他能在那间房里拉你接着读，
+        // 而「你俩在一起读《X》」这件事不会从主线的他嘴里说出来（除非那间房开了写回口子）。
+        props.currentId ? (function () {
+          const rooms = window.ChatRooms ? window.ChatRooms.list(props.currentId).filter(function (r) { return r && !r.main; }) : [];
+          const cur = String(props.roomId || "main");
+          const row = function (id, name, note) {
+            const on = cur === id;
+            return h("button", { key: id, onClick: function () { props.onPickRoom && props.onPickRoom(id); },
+              style: { width: "100%", textAlign: "left", padding: "9px 10px", marginTop: 6, borderRadius: 10, background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.tint : t.line) } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.ink : t.sub } }, name),
+              note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, note) : null);
+          };
+          return h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", color: t.fog, marginBottom: 2 } }, "这本算哪间房的"),
+            row("main", "主聊天", "读过什么他平时就会提起"),
+            rooms.map(function (r) { return row(r.id, r.name || "没名字的房间",
+              window.ChatRooms.doorLine ? window.ChatRooms.doorLine(r) : ""); }),
+            rooms.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "这个人名下还没有别的房间"));
+        })() : null,
+        h("button", { onClick: props.onClose, className: "w-full active:opacity-70",
+          style: { marginTop: 18, padding: "11px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14 } }, "好了")));
   }
 
   // ---- 半屏讨论抽屉 ----

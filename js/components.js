@@ -7356,6 +7356,7 @@ function ChatThread({
   onAcceptListen,
   onOpenStudyInvite,
   onOpenGameInvite,
+  onOpenReadInvite,
   onOpenFicInvite,
   onOpenFicChapter,
   ficWriting,
@@ -8009,18 +8010,18 @@ function ChatThread({
             : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } }, "全文在同人文里"))
             : h("button", { onClick: function () { onOpenFicInvite && onOpenFicInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "让他写")));
     }
-    if (m.kind === "studyinvite" || m.kind === "gameinvite") {
-      const isGame = m.kind === "gameinvite";
-      const eyebrow = isGame ? "一起玩" : m.mode === "resume" ? "继续一起学" : "一起学邀请";
-      const go = isGame ? "去摆这一局" : m.mode === "resume" ? "继续这门课" : "看看课程草案";
+    if (m.kind === "studyinvite" || m.kind === "gameinvite" || m.kind === "readinvite") {
+      const isGame = m.kind === "gameinvite", isRead = m.kind === "readinvite";
+      const eyebrow = isRead ? "一起读" : isGame ? "一起玩" : m.mode === "resume" ? "继续一起学" : "一起学邀请";
+      const go = isRead ? "翻到那一页" : isGame ? "去摆这一局" : m.mode === "resume" ? "继续这门课" : "看看课程草案";
       return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
         h(Avatar, { character: character, size: 34, radius: 10 }),
         h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, eyebrow),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || (isGame ? "玩一局" : "一起学点什么")),
-          isGame && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || (isGame ? "玩一局" : isRead ? "接着读" : "一起学点什么")),
+          (isGame || isRead) && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
           m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
-          h("button", { onClick: function () { if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, go)));
+          h("button", { onClick: function () { if (isRead) { onOpenReadInvite && onOpenReadInvite(m); } else if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, go)));
     }
     const isU = m.role === "user";
     return /*#__PURE__*/React.createElement("div", {

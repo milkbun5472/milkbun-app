@@ -50,7 +50,8 @@ test("three permission groups persist independently, including main chat actions
 
 test("room action switches expose only explicit extras", () => {
   // v66.79 起多一样「一起写」：一间房想开几样开几样，不用为每件事各开一间
-  assert.deepEqual(Rooms.GROUPS.actions.map(([key]) => key), ["study", "games", "fanfic"]);
+  // v67.53 又多一样「一起读」（她 2026-09-12：「我就是想在某个房间开一起读的开关」）
+  assert.deepEqual(Rooms.GROUPS.actions.map(([key]) => key), ["study", "games", "fanfic", "read"]);
   assert.equal(Rooms.prompt(Rooms.get("p1", "main"), []), "");
   const side = Rooms.create("p1", "侧房", "everyday");
   assert.match(Rooms.prompt(side, []), /本房可提议的活动/);

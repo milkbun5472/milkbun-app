@@ -64,13 +64,15 @@ test("小游戏那个开关不再是空的：同一张卡、同一条路", () =>
   // 他不许声称已经开局
   assert.match(app, /不能声称已经开局或界面已经打开/);
   // 卡是长在 studyinvite 那一张上的，不是新画一张
-  assert.match(components, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite"\)/);
+  // v67.53 一起读那张卡也长在这一张上（第三种 kind），所以别钉死「正好两种」
+  assert.match(components, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite" \|\| m\.kind === "readinvite"\)/);
   // 游戏架接 entry，落到那一局的配置页并先勾上他（照 study.js 的形状）
   assert.match(games, /entryHandledRef\.current = entry\.key/);
   assert.match(games, /initialPicked/);
   assert.match(app, /onOpenGameInvite: m =>/);
   // 主聊天不许出这张卡：房间的开关才是闸
-  assert.match(app, /const roomGamesOn = !!\(room && !room\.main && room\.actions && room\.actions\.games/);
+  // ⚠️v67.53：这句闸四样活动共用一份了（roomActionOn），钉「这一样要过闸」，别钉拼法
+  assert.match(app, /const roomGamesOn = roomActionOn\("games"\);/);
 });
 
 // 真正要挡的那件事：隔离房里上的课，不许从主线的他嘴里说出来。

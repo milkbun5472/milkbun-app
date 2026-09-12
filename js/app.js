@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.52";
+const APP_VERSION = "v67.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -608,6 +608,7 @@ function App() {
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
   const [studyEntry, setStudyEntry] = useState(null);
+  const [readEntry, setReadEntry] = useState(null);   // 从房间那张「接着读」卡进来时带的落点
   const [gameEntry, setGameEntry] = useState(null);
   useEffect(() => {
     const pending = notificationRoomRef.current;
@@ -3831,7 +3832,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   先取 3 再统一截 6 的话，时间线和一起学永远轮不上（第一版就是这样）。
     grab(() => A((loadJSON("x_coupleDisc", {})[char.id] || {}).songs).slice(0, 2)
       .forEach(s2 => L.push("· 你往你俩的唱片上刻过《" + s2.title + "》" + (s2.note ? "，你写的是「" + s2.note + "」" : ""))));
+    // ⚠️侧房里读的书不一定算数：那间房自己没开写回口子的，不许从主线的他嘴里说出来
+    //   （跟一起学那一条同一道闸，判在 ChatRooms.roomCounts 一处；没戳 roomId 的老书＝主线，照旧放行）。
     grab(() => A(loadJSON("x_read_books", [])).filter(b => b && String(b.partnerId || "") === String(char.id))
+      .filter(b => typeof window === "undefined" || !window.ChatRooms || window.ChatRooms.roomCounts(char.id, b.roomId))
       .sort((a, b) => (b.lastReadTs || 0) - (a.lastReadTs || 0)).slice(0, 2)
       .forEach(b => L.push("· 你和她在一起读《" + b.title + "》，" + (day(b.lastReadTs) || "最近") + "读过")));
     // ⚠️这两样的字段名 v62.14 之前全是【照着我以为的样子】写的，没有一处对着真存档验过，
@@ -7841,9 +7845,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。");
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
-      const roomStudySessions = room && !room.main && room.actions && room.actions.study && !_s.engineerEyes && window.ChatRooms
+      // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
+      // 一起读是第四处。抽成一份（施工规则/one-public-mechanism.md：开了公共的就把已有的搬过去）。
+      const roomActionOn = k => !!(room && !room.main && room.actions && room.actions[k] && !_s.engineerEyes);
+      const roomStudyOn = roomActionOn("study");
+      const roomStudySessions = roomStudyOn && window.ChatRooms
         ? window.ChatRooms.studySessionsFor(charId, room.id).slice(0, 6) : [];
-      const roomStudyOn = !!(room && !room.main && room.actions && room.actions.study && !_s.engineerEyes);
       if (roomStudyOn) {
         openCaps.push("studyInvite");
         capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由对方点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
@@ -7851,7 +7858,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 一起写跟一起学同一个形状（她 2026-09-11：「房间里我们讨论了他直接写了然后推卡给我」）：
       // 房里开了「一起写」、而且这间房里放进过某一篇，他才能开口说「这一章我来写」，
       // 而且【只出一张卡】——她点了才真花那一枪。⚠️他不许声称已经写好了。
-      const roomFicOn = !!(room && !room.main && room.actions && room.actions.fanfic && !_s.engineerEyes);
+      const roomFicOn = roomActionOn("fanfic");
       const roomFic = roomFicOn ? lastRoomFic(chatKey) : null;
       // 她 2026-09-11：「如果我只给他看前 200 字，他怎么接后面的剧情？
       //   还是说生成文的时候本身就已经有一些小结了，也能顺手扔过去」——就是这样。
@@ -7874,11 +7881,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 小游戏跟一起学同一个形状：房里开了这一条，他才能开口约你玩，
       // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——他不许声称已经开局。
-      const roomGamesOn = !!(room && !room.main && room.actions && room.actions.games && !_s.engineerEyes);
+      const roomGamesOn = roomActionOn("games");
       if (roomGamesOn && window.Games && Array.isArray(window.Games.LIST)) {
         openCaps.push("gameInvite");
         capState.push("gameInvite：只有你此刻真的想约对方玩一局才填写。格式 {gameKey:\"下面列表里的真实 key\",say:\"为什么此刻想玩这个、想跟对方玩哪一局\"}。不能声称已经开局或界面已经打开，最终由对方点卡片确认；不想玩就省略。可选："
           + window.Games.LIST.map(g => g.key + "=" + g.zh + "（" + g.min + "-" + g.max + "人）").join("；"));
+      }
+      // ── 一起读（她 2026-09-12）──────────────────────────────────────
+      // ⚠️他只能拉你【接着读这间房里已经有的那本】，不能凭空开一本：
+      //   一本书是她自己导进来的正文，模型编不出来。没有书就不给这一格，
+      //   免得他张口邀请、点开却什么都没有（「回执是个承诺」）。
+      const roomReadBooks = roomActionOn("read") && window.ChatRooms
+        ? window.ChatRooms.readBooksFor(charId, room.id).slice(0, 6) : [];
+      if (roomReadBooks.length) {
+        openCaps.push("readInvite");
+        capState.push("readInvite：只有你此刻真的想拉对方接着读才填写。格式 {bookId:\"下面列表里的真实 id\",say:\"为什么此刻想接着读这本、想从哪儿往下看\"}。不能声称已经读过或已经写好批注，最终由对方点卡片确认；不想读就省略。在读的书："
+          + roomReadBooks.map(b => b.id + "=《" + String(b.title || "").slice(0, 24) + "》").join("；"));
       }
       // ⚠️这一条必须挂在【Protocol v2】上：旁边那个 _normalTaskFull 写着「暂留作 A/B
       // 回滚基线，但不再发送给普通角色」——挂上去等于挂在死路上，一个字都发不出去。
@@ -8390,6 +8408,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           say: String(parsed.ficNext.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
         }]);
         delivered = true;
+      }
+      if (roomReadBooks.length && parsed.readInvite && typeof parsed.readInvite === "object") {
+        const bk = roomReadBooks.find(b => String(b.id) === String(parsed.readInvite.bookId || ""));
+        if (bk) {
+          pChat(chatKey, p => [...p, {
+            role: "assistant", kind: "readinvite", bookId: bk.id,
+            subject: "《" + String(bk.title || "").slice(0, 40) + "》",
+            sessionTitle: "读到第 " + ((Number(bk.page) || 0) + 1) + " 页",
+            say: String(parsed.readInvite.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
+          }]);
+          delivered = true;
+        }
       }
       if (roomGamesOn && parsed.gameInvite && typeof parsed.gameInvite === "object") {
         const gv = parsed.gameInvite;
@@ -19551,6 +19581,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id });
       setScreen("games");
     },
+    // 一起读：点了就直接翻到那本书他停着的那一页（卡上带着 bookId，不用她自己去架上找）
+    onOpenReadInvite: m => {
+      setReadEntry({ key: "read_" + Date.now(), bookId: String(m.bookId || ""), characterId: activeChar.id });
+      setScreen("read");
+    },
     emotes: emotesForCharMine(activeChar.id),
     onManageEmotes: () => setScreen("emotes"),
     archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
@@ -20085,6 +20120,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,
+    // 从房间那张卡进来：直接开那一本。用完就清，免得下次进书架又被拽走。
+    entry: readEntry,
+    onEntryTaken: () => setReadEntry(null),
     bgActive: bgActive, // 批注/讲解/总结走便宜后台池；讨论(实时对话)仍用主 active
     characters: liveChars,
     digitalIds: liveChars.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
