@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.29";
+const APP_VERSION = "v67.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19169,6 +19169,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 那一行显示成「我」还是「他」（她 2026-09-12：「就设置开关可以改」）。
     // ⚠️只管【显示】：存进状态卡的照旧是第一人称，那儿是角色自己的卡。
     actPerson: (settingsFor(activeChar.id) || {}).actPerson === "ta" ? "ta" : "me",
+    userPerson: (settingsFor(activeChar.id) || {}).userPerson === "asis" ? "asis" : "you",
     onToggleSameRoom: () => {
       const on = !sameRoomFor(activeChar.id);
       patchChatSetting(activeChar.id, { sameRoom: on });
@@ -20676,6 +20677,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             actDesc: !!s.actDesc,
             // 动描那一行用第几人称（她 2026-09-12）。只有 "ta" 算数，其余一律回默认的「我」
             actPerson: s.actPerson === "ta" ? "ta" : "me",
+            // 他那一行里【你】叫什么（她 2026-09-12）。默认「你」——他卡里写成「她」
+            // 那一行就会把她从「你」变成「她」，那正是她报的那个
+            userPerson: s.userPerson === "asis" ? "asis" : "you",
             // 顺路捎的（同一行、同一个病）：webSearch 从来就没被接住过，
             // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。

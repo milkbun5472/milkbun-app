@@ -21,7 +21,7 @@ const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const A = strip(app), C = strip(comp), E = strip(engine);
 
 const actLineAs = (() => {
-  const i = engine.indexOf("const ACT_ME = ");
+  const i = engine.indexOf("const ACT_PAIR = ");
   assert.ok(i > 0, "抠不出转人称那一份");
   return new Function(engine.slice(i, engine.indexOf("\nfunction splitLongBubble")) + "\nreturn actLineAs;")();
 })();
@@ -46,12 +46,52 @@ test("「你」是她，一个字都不许动", () => {
 
 // ⚠️「我们」是他和她两个人：换成第三人称到底该是「他们」还是「你们」说不清。
 //   说不清的就别改——改错比不改难看。
-test("「我们」不动", () => {
+test("「我们」「她们」都不动", () => {
   assert.equal(actLineAs("我们坐在沙发上", "他"), "我们坐在沙发上");
   assert.equal(actLineAs("我们坐在沙发上，我把杯子放下", "他"), "我们坐在沙发上，他把杯子放下");
-  // 还原用的哨兵不许漏进正文
-  assert.ok(actLineAs("我们我们我我", "他").indexOf("\u0002") < 0);
-  assert.equal(actLineAs("我们我们我我", "他"), "我们我们他他");
+  assert.equal(actLineAs("我们坐在沙发上，她们在厨房", "他", ["她"]), "我们坐在沙发上，她们在厨房");
+  // 还原用的哨兵不许漏进正文，两种合称也不许串
+  assert.ok(actLineAs("我们她们我她", "他", ["她"]).indexOf("\u0002") < 0);
+  assert.equal(actLineAs("我们她们我她", "他", ["她"]), "我们她们他你");
+});
+
+// ── 第二个旋钮：他那一行里【你】叫什么（她 2026-09-12：「他卡里写的她」）──
+test("他卡里把你写成「她」，那一行要把你换回「你」", () => {
+  assert.equal(actLineAs("我把伞递给她", "他", ["她"]), "他把伞递给你");
+  // 名字也算：他卡里直接写名字的时候一样
+  assert.equal(actLineAs("我把伞递给 Lisa", "他", ["她", "Lisa"]), "他把伞递给你", "名字前面那个空格也得一起吃掉");
+  assert.equal(actLineAs("我把伞递给Lisa", "他", ["她", "Lisa"]), "他把伞递给你");
+});
+
+// ⚠️顺序：先把她换成「你」，再把他换成第三人称。
+//   反过来的话，他要也是「她」（女角色），刚换出来的那个「她」会被当成她再换成「你」。
+test("女角色那一档：他自己的「她」不许被当成你再换一次", () => {
+  assert.equal(actLineAs("我把伞递给她", "她", ["她"]), "她把伞递给你");
+});
+
+test("选「照卡来」就一个字不动", () => {
+  assert.equal(actLineAs("我把伞递给她", "他", []), "他把伞递给她");
+  assert.equal(actLineAs("我把伞递给她", "他"), "他把伞递给她", "不传就是不换");
+});
+
+test("两个旋钮各管各的，单独开一个也要管用", () => {
+  // 只开「你」那一个：他自己照旧是「我」
+  assert.equal(actLineAs("我把伞递给她", "", ["她"]), "我把伞递给你");
+  // 只开「他」那一个：她照旧是卡里写的
+  assert.equal(actLineAs("我把伞递给她", "他", []), "他把伞递给她");
+  // 两个都不开就原样
+  assert.equal(actLineAs("我把伞递给她", "", []), "我把伞递给她");
+});
+
+test("空名字/脏值不许把整行拆烂", () => {
+  assert.equal(actLineAs("我把伞递给她", "他", ["她", "", null, "  "]), "他把伞递给你");
+});
+
+// ⚠️名字里要是本来就含着那个代词（比如她的名字叫「她她」「小她」），
+//   短的先换就会把名字拆掉半截，落出「你她」这种东西。长的先换才对。
+test("名字跟代词有重叠时，长的先换", () => {
+  assert.equal(actLineAs("我把伞递给小她", "他", ["她", "小她"]), "他把伞递给你");
+  assert.equal(actLineAs("我在等小她过来", "他", ["她", "小她"]), "他在等你过来");
 });
 
 test("没开这个开关、或者没人称可用时，一个字都不动", () => {
@@ -59,8 +99,9 @@ test("没开这个开关、或者没人称可用时，一个字都不动", () =>
   assert.equal(actLineAs("我站在门外", ""), "我站在门外");
   assert.equal(actLineAs("我站在门外", null), "我站在门外");
   assert.equal(actLineAs("", "他"), "");
-  assert.equal(actLineAs(null, "他"), "");
+  assert.equal(actLineAs(null, "他"), "", "null 直接塞进 replace 会当场抛异常");
   assert.equal(actLineAs(undefined, "他"), "");
+  assert.equal(actLineAs(0, "他"), "0", "数字也得当字符串收，别原样返回一个 number");
 });
 
 test("本来就没有「我」的那一行，转不转都一样", () => {
@@ -86,19 +127,24 @@ test("只改显示，不碰存进去的那一份", () => {
 });
 
 test("单聊那一行按开关显示", () => {
-  const i = C.indexOf('m.who === "char" && actPerson === "ta" && window.ActLine');
+  const i = C.indexOf('m.who === "char" && window.ActLine && (actPerson === "ta" || userPerson === "you")');
   assert.ok(i > 0, "那一行没接上开关");
   const blk = C.slice(i, i + 400);
-  assert.match(blk, /window\.ActLine\.as\(m\.content, window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"\)/,
+  assert.match(blk, /window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"/,
     "人称得跟着角色性别走——charTa 那张表只有一份，别再各写一遍");
+  assert.match(blk, /userPerson === "you" \? \["她", \(profile && profile\.name\) \|\| ""\] : \[\]/,
+    "第二个旋钮没接上");
   assert.match(blk, /: m\.content\)/, "没开开关时得原样显示");
   // 她自己写的旁白（who 不是 char）一个字都不许动
-  assert.match(C, /m\.who === "char" && actPerson === "ta"/, "没判 who＝把她自己的旁白也转了");
+  assert.match(C, /m\.who === "char" && window\.ActLine/, "没判 who＝把她自己的旁白也转了");
 });
 
 test("开关存得下来，而且只认 ta 这一个值", () => {
   assert.match(C, /const \[actPerson, setActPerson\] = useState\(settings\.actPerson === "ta" \? "ta" : "me"\);/);
-  assert.match(C, /\n      actDesc,\n      actPerson,\n/, "保存时没带上");
+  assert.match(C, /\n      actDesc,\n      actPerson,\n      userPerson,\n/, "保存时没带上");
+  assert.match(C, /const \[userPerson, setUserPerson\] = useState\(settings\.userPerson === "asis" \? "asis" : "you"\);/);
+  assert.match(A, /userPerson: s\.userPerson === "asis" \? "asis" : "you",/, "存进来的脏值没归一");
+  assert.match(A, /userPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.userPerson === "asis" \? "asis" : "you",/);
   assert.match(A, /actPerson: s\.actPerson === "ta" \? "ta" : "me",/, "存进来的脏值没归一");
   assert.match(A, /actPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.actPerson === "ta" \? "ta" : "me",/, "没传进聊天那一屏");
 });
@@ -106,11 +152,15 @@ test("开关存得下来，而且只认 ta 这一个值", () => {
 test("动描关着的时候不摆这个开关", () => {
   const i = C.indexOf('actDesc ? h("div", { className: "flex items-center justify-between pt-4" }');
   assert.ok(i > 0, "开关没挂在动描底下");
-  const blk = C.slice(i, i + 1400);
-  assert.match(blk, /那一行用第几人称/);
+  const blk = C.slice(i, i + 3200);   // 两个开关都在这一段里，窗口得够长
+  assert.match(blk, /TA 那一行里，TA 自己叫什么/, "标题得说清是【谁那一行】——她 2026-09-12 就是被这个绊到的");
+  assert.match(blk, /\*\*你自己那一行不动\*\*/, "得当面说清她自己那行不会变");
+  assert.match(blk, /TA 那一行里，你叫什么/, "第二个开关没摆出来");
+  assert.match(blk, /\[\["you", "你"\], \["asis", "照卡来"\]\]/);
+  assert.match(blk, /这儿抓不到——跟我说一声/, "抓不到的那一种得当面说明白，别让她以为全兜住了");
   assert.match(blk, /两个人都说「我」容易看岔/, "得说清为什么会想换——她自己的旁白也是「我」");
   assert.match(blk, /只改显示，状态卡里那一格不动/, "得说清它不碰存的那一份");
   assert.match(blk, /\[\["me", "我"\], \["ta", "他"\]\]/);
-  assert.match(blk, /minHeight: 32/, "指头点得到");
+  assert.equal((blk.match(/minHeight: 32/g) || []).length, 2, "两个开关的按钮都得点得到，不能只有第一个够大");
   assert.match(blk, /\) : null\)/, "动描关着时该整个不摆");
 });

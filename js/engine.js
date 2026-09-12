@@ -1766,15 +1766,27 @@ function sameActLine(a, b) {
 //   它是角色自己的卡。变的只有【聊天里那一行】怎么显示。她 2026-09-12 选的就是这条路。
 // ⚠️「我们」不动：那是他和她两个人，换成第三人称到底该是「他们」还是「你们」说不清，
 //   说不清的就别改——改错比不改难看。
-const ACT_ME = /我们/g;
-function actLineAs(text, ta) {
+// ⚠️第二个旋钮（她 2026-09-12：「哦是因为他卡里写的她，给她也做个开关吧」）：
+//   他那一行里【她】叫什么。他卡里要是把她写成第三人称，那一行就是
+//   「我把伞递给她」——换成第三人称之后更明显：「他把伞递给她」，她就从
+//   「你」变成了「她」。这跟第一个旋钮是两件事，所以是两个开关。
+// ⚠️顺序要紧：**先把她换成「你」，再把他换成第三人称**。
+//   反过来的话，他要也是「她」（女角色），刚换出来的那个「她」会被当成她再换成「你」。
+// ⚠️「我们」「她们」都不动：两个人的合称，换成第三人称说不清该是哪个，说不清就别改。
+const ACT_PAIR = /我们|她们/g;
+function actLineAs(text, ta, youWords) {
   const who = String(ta || "").trim();
-  const s = String(text == null ? "" : text);
+  const mine = (Array.isArray(youWords) ? youWords : []).map(function (x) { return String(x || "").trim(); })
+    .filter(Boolean).sort(function (a, b) { return b.length - a.length; });   // 长的先换，免得名字被拆掉
+  let s = String(text == null ? "" : text);
   // ⚠️不另加 who === "我" 那一支：调用点要么传 charTa（他/她/TA）、要么压根不调，
   //   而且真传了「我」也只是原样替换。加了是死代码，删掉一条测试都不红——试过了。
-  if (!who || !s) return s;
+  if ((!who && !mine.length) || !s) return s;
   const HOLD = "\u0002";
-  return s.replace(ACT_ME, HOLD).replace(/我/g, who).split(HOLD).join("我们");
+  s = s.replace(ACT_PAIR, function (m) { return HOLD + (m === "我们" ? "0" : "1"); });
+  mine.forEach(function (w) { s = s.split(" " + w).join("你").split(w).join("你"); });
+  if (who) s = s.replace(/我/g, who);
+  return s.replace(new RegExp(HOLD + "([01])", "g"), function (_, d) { return d === "0" ? "我们" : "她们"; });
 }
 if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 function splitLongBubble(s, allowComma) {
