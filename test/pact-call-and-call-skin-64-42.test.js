@@ -104,7 +104,9 @@ test("响铃这一路一次模型都不调", () => {
   // 迟太久就不响：她可能几小时没开 app，这时突然响起来像是刚打的
   assert.match(body, /const missed = late > RING_LATE_MAX_MIN;/);
   assert.match(body, /ts: \(missed && whenTs\) \? whenTs : Date\.now\(\)/, "补的未接来电没落在【说好的那一刻】");
-  assert.match(body, /if \(missed\) inv\.answered = "missed";/);
+  // v67.43：补记的未接要跟「响过你没接」分得开（她 2026-09-12：
+  //「不知道是打了我没看到还是只是显示未接但是根本没播」）
+  assert.match(body, /if \(missed\) \{ inv\.answered = "missed"; inv\.lateMissed = true; \}/);
   assert.match(body, /if \(!missed\) setRinging\(/, "迟到很久的也照样响了");
 });
 

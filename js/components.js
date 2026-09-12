@@ -8497,7 +8497,10 @@ function CallScreen({
   const [audioStatus, setAudioStatus] = useState("");
   const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
   const audioInitialized = useRef(false);
-  audioRef.current.enabled = autoVoice && audioReady && !bye;
+  // ⚠️这里原来挂着 !bye：他一说要挂，自动播报当场失效，**最后那句永远没被念出来**
+  //   （她 2026-09-12：「他说最后一句然后主动挂，他最后一句也来不及播放就挂了」）。
+  //   挂断这件事归下面那个 effect 管，它会等队列念完再收线；这一行只管「开没开自动播」。
+  audioRef.current.enabled = autoVoice && audioReady;
   // —— 真声通话档 v2（v56.23）：主耳=浏览器原生 SpeechRecognition（免费/实时/自带断句），
   //    书房 whisper 降级为兜底；播放=Web Audio+手势解锁（iOS PWA 拦非手势 audio.play，
   //    点🎙那一瞬先播1帧静音点亮 AudioContext）。脑子不变：onSend 走这通电话原有引擎。
@@ -8509,14 +8512,28 @@ function CallScreen({
   const liveRef = useRef(false); liveRef.current = live;
   // 他自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
   // 时长只有这里数着(secRef)，而且他最后那句得在屏幕上留一会儿，
-  // 不能话音未落就黑屏。留 1.8 秒：够看完一句，也不至于像卡住。
+  // 不能话音未落就黑屏。
+  // ⚠️v67.43：原来是「立刻掐掉声音 + 固定 1.8 秒后收线」，于是开着自动播报时，
+  //   他最后那句【一个字都没念出来】电话就断了。现在改成【等他把话说完】：
+  //   队列里还有没念的、或者正念着，就一直等；念完再留一拍收线。
+  //   没开自动播报（她是看字的）照旧 1.8 秒——那时候「说完」就是屏幕上显示完了。
+  //   兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。
   const byeRef = useRef(false);
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
-    audioRef.current.enabled = false; lvStop();
-    const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
-    return () => clearTimeout(tm);
+    lvStop();                                   // 他要挂了，先别再录她说话
+    const st = lv.current;
+    const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
+    if (quiet()) {
+      const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
+      return () => clearTimeout(tm);
+    }
+    let done = false;
+    const finish = () => { if (done) return; done = true; audioRef.current.enabled = false; onHangup(secRef.current, "them"); };
+    const poll = setInterval(() => { if (quiet()) { clearInterval(poll); setTimeout(finish, 900); } }, 250);
+    const cap = setTimeout(() => { clearInterval(poll); finish(); }, 90000);
+    return () => { clearInterval(poll); clearTimeout(cap); };
   }, [!!bye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
@@ -8712,7 +8729,9 @@ function CallScreen({
   useEffect(() => () => { audioRef.current.mounted = false; audioRef.current.enabled = false; lvStop(); try { lv.current.ttsCtx && lv.current.ttsCtx.close(); } catch (e) {} }, []);
   // —— 嘴：对方新台词自动播（Web Audio 队列，半双工：播时暂停识别） ——
   useEffect(() => {
-    if (!autoVoice || !audioReady || bye) return;
+    // ⚠️别在这儿看 bye：他说要挂的那一刻，队列里往往还压着他最后一句，
+    //   在这里 return 掉就等于那句永远不会被念出来（收线由上面那个 effect 等着做）。
+    if (!autoVoice || !audioReady) return;
     const st = lv.current;
     const session = st.session, epoch = audioRef.current.epoch;
     const valid = () => audioRef.current.enabled && audioRef.current.mounted && audioRef.current.epoch === epoch && st.session === session;
@@ -10125,7 +10144,11 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
       h("span", { style: { display: "block", transform: "rotate(135deg)", flexShrink: 0 } },
         h(CGlyph, { k: "handset", size: 15, color: color })),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: color } },
-        (missed ? "未接" + (video ? "视频" : "语音") + "通话" : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
+        // ⚠️「响过你没接」和「来得太晚、压根没响」不是一回事，界面上得分得开
+        //（她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）
+        (missed
+          ? (m.lateMissed ? "他当时打过来了 · 补记（手机没响）" : "未接" + (video ? "视频" : "语音") + "通话")
+          : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
       onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
 // 转发的贴吧帖子卡片（私聊/群聊都用）

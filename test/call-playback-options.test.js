@@ -32,7 +32,11 @@ test('通话播放默认手动，播放偏好独立保存；语音和视频用�
     assert.ok(src.includes('saveJSON("' + key + '"'));
     assert.ok(call.includes(state));
   }
-  assert.match(call, /if \(!autoVoice \|\| !audioReady \|\| bye\) return/);
+  // ⚠️v67.43 把 bye 从这道早退里拿掉了：他说要挂的那一刻，队列里往往还压着他最后一句，
+  //   在这儿 return 掉就等于那句永远不会被念出来（她 2026-09-12 报的就是这个）。
+  //   收线改由 bye 那个 effect 等队列念完再做。
+  assert.match(call, /if \(!autoVoice \|\| !audioReady\) return/);
+  assert.ok(!/if \(!autoVoice \|\| !audioReady \|\| bye\) return/.test(call), "bye 又被塞回播放循环的早退里了");
   assert.match(call, /st.played = msgsRef.current.length/);
   assert.match(call, /m.role === "user" \|\| m.act \|\| !m.content/);
   assert.match(call, /audioRef.current.epoch === epoch/);

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.43";
+const APP_VERSION = "v67.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12849,7 +12849,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const inv = { role: "assistant", kind: "callinvite", mode: m,
       content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
       ts: (missed && whenTs) ? whenTs : Date.now(), read: false };
-    if (missed) inv.answered = "missed";
+    // ⚠️「响过你没接」和「来得太晚、压根没响」在聊天里长得一模一样，
+    //   她看到一条未接来电，分不出是自己错过了还是这东西根本没响
+    //   （她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）。
+    //   补一格说清楚：lateMissed=这通是补记的，当时手机没有响过。
+    if (missed) { inv.answered = "missed"; inv.lateMissed = true; }
     pChat(char.id, p => [...p, inv]);
     if (!missed) setRinging({ cid: char.id, m: inv, name: char.name, char: char });
   };
@@ -12914,16 +12918,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const next = { sessionId: "call_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2), participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", chatKey: key, room, msgs: [], startTs: Date.now() };
     next.audioSession = audioSession;
     callRef.current = next; setCall(next);
+    // ⚠️他打来的电话，接起来之后【他先开口】（她 2026-09-12：「现在他打过来也是要我
+    //   开口第一句，能不能搞他说第一句话」）。原来 msgs 是空的，而模型只在 callSend
+    //   里被调用、callSend 又要求先有她一句话——于是是他找她，却要她先说「喂」。
+    //   她自己拨出去的那一路不变：那本来就该她先开口。
+    if (next.caller && next.caller !== "me") setTimeout(() => {
+      const c0 = callRef.current;
+      if (c0 && c0.sessionId === next.sessionId) callSend("", { opening: true });
+    }, 320);
   };
-  const callSend = async text => {
+  // 电话接通后的头一句：user 那一栏只放一句触发，料全在 system
+  //（施工规则/prompt-send-shape.md）。
+  const callOpenTrigger = () => ({ role: "user", content: "（电话接通了）" });
+  const callSend = async (text, opts) => {
     const cur = callRef.current;
-    if (!cur || !text || !text.trim()) return;
+    // opening=他打来的那一通刚接通，这一轮没有她的话，由他先说
+    const opening = !!(opts && opts.opening);
+    if (!cur) return;
+    if (!opening && (!text || !text.trim())) return;
     if (laneBusy("call")) return;
-    const um = { role: "user", content: text.trim(), ts: Date.now() };
-    if (!cur.room) noteTidalUser(um.content, um.ts);
-    const withUser = [...cur.msgs, um];
-    setCall(c => c ? { ...c, msgs: withUser } : c);
-    callRef.current = { ...cur, msgs: withUser };
+    let withUser = cur.msgs;
+    if (!opening) {
+      const um = { role: "user", content: text.trim(), ts: Date.now() };
+      if (!cur.room) noteTidalUser(um.content, um.ts);
+      withUser = [...cur.msgs, um];
+      setCall(c => c ? { ...c, msgs: withUser } : c);
+      callRef.current = { ...cur, msgs: withUser };
+    }
     if (!active) {
       toast("请先到设置配置 API");
       return;
@@ -13030,11 +13051,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 1:1：口语化对话，可一次多说几句把话说完；视频另给动作/神态
         const char = people[0];
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+        if (!hist.length) hist.push(callOpenTrigger());
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
         const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
         if (window.ChatRooms.canRead(cur.room, "formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(callQuery);
-        const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery })) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
+        const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery })) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
+          + (opening ? "\n【这是接通后的第一句】电话刚接通，是你拨过去的，对方刚把它接起来——**你先开口**。别等对方先说话、别问「喂？怎么不说话」、别当成是 Ta 打给你的。直接说你打这通电话本来要说的那件事。" : "") + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
           // 状态卡跟线上一样【每轮都写】（她 2026-09-06：「既然通话和线上没有区别
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，
           // 写入也走同一个出口（setStateFor / pushStateHist / setMoodFor）——
@@ -13113,6 +13136,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } else {
         // 群通话：多角色你一言我一语；视频每条可带 action
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
+        if (!hist.length) hist.push(callOpenTrigger());
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
         const gCallCap = groupPersonaBudget(people.filter(c => !c.npc).length || 1);
