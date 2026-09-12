@@ -19,7 +19,7 @@ const A = strip(app);
 // 那三行是自成一体的：给它人数和 rgOpts 就能算
 // ⚠️抠那几行时别钉死它现在长什么样：钉死了，改坏它就成了「测试自己跑不起来」，
 //   下面那些断言反而没机会说话。认 const nMin 这一行本身就够。
-const _a = app.indexOf("      let nMax = Math.min(14, Math.max(5, members.length * 2));");
+const _a = app.indexOf("      let nMax = Math.min(14, Math.max(");
 const _b = app.indexOf("      const nMin = ", _a);
 assert.ok(_a > 0 && _b > _a, "抠不出算条数那几行");
 const seg = app.slice(_a, app.indexOf("\n", _b));
@@ -43,6 +43,15 @@ test("下限说的是【条】，不是【人】", () => {
   assert.match(A, /const nMin = Math\.min\(nMax, 4\);/);
 });
 
+// ⚠️她 2026-09-12：「能不能不要这么小气宝宝！你越小气它就越偷懒，现在还是 aba」。
+//   真正卡住它的一直是天花板：两个人的群只给 5 条，ABA 要 3、ABAB 要 4，
+//   **ABABAB 根本放不下**——交 ABA 不是偷懒，是没地方。
+test("两个人的群也得放得下好几个来回，不是刚够一两回", () => {
+  const r = nOf(2);
+  assert.ok(r.nMax >= 8, "上限只有 " + r.nMax + " 条＝ABABAB 塞不进去，抬下限也挤不出第三个来回");
+  assert.ok(r.nMax - r.nMin >= 4, "band 只有 " + r.nMin + "~" + r.nMax + "＝还是没留多少余地");
+});
+
 test("人多的时候上限跟着放宽，别把人挤掉", () => {
   assert.ok(nOf(8).nMax > nOf(2).nMax, "人多就该多聊几个来回");
   assert.ok(nOf(8).nMax <= 14, "也不能没边");
@@ -58,24 +67,24 @@ test("自发轮预算只剩一两条时，下限跟着降，不许超过上限",
   });
 });
 
-// 光把数字改了没用：它还得当面说出来【同一个人可以再开口】
-test("提示词要当面挡住【一人一坨】那个形状", () => {
+// ⚠️v67.23 我在这儿叠了三条「不许」（别攒成一坨／绝不许写成 A 一口气说完／
+//   一个人连着最多两条）。她当场说：「你越小气它就越偷懒」——那几条已经删了。
+//   这条测试反过来钉：**不许再长回来**。要给的是形状，不是禁令。
+test("别再往这一段里堆禁令（她 2026-09-12 点名的那一类）", () => {
   const i = A.indexOf("const common = ");
   const blk = A.slice(i, i + 1400);
-  // 她的原话就是这个形状，直接钉在这儿
-  assert.match(blk, /别把一个人的话攒成一坨/);
-  assert.match(blk, /A 一口气把想说的说完、再轮到 B 说完、A 最后补一句收尾/, "得把她看到的那个形状原样点出来");
-  assert.match(blk, /话头要来回过手/);
-  assert.match(blk, /一个人连着最多两条/, "光说「别一坨」太虚，得给个数");
+  ["别把一个人的话攒成一坨", "一个人连着最多两条", "绝不许写成", "一人发一句就散场"]
+    .forEach(x => assert.ok(blk.indexOf(x) < 0, "「" + x + "」这类禁令又长回来了"));
+  assert.ok((blk.match(/不许/g) || []).length <= 1, "这一段里的「不许」堆多了，模型会越写越拘谨");
 });
 
-test("提示词要当面说：同一个人一轮里可以说好几次", () => {
+test("给的是形状，不是规矩：来回过手长什么样，正面说一遍", () => {
   const i = A.indexOf("const common = ");
   assert.ok(i > 0, "那一段没了");
   const blk = A.slice(i, i + 1200);
-  assert.match(blk, /同一个人一轮里可以说好几次/, "不说的话，「按情境选合适的人发言」读起来就是一人一句");
-  assert.match(blk, /A 当然可以再回 B/, "得把那个形状说出来，不是只给一句抽象规矩");
-  assert.match(blk, /一人发一句就散场那不是群聊/);
+  assert.match(blk, /同一个人一轮里也可以说好几次/, "不说的话，「按情境选合适的人发言」读起来就是一人一句");
+  assert.match(blk, /A 再回 B，B 又接一句/, "把来回那个样子摆出来，比说一百句「不许一坨」管用");
+  assert.match(blk, /来回好几趟/, "要的是好几趟，不是一趟");
   // 原来那句「选合适的人发言」留着没问题，但不能只剩它
   assert.match(blk, /按情境选合适的人发言/);
 });
