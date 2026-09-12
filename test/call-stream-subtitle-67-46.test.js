@@ -59,7 +59,12 @@ test("字幕跟着这一句的语音走，没时长才退回固定速度", () =>
   assert.match(blk, /requestAnimationFrame\(step\)/);
   assert.match(blk, /if \(raf\) cancelAnimationFrame\(raf\)/, "换句时上一句的动画要停，不然两句抢着写");
   assert.match(blk, /text\.slice\(0, n\)/);
-  assert.match(blk, /if \(!text\) return null;/, "没话的时候中间什么都不显示");
+  // ⚠️没话的时候空的是【字】，不是【这块地方】：整块 return null 的话，
+  //   flex-1 那个撑子没了，下面的输入框会浮到屏幕中间去（她 2026-09-12 当场报的）。
+  assert.match(blk, /className: "flex-1 min-h-0 flex items-center justify-center px-7"/);
+  assert.match(blk, /\}, text \? h\("div", \{/, "没话时把整块摘掉了，输入框会往上跑");
+  assert.match(blk, /text\.slice\(0, n\)\) : null\);/);
+  assert.ok(blk.indexOf("if (!text) return null;") < 0, "整块 return null 那一版又回来了");
 });
 
 test("这一句的真实时长是从解码出来的音频拿的", () => {

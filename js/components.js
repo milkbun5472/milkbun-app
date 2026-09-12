@@ -8505,18 +8505,21 @@ function CallSubtitle({ line, onPhoto }) {
     step();
     return () => { if (raf) cancelAnimationFrame(raf); };
   }, [text, line && line.at, line && line.ms]);
-  if (!text) return null;
+  // ⚠️没话的时候【这一格照样要占着位子】，只是里头空着。
+  //   v67.46 第一版在这儿 return null，于是他不说话时整块从布局里消失，
+  //   下面的输入框就往上跑到屏幕中间去了（她 2026-09-12：「我的打字框没有固定在下面，
+  //   没有他的台词就会卡屏幕中间」）。要空的是【字】，不是【这块地方】。
   return h("div", {
     "data-call-subtitle": true,
     className: "flex-1 min-h-0 flex items-center justify-center px-7",
     style: { pointerEvents: "none" }
-  }, h("div", {
+  }, text ? h("div", {
     style: {
       maxWidth: 560, textAlign: "center", fontFamily: F_BODY, fontSize: 17, lineHeight: 1.75,
       color: "#fff", whiteSpace: "pre-wrap", wordBreak: "break-word",
       textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9)" : "0 1px 8px rgba(0,0,0,.5)"
     }
-  }, text.slice(0, n)));
+  }, text.slice(0, n)) : null);
 }
 function CallScreen({
   audioSession,
