@@ -68,7 +68,8 @@ test("每条写入新楼的路径都走 forumFloorOrder", () => {
   const lines = app.split("\n");
   // 只挂楼中楼的写入（replies 追加）不发新楼号，不在这条规矩里
   const sites = lines.map((l, i) => ({ l, i }))
-    .filter(x => x.l.includes('saveJSON("x_forumComments"'))
+    // v67.38 起落盘统一走 saveForumComments（落盘失败要当面说，不再静默）
+    .filter(x => x.l.includes('saveForumComments('))
     .filter(x => /\[(post\.id|hitId)\]\s*:/.test(lines.slice(Math.max(0, x.i - 3), x.i + 1).join("\n")))
     .filter(x => !lines.slice(Math.max(0, x.i - 3), x.i + 1).join("\n").includes("f.id === floorId"));
   assert.ok(sites.length >= 4, "至少四条新楼写入路径，实际 " + sites.length);

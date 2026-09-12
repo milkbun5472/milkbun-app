@@ -124,12 +124,13 @@ test("路人是默认那一头，而且和熟面孔一样具体", () => {
   assert.ok(i > 0, "那一段没了");
   const blk = A.slice(i, i + 700);
   assert.match(blk, /大半是只在这一帖出现的路人/, "默认那一头还是熟面孔");
-  assert.match(blk, /填 guestName、guestHandle/);
-  assert.match(blk, /一人一个来路/, "路人的 id 没给判据，它就会凑一张表出来");
-  assert.match(blk, /同一批里别长成一个模子/);
-  assert.match(blk, /说的话也得是活人说的/, "她那句「说的话也很活人」得有个落点");
+  // v67.38 起人人一套字段（authorName + handle），npcId 只是熟面孔额外点个名
+  assert.match(blk, /每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）/);
+  assert.match(blk, /id 跟他这条说什么【没有关系】/, "这是她 2026-09-12 点的那一句");
+  assert.match(blk, /一屋子人的名字之间也不该有共同点/);
+  assert.match(blk, /他们说话是贴吧味儿/, "她那句「说的话也很活人」得有个落点");
   assert.match(blk, /大约三分之一、最多不过一半/, "比例没说死，模型会照老习惯来");
-  assert.match(blk, /没写 npcId 的一律按路人落账/, "代码改了规矩却不告诉它，它还以为写不写都一样");
+  assert.match(blk, /没点到名单上的一律按路人落账/, "代码改了规矩却不告诉它，它还以为写不写都一样");
   assert.ok(blk.indexOf("约六成发言来自固定熟面孔") < 0, "老那句还在");
   assert.ok(blk.indexOf("其余约四成可以是") < 0, "「可以是」那种软说法还在——两头具体度不对等正是病根之一");
 });
@@ -161,9 +162,12 @@ test("路人那两栏的说明只写一份，五处 schemaHint 共用", () => {
   assert.match(A, /const FORUM_GUEST_FIELDS = /);
   assert.equal((A.match(/FORUM_GUEST_FIELDS/g) || []).length, 6, "一处定义、五处 schemaHint 各取一次");
   assert.ok(A.indexOf('\\"guestHandle\\":\\"路人id\\"') < 0, "还有哪一处留着自己那份");
-  // 占位值要写【说明】不写【样例内容】——摆一个具体网名会被逐字照抄
+  // 固定 npc 时代前就是这两个词（authorName 网名马甲 / handle 有趣 id），
+  // 而且**所有人一套字段**——没有 guestName 那条分叉。分叉才是模型偷懒不起名的原因。
   const m = app.match(/const FORUM_GUEST_FIELDS = "([^;]+)";/);
   assert.ok(m, "抠不出那一份");
-  assert.match(m[1], /像真人自己起的，不是占位名/);
-  assert.match(m[1], /和网名是一路的/, "handle 和网名对不上就会看出是两套东西拼的");
+  assert.match(m[1], /authorName.*网名马甲/);
+  assert.match(m[1], /handle.*有趣 id/);
+  assert.ok(m[1].indexOf("guestName") < 0, "又分出一套只有路人才填的字段了");
+  assert.ok(A.indexOf("guestName、guestHandle") < 0, "提示词里还在要那套分叉字段");
 });

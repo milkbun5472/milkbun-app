@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.37";
+const APP_VERSION = "v67.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2287,7 +2287,7 @@ function App() {
         saveJSON("x_forumPosts", fp); setForumPosts(fp); forumPostsRef.current = fp;
         const fc = loadJSON("x_forumComments", {});
         Object.keys(fc).forEach(pid => { if (!ids.has(pid)) delete fc[pid]; });
-        saveJSON("x_forumComments", fc); setForumComments(fc);
+        saveForumComments(fc); setForumComments(fc);
       }
       toast("已清理可再生旧数据（旧日程+旧论坛）");
     } catch (e) { toast("清理失败：" + (e.message || "")); }
@@ -14389,11 +14389,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
+  // 楼层落盘失败不许静默（照 commitEmotePacks 那一处的写法：
+  // 「绝不能用『看起来成功』掩盖持久化失败」）。
+  // ⚠️她 2026-09-12 报的「原来是这堆回复，过一会被全体覆盖了」——只要这一次没写进盘，
+  //   页面上一切正常、读得好好的，下次开机 loadJSON 拿回的是上一份【没有这一帖】的存档；
+  //   她再点进去，缓存是空的，于是当场重新生成一整套，看上去就是被整个换掉了。
+  //   论坛楼层是这个 5MB 池子里最肥的一块（240 帖 × 12~18 楼），最先撑爆的就是它。
+  // 一轮只吭一声，免得写一次弹一次。
+  const forumSaveWarned = useRef(false);
+  const saveForumComments = next => {
+    if (saveJSON("x_forumComments", next)) return true;
+    if (!forumSaveWarned.current) {
+      forumSaveWarned.current = true;
+      toast("这些楼没保存成功：本地空间满了。先去 设置·数据 归档/导出，不然下次打开会重新生成一套");
+    }
+    return false;
+  };
   const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
-  // 路人那两栏的占位说明：五处 schemaHint 一模一样，各写一份迟早只改一处。
-  // ⚠️占位值写【说明】不写【样例内容】（施工规则/prompt-no-content-samples.md）——
-  //   这儿要说的是「这一栏该是什么成色」，绝不能摆一个具体网名，那会被逐字照抄。
-  const FORUM_GUEST_FIELDS = "\"guestName\":\"这个路人的网名（路人才填）——像真人自己起的，不是占位名\",\"guestHandle\":\"他的 id，和网名是一路的\"";
+  // 网名那两栏（她 2026-09-12：「以前名字跟他发的内容没有关系很灵的。
+  // 你去研究一下固定 npc 时代前」）。翻了 ce1e3ac「feat(forum): add recurring regulars」
+  // 之前那一版，形状是这样的：
+  //   · **所有人一套字段**——authorName + handle，没有 npcId / guestName 的分叉；
+  //   · 占位值就两个词：网名、funny_id；提示词写的是「authorName 网名马甲 + handle 有趣 id」；
+  //   · 代码只有一句「x.authorName || 匿名网友」，没有名字生成器、没有兜底抽签。
+  // 灵气就长在这个形状里：名字这件事【从头到尾只有模型一个人在做】，
+  // 而且从来没人要求名字跟这条评论有关系——真论坛里的 id 本来就跟他今天说什么无关，
+  // 那才像一个本来就存在的账号，而不是给这条评论现配的一件戏服。
+  // 所以这一版把分叉收回去：人人都是 authorName + handle，npcId 只是熟面孔【额外】点个名。
+  const FORUM_GUEST_FIELDS = "\"authorName\":\"网名马甲\",\"handle\":\"有趣 id\"";
   const forumNpcPool = board => {
     const exact = FORUM_NPC_REGISTRY.filter(n => (n.boards || []).includes(board));
     return exact.length ? exact : FORUM_NPC_REGISTRY.filter(n => !(n.boards || []).includes("匿名吧"));
@@ -14429,14 +14452,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
-    return "\n【论坛人口】一个帖子底下**大半是只在这一帖出现的路人**：每一条都自己填 guestName、guestHandle。"
-      + "\n【他们的 id 是第一眼看见的东西】一人一个来路：名字里可以带着他是谁、在哪儿、在干什么、在意什么，也可以就是一句没头没尾的话。"
-      + "**同一批里别长成一个模子**——同样的前缀配同样的名词，一眼就看得出是凑出来的。"
-      + "\n【说的话也得是活人说的】看得出他为什么点进这个吧、他接住的是帖子里哪一句、他自己那点事儿；"
-      + "有人只说半句，有人跑题，有人只来纠正一个细节，有人答非所问。"
-      + "\n剩下**大约三分之一、最多不过一半**是常驻熟面孔；要谁说话就把谁的 npcId 写出来：" + forumNpcRoster(board)
+    return "\n【论坛人口】**每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）**，一条都别空着。"
+      + "\n【id 跟他这条说什么【没有关系】】真论坛里的网名是这个账号本来就有的，不是为这条评论现配的一件戏服——"
+      + "别让名字去呼应他这一楼的内容、也别让它去标注他是什么人。它可以完全跑题、可以是半句话、可以莫名其妙；"
+      + "**一屋子人的名字之间也不该有共同点**：前缀一样、结构一样、都在同一个词类里打转，一眼就看得出是一只手凑的。"
+      + "\n【他们说话是贴吧味儿】前排、顶、蹲一个、@楼上、抬杠、就这？、笑死、坐等后续——有人只说半句，有人跑题，"
+      + "有人只来纠正一个细节，有人答非所问。看得出他为什么点进这个吧、接住的是帖子里哪一句、他自己那点事儿。"
+      + "\n一个帖子底下**大半是只在这一帖出现的路人**。"
+      + "\n剩下**大约三分之一、最多不过一半**是常驻熟面孔：他们照样填 authorName 和 handle（用名单上那一个），"
+      + "只是**额外**再写一个 npcId，好让他跨帖子还是同一个人：" + forumNpcRoster(board)
       + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
-      + "\n⚠️**没写 npcId 的一律按路人落账**——所以想让某个熟面孔开口，npcId 必须写出来，光写名字不算。"
+      + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
       + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
   };
@@ -14603,12 +14629,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 全库 NPC 帖总封顶（v62.42，审计 P1）：按版块的 30 条封不住「搜索吧」——
   // 每次搜索 board 都是新名字，永远轮不到那道闸，十次搜索就是十个永不清理的版块。
   const FORUM_NPC_TOTAL_CAP = 240;
+  // 她插过手的那些帖不算「可再生」：她在楼里回过话、或者在某一楼下追过评——
+  // 那些字是她自己写的，删掉就是真丢东西（她 2026-09-12：「我看原来是这堆回复
+  // 然后过一会被全体覆盖了」）。
+  // ⚠️「覆盖」是这么来的：这道闸淘汰旧帖时【连它的楼一起删】，而那一帖还能从
+  //   通知／足迹／未读里点回去——那几处各自留着 post 的快照，不跟着列表走。
+  //   点回去一看没有缓存，于是当场重新生成一整套——她读过的那一堆就被换掉了。
+  const forumTouchedPosts = fc => {
+    const out = new Set();
+    Object.keys(fc || {}).forEach(pid => {
+      const mine = (fc[pid] || []).some(f => f && (f.authorType === "me"
+        || (f.replies || []).some(r => r && r.authorType === "me")));
+      if (mine) out.add(pid);
+    });
+    return out;
+  };
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     let n = [...recs, ...prev];
     const kill = new Set();
-    const npcInBoard = n.filter(x => x.board === board && x.authorType === "npc").sort((a, b) => b.ts - a.ts);
+    const spare = forumTouchedPosts(forumCommentsRef.current);
+    const evictable = x => x.authorType === "npc" && !spare.has(x.id);
+    const npcInBoard = n.filter(x => x.board === board && evictable(x)).sort((a, b) => b.ts - a.ts);
     npcInBoard.slice(FORUM_NPC_CAP).forEach(x => kill.add(x.id));
-    const npcAll = n.filter(x => x.authorType === "npc" && !kill.has(x.id)).sort((a, b) => b.ts - a.ts);
+    const npcAll = n.filter(x => evictable(x) && !kill.has(x.id)).sort((a, b) => b.ts - a.ts);
     npcAll.slice(FORUM_NPC_TOTAL_CAP).forEach(x => kill.add(x.id));
     if (kill.size) {
       n = n.filter(x => !kill.has(x.id));
@@ -14616,7 +14659,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setForumComments(fc => {
         const keep = {};
         Object.keys(fc || {}).forEach(pid => { if (!kill.has(pid)) keep[pid] = fc[pid]; });
-        saveJSON("x_forumComments", keep);
+        saveForumComments(keep);
         return keep;
       });
     }
@@ -14644,7 +14687,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const anonB = board === "匿名吧";
     try {
       const d = await runProbeRetry(active, forumWorldCtx(board), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。熟面孔填 npcId；一次性路人填 guestName、guestHandle。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
         maxTokens: FTOK.board
       });
@@ -14834,7 +14877,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({
           ...f, floor: i + 2, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
         }));
-        setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: forumFloorOrder(list) }; saveJSON("x_forumComments", n); return n; })());
+        setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: forumFloorOrder(list) }; saveForumComments(n); return n; })());
       }
     } catch (e) { toast("加载评论失败：" + e.message); }
     finally { forumCInflightRef.current[post.id] = false; setGen(g => ({ ...g, forumC: null })); }
@@ -14859,7 +14902,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (released > 0) {
         setForumComments(prev => {
           const n = { ...prev, [post.id]: forumFloorOrder(existing) };
-          saveJSON("x_forumComments", n);
+          saveForumComments(n);
           return n;
         });
       }
@@ -14890,7 +14933,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
         });
         list = forumFloorOrder([...list, ...more]);
-        const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
+        const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
       });
       bumpReplyBy(post.id, more.length + subInserts.length);
     } catch (e) { toast(e.message); }
@@ -15515,7 +15558,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
             });
             const n = { ...prev, [hitId]: forumFloorOrder([...list, ...more]) };
-            saveJSON("x_forumComments", n); return n;
+            saveForumComments(n); return n;
           });
           bumpReplyBy(hitId, more.length + subInserts.length);
           forumMineBumpSocial(hitId, more.length + subInserts.length);
@@ -15559,7 +15602,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
     const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ts: base, likeCount: 0, replies: [] };
-    setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveJSON("x_forumComments", n); return n; });
+    setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId);
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, fid, text);
@@ -15575,7 +15618,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const to = String(toName || "").trim();
     setForumComments(prev => {
       const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
-      const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
+      const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, floorId, text, to);
@@ -15653,7 +15696,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       [...new Set(reps.filter(r => r.authorType === "npc").map(r => r.authorId))].forEach(touchForumPublicTie);
       setForumComments(prev => {
         const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...reps] } : f);
-        const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
+        const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
       });
       bumpReplyBy(post.id, reps.length);
     } catch (e) {/* silent */ }

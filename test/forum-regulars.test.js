@@ -80,7 +80,9 @@ test("主页增加兴趣与脑洞两个结构不同的板块", () => {
 });
 
 test("论坛批次允许常驻熟面孔与一次性路人混合", () => {
-  assert.match(app, /guestName、guestHandle/);
+  // v67.38 起不再分两套字段：人人 authorName + handle，熟面孔额外写 npcId
+  //（固定 npc 时代前就是这个形状，分叉才是模型偷懒不起名的原因）
+  assert.match(app, /每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId/);
   assert.match(app, /const forumGuestOf =/);
   assert.match(app, /const forumPublicNpcOf =/);
   assert.match(app, /同一批至少有 1 个一次性路人/);
