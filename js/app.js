@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.40";
+const APP_VERSION = "v67.41";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20403,8 +20403,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLegacy: () => setScreen("radioLegacy"),
     loreFor: (c, topic) => c ? loreForContext("creative", [c.id], topic) : "",
     // 故事是平行沙盒：全文角色卡/关联世界书，不读取当前心情、关系或主线私聊。
-    onFragment: (branch, era) => radioAsk(narrativeCore({ intimate: true }) + "\n\n" + window.RadioTimeline.storyPrompt(branch, era),
-      '{"title":"片段标题","lines":[{"kind":"narrator或character","speaker":"说话者姓名，旁白留空","text":"这一句正文"}]}'),
+    // register 是对用户互动的语气锚；广播讲角色自身经历，用户并不默认在场。
+    onFragment: (branch, era) => radioAsk(narrativeCore({ intimate: true, register: false }) + "\n\n" + window.RadioTimeline.storyPrompt(branch, era),
+      '{"title":"本章标题","lines":[{"kind":"character或narrator","speaker":"第一人称讲述角色或故事内说话者姓名，第三人称旁白留空","text":"完整章节按句界拆分后的这一句正文"}]}'),
     // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
     onCompanion: (branch, question) => {
       const c = liveChars.find(x => x.id === branch.charId);

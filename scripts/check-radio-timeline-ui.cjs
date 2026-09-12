@@ -32,23 +32,54 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.getByLabel('想探索的事／分岔条件').fill('测试分岔');
       await page.getByRole('button',{name:'建立这条时间线',exact:true}).click();
       assert.equal(await page.evaluate(()=>qaCalls),0);
-      await page.getByRole('button',{name:'接收这个频率的新片段',exact:true}).click();
+      await page.getByRole('button',{name:'接收这个频率的新章节',exact:true}).click();
       await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
       await page.getByLabel('邀请此刻的测试角色陪听').check();
       await page.getByLabel('暂停，和他说一句').fill('你觉得呢');
       assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled());
       await page.getByRole('button',{name:'继续下一句',exact:true}).click();
+      assert.equal(await page.locator('[data-radio-current]').count(),1);
+      assert.equal(await page.getByText('独听的场景',{exact:true}).count(),0);
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('共同听见的话'));
       await page.getByRole('button',{name:'问问他',exact:true}).click();
       await page.getByText('测试角色：测试回应',{exact:true}).waitFor();
       const prompt=await page.evaluate(()=>qaPrompt);
       assert.ok(prompt.includes('共同听见的话'));assert.ok(!prompt.includes('独听的场景'));assert.ok(!prompt.includes('还没播放的秘密'));
       assert.equal(await page.getByText('还没播放的秘密',{exact:true}).count(),0);
+      await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
+      assert.equal(await page.locator('[data-radio-current]').count(),0);
+      assert.ok((await page.locator('[data-radio-history]').innerText()).includes('独听的场景'));
+      assert.ok(!(await page.locator('[data-radio-history]').innerText()).includes('还没播放的秘密'));
+      await page.getByRole('button',{name:'第1句 · 独听的场景',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('独听的场景'));
+      assert.equal(await page.getByText('共同听见的话',{exact:true}).count(),0);
+      assert.equal(await page.getByRole('button',{name:'已听回放（2）',exact:true}).count(),1);
+      await page.getByRole('button',{name:'继续下一句',exact:true}).click();
+      const savedScroll=await page.locator('[data-radio-timeline]').evaluate(el=>{
+        el.lastElementChild.scrollTop=120; return el.lastElementChild.scrollTop;
+      });
+      // DOM click avoids Playwright auto-scrolling; verify our own full-page return restoration.
+      await page.getByRole('button',{name:'已听回放（2）',exact:true}).evaluate(el=>el.click());
+      await page.locator('[data-radio-history]').waitFor();
+      await page.screenshot({path:'/tmp/lisa-timeline-history-'+width+'.png'});
+      await page.getByRole('button',{name:'返回当前句',exact:true}).click();
+      const restoredScroll=await page.locator('[data-radio-timeline]').evaluate(el=>el.lastElementChild.scrollTop);
+      assert.ok(Math.abs(restoredScroll-savedScroll)<2);
+      await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
+      await page.getByRole('button',{name:'返回当前句',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('共同听见的话'));
+      // 重新打开同一章，已有回放从存档听闻记录恢复，不依赖当前游标。
+      await page.getByRole('button',{name:'回听 · 测试片段',exact:true}).click();
+      assert.equal(await page.locator('[data-radio-current]').count(),0);
+      await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:/^第[12]句 · /}).count(),2);
+      await page.getByRole('button',{name:'第2句 · 共同听见的话',exact:true}).click();
       assert.equal(await page.evaluate(()=>qaCalls),1);
       const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.lastElementChild.scrollHeight,view:el.lastElementChild.clientHeight}));
       assert.ok(layout.scroll<=width,JSON.stringify(layout));assert.ok(layout.body>layout.view);
       await page.screenshot({path:'/tmp/lisa-timeline-'+width+'.png'});
       assert.deepEqual(errors,[]);
-      await ctx.close();console.log(width+'px: 建线、生成、独听/陪听隔离、滚动通过');
+      await ctx.close();console.log(width+'px: 单句替换、已听回放、重听/恢复、独听/陪听隔离、滚动通过');
     }
   } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

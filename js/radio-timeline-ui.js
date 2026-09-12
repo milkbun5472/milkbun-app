@@ -12,20 +12,23 @@
     const [frequency, tune] = useState(1);
     const [fragmentId, setFragment] = useState("");
     const [lineIndex, setLine] = useState(-1);
+    const [historyOpen, setHistoryOpen] = useState(false);
     const [together, setTogether] = useState(false);
     const [question, setQuestion] = useState("");
     const [correction, setCorrection] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const lock = useRef(false), alive = useRef(true), speaking = useRef(false);
-    const scroll = useRef(null), listScroll = useRef(0);
+    const scroll = useRef(null), listScroll = useRef(0), playbackScroll = useRef(0);
     const branch = branches.find(x => x.id === selected);
     const fragment = branch && branch.fragments.find(x => x.id === fragmentId);
+    const heard = branch && fragment ? R.heardLines(branch, fragment.id) : [];
     const currentEra = R.ERAS[frequency];
     const uid = () => "rt_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2);
     const stop = () => { if (speaking.current && root.speechSynthesis) root.speechSynthesis.cancel(); speaking.current = false; };
     useEffect(() => { alive.current = true; root.RadioUI.Engine.setPower(false); return () => { alive.current = false; stop(); }; }, []);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = selected ? 0 : listScroll.current; }, [selected]);
+    useEffect(() => { if (scroll.current) scroll.current.scrollTop = historyOpen ? 0 : playbackScroll.current; }, [historyOpen]);
     const save = next => { saveJSON(R.KEY, next); data.current = next; setBranches(next); };
     const update = (id, fn) => save(data.current.map(x => x.id === id ? fn(x) : x));
     const run = async work => {
@@ -34,8 +37,8 @@
       try { await work(); } catch (e) { if (alive.current) setError(e.message || "这次没有接上，请手动重试。"); }
       finally { lock.current = false; if (alive.current) setBusy(false); }
     };
-    const resetPlayback = () => { stop(); setFragment(""); setLine(-1); setQuestion(""); setCorrection(""); setError(""); };
-    const back = () => { if (lock.current) return; resetPlayback(); if (selected) select(""); else p.onBack(); };
+    const resetPlayback = () => { stop(); setHistoryOpen(false); setFragment(""); setLine(-1); setQuestion(""); setCorrection(""); setError(""); };
+    const back = () => { if (lock.current) return; if (historyOpen) { setHistoryOpen(false); return; } resetPlayback(); if (selected) select(""); else p.onBack(); };
     const open = id => { listScroll.current = scroll.current ? scroll.current.scrollTop : 0; resetPlayback(); setTogether(false); select(id); };
     const newBranch = () => {
       try {
@@ -52,13 +55,14 @@
       update(b.id, x => ({ ...x, fragments: x.fragments.concat(f) }));
       setFragment(f.id); setLine(-1);
     });
-    const nextLine = () => {
+    // 手动下一句、回放选句及未来的播完回调共用这一处切句和听闻落库。
+    const showLine = index => {
       stop(); if (!fragment) return;
-      const next = lineIndex + 1;
-      if (next >= fragment.lines.length) return;
-      update(branch.id, x => R.reveal(x, fragment.id, next, together ? branch.charId : ""));
-      setLine(next);
+      if (!Number.isInteger(index) || index < 0 || index >= fragment.lines.length) return;
+      update(branch.id, x => R.reveal(x, fragment.id, index, together ? branch.charId : ""));
+      setLine(index);
     };
+    const nextLine = () => showLine(lineIndex + 1);
     const ask = () => run(async () => {
       const b = branch, q = question.trim();
       if (!q || !together) return;
@@ -73,9 +77,14 @@
     const btn = (label, click, disabled) => h("button", { type: "button", disabled: busy || disabled, onClick: click, style: { minHeight: 44, maxWidth: "100%", margin: "0 6px 8px 0", padding: "8px 12px", border: "1px solid #b9ac95", borderRadius: 6, background: "#fffaf1", color: "#39362f", opacity: busy || disabled ? .5 : 1 } }, label);
     const field = (label, child) => h("label", { style: { display: "block", marginBottom: 14 } }, h("div", { style: { marginBottom: 6, fontSize: 13 } }, label), child);
     return h("div", { className: "h-full flex flex-col", style: skin, "data-radio-timeline": true },
-      h(Head, { zh: "时间线电台", sub: "平行故事 · 框架试用", bg: "transparent", ink: "#39362f", subInk: "#706552", lineInk: "#d7cdbb", onBack: back }),
+      h(Head, { zh: historyOpen ? "已听回放" : "时间线电台", sub: historyOpen && fragment ? fragment.title : "平行故事 · 框架试用", bg: "transparent", ink: "#39362f", subInk: "#706552", lineInk: "#d7cdbb", onBack: back }),
       h("div", { ref: scroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 16, overflowWrap: "anywhere" } },
-        !branch ? h(React.Fragment, null,
+        historyOpen && fragment ? h("section", { "data-radio-history": true },
+          h("p", { style: { fontSize: 13 } }, "本章已听过的句子。选一句回到播放屏重听，未播内容不会提前展开。"),
+          heard.map(l => h("div", { key: l.index, style: { marginBottom: 12 } },
+            btn("第" + (l.index + 1) + "句 · " + l.text, () => { showLine(l.index); setHistoryOpen(false); }))),
+          btn("返回当前句", () => setHistoryOpen(false))
+        ) : !branch ? h(React.Fragment, null,
           h("p", { style: { fontSize: 13, lineHeight: 1.8 } }, "调到过去、现在或未来，听见他的另一种可能。内容不会成为主线史实。"),
           field("想听谁的时间线", h("select", { style: inputStyle, value: charId, onChange: e => setChar(e.target.value) }, h("option", { value: "" }, "选择角色"), p.characters.map(c => h("option", { key: c.id, value: c.id }, c.name)))),
           field("想探索的事／分岔条件", h("textarea", { style: inputStyle, rows: 3, value: topic, onChange: e => setTopic(e.target.value) })),
@@ -94,13 +103,16 @@
             h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12 } }, R.ERAS.map(x => h("span", { key: x.id }, x.label)))
           ),
           h("label", { style: { display: "block", padding: "14px 0" } }, h("input", { type: "checkbox", checked: together, disabled: busy, onChange: e => { stop(); setTogether(e.target.checked); } }), " 邀请此刻的" + branch.name + "陪听"),
-          btn("接收这个频率的新片段", generate),
+          btn("接收这个频率的新章节", generate),
           branch.fragments.filter(x => x.era === currentEra.id).map(f => h("div", { key: f.id, style: { marginTop: 8 } }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); }))),
           fragment ? h("section", { style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
             h("h4", null, fragment.title),
             h("p", { style: { fontSize: 12 } }, "广播中 · " + (lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
-            fragment.lines.slice(0, lineIndex + 1).map((l, i) => h("div", { key: i, style: { marginBottom: 14, lineHeight: 1.85 } }, h("small", null, l.kind === "narrator" ? "场景 · 旁白" : "台词 · " + (l.speaker || branch.name)), h("div", null, l.text))),
+            lineIndex >= 0 ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 14, lineHeight: 1.85 } },
+              h("small", null, "第" + (lineIndex + 1) + "句 · " + (fragment.lines[lineIndex].speaker || branch.name)),
+              h("div", null, fragment.lines[lineIndex].text)) : null,
             btn(lineIndex < 0 ? "开始收听这一句" : "继续下一句", nextLine, lineIndex >= fragment.lines.length - 1),
+            btn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
             btn("朗读当前句（系统音色）", () => {
               stop(); if (!root.speechSynthesis || !root.SpeechSynthesisUtterance) { setError("当前设备不支持系统朗读，可以继续看文字。"); return; }
               const u = new root.SpeechSynthesisUtterance(fragment.lines[lineIndex].text); u.pitch = 1;

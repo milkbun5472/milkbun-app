@@ -20,7 +20,13 @@
     if (!Array.isArray(rows) || !rows.length || rows.some(x => !x || !["narrator", "character"].includes(x.kind) || !text(x.text))) {
       throw Error("片段格式不完整，尚未存入这条线。");
     }
-    return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.map(x => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: text(x.text) })) };
+    // 仅对新生成结果按句界拆分；旧存档的索引已被听闻记录引用，保持原样。
+    const segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "sentence" }) : null;
+    return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.flatMap(x => {
+      const body = text(x.text);
+      const sentences = segmenter ? [...segmenter.segment(body)].map(s => s.segment.trim()).filter(Boolean) : [body];
+      return sentences.map(sentence => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: sentence }));
+    }) };
   }
   function reveal(branch, fragmentId, index, companionId) {
     const f = branch.fragments.find(x => x.id === fragmentId);
@@ -33,14 +39,24 @@
   function companionContext(branch, companionId) {
     return { heard: branch.heard.filter(x => x.companionId === companionId), talks: branch.talks.filter(x => x.companionId === companionId) };
   }
+  // 回放只问实际揭示记录，不用当前游标推算；重听不会解锁后文。
+  function heardLines(branch, fragmentId) {
+    const seen = new Map();
+    branch.heard.filter(x => x.fragmentId === fragmentId).forEach(x => {
+      if (!seen.has(x.index)) seen.set(x.index, x);
+    });
+    return [...seen.values()].sort((a, b) => a.index - b.index);
+  }
   function storyPrompt(branch, eraId) {
     if (!era(eraId)) throw Error("频率无效。");
     return [
-      "写一个供调频收听的平行故事片段。这是创作，不是主线史实或未来预言。",
+      "以广播中角色的第一人称，讲述自己的一段经历，写成可独立收听的完整故事章节。这是平行创作，不是主线史实或未来预言。",
       "角色卡明确事实与世界规则是依据；未写的小事可以创作，改变人物根基的经历只采用用户明确给出的设定。人物的选择从其性格与处境生长。",
-      "过去补一个片刻；现在呈现本分支的此刻；未来体现分岔条件带来的可能。三个频率属于同一条分支，已写片段要相容。",
-      "形式：少量第三人称场景交代与人物直接台词交替；第一人称长叙述只用于情节中实际出现的信、录音或回忆。旁白呈现可观察的事，不替人物宣判内心。",
-      "每次只展开一小段，人物台词标明说话者。这里没有主持人、听众或陪听者。",
+      "过去讲一段过往经历；现在讲本分支正在经历的事情；未来讲分岔条件下可能经历的事情。三个频率属于同一条分支，已写事件相容；同一频率的新章节承接已有进展，不重复开场或复述旧章。",
+      "篇幅按完整章节展开，中文约1200—2200字，其他语言按相当叙事容量。让事件有可辨认的起因、过程、人物选择及实际结果；可以跨越时间与场景，本章有落点，长线仍能继续。篇幅用于新的经历和变化，不用反复抒情或动作拆解凑数。",
+      "长篇独白是主体：我看见什么、当时怎样判断、做了什么、后来怎样，由角色自己的措辞与注意方式讲出来。必要的故事内对白自然嵌入，人物标明说话者；短小的第三人称交代只承担必要定位，不与台词轮流填格子。",
+      "用户是收听者，不是默认出场人物，也不是独白的收件人。用户是否进入故事由其明确给出的本分支要求决定。角色自己的目标、生活关系和处境驱动事件，故事不默认围绕用户或恋爱展开；讲述不向屏幕外的用户提问、索取回应或停下来等用户续话。陪听者始终在广播之外。",
+      "先构成完整章节，再将正文按自然句界依序放入lines，每项是一句完整的话，拆句只为播放器换字幕，不把每项写成一次聊天回复。角色的第一人称叙述用kind=character及角色姓名；保留连贯正文，不输出章节提纲或梗概。",
       "【角色卡原文】\n" + branch.name + "\n" + branch.persona,
       "【相关世界设定】\n" + branch.lore,
       "【用户想探索的事】\n" + branch.topic,
@@ -62,5 +78,5 @@
       "【用户现在说】\n" + text(question)
     ].join("\n\n");
   }
-  return { KEY, ERAS, create, accept, reveal, companionContext, storyPrompt, companionPrompt };
+  return { KEY, ERAS, create, accept, reveal, heardLines, companionContext, storyPrompt, companionPrompt };
 });

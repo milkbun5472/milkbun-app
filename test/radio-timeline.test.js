@@ -27,3 +27,22 @@ test('陪听仅收到共同揭示的句子，不泄露全稿或独听内容', ()
   b.fragments[0].lines[1].text='改写';
   assert.equal(b.heard[1].text,'共同听到');
 });
+test('回放按原句序去重，独听也可回放，未播句不入回放', () => {
+  let b=make();
+  b.fragments.push(R.accept({lines:[{kind:'character',text:'一'},{kind:'character',text:'二'},{kind:'character',text:'三'}]},'past','f'));
+  b=R.reveal(b,'f',1,'c'); b=R.reveal(b,'f',0,''); b=R.reveal(b,'f',0,'c');
+  assert.deepEqual(R.heardLines(b,'f').map(x=>x.text),['一','二']);
+  assert.deepEqual(R.heardLines(b,'other'),[]);
+  assert.equal(R.heardLines(JSON.parse(JSON.stringify(b)),'f').length,2);
+});
+test('完整章节不裁字、不截句，提示改为人物独白而非对用户小对话', () => {
+  const lines=Array.from({length:90},(_,i)=>({kind:'character',speaker:'测试角色',text:('这是完整叙述。').repeat(4)+i}));
+  const f=R.accept({title:'章节',lines},'present','f');
+  assert.equal(f.lines.map(x=>x.text).join(''),lines.map(x=>x.text).join(''));
+  assert.ok(f.lines.length>lines.length, '生成器把多句塞进一项时，仍按句界显示且不丢正文');
+  const prompt=R.storyPrompt(make(),'present');
+  for(const s of ['第一人称','完整故事章节','1200—2200','用户是收听者','不重复开场','每项是一句完整的话']) assert.ok(prompt.includes(s));
+  for(const s of ['每次只展开一小段','少量第三人称场景交代与人物直接台词交替','过去补一个片刻']) assert.ok(!prompt.includes(s));
+  const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../js/app.js'),'utf8');
+  assert.match(app,/onFragment: \(branch, era\) => radioAsk\(narrativeCore\(\{ intimate: true, register: false \}\)/);
+});
