@@ -4265,6 +4265,51 @@ function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
           h("span", { "aria-hidden": "true", style: { fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "2px 6px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "走完")))) : null));
 }
 
+// ── 全 app 的小图标（播放/红心/云…）：一处画，各处用 ──────────────────────
+// ⚠️v67.51 之前它是【一起听】那个组件里的一个局部 const，于是这一份 SVG
+//   别的页面一个都拿不到——情侣唱片那一行要一个播放键，只能另画一个三角，
+//   或者退回 Unicode ▶（mobile-ui-layout.md 明令不许）。纯函数、只吃 h，
+//   所以整块提到模块作用域；一起听那头一个字都不用改（施工规则/one-public-mechanism.md）。
+const ic = (kind, c, size) => { size = size || 22;
+  const svg = (children, o) => h("svg", Object.assign({ width: size, height: size, viewBox: "0 0 24 24" }, o), children);
+  const stroke = { fill: "none", stroke: c, strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
+  if (kind === "play") return svg(h("path", { d: "M8 5v14l11-7z", fill: c }));
+  if (kind === "pause") return svg([h("rect", { key: 1, x: 6, y: 5, width: 4, height: 14, rx: 1, fill: c }), h("rect", { key: 2, x: 14, y: 5, width: 4, height: 14, rx: 1, fill: c })]);
+  if (kind === "prev") return svg([h("rect", { key: 1, x: 6, y: 5, width: 2.4, height: 14, rx: 1, fill: c }), h("path", { key: 2, d: "M19 5v14l-10-7z", fill: c })]);
+  if (kind === "next") return svg([h("path", { key: 1, d: "M5 5v14l10-7z", fill: c }), h("rect", { key: 2, x: 15.6, y: 5, width: 2.4, height: 14, rx: 1, fill: c })]);
+  // 列表循环
+  if (kind === "repeat") return svg([h("path", { key: 1, d: "M17 2l3 3-3 3", ...stroke }), h("path", { key: 2, d: "M20 5H8a4 4 0 0 0-4 4v1", ...stroke }), h("path", { key: 3, d: "M7 22l-3-3 3-3", ...stroke }), h("path", { key: 4, d: "M4 19h12a4 4 0 0 0 4-4v-1", ...stroke })]);
+  // 单曲循环（循环+中间数字1）
+  if (kind === "repeatone") return svg([h("path", { key: 1, d: "M17 2l3 3-3 3", ...stroke }), h("path", { key: 2, d: "M20 5H8a4 4 0 0 0-4 4v1", ...stroke }), h("path", { key: 3, d: "M7 22l-3-3 3-3", ...stroke }), h("path", { key: 4, d: "M4 19h12a4 4 0 0 0 4-4v-1", ...stroke }), h("text", { key: 5, x: 12, y: 15.5, fill: c, fontSize: 8, fontWeight: 700, textAnchor: "middle", fontFamily: "system-ui" }, "1")]);
+  // 随机
+  if (kind === "shuffle") return svg([h("path", { key: 1, d: "M16 3h5v5", ...stroke }), h("path", { key: 2, d: "M4 20L21 3", ...stroke }), h("path", { key: 3, d: "M21 16v5h-5", ...stroke }), h("path", { key: 4, d: "M15 15l6 6", ...stroke }), h("path", { key: 5, d: "M4 4l5 5", ...stroke })]);
+  // 队列/列表
+  if (kind === "list") return svg([h("path", { key: 1, d: "M4 6h11M4 12h11M4 18h7", ...stroke }), h("path", { key: 2, d: "M18 15l3 3-3 3", ...stroke, strokeWidth: 1.7 })]);
+  // 云（网易云来源）
+  if (kind === "cloud") return svg(h("path", { d: "M7 18h10a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8 9.5 4 4 0 0 0 7 18z", ...stroke }));
+  // 音符（本地来源）
+  if (kind === "note") return svg([h("path", { key: 1, d: "M9 18V6l10-2v12", ...stroke }), h("circle", { key: 2, cx: 6.5, cy: 18, r: 2.5, fill: c }), h("circle", { key: 3, cx: 16.5, cy: 16, r: 2.5, fill: c })]);
+  // 搜索
+  if (kind === "search") return svg([h("circle", { key: 1, cx: 11, cy: 11, r: 7, ...stroke }), h("path", { key: 2, d: "M20 20l-4-4", ...stroke })]);
+  // 上传
+  if (kind === "upload") return svg([h("path", { key: 1, d: "M12 16V4", ...stroke }), h("path", { key: 2, d: "M7 9l5-5 5 5", ...stroke }), h("path", { key: 3, d: "M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2", ...stroke })]);
+  if (kind === "close") return svg([h("path", { key: 1, d: "M6 6l12 12", ...stroke }), h("path", { key: 2, d: "M18 6L6 18", ...stroke })]);
+  if (kind === "heart") return svg(h("path", { d: "M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.2 1.2 5.5 3.5 2.3-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z", fill: c === "solid" ? "#e0576b" : "none", stroke: c === "solid" ? "#e0576b" : c, strokeWidth: 1.7 }));
+  // ── v62.46：行内那一排 Unicode 字符钮（♥ ♡ ＋ × ✎ ☁＋ － 🗑 🌙）全收进这儿 ──
+  // 一页两种笔：走场控制是自画 SVG，行内动作是字符——审美审计点名的「同一页两套图标」。
+  // 字符钮还有个更实在的毛病：它们的大小由字体决定，同一行里 ＋ 和 × 高矮不齐，
+  // 而且 🗑 🌙 这类带变体选择符的在她机器上会渲成豆腐块（v61.29 记过一次）。
+  if (kind === "plus") return svg([h("path", { key: 1, d: "M12 5v14", ...stroke }), h("path", { key: 2, d: "M5 12h14", ...stroke })]);
+  if (kind === "minus") return svg(h("path", { d: "M5 12h14", ...stroke }));
+  if (kind === "pen") return svg([h("path", { key: 1, d: "M4 20l4-1 10-10-3-3L5 16z", ...stroke }), h("path", { key: 2, d: "M14.5 5.5l3 3", ...stroke })]);
+  if (kind === "trash") return svg([h("path", { key: 1, d: "M4 7h16", ...stroke }), h("path", { key: 2, d: "M9 7V5h6v2", ...stroke }), h("path", { key: 3, d: "M6 7l1 13h10l1-13", ...stroke })]);
+  // 收进咱家歌库：云上加一笔
+  if (kind === "cloudplus") return svg([h("path", { key: 1, d: "M7 16h8a3.2 3.2 0 0 0 .4-6.37A4.6 4.6 0 0 0 7.6 8 3.7 3.7 0 0 0 7 16z", ...stroke }), h("path", { key: 2, d: "M12 14v6M9 17h6", ...stroke })]);
+  // 静音保活：一弯月，程序画的，不是 emoji
+  if (kind === "moon") return svg(h("path", { d: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z", fill: c, stroke: "none" }));
+  return svg(h("circle", { cx: 12, cy: 12, r: 8, fill: c }));
+};
+
 // 情侣空间·我们的唱片（她 2026-09-01）。数据形状 { songs:[{id,neteaseId,title,artist,
 // cover,by,note,ts}] }。播放礼数不在这儿——落针/收针全归 app.js 的 discEnter/discLeave,
 // 这一页只是唱片本体:A 面是歌,B 面是「为什么是这首」。
@@ -4301,7 +4346,9 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
             : songs.length ? songs.length + " 首 · 进空间接着上次那首往下放" + (nextSong ? "（下一首《" + nextSong.title + "》）" : "")
             : "刻下第一首，或者让 " + partner.name + " 自己挑几首——进空间它就会响起来"),
         h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 10, marginTop: 14 } },
-          songs.length ? h("button", { onClick: onPlay, className: "active:opacity-70", style: { minHeight: 40, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#241f2c", background: "#e6dff2", borderRadius: 999, padding: "9px 26px" } }, spinning ? "从这首重放" : nextSong && nextSong.id !== songs[0].id ? "接着放" : "落针") : null,
+          // ⚠️onClick 不许直接挂 onPlay：onPlay 现在收「从哪一首起」，
+          //   直接挂等于把事件对象当成歌 id 传下去。
+          songs.length ? h("button", { onClick: () => onPlay(), className: "active:opacity-70", style: { minHeight: 40, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#241f2c", background: "#e6dff2", borderRadius: 999, padding: "9px 26px" } }, spinning ? "从这首重放" : nextSong && nextSong.id !== songs[0].id ? "接着放" : "落针") : null,
           songs.length ? h("button", { onClick: onPlayTop, className: "active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: "rgba(230,223,242,.6)", padding: "9px 6px" } }, "从头") : null,
           // 让 TA 自己刻：跟「一起听」里的角色歌单同一条链（推歌 → 去云村搜到真曲）
           h("button", { onClick: onGen, disabled: gen, className: "active:opacity-70 disabled:opacity-45", style: { minHeight: 40, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#e6dff2", background: "transparent", border: "1px solid rgba(230,223,242,.4)", borderRadius: 999, padding: "9px 22px" } },
@@ -4309,18 +4356,24 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
       // ── A 面:歌 + B 面:刻字 ──
       songs.length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, null, "B 面"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 10px" } }, "每一首背面都刻着一句「为什么是这首」。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 10px" } }, "点歌名就从那一首落针；背面那一句是「为什么是这首」，点它可以改。"),
+        // ⚠️她 2026-09-12：「唱片不能选要听哪首，点击只能编辑刻字」。
+        //   discPlay(cid, fromId) 从头到尾都收得下「从哪一首起」，**只是这一页没给出口**：
+        //   整行唯一能点的地方是刻字那一格。全 app 的歌行（一起听的 cloudRow、查手机那张单）
+        //   都是【封面能点、歌名能点、右边还有一个圆的播放键】——这一行是唯一的例外。
         songs.map(x => h("div", { key: x.id, style: { display: "flex", gap: 11, padding: "11px 0", borderBottom: "1px solid " + t.line, alignItems: "flex-start" } },
-          h("div", { style: { width: 40, height: 40, borderRadius: 8, overflow: "hidden", background: "#eee6f0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, x.cover ? coverOf(x) : h("span", null, "♪")),
+          h("button", { onClick: () => onPlay(x.id), className: "active:opacity-70", style: { width: 40, height: 40, borderRadius: 8, overflow: "hidden", background: "#eee6f0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 } }, x.cover ? coverOf(x) : h("span", null, "♪")),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: nowId === x.id ? t.accent : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title + (nowId === x.id ? " ♪" : (!spinning && nextId === x.id ? " ·针停在这儿" : ""))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, (x.artist || "") + (x.by === "ta" ? "　· " + partner.name + " 刻的" : "")),
+            h("button", { onClick: () => onPlay(x.id), className: "block text-left w-full active:opacity-60" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: nowId === x.id ? t.accent : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title + (nowId === x.id ? " ♪" : (!spinning && nextId === x.id ? " ·针停在这儿" : ""))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, (x.artist || "") + (x.by === "ta" ? "　· " + partner.name + " 刻的" : ""))),
             editId === x.id
               ? h("div", { className: "flex items-center gap-2", style: { marginTop: 6 } },
                   h("input", { value: editVal, onChange: e => setEditVal(e.target.value), placeholder: "为什么是这首", className: "flex-1 outline-none px-2 py-1.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12, background: t.bg2, border: "1px solid " + t.line, color: t.ink, minWidth: 0 } }),
                   h("button", { onClick: () => { onNote(x.id, editVal); setEditId(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0 } }, "刻上"))
               : h("button", { onClick: () => { setEditId(x.id); setEditVal(x.note || ""); }, className: "block text-left active:opacity-60 w-full", style: { marginTop: 5 } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.6, color: x.note ? "#93707c" : t.fog } }, x.note ? "「" + x.note + "」" : "背面还空着,刻一句？"))),
+          h("button", { onClick: () => onPlay(x.id), title: "从这首落针", className: "active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: nowId === x.id && spinning ? t.accent : t.ink, flexShrink: 0 } }, ic("play", t.bg2, 14)),
           h("button", { onClick: () => onRemove(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, flexShrink: 0, padding: "2px 4px" } }, "✕")))) : null,
       // ── 刻新歌 ──
       h("div", { style: { marginTop: 20, padding: "14px 15px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
@@ -4455,7 +4508,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       onAdd: (q, note) => onDiscAdd(partner.id, q, note), onRemove: id => onDiscRemove(partner.id, id),
       onNote: (id, note) => onDiscNote(partner.id, id, note),
       // 落针＝从针位那首接着放（进空间也走这一条）；「从头」才是回第一首
-      onPlay: () => onDiscPlay(partner.id, discNextIdOf && discNextIdOf(partner.id)),
+      // id 是「从这一首起」（B 面那一行点的）；不给就照旧接着上次那首往下放
+      onPlay: id => onDiscPlay(partner.id, id || (discNextIdOf && discNextIdOf(partner.id))),
       onPlayTop: () => onDiscPlay(partner.id),
       nextId: discNextIdOf && discNextIdOf(partner.id),
       onGen: () => onDiscGen && onDiscGen(partner), gen: discGen === partner.id, onBack: () => setSub(null) });
@@ -5390,45 +5444,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         background: on ? t.bg2 : (hex6(t.ink) ? t.ink + "0d" : t.bg),
         border: "1px solid " + t.line, borderBottom: on ? "1px solid " + t.bg2 : "1px solid " + t.line,
         borderRadius: "8px 8px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 1 : 0 } }, label); };
-  const ic = (kind, c, size) => { size = size || 22;
-    const svg = (children, o) => h("svg", Object.assign({ width: size, height: size, viewBox: "0 0 24 24" }, o), children);
-    const stroke = { fill: "none", stroke: c, strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
-    if (kind === "play") return svg(h("path", { d: "M8 5v14l11-7z", fill: c }));
-    if (kind === "pause") return svg([h("rect", { key: 1, x: 6, y: 5, width: 4, height: 14, rx: 1, fill: c }), h("rect", { key: 2, x: 14, y: 5, width: 4, height: 14, rx: 1, fill: c })]);
-    if (kind === "prev") return svg([h("rect", { key: 1, x: 6, y: 5, width: 2.4, height: 14, rx: 1, fill: c }), h("path", { key: 2, d: "M19 5v14l-10-7z", fill: c })]);
-    if (kind === "next") return svg([h("path", { key: 1, d: "M5 5v14l10-7z", fill: c }), h("rect", { key: 2, x: 15.6, y: 5, width: 2.4, height: 14, rx: 1, fill: c })]);
-    // 列表循环
-    if (kind === "repeat") return svg([h("path", { key: 1, d: "M17 2l3 3-3 3", ...stroke }), h("path", { key: 2, d: "M20 5H8a4 4 0 0 0-4 4v1", ...stroke }), h("path", { key: 3, d: "M7 22l-3-3 3-3", ...stroke }), h("path", { key: 4, d: "M4 19h12a4 4 0 0 0 4-4v-1", ...stroke })]);
-    // 单曲循环（循环+中间数字1）
-    if (kind === "repeatone") return svg([h("path", { key: 1, d: "M17 2l3 3-3 3", ...stroke }), h("path", { key: 2, d: "M20 5H8a4 4 0 0 0-4 4v1", ...stroke }), h("path", { key: 3, d: "M7 22l-3-3 3-3", ...stroke }), h("path", { key: 4, d: "M4 19h12a4 4 0 0 0 4-4v-1", ...stroke }), h("text", { key: 5, x: 12, y: 15.5, fill: c, fontSize: 8, fontWeight: 700, textAnchor: "middle", fontFamily: "system-ui" }, "1")]);
-    // 随机
-    if (kind === "shuffle") return svg([h("path", { key: 1, d: "M16 3h5v5", ...stroke }), h("path", { key: 2, d: "M4 20L21 3", ...stroke }), h("path", { key: 3, d: "M21 16v5h-5", ...stroke }), h("path", { key: 4, d: "M15 15l6 6", ...stroke }), h("path", { key: 5, d: "M4 4l5 5", ...stroke })]);
-    // 队列/列表
-    if (kind === "list") return svg([h("path", { key: 1, d: "M4 6h11M4 12h11M4 18h7", ...stroke }), h("path", { key: 2, d: "M18 15l3 3-3 3", ...stroke, strokeWidth: 1.7 })]);
-    // 云（网易云来源）
-    if (kind === "cloud") return svg(h("path", { d: "M7 18h10a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8 9.5 4 4 0 0 0 7 18z", ...stroke }));
-    // 音符（本地来源）
-    if (kind === "note") return svg([h("path", { key: 1, d: "M9 18V6l10-2v12", ...stroke }), h("circle", { key: 2, cx: 6.5, cy: 18, r: 2.5, fill: c }), h("circle", { key: 3, cx: 16.5, cy: 16, r: 2.5, fill: c })]);
-    // 搜索
-    if (kind === "search") return svg([h("circle", { key: 1, cx: 11, cy: 11, r: 7, ...stroke }), h("path", { key: 2, d: "M20 20l-4-4", ...stroke })]);
-    // 上传
-    if (kind === "upload") return svg([h("path", { key: 1, d: "M12 16V4", ...stroke }), h("path", { key: 2, d: "M7 9l5-5 5 5", ...stroke }), h("path", { key: 3, d: "M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2", ...stroke })]);
-    if (kind === "close") return svg([h("path", { key: 1, d: "M6 6l12 12", ...stroke }), h("path", { key: 2, d: "M18 6L6 18", ...stroke })]);
-    if (kind === "heart") return svg(h("path", { d: "M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.2 1.2 5.5 3.5 2.3-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z", fill: c === "solid" ? "#e0576b" : "none", stroke: c === "solid" ? "#e0576b" : c, strokeWidth: 1.7 }));
-    // ── v62.46：行内那一排 Unicode 字符钮（♥ ♡ ＋ × ✎ ☁＋ － 🗑 🌙）全收进这儿 ──
-    // 一页两种笔：走场控制是自画 SVG，行内动作是字符——审美审计点名的「同一页两套图标」。
-    // 字符钮还有个更实在的毛病：它们的大小由字体决定，同一行里 ＋ 和 × 高矮不齐，
-    // 而且 🗑 🌙 这类带变体选择符的在她机器上会渲成豆腐块（v61.29 记过一次）。
-    if (kind === "plus") return svg([h("path", { key: 1, d: "M12 5v14", ...stroke }), h("path", { key: 2, d: "M5 12h14", ...stroke })]);
-    if (kind === "minus") return svg(h("path", { d: "M5 12h14", ...stroke }));
-    if (kind === "pen") return svg([h("path", { key: 1, d: "M4 20l4-1 10-10-3-3L5 16z", ...stroke }), h("path", { key: 2, d: "M14.5 5.5l3 3", ...stroke })]);
-    if (kind === "trash") return svg([h("path", { key: 1, d: "M4 7h16", ...stroke }), h("path", { key: 2, d: "M9 7V5h6v2", ...stroke }), h("path", { key: 3, d: "M6 7l1 13h10l1-13", ...stroke })]);
-    // 收进咱家歌库：云上加一笔
-    if (kind === "cloudplus") return svg([h("path", { key: 1, d: "M7 16h8a3.2 3.2 0 0 0 .4-6.37A4.6 4.6 0 0 0 7.6 8 3.7 3.7 0 0 0 7 16z", ...stroke }), h("path", { key: 2, d: "M12 14v6M9 17h6", ...stroke })]);
-    // 静音保活：一弯月，程序画的，不是 emoji
-    if (kind === "moon") return svg(h("path", { d: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z", fill: c, stroke: "none" }));
-    return svg(h("circle", { cx: 12, cy: 12, r: 8, fill: c }));
-  };
   // 行内那些小动作钮：一律 40px 可点区（tabs-not-plain-pills 那条底线），图标统一走 ic()
   const rowBtn = (kind, color, onClick, title, size) => h("button", { onClick: onClick, title: title,
     className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 34, minHeight: 40 } },

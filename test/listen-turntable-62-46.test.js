@@ -10,6 +10,10 @@ const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
 const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
 const CODE = LT.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+// ⚠️v67.51 起 ic() 从【一起听】里面提到了模块作用域（情侣唱片那一行也要一枚播放键，
+//   局部 const 谁也拿不到）。钉的是「这一份 SVG 里有哪几枚图标」，不是「它写在哪个
+//   函数里面」——所以这儿对着它自己那一段验，搬家不该红、掉一枚才该红。
+const IC = src.slice(src.indexOf("const ic = (kind, c, size) =>"), src.indexOf("\n};", src.indexOf("const ic = (kind, c, size) =>")));
 
 test("「一起」是一整张封套，不是碟后面露的一牙（v62.81）", () => {
   // v62.46 把 TA 做成后面那张碟露一牙、碟整体右偏 22px、牙上贴一枚歪着的小头像——
@@ -72,14 +76,14 @@ test("行内动作全走 ic()，一页不许两种笔", () => {
   // 同一页两种笔。字符钮还有个更实在的毛病：大小由字体定，同一行里高矮不齐，
   // 而 🗑 🌙 这类在她机器上会渲成豆腐块。
   ["moon", "plus", "minus", "pen", "trash", "cloudplus"].forEach(k =>
-    assert.ok(CODE.indexOf('kind === "' + k + '"') > 0, "ic() 里没有 " + k));
+    assert.ok(IC.indexOf('kind === "' + k + '"') > 0, "ic() 里没有 " + k));
   assert.match(CODE, /const rowBtn = \(kind, color, onClick, title, size\) =>/);
   assert.match(CODE, /width: 34, minHeight: 40/, "行内钮的可点区不够");
   // 界面文案里一个 emoji/字符图标都不许剩。
   // ⚠️展开必须用 [...str]，不能用 .split("")：后者把 🌙 这种四字节字符拆成两半代理，
   //   两半都落在下面那几段区间外——那条断言就成了永远抓不到 emoji 的空转
   //   （第一版正是这样，变异测试里它是唯一活下来的那个）。
-  const inUI = [...(CODE.match(/"[^"\n]*"/g) || []).join("")].filter(ch => {
+  const inUI = [...((CODE + IC).match(/"[^"\n]*"/g) || []).join("")].filter(ch => {
     const c = ch.codePointAt(0);
     return (c >= 0x1F000 && c <= 0x1FAFF) || (c >= 0x2600 && c <= 0x27BF) || c === 0xFE0F
       || "♥♡＋－✎☁▶".indexOf(ch) >= 0;
