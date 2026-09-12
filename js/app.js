@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.26";
+const APP_VERSION = "v67.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9624,6 +9624,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
+        // ⚠️**一个人一轮只摆一行动描**（她 2026-09-12：「不行啊宝宝还是一句一个动作」）。
+        //   前面三版我一直在改措辞（v67.18 更新策略、v67.26 定义本身），一次都没治住。
+        //   因为病根不在字上，在【形状】上：群聊的 JSON 是一个数组，
+        //   **action 挂在每一个元素上**——schema 本身就在说「一条发言一个动作」。
+        //   单聊那边一轮只有一个 action 字段，所以天然「一个人一轮一个动作」；
+        //   群里一轮八条，就是八个 action 字段，模型把每一格都填满是它在照做。
+        //   ⚠️所以这一道必须是代码（规则只降概率，代码才保证）：
+        //   一轮里每个人的动描只认【他第一次给的那个】，后面的一律不看。
+        // ⚠️这条推翻了她 2026-09-09 那句「一轮变了两次也都放进来」。
+        //   那句话的前提是【动作只在真发生变化时才变】；模型做不到，它每条都换一个。
+        //   她 2026-09-12 拿单聊当标准：「单聊可以一个人一轮一个动作」——按这个来。
+        const _actOnce = new Set();
         // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
@@ -9702,10 +9714,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             // 动描：这一条发言的人此刻在做什么，摆在他这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
-            //   一轮里 A 变了、B 没变，只该出 A 那一行。她 2026-09-09：
-            //   「如果一轮他们变了两次也都放进来比如第一句第三句变了那就是那俩气泡上有动作」。
+            //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
-            if (_gActDesc && gActionNow && spk) {
+            if (_gActDesc && gActionNow && spk && !_actOnce.has(spk.id)) {
+              // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一轮比】的事，
+              //   「这一轮他已经用掉这次机会了」是另一回事。写在 if 里面就会漏，
+              //   他第一条没变、第五条换了个新的照样能挤出一行来。
+              _actOnce.add(spk.id);
               const _grows = groupChatsRef.current[groupId] || [];
               let _gprevAct = "";
               for (let k = _grows.length - 1; k >= 0; k--) {

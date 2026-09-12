@@ -181,7 +181,10 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");
   assert.equal((app.match(/normalizeAction\(_rawGAction/g) || []).length, 1);
   // 比的是【这个人自己上一次】，不是全群最后一条——不然 A 变了 B 没变会一起漏或一起出
-  const i = app.indexOf("if (_gActDesc && gActionNow && spk)");
+  // v67.27：那道闸多了一个「这一轮他用过没有」（_actOnce）——
+  //   病根在形状不在字：群聊的 JSON 里 action 挂在每一个数组元素上，
+  //   schema 本身就在说「一条发言一个动作」（她 2026-09-12：「还是一句一个动作」）。
+  const i = app.indexOf("if (_gActDesc && gActionNow && spk");
   assert.ok(i > 0, "群里那一行没接上");
   const blk = app.slice(i, i + 1100);
   assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "拿全群最后一条比，两个人的动作会互相盖掉");
