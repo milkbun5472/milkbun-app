@@ -88,10 +88,15 @@ test("实际 saveRel 写入与通知，新建/已聊/降级/重复保存/角色�
     let rels = {}, aff = initial === undefined ? {} : { c1: initial };
     const writes = [], notices = [];
     const f = fixture();
-    const saveRel = new Function("setRels", "setAffinities", "saveJSON", "baseAffIn", "affRebase", "setTimeout", "toast",
+    // x_affBase 是「这条起点已经补过了」那本账（v67.34）：saveRel 也要记一笔，
+    // 不然下次开机那条路会当成没补过，把中间相处掉下去的那点又抬回来。
+    const box = {};
+    const saveRel = new Function("setRels", "setAffinities", "saveJSON", "loadJSON", "baseAffIn", "affRebase", "setTimeout", "toast",
       saveSrc + "\nreturn saveRel;")(
       update => { rels = update(rels); }, update => { aff = update(aff); },
-      (key, value) => writes.push({ key, value }), f.baseAffIn, f.affRebase,
+      (key, value) => { writes.push({ key, value }); box[key] = value; },
+      (key, dflt) => (box[key] === undefined ? dflt : box[key]),
+      f.baseAffIn, f.affRebase,
       fn => fn(), text => notices.push(text));
     saveRel("me->c1", label, "设定");
     assert.deepEqual(rels["me->c1"], { label, note: "设定" });
@@ -104,6 +109,9 @@ test("实际 saveRel 写入与通知，新建/已聊/降级/重复保存/角色�
     saveRel("c1->c2", "恋人", "");
     assert.equal(aff.c1, expected);
     assert.equal(writes.filter(x => x.key === "x_affinities").length, count);
+    // 起点换过就要记一笔，而且记的是【新那条起点】
+    assert.equal(box.x_affBase.c1, 44, "降级到「前任」之后这本账没跟上：" + JSON.stringify(box.x_affBase));
+    assert.equal(box.x_affBase.c2, undefined, "角色之间的关系不该进这本账");
   }
 });
 test("情侣邀请只改变情侣状态，不覆盖主线好感；复合奖励走最新状态", () => {

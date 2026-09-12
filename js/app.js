@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.33";
+const APP_VERSION = "v67.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1149,8 +1149,22 @@ function App() {
       try { localStorage.setItem("x_offMaxMig", "1"); } catch (e) {}
       setOfflineSettings(os);
     })();
-    setRels(loadJSON("x_rels", {}));
-    setAffinities(loadJSON("x_affinities", {}));
+    const _rels0 = loadJSON("x_rels", {}), _aff0 = loadJSON("x_affinities", {});
+    setRels(_rels0);
+    // 关系起点对齐（见 affReconcile 上面那一段）：x_rels 从云端恢复/导入/换设备
+    // 进来的那条路，原来一次都不补起点。这里补，而且只补一次。
+    const _afx = affReconcile(_rels0, _aff0, loadJSON("x_affBase", {}), c);
+    if (_afx) {
+      if (_afx.fixed.length) saveJSON("x_affinities", _afx.aff);
+      saveJSON("x_affBase", _afx.applied);
+      setAffinities(_afx.fixed.length ? _afx.aff : _aff0);
+      // ⚠️不许默默改她的数。补了就说一声——说清是谁、从多少补到多少。
+      if (_afx.fixed.length) setTimeout(function () {
+        toast(_afx.fixed.length <= 2
+          ? _afx.fixed.map(x => x.name + "的好感补回关系起点 " + Math.round(x.from) + "→" + Math.round(x.to)).join("；")
+          : "把 " + _afx.fixed.length + " 个人的好感补回了关系起点");
+      }, 1200);
+    } else setAffinities(_aff0);
     setMoods(loadJSON("x_moods", {}));
     setStates(loadJSON("x_states", {}));
     setRoomStates(loadJSON("x_roomStates", {}));
@@ -2400,12 +2414,45 @@ function App() {
     return best != null ? best : 50;
   };
   const baseAff = charId => baseAffIn(rels, charId);
-  // 手动提高人设关系：补足新起点，已有的更高好感保留。降级标签不扣分。
-  // 聊天里的情侣邀请独立处理；不借接受邀请重置相处结果。旧存档不批量迁移。
-  const affRebase = (before, after, cur) => {
-    if (cur == null || !Number.isFinite(cur) || !Number.isFinite(before) || !Number.isFinite(after) || after <= before) return null;
-    const next = Math.max(0, Math.min(100, after));
+  // 补足关系起点：存着的数比这条关系的起点低就抬到起点；已经更高的保留，不许往下压。
+  // cur == null＝从来没写过，不用管——affOf 本来就会去问关系。
+  const affLift = (base, cur) => {
+    if (cur == null || !Number.isFinite(cur) || !Number.isFinite(base)) return null;
+    const next = Math.max(0, Math.min(100, base));
     return cur >= next ? null : next;
+  };
+  // 手动提高人设关系：补足新起点，已有的更高好感保留。降级标签不扣分。
+  // 聊天里的情侣邀请独立处理；不借接受邀请重置相处结果。
+  const affRebase = (before, after, cur) =>
+    (Number.isFinite(before) && Number.isFinite(after) && after > before) ? affLift(after, cur) : null;
+  // ⚠️上面那一层原来【只写在 saveRel 里】——也就是只有「在这个 app 里手动改标签」那一条路。
+  //   可 x_rels 有两条路：saveRel，和开机 loadJSON——云端恢复、导入存档、换设备同步，
+  //   全是从开机那条路进来的。那条路上一次都不补。
+  //   于是：还没设关系时，第一句话就会写一次好感，把【没关系时的那个 50】焊进存档；
+  //   之后关系从开机那条路进来写着「恋人」，affOf 的规矩却是「存过就用存的」，
+  //   50 从此永远压着 80，而且再也不会自己好。
+  //   （她 2026-09-05 报过同一个病，v65.76 修的是「改标签那一刻」；开机这一条没跟上。
+  //    她 2026-09-12：「都有关系的宝宝但是都不动…王爷还是 50 而且还是恋人」。）
+  // x_affBase 记下「这个角色的这条起点已经补过了」：补过之后再在相处里掉下去，
+  // 是真掉的，不许再抬回来。所以这道补足对同一条关系只发生一次。
+  const affReconcile = (relsMap, affMap, appliedMap, chars) => {
+    const aff = { ...(affMap || {}) };
+    const applied = { ...(appliedMap || {}) };
+    const fixed = [];
+    let touched = false;
+    (chars || []).forEach(c => {
+      // 配角没有心情/好感（跟群聊那道闸同一个判据）
+      if (!c || !c.id || c.npc) return;
+      const id = String(c.id);
+      const base = baseAffIn(relsMap, id);
+      if (applied[id] === base) return;
+      applied[id] = base; touched = true;
+      const next = affLift(base, aff[id]);
+      if (next == null) return;
+      fixed.push({ id: id, name: c.name || id, from: aff[id], to: next });
+      aff[id] = next;
+    });
+    return touched ? { aff, applied, fixed } : null;
   };
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
   const setMoodFor = (id, m) => setMoods(p => {
@@ -18787,6 +18834,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cid = m && m[1];
     if (cid) {
       const before = baseAffIn(p, cid), after = baseAffIn(n, cid);
+      // 补过的那条起点记在同一本账上：不记的话，下次开机那条路会看见「这条起点没补过」，
+      // 于是把这中间相处掉下去的那一点又抬回来（一层写在两处，账也得是同一本）。
+      if (after !== before) { const _b = loadJSON("x_affBase", {}); _b[cid] = after; saveJSON("x_affBase", _b); }
       if (after !== before) setAffinities(ap => {
         const cur = ap[cid];
         const next = affRebase(before, after, cur);
