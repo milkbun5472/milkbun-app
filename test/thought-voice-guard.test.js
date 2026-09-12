@@ -62,7 +62,11 @@ assert.equal(guard.accept("收拾这丫头一顿"), "收拾她一顿", "没带�
 // 提示词那半也要点名，并说清这类狠话该去哪儿
 {
   const fs2 = require("node:fs"), path2 = require("node:path");
-  const app = fs2.readFileSync(path2.join(__dirname, "..", "js", "app.js"), "utf8");
+  // ⚠️v67.49 起心声那一段住在 engine.js 的 THOUGHT_MEANING 里（线上线下共用一份），
+  //   app.js 只剩一个 ${THOUGHT_MEANING}——对着【拼起来的那一份】验。
+  //   共用之后那句里不再写死 word（线下说出口的是 scene 里的对白），改成「让 TA 听见」。
+  const app = fs2.readFileSync(path2.join(__dirname, "..", "js", "app.js"), "utf8")
+    + fs2.readFileSync(path2.join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.match(app, /『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』/);
-  assert.match(app, /这类狠话本来就是【说得出口的】：真要撂就写进 word 让 TA 听见/);
+  assert.match(app, /这类狠话本来就是【说得出口的】：真要撂就让 TA 听见/);
 }

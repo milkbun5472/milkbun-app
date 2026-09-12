@@ -2,7 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
-const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8");
+// ⚠️v67.49 起心声那一段住在 engine.js 的 THOUGHT_MEANING 里（线上线下共用一份），
+//   app.js 只剩一个 ${THOUGHT_MEANING}——要验的是【拼起来的那一份】。
+const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8")
+  + fs.readFileSync(require.resolve("../js/engine.js"), "utf8");
 
 test("心声要求直接内在声音，而不是第三人称角色分析报告", () => {
   assert.match(app, /角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头/);
