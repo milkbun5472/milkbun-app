@@ -19,21 +19,25 @@ test("字段字典里那一栏多了 how，而且说清了它凭什么填", () =
   assert.match(app, /看不出是哪种就填 chat/, "没给兜底那一档，模型只能瞎猜");
 });
 
-test("认不出的值一律当发消息——宁可少响一次", () => {
-  // 这一句真跑：模型写 "call"/"电话"/true 都不能被当成打电话
-  const line = app.split("\n").find(l => l.indexOf('const via = ["voice", "video"].indexOf(') >= 0);
-  assert.ok(line, "找不到那一句");
-  const f = new Function("lp", line + "\nreturn via;");
-  assert.equal(f({ how: "voice" }), "voice");
-  assert.equal(f({ how: "VIDEO" }), "video");
-  assert.equal(f({ how: "chat" }), "chat");
-  assert.equal(f({ how: "call" }), "chat", "认不出的值被当成了打电话");
-  assert.equal(f({ how: "电话" }), "chat");
-  assert.equal(f({ how: true }), "chat");
-  assert.equal(f({}), "chat");
+// v67.39：认不出的仍旧当 chat，但「认得出」不再等于「逐字等于 voice」——
+// 模型写「电话」「语音」「call」时意思一点都不含糊，不认它们，说好的电话
+// 到点还是缩水成一条消息（她 2026-09-12：「为啥约定还是不会打电话」）。
+test("认得出的写法都认，认不出的一律当发消息", () => {
+  const i = app.indexOf("const PROMISE_VIA = {");
+  assert.ok(i > 0, "那张表没了");
+  const src = app.slice(i, app.indexOf("const promiseVia = ", i)) + app.slice(app.indexOf("const promiseVia = ", i), app.indexOf("\n", app.indexOf("const promiseVia = ", i)));
+  const f = new Function(src + "\nreturn promiseVia;")();
+  ["voice", "VOICE", " 语音 ", "电话", "打电话", "call", "phone"].forEach(x => assert.equal(f(x), "voice", x + " 没认出来是打电话"));
+  ["video", "视频", "视频通话", "FaceTime"].forEach(x => assert.equal(f(x), "video", x + " 没认出来是视频"));
+  // 认不出的一律 chat——宁可少响一次，也不能凭一个认不出的值把电话打过去
+  ["chat", "", "随便", "true", "语音消息"].forEach(x => assert.equal(f(x), "chat", x + " 被当成了打电话"));
+  assert.equal(f(true), "chat");
+  assert.equal(f(null), "chat");
+  assert.equal(f(undefined), "chat");
   // 存进那条约里
   assert.match(app, /about: String\(lp\.about \|\| ""\)\.slice\(0, 120\), via: via, createdTs: Date\.now\(\)/,
     "认出来了却没存进约里");
+  assert.match(app, /const via = promiseVia\(lp\.how\);/, "落账那一处没走这张表");
 });
 
 test("两个来源共用同一条到期链，同一个 via", () => {

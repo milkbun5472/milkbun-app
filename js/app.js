@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.39";
+const APP_VERSION = "v67.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -57,6 +57,20 @@ const FORUM_NPC_RELATIONS = [
 ];
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
+// 约回（laterPromise）的两个数（她 2026-09-12：「为啥约定还是不会打电话。。。
+// 我试着让他两分钟后打都没有」）。
+// ⚠️下限原来写的是 5 分钟——她那次试的正是【两分钟】，于是这条约压根没被记下来，
+//   后面那整条链一个字都没跑到。tick 是 45 秒一轮，1 分钟完全送得到，
+//   没有任何理由把「等我两分钟」整条扔掉。
+const PROMISE_MIN_MINUTES = 1, PROMISE_MAX_MINUTES = 60 * 24;
+// 他说的是打电话还是发消息。⚠️认不出的值仍旧一律当 chat（宁可少响一次，也不能凭一个
+//   认不出的值把电话打过去）——但「认得出」不等于「逐字等于 voice」：模型写「电话」
+//   「语音」「call」的时候意思一点都不含糊，不认它们，说好的电话到点还是缩水成一条消息。
+const PROMISE_VIA = {
+  voice: "voice", 语音: "voice", 电话: "voice", 打电话: "voice", 语音通话: "voice", call: "voice", phone: "voice",
+  video: "video", 视频: "video", 视频通话: "video", facetime: "video", videocall: "video"
+};
+const promiseVia = how => PROMISE_VIA[String(how == null ? "" : how).trim().toLowerCase()] || "chat";
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
@@ -5362,7 +5376,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const c = liveChars.find(x => x.id === pm.charId);
           const drop = () => setPromises(p => { const n = p.filter(x => x.id !== pm.id); promisesRef.current = n; saveJSON("x_promises", n); return n; });
           if (!c) { drop(); continue; }                       // 角色没了，约也没了
-          if (!settingsFor(pm.charId).proactive) { drop(); continue; }
+          // ⚠️这条【不看「允许 TA 主动发消息」那个开关】。那个开关管的是动念那条链——
+          //   「攒够思念才开口」的那种主动；而这一条是【他当着她的面答应下来的事】，
+          //   多半还是她自己要的（「两分钟后打给我」）。上面那段注释早就写明这两件事
+          //   性质不一样（不看动念、不看 45 分钟底线），可这一行又把它压回同一个开关上，
+          //   而且是【drop】——约定连同她看得见的那条日历一起悄悄没了，什么都不会发生。
           if (laneBusy("c:" + pm.charId)) continue;           // 正在生成，下一轮再说
           if (currentlyTogetherWithChar(pm.charId)) continue; // 人就在旁边，不用发消息、也不用打电话
           // 约的是【打电话】：直接把电话打过来，不先花一次调用去生成一段文字
@@ -7898,7 +7916,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
       const selfTask = _s.engineerEyes
@@ -8186,15 +8204,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       try {
         const lp = parsed.laterPromise;
         const mins = lp && Number(lp.minutes);
-        if (lp && Number.isFinite(mins) && mins >= 5 && mins <= 60 * 24) {
+        // NaN / Infinity 不用另外挡：两头的范围比较对它们本来就是 false
+        if (lp && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES) {
           const due = Date.now() + mins * 60000;
           // 他说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
           // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
           // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
           // 文字消息——说好的电话到点变成一句「我到家了」。
-          // ⚠️只认这三个值：模型写别的（"call"/"电话"/true…）一律当 chat，
-          //   宁可少响一次，也不能凭一个认不出的值把电话打过去。
-          const via = ["voice", "video"].indexOf(String(lp.how || "").toLowerCase()) >= 0 ? String(lp.how).toLowerCase() : "chat";
+          // 认得出的那几种写法都认（见 PROMISE_VIA）；认不出的仍旧当 chat。
+          const via = promiseVia(lp.how);
           const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now() };
           setPromises(p => {
             // 同一个人只留最新那一个：他又说了一次「等我忙完」，就以最新的为准，别攒一堆

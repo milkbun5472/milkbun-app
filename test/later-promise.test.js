@@ -18,7 +18,13 @@ test("落盘时校验时长，同一个人只留最新那一个", () => {
   const i = app.indexOf("const lp = parsed.laterPromise;");
   assert.ok(i > 0);
   const seg = app.slice(i, i + 1800);
-  assert.match(seg, /mins >= 5 && mins <= 60 \* 24/, "五分钟到一天，别让它约到下辈子");
+  // ⚠️下限原来写死 5 分钟。她 2026-09-12 试的正是【两分钟】，于是这条约压根没被记下来，
+  //   后面整条链一个字都没跑到。tick 是 45 秒一轮，1 分钟完全送得到。
+  assert.match(seg, /mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES/, "别让它约到下辈子，但也别把短的整条扔掉");
+  const lim = app.match(/const PROMISE_MIN_MINUTES = (\d+), PROMISE_MAX_MINUTES = ([^;]+);/);
+  assert.ok(lim, "那两个数没了");
+  assert.equal(Number(lim[1]), 1, "下限不是 1 分钟：「等我两分钟」这种约又会被整条扔掉");
+  assert.equal(new Function("return " + lim[2])(), 60 * 24);
   assert.match(seg, /p\.filter\(x => x && x\.charId !== charId\)/, "他又说一次就以最新的为准，别攒一堆");
   assert.match(seg, /saveJSON\("x_promises", n\)/);
 });
@@ -39,7 +45,7 @@ test("到点就发，不看动念、不看 45 分钟底线", () => {
 // 「那段时间没上 app 等下一次补上」——所以过期的不能丢，要一直欠着
 test("过期的约不丢，下次开 app 补上", () => {
   const pi = app.indexOf("// ── 约回（v56.49）");
-  const seg = app.slice(pi, pi + 1800);
+  const seg = app.slice(pi, app.indexOf("      try {\n        for (const c of characters) {", pi));
   assert.ok(!/dueTs \+ [0-9]/.test(seg), "不许给过期时间设窗口，过了就作废");
   assert.match(seg, /const late = Math\.round\(\(Date\.now\(\) - pm\.dueTs\) \/ 60000\)/, "要算迟了多久，好让他自己提一句");
   assert.match(app, /比说好的晚了大约/);
@@ -47,9 +53,14 @@ test("过期的约不丢，下次开 app 补上", () => {
 
 test("几种不该发的情况各自处理：人没了就销约，正在忙就等下一轮", () => {
   const pi = app.indexOf("// ── 约回（v56.49）");
-  const seg = app.slice(pi, pi + 1800);
+  const seg = app.slice(pi, app.indexOf("      try {\n        for (const c of characters) {", pi));
   assert.match(seg, /if \(!c\) \{ drop\(\); continue; \}/, "角色删了，约也没了");
-  assert.match(seg, /if \(!settingsFor\(pm\.charId\)\.proactive\) \{ drop\(\); continue; \}/, "她关了主动就不发");
+  // ⚠️v67.39 拆掉了这一条：那个开关管的是动念那条链（攒够思念才开口），
+  //   而这一条是他当着她的面答应下来的事，多半还是她自己要的。压回同一个开关上、
+  //   而且是 drop，等于约定连同日历上那一格一起悄悄没了。
+  assert.ok(seg.indexOf("if (!settingsFor(pm.charId).proactive) { drop(); continue; }") < 0,
+    "约回又被压回「允许主动发消息」那个开关上了");
+  assert.match(seg, /不看「允许 TA 主动发消息」那个开关/, "理由要留在代码里");
   assert.match(seg, /if \(laneBusy\("c:" \+ pm\.charId\)\) continue;/, "正在生成→下一轮再说，别销约");
   assert.match(seg, /if \(currentlyTogetherWithChar\(pm\.charId\)\) continue;/, "人就在旁边不用发消息");
   assert.match(seg, /if \(viewRef\.current\.charId === pm\.charId\) continue;/);
