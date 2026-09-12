@@ -41,7 +41,11 @@ test('完整章节不裁字、不截句，提示改为人物独白而非对用�
   assert.equal(f.lines.map(x=>x.text).join(''),lines.map(x=>x.text).join(''));
   assert.ok(f.lines.length>lines.length, '生成器把多句塞进一项时，仍按句界显示且不丢正文');
   const prompt=R.storyPrompt(make(),'present');
-  for(const s of ['第一人称','完整故事章节','1200—2200','用户是收听者','不重复开场','每项是一句完整的话']) assert.ok(prompt.includes(s));
+  // ⚠️v67.50：'不重复开场' 和 '每项是一句完整的话' 这两句原样不在了，钉的东西换了说法——
+  //   前者改成「不复述旧章、也不拿同一个开场再来一遍」（同一个意思，去掉「不要开场」那种读法，
+  //   她 2026-09-12 报的正是「没头没尾」）；后者整条撤了，因为 accept() 本来就会再拆一遍句，
+  //   一句一项只是逼着模型把每句都写成能单独立住的样子。见 radio-chapter-has-a-story-67-50。
+  for(const s of ['第一人称','完整故事章节','1200—2200','用户是收听者','不复述旧章','一段一项']) assert.ok(prompt.includes(s));
   for(const s of ['每次只展开一小段','少量第三人称场景交代与人物直接台词交替','过去补一个片刻']) assert.ok(!prompt.includes(s));
   const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../js/app.js'),'utf8');
   assert.match(app,/onFragment: \(branch, era\) => radioAsk\(narrativeCore\(\{ intimate: true, register: false \}\)/);
@@ -78,6 +82,6 @@ test('「现在」这一档也是讲完一段，不是同步播报此刻', () =>
   const prompt = R.storyPrompt(make(), 'present');
   assert.ok(prompt.includes('不是现场直播'));
   assert.ok(prompt.includes('哪怕频率是「现在」'), '不点名的话，「现在」那一档会被读成实况');
-  // v67.41 的篇幅和连续性要求一条都没动
-  for (const s of ['1200—2200', '不重复开场', '每项是一句完整的话']) assert.ok(prompt.includes(s), '顺手把 Codex 那几条改掉了：' + s);
+  // v67.41 的篇幅和连续性要求还在（'每项是一句完整的话' v67.50 撤了，理由见上面那条注释）
+  for (const s of ['1200—2200', '不复述旧章']) assert.ok(prompt.includes(s), '顺手把 Codex 那几条改掉了：' + s);
 });
