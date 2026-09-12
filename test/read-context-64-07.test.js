@@ -57,7 +57,8 @@ test("人设只发一遍，而且不许再截断", () => {
 test("喂回去：只写记忆库，不动好感心情——而且不必走讨论才喂得回去", () => {
   const fn = code.slice(code.indexOf("const rememberBook = async function"), code.indexOf("// ---- 顶栏 ----"));
   assert.ok(fn, "没有「把这本记住」这一路");
-  assert.match(fn, /props\.onAddMemory && props\.onAddMemory\(summary, partner\.id\)/);
+  // v67.55 起还带上「这本算哪间房的」：侧房里读的书，这一下落在那间房自己的往事里
+  assert.match(fn, /props\.onAddMemory && props\.onAddMemory\(summary, partner\.id, book\.roomId\)/);
   // 光有批注也能浓缩（原来只有走过讨论才喂得回去：结束那一步藏在讨论抽屉里）
   // ⚠️v67.54：这一路原来只喂批注（第三个参数写死 []）。讨论现在存在书上了，
   //   不把它一起喂回去的话，她按下去得到的还是一份只看批注的读后感。

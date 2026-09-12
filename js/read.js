@@ -811,9 +811,13 @@
           (book.annotations || []).filter(function (a) { return a.charId === partner.id; }),
           chat.slice(-24), props.ctxFor, talkTail());
         if (summary) {
-          props.onAddMemory && props.onAddMemory(summary, partner.id);
+          // 第三个参数：这本书算哪间房的。侧房里读的书，这一下落在那间房自己的往事里。
+          // ⚠️回执要照实说（「回执是个承诺」）：那间房已经删了的时候它哪儿都没写，
+          //   这时候还弹一句「把这本记住了」就是骗她。
+          const where = props.onAddMemory && props.onAddMemory(summary, partner.id, book.roomId);
+          if (where === "gone") { props.toast && props.toast("这本书挂着的那间房已经不在了，没处记"); return; }
           props.onPatch({ rememberedAt: Date.now(), rememberedCount: annoCount });
-          props.toast && props.toast(partner.name + " 把这本记住了");
+          props.toast && props.toast(where === "room" ? (partner.name + " 记住了——只在那间房里算数") : (partner.name + " 把这本记住了"));
         } else props.toast && props.toast("没浓缩出什么，多读几页再来");
       } catch (e) { props.toast && props.toast("记不进去：" + (e.message || "重试")); }
       finally { setEnding(false); }

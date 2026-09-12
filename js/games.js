@@ -293,12 +293,16 @@
     // 从聊天里那张邀请卡进来的：直接落到这一局的配置页，并把他先勾上。
     // 形状照 study.js 的 props.entry / entryHandledRef 抄，不另开一条路。
     const entryHandledRef = useRef(null);
+    // 这一局是从哪间房里被邀出来的（她 2026-09-12：「不能把收入小游戏记忆从主记忆库
+    // 变成房间里面吗」）。照一起学那一戳：终局「收进记忆」要认它，才知道这一局
+    // 算主线的还是只算那间房的。自己从架上挑的一局＝主线，所以那儿要清掉。
+    const fromRoom = useRef(null);
     const entry = props.entry;
     useEffect(function () {
       if (!entry || !entry.key || entryHandledRef.current === entry.key) return;
       entryHandledRef.current = entry.key;
       const def = GAMES.find(function (g) { return g.key === entry.gameKey; });
-      if (def) { setSession(null); setGame(def); }
+      if (def) { setSession(null); fromRoom.current = { roomId: entry.roomId || "", personId: entry.characterId || "" }; setGame(def); }
     }, [entry && entry.key]);
     const wolfSave = loadWolfSave();
     const gSaves = loadGamesSaves();               // 通用存档（卧底/海龟汤/25问/真心话/阿瓦隆）
@@ -312,7 +316,18 @@
         const lore = props.worldbookFor ? props.worldbookFor(c.id, (session.game && session.game.zh) || "小游戏") : props.worldbook;
         return lore ? Object.assign({}, c, { persona: (c.persona || "") + "\n\n【本局世界设定】\n" + lore }) : c;
       });
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
+      // ⚠️keepGameMemory 原来【不在这张表上】。app.js 那头的口子一直开着（v63.39
+      //   「补上 63.38 被冲突刀吃掉的那半」），games.js 这头七个游戏也都画了那个键，
+      //   **中间这一截从来没接过**——于是每一局终局点「把这一局收进记忆」都是空按，
+      //   而且它还会弹一句「没有能收的：这局上场的都是 NPC」，等于点一次骗她一次。
+      //   （一层写在两处、第二处没跟上；这一次断在第三处。）
+      // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
+        keepGameMemory: function (ids, text) {
+          const room = (session.config && session.config.room) || session.room || null;
+          return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
+        },
+        onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));
@@ -326,7 +341,13 @@
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
-      onStart: function (config) { setSession({ game: game, config: config }); }
+      // ⚠️那一戳也写进 config：存档存的是 config，从架上「继续上一局」回来时
+      //   session 是新造的、fromRoom 早清了——不写进去的话，侧房里那一局一存一读
+      //   就变成主线的了（正是这道闸要挡的）。
+      onStart: function (config) {
+        const cfg = Object.assign({}, config, { room: fromRoom.current || null });
+        setSession({ game: game, config: cfg, room: fromRoom.current });
+      }
     });
     const wolfGameDef = GAMES.find(function (g) { return g.key === "werewolf"; });
 
@@ -402,7 +423,7 @@
               h("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" } },
                 row.map(function (g) {
                   const c = LID[g.key] || LID.spy;
-                  return h("button", { key: g.key, onClick: function () { setGame(g); }, className: "active:opacity-85",
+                  return h("button", { key: g.key, onClick: function () { fromRoom.current = null; setGame(g); }, className: "active:opacity-85",
                     style: { flex: "1 1 0", minWidth: 0, textAlign: "left", padding: 0, background: "transparent" } },
                     // 盒子：盒面 + 底下那道深边＝盒子的厚度，所以它是个盒子不是一张卡
                     h("div", { style: { borderRadius: 9, overflow: "hidden", boxShadow: "0 3px 0 " + c.band + ", 0 7px 14px rgba(0,0,0,.20)" } },

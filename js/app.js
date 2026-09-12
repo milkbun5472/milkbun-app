@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.54";
+const APP_VERSION = "v67.55";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7096,6 +7096,39 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     ...c,
     remark
   } : c));
+
+  // ── 她亲手点的那一下，落在【它发生的那间房】（她 2026-09-12）────────────
+  //
+  // 她原话：「那不能把收入小游戏记忆从主记忆库变成房间里面 instead 吗」。
+  // 这一句把前一版那个死结解开了：原来只有两种答案——要么让侧房里那一局照样
+  // 写进主记忆库（那「不带出门」就是句空话），要么给她那一下加闸（那就成了
+  // 「你按了也不算数」）。第三条路是**换个落点**：进那间房自己的往事。
+  //
+  // selfDigest 正是为这件事准备的那一格：ChatRooms.prompt 只把它喂回这间房
+  //   （「这间房前面发生过的｜是这条线自己的往事，不是别处的记忆」），
+  //   满仓整段整段掉，合并走现成的 digestMerge。
+  // ⚠️落在房里的时候【一个字都不进记忆库】：这一局别的参与者也不许拿到——
+  //   那间房是封着的，从谁嘴里漏出去都一样。
+  const keepWhereItHappened = (opts) => {
+    const o = opts || {};
+    const text = String(o.text || "").trim();
+    const charIds = (o.charIds || []).filter(Boolean);
+    if (!text || !charIds.length) return null;
+    const rid = String((o.room && o.room.roomId) || o.roomId || "main");
+    const pid = String((o.room && o.room.personId) || o.personId || charIds[0] || "");
+    const side = rid && rid !== "main" && pid && window.ChatRooms;
+    const room = side ? window.ChatRooms.get(pid, rid) : null;
+    if (room && !room.main) {
+      window.ChatRooms.save(pid, { ...room, selfDigest: window.ChatRooms.digestMerge(room.selfDigest, text) });
+      return "room";
+    }
+    // ⚠️戳着某间侧房、可那间房已经删了：**哪儿都不写**。
+    //   退回记忆库等于把一间封着的房里发生的事送进主线（正是这道闸要挡的），
+    //   照 roomCounts 那条「房间已经删了按不算数处理，宁可少说」。
+    if (side) return "gone";
+    addMemEntry(Object.assign({ text: text, charIds: charIds, knownBy: charIds.slice() }, o.entry || {}));
+    return "mem";
+  };
 
   // ---- summary check ----
   // 房内自留的滚动浓缩（v65.04）。跟 maybeSummarize 同一个浓缩器（summarizeChatBlock），
@@ -19578,7 +19611,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setScreen("fanfic");
     },
     onOpenGameInvite: m => {
-      setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id });
+      // 带上是在哪间房里被邀请的：这一局终局那一下要按它决定收到哪儿（同一起学那一戳）
+      setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id, roomId: activeRoomId || "main" });
       setScreen("games");
     },
     // 一起读：点了就直接翻到那本书他停着的那一页（卡上带着 bookId，不用她自己去架上找）
@@ -20136,7 +20170,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   病因跟解梦馆那次一字不差：**这一处压根没接上下文这条线**。
     ctxFor: ctxFor,
     toast: toast,
-    onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], knownBy: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
+    // 第三个参数是这本书算哪间房的（v67.53 盖的那一戳）。侧房里读的书按下「把这本记住」，
+    // 落的是那间房自己的往事，不进主记忆库——跟小游戏同一份判据。
+    onAddMemory: (text, charId, roomId) => keepWhereItHappened({
+      text: text, charIds: charId ? [charId] : [], roomId: roomId,
+      entry: { source: "read", tags: ["一起读"] }
+    }),
     onBack: () => setScreen("home")
   });else if (screen === "debate") body = h(Debate, {
     active: active,
@@ -20290,12 +20329,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
-    keepGameMemory: (charIds, text) => {
+    keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
       const t0 = String(text || "").trim().slice(0, 300);
       if (!t0 || !ids.length) return false;
-      addMemEntry({ text: t0, tags: ["小游戏"], charIds: ids, knownBy: ids, source: "manual" });
-      return true;
+      const where = keepWhereItHappened({ text: t0, charIds: ids, room: room, entry: { tags: ["小游戏"], source: "manual" } });
+      if (where === "room") toast("收进这间房了——只在这儿算数");
+      if (where === "gone") { toast("这一局那间房已经不在了，没处收"); return false; }
+      return !!where;
     },
     toast: toast,
     onBack: () => setScreen("home")

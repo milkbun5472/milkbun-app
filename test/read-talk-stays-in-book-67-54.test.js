@@ -109,7 +109,8 @@ test("她一直不按那个键也不许丢话：攒过上限自己折一次", ()
 
 test("「把这本记住」是唯一的出门路，而且要把读过的讨论算进去", () => {
   const fn = code.slice(code.indexOf("    const rememberBook = async function"), code.indexOf("    // ---- 顶栏 ----"));
-  assert.match(fn, /props\.onAddMemory && props\.onAddMemory\(summary, partner\.id\)/);
+  // v67.55 起还带上「这本算哪间房的」：侧房里读的书，这一下落在那间房自己的往事里
+  assert.match(fn, /props\.onAddMemory && props\.onAddMemory\(summary, partner\.id, book\.roomId\)/);
   assert.match(fn, /chat\.slice\(-24\), props\.ctxFor, talkTail\(\)\)/, "又变回只看批注的读后感了");
   assert.match(fn, /if \(!annoCount && !chat\.length && !talk\.digest\)/, "只聊过没批注过的书被卡住了");
   // 全库只有这一处往记忆库写
