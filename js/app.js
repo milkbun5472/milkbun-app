@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.36";
+const APP_VERSION = "v67.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14390,6 +14390,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
+  // 路人那两栏的占位说明：五处 schemaHint 一模一样，各写一份迟早只改一处。
+  // ⚠️占位值写【说明】不写【样例内容】（施工规则/prompt-no-content-samples.md）——
+  //   这儿要说的是「这一栏该是什么成色」，绝不能摆一个具体网名，那会被逐字照抄。
+  const FORUM_GUEST_FIELDS = "\"guestName\":\"这个路人的网名（路人才填）——像真人自己起的，不是占位名\",\"guestHandle\":\"他的 id，和网名是一路的\"";
   const forumNpcPool = board => {
     const exact = FORUM_NPC_REGISTRY.filter(n => (n.boards || []).includes(board));
     return exact.length ? exact : FORUM_NPC_REGISTRY.filter(n => !(n.boards || []).includes("匿名吧"));
@@ -14425,8 +14429,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
-    return "\n【论坛人口】一个帖子底下**大半是只在这一帖出现的路人**：填 guestName、guestHandle，名字自然、别照着常驻名单的路数起。"
-      + "路人之间也要各说各的——一个人一个说话方式、一种在意的东西，别十条都是同一种网友腔。"
+    return "\n【论坛人口】一个帖子底下**大半是只在这一帖出现的路人**：每一条都自己填 guestName、guestHandle。"
+      + "\n【他们的 id 是第一眼看见的东西】一人一个来路：名字里可以带着他是谁、在哪儿、在干什么、在意什么，也可以就是一句没头没尾的话。"
+      + "**同一批里别长成一个模子**——同样的前缀配同样的名词，一眼就看得出是凑出来的。"
+      + "\n【说的话也得是活人说的】看得出他为什么点进这个吧、他接住的是帖子里哪一句、他自己那点事儿；"
+      + "有人只说半句，有人跑题，有人只来纠正一个细节，有人答非所问。"
       + "\n剩下**大约三分之一、最多不过一半**是常驻熟面孔；要谁说话就把谁的 npcId 写出来：" + forumNpcRoster(board)
       + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
       + "\n⚠️**没写 npcId 的一律按路人落账**——所以想让某个熟面孔开口，npcId 必须写出来，光写名字不算。"
@@ -14449,13 +14456,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forumGuestOf = (x, salt) => {
     const seed = String((x && (x.guestName || x.authorName || x.content || x.title)) || "路过的人") + ":" + salt;
     const hh = forumHash(seed);
-    // ⚠️模型没起名字时才走这一条。熟面孔不再兜底之后掉进这儿的会变多，
-    //   六个词会撞成新的一种「都一样」，所以名字骨架和词都摊开一点。
-    const GN = ["夜猫", "云", "纸片", "柚子", "螺丝", "海风", "旧毛衣", "半块糖", "南边", "铅笔头", "空调外机", "第七排",
-      "凉白开", "过期优惠券", "楼梯间", "橘子皮", "风扇叶", "站台", "蓝布口袋", "碎冰"];
-    const GP = ["路过的", "楼上的", "隔壁", "刚看到的", "蹲了很久的", "顺手点进来的"];
-    const name = String((x && (x.guestName || x.authorName)) || (GP[(hh >> 5) % GP.length] + GN[hh % GN.length]));
-    const handle = String((x && (x.guestHandle || x.handle)) || ("passer_" + hh.toString(36))).replace(/^@/, "");
+    // ⚠️这儿【不自己编好名字】。她 2026-09-12：「路人名字也太像了吧，以前大家都很有灵气的
+    //   id 好玩」——v67.36 我在这儿摆了一张「前缀×名词」的表，那张表就是她说的那个八股，
+    //   只不过是我写的：换几个词，骨架一模一样。
+    //   起名字这件事是模型的活儿（它写得出灵气，代码写不出）。代码这一手只是
+    //   【模型一个字都没给】时的兜底，所以它就该长成一个系统默认账号的样子——
+    //   一眼看得出「这条没人起名字」，而不是假装自己有灵气。真要少见它，
+    //   得靠提示词那头把 guestName 要到手（见 forumNpcRule 和 FORUM_GUEST_FIELDS）。
+    const name = String((x && (x.guestName || x.authorName)) || ("网友" + hh.toString(36).slice(-4)));
+    const handle = String((x && (x.guestHandle || x.handle)) || ("u_" + hh.toString(36))).replace(/^@/, "");
     return { id: "npc_guest_" + hh.toString(36), name, handle };
   };
   // 她 2026-09-12：「论坛现在太多评论都是常驻 npc 了好无聊，说话调调也都一样」。
@@ -14636,7 +14645,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbeRetry(active, forumWorldCtx(board), {
         instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。熟面孔填 npcId；一次性路人填 guestName、guestHandle。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
-        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\",\"guestName\":\"一次性路人昵称（路人才填）\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
@@ -14791,7 +14800,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const opRule2Full = opRule2 + meRule;
       return {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
-        schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
+        schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
     }
@@ -14801,7 +14810,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色可以按性格选择 identity=main（大号）、alt（固定小号）或 anonymous（匿名）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
-      schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
+      schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
       maxTokens: FTOK.floors
     };
   };
@@ -15617,7 +15626,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
           "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
           "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
-        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
+        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
         maxTokens: FTOK.sub
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
@@ -15667,7 +15676,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
       const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll), {
         instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
-        schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
+        schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: FTOK.board
       });
       const board = (d && d.board) || (query ? query + "吧" : "水吧");

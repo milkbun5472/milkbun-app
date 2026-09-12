@@ -79,10 +79,23 @@ test("同一条评论认出来的路人是稳定的（刷新不会换个名字�
   assert.notEqual(F.forumPublicNpcOf(x, "吐槽吧", 5).id, a.id, "换一楼就该是另一个 id，不然楼和楼会串");
 });
 
-test("模型没起名字时的兜底名要摊得开，别变成新的一种「都一样」", () => {
-  const names = new Set();
-  for (let i = 0; i < 60; i++) names.add(F.forumPublicNpcOf({ content: "第" + i + "条" }, "日常吧", i).name);
-  assert.ok(names.size >= 30, "六十条只兜出 " + names.size + " 个名字，又是一片一样的");
+// 她 2026-09-12（v67.36 当天）：「那你实测路人名字也太像了吧，
+//   以前大家都很有灵气的 id 好玩说的话也很活人」——v67.36 我在兜底里摆了一张
+//   「前缀×名词」的表，那张表就是她说的八股，只不过是我写的：换几个词，骨架一模一样。
+//   所以这一条反过来钉：**代码这一手不许再假装自己会起名字**。
+test("兜底名字是系统默认账号的样子，不是一张凑名字的表", () => {
+  // ⚠️「路过的人」那个字符串还在，但它是 hash 的种子、不是给人看的名字——
+  //   所以这条钉的是【给人看的那两行】，不是全文搜词。
+  assert.match(A, /const name = String\(\(x && \(x\.guestName \|\| x\.authorName\)\) \|\| \("网友" \+ hh\.toString\(36\)\.slice\(-4\)\)\);/);
+  assert.match(A, /const handle = String\(\(x && \(x\.guestHandle \|\| x\.handle\)\) \|\| \("u_" \+ hh\.toString\(36\)\)\)/);
+  assert.ok(!/const GN = \[|const GP = \[/.test(A), "又在代码里摆名词表了");
+  const names = [];
+  for (let i = 0; i < 40; i++) names.push(F.forumPublicNpcOf({ content: "第" + i + "条" }, "日常吧", i).name);
+  names.forEach(n => assert.match(n, /^网友[0-9a-z]{1,4}$/, "兜底名字长得像个真名字，会和模型起的混在一起：" + n));
+  assert.ok(new Set(names).size >= 36, "四十条兜出的 id 撞了太多：" + new Set(names).size);
+  // 模型给了名字就一个字都不许改
+  assert.equal(F.forumPublicNpcOf({ guestName: "隔壁装修队队长", guestHandle: "drill_all_day", content: "..." }, "日常吧", 1).name, "隔壁装修队队长");
+  assert.equal(F.forumPublicNpcOf({ authorName: "三点半的咖啡机", content: "..." }, "日常吧", 1).name, "三点半的咖啡机");
 });
 
 // ── 人少才是「调调都一样」的另一半 ────────────────────────────
@@ -112,7 +125,9 @@ test("路人是默认那一头，而且和熟面孔一样具体", () => {
   const blk = A.slice(i, i + 700);
   assert.match(blk, /大半是只在这一帖出现的路人/, "默认那一头还是熟面孔");
   assert.match(blk, /填 guestName、guestHandle/);
-  assert.match(blk, /一个人一个说话方式/, "路人之间也会长成一个调调，得点一句");
+  assert.match(blk, /一人一个来路/, "路人的 id 没给判据，它就会凑一张表出来");
+  assert.match(blk, /同一批里别长成一个模子/);
+  assert.match(blk, /说的话也得是活人说的/, "她那句「说的话也很活人」得有个落点");
   assert.match(blk, /大约三分之一、最多不过一半/, "比例没说死，模型会照老习惯来");
   assert.match(blk, /没写 npcId 的一律按路人落账/, "代码改了规矩却不告诉它，它还以为写不写都一样");
   assert.ok(blk.indexOf("约六成发言来自固定熟面孔") < 0, "老那句还在");
@@ -139,4 +154,16 @@ test("六个落点全走同一支，别有哪一处绕过去", () => {
   // 定义那一行是 `= (x, board, salt) =>`，名字后面带空格，不会被这条数进来
   assert.equal((A.match(/forumPublicNpcOf\(/g) || []).length, 6, "主帖/评论/楼中楼/追评/楼层展开/搜索，六处都得走它");
   assert.ok(A.indexOf("forumGuestOf(x, salt) : forumNpcOf") < 0, "老那条三元判断还在");
+});
+
+// 五处 schemaHint 里那两栏是同一层（施工规则/one-public-mechanism.md）
+test("路人那两栏的说明只写一份，五处 schemaHint 共用", () => {
+  assert.match(A, /const FORUM_GUEST_FIELDS = /);
+  assert.equal((A.match(/FORUM_GUEST_FIELDS/g) || []).length, 6, "一处定义、五处 schemaHint 各取一次");
+  assert.ok(A.indexOf('\\"guestHandle\\":\\"路人id\\"') < 0, "还有哪一处留着自己那份");
+  // 占位值要写【说明】不写【样例内容】——摆一个具体网名会被逐字照抄
+  const m = app.match(/const FORUM_GUEST_FIELDS = "([^;]+)";/);
+  assert.ok(m, "抠不出那一份");
+  assert.match(m[1], /像真人自己起的，不是占位名/);
+  assert.match(m[1], /和网名是一路的/, "handle 和网名对不上就会看出是两套东西拼的");
 });
