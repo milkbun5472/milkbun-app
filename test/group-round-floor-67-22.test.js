@@ -26,9 +26,12 @@ const seg = app.slice(_a, app.indexOf("\n", _b));
 const nOf = (memberCount, rgOpts) => new Function("members", "rgOpts",
   seg + "\nreturn { nMin: nMin, nMax: nMax };")({ length: memberCount }, rgOpts || {});
 
-test("两个人的群：下限得留得下一来一回", () => {
+test("两个人的群：下限得留得下【有来有回】，不是一个来回", () => {
   const r = nOf(2);
-  assert.ok(r.nMin >= 3, "下限是 " + r.nMin + "＝A 回她、B 接 A，正好交差，A 没机会再回 B");
+  // ⚠️第一版改成 3，她当场又报：「现在又变成 a 几句 b 几句 a 一句收尾了」——
+  //   3 条正好是 A→B→A，而每条还要拆成两三泡，看上去就是一人一坨。
+  //   3 条是【一个来回】，不是【有来有回】。
+  assert.ok(r.nMin >= 4, "下限是 " + r.nMin + "＝A→B→A 就交差了，看上去还是一人一坨");
   assert.ok(r.nMax >= r.nMin, "上限不能比下限还小");
 });
 
@@ -37,7 +40,7 @@ test("下限说的是【条】，不是【人】", () => {
   assert.equal(nOf(1).nMin, nOf(2).nMin, "一个人和两个人的群，下限不该因为人少就掉下去");
   assert.equal(nOf(2).nMin, nOf(8).nMin, "人多人少，一来一回的那个底是一样的");
   assert.ok(A.indexOf("Math.min(3, members.length)") < 0, "把条数当人数的那一行还在");
-  assert.match(A, /const nMin = Math\.min\(nMax, 3\);/);
+  assert.match(A, /const nMin = Math\.min\(nMax, 4\);/);
 });
 
 test("人多的时候上限跟着放宽，别把人挤掉", () => {
@@ -56,6 +59,16 @@ test("自发轮预算只剩一两条时，下限跟着降，不许超过上限",
 });
 
 // 光把数字改了没用：它还得当面说出来【同一个人可以再开口】
+test("提示词要当面挡住【一人一坨】那个形状", () => {
+  const i = A.indexOf("const common = ");
+  const blk = A.slice(i, i + 1400);
+  // 她的原话就是这个形状，直接钉在这儿
+  assert.match(blk, /别把一个人的话攒成一坨/);
+  assert.match(blk, /A 一口气把想说的说完、再轮到 B 说完、A 最后补一句收尾/, "得把她看到的那个形状原样点出来");
+  assert.match(blk, /话头要来回过手/);
+  assert.match(blk, /一个人连着最多两条/, "光说「别一坨」太虚，得给个数");
+});
+
 test("提示词要当面说：同一个人一轮里可以说好几次", () => {
   const i = A.indexOf("const common = ");
   assert.ok(i > 0, "那一段没了");
