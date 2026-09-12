@@ -22,6 +22,9 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.evaluate(()=>{
         const host=document.createElement('div');host.id='timeline-qa';host.style='position:fixed;inset:0;z-index:99999;height:100dvh';document.body.append(host);
         window.qaCalls=0;window.qaPrompt='';
+        window.qaSpeech=[];
+        Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{cancel(){},speak(u){window.qaSpeech.push(u);}}});
+        window.SpeechSynthesisUtterance=function(text){this.text=text;};
         ReactDOM.createRoot(host).render(h(RadioTimelineScreen,{
           characters:[{id:'fixture',name:'测试角色',persona:'虚构测试人物'}],loreFor:()=>'',onBack:()=>{},onLegacy:()=>{},
           onFragment:async()=>{window.qaCalls++;return {title:'测试片段',lines:[{kind:'narrator',text:'独听的场景'},{kind:'character',speaker:'测试角色',text:'共同听见的话'},{kind:'character',text:'还没播放的秘密'}]};},
@@ -74,10 +77,32 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
       assert.equal(await page.getByRole('button',{name:/^第[12]句 · /}).count(),2);
       await page.getByRole('button',{name:'第2句 · 共同听见的话',exact:true}).click();
+      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
+      assert.equal(await page.evaluate(()=>qaSpeech.at(-1).text),'共同听见的话');
+      assert.equal(await page.getByRole('button',{name:'已听回放（2）',exact:true}).count(),1);
+      await page.getByRole('button',{name:'暂停声音',exact:true}).click();
+      await page.evaluate(()=>{const u=qaSpeech.at(-1);if(u.onend)u.onend();});
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('共同听见的话'));
+      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
+      await page.evaluate(()=>qaSpeech.at(-1).onend());
+      await page.waitForFunction(()=>document.querySelector('[data-radio-current]').textContent.includes('还没播放的秘密'));
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('还没播放的秘密'));
+      assert.equal(await page.getByRole('button',{name:'已听回放（3）',exact:true}).count(),1);
+      await page.evaluate(()=>qaSpeech.at(-1).onend());
+      await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='暂停声音').disabled);
+      assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
       assert.equal(await page.evaluate(()=>qaCalls),1);
       const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.lastElementChild.scrollHeight,view:el.lastElementChild.clientHeight}));
       assert.ok(layout.scroll<=width,JSON.stringify(layout));assert.ok(layout.body>layout.view);
       await page.screenshot({path:'/tmp/lisa-timeline-'+width+'.png'});
+      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
+      await page.getByLabel('暂停，和他说一句').focus();
+      assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
+      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
+      await page.evaluate(()=>qaSpeech.at(-1).onerror({error:'not-allowed'}));
+      await page.getByRole('alert').filter({hasText:'朗读中断了'}).waitFor();
+      assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
+      assert.equal(await page.evaluate(()=>qaCalls),1);
       assert.deepEqual(errors,[]);
       await ctx.close();console.log(width+'px: 单句替换、已听回放、重听/恢复、独听/陪听隔离、滚动通过');
     }

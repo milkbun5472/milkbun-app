@@ -105,5 +105,31 @@
       "【用户现在说】\n" + text(question)
     ].join("\n\n");
   }
-  return { KEY, ERAS, create, accept, reveal, heardLines, companionContext, storyPrompt, companionPrompt };
+  // 单句和连播共用一个播放会话；取消后迟到的结束事件不能推进旧章节。
+  function createPlayback(io) {
+    let epoch = 0, active = false;
+    const stop = () => { epoch++; active = false; io.cancel(); io.state(false); };
+    const start = (lines, index, continuous) => {
+      stop();
+      if (!lines[index]) return;
+      const token = epoch;
+      active = true; io.state(true);
+      const play = i => {
+        if (!active || token !== epoch) return;
+        let settled = false;
+        const finish = error => {
+          if (settled || token !== epoch || !active) return;
+          settled = true;
+          if (error) { stop(); io.error(error); return; }
+          if (continuous && i + 1 < lines.length) play(i + 1);
+          else { active = false; io.state(false); }
+        };
+        try { io.reveal(i); io.speak(lines[i].text, () => finish(), e => finish(e || Error("朗读中断"))); }
+        catch (e) { finish(e); }
+      };
+      play(index);
+    };
+    return { start, stop };
+  }
+  return { KEY, ERAS, create, accept, reveal, heardLines, companionContext, storyPrompt, companionPrompt, createPlayback };
 });

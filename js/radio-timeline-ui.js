@@ -1,4 +1,4 @@
-// 第一版可操作骨架：默认读字，显式逐句收听；不在后台偷偷生成下一段。
+// 默认读字；显式选择单句或本章连播，不在后台生成下一章。
 (function (root) {
   "use strict";
   function RadioTimelineScreen(p) {
@@ -18,15 +18,21 @@
     const [correction, setCorrection] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const lock = useRef(false), alive = useRef(true), speaking = useRef(false);
+    const [playing, setPlaying] = useState(false);
+    const lock = useRef(false), alive = useRef(true), player = useRef(null);
     const scroll = useRef(null), listScroll = useRef(0), playbackScroll = useRef(0);
     const branch = branches.find(x => x.id === selected);
     const fragment = branch && branch.fragments.find(x => x.id === fragmentId);
     const heard = branch && fragment ? R.heardLines(branch, fragment.id) : [];
     const currentEra = R.ERAS[frequency];
     const uid = () => "rt_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2);
-    const stop = () => { if (speaking.current && root.speechSynthesis) root.speechSynthesis.cancel(); speaking.current = false; };
-    useEffect(() => { alive.current = true; root.RadioUI.Engine.setPower(false); return () => { alive.current = false; stop(); }; }, []);
+    const stop = () => { if (player.current) player.current.stop(); };
+    useEffect(() => {
+      alive.current = true; root.RadioUI.Engine.setPower(false);
+      const hidden = () => { if (document.hidden) stop(); };
+      document.addEventListener("visibilitychange", hidden);
+      return () => { alive.current = false; stop(); document.removeEventListener("visibilitychange", hidden); };
+    }, []);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = selected ? 0 : listScroll.current; }, [selected]);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = historyOpen ? 0 : playbackScroll.current; }, [historyOpen]);
     const save = next => { saveJSON(R.KEY, next); data.current = next; setBranches(next); };
@@ -56,13 +62,31 @@
       setFragment(f.id); setLine(-1);
     });
     // 手动下一句、回放选句及未来的播完回调共用这一处切句和听闻落库。
-    const showLine = index => {
-      stop(); if (!fragment) return;
+    const revealLine = index => {
+      if (!fragment) return;
       if (!Number.isInteger(index) || index < 0 || index >= fragment.lines.length) return;
       update(branch.id, x => R.reveal(x, fragment.id, index, together ? branch.charId : ""));
       setLine(index);
     };
+    const showLine = index => { stop(); revealLine(index); };
     const nextLine = () => showLine(lineIndex + 1);
+    const read = continuous => {
+      stop(); setError("");
+      if (!root.speechSynthesis || !root.SpeechSynthesisUtterance) { setError("当前设备不支持系统朗读，可以继续看文字。"); return; }
+      let utterance = null;
+      player.current = R.createPlayback({
+        reveal: revealLine,
+        state: value => { if (alive.current) setPlaying(value); },
+        cancel: () => { if (utterance) { utterance.onend = utterance.onerror = null; root.speechSynthesis.cancel(); utterance = null; } },
+        error: () => { if (alive.current) setError("朗读中断了，点连续收听可从当前句重试；也可以手动看下一句。"); },
+        speak: (text, end, fail) => {
+          const u = new root.SpeechSynthesisUtterance(text); utterance = u;
+          u.onend = () => { if (utterance === u) utterance = null; end(); }; u.onerror = fail;
+          root.speechSynthesis.speak(u);
+        }
+      });
+      player.current.start(fragment.lines, Math.max(0, lineIndex), continuous);
+    };
     const ask = () => run(async () => {
       const b = branch, q = question.trim();
       if (!q || !together) return;
@@ -107,17 +131,14 @@
           branch.fragments.filter(x => x.era === currentEra.id).map(f => h("div", { key: f.id, style: { marginTop: 8 } }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); }))),
           fragment ? h("section", { style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
             h("h4", null, fragment.title),
-            h("p", { style: { fontSize: 12 } }, "广播中 · " + (lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
+            h("p", { role: "status", style: { fontSize: 12 } }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
             lineIndex >= 0 ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 14, lineHeight: 1.85 } },
               h("small", null, "第" + (lineIndex + 1) + "句 · " + (fragment.lines[lineIndex].speaker || branch.name)),
               h("div", null, fragment.lines[lineIndex].text)) : null,
             btn(lineIndex < 0 ? "开始收听这一句" : "继续下一句", nextLine, lineIndex >= fragment.lines.length - 1),
             btn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
-            btn("朗读当前句（系统音色）", () => {
-              stop(); if (!root.speechSynthesis || !root.SpeechSynthesisUtterance) { setError("当前设备不支持系统朗读，可以继续看文字。"); return; }
-              const u = new root.SpeechSynthesisUtterance(fragment.lines[lineIndex].text); u.pitch = 1;
-              u.onend = u.onerror = () => { speaking.current = false; }; speaking.current = true; root.speechSynthesis.speak(u);
-            }, lineIndex < 0), btn("暂停声音", stop),
+            btn("连续收听（系统音色）", () => read(true), playing),
+            btn("朗读当前句（系统音色）", () => read(false), lineIndex < 0), btn("暂停声音", stop, !playing),
             field("这不像他？写下你的纠正", h("textarea", { style: inputStyle, rows: 2, value: correction, onChange: e => setCorrection(e.target.value), disabled: busy })),
             btn("记作本分支约束", () => { update(branch.id, x => ({ ...x, corrections: x.corrections.concat(correction.trim()) })); setCorrection(""); }, !correction.trim()),
             h("small", { style: { display: "block", lineHeight: 1.7 } }, "纠正用于之后的新片段，旧片段本版不自动重写。")
@@ -126,7 +147,7 @@
             h("h3", null, "身边的" + branch.name),
             h("p", { style: { fontSize: 12 } }, "只知道一起听到的句子；陪听对话仅留在这条分支里。"),
             branch.talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.8, marginBottom: 12 } }, h("div", null, "你：" + t.question), h("div", null, branch.name + "：" + t.answer))),
-            field("暂停，和他说一句", h("textarea", { style: inputStyle, value: question, rows: 2, disabled: busy, onChange: e => setQuestion(e.target.value) })),
+            field("暂停，和他说一句", h("textarea", { style: inputStyle, value: question, rows: 2, disabled: busy, onFocus: stop, onChange: e => setQuestion(e.target.value) })),
             btn("问问他", ask, !question.trim() || !R.companionContext(branch, branch.charId).heard.length)
           ) : null
         ),
