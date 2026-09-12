@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.19";
+const APP_VERSION = "v67.20";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5026,7 +5026,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             borrowLeft: (start ? BORROW_ROUNDS : borrowLeft) - 1 });
           // 借来这一轮能发几条，按她自己设的那两个数算（总条数 ÷ 轮数 = 她心里一轮多少条），
           // 别再拍一个新的魔数；也别把 totalCap - msgsSoFar 传进去——那是个负数。
-          replyGroup(gid, { auto: true, msgBudget: Math.max(2, Math.round(totalCap / roundCap)), urgeCharIds: urgeChars.map(c => c.id) });
+          replyGroup(gid, { auto: true, borrowed: true, msgBudget: Math.max(2, Math.round(totalCap / roundCap)), urgeCharIds: urgeChars.map(c => c.id) });
         } else {
           // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
           cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false, borrowLeft: 0 });
@@ -9083,6 +9083,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _gr = (gOffSess.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
       gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**别当没相处过、别问『在哪呢/怎么还不来』**，也别演成才刚到。最近线下：\n" + _gr;
     }
+    // ── 自发那一段的总条数闸（她 2026-09-11 截图：设了 50，群里出到 61）────────
+    // ⚠️**她设的是 50，她数的是屏幕上的行数**；可这个计数器一直数的是
+    //   【模型交回来几条】。一条会被 splitLongBubble 拆成好几泡、动描还要再占一行，
+    //   于是 50 条轻轻松松变成六七十行。
+    // ⚠️「以前不这样」不是错觉：v56.27 群里才接上气泡拆分、v56.29 又把门槛从 34 降到 22、
+    //   v65.19 再接上动描——三次都在放大「一条变几行」，而这个数一次都没跟着改口。
+    //   单位不一样的两个数，看着像同一个数，这就是她一直觉得「修了好多次还是超」的原因。
+    // ⚠️提示词里那句「一次产出 n~m 条」只降概率；闸得在代码这一道，而且要**当场停手**。
+    // ⚠️借来的那几轮不受总数管（借的账本来就单独记在 borrowLeft 上，是她点头的设计），
+    //   但那一轮自己有一份行额度：总条数 ÷ 轮数，还是她设的那两个数算出来的，不拍新魔数。
+    const _autoCap = Math.max(1, Number(gs.autoChatMaxMsg) || 50);
+    const _autoRoundRows = Math.max(2, Math.round(_autoCap / Math.max(1, Number(gs.autoChatRounds) || 5)));
+    let _rowsThisRound = 0;
+    const autoRoomLeft = () => {
+      if (!rgOpts.auto) return 1e9;
+      return rgOpts.borrowed
+        ? Math.max(0, _autoRoundRows - _rowsThisRound)
+        : Math.max(0, _autoCap - (autoChatMsgsRef.current[groupId] || 0));
+    };
+    const autoTook = () => {
+      if (!rgOpts.auto) return;
+      _rowsThisRound++;
+      if (!rgOpts.borrowed) addAutoChatMessages(groupId, 1);
+    };
     startLane("g:" + groupId);
     // 走到哪一步的标记：出错时和错误类型一起报出来，省得只剩一句无从下手的报错文案
     let phase = "准备上下文";
@@ -9536,7 +9560,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   截掉之后 addAutoChatMessages 记的也是【真正发出去的条数】，额度卡才对得上账。
         const _autoBudget = (rgOpts.auto && Number(rgOpts.msgBudget) > 0) ? Math.floor(Number(rgOpts.msgBudget)) : 0;
         const safeArr = _autoBudget ? (guarded.items || []).slice(0, _autoBudget) : guarded.items;
-        if (rgOpts.auto) addAutoChatMessages(groupId, safeArr.length); // 自发累计条数（持久额度卡，跨重开仍有效）
+        // ⚠️这里原来是 addAutoChatMessages(groupId, safeArr.length)——按【模型交回来几条】记。
+        //   现在改成每落一行记一笔（autoTook），因为她数的就是行。safeArr 那一刀照旧留着：
+        //   它管的是【这一轮最多几条发言】，跟总行数是两件事。
         if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
@@ -9547,6 +9573,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const item = safeArr[i];
           const spk = members.find(c => c.name === item.name);
           if (!spk) continue;
+          if (autoRoomLeft() <= 0) break;   // 额度到顶：当场停手，剩下的一条都不落地
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
           if (item.text && typeof stripTypingPeriod === "function" && !settingsFor(spk.id).engineerEyes) item.text = stripTypingPeriod(item.text);
           // 回声式反问兜底（v55.85）：群聊这条一直没接刀，她 2026-08-24 抓到——
@@ -9585,15 +9612,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
+            autoTook();
           } else if (item.recall === true && item.text) {
             const mid = "grc_" + Date.now() + "_" + i;
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: item.text, mid, ts: Date.now(), turnId: gTurnId }]);
+            autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
           } else if (item.voice === true && item.text) {
             const vt = String(item.text);
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
             const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
+            autoTook();
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
@@ -9625,13 +9655,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 const mm = _grows[k];
                 if (mm && mm.who === "char" && String(mm.senderId) === String(spk.id) && (mm.role === "narration" || mm.kind === "narration")) { _gprevAct = String(mm.content || "").trim(); break; }
               }
-              if (!sameActLine(gActionNow, _gprevAct)) pGChat(groupId, p => [...p, {
-                role: "narration", kind: "narration", who: "char",
-                senderId: spk.id, senderName: spk.name, content: gActionNow,
-                mid: "gm_" + Date.now() + "_" + i + "_act", ts: Date.now(), turnId: gTurnId
-              }]);
+              // ⚠️动描也占一行、也进未读，所以它也算一条（她数的是屏幕上的行）
+              if (!sameActLine(gActionNow, _gprevAct) && autoRoomLeft() > 0) {
+                pGChat(groupId, p => [...p, {
+                  role: "narration", kind: "narration", who: "char",
+                  senderId: spk.id, senderName: spk.name, content: gActionNow,
+                  mid: "gm_" + Date.now() + "_" + i + "_act", ts: Date.now(), turnId: gTurnId
+                }]);
+                autoTook();
+              }
             }
             for (let j = 0; j < gBubbles.length; j++) {
+              if (autoRoomLeft() <= 0) break;   // 拆出来的气泡也一泡一条，超了就不再往下冒
               if (j > 0) await new Promise(r => setTimeout(r, 620));
               checkAutoCall();
               const reveal = () => pGChat(groupId, p => [...p, {
@@ -9649,6 +9684,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               }]);
               // iOS/React 可能把短间隔内的 functional updates 合并到同一帧；逐泡强制提交，才真是一条条冒出来。
               if (ReactDOM && typeof ReactDOM.flushSync === "function") ReactDOM.flushSync(reveal); else reveal();
+              autoTook();
               // 锁屏通知（v66.20，她 2026-09-09：「群聊和旁观群能不能也做锁屏通知」）。
               // ⚠️原来【只有单聊那一路在报】——群聊和旁观群一条都不报，切出去就等于没发生。
               //   旁观群不用另写一支：她在旁观群里也是从这条路收成员发言的。
@@ -9707,6 +9743,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             await new Promise(r => setTimeout(r, 420));
             checkAutoCall();
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now(), turnId: gTurnId }]);
+            autoTook();
             (async () => {
               try {
                 const st = states[spk.id] || {};

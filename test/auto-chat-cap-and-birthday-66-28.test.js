@@ -19,9 +19,15 @@ test("自发那一轮的条数是代码截的，不是求模型少写", () => {
     "没算出本轮预算");
   assert.match(app, /const safeArr = _autoBudget \? \(guarded\.items \|\| \[\]\)\.slice\(0, _autoBudget\) : guarded\.items;/,
     "多出来的还是会落地——上限只是句提示词");
-  // ⚠️截完再记账，否则额度卡记的是【模型写了多少】不是【真发了多少】
-  assert.ok(app.indexOf("const safeArr = _autoBudget ?") < app.indexOf("if (rgOpts.auto) addAutoChatMessages(groupId, safeArr.length)"),
-    "记账排在截断前面了");
+  // ⚠️v67.20：记账不再按【模型交回来几条】记了——她设的是 50，她数的是**屏幕上的行**，
+  //   一条会被 splitLongBubble 拆成好几泡、动描还要再占一行（她 2026-09-11：设 50 出到 61）。
+  //   现在每落一行记一笔，而且到顶当场停手。要证的还是「真发了多少才算多少」。
+  // ⚠️先把注释剥掉再断言：app.js 里那段病历写着「这里原来是 addAutoChatMessages(...safeArr.length)」，
+  //   连注释一起搜的话，**越把原因写清楚这条越红**（这两天第七次踩这个坑）。
+  const _noComment = app.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(_noComment.indexOf("addAutoChatMessages(groupId, safeArr.length)") < 0, "又回去按条记了");
+  assert.match(app, /const autoTook = \(\) => \{/, "每落一行记一笔那道闸没了");
+  assert.match(app, /if \(!rgOpts\.borrowed\) addAutoChatMessages\(groupId, 1\);/, "一行一笔");
   // 非自发轮（她按回复键）一条都不许截
   assert.match(app, /: guarded\.items;/, "非自发轮也被截了");
 });

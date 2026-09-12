@@ -183,7 +183,8 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.ok(i > 0, "群里那一行没接上");
   const blk = app.slice(i, i + 1100);
   assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "拿全群最后一条比，两个人的动作会互相盖掉");
-  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\)\) pGChat\(groupId/);
+  // v67.20：额度满了连动描这一行都不摆（它也占一行、也进未读）
+  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) > 0\) \{\n\s*pGChat\(groupId/);
   assert.match(blk, /senderId: spk\.id, senderName: spk\.name/, "群里不写是谁做的，三个人就认不出来了");
   // 摆在这一条发言的气泡【前面】
   assert.ok(i < app.indexOf("for (let j = 0; j < gBubbles.length; j++)"));

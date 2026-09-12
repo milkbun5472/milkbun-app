@@ -163,7 +163,8 @@ test("刹车还在：轮数上限、总条数上限、闲置间隔一个都不�
 
 test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
   assert.match(scan, /rounds: rounds \+ 1/, "轮数不加了");
-  assert.match(app, /if \(rgOpts\.auto\) addAutoChatMessages\(groupId, safeArr\.length\)/, "条数不记了");
+  // v67.20：改成每落一行记一笔（见 test/group-auto-cap-rows-67-20.test.js）
+  assert.match(app, /if \(!rgOpts\.borrowed\) addAutoChatMessages\(groupId, 1\);/, "条数不记了");
   assert.match(scan, /replyGroup\(gid, \{ auto: true, msgBudget: totalCap - msgsSoFar/, "剩余预算没往下传");
 });
 
