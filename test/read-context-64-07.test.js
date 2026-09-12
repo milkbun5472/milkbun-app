@@ -21,9 +21,10 @@ test("上下文这条线真的接进来了——一路从 App 传到 Reader", ()
   // ⚠️ReadTogether → Reader 是【一条条列名字】往下传的：漏一个不报错，
   //   只会让里头静默退回兜底路（第一版就漏了这一个，浏览器里量出 sys 只有 2544 字才发现）
   assert.match(code, /ctxFor: props\.ctxFor,/, "ReadTogether 没把 ctxFor 往下传给 Reader");
-  // 五枪都得接上
-  // 七处：批注 / 讲这页 / 讲这段 / 讲这句 / 讨论 / 讨论完总结 / 批注册那一下
-  assert.equal((code.match(/props\.ctxFor\)/g) || []).length, 7, "有调用点没把 ctxFor 传进去");
+  // 七处调用都得接上：批注 / 讲这页 / 讲这段 / 讲这句 / 讨论 / 把这本记住 / 折进这本书
+  // ⚠️v67.54 起这几处后面还跟着 talkTail()，所以别再钉「ctxFor 是最后一个参数」——
+  //   钉的是【每一处都把它传进去了】（8＝七处调用 + 一处往下传的 props）。
+  assert.equal((code.match(/props\.ctxFor/g) || []).length, 8, "有调用点没把 ctxFor 传进去");
 });
 
 test("readHead 只此一份：接得上就发整份 bundle，接不上才退回老两条", () => {
@@ -39,7 +40,8 @@ test("readHead 只此一份：接得上就发整份 bundle，接不上才退回�
   assert.ok(!/ECHO_QUESTION_BAN/.test(eng.slice(eng.indexOf("function buildBundle(ctx, opts)"), eng.indexOf("function buildBundle(ctx, opts)") + 12000)),
     "buildBundle 现在也带回声禁令了，这儿就该撤掉，别发两遍");
   // 五枪共用这一份，没人再自己拼 ANTI_CLICHE + CB()
-  assert.equal((code.match(/= readHead\(ctxFor, char\)/g) || []).length, 5, "五枪没都走这一份");
+  // v67.54 起是六枪（多了 foldTalk：把讨论折进这本书自己的记录）
+  assert.equal((code.match(/= readHead\(ctxFor, char\)/g) || []).length, 6, "六枪没都走这一份");
   assert.ok(!/const sys = \(typeof ANTI_CLICHE !== "undefined"/.test(code), "还有人自己拼那两条");
 });
 
@@ -57,8 +59,12 @@ test("喂回去：只写记忆库，不动好感心情——而且不必走讨�
   assert.ok(fn, "没有「把这本记住」这一路");
   assert.match(fn, /props\.onAddMemory && props\.onAddMemory\(summary, partner\.id\)/);
   // 光有批注也能浓缩（原来只有走过讨论才喂得回去：结束那一步藏在讨论抽屉里）
-  assert.match(fn, /summarizeSession\(bg, partner, props\.profile, book,\s*\(book\.annotations \|\| \[\]\)\.filter[\s\S]{0,80}, \[\], props\.ctxFor\)/,
-    "没有「只凭批注也能记住」那一路");
+  // ⚠️v67.54：这一路原来只喂批注（第三个参数写死 []）。讨论现在存在书上了，
+  //   不把它一起喂回去的话，她按下去得到的还是一份只看批注的读后感。
+  assert.match(fn, /summarizeSession\(bg, partner, props\.profile, book,\s*\(book\.annotations \|\| \[\]\)\.filter[\s\S]{0,80},\s*chat\.slice\(-24\), props\.ctxFor, talkTail\(\)\)/,
+    "「把这本记住」没把读过的讨论算进去");
+  // 光有批注、一句没聊过也照样能记住（原来只有走过讨论才喂得回去）
+  assert.match(fn, /if \(!annoCount && !chat\.length && !talk\.digest\)/, "没有「只凭批注也能记住」那一路");
   assert.match(fn, /props\.onPatch\(\{ rememberedAt: Date\.now\(\), rememberedCount: annoCount \}\)/, "没记下这次记到哪儿，界面上就说不出「上次记住是什么时候」");
   // ⚠️只写记忆库：不许在这条路上动好感 / 心情 / 状态卡
   assert.ok(!/onAffinity|setAff|onMood|setMood|affDelta/.test(fn), "这条路上动了好感或心情——先问过她再说");

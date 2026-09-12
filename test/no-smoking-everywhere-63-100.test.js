@@ -81,7 +81,8 @@ test("每一处 sys 的头上真的接了，不是只声明了一个没人叫的
   //   接不上才退回 `ANTI_CLICHE + CB()`。**两条路都带禁烟**，这一条的意图没变。
   //   所以改成钉那一份：五枪都得走它，而且它两条路都得带上这一层。
   const rd = read("read.js");
-  assert.equal((rd.match(/= readHead\(ctxFor, char\)/g) || []).length, 5, "一起读那五处没一起接上");
+  // v67.54 起是六枪（多了 foldTalk：把讨论折进这本书自己的记录）
+  assert.equal((rd.match(/= readHead\(ctxFor, char\)/g) || []).length, 6, "一起读那六处没一起接上");
   const rh = rd.slice(rd.indexOf("function readHead(ctxFor, char)"), rd.indexOf("async function genAnnotations"));
   assert.match(rh, /buildBundle\(ctxFor\(char\)\)/, "接得上那一路没走 bundle（bundle 里带着这一层）");
   assert.match(rh, /if \(!head\) head = \(typeof ANTI_CLICHE !== "undefined" \? ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB\(\)/, "兜底那一路没带 CB()");

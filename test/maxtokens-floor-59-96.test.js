@@ -86,7 +86,8 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   // ⚠️口径改了（2026-09-05，她：「顺便 maxtoken 也放开吧 65535」）：一起读那五处一律开满。
   //   上限是【天花板】不是【花销】——模型写多少就是多少，给宽了一分钱也多花不到。
   //   所以这里不再钉那个算式，改成钉「这个文件里没有一处低于开满值」。
-  assert.equal((rd.match(/maxTokens: 65535/g) || []).length, 5, "一起读那五处没都开满");
+  // v67.54 起多一枪：把讨论折进这本书自己的记录（foldTalk）
+  assert.equal((rd.match(/maxTokens: 65535/g) || []).length, 6, "一起读那六处没都开满");
   //   （注释里写着那个被换掉的老算式、就是为了说明它为什么坏，先把整行注释剥掉再搜）
   const rdCode = rd.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(!/maxTokens: Math\.min\(/.test(rdCode), "一起读里又出现了算出来的预算");
