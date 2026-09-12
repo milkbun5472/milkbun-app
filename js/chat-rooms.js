@@ -426,5 +426,72 @@
       + "**这一刻之后这场戏就要往下走了**，它不是一个要反复回到的定格。");
     return "\n\n" + lines.join("\n");
   }
-  return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt };
+  // ── 一间房里放好几本书（她 2026-09-12 点头）──────────────────────────
+  //
+  // 她当场问的那一句就是这件事的全部难点：
+  //   「讨论了 a 然后发 b 把 a 上下文冲掉了再想聊 a 咋算」
+  //
+  // ⚠️得把「上下文」拆成两半看，因为这两半的命运完全不一样：
+  //   · 【a 的设定和前情】没被冲掉，也冲不掉——那一份是每一轮从 a 自己身上**现拼**的
+  //     （地基／设定卡／伏笔盒／每章锚点／最后一章的结尾），不是一点点攒起来的。
+  //     换回 a，它就原样长回来，一个字不少。这一半她不用担心。
+  //   · 【你们商量过的走向】才是真会串的那一半：roomTalkOf 取的是「最近 14 条」，
+  //     不分书。聊完 b 再让他写 a 的下一章，他手上那份「我们说好的」会是 b 的。
+  //
+  // 所以这一层只做一件事：**把房里每一条消息判给它当时那本书**，
+  // 只把【当前这本】名下的那几段交出去。判据一句话：
+  //   **这条消息之前，最后一次提到的是哪一本，它就归哪一本。**
+  // 换书本身也算一次「提到」（带时间戳），所以换回 a 之后新说的话归 a，
+  // 而换书**之前**那一段聊 a 的话照样还在 a 名下——这正是她问的那种情况：
+  // 聊过的不会因为中间插了一本 b 就丢掉。
+  //
+  // ⚠️只认卡上带的 ficId：正文里提一句书名不算。猜错比不猜更难查。
+  const ROOM_FIC_CAP = 8;
+  function ficMarks(messages, pick) {
+    const marks = [];
+    (messages || []).forEach(function (m) {
+      const id = m && String(m.ficId || "").trim();
+      if (id) marks.push({ ts: Number((m && m.ts) || 0), id: id, title: String((m && m.ficTitle) || "").slice(0, 40) });
+    });
+    if (pick && pick.id) marks.push({ ts: Number(pick.ts) || 0, id: String(pick.id).trim(), title: String(pick.title || "").slice(0, 40) });
+    // ⚠️稳定排序：同一毫秒里「她刚挑的那本」要排在卡后面，不然点了换书没反应。
+    //   靠的就是【她那一条永远最后 push 进来】＋按原始下标兜底，不另加一个比较
+    //   （加了也是死的——写这一版时试过，删掉它一条测试都不红）。
+    return marks.map(function (x, i) { return [x, i]; })
+      .sort(function (a, b) { return (a[0].ts - b[0].ts) || (a[1] - b[1]); })
+      .map(function (x) { return x[0]; });
+  }
+  // 现在在聊哪一本：最后一个标记说了算（她刚挑的，或者刚放进来的那张卡）
+  function currentFicId(messages, pick) {
+    const marks = ficMarks(messages, pick);
+    return marks.length ? marks[marks.length - 1].id : "";
+  }
+  // 这间房里放过哪几本（最近的在前），给「换书」那张单子用
+  function roomFicList(messages, pick) {
+    const out = [], seen = {};
+    const marks = ficMarks(messages, pick);
+    for (let i = marks.length - 1; i >= 0 && out.length < ROOM_FIC_CAP; i--) {
+      const m = marks[i];
+      if (!m.id || seen[m.id]) { if (m.id && m.title && !titleOf(out, m.id)) fillTitle(out, m.id, m.title); continue; }
+      seen[m.id] = 1;
+      out.push({ id: m.id, title: m.title || "" });
+    }
+    return out;
+  }
+  function titleOf(list, id) { const r = list.filter(function (x) { return x.id === id; })[0]; return r ? r.title : ""; }
+  function fillTitle(list, id, title) { list.forEach(function (x) { if (x.id === id && !x.title) x.title = title; }); }
+  // 跟 messages 等长的一张表：每一条当时在聊哪一本（没有就是空串）
+  // ⚠️要求 messages 按时间升序——聊天数组本来就是往后追加的。
+  function ficTrack(messages, pick) {
+    const marks = ficMarks(messages, pick);
+    let mi = 0, cur = "";
+    return (messages || []).map(function (m) {
+      const ts = Number((m && m.ts) || 0);
+      while (mi < marks.length && marks[mi].ts <= ts) { cur = marks[mi].id; mi++; }
+      return cur;
+    });
+  }
+
+  return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt,
+    ROOM_FIC_CAP, ficMarks, currentFicId, roomFicList, ficTrack };
 });

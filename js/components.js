@@ -7337,6 +7337,9 @@ function ChatThread({
   onOpenSettings,
   room,
   onOpenRooms,
+  roomFics,        // 这间房放过哪几本同人文（最近的在前）
+  roomFicId,       // 现在在聊的是哪一本
+  onPickRoomFic,   // 换书
   onRecall,
   onReroll,
   onReply,
@@ -7398,6 +7401,7 @@ function ChatThread({
   const [stickerOpen, setStickerOpen] = useState(false);
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [ficPickOpen, setFicPickOpen] = useState(false);   // 「换书」那张单子展开没有
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -7680,6 +7684,34 @@ function ChatThread({
     !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.scenario ? "长篇如果" : room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "按需补近况" : "独立时间线"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
+  // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）──────────────────
+  // 一间房可以放好几本。她当时问的是「讨论了 a 再发 b，想回去聊 a 咋算」——
+  // 答案就是这条带子：点一下换回去。a 的设定前情不会丢（那一份每一轮现拼），
+  // 你们聊过的那几句也按书分账，谁的还是谁的。
+  // ⚠️只放了一本时不摆「换书」：没得换的时候多一颗按钮只是噪音。
+  room && !room.main && Array.isArray(roomFics) && roomFics.length ? (function () {
+    const cur = roomFics.filter(function (x) { return x.id === roomFicId; })[0] || roomFics[0];
+    const more = roomFics.length > 1;
+    return h("div", { className: "shrink-0 w-full", style: { background: dsp.chatBg ? "rgba(255,255,255,0.35)" : t.bg2, borderBottom: "1px solid " + t.line } },
+      h("button", {
+        onClick: more ? function () { setFicPickOpen(function (v) { return !v; }); } : undefined,
+        className: "w-full flex items-center" + (more ? " active:opacity-60" : ""),
+        style: { padding: "6px 16px", gap: 7, background: "transparent", border: "none" }
+      },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "在写"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "62%" } }, "《" + (cur.title || "无题") + "》"),
+        more ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, ficPickOpen ? "收起" : "换书 ›") : null),
+      (more && ficPickOpen) ? h("div", { style: { padding: "0 10px 6px" } },
+        roomFics.map(function (f) {
+          const on = f.id === cur.id;
+          return h("button", {
+            key: f.id,
+            onClick: function () { setFicPickOpen(false); if (!on && onPickRoomFic) onPickRoomFic(f.id, f.title); },
+            className: "w-full text-left active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.accent : t.ink, padding: "8px 10px", borderRadius: 8, background: on ? t.bg : "transparent", border: "none", display: "block", minHeight: 34 }
+          }, (on ? "· " : "") + "《" + (f.title || "无题") + "》");
+        })) : null);
+  })() : null,
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
   (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", {
     onClick: onOpenSched,

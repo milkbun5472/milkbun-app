@@ -53,20 +53,45 @@ test("他才能开口：房里开了「一起写」，而且这间房里放进�
   assert.match(seg, /现在写到第 "\n\s*\+ \(\(roomFic\.chapters \|\| \[\]\)\.length\) \+ " 章/);
 });
 
-test("这间房最近放进来的是哪一篇：只认这间房自己的卡", () => {
-  const box = { chatsRef: { current: {} }, window: {} };
+test("这间房在聊哪一篇：只认这间房自己的卡，她挑过就听她的", () => {
+  // v67.21：一间房可以放好几本（她 2026-09-12：「放吧」）。判哪一本的算法搬去了
+  //   ChatRooms（纯函数，见 test/room-many-fics-67-21.test.js），这儿只测 app 这一头：
+  //   她挑的那一本存在哪儿、挑的那本被删了怎么退。
+  const pickStore = {};
+  const box = { chatsRef: { current: {} }, window: {},
+    loadJSON: (k, d) => (k === "x_roomFicPick" ? pickStore : d),
+    saveJSON: () => {} };
   box.window.Fanfic = { loadFics: () => [{ id: "f1", title: "甲" }, { id: "f2", title: "乙" }] };
+  box.window.ChatRooms = require("../js/chat-rooms.js");
   vm.createContext(box);
-  vm.runInContext("const window = this.window;" + app.slice(app.indexOf("  const lastRoomFic = chatKey =>"), app.indexOf("  // 你们在这间房里刚聊过的那几句"))
-    + "\nthis.f = lastRoomFic;", box);
-  box.chatsRef.current["c1:r1"] = [{ ficId: "f1" }, { content: "聊天" }, { ficId: "f2" }];
-  box.chatsRef.current["c1:r2"] = [{ ficId: "f1" }];
-  assert.equal(box.f("c1:r1").title, "乙", "取的不是最近那一张");
+  vm.runInContext("const window = this.window;" + app.slice(app.indexOf("  const K_ROOM_FIC_PICK ="), app.indexOf("  // 你们在这间房里刚聊过的那几句"))
+    + "\nthis.f = lastRoomFic; this.pick = setRoomFicPick; this.list = roomFicsOf;", box);
+  box.chatsRef.current["c1:r1"] = [{ ts: 1, ficId: "f1" }, { ts: 2, content: "聊天" }, { ts: 3, ficId: "f2" }];
+  box.chatsRef.current["c1:r2"] = [{ ts: 1, ficId: "f1" }];
+  assert.equal(box.f("c1:r1").title, "乙", "没挑过就是最近放进来那一张");
   assert.equal(box.f("c1:r2").title, "甲");
   assert.equal(box.f("c1:r3"), null, "别的房放过什么，跟这间房不相干");
+  // 她点了「换书」换回甲——这正是她当场问的那一种情况
+  pickStore["c1:r1"] = { id: "f1", title: "甲", ts: 99 };
+  assert.equal(box.f("c1:r1").title, "甲", "换回去了还认最近那一张＝换书是假的");
+  // 换书单子上两本都在，最近动过的在前——换书本身也算动过，所以刚换回的甲排头一个
+  assert.deepEqual(box.list("c1:r1").map(x => x.title), ["甲", "乙"]);
+  // ⚠️走 setRoomFicPick 本人，不是手写一个 ts：换书那一下不记时间的话，
+  //   她挑的那本会排到所有卡前面去，点了等于没点
+  delete pickStore["c1:r1"];
+  assert.equal(box.f("c1:r1").title, "乙", "先回到没挑过的状态");
+  box.pick("c1:r1", "f1", "甲");
+  assert.ok(Number(pickStore["c1:r1"].ts) > 0, "换书那一下没记时间");
+  assert.equal(box.f("c1:r1").title, "甲", "记了时间才排得到卡后面去");
   // 文被删了就别硬认
-  box.chatsRef.current["c1:r4"] = [{ ficId: "gone" }];
+  box.chatsRef.current["c1:r4"] = [{ ts: 1, ficId: "gone" }];
   assert.equal(box.f("c1:r4"), null);
+  // ⚠️当前那本被删了要往回退，不是两手空空
+  pickStore["c1:r5"] = { id: "gone", title: "没了", ts: 99 };
+  box.chatsRef.current["c1:r5"] = [{ ts: 1, ficId: "f1" }, { ts: 2, ficId: "gone" }];
+  assert.equal(box.f("c1:r5").title, "甲", "挑的那本被删了就该退回房里还认得的上一本");
+  // 删掉的那本也不该摆在换书单子上
+  assert.deepEqual(box.list("c1:r5").map(x => x.title), ["甲"]);
 });
 
 test("商量的那几句：卡片和 OOC 不算，原文那几张更不算", () => {
@@ -93,7 +118,7 @@ test("点了才花那一枪，而且写的是这间房的这个人", () => {
   assert.ok(h.length > 800, "没切到 onOpenFicInvite");
   // ⚠️「她跟谁讨论让他写谁再写」——写的人不许是别人
   assert.match(h, /byChar: activeChar,/);
-  assert.match(h, /roomTalk: roomTalkOf\(key, activeChar\.remark \|\| activeChar\.name, uName, 14\),/);
+  assert.match(h, /roomTalk: roomTalkOf\(key, activeChar\.remark \|\| activeChar\.name, uName, 14, f\.id\),/);
   // 枪打在这儿，不在他开口那一下
   assert.match(h, /await K\.genNextChapter\(/);
   const cap = app.slice(app.indexOf("const roomFicOn ="), app.indexOf("// 小游戏跟一起学同一个形状"));

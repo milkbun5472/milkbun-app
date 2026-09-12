@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.20";
+const APP_VERSION = "v67.21";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -620,6 +620,7 @@ function App() {
   const [msgTab, setMsgTab] = useState("chats"); // 信息页内部 tab（聊天/通讯录/朋友圈/我）提到 App 层，进角色详情返回时不丢（v48.40）
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
+  const [roomFicTick, setRoomFicTick] = useState(0);   // 换书之后推一下重画（那一格存在 localStorage 里）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
   const [stateCardRoomKey, setStateCardRoomKey] = useState(null); // 侧房自己的心声卡；null 才读主房状态
   // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
@@ -7163,23 +7164,51 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return out;
   };
   // ⚠️只认【这间房自己】的卡：他那边别的房放过什么，跟这间房不相干。
+  // ── 一间房放好几本（她 2026-09-12 点头）────────────────────────────
+  // 判哪一本、哪几句话归哪一本，都在 ChatRooms 那一份里（纯函数，好测）。
+  // 这儿只管两件事：她挑的那一本存在哪儿，以及挑的那本要是被删了怎么退。
+  const K_ROOM_FIC_PICK = "x_roomFicPick";
+  const roomFicPick = chatKey => (loadJSON(K_ROOM_FIC_PICK, {}) || {})[chatKey] || null;
+  const setRoomFicPick = (chatKey, ficId, title) => {
+    const all = loadJSON(K_ROOM_FIC_PICK, {}) || {};
+    all[chatKey] = { id: String(ficId || ""), title: String(title || "").slice(0, 40), ts: Date.now() };
+    saveJSON(K_ROOM_FIC_PICK, all);
+  };
+  const roomFicsOf = chatKey => {
+    const K = window.ChatRooms;
+    if (!K || !K.roomFicList || !window.Fanfic) return [];
+    const fics = window.Fanfic.loadFics() || [];
+    return K.roomFicList(chatsRef.current[chatKey] || [], roomFicPick(chatKey))
+      .map(x => { const f = fics.filter(y => y && y.id === x.id)[0]; return f ? { id: f.id, title: f.title || x.title || "无题" } : null; })
+      .filter(Boolean);   // 删掉的那几本不摆在换书单子上
+  };
   const lastRoomFic = chatKey => {
-    if (!window.Fanfic) return null;
+    const K = window.ChatRooms;
+    if (!window.Fanfic || !K || !K.currentFicId) return null;
     const msgs = chatsRef.current[chatKey] || [];
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const id = msgs[i] && String(msgs[i].ficId || "");
-      if (!id) continue;
-      const f = (window.Fanfic.loadFics() || []).filter(x => x && x.id === id)[0];
-      if (f) return f;
-    }
+    const fics = window.Fanfic.loadFics() || [];
+    const has = id => fics.filter(x => x && x.id === id)[0] || null;
+    const cur = has(K.currentFicId(msgs, roomFicPick(chatKey)));
+    if (cur) return cur;
+    // ⚠️当前这本被删了就往回退，不能两手空空——房里还认得的最近一本就是它
+    const list = K.roomFicList(msgs, roomFicPick(chatKey));
+    for (let i = 0; i < list.length; i++) { const f = has(list[i].id); if (f) return f; }
     return null;
   };
   // 你们在这间房里刚聊过的那几句：这是【商量出来的走向】，不是素材。
   // ⚠️ChatRooms.visibleText 那一道照旧过一遍：撤回的、system 的、被上下文闸挡掉的都不算。
-  const roomTalkOf = (chatKey, charName, uName, n) => {
+  // ⚠️第五个参数是【哪一本】（她 2026-09-12 当场问的那一句）：
+  //   一间房放了两本书时，这儿原来取的是「最近 14 条」，不分书——
+  //   聊完 b 再让他写 a 的下一章，他手上那份「我们说好的」会是 b 的。
+  //   现在按 ficTrack 判给谁就归谁：换书之前聊 a 的那几句照样还在 a 名下，
+  //   中间插进来的那本 b 一句都不会串过去。
+  const roomTalkOf = (chatKey, charName, uName, n, ficId) => {
     const K = window.ChatRooms;
-    const msgs = (chatsRef.current[chatKey] || []).filter(m => {
+    const all = chatsRef.current[chatKey] || [];
+    const track = (ficId && K && K.ficTrack) ? K.ficTrack(all, roomFicPick(chatKey)) : null;
+    const msgs = all.filter((m, i) => {
       if (!m || m.ficId || isOocMsg(m)) return false;
+      if (track && track[i] !== ficId) return false;
       return K ? !!K.visibleText(m) : !!(m.content && (m.role === "user" || m.role === "assistant"));
     }).slice(-(Number(n) || 14));
     return msgs.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
@@ -19098,6 +19127,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
+    // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
+    // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
+    // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
+    //   换回去就原样长回来；而你们聊过的那几句按书分账，谁的还是谁的。
+    // ⚠️roomFicTick 是这两格真正的依赖：她挑的那一本存在 localStorage 里，
+    //   React 不会自己知道它变了。传进来读一下，也免得下次谁当成死变量删掉。
+    roomFics: (function (_tick) {
+      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return [];
+      return roomFicsOf(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
+    })(roomFicTick),
+    roomFicId: (function (_tick) {
+      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return "";
+      const f = lastRoomFic(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
+      return f ? f.id : "";
+    })(roomFicTick),
+    onPickRoomFic: (id, title) => {
+      if (!window.ChatRooms) return;
+      setRoomFicPick(window.ChatRooms.chatKey(activeChar.id, activeRoomId), id, title);
+      setRoomFicTick(v => v + 1);   // 这一格存在 localStorage 里，得推一下才重画
+      toast("现在在聊《" + String(title || "").slice(0, 20) + "》");
+    },
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
@@ -19140,7 +19190,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             byChar: activeChar,
             charRel: relOfChar(cid),
             writerAxes: K.rollWriterAxes(cid, f.id, (f.chapters || []).length),
-            roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14),
+            roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14, f.id),
             nameOf: id2 => { const c = characters.find(x => x && x.id === id2); return c ? (c.remark || c.name) : "那个人"; }
           });
         const nm = activeChar.remark || activeChar.name;
