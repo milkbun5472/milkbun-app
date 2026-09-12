@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.25";
+const APP_VERSION = "v67.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7823,7 +7823,7 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』）——那是旁白在结案，不是人在想事情。⚠️「回头再收拾你」这类狠话本来就是【说得出口的】：真要撂就写进 word 让 TA 听见，别塞进心声——心声只留真正咽下去、说不出口的那一点。
 ⚠️**心声可以没有结尾**。一句没说完的、半截的、跑题的念头就够了。别每轮都在最后补一句「回头我要怎样怎样」把它收口——**不管那句是狠话还是甜话**（收拾她／捏她脸／亲她一下／买点什么回去），那个【位置】本身就是旁白在结案。真人心里想到一半就被别的事岔开了，那才是心声。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；那是内心戏体裁自带的默认，不是你的人设。心声里对 TA 的称呼也必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：想说的话仍要用这个人自己的方式写进 word；thought 只留真正咽下去没说的那一小部分。
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后如实填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作或在 word 中报备。
+action: string，每轮回复完成后${ACT_MEANING}或在 word 中报备。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
@@ -9195,7 +9195,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const _pl = (listenRef.current.playlists || []).find(x => x.charId === c.id);
         const _pls = (_pl && _pl.songs) || [];
         const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
-        const _now = groupNowSegs(c, { interop: gs.memoryInterop });
+        const _now = groupNowSegs(c, { interop: gs.memoryInterop, act: !!gs.actDesc });
         const live = _now.live;
         const { grownSeg, aSeg, zSeg, hcSeg, cySeg, caSeg } = _now;
         // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：单聊经 buildBundle
@@ -9366,8 +9366,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //     · 模型还得为每一条现编一个新动作，太贵，索性一人只说一句
       //       → 「我说话他们就不互相接话了」的另一半也在这儿。
       //   两处说同一件事，就得是同一份字。
-      //   （不带「action」这个词，是因为它在 JSON 字段里本来就是 key，重复一遍很傻。）
-      const G_ACTION_SPEC = "发这句话时正在做的一件事（简短一句）。当前事实没变、原来那句仍然准确时就【原样填写】，别为了交字段换措辞、也别硬造一个新动作；同一个人连着发好几条时只按事实有没有变来定，不必每条都换一个新的。";
+      // ⚠️**定义取的是 ACT_MEANING 那一份**（engine.js）——跟单聊一模一样的那句话。
+      //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
+      //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
+      const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
@@ -12668,7 +12670,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : { label: (moods[c.id] || {}).label || "", note: "" };
     return {
       ...groupBackgroundSegments(c, groupBackgroundFor(c), userName(profile)),
-      live: o.interop && (fw || fa) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [fw && "穿着=" + fw, fa && "上一动作=" + fa].filter(Boolean).join("；") : "",
+      // ⚠️「上一动作」原来只在【记忆互通】开着时才给。可 action 这一格是
+      //   【互通 或 动描】两个来源都会要的——只开动描的群，模型被要求填这一格，
+      //   却从没见过上一次填的是什么，**根本没法「原样填写」**，
+      //   于是每轮都是一个新动作，代码那道去重闸一次都拦不住（她 2026-09-12 报）。
+      //   又是这一格的第三次「一层写在两处」：v67.18 修了措辞，这次是料没给全。
+      live: (function () {
+        const bits = [];
+        if (o.interop && fw) bits.push("穿着=" + fw);
+        if ((o.interop || o.act) && fa) bits.push("上一动作=" + fa);
+        return bits.length ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + bits.join("；") : "";
+      })(),
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),

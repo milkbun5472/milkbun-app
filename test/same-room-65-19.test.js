@@ -113,7 +113,9 @@ test("他那一侧不再有写动作的指令：动作直接来自每轮本来�
   assert.match(rule, /你每轮照常填的 action 会原样显示给/);
   assert.ok(!/是她此刻的动作或神态/.test(rule), "又把解释括号那半句加回去了");
   // 生成协议里那两句是这一版的地基：没有它们，action 会每轮换个说法刷屏
-  assert.match(app, /当前事实未变且原表述仍准确时，可以原样填写/);
+  // v67.26：这一句搬进了 engine.js 的 ACT_MEANING（单聊群聊共用一份）
+  assert.match(eng, /当前事实未变且原表述仍准确时，可以原样填写/);
+  assert.match(app, /\$\{ACT_MEANING\}/, "单聊那一行要从那一份取");
   assert.match(app, /无需为了交字段换措辞、制造动作/);
 });
 

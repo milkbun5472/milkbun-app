@@ -28,7 +28,10 @@ test("反着说的那一句不许再长回来", () => {
   assert.ok(A.indexOf("别照抄上一动作") < 0, "「别照抄上一动作」跟「没变就原样填写」正面打架");
   const i = A.indexOf("const G_ACTION_SPEC");
   const spec = A.slice(i, A.indexOf("\n", i));
-  assert.match(spec, /原样填写/, "说的得是「没变就原样填写」");
+  // v67.26：定义那半句搬进了 engine.js 的 ACT_MEANING，这一行只剩尾巴
+  const _eng = require("fs").readFileSync(require("path").resolve(__dirname, "..", "js/engine.js"), "utf8");
+  assert.match(spec, /ACT_MEANING \+ /, "得从那一份取，不许自己再写一份");
+  assert.match((_eng.match(/const ACT_MEANING = "([^"]+)";/) || [])[1] || "", /原样填写/, "说的得是「没变就原样填写」");
   assert.match(spec, /不必每条都换/, "连发好几条不必每条都换一个新的");
 });
 

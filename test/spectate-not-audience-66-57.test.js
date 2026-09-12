@@ -68,7 +68,7 @@ test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁
 
 test("撤掉的东西是删掉，不是留个没人读的形参", () => {
   // groupNowSegs 那个 spectate 参数第一版加过，这一版不需要了——三处调用点都要回到原样
-  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/);
+  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/);
   assert.match(app, /const n = groupNowSegs\(c, \{ interop: gcInterop \}\);/);
   assert.ok(app.indexOf("gcSpectate") < 0, "群通话那个没人读的常量还留着");
   assert.ok(app.indexOf("o.spectate") < 0, "groupNowSegs 里还留着没人传的分支");

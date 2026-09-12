@@ -12,7 +12,9 @@ const gc = app.slice(app.indexOf("// 群通话：多角色你一言我一语"), 
 
 test("每人那一段【此刻】跟群聊共用一份，不是各写各的", () => {
   assert.match(app, /const groupNowSegs = \(c, opts\) => \{/);
-  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/, "群聊那一处");
+  // v67.26：groupNowSegs 多收了一个 act（动描开着时也要把「上一动作」喂下去），
+  //   钉的是【群聊那一处走的是这一份】，不是它当时收了几个参数。
+  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/, "群聊那一处");
   assert.match(gc, /const n = groupNowSegs\(c, \{ interop: gcInterop \}\);/, "群通话那一处");
   for (const field of ["live", "mdSeg", "afSeg", "ageSeg", "sbSeg", "cpSeg"]) assert.ok(gc.includes("+ n." + field), field + " 取了却没拼进去");
 });

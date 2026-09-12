@@ -13,7 +13,16 @@ assert(app.includes('该成员此刻穿着一句（保持连续；但必须跟�
 // 「每次随情境更新、别照抄上一动作」，跟这一格正好反着，而那一段只在记忆互通开着时发，
 // 互通正是「有我的群」的常态。所以现在证的是：两处都从同一份取。
 assert(/const gActionField = ",\\"action\\":\\"" \+ G_ACTION_SPEC/.test(app), "group output must request hidden action state");
-assert(app.includes('当前事实没变、原来那句仍然准确时就【原样填写】'), "action spec must match the 1:1 one, not contradict it");
+// v67.26：这一格的【定义】也搬进了 engine.js 的 ACT_MEANING——跟单聊一模一样的那句话。
+// 原来群聊写的是「发这句话时正在做的一件事」，按定义每句一换，
+// 于是「没变就原样填写」永远用不上（她 2026-09-12：「群聊连续发两三天还是每轮都有动作」）。
+const _actMeaning = (fs.readFileSync("js/engine.js", "utf8").match(/const ACT_MEANING = "([^"]+)";/) || [])[1] || "";
+assert(/当前事实未变且原表述仍准确时，可以原样填写/.test(_actMeaning), "action spec must match the 1:1 one, not contradict it");
+assert(/所处的活动状态/.test(_actMeaning), "action 得是能持续的状态，不是「说这句话时」的小动作");
+// ⚠️先剥注释：app.js 里那段病历写着「原来这儿写的是「发这句话时正在做的一件事」」，
+// 连注释一起搜的话，越把原因写清楚这条越红（这几天第八次踩这个坑）。
+assert(!/发这句话时正在做的一件事/.test(app.split("\n").map(l => l.split("//")[0]).join("\n")),
+  "群聊那边按句计的定义又长回来了");
 assert(/action 就是" \+ G_ACTION_SPEC \+ "/.test(app), "记忆互通那一段也得从同一份取，不许自己再写一份");
 // ⚠️只对着【发出去的那几格】断言：注释里那句是病历（写着为什么改），
 // 连注释一起匹配的话，越把原因写清楚测试越红。

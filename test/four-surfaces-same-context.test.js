@@ -71,7 +71,7 @@ test("群聊线上补上心情/好感/印象卡", () => {
   // 心情要走平复逻辑，别把三天前那阵气当成此刻
   assert.match(now, /window\.MoodLabel\.settle\(\(moods\[c\.id\] \|\| \{\}\)\.label, \(moods\[c\.id\] \|\| \{\}\)\.ts, Date\.now\(\)\)/);
   // 群聊那一处真的用了这一份（不是各写各的）
-  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop \}\);/);
+  assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/);
   // 印象卡属于「发生过什么」，只在开了记忆互通时给，而且要落在本人那一段
   assert.match(app, /const gz = window\.Gaze && !settingsFor\(c\.id\)\.engineerEyes \? window\.Gaze\.text\(c\.id, userName\(profile\)\) : "";/);
   assert.match(app, /印象卡跟长期记忆同一档/);

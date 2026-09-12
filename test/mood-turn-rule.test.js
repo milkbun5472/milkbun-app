@@ -32,9 +32,14 @@ test("心情每轮如实记录，不用变化次数或平淡词语考核", () =>
 test("普通单聊实际发送的动作协议允许事实未变时原样填写", () => {
   const start = app.indexOf('const _normalProtocolStable =');
   const protocol = app.slice(start, app.indexOf('// 数字生命不是', start));
-  assert.match(protocol, /action: string，每轮回复完成后如实填写/);
-  assert.match(protocol, /当前事实未变且原表述仍准确时，可以原样填写/);
-  assert.match(protocol, /事实变化时再更新/);
+  // v67.26：这两句抽进了 engine.js 的 ACT_MEANING，单聊这儿是插值进来的。
+  //   要证的还是【发出去的那一份是这个意思】，所以拼起来再看。
+  const ACT_MEANING = (fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8")
+    .match(/const ACT_MEANING = "([^"]+)";/) || [])[1] || "";
+  assert.match(protocol, /action: string，每轮回复完成后\$\{ACT_MEANING\}/);
+  assert.match(ACT_MEANING, /如实填写角色此刻真正正在做的事或所处的活动状态/);
+  assert.match(ACT_MEANING, /当前事实未变且原表述仍准确时，可以原样填写/);
+  assert.match(ACT_MEANING, /事实变化时再更新/);
   assert.doesNotMatch(protocol, /必须根据此刻重新表述/);
   assert.match(app, /_s\.engineerEyes \? "" : _normalProtocolStable/);
 });
