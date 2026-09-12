@@ -7323,6 +7323,7 @@ function ChatThread({
   sameRoom,
   onToggleSameRoom,
   actDesc,
+  actPerson,   // 动描那一行用第几人称："me"（我，默认）/ "ta"（他，跟角色性别走）
   character,
   characters,
   groups,
@@ -7835,7 +7836,9 @@ function ChatThread({
         color: (selMode && selIds.includes(i)) ? t.ink : ((dsp.chatBg || _wkBg) ? "#5a5550" : t.fog),
         ...plate("5px 12px")
       }
-    }, m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
+    }, m.who === "char" && actPerson === "ta" && window.ActLine
+        ? window.ActLine.as(m.content, window.PhonePronoun ? window.PhonePronoun.ta(character) : "他")
+        : m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
@@ -14466,6 +14469,8 @@ function ChatSettings({
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
   // 动描（她 2026-09-09）：设一次就不动的那种，所以住这儿、不占顶栏。
   const [actDesc, setActDesc] = useState(!!settings.actDesc);
+  // 动描那一行用第几人称（她 2026-09-12 选的「就设置开关可以改」）
+  const [actPerson, setActPerson] = useState(settings.actPerson === "ta" ? "ta" : "me");
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
   const [wipeMemToo, setWipeMemToo] = useState(false);
@@ -14720,6 +14725,7 @@ function ChatSettings({
       toyEnabled,
       defaultOffline,
       actDesc,
+      actPerson,
       timeAwareMode
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
@@ -15034,7 +15040,23 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
         "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格会摆在 TA 这一轮气泡的前面、居中显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。那一行长按能编辑、能重 Roll，跟气泡一个待遇。你自己想写动作，照常在消息里用括号写就行，它留在你的气泡里。")),
     h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
+      h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+  // ⚠️只在动描开着时才摆：关着的时候这一格没有意义，摆出来是噪音。
+  //   而且这一条改的【只是显示】——状态卡里存的照旧是第一人称「我在厨房」，
+  //   那儿本来就是角色自己的卡（她 2026-09-12 选的就是这条路）。
+  actDesc ? h("div", { className: "flex items-center justify-between pt-4" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "那一行用第几人称"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
+        "默认是「我站在门外」。你自己写的旁白也是「我」，两个人都说「我」容易看岔——"
+        + "换成「他」就一眼分得出哪一行是谁的。只改显示，状态卡里那一格不动。")),
+    h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
+      [["me", "我"], ["ta", "他"]].map(function (o) {
+        const on = actPerson === o[0];
+        return h("button", { key: o[0], onClick: function () { setActPerson(o[0]); }, className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
+            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
+      }))) : null), show("know", { title: "长期记忆 · 上下文长度", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"

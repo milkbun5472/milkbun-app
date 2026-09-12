@@ -1756,6 +1756,27 @@ function sameActLine(a, b) {
   const x = norm(a), y = norm(b);
   return !!x && x === y;
 }
+// ── 动描那一行用第几人称（她 2026-09-12）────────────────────────────
+// 有人在 OOC 里提了「动作描写用第三人称指代角色」，系统当面回执
+// 〔已记为长期准则：…统一使用第三人称指代自己…〕，紧接着那一行还是
+// 「我站在门外，将拎着冷饮的手微微抬高递向你」——**说记下了，代码把它碾掉了**。
+// 碾它的是两处：ACT_MEANING 写着「必须用第一人称『我』写」，
+// 再加 normalizeAction 会把开头的 他/她/角色名 一律改写回「我」。
+// ⚠️所以这一层【不碰存的那一份】：状态卡里照旧是「我在厨房」——那儿第一人称才对，
+//   它是角色自己的卡。变的只有【聊天里那一行】怎么显示。她 2026-09-12 选的就是这条路。
+// ⚠️「我们」不动：那是他和她两个人，换成第三人称到底该是「他们」还是「你们」说不清，
+//   说不清的就别改——改错比不改难看。
+const ACT_ME = /我们/g;
+function actLineAs(text, ta) {
+  const who = String(ta || "").trim();
+  const s = String(text == null ? "" : text);
+  // ⚠️不另加 who === "我" 那一支：调用点要么传 charTa（他/她/TA）、要么压根不调，
+  //   而且真传了「我」也只是原样替换。加了是死代码，删掉一条测试都不红——试过了。
+  if (!who || !s) return s;
+  const HOLD = "\u0002";
+  return s.replace(ACT_ME, HOLD).replace(/我/g, who).split(HOLD).join("我们");
+}
+if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 function splitLongBubble(s, allowComma) {
   s = bubbleProtectQuote(bubbleProtectNum(String(s == null ? "" : s).trim()));
   if (!s) return [];
