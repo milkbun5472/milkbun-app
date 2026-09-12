@@ -1,0 +1,54 @@
+// 独立浏览器与虚构人物，不使用真人存档或模型接口。
+const { chromium } = require('playwright');
+const fs=require('node:fs'), http=require('node:http'), path=require('node:path'), assert=require('node:assert/strict');
+(async()=>{
+  const root=path.resolve(__dirname,'..');
+  const server=http.createServer((req,res)=>{
+    const file=path.join(root,decodeURIComponent(req.url.split('?')[0] === '/' ? '/index.html' : req.url.split('?')[0]));
+    if(!file.startsWith(root+'/')) {res.writeHead(403);return res.end();}
+    try {res.setHeader('Content-Type',file.endsWith('.js')?'application/javascript':file.endsWith('.html')?'text/html':'text/plain');res.end(fs.readFileSync(file));}
+    catch {res.writeHead(404);res.end();}
+  }).listen(0,'127.0.0.1');
+  await new Promise(r=>server.on('listening',r));
+  const browser=await chromium.launch({channel:'chrome',headless:true});
+  try {
+    for(const width of [320,390]) {
+      const ctx=await browser.newContext({viewport:{width,height:844},serviceWorkers:'block'});
+      const page=await ctx.newPage(), errors=[];
+      page.on('pageerror',e=>errors.push(e.message));
+      await page.route('https://**/*',r=>r.abort());
+      await page.goto('http://127.0.0.1:'+server.address().port);
+      await page.getByText('翻 开',{exact:true}).click();
+      await page.evaluate(()=>{
+        const host=document.createElement('div');host.id='timeline-qa';host.style='position:fixed;inset:0;z-index:99999;height:100dvh';document.body.append(host);
+        window.qaCalls=0;window.qaPrompt='';
+        ReactDOM.createRoot(host).render(h(RadioTimelineScreen,{
+          characters:[{id:'fixture',name:'测试角色',persona:'虚构测试人物'}],loreFor:()=>'',onBack:()=>{},onLegacy:()=>{},
+          onFragment:async()=>{window.qaCalls++;return {title:'测试片段',lines:[{kind:'narrator',text:'独听的场景'},{kind:'character',speaker:'测试角色',text:'共同听见的话'},{kind:'character',text:'还没播放的秘密'}]};},
+          onCompanion:async(b,q)=>{window.qaPrompt=RadioTimeline.companionPrompt(b,'fixture',q);return {say:'测试回应'};}
+        }));
+      });
+      await page.getByLabel('想听谁的时间线').selectOption('fixture');
+      await page.getByLabel('想探索的事／分岔条件').fill('测试分岔');
+      await page.getByRole('button',{name:'建立这条时间线',exact:true}).click();
+      assert.equal(await page.evaluate(()=>qaCalls),0);
+      await page.getByRole('button',{name:'接收这个频率的新片段',exact:true}).click();
+      await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
+      await page.getByLabel('邀请此刻的测试角色陪听').check();
+      await page.getByLabel('暂停，和他说一句').fill('你觉得呢');
+      assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled());
+      await page.getByRole('button',{name:'继续下一句',exact:true}).click();
+      await page.getByRole('button',{name:'问问他',exact:true}).click();
+      await page.getByText('测试角色：测试回应',{exact:true}).waitFor();
+      const prompt=await page.evaluate(()=>qaPrompt);
+      assert.ok(prompt.includes('共同听见的话'));assert.ok(!prompt.includes('独听的场景'));assert.ok(!prompt.includes('还没播放的秘密'));
+      assert.equal(await page.getByText('还没播放的秘密',{exact:true}).count(),0);
+      assert.equal(await page.evaluate(()=>qaCalls),1);
+      const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.lastElementChild.scrollHeight,view:el.lastElementChild.clientHeight}));
+      assert.ok(layout.scroll<=width,JSON.stringify(layout));assert.ok(layout.body>layout.view);
+      await page.screenshot({path:'/tmp/lisa-timeline-'+width+'.png'});
+      assert.deepEqual(errors,[]);
+      await ctx.close();console.log(width+'px: 建线、生成、独听/陪听隔离、滚动通过');
+    }
+  } finally {await browser.close();server.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

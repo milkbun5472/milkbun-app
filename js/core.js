@@ -552,7 +552,7 @@ const SCREEN_NOTE = {
   messages: "聊天 / 通讯录 / 朋友圈 / 我 四栏都算"
 };
 const SCREEN_ZH = {
-  home: "主屏", messages: "消息", radio: "电台",
+  home: "主屏", messages: "消息", radio: "电台", radioLegacy: "旧电台",
   thread: "单聊", gthread: "群聊",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
   phone: "查手机", shop: "购物", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",

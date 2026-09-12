@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.38";
+const APP_VERSION = "v67.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20379,8 +20379,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenComments: genDiaryCommentsFor,
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
-  else if (screen === "radio") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
+  else if (screen === "radio") body = h(window.RadioTimelineScreen, {
+    characters: liveChars,
     onBack: goHome,
+    onLegacy: () => setScreen("radioLegacy"),
+    loreFor: (c, topic) => c ? loreForContext("creative", [c.id], topic) : "",
+    // 故事是平行沙盒：全文角色卡/关联世界书，不读取当前心情、关系或主线私聊。
+    onFragment: (branch, era) => radioAsk(narrativeCore({ intimate: true }) + "\n\n" + window.RadioTimeline.storyPrompt(branch, era),
+      '{"title":"片段标题","lines":[{"kind":"narrator或character","speaker":"说话者姓名，旁白留空","text":"这一句正文"}]}'),
+    // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
+    onCompanion: (branch, question) => {
+      const c = liveChars.find(x => x.id === branch.charId);
+      if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
+      return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question), '{"say":"陪听者此刻的回应"}');
+    }
+  });
+  else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
+    onBack: () => setScreen("radio"),
     onBuild: genRadioWorld,
     onTune: genRadioDay,
     onDrift: genRadioDrift,
@@ -20724,7 +20739,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggle: togglePlay,
     onNext: () => stepSong(1),
     onClose: stopPlayer
-  }) : null, (window.RadioUI && screen !== "radio") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radio") }) : null, (() => {
+  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;

@@ -697,7 +697,7 @@
     phone: "phone", shop: "shop", carry: "carry", mycloset: "closet", dwell: "dwell",
     cwallet: "wallet", wallet: "wallet", kincard: "wallet", ledger: "ledger",
     calendar: "calendar", memo: "memo", map: "map",
-    listen: "listen", musiccard: "listen", radio: "radio",
+    listen: "listen", musiccard: "listen", radio: "radio", radioLegacy: "radio_legacy",
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon",
     study: "study", fanfic: "fanfic", read: "read", weekly: "weekly", debate: "debate",
     dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", pomodoro: "pomodoro",
