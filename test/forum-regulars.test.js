@@ -18,7 +18,7 @@ test("论坛常驻网友使用稳定 id，并且匿名身份不与公开身份�
 test("发帖、评论和楼中楼都按 npcId 回填稳定公开身份", () => {
   assert.match(app, /authorId: npc\.id, authorType: "npc"/);
   assert.match(app, /authorName: npc\.name, authorHandle: npc\.handle/);
-  assert.match(app, /同一 npcId 必须保持对应习惯/);
+  assert.match(app, /同一 npcId 要保持它那条括号里写的习惯/, "点名了哪位，就得照那位的 voice 说话");
   assert.match(app, /schemaHint: "\{\\"comments\\":\[\{\\"npcId\\"/);
   assert.match(app, /const rn = rc \? null : forumPublicNpcOf\(r,/);
 });

@@ -16,22 +16,26 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.35";
+const APP_VERSION = "v67.36";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
+  // ⚠️boards 别再让哪个吧只剩两三个人（她 2026-09-12：「说话调调也都一样」）：
+  //   一帖十几楼，摊在两三个熟面孔身上，谁写都是一个调调。
+  //   「脑洞吧」原来只有摸鱼办主任和沙发不是我的两个人，「兴趣吧」只有三个。
+  //   放宽的是【这几位本来就说得上话的吧】，没有新编人——人少才是那个病。
   { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人" },
-  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊" },
-  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准" },
-  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话" },
+  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊" },
+  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准" },
+  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话" },
   { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物" },
-  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧"], voice: "先质疑再给建议，有边界感，不爱跟风" },
+  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风" },
   { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素" },
-  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜" },
+  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜" },
   { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛" },
-  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立" },
+  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立" },
   { id: "npc_anon_thirdcat", name: "三楼的猫", handle: "third_floor_cat", boards: ["匿名吧"], voice: "谨慎克制，只谈感受不猜身份" },
   { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
   { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
@@ -14418,25 +14422,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const forumNpcRule = board => {
     const ties = forumNpcRelationLines(board), userTies = forumPublicTieLines(board);
-    return "\n【论坛人口】约六成发言来自固定熟面孔（填 npcId）：" + forumNpcRoster(board) + "。同一 npcId 必须保持对应习惯；其余约四成可以是只在这一帖出现的普通路人（不填 npcId，改填 guestName、guestHandle，名字自然、不套用常驻名单）。同一批别让同一个熟面孔连续刷屏。"
+    // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
+    //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
+    //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
+    return "\n【论坛人口】一个帖子底下**大半是只在这一帖出现的路人**：填 guestName、guestHandle，名字自然、别照着常驻名单的路数起。"
+      + "路人之间也要各说各的——一个人一个说话方式、一种在意的东西，别十条都是同一种网友腔。"
+      + "\n剩下**大约三分之一、最多不过一半**是常驻熟面孔；要谁说话就把谁的 npcId 写出来：" + forumNpcRoster(board)
+      + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
+      + "\n⚠️**没写 npcId 的一律按路人落账**——所以想让某个熟面孔开口，npcId 必须写出来，光写名字不算。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
       + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
   };
-  const forumNpcOf = (x, board, salt) => {
+  // 模型【点名】了才算熟面孔：npcId，或者 handle／名字对得上名单。点不上就返回 null。
+  const forumNpcNamed = (x, board) => {
     const pool = forumNpcPool(board);
     const wanted = String((x && (x.npcId || x.npc_id)) || "");
     const handle = String((x && x.handle) || "").replace(/^@/, "").toLowerCase();
     const name = String((x && x.authorName) || "");
-    return pool.find(n => n.id === wanted) || pool.find(n => n.handle.toLowerCase() === handle) || pool.find(n => n.name === name) || pool[forumHash(String((x && (x.content || x.title)) || "") + ":" + salt) % pool.length];
+    // 名单里每个人的 handle 和 name 都非空，所以空串自然谁都对不上——
+    // 不用再加一层「空的就别比」，那层永远走不到（test 那头钉着这个前提）
+    return pool.find(n => n.id === wanted)
+      || pool.find(n => n.handle.toLowerCase() === handle)
+      || pool.find(n => n.name === name)
+      || null;
   };
   const forumGuestOf = (x, salt) => {
     const seed = String((x && (x.guestName || x.authorName || x.content || x.title)) || "路过的人") + ":" + salt;
     const hh = forumHash(seed);
-    const name = String((x && (x.guestName || x.authorName)) || ("路过的" + ["夜猫", "云", "纸片", "柚子", "螺丝", "海风"][hh % 6]));
+    // ⚠️模型没起名字时才走这一条。熟面孔不再兜底之后掉进这儿的会变多，
+    //   六个词会撞成新的一种「都一样」，所以名字骨架和词都摊开一点。
+    const GN = ["夜猫", "云", "纸片", "柚子", "螺丝", "海风", "旧毛衣", "半块糖", "南边", "铅笔头", "空调外机", "第七排",
+      "凉白开", "过期优惠券", "楼梯间", "橘子皮", "风扇叶", "站台", "蓝布口袋", "碎冰"];
+    const GP = ["路过的", "楼上的", "隔壁", "刚看到的", "蹲了很久的", "顺手点进来的"];
+    const name = String((x && (x.guestName || x.authorName)) || (GP[(hh >> 5) % GP.length] + GN[hh % GN.length]));
     const handle = String((x && (x.guestHandle || x.handle)) || ("passer_" + hh.toString(36))).replace(/^@/, "");
     return { id: "npc_guest_" + hh.toString(36), name, handle };
   };
-  const forumPublicNpcOf = (x, board, salt) => (x && (x.guestName || x.guestHandle) && !(x.npcId || x.npc_id)) ? forumGuestOf(x, salt) : forumNpcOf(x, board, salt);
+  // 她 2026-09-12：「论坛现在太多评论都是常驻 npc 了好无聊，说话调调也都一样」。
+  // ⚠️病根在这一行，而且是【代码把它变成这样的】，不是提示词没写清：
+  //   原来的判据是「明确填了 guestName/guestHandle 才算路人」，其余一律走 forumNpcOf——
+  //   而那一支最后一步是 pool[forumHash(...) % pool.length]：**模型随手写的一条路人，
+  //   代码会硬指派给一个熟面孔**。于是一帖十几条里大半顶着熟面孔的名字。
+  //   「调调都一样」是同一件事的另一半：那些话本来就是按普通网友写的，
+  //   只是被盖了个熟面孔的戳——名字是熟面孔，声音不是。
+  // 现在反过来：熟面孔必须是模型点名的，点不上就是路人。
+  //   （规则只降概率，代码才保证——这一处原来保证的恰恰是坏结果。）
+  const forumPublicNpcOf = (x, board, salt) => forumNpcNamed(x, board) || forumGuestOf(x, salt);
   const forumCharIdentity = (char, mode, board) => {
     const m = charForumMeta(char);
     if (board === "匿名吧" || mode === "anonymous") return { authorType: "character_anon", authorName: "匿名用户", authorHandle: "anonymous" };
