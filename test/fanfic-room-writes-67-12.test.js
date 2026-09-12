@@ -30,10 +30,10 @@ test("商量好的照办，但分歧按他的来——这一条是她要的那�
   assert.match(out, /这是【你们商量出来的走向】，不是素材：上面那些话\*\*一句都不许出现在正文里\*\*/);
   assert.match(out, /也不许把这段对话本身写成情节/);
   // ⚠️分歧按他的来，而且要当面说一句为什么
-  assert.match(out, /\*\*但你要是不同意，就按你自己想的写\*\*/);
+  assert.match(out, /仍有分歧的地方由你这个执笔人作最后选择/);
   assert.match(out, /你是写这一章的人，不是替她记录的人/);
   assert.match(out, /在 penNote 里当面跟她说一句为什么/);
-  assert.match(out, /「不行我觉得这样比较合理」那种口气，是沈屿白会说的话，不是道歉、不是请示/);
+  assert.match(out, /用沈屿白自己的口气说明取舍，不是道歉、不是请示/);
   assert.match(out, /照着写了就不用提这件事/, "不给出口的话，每一章都要解释一遍自己为什么听话");
   // 没商量过就一个字都不发
   assert.equal(box.f("", "小美", "沈屿白"), "");
@@ -129,7 +129,7 @@ test("点了才花那一枪，而且写的是这间房的这个人", () => {
   assert.match(h, /endLane\("ficroom:" \+ cid\);/);
   // 落章：记上是谁写的（跟请枪手那条路同一个形状）
   assert.match(h, /next\.chapters = \(x\.chapters \|\| \[\]\)\.concat\(\[Object\.assign\(\{\}, ch, \{ byAuthor: nm, byCharId: cid \}\)\]\);/);
-  assert.match(h, /K\.saveFics\(fics\);/);
+  assert.match(h, /if \(!K\.saveFics\(fics\)\) throw new Error/);
   // 推卡回房：只放开头两百字 + 他那句话
   assert.match(h, /kind: "ficdone", ficId: f\.id/);
   assert.match(h, /say: String\(ch\.penNote \|\| ""\)\.trim\(\)\.slice\(0, 300\)/);

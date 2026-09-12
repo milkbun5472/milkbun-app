@@ -818,6 +818,7 @@
   function buildGenSystem(tab, cpChars, userName, worldbook, opts) {
     opts = opts || {};
     const parts = [];
+    const byC = opts.byChar && opts.byChar.id ? opts.byChar : null;
     // 叙事底座（v54.80）：以前这儿只有 ANTI_CLICHE + CHARCARD_RULE，缺了线下那套
     // 【自然生成准则】和【反陈词滥调】——明喻限额、别把情绪列成清单、叙述者不替读者
     // 定情绪分量这几条同人文一条都没吃到。register:false 是因为纯写故事时用户不在场。
@@ -826,7 +827,8 @@
     parts.push(FANFIC_GOOD_EXAMPLES);
     parts.push(FANFIC_ORGANIC_FORM);
     parts.push(
-      "【任务】你是一位很会写的同人文作者。写【纯线下叙事体】短篇同人文（第三人称或第二人称皆可，不是聊天、不是剧本，是成篇的散文小说）。" +
+      (byC ? "【任务】你是「" + (byC.remark || byC.name) + "」本人，正在执笔写这篇故事。写作经验、审美和表达习惯由你的人设决定。"
+        : "【任务】你是一位很会写的同人文作者。") + "写【纯线下叙事体】同人文（叙述人称由执笔人选择，不是聊天、不是剧本，是成篇的散文小说）。" +
       "每篇自成一体，有真正发生或改变了什么的场景，落在具体细节与真实情绪上；结构服从本篇经验，不为完整而硬凑统一的起承转合。");
     // 世界观 = world book / 设定层。推荐(mixed)版：给出一整批世界观供每篇随机取
     if (tab.mixed && Array.isArray(opts.worldPool) && opts.worldPool.length) {
@@ -836,16 +838,11 @@
       parts.push("【本版世界观（设定层 · world book）：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     }
     parts.push(INTIMACY_WORLDNOTE);
-    if (opts.style && opts.style.trim()) {
+    if (!byC && opts.style && opts.style.trim()) {
       const adaptedStyle = fanficStylePrompt(opts.style);
-      // ⚠️这一章的笔在她自己人手上时，这一段得换个口气：它是【本子的默认调子】，不是他的笔。
-      //   而且**不发 STYLE_DEEP_IMITATION**——那一份是「深度模仿另一个人的笔」，
-      //   正是它把「换了个人写」这件事抹得一干二净（她 2026-09-11：「看不出来是他的作品」）。
-      const byC = !!(opts.byChar && opts.byChar.id);
-      parts.push("【预设文风（" + (byC
-        ? "这个本子的默认调子——但这一章的笔不在圈子里的太太手上，冲突时以执笔的那个人为准"
-        : "作者本次的写作风格要求，优先满足") + "）】\n" + adaptedStyle
-        + ((byC || isJinyudengStyle(opts.style)) ? "" : "\n\n" + STYLE_DEEP_IMITATION));
+      // 角色执笔不套作者文风；同一套预设加上“以角色为准”仍会拉平他的写法。
+      parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + adaptedStyle
+        + (isJinyudengStyle(opts.style) ? "" : "\n\n" + STYLE_DEEP_IMITATION));
     }
     if (worldbook && worldbook.trim()) {
       if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
@@ -853,6 +850,10 @@
     }
     parts.push(cpBlock(cpChars, opts));
     if (opts.chatMaterial && opts.chatMaterial.trim()) parts.push(opts.chatMaterial.trim());
+    if (byC && !(cpChars || []).some(c => c.id === byC.id)) {
+      const writerSpeech = chatMaterialFor([byC]);
+      if (writerSpeech) parts.push(writerSpeech);
+    }
     return parts.join("\n\n");
   }
 
@@ -1264,26 +1265,20 @@
       + "别演一个「吃醋的人」，也别克制到通篇看不出是你写的。你本来就无所谓的，那就真的无所谓。");
     return "【这篇文跟你的关系】\n" + rows.join("\n") + "\n";
   }
-  // 他不是作家，所以他写出来的东西会有他自己的毛病。
-  // ⚠️两条轴，不是一张「烂文清单」。而且第一条轴上留着「他是真的会写」那一格——
-  //   不是每个角色都写得差，人设里真会写的人就该写得好。
+  // 掷的是这一章的形式重心，不是角色的能力、职业或立场。
   const WRITER_AXES = [
-    { key: "craft", zh: "他的手艺停在哪儿", opts: [
-      "只写得动对话，一到叙述就两句带过",
-      "场面铺得挺好，可人物一开口全是他自己的语气",
-      "写着写着从故事滑进他自己的心里话，收不回来",
-      "一件小事能写三页，正事一笔带过",
-      "太用力：每一段都要收一个金句",
-      "偏偏在最该写的地方停住",
-      "所有人说话都一个调子，分不出谁是谁",
-      "他是真的会写——这一章不比那些太太差"
+    { key: "craft", zh: "本章的叙述重心", opts: [
+      "贴近一个人的有限感知",
+      "拉开距离，观察人物之间的关系",
+      "让行动和对话承载主要信息",
+      "让内在感受与外部事件交错",
+      "由执笔人自行决定叙述距离和组织方式"
     ] },
-    { key: "care", zh: "他写这篇的时候最在意什么", opts: [
-      "把某个人写得好看一点",
-      "把某件事说清楚——他觉得前面几章写错了",
-      "让某个人下不来台",
-      "让它赶紧走到那一步",
-      "就想知道接下来会怎样，写着玩"
+    { key: "care", zh: "本章的选材重心", opts: [
+      "聚焦一个选择怎样发生",
+      "聚焦事件留下的后果",
+      "聚焦人物注意到与忽略的差别",
+      "由执笔人决定什么值得详写、什么留白"
     ] }
   ];
   function rollWriterAxes() {
@@ -1291,36 +1286,21 @@
     // 比电台松一点：这两条轴少，整组还回去的话就什么分寸都没了
     return Axes.roll(WRITER_AXES, parts, { allFree: 0.04, skip: 0.10, free: 0.18 });
   }
-  // ⚠️文风那几层会把「这一章是他写的」整个碾平（她 2026-09-11：
-  //   「文风也和原来的没有不一样，看不出来是他的作品」）。
-  //   数一数就明白：【预设文风】那一段写着「优先满足」、后面还跟着一整份 STYLE_DEEP_IMITATION
-  //   （深度模仿另一个人的笔），末尾 fanficStyleTail 又把同一件事再要一遍——三层，
-  //   而 charWriterBlock 只有一段，还压在正中间。
-  //   这就是隔壁那条已经写明白的规律（施工规则/four-surfaces-same-context.md）：
-  //   两条指令打架时，模型留下的是**最后读到、最像指令**的那一段。
-  //   所以这一层必须站到最后去说话。
-  // ⚠️反陈词滥调那条禁令不跟着一起让位：让位的是文风，禁令还是禁令。
+  // 角色执笔不发送作者预设/模仿尾块。这里落实他的写作提纲，叙事底座照旧共用。
   function charVoiceTail(char, style) {
     const name = (char && (char.remark || char.name)) || "他";
     return "\n\n【最后一件事：这一章的笔在「" + name + "」手上】\n"
-      + (String(style || "").trim()
-        ? "· 上面那套文风预设是【这个本子的默认调子】，不是他的笔。两边打架时**以他这个人为准**："
-          + "他不会写的句子，再合那套调子也不许写。\n" : "")
-      + "· 他怎么写，是从他这个人长出来的：他会用哪些词、绝不会用哪些词；讲一件事是从头讲还是先甩结果；"
-      + "在什么地方肯多写两笔、什么地方一句就带过去；他不好意思写的那种东西，他就是会绕开。\n"
-      + "· ⚠️**前几章是别人写的，你接的是【这个故事】，不是那个人的笔迹。**"
-      + "设定、前情、人物一个字不许改；但**写法不必跟着前几章走**——"
-      + "读起来跟上一章一个味，才是真写错了。\n"
-      + "· ⚠️**一眼看不出是他写的，这一章就白写了。**她要的就是「这是他写的」这件事——"
-      + "写得跟前面几章一个味儿，等于根本没换人。\n"
-      + "· 但不许用旁白把这件事说出来（「他笔下的……」「他到底不是写文的人」那种一句都不许有），"
-      + "也不许让他在正文里现身评论。**是文字本身像他，不是有人在旁边告诉读者这像他。**\n";
+      + "· 你接的是【这个故事】，不是上一位作者的笔迹。已发生的事实接住，视角、节奏、选材和未来的取舍由你落笔。\n"
+      + "· writerBrief 里的笔法、切入点与立场落实在正文的具体段落里；仅把交稿留言说得像你，不算换了执笔人。\n"
+      + "· 是文字本身像你，不是旁白向读者解释这像你。对作品的偏爱、不认同与犹疑，通过详略和选择呈现。\n";
   }
-  function charWriterBlock(char, fic, rel, rolled, nameOf, userName) {
+  function charWriterBlock(char, fic, rel, rolled, nameOf, userName, continuing) {
     const st = stanceFor(char, fic, rel);
     const name = (char && (char.remark || char.name)) || "他";
+    const ownChapters = ((fic && fic.chapters) || []).filter(c => c.byCharId === char.id && c.writerBrief);
+    const ownBrief = ownChapters.length ? ownChapters[ownChapters.length - 1].writerBrief : null;
     return "\n【这一章不是圈子里的太太写的，是「" + name + "」写的】\n"
-      + "他不写文，也不混同人圈。是她把这篇塞给他，让他接着往下写的。\n"
+      + "她把这一章交给你写。是否写过文、是否混圈、擅长什么，都以你的角色卡为准，未知的经历不补成履历。\n"
       + "⚠️你就是他本人在写，不是「一位作者在模仿他」：他的知识、他的口头禅、他在意什么、"
       + "他会避开什么，全部照他的人设来。\n"
       // ⚠️「照他的人设来」得手上真有那张卡（她 2026-09-11：「看不出来是他的作品」）。
@@ -1329,6 +1309,8 @@
       //   所以只在 cpBlock 没发过的那几种站位上补一份，不重复发。
       + ((st.kind === STANCE.SELF_USER || st.kind === STANCE.SELF_OTHER || !personaOf(char)) ? ""
         : "【执笔的这个人是谁（他不在这篇的 CP 里，所以这张卡在这儿给你）】\n" + personaOf(char) + "\n")
+      + "执笔人与故事中的人物是两个位置：角色卡里的真实职业、教育与经历用于决定你的笔；本篇的架空身份只属于文中人物，不替换执笔人的知识和审美。\n"
+      + (ownBrief && ownBrief.voice ? "【你上一章用过的笔法】" + String(ownBrief.voice) + "。这是已有作品的连续性，不是另一位作者的文风；本章如需变化，由新场景和讨论推动。\n" : "")
       + stanceFacts(char, fic, rel, st, nameOf, userName)
       // ⚠️她 2026-09-11：「我让王爷写他和皇帝，他很容易就接受了这对 cp」。
       //   上面 stanceFacts 只把【事实】摆出来（这篇把你和某某配成了一对），
@@ -1349,14 +1331,16 @@
           + "⚠️正文里不许出现你对这件事的说明、辩解或吐槽"
           + "（「他堂堂……怎么会」那种一句都不许有），也不许让你跳出来评论。**让它留在字里。**\n";
       })() : "")
-      + Axes.text(rolled, {
-        on: "【他不是作家，所以这一章会有他自己的毛病】今天这一章上：",
-        off: "【他不是作家】这一章他的毛病长什么样，你照他的人设自己想——别挑一个最常见的写法。"
-      })
-      + "\n⚠️不是让你写「烂文」：不许错别字、不许故意幼稚、不许写成戏仿。"
-      + "**他是认真在写的，只是他不是干这行的。**毛病要从他这个人长出来——"
-      + "话少的人写坏的方式，和话痨的不一样。\n"
-      + "⚠️正文里不许出现他对读者的解释、吐槽或者旁白。他写的是故事，不是给她的留言。\n";
+      + Axes.text(rolled, { on: "【本章形式上的尝试】仅作备选；与人设、已有笔法或本章讨论不合时，由执笔人另选：", off: "" })
+      + "\n【执笔取舍】从你这个人出发，先确定本章的四件事：\n"
+      + "· 笔法：你的阅读经验、表达习惯怎样落成句长、用词、叙述距离和留白；口头禅不是文风的全部。\n"
+      + "· 切入点：接住同一处现场，你先注意谁、先看见哪种细节，愿意把篇幅花在哪里。\n"
+      + "· 立场：你怎么看这篇的人物、配对与冲突；已商量过的态度沿用，未表态的由你的价值观判断。\n"
+      + "· 落笔：把这种立场落实为这一章的视角、事件选择和叙述轻重，已发生的事实保留，未来走向由你接着写。\n"
+      + (continuing ? "这次是在补完同一章，沿用已有正文和写作提纲的选择，直接写续段。"
+        : "将这些具体选择写进 writerBrief，再用它写正文；它是本章的写作提纲，不是给你的性格贴标签。")
+      + "角色卡未交代的写作习惯由你据已有性格作本章选择，不把它宣布成新增人设。\n"
+      + "正文呈现故事本身；执笔人的交稿留言放 penNote，原作者的感想放 authorNote。\n";
   }
 
   // ── 圈子：谁跟谁有过什么（她 2026-09-11 的④）────────────────────────
@@ -1669,13 +1653,13 @@
     const t2 = String(talk || "").trim();
     if (!t2) return "";
     return "\n【你们在房里商量过这一章】以下是" + (meName || "她") + "和你刚才聊的（新的在后面）：\n"
-      + t2.slice(0, 1200)
+      + t2
       + "\n⚠️这是【你们商量出来的走向】，不是素材：上面那些话**一句都不许出现在正文里**，"
       + "也不许把这段对话本身写成情节。\n"
-      + "⚠️商量好的就照着写。**但你要是不同意，就按你自己想的写**——"
+      + "已达成的决定照着写；仍有分歧的地方由你这个执笔人作最后选择。后面明确改过的决定替代前面的版本，闲聊和未采纳的提议不当成定稿。"
       + "你是写这一章的人，不是替她记录的人。\n"
       + "⚠️真没照她说的写，就在 penNote 里当面跟她说一句为什么"
-      + "（「不行我觉得这样比较合理」那种口气，是" + (heName || "你") + "会说的话，不是道歉、不是请示）。"
+      + "，用" + (heName || "你") + "自己的口气说明取舍，不是道歉、不是请示。"
       + "照着写了就不用提这件事。\n";
   }
 
@@ -1806,7 +1790,8 @@
       //   她 2026-09-11 报「请枪手最后没有原作者的感想」——authorNote 原来排在最后一个，
       //   正文一长、尾巴被切掉，这一栏就第一个没了。挪到正文和锚点后面、设定卡那几栏前面：
       //   既是「刚读完就说一句」的自然顺序，也让它活过截断。
-      "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
+      "{" + (byChar ? "\"writerBrief\":{\"voice\":\"本章实际采用的笔法\",\"angle\":\"本章切入点与叙述视角\",\"stance\":\"执笔人对这篇的立场\",\"choice\":\"本章如何落实讨论和分歧，各项简短具体\"}," : "")
+      + "\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，**至少 " + minWords + " 字**，分段用\\n\\n）\","
       + "\"endHook\":\"本章新的结尾锚点，供再下一章接续\","
       + ((ghost || grabbed) ? "\"authorNote\":\"原作者看完这一章，在评论区底下留的那一句话\"," : "")
       // ⚠️authorNote 是【原作者】的话，不是执笔人的。可 roomTalkBlock 一直叫他
@@ -1818,7 +1803,7 @@
       + "\"seed\":\"这一章新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
       + "\"paid\":[\"这一章回收掉的伏笔，把上面那一条原样抄回来；没收就空数组\"]}\n"
       + ((ghost || grabbed) ? authorNoteAsk(fic, ghost ? penName : "", !!opts.quitting) + "\n" : "") + BIBLE_WHAT +
-      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
+      (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       // ⚠️最后一句话归执笔的那个人（病历见 charVoiceTail 上面那段）。
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const userMsg = "续写《" + fic.title + "》的下一章，至少 " + minWords + " 字。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
@@ -1847,13 +1832,14 @@
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }],
-        { maxTokens: Math.min(FIC_TOKEN_MAX * 2, Math.max(perFic, minWords * 2) + 12000), timeout: 300000 });
+        { maxTokens: 65535, timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
         facts: Array.isArray(d.facts) ? d.facts : [], seed: String(d.seed || "").trim(), paid: Array.isArray(d.paid) ? d.paid : [],
         authorNote: String(d.authorNote || "").trim().slice(0, 300),
         penNote: String(d.penNote || "").trim().slice(0, 300),
+        writerBrief: byChar && d.writerBrief && typeof d.writerBrief === "object" ? d.writerBrief : null,
         cot: sp.cot, cotRequested: !!cotT };
       return salvageChapter(sp.clean, sp.cot);
     }
@@ -1878,10 +1864,14 @@
     if (!have) throw new Error("这一章还没有正文");
     const minWords = minCharsFor({ perFic: opts.perFic, minChars: opts.minChars });
     const missing = shortBy(have, minWords);
-    const penBy = (opts.author && authorName(opts.author)) ? opts.author : findAuthor(ch.byAuthor || fic.author);
+    const byChar = opts.byChar && opts.byChar.id === ch.byCharId ? opts.byChar : null;
+    if (ch.byCharId && !byChar) throw new Error("找不到这一章的执笔角色，请先恢复角色卡再接着写");
+    const penBy = byChar ? null : ((opts.author && authorName(opts.author)) ? opts.author : findAuthor(ch.byAuthor || fic.author));
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, ficOpts(fic, opts)) + "\n\n" +
       "【当前任务：把一章没写完的正文接着写完】\n" +
       (penBy && authorVoiceLines(penBy) ? "【这一章的笔在谁手上】笔名「" + authorName(penBy) + "」\n" + authorVoiceLines(penBy) : "") +
+      (byChar ? charWriterBlock(byChar, fic, opts.charRel, null, opts.nameOf, userName, true)
+        + (ch.writerBrief ? "【这一章已经选定的笔法与立场，接着落实，不重新换人】\n" + JSON.stringify(ch.writerBrief) + "\n" : "") : "") +
       "篇名《" + fic.title + "》第 " + (i + 1) + " 章。\n" +
       bibleBlock(fic) +
       "【已经写出来的部分 · 结尾原文】\n……" + have.slice(-900) + "\n" +
@@ -1895,9 +1885,10 @@
       + "\"facts\":[\"这一段新确立的事实，0-3 条，没有就空数组\"],"
       + "\"seed\":\"这一段新埋下、还没回收的那样东西，一句话；没埋就空字符串\","
       + "\"paid\":[\"这一段回收掉的伏笔，原样抄回来；没收就空数组\"]}\n" + BIBLE_WHAT +
-      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
+      (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
+      + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const raw = await callAI(active, sys, [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
-      { maxTokens: Math.min(FIC_TOKEN_MAX * 2, Math.max(clampPerFic(opts.perFic), minWords * 2) + 12000), timeout: 300000 });
+      { maxTokens: 65535, timeout: 300000 });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
     if (!add) {
@@ -3484,7 +3475,11 @@
       if (busyMore) return;
       setBusyMore(true);
       try {
-        const add = await window.Fanfic.genChapterMore(props.active, f, props.tab, chars, props.userName, storyLore("续章"), genOpts(), i);
+        const writerId = ((f.chapters || [])[i] || {}).byCharId;
+        const byChar = (props.allChars || props.characters || []).find(c => c.id === writerId);
+        const add = await window.Fanfic.genChapterMore(props.active, f, props.tab, chars, props.userName, storyLore("续章"),
+          Object.assign(genOpts(), { byChar: byChar || null, charRel: byChar && props.relOf ? props.relOf(byChar.id) : null,
+            nameOf: id => { const c = (props.allChars || props.characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "那个人"; } }), i);
         props.onUpdate(f.id, function (fic) {
           const chs = (fic.chapters || []).slice();
           const cur = chs[i]; if (!cur) return fic;

@@ -7358,6 +7358,7 @@ function ChatThread({
   onOpenGameInvite,
   onOpenFicInvite,
   onOpenFicChapter,
+  ficWriting,
   onSendTransfer,
   onRespondTransfer,
   onOpenMoments,
@@ -7405,6 +7406,8 @@ function ChatThread({
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [ficPickOpen, setFicPickOpen] = useState(false);   // 「换书」那张单子展开没有
+  const pendingFic = room && !room.main && room.actions && room.actions.fanfic && window.ChatRooms
+    ? window.ChatRooms.pendingFicInvite(messages, roomFicId) : null;
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -8215,7 +8218,20 @@ function ChatThread({
       background: t.ink,
       borderRadius: 6
     }
-  }, "转发"))) : h(Fragment, null, quoted && /*#__PURE__*/React.createElement("div", {
+  }, "转发"))) : h(Fragment, null,
+  pendingFic && onOpenFicInvite ? h("div", {
+    "data-fic-write-shortcut": true, className: "shrink-0",
+    style: { background: t.bg2, padding: "5px 12px 0", borderTop: "1px solid " + t.line }
+  }, h("button", {
+    onClick: () => onOpenFicInvite(pendingFic), disabled: !!ficWriting || !!sending,
+    className: "active:opacity-70 disabled:opacity-50",
+    style: { display: "flex", alignItems: "center", gap: 8, maxWidth: "100%", minHeight: 34,
+      padding: "6px 10px", borderRadius: 8, border: "1px solid " + t.line,
+      background: t.bg, color: t.accent, fontFamily: F_BODY, fontSize: 12 }
+  }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } },
+    "《" + (pendingFic.subject || "这一篇") + "》"),
+    h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : "商量好了，让他写"))) : null,
+  quoted && /*#__PURE__*/React.createElement("div", {
     className: "shrink-0",
     style: { background: t.bg2, borderTop: `1px solid ${t.line}`, padding: "6px 12px 0", display: "flex", alignItems: "center" }
   }, h("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent } },
@@ -8226,7 +8242,7 @@ function ChatThread({
     "data-wk": "composer",
     style: {
       background: t.bg2,
-      borderTop: quoted ? "none" : `1px solid ${t.line}`,
+      borderTop: quoted || pendingFic ? "none" : `1px solid ${t.line}`,
       paddingBottom: COMPOSER_PAD_BOTTOM
     }
   }, h("button", {

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.44";
+const APP_VERSION = "v67.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7270,7 +7270,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️第五个参数是【哪一本】（她 2026-09-12 当场问的那一句）：
   //   一间房放了两本书时，这儿原来取的是「最近 14 条」，不分书——
   //   聊完 b 再让他写 a 的下一章，他手上那份「我们说好的」会是 b 的。
-  //   现在按 ficTrack 判给谁就归谁：换书之前聊 a 的那几句照样还在 a 名下，
+  //   现在按 ficTrack 判给谁就归谁，指定书时不再按条数或单条字数截断：
+  //   换书之前聊 a 的那几句照样还在 a 名下，
   //   中间插进来的那本 b 一句都不会串过去。
   const roomTalkOf = (chatKey, charName, uName, n, ficId) => {
     const K = window.ChatRooms;
@@ -7292,9 +7293,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (ficId && i < from) return false;
       if (track && track[i] !== ficId) return false;
       return K ? !!K.visibleText(m) : !!(m.content && (m.role === "user" || m.role === "assistant"));
-    }).slice(-(Number(n) || 14));
-    return msgs.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
-      String((K ? K.visibleText(m) : m.content) || "").replace(/\s+/g, " ").slice(0, 160)).join("\n");
+    });
+    // 一章的讨论要完整交给执笔人；n 只保留给未指定书的旧调用。
+    const picked = ficId ? msgs : msgs.slice(-(Number(n) || 14));
+    return picked.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
+      String((K ? K.visibleText(m) : m.content) || "").trim()).join("\n");
   };
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
@@ -19428,6 +19431,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setRoomFicTick(v => v + 1);   // 这一格存在 localStorage 里，得推一下才重画
       toast("现在在聊《" + String(title || "").slice(0, 20) + "》");
     },
+    ficWriting: !!busyLanes["ficroom:" + activeChar.id],
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
@@ -19443,12 +19447,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 一起写：她点了这张卡，他才**真的动笔**（这一枪的钱花在这儿，不在他开口那一下）。
     // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让他写谁再写」。
-    // ⚠️走向按你们在这间房里商量的来；**分歧按他的来**，那一句写在 authorNote 里。
+    // ⚠️走向按你们在这间房里商量的来；分歧按他的来，交稿说明写在 penNote 里。
     onOpenFicInvite: async m => {
       const K = window.Fanfic;
       if (!K || !activeChar) return;
       const cid = activeChar.id;
       const key = window.ChatRooms ? window.ChatRooms.chatKey(cid, activeRoomId) : cid;
+      if (window.ChatRooms && !window.ChatRooms.pendingFicInvite(chatsRef.current[key] || [], m.ficId)) {
+        toast("这一轮已经写过了，继续商量下一章吧"); return;
+      }
       const f = (K.loadFics() || []).filter(x => x && x.id === String(m.ficId || ""))[0];
       if (!f) { toast("那一篇找不到了"); return; }
       const p = bgActiveRef.current || active;
@@ -19487,7 +19494,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           next.updatedAt = Date.now();
           return next;
         });
-        K.saveFics(fics);
+        if (!K.saveFics(fics)) throw new Error("这一章没能保存，待写入口保留着；请检查存储后再试");
         const no = (f.chapters || []).length + 1;
         // 推回房里：卡上只放【开头两百字 + 他那句话】，全文在同人文里
         pChat(key, prev => [...prev, {

@@ -447,6 +447,17 @@
   //
   // ⚠️只认卡上带的 ficId：正文里提一句书名不算。猜错比不猜更难查。
   const ROOM_FIC_CAP = 8;
+  // 待写入口只认这本书最后一次邀请/交稿；重进房间也从原消息恢复。
+  function pendingFicInvite(messages, ficId) {
+    if (!ficId) return null;
+    for (let i = (messages || []).length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m || m.recalled || m.pending || String(m.ficId || "") !== String(ficId)) continue;
+      if (m.kind === "ficdone") return null;
+      if (m.kind === "ficinvite") return m;
+    }
+    return null;
+  }
   function ficMarks(messages, pick) {
     const marks = [];
     (messages || []).forEach(function (m) {
@@ -493,5 +504,5 @@
   }
 
   return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, canWrite, prompt,
-    ROOM_FIC_CAP, ficMarks, currentFicId, roomFicList, ficTrack };
+    ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, ficTrack };
 });

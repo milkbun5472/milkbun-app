@@ -84,8 +84,8 @@ test("② 接着写不是重写，天花板也跟着地板走", () => {
   assert.match(g, /绝不许重述已经写过的内容/, "不钉死的话它会把刚才那段换个说法重来一遍");
   assert.match(g, /还差大约/, "不告诉它还差多少，它接两句就停");
   // 她把地板调到 5000 字，天花板还按 perFic 算就会写到一半被截断——那才是真多花一次
-  assert.match(fic, /Math\.max\(perFic, minWords \* 2\) \+ 12000/);
-  assert.match(g, /Math\.max\(clampPerFic\(opts\.perFic\), minWords \* 2\) \+ 12000/);
+  assert.match(fic.slice(fic.indexOf("async function genNextChapter")), /maxTokens: 65535/);
+  assert.match(g, /maxTokens: 65535/);
 });
 
 test("② 字数在提示词里说两处，别只埋在最后那行 schema 里", () => {

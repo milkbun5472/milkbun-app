@@ -119,17 +119,17 @@ test("角色来写：给事实和状态，不给数字", () => {
   assert.match(t2, /你和她还没那么熟/);
 });
 
-test("角色来写：掷的是「他不会什么」，不是「写得烂」", () => {
-  // 第一条轴上必须留着「他是真的会写」——不是每个角色都写得差
+test("角色来写：轴只管本章形式，能力和立场归人设", () => {
+  // 不再掷一个写作缺陷当人设，形式轴仍留自选。
   const craft = S.WRITER_AXES.filter(a => a.key === "craft")[0];
-  assert.ok(craft.opts.some(o => /真的会写/.test(o)), "全是毛病＝人设里真会写的人也被写成半吊子");
+  assert.ok(craft.opts.some(o => /自行决定/.test(o)), "形式轴保留自选");
   craft.opts.forEach(o => assert.ok(!/错别字|文笔差|很烂|水平低/.test(o), "掷到了「写得烂」这种词：" + o));
   const blk = S.charWriterBlock({ id: "c1", name: "顾朝" }, { cp: ["c1", "me"] }, {}, S.rollWriterAxes("c1", "f1", 2), id => id, "小美");
-  assert.match(blk, /不许错别字、不许故意幼稚、不许写成戏仿/);
-  assert.match(blk, /\*\*他是认真在写的，只是他不是干这行的。\*\*/);
-  assert.match(blk, /话少的人写坏的方式，和话痨的不一样/, "不说这句，毛病就跟人设脱钩了");
+  assert.match(blk, /是否写过文、是否混圈、擅长什么，都以你的角色卡为准/);
+  assert.doesNotMatch(blk, /他不是作家|他不写文|他不是干这行/);
+  assert.match(blk, /笔法：你的阅读经验、表达习惯/);
   assert.match(blk, /你就是他本人在写，不是「一位作者在模仿他」/);
-  assert.match(blk, /正文里不许出现他对读者的解释、吐槽或者旁白/);
+  assert.match(blk, /正文呈现故事本身/);
   // 掷得稳：同一个人同一章问两次一样
   assert.deepEqual(S.rollWriterAxes("c1", "f1", 2), S.rollWriterAxes("c1", "f1", 2));
   assert.notDeepEqual(S.rollWriterAxes("c1", "f1", 2), S.rollWriterAxes("c1", "f1", 3));

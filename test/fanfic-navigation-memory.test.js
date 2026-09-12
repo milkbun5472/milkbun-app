@@ -42,7 +42,7 @@ test('房间交稿真实落库段合并facts/seed/paid，保留正文署名及�
   const other = { id: 'other', chapters: [] };
   const K = { loadFics: () => [f, other], applyChapterMeta, heatFields: () => ({ authorHeat: 10 }) };
   const start = app.indexOf('const fics = K.loadFics().map', app.indexOf('onOpenFicInvite: async'));
-  const end = app.indexOf('K.saveFics(fics);', start);
+  const end = app.indexOf('if (!K.saveFics(fics))', start);
   const result = new Function('K', 'f', 'ch', 'nm', 'cid', 'activeChar', app.slice(start, end) + 'return fics;')(K, f, ch, '角色甲', 'c1', { id: 'c1' });
   assert.deepEqual(result[0].bible, ['旧事实', '新事实']);
   assert.deepEqual(result[0].seeds, ['新伏笔']);

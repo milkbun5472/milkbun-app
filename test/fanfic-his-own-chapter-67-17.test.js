@@ -88,20 +88,20 @@ test("摘要里要当面挡住「谁写的」和「我顺手给你念两句」",
 });
 
 // ── 「文风也和原来的没有不一样，看不出来是他的作品」────────────────
-test("预设文风那一段：他执笔时改口，而且不发【深度模仿】", () => {
+test("角色执笔不发送作者预设和深度模仿，普通作者照旧", () => {
   const cp = [{ id: "c1", name: "皇帝" }, { id: "c2", name: "王爷" }];
   const opt = { style: "清冷克制的短句" };
   const plain = F.buildGenSystem({ name: "志怪", desc: "" }, cp, "我", "", opt);
   const byChar = F.buildGenSystem({ name: "志怪", desc: "" }, cp, "我", "", Object.assign({ byChar: { id: "c2", name: "王爷" } }, opt));
   assert.match(plain, /优先满足/, "没换人的时候照旧「优先满足」");
   assert.ok(byChar.indexOf("优先满足") < 0, "换了人就不许再说「优先满足」");
-  assert.match(byChar, /默认调子/, "得说清这只是本子的默认调子");
-  assert.match(byChar, /以执笔的那个人为准/);
+  assert.match(byChar, /王爷.*本人/);
+  assert.doesNotMatch(byChar, /你是一位很会写的同人文作者/);
   // 深度模仿正是把「换了个人写」抹干净的那一份
   assert.match(plain, /【深度模仿】/, "没换人的时候照旧发");
   assert.ok(byChar.indexOf("【深度模仿】") < 0, "他执笔时不许再发深度模仿");
-  // 文风本身还是要给他看的——撤掉的是「照着那个人长」，不是这个本子的调子
-  assert.match(byChar, /清冷克制的短句/);
+  // 连“默认调子”的内容也不再喂，否则只是多一条互相打架的指令。
+  assert.doesNotMatch(byChar, /清冷克制的短句/, "角色执笔不再套统一文风");
 });
 
 test("没选文风的时候，这一段本来就不发，两边都一样", () => {
@@ -120,16 +120,16 @@ test("最后一句话归执笔的人，站在文风终检后面", () => {
   assert.match(after, /byChar \? charVoiceTail\(byChar, opts\.style\)/, "他执笔时由他收尾：" + after);
 });
 
-test("charVoiceTail 说的是【看不出是他写的就白写了】，不是替他挑一套文风", () => {
+test("charVoiceTail 要求笔法落实在正文，不只在交稿留言里", () => {
   const t = F.charVoiceTail({ id: "c2", name: "王爷" }, "清冷克制的短句");
   assert.match(t, /王爷/);
-  assert.match(t, /以他这个人为准/, "跟文风打架时以人为准");
-  assert.match(t, /白写/, "看不出是他写的就白写了");
-  assert.match(t, /不许用旁白把这件事说出来/, "但不许在正文里告诉读者这像他");
+  assert.match(t, /视角、节奏、选材和未来的取舍由你落笔/);
+  assert.match(t, /仅把交稿留言说得像你，不算换了执笔人/);
+  assert.match(t, /不是旁白向读者解释这像你/);
   // 没选文风时，那句「让位」的话就不发——没有可让的位
   const t2 = F.charVoiceTail({ id: "c2", name: "王爷" }, "");
   assert.ok(t2.indexOf("默认调子") < 0, "没选文风就别提「默认调子」：" + t2);
-  assert.match(t2, /白写/, "其余几条照发");
+  assert.match(t2, /writerBrief/, "笔法要在正文落实");
 });
 
 // 「照他的人设来」得手上真有那张卡：他不在 CP 里的时候原来一个字都没有
