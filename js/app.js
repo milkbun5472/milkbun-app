@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.24";
+const APP_VERSION = "v67.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9281,9 +9281,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️而且真正卡住它的一直是【天花板】，不是下限：两个人的群 nMax 只有 5，
       //   ABA 要 3 条、ABAB 要 4 条，**ABABAB 根本放不下**——它交 ABA 不是偷懒，是没地方。
       //   一格一格抬下限只会把这 5 条挤满，永远挤不出第三个来回。
-      //   所以这一版反过来做：把天花板抬开（两个人也给到 8 条），
-      //   刚叠上去的那几条「不许」全部删掉，只留一句正面的形状。
-      let nMax = Math.min(14, Math.max(8, members.length * 2));
+      //   所以这一版反过来做：把天花板抬开，刚叠上去的那几条「不许」全部删掉，
+      //   只留一句正面的形状。
+      // ⚠️抬到 8 她还是说不够：「直接给他再大点吧，反正放大了他们也不会用到最大」。
+      //   她这句话点破的是这个数的性质——**天花板是【许可】，不是【指标】**。
+      //   模型从来不会写满上限，上限只决定「它想多聊两句时有没有地方」。
+      //   所以这个数往大了给一分钱都不多花（同一次调用，maxTokens 有 65535，
+      //   二十来条聊天离截断还远得很），给小了却会实打实地把来回掐掉。
+      //   两个人的群 12 条＝六个来回；人多按 n*3 放宽，20 封顶。
+      let nMax = Math.min(20, Math.max(12, members.length * 3));
       // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
       if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       // ⚠️下限说的是【这一轮几条】，不是【几个人开口】——这两个数不一样，

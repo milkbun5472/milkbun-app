@@ -19,7 +19,7 @@ const A = strip(app);
 // 那三行是自成一体的：给它人数和 rgOpts 就能算
 // ⚠️抠那几行时别钉死它现在长什么样：钉死了，改坏它就成了「测试自己跑不起来」，
 //   下面那些断言反而没机会说话。认 const nMin 这一行本身就够。
-const _a = app.indexOf("      let nMax = Math.min(14, Math.max(");
+const _a = app.indexOf("      let nMax = Math.min(");
 const _b = app.indexOf("      const nMin = ", _a);
 assert.ok(_a > 0 && _b > _a, "抠不出算条数那几行");
 const seg = app.slice(_a, app.indexOf("\n", _b));
@@ -46,15 +46,32 @@ test("下限说的是【条】，不是【人】", () => {
 // ⚠️她 2026-09-12：「能不能不要这么小气宝宝！你越小气它就越偷懒，现在还是 aba」。
 //   真正卡住它的一直是天花板：两个人的群只给 5 条，ABA 要 3、ABAB 要 4，
 //   **ABABAB 根本放不下**——交 ABA 不是偷懒，是没地方。
+// ⚠️她 2026-09-12 第二句：「直接给他再大点吧，反正放大了他们也不会用到最大」——
+//   这句话点破的是这个数的性质：**天花板是【许可】，不是【指标】**。
+//   模型从来不写满上限；上限只决定「它想多聊两句时有没有地方」。
+//   给大了一分钱不多花（同一次调用，maxTokens 65535），给小了却实打实掐掉来回。
 test("两个人的群也得放得下好几个来回，不是刚够一两回", () => {
   const r = nOf(2);
-  assert.ok(r.nMax >= 8, "上限只有 " + r.nMax + " 条＝ABABAB 塞不进去，抬下限也挤不出第三个来回");
-  assert.ok(r.nMax - r.nMin >= 4, "band 只有 " + r.nMin + "~" + r.nMax + "＝还是没留多少余地");
+  assert.ok(r.nMax >= 12, "上限只有 " + r.nMax + " 条＝来回没几趟就到顶，抬下限也挤不出更多");
+  assert.ok(r.nMax - r.nMin >= 8, "band 只有 " + r.nMin + "~" + r.nMax + "＝还是没留多少余地");
 });
 
 test("人多的时候上限跟着放宽，别把人挤掉", () => {
   assert.ok(nOf(8).nMax > nOf(2).nMax, "人多就该多聊几个来回");
-  assert.ok(nOf(8).nMax <= 14, "也不能没边");
+  assert.ok(nOf(8).nMax <= 20, "也不能没边");
+  assert.ok(nOf(8).nMax >= 20, "人多反而比两个人的群还挤就说不过去了");
+});
+
+// ⚠️天花板给大了不会变贵：这一整轮还是【同一次调用】，
+//   而 maxTokens 给的是 65535——二十来条聊天离截断还远。
+//   万一哪天有人把它调小，长一点的一轮会被截断成坏 JSON，整枪白打。
+test("天花板敢给大，是因为那一枪的 token 预算够", () => {
+  const i = A.indexOf("const raw = await callAI(active, system, [{");
+  assert.ok(i > 0, "群那一枪的调用点变了");
+  const blk = A.slice(i, i + 700);
+  const m = blk.match(/maxTokens: (\d+)/);
+  assert.ok(m, "群那一枪没写 maxTokens：" + blk.slice(0, 200));
+  assert.ok(Number(m[1]) >= 32000, "token 预算只有 " + m[1] + "＝条数放开之后，长一轮会被截成坏 JSON，白烧一次钱");
 });
 
 // 自发那一段预算紧的时候，下限不许把上限顶穿
