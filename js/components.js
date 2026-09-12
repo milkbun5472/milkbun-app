@@ -8484,12 +8484,48 @@ function ChatThread({
   }, "没有其他角色可转发"))));
 }
 // 仿微信语音/视频通话：发一句自动回一句
+// 流式字幕（她 2026-09-12：「他说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
+// 不说话等我说的时候就啥也不显示，挂了照样可以回看」）。
+// 一句话铺多久【跟着这一句的语音走】（她选的 B）：TTS 解码出来就知道这句念几秒，
+// 字就在这几秒里铺完，念完正好显示完。没有语音时长（没配音色/合成失败）就退回固定速度。
+function CallSubtitle({ line, onPhoto }) {
+  const [n, setN] = useState(0);
+  const text = String((line && line.text) || "");
+  useEffect(() => {
+    if (!text) { setN(0); return; }
+    const at = (line && line.at) || Date.now();
+    // 没有真实时长就按每字 78ms 走（A 兜底），并留一点余量别刚好卡在最后一个字
+    const ms = Math.max(300, Number(line && line.ms) || text.length * 78);
+    let raf = 0;
+    const step = () => {
+      const k = Math.min(1, (Date.now() - at) / ms);
+      setN(Math.max(1, Math.round(text.length * k)));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    step();
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [text, line && line.at, line && line.ms]);
+  if (!text) return null;
+  return h("div", {
+    "data-call-subtitle": true,
+    className: "flex-1 min-h-0 flex items-center justify-center px-7",
+    style: { pointerEvents: "none" }
+  }, h("div", {
+    style: {
+      maxWidth: 560, textAlign: "center", fontFamily: F_BODY, fontSize: 17, lineHeight: 1.75,
+      color: "#fff", whiteSpace: "pre-wrap", wordBreak: "break-word",
+      textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9)" : "0 1px 8px rgba(0,0,0,.5)"
+    }
+  }, text.slice(0, n)));
+}
 function CallScreen({
   audioSession,
   participants,
   mode,
   msgs,
   sending,
+  autoVoice: autoVoiceProp,
+  stream,
   bye,
   bg,
   bgBusy,
@@ -8508,7 +8544,12 @@ function CallScreen({
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
   // 手动回听与自动队列共用 ttsSpeak 缓存，互相接管时先停止旧播放。
   const tp = useTtsPlayer();
-  const [autoVoice] = useCallAutoVoice();
+  // 连续播报改成分角色之后由 app 那头算好传下来（拨通那一刻定下）；
+  // 没传（旧的通话对象）才退回全局那一份
+  const [autoVoiceGlobal] = useCallAutoVoice();
+  const autoVoice = autoVoiceProp == null ? autoVoiceGlobal : !!autoVoiceProp;
+  // 流式字幕：这一句正在念什么、念多久。他不说话时是 null——屏幕中间什么都不显示
+  const [subLine, setSubLine] = useState(null);
   const [audioReady, setAudioReady] = useState(false);
   const [audioStatus, setAudioStatus] = useState("");
   const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
@@ -8552,6 +8593,8 @@ function CallScreen({
     return () => { clearInterval(poll); clearTimeout(cap); };
   }, [!!bye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
+  // 她开口的那一刻，中间那一句就该没了——不是等他下一句来了才换
+  useEffect(() => { if (stream && sending) setSubLine(null); }, [stream, !!sending]);
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
   const lvCommitFinal = (raw, session) => {
     const st = lv.current, text = String(raw || "").trim();
@@ -8822,11 +8865,15 @@ function CallScreen({
             const safety = setTimeout(res, abuf.duration * 1000 + 3000);
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
+            // ⚠️字幕跟【这一句】走：念几秒字就铺几秒。换句就把上一句整个换掉。
+            if (stream) setSubLine({ text: m.content, ms: abuf.duration * 1000, at: Date.now() });
             setAudioStatus("对方说话中…");
           });
         } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
         finally { if (poll) clearInterval(poll); if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
       }
+      // 念完了就把中间那一句收掉——「不说话等我说的时候就啥也不显示」
+      if (stream && audioRef.current.epoch === epoch) setSubLine(null);
       if (audioRef.current.epoch === epoch) st.speaking = false;
       if (audioRef.current.epoch === epoch && st.session === session) { if (valid()) setAudioStatus(skipped); if (paused) setTimeout(() => { if (audioRef.current.epoch === epoch && st.session === session) recResume(); }, 300); }
     })();
@@ -8989,7 +9036,7 @@ function CallScreen({
       fontSize: isGroup ? 26 : 44,
       color: "#fff"
     }
-  }, (c.name || "?")[0])))), h("div", {
+  }, (c.name || "?")[0])))), stream ? h(CallSubtitle, { line: subLine, onPhoto: onPhoto }) : h("div", {
     ref: ref,
     "data-call-history": true,
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
@@ -9571,12 +9618,14 @@ function OnlineMediaSettings() {
   return h("section", { "data-online-media-settings": true, style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, marginBottom: 12 } }, "语音与译文 · 全局"),
     h("div", { className: "flex items-center justify-between gap-3" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "通话连续播报"),
+      // v67.46：连续播报改成分角色（每个角色的聊天设置里）。这一个留作【默认值】——
+      // 没单独设过的角色用它，单独设过一次之后以那一个为准。
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "通话连续播报 · 默认"),
       h("button", { type: "button", "aria-pressed": auto, onClick: () => setError(!setAuto(!auto)),
         style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px" } },
         error ? "保存失败，点此重试" : auto ? "连续播报：开" : "连续播报：关")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
-      "语音和视频通话共用；拨打或接听后，按顺序播放对方的新消息。需配置音色与语音线路，合成会使用额度。"),
+      "语音和视频通话共用；拨打或接听后，按顺序播放对方的新消息。需配置音色与语音线路，合成会使用额度。这里是【还没单独设过的角色】用的默认值——每个角色的聊天设置里可以单独开关，还能再开「流式字幕」。"),
     h(OnlineTranslationControl, null));
 }
 function OnlineTranslationControl() {
@@ -14510,6 +14559,11 @@ function ChatSettings({
   const [bilingual, setBilingual] = useState(!!settings.bilingual);
   const [proactive, setProactive] = useState(!!settings.proactive);
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
+  // 通话连续播报 & 流式字幕：分角色（她 2026-09-12）。
+  // ⚠️没单独设过的角色，初值取设置里那个全局开关——她现在开着的那份不能静默失效；
+  //   在这儿存一次之后，就以这一个为准。
+  const [callAuto, setCallAuto] = useState(settings.callAuto == null ? callAutoVoice() : !!settings.callAuto);
+  const [callStream, setCallStream] = useState(!!settings.callStream);
   // 动描（她 2026-09-09）：设一次就不动的那种，所以住这儿、不占顶栏。
   const [actDesc, setActDesc] = useState(!!settings.actDesc);
   // 动描那一行用第几人称（她 2026-09-12 选的「就设置开关可以改」）
@@ -14770,6 +14824,8 @@ function ChatSettings({
       toyEnabled,
       defaultOffline,
       actDesc,
+      callAuto,
+      callStream,
       actPerson,
       userPerson,
       timeAwareMode
@@ -15080,6 +15136,25 @@ function ChatSettings({
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
   }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))),
+  show("look", { title: "打电话的时候", ...sec("callplay") }, h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "连续播报"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
+        "接通后按顺序念出 TA 的每一句，不用一条条点。需要先给 TA 配音色，合成会用额度。")),
+    h("button", { onClick: () => setCallAuto(v => { if (v) setCallStream(false); return !v; }), className: "shrink-0",
+      style: { width: 46, height: 27, borderRadius: 999, background: callAuto ? t.tint : t.line, position: "relative", transition: "background .2s" } },
+      h("span", { style: { position: "absolute", top: 3, left: callAuto ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+  // ⚠️只在连续播报开着时才摆：流式字幕的节奏是跟着【这一句念多久】走的，
+  //   没有语音就没有那个时长，这一格摆出来是空头支票（她 2026-09-12：
+  //   「只有开了连续播报的角色才可以开流式显示」）。
+  callAuto ? h("div", { className: "flex items-center justify-between pt-4" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "流式字幕"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
+        "TA 说的话一个字一个字铺在屏幕中间，跟着这一句的语音走；换一句就把上一句换掉，TA 不说话时中间什么都没有。挂断之后照常有逐字记录。")),
+    h("button", { onClick: () => setCallStream(v => !v), className: "shrink-0",
+      style: { width: 46, height: 27, borderRadius: 999, background: callStream ? t.tint : t.line, position: "relative", transition: "background .2s" } },
+      h("span", { style: { position: "absolute", top: 3, left: callStream ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))) : null),
   show("look", { title: "线上带不带动作", ...sec("actdesc") }, h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描（括号里那一行）"),

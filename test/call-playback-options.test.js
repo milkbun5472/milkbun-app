@@ -43,7 +43,11 @@ test('通话播放默认手动，播放偏好独立保存；语音和视频用�
   assert.match(call, /min-h-0 overflow-y-auto/);
   // 沿实际写入方确认队列读取的角色与动作字段，而不是虚构消息 ID。
   const app = fs.readFileSync('js/app.js', 'utf8');
-  assert.match(app, /const audioSession = callAutoVoice\(\) \? prepareCallAudio\(\) : null/);
+  // v67.45：连续播报改成分角色，这一通开不开由在场角色决定（callAutoFor 里仍以
+  // 全局那份作为没单独设过时的默认值）
+  assert.match(app, /const autoVoice = people\.some\(c => callAutoFor\(c\.id\)\);/);
+  assert.match(app, /const audioSession = autoVoice \? prepareCallAudio\(\) : null/);
+  assert.match(app, /s0\.callAuto == null \? \(typeof callAutoVoice === "function" && callAutoVoice\(\)\) : !!s0\.callAuto/);
   assert.match(app, /audioSession: call.audioSession/);
   assert.doesNotMatch(call, /data-call-options|h\(OnlineTranslationControl|toggleAutoVoice/);
   assert.match(call, /Promise.resolve\(session.ready\)/);

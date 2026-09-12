@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.45";
+const APP_VERSION = "v67.46";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12909,6 +12909,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   const markCallBye = (byId, byName, reason, sessionId) => setCall(c => (c && !c.bye && (!sessionId || c.sessionId === sessionId)) ? { ...c, bye: { id: byId, name: byName || "", reason: String(reason || "").slice(0, 120) } } : c);
+  // 通话连续播报 & 流式字幕：**按角色**（她 2026-09-12：「连续播报也是分角色。
+  // 然后只有开了连续播报的角色才可以开流式显示」）。
+  // ⚠️设置里那个全局开关留着，当【没单独设过的角色的默认值】——她现在开着的那份
+  //   不能因为改成分角色就静默失效。单独设过一次之后，以那一个为准。
+  const callAutoFor = id => {
+    const s0 = settingsFor(id) || {};
+    return s0.callAuto == null ? (typeof callAutoVoice === "function" && callAutoVoice()) : !!s0.callAuto;
+  };
+  // 流式字幕挂在连续播报下面：没连续播报就没有「这一句念多久」，字幕跟谁走都不知道
+  const callStreamFor = id => callAutoFor(id) && !!(settingsFor(id) || {}).callStream;
   const startCall = (participants, mode, groupId, caller, chatKey) => {
     const people = (participants || []).filter(Boolean);
     if (!people.length) return;
@@ -12916,9 +12926,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const key = groupId ? null : (chatKey || people[0].id);
     const room = !groupId && window.ChatRooms.isSideKey(key) ? window.ChatRooms.get(people[0].id, String(key).split("::room::")[1]) : null;
     if (room && room.main) { toast("这间房间已不存在"); return; }
-    const audioSession = callAutoVoice() ? prepareCallAudio() : null;
+    // 这一通要不要自动播报：在场任何一位开着就开（群里也才有声音可听）
+    const autoVoice = people.some(c => callAutoFor(c.id));
+    const stream = people.some(c => callStreamFor(c.id));
+    const audioSession = autoVoice ? prepareCallAudio() : null;
     if (groupId) groupAutoCallEpochRef.current[groupId] = (groupAutoCallEpochRef.current[groupId] || 0) + 1;
-    const next = { sessionId: "call_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2), participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", chatKey: key, room, msgs: [], startTs: Date.now() };
+    const next = { sessionId: "call_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2), participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", chatKey: key, room, msgs: [], startTs: Date.now(), autoVoice, stream };
     next.audioSession = audioSession;
     callRef.current = next; setCall(next);
     // ⚠️他打来的电话，接起来之后【他先开口】（她 2026-09-12：「现在他打过来也是要我
@@ -20916,6 +20929,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
             actDesc: !!s.actDesc,
+            // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
+            // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。
+            // ⚠️所以这一格不能 !! 归一，那会把「没设过」变成「设过而且是关」，
+            //   她现在全局开着的那份会静默失效。
+            callAuto: s.callAuto == null ? null : !!s.callAuto,
+            callStream: !!s.callStream,
             // 动描那一行用第几人称（她 2026-09-12）。只有 "ta" 算数，其余一律回默认的「我」
             actPerson: s.actPerson === "ta" ? "ta" : "me",
             // 他那一行里【你】叫什么（她 2026-09-12）。默认「你」——他卡里写成「她」
@@ -20995,6 +21014,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   原来这里传的 sending 读的是 busyLanes["c:"+chatKey]（甚至在主屏接起来时压根没有 chatKey），
     //   于是通话里「正在说」那一层永远不亮——她 2026-09-02：「我说完他没有那个输入中的气泡」。
     sending: !!busyLanes.call,
+    // 这两项在【拨通那一刻】就定下来了（分角色），通话中改设置不半路变脸
+    autoVoice: !!call.autoVoice,
+    stream: !!call.stream,
     bye: call.bye || null,
     bg: call.bg || null,
     bgBusy: !!call.bgBusy,

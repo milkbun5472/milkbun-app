@@ -159,7 +159,11 @@ test("单聊那一行按开关显示", () => {
 
 test("开关存得下来，而且只认 ta 这一个值", () => {
   assert.match(C, /const \[actPerson, setActPerson\] = useState\(settings\.actPerson === "ta" \? "ta" : "me"\);/);
-  assert.match(C, /\n      actDesc,\n      actPerson,\n      userPerson,\n/, "保存时没带上");
+  // ⚠️别把这三个钉成必须紧挨着：v67.45 在 actDesc 后面插了通话那两项，
+  //   一钉死，加一项无关的设置就红一次，而红的不是它要防的那件事。
+  //   要证的是【这三个都在保存键里】。
+  ["actDesc", "actPerson", "userPerson"].forEach(k =>
+    assert.match(C, new RegExp("\\n      " + k + ",\\n"), "保存时没带上 " + k));
   assert.match(C, /const \[userPerson, setUserPerson\] = useState\(settings\.userPerson === "ta" \? "ta" : "you"\);/);
   assert.match(A, /userPerson: s\.userPerson === "ta" \? "ta" : "you",/, "存进来的脏值没归一");
   assert.match(A, /userPerson: \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.userPerson === "ta" \? "ta" : "you",/);
