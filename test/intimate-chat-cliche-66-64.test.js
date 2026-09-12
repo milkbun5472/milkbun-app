@@ -47,8 +47,10 @@ test("动描开着时，管描写的那一族也发到线上", () => {
   // 滤掉的那条只对连续正文成立：一行动描没有「此处省略／画面淡出」可言
   assert.match(eng2, /一行动描没有「此处省略／画面淡出」可言，发过去是白发/);
   // 单聊和群聊两处都接上，而且都挂在【动描那个开关】上——没开就一个字不发
-  assert.match(app2, /_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "单聊没接");
-  assert.match(app2, /_gActDesc \? "\\n\\n" \+ ownActNoBracketRule\(userName\(profile\)\) \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "群聊没接");
+  // v67.35 起这同一个开关上还挂着叙事那一半（NARRATIVE_ACT_CLICHE）——
+  // 同一个过期理由的另一半，见 test/act-line-is-description-67-35.test.js
+  assert.match(app2, /_actDesc \? "\\n\\n" \+ ownActNoBracketRule\(uName\) \+ "\\n\\n" \+ NARRATIVE_ACT_CLICHE \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "单聊没接");
+  assert.match(app2, /_gActDesc \? "\\n\\n" \+ ownActNoBracketRule\(userName\(profile\)\) \+ "\\n\\n" \+ NARRATIVE_ACT_CLICHE \+ "\\n\\n" \+ INTIMATE_ACT_CLICHE : ""/, "群聊没接");
   // 线下那一份一个字没动（顺序也没动）
   assert.match(eng2, /const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1;/);
   assert.match(eng2, /【绝不 OOC \/ 不跳戏】/, "线下那条被顺手删了");
