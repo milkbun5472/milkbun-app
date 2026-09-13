@@ -378,7 +378,10 @@
       const e = props.entry;
       if (!e || !e.key) return;
       const mk = MODES[e.mode] ? e.mode : "reading";
-      setSeed({ charId: e.charId || "", q: e.ask || "" });
+      setSeed({ charId: e.charId || "", q: e.ask || "",
+        // 他挑的牌阵／这一卦问的是谁的事：认不出来的一律落回那一档的默认，不硬塞
+        spreadKey: Tarot.hasSpread(e.spreadKey) ? String(e.spreadKey) : "",
+        owner: e.asker === "me" ? "character" : "" });
       setView("mode:" + mk);
       props.onEntryUsed && props.onEntryUsed();
     }, [entryKey]);
@@ -403,6 +406,7 @@
       return h(Setup, {
         // 他提的那一卦：角色和该问的那件事替她填好，改不改随她
         initCharId: (seed && seed.charId) || "", initQ: (seed && seed.q) || "",
+        initSpreadKey: (seed && seed.spreadKey) || "", initOwner: (seed && seed.owner) || "",
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
         affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
         onCancel: () => { setSeed(null); setView("home"); },
@@ -576,9 +580,14 @@
     const [charId, setCharId] = useState(props.initCharId || "");
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
     const [q, setQ] = useState(props.initQ || "");
-    const [spreadKey, setSpreadKey] = useState(DEFAULT_SPREAD[props.modeKey] || "guide");
-    const [spreadGroup, setSpreadGroup] = useState(props.modeKey === "relation" ? "relation" : "basic");
-    const [questionOwner, setQuestionOwner] = useState("user");
+    // ⚠️他在房里提的那一卦可以把牌阵和「这问题是谁的」一起带进来（v67.70）——
+    //   带进来的是【默认值】，不是锁死：她照样能改。带不进来就跟以前一模一样。
+    const [spreadKey, setSpreadKey] = useState(props.initSpreadKey || DEFAULT_SPREAD[props.modeKey] || "guide");
+    const [spreadGroup, setSpreadGroup] = useState(
+      // 他挑的牌阵在哪一组，就先翻到那一组——不然她点进来看见的是另一组，那一格像没生效
+      (props.initSpreadKey && ((SPREADS[props.initSpreadKey] || {}).group || (String(props.initSpreadKey).indexOf("custom:") === 0 ? "custom" : "")))
+      || (props.modeKey === "relation" ? "relation" : "basic"));
+    const [questionOwner, setQuestionOwner] = useState(props.initOwner || "user");
     const [gate, setGate] = useState(null); // 角色接受/犹豫/拒绝的当面回应
     const [customSpreads, setCustomSpreads] = useState(loadCustomSpreads);
     const [spreadEditor, setSpreadEditor] = useState(false);
@@ -1087,5 +1096,26 @@
         null));
   }
 
+  // 这副牌桌上现在摆得出来的牌阵（含她自己存的那几个）。
+  // ⚠️只此一份：房里那一格（他提议算一卦）要照实报出可选的牌阵，各写一份表迟早只改一处
+  //   （施工规则/one-public-mechanism.md）。她 2026-09-13 问的正是这件事：
+  //   「我里面那么多牌阵和不同的问法，他怎么选」——那就把真名单给他，别让他猜。
+  Tarot.spreadMenu = function (modeKey) {
+    if (modeKey === "daily") return [];                 // 每日一牌固定一张，没得挑
+    const all = [];
+    Object.keys(SPREADS).forEach(function (k) {
+      all.push({ key: k, zh: SPREADS[k].zh, n: SPREADS[k].positions.length, group: SPREADS[k].group });
+    });
+    loadCustomSpreads().forEach(function (x) {
+      all.push({ key: "custom:" + x.id, zh: String(x.name || "我的牌阵"), n: (x.positions || []).length, group: "custom" });
+    });
+    return all;
+  };
+  Tarot.defaultSpread = function (modeKey) { return DEFAULT_SPREAD[modeKey] || "guide"; };
+  Tarot.hasSpread = function (key) {
+    if (!key) return false;
+    if (SPREADS[String(key)]) return true;
+    return loadCustomSpreads().some(function (x) { return "custom:" + x.id === String(key); });
+  };
   window.Tarot = Tarot;
 })();

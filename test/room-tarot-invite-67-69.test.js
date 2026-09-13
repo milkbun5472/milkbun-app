@@ -60,7 +60,8 @@ test("卡面走已有那张（一起学/一起玩/一起读同一张），不另
 
 test("点开就落在他提的那一档，角色和该问的那件事替她填好", () => {
   assert.match(app, /onOpenTarotInvite: m => \{/);
-  assert.match(app, /setTarotEntry\(\{ key: "tarot_" \+ Date\.now\(\), mode: String\(m\.mode \|\| "reading"\), charId: activeChar\.id, ask: String\(m\.ask \|\| ""\) \}\)/);
+  // v67.71 起这一戳还带着他挑的牌阵和问法（见 room-tarot-spread-67-71）
+  assert.match(app, /setTarotEntry\(\{ key: "tarot_" \+ Date\.now\(\), mode: String\(m\.mode \|\| "reading"\), charId: activeChar\.id,/);
   assert.match(app, /entry: tarotEntry,\n\s*onEntryUsed: \(\) => setTarotEntry\(null\),/);
   // 塔罗那头：认得这一戳，而且用完就还回去（不然下次进塔罗还会自己跳进去）
   assert.match(tarot, /const mk = MODES\[e\.mode\] \? e\.mode : "reading";/);

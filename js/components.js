@@ -8028,7 +8028,8 @@ function ChatThread({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || (isGame ? "玩一局" : isRead ? "接着读" : "一起学点什么")),
           (isGame || isRead || isTarot) && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
           // 他觉得该问的那件事（可空）——点开之后这句会替她填进问题那一栏
-          isTarot && m.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5, lineHeight: 1.6 } }, "想替你问的：" + m.ask) : null,
+          isTarot && m.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5, lineHeight: 1.6 } },
+            (m.asker === "me" ? "他自己想问的：" : "想替你问的：") + m.ask) : null,
           m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
           h("button", { onClick: function () { if (isTarot) { onOpenTarotInvite && onOpenTarotInvite(m); } else if (isRead) { onOpenReadInvite && onOpenReadInvite(m); } else if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, go)));
     }
