@@ -10039,7 +10039,7 @@ function MemoryLib({
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
 function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal }) {
   const t = useTheme();
-  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800 }, cfg || {}));
+  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
   const [confirmRoutine, setConfirmRoutine] = useState(false);
   const set = patch => setC(p => Object.assign({}, p, patch));
@@ -10065,6 +10065,11 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     slider("短期窗字符预算", c.recentBudget || 8000, 3000, 16000, 1000, " 字", v => set({ recentBudget: v }), "上面那些原文最多带这么多字进上下文——长消息少带几条、短消息多带几条，token 有上限。调大记得更全、更费；调小更省。超出的老内容由自动抽取+摘要兜底。"),
     slider("跨情境回看时间窗", c.crossHours != null ? c.crossHours : 72, 12, 336, 12, " 小时", v => set({ crossHours: v }), "四个情境（单聊线上/线下·群聊线上/线下）互相衔接时，往回看多久内在别处发生的事。调大接得上更早的细节、更费；调小只带最近的。上限 14 天。"),
     slider("跨情境每段字符预算", c.crossBudget != null ? c.crossBudget : 800, 200, 3000, 100, " 字", v => set({ crossBudget: v }), "上面那些跨情境的近况，每一段最多带这么多字。按次收费尽管拉大——衔接更全、输出不额外收费；想省再调小。"),
+    // 线下那半（她 2026-09-13：「50、3 天都是设置可以改的，但是 40 是钉死的」）。
+    // ⚠️只放这两根。「摘录留多少字」「线下最多占三成预算」留在代码里——那是怎么压的手艺，
+    //   不是她需要天天拧的旋钮；旋钮多了每一根都变得不值钱。
+    slider("线下回看几拍", c.offBeats != null ? c.offBeats : 40, 10, 120, 5, " 拍", v => set({ offBeats: v }), "线下那半最多往回带这么多拍（他和你的一起数）。再往前由本场滚动摘要和记忆库兜底。"),
+    slider("线下最近几拍给原文", c.offVerbatim != null ? c.offVerbatim : 3, 1, 10, 1, " 拍", v => set({ offVerbatim: v }), "只有最近这几拍原样带，更早的压成摘录（留台词那几句）。调大衔接更稳、更吃字数；线下再多也最多占走短期窗预算的三成，挤不到聊天头上。"),
     h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"),
     // 清理落灰记忆（v48.41 #4）：库越攒越大，一键删掉久无人问津的低情绪旧事——约定/心事/置顶都留着
     false && onPurgeWithered ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed " + t.line } },

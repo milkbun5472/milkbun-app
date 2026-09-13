@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.77";
+const APP_VERSION = "v67.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -362,7 +362,12 @@ function App() {
   const [memTableMode, setMemTableMode] = useState(memoryTableAuthorityOn); // 每账号/设备单独验收后才开，不波及其他用户
   const memExtractInflightRef = useRef({}); // 每角色抽取进行中标志，防并发重复抽取
   // 记忆库设置：topK 每轮召回条数；autoExtract 每轮后台自动抽取；extractInterval 每几轮抽一次；recentDays 短期窗至少覆盖最近几天（消死区）
-  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800 };
+  // offBeats / offVerbatim：线下那半原来【钉死在代码里】（40 拍、最近 3 拍给原文）。
+  // 她 2026-09-13：「50、3 天都是设置可以改的，但是 40 是钉死的」——同一种东西，
+  // 线上那半全是拉条，线下那半一根都没有。跨情境那两根同样是「防挤占」的闸，照样给了她，
+  // 所以这两根也该给（施工规则/one-public-mechanism.md 的形状：同一层规矩别两处两副面孔）。
+  // ⚠️只放这两根：70 字摘录和「线下最多占三成」留在代码里——那是【怎么压】的手艺，不是旋钮。
+  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 };
   const [memCfg, setMemCfg] = useState(MEM_CFG_DEFAULT);
   const memCfgRef = useRef(memCfg); memCfgRef.current = memCfg;
   const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
@@ -4811,7 +4816,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下最多往回看这么多条（他和她的一起数）。摘录的意义不只是省字数，是【同样的字数
       // 能往回看更远】：全给原文时六拍就把限额占满了，摘完能装下二十拍的对话。
       // 再往前由本场滚动摘要和记忆库兜底。
-      const OFF_BEATS = 40;
+      const OFF_BEATS = Math.max(1, Number(memCfgRef.current.offBeats ?? 40));
       // 【短期窗覆盖天数】这根拉条一直是摆设（她 2026-08-28 问「记忆库这些拉条是摆设吗」）：
       // recentDays 只出现在默认值、滑条和滑条底下那句说明里，从来没有一行代码读过它，
       // 而那句说明写的是「最近这些天说的话一定带进上下文（消死区）」——一天都没兑现过。
@@ -4841,7 +4846,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 气泡，带进来的「发生了什么」差不多，占的字数差二十几倍。
       // 两条闸：① 线下单独限额，最多拿走三成、封顶 3000 字，拿不完的还给线上；
       //        ② 只有最近三拍给原文（衔接靠逐字），更早的压成摘录——有对话取对话，没有就取句首。
-      const OFF_VERBATIM = 3, OFF_EXCERPT = 70;
+      // ⚠️OFF_VERBATIM 是拉条（她 2026-09-13 要的）；OFF_EXCERPT 不是——
+      //   「摘录留多少字」跟「留几拍原文」不是一回事，那一条是手艺，留在代码里。
+      const OFF_VERBATIM = Math.max(1, Number(memCfgRef.current.offVerbatim ?? 3)), OFF_EXCERPT = 70;
       const offCap = Math.min(Math.round(budget * 0.3), 3000);
       // 她 2026-08-28 定的取法：**只留对话符里的东西和它前后各一句**，其余全交给滚动摘要。
       // 老拍子里真正影响后面接话的是「谁说了什么、说这句之前之后在干什么」；写景和感官

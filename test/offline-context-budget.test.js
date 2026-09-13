@@ -201,7 +201,9 @@ test("短线下一个字都不摘：装得下就全给原文", () => {
 });
 
 test("摘录换来的是往回看得更远，不只是省字数", () => {
-  assert.match(app, /const OFF_BEATS = 40;/);
+  // v67.78：这个数变成拉条了（她 2026-09-13：「50、3 天都能改，40 是钉死的」）。
+  // 钉的还是同一件事——默认仍然是 40 拍，读不到设置就落回它。
+  assert.match(app, /const OFF_BEATS = Math\.max\(1, Number\(memCfgRef\.current\.offBeats \?\? 40\)\);/);
   const long = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 800 + k, _surface: "offline", content: k + "｜" + BEAT }));
   const r = recent([], long, 16000);
   assert.ok(r.lines.length >= 15, "摘完之后带进来的拍数反而变少了：" + r.lines.length);
