@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.84";
+const APP_VERSION = "v67.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1586,7 +1586,11 @@ function App() {
     if (!bgActive) { toast("请先到设置配置后台 API"); return; }
     setTemperamentBusy(true);
     try {
-      const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`;
+      // 这几个词要落到本地那张性情词典上才会真的影响脾气，所以把表里认得的说法摆给它看
+      //   （她 2026-09-13：自己写的五个词里四个认不出）。表本身只有 dongnian.js 那一份。
+      const knownWords = window.DongnianEmotionA.temperamentWordHint ? window.DongnianEmotionA.temperamentWordHint() : "";
+      const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`
+        + (knownWords ? `\n下面这些说法本地认得，认得的词才会真的改变他的脾气。贴切就优先从里面挑（同一族里挑一个就够，也可以在它前后加字）：${knownWords}。这个人身上最要紧的那一面这里找不到，就照你自己的话写，别为了凑进表里写一个不像他的词。` : "");
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【" + userName(profile) + " 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);

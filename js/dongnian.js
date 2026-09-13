@@ -907,12 +907,19 @@ const A_TEMPERAMENT_RULES=Object.freeze([
   [/(?:慢热|疏离|清冷)/,{warmth:.88,socialBias:.28}],
   [/(?:急躁|易怒|暴躁|火爆)/,{anger:1.25,arousal:1.14}],
   [/(?:焦虑|多虑|警觉|胆小)/,{anxiety:1.25,arousal:1.08}],
-  [/(?:钝感|稳定|稳重|豁达)/,{hurt:.84,anxiety:.84}],
-  [/(?:活泼|外向|热烈|元气)/,{arousal:1.16,warmth:1.12,socialBias:.68}],
+  [/(?:钝感|稳定|稳重|豁达|松弛|自洽|随和)/,{hurt:.84,anxiety:.84}],
+  [/(?:活泼|外向|热烈|元气|跳脱|机灵|机敏)/,{arousal:1.16,warmth:1.12,socialBias:.68}],
+  [/(?:分享欲|表达欲|话多|健谈)/,{socialBias:.68,warmth:1.06}],
+  [/(?:坦率|坦诚|直爽|真诚|不藏)/,{pride:.92,warmth:1.10,socialBias:.60}],
   [/(?:好奇|求知|探索)/,{curiosityBias:.72}],
   [/(?:负责|责任感|守诺|可靠)/,{dutyBias:.72}],
   [/(?:爱反思|自省|深思)/,{reflectionBias:.74}]
 ]);
+// 提词那一头得看得见这张表认什么（她 2026-09-13：自己那五个词里四个认不出——
+//   表认的是【字面】，而这一枪本来就是让模型提词的，它爱造四字新词，两头对不上）。
+// ⚠️只有这一份：提示词里那串代表词是从上面这张表现推的，不许另抄一份到 app.js 去。
+const A_TEMPERAMENT_WORD_GROUPS=Object.freeze(A_TEMPERAMENT_RULES.map(([re])=>Object.freeze(String(re.source).replace(/^\(\?:/,"").replace(/\)$/,"").split("|"))));
+function temperamentWordHintA(){return A_TEMPERAMENT_WORD_GROUPS.map(g=>g.join("/")).join("；");}
 function temperamentFromAnchorsA(rawAnchors,approvedValue){
   const anchors=[],seen=new Set();
   (Array.isArray(rawAnchors)?rawAnchors:[]).forEach(value=>{
@@ -1100,7 +1107,7 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,projectedAxes:A_PROJECTED_AXES,prideBlock:PRIDE_BLOCK,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const DongnianEmotionA=Object.freeze({axes:A_AXES,displayLabels:A_DISPLAY_LABELS,projectedAxes:A_PROJECTED_AXES,prideBlock:PRIDE_BLOCK,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,temperamentWordGroups:A_TEMPERAMENT_WORD_GROUPS,temperamentWordHint:temperamentWordHintA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createDongnian = createDongnian; window.DongnianEmotionA=DongnianEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createDongnian,DongnianEmotionA};
