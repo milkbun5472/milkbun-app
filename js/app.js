@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.72";
+const APP_VERSION = "v67.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14950,7 +14950,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let n = [...recs, ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
-    const evictable = x => x.authorType === "npc" && !spare.has(x.id);
+    const evictable = x => x.authorType === "npc" && !spare.has(x.id) && !forumCInflightRef.current[x.id];
     const npcInBoard = n.filter(x => x.board === board && evictable(x)).sort((a, b) => b.ts - a.ts);
     npcInBoard.slice(FORUM_NPC_CAP).forEach(x => kill.add(x.id));
     const npcAll = n.filter(x => evictable(x) && !kill.has(x.id)).sort((a, b) => b.ts - a.ts);
@@ -15188,6 +15188,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 只能盖楼中楼(reply_to_floor)接话/反驳。按 reply_to_floor 把项拆成「新楼」与「挂进已有楼的追评」两路。
   const genMoreComments = async post => {
     if (!active) { toast("请先到设置配置 API"); return; }
+    if (forumCInflightRef.current[post.id]) return;
+    forumCInflightRef.current[post.id] = true;
     setGen(g => ({ ...g, forumMore: post.id }));
     try {
       const requestedAt = Date.now();
@@ -15203,7 +15205,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       if (released > 0) {
         setForumComments(prev => {
-          const n = { ...prev, [post.id]: forumFloorOrder(existing) };
+          const releasedById = new Map(existing.map(f => [f.id, f]));
+          const list = forumRetainFloors(prev[post.id], existing).map(f => {
+            const shown = releasedById.get(f.id);
+            return shown ? { ...f, visibleAt: shown.visibleAt, ts: shown.ts } : f;
+          });
+          const n = { ...prev, [post.id]: forumFloorOrder(list) };
           saveForumComments(n);
           return n;
         });
@@ -15229,7 +15236,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }));
       if (!more.length && !subInserts.length) throw new Error("没有更多");
       setForumComments(prev => {
-        let list = prev[post.id] || [];
+        // 等待期间即使缓存被清理，也不能用新批次替换刚刚交付的旧楼。
+        let list = forumRetainFloors(prev[post.id], existing);
         if (subInserts.length) list = list.map(f => {
           const adds = subInserts.filter(s => s.floorId === f.id).map(s => s.reply);
           return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
@@ -15239,7 +15247,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       bumpReplyBy(post.id, more.length + subInserts.length);
     } catch (e) { toast(e.message); }
-    finally { setGen(g => ({ ...g, forumMore: null })); }
+    finally {
+      forumCInflightRef.current[post.id] = false;
+      setGen(g => ({ ...g, forumMore: g.forumMore === post.id ? null : g.forumMore }));
+    }
   };
   // 角色发帖（可被未来「统一发布决策调度器」调用；本次也用于手动让某角色发帖）
   // 入参：角色、版块、内容对象 {title, body}。内部负责写 posts 表（authorType='character'）。

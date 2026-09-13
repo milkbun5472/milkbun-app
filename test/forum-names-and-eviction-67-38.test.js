@@ -18,19 +18,28 @@ const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const A = strip(app);
 
 // 淘汰那一段真跑：它只用 FORUM_NPC_CAP / FORUM_NPC_TOTAL_CAP / forumCommentsRef
-const evict = (posts, board, cmts) => {
+const evict = (posts, board, cmts, inflight = {}) => {
   const i = app.indexOf("  const forumTouchedPosts = fc => {");
   const j = app.indexOf("\n  });", app.indexOf("const appendForumPosts", i));
   assert.ok(i > 0 && j > i, "抠不出淘汰那一段");
   const src = app.slice(i, j + 6);
   let out = null, killedComments = null;
-  new Function("FORUM_NPC_CAP", "FORUM_NPC_TOTAL_CAP", "forumCommentsRef", "setForumPosts", "setForumComments", "saveJSON", "saveForumComments", "BOARD_",
+  new Function("FORUM_NPC_CAP", "FORUM_NPC_TOTAL_CAP", "forumCommentsRef", "setForumPosts", "setForumComments", "saveJSON", "saveForumComments", "BOARD_", "forumCInflightRef",
     src + "\nappendForumPosts([], BOARD_);")
     .call(null, 30, 240, { current: cmts || {} },
-      fn => { out = fn(posts); }, fn => { killedComments = fn(cmts || {}); }, () => true, () => true, board);
+      fn => { out = fn(posts); }, fn => { killedComments = fn(cmts || {}); }, () => true, () => true, board, {current: inflight});
   return { posts: out, cmts: killedComments };
 };
 const npcPost = (id, ts, board) => ({ id, ts, board: board || "日常吧", authorType: "npc" });
+
+test("更多回复生成中，后台刷新不能淘汰刚放出的旧楼", () => {
+  const posts = Array.from({length:40}, (_,i)=>npcPost('p'+i,1000-i));
+  const cmts = {p39:[{id:'old',authorType:'npc',content:'已放出的旧评论',visibleAt:0,ts:2000}]};
+  assert.equal(evict(posts,'日常吧',cmts).cmts.p39,undefined,'无锁时确实会被淘汰');
+  const kept=evict(posts,'日常吧',cmts,{p39:true});
+  assert.deepEqual(kept.cmts.p39,cmts.p39);
+  assert.ok(kept.posts.some(p=>p.id==='p39'));
+});
 
 test("她在楼里回过话的那一帖，不许被当成可再生数据淘汰", () => {
   const posts = [];

@@ -1631,6 +1631,12 @@ function forumFloorOrder(floors) {
     .sort((a, b) => (forumFloorArrivedAt(a.f) - forumFloorArrivedAt(b.f)) || (a.i - b.i))
     .map((x, n) => (x.f && x.f.floor === n + 2) ? x.f : { ...x.f, floor: n + 2 });
 }
+// 生成期间保留已交付的楼：同 ID 以当前版本为准（尤其是中途新增的楼中楼）。
+function forumRetainFloors(current, retained) {
+  const list = Array.isArray(current) ? current : [];
+  const ids = new Set(list.map(f => f.id));
+  return forumFloorOrder([...(retained || []).filter(f => !ids.has(f.id)), ...list]);
+}
 function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "万"; return String(n); }
 function forumAge(ts) { if (!ts) return "新人"; const d = Math.floor((Date.now() - ts) / 86400000); if (d < 30) return "吧龄 " + Math.max(d, 1) + " 天"; const mo = Math.floor(d / 30); if (mo < 12) return "吧龄 " + mo + " 个月"; return "吧龄 " + (d / 365).toFixed(1) + " 年"; }
 // 论坛路人/常驻/小号的头像。原来画的是 FORUM_AV_EMOJI 里的 🐧🐸🐱 —— 她 2026-08-25
