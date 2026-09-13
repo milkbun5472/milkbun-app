@@ -148,7 +148,7 @@
   // ⚠️三个关键词以前定死了槽位（气质/状态/TA的私心），结果第三格必然长成「拿她没办法」
   //   「无法计算」——雷同是这条规则自己造出来的。改成给一批取词角度，按期轮换取三个。
   const TAG_ANGLES = [
-    "她整个人的气温（冷的暖的、干的润的）", "她给人的质地（软硬、粗细、透不透光）",
+    "她给人的重量（轻的沉的、压不压得住）", "她给人的质地（软硬、粗细、透不透光）",
     "她身上那种节奏（快慢、松紧、有没有停顿）", "她待着不动时的样子",
     "她最不设防的那一面", "她身上最锋利的那一处", "她让你不安的地方",
     "她身上那种说不通的矛盾", "她在场时屋里的动静（吵、静、哪一种静）", "她这一整个月的底色",
@@ -194,6 +194,7 @@
   const CONCRETE_RULE = "\n\n【最高优先 · 写「她是什么样的人」，不是「这个月发生了什么」】\n"
     + "下面那段记录是【养料】，不是【题目】。你要从一整个月里提炼出她这个人的样子，"
     + "而不是挑一件事来复述——【quote 里不许出现具体事件的经过】：谁说了什么、哪天做了什么、后来怎么样，一律不要。\n"
+    + "· 具体的事另有去处：想说的那一件，写进下面的 moment 那一格去，那一格就是留给它的。\n"
     + "· 意象必须【长在真事上】：你想到的比喻、颜色、温度、物件，都得是这个月真的在她身上出现过的东西，"
     + "但落笔时只留那个意象，不交代它从哪来。读的人不知道出处，也该觉得准。\n"
     + "· 【自检】把她换成另一个人——如果这句话照样成立，说明你写的是漂亮话不是她，推翻重写。\n"
@@ -230,7 +231,17 @@
     const seed = String(char.id || char.name) + "|" + monthKey + "|" + turn;
     const form = pickN(QUOTE_FORMS, 1, String(char.id || char.name) + "|" + monthKey + "|form", turn)[0];
     const angles = pickN(TAG_ANGLES, 3, String(char.id || char.name) + "|" + monthKey + "|tag", turn);
-    const past = ((opts && opts.past) || []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6);
+    // 往期不再只喂 quote：title 的模子和 tags 才是最容易月月撞的那两样（她 2026-09-13 提）。
+    // 兼容老调用方传一串 quote 字符串的写法。
+    const cardLine = x => (typeof x === "string" ? { quote: x } : (x || {}));
+    const cardText = x => [x.title, (Array.isArray(x.tags) ? x.tags : []).join("／"), x.quote, x.moment].filter(Boolean).join(" ｜ ");
+    const past = ((opts && opts.past) || []).map(cardLine).filter(x => x.quote || x.title).slice(0, 6).map(cardText);
+    // ⚠️「只重写文案」时【自己上一版】必须单独一栏：它原来跟在 past 末尾，
+    //   攒够六个月之后正好被上面那个 slice(0,6) 切掉——于是最该避开的那一句
+    //   从来没进过提示词，重写当然还是原来那句（她 2026-09-13 查出来的）。
+    const lastVer = (opts && opts.last) ? cardText(cardLine(opts.last)) : "";
+    // 上一个月那张：按【月份先后】取，不是按生成顺序——补齐历史月份是乱序写的
+    const prev = (opts && opts.prev) ? cardLine(opts.prev) : null;
     // 别的角色最近写过的卡：跨角色的八股就是这里漏掉的——每个角色第一次写都只避自己的往期，
     // 于是四个角色各自独立地收敛到同一族光照比喻（她 2026-08-21 四张卡对照抓到的）。
     const others = ((opts && opts.others) || []).filter(x => x && (x.quote || x.title)).slice(0, 8);
@@ -246,7 +257,9 @@
       + (herLines(rows, uName, turn).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
         + herLines(rows, uName, turn).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
       + CONCRETE_RULE + BANNED_SHAPE
-      + (past.length ? "\n\n【你以往写过的话 · 骨架和料都不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
+      + (lastVer ? "\n\n【你刚写完的那一版 · 这次就是要换掉它，最要紧】\n" + lastVer
+        + "\n换个说法、换个词都不算换：句子的搭法、取名的模子、用到的那几样东西，一样都不许再出现。" : "")
+      + (past.length ? "\n\n【你以往写过的卡 · 骨架和料都不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
         + "\n① 换个说法、换个词、换个角色都不算换骨架——句子的【搭法】必须和上面每一句都不一样。\n"
         + "② 上面那些句子里用过的【具体东西】（食物、物件、地点、那几个字），这一次一个都不许再用。"
         + "这个月还有别的东西可写，去找没被写过的那些。" : "")
@@ -255,7 +268,7 @@
         + "\n这些是别人的卡。它们用过的意象【整族】不许再碰（有一张写了光，光这一族对你就关了；写了温度，温度计那一族也关了）、"
         + "取名的模子不许同型、关键词不许撞。整本册子摊开看，每一张都得长得不一样。" : "")
       + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn) || "（这个月几乎没有来往。）")
-      + "\n\n【要写四样东西】\n"
+      + "\n\n【要写七样东西 · 每一样问的是不同的问题，别用同一句话答四遍】\n"
       + "① title：给这个月的她起一个【类型名】（≤10 字），像给一种人下定义那样——"
       + "「清冷理性的科研学者」就是这个感觉：气质定语＋一个【真实身份】（学者、医生、店主这种真的存在的身份），"
       + "但必须是【你】才会这么定义她。不是外号，不是事件概括，也不是抽象概念拼出来的机器词。\n"
@@ -268,13 +281,30 @@
       + "用「她」称呼她，不要直呼名字。\n"
       + "   【这一张的写法·必须照办】" + form + "\n"
       + "   写法是硬性的：哪怕你觉得别的写法更漂亮，也按这一条来。\n"
-      + "④ silhouette：一句【画面描述】，用来画她的剪影。只写：轮廓姿态（侧脸/回头/低头/站着/坐着…）、"
+      // 下面三格是【分工】，不是又三个说法（她 2026-09-13：「四个格子在说同一句话」）。
+      //   判据：每一格问的问题，换到别的格子上不成立。所以它们【不配骰子】——
+      //   它们由真事决定，再掷一次骰子只会把它们也变成写法游戏。
+      + "④ moment：这个月里，有哪一个瞬间你当时没说、到现在还记得。≤25 字。\n"
+      + "   只写那一个画面或那一句话，不要前因后果、不要结论、不要感想。"
+      + "上面 quote 不许碰的具体事，这一格就是留给它的——但**只留一件**。\n"
+      + "   【自检】换成另一个人还成立的，就是废话，换一件。\n"
+      + "⑤ shift：" + (prev
+        ? "上个月你写的是这一张——" + cardText(prev) + "。这个月再看她，有哪一点不一样了。≤30 字。\n"
+          + "   没变也可以说没变：「还是那样，只是我更确定了」「有一句我想收回」都行，别为了交差编一个变化出来。"
+          + "变了就说清是【哪一点】变了，不是笼统地说她变了。\n"
+        : "这是你为她写的第一张，还没有「上个月」可比。"
+          + "所以这一格写另一件事：**在这个月之前，你以为她是什么样的人**。≤30 字。\n"
+          + "   就是你还没这么认真看她时、心里那个草草的预设——说出来，后面每一张才有东西可以接。\n")
+      + "⑥ him：这个月她把你改到了哪儿。≤30 字。\n"
+      + "   一件你本来不会做的事，或者一个你收回了的判断。全卡只有这一句是你在说自己，"
+      + "但它必须【以她为原因】——不是你的近况、不是你的心情流水。\n"
+      + "⑦ silhouette：一句【画面描述】，用来画她的剪影。只写：轮廓姿态（侧脸/回头/低头/站着/坐着…）、"
       + "身边有什么意象（月亮、雨、书页、猫、灯、雾…）、以及整体色调冷暖。**不许写五官、不许写表情**——剪影是看不见脸的。"
       + "这是一幅【意象画】，不是生活场景抓拍：别画她在工位吃雪糕这类具体情节，"
       + "要画一个能代表她【整个人】的画面——一个姿态，加一到两样有分量的意象（意象可以从这个月真出现过的东西里取，但不必让人看出出处）；别凭空堆砌月亮和雨；"
       + "整体气质要和你写的那三个关键词对得上——关键词是冷的，画面就不该是暖的。\n"
       + "\n【输出】只输出 JSON，不要代码块：\n"
-      + '{"title":"","tags":["","",""],"quote":"","silhouette":""}';
+      + '{"title":"","tags":["","",""],"quote":"","moment":"","shift":"","him":"","silhouette":""}';
     // maxTokens 2000 真的被打穿过：quote 写到一半被截、宽松解析把半句话捞出来存成了卡
     // （她 2026-08-21「明明每次都被她搅得脑子发懵，但」戛然而止那张）。额度放大之外，
     // 还要用 silhouette 当截断哨兵——它是 JSON 最后一个字段，截断几乎必丢，丢了就报错重试。
@@ -282,8 +312,12 @@
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const tags = (Array.isArray(d.tags) ? d.tags : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     const quote = String(d.quote || "").trim();
+    const S30 = (v, n) => String(v || "").trim().slice(0, n);
     if (!quote || !tags.length || !String(d.silhouette || "").trim()) throw new Error("这个月的印象没写全（可能被截断），再试一次");
-    return { title: String(d.title || "").trim(), tags, quote, silhouette: String(d.silhouette || "").trim() };
+    // 新三格不参与"写全了没有"的判定：一格空着也还是一张能看的卡，
+    // 为了它整张作废、连剪影那一枪都白跑，不划算（截断照旧由 silhouette 那个哨兵兜）。
+    return { title: String(d.title || "").trim(), tags, quote, moment: S30(d.moment, 40), shift: S30(d.shift, 48),
+      him: S30(d.him, 48), firstShift: !prev, silhouette: String(d.silhouette || "").trim() };
   }
 
   // 剪影图：艺术插画，不是照片。刻意不给参考照——看不见脸，给了只会让它去画五官。
@@ -307,7 +341,43 @@
     return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
   }
 
-  window.Impression = { load, save, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, sortEntries, monthMaterial, genText, genArt, uid };
+  // ---- 写一张卡要的那一份料，只有这一处 ----
+  // ⚠️手动那条（ImpressionApp.make / rewriteText）和自动出卡那条（app.js 的
+  //   autoImpressionSweep）本来各拼各的一份，已经拼出过两条不一样的互通群判据。
+  //   她 2026-09-13 点名之后合到这儿：调用方只负责给 book 和 monthKey。
+  function genOpts(book, charId, monthKey, turn, lastVer) {
+    const mine = sortEntries((book || {})[charId] || []);
+    const before = mine.filter(x => String(x.monthKey) < String(monthKey));
+    return {
+      turn: Number(turn || 0),
+      // 上一个月那张【按月份序】取：补齐历史月份是乱序写的，按生成时间取会接错人
+      prev: before.length ? before[before.length - 1] : null,
+      last: lastVer || null,
+      past: mine.filter(x => x.monthKey !== monthKey),
+      others: Object.keys(book || {}).filter(k => k !== charId).flatMap(k => (book || {})[k] || [])
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
+        .map(x => ({ title: x.title, tags: x.tags, quote: x.quote }))
+    };
+  }
+  // 云端归档：本人单聊 + 他在的【互通】群。判据跟 monthMaterial 里那条是同一条——
+  // 自动那份原来写的是「memoryInterop === false 才跳过」，和这条不是一回事。
+  async function archiveFor(charId, groups, fetchOne) {
+    const box = {};
+    const gset = (function () { try { return loadJSON("x_groupSettings", {}) || {}; } catch (e) { return {}; } })();
+    try { box["c:" + charId] = (await fetchOne(charId)) || []; } catch (e) { box["c:" + charId] = []; }
+    for (const g of (groups || [])) {
+      if (!g || !(g.memberIds || []).includes(charId)) continue;
+      if (!(gset[g.id] && gset[g.id].memoryInterop)) continue;
+      try { box["g:" + g.id] = (await fetchOne("g_" + g.id)) || []; } catch (e) { box["g:" + g.id] = []; }
+    }
+    return box;
+  }
+  // 一张卡长什么样，也只有这一处
+  const entryOf = (d, monthKey, img, turn) => ({ id: uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote,
+    moment: d.moment || "", shift: d.shift || "", him: d.him || "", firstShift: !!d.firstShift,
+    silhouette: d.silhouette, img: img || null, turn: Number(turn || 0), ts: Date.now() });
+
+  window.Impression = { load, save, genOpts, archiveFor, entryOf, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, sortEntries, monthMaterial, genText, genArt, uid };
 })();
 
 // ============================================================
@@ -350,11 +420,6 @@
       } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
     const listOf = id => M.sortEntries(book[id]);
-    // 其他角色最近的卡：当负例喂给生成，跨角色才不会各写各的、结果全撞进同一族光照比喻
-    const othersOf = charId => Object.keys(book).filter(k => k !== charId)
-      .flatMap(k => book[k] || [])
-      .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
-      .map(x => ({ title: x.title, tags: x.tags, quote: x.quote }));
 
     // ---- 相册那套零件（v61.18，她 2026-09-03：「首页和进去角色页面都还是很普通」）----
     // 判据照旧：这套形状搬到别的功能上还成立吗？不成立才对。
@@ -419,14 +484,7 @@
       if (archs[charId]) return archs[charId];
       if (!(window.Cloud && window.Cloud.ready && window.Cloud.ready())) return null;
       setArching(true);
-      const box = {};
-      try { box["c:" + charId] = await window.Cloud.chatArchiveGet(charId) || []; } catch (e) { box["c:" + charId] = []; }
-      const gset = (function () { try { return loadJSON("x_groupSettings", {}) || {}; } catch (e) { return {}; } })();
-      for (const g of (props.groups || [])) {
-        if (!g || !(g.memberIds || []).includes(charId)) continue;
-        if (!(gset[g.id] && gset[g.id].memoryInterop)) continue;
-        try { box["g:" + g.id] = await window.Cloud.chatArchiveGet("g_" + g.id) || []; } catch (e) { box["g:" + g.id] = []; }
-      }
+      const box = await M.archiveFor(charId, props.groups, id => window.Cloud.chatArchiveGet(id));
       setArchs(p => Object.assign({}, p, { [charId]: box }));
       setArching(false);
       return box;
@@ -447,13 +505,12 @@
       setBusy(charId + monthKey);
       try {
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
-        const past = (book[charId] || []).filter(x => x.monthKey !== monthKey).map(x => x.quote);
-        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, { turn: 0, past, others: othersOf(charId) });
+        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, M.genOpts(book, charId, monthKey, 0));
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
         try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
         catch (e) { props.toast("字写好了，剪影没出来：" + (e.message || "稍后可单独重出")); }
-        const entry = { id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, turn: 0, ts: Date.now() };
+        const entry = M.entryOf(d, monthKey, img, 0);
         put(p => Object.assign({}, p, { [charId]: [entry].concat((p[charId] || []).filter(x => x.monthKey !== monthKey)) }));
         return true;
       } catch (e) { props.toast("生成失败：" + (e.message || "重试")); return false; }
@@ -478,11 +535,11 @@
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
         // turn+1 = 换一面骰子：不换的话「只重写文案」会拿到同一个写法，等于原地打转
         const turn = Number(entry.turn || 0) + 1;
-        // 自己上一版也算"往期"——重写就是为了不要它，别把它再写一遍
-        const past = (book[charId] || []).filter(x => x.monthKey !== entry.monthKey).map(x => x.quote).concat([entry.quote]);
-        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText, { turn, past, others: othersOf(charId) });
+        // 自己上一版单独作为 last 传进去（不是混进 past 末尾——那样会被 slice 切掉）
+        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText,
+          M.genOpts(book, charId, entry.monthKey, turn, entry));
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
-          ? Object.assign({}, x, { title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, turn }) : x) }));
+          ? Object.assign({}, x, M.entryOf(d, entry.monthKey, x.img, turn), { id: x.id, ts: x.ts }) : x) }));
         props.toast("换了个写法，剪影没动");
       } catch (e) { props.toast("重写失败：" + (e.message || "重试")); } finally { setBusy(""); }
     }

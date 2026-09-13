@@ -218,8 +218,9 @@ test("剪影要画的是这一期的印象，不是一句孤零零的场景", ()
 test("文案与剪影能分开重来，且不给整张重刷的误触入口", () => {
   assert.match(imp, /async function rewriteText\(charId, entry\)/);
   // 只换字，图原样留着
-  assert.match(imp, /Object\.assign\(\{\}, x, \{ title: d\.title, tags: d\.tags, quote: d\.quote, silhouette: d\.silhouette, turn \}\)/,
-    "只换这五样，img 原样不动");
+  // v67.88 起一张卡长什么样只有 M.entryOf 一处；重写时把旧的 img / id / ts 原样带回去
+  assert.match(imp, /Object\.assign\(\{\}, x, M\.entryOf\(d, entry\.monthKey, x\.img, turn\), \{ id: x\.id, ts: x\.ts \}\)/,
+    "img、id、时间戳原样不动，只换文案那几格");
   assert.doesNotMatch(imp.slice(imp.indexOf("async function rewriteText"), imp.indexOf("// ---- 单张卡片")), /M\.genArt/,
     "只重写文案的那条路绝不能碰出图");
   assert.match(imp, /"只重写文案"/);
@@ -277,15 +278,18 @@ test("已经写烂的骨架要指着名字禁掉，同义改写也算", () => {
   assert.match(imp, /BANNED_SHAPE/);
 });
 
-test("往期 quote 要喂回去，重写时连自己上一版一起避开", () => {
-  assert.match(imp, /你以往写过的话 · 骨架和料都不许重复/);
+test("往期要喂回去，重写时连自己上一版一起避开", () => {
+  assert.match(imp, /你以往写过的卡 · 骨架和料都不许重复/);
   assert.match(imp, /句子的【搭法】必须和上面每一句都不一样/);
-  // 生成时避开别的月份
-  assert.match(imp, /const past = \(book\[charId\] \|\| \[\]\)\.filter\(x => x\.monthKey !== monthKey\)\.map\(x => x\.quote\)/);
-  // 重写时把自己上一版也算进去——重写就是为了不要它
-  assert.match(imp, /\.concat\(\[entry\.quote\]\)/);
+  // v67.88：往期不再只喂 quote——title 的模子和 tags 才是月月撞的那两样
+  assert.match(imp, /const cardText = x => \[x\.title, \(Array\.isArray\(x\.tags\) \? x\.tags : \[\]\)\.join\("／"\), x\.quote, x\.moment\]/);
+  assert.match(imp, /past: mine\.filter\(x => x\.monthKey !== monthKey\)/, "往期＝这个角色别的月份那几张");
+  // 自己上一版单独一栏：跟在 past 末尾会被 slice(0,6) 切掉（她 2026-09-13 查出来的）
+  assert.match(imp, /const lastVer = \(opts && opts\.last\) \? cardText\(cardLine\(opts\.last\)\) : "";/);
+  assert.match(imp, /【你刚写完的那一版 · 这次就是要换掉它，最要紧】/);
+  assert.match(imp, /M\.genOpts\(book, charId, entry\.monthKey, turn, entry\)/, "重写要把上一版整张传进去");
   assert.match(imp, /const turn = Number\(entry\.turn \|\| 0\) \+ 1;/);
-  assert.match(imp, /turn: 0, ts: Date\.now\(\)/, "新卡片要记下 turn，重写才知道转到第几面");
+  assert.match(imp, /turn: Number\(turn \|\| 0\), ts: Date\.now\(\)/, "新卡片要记下 turn，重写才知道转到第几面");
 });
 
 // v54.07：她说某个角色七月聊了很多，却被告知"没有来往写不了"。
@@ -344,15 +348,17 @@ test("素材必须把云端归档算进来，本地只是最近的一个窗口",
   assert.match(imp, /if \(m && m\.id\) \{ if \(seenId\.has\(m\.id\)\) return; seenId\.add\(m\.id\); \}/);
   // 群聊归档的 key 是 "g_"+groupId（app.js 的 archKey），别写错
   assert.match(imp, /\(A\["g:" \+ g\.id\] \|\| \[\]\)\.concat\(grab\("x_gchat:" \+ g\.id\)\)/);
-  assert.match(imp, /chatArchiveGet\("g_" \+ g\.id\)/);
+  assert.match(imp, /fetchOne\("g_" \+ g\.id\)/, "拉群归档的 key 还是 g_+id（v67.88 起在公共的 archiveFor 里）");
   assert.match(app, /const archKey = "g_" \+ groupId;/, "归档 key 的写法必须和 app.js 一致");
 });
 
 test("归档一个角色只拉一次，并且封闭群不拉", () => {
   const seg = imp.slice(imp.indexOf("async function ensureArch"), imp.indexOf("// ---- 生成一个月"));
   assert.match(seg, /if \(archs\[charId\]\) return archs\[charId\];/, "拉过就不再拉");
-  assert.match(seg, /if \(!\(gset\[g\.id\] && gset\[g\.id\]\.memoryInterop\)\) continue;/, "封闭群不拉");
-  assert.match(seg, /\(g\.memberIds \|\| \[\]\)\.includes\(charId\)/);
+  // v67.88：谁该拉这一条挪进公共的 archiveFor（自动出卡那条原来另有一套判据）
+  const arc = imp.slice(imp.indexOf("async function archiveFor"), imp.indexOf("  // 一张卡长什么样"));
+  assert.match(arc, /if \(!\(gset\[g\.id\] && gset\[g\.id\]\.memoryInterop\)\) continue;/, "封闭群不拉");
+  assert.match(arc, /\(g\.memberIds \|\| \[\]\)\.includes\(charId\)/);
   // 云没就绪就退回本地，但不能装作没事
   assert.match(seg, /if \(!\(window\.Cloud && window\.Cloud\.ready && window\.Cloud\.ready\(\)\)\) return null;/);
   assert.match(imp, /⚠️云端归档没拉到，只数了本地那 " \+ b\.local \+ " 条——旧消息都在云上/);
@@ -383,7 +389,9 @@ test("句式池整体挪到肖像式，池子里不许再有叙事形状", () =>
 test("关键词角度也从行为观察挪到整体气质", () => {
   const m = dice();
   assert.ok(!m.TAG_ANGLES.some(x => /做事的方式|说话的调子|笨拙的地方/.test(x)), "行为流水式角度退场");
-  ["气温", "质地", "节奏", "底色"].forEach(k =>
+  // 「气温」那一面 v67.88 撤了：BANNED_SHAPE 把温度计词整族禁了，掷到它等于自相矛盾
+  assert.ok(!m.TAG_ANGLES.some(x => /气温/.test(x)), "骰子不许掷到一个被禁的维度上");
+  ["重量", "质地", "节奏", "底色"].forEach(k =>
     assert.ok(m.TAG_ANGLES.some(x => x.includes(k)), "气质类角度里该有：" + k));
   assert.equal(new Set(m.pickN(m.TAG_ANGLES, 3, "c|2026-07|tag", 0)).size, 3);
 });
@@ -496,8 +504,9 @@ test("跨角色负例：别人的卡喂进生成，各写各的才不会全撞�
   assert.match(imp, /const others = \(\(opts && opts\.others\) \|\| \[\]\)/);
   assert.match(imp, /【册子里其他人已经写过的卡 · 撞了就作废】/);
   assert.match(imp, /它们用过的意象【整族】不许再碰/);
-  // UI 侧：othersOf 取其他角色最近的卡，首次生成和重写都要传
-  assert.match(imp, /const othersOf = charId => Object\.keys\(book\)\.filter\(k => k !== charId\)/);
-  assert.match(imp, /\{ turn: 0, past, others: othersOf\(charId\) \}/, "首次生成要带");
-  assert.match(imp, /\{ turn, past, others: othersOf\(charId\) \}/, "重写也要带");
+  // v67.88：别人的卡由公共的 genOpts 一处算，首次生成/重写/自动出卡三条都从那儿取
+  assert.match(imp, /others: Object\.keys\(book \|\| \{\}\)\.filter\(k => k !== charId\)/);
+  assert.match(imp, /M\.genOpts\(book, charId, monthKey, 0\)/, "首次生成要带");
+  assert.match(imp, /M\.genOpts\(book, charId, entry\.monthKey, turn, entry\)/, "重写也要带");
+  assert.match(app, /M\.genOpts\(M\.load\(\), char\.id, monthKey, 0\)/, "自动出卡也要带");
 });
