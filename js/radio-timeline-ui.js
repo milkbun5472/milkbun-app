@@ -13,7 +13,11 @@
     const [fragmentId, setFragment] = useState("");
     const [lineIndex, setLine] = useState(-1);
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [together, setTogether] = useState(false);
+    // 谁陪你听（""＝没有人）。⚠️v67.57 之前这儿是个 boolean，陪听的人写死成
+    // 广播里那个人本人——于是「暂停问他」等于当着当事人的面问当事人，他什么都知道。
+    // 可隔离那一套代码早就按 companionId 分账了（reveal 记 companionId、companionContext
+    // 按它筛、companionPrompt 也收 companionId）：能力一直在，只是界面把它焊死了。
+    const [companionId, setCompanion] = useState("");
     const [question, setQuestion] = useState("");
     const [correction, setCorrection] = useState("");
     const [busy, setBusy] = useState(false);
@@ -25,6 +29,7 @@
     const fragment = branch && branch.fragments.find(x => x.id === fragmentId);
     const heard = branch && fragment ? R.heardLines(branch, fragment.id) : [];
     const currentEra = R.ERAS[frequency];
+    const companion = companionId ? (p.characters || []).find(c => c.id === companionId) : null;
     const uid = () => "rt_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2);
     const stop = () => { if (player.current) player.current.stop(); };
     useEffect(() => {
@@ -45,7 +50,7 @@
     };
     const resetPlayback = () => { stop(); setHistoryOpen(false); setFragment(""); setLine(-1); setQuestion(""); setCorrection(""); setError(""); };
     const back = () => { if (lock.current) return; if (historyOpen) { setHistoryOpen(false); return; } resetPlayback(); if (selected) select(""); else p.onBack(); };
-    const open = id => { listScroll.current = scroll.current ? scroll.current.scrollTop : 0; resetPlayback(); setTogether(false); select(id); };
+    const open = id => { listScroll.current = scroll.current ? scroll.current.scrollTop : 0; resetPlayback(); setCompanion(""); select(id); };
     const newBranch = () => {
       try {
         const c = p.characters.find(x => x.id === charId);
@@ -65,7 +70,7 @@
     const revealLine = index => {
       if (!fragment) return;
       if (!Number.isInteger(index) || index < 0 || index >= fragment.lines.length) return;
-      update(branch.id, x => R.reveal(x, fragment.id, index, together ? branch.charId : ""));
+      update(branch.id, x => R.reveal(x, fragment.id, index, companionId));
       setLine(index);
     };
     const showLine = index => { stop(); revealLine(index); };
@@ -89,11 +94,11 @@
     };
     const ask = () => run(async () => {
       const b = branch, q = question.trim();
-      if (!q || !together) return;
-      const raw = await p.onCompanion(b, q);
+      if (!q || !companionId) return;
+      const raw = await p.onCompanion(b, q, companionId);
       if (!raw || typeof raw.say !== "string" || !raw.say.trim()) throw Error("这次没有收到完整回应，问题还留着。");
       if (!alive.current) return;
-      update(b.id, x => ({ ...x, talks: x.talks.concat({ companionId: b.charId, question: q, answer: raw.say.trim() }) }));
+      update(b.id, x => ({ ...x, talks: x.talks.concat({ companionId: companionId, question: q, answer: raw.say.trim() }) }));
       setQuestion("");
     });
     const skin = { background: "#f1eade", color: "#39362f", fontFamily: F_BODY };
@@ -126,7 +131,13 @@
             h("input", { type: "range", min: 0, max: 2, step: 1, value: frequency, "aria-label": "调频", disabled: busy, style: { width: "100%", minHeight: 44, accentColor: "#876347" }, onChange: e => { resetPlayback(); tune(Number(e.target.value)); } }),
             h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12 } }, R.ERAS.map(x => h("span", { key: x.id }, x.label)))
           ),
-          h("label", { style: { display: "block", padding: "14px 0" } }, h("input", { type: "checkbox", checked: together, disabled: busy, onChange: e => { stop(); setTogether(e.target.checked); } }), " 邀请此刻的" + branch.name + "陪听"),
+          // ⚠️换人之后，新来的那位【从你切给他的那一句开始听】：前面那些他没在场，
+          //   heard 按 companionId 分账，所以这一条不用另写代码，它自己就成立。
+          field("谁陪你一起听", h("select", { style: inputStyle, value: companionId, disabled: busy,
+            onChange: e => { stop(); setCompanion(e.target.value); } },
+            h("option", { value: "" }, "没有人，我自己听"),
+            p.characters.map(c => h("option", { key: c.id, value: c.id },
+              c.id === branch.charId ? c.name + "（广播里的就是他）" : c.name)))),
           btn("接收这个频率的新章节", generate),
           branch.fragments.filter(x => x.era === currentEra.id).map(f => h("div", { key: f.id, style: { marginTop: 8 } }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); }))),
           fragment ? h("section", { style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
@@ -143,13 +154,17 @@
             btn("记作本分支约束", () => { update(branch.id, x => ({ ...x, corrections: x.corrections.concat(correction.trim()) })); setCorrection(""); }, !correction.trim()),
             h("small", { style: { display: "block", lineHeight: 1.7 } }, "纠正用于之后的新片段，旧片段本版不自动重写。")
           ) : null,
-          together ? h("section", { style: { marginTop: 20, borderTop: "1px solid #c6bba7", paddingTop: 12 } },
-            h("h3", null, "身边的" + branch.name),
-            h("p", { style: { fontSize: 12 } }, "只知道一起听到的句子；陪听对话仅留在这条分支里。"),
-            branch.talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.8, marginBottom: 12 } }, h("div", null, "你：" + t.question), h("div", null, branch.name + "：" + t.answer))),
-            field("暂停，和他说一句", h("textarea", { style: inputStyle, value: question, rows: 2, disabled: busy, onFocus: stop, onChange: e => setQuestion(e.target.value) })),
-            btn("问问他", ask, !question.trim() || !R.companionContext(branch, branch.charId).heard.length)
-          ) : null
+          companion ? (function () {
+            const mine = R.companionContext(branch, companion.id);
+            return h("section", { style: { marginTop: 20, borderTop: "1px solid #c6bba7", paddingTop: 12 } },
+              h("h3", null, "身边的" + companion.name),
+              h("p", { style: { fontSize: 12 } }, companion.id === branch.charId
+                ? "广播里那个人是另一条时间线上的他；他只知道你俩一起听到的句子。"
+                : "他只知道你俩一起听到的句子——没播的、你自己听过的，他都不知道。"),
+              mine.talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.8, marginBottom: 12 } }, h("div", null, "你：" + t.question), h("div", null, companion.name + "：" + t.answer))),
+              field("暂停，和他说一句", h("textarea", { style: inputStyle, value: question, rows: 2, disabled: busy, onFocus: stop, onChange: e => setQuestion(e.target.value) })),
+              btn("问问他", ask, !question.trim() || !mine.heard.length));
+          })() : null
         ),
         busy ? h("p", { role: "status" }, "正在接收；不会自动重试。") : null,
         error ? h("p", { role: "alert", style: { color: "#913d32", whiteSpace: "pre-wrap" } }, error) : null

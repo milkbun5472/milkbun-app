@@ -26,9 +26,10 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
         Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{cancel(){},speak(u){window.qaSpeech.push(u);}}});
         window.SpeechSynthesisUtterance=function(text){this.text=text;};
         ReactDOM.createRoot(host).render(h(RadioTimelineScreen,{
-          characters:[{id:'fixture',name:'测试角色',persona:'虚构测试人物'}],loreFor:()=>'',onBack:()=>{},onLegacy:()=>{},
+          characters:[{id:'fixture',name:'测试角色',persona:'虚构测试人物'},{id:'other',name:'旁边那位',persona:'另一个虚构人物'}],loreFor:()=>'',onBack:()=>{},onLegacy:()=>{},
           onFragment:async()=>{window.qaCalls++;return {title:'测试片段',lines:[{kind:'narrator',text:'独听的场景'},{kind:'character',speaker:'测试角色',text:'共同听见的话'},{kind:'character',text:'还没播放的秘密'}]};},
-          onCompanion:async(b,q)=>{window.qaPrompt=RadioTimeline.companionPrompt(b,'fixture',q);return {say:'测试回应'};}
+          // v67.57：陪听的是谁由界面传进来（原来写死成广播里那个人）
+          onCompanion:async(b,q,who)=>{window.qaWho=who;window.qaPrompt=RadioTimeline.companionPrompt(b,who,q);return {say:'测试回应'};}
         }));
       });
       await page.getByLabel('想听谁的时间线').selectOption('fixture');
@@ -37,7 +38,7 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       assert.equal(await page.evaluate(()=>qaCalls),0);
       await page.getByRole('button',{name:'接收这个频率的新章节',exact:true}).click();
       await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
-      await page.getByLabel('邀请此刻的测试角色陪听').check();
+      await page.getByLabel('谁陪你一起听').selectOption('fixture');
       await page.getByLabel('暂停，和他说一句').fill('你觉得呢');
       assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled());
       await page.getByRole('button',{name:'继续下一句',exact:true}).click();
@@ -47,7 +48,16 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.getByRole('button',{name:'问问他',exact:true}).click();
       await page.getByText('测试角色：测试回应',{exact:true}).waitFor();
       const prompt=await page.evaluate(()=>qaPrompt);
+      assert.equal(await page.evaluate(()=>qaWho),'fixture');
       assert.ok(prompt.includes('共同听见的话'));assert.ok(!prompt.includes('独听的场景'));assert.ok(!prompt.includes('还没播放的秘密'));
+      // v67.57：换个人来陪听——他是从你切给他那一句开始听的，前面那些他不在场。
+      // ⚠️这一条才是「陪听换人」真正要钉的东西：换了人之后，旧陪听者的见闻一句都不许跟过去。
+      await page.getByLabel('谁陪你一起听').selectOption('other');
+      await page.getByLabel('暂停，和他说一句').fill('你听见了吗');
+      assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled(),'刚换的人还没听见任何一句，却已经能问了');
+      assert.equal(await page.getByText('测试角色：测试回应',{exact:true}).count(),0,'上一位陪听者的对话跟着串到新来的这位名下了');
+      await page.getByLabel('谁陪你一起听').selectOption('fixture');
+      await page.getByText('测试角色：测试回应',{exact:true}).waitFor();
       assert.equal(await page.getByText('还没播放的秘密',{exact:true}).count(),0);
       await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
       assert.equal(await page.locator('[data-radio-current]').count(),0);

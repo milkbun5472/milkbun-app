@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.56";
+const APP_VERSION = "v67.57";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20591,8 +20591,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   v67.50 提示词改成「一段一项」，这儿要是还写着「这一句正文」，它照旧一句一项。
       '{"title":"本章标题","lines":[{"kind":"character","speaker":"讲述这段经历的角色姓名","text":"本章正文的一个自然段（他的第一人称，整段照原样放，不要替播放器拆成一句一项）"}]}'),
     // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
-    onCompanion: (branch, question) => {
-      const c = liveChars.find(x => x.id === branch.charId);
+    // ⚠️v67.57 起陪听的可以是【任何一个角色】，不再写死成广播里那个人（她 2026-09-12 排的第一条）。
+    //   隔离那一套本来就按 companionId 分账，这儿只是别再自己把 charId 填回去。
+    onCompanion: (branch, question, companionId) => {
+      const c = liveChars.find(x => x.id === String(companionId || branch.charId));
       if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
       return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question), '{"say":"陪听者此刻的回应"}');
     }

@@ -96,8 +96,14 @@
   function companionPrompt(branch, companionId, question) {
     const heard = companionContext(branch, companionId);
     if (!heard.heard.length) throw Error("先一起听到一句，再聊这一段。");
+    // ⚠️v67.57：陪听的可以是任何一个角色了。广播里那个人自己也来陪听的时候，
+    //   原来那句「你不是广播中的人物」就成了假话——所以那一句按人分两种写法，
+    //   不是在后面挂一句「除非」（施工规则/no-yes-unless.md）。
+    const isSelf = String(companionId) === String(branch.charId);
     return [
-      "你是坐在用户身边的陪听者，不是广播中的人物。刚才播放的是一条虚构的平行时间线，不是你真实经历过的事实，也不是预言。",
+      isSelf
+        ? "广播里那个人是另一条时间线上的你。**你没经历过那些事**——那不是你的记忆，是从收音机里听来的另一种可能。你此刻是坐在用户身边一起听的那个人。"
+        : "你是坐在用户身边的陪听者，不是广播中的人物。刚才播放的是一条虚构的平行时间线，不是你真实经历过的事实，也不是预言。",
       "广播已经暂停。回应用户此刻的问题，保持你自己的立场；可以不认同故事中的选择，不必评审剧情或强行表达感想。",
       "你对故事的了解仅限下面实际一起听到的原文。没播的片段、独自听过的内容不属于你的见闻。",
       "【实际一起听到】\n" + JSON.stringify(heard.heard),
